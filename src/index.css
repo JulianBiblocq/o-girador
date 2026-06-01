@@ -1,0 +1,111 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Brazilian Cordel and Cactus display visual typography falls back gracefully to Cinzel Decorative */
+.font-cactus {
+  font-family: "Cactus", "Cinzel Decorative", "Courier New", Georgia, serif !important;
+}
+
+/* Custom Web Audio Recorder glow pulse keyframe */
+@keyframes pulse-red-record {
+  0% {
+    box-shadow: 0 0 0 0 rgba(231, 76, 60, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(231, 76, 60, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(231, 76, 60, 0);
+  }
+}
+
+.animate-pulse-red {
+  animation: pulse-red-record 1.5s infinite;
+}
+
+/* Real-time karaoke singing highlight styles */
+.lyric-word {
+  transition: all 0.1s ease-in-out;
+  display: inline-block;
+  padding: 0 2px;
+}
+
+.lyric-word.highlight {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.8);
+  color: #ffffff !important;
+  transform: scale(1.12);
+  z-index: 10;
+  position: relative;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #120e0c;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2420;
+  border: 1px solid #eaddcf;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #eaddcf;
+}
+
+/* === MOBILE RESPONSIVE LAYOUT === */
+@media (max-width: 768px) {
+  /* Main workspace becomes vertical flex */
+  #main-workspace.mobile-stack {
+    flex-direction: column !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Mixer panel: full width, not fixed */
+  #left-panel {
+    width: 100% !important;
+    min-width: 100% !important;
+    height: auto !important;
+    border-right: none !important;
+    border-bottom: 2px solid #eaddcf !important;
+    /* Order 2: after roda */
+    order: 2;
+  }
+
+  /* Circle sequencer: full width, order 1 (after header) */
+  #circle-sequencer-panel {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 340px !important;
+    order: 1;
+  }
+
+  /* Right sidebar: full width, order 3 */
+  #right-sidebar-panel {
+    width: 100% !important;
+    min-width: 100% !important;
+    height: auto !important;
+    border-left: none !important;
+    border-top: 2px solid #eaddcf !important;
+    order: 3;
+  }
+
+  /* Header: allow wrapping on mobile */
+  #top-bar {
+    min-height: auto !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+}
