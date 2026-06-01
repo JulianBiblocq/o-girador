@@ -8,7 +8,7 @@
 
 /* Brazilian Cordel and Cactus display visual typography falls back gracefully to Cinzel Decorative */
 .font-cactus {
-  font-family: "Cactus", "Cinzel Decorative", "Courier New", Georgia, serif !important;
+  font-family: "Cinzel Decorative", "Courier New", Georgia, serif !important;
 }
 
 /* Custom Web Audio Recorder glow pulse keyframe */
