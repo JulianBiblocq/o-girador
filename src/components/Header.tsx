@@ -15,7 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
   SkipBack,
-  Video
+  Video,
+  Share2
 } from 'lucide-react';
 import { Language, TimeSignature } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
@@ -114,7 +115,6 @@ export const Header: React.FC<HeaderProps> = ({
         <span
           id="header-title-text"
           className="font-cactus text-white text-3xl font-medium tracking-widest uppercase select-none cursor-default drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]"
-          style={{ fontFamily: 'Cactus, Georgia, serif' }}
         >
           BaqueMix
         </span>
@@ -254,6 +254,27 @@ export const Header: React.FC<HeaderProps> = ({
           title="Guide / Tutorial"
         >
           <BookOpen className="w-4 h-4" />
+        </button>
+
+        {/* Share Button */}
+        <button
+          onClick={() => {
+            const url = window.location.href;
+            const text = lang === 'pt'
+              ? 'Descubra BaqueMix, um sequenciador de ritmos de Maracatu!'
+              : 'Découvrez BaqueMix, un séquenceur de rythmes de Maracatu !';
+            if (navigator.share) {
+              navigator.share({ title: 'BaqueMix', text, url }).catch(() => {});
+            } else {
+              navigator.clipboard.writeText(url).then(() => {
+                window.alert(lang === 'pt' ? 'Link copiado!' : 'Lien copié !');
+              });
+            }
+          }}
+          className="bg-[#2980b9] text-[#f5f5f5] hover:opacity-90 px-3 py-1.5 text-sm font-bold border border-[#eaddcf] flex items-center justify-center cursor-pointer"
+          title={lang === 'pt' ? 'Compartilhar' : 'Partager'}
+        >
+          <Share2 className="w-4 h-4" />
         </button>
 
         <div className="w-[1px] h-7 bg-[#444]" />
