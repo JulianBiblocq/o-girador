@@ -8,18 +8,18 @@
       }
       .letter-m {
         font-family: 'Cinzel Decorative', serif;
-        font-size: 320px;
+        font-size: 380px;
         font-weight: 700;
         fill: #d4c8bb; /* Blanc cassé / beige (lettre du fond) */
         text-anchor: middle;
       }
       .letter-b {
         font-family: 'Cinzel Decorative', serif;
-        font-size: 360px;
+        font-size: 420px;
         font-weight: 700;
         fill: #ffffff; /* Blanc pur (lettre de devant) */
         text-anchor: middle;
-        filter: drop-shadow(4px 0px 8px rgba(0,0,0,0.9)); /* Ombre pour marquer le chevauchement */
+        filter: drop-shadow(6px 0px 10px rgba(0,0,0,0.9)); /* Ombre pour marquer le chevauchement */
       }
     </style>
   </defs>
@@ -28,9 +28,9 @@
   <rect class="bg" width="512" height="512" rx="100" />
   
   <!-- Lettres -->
-  <!-- M est dessiné en premier (derrière), décalé un peu à droite et vers le bas -->
-  <text x="290" y="380" class="letter-m">M</text>
+  <!-- M est dessiné en premier (derrière), décalé à droite -->
+  <text x="320" y="410" class="letter-m">M</text>
   
-  <!-- B est dessiné par dessus, décalé un peu à gauche et plus grand -->
-  <text x="200" y="400" class="letter-b">B</text>
+  <!-- B est dessiné par dessus, décalé à gauche et plus grand -->
+  <text x="180" y="430" class="letter-b">B</text>
 </svg>
