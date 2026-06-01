@@ -16,7 +16,8 @@ import {
   ChevronRight,
   SkipBack,
   Video,
-  Share2
+  Share2,
+  SlidersHorizontal
 } from 'lucide-react';
 import { Language, TimeSignature } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
@@ -108,10 +109,10 @@ export const Header: React.FC<HeaderProps> = ({
         {isLeftPanelCollapsed && (
           <button
             onClick={onToggleLeftPanel}
-            className="flex items-center justify-center p-2 text-[#eaddcf] border border-[#444] bg-[#222] hover:bg-[#333] transition-all cursor-pointer"
+            className="flex items-center justify-center p-2 text-[#f1c40f] border border-[#f1c40f] bg-[#222] hover:bg-[#333] transition-all cursor-pointer"
             title={t('toggleBtn')}
           >
-            <ChevronRight className="w-5 h-5" />
+            <SlidersHorizontal className="w-5 h-5" />
           </button>
         )}
         <span
