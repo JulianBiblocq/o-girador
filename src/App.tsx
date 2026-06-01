@@ -36,7 +36,8 @@ export default function App() {
   const [masterVol, setMasterVol] = useState<number>(-6);
   const [timeSig, setTimeSig] = useState<TimeSignature>('4/4');
   const [isMetroOn, setIsMetroOn] = useState<boolean>(false);
-  const [activePresetName, setActivePresetName] = useState<string>('vou-vadiar');
+  const [activePresetName, setActivePresetName] = useState<string>('');
+  const [presetFiles, setPresetFiles] = useState<string[]>([]);
   const [circles, setCircles] = useState<Circle[]>([]);
   const [letras, setLetras] = useState<string>('');
   const [metadata, setMetadata] = useState<PresetMetadata>({
@@ -270,9 +271,18 @@ export default function App() {
     Tone.Destination.volume.value = masterVol === -40 ? -Infinity : masterVol;
   }, [masterVol]);
 
-  // 2. Load Preset samambaia state initially
+  // 2. Load Preset catalog initially
   useEffect(() => {
-    loadFallbackPreset('Vou vadiar carnaval.json');
+    fetch(`${ASSETS_BASE_URL}presets/catalog.json`)
+      .then((res) => res.json())
+      .then((files: string[]) => {
+        setPresetFiles(files);
+        if (files.length > 0) {
+          setActivePresetName(files[0]);
+          loadFallbackPreset(files[0]);
+        }
+      })
+      .catch((err) => console.error("Could not load catalog.json:", err));
   }, []);
 
   // Sync levels display bar via non-re-rendering dynamic canvas interval
@@ -913,6 +923,7 @@ export default function App() {
         onSwingToggle={() => setIsSwingOn(!isSwingOn)}
         onRewind={handleRewind}
         preset={activePresetName}
+        presetFiles={presetFiles}
         onPresetChange={handlePresetSelect}
         isRecording={isRecording}
         onRecordToggle={handleAudioRecordingToggle}

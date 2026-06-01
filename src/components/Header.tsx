@@ -36,6 +36,7 @@ interface HeaderProps {
   onSwingToggle: () => void;
   onRewind: () => void;
   preset: string;
+  presetFiles: string[];
   onPresetChange: (val: string) => void;
   isRecording: boolean;
   onRecordToggle: () => void;
@@ -64,6 +65,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSwingToggle,
   onRewind,
   preset,
+  presetFiles = [],
   onPresetChange,
   isRecording,
   onRecordToggle,
@@ -215,16 +217,26 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         {/* Presets Slider Selector */}
-        <select
-          value={preset}
-          onChange={(e) => onPresetChange(e.target.value)}
-          className="bg-[#2a2420] text-[#f5f5f5] border border-[#eaddcf] py-1 px-2.5 text-sm font-bold cursor-pointer focus:outline-none"
-        >
-          <option value="vou-vadiar">Vou vadiar carnaval</option>
-          <option value="baque-de-imale">Baque de Imale</option>
-          <option value="Baque_de_Luanda.json">Baque de Luanda</option>
-          <option value="Vovo_falou.json">Vovó Falou</option>
-        </select>
+        {presetFiles.length > 0 && (
+          <select
+            value={preset}
+            onChange={(e) => onPresetChange(e.target.value)}
+            className="bg-[#2a2420] text-[#f5f5f5] border border-[#eaddcf] py-1 px-2.5 text-sm font-bold cursor-pointer focus:outline-none"
+          >
+            {presetFiles.map((file) => {
+              // Extract the base name without .json and remove leading underscore if present
+              let label = file.replace(/\.json$/, '');
+              if (label.startsWith('_')) label = label.substring(1);
+              // Replace underscores with spaces for readability
+              label = label.replace(/_/g, ' ');
+              return (
+                <option key={file} value={file}>
+                  {label}
+                </option>
+              );
+            })}
+          </select>
+        )}
       </div>
 
       {/* Auxiliary Buttons */}

@@ -253,36 +253,50 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               <div className="flex-grow overflow-y-auto pr-2 custom-scrollbar">
                 <div className="bg-[#111] border border-[#333] p-3 rounded-sm">
                   <div className="flex flex-wrap gap-y-2 leading-loose text-base">
-                    {allTokens.map((tok, idx) => {
-                      const c = voiceCircles.find(x => x.id === tok.circleId);
-                      if (!c) return null;
+                    {(() => {
+                      const words: Token[][] = [];
+                      let currentWord: Token[] = [];
+                      allTokens.forEach(tok => {
+                        currentWord.push(tok);
+                        if (!tok.hasDash) {
+                          words.push(currentWord);
+                          currentWord = [];
+                        }
+                      });
+                      if (currentWord.length > 0) words.push(currentWord);
 
-                      // Is this circle currently the active one in its instrument group?
-                      const groupActiveId = activeByInst[tok.instIdx];
-                      const isThisCircleActive = currentPlayState !== null && (groupActiveId === tok.circleId || groupActiveId === undefined || groupActiveId === null);
+                      return words.map((word, wordIdx) => (
+                        <span key={`word-${wordIdx}`} className="whitespace-nowrap inline-flex">
+                          {word.map((tok, idx) => {
+                            const c = voiceCircles.find(x => x.id === tok.circleId);
+                            if (!c) return null;
 
-                      const currentStep = (isThisCircleActive && currentPlayState)
-                        ? Math.floor((currentPlayState.stepIndex / currentPlayState.maxTicks) * c.steps)
-                        : -1;
+                            const groupActiveId = activeByInst[tok.instIdx];
+                            const isThisCircleActive = currentPlayState !== null && (groupActiveId === tok.circleId || groupActiveId === undefined || groupActiveId === null);
+                            const currentStep = (isThisCircleActive && currentPlayState)
+                              ? Math.floor((currentPlayState.stepIndex / currentPlayState.maxTicks) * c.steps)
+                              : -1;
+                            const isHighlighted = isThisCircleActive && currentStep === tok.stepIdx;
 
-                      const isHighlighted = isThisCircleActive && currentStep === tok.stepIdx;
-
-                      return (
-                        <span
-                          key={`${tok.circleId}-${tok.stepIdx}-${idx}`}
-                          className={`py-0.5 transition-all duration-100 font-bold ${
-                            isHighlighted ? 'bg-[#f1c40f] text-black font-extrabold scale-110 shadow-[0_0_8px_#f1c40f] rounded-sm' : ''
-                          }`}
-                          style={{
-                            color: isHighlighted ? '#000' : tok.color,
-                            backgroundColor: isHighlighted ? '#f1c40f' : 'transparent',
-                            marginRight: tok.hasDash ? '0px' : '6px',
-                          }}
-                        >
-                          {tok.displayText}
+                            return (
+                              <span
+                                key={`${tok.circleId}-${tok.stepIdx}-${idx}`}
+                                className={`py-0.5 transition-all duration-100 font-bold ${
+                                  isHighlighted ? 'bg-[#f1c40f] text-black font-extrabold scale-110 shadow-[0_0_8px_#f1c40f] rounded-sm' : ''
+                                }`}
+                                style={{
+                                  color: isHighlighted ? '#000' : tok.color,
+                                  backgroundColor: isHighlighted ? '#f1c40f' : 'transparent',
+                                  marginRight: tok.hasDash ? '0px' : '6px',
+                                }}
+                              >
+                                {tok.displayText}
+                              </span>
+                            );
+                          })}
                         </span>
-                      );
-                    })}
+                      ));
+                    })()}
                   </div>
                 </div>
               </div>
