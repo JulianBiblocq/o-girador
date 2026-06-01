@@ -1,7 +1,16 @@
 {
-  "name": "BaqueMix - Sequenciador Maracatu",
+  "name": "BaqueMix - Sequenciador de Maracatu de Baque Virado",
   "short_name": "BaqueMix",
+  "description": "Sequenciador interativo de ritmos de Maracatu de Baque Virado. Crie, visualize e escute padrões rítmicos.",
+  "start_url": ".",
+  "scope": ".",
   "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
     {
       "src": "android-chrome-192x192.png",
       "sizes": "192x192",
@@ -15,5 +24,8 @@
   ],
   "theme_color": "#0a0807",
   "background_color": "#0a0807",
-  "display": "standalone"
+  "display": "standalone",
+  "orientation": "any",
+  "lang": "pt-BR",
+  "categories": ["music", "education"]
 }
