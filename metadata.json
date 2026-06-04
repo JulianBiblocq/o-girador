@@ -1,0 +1,6 @@
+{
+  "name": "BaqueMix",
+  "description": "An interactive web application for composing, learning, and playing Maracatu de Baque Virado rhythms with a modular sequencer, mixer, and interactive visual aids.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

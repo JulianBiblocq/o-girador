@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BaqueMix - Tutorial / Guide</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(180deg, #0a0807 0%, #1c1815 100%);
+      color: #eaddcf;
+      min-height: 100vh;
+      padding: 0;
+    }
+    .header {
+      background: linear-gradient(180deg, #1c1815, #120e0c);
+      border-bottom: 2px solid #eaddcf;
+      padding: 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 {
+      font-size: 1.5rem;
+      color: #f1c40f;
+      letter-spacing: 2px;
+    }
+    .header a {
+      color: #eaddcf;
+      text-decoration: none;
+      border: 1px solid #eaddcf;
+      padding: 6px 16px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .header a:hover {
+      background: #eaddcf;
+      color: #0a0807;
+    }
+    .lang-switch {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      padding: 16px;
+    }
+    .lang-switch button {
+      padding: 6px 16px;
+      border: 1px solid #eaddcf;
+      background: transparent;
+      color: #eaddcf;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    .lang-switch button.active, .lang-switch button:hover {
+      background: #f1c40f;
+      color: #0a0807;
+      border-color: #f1c40f;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 20px 60px;
+    }
+    .section {
+      margin-bottom: 40px;
+      background: rgba(30, 25, 20, 0.8);
+      border: 1px solid #eaddcf33;
+      padding: 24px;
+      position: relative;
+    }
+    .section::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px; right: 3px; bottom: 3px;
+      border: 1px dashed rgba(234, 221, 207, 0.15);
+      pointer-events: none;
+    }
+    .section h2 {
+      color: #f1c40f;
+      font-size: 1.25rem;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #eaddcf33;
+      padding-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .section h3 {
+      color: #f39c12;
+      font-size: 1rem;
+      margin: 16px 0 8px;
+    }
+    .section p, .section li {
+      font-size: 0.9rem;
+      line-height: 1.7;
+      color: #d4c8bb;
+    }
+    .section ul, .section ol {
+      padding-left: 20px;
+      margin: 8px 0;
+    }
+    .section li { margin-bottom: 6px; }
+    .kbd {
+      display: inline-block;
+      background: #333;
+      border: 1px solid #555;
+      border-radius: 3px;
+      padding: 1px 6px;
+      font-size: 0.8rem;
+      font-family: monospace;
+      color: #f1c40f;
+      margin: 0 2px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 0.85rem;
+    }
+    th {
+      background: #1a1a1a;
+      color: #f1c40f;
+      text-align: left;
+      padding: 8px 12px;
+      border: 1px solid #333;
+    }
+    td {
+      padding: 8px 12px;
+      border: 1px solid #333;
+      color: #d4c8bb;
+    }
+    .tip {
+      background: rgba(241, 196, 15, 0.1);
+      border-left: 3px solid #f1c40f;
+      padding: 10px 14px;
+      margin: 12px 0;
+      font-size: 0.85rem;
+    }
+    .tip strong { color: #f1c40f; }
+    .credit {
+      text-align: center;
+      color: #eaddcf44;
+      font-size: 0.75rem;
+      padding: 20px;
+    }
+    [lang="fr"] { display: none; }
+    body.lang-fr [lang="pt"] { display: none; }
+    body.lang-fr [lang="fr"] { display: block; }
+    body.lang-fr li[lang="fr"], body.lang-fr span[lang="fr"],
+    body.lang-fr p[lang="fr"], body.lang-fr td[lang="fr"] { display: table-cell; }
+    body.lang-fr li[lang="fr"] { display: list-item; }
+    body.lang-fr span[lang="fr"] { display: inline; }
+    body.lang-fr p[lang="fr"] { display: block; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📖 BaqueMix Tutorial</h1>
+    <a href="./">← Voltar / Retour</a>
+  </div>
+
+  <div class="lang-switch">
+    <button id="btn-pt" class="active" onclick="setLang('pt')">🇧🇷 Português</button>
+    <button id="btn-fr" onclick="setLang('fr')">🇫🇷 Français</button>
+  </div>
+
+  <div class="container">
+
+    <!-- ========== SECTION 1: O QUE É ========== -->
+    <div class="section" lang="pt">
+      <h2>🥁 O que é o BaqueMix?</h2>
+      <p>BaqueMix é um sequenciador rítmico interativo dedicado ao <strong>Maracatu de Baque Virado</strong>. Ele permite criar, visualizar e escutar padrões rítmicos de maracatu diretamente no navegador.</p>
+      <p>A interface simula um <strong>bloco de maracatu</strong> com um misturador (table de mixage) para compor sequências de alfaia, caixa, gonguê, agbê, mineiro e vozes.</p>
+    </div>
+    <div class="section" lang="fr">
+      <h2>🥁 Qu'est-ce que BaqueMix ?</h2>
+      <p>BaqueMix est un séquenceur rythmique interactif dédié au <strong>Maracatu de Baque Virado</strong>. Il permet de créer, visualiser et écouter des patterns rythmiques de maracatu directement dans votre navigateur.</p>
+      <p>L'interface simule un <strong>bloco de maracatu</strong> avec un mixeur (table de mixage) pour composer des séquences d'alfaia, caixa, gonguê, agbê, mineiro et voix.</p>
+    </div>
+
+    <!-- ========== SECTION 2: INTERFACE ========== -->
+    <div class="section" lang="pt">
+      <h2>🎛️ Visão Geral da Interface</h2>
+      <h3>Barra Superior (Menu)</h3>
+      <ul>
+        <li><strong>BPM</strong> — Ajuste a velocidade (60 a 200)</li>
+        <li><strong>Volume Master</strong> — Volume geral do mix</li>
+        <li><strong>Compasso</strong> — Escolha entre 4/4, 2/4, 6/8, etc.</li>
+        <li><strong>Metrônomo</strong> 🎵 — Ativa o clique no tempo com halo amarelo na Roda</li>
+        <li><strong>Swing ≈</strong> — Ativa o swing maracatu (balanço típico)</li>
+        <li><strong>Presets</strong> — Ritmos pré-programados para experimentar</li>
+        <li><strong>Adicionar</strong> — Adiciona um instrumento à Roda</li>
+        <li><strong>PT/FR</strong> — Alterna entre Português e Francês</li>
+        <li><strong>📺</strong> — Abre a playlist de tutoriais em vídeo</li>
+      </ul>
+
+      <h3>Área Central — A Roda</h3>
+      <p>Visualização circular dos instrumentos. Cada anel representa uma pista. A baguette gira indicando o passo atual. Instrumentos inativos (em rotação) ficam com opacidade reduzida.</p>
+
+      <h3>Painel Esquerdo — Misturador</h3>
+      <p>Cada instrumento possui um bloco com: seletor de instrumento, controle de volume, botões Mute/Solo, e a grade de passos para programar o ritmo.</p>
+
+      <h3>Painel Direito — Toada / Legenda</h3>
+      <p>Exibe a letra extraída dos instrumentos vocais (Toada) com efeito karaokê, ou a legenda dos símbolos utilizados.</p>
+    </div>
+    <div class="section" lang="fr">
+      <h2>🎛️ Vue d'ensemble de l'interface</h2>
+      <h3>Barre Supérieure (Menu)</h3>
+      <ul>
+        <li><strong>BPM</strong> — Réglez la vitesse (60 à 200)</li>
+        <li><strong>Volume Master</strong> — Volume général du mix</li>
+        <li><strong>Signature</strong> — Choisissez entre 4/4, 2/4, 6/8, etc.</li>
+        <li><strong>Métronome</strong> 🎵 — Active le clic au tempo avec halo jaune sur la Roda</li>
+        <li><strong>Swing ≈</strong> — Active le swing maracatu (balancement typique)</li>
+        <li><strong>Presets</strong> — Rythmes pré-programmés à expérimenter</li>
+        <li><strong>Ajouter</strong> — Ajoute un instrument à la Roda</li>
+        <li><strong>PT/FR</strong> — Alterne entre Portugais et Français</li>
+        <li><strong>📺</strong> — Ouvre la playlist de tutoriels vidéo</li>
+      </ul>
+
+      <h3>Zone Centrale — La Roda</h3>
+      <p>Visualisation circulaire des instruments. Chaque anneau représente une piste. La baguette tourne en indiquant le pas actuel. Les instruments inactifs (en rotation) ont une opacité réduite.</p>
+
+      <h3>Panneau Gauche — Mixeur</h3>
+      <p>Chaque instrument a un bloc avec : sélecteur d'instrument, contrôle de volume, boutons Mute/Solo, et la grille de pas pour programmer le rythme.</p>
+
+      <h3>Panneau Droit — Toada / Légende</h3>
+      <p>Affiche les paroles extraites des instruments vocaux (Toada) avec effet karaoké, ou la légende des symboles utilisés.</p>
+    </div>
+
+    <!-- ========== SECTION 3: INSTRUMENTS ========== -->
+    <div class="section" lang="pt">
+      <h2>🎵 Instrumentos e Notações</h2>
+      <h3>Alfaia & Caixa (Percussão de Mãos/Baquetas)</h3>
+      <table>
+        <tr><th>Tecla</th><th>Significado</th></tr>
+        <tr><td><span class="kbd">D</span></td><td>Mão Direita — Golpe <strong>Forte</strong></td></tr>
+        <tr><td><span class="kbd">d</span></td><td>Mão Direita — Golpe <strong>Fraco</strong></td></tr>
+        <tr><td><span class="kbd">G</span></td><td>Mão Esquerda — Golpe <strong>Forte</strong></td></tr>
+        <tr><td><span class="kbd">g</span></td><td>Mão Esquerda — Golpe <strong>Fraco</strong></td></tr>
+      </table>
+      <div class="tip"><strong>💡 Regra de ouro:</strong> Maiúscula = Forte / Minúscula = Fraco</div>
+
+      <h3>Gonguê (Campana)</h3>
+      <table>
+        <tr><th>Tecla</th><th>Som</th></tr>
+        <tr><td><span class="kbd">G</span> / <span class="kbd">g</span></td><td>Grave (Forte / Fraco)</td></tr>
+        <tr><td><span class="kbd">A</span> / <span class="kbd">a</span></td><td>Agudo (Forte / Fraco)</td></tr>
+      </table>
+
+      <h3>Agbê</h3>
+      <table>
+        <tr><th>Tecla</th><th>Direção</th></tr>
+        <tr><td><span class="kbd">D</span></td><td>Para a Direita — <strong>Forte</strong></td></tr>
+        <tr><td><span class="kbd">d</span></td><td>Para a Direita — <strong>Fraco</strong></td></tr>
+        <tr><td><span class="kbd">G</span></td><td>Para a Esquerda — <strong>Forte</strong></td></tr>
+        <tr><td><span class="kbd">g</span></td><td>Para a Esquerda — <strong>Fraco</strong></td></tr>
+      </table>
+
+      <h3>Mineiro</h3>
+      <table>
+        <tr><th>Tecla</th><th>Movimento</th></tr>
+        <tr><td><span class="kbd">P</span></td><td>Empurrar — <strong>Forte</strong></td></tr>
+        <tr><td><span class="kbd">p</span></td><td>Empurrar — <strong>Fraco</strong></td></tr>
+        <tr><td><span class="kbd">T</span></td><td>Puxar — <strong>Forte</strong></td></tr>
+        <tr><td><span class="kbd">t</span></td><td>Puxar — <strong>Fraco</strong></td></tr>
+      </table>
+
+      <h3>Voz / Coro</h3>
+      <p>Clique em <strong>PUX</strong> (Puxador - laranja) ou <strong>CORO</strong> (ciano) para alternar. Digite a sílaba no campo de texto.</p>
+      <div class="tip"><strong>💡 Sílabas com "-"</strong> (ex: "Va-") serão coladas com a próxima sílaba na Toada. Sem "-" = espaço entre palavras.</div>
+    </div>
+    <div class="section" lang="fr">
+      <h2>🎵 Instruments et Notations</h2>
+      <h3>Alfaia & Caixa (Percussions)</h3>
+      <table>
+        <tr><th>Touche</th><th>Signification</th></tr>
+        <tr><td><span class="kbd">D</span></td><td>Main Droite — Coup <strong>Fort</strong></td></tr>
+        <tr><td><span class="kbd">d</span></td><td>Main Droite — Coup <strong>Faible</strong></td></tr>
+        <tr><td><span class="kbd">G</span></td><td>Main Gauche — Coup <strong>Fort</strong></td></tr>
+        <tr><td><span class="kbd">g</span></td><td>Main Gauche — Coup <strong>Faible</strong></td></tr>
+      </table>
+      <div class="tip"><strong>💡 Règle d'or :</strong> Majuscule = Fort / Minuscule = Faible</div>
+
+      <h3>Gonguê (Cloche)</h3>
+      <table>
+        <tr><th>Touche</th><th>Son</th></tr>
+        <tr><td><span class="kbd">G</span> / <span class="kbd">g</span></td><td>Grave (Fort / Faible)</td></tr>
+        <tr><td><span class="kbd">A</span> / <span class="kbd">a</span></td><td>Aigu (Fort / Faible)</td></tr>
+      </table>
+
+      <h3>Agbê</h3>
+      <table>
+        <tr><th>Touche</th><th>Direction</th></tr>
+        <tr><td><span class="kbd">D</span></td><td>Vers la Droite — <strong>Fort</strong></td></tr>
+        <tr><td><span class="kbd">d</span></td><td>Vers la Droite — <strong>Faible</strong></td></tr>
+        <tr><td><span class="kbd">G</span></td><td>Vers la Gauche — <strong>Fort</strong></td></tr>
+        <tr><td><span class="kbd">g</span></td><td>Vers la Gauche — <strong>Faible</strong></td></tr>
+      </table>
+
+      <h3>Mineiro</h3>
+      <table>
+        <tr><th>Touche</th><th>Mouvement</th></tr>
+        <tr><td><span class="kbd">P</span></td><td>Pousser — <strong>Fort</strong></td></tr>
+        <tr><td><span class="kbd">p</span></td><td>Pousser — <strong>Faible</strong></td></tr>
+        <tr><td><span class="kbd">T</span></td><td>Tirer — <strong>Fort</strong></td></tr>
+        <tr><td><span class="kbd">t</span></td><td>Tirer — <strong>Faible</strong></td></tr>
+      </table>
+
+      <h3>Voix / Chœur</h3>
+      <p>Cliquez sur <strong>PUX</strong> (Puxador - orange) ou <strong>CORO</strong> (cyan) pour alterner. Tapez la syllabe dans le champ texte.</p>
+      <div class="tip"><strong>💡 Syllabes avec "-"</strong> (ex: "Va-") seront collées à la syllabe suivante dans la Toada. Sans "-" = espace entre les mots.</div>
+    </div>
+
+    <!-- ========== SECTION 4: NAVIGATION ========== -->
+    <div class="section" lang="pt">
+      <h2>⌨️ Navegação pelo Teclado</h2>
+      <table>
+        <tr><th>Tecla</th><th>Ação</th></tr>
+        <tr><td><span class="kbd">→</span> / <span class="kbd">Tab</span></td><td>Próximo passo</td></tr>
+        <tr><td><span class="kbd">←</span></td><td>Passo anterior</td></tr>
+        <tr><td><span class="kbd">Enter</span></td><td>Próximo passo (confirma)</td></tr>
+        <tr><td><span class="kbd">Backspace</span> (vazio)</td><td>Volta ao passo anterior</td></tr>
+      </table>
+      <div class="tip"><strong>💡 Dica:</strong> Nos instrumentos de percussão, basta digitar a letra (D, G, A...) para preencher e avançar automaticamente ao próximo passo.</div>
+    </div>
+    <div class="section" lang="fr">
+      <h2>⌨️ Navigation au Clavier</h2>
+      <table>
+        <tr><th>Touche</th><th>Action</th></tr>
+        <tr><td><span class="kbd">→</span> / <span class="kbd">Tab</span></td><td>Pas suivant</td></tr>
+        <tr><td><span class="kbd">←</span></td><td>Pas précédent</td></tr>
+        <tr><td><span class="kbd">Enter</span></td><td>Pas suivant (confirme)</td></tr>
+        <tr><td><span class="kbd">Backspace</span> (vide)</td><td>Retour au pas précédent</td></tr>
+      </table>
+      <div class="tip"><strong>💡 Astuce :</strong> Pour les percussions, il suffit de taper la lettre (D, G, A...) pour remplir et avancer automatiquement au pas suivant.</div>
+    </div>
+
+    <!-- ========== SECTION 5: MIXER ========== -->
+    <div class="section" lang="pt">
+      <h2>🎛️ Misturador — Funções</h2>
+      <ul>
+        <li><strong>M</strong> (Mute) — Silencia a pista (fica vermelho quando ativo)</li>
+        <li><strong>S</strong> (Solo) — Só essa pista toca (fica amarelo)</li>
+        <li><strong>👁️ / 🙈</strong> — Mostra/oculta a pista na Roda</li>
+        <li><strong>🗑️</strong> — Remove a pista</li>
+        <li><strong>▲ / ▼</strong> — Reordena as pistas</li>
+        <li><strong>Passos</strong> — Número de subdivisões (4, 8, 16, 32...)</li>
+        <li><strong>🔄 x</strong> — Repetições do compasso antes de passar ao seguinte</li>
+      </ul>
+      <div class="tip"><strong>💡 Rotação:</strong> Ao adicionar 2 vezes o mesmo instrumento (ex: 2 caixas), eles se alternam a cada compasso na Roda. O instrumento inativo fica com opacidade reduzida.</div>
+    </div>
+    <div class="section" lang="fr">
+      <h2>🎛️ Mixeur — Fonctions</h2>
+      <ul>
+        <li><strong>M</strong> (Mute) — Coupe la piste (devient rouge quand actif)</li>
+        <li><strong>S</strong> (Solo) — Seule cette piste joue (devient jaune)</li>
+        <li><strong>👁️ / 🙈</strong> — Affiche/masque la piste dans la Roda</li>
+        <li><strong>🗑️</strong> — Supprime la piste</li>
+        <li><strong>▲ / ▼</strong> — Réordonne les pistes</li>
+        <li><strong>Pas</strong> — Nombre de subdivisions (4, 8, 16, 32...)</li>
+        <li><strong>🔄 x</strong> — Répétitions de la mesure avant de passer à la suivante</li>
+      </ul>
+      <div class="tip"><strong>💡 Rotation :</strong> En ajoutant 2 fois le même instrument (ex: 2 caixas), ils alternent à chaque mesure dans la Roda. L'instrument inactif a une opacité réduite.</div>
+    </div>
+
+    <!-- ========== SECTION 6: TOADA ========== -->
+    <div class="section" lang="pt">
+      <h2>📝 Toada (Letras / Karaokê)</h2>
+      <ol>
+        <li>Adicione um instrumento <strong>Voz / Coro</strong> no misturador</li>
+        <li>Preencha as sílabas nos passos ativos (PUX ou CORO)</li>
+        <li>Abra o painel <strong>Toada</strong> (botão 📝 no menu)</li>
+        <li>Clique em <strong>"🔄 Extrair do mixador"</strong></li>
+        <li>Pressione ▶ Play — as sílabas se iluminam em tempo real!</li>
+      </ol>
+      <h3>Regras das Sílabas</h3>
+      <ul>
+        <li><strong>"Va-"</strong> (com hífen) → cola com a próxima sílaba: Va + diar = <strong>Vadiar</strong></li>
+        <li><strong>"ar"</strong> (sem hífen) → fim da palavra, espaço depois</li>
+      </ul>
+    </div>
+    <div class="section" lang="fr">
+      <h2>📝 Toada (Paroles / Karaoké)</h2>
+      <ol>
+        <li>Ajoutez un instrument <strong>Voix / Chœur</strong> dans le mixeur</li>
+        <li>Remplissez les syllabes dans les pas actifs (PUX ou CORO)</li>
+        <li>Ouvrez le panneau <strong>Toada</strong> (bouton 📝 dans le menu)</li>
+        <li>Cliquez sur <strong>"🔄 Extraire du mixeur"</strong></li>
+        <li>Appuyez sur ▶ Play — les syllabes s'illuminent en temps réel !</li>
+      </ol>
+      <h3>Règles des Syllabes</h3>
+      <ul>
+        <li><strong>"Va-"</strong> (avec tiret) → collé à la syllabe suivante : Va + diar = <strong>Vadiar</strong></li>
+        <li><strong>"ar"</strong> (sans tiret) → fin du mot, espace après</li>
+      </ul>
+    </div>
+
+    <!-- ========== SECTION 7: SWING ========== -->
+    <div class="section" lang="pt">
+      <h2>≈ Swing Maracatu</h2>
+      <p>O swing maracatu é diferente do swing jazz. Ativando o botão <strong>≈</strong>, cada grupo de 4 passos recebe micro-ajustes de timing:</p>
+      <table>
+        <tr><th>Passo</th><th>Comportamento</th></tr>
+        <tr><td>1</td><td>No tempo ✓</td></tr>
+        <tr><td>2</td><td>Ligeiramente atrasado (+15%)</td></tr>
+        <tr><td>3</td><td>No contratempo ✓</td></tr>
+        <tr><td>4</td><td>Ligeiramente adiantado (-10%)</td></tr>
+      </table>
+      <p>Isso cria o balanço ("gingado") característico do Maracatu de Baque Virado.</p>
+    </div>
+    <div class="section" lang="fr">
+      <h2>≈ Swing Maracatu</h2>
+      <p>Le swing maracatu est différent du swing jazz. En activant le bouton <strong>≈</strong>, chaque groupe de 4 pas reçoit des micro-ajustements de timing :</p>
+      <table>
+        <tr><th>Pas</th><th>Comportement</th></tr>
+        <tr><td>1</td><td>Sur le temps ✓</td></tr>
+        <tr><td>2</td><td>Légèrement en retard (+15%)</td></tr>
+        <tr><td>3</td><td>Sur le contretemps ✓</td></tr>
+        <tr><td>4</td><td>Légèrement en avance (-10%)</td></tr>
+      </table>
+      <p>Cela crée le balancement ("gingado") caractéristique du Maracatu de Baque Virado.</p>
+    </div>
+
+    <!-- ========== SECTION 8: SAUVEGARDER ========== -->
+    <div class="section" lang="pt">
+      <h2>💾 Salvar / Carregar / Apagar</h2>
+      <ul>
+        <li><strong>💾 Salvar</strong> — Baixa um arquivo .json com toda a configuração atual (instrumentos, passos, BPM, etc.)</li>
+        <li><strong>📂 Carregar</strong> — Importa um arquivo .json para restaurar um ritmo salvo anteriormente</li>
+        <li><strong>🗑️ Apagar</strong> — Remove todos os instrumentos e reinicia a composição</li>
+      </ul>
+
+      <h3>🎙️ Gravador de Áudio</h3>
+      <p>Pressione o botão de gravação <strong>⏺</strong> para capturar o áudio da sua composição em tempo real. Quando parar a gravação, um arquivo de áudio será gerado automaticamente para download.</p>
+
+      <h3>📚 Biblioteca de Ritmos</h3>
+      <p>A aplicação inclui uma seleção de ritmos tradicionais no menu <strong>Presets</strong>. Novos ritmos são adicionados regularmente. Você também pode salvar e carregar seus próprios ritmos com os botões Salvar/Carregar.</p>
+    </div>
+    <div class="section" lang="fr">
+      <h2>💾 Sauvegarder / Charger / Supprimer</h2>
+      <ul>
+        <li><strong>💾 Sauvegarder</strong> — Télécharge un fichier .json avec toute la configuration actuelle (instruments, pas, BPM, etc.)</li>
+        <li><strong>📂 Charger</strong> — Importe un fichier .json pour restaurer un rythme sauvegardé précédemment</li>
+        <li><strong>🗑️ Supprimer</strong> — Supprime tous les instruments et réinitialise la composition</li>
+      </ul>
+
+      <h3>🎙️ Enregistreur Audio</h3>
+      <p>Appuyez sur le bouton d'enregistrement <strong>⏺</strong> pour capturer l'audio de votre composition en temps réel. Quand vous arrêtez l'enregistrement, un fichier audio est généré automatiquement pour le téléchargement.</p>
+
+      <h3>📚 Bibliothèque de Rythmes</h3>
+      <p>L'application inclut une sélection de rythmes traditionnels dans le menu <strong>Presets</strong>. De nouveaux rythmes sont ajoutés régulièrement. Vous pouvez aussi sauvegarder et charger vos propres rythmes avec les boutons Sauvegarder/Charger.</p>
+    </div>
+
+  </div>
+
+  <div class="credit">Créé par Julian Biblocq | Art: Toni Braga · BaqueMix © 2025</div>
+
+  <script>
+    function setLang(lang) {
+      document.body.className = lang === 'fr' ? 'lang-fr' : '';
+      document.getElementById('btn-pt').className = lang === 'pt' ? 'active' : '';
+      document.getElementById('btn-fr').className = lang === 'fr' ? 'active' : '';
+    }
+  </script>
+</body>
+</html>
