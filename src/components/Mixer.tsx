@@ -4,13 +4,13 @@
  */
 
 import React from 'react';
-import { Circle, Language } from '../types';
+import { TrackGroup, Language } from '../types';
 import { TrackMixer } from './TrackMixer';
 import { i18n } from '../data';
 
 interface MixerProps {
   lang: Language;
-  circles: Circle[];
+  tracks: TrackGroup[];
   onMoveUp: (id: number) => void;
   onMoveDown: (id: number) => void;
   onInstrumentChange: (id: number, instIdx: number) => void;
@@ -19,25 +19,30 @@ interface MixerProps {
   onHideToggle: (id: number) => void;
   onDelete: (id: number) => void;
   onVolumeChange: (id: number, val: number) => void;
-  onStepsChange: (id: number, steps: number) => void;
-  onRepeatsChange: (id: number, repeats: number) => void;
-  onStepValueChange: (id: number, stepIdx: number, val: string) => void;
-  onStepKeyDown: (id: number, stepIdx: number, key: string, currentVal: string, targetEl: HTMLInputElement) => void;
-  onVoiceTypeToggle: (id: number, stepIdx: number) => void;
-  onVoiceSylChange: (id: number, stepIdx: number, val: string) => void;
-  onVoiceNoteChange: (id: number, stepIdx: number, val: string) => void;
-  onVoiceNoteBlur: (id: number, stepIdx: number, val: string) => void;
+  onPanChange: (id: number, val: number) => void;
+  onStepsChange: (trackId: number, patternId: number, steps: number) => void;
+  onStepValueChange: (trackId: number, patternId: number, stepIdx: number, val: string) => void;
+  onStepKeyDown: (trackId: number, patternId: number, stepIdx: number, key: string, currentVal: string, targetEl: HTMLInputElement) => void;
+  onVoiceTypeToggle: (trackId: number, patternId: number, stepIdx: number) => void;
+  onVoiceSylChange: (trackId: number, patternId: number, stepIdx: number, val: string) => void;
+  onVoiceNoteChange: (trackId: number, patternId: number, stepIdx: number, val: string) => void;
+  onVoiceNoteBlur: (trackId: number, patternId: number, stepIdx: number, val: string) => void;
   isPlaying: boolean;
   currentStepIndex: number;
   maxTicks: number;
   timeSig: string;
   isLeftPanelCollapsed: boolean;
   onToggleLeftPanel: () => void;
+  totalMeasures: number;
+  onTrackSelectPattern: (trackId: number, patternId: number) => void;
+  onPatternAssign: (trackId: number, patternId: number, measureIdx: number, val: boolean) => void;
+  onAddPattern: (trackId: number) => void;
+  onDeletePattern: (trackId: number, patternId: number) => void;
 }
 
 export const Mixer: React.FC<MixerProps> = ({
   lang,
-  circles,
+  tracks,
   onMoveUp,
   onMoveDown,
   onInstrumentChange,
@@ -46,8 +51,8 @@ export const Mixer: React.FC<MixerProps> = ({
   onHideToggle,
   onDelete,
   onVolumeChange,
+  onPanChange,
   onStepsChange,
-  onRepeatsChange,
   onStepValueChange,
   onStepKeyDown,
   onVoiceTypeToggle,
@@ -60,6 +65,11 @@ export const Mixer: React.FC<MixerProps> = ({
   timeSig,
   isLeftPanelCollapsed,
   onToggleLeftPanel,
+  totalMeasures,
+  onTrackSelectPattern,
+  onPatternAssign,
+  onAddPattern,
+  onDeletePattern,
 }) => {
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
@@ -85,33 +95,38 @@ export const Mixer: React.FC<MixerProps> = ({
 
       <div id="mixer-section" className="flex-grow overflow-y-auto pr-1">
         <div id="tracks-mixer-container" className="flex flex-col">
-          {circles.map((circle, idx) => (
+          {tracks.map((track, idx) => (
             <TrackMixer
-              key={circle.id}
+              key={track.id}
               lang={lang}
-              circle={circle}
+              track={track}
               index={idx}
-              totalCircles={circles.length}
-              onMoveUp={() => onMoveUp(circle.id)}
-              onMoveDown={() => onMoveDown(circle.id)}
-              onInstrumentChange={(val) => onInstrumentChange(circle.id, val)}
-              onMuteToggle={() => onMuteToggle(circle.id)}
-              onSoloToggle={() => onSoloToggle(circle.id)}
-              onHideToggle={() => onHideToggle(circle.id)}
-              onDelete={() => onDelete(circle.id)}
-              onVolumeChange={(val) => onVolumeChange(circle.id, val)}
-              onStepsChange={(steps) => onStepsChange(circle.id, steps)}
-              onRepeatsChange={(repeats) => onRepeatsChange(circle.id, repeats)}
-              onStepValueChange={(stepIdx, val) => onStepValueChange(circle.id, stepIdx, val)}
-              onStepKeyDown={(stepIdx, key, cVal, el) => onStepKeyDown(circle.id, stepIdx, key, cVal, el)}
-              onVoiceTypeToggle={(stepIdx) => onVoiceTypeToggle(circle.id, stepIdx)}
-              onVoiceSylChange={(stepIdx, val) => onVoiceSylChange(circle.id, stepIdx, val)}
-              onVoiceNoteChange={(stepIdx, val) => onVoiceNoteChange(circle.id, stepIdx, val)}
-              onVoiceNoteBlur={(stepIdx, val) => onVoiceNoteBlur(circle.id, stepIdx, val)}
+              totalTracks={tracks.length}
+              onMoveUp={() => onMoveUp(track.id)}
+              onMoveDown={() => onMoveDown(track.id)}
+              onInstrumentChange={(val) => onInstrumentChange(track.id, val)}
+              onMuteToggle={() => onMuteToggle(track.id)}
+              onSoloToggle={() => onSoloToggle(track.id)}
+              onHideToggle={() => onHideToggle(track.id)}
+              onDelete={() => onDelete(track.id)}
+              onVolumeChange={(val) => onVolumeChange(track.id, val)}
+              onPanChange={(val) => onPanChange(track.id, val)}
+              onStepsChange={(patternId, steps) => onStepsChange(track.id, patternId, steps)}
+              onStepValueChange={(patternId, stepIdx, val) => onStepValueChange(track.id, patternId, stepIdx, val)}
+              onStepKeyDown={(patternId, stepIdx, key, cVal, el) => onStepKeyDown(track.id, patternId, stepIdx, key, cVal, el)}
+              onVoiceTypeToggle={(patternId, stepIdx) => onVoiceTypeToggle(track.id, patternId, stepIdx)}
+              onVoiceSylChange={(patternId, stepIdx, val) => onVoiceSylChange(track.id, patternId, stepIdx, val)}
+              onVoiceNoteChange={(patternId, stepIdx, val) => onVoiceNoteChange(track.id, patternId, stepIdx, val)}
+              onVoiceNoteBlur={(patternId, stepIdx, val) => onVoiceNoteBlur(track.id, patternId, stepIdx, val)}
               isPlaying={isPlaying}
               currentStepIndex={currentStepIndex}
               maxTicks={maxTicks}
               timeSig={timeSig}
+              totalMeasures={totalMeasures}
+              onSelectPattern={(patternId) => onTrackSelectPattern(track.id, patternId)}
+              onPatternAssign={(patternId, measureIdx, val) => onPatternAssign(track.id, patternId, measureIdx, val)}
+              onAddPattern={() => onAddPattern(track.id)}
+              onDeletePattern={(patternId) => onDeletePattern(track.id, patternId)}
             />
           ))}
         </div>

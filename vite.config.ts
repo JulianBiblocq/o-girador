@@ -5,7 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(({ command }) => {
   return {
-    base: command === 'build' ? '/BaqueMix/' : '/',
+    base: command === 'build' ? (process.env.DEPLOY_ENV === 'test' ? '/BaqueMix/test/' : '/BaqueMix/') : '/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

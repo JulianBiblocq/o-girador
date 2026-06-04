@@ -7,17 +7,24 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
   <style>
+    @font-face {
+      font-family: 'Cactus';
+      src: url('/fonts/Cactus Regular.otf') format('opentype');
+      font-weight: normal;
+      font-style: normal;
+    }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Inter', sans-serif;
-      background: linear-gradient(180deg, #0a0807 0%, #1c1815 100%);
-      color: #eaddcf;
+      background-color: #f4ecd8;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08' /%3E%3C/svg%3E");
+      color: #1a1a1a;
       min-height: 100vh;
       padding: 0;
     }
     .header {
-      background: linear-gradient(180deg, #1c1815, #120e0c);
-      border-bottom: 2px solid #eaddcf;
+      background-color: #f4ecd8;
+      border-bottom: 3px solid #1a1a1a;
       padding: 16px 24px;
       display: flex;
       justify-content: space-between;
@@ -27,129 +34,147 @@
       z-index: 100;
     }
     .header h1 {
-      font-size: 1.5rem;
-      color: #f1c40f;
+      font-family: 'Cactus', serif;
+      font-size: 1.8rem;
+      color: #1a1a1a;
       letter-spacing: 2px;
+      text-transform: uppercase;
     }
     .header a {
-      color: #eaddcf;
+      color: #1a1a1a;
       text-decoration: none;
-      border: 1px solid #eaddcf;
+      border: 3px solid #1a1a1a;
+      border-radius: 2px;
+      box-shadow: 2px 2px 0px 0px #1a1a1a;
       padding: 6px 16px;
       font-size: 0.85rem;
-      font-weight: 600;
+      font-weight: 700;
       transition: all 0.2s;
     }
     .header a:hover {
-      background: #eaddcf;
-      color: #0a0807;
+      background: #1a1a1a;
+      color: #f4ecd8;
+      transform: translate(2px, 2px);
+      box-shadow: 0px 0px 0px 0px #1a1a1a;
     }
     .lang-switch {
       display: flex;
-      gap: 8px;
+      gap: 12px;
       justify-content: center;
-      padding: 16px;
+      padding: 20px;
     }
     .lang-switch button {
       padding: 6px 16px;
-      border: 1px solid #eaddcf;
-      background: transparent;
-      color: #eaddcf;
+      border: 2px solid #1a1a1a;
+      box-shadow: 2px 2px 0px 0px #1a1a1a;
+      background: #f4ecd8;
+      color: #1a1a1a;
       cursor: pointer;
-      font-weight: 600;
+      font-weight: 700;
       font-size: 0.85rem;
-      transition: all 0.2s;
+      transition: all 0.1s;
     }
     .lang-switch button.active, .lang-switch button:hover {
-      background: #f1c40f;
-      color: #0a0807;
-      border-color: #f1c40f;
+      background: #1a1a1a;
+      color: #f4ecd8;
+      transform: translate(1px, 1px);
+      box-shadow: 1px 1px 0px 0px #1a1a1a;
     }
     .container {
       max-width: 900px;
       margin: 0 auto;
-      padding: 24px 20px 60px;
+      padding: 10px 20px 60px;
     }
     .section {
       margin-bottom: 40px;
-      background: rgba(30, 25, 20, 0.8);
-      border: 1px solid #eaddcf33;
+      background: #f4ecd8;
+      border: 3px solid #1a1a1a;
+      box-shadow: 4px 4px 0px 0px #1a1a1a;
       padding: 24px;
       position: relative;
     }
-    .section::after {
-      content: '';
-      position: absolute;
-      top: 3px; left: 3px; right: 3px; bottom: 3px;
-      border: 1px dashed rgba(234, 221, 207, 0.15);
-      pointer-events: none;
-    }
     .section h2 {
-      color: #f1c40f;
-      font-size: 1.25rem;
+      font-family: 'Cactus', serif;
+      color: #8b2a1a;
+      font-size: 1.5rem;
       margin-bottom: 16px;
-      border-bottom: 1px solid #eaddcf33;
+      border-bottom: 2px solid #1a1a1a;
       padding-bottom: 8px;
       text-transform: uppercase;
       letter-spacing: 1px;
     }
     .section h3 {
-      color: #f39c12;
-      font-size: 1rem;
-      margin: 16px 0 8px;
+      font-family: 'Cactus', serif;
+      color: #1a1a1a;
+      font-size: 1.1rem;
+      margin: 20px 0 10px;
+      text-transform: uppercase;
     }
     .section p, .section li {
-      font-size: 0.9rem;
+      font-size: 0.95rem;
       line-height: 1.7;
-      color: #d4c8bb;
+      color: #1a1a1a;
+      font-weight: 600;
     }
     .section ul, .section ol {
       padding-left: 20px;
-      margin: 8px 0;
+      margin: 12px 0;
     }
     .section li { margin-bottom: 6px; }
     .kbd {
       display: inline-block;
-      background: #333;
-      border: 1px solid #555;
-      border-radius: 3px;
+      background: #f4ecd8;
+      border: 2px solid #1a1a1a;
+      box-shadow: 1px 1px 0px 0px #1a1a1a;
+      border-radius: 2px;
       padding: 1px 6px;
       font-size: 0.8rem;
       font-family: monospace;
-      color: #f1c40f;
-      margin: 0 2px;
+      font-weight: bold;
+      color: #1a1a1a;
+      margin: 0 4px;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin: 12px 0;
-      font-size: 0.85rem;
+      margin: 16px 0;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: 2px solid #1a1a1a;
     }
     th {
       background: #1a1a1a;
-      color: #f1c40f;
+      color: #f4ecd8;
       text-align: left;
-      padding: 8px 12px;
-      border: 1px solid #333;
+      padding: 10px 12px;
+      border: 2px solid #1a1a1a;
+      font-family: 'Cactus', serif;
+      text-transform: uppercase;
+      letter-spacing: 1px;
     }
     td {
-      padding: 8px 12px;
-      border: 1px solid #333;
-      color: #d4c8bb;
+      padding: 10px 12px;
+      border: 2px solid #1a1a1a;
+      color: #1a1a1a;
+      background: #f4ecd8;
     }
     .tip {
-      background: rgba(241, 196, 15, 0.1);
-      border-left: 3px solid #f1c40f;
-      padding: 10px 14px;
-      margin: 12px 0;
-      font-size: 0.85rem;
+      background: rgba(26, 26, 26, 0.05);
+      border-left: 4px solid #8b2a1a;
+      padding: 12px 16px;
+      margin: 16px 0;
+      font-size: 0.9rem;
+      font-weight: 600;
     }
-    .tip strong { color: #f1c40f; }
+    .tip strong { color: #8b2a1a; }
     .credit {
       text-align: center;
-      color: #eaddcf44;
-      font-size: 0.75rem;
+      color: #1a1a1a;
+      font-size: 0.8rem;
+      font-weight: 700;
       padding: 20px;
+      border-top: 2px solid #1a1a1a;
+      background: #f4ecd8;
     }
     [lang="fr"] { display: none; }
     body.lang-fr [lang="pt"] { display: none; }
@@ -246,6 +271,16 @@
         <tr><td><span class="kbd">d</span></td><td>Mão Direita — Golpe <strong>Fraco</strong></td></tr>
         <tr><td><span class="kbd">G</span></td><td>Mão Esquerda — Golpe <strong>Forte</strong></td></tr>
         <tr><td><span class="kbd">g</span></td><td>Mão Esquerda — Golpe <strong>Fraco</strong></td></tr>
+        <tr><td colspan="2" style="text-align: center; font-style: italic; background: rgba(0,0,0,0.05);">Apenas para a Alfaia:</td></tr>
+        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Toque abafado (barulho) — símbolo <strong>b</strong></td></tr>
+        <tr><td><span class="kbd">X</span> ou <span class="kbd">x</span></td><td>Toque no aro (cerclage) — símbolo <strong>x</strong></td></tr>
+        <tr><td><span class="kbd">I</span> ou <span class="kbd">i</span></td><td>Bacalhau (iguarassu) — símbolo <strong>i</strong></td></tr>
+        <tr><td colspan="2" style="text-align: center; font-style: italic; background: rgba(0,0,0,0.05);">Apenas para a Caixa:</td></tr>
+        <tr><td><span class="kbd">R</span> ou <span class="kbd">r</span></td><td>Rufada direita — símbolo <strong>rd</strong></td></tr>
+        <tr><td><span class="kbd">E</span> ou <span class="kbd">e</span></td><td>Rufada esquerda — símbolo <strong>rg</strong></td></tr>
+        <tr><td><span class="kbd">X</span> ou <span class="kbd">x</span></td><td>Toque no aro — símbolo <strong>x</strong></td></tr>
+        <tr><td><span class="kbd">F</span> ou <span class="kbd">f</span></td><td>Fla — símbolo <strong>f</strong></td></tr>
+        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Vassourada (barulho) — símbolo <strong>b</strong></td></tr>
       </table>
       <div class="tip"><strong>💡 Regra de ouro:</strong> Maiúscula = Forte / Minúscula = Fraco</div>
 
@@ -254,6 +289,7 @@
         <tr><th>Tecla</th><th>Som</th></tr>
         <tr><td><span class="kbd">G</span> / <span class="kbd">g</span></td><td>Grave (Forte / Fraco)</td></tr>
         <tr><td><span class="kbd">A</span> / <span class="kbd">a</span></td><td>Agudo (Forte / Fraco)</td></tr>
+        <tr><td><span class="kbd">B</span> / <span class="kbd">b</span></td><td>Toque abafado / fechado — símbolo <strong>b</strong></td></tr>
       </table>
 
       <h3>Agbê</h3>
@@ -263,6 +299,8 @@
         <tr><td><span class="kbd">d</span></td><td>Para a Direita — <strong>Fraco</strong></td></tr>
         <tr><td><span class="kbd">G</span></td><td>Para a Esquerda — <strong>Forte</strong></td></tr>
         <tr><td><span class="kbd">g</span></td><td>Para a Esquerda — <strong>Fraco</strong></td></tr>
+        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Vassourada (barulho) — símbolo <strong>b</strong></td></tr>
+        <tr><td><span class="kbd">S</span> ou <span class="kbd">s</span></td><td>Salto / Lançamento (saut) — símbolo <strong>s</strong></td></tr>
       </table>
 
       <h3>Mineiro</h3>
@@ -287,6 +325,16 @@
         <tr><td><span class="kbd">d</span></td><td>Main Droite — Coup <strong>Faible</strong></td></tr>
         <tr><td><span class="kbd">G</span></td><td>Main Gauche — Coup <strong>Fort</strong></td></tr>
         <tr><td><span class="kbd">g</span></td><td>Main Gauche — Coup <strong>Faible</strong></td></tr>
+        <tr><td colspan="2" style="text-align: center; font-style: italic; background: rgba(0,0,0,0.05);">Uniquement pour l'Alfaia :</td></tr>
+        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Coup étouffé (barulho) — symbole <strong>b</strong></td></tr>
+        <tr><td><span class="kbd">X</span> ou <span class="kbd">x</span></td><td>Coup sur le cerclage — symbole <strong>x</strong></td></tr>
+        <tr><td><span class="kbd">I</span> ou <span class="kbd">i</span></td><td>Bacalhau (iguarassu) — symbole <strong>i</strong></td></tr>
+        <tr><td colspan="2" style="text-align: center; font-style: italic; background: rgba(0,0,0,0.05);">Uniquement pour la Caixa :</td></tr>
+        <tr><td><span class="kbd">R</span> ou <span class="kbd">r</span></td><td>Rufada droite — symbole <strong>rd</strong></td></tr>
+        <tr><td><span class="kbd">E</span> ou <span class="kbd">e</span></td><td>Rufada gauche — symbole <strong>rg</strong></td></tr>
+        <tr><td><span class="kbd">X</span> ou <span class="kbd">x</span></td><td>Coup sur le cerclage — symbole <strong>x</strong></td></tr>
+        <tr><td><span class="kbd">F</span> ou <span class="kbd">f</span></td><td>Fla — symbole <strong>f</strong></td></tr>
+        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Fatra (barulho) — symbole <strong>b</strong></td></tr>
       </table>
       <div class="tip"><strong>💡 Règle d'or :</strong> Majuscule = Fort / Minuscule = Faible</div>
 
@@ -295,6 +343,7 @@
         <tr><th>Touche</th><th>Son</th></tr>
         <tr><td><span class="kbd">G</span> / <span class="kbd">g</span></td><td>Grave (Fort / Faible)</td></tr>
         <tr><td><span class="kbd">A</span> / <span class="kbd">a</span></td><td>Aigu (Fort / Faible)</td></tr>
+        <tr><td><span class="kbd">B</span> / <span class="kbd">b</span></td><td>Coup étouffé — symbole <strong>b</strong></td></tr>
       </table>
 
       <h3>Agbê</h3>
@@ -304,6 +353,8 @@
         <tr><td><span class="kbd">d</span></td><td>Vers la Droite — <strong>Faible</strong></td></tr>
         <tr><td><span class="kbd">G</span></td><td>Vers la Gauche — <strong>Fort</strong></td></tr>
         <tr><td><span class="kbd">g</span></td><td>Vers la Gauche — <strong>Faible</strong></td></tr>
+        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Brossé (barulho) — symbole <strong>b</strong></td></tr>
+        <tr><td><span class="kbd">S</span> ou <span class="kbd">s</span></td><td>Saut / Lancer (saut) — symbole <strong>s</strong></td></tr>
       </table>
 
       <h3>Mineiro</h3>
@@ -352,11 +403,14 @@
         <li><strong>S</strong> (Solo) — Só essa pista toca (fica amarelo)</li>
         <li><strong>👁️ / 🙈</strong> — Mostra/oculta a pista na Roda</li>
         <li><strong>🗑️</strong> — Remove a pista</li>
-        <li><strong>▲ / ▼</strong> — Reordena as pistas</li>
-        <li><strong>Passos</strong> — Número de subdivisões (4, 8, 16, 32...)</li>
-        <li><strong>🔄 x</strong> — Repetições do compasso antes de passar ao seguinte</li>
+        <li><strong>▲ / ▼</strong> (Apenas no painel misturador esquerdo) — Reordena as pistas</li>
+        <li><strong>Volume & Reverb</strong> — Controle o volume e o envio de reverberação global por pista no Mixer.</li>
+        <li><strong>Éditeur détaillé (✏️)</strong> — Abre o editor de passos do instrumento para ajustes finos.</li>
+        <li><strong>Escultura de Som (🎛️)</strong> — Ajuste o volume (barra verde) e decay/ressonância (barra laranja) de cada passo individualmente no editor detalhado.</li>
+        <li><strong>Padrões</strong> — Crie diferentes padrões rítmicos para o mesmo instrumento. Cada padrão pode ter seu próprio número de passos.</li>
+        <li><strong>Compassos (M)</strong> — Atribua os padrões aos compassos da música. Marque a caixa de seleção do compasso (ex: 1, 2, 3, 4) para que o padrão seja tocado nesse compasso!</li>
       </ul>
-      <div class="tip"><strong>💡 Rotação:</strong> Ao adicionar 2 vezes o mesmo instrumento (ex: 2 caixas), eles se alternam a cada compasso na Roda. O instrumento inativo fica com opacidade reduzida.</div>
+      <div class="tip"><strong>💡 Dica:</strong> O misturador vertical pequeno à esquerda mostra os padrões resumidos. O grande misturador de console ("Mixer") permite editar livremente cada compasso de cada padrão.</div>
     </div>
     <div class="section" lang="fr">
       <h2>🎛️ Mixeur — Fonctions</h2>
@@ -365,11 +419,14 @@
         <li><strong>S</strong> (Solo) — Seule cette piste joue (devient jaune)</li>
         <li><strong>👁️ / 🙈</strong> — Affiche/masque la piste dans la Roda</li>
         <li><strong>🗑️</strong> — Supprime la piste</li>
-        <li><strong>▲ / ▼</strong> — Réordonne les pistes</li>
-        <li><strong>Pas</strong> — Nombre de subdivisions (4, 8, 16, 32...)</li>
-        <li><strong>🔄 x</strong> — Répétitions de la mesure avant de passer à la suivante</li>
+        <li><strong>▲ / ▼</strong> (Dans le petit mixeur) — Réordonne les pistes</li>
+        <li><strong>Volume & Reverb</strong> — Contrôlez le volume et l'envoi de réverbération globale par piste dans le grand Mixeur.</li>
+        <li><strong>Éditeur détaillé (✏️)</strong> — Ouvre l'éditeur de pas pour sculpter les notes et ajuster le son.</li>
+        <li><strong>Sculpture du Son (🎛️)</strong> — Réglez le volume (barre verte) et le decay/résonance (barre orange) de chaque pas individuellement dans l'éditeur détaillé.</li>
+        <li><strong>Motifs (Padrões)</strong> — Créez différents motifs rythmiques pour le même instrument. Chaque motif peut avoir son propre nombre de pas.</li>
+        <li><strong>Mesures (M)</strong> — Assigne les motifs aux mesures du morceau. Cochez les cases des mesures (ex: 1, 2, 3, 4) sous le motif pour qu'il soit joué à ces moments !</li>
       </ul>
-      <div class="tip"><strong>💡 Rotation :</strong> En ajoutant 2 fois le même instrument (ex: 2 caixas), ils alternent à chaque mesure dans la Roda. L'instrument inactif a une opacité réduite.</div>
+      <div class="tip"><strong>💡 Astuce :</strong> Le petit mixeur à gauche permet une vue résumée. Le grand mixeur ("Console") permet d'éditer le nombre de pas et le rythme détaillé de chaque motif.</div>
     </div>
 
     <!-- ========== SECTION 6: TOADA ========== -->

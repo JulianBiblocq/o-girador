@@ -1,14 +1,55 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
 @import "tailwindcss";
+
+@font-face {
+  font-family: 'Cactus';
+  src: url('/fonts/Cactus Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Dark mode is default */
+  --cordel-bg: #1a1a1a;
+  --cordel-text: #f4ecd8;
+  --cordel-border: #f4ecd8;
+  --cordel-wood: #8b2a1a;
+}
+
+[data-theme='light'] {
+  --cordel-bg: #f4ecd8;
+  --cordel-text: #1a1a1a;
+  --cordel-border: #1a1a1a;
+  --cordel-wood: #8b2a1a;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  min-width: 320px;
+  width: 100%;
+  min-height: 100vh;
+  background-color: var(--cordel-bg);
+  color: var(--cordel-text);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+#root {
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
-/* Brazilian Cordel and Cactus display visual typography falls back gracefully to Cinzel Decorative */
+/* Brazilian Cordel and Cactus display visual typography */
 .font-cactus {
-  font-family: "Cinzel Decorative", "Courier New", Georgia, serif !important;
+  font-family: "Cactus", "Cinzel Decorative", "Courier New", Georgia, serif !important;
 }
 
 /* Custom Web Audio Recorder glow pulse keyframe */
@@ -97,6 +138,11 @@
     width: 100% !important;
     min-width: 100% !important;
     height: auto !important;
+    user-select: none;
+  }
+
+
+  #right-sidebar-panel {
     border-left: none !important;
     border-top: 2px solid #eaddcf !important;
     order: 3;
@@ -108,4 +154,58 @@
     flex-wrap: wrap !important;
     gap: 6px !important;
   }
+}
+
+/* Design System: Literatura de Cordel */
+
+/* Cordel Woodcut effect: Sharp, slightly irregular, high contrast */
+.cordel-border {
+  border: 3px solid var(--cordel-border);
+  border-radius: 2px 2px 2px 2px / 2px 2px 2px 2px;
+  box-shadow: 4px 4px 0px 0px var(--cordel-border);
+}
+
+.cordel-border-sm {
+  border: 2px solid var(--cordel-border);
+  border-radius: 1px;
+  box-shadow: 2px 2px 0px 0px var(--cordel-border);
+}
+
+.cordel-bg {
+  background-color: var(--cordel-bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08' /%3E%3C/svg%3E");
+}
+
+.cordel-wood {
+  background-color: var(--cordel-wood);
+  color: var(--cordel-text);
+  border: 3px solid var(--cordel-border);
+  box-shadow: 3px 3px 0px 0px var(--cordel-border);
+}
+
+.cordel-button {
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.cordel-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px 0px var(--cordel-border);
+}
+
+.vertical-fader {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 16px;
+  height: 180px;
+  outline: none;
+  background: transparent;
+}
+.vertical-fader::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 32px;
+  height: 16px;
+  background: var(--cordel-border);
+  border: 2px solid var(--cordel-bg);
+  cursor: pointer;
+  border-radius: 0;
 }

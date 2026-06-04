@@ -15,6 +15,40 @@ export interface InstrumentConfig {
   };
 }
 
+export interface Pattern {
+  id: number;
+  name: string;
+  steps: number;
+  activeSteps: (string | number)[];
+  lyrics: string[];
+  notes: string[];
+  measureAssignments: boolean[];
+  volumes?: number[];
+  decays?: number[];
+  microtimings?: number[];
+}
+
+export interface HitTrigger {
+  trackId: number;
+  stepIndex: number;
+  state: string | number;
+}
+
+export interface TrackGroup {
+  id: number;
+  instrumentIdx: number;
+  patterns: Pattern[];
+  isMute: boolean;
+  isSolo: boolean;
+  isHidden: boolean;
+  volumeVal: number;
+  selectedPatternId: number;
+  radius?: number; // visual radius in the roda
+  reverbVal?: number;
+  panVal?: number; // -100 to 100
+}
+
+// Keep Circle type for backward compatibility parsing temporarily if needed
 export interface Circle {
   id: number;
   steps: number;
@@ -39,12 +73,15 @@ export interface PresetMetadata {
   nacao: string;
   compositor: string;
   ritmo: string;
+  youtubeUrl?: string;
 }
 
 export interface Preset {
   bpm: number;
   timeSig: TimeSignature;
-  circles: Circle[];
+  totalMeasures?: number;
+  circles?: Circle[]; // Old format
+  tracks?: TrackGroup[]; // New format
   letras?: string;
   metadata?: PresetMetadata;
 }

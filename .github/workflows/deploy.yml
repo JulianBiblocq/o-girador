@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, v2-sequencer-engine ]
 
 permissions:
   contents: read
@@ -30,7 +30,33 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: npm run build
+        run: |
+          # 1. Build the test version (V2) using the current branch code
+          DEPLOY_ENV=test npm run build
+          mv dist dist-test
+
+          # 2. Build the production version (V1)
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            # If on main, just build the current code for production
+            npm run build
+            mv dist dist-prod
+          else
+            # If on test/dev branch, clone and build the main branch for production
+            echo "Fetching main branch for production build..."
+            git clone --depth 1 --branch main https://github.com/julianbiblocq/BaqueMix.git temp-prod
+            cd temp-prod
+            npm ci
+            npm run build
+            mv dist ../dist-prod
+            cd ..
+            rm -rf temp-prod
+          fi
+
+          # 3. Assemble both into dist folder
+          mkdir dist
+          mv dist-prod/* dist/
+          mkdir -p dist/test
+          mv dist-test/* dist/test/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

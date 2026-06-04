@@ -5,7 +5,7 @@
 
 import { InstrumentConfig, Preset, TimeSignature } from './types';
 
-export const ASSETS_BASE_URL = '';
+export const ASSETS_BASE_URL = import.meta.env.BASE_URL;
 
 export const instrumentsConfig: InstrumentConfig[] = [
   {
@@ -15,7 +15,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#3a1010',
     path: 'Alfaia/Marcante',
-    colors: { 'd': '#5a0000', 'D': '#8b0000', 'g': '#ff7676', 'G': '#ff4d4d', text: '#fff' }
+    colors: { 'd': '#632b2b', 'D': '#8a2b2b', 'g': '#b55a5a', 'G': '#c74c4c', 'b': '#4c1c1c', 'x': '#8c7b7b', 'i': '#ff8da1', text: '#f4ecd8' }
   },
   {
     id: 'meiao',
@@ -24,7 +24,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#3a2010',
     path: 'Alfaia/Meiao',
-    colors: { 'd': '#a04000', 'D': '#d35400', 'g': '#fbc531', 'G': '#f39c12', text: '#fff' }
+    colors: { 'd': '#8c502b', 'D': '#ab5318', 'g': '#c79c3e', 'G': '#c98124', 'b': '#4c2c16', 'x': '#9c8476', 'i': '#ffb74d', text: '#f4ecd8' }
   },
   {
     id: 'repique',
@@ -33,7 +33,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#3a3010',
     path: 'Alfaia/Repique',
-    colors: { 'd': '#b59510', 'D': '#f1c40f', 'g': '#fff5cc', 'G': '#ffeaa7', text: '#121212' }
+    colors: { 'd': '#947f2b', 'D': '#c9a724', 'g': '#d4cca1', 'G': '#d4c492', 'b': '#4d441c', 'x': '#9c9984', 'i': '#fff59d', text: '#1a1a1a' }
   },
   {
     id: 'caixa',
@@ -42,7 +42,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#2a103a',
     path: 'Caixa',
-    colors: { 'd': '#320b61', 'D': '#4a148c', 'g': '#be5be0', 'G': '#9c27b0', text: '#fff' }
+    colors: { 'd': '#3f255e', 'D': '#4c267a', 'g': '#925c9c', 'G': '#7a3187', 'rd': '#a855f7', 'rg': '#d8b4fe', 'x': '#7e7b8c', 'f': '#d946ef', 'b': '#4a044e', text: '#f4ecd8' }
   },
   {
     id: 'gongue',
@@ -51,34 +51,34 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'gongue',
     mixerBg: '#1a1a1a',
     path: 'Gongue',
-    colors: { 'grv': '#222222', 'GRV': '#000000', 'aig': '#7f8c8d', 'AIG': '#bdc3c7', text: '#fff' }
+    colors: { 'grv': '#444444', 'GRV': '#222222', 'aig': '#7f8c8d', 'AIG': '#bdc3c7', 'b': '#6d4c41', text: '#f4ecd8' }
   },
   {
     id: 'agbe',
     iconImg: 'icones/agbe.svg',
     name: 'Agbê',
     type: 'shake',
-    mixerBg: '#103a10',
-    path: 'Graines/Agbe',
-    colors: { 'g': '#113b14', 'G': '#1b5e20', 'd': '#74d478', 'D': '#4caf50', text: '#fff' }
+    mixerBg: '#103a20',
+    path: 'Agbe',
+    colors: { 'g': '#22c55e', 'G': '#15803d', 'd': '#86efac', 'D': '#4ade80', 'b': '#052e16', 's': '#dcfce7', text: '#f4ecd8' }
   },
   {
     id: 'mineiro',
     iconImg: 'icones/mineiro.svg',
     name: 'Mineiro',
     type: 'shake',
-    mixerBg: '#203a10',
-    path: 'Graines/Mineiro',
-    colors: { 'p': '#113b14', 'P': '#1b5e20', 't': '#74d478', 'T': '#4caf50', text: '#fff' }
+    mixerBg: '#3a1a10',
+    path: 'Mineiro',
+    colors: { 'p': '#ea580c', 'P': '#c2410c', 't': '#fdba74', 'T': '#f97316', text: '#f4ecd8' }
   },
   {
-    id: 'chant',
-    iconImg: 'icones/micro.svg',
-    name: 'Voz / Coro',
+    id: 'voice',
+    iconImg: 'icones/voice.svg',
+    name: 'Vocal / Toada',
     type: 'voice',
-    mixerBg: '#10203a',
+    mixerBg: '#114a4a',
     path: 'internal',
-    colors: { 'C': '#00d2d3', 'P': '#ff9f43', text: '#121212' }
+    colors: { 'C': '#449c9c', 'P': '#c4864b', text: '#f4ecd8' }
   }
 ];
 
@@ -97,12 +97,22 @@ export const i18n = {
     alfaiaCaixa: "🥁 Alfaia & Caixa",
     mainDroite: "Mão Direita",
     mainGauche: "Mão Esquerda",
+    legendCaixaRufada: "Rufada (rufo curto) D / G",
+    legendCaixaCerclage: "Toque no aro",
+    legendCaixaFla: "Fla",
+    legendCaixaBarulho: "Vassourada (fatra)",
+    legendAlfaiaBarulho: "Toque abafado (barulho)",
+    legendAlfaiaCerclage: "Toque no aro (cerclage)",
+    legendAlfaiaIguarassu: "Bacalhau (iguarassu)",
     gongueLegend: "🔔 Gonguê",
     gongueGrave: "Grave Forte / Fraco",
     gongueAigu: "Agudo Forte / Fraco",
+    gongueBarulho: "Toque abafado / fechado",
     agbeLegend: "🌾 Agbê",
     agbeG: "Esquerda (Forte / Fraco)",
     agbeD: "Direita (Forte / Fraco)",
+    legendAgbeBarulho: "Vassourada (barulho)",
+    legendAgbeSaut: "Salto / Lançamento (saut)",
     mineiroLegend: "🌾 Mineiro",
     mineiroP: "Cima (Forte / Fraco)",
     mineiroT: "Baixo (Forte / Fraco)",
@@ -116,7 +126,9 @@ export const i18n = {
     toggleBtn: "Mostrar painel",
     toggleLegendBtn: "Ocultar / Mostrar legenda",
     toggleLetrasBtn: "Ocultar / Mostrar toada",
-    tsLabel: "Compasso:",
+    tsLabel: "Fórmula:",
+    metroBtn: "Metrônomo",
+    patterns: "Padrões",
     tutorialBtn: "Tutorial em vídeo",
     rewindBtn: "Parar e Voltar ao início",
     confirmResize: "Deseja ajustar automaticamente o número de passos de todas as faixas?",
@@ -131,7 +143,13 @@ export const i18n = {
     metaToada: "Nome da Toada",
     metaNacao: "Nação / Bloco",
     metaCompositor: "Compositor",
-    metaRitmo: "Ritmo"
+    metaRitmo: "Ritmo",
+    saveLocal: "Salvar no meu catálogo",
+    catPersonal: "Catálogo pessoal",
+    catDefault: "Catálogo",
+    promptName: "Nome da sua Toada:",
+    saveFile: "Salvar arquivo (.json)",
+    loadFile: "Carregar arquivo (.json)"
   },
   fr: {
     loading: "Chargement des voix...",
@@ -147,16 +165,26 @@ export const i18n = {
     alfaiaCaixa: "🥁 Alfaia & Caixa",
     mainDroite: "Main Droite",
     mainGauche: "Main Gauche",
+    legendCaixaRufada: "Roulement court (rufada) D / G",
+    legendCaixaCerclage: "Coup sur le cerclage",
+    legendCaixaFla: "Fla",
+    legendCaixaBarulho: "Fatra",
+    legendAlfaiaBarulho: "Coup étouffé (barulho)",
+    legendAlfaiaCerclage: "Coup sur le cerclage",
+    legendAlfaiaIguarassu: "Bacalhau (iguarassu)",
     gongueLegend: "🔔 Gonguê",
     gongueGrave: "Grave Fort / Faible",
     gongueAigu: "Aigu Fort / Faible",
+    gongueBarulho: "Coup étouffé",
     agbeLegend: "🌾 Agbê",
     agbeG: "Gauche (Fort / Faible)",
     agbeD: "Droite (Fort / Faible)",
+    legendAgbeBarulho: "Brossé (barulho)",
+    legendAgbeSaut: "Saut / Lancer (saut)",
     mineiroLegend: "🌾 Mineiro",
     mineiroP: "Haut (Fort / Faible)",
     mineiroT: "Bas (Fort / Faible)",
-    addInst: "+ Ajouter",
+    addInst: "Ajouter",
     clear: "Vider la Roda",
     save: "Sauvegarder",
     load: "Charger",
@@ -164,15 +192,17 @@ export const i18n = {
     promptVoice: "Syllabe / Mot (Utilisez ':' pour ajouter la note. Ex : C4:Vou) :",
     selectInst: "Choisir un instrument...",
     toggleBtn: "Afficher le panneau",
-    toggleLegendBtn: "Afficher / Masquer la légende",
+    toggleLegendBtn: "Afficher / Masquer légende",
     toggleLetrasBtn: "Afficher / Masquer la toada",
     tsLabel: "Signature:",
+    metroBtn: "Métronome",
+    patterns: "Motifs",
     tutorialBtn: "Tutoriel vidéo",
     rewindBtn: "Stop et Revenir au début",
     confirmResize: "Voulez-vous ajuster automatiquement le nombre de pas de toutes les pistes ?",
     letrasTitle: "📝 Toada",
     extractBtn: "🔄 Extraire du mixeur",
-    letrasPlaceholder: "Collez votre Toada ici (Cliquez sur Extraire du mixeur pour le karaoké)...",
+    letrasPlaceholder: "Collez votre Toada ici (Cliquez sur Extraire du mixeur pour le karaokê)...",
     limitReached: "Limite maximale d'instruments atteinte (20) !",
     invalidFile: "Fichier de rythme invalide !",
     swingBtn: "Swing",
@@ -181,7 +211,13 @@ export const i18n = {
     metaToada: "Nom de la Toada",
     metaNacao: "Nação / Bloco",
     metaCompositor: "Compositeur",
-    metaRitmo: "Rythme"
+    metaRitmo: "Rythme",
+    saveLocal: "Sauvegarder dans mon catalogue",
+    catPersonal: "Catalogue personnel",
+    catDefault: "Catalogue",
+    promptName: "Nom de votre Toada :",
+    saveFile: "Sauvegarder fichier (.json)",
+    loadFile: "Charger fichier (.json)"
   }
 };
 
