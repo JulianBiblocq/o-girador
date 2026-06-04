@@ -109,7 +109,7 @@ body {
   /* Main workspace becomes vertical flex */
   #main-workspace.mobile-stack {
     flex-direction: column !important;
-    height: auto !important;
+    height: calc(100vh - 116px) !important;
     overflow-y: auto !important;
     overflow-x: hidden !important;
   }
@@ -123,6 +123,14 @@ body {
     border-bottom: 2px solid #eaddcf !important;
     /* Order 2: after roda */
     order: 2;
+    flex-shrink: 0 !important;
+    overflow: visible !important;
+  }
+
+  #mixer-section, #tracks-mixer-container {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
   }
 
   /* Circle sequencer: full width, order 1 (after header) */
@@ -132,6 +140,7 @@ body {
     min-height: 380px !important;
     aspect-ratio: 1 / 1 !important;
     order: 1;
+    flex-shrink: 0 !important;
   }
 
   /* Right sidebar: full width, order 3 */
@@ -140,13 +149,17 @@ body {
     min-width: 100% !important;
     height: auto !important;
     user-select: none;
-  }
-
-
-  #right-sidebar-panel {
     border-left: none !important;
     border-top: 2px solid #eaddcf !important;
     order: 3;
+    flex-shrink: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Override inner h-full divs on mobile to grow naturally */
+  #right-sidebar-panel > div {
+    height: auto !important;
+    overflow: visible !important;
   }
 
   /* Header: allow wrapping on mobile */

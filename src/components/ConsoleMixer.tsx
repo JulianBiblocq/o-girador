@@ -37,9 +37,11 @@ interface ConsoleMixerProps {
   onStepDecayChange: (trackId: number, patternId: number, stepIdx: number, val: number) => void;
   onStepMicrotimingChange: (trackId: number, patternId: number, stepIdx: number, val: number) => void;
   isSwingOn: boolean;
+  isMobile: boolean;
 }
 
 export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
+  isMobile,
   lang,
   tracks,
   onMoveUp,
@@ -144,6 +146,7 @@ export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
 
       {editingTrack && (
         <InstrumentDetailEditor
+          isMobile={isMobile}
           lang={lang}
           track={editingTrack}
           onClose={() => setEditingTrackId(null)}

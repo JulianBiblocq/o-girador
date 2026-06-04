@@ -29,6 +29,7 @@ interface InstrumentDetailEditorProps {
   currentMeasure: number;
   maxTicks: number;
   totalMeasures: number;
+  isMobile: boolean;
 }
 
 /* ── Stroke legend definitions ─────────────────────────────── */
@@ -94,6 +95,64 @@ function getStrokesForInstrument(instId: string, instType: string): StrokeDef[] 
 /* ── Step options ───────────────────────────────────────────── */
 const STEP_OPTIONS = [4, 8, 12, 16, 24, 32];
 
+/* ── Cycle step values helper on mobile ────────────────────────── */
+function getNextStepValue(instId: string, instType: string, currentVal: string | number): string | number {
+  const norm = typeof currentVal === 'string' ? currentVal.trim() : currentVal;
+  
+  if (instId === 'mineiro') {
+    if (norm === 0 || norm === '0' || !norm) return 'p';
+    if (norm === 'p') return 'P';
+    if (norm === 'P') return 't';
+    if (norm === 't') return 'T';
+    return 0;
+  }
+  if (instId === 'agbe') {
+    if (norm === 0 || norm === '0' || !norm) return 'g';
+    if (norm === 'g') return 'G';
+    if (norm === 'G') return 'd';
+    if (norm === 'd') return 'D';
+    if (norm === 'D') return 'b';
+    if (norm === 'b') return 's';
+    return 0;
+  }
+  if (instType === 'gongue') {
+    if (norm === 0 || norm === '0' || !norm) return 'grv';
+    if (norm === 'grv') return 'GRV';
+    if (norm === 'GRV') return 'aig';
+    if (norm === 'aig') return 'AIG';
+    if (norm === 'AIG') return 'b';
+    return 0;
+  }
+  if (instId === 'caixa') {
+    if (norm === 0 || norm === '0' || !norm) return 'd';
+    if (norm === 'd') return 'D';
+    if (norm === 'D') return 'g';
+    if (norm === 'g') return 'G';
+    if (norm === 'G') return 'rd';
+    if (norm === 'rd') return 'rg';
+    if (norm === 'rg') return 'x';
+    if (norm === 'x') return 'f';
+    if (norm === 'f') return 'b';
+    return 0;
+  }
+  if (instId === 'marcante' || instId === 'meiao' || instId === 'repique') {
+    if (norm === 0 || norm === '0' || !norm) return 'd';
+    if (norm === 'd') return 'D';
+    if (norm === 'D') return 'g';
+    if (norm === 'g') return 'G';
+    if (norm === 'G') return 'b';
+    if (norm === 'b') return 'x';
+    if (norm === 'x') return 'i';
+    return 0;
+  }
+  // default
+  if (norm === 0 || norm === '0' || !norm) return 'd';
+  if (norm === 'd') return 'D';
+  if (norm === 'D') return 'g';
+  if (norm === 'g') return 'G';
+  return 0;
+}
+
 /* ── Component ─────────────────────────────────────────────── */
 
 export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
@@ -123,6 +182,7 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
   currentMeasure,
   maxTicks,
   totalMeasures,
+  isMobile,
 }) => {
   const inst = instrumentsConfig[track.instrumentIdx];
   const t = (key: string) => (i18n[lang] as any)[key] || key;
@@ -588,10 +648,22 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                                     type="text"
                                     maxLength={inst.id === 'caixa' ? 2 : 1}
                                     value={displayVal}
+                                    readOnly={isMobile}
+                                    inputMode={isMobile ? 'none' : undefined}
                                     onFocus={(e) => {
-                                      e.target.select();
+                                      if (!isMobile) {
+                                        e.target.select();
+                                      }
                                       setSelectedStepIdx(i);
                                       setSelectedPatternId(ptn.id);
+                                    }}
+                                    onClick={() => {
+                                      if (isMobile) {
+                                        const newVal = getNextStepValue(inst.id, inst.type, val);
+                                        onStepValueChange(ptn.id, i, String(newVal));
+                                        setSelectedStepIdx(i);
+                                        setSelectedPatternId(ptn.id);
+                                      }
                                     }}
                                     onChange={(e) => onStepValueChange(ptn.id, i, e.target.value)}
                                     onKeyDown={(e) => {

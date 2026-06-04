@@ -1486,6 +1486,7 @@ export default function App() {
         ) : (
           <div className="flex-1 min-w-0 flex flex-col h-full overflow-x-auto overflow-y-hidden custom-scrollbar">
             <ConsoleMixer
+              isMobile={isMobile}
               lang={lang}
               tracks={tracks}
               onMoveUp={handleTrackMoveUp}
@@ -1573,29 +1574,31 @@ export default function App() {
         )}
 
         {/* Right drawer sidebar context panel */}
-        <RightSidebar
-          lang={lang}
-          activePanel={isMobile ? (activeRightPanel || 'letras') : activeRightPanel}
-          onTogglePanel={(p) => {
-            if (isMobile) {
-              setActiveRightPanel(activeRightPanel === 'letras' ? 'legend' : 'letras');
-            } else {
-              setActiveRightPanel(activeRightPanel === p ? null : p);
-            }
-          }}
-          tracks={tracks}
-          letras={letras}
-          onLetrasChange={setLetras}
-          metadata={metadata}
-          onMetadataChange={setMetadata}
-          onExtractLyrics={handleExtractLyrics}
-          currentPlayState={isPlaying ? {
-            stepIndex: currentStepIndex,
-            maxTicks: getMaxTicks(timeSig),
-            activePatternIdByInst,
-          } : null}
-          totalMeasures={totalMeasures}
-        />
+        {(!isMobile || viewMode === 'roda') && (
+          <RightSidebar
+            lang={lang}
+            activePanel={isMobile ? (activeRightPanel || 'letras') : activeRightPanel}
+            onTogglePanel={(p) => {
+              if (isMobile) {
+                setActiveRightPanel(activeRightPanel === 'letras' ? 'legend' : 'letras');
+              } else {
+                setActiveRightPanel(activeRightPanel === p ? null : p);
+              }
+            }}
+            tracks={tracks}
+            letras={letras}
+            onLetrasChange={setLetras}
+            metadata={metadata}
+            onMetadataChange={setMetadata}
+            onExtractLyrics={handleExtractLyrics}
+            currentPlayState={isPlaying ? {
+              stepIndex: currentStepIndex,
+              maxTicks: getMaxTicks(timeSig),
+              activePatternIdByInst,
+            } : null}
+            totalMeasures={totalMeasures}
+          />
+        )}
       </div>
       
       <TransportBar
