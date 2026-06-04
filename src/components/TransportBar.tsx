@@ -62,7 +62,20 @@ export const TransportBar: React.FC<TransportBarProps> = ({
           }`}
           title={t('metroBtn')}
         >
-          <span>⏱</span>
+          <svg
+            className="w-4 h-4"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M12 3L4 21h16L12 3z" />
+            <line x1="12" y1="18" x2="16" y2="7" />
+            <circle cx="15" cy="9.5" r="1.5" fill="currentColor" />
+            <circle cx="12" cy="18" r="1" fill="currentColor" />
+          </svg>
           <span className="hidden lg:inline">Metrônomo</span>
         </button>
 
