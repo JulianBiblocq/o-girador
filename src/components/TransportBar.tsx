@@ -22,6 +22,8 @@ interface TransportBarProps {
   onTimeSigChange: (sig: TimeSignature) => void;
   totalMeasures: number;
   onTotalMeasuresChange: (measures: number) => void;
+  reverbType: 'room' | 'studio' | 'hall';
+  onReverbTypeChange: (type: 'room' | 'studio' | 'hall') => void;
 }
 
 export const TransportBar: React.FC<TransportBarProps> = ({
@@ -43,6 +45,8 @@ export const TransportBar: React.FC<TransportBarProps> = ({
   onTimeSigChange,
   totalMeasures,
   onTotalMeasuresChange,
+  reverbType,
+  onReverbTypeChange,
 }) => {
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
@@ -86,6 +90,20 @@ export const TransportBar: React.FC<TransportBarProps> = ({
             }}
             className="w-12 bg-transparent text-center font-bold text-[var(--cordel-text)] outline-none"
           />
+        </div>
+
+        {/* Reverb Type Dropdown */}
+        <div className="flex items-center gap-2 bg-[var(--cordel-bg)] px-2 py-1 cordel-border-sm border-[var(--cordel-border)]">
+          <span className="font-cactus font-bold text-[var(--cordel-text)] text-xs uppercase">Reverb</span>
+          <select
+            value={reverbType}
+            onChange={(e) => onReverbTypeChange(e.target.value as any)}
+            className="bg-transparent text-[var(--cordel-text)] font-cactus text-xs font-bold outline-none cursor-pointer"
+          >
+            <option value="room" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Sala (Room)' : 'Sala'}</option>
+            <option value="studio" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Studio' : 'Estúdio'}</option>
+            <option value="hall" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Cathédrale (Hall)' : 'Catedral'}</option>
+          </select>
         </div>
       </div>
 

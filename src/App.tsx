@@ -465,7 +465,14 @@ export default function App() {
         const bar = document.getElementById(`meter-bar-${c.id}`);
         const meter = meters[inst.id];
         if (bar && meter) {
-          bar.style.width = isPlayingRef.current ? dbToPercent(meter.getValue() as number) + '%' : '0%';
+          const val = isPlayingRef.current ? dbToPercent(meter.getValue() as number) + '%' : '0%';
+          if (bar.classList.contains('meter-vertical')) {
+            bar.style.height = val;
+            bar.style.width = '100%';
+          } else {
+            bar.style.width = val;
+            bar.style.height = '100%';
+          }
         }
       });
     };
@@ -1478,8 +1485,6 @@ export default function App() {
               onStepVolumeChange={handleTrackStepVolumeChange}
               onStepDecayChange={handleTrackStepDecayChange}
               onStepMicrotimingChange={handleTrackStepMicrotimingChange}
-              reverbType={reverbType}
-              onReverbTypeChange={setReverbType}
               isSwingOn={isSwingOn}
               onTrackSelectPattern={(trackId, patternId) => {
                 setTracks(tracks.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
@@ -1585,6 +1590,8 @@ export default function App() {
             }))
           })));
         }}
+        reverbType={reverbType}
+        onReverbTypeChange={setReverbType}
       />
     </div>
   );

@@ -263,20 +263,19 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
       </div>
 
       {/* Fader & Mute/Solo Section (Bottom) */}
-      <div className="relative z-10 p-4 pt-4 flex justify-between items-end h-[240px] gap-2">
+      <div className="relative z-10 p-4 pt-4 flex justify-between items-end h-[200px] gap-2">
         {/* Buttons Column */}
         <div className="flex flex-col gap-2 justify-end h-full pb-1">
           <PanKnob value={track.panVal || 0} onChange={onPanChange} label="Pan" />
           <div className="h-1" />
           <button onClick={onMuteToggle} className={`w-9 h-9 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${track.isMute ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'}`}>M</button>
           <button onClick={onSoloToggle} className={`w-9 h-9 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${track.isSolo ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'}`}>S</button>
-          <button onClick={onHideToggle} className={`w-9 h-9 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${track.isHidden ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'}`} title="Ocultar pista">{track.isHidden ? '🙈' : '👁️'}</button>
         </div>
 
         {/* Volume Fader Column */}
         <div className="flex flex-col items-center gap-1.5 h-full">
           <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Volume</span>
-          <div className="h-[155px] flex justify-center items-center relative w-10">
+          <div className="h-[120px] flex justify-center items-center relative w-10">
             {/* Fader Slot */}
             <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
             <input
@@ -286,7 +285,7 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
               orient="vertical"
               value={track.volumeVal}
               onChange={(e) => onVolumeChange(parseInt(e.target.value))}
-              className="vertical-fader z-10 h-[140px]"
+              className="vertical-fader z-10 h-[105px]"
             />
           </div>
           <span className="text-[10px] font-bold text-[var(--cordel-text)]">{track.volumeVal}</span>
@@ -295,7 +294,7 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
         {/* Reverb Fader Column */}
         <div className="flex flex-col items-center gap-1.5 h-full">
           <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Reverb</span>
-          <div className="h-[155px] flex justify-center items-center relative w-10">
+          <div className="h-[120px] flex justify-center items-center relative w-10">
             {/* Fader Slot */}
             <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
             <input
@@ -305,7 +304,7 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
               orient="vertical"
               value={track.reverbVal || 0}
               onChange={(e) => onReverbChange(parseInt(e.target.value))}
-              className="vertical-fader z-10 h-[140px]"
+              className="vertical-fader z-10 h-[105px]"
             />
           </div>
           <span className="text-[10px] font-bold text-[var(--cordel-text)]">{track.reverbVal || 0}</span>
@@ -314,10 +313,10 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
         {/* LED Meter */}
         <div className="flex flex-col items-center gap-1.5 h-full">
           <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
-          <div className="w-2.5 h-[155px] bg-[var(--cordel-bg)] cordel-border-sm relative overflow-hidden">
+          <div className="w-2.5 h-[120px] bg-[var(--cordel-bg)] cordel-border-sm relative overflow-hidden">
             <div
               id={`meter-bar-${track.id}`}
-              className="absolute bottom-0 left-0 right-0 bg-[var(--cordel-border)] w-full transition-all duration-[0.05s]"
+              className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--cordel-border)] w-full transition-all duration-[0.05s]"
               style={{ height: '0%' }}
             />
           </div>

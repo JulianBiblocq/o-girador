@@ -36,8 +36,6 @@ interface ConsoleMixerProps {
   onStepVolumeChange: (trackId: number, patternId: number, stepIdx: number, val: number) => void;
   onStepDecayChange: (trackId: number, patternId: number, stepIdx: number, val: number) => void;
   onStepMicrotimingChange: (trackId: number, patternId: number, stepIdx: number, val: number) => void;
-  reverbType: 'room' | 'studio' | 'hall';
-  onReverbTypeChange: (type: 'room' | 'studio' | 'hall') => void;
   isSwingOn: boolean;
 }
 
@@ -74,8 +72,6 @@ export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
   onStepVolumeChange,
   onStepDecayChange,
   onStepMicrotimingChange,
-  reverbType,
-  onReverbTypeChange,
   isSwingOn,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -101,42 +97,6 @@ export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
-      {/* ConsoleMixer Header / Global Effects Selector */}
-      <div className="bg-[var(--cordel-bg)] border-b-[3px] border-[var(--cordel-border)] px-6 py-2 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">🎛️</span>
-          <span className="font-cactus font-bold text-lg tracking-wide uppercase text-[var(--cordel-text)]">
-            Console de Mixagem
-          </span>
-        </div>
-
-        {/* Global Reverb Choice Selector */}
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-bold uppercase text-[var(--cordel-text)]/75">
-            {lang === 'fr' ? 'Type de Réverbération' : 'Tipo de Reverberação'}:
-          </span>
-          <div className="flex gap-1.5">
-            {[
-              { id: 'room', label: lang === 'fr' ? 'Sala' : 'Sala' },
-              { id: 'studio', label: lang === 'fr' ? 'Studio' : 'Estúdio' },
-              { id: 'hall', label: lang === 'fr' ? 'Cathédrale' : 'Catedral' }
-            ].map((opt) => (
-              <button
-                key={opt.id}
-                onClick={() => onReverbTypeChange(opt.id as any)}
-                className={`px-3 py-1 text-xs font-cactus font-bold cordel-border-sm cordel-button cursor-pointer transition-colors ${
-                  reverbType === opt.id
-                    ? 'bg-[var(--cordel-border)] text-[var(--cordel-bg)]'
-                    : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
       <div ref={scrollRef} className="flex-grow flex overflow-x-auto p-4 gap-4 custom-scrollbar">
         {tracks.map((track, idx) => (
           <VerticalTrackMixer
