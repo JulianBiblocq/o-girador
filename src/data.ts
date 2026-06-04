@@ -73,7 +73,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
   },
   {
     id: 'voice',
-    iconImg: 'icones/voice.svg',
+    iconImg: 'icones/micro.svg',
     name: 'Vocal / Toada',
     type: 'voice',
     mixerBg: '#114a4a',
