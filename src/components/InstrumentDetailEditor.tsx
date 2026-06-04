@@ -409,7 +409,7 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                   {inst.type === 'voice' ? (
                     /* ──── Voice step grid ──── */
                     <div
-                      className="step-boxes flex flex-wrap gap-y-4 gap-x-4"
+                      className="step-boxes flex flex-wrap gap-y-4 gap-x-6"
                       id={`detail-voice-${track.id}-${ptn.id}`}
                     >
                       {(() => {
@@ -418,7 +418,7 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                           groups.push(Array.from({ length: Math.min(4, ptn.steps - g) }, (_, idx) => g + idx));
                         }
                         return groups.map((group, groupIdx) => (
-                          <div key={groupIdx} className="flex gap-2.5 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
+                          <div key={groupIdx} className="flex gap-4 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
                             {group.map((i) => {
                               const state = ptn.activeSteps[i];
                               const isActive = state !== 0;
@@ -437,7 +437,7 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                               const manualMicro = ptn.microtimings?.[i] ?? 0;
                               const swingOffset = getStepSwingPercent(i, ptn.steps);
                               const totalShift = manualMicro + swingOffset;
-                              const shiftPx = (totalShift / 50) * 12; // Max 12px shift
+                              const shiftPx = (totalShift / 50) * 8; // Max 8px shift
 
                               return (
                                 <div key={i} className="relative" style={{ width: '56px' }}>
@@ -542,7 +542,7 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                   ) : (
                     /* ──── Instrument step grid ──── */
                     <div
-                      className="step-boxes flex flex-wrap gap-y-4 gap-x-4"
+                      className="step-boxes flex flex-wrap gap-y-4 gap-x-6"
                       id={`detail-steps-${track.id}-${ptn.id}`}
                     >
                       {(() => {
@@ -551,7 +551,7 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                           groups.push(Array.from({ length: Math.min(4, ptn.steps - g) }, (_, idx) => g + idx));
                         }
                         return groups.map((group, groupIdx) => (
-                          <div key={groupIdx} className="flex gap-1.5 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
+                          <div key={groupIdx} className="flex gap-4 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
                             {group.map((i) => {
                               const val = ptn.activeSteps[i];
                               const displayVal = getDisplayVal(val);
@@ -576,7 +576,7 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                               const manualMicro = ptn.microtimings?.[i] ?? 0;
                               const swingOffset = getStepSwingPercent(i, ptn.steps);
                               const totalShift = manualMicro + swingOffset;
-                              const shiftPx = (totalShift / 50) * 12; // Max 12px shift
+                              const shiftPx = (totalShift / 50) * 8; // Max 8px shift
 
                               return (
                                 <div key={i} className="relative flex flex-col items-center" style={{ width: '36px' }}>
