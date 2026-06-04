@@ -23,6 +23,7 @@ import { Mixer } from './components/Mixer';
 import { ConsoleMixer } from './components/ConsoleMixer';
 import { CircleSequencer } from './components/CircleSequencer';
 import { RightSidebar } from './components/RightSidebar';
+import { TimelineSequencer } from './components/TimelineSequencer';
 
 // Module scope audio engines to avoid duplicate instantiations on React re-renders
 let bMetroClick: Tone.Synth | null = null;
@@ -61,7 +62,7 @@ export default function App() {
   const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | null>(
     window.innerWidth <= 768 ? 'letras' : (window.innerWidth >= 1024 ? 'letras' : null)
   );
-  const [viewMode, setViewMode] = useState<'roda' | 'console'>('roda');
+  const [viewMode, setViewMode] = useState<'roda' | 'console' | 'timeline'>('roda');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [localPresets, setLocalPresets] = useState<string[]>([]);
   const [tracksHistory, setTracksHistory] = useState<TrackGroup[][]>([]);
@@ -1355,7 +1356,7 @@ export default function App() {
         viewMode={viewMode}
         onViewModeToggle={(mode) => {
           setViewMode(mode);
-          if (mode === 'console') {
+          if (mode === 'console' || mode === 'timeline') {
             setActiveRightPanel(null);
           }
         }}
@@ -1385,7 +1386,7 @@ export default function App() {
 
       {/* Main Workspace workspace containing expanding grids layouts */}
       <div id="main-workspace" className="flex flex-grow overflow-hidden relative w-full h-[calc(100vh-130px)] mobile-stack cordel-bg">
-        {viewMode === 'roda' ? (
+        {viewMode === 'roda' && (
           <>
             {/* Left column tracks mixers */}
             <Mixer
@@ -1483,7 +1484,8 @@ export default function App() {
               hitTriggersRef={hitTriggersRef}
             />
           </>
-        ) : (
+        )}
+        {viewMode === 'console' && (
           <div className="flex-1 min-w-0 flex flex-col h-full overflow-x-auto overflow-y-hidden custom-scrollbar">
             <ConsoleMixer
               isMobile={isMobile}
@@ -1571,6 +1573,21 @@ export default function App() {
               }}
             />
           </div>
+        )}
+        {viewMode === 'timeline' && (
+          <TimelineSequencer
+            lang={lang}
+            tracks={tracks}
+            isPlaying={isPlaying}
+            currentStepIndex={currentStepIndex}
+            currentMeasure={measureCountRef.current % totalMeasures}
+            maxTicks={getMaxTicks(timeSig)}
+            totalMeasures={totalMeasures}
+            isMobile={isMobile}
+            onStepValueChange={handleTrackStepValueChange}
+            onMuteToggle={handleTrackMuteToggle}
+            onSoloToggle={handleTrackSoloToggle}
+          />
         )}
 
         {/* Right drawer sidebar context panel */}

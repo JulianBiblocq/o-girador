@@ -29,8 +29,8 @@ interface HeaderProps {
   onToggleRightPanel: (panel: 'legend' | 'letras') => void;
   isLeftPanelCollapsed: boolean;
   onToggleLeftPanel: () => void;
-  viewMode: 'roda' | 'console';
-  onViewModeToggle: (mode: 'roda' | 'console') => void;
+  viewMode: 'roda' | 'console' | 'timeline';
+  onViewModeToggle: (mode: 'roda' | 'console' | 'timeline') => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
   onUndo: () => void;
@@ -298,13 +298,43 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Quick actions (View Switcher and Add Instrument) */}
         <div className="flex items-center gap-2">
-          {/* View Switcher Icon Button */}
+          {/* RODA */}
           <button
-            onClick={() => onViewModeToggle(viewMode === 'roda' ? 'console' : 'roda')}
-            className="w-9 h-9 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button flex items-center justify-center font-bold text-base hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer"
-            title={viewMode === 'roda' ? 'Console (Mixer)' : 'Roda'}
+            onClick={() => onViewModeToggle('roda')}
+            className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
+              viewMode === 'roda'
+                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+            }`}
+            title="Roda"
           >
-            {viewMode === 'roda' ? '🎚️' : '⭕'}
+            ⭕
+          </button>
+
+          {/* MIXER */}
+          <button
+            onClick={() => onViewModeToggle('console')}
+            className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
+              viewMode === 'console'
+                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+            }`}
+            title="Console"
+          >
+            🎚️
+          </button>
+
+          {/* TIMELINE */}
+          <button
+            onClick={() => onViewModeToggle('timeline')}
+            className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
+              viewMode === 'timeline'
+                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+            }`}
+            title={lang === 'fr' ? 'Séquence' : 'Sequência'}
+          >
+            🎞️
           </button>
 
           {/* Add Instrument Dropdown */}
@@ -433,12 +463,43 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* CENTER: Main Core Actions */}
       <div className="flex items-center justify-center flex-grow gap-4">
+        {/* RODA */}
         <button
-          onClick={() => onViewModeToggle(viewMode === 'roda' ? 'console' : 'roda')}
-          className="flex items-center justify-center gap-1.5 h-[36px] px-4 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button cursor-pointer font-bold font-cactus uppercase"
-          title="Alterner vue Roda / Console"
+          onClick={() => onViewModeToggle('roda')}
+          className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${
+            viewMode === 'roda'
+              ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+          }`}
+          title="Vue Roda / Séquenceur circulaire"
         >
-          {viewMode === 'roda' ? '🎚️ MIXER' : '⭕ RODA'}
+          ⭕ RODA
+        </button>
+
+        {/* MIXER */}
+        <button
+          onClick={() => onViewModeToggle('console')}
+          className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${
+            viewMode === 'console'
+              ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+          }`}
+          title="Vue Console / Mixeur vertical"
+        >
+          🎚️ {lang === 'fr' ? 'MIXEUR' : 'MIXADOR'}
+        </button>
+
+        {/* TIMELINE */}
+        <button
+          onClick={() => onViewModeToggle('timeline')}
+          className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${
+            viewMode === 'timeline'
+              ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+          }`}
+          title="Vue Séquence / Ligne temporelle"
+        >
+          🎞️ {lang === 'fr' ? 'SÉQUENCE' : 'SEQUÊNCIA'}
         </button>
 
         <button
