@@ -17,8 +17,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout current branch
         uses: actions/checkout@v4
+
+      - name: Checkout main branch (V1)
+        if: github.ref_name != 'main'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: temp-prod
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -41,9 +48,8 @@ jobs:
             npm run build
             mv dist dist-prod
           else
-            # If on test/dev branch, clone and build the main branch for production
-            echo "Fetching main branch for production build..."
-            git clone --depth 1 --branch main https://github.com/julianbiblocq/BaqueMix.git temp-prod
+            # If on test/dev branch, build the checked-out main branch for production
+            echo "Building main branch for production..."
             cd temp-prod
             npm ci
             npm run build

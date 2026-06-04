@@ -706,15 +706,34 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                             <div className="flex-grow h-2 relative flex items-center">
                               {/* Background track with a center notch */}
                               <div className="absolute inset-x-0 h-1 bg-[#1a1a1a]/15 rounded" />
-                              <div className="absolute left-1/2 -translate-x-1/2 w-[2px] h-3 bg-[#1a1a1a]/40" />
+                              <div className="absolute left-1/2 -translate-x-1/2 w-[2px] h-3 bg-[#1a1a1a]/40 z-10" />
+                              
+                              {/* Bi-directional Blue track representing offset from center */}
+                              {(() => {
+                                const val = ptn.microtimings?.[selectedStepIdx] ?? 0;
+                                if (val !== 0) {
+                                  const widthPercent = Math.min(50, Math.abs(val)); // half-width is 50%
+                                  return (
+                                    <div
+                                      className="absolute h-1 bg-[#2980b9]"
+                                      style={{
+                                        left: val > 0 ? '50%' : 'auto',
+                                        right: val < 0 ? '50%' : 'auto',
+                                        width: `${widthPercent}%`
+                                      }}
+                                    />
+                                  );
+                                }
+                                return null;
+                              })()}
+
                               <input
                                 type="range"
                                 min="-50"
                                 max="50"
                                 value={ptn.microtimings?.[selectedStepIdx] ?? 0}
                                 onChange={(e) => onStepMicrotimingChange(ptn.id, selectedStepIdx, parseInt(e.target.value))}
-                                className="absolute inset-0 w-full h-full opacity-100 cursor-pointer accent-[#2980b9]"
-                                style={{ background: 'transparent' }}
+                                className="absolute inset-x-0 w-full h-4 opacity-100 cursor-pointer slider-transparent-track"
                               />
                             </div>
                             <span className="text-[8px] font-bold opacity-60 shrink-0">+50%</span>
