@@ -229,12 +229,17 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                     return (
                       <div
                         key={mIdx}
-                        className="absolute top-0 bottom-0 border-r-2 border-[var(--cordel-border)]/20 flex bg-[#ece4d0]/5"
+                        className="absolute top-0 bottom-0 border-r-2 border-[var(--cordel-border)]/20 flex bg-[#ece4d0]/5 relative"
                         style={{
                           left: `${mIdx * MEASURE_WIDTH}px`,
                           width: `${MEASURE_WIDTH}px`,
                         }}
                       >
+                        {activePattern && (
+                          <div className="absolute top-0.5 left-1 px-1.5 py-0.5 bg-[var(--cordel-bg)]/90 text-[var(--cordel-text)] text-[7px] font-extrabold border border-[var(--cordel-border)]/35 rounded-sm pointer-events-none select-none z-10 tracking-wider uppercase leading-none">
+                            {activePattern.name}
+                          </div>
+                        )}
                         {!activePattern ? (
                           /* Non-assigned silence indicator style */
                           <div 

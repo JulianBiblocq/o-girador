@@ -192,18 +192,20 @@ export const Header: React.FC<HeaderProps> = ({
 
               {/* Reverb, Swing, Tempo Sig, Measures */}
               <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-cactus font-bold text-[var(--cordel-text)]">Reverb</span>
-                  <select
-                    value={reverbType}
-                    onChange={(e) => onReverbTypeChange(e.target.value as any)}
-                    className="bg-transparent text-[var(--cordel-text)] font-cactus text-xs font-bold outline-none cursor-pointer cordel-border-sm px-1.5 py-0.5"
-                  >
-                    <option value="room" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Sala (Room)' : 'Sala'}</option>
-                    <option value="studio" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Studio' : 'Estúdio'}</option>
-                    <option value="hall" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Cathédrale (Hall)' : 'Catedral'}</option>
-                  </select>
-                </div>
+                {viewMode === 'console' && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-cactus font-bold text-[var(--cordel-text)]">Reverb</span>
+                    <select
+                      value={reverbType}
+                      onChange={(e) => onReverbTypeChange(e.target.value as any)}
+                      className="bg-transparent text-[var(--cordel-text)] font-cactus text-xs font-bold outline-none cursor-pointer cordel-border-sm px-1.5 py-0.5"
+                    >
+                      <option value="room" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Sala (Room)' : 'Sala'}</option>
+                      <option value="studio" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Studio' : 'Estúdio'}</option>
+                      <option value="hall" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Cathédrale (Hall)' : 'Catedral'}</option>
+                    </select>
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-cactus font-bold text-[var(--cordel-text)]">Swing Maracatu</span>

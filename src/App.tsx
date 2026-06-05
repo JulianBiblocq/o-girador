@@ -1619,6 +1619,7 @@ export default function App() {
       </div>
       
       <TransportBar
+        viewMode={viewMode}
         lang={lang}
         isPlaying={isPlaying}
         onTogglePlay={handleTogglePlay}
