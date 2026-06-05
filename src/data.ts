@@ -5,7 +5,7 @@
 
 import { InstrumentConfig, Preset, TimeSignature } from './types';
 
-export const ASSETS_BASE_URL = import.meta.env.BASE_URL;
+export const ASSETS_BASE_URL = (import.meta as any).env.BASE_URL;
 
 export const instrumentsConfig: InstrumentConfig[] = [
   {

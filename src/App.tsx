@@ -30,7 +30,7 @@ let bMetroClick: Tone.Synth | null = null;
 const channels: { [id: string]: Tone.Channel } = {};
 const meters: { [id: string]: Tone.Meter } = {};
 const samplers: { [id: string]: Tone.Players } = {};
-const voiceSynths: { [id: string]: Tone.Synth } = {};
+const voiceSynths: { [id: string]: any } = {};
 let loadedCount = 0;
 let mainLoop: Tone.Loop | null = null;
 let audioRecorder: Tone.Recorder | null = null;
@@ -371,7 +371,7 @@ export default function App() {
                   else if (state === 'd' || state === 'g') { targetKey = 'faible'; isStrong = false; }
                   else if (state === 'b') { targetKey = 'barulho'; isStrong = true; }
                   else if (state === 'x') { targetKey = 'cerclage'; isStrong = true; }
-                  else if (inst.id === 'alfaia' || state === 'i') { targetKey = 'iguarassu'; isStrong = true; }
+                  else if ((inst.id as string) === 'alfaia' || state === 'i') { targetKey = 'iguarassu'; isStrong = true; }
                 } else if (inst.id === 'agbe') {
                   if (state === 'G' || state === 'D') { targetKey = 'fort'; isStrong = true; }
                   else if (state === 'g' || state === 'd') { targetKey = 'faible'; isStrong = false; }
@@ -986,6 +986,35 @@ export default function App() {
     );
   };
 
+  const handleTimelinePatternAssign = (trackId: number, patternId: number | null, measureIdx: number) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          const assign = [...p.measureAssignments];
+          assign[measureIdx] = p.id === patternId;
+          return { ...p, measureAssignments: assign };
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleTimelineNavigate = (measureIdx: number, stepIdxInMeasure: number, stepsInMeasure: number) => {
+    const currentTicks = getMaxTicks(timeSig);
+    const tickIdx = Math.max(0, Math.min(currentTicks - 1, Math.floor((stepIdxInMeasure / stepsInMeasure) * currentTicks)));
+    
+    measureCountRef.current = measureIdx;
+    currentStepIndexRef.current = tickIdx - 1; // -1 so the next loop cycle increments to tickIdx
+    setCurrentStepIndex(tickIdx);
+
+    // Sync Tone.js Transport position
+    const stepDurationSec = Tone.Time('96n').toSeconds();
+    const totalTicksBefore = measureIdx * currentTicks + tickIdx;
+    Tone.Transport.seconds = totalTicksBefore * stepDurationSec;
+  };
+
   // Text values key bindings helpers for traditional grid steps
   const handleTrackStepValueChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
     pushUndoState();
@@ -1584,9 +1613,10 @@ export default function App() {
             maxTicks={getMaxTicks(timeSig)}
             totalMeasures={totalMeasures}
             isMobile={isMobile}
-            onStepValueChange={handleTrackStepValueChange}
             onMuteToggle={handleTrackMuteToggle}
             onSoloToggle={handleTrackSoloToggle}
+            onPatternAssignForMeasure={handleTimelinePatternAssign}
+            onNavigate={handleTimelineNavigate}
           />
         )}
 
