@@ -298,7 +298,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
             return (
               <div
                 key={track.id}
-                className={`flex border-b border-[var(--cordel-border)]/20 h-12 transition-opacity duration-150 ${
+                className={`flex border-b border-[var(--cordel-border)]/20 h-16 transition-opacity duration-150 ${
                   !canPlay ? 'opacity-50' : ''
                 }`}
                 style={{ width: `${HEADER_W + totalContentW}px` }}
@@ -312,23 +312,23 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                     <img
                       src={`${ASSETS_BASE_URL}${inst.iconImg}`}
                       alt={inst.name}
-                      className="w-6 h-6 object-contain filter invert-[var(--cordel-invert)] dark:invert-0"
+                      className="w-8 h-8 object-contain filter invert-[var(--cordel-invert)] dark:invert-0"
                     />
-                    <span className="font-cactus text-xs font-bold truncate text-[var(--cordel-text)] tracking-wider">
+                    <span className="font-cactus text-sm font-bold truncate text-[var(--cordel-text)] tracking-wider">
                       {inst.name}
                     </span>
                   </div>
                   <div className="flex gap-1 shrink-0">
                     <button
                       onClick={() => onMuteToggle(track.id)}
-                      className={`w-5 h-5 flex items-center justify-center text-[9px] font-bold cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+                      className={`w-6 h-6 flex items-center justify-center text-[11px] font-bold cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
                         track.isMute ? 'bg-red-600 text-white border-red-600' : 'bg-transparent text-[var(--cordel-text)]'
                       }`}
                       title="Mute"
                     >M</button>
                     <button
                       onClick={() => onSoloToggle(track.id)}
-                      className={`w-5 h-5 flex items-center justify-center text-[9px] font-bold cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+                      className={`w-6 h-6 flex items-center justify-center text-[11px] font-bold cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
                         track.isSolo ? 'bg-amber-500 text-black border-amber-500' : 'bg-transparent text-[var(--cordel-text)]'
                       }`}
                       title="Solo"
@@ -355,7 +355,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                     >
                       {/* Pattern selector */}
                       <div
-                        className="absolute top-0.5 left-0.5 z-20"
+                        className="absolute top-1 left-1 z-20"
                         onClick={e => e.stopPropagation()}
                         onMouseDown={e => e.stopPropagation()}
                         onTouchStart={e => e.stopPropagation()}
@@ -370,8 +370,8 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                               mIdx,
                             );
                           }}
-                          className="bg-[var(--cordel-bg)]/95 text-[var(--cordel-text)] text-[8px] font-cactus font-bold border border-[var(--cordel-border)]/50 rounded px-0.5 py-px outline-none cursor-pointer tracking-wider uppercase max-w-[90px] leading-tight"
-                          style={{ fontSize: '8px', height: '16px' }}
+                          className="bg-[var(--cordel-bg)]/95 text-[var(--cordel-text)] text-[10px] font-cactus font-bold border border-[var(--cordel-border)]/50 rounded px-1 py-px outline-none cursor-pointer tracking-wider uppercase max-w-[125px] leading-tight"
+                          style={{ fontSize: '10px', height: '22px' }}
                         >
                           <option value="silence">
                             {lang === 'fr' ? '— Silence' : '— Silêncio'}
@@ -430,15 +430,15 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                               >
                                 {inst.type === 'voice' ? (
                                   <div className="flex flex-col items-center justify-center leading-none px-0.5 overflow-hidden w-full h-full">
-                                    <span className="text-[7px] font-bold uppercase opacity-75">
+                                    <span className="text-[9px] font-bold uppercase opacity-75">
                                       {val === 'P' ? 'PUX' : val === 'C' ? 'CORO' : ''}
                                     </span>
-                                    <span className="text-[8px] font-cactus font-bold truncate max-w-full">
+                                    <span className="text-[11px] font-cactus font-bold truncate max-w-full">
                                       {activePattern.lyrics?.[sIdx] || ''}
                                     </span>
                                   </div>
                                 ) : (
-                                  <span className="text-[10px] font-extrabold tracking-wide">
+                                  <span className="text-[13px] font-extrabold tracking-wide">
                                     {display}
                                   </span>
                                 )}
