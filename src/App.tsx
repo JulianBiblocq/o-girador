@@ -69,6 +69,25 @@ export default function App() {
   const tracksHistoryRef = useRef<TrackGroup[][]>([]);
   const [reverbType, setReverbType] = useState<'room' | 'studio' | 'hall'>('studio');
 
+  const [measureTimeSigs, setMeasureTimeSigs] = useState<TimeSignature[]>([]);
+  const [measureBpms, setMeasureBpms] = useState<number[]>([]);
+  const [measureBpmTransitions, setMeasureBpmTransitions] = useState<('immediate' | 'ramp')[]>([]);
+
+  const measureTimeSigsRef = useRef<TimeSignature[]>([]);
+  const measureBpmsRef = useRef<number[]>([]);
+  const measureBpmTransitionsRef = useRef<('immediate' | 'ramp')[]>([]);
+
+  const [songStructureHistory, setSongStructureHistory] = useState<{
+    measureTimeSigs: TimeSignature[];
+    measureBpms: number[];
+    measureBpmTransitions: ('immediate' | 'ramp')[];
+  }[]>([]);
+  const songStructureHistoryRef = useRef<{
+    measureTimeSigs: TimeSignature[];
+    measureBpms: number[];
+    measureBpmTransitions: ('immediate' | 'ramp')[];
+  }[]>([]);
+
   useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 768);
@@ -82,6 +101,22 @@ export default function App() {
   }, [tracksHistory]);
 
   useEffect(() => {
+    measureTimeSigsRef.current = measureTimeSigs;
+  }, [measureTimeSigs]);
+
+  useEffect(() => {
+    measureBpmsRef.current = measureBpms;
+  }, [measureBpms]);
+
+  useEffect(() => {
+    measureBpmTransitionsRef.current = measureBpmTransitions;
+  }, [measureBpmTransitions]);
+
+  useEffect(() => {
+    songStructureHistoryRef.current = songStructureHistory;
+  }, [songStructureHistory]);
+
+  useEffect(() => {
     setLocalPresets(Object.keys(getLocalLibrary()));
   }, []);
 
@@ -89,6 +124,45 @@ export default function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
+
+  // Adjust measure arrays length when totalMeasures changes
+  useEffect(() => {
+    setMeasureTimeSigs(prev => {
+      const arr = [...prev];
+      if (arr.length === totalMeasures) return prev;
+      while (arr.length < totalMeasures) {
+        arr.push(timeSig);
+      }
+      if (arr.length > totalMeasures) {
+        arr.length = totalMeasures;
+      }
+      return arr;
+    });
+
+    setMeasureBpms(prev => {
+      const arr = [...prev];
+      if (arr.length === totalMeasures) return prev;
+      while (arr.length < totalMeasures) {
+        arr.push(bpm);
+      }
+      if (arr.length > totalMeasures) {
+        arr.length = totalMeasures;
+      }
+      return arr;
+    });
+
+    setMeasureBpmTransitions(prev => {
+      const arr = [...prev];
+      if (arr.length === totalMeasures) return prev;
+      while (arr.length < totalMeasures) {
+        arr.push('immediate');
+      }
+      if (arr.length > totalMeasures) {
+        arr.length = totalMeasures;
+      }
+      return arr;
+    });
+  }, [totalMeasures, timeSig, bpm]);
 
   // Synchronize Reverb send levels and panning whenever tracks update
   useEffect(() => {
@@ -242,27 +316,53 @@ export default function App() {
 
       // Stable 96-tick sequencing loop
       mainLoop = new Tone.Loop((time) => {
-        const currentTicks = maxTicksRef.current;
+        let currentTicks = maxTicksRef.current;
         let stepIdx = currentStepIndexRef.current;
 
-        if (stepIdx === currentTicks - 1) {
+        // Apply measure-specific signature and BPM settings
+        if (stepIdx === -1) {
+          const firstMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
+          const firstTimeSig = measureTimeSigsRef.current[firstMeasureIdx] || '4/4';
+          currentTicks = getMaxTicks(firstTimeSig);
+          maxTicksRef.current = currentTicks;
+
+          const targetBpm = measureBpmsRef.current[firstMeasureIdx] || 100;
+          try {
+            Tone.Transport.bpm.cancelScheduledValues(time);
+            Tone.Transport.bpm.setValueAtTime(targetBpm, time);
+          } catch (e) {}
+        } else if (stepIdx === currentTicks - 1) {
           measureCountRef.current++;
+          const nextMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
+          const nextTimeSig = measureTimeSigsRef.current[nextMeasureIdx] || '4/4';
+          currentTicks = getMaxTicks(nextTimeSig);
+          maxTicksRef.current = currentTicks;
+
+          const targetBpm = measureBpmsRef.current[nextMeasureIdx] || 100;
+          const transition = measureBpmTransitionsRef.current[nextMeasureIdx] || 'immediate';
+
+          try {
+            Tone.Transport.bpm.cancelScheduledValues(time);
+            if (transition === 'ramp') {
+              const currentBpm = Tone.Transport.bpm.value;
+              const measureDurationSec = (currentTicks / 24) * (60 / currentBpm);
+              Tone.Transport.bpm.setValueAtTime(currentBpm, time);
+              Tone.Transport.bpm.linearRampToValueAtTime(targetBpm, time + measureDurationSec);
+            } else {
+              Tone.Transport.bpm.setValueAtTime(targetBpm, time);
+            }
+          } catch (e) {}
         }
+
         stepIdx = (stepIdx + 1) % currentTicks;
         currentStepIndexRef.current = stepIdx;
         setCurrentStepIndex(stepIdx);
 
         // Click metronome beat pulse
-        const markers = getMarkers(
-          currentTicks === 144
-            ? '12/8'
-            : currentTicks === 72
-            ? '3/4'
-            : currentTicks === 48
-            ? '2/4'
-            : '4/4',
-          currentTicks
-        );
+        const currentMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
+        const currentMeasureSig = measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
+        const markers = getMarkers(currentMeasureSig, currentTicks);
+
         if (isMetroOnRef.current && markers.includes(stepIdx)) {
           const noteVal = stepIdx === 0 ? 'A5' : 'E5';
           bMetroClick?.triggerAttackRelease(noteVal, '32n', time);
@@ -558,6 +658,26 @@ export default function App() {
     setTotalMeasures(loadedMeasures);
     setBpm(Math.round(p.bpm || 90));
     setTimeSig(p.timeSig || '4/4');
+
+    const defaultBpm = Math.round(p.bpm || 90);
+    const defaultTimeSig = p.timeSig || '4/4';
+
+    const loadedBpms = p.measureBpms && Array.isArray(p.measureBpms)
+      ? p.measureBpms.map((b: number) => Math.round(b))
+      : Array(loadedMeasures).fill(defaultBpm);
+
+    const loadedTimeSigs = p.measureTimeSigs && Array.isArray(p.measureTimeSigs)
+      ? p.measureTimeSigs
+      : Array(loadedMeasures).fill(defaultTimeSig);
+
+    const loadedBpmTransitions = p.measureBpmTransitions && Array.isArray(p.measureBpmTransitions)
+      ? p.measureBpmTransitions
+      : Array(loadedMeasures).fill('immediate');
+
+    setMeasureBpms(loadedBpms);
+    setMeasureTimeSigs(loadedTimeSigs);
+    setMeasureBpmTransitions(loadedBpmTransitions);
+
     measureCountRef.current = 0;
   };
 
@@ -621,6 +741,17 @@ export default function App() {
       if (next.length > 50) next.shift();
       return next;
     });
+
+    setSongStructureHistory(prev => {
+      const cloned = {
+        measureTimeSigs: [...measureTimeSigsRef.current],
+        measureBpms: [...measureBpmsRef.current],
+        measureBpmTransitions: [...measureBpmTransitionsRef.current]
+      };
+      const next = [...prev, cloned];
+      if (next.length > 50) next.shift();
+      return next;
+    });
   };
 
   const handleUndo = () => {
@@ -633,6 +764,19 @@ export default function App() {
       }
       return nextHistory;
     });
+
+    if (songStructureHistoryRef.current.length > 0) {
+      setSongStructureHistory(prev => {
+        const nextHistory = [...prev];
+        const previousState = nextHistory.pop();
+        if (previousState) {
+          setMeasureTimeSigs(previousState.measureTimeSigs);
+          setMeasureBpms(previousState.measureBpms);
+          setMeasureBpmTransitions(previousState.measureBpmTransitions);
+        }
+        return nextHistory;
+      });
+    }
   };
 
   // 3. User operations callbacks
@@ -1001,17 +1145,58 @@ export default function App() {
     }));
   };
 
+  const handleMeasureTimeSigChange = (measureIdx: number, val: TimeSignature) => {
+    pushUndoState();
+    setMeasureTimeSigs(prev => {
+      const arr = [...prev];
+      arr[measureIdx] = val;
+      return arr;
+    });
+  };
+
+  const handleMeasureBpmChange = (measureIdx: number, val: number) => {
+    pushUndoState();
+    setMeasureBpms(prev => {
+      const arr = [...prev];
+      arr[measureIdx] = val;
+      return arr;
+    });
+  };
+
+  const handleMeasureTransitionChange = (measureIdx: number, val: 'immediate' | 'ramp') => {
+    pushUndoState();
+    setMeasureBpmTransitions(prev => {
+      const arr = [...prev];
+      arr[measureIdx] = val;
+      return arr;
+    });
+  };
+
   const handleTimelineNavigate = (measureIdx: number, stepIdxInMeasure: number, stepsInMeasure: number) => {
-    const currentTicks = getMaxTicks(timeSig);
+    const mSig = measureTimeSigs[measureIdx] || timeSig;
+    const currentTicks = getMaxTicks(mSig);
     const tickIdx = Math.max(0, Math.min(currentTicks - 1, Math.floor((stepIdxInMeasure / stepsInMeasure) * currentTicks)));
     
     measureCountRef.current = measureIdx;
     currentStepIndexRef.current = tickIdx - 1; // -1 so the next loop cycle increments to tickIdx
     setCurrentStepIndex(tickIdx);
+    maxTicksRef.current = currentTicks;
+
+    // Apply target BPM instantly when navigating
+    const targetBpm = measureBpms[measureIdx] || bpm;
+    try {
+      Tone.Transport.bpm.cancelScheduledValues(0);
+      Tone.Transport.bpm.value = targetBpm;
+    } catch (e) {}
 
     // Sync Tone.js Transport position
     const stepDurationSec = Tone.Time('96n').toSeconds();
-    const totalTicksBefore = measureIdx * currentTicks + tickIdx;
+    let totalTicksBefore = 0;
+    for (let i = 0; i < measureIdx; i++) {
+      const prevSig = measureTimeSigs[i] || timeSig;
+      totalTicksBefore += getMaxTicks(prevSig);
+    }
+    totalTicksBefore += tickIdx;
     Tone.Transport.seconds = totalTicksBefore * stepDurationSec;
   };
 
@@ -1247,7 +1432,10 @@ export default function App() {
       totalMeasures,
       tracks,
       letras,
-      metadata
+      metadata,
+      measureTimeSigs,
+      measureBpms,
+      measureBpmTransitions
     };
     const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
     const dlLink = document.createElement('a');
@@ -1277,6 +1465,25 @@ export default function App() {
 
         let loadedTracks: TrackGroup[] = [];
         let loadedMeasures = data.totalMeasures || 8;
+
+        const defaultBpm = Math.round(data.bpm || bpm || 90);
+        const defaultTimeSig = data.timeSig || timeSig || '4/4';
+
+        const loadedBpms = data.measureBpms && Array.isArray(data.measureBpms)
+          ? data.measureBpms.map((b: number) => Math.round(b))
+          : Array(loadedMeasures).fill(defaultBpm);
+
+        const loadedTimeSigs = data.measureTimeSigs && Array.isArray(data.measureTimeSigs)
+          ? data.measureTimeSigs
+          : Array(loadedMeasures).fill(defaultTimeSig);
+
+        const loadedBpmTransitions = data.measureBpmTransitions && Array.isArray(data.measureBpmTransitions)
+          ? data.measureBpmTransitions
+          : Array(loadedMeasures).fill('immediate');
+
+        setMeasureBpms(loadedBpms);
+        setMeasureTimeSigs(loadedTimeSigs);
+        setMeasureBpmTransitions(loadedBpmTransitions);
 
         if (data.tracks) {
           loadedTracks = data.tracks;
@@ -1617,6 +1824,12 @@ export default function App() {
             onSoloToggle={handleTrackSoloToggle}
             onPatternAssignForMeasure={handleTimelinePatternAssign}
             onNavigate={handleTimelineNavigate}
+            measureTimeSigs={measureTimeSigs}
+            measureBpms={measureBpms}
+            measureBpmTransitions={measureBpmTransitions}
+            onMeasureTimeSigChange={handleMeasureTimeSigChange}
+            onMeasureBpmChange={handleMeasureBpmChange}
+            onMeasureTransitionChange={handleMeasureTransitionChange}
           />
         )}
 

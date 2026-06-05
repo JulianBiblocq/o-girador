@@ -4,8 +4,8 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { TrackGroup, Language } from '../types';
-import { ASSETS_BASE_URL, instrumentsConfig } from '../data';
+import { TrackGroup, Language, TimeSignature } from '../types';
+import { ASSETS_BASE_URL, instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 
 interface TimelineSequencerProps {
   lang: Language;
@@ -20,6 +20,12 @@ interface TimelineSequencerProps {
   onSoloToggle: (trackId: number) => void;
   onPatternAssignForMeasure: (trackId: number, patternId: number | null, measureIdx: number) => void;
   onNavigate: (measureIdx: number, stepIdx: number, steps: number) => void;
+  measureTimeSigs: TimeSignature[];
+  measureBpms: number[];
+  measureBpmTransitions: ('immediate' | 'ramp')[];
+  onMeasureTimeSigChange: (measureIdx: number, val: TimeSignature) => void;
+  onMeasureBpmChange: (measureIdx: number, val: number) => void;
+  onMeasureTransitionChange: (measureIdx: number, val: 'immediate' | 'ramp') => void;
 }
 
 const MEASURE_W = 480;
@@ -43,15 +49,22 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   onSoloToggle,
   onPatternAssignForMeasure,
   onNavigate,
+  measureTimeSigs,
+  measureBpms,
+  measureBpmTransitions,
+  onMeasureTimeSigChange,
+  onMeasureBpmChange,
+  onMeasureTransitionChange,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const startX = useRef(0);
   const startScrollLeft = useRef(0);
 
-  const maxTicksVal = maxTicks || 96;
+  const currentMeasureSig = measureTimeSigs[currentMeasure] || '4/4';
+  const currentMeasureTicks = getMaxTicks(currentMeasureSig);
   const tickPos = currentStepIndex >= 0 ? currentStepIndex : 0;
-  const playheadX = currentMeasure * MEASURE_W + (tickPos / maxTicksVal) * MEASURE_W;
+  const playheadX = currentMeasure * MEASURE_W + (tickPos / currentMeasureTicks) * MEASURE_W;
 
   // Total scrollable content width (excluding sticky header column)
   const totalContentW = totalMeasures * MEASURE_W;
@@ -116,8 +129,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     el.scrollLeft = Math.max(0, playheadX - vw * 0.4);
   }, [currentStepIndex, currentMeasure, isPlaying, playheadX]);
 
-  // Determine beats per measure from time signature
-  const beatsPerMeasure = maxTicksVal === 72 ? 3 : maxTicksVal === 48 ? 2 : maxTicksVal === 144 ? 12 : 4;
+
 
   return (
     <div className="flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden bg-[var(--cordel-bg)] text-[var(--cordel-text)] select-none">
@@ -133,7 +145,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
 
           {/* ══════════ RULER ROW ══════════ */}
           <div
-            className="flex h-10 border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-grab active:cursor-grabbing select-none"
+            className="flex h-16 border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-grab active:cursor-grabbing select-none"
             style={{ width: `${HEADER_W + totalContentW}px` }}
             onMouseDown={handleMouseDown}
           >
@@ -146,28 +158,91 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
             </div>
 
             {/* Measure labels */}
-            {Array.from({ length: totalMeasures }).map((_, mIdx) => (
-              <div
-                key={mIdx}
-                className="border-r border-[var(--cordel-border)]/30 flex flex-col justify-between px-2 py-0.5 text-[10px] font-bold"
-                style={{ width: MEASURE_W, minWidth: MEASURE_W }}
-              >
-                <span className="font-cactus text-xs tracking-wide">
-                  {lang === 'fr' ? 'Mesure' : 'Compasso'} {mIdx + 1}
-                </span>
-                <div className="flex w-full opacity-50 text-[8px] pb-0.5">
-                  {Array.from({ length: beatsPerMeasure }).map((_, b) => (
-                    <span
-                      key={b}
-                      className="text-left pl-1"
-                      style={{ width: `${100 / beatsPerMeasure}%` }}
-                    >
-                      {b + 1}
+            {Array.from({ length: totalMeasures }).map((_, mIdx) => {
+              const mTimeSig = measureTimeSigs[mIdx] || '4/4';
+              const mBpm = measureBpms[mIdx] || 100;
+              const mTransition = measureBpmTransitions[mIdx] || 'immediate';
+              const localBeats = mTimeSig === '3/4' || mTimeSig === '6/8' ? 3 : mTimeSig === '2/4' ? 2 : mTimeSig === '12/8' ? 12 : 4;
+
+              return (
+                <div
+                  key={mIdx}
+                  className="border-r border-[var(--cordel-border)]/30 flex flex-col justify-between px-2 py-1 text-[10px] font-bold"
+                  style={{ width: MEASURE_W, minWidth: MEASURE_W }}
+                >
+                  <div className="flex items-center justify-between w-full mt-0.5 gap-2">
+                    <span className="font-cactus text-xs tracking-wide">
+                      {lang === 'fr' ? 'Mesure' : 'Compasso'} {mIdx + 1}
                     </span>
-                  ))}
+
+                    <div 
+                      className="flex items-center gap-1.5"
+                      onClick={e => e.stopPropagation()}
+                      onMouseDown={e => e.stopPropagation()}
+                      onTouchStart={e => e.stopPropagation()}
+                    >
+                      {/* Signature rythmique */}
+                      <select
+                        value={mTimeSig}
+                        onChange={e => onMeasureTimeSigChange(mIdx, e.target.value as TimeSignature)}
+                        className="bg-[var(--cordel-bg)] text-[9px] font-cactus font-bold border border-[var(--cordel-border)]/50 rounded px-0.5 py-px outline-none cursor-pointer"
+                        style={{ height: '18px' }}
+                      >
+                        <option value="4/4">4/4</option>
+                        <option value="3/4">3/4</option>
+                        <option value="2/4">2/4</option>
+                        <option value="6/8">6/8</option>
+                        <option value="12/8">12/8</option>
+                      </select>
+
+                      {/* BPM Input */}
+                      <div className="flex items-center gap-0.5">
+                        <span className="text-[8px] opacity-75">BPM:</span>
+                        <input
+                          type="number"
+                          min={40}
+                          max={240}
+                          value={mBpm}
+                          onChange={e => onMeasureBpmChange(mIdx, Math.round(Number(e.target.value)))}
+                          className="w-10 bg-[var(--cordel-bg)] text-[9px] font-bold border border-[var(--cordel-border)]/50 rounded px-0.5 py-px text-center outline-none"
+                          style={{ height: '18px' }}
+                        />
+                      </div>
+
+                      {/* Transition Toggle */}
+                      <button
+                        onClick={() => onMeasureTransitionChange(mIdx, mTransition === 'immediate' ? 'ramp' : 'immediate')}
+                        className={`px-1 py-px text-[9px] font-extrabold border rounded transition-colors cursor-pointer flex items-center justify-center`}
+                        style={{ height: '18px', minWidth: '18px' }}
+                        title={
+                          mTransition === 'ramp'
+                            ? (lang === 'fr' ? 'Transition progressive (Rampe)' : 'Transição progressiva (Rampa)')
+                            : (lang === 'fr' ? 'Transition immédiate' : 'Transição imediata')
+                        }
+                      >
+                        {mTransition === 'ramp' ? (
+                          <span className="text-amber-600 dark:text-amber-500 font-black">↗</span>
+                        ) : (
+                          <span className="opacity-60">→</span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex w-full opacity-50 text-[8px] pb-0.5">
+                    {Array.from({ length: localBeats }).map((_, b) => (
+                      <span
+                        key={b}
+                        className="text-left pl-1 border-l border-[var(--cordel-border)]/10"
+                        style={{ width: `${100 / localBeats}%` }}
+                      >
+                        {b + 1}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* ══════════ TRACK ROWS ══════════ */}
@@ -284,10 +359,11 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                             const val = activePattern.activeSteps[sIdx];
                             const display = getDisplayVal(val);
                             const isActive = val !== 0 && val !== '';
+                            const mMaxTicks = getMaxTicks(measureTimeSigs[mIdx] || '4/4');
                             const isCurrent =
                               isPlaying &&
                               currentMeasure === mIdx &&
-                              Math.floor((tickPos / maxTicksVal) * steps) === sIdx;
+                              Math.floor((tickPos / mMaxTicks) * steps) === sIdx;
 
                             let style: React.CSSProperties = {
                               width: `${MEASURE_W / steps}px`,

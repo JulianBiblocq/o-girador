@@ -84,6 +84,9 @@ export interface Preset {
   tracks?: TrackGroup[]; // New format
   letras?: string;
   metadata?: PresetMetadata;
+  measureTimeSigs?: TimeSignature[];
+  measureBpms?: number[];
+  measureBpmTransitions?: ('immediate' | 'ramp')[];
 }
 
 export interface CatalogItem {
