@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://julianbiblocq.github.io/BaqueMix/sitemap.xml
