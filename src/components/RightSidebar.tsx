@@ -87,9 +87,9 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   const startCamera = async () => {
     try {
       setCameraActive(true);
-      //facingMode 'environment' sets mobile phone back camera as priority
+      // facingMode 'user' prioritizes the front-facing (selfie) camera
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } } 
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } 
       });
       streamRef.current = stream;
       

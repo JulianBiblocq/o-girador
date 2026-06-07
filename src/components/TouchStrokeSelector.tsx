@@ -218,11 +218,16 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
     };
   }, [isSticky, onClose]);
 
+  const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 360;
+  const bubbleWidth = Math.min(270, screenWidth - 24);
+  const leftPos = Math.max(bubbleWidth / 2 + 12, Math.min(screenWidth - bubbleWidth / 2 - 12, selector.x));
+  const arrowOffset = selector.x - leftPos;
+
   return (
     <div
       className="fixed z-[9999] flex flex-col items-center pointer-events-none"
       style={{
-        left: `${selector.x}px`,
+        left: `${leftPos}px`,
         top: `${selector.y}px`,
         transform: 'translate(-50%, -100%) translateY(-15px)',
       }}
@@ -230,7 +235,7 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
       {/* Popover Bubble Container */}
       <div 
         id="touch-stroke-selector-bubble"
-        className="flex flex-col gap-1.5 p-2 bg-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[4px_4px_0_#1a1a1a] pointer-events-auto select-none rounded-none min-w-[210px] items-center"
+        className="flex flex-col gap-1.5 p-2 bg-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[4px_4px_0_#1a1a1a] pointer-events-auto select-none rounded-none max-w-[270px] min-w-[210px] items-center"
       >
         {/* Helper translation header */}
         <span className="text-[10px] font-bold border-b border-[#1a1a1a]/25 pb-1 mb-1 text-center text-[#1a1a1a] uppercase tracking-wider font-cactus w-full">
@@ -240,7 +245,7 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
         </span>
 
         {/* Choices container */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center justify-center gap-1.5 w-full">
           {allChoices.map((stroke) => {
             const isSilence = stroke === '0';
             const strokeVal = isSilence ? '0' : stroke;
@@ -302,7 +307,10 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
       {/* Popover Downward Arrow */}
       <div
         className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[#1a1a1a]"
-        style={{ marginTop: '-2px' }}
+        style={{ 
+          marginTop: '-2px',
+          transform: `translateX(${arrowOffset}px)`
+        }}
       />
     </div>
   );
