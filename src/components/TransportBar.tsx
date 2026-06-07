@@ -9,6 +9,7 @@ interface TransportBarProps {
   onTogglePlay: () => void;
   onRewind: () => void;
   isRecording: boolean;
+  recordingSeconds?: number;
   onRecordToggle: () => void;
   bpm: number;
   onBpmChange: (val: number) => void;
@@ -33,6 +34,7 @@ export const TransportBar: React.FC<TransportBarProps> = ({
   onTogglePlay,
   onRewind,
   isRecording,
+  recordingSeconds = 0,
   onRecordToggle,
   bpm,
   onBpmChange,
@@ -51,6 +53,12 @@ export const TransportBar: React.FC<TransportBarProps> = ({
   viewMode,
 }) => {
   const t = (key: string) => (i18n[lang] as any)[key] || key;
+
+  const formatRecordingTime = (secs: number) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   return (
     <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] flex flex-wrap items-center justify-between px-4 z-50">
@@ -142,15 +150,22 @@ export const TransportBar: React.FC<TransportBarProps> = ({
           {isPlaying ? <Square className="w-6 h-6" fill="currentColor" /> : <Play className="w-8 h-8 ml-1" fill="currentColor" />}
         </button>
         
-        <button
-          onClick={onRecordToggle}
-          className={`w-10 h-10 cordel-border cordel-button flex items-center justify-center transition-colors ${
-            isRecording ? 'bg-red-600 text-white animate-pulse-red' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-red-100 hover:text-red-800'
-          }`}
-          title="Enregistrer"
-        >
-          <Circle className="w-5 h-5" fill="currentColor" />
-        </button>
+        <div className="flex items-center gap-2 relative">
+          <button
+            onClick={onRecordToggle}
+            className={`w-10 h-10 cordel-border cordel-button flex items-center justify-center transition-colors ${
+              isRecording ? 'bg-red-600 text-white animate-pulse-red' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-red-100 hover:text-red-800'
+            }`}
+            title={lang === 'fr' ? "Exporter l'audio en WAV" : lang === 'pt' ? "Exportar áudio em WAV" : "Export Audio to WAV"}
+          >
+            <Circle className="w-5 h-5" fill="currentColor" />
+          </button>
+          {isRecording && (
+            <span className="font-mono text-red-600 dark:text-red-500 font-bold text-xs animate-pulse absolute left-12 whitespace-nowrap bg-[var(--cordel-bg)] px-1.5 py-0.5 border border-red-600/30 shadow-[2px_2px_0_rgba(239,68,68,0.2)]">
+              REC {formatRecordingTime(recordingSeconds)}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Right side: Time Sig, Measures, Volume */}

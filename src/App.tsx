@@ -34,9 +34,80 @@ const samplers: { [id: string]: Tone.Players } = {};
 const voiceSynths: { [id: string]: any } = {};
 let loadedCount = 0;
 let mainLoop: Tone.Loop | null = null;
-let audioRecorder: Tone.Recorder | null = null;
+let wavRecordingBuffersL: Float32Array[] = [];
+let wavRecordingBuffersR: Float32Array[] = [];
+let scriptProcessorNode: ScriptProcessorNode | null = null;
 let reverbNode: Tone.Reverb | null = null;
 const reverbSends: { [id: string]: Tone.Gain } = {};
+
+function bufferToWav(leftBuffers: Float32Array[], rightBuffers: Float32Array[], sampleRate: number): Blob {
+  let totalLength = 0;
+  for (let i = 0; i < leftBuffers.length; i++) {
+    totalLength += leftBuffers[i].length;
+  }
+
+  const mergedLeft = new Float32Array(totalLength);
+  const mergedRight = new Float32Array(totalLength);
+  let offset = 0;
+  for (let i = 0; i < leftBuffers.length; i++) {
+    mergedLeft.set(leftBuffers[i], offset);
+    mergedRight.set(rightBuffers[i], offset);
+    offset += leftBuffers[i].length;
+  }
+
+  const interleaved = new Float32Array(totalLength * 2);
+  for (let i = 0; i < totalLength; i++) {
+    interleaved[i * 2] = mergedLeft[i];
+    interleaved[i * 2 + 1] = mergedRight[i];
+  }
+
+  const buffer = new ArrayBuffer(44 + interleaved.length * 2);
+  const view = new DataView(buffer);
+
+  // RIFF identifier
+  writeString(view, 0, 'RIFF');
+  // file length
+  view.setUint32(4, 36 + interleaved.length * 2, true);
+  // WAVE identifier
+  writeString(view, 8, 'WAVE');
+  // format chunk identifier
+  writeString(view, 12, 'fmt ');
+  // format chunk length
+  view.setUint32(16, 16, true);
+  // sample format (raw PCM = 1)
+  view.setUint16(20, 1, true);
+  // channel count (stereo = 2)
+  view.setUint16(22, 2, true);
+  // sample rate
+  view.setUint32(24, sampleRate, true);
+  // byte rate (sample rate * block align)
+  view.setUint32(28, sampleRate * 4, true);
+  // block align (channel count * bytes per sample)
+  view.setUint16(32, 4, true);
+  // bits per sample (16-bit)
+  view.setUint16(34, 16, true);
+  // data chunk identifier
+  writeString(view, 36, 'data');
+  // data chunk length
+  view.setUint32(40, interleaved.length * 2, true);
+
+  // Write PCM audio data
+  let index = 44;
+  for (let i = 0; i < interleaved.length; i++) {
+    const sample = Math.max(-1, Math.min(1, interleaved[i]));
+    const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+    view.setInt16(index, intSample, true);
+    index += 2;
+  }
+
+  return new Blob([view], { type: 'audio/wav' });
+}
+
+function writeString(view: DataView, offset: number, string: string) {
+  for (let i = 0; i < string.length; i++) {
+    view.setUint8(offset + i, string.charCodeAt(i));
+  }
+}
 
 export default function App() {
   const [lang, setLang] = useState<Language>('pt');
@@ -56,6 +127,7 @@ export default function App() {
     ritmo: ''
   });
   const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(-1);
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState<boolean>(false);
@@ -687,6 +759,22 @@ export default function App() {
     return () => clearInterval(timer);
   }, []);
 
+  // Recording duration timer
+  useEffect(() => {
+    let interval: any = null;
+    if (isRecording) {
+      setRecordingSeconds(0);
+      interval = setInterval(() => {
+        setRecordingSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      setRecordingSeconds(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isRecording]);
+
   // Keybindings listener: Spacebar & Undo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1001,23 +1089,47 @@ export default function App() {
   };
 
   const handleAudioRecordingToggle = async () => {
-    if (!audioRecorder) {
-      audioRecorder = new Tone.Recorder();
-      Tone.Destination.connect(audioRecorder);
-    }
+    const audioContext = Tone.getContext().rawContext;
 
     if (!isRecording) {
-      audioRecorder.start();
-      setIsRecording(true);
+      // Start recording
+      wavRecordingBuffersL = [];
+      wavRecordingBuffersR = [];
+      
+      try {
+        scriptProcessorNode = audioContext.createScriptProcessor(4096, 2, 2);
+        scriptProcessorNode.onaudioprocess = (e) => {
+          const left = e.inputBuffer.getChannelData(0);
+          const right = e.inputBuffer.getChannelData(1);
+          wavRecordingBuffersL.push(new Float32Array(left));
+          wavRecordingBuffersR.push(new Float32Array(right));
+        };
+
+        Tone.getDestination().connect(scriptProcessorNode);
+        scriptProcessorNode.connect(audioContext.destination);
+        setIsRecording(true);
+      } catch (err) {
+        console.error("Could not start WAV recording:", err);
+      }
     } else {
-      const clip = await audioRecorder.stop();
+      // Stop recording
+      if (scriptProcessorNode) {
+        try {
+          scriptProcessorNode.disconnect();
+          Tone.getDestination().disconnect(scriptProcessorNode);
+        } catch (e) {}
+        scriptProcessorNode = null;
+      }
       setIsRecording(false);
 
-      const url = URL.createObjectURL(clip);
-      const downloadLink = document.createElement('a');
-      downloadLink.download = 'BaqueMix_Gravacao.webm';
-      downloadLink.href = url;
-      downloadLink.click();
+      if (wavRecordingBuffersL.length > 0) {
+        const wavBlob = bufferToWav(wavRecordingBuffersL, wavRecordingBuffersR, audioContext.sampleRate);
+        const url = URL.createObjectURL(wavBlob);
+        const downloadLink = document.createElement('a');
+        downloadLink.download = 'BaqueMix_Export.wav';
+        downloadLink.href = url;
+        downloadLink.click();
+      }
     }
   };
 
@@ -2214,6 +2326,7 @@ export default function App() {
         onTogglePlay={handleTogglePlay}
         onRewind={handleRewind}
         isRecording={isRecording}
+        recordingSeconds={recordingSeconds}
         onRecordToggle={handleAudioRecordingToggle}
         bpm={bpm}
         onBpmChange={setBpm}

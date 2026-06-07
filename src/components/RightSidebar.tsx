@@ -187,6 +187,23 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
           </div>
 
           <div className="flex flex-col gap-1.5 pr-1 flex-grow">
+            {/* Shortcuts & Gestures */}
+            <div className="relative flex flex-col gap-1 bg-[var(--cordel-bg)] cordel-border-sm p-2">
+              <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
+                {t('seqLegendTitle')}
+              </span>
+              <div className="text-[11px] text-[var(--cordel-text)] leading-relaxed">
+                <p className="font-bold text-[var(--cordel-wood)] dark:text-[#f1c40f] mt-0.5 mb-0.5">
+                  {t('seqDesktopTitle')}
+                </p>
+                <p dangerouslySetInnerHTML={{ __html: t('seqDesktopKeys') }} className="mb-2 pl-1" />
+                <p className="font-bold text-[var(--cordel-wood)] dark:text-[#f1c40f] mb-0.5">
+                  {t('seqMobileTitle')}
+                </p>
+                <p dangerouslySetInnerHTML={{ __html: t('seqMobileKeys') }} className="pl-1" />
+              </div>
+            </div>
+
             {/* Vocals */}
             <div className="relative flex flex-col gap-1 bg-[var(--cordel-bg)] cordel-border-sm p-2">
               <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
