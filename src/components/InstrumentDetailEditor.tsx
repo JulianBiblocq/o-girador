@@ -38,6 +38,9 @@ interface InstrumentDetailEditorProps {
     currentVal: string | number,
     onSelect: (val: string) => void
   ) => void;
+  onCopyPattern?: (pattern: any) => void;
+  onPastePattern?: (patternId: number) => void;
+  canPaste?: boolean;
 }
 
 /* ── Stroke legend definitions ─────────────────────────────── */
@@ -192,6 +195,9 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
   totalMeasures,
   isMobile,
   onStepTouchStart,
+  onCopyPattern,
+  onPastePattern,
+  canPaste,
 }) => {
   const inst = instrumentsConfig[track.instrumentIdx];
   const t = (key: string) => (i18n[lang] as any)[key] || key;
@@ -200,10 +206,22 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
   const [selectedPatternId, setSelectedPatternId] = useState<number | null>(null);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
 
+  const isMouseDownRef = React.useRef(false);
+  const paintValueRef = React.useRef<string | number>(0);
+
+  React.useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      isMouseDownRef.current = false;
+    };
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, []);
+
   const strokes = getStrokesForInstrument(inst.id, inst.type);
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
   const handleStart = (e: React.MouseEvent | React.TouchEvent, patternId: number, stepIdx: number, currentVal: string | number) => {
+    if ('shiftKey' in e && e.shiftKey) return;
     if (onStepTouchStart) {
       if (e.type === 'touchstart') {
         onStepTouchStart(e, patternId, stepIdx, inst.id, currentVal, (newVal) => {
@@ -423,6 +441,29 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                         ▶ {lang === 'fr' ? 'Actif' : 'Ativo'}
                       </span>
                     )}
+
+                    {/* Copy/Paste buttons */}
+                    <div className="flex gap-1 ml-4">
+                      <button
+                        onClick={() => onCopyPattern && onCopyPattern(ptn)}
+                        className="px-1.5 py-0.5 bg-[#eaddcf] text-[10px] font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
+                        title={lang === 'fr' ? 'Copier le motif' : 'Copiar o padrão'}
+                      >
+                        📋 {lang === 'fr' ? 'Copier' : 'Copiar'}
+                      </button>
+                      <button
+                        onClick={() => onPastePattern && onPastePattern(ptn.id)}
+                        disabled={!canPaste}
+                        className={`px-1.5 py-0.5 text-[10px] font-bold cordel-border-sm cursor-pointer ${
+                          canPaste 
+                            ? 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]' 
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                        }`}
+                        title={lang === 'fr' ? 'Coller le motif copié' : 'Colar o padrão copiado'}
+                      >
+                        📥 {lang === 'fr' ? 'Coller' : 'Colar'}
+                      </button>
+                    </div>
 
                     {/* Steps selector */}
                     <div className="flex items-center gap-1.5 ml-auto">
@@ -682,7 +723,22 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                                       setSelectedStepIdx(i);
                                       setSelectedPatternId(ptn.id);
                                     }}
-                                    onMouseDown={(e) => handleStart(e, ptn.id, i, val)}
+                                    onMouseDown={(e) => {
+                                      if (e.button !== 0) return;
+                                      if (e.shiftKey) {
+                                        isMouseDownRef.current = true;
+                                        const nextVal = getNextStepValue(inst.id, inst.type, val);
+                                        paintValueRef.current = nextVal;
+                                        onStepValueChange(ptn.id, i, String(nextVal));
+                                      } else {
+                                        handleStart(e, ptn.id, i, val);
+                                      }
+                                    }}
+                                    onMouseEnter={() => {
+                                      if (isMouseDownRef.current) {
+                                        onStepValueChange(ptn.id, i, String(paintValueRef.current));
+                                      }
+                                    }}
                                     onTouchStart={(e) => {
                                       e.preventDefault();
                                       handleStart(e, ptn.id, i, val);
@@ -690,6 +746,30 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                                     onChange={(e) => onStepValueChange(ptn.id, i, e.target.value)}
                                     onKeyDown={(e) => {
                                       if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
+                                      
+                                      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+                                      if ((isCtrlOrMeta && e.key.toLowerCase() === 'c') || e.key.toLowerCase() === 'c') {
+                                        e.preventDefault();
+                                        onCopyPattern && onCopyPattern(ptn);
+                                        return;
+                                      }
+                                      if ((isCtrlOrMeta && e.key.toLowerCase() === 'v') || e.key.toLowerCase() === 'v') {
+                                        e.preventDefault();
+                                        if (canPaste) {
+                                          onPastePattern && onPastePattern(ptn.id);
+                                        }
+                                        return;
+                                      }
+                                      if (e.key === 'Delete' || e.key === 'Backspace') {
+                                        e.preventDefault();
+                                        onStepValueChange(ptn.id, i, '0');
+                                        if (e.key === 'Backspace') {
+                                          const inputEl = e.currentTarget as HTMLInputElement;
+                                          onStepKeyDown(ptn.id, i, e.key, '', inputEl);
+                                        }
+                                        return;
+                                      }
+
                                       const inputEl = e.currentTarget as HTMLInputElement;
                                       onStepKeyDown(ptn.id, i, e.key, inputEl.value, inputEl);
                                     }}

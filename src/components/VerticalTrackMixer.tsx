@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { TrackGroup, Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { PanKnob } from './PanKnob';
+import { getNextStepValue } from './InstrumentDetailEditor';
 
 interface VerticalTrackMixerProps {
   lang: Language;
@@ -44,6 +45,9 @@ interface VerticalTrackMixerProps {
     currentVal: string | number,
     onSelect: (val: string) => void
   ) => void;
+  onCopyPattern?: (pattern: any) => void;
+  onPastePattern?: (trackId: number, patternId: number) => void;
+  canPaste?: boolean;
 }
 
 export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
@@ -80,9 +84,23 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
   onDeletePattern,
   onOpenDetailEditor,
   onStepTouchStart,
+  onCopyPattern,
+  onPastePattern,
+  canPaste,
 }) => {
   const [instDropdownOpen, setInstDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const isMouseDownRef = useRef(false);
+  const paintValueRef = useRef<string | number>(0);
+
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      isMouseDownRef.current = false;
+    };
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, []);
 
   const inst = instrumentsConfig[track.instrumentIdx];
   const t = (key: string) => (i18n[lang] as any)[key] || key;
@@ -92,6 +110,7 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
   const handleStart = (e: React.MouseEvent | React.TouchEvent, stepIdx: number, currentVal: string | number) => {
+    if ('shiftKey' in e && e.shiftKey) return;
     if (onStepTouchStart) {
       if (e.type === 'touchstart') {
         onStepTouchStart(e, activePattern.id, stepIdx, inst.id, currentVal, (newVal) => {
@@ -188,6 +207,27 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
         <div className="bg-[var(--cordel-bg)] p-2 cordel-border-sm flex flex-col gap-2">
           <div className="flex justify-between items-center border-b-2 border-[var(--cordel-border)] pb-1 mb-1">
             <span className="font-cactus font-bold text-sm">Padrões</span>
+            <div className="flex gap-1">
+              <button
+                onClick={() => onCopyPattern && onCopyPattern(activePattern)}
+                className="px-1.5 py-0.5 bg-[#eaddcf] text-[10px] font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
+                title="Copier le motif actif"
+              >
+                📋 Copier
+              </button>
+              <button
+                onClick={() => onPastePattern && onPastePattern(track.id, activePattern.id)}
+                disabled={!canPaste}
+                className={`px-1.5 py-0.5 text-[10px] font-bold cordel-border-sm cursor-pointer ${
+                  canPaste 
+                    ? 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]' 
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                }`}
+                title="Coller le motif copié"
+              >
+                📥 Coller
+              </button>
+            </div>
             <button onClick={onAddPattern} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] px-2 py-0.5 cordel-border-sm cordel-button text-[10px] font-bold hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]">+ Padrão</button>
           </div>
           
@@ -281,13 +321,52 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
                           e.target.select();
                         }
                       }}
-                      onMouseDown={(e) => handleStart(e, i, val)}
+                      onMouseDown={(e) => {
+                        if (e.button !== 0) return;
+                        if (e.shiftKey) {
+                          isMouseDownRef.current = true;
+                          const nextVal = getNextStepValue(inst.id, inst.type, val);
+                          paintValueRef.current = nextVal;
+                          onStepValueChange(activePattern.id, i, String(nextVal));
+                        } else {
+                          handleStart(e, i, val);
+                        }
+                      }}
+                      onMouseEnter={() => {
+                        if (isMouseDownRef.current) {
+                          onStepValueChange(activePattern.id, i, String(paintValueRef.current));
+                        }
+                      }}
                       onTouchStart={(e) => {
                         e.preventDefault();
                         handleStart(e, i, val);
                       }}
                       onChange={(e) => onStepValueChange(activePattern.id, i, e.target.value)}
-                      onKeyDown={(e) => onStepKeyDown(activePattern.id, i, e.key, displayVal, e.target as HTMLInputElement)}
+                      onKeyDown={(e) => {
+                        const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+                        if ((isCtrlOrMeta && e.key.toLowerCase() === 'c') || e.key.toLowerCase() === 'c') {
+                          e.preventDefault();
+                          onCopyPattern && onCopyPattern(activePattern);
+                          return;
+                        }
+                        if ((isCtrlOrMeta && e.key.toLowerCase() === 'v') || e.key.toLowerCase() === 'v') {
+                          e.preventDefault();
+                          if (canPaste) {
+                            onPastePattern && onPastePattern(track.id, activePattern.id);
+                          }
+                          return;
+                        }
+                        if (e.key === 'Delete' || e.key === 'Backspace') {
+                          e.preventDefault();
+                          onStepValueChange(activePattern.id, i, '0');
+                          if (e.key === 'Backspace') {
+                            const inputEl = e.currentTarget as HTMLInputElement;
+                            onStepKeyDown(activePattern.id, i, e.key, '', inputEl);
+                          }
+                          return;
+                        }
+                        onStepKeyDown(activePattern.id, i, e.key, displayVal, e.target as HTMLInputElement);
+                      }}
                       style={{ backgroundColor: isActive ? stepColor : undefined, color: isActive ? textColor : undefined }}
                       className={`w-6 h-6 text-center text-xs font-bold font-sans cordel-border-sm outline-none transition-colors border-[2px] ${currentStep === i ? 'border-[#f1c40f] scale-110 shadow-[0_0_8px_#f1c40f] z-10 relative' : 'border-[var(--cordel-border)]'} ${!isActive ? 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]' : ''} ${isBeatBound ? 'mr-1' : ''}`}
                     />
@@ -313,7 +392,7 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
         {/* Volume Fader Column */}
         <div className="flex flex-col items-center gap-1.5 h-full">
           <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Volume</span>
-          <div className="h-[120px] flex justify-center items-center relative w-10">
+          <div className="h-[145px] flex justify-center items-center relative w-12">
             {/* Fader Slot */}
             <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
             <input
@@ -323,7 +402,7 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
               orient="vertical"
               value={track.volumeVal}
               onChange={(e) => onVolumeChange(parseInt(e.target.value))}
-              className="vertical-fader z-10 h-[105px]"
+              className="vertical-fader z-10 h-[130px] w-8 cursor-pointer"
             />
           </div>
           <span className="text-[10px] font-bold text-[var(--cordel-text)]">{track.volumeVal}</span>
@@ -332,7 +411,7 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
         {/* Reverb Fader Column */}
         <div className="flex flex-col items-center gap-1.5 h-full">
           <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Reverb</span>
-          <div className="h-[120px] flex justify-center items-center relative w-10">
+          <div className="h-[145px] flex justify-center items-center relative w-12">
             {/* Fader Slot */}
             <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
             <input
@@ -342,7 +421,7 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
               orient="vertical"
               value={track.reverbVal || 0}
               onChange={(e) => onReverbChange(parseInt(e.target.value))}
-              className="vertical-fader z-10 h-[105px]"
+              className="vertical-fader z-10 h-[130px] w-8 cursor-pointer"
             />
           </div>
           <span className="text-[10px] font-bold text-[var(--cordel-text)]">{track.reverbVal || 0}</span>
@@ -351,7 +430,7 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
         {/* LED Meter */}
         <div className="flex flex-col items-center gap-1.5 h-full">
           <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
-          <div className="w-2.5 h-[120px] bg-[var(--cordel-bg)] cordel-border-sm relative overflow-hidden">
+          <div className="w-3 h-[145px] bg-[var(--cordel-bg)] cordel-border-sm relative overflow-hidden">
             <div
               id={`meter-bar-${track.id}`}
               className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--cordel-border)] w-full transition-all duration-[0.05s]"

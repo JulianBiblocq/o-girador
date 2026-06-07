@@ -36,6 +36,117 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   currentPlayState,
   totalMeasures,
 }) => {
+  const [cameraActive, setCameraActive] = React.useState<boolean>(false);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const streamRef = React.useRef<MediaStream | null>(null);
+  const [zoomModalOpen, setZoomModalOpen] = React.useState<boolean>(false);
+
+  // Stop camera stream on unmount
+  React.useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  const compressAndResizeImage = (fileOrBlob: File | Blob, callback: (base64: string) => void) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 500;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.5);
+          callback(compressedBase64);
+        }
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(fileOrBlob);
+  };
+
+  const startCamera = async () => {
+    try {
+      setCameraActive(true);
+      //facingMode 'environment' sets mobile phone back camera as priority
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } } 
+      });
+      streamRef.current = stream;
+      
+      // Delay slightly to ensure video element is rendered
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(e => console.error("Video play error:", e));
+        }
+      }, 100);
+    } catch (err) {
+      console.error("Camera access error:", err);
+      setCameraActive(false);
+      window.alert(lang === 'fr' 
+        ? "Impossible d'accéder à la caméra. Vérifiez vos permissions." 
+        : "Não foi possível acessar a câmera. Verifique as permissões.");
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setCameraActive(false);
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current && onMetadataChange && metadata) {
+      const video = videoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (blob) {
+            compressAndResizeImage(blob, (compressedBase64) => {
+              onMetadataChange({ ...metadata, partitionImage: compressedBase64 });
+              stopCamera();
+            });
+          }
+        }, 'image/jpeg', 0.5);
+      }
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onMetadataChange && metadata) {
+      compressAndResizeImage(file, (compressedBase64) => {
+        onMetadataChange({ ...metadata, partitionImage: compressedBase64 });
+      });
+    }
+  };
+
   const t = (key: string) => {
     const section = i18n[lang];
     return (section as any)[key] || key;
@@ -54,12 +165,13 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   const goldRuleHtml = t('goldRule');
 
   return (
-    <div
-      id="right-sidebar-panel"
-      className="w-[340px] min-w-[340px] bg-[var(--cordel-bg)] cordel-bg border-l-[3px] border-[var(--cordel-border)] flex flex-col h-full transition-all duration-300 relative z-10 text-[var(--cordel-text)]"
-    >
-      {/* --- LEGEND SECTION --- */}
-      {activePanel === 'legend' && (
+    <>
+      <div
+        id="right-sidebar-panel"
+        className="w-[340px] min-w-[340px] bg-[var(--cordel-bg)] cordel-bg border-l-[3px] border-[var(--cordel-border)] flex flex-col h-full transition-all duration-300 relative z-10 text-[var(--cordel-text)]"
+      >
+        {/* --- LEGEND SECTION --- */}
+        {activePanel === 'legend' && (
         <div className="flex flex-col p-5 h-full overflow-y-auto">
           <div className="flex justify-between items-center border-b-[3px] border-[var(--cordel-border)] pb-3 mb-4">
             <span className="font-cactus font-bold text-2xl text-[var(--cordel-text)] tracking-wider uppercase font-medium">
@@ -328,6 +440,77 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   />
                 </div>
               )}
+
+              {/* Partition image block */}
+              <div className="border-t border-[var(--cordel-border)]/20 pt-2 mt-2 flex flex-col gap-1">
+                <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
+                  {lang === 'fr' ? 'Partition / Signes rythmiques' : 'Partitura / Sinais do ritmo'}
+                </span>
+                <span className="text-[8px] text-[var(--cordel-text)] opacity-60">
+                  {lang === 'fr' 
+                    ? '(Image compressée automatiquement pour l\'export)' 
+                    : '(Imagem compactada automaticamente para exportação)'}
+                </span>
+
+                {metadata.partitionImage ? (
+                  <div className="flex flex-col gap-2">
+                    <div className="relative group cordel-border-sm overflow-hidden aspect-video bg-[#eaddcf] cursor-zoom-in" onClick={() => setZoomModalOpen(true)}>
+                      <img src={metadata.partitionImage} alt="Partition" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold uppercase transition-opacity">
+                        🔍 {lang === 'fr' ? 'Agrandir' : 'Ampliar'}
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(lang === 'fr' ? "Supprimer cette image ?" : "Excluir esta imagem?")) {
+                          onMetadataChange({ ...metadata, partitionImage: undefined });
+                        }
+                      }}
+                      className="text-[#8b2a1a] font-bold text-[10px] text-left hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      🗑️ {lang === 'fr' ? 'Supprimer la photo' : 'Remover foto'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {cameraActive ? (
+                      <div className="flex flex-col gap-2">
+                        <div className="aspect-video bg-black cordel-border-sm overflow-hidden relative">
+                          <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={capturePhoto}
+                            className="flex-1 py-1 bg-emerald-600 text-white text-[10px] font-bold cordel-border-sm hover:opacity-85 cursor-pointer"
+                          >
+                            📸 {lang === 'fr' ? 'Capturer' : 'Capturar'}
+                          </button>
+                          <button
+                            onClick={stopCamera}
+                            className="py-1 px-3 bg-gray-300 text-black text-[10px] font-bold cordel-border-sm hover:opacity-85 cursor-pointer"
+                          >
+                            {lang === 'fr' ? 'Annuler' : 'Cancelar'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <label className="flex-1 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[10px] font-bold cordel-border-sm text-center cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors flex items-center justify-center gap-1">
+                          📁 {lang === 'fr' ? 'Fichier' : 'Arquivo'}
+                          <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                        </label>
+                        <button
+                          onClick={startCamera}
+                          className="flex-1 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[10px] font-bold cordel-border-sm hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer flex items-center justify-center gap-1"
+                        >
+                          📷 {lang === 'fr' ? 'Photo' : 'Câmera'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -449,5 +632,18 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
         </div>
       )}
     </div>
+
+      {/* ══════════ ZOOM IMAGE MODAL OVERLAY ══════════ */}
+      {zoomModalOpen && metadata?.partitionImage && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/90 p-4 cursor-zoom-out" onClick={() => setZoomModalOpen(false)}>
+          <div className="relative max-w-full max-h-full flex flex-col justify-center items-center">
+            <img src={metadata.partitionImage} alt="Partition zoom" className="max-w-[95vw] max-h-[85vh] object-contain cordel-border-sm" />
+            <span className="text-white font-cactus uppercase tracking-wider text-xs mt-3 select-none">
+              {lang === 'fr' ? 'Cliquer n\'importe où pour fermer' : 'Clique em qualquer lugar para fechar'}
+            </span>
+          </div>
+        </div>
+      )}
+    </>
   );
 };

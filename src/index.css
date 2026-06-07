@@ -114,52 +114,55 @@ body {
     overflow-x: hidden !important;
   }
 
-  /* Mixer panel: full width, not fixed */
+  /* Mixer panel: full width, h-full, scrollable internally */
   #left-panel {
     width: 100% !important;
     min-width: 100% !important;
-    height: auto !important;
+    height: 100% !important;
     border-right: none !important;
-    border-bottom: 2px solid #eaddcf !important;
+    border-bottom: none !important;
     /* Order 2: after roda */
     order: 2;
     flex-shrink: 0 !important;
-    overflow: visible !important;
+    overflow: hidden !important;
   }
 
-  #mixer-section, #tracks-mixer-container {
+  #mixer-section {
+    height: 100% !important;
+    overflow-y: auto !important;
+  }
+  
+  #tracks-mixer-container {
     height: auto !important;
-    min-height: auto !important;
     overflow: visible !important;
   }
 
-  /* Circle sequencer: full width, order 1 (after header) */
+  /* Circle sequencer: full width, fits main space */
   #circle-sequencer-panel {
     width: 100% !important;
-    height: auto !important;
-    min-height: 380px !important;
-    aspect-ratio: 1 / 1 !important;
+    height: 100% !important;
+    min-height: 280px !important;
     order: 1;
     flex-shrink: 0 !important;
   }
 
-  /* Right sidebar: full width, order 3 */
+  /* Right sidebar: full width, h-full, scrollable internally */
   #right-sidebar-panel {
     width: 100% !important;
     min-width: 100% !important;
-    height: auto !important;
+    height: 100% !important;
     user-select: none;
     border-left: none !important;
-    border-top: 2px solid #eaddcf !important;
+    border-top: none !important;
     order: 3;
     flex-shrink: 0 !important;
-    overflow: visible !important;
+    overflow: hidden !important;
   }
 
-  /* Override inner h-full divs on mobile to grow naturally */
+  /* Override inner h-full divs on mobile to scroll internally */
   #right-sidebar-panel > div {
-    height: auto !important;
-    overflow: visible !important;
+    height: 100% !important;
+    overflow-y: auto !important;
   }
 
   /* Header: allow wrapping on mobile */
@@ -208,7 +211,7 @@ body {
 .vertical-fader {
   writing-mode: vertical-lr;
   direction: rtl;
-  width: 16px;
+  width: 28px;
   height: 180px;
   outline: none;
   background: transparent;
@@ -216,10 +219,18 @@ body {
 .vertical-fader::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 32px;
-  height: 16px;
+  width: 38px;
+  height: 20px;
   background: var(--cordel-border);
-  border: 2px solid var(--cordel-bg);
+  border: 3px solid var(--cordel-bg);
+  cursor: pointer;
+  border-radius: 0;
+}
+.vertical-fader::-moz-range-thumb {
+  width: 38px;
+  height: 20px;
+  background: var(--cordel-border);
+  border: 3px solid var(--cordel-bg);
   cursor: pointer;
   border-radius: 0;
 }
@@ -266,3 +277,52 @@ body {
   box-shadow: 0 0 0 1.5px #1a1a1a;
   cursor: pointer;
 }
+
+/* === PRINT STYLE FOR TABLATURE === */
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  
+  body * {
+    visibility: hidden;
+  }
+
+  #print-tablature-area, #print-tablature-area * {
+    visibility: visible;
+  }
+
+  #print-tablature-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background-color: white !important;
+    color: black !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+}
+
+/* Disable touch scroll actions and text selection on step grids and touch selector to guarantee smooth touch gestures */
+.step-boxes,
+.step-boxes * {
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+#touch-stroke-selector-bubble,
+#touch-stroke-selector-bubble * {
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+

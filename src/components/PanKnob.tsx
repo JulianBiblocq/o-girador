@@ -14,9 +14,9 @@ export const PanKnob: React.FC<PanKnobProps> = ({ value, onChange, label = "Pan"
   return (
     <div className="flex flex-col items-center gap-0.5 select-none shrink-0">
       <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">{label}</span>
-      <div className="relative w-9 h-9 flex items-center justify-center cursor-pointer">
+      <div className="relative w-11 h-11 flex items-center justify-center cursor-pointer">
         {/* SVG dial representing the potentiometer */}
-        <svg width="32" height="32" viewBox="0 0 32 32" className="transition-transform duration-100">
+        <svg width="38" height="38" viewBox="0 0 32 32" className="transition-transform duration-100">
           {/* Dial body */}
           <circle cx="16" cy="16" r="14" fill="var(--cordel-bg)" stroke="var(--cordel-border)" strokeWidth="2" />
           

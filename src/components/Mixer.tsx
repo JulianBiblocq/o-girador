@@ -46,6 +46,9 @@ interface MixerProps {
     currentVal: string | number,
     onSelect: (val: string) => void
   ) => void;
+  onCopyPattern: (pattern: any) => void;
+  onPastePattern: (trackId: number, patternId: number) => void;
+  canPaste: boolean;
 }
 
 export const Mixer: React.FC<MixerProps> = ({
@@ -79,6 +82,9 @@ export const Mixer: React.FC<MixerProps> = ({
   onAddPattern,
   onDeletePattern,
   onStepTouchStart,
+  onCopyPattern,
+  onPastePattern,
+  canPaste,
 }) => {
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
@@ -137,6 +143,9 @@ export const Mixer: React.FC<MixerProps> = ({
               onAddPattern={() => onAddPattern(track.id)}
               onDeletePattern={(patternId) => onDeletePattern(track.id, patternId)}
               onStepTouchStart={onStepTouchStart}
+              onCopyPattern={onCopyPattern}
+              onPastePattern={onPastePattern}
+              canPaste={canPaste}
             />
           ))}
         </div>

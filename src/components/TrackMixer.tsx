@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { TrackGroup, Language, Pattern } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { PanKnob } from './PanKnob';
+import { getNextStepValue } from './InstrumentDetailEditor';
 
 interface TrackMixerProps {
   lang: Language;
@@ -41,6 +42,9 @@ interface TrackMixerProps {
     currentVal: string | number,
     onSelect: (val: string) => void
   ) => void;
+  onCopyPattern?: (pattern: Pattern) => void;
+  onPastePattern?: (trackId: number, patternId: number) => void;
+  canPaste?: boolean;
 }
 
 export const TrackMixer: React.FC<TrackMixerProps> = ({
@@ -74,9 +78,23 @@ export const TrackMixer: React.FC<TrackMixerProps> = ({
   onAddPattern,
   onDeletePattern,
   onStepTouchStart,
+  onCopyPattern,
+  onPastePattern,
+  canPaste,
 }) => {
   const [instDropdownOpen, setInstDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const isMouseDownRef = useRef(false);
+  const paintValueRef = useRef<string | number>(0);
+
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      isMouseDownRef.current = false;
+    };
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, []);
 
   const inst = instrumentsConfig[track.instrumentIdx];
   const t = (key: string) => (i18n[lang] as any)[key] || key;
@@ -86,6 +104,7 @@ export const TrackMixer: React.FC<TrackMixerProps> = ({
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
   const handleStart = (e: React.MouseEvent | React.TouchEvent, stepIdx: number, currentVal: string | number) => {
+    if ('shiftKey' in e && e.shiftKey) return;
     if (onStepTouchStart) {
       if (e.type === 'touchstart') {
         onStepTouchStart(e, activePattern.id, stepIdx, inst.id, currentVal, (newVal) => {
@@ -274,6 +293,27 @@ export const TrackMixer: React.FC<TrackMixerProps> = ({
       <div className="bg-[#f4ecd8] cordel-border-sm p-2 mb-2 relative z-[2] text-xs">
         <div className="flex justify-between items-center mb-1.5 border-b-[2px] border-[#1a1a1a] pb-1">
           <span className="font-cactus font-bold uppercase">{t('patterns')}:</span>
+          <div className="flex gap-1 shrink-0">
+            <button
+              onClick={() => onCopyPattern && onCopyPattern(activePattern)}
+              className="px-1.5 py-0.5 bg-[#eaddcf] text-[9px] font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
+              title="Copier le motif actif"
+            >
+              📋 Copier
+            </button>
+            <button
+              onClick={() => onPastePattern && onPastePattern(track.id, activePattern.id)}
+              disabled={!canPaste}
+              className={`px-1.5 py-0.5 text-[9px] font-bold cordel-border-sm cursor-pointer ${
+                canPaste 
+                  ? 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]' 
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+              }`}
+              title="Coller le motif copié"
+            >
+              📥 Coller
+            </button>
+          </div>
         </div>
         {/* Patterns Summary (No checkboxes) */}
         <div className="grid grid-cols-2 gap-1 w-full max-h-[80px] overflow-y-auto custom-scrollbar">
@@ -309,152 +349,361 @@ export const TrackMixer: React.FC<TrackMixerProps> = ({
 
 
       <div className="flex gap-2 items-start mt-2 border-t-[2px] border-[#1a1a1a] pt-2 relative z-[2] w-full">
-        {inst.type === 'voice' ? (
-          <div className="grid grid-cols-4 gap-1.5 w-full flex-grow step-boxes" id={`voice-boxes-${track.id}`}>
-            {Array.from({ length: activePattern.steps }).map((_, i) => {
-              const state = activePattern.activeSteps[i];
-              const isActive = state !== 0;
-              const isPux = state === 'P';
-              const syl = activePattern.lyrics?.[i] || '';
-              const note = activePattern.notes?.[i] || '';
+        {isTouchDevice || window.innerWidth <= 768 ? (
+          /* ── MOBILE TOUCH LAYOUT: Horizontal Scrollable List ── */
+          inst.type === 'voice' ? (
+            <div className="step-boxes flex overflow-x-auto gap-2 py-1 w-full shrink-0 custom-scrollbar select-none" id={`voice-boxes-${track.id}`}>
+              {Array.from({ length: activePattern.steps }).map((_, i) => {
+                const state = activePattern.activeSteps[i];
+                const isActive = state !== 0;
+                const isPux = state === 'P';
+                const syl = activePattern.lyrics?.[i] || '';
+                const note = activePattern.notes?.[i] || '';
 
-              const typeText = isActive ? (isPux ? 'PUX' : 'CORO') : '---';
-              const typeClass = isActive ? '' : 'bg-transparent text-[#666] cursor-default';
-              const typeStyle = isActive ? { backgroundColor: isPux ? inst.colors['P'] : inst.colors['C'], color: '#1a1a1a' } : {};
+                const typeText = isActive ? (isPux ? 'PUX' : 'CORO') : '---';
+                const typeClass = isActive ? '' : 'bg-transparent text-[#666] cursor-default';
+                const typeStyle = isActive ? { backgroundColor: isPux ? inst.colors['P'] : inst.colors['C'], color: '#1a1a1a' } : {};
 
-              return (
-                <div
-                  key={i}
-                  className={`v-card flex flex-col w-12 bg-[#f4ecd8] cordel-border-sm overflow-hidden ${
-                    currentStep === i ? 'border-[#8b2a1a]' : 'border-[#1a1a1a]'
-                  }`}
-                >
+                return (
                   <div
-                    onClick={() => onVoiceTypeToggle(activePattern.id, i)}
-                    className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`}
-                    style={typeStyle}
-                  >
-                    {typeText}
-                  </div>
-                  
-                  <input
-                    type="text"
-                    value={syl}
-                    onChange={(e) => onVoiceSylChange(activePattern.id, i, e.target.value)}
-                    placeholder="-"
-                    className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-[#1a1a1a] focus:outline-none"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Tab') {
-                        e.preventDefault();
-                        handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'syl');
-                      } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
-                        handleVoiceNav(e.target as HTMLInputElement, e.key, 'syl');
-                      }
-                    }}
-                  />
-
-                  <input
-                    type="text"
-                    value={note}
-                    onChange={(e) => onVoiceNoteChange(activePattern.id, i, e.target.value)}
-                    onBlur={(e) => onVoiceNoteBlur(activePattern.id, i, e.target.value)}
-                    placeholder="Ex:C4"
-                    className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase focus:outline-none"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Tab') {
-                        e.preventDefault();
-                        handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
-                      } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
-                        handleVoiceNav(e.target as HTMLInputElement, e.key, 'note');
-                      }
-                    }}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="step-boxes grid gap-y-2 gap-x-1 w-full flex-grow items-center justify-start" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) 12px repeat(4, minmax(0, 1fr))' }} id={`step-boxes-${track.id}`}>
-            {Array.from({ length: activePattern.steps }).reduce((acc: React.ReactNode[], _, i) => {
-              if (i > 0 && i % 4 === 0 && i % 8 !== 0) {
-                acc.push(<div key={`spacer-${i}`} />);
-              }
-
-              const val = activePattern.activeSteps[i];
-              let displayVal = val === 0 ? '' : String(val);
-
-              if (val !== 0 && inst.type === 'gongue') {
-                if (val === 'GRV') displayVal = 'G';
-                else if (val === 'grv') displayVal = 'g';
-                else if (val === 'AIG') displayVal = 'A';
-                else if (val === 'aig') displayVal = 'a';
-              }
-
-              let extraStyle = '';
-              let isBeatBound = false;
-              if (timeSig === '6/8' || timeSig === '12/8') {
-                if ((i + 1) % 3 === 0) isBeatBound = true;
-              } else if (timeSig === '3/4') {
-                const stepDiv = activePattern.steps === 12 ? 4 : Math.floor(activePattern.steps / 3);
-                if ((i + 1) % (stepDiv || 4) === 0) isBeatBound = true;
-              } else {
-                const stepDiv = Math.floor(activePattern.steps / (timeSig === '4/4' ? 4 : 2));
-                if ((i + 1) % (stepDiv || 4) === 0) isBeatBound = true;
-              }
-
-              if (isBeatBound && i !== activePattern.steps - 1) {
-                extraStyle = 'margin-right: 10px;';
-              }
-
-              let colorStyle: React.CSSProperties = {};
-              if (val !== 0 && val !== '') {
-                const bgColor = inst.colors[val] || '#111';
-                let txtColor = inst.colors.text || '#fff';
-                if (inst.id === 'gongue' && (val === 'AIG' || val === 'aig')) {
-                  txtColor = '#000';
-                }
-                colorStyle = {
-                  backgroundColor: bgColor,
-                  borderColor: bgColor,
-                  color: txtColor,
-                };
-              }
-
-              acc.push(
-                <div key={i} className="relative flex flex-col items-center justify-center w-full">
-                  <div className="text-[#666] text-[8px] mb-0.5 w-full text-center font-bold">{i + 1}</div>
-                  <input
-                    type="text"
-                    maxLength={inst.id === 'caixa' ? 2 : 1}
-                    value={displayVal}
-                    readOnly={isTouchDevice}
-                    inputMode={isTouchDevice ? 'none' : undefined}
-                    onFocus={(e) => {
-                      if (!isTouchDevice) {
-                        e.target.select();
-                      }
-                    }}
-                    onMouseDown={(e) => handleStart(e, i, val)}
-                    onTouchStart={(e) => {
-                      e.preventDefault();
-                      handleStart(e, i, val);
-                    }}
-                    onChange={(e) => onStepValueChange(activePattern.id, i, e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
-                      const inputEl = e.currentTarget as HTMLInputElement;
-                      onStepKeyDown(activePattern.id, i, e.key, inputEl.value, inputEl);
-                    }}
-                    className={`w-full aspect-square text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border focus:border-[#8b2a1a] transition-all duration-200 ${
-                      currentStep === i ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] scale-105' : (val === 0 ? 'bg-[#f4ecd8] text-[#1a1a1a]' : '')
+                    key={i}
+                    className={`v-card flex flex-col w-12 shrink-0 bg-[#f4ecd8] cordel-border-sm overflow-hidden ${
+                      currentStep === i ? 'border-[#8b2a1a]' : 'border-[#1a1a1a]'
                     }`}
-                    style={currentStep === i ? {} : colorStyle}
-                  />
-                </div>
-              );
-              return acc;
-            }, [] as React.ReactNode[])}
-          </div>
+                  >
+                    <div
+                      onClick={() => onVoiceTypeToggle(activePattern.id, i)}
+                      className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`}
+                      style={typeStyle}
+                    >
+                      {typeText}
+                    </div>
+                    
+                    <input
+                      type="text"
+                      value={syl}
+                      onChange={(e) => onVoiceSylChange(activePattern.id, i, e.target.value)}
+                      placeholder="-"
+                      className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-[#1a1a1a] focus:outline-none"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Tab') {
+                          e.preventDefault();
+                          handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'syl');
+                        } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
+                          handleVoiceNav(e.target as HTMLInputElement, e.key, 'syl');
+                        }
+                      }}
+                    />
+
+                    <input
+                      type="text"
+                      value={note}
+                      onChange={(e) => onVoiceNoteChange(activePattern.id, i, e.target.value)}
+                      onBlur={(e) => onVoiceNoteBlur(activePattern.id, i, e.target.value)}
+                      placeholder="Ex:C4"
+                      className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase focus:outline-none"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Tab') {
+                          e.preventDefault();
+                          handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
+                        } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
+                          handleVoiceNav(e.target as HTMLInputElement, e.key, 'note');
+                        }
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="step-boxes flex overflow-x-auto gap-2 py-1 w-full shrink-0 custom-scrollbar select-none" id={`step-boxes-${track.id}`}>
+              {Array.from({ length: activePattern.steps }).map((_, i) => {
+                const val = activePattern.activeSteps[i];
+                let displayVal = val === 0 ? '' : String(val);
+
+                if (val !== 0 && inst.type === 'gongue') {
+                  if (val === 'GRV') displayVal = 'G';
+                  else if (val === 'grv') displayVal = 'g';
+                  else if (val === 'AIG') displayVal = 'A';
+                  else if (val === 'aig') displayVal = 'a';
+                }
+
+                let colorStyle: React.CSSProperties = {};
+                if (val !== 0 && val !== '') {
+                  const bgColor = inst.colors[val] || '#111';
+                  let txtColor = inst.colors.text || '#fff';
+                  if (inst.id === 'gongue' && (val === 'AIG' || val === 'aig')) {
+                    txtColor = '#000';
+                  }
+                  colorStyle = {
+                    backgroundColor: bgColor,
+                    borderColor: bgColor,
+                    color: txtColor,
+                  };
+                }
+
+                return (
+                  <div key={i} className="relative flex flex-col items-center justify-center shrink-0 w-[38px]">
+                    <div className="text-[#666] text-[8px] mb-0.5 w-full text-center font-bold">{i + 1}</div>
+                    <input
+                      type="text"
+                      maxLength={inst.id === 'caixa' ? 2 : 1}
+                      value={displayVal}
+                      readOnly={isTouchDevice}
+                      inputMode={isTouchDevice ? 'none' : undefined}
+                      onFocus={(e) => {
+                        if (!isTouchDevice) {
+                          e.target.select();
+                        }
+                      }}
+                      onMouseDown={(e) => {
+                        if (e.button !== 0) return;
+                        if (e.shiftKey) {
+                          isMouseDownRef.current = true;
+                          const nextVal = getNextStepValue(inst.id, inst.type, val);
+                          paintValueRef.current = nextVal;
+                          onStepValueChange(activePattern.id, i, String(nextVal));
+                        } else {
+                          handleStart(e, i, val);
+                        }
+                      }}
+                      onMouseEnter={() => {
+                        if (isMouseDownRef.current) {
+                          onStepValueChange(activePattern.id, i, String(paintValueRef.current));
+                        }
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        handleStart(e, i, val);
+                      }}
+                      onChange={(e) => onStepValueChange(activePattern.id, i, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
+                        
+                        const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+                        if ((isCtrlOrMeta && e.key.toLowerCase() === 'c') || e.key.toLowerCase() === 'c') {
+                          e.preventDefault();
+                          onCopyPattern && onCopyPattern(activePattern);
+                          return;
+                        }
+                        if ((isCtrlOrMeta && e.key.toLowerCase() === 'v') || e.key.toLowerCase() === 'v') {
+                          e.preventDefault();
+                          if (canPaste) {
+                            onPastePattern && onPastePattern(track.id, activePattern.id);
+                          }
+                          return;
+                        }
+                        if (e.key === 'Delete' || e.key === 'Backspace') {
+                          e.preventDefault();
+                          onStepValueChange(activePattern.id, i, '0');
+                          if (e.key === 'Backspace') {
+                            const inputEl = e.currentTarget as HTMLInputElement;
+                            onStepKeyDown(activePattern.id, i, e.key, '', inputEl);
+                          }
+                          return;
+                        }
+
+                        const inputEl = e.currentTarget as HTMLInputElement;
+                        onStepKeyDown(activePattern.id, i, e.key, inputEl.value, inputEl);
+                      }}
+                      className={`w-[38px] h-[38px] text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border focus:border-[#8b2a1a] transition-all duration-200 ${
+                        currentStep === i ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] scale-105' : (val === 0 ? 'bg-[#f4ecd8] text-[#1a1a1a]' : '')
+                      }`}
+                      style={currentStep === i ? {} : colorStyle}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )
+        ) : (
+          /* ── DESKTOP GRID LAYOUT: Double Rows ── */
+          inst.type === 'voice' ? (
+            <div className="grid grid-cols-4 gap-1.5 w-full flex-grow step-boxes" id={`voice-boxes-${track.id}`}>
+              {Array.from({ length: activePattern.steps }).map((_, i) => {
+                const state = activePattern.activeSteps[i];
+                const isActive = state !== 0;
+                const isPux = state === 'P';
+                const syl = activePattern.lyrics?.[i] || '';
+                const note = activePattern.notes?.[i] || '';
+
+                const typeText = isActive ? (isPux ? 'PUX' : 'CORO') : '---';
+                const typeClass = isActive ? '' : 'bg-transparent text-[#666] cursor-default';
+                const typeStyle = isActive ? { backgroundColor: isPux ? inst.colors['P'] : inst.colors['C'], color: '#1a1a1a' } : {};
+
+                return (
+                  <div
+                    key={i}
+                    className={`v-card flex flex-col w-12 bg-[#f4ecd8] cordel-border-sm overflow-hidden ${
+                      currentStep === i ? 'border-[#8b2a1a]' : 'border-[#1a1a1a]'
+                    }`}
+                  >
+                    <div
+                      onClick={() => onVoiceTypeToggle(activePattern.id, i)}
+                      className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`}
+                      style={typeStyle}
+                    >
+                      {typeText}
+                    </div>
+                    
+                    <input
+                      type="text"
+                      value={syl}
+                      onChange={(e) => onVoiceSylChange(activePattern.id, i, e.target.value)}
+                      placeholder="-"
+                      className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-[#1a1a1a] focus:outline-none"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Tab') {
+                          e.preventDefault();
+                          handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'syl');
+                        } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
+                          handleVoiceNav(e.target as HTMLInputElement, e.key, 'syl');
+                        }
+                      }}
+                    />
+
+                    <input
+                      type="text"
+                      value={note}
+                      onChange={(e) => onVoiceNoteChange(activePattern.id, i, e.target.value)}
+                      onBlur={(e) => onVoiceNoteBlur(activePattern.id, i, e.target.value)}
+                      placeholder="Ex:C4"
+                      className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase focus:outline-none"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Tab') {
+                          e.preventDefault();
+                          handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
+                        } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
+                          handleVoiceNav(e.target as HTMLInputElement, e.key, 'note');
+                        }
+                      }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="step-boxes grid gap-y-2 gap-x-1 w-full flex-grow items-center justify-start" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) 12px repeat(4, minmax(0, 1fr))' }} id={`step-boxes-${track.id}`}>
+              {Array.from({ length: activePattern.steps }).reduce((acc: React.ReactNode[], _, i) => {
+                if (i > 0 && i % 4 === 0 && i % 8 !== 0) {
+                  acc.push(<div key={`spacer-${i}`} />);
+                }
+
+                const val = activePattern.activeSteps[i];
+                let displayVal = val === 0 ? '' : String(val);
+
+                if (val !== 0 && inst.type === 'gongue') {
+                  if (val === 'GRV') displayVal = 'G';
+                  else if (val === 'grv') displayVal = 'g';
+                  else if (val === 'AIG') displayVal = 'A';
+                  else if (val === 'aig') displayVal = 'a';
+                }
+
+                let extraStyle = '';
+                let isBeatBound = false;
+                if (timeSig === '6/8' || timeSig === '12/8') {
+                  if ((i + 1) % 3 === 0) isBeatBound = true;
+                } else if (timeSig === '3/4') {
+                  const stepDiv = activePattern.steps === 12 ? 4 : Math.floor(activePattern.steps / 3);
+                  if ((i + 1) % (stepDiv || 4) === 0) isBeatBound = true;
+                } else {
+                  const stepDiv = Math.floor(activePattern.steps / (timeSig === '4/4' ? 4 : 2));
+                  if ((i + 1) % (stepDiv || 4) === 0) isBeatBound = true;
+                }
+
+                if (isBeatBound && i !== activePattern.steps - 1) {
+                  extraStyle = 'margin-right: 10px;';
+                }
+
+                let colorStyle: React.CSSProperties = {};
+                if (val !== 0 && val !== '') {
+                  const bgColor = inst.colors[val] || '#111';
+                  let txtColor = inst.colors.text || '#fff';
+                  if (inst.id === 'gongue' && (val === 'AIG' || val === 'aig')) {
+                    txtColor = '#000';
+                  }
+                  colorStyle = {
+                    backgroundColor: bgColor,
+                    borderColor: bgColor,
+                    color: txtColor,
+                  };
+                }
+
+                acc.push(
+                  <div key={i} className="relative flex flex-col items-center justify-center w-full">
+                    <div className="text-[#666] text-[8px] mb-0.5 w-full text-center font-bold">{i + 1}</div>
+                    <input
+                      type="text"
+                      maxLength={inst.id === 'caixa' ? 2 : 1}
+                      value={displayVal}
+                      readOnly={isTouchDevice}
+                      inputMode={isTouchDevice ? 'none' : undefined}
+                      onFocus={(e) => {
+                        if (!isTouchDevice) {
+                          e.target.select();
+                        }
+                      }}
+                      onMouseDown={(e) => {
+                        if (e.button !== 0) return;
+                        if (e.shiftKey) {
+                          isMouseDownRef.current = true;
+                          const nextVal = getNextStepValue(inst.id, inst.type, val);
+                          paintValueRef.current = nextVal;
+                          onStepValueChange(activePattern.id, i, String(nextVal));
+                        } else {
+                          handleStart(e, i, val);
+                        }
+                      }}
+                      onMouseEnter={() => {
+                        if (isMouseDownRef.current) {
+                          onStepValueChange(activePattern.id, i, String(paintValueRef.current));
+                        }
+                      }}
+                      onTouchStart={(e) => {
+                        e.preventDefault();
+                        handleStart(e, i, val);
+                      }}
+                      onChange={(e) => onStepValueChange(activePattern.id, i, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
+                        
+                        const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+                        if ((isCtrlOrMeta && e.key.toLowerCase() === 'c') || e.key.toLowerCase() === 'c') {
+                          e.preventDefault();
+                          onCopyPattern && onCopyPattern(activePattern);
+                          return;
+                        }
+                        if ((isCtrlOrMeta && e.key.toLowerCase() === 'v') || e.key.toLowerCase() === 'v') {
+                          e.preventDefault();
+                          if (canPaste) {
+                            onPastePattern && onPastePattern(track.id, activePattern.id);
+                          }
+                          return;
+                        }
+                        if (e.key === 'Delete' || e.key === 'Backspace') {
+                          e.preventDefault();
+                          onStepValueChange(activePattern.id, i, '0');
+                          if (e.key === 'Backspace') {
+                            const inputEl = e.currentTarget as HTMLInputElement;
+                            onStepKeyDown(activePattern.id, i, e.key, '', inputEl);
+                          }
+                          return;
+                        }
+
+                        const inputEl = e.currentTarget as HTMLInputElement;
+                        onStepKeyDown(activePattern.id, i, e.key, inputEl.value, inputEl);
+                      }}
+                      className={`w-full aspect-square text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border focus:border-[#8b2a1a] transition-all duration-200 ${
+                        currentStep === i ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] scale-105' : (val === 0 ? 'bg-[#f4ecd8] text-[#1a1a1a]' : '')
+                      }`}
+                      style={currentStep === i ? {} : colorStyle}
+                    />
+                  </div>
+                );
+                return acc;
+              }, [] as React.ReactNode[])}
+            </div>
+          )
         )}
       </div>
     </div>

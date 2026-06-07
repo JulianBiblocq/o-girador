@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { TrackGroup, Language, TimeSignature } from '../types';
+import { TrackGroup, Language, TimeSignature, SongSection, PresetMetadata } from '../types';
 import { ASSETS_BASE_URL, instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 
 interface TimelineSequencerProps {
@@ -31,6 +31,15 @@ interface TimelineSequencerProps {
   onMeasureVolChange: (measureIdx: number, val: number) => void;
   onMeasureVolTransitionChange: (measureIdx: number, val: 'immediate' | 'ramp') => void;
   onTotalMeasuresChange: (val: number) => void;
+  songSections: SongSection[];
+  copiedSection: { length: number } | null;
+  onCreateSection: (name: string, start: number, end: number, color?: string) => void;
+  onUpdateSection: (id: string, name: string, start: number, end: number, color?: string) => void;
+  onDeleteSection: (id: string) => void;
+  onCopySection: (section: SongSection) => void;
+  onPasteSection: (destStartMeasure: number) => void;
+  metadata?: PresetMetadata;
+  letras: string;
 }
 
 const MEASURE_W = 480;
@@ -65,9 +74,169 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   onMeasureVolChange,
   onMeasureVolTransitionChange,
   onTotalMeasuresChange,
+  songSections,
+  copiedSection,
+  onCreateSection,
+  onUpdateSection,
+  onDeleteSection,
+  onCopySection,
+  onPasteSection,
+  metadata,
+  letras,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
+
+  // Song Section modals state
+  const [sectionModalOpen, setSectionModalOpen] = React.useState<boolean>(false);
+  const [editingSection, setEditingSection] = React.useState<SongSection | null>(null);
+  const [sectionFormName, setSectionFormName] = React.useState<string>('');
+  const [sectionFormStart, setSectionFormStart] = React.useState<number>(1);
+  const [sectionFormEnd, setSectionFormEnd] = React.useState<number>(4);
+  const [sectionFormColor, setSectionFormColor] = React.useState<string>('#f19066');
+
+  // Tablature state
+  const [tablatureModalOpen, setTablatureModalOpen] = React.useState<boolean>(false);
+  const [selectedTracksForTab, setSelectedTracksForTab] = React.useState<number[]>([]);
+  const [includeVocalsInTab, setIncludeVocalsInTab] = React.useState<boolean>(true);
+
+  // Sync selected tracks for tablature
+  React.useEffect(() => {
+    if (tracks.length > 0 && selectedTracksForTab.length === 0) {
+      setSelectedTracksForTab(tracks.map(t => t.id));
+    }
+  }, [tracks]);
+
+  const generateTablatureData = () => {
+    const systemsCount = Math.ceil(totalMeasures / 4);
+    const systems = [];
+
+    for (let s = 0; s < systemsCount; s++) {
+      const startM = s * 4;
+      const endM = Math.min(startM + 3, totalMeasures - 1);
+      
+      const systemTracks = tracks
+        .filter(t => selectedTracksForTab.includes(t.id))
+        .map(t => {
+          const inst = instrumentsConfig[t.instrumentIdx];
+          const measuresData: string[] = [];
+
+          for (let m = startM; m <= endM; m++) {
+            const activePtn = t.patterns.find(p => p.measureAssignments[m]);
+            const stepsCount = activePtn ? activePtn.steps : 16;
+            
+            let measureStr = '';
+            for (let stepIdx = 0; stepIdx < stepsCount; stepIdx++) {
+              if (activePtn) {
+                const val = activePtn.activeSteps[stepIdx];
+                if (val === 0 || val === '0' || !val) {
+                  measureStr += '-';
+                } else {
+                  if (inst.type === 'gongue') {
+                    if (val === 'GRV') measureStr += 'G';
+                    else if (val === 'grv') measureStr += 'g';
+                    else if (val === 'AIG') measureStr += 'A';
+                    else if (val === 'aig') measureStr += 'a';
+                    else measureStr += String(val);
+                  } else {
+                    measureStr += String(val);
+                  }
+                }
+              } else {
+                measureStr += '-';
+              }
+              if (stepIdx < stepsCount - 1) {
+                measureStr += '.';
+              }
+            }
+            measuresData.push(measureStr);
+          }
+
+          return {
+            trackId: t.id,
+            instName: inst.name,
+            iconImg: inst.iconImg,
+            measures: measuresData,
+            instType: inst.type
+          };
+        });
+
+      systems.push({
+        systemIdx: s,
+        startM: startM + 1,
+        endM: endM + 1,
+        tracksData: systemTracks
+      });
+    }
+
+    return systems;
+  };
+
+  const renderTablaturePreview = () => {
+    const data = generateTablatureData();
+    const songName = metadata?.toada || (lang === 'fr' ? 'Rythme Maracatu' : 'Ritmo de Maracatu');
+    const author = metadata?.compositor || 'Traditionnel';
+    const nacao = metadata?.nacao || '';
+    const ritmo = metadata?.ritmo || '';
+
+    return (
+      <div id="print-tablature-area" className="bg-white text-black p-5 font-mono text-[11px] leading-tight flex flex-col gap-5 w-full h-full overflow-y-auto print:max-h-none print:overflow-visible shadow-inner">
+        {/* Partition Header */}
+        <div className="flex flex-col items-center text-center border-b-[2px] border-black pb-3">
+          <h1 className="font-sans font-bold text-2xl uppercase tracking-wider text-black">{songName}</h1>
+          <p className="text-sm font-sans mt-1 text-black">
+            {ritmo && <span className="font-bold">{ritmo}</span>}
+            {nacao && <span> — Nação {nacao}</span>}
+          </p>
+          <p className="text-[10px] font-sans opacity-70 mt-1 text-black">
+            {lang === 'fr' ? 'Composé par' : 'Composto por'} : {author}
+          </p>
+        </div>
+
+        {/* Systems */}
+        <div className="flex flex-col gap-5 flex-grow">
+          {data.map((sys, sysIdx) => (
+            <div key={sysIdx} className="flex flex-col gap-1.5 pb-3 border-b border-dashed border-black/20 last:border-0">
+              <div className="text-[9px] font-sans font-bold opacity-60 text-right text-black">
+                {lang === 'fr' 
+                  ? `Mesures ${sys.startM} à ${sys.endM}`
+                  : `Compassos ${sys.startM} a ${sys.endM}`}
+              </div>
+              <div className="flex flex-col gap-1 font-mono">
+                {sys.tracksData.map((tData) => (
+                  <div key={tData.trackId} className="flex items-start w-full text-black">
+                    <div className="w-[120px] font-sans font-bold shrink-0 truncate uppercase text-[10px] text-black">
+                      {tData.instName} :
+                    </div>
+                    <div className="flex-grow flex gap-2 font-mono tracking-wider font-extrabold text-[12px] text-black">
+                      {tData.measures.map((mStr, mIdx) => (
+                        <span key={mIdx} className="flex items-center">
+                          <span className="opacity-40">|</span>
+                          <span className="px-1.5">{mStr}</span>
+                          {mIdx === tData.measures.length - 1 && <span className="opacity-40">|</span>}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Lyrics (Toada) */}
+        {letras && letras.trim() !== '' && (
+          <div className="border-t-[2px] border-black pt-4 mt-3 print:page-break-before-avoid text-black">
+            <h3 className="font-sans font-bold text-xs uppercase mb-2 text-black">{lang === 'fr' ? 'Paroles (Toada)' : 'Letra (Toada)'} :</h3>
+            <pre className="font-sans text-xs whitespace-pre-wrap leading-relaxed italic border-l-2 border-black/30 pl-3 text-black">
+              {letras}
+            </pre>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const startX = useRef(0);
   const startScrollLeft = useRef(0);
 
@@ -153,19 +322,121 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
         */}
         <div style={{ width: `${HEADER_W + totalContentW + 150}px`, minHeight: '100%' }} className="relative">
 
+          {/* ══════════ SECTIONS ROW ══════════ */}
+          <div
+            className="flex h-10 border-b border-[var(--cordel-border)]/30 bg-[var(--cordel-bg)]/80 relative"
+            style={{ width: `${HEADER_W + totalContentW + 150}px` }}
+          >
+            {/* Sticky header */}
+            <div
+              className="sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between px-3 font-cactus text-[11px] font-bold uppercase shrink-0"
+              style={{ width: HEADER_W, minWidth: HEADER_W }}
+            >
+              <span>{lang === 'fr' ? 'Sections' : 'Seções'}</span>
+              <button
+                onClick={() => {
+                  setEditingSection(null);
+                  setSectionFormName(lang === 'fr' ? 'Partie A' : 'Parte A');
+                  setSectionFormStart(1);
+                  setSectionFormEnd(Math.min(4, totalMeasures));
+                  setSectionFormColor('#f19066');
+                  setSectionModalOpen(true);
+                }}
+                className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-80 transition-opacity cursor-pointer flex items-center justify-center gap-0.5"
+                title={lang === 'fr' ? 'Créer une section' : 'Criar seção'}
+              >
+                <span>➕</span>
+                <span>{lang === 'fr' ? 'Sect.' : 'Seção'}</span>
+              </button>
+            </div>
+
+            {/* Space where sections will render */}
+            <div className="flex-grow relative h-full">
+              {songSections.map((section) => {
+                const startX = section.startMeasure * MEASURE_W;
+                const width = (section.endMeasure - section.startMeasure + 1) * MEASURE_W;
+
+                return (
+                  <div
+                    key={section.id}
+                    className="absolute top-1 bottom-1 flex items-center justify-between px-3 text-xs font-bold rounded cordel-border-sm select-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)]"
+                    style={{
+                      left: `${startX}px`,
+                      width: `${width - 8}px`, // 4px margin left & right
+                      marginLeft: '4px',
+                      backgroundColor: section.color || '#eaddcf',
+                      color: '#1a1a1a', // Toujours lisible en noir sur fond coloré
+                      borderColor: '#1a1a1a',
+                      borderWidth: '1.5px',
+                    }}
+                  >
+                    <span className="truncate max-w-[50%] font-cactus uppercase tracking-wider">{section.name}</span>
+                    <div className="flex gap-1 shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCopySection(section);
+                        }}
+                        className="bg-white/80 hover:bg-white text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer font-sans"
+                        title={lang === 'fr' ? 'Copier le bloc' : 'Copiar bloco'}
+                      >
+                        📋 Copier
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingSection(section);
+                          setSectionFormName(section.name);
+                          setSectionFormStart(section.startMeasure + 1);
+                          setSectionFormEnd(section.endMeasure + 1);
+                          setSectionFormColor(section.color || '#f19066');
+                          setSectionModalOpen(true);
+                        }}
+                        className="bg-white/80 hover:bg-white text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer"
+                        title={lang === 'fr' ? 'Modifier' : 'Editar'}
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteSection(section.id);
+                        }}
+                        className="bg-red-800/80 hover:bg-red-800 text-white text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer"
+                        title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* ══════════ RULER ROW ══════════ */}
           <div
             className="flex h-16 border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-grab active:cursor-grabbing select-none"
             style={{ width: `${HEADER_W + totalContentW + 150}px` }}
             onMouseDown={handleMouseDown}
           >
-            {/* Sticky corner */}
-            <div
-              className="sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center px-3 font-cactus text-sm font-bold uppercase"
-              style={{ width: HEADER_W, minWidth: HEADER_W }}
-            >
-              {lang === 'fr' ? 'Instruments' : 'Instrumentos'}
-            </div>
+             {/* Sticky corner */}
+             <div
+               className="sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between px-3 font-cactus text-sm font-bold uppercase"
+               style={{ width: HEADER_W, minWidth: HEADER_W }}
+             >
+               <span>{lang === 'fr' ? 'Instruments' : 'Instrumentos'}</span>
+               <button
+                 onClick={(e) => {
+                   e.stopPropagation();
+                   setTablatureModalOpen(true);
+                 }}
+                 className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[9px] px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer font-sans normal-case tracking-normal shrink-0"
+                 title={lang === 'fr' ? 'Extraction de la tablature' : 'Extrair partitura'}
+               >
+                 📋 TAB
+               </button>
+             </div>
 
             {/* Measure labels */}
             {Array.from({ length: totalMeasures }).map((_, mIdx) => {
@@ -183,8 +454,20 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                   style={{ width: MEASURE_W, minWidth: MEASURE_W }}
                 >
                   <div className="flex items-center justify-between w-full mt-0.5 gap-2">
-                    <span className="font-cactus text-xs tracking-wide">
-                      {lang === 'fr' ? 'Mesure' : 'Compasso'} {mIdx + 1}
+                    <span className="font-cactus text-xs tracking-wide flex items-center gap-1.5">
+                      <span>{lang === 'fr' ? 'Mesure' : 'Compasso'} {mIdx + 1}</span>
+                      {copiedSection && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onPasteSection(mIdx);
+                          }}
+                          className="bg-emerald-600 dark:bg-emerald-500 text-white font-cactus font-bold text-[9px] px-1 py-px rounded cordel-border-sm hover:bg-emerald-700 cursor-pointer animate-pulse shrink-0"
+                          title={lang === 'fr' ? 'Coller la section ici' : 'Colar seção aqui'}
+                        >
+                          📥 Coller
+                        </button>
+                      )}
                     </span>
 
                     <div 
@@ -491,6 +774,169 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
           <span>💡 {lang === 'fr'
             ? 'Cliquer-glisser sur la règle ou utiliser la molette pour défiler · Cliquer sur la timeline pour naviguer'
             : 'Clique e arraste na régua ou use o scroll para navegar · Clique na timeline para navegar'}</span>
+        </div>
+      )}
+
+      {/* ══════════ SECTION FORM MODAL ══════════ */}
+      {sectionModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs">
+          <div className="w-[360px] bg-[#f4ecd8] text-[#1a1a1a] p-5 cordel-border-sm shadow-2xl flex flex-col gap-4">
+            <h3 className="font-cactus text-xl font-bold uppercase border-b border-[#1a1a1a] pb-2 text-[#1a1a1a]">
+              {editingSection 
+                ? (lang === 'fr' ? 'Modifier la Section' : 'Editar Seção')
+                : (lang === 'fr' ? 'Créer une Section' : 'Criar Seção')}
+            </h3>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold uppercase text-[#1a1a1a]">{lang === 'fr' ? 'Nom de la section' : 'Nome da seção'}</label>
+              <input
+                type="text"
+                value={sectionFormName}
+                onChange={(e) => setSectionFormName(e.target.value)}
+                placeholder="Ex: Partie A / Refrain"
+                className="w-full bg-[#eaddcf] border-2 border-[#1a1a1a] px-3 py-1.5 text-sm font-bold outline-none rounded-none focus:bg-[#eaddcf]/80 text-[#1a1a1a]"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold uppercase text-[#1a1a1a]">{lang === 'fr' ? 'Début (Mesure)' : 'Compasso inicial'}</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={totalMeasures}
+                  value={sectionFormStart}
+                  onChange={(e) => setSectionFormStart(Math.max(1, Math.min(totalMeasures, parseInt(e.target.value) || 1)))}
+                  className="w-full bg-[#eaddcf] border-2 border-[#1a1a1a] px-2 py-1.5 text-sm font-bold outline-none rounded-none text-center text-[#1a1a1a]"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold uppercase text-[#1a1a1a]">{lang === 'fr' ? 'Fin (Mesure)' : 'Compasso final'}</label>
+                <input
+                  type="number"
+                  min={sectionFormStart}
+                  max={totalMeasures}
+                  value={sectionFormEnd}
+                  onChange={(e) => setSectionFormEnd(Math.max(sectionFormStart, Math.min(totalMeasures, parseInt(e.target.value) || 1)))}
+                  className="w-full bg-[#eaddcf] border-2 border-[#1a1a1a] px-2 py-1.5 text-sm font-bold outline-none rounded-none text-center text-[#1a1a1a]"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold uppercase text-[#1a1a1a]">{lang === 'fr' ? 'Couleur du bloc' : 'Cor do bloco'}</label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {[
+                  { value: '#e08283', label: 'Rouge' },
+                  { value: '#f19066', label: 'Orange' },
+                  { value: '#f5cd79', label: 'Jaune' },
+                  { value: '#55efc4', label: 'Vert d\'eau' },
+                  { value: '#74b9ff', label: 'Bleu pastel' },
+                  { value: '#a29bfe', label: 'Violet doux' },
+                  { value: '#eaddcf', label: 'Cordel beige' }
+                ].map((colorOpt) => (
+                  <button
+                    key={colorOpt.value}
+                    onClick={() => setSectionFormColor(colorOpt.value)}
+                    className={`w-7 h-7 rounded-full cursor-pointer cordel-border-sm transition-transform ${
+                      sectionFormColor === colorOpt.value ? 'scale-115 ring-2 ring-amber-600' : 'opacity-85'
+                    }`}
+                    style={{ backgroundColor: colorOpt.value }}
+                    title={colorOpt.label}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5 mt-2 border-t border-[#1a1a1a] pt-3">
+              <button
+                onClick={() => setSectionModalOpen(false)}
+                className="px-3 py-1.5 bg-gray-300 hover:bg-gray-400 text-[#1a1a1a] text-xs font-bold cordel-border-sm cursor-pointer"
+              >
+                {lang === 'fr' ? 'Annuler' : 'Cancelar'}
+              </button>
+              <button
+                onClick={() => {
+                  if (!sectionFormName.trim()) return;
+                  if (editingSection) {
+                    onUpdateSection(editingSection.id, sectionFormName, sectionFormStart - 1, sectionFormEnd - 1, sectionFormColor);
+                  } else {
+                    onCreateSection(sectionFormName, sectionFormStart - 1, sectionFormEnd - 1, sectionFormColor);
+                  }
+                  setSectionModalOpen(false);
+                }}
+                className="px-4 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] text-xs font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
+              >
+                {lang === 'fr' ? 'Valider' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ TABLATURE EXPORT MODAL ══════════ */}
+      {tablatureModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs">
+          <div className="w-[850px] max-w-[95%] h-[80vh] bg-[#f4ecd8] text-[#1a1a1a] p-5 cordel-border-sm shadow-2xl flex flex-col md:flex-row gap-5 overflow-hidden">
+            {/* Left Sidebar: configuration */}
+            <div className="w-full md:w-[220px] shrink-0 flex flex-col gap-4">
+              <h3 className="font-cactus text-lg font-bold uppercase border-b border-[#1a1a1a] pb-2 text-[#1a1a1a]">
+                {lang === 'fr' ? 'Configuration' : 'Configuração'}
+              </h3>
+              
+              {/* Checkboxes list */}
+              <div className="flex-grow flex flex-col gap-2 bg-[#eaddcf] p-3 cordel-border-sm overflow-y-auto">
+                <div className="border-b border-[#1a1a1a]/30 pb-2 mb-1.5 flex justify-between text-[10px] font-cactus uppercase text-[#1a1a1a]">
+                  <span>{lang === 'fr' ? 'Pistes à inclure :' : 'Instrumentos :'}</span>
+                </div>
+                <div className="flex flex-col gap-2 text-xs text-[#1a1a1a]">
+                  {tracks.map(t => {
+                    const inst = instrumentsConfig[t.instrumentIdx];
+                    const isChecked = selectedTracksForTab.includes(t.id);
+                    return (
+                      <label key={t.id} className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setSelectedTracksForTab(selectedTracksForTab.filter(x => x !== t.id));
+                            } else {
+                              setSelectedTracksForTab([...selectedTracksForTab, t.id]);
+                            }
+                          }}
+                          className="accent-[#1a1a1a]"
+                        />
+                        <img src={ASSETS_BASE_URL + inst.iconImg} alt="" className="w-5 h-5 object-contain filter invert-[var(--cordel-invert)] dark:invert-0" />
+                        <span className="truncate">{inst.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex flex-col gap-2 mt-auto">
+                <button
+                  onClick={() => window.print()}
+                  className="w-full py-2 bg-[#8b2a1a] text-[#f4ecd8] text-xs font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  🖨️ {lang === 'fr' ? 'Imprimer (A4)' : 'Imprimir (A4)'}
+                </button>
+                <button
+                  onClick={() => setTablatureModalOpen(false)}
+                  className="w-full py-2 bg-gray-300 hover:bg-gray-400 text-[#1a1a1a] text-xs font-bold cordel-border-sm transition-colors cursor-pointer"
+                >
+                  {lang === 'fr' ? 'Fermer' : 'Fechar'}
+                </button>
+              </div>
+            </div>
+
+            {/* Right Zone: print preview */}
+            <div className="flex-grow flex flex-col overflow-hidden bg-white p-1 rounded-sm border border-[#1a1a1a]/20">
+              {renderTablaturePreview()}
+            </div>
+          </div>
         </div>
       )}
     </div>

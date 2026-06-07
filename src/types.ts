@@ -74,6 +74,7 @@ export interface PresetMetadata {
   compositor: string;
   ritmo: string;
   youtubeUrl?: string;
+  partitionImage?: string; // base64 JPEG
 }
 
 export interface Preset {
@@ -89,9 +90,19 @@ export interface Preset {
   measureBpmTransitions?: ('immediate' | 'ramp')[];
   measureVols?: number[];
   measureVolTransitions?: ('immediate' | 'ramp')[];
+  songSections?: SongSection[];
 }
 
 export interface CatalogItem {
   file: string;
   name: string;
 }
+
+export interface SongSection {
+  id: string;
+  name: string;
+  startMeasure: number; // 0-based index
+  endMeasure: number;   // 0-based index, inclusive
+  color?: string;       // couleur CSS (ex: hex)
+}
+

@@ -46,6 +46,9 @@ interface ConsoleMixerProps {
     currentVal: string | number,
     onSelect: (val: string) => void
   ) => void;
+  onCopyPattern: (pattern: any) => void;
+  onPastePattern: (trackId: number, patternId: number) => void;
+  canPaste: boolean;
 }
 
 export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
@@ -84,6 +87,9 @@ export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
   onStepMicrotimingChange,
   isSwingOn,
   onStepTouchStart,
+  onCopyPattern,
+  onPastePattern,
+  canPaste,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
@@ -145,6 +151,9 @@ export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
             onDeletePattern={(pid) => onDeletePattern(track.id, pid)}
             onOpenDetailEditor={() => setEditingTrackId(track.id)}
             onStepTouchStart={onStepTouchStart}
+            onCopyPattern={onCopyPattern}
+            onPastePattern={onPastePattern}
+            canPaste={canPaste}
           />
         ))}
         {tracks.length === 0 && (
@@ -184,6 +193,9 @@ export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
           maxTicks={maxTicks}
           totalMeasures={totalMeasures}
           onStepTouchStart={onStepTouchStart}
+          onCopyPattern={onCopyPattern}
+          onPastePattern={(pid) => onPastePattern(editingTrack.id, pid)}
+          canPaste={canPaste}
         />
       )}
     </div>

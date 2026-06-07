@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import * as Tone from 'tone';
-import { Circle, TrackGroup, Pattern, Language, Preset, TimeSignature, PresetMetadata, HitTrigger } from './types';
+import { Circle, TrackGroup, Pattern, Language, Preset, TimeSignature, PresetMetadata, HitTrigger, SongSection } from './types';
 import { migrateCirclesToTracks } from './migration';
 import {
   instrumentsConfig,
@@ -71,6 +71,14 @@ export default function App() {
   const [reverbType, setReverbType] = useState<'room' | 'studio' | 'hall'>('studio');
   const [touchSelector, setTouchSelector] = useState<TouchSelectorState | null>(null);
   const [hoveredStroke, setHoveredStroke] = useState<string | null>(null);
+  const [mobileTab, setMobileTab] = useState<'roda' | 'mixer' | 'toada'>('roda');
+  const [copiedPattern, setCopiedPattern] = useState<Pattern | null>(null);
+  const [songSections, setSongSections] = useState<SongSection[]>([]);
+  const [copiedSection, setCopiedSection] = useState<{
+    length: number;
+    assignments: { [trackId: number]: (number | null)[] };
+  } | null>(null);
+
 
   const [measureTimeSigs, setMeasureTimeSigs] = useState<TimeSignature[]>([]);
   const [measureBpms, setMeasureBpms] = useState<number[]>([]);
@@ -85,12 +93,15 @@ export default function App() {
   const measureVolTransitionsRef = useRef<('immediate' | 'ramp')[]>([]);
   const masterVolRef = useRef<number>(-6);
 
+  const songSectionsRef = useRef<SongSection[]>([]);
+
   const [songStructureHistory, setSongStructureHistory] = useState<{
     measureTimeSigs: TimeSignature[];
     measureBpms: number[];
     measureBpmTransitions: ('immediate' | 'ramp')[];
     measureVols: number[];
     measureVolTransitions: ('immediate' | 'ramp')[];
+    songSections?: SongSection[];
   }[]>([]);
   const songStructureHistoryRef = useRef<{
     measureTimeSigs: TimeSignature[];
@@ -98,6 +109,7 @@ export default function App() {
     measureBpmTransitions: ('immediate' | 'ramp')[];
     measureVols: number[];
     measureVolTransitions: ('immediate' | 'ramp')[];
+    songSections?: SongSection[];
   }[]>([]);
 
   useEffect(() => {
@@ -139,6 +151,11 @@ export default function App() {
   useEffect(() => {
     songStructureHistoryRef.current = songStructureHistory;
   }, [songStructureHistory]);
+
+  useEffect(() => {
+    songSectionsRef.current = songSections;
+  }, [songSections]);
+
 
   useEffect(() => {
     setLocalPresets(Object.keys(getLocalLibrary()));
@@ -607,6 +624,20 @@ export default function App() {
     Tone.Transport.bpm.value = bpm;
   }, [bpm]);
 
+  // Prevent context menu (long press options) on step edit cells & touch selector bubble
+  useEffect(() => {
+    const preventContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && (target.closest('.step-boxes') || target.closest('#touch-stroke-selector-bubble'))) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('contextmenu', preventContextMenu);
+    return () => {
+      document.removeEventListener('contextmenu', preventContextMenu);
+    };
+  }, []);
+
   // Adjust Master Volume gain
   useEffect(() => {
     Tone.Destination.volume.value = masterVol === -40 ? -Infinity : masterVol;
@@ -823,7 +854,8 @@ export default function App() {
         measureBpms: [...measureBpmsRef.current],
         measureBpmTransitions: [...measureBpmTransitionsRef.current],
         measureVols: [...measureVolsRef.current],
-        measureVolTransitions: [...measureVolTransitionsRef.current]
+        measureVolTransitions: [...measureVolTransitionsRef.current],
+        songSections: JSON.parse(JSON.stringify(songSectionsRef.current))
       };
       const next = [...prev, cloned];
       if (next.length > 50) next.shift();
@@ -852,6 +884,7 @@ export default function App() {
           setMeasureBpmTransitions(previousState.measureBpmTransitions);
           if (previousState.measureVols) setMeasureVols(previousState.measureVols);
           if (previousState.measureVolTransitions) setMeasureVolTransitions(previousState.measureVolTransitions);
+          if (previousState.songSections) setSongSections(previousState.songSections);
         }
         return nextHistory;
       });
@@ -1281,6 +1314,110 @@ export default function App() {
     })));
   };
 
+  const handleCopyPattern = (pattern: Pattern) => {
+    setCopiedPattern(JSON.parse(JSON.stringify(pattern)));
+  };
+
+  const handlePastePattern = (trackId: number, patternId: number) => {
+    if (!copiedPattern) return;
+    pushUndoState();
+    setTracks(tracks.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            return {
+              ...p,
+              steps: copiedPattern.steps,
+              activeSteps: [...copiedPattern.activeSteps],
+              lyrics: [...(copiedPattern.lyrics || Array(copiedPattern.steps).fill(''))],
+              notes: [...(copiedPattern.notes || Array(copiedPattern.steps).fill(''))],
+              volumes: [...(copiedPattern.volumes || Array(copiedPattern.steps).fill(100))],
+              decays: [...(copiedPattern.decays || Array(copiedPattern.steps).fill(100))],
+              microtimings: [...(copiedPattern.microtimings || Array(copiedPattern.steps).fill(0))],
+            };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleCreateSongSection = (name: string, start: number, end: number, color?: string) => {
+    pushUndoState();
+    const newSection: SongSection = {
+      id: String(Date.now() + Math.floor(Math.random() * 1000)),
+      name,
+      startMeasure: start,
+      endMeasure: end,
+      color: color || '#f39c12',
+    };
+    setSongSections(prev => {
+      const next = [...prev, newSection];
+      next.sort((a, b) => a.startMeasure - b.startMeasure);
+      return next;
+    });
+  };
+
+  const handleUpdateSongSection = (id: string, name: string, start: number, end: number, color?: string) => {
+    pushUndoState();
+    setSongSections(prev => {
+      const next = prev.map(s => s.id === id ? { ...s, name, startMeasure: start, endMeasure: end, color } : s);
+      next.sort((a, b) => a.startMeasure - b.startMeasure);
+      return next;
+    });
+  };
+
+  const handleDeleteSongSection = (id: string) => {
+    pushUndoState();
+    setSongSections(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleCopySongSection = (section: SongSection) => {
+    const len = section.endMeasure - section.startMeasure + 1;
+    const assignments: { [trackId: number]: (number | null)[] } = {};
+    tracks.forEach(track => {
+      const trackAssignments: (number | null)[] = [];
+      for (let m = section.startMeasure; m <= section.endMeasure; m++) {
+        const activePtn = track.patterns.find(p => p.measureAssignments[m]);
+        trackAssignments.push(activePtn ? activePtn.id : null);
+      }
+      assignments[track.id] = trackAssignments;
+    });
+    setCopiedSection({ length: len, assignments });
+  };
+
+  const handlePasteSongSection = (destStartMeasure: number) => {
+    if (!copiedSection) return;
+    pushUndoState();
+    setTracks(prevTracks => {
+      return prevTracks.map(track => {
+        const trackAssignments = copiedSection.assignments[track.id];
+        if (!trackAssignments) return track;
+
+        const nextPatterns = track.patterns.map(pattern => {
+          const nextMeasureAssignments = [...pattern.measureAssignments];
+          for (let i = 0; i < copiedSection.length; i++) {
+            const targetM = destStartMeasure + i;
+            if (targetM >= totalMeasures) break;
+
+            const copiedPtnId = trackAssignments[i];
+            if (copiedPtnId === pattern.id) {
+              nextMeasureAssignments[targetM] = true;
+            } else {
+              nextMeasureAssignments[targetM] = false;
+            }
+          }
+          return { ...pattern, measureAssignments: nextMeasureAssignments };
+        });
+
+        return { ...track, patterns: nextPatterns };
+      });
+    });
+  };
+
+
   const handleStepTouchStart = (
     e: React.MouseEvent | React.TouchEvent,
     patternId: number,
@@ -1574,7 +1711,8 @@ export default function App() {
       measureBpms,
       measureBpmTransitions,
       measureVols,
-      measureVolTransitions
+      measureVolTransitions,
+      songSections
     };
     const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
     const dlLink = document.createElement('a');
@@ -1645,6 +1783,11 @@ export default function App() {
         updateRadii(loadedTracks);
         setTracks(loadedTracks);
         setTotalMeasures(loadedMeasures);
+        if (data.songSections && Array.isArray(data.songSections)) {
+          setSongSections(data.songSections);
+        } else {
+          setSongSections([]);
+        }
         measureCountRef.current = 0;
       } catch (err) {
         window.alert(t('invalidFile'));
@@ -1769,101 +1912,108 @@ export default function App() {
         {viewMode === 'roda' && (
           <>
             {/* Left column tracks mixers */}
-            <Mixer
-              lang={lang}
-              tracks={tracks}
-              onMoveUp={handleTrackMoveUp}
-              onMoveDown={handleTrackMoveDown}
-              onInstrumentChange={handleTrackInstrumentIdxChange}
-              onMuteToggle={handleTrackMuteToggle}
-              onSoloToggle={handleTrackSoloToggle}
-              onHideToggle={handleTrackHideToggle}
-              onDelete={handleTrackDelete}
-              onVolumeChange={handleTrackVolumeChange}
-              onPanChange={handleTrackPanChange}
-              onStepsChange={handleTrackStepsChange}
-              onStepValueChange={handleTrackStepValueChange}
-              onStepKeyDown={handleTrackStepKeyDown}
-              onStepTouchStart={handleStepTouchStart}
-              onVoiceTypeToggle={handleVoiceTypeToggle}
-              onVoiceSylChange={handleVoiceSylChange}
-              onVoiceNoteChange={handleVoiceNoteChange}
-              onVoiceNoteBlur={handleVoiceNoteBlur}
-              isPlaying={isPlaying}
-              currentStepIndex={currentStepIndex}
-              maxTicks={getMaxTicks(timeSig)}
-              timeSig={timeSig}
-              isLeftPanelCollapsed={isMobile ? false : isLeftPanelCollapsed}
-              onToggleLeftPanel={() => setIsLeftPanelCollapsed(true)}
-              totalMeasures={totalMeasures}
-              onTrackSelectPattern={(trackId, patternId) => {
-                setTracks(tracks.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
-              }}
-              onPatternAssign={(trackId, patternId, measureIdx, val) => {
-                setTracks(tracks.map(t => {
-                  if (t.id === trackId) {
-                    const nextPatterns = t.patterns.map(p => {
-                      if (p.id === patternId) {
-                        const assign = [...p.measureAssignments];
-                        assign[measureIdx] = val;
-                        return { ...p, measureAssignments: assign };
-                      }
-                      return p;
-                    });
-                    return { ...t, patterns: nextPatterns };
-                  }
-                  return t;
-                }));
-              }}
-              onAddPattern={(trackId) => {
-                setTracks(tracks.map(t => {
-                  if (t.id === trackId) {
-                    const p = t.patterns[0];
-                    const newPattern: Pattern = {
-                      id: Date.now() + Math.floor(Math.random() * 1000),
-                      name: `Padrão ${t.patterns.length + 1}`,
-                      steps: p.steps,
-                      activeSteps: Array(p.steps).fill(0),
-                      lyrics: Array(p.steps).fill(''),
-                      notes: Array(p.steps).fill(''),
-                      measureAssignments: Array(totalMeasures).fill(false),
-                      volumes: Array(p.steps).fill(100),
-                      decays: Array(p.steps).fill(100),
-                      microtimings: Array(p.steps).fill(0),
-                    };
-                    return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
-                  }
-                  return t;
-                }));
-              }}
-              onDeletePattern={(trackId, patternId) => {
-                setTracks(tracks.map(t => {
-                  if (t.id === trackId && t.patterns.length > 1) {
-                    const nextPatterns = t.patterns.filter(p => p.id !== patternId);
-                    const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;
-                    return { ...t, patterns: nextPatterns, selectedPatternId: nextSelected };
-                  }
-                  return t;
-                }));
-              }}
-            />
+            {(!isMobile || mobileTab === 'mixer') && (
+              <Mixer
+                lang={lang}
+                tracks={tracks}
+                onMoveUp={handleTrackMoveUp}
+                onMoveDown={handleTrackMoveDown}
+                onInstrumentChange={handleTrackInstrumentIdxChange}
+                onMuteToggle={handleTrackMuteToggle}
+                onSoloToggle={handleTrackSoloToggle}
+                onHideToggle={handleTrackHideToggle}
+                onDelete={handleTrackDelete}
+                onVolumeChange={handleTrackVolumeChange}
+                onPanChange={handleTrackPanChange}
+                onStepsChange={handleTrackStepsChange}
+                onStepValueChange={handleTrackStepValueChange}
+                onStepKeyDown={handleTrackStepKeyDown}
+                onStepTouchStart={handleStepTouchStart}
+                onVoiceTypeToggle={handleVoiceTypeToggle}
+                onVoiceSylChange={handleVoiceSylChange}
+                onVoiceNoteChange={handleVoiceNoteChange}
+                onVoiceNoteBlur={handleVoiceNoteBlur}
+                isPlaying={isPlaying}
+                currentStepIndex={currentStepIndex}
+                maxTicks={getMaxTicks(timeSig)}
+                timeSig={timeSig}
+                isLeftPanelCollapsed={isMobile ? false : isLeftPanelCollapsed}
+                onToggleLeftPanel={() => setIsLeftPanelCollapsed(true)}
+                totalMeasures={totalMeasures}
+                onTrackSelectPattern={(trackId, patternId) => {
+                  setTracks(tracks.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
+                }}
+                onPatternAssign={(trackId, patternId, measureIdx, val) => {
+                  setTracks(tracks.map(t => {
+                    if (t.id === trackId) {
+                      const nextPatterns = t.patterns.map(p => {
+                        if (p.id === patternId) {
+                          const assign = [...p.measureAssignments];
+                          assign[measureIdx] = val;
+                          return { ...p, measureAssignments: assign };
+                        }
+                        return p;
+                      });
+                      return { ...t, patterns: nextPatterns };
+                    }
+                    return t;
+                  }));
+                }}
+                onAddPattern={(trackId) => {
+                  setTracks(tracks.map(t => {
+                    if (t.id === trackId) {
+                      const p = t.patterns[0];
+                      const newPattern: Pattern = {
+                        id: Date.now() + Math.floor(Math.random() * 1000),
+                        name: `Padrão ${t.patterns.length + 1}`,
+                        steps: p.steps,
+                        activeSteps: Array(p.steps).fill(0),
+                        lyrics: Array(p.steps).fill(''),
+                        notes: Array(p.steps).fill(''),
+                        measureAssignments: Array(totalMeasures).fill(false),
+                        volumes: Array(p.steps).fill(100),
+                        decays: Array(p.steps).fill(100),
+                        microtimings: Array(p.steps).fill(0),
+                      };
+                      return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
+                    }
+                    return t;
+                  }));
+                }}
+                onDeletePattern={(trackId, patternId) => {
+                  setTracks(tracks.map(t => {
+                    if (t.id === trackId && t.patterns.length > 1) {
+                      const nextPatterns = t.patterns.filter(p => p.id !== patternId);
+                      const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;
+                      return { ...t, patterns: nextPatterns, selectedPatternId: nextSelected };
+                    }
+                    return t;
+                  }));
+                }}
+                onCopyPattern={handleCopyPattern}
+                onPastePattern={handlePastePattern}
+                canPaste={!!copiedPattern}
+              />
+            )}
 
             {/* Center circle visual canvas engine */}
-            <CircleSequencer
-              lang={lang}
-              tracks={tracks}
-              isPlaying={isPlaying}
-              currentStepIndex={currentStepIndex}
-              currentMeasure={measureCountRef.current % totalMeasures}
-              maxTicks={getMaxTicks(timeSig)}
-              totalMeasures={totalMeasures}
-              onTogglePlay={handleTogglePlay}
-              onStepChange={handleStepValueSelectAndToggle}
-              langPromptVoiceText={t('promptVoice')}
-              isMetroOn={isMetroOn}
-              activePatternIdByInst={activePatternIdByInst}
-              hitTriggersRef={hitTriggersRef}
-            />
+            {(!isMobile || mobileTab === 'roda') && (
+              <CircleSequencer
+                lang={lang}
+                tracks={tracks}
+                isPlaying={isPlaying}
+                currentStepIndex={currentStepIndex}
+                currentMeasure={measureCountRef.current % totalMeasures}
+                maxTicks={getMaxTicks(timeSig)}
+                totalMeasures={totalMeasures}
+                onTogglePlay={handleTogglePlay}
+                onStepChange={handleStepValueSelectAndToggle}
+                langPromptVoiceText={t('promptVoice')}
+                isMetroOn={isMetroOn}
+                activePatternIdByInst={activePatternIdByInst}
+                hitTriggersRef={hitTriggersRef}
+              />
+            )}
           </>
         )}
         {viewMode === 'console' && (
@@ -1953,6 +2103,9 @@ export default function App() {
                   return t;
                 }));
               }}
+              onCopyPattern={handleCopyPattern}
+              onPastePattern={handlePastePattern}
+              canPaste={!!copiedPattern}
             />
           </div>
         )}
@@ -1981,11 +2134,20 @@ export default function App() {
             onMeasureVolChange={handleMeasureVolChange}
             onMeasureVolTransitionChange={handleMeasureVolTransitionChange}
             onTotalMeasuresChange={handleTotalMeasuresChange}
+            songSections={songSections}
+            copiedSection={copiedSection}
+            onCreateSection={handleCreateSongSection}
+            onUpdateSection={handleUpdateSongSection}
+            onDeleteSection={handleDeleteSongSection}
+            onCopySection={handleCopySongSection}
+            onPasteSection={handlePasteSongSection}
+            metadata={metadata}
+            letras={letras}
           />
         )}
 
         {/* Right drawer sidebar context panel */}
-        {(!isMobile || viewMode === 'roda') && (
+        {(!isMobile || (viewMode === 'roda' && mobileTab === 'toada')) && (
           <RightSidebar
             lang={lang}
             activePanel={isMobile ? (activeRightPanel || 'letras') : activeRightPanel}
@@ -2011,7 +2173,40 @@ export default function App() {
           />
         )}
       </div>
-      
+
+      {/* Mobile view Tab Bar (Roda, Mixeur, Toada) */}
+      {isMobile && viewMode === 'roda' && (
+        <div className="flex w-full bg-[#f4ecd8] border-t-2 border-[#1a1a1a] h-12 shrink-0 z-40 text-[#1a1a1a]">
+          <button
+            onClick={() => setMobileTab('roda')}
+            className={`flex-1 font-cactus font-bold text-xs flex flex-col items-center justify-center border-r border-[#1a1a1a] cursor-pointer ${
+              mobileTab === 'roda' ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a]'
+            }`}
+          >
+            <span className="text-sm">⭕</span>
+            <span className="text-[9px] uppercase tracking-wider mt-0.5 font-bold">Roda</span>
+          </button>
+          <button
+            onClick={() => setMobileTab('mixer')}
+            className={`flex-1 font-cactus font-bold text-xs flex flex-col items-center justify-center border-r border-[#1a1a1a] cursor-pointer ${
+              mobileTab === 'mixer' ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a]'
+            }`}
+          >
+            <span className="text-sm">🎛️</span>
+            <span className="text-[9px] uppercase tracking-wider mt-0.5 font-bold">{lang === 'pt' ? 'Mixador' : 'Mixeur'}</span>
+          </button>
+          <button
+            onClick={() => setMobileTab('toada')}
+            className={`flex-1 font-cactus font-bold text-xs flex flex-col items-center justify-center cursor-pointer ${
+              mobileTab === 'toada' ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a]'
+            }`}
+          >
+            <span className="text-sm">📝</span>
+            <span className="text-[9px] uppercase tracking-wider mt-0.5 font-bold font-cactus">Toada</span>
+          </button>
+        </div>
+      )}
+
       <TransportBar
         viewMode={viewMode}
         lang={lang}
