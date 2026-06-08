@@ -614,7 +614,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
               >
                 {/* ── Sticky track header ── */}
                 <div
-                  className="sticky left-0 z-20 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between px-3 py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)]"
+                  className="sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between px-3 py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)]"
                   style={{ width: HEADER_W, minWidth: HEADER_W }}
                 >
                   <div className="flex items-center gap-2 min-w-0">

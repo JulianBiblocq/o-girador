@@ -1092,15 +1092,21 @@ export default function App() {
   };
 
   const handleAudioRecordingToggle = async () => {
-    await Tone.start();
-    const audioContext = Tone.getContext().rawContext;
-
-    if (!isRecording) {
-      // Start recording
-      wavRecordingBuffersL = [];
-      wavRecordingBuffersR = [];
+    try {
+      await Tone.start();
       
-      try {
+      const audioCtx = Tone.context;
+      const audioContext = (audioCtx as any)?.rawContext || audioCtx || (Tone.getContext() as any)?.rawContext;
+      
+      if (!audioContext) {
+        throw new Error("L'AudioContext n'est pas initialisé ou n'est pas supporté par ce navigateur.");
+      }
+
+      if (!isRecording) {
+        // Start recording
+        wavRecordingBuffersL = [];
+        wavRecordingBuffersR = [];
+        
         scriptProcessorNode = audioContext.createScriptProcessor(4096, 2, 2);
         scriptProcessorNode.onaudioprocess = (e) => {
           const left = e.inputBuffer.getChannelData(0);
@@ -1110,34 +1116,39 @@ export default function App() {
         };
 
         if (masterVolumeNode) {
-          masterVolumeNode.output.connect(scriptProcessorNode);
+          // Connect direct Tone.js node to the native script processor.
+          masterVolumeNode.connect(scriptProcessorNode);
         }
         scriptProcessorNode.connect(audioContext.destination);
         setIsRecording(true);
-      } catch (err) {
-        console.error("Could not start WAV recording:", err);
-      }
-    } else {
-      // Stop recording
-      if (scriptProcessorNode) {
-        try {
-          scriptProcessorNode.disconnect();
-          if (masterVolumeNode) {
-            masterVolumeNode.output.disconnect(scriptProcessorNode);
+      } else {
+        // Stop recording
+        const sampleRate = audioContext.sampleRate;
+        if (scriptProcessorNode) {
+          try {
+            scriptProcessorNode.disconnect();
+            if (masterVolumeNode) {
+              masterVolumeNode.disconnect(scriptProcessorNode);
+            }
+          } catch (e) {
+            console.warn("Erreur lors de la déconnexion du scriptProcessorNode:", e);
           }
-        } catch (e) {}
-        scriptProcessorNode = null;
-      }
-      setIsRecording(false);
+          scriptProcessorNode = null;
+        }
+        setIsRecording(false);
 
-      if (wavRecordingBuffersL.length > 0) {
-        const wavBlob = bufferToWav(wavRecordingBuffersL, wavRecordingBuffersR, audioContext.sampleRate);
-        const url = URL.createObjectURL(wavBlob);
-        const downloadLink = document.createElement('a');
-        downloadLink.download = 'BaqueMix_Export.wav';
-        downloadLink.href = url;
-        downloadLink.click();
+        if (wavRecordingBuffersL.length > 0) {
+          const wavBlob = bufferToWav(wavRecordingBuffersL, wavRecordingBuffersR, sampleRate);
+          const url = URL.createObjectURL(wavBlob);
+          const downloadLink = document.createElement('a');
+          downloadLink.download = 'BaqueMix_Export.wav';
+          downloadLink.href = url;
+          downloadLink.click();
+        }
       }
+    } catch (err) {
+      console.error("Erreur avec l'enregistrement WAV:", err);
+      alert("Erreur lors de l'enregistrement WAV : " + (err instanceof Error ? err.message : String(err)));
     }
   };
 

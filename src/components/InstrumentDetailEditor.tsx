@@ -324,9 +324,9 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
       <div
         className="bg-[#f4ecd8] cordel-border-sm text-[#1a1a1a] flex flex-col relative overflow-hidden"
         style={{
-          maxWidth: '1400px',
-          width: '95vw',
-          maxHeight: isMobile ? '94vh' : '90vh',
+          maxWidth: isMobile ? '100%' : '1600px',
+          width: isMobile ? '95vw' : '98vw',
+          maxHeight: isMobile ? '94vh' : '96vh',
           boxShadow: '8px 8px 0px 0px #1a1a1a',
         }}
       >
@@ -396,10 +396,10 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
         </div>
 
         {/* ═══════════════════ BODY: Content + Legend sidebar ═══════════════════ */}
-        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden min-h-0">
+        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
 
           {/* ─── Main scrollable content ─── */}
-          <div className="flex-1 md:overflow-y-auto p-3 md:p-5 flex flex-col gap-6" style={{ minWidth: 0 }}>
+          <div className="flex-1 md:overflow-y-auto p-3 md:p-5 flex flex-col gap-6" style={{ minWidth: 0, WebkitOverflowScrolling: 'touch' }}>
 
             {track.patterns.map((ptn, ptnIdx) => {
               const isSelected = track.selectedPatternId === ptn.id;

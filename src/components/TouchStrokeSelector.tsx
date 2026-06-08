@@ -135,10 +135,10 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
   const allChoices = ['0', ...instStrokes];
 
   useEffect(() => {
+    if (isSticky) return; // Don't register drag tracking listeners if we are in sticky mode
+
     // 1. Touch drag-to-select tracking
     const handleTouchMove = (e: TouchEvent) => {
-      if (isSticky) return; // Don't track drag move once we are in sticky tap mode
-      
       // Prevent default page scroll/overscroll while actively dragging/sliding to select a note
       if (e.cancelable) {
         e.preventDefault();
@@ -160,8 +160,6 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
     };
 
     const handleTouchEnd = () => {
-      if (isSticky) return;
-
       // If the user dragged to a DIFFERENT stroke, select it and close
       if (hoveredStrokeRef.current !== null && hoveredStrokeRef.current !== String(selector.currentVal)) {
         selector.onSelect(hoveredStrokeRef.current);
@@ -174,8 +172,6 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
 
     // 2. Mouse up validation
     const handleMouseUp = () => {
-      if (isSticky) return;
-
       // If the user dragged to a DIFFERENT stroke, select it and close
       if (hoveredStrokeRef.current !== null && hoveredStrokeRef.current !== String(selector.currentVal)) {
         selector.onSelect(hoveredStrokeRef.current);
