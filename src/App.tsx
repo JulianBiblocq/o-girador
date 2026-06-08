@@ -121,7 +121,7 @@ export default function App() {
         if (response.ok) {
           const data = await response.json();
           const latestVersion = Number(data.version);
-          const CURRENT_VERSION = 6; // Matches version.json
+          const CURRENT_VERSION = 7; // Matches version.json
           
           if (latestVersion > CURRENT_VERSION) {
             console.log(`New version detected: ${latestVersion}. Clearing Service Worker and reloading...`);
@@ -1191,16 +1191,68 @@ export default function App() {
       return null;
     };
 
-    // Resolve native AudioNode from any wrapper node
-    const getNativeNode = (node: any): any => {
-      if (!node) return null;
-      if (node instanceof AudioNode) return node;
-      if (node.output && node.output instanceof AudioNode) return node.output;
-      if (node.input && node.input instanceof AudioNode) return node.input;
-      if (node._gainNode && node._gainNode instanceof AudioNode) return node._gainNode;
-      if (node.output) return getNativeNode(node.output);
-      if (node.input) return getNativeNode(node.input);
-      return node;
+    // Recursively search any object properties for the native AudioNode instance
+    const findNativeAudioNode = (obj: any, visited: Set<any> = new Set()): any => {
+      if (!obj || typeof obj !== 'object') return null;
+      if (visited.has(obj)) return null;
+      visited.add(obj);
+
+      // Check if this object is a native AudioNode instance
+      const isNativeAudioNodeInstance = (val: any): boolean => {
+        if (!val) return false;
+        const AudioNodeClass = window.AudioNode;
+        if (AudioNodeClass && val instanceof AudioNodeClass) return true;
+        // Check standard constructor names just in case
+        const name = val.constructor?.name;
+        return typeof name === 'string' && (
+          name === 'GainNode' ||
+          name === 'AudioNode' ||
+          name === 'AudioDestinationNode' ||
+          name === 'ChannelMergerNode' ||
+          name.endsWith('Node')
+        );
+      };
+
+      if (isNativeAudioNodeInstance(obj)) {
+        return obj;
+      }
+
+      // Avoid traversing DOM elements or React internal objects
+      if (obj.nodeType || obj.$$typeof) return null;
+
+      // Try standard properties first for speed
+      const directProps = ['_nativeAudioNode', 'output', 'input', '_gainNode'];
+      for (const prop of directProps) {
+        try {
+          const val = obj[prop];
+          if (val && typeof val === 'object') {
+            const found = findNativeAudioNode(val, visited);
+            if (found) return found;
+          }
+        } catch (e) {}
+      }
+
+      // Then search all other properties
+      for (const key of Object.keys(obj)) {
+        try {
+          const val = obj[key];
+          if (val && typeof val === 'object') {
+            const found = findNativeAudioNode(val, visited);
+            if (found) return found;
+          }
+        } catch (e) {}
+      }
+
+      // Search prototype
+      try {
+        const proto = Object.getPrototypeOf(obj);
+        if (proto) {
+          const found = findNativeAudioNode(proto, visited);
+          if (found) return found;
+        }
+      } catch (e) {}
+
+      return null;
     };
 
     let audioContext: any = null;
@@ -1270,7 +1322,7 @@ export default function App() {
 
         if (masterVolumeNode) {
           // Connect native Web Audio nodes directly to bypass Tone.js asserts
-          const nativeNode = getNativeNode(masterVolumeNode);
+          const nativeNode = findNativeAudioNode(masterVolumeNode);
           if (nativeNode && typeof nativeNode.connect === 'function') {
             nativeNode.connect(scriptProcessorNode);
           } else {
@@ -1286,7 +1338,7 @@ export default function App() {
           try {
             scriptProcessorNode.disconnect();
             if (masterVolumeNode) {
-              const nativeNode = getNativeNode(masterVolumeNode);
+              const nativeNode = findNativeAudioNode(masterVolumeNode);
               if (nativeNode && typeof nativeNode.disconnect === 'function') {
                 try {
                   nativeNode.disconnect(scriptProcessorNode);
