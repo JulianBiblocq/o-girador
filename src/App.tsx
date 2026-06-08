@@ -121,7 +121,7 @@ export default function App() {
         if (response.ok) {
           const data = await response.json();
           const latestVersion = Number(data.version);
-          const CURRENT_VERSION = 5; // Matches version.json
+          const CURRENT_VERSION = 6; // Matches version.json
           
           if (latestVersion > CURRENT_VERSION) {
             console.log(`New version detected: ${latestVersion}. Clearing Service Worker and reloading...`);
@@ -1157,7 +1157,7 @@ export default function App() {
       if (obj.nodeType || obj.$$typeof) return null;
 
       // Try standard properties first for speed
-      const directProps = ['_nativeContext', '_nativeAudioContext', 'rawContext', 'context'];
+      const directProps = ['_nativeContext', '_nativeAudioContext', 'rawContext', 'context', '_context'];
       for (const prop of directProps) {
         try {
           const val = obj[prop];

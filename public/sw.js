@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const CACHE_NAME = 'baquemix-cache-v5';
+const CACHE_NAME = 'baquemix-cache-v6';
 
 // Core static files to cache immediately on SW install
 const STATIC_ASSETS = [
