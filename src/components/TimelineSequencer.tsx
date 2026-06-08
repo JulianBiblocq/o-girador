@@ -239,6 +239,65 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
 
   const startX = useRef(0);
   const startScrollLeft = useRef(0);
+  const isScrubbing = useRef(false);
+  const propsRef = useRef({ totalMeasures, measureTimeSigs, onNavigate });
+  
+  useEffect(() => {
+    propsRef.current = { totalMeasures, measureTimeSigs, onNavigate };
+  });
+
+  const handleRulerClickOrDrag = (clientX: number) => {
+    if (!scrollRef.current) return;
+    const rect = scrollRef.current.getBoundingClientRect();
+    const relativeX = clientX - rect.left - HEADER_W + scrollRef.current.scrollLeft;
+    const { totalMeasures: tMeasures, measureTimeSigs: mSigs, onNavigate: navigateFn } = propsRef.current;
+    
+    if (relativeX < 0) {
+      navigateFn(0, 0, 16);
+      return;
+    }
+    
+    const measureIdx = Math.floor(relativeX / MEASURE_W);
+    if (measureIdx >= tMeasures) {
+      const lastMeasureIdx = tMeasures - 1;
+      const mTimeSig = mSigs[lastMeasureIdx] || '4/4';
+      const steps = mTimeSig === '6/8' || mTimeSig === '12/8' ? 24 : 16;
+      navigateFn(lastMeasureIdx, steps - 1, steps);
+      return;
+    }
+    
+    const mTimeSig = mSigs[measureIdx] || '4/4';
+    const steps = mTimeSig === '6/8' || mTimeSig === '12/8' ? 24 : 16;
+    const xInMeasure = relativeX - measureIdx * MEASURE_W;
+    const ratio = Math.max(0, Math.min(1, xInMeasure / MEASURE_W));
+    const stepIdx = Math.floor(ratio * steps);
+    
+    navigateFn(measureIdx, stepIdx, steps);
+  };
+
+  const handleRulerMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return; // Clic gauche uniquement
+    if (!scrollRef.current) return;
+    const rect = scrollRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    if (clickX < HEADER_W) return; // Clic sur en-tête d'instruments, ignoré
+    
+    isScrubbing.current = true;
+    handleRulerClickOrDrag(e.clientX);
+    e.preventDefault();
+  };
+
+  const handleRulerTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!scrollRef.current) return;
+    const rect = scrollRef.current.getBoundingClientRect();
+    const touch = e.touches[0];
+    const clickX = touch.clientX - rect.left;
+    if (clickX < HEADER_W) return;
+    
+    isScrubbing.current = true;
+    handleRulerClickOrDrag(touch.clientX);
+    e.preventDefault();
+  };
 
   const currentMeasureSig = measureTimeSigs[currentMeasure] || '4/4';
   const currentMeasureTicks = getMaxTicks(currentMeasureSig);
@@ -262,38 +321,53 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     return () => el.removeEventListener('wheel', handleWheel);
   }, []);
 
-  // 2. Drag-scroll global handlers
+  // 2. Drag-scroll and Scrubbing global handlers
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging.current || !scrollRef.current) return;
-      const x = e.pageX - scrollRef.current.offsetLeft;
-      const walk = (x - startX.current) * 1.5; // Défilement avec multiplicateur
-      scrollRef.current.scrollLeft = startScrollLeft.current - walk;
+      if (isScrubbing.current) {
+        handleRulerClickOrDrag(e.clientX);
+      } else if (isDragging.current && scrollRef.current) {
+        const x = e.pageX - scrollRef.current.offsetLeft;
+        const walk = (x - startX.current) * 1.5; // Défilement avec multiplicateur
+        scrollRef.current.scrollLeft = startScrollLeft.current - walk;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isScrubbing.current) {
+        const touch = e.touches[0];
+        handleRulerClickOrDrag(touch.clientX);
+        e.preventDefault();
+      }
     };
 
     const handleMouseUp = () => {
+      if (isScrubbing.current) {
+        isScrubbing.current = false;
+      }
       if (isDragging.current) {
         isDragging.current = false;
         document.body.style.cursor = '';
       }
     };
 
+    const handleTouchEnd = () => {
+      if (isScrubbing.current) {
+        isScrubbing.current = false;
+      }
+    };
+
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
   }, []);
-
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return; // Clic gauche uniquement
-    isDragging.current = true;
-    startX.current = e.pageX - (scrollRef.current?.offsetLeft || 0);
-    startScrollLeft.current = scrollRef.current?.scrollLeft || 0;
-    document.body.style.cursor = 'grabbing';
-    e.preventDefault();
-  };
 
   // Auto-scroll to keep playhead visible
   useEffect(() => {
@@ -431,9 +505,10 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
 
           {/* ══════════ RULER ROW ══════════ */}
           <div
-            className="flex h-16 border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-grab active:cursor-grabbing select-none"
+            className="flex h-16 border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-pointer select-none"
             style={{ width: `${HEADER_W + totalContentW + 150}px` }}
-            onMouseDown={handleMouseDown}
+            onMouseDown={handleRulerMouseDown}
+            onTouchStart={handleRulerTouchStart}
           >
              {/* Sticky corner */}
              <div
@@ -770,7 +845,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
           })}
 
           {/* ══════════ PLAYHEAD ══════════ */}
-          {isPlaying && currentStepIndex >= 0 && (
+          {currentStepIndex >= 0 && (
             <div
               className="absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-30 shadow-[0_0_10px_rgba(220,38,38,0.7)]"
               style={{ left: `${HEADER_W + playheadX}px` }}
