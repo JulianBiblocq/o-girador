@@ -41,6 +41,13 @@ interface InstrumentDetailEditorProps {
   onCopyPattern?: (pattern: any) => void;
   onPastePattern?: (patternId: number) => void;
   canPaste?: boolean;
+  isRecordingVocal?: boolean;
+  recordingVocalPatternId?: number | null;
+  recordedPatternIds?: number[];
+  onStartVocalRecording?: (patternId: number) => void;
+  onStopVocalRecording?: () => void;
+  onVocalModeChange?: (patternId: number, mode: 'synth' | 'micro') => void;
+  onDeleteVocalRecording?: (patternId: number) => void;
 }
 
 /* ── Stroke legend definitions ─────────────────────────────── */
@@ -198,9 +205,46 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
   onCopyPattern,
   onPastePattern,
   canPaste,
+  isRecordingVocal = false,
+  recordingVocalPatternId = null,
+  recordedPatternIds = [],
+  onStartVocalRecording,
+  onStopVocalRecording,
+  onVocalModeChange,
+  onDeleteVocalRecording,
 }) => {
   const inst = instrumentsConfig[track.instrumentIdx];
   const t = (key: string) => (i18n[lang] as any)[key] || key;
+
+  const vocalT = (key: string) => {
+    const dictionary: any = {
+      fr: {
+        vocalMode: 'Mode Vocal',
+        synthMode: 'Synthétiseur',
+        microMode: 'Microphone (Enregistrement)',
+        recordVocal: '🎤 Enregistrer mon chant',
+        recording: '🔴 Enregistrement en cours...',
+        stopRecord: '⏹ Arrêter',
+        deleteRecord: 'Supprimer',
+        hasRecord: 'Chant enregistré (Local)',
+        noRecordYet: 'Aucun enregistrement vocal pour ce motif.',
+        reRecord: '🎤 Ré-enregistrer',
+      },
+      pt: {
+        vocalMode: 'Modo Vocal',
+        synthMode: 'Sintetizador',
+        microMode: 'Microfone (Gravação)',
+        recordVocal: '🎤 Gravar meu canto',
+        recording: '🔴 Gravando...',
+        stopRecord: '⏹ Parar',
+        deleteRecord: 'Excluir',
+        hasRecord: 'Canto gravado (Local)',
+        noRecordYet: 'Nenhuma gravação vocal para este padrão.',
+        reRecord: '🎤 Gravar novamente',
+      }
+    };
+    return dictionary[lang]?.[key] || key;
+  };
 
   const [selectedStepIdx, setSelectedStepIdx] = useState<number | null>(null);
   const [selectedPatternId, setSelectedPatternId] = useState<number | null>(null);
@@ -489,6 +533,77 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                       </button>
                     )}
                   </div>
+
+                  {/* Vocal recording controls (only for voice instruments) */}
+                  {inst.type === 'voice' && (
+                    <div className="bg-[#ece4d0] border border-[#1a1a1a]/25 cordel-border-sm p-3 mb-2 flex flex-col md:flex-row items-start md:items-center gap-4 text-[#1a1a1a] shrink-0">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs font-bold uppercase">{vocalT('vocalMode')} :</span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => onVocalModeChange && onVocalModeChange(ptn.id, 'synth')}
+                            className={`px-3 py-1 font-bold text-xs cordel-border-sm cursor-pointer transition-colors ${
+                              ptn.vocalMode !== 'micro'
+                                ? 'bg-[#1a1a1a] text-[#f4ecd8]'
+                                : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+                            }`}
+                          >
+                            🎹 {vocalT('synthMode')}
+                          </button>
+                          <button
+                            onClick={() => onVocalModeChange && onVocalModeChange(ptn.id, 'micro')}
+                            className={`px-3 py-1 font-bold text-xs cordel-border-sm cursor-pointer transition-colors ${
+                              ptn.vocalMode === 'micro'
+                                ? 'bg-[#1a1a1a] text-[#f4ecd8]'
+                                : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+                            }`}
+                          >
+                            🎤 {vocalT('microMode')}
+                          </button>
+                        </div>
+                      </div>
+
+                      {ptn.vocalMode === 'micro' && (
+                        <div className="flex flex-wrap items-center gap-3 flex-grow w-full border-t md:border-t-0 md:border-l border-[#1a1a1a]/20 pt-3 md:pt-0 md:pl-4">
+                          {isRecordingVocal && recordingVocalPatternId === ptn.id ? (
+                            <button
+                              onClick={() => onStopVocalRecording && onStopVocalRecording()}
+                              className="px-4 py-2 bg-[#8b2a1a] text-[#f4ecd8] font-bold text-xs cordel-border-sm cursor-pointer animate-pulse flex items-center gap-1.5"
+                            >
+                              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
+                              {vocalT('recording')}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => onStartVocalRecording && onStartVocalRecording(ptn.id)}
+                              className="px-4 py-2 bg-green-700 text-[#f4ecd8] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-green-800 transition-colors flex items-center gap-1.5"
+                            >
+                              🎤 {recordedPatternIds.includes(ptn.id) ? vocalT('reRecord') : vocalT('recordVocal')}
+                            </button>
+                          )}
+
+                          {recordedPatternIds.includes(ptn.id) ? (
+                            <div className="flex items-center gap-3 ml-auto flex-wrap">
+                              <span className="text-xs font-bold text-green-800 flex items-center gap-1">
+                                ✅ {vocalT('hasRecord')}
+                              </span>
+                              <button
+                                onClick={() => onDeleteVocalRecording && onDeleteVocalRecording(ptn.id)}
+                                className="px-2 py-1 text-[#8b2a1a] font-bold text-[11px] cordel-border-sm cursor-pointer hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors"
+                              >
+                                {vocalT('deleteRecord')}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-[#666] italic ml-auto">
+                              {vocalT('noRecordYet')}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Step grid */}
                   {inst.type === 'voice' ? (
                     /* ──── Voice step grid ──── */

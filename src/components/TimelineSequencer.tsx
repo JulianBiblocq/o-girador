@@ -687,11 +687,17 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                           </option>
                           {track.patterns.map((p, pidx) => (
                             <option key={p.id} value={String(p.id)}>
-                              {p.name || `Padrão ${pidx + 1}`}
+                              {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `Padrão ${pidx + 1}`}
                             </option>
                           ))}
                         </select>
                       </div>
+
+                      {activePattern && activePattern.vocalMode === 'micro' && (
+                        <div className="absolute bottom-1.5 right-1.5 bg-[#27ae60] text-white border border-black/20 font-sans font-bold text-[8px] px-1 py-px rounded-sm z-20 pointer-events-none select-none flex items-center gap-0.5 shadow-sm">
+                          🎙️ MIC
+                        </div>
+                      )}
 
                       {/* Cell content */}
                       {!activePattern ? (

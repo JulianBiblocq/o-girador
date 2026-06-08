@@ -162,7 +162,10 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
   };
 
   return (
-    <div className="flex flex-col bg-[var(--cordel-bg)] cordel-border w-[340px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-colors">
+    <div 
+      className="flex flex-col bg-[var(--cordel-bg)] cordel-border w-[340px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-colors"
+      style={{ zIndex: instDropdownOpen ? 30 : 1 }}
+    >
       <div className="relative z-10 p-3 pb-1 flex justify-between border-b-[3px] border-[var(--cordel-border)]">
         <div className="flex gap-2 items-center">
           <div className="flex flex-col gap-1">

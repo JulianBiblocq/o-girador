@@ -25,6 +25,7 @@ import { CircleSequencer } from './components/CircleSequencer';
 import { RightSidebar } from './components/RightSidebar';
 import { TimelineSequencer } from './components/TimelineSequencer';
 import { TouchStrokeSelector, TouchSelectorState } from './components/TouchStrokeSelector';
+import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from './db';
 
 // Module scope audio engines to avoid duplicate instantiations on React re-renders
 let bMetroClick: Tone.Synth | null = null;
@@ -121,7 +122,7 @@ export default function App() {
         if (response.ok) {
           const data = await response.json();
           const latestVersion = Number(data.version);
-          const CURRENT_VERSION = 7; // Matches version.json
+          const CURRENT_VERSION = 8; // Matches version.json
           
           if (latestVersion > CURRENT_VERSION) {
             console.log(`New version detected: ${latestVersion}. Clearing Service Worker and reloading...`);
@@ -382,6 +383,53 @@ export default function App() {
   const isSwingOnRef = useRef<boolean>(true);
   const hitTriggersRef = useRef<HitTrigger[]>([]);
 
+  // For vocal recording
+  const [isRecordingVocal, setIsRecordingVocal] = useState<boolean>(false);
+  const [recordingVocalPatternId, setRecordingVocalPatternId] = useState<number | null>(null);
+  const vocalMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const vocalAudioChunksRef = useRef<Blob[]>([]);
+  const vocalRecordingStateRef = useRef<'inactive' | 'waiting' | 'recording'>('inactive');
+  const vocalPlayersRef = useRef<{ [patternId: number]: Tone.Player }>({});
+  const [recordedPatternIds, setRecordedPatternIds] = useState<number[]>([]);
+
+  const loadVocalRecording = async (patternId: number) => {
+    try {
+      const blob = await getVocalRecording(patternId);
+      if (blob) {
+        const arrayBuffer = await blob.arrayBuffer();
+        const audioBuffer = await Tone.getContext().rawContext.decodeAudioData(arrayBuffer);
+        
+        if (vocalPlayersRef.current[patternId]) {
+          try {
+            vocalPlayersRef.current[patternId].dispose();
+          } catch (_) {}
+        }
+        
+        const player = new Tone.Player(audioBuffer);
+        const channel = channels['voice'];
+        if (channel) {
+          player.connect(channel);
+        } else if (masterVolumeNode) {
+          player.connect(masterVolumeNode);
+        } else {
+          player.toDestination();
+        }
+        vocalPlayersRef.current[patternId] = player;
+        setRecordedPatternIds((prev) => prev.includes(patternId) ? prev : [...prev, patternId]);
+      } else {
+        if (vocalPlayersRef.current[patternId]) {
+          try {
+            vocalPlayersRef.current[patternId].dispose();
+          } catch (_) {}
+          delete vocalPlayersRef.current[patternId];
+        }
+        setRecordedPatternIds((prev) => prev.filter((id) => id !== patternId));
+      }
+    } catch (err) {
+      console.error(`Failed to load vocal recording for pattern ${patternId}:`, err);
+    }
+  };
+
   // Synchronization with refs to have lag-free values inside Tone.js loop
   useEffect(() => {
     tracksRef.current = tracks;
@@ -392,6 +440,34 @@ export default function App() {
     isMetroOnRef.current = isMetroOn;
     isSwingOnRef.current = isSwingOn;
   }, [tracks, totalMeasures, isPlaying, currentStepIndex, timeSig, isMetroOn, isSwingOn]);
+
+  useEffect(() => {
+    const voicePatternIds: number[] = [];
+    tracks.forEach((t) => {
+      const inst = instrumentsConfig[t.instrumentIdx];
+      if (inst && inst.type === 'voice') {
+        t.patterns.forEach((p) => {
+          voicePatternIds.push(p.id);
+        });
+      }
+    });
+    
+    voicePatternIds.forEach((id) => {
+      if (!vocalPlayersRef.current[id]) {
+        loadVocalRecording(id);
+      }
+    });
+    
+    Object.keys(vocalPlayersRef.current).forEach((key) => {
+      const id = Number(key);
+      if (!voicePatternIds.includes(id)) {
+        try {
+          vocalPlayersRef.current[id].dispose();
+        } catch (_) {}
+        delete vocalPlayersRef.current[id];
+      }
+    });
+  }, [tracks]);
 
   const t = (key: string) => {
     return (i18n[lang] as any)[key] || key;
@@ -487,6 +563,16 @@ export default function App() {
               }
             },
           }).connect(channels[inst.id]);
+        }
+      });
+
+      // Load vocal recordings for all patterns in tracks
+      tracksRef.current.forEach((t) => {
+        const inst = instrumentsConfig[t.instrumentIdx];
+        if (inst && inst.type === 'voice') {
+          t.patterns.forEach((p) => {
+            loadVocalRecording(p.id);
+          });
         }
       });
 
@@ -591,14 +677,51 @@ export default function App() {
 
         const hasSolo = tracksRef.current.some((t) => t.isSolo);
         tracksRef.current.forEach((track) => {
-          const canPlay = hasSolo ? track.isSolo : !track.isMute;
-          if (!canPlay) return;
-
           const currentMeasure = measureCountRef.current % totalMeasuresRef.current;
           const activePattern = track.patterns.find(p => p.measureAssignments[currentMeasure]);
           if (!activePattern) return;
 
           const inst = instrumentsConfig[track.instrumentIdx];
+
+          // Recording handling should run even if track is muted/soloed
+          if (inst.type === 'voice') {
+            if (stepIdx === 0 && vocalRecordingStateRef.current === 'waiting' && recordingVocalPatternId === activePattern.id) {
+              vocalRecordingStateRef.current = 'recording';
+              if (vocalMediaRecorderRef.current && vocalMediaRecorderRef.current.state === 'inactive') {
+                try {
+                  vocalMediaRecorderRef.current.start();
+                } catch (err) {
+                  console.error("Failed to start MediaRecorder:", err);
+                }
+              }
+            }
+            if (stepIdx === currentTicks - 1 && vocalRecordingStateRef.current === 'recording' && recordingVocalPatternId === activePattern.id) {
+              vocalRecordingStateRef.current = 'inactive';
+              if (vocalMediaRecorderRef.current && vocalMediaRecorderRef.current.state === 'recording') {
+                try {
+                  vocalMediaRecorderRef.current.stop();
+                } catch (err) {
+                  console.error("Failed to stop MediaRecorder:", err);
+                }
+              }
+            }
+          }
+
+          const canPlay = hasSolo ? track.isSolo : !track.isMute;
+          if (!canPlay) return;
+
+          // If it is a voice track and in 'micro' mode, play the loop at stepIdx === 0
+          if (inst.type === 'voice' && activePattern.vocalMode === 'micro' && stepIdx === 0) {
+            const player = vocalPlayersRef.current[activePattern.id];
+            if (player && player.loaded) {
+              try {
+                player.stop();
+                player.start(time);
+              } catch (err) {
+                console.warn("Failed to play vocal player loop:", err);
+              }
+            }
+          }
 
           const stepCount = activePattern.steps;
           const circleStepIdx = Math.floor((stepIdx / currentTicks) * stepCount);
@@ -619,26 +742,28 @@ export default function App() {
               const finalTriggerTime = swingTime + microTimeOffset;
 
               if (inst.type === 'voice') {
-                let note = 'C5';
-                if (
-                  activePattern.notes &&
-                  activePattern.notes[circleStepIdx] &&
-                  activePattern.notes[circleStepIdx].trim() !== ''
-                ) {
-                  note = activePattern.notes[circleStepIdx];
-                } else if (state === 'P') {
-                  note = 'E5';
-                }
-
-                try {
-                  const synth = voiceSynths[inst.id];
-                  if (synth) {
-                    synth.volume.value = Tone.gainToDb(baseGain * stepVolMultiplier) - 10;
-                    const noteLength = (1 / 8) * stepDecayMultiplier;
-                    synth.triggerAttackRelease(note, `${noteLength}s`, finalTriggerTime);
+                if (activePattern.vocalMode !== 'micro') {
+                  let note = 'C5';
+                  if (
+                    activePattern.notes &&
+                    activePattern.notes[circleStepIdx] &&
+                    activePattern.notes[circleStepIdx].trim() !== ''
+                  ) {
+                    note = activePattern.notes[circleStepIdx];
+                  } else if (state === 'P') {
+                    note = 'E5';
                   }
-                } catch (err) {
-                  voiceSynths[inst.id]?.triggerAttackRelease('C5', '8n', finalTriggerTime);
+
+                  try {
+                    const synth = voiceSynths[inst.id];
+                    if (synth) {
+                      synth.volume.value = Tone.gainToDb(baseGain * stepVolMultiplier) - 10;
+                      const noteLength = (1 / 8) * stepDecayMultiplier;
+                      synth.triggerAttackRelease(note, `${noteLength}s`, finalTriggerTime);
+                    }
+                  } catch (err) {
+                    voiceSynths[inst.id]?.triggerAttackRelease('C5', '8n', finalTriggerTime);
+                  }
                 }
               } else if (samplers[inst.id]) {
                 const playerGroup = samplers[inst.id];
@@ -1036,6 +1161,11 @@ export default function App() {
         if (samplers[inst.id]) samplers[inst.id].stopAll();
         if (voiceSynths[inst.id]) voiceSynths[inst.id].triggerRelease();
       });
+      (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
+        try {
+          player.stop();
+        } catch (_) {}
+      });
       setIsPlaying(false);
     }
   };
@@ -1046,6 +1176,11 @@ export default function App() {
     instrumentsConfig.forEach((inst) => {
       if (samplers[inst.id]) samplers[inst.id].stopAll();
       if (voiceSynths[inst.id]) voiceSynths[inst.id].triggerRelease();
+    });
+    (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
+      try {
+        player.stop();
+      } catch (_) {}
     });
     setIsPlaying(false);
     setCurrentStepIndex(-1);
@@ -1934,6 +2069,148 @@ export default function App() {
     }
   };
 
+  const startVocalRecording = async (patternId: number) => {
+    try {
+      let targetTrack: TrackGroup | undefined;
+      let targetPattern: Pattern | undefined;
+      for (const t of tracks) {
+        const p = t.patterns.find((pat) => pat.id === patternId);
+        if (p) {
+          targetTrack = t;
+          targetPattern = p;
+          break;
+        }
+      }
+      if (!targetTrack || !targetPattern) return;
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      let mimeType = 'audio/webm';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/mp4';
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = '';
+      }
+      
+      const mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+      vocalMediaRecorderRef.current = mediaRecorder;
+      vocalAudioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          vocalAudioChunksRef.current.push(e.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        
+        const blob = new Blob(vocalAudioChunksRef.current, { type: mediaRecorder.mimeType || 'audio/webm' });
+        await saveVocalRecording(patternId, blob);
+        await loadVocalRecording(patternId);
+        
+        setTracks((prevTracks) => {
+          return prevTracks.map((t) => {
+            const hasPattern = t.patterns.some((p) => p.id === patternId);
+            if (!hasPattern) return t;
+            return {
+              ...t,
+              patterns: t.patterns.map((p) => {
+                if (p.id === patternId) {
+                  return { ...p, vocalMode: 'micro' };
+                }
+                return p;
+              }),
+            };
+          });
+        });
+        
+        setIsRecordingVocal(false);
+        setRecordingVocalPatternId(null);
+        vocalRecordingStateRef.current = 'inactive';
+      };
+      
+      const measureIdx = targetPattern.measureAssignments.indexOf(true);
+      
+      vocalRecordingStateRef.current = 'waiting';
+      setRecordingVocalPatternId(patternId);
+      setIsRecordingVocal(true);
+      
+      await Tone.start();
+      
+      if (!isPlayingRef.current) {
+        measureCountRef.current = measureIdx >= 0 ? measureIdx : 0;
+        currentStepIndexRef.current = -1;
+        Tone.Transport.seconds = 0;
+        if (Tone.Transport.state !== 'started') {
+          Tone.Transport.start();
+        }
+        mainLoop?.start(0);
+        setIsPlaying(true);
+      }
+    } catch (err) {
+      console.error("Failed to start vocal recording:", err);
+      alert("Erreur d'accès au microphone : " + err);
+    }
+  };
+
+  const stopVocalRecording = () => {
+    if (vocalRecordingStateRef.current !== 'inactive' && vocalMediaRecorderRef.current) {
+      vocalRecordingStateRef.current = 'inactive';
+      try {
+        vocalMediaRecorderRef.current.stop();
+      } catch (err) {
+        console.error("Failed to stop MediaRecorder manually:", err);
+      }
+    }
+  };
+
+  const handleVocalModeChange = (patternId: number, mode: 'synth' | 'micro') => {
+    pushUndoState();
+    setTracks((prevTracks) => {
+      return prevTracks.map((t) => {
+        const hasPattern = t.patterns.some((p) => p.id === patternId);
+        if (!hasPattern) return t;
+        return {
+          ...t,
+          patterns: t.patterns.map((p) => {
+            if (p.id === patternId) {
+              return { ...p, vocalMode: mode };
+            }
+            return p;
+          }),
+        };
+      });
+    });
+  };
+
+  const handleDeleteVocalRecording = async (patternId: number) => {
+    pushUndoState();
+    await deleteVocalRecording(patternId);
+    if (vocalPlayersRef.current[patternId]) {
+      try {
+        vocalPlayersRef.current[patternId].dispose();
+      } catch (_) {}
+      delete vocalPlayersRef.current[patternId];
+    }
+    setRecordedPatternIds((prev) => prev.filter((id) => id !== patternId));
+    setTracks((prevTracks) => {
+      return prevTracks.map((t) => {
+        const hasPattern = t.patterns.some((p) => p.id === patternId);
+        if (!hasPattern) return t;
+        return {
+          ...t,
+          patterns: t.patterns.map((p) => {
+            if (p.id === patternId) {
+              return { ...p, vocalMode: 'synth' };
+            }
+            return p;
+          }),
+        };
+      });
+    });
+  };
+
   // Vocals inputs handlers
   const handleVoiceTypeToggle = (trackId: number, patternId: number, stepIdx: number) => {
     pushUndoState();
@@ -2464,6 +2741,13 @@ export default function App() {
               onCopyPattern={handleCopyPattern}
               onPastePattern={handlePastePattern}
               canPaste={!!copiedPattern}
+              isRecordingVocal={isRecordingVocal}
+              recordingVocalPatternId={recordingVocalPatternId}
+              recordedPatternIds={recordedPatternIds}
+              onStartVocalRecording={startVocalRecording}
+              onStopVocalRecording={stopVocalRecording}
+              onVocalModeChange={handleVocalModeChange}
+              onDeleteVocalRecording={handleDeleteVocalRecording}
             />
           </div>
         )}

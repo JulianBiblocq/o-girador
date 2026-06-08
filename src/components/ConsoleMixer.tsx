@@ -49,6 +49,13 @@ interface ConsoleMixerProps {
   onCopyPattern: (pattern: any) => void;
   onPastePattern: (trackId: number, patternId: number) => void;
   canPaste: boolean;
+  isRecordingVocal?: boolean;
+  recordingVocalPatternId?: number | null;
+  recordedPatternIds?: number[];
+  onStartVocalRecording?: (patternId: number) => void;
+  onStopVocalRecording?: () => void;
+  onVocalModeChange?: (patternId: number, mode: 'synth' | 'micro') => void;
+  onDeleteVocalRecording?: (patternId: number) => void;
 }
 
 export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
@@ -90,6 +97,13 @@ export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
   onCopyPattern,
   onPastePattern,
   canPaste,
+  isRecordingVocal = false,
+  recordingVocalPatternId = null,
+  recordedPatternIds = [],
+  onStartVocalRecording,
+  onStopVocalRecording,
+  onVocalModeChange,
+  onDeleteVocalRecording,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
@@ -196,6 +210,13 @@ export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
           onCopyPattern={onCopyPattern}
           onPastePattern={(pid) => onPastePattern(editingTrack.id, pid)}
           canPaste={canPaste}
+          isRecordingVocal={isRecordingVocal}
+          recordingVocalPatternId={recordingVocalPatternId}
+          recordedPatternIds={recordedPatternIds}
+          onStartVocalRecording={onStartVocalRecording}
+          onStopVocalRecording={onStopVocalRecording}
+          onVocalModeChange={onVocalModeChange}
+          onDeleteVocalRecording={onDeleteVocalRecording}
         />
       )}
     </div>
