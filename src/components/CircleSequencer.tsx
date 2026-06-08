@@ -362,14 +362,42 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
         ctx.lineWidth = (tick === 0) ? 4 : 2;
         ctx.stroke();
 
-        const textRad = innerSkinRadius - 50;
-        ctx.fillStyle = '#1a1a1a';
-        ctx.font = 'bold 20px serif';
+        // Draw numbers on the dark wood rim in cream color to prevent overlapping with outer tracks
+        const textRad = 540;
+        ctx.fillStyle = '#f4ecd8';
+        ctx.font = 'bold 24px serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const strVal = (idx + 1).toString();
         ctx.fillText(strVal, centerX + Math.cos(angle) * textRad, centerY + Math.sin(angle) * textRad);
       });
+
+      // 5b. Grid lines (lines indicating beats and subdivisions) under the sequencer tracks
+      ctx.save();
+      const subdivisionTickInterval = 6; // Representing a 16th note subdivision
+      const ticksPerBeat = localTicks / markers.length;
+
+      for (let t = 0; t < localTicks; t += subdivisionTickInterval) {
+        const angle = -Math.PI / 2 + (t / localTicks) * Math.PI * 2;
+        const isMainBeat = t % ticksPerBeat === 0;
+
+        ctx.beginPath();
+        // Draw from the inner circle area to the outer skin limit
+        ctx.moveTo(centerX + Math.cos(angle) * 110, centerY + Math.sin(angle) * 110);
+        ctx.lineTo(centerX + Math.cos(angle) * 510, centerY + Math.sin(angle) * 510);
+
+        if (isMainBeat) {
+          ctx.strokeStyle = 'rgba(26, 26, 26, 0.16)';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([]);
+        } else {
+          ctx.strokeStyle = 'rgba(26, 26, 26, 0.05)';
+          ctx.lineWidth = 0.8;
+          ctx.setLineDash([4, 4]);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
 
       // Metronome Flash (if active)
       if (localMetroOn && flashAlpha > 0) {
@@ -382,7 +410,6 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
       }
 
       // Animated golden beat indicators glow
-      const ticksPerBeat = localTicks / markers.length;
       const currentBeat = localStep >= 0 ? Math.floor(localStep / ticksPerBeat) : -1;
       
       if (localPlaying && localMetroOn && currentBeat !== -1 && currentBeat !== lastFlashBeat) {

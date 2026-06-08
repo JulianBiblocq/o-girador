@@ -1143,10 +1143,28 @@ export default function App() {
         wavRecordingBuffersL = [];
         wavRecordingBuffersR = [];
         
-        scriptProcessorNode = audioContext.createScriptProcessor(4096, 2, 2);
+        // Robust nested fallback creation of scriptProcessorNode to bypass hardware/Safari/device limits
+        try {
+          scriptProcessorNode = audioContext.createScriptProcessor(4096, 2, 2);
+        } catch (e1) {
+          console.warn("createScriptProcessor(4096, 2, 2) failed, trying buffer size 0:", e1);
+          try {
+            scriptProcessorNode = audioContext.createScriptProcessor(0, 2, 2);
+          } catch (e2) {
+            console.warn("createScriptProcessor(0, 2, 2) failed, trying mono (4096, 1, 1):", e2);
+            try {
+              scriptProcessorNode = audioContext.createScriptProcessor(4096, 1, 1);
+            } catch (e3) {
+              console.warn("createScriptProcessor(4096, 1, 1) failed, trying mono size 0:", e3);
+              scriptProcessorNode = audioContext.createScriptProcessor(0, 1, 1);
+            }
+          }
+        }
+
         scriptProcessorNode.onaudioprocess = (e) => {
+          // Handle both mono and stereo recording buffers
           const left = e.inputBuffer.getChannelData(0);
-          const right = e.inputBuffer.getChannelData(1);
+          const right = e.inputBuffer.numberOfChannels > 1 ? e.inputBuffer.getChannelData(1) : left;
           wavRecordingBuffersL.push(new Float32Array(left));
           wavRecordingBuffersR.push(new Float32Array(right));
         };
@@ -1199,9 +1217,11 @@ export default function App() {
     } catch (err) {
       console.error("Erreur avec l'enregistrement WAV:", err);
       const ctxName = audioContext ? audioContext.constructor.name : 'null';
-      const errMsg = err instanceof Error ? err.message : String(err);
-      const errStack = err instanceof Error ? err.stack : 'pas de stack';
-      alert("Erreur WAV : " + errMsg + "\n(ctx: " + ctxName + ")\n\nStack:\n" + errStack);
+      const errStr = String(err);
+      const errMsg = (err as any)?.message || 'pas de message';
+      const errName = (err as any)?.name || 'pas de nom';
+      const errStack = (err as any)?.stack || 'pas de stack';
+      alert("Erreur WAV : " + errStr + "\nNom: " + errName + "\nMsg: " + errMsg + "\n(ctx: " + ctxName + ")\n\nStack:\n" + errStack);
     }
   };
 
