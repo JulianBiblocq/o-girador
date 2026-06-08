@@ -63,10 +63,40 @@
       "keywords": "maracatu, baque virado, sequenciador, ritmo, alfaia, caixa, gonguê, agbê, mineiro, percussão brasileira"
     }
     </script>
-    <script type="module" crossorigin src="/BaqueMix/assets/index-6T9n0Dd1.js"></script>
-    <link rel="stylesheet" crossorigin href="/BaqueMix/assets/index-D1NU7a_u.css">
+    <script type="module" crossorigin src="/BaqueMix/assets/index-7FoxqOmM.js"></script>
+    <link rel="stylesheet" crossorigin href="/BaqueMix/assets/index-CCXOiKQ6.css">
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          const base = window.location.pathname.startsWith('/BaqueMix') ? '/BaqueMix/' : '/';
+          navigator.serviceWorker.register(base + 'sw.js')
+            .then(reg => {
+              console.log('Service Worker registered:', reg.scope);
+              
+              // Detect updates to the service worker code
+              reg.onupdatefound = () => {
+                const installingWorker = reg.installing;
+                if (installingWorker) {
+                  installingWorker.onstatechange = () => {
+                    if (installingWorker.state === 'installed') {
+                      if (navigator.serviceWorker.controller) {
+                        // A new service worker has been installed and is ready to activate
+                        console.log('New content is available; prompting refresh.');
+                        if (confirm('Une nouvelle version de BaqueMix est disponible. Voulez-vous recharger la page pour l\'appliquer ?')) {
+                          window.location.reload();
+                        }
+                      }
+                    }
+                  };
+                }
+              };
+            })
+            .catch(err => console.error('Service Worker registration failed:', err));
+        });
+      }
+    </script>
   </body>
 </html>
