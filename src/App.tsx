@@ -122,7 +122,7 @@ export default function App() {
         if (response.ok) {
           const data = await response.json();
           const latestVersion = Number(data.version);
-          const CURRENT_VERSION = 10; // Matches version.json
+          const CURRENT_VERSION = 11; // Matches version.json
           
           if (latestVersion > CURRENT_VERSION) {
             console.log(`New version detected: ${latestVersion}. Clearing Service Worker and reloading...`);
@@ -698,12 +698,18 @@ export default function App() {
               }
               if (stepIdx === currentTicks - 1 && vocalRecordingStateRef.current === 'recording') {
                 vocalRecordingStateRef.current = 'inactive';
+                let stopped = false;
                 if (vocalMediaRecorderRef.current && vocalMediaRecorderRef.current.state === 'recording') {
                   try {
                     vocalMediaRecorderRef.current.stop();
+                    stopped = true;
                   } catch (err) {
                     console.error("Failed to stop MediaRecorder:", err);
                   }
+                }
+                if (!stopped) {
+                  setIsRecordingVocal(false);
+                  setRecordingVocalPatternId(null);
                 }
               }
             }
@@ -2114,31 +2120,36 @@ export default function App() {
       };
       
       mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach((track) => track.stop());
-        
-        const blob = new Blob(vocalAudioChunksRef.current, { type: mediaRecorder.mimeType || 'audio/webm' });
-        await saveVocalRecording(patternId, blob);
-        await loadVocalRecording(patternId);
-        
-        setTracks((prevTracks) => {
-          return prevTracks.map((t) => {
-            const hasPattern = t.patterns.some((p) => p.id === patternId);
-            if (!hasPattern) return t;
-            return {
-              ...t,
-              patterns: t.patterns.map((p) => {
-                if (p.id === patternId) {
-                  return { ...p, vocalMode: 'micro' };
-                }
-                return p;
-              }),
-            };
-          });
-        });
-        
-        setIsRecordingVocal(false);
-        setRecordingVocalPatternId(null);
-        vocalRecordingStateRef.current = 'inactive';
+        try {
+          stream.getTracks().forEach((track) => track.stop());
+          if (vocalAudioChunksRef.current.length > 0) {
+            const blob = new Blob(vocalAudioChunksRef.current, { type: mediaRecorder.mimeType || 'audio/webm' });
+            await saveVocalRecording(patternId, blob);
+            await loadVocalRecording(patternId);
+            
+            setTracks((prevTracks) => {
+              return prevTracks.map((t) => {
+                const hasPattern = t.patterns.some((p) => p.id === patternId);
+                if (!hasPattern) return t;
+                return {
+                  ...t,
+                  patterns: t.patterns.map((p) => {
+                    if (p.id === patternId) {
+                      return { ...p, vocalMode: 'micro' };
+                    }
+                    return p;
+                  }),
+                };
+              });
+            });
+          }
+        } catch (err) {
+          console.error("Error finalizing vocal recording:", err);
+        } finally {
+          setIsRecordingVocal(false);
+          setRecordingVocalPatternId(null);
+          vocalRecordingStateRef.current = 'inactive';
+        }
       };
       
       let measureIdx = targetPattern.measureAssignments.indexOf(true);
@@ -2187,13 +2198,23 @@ export default function App() {
   };
 
   const stopVocalRecording = () => {
-    if (vocalRecordingStateRef.current !== 'inactive' && vocalMediaRecorderRef.current) {
-      vocalRecordingStateRef.current = 'inactive';
+    setIsRecordingVocal(false);
+    setRecordingVocalPatternId(null);
+    vocalRecordingStateRef.current = 'inactive';
+
+    if (vocalMediaRecorderRef.current) {
       try {
-        vocalMediaRecorderRef.current.stop();
+        if (vocalMediaRecorderRef.current.state === 'recording') {
+          vocalMediaRecorderRef.current.stop();
+        } else {
+          if (vocalMediaRecorderRef.current.stream) {
+            vocalMediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
+          }
+        }
       } catch (err) {
         console.error("Failed to stop MediaRecorder manually:", err);
       }
+      vocalMediaRecorderRef.current = null;
     }
   };
 
