@@ -4,7 +4,7 @@
  */
 
 import React, { useRef, useEffect } from 'react';
-import { TrackGroup, Language, HitTrigger } from '../types';
+import { TrackGroup, Language, HitTrigger, TimeSignature } from '../types';
 import { instrumentsConfig, getMarkers, ASSETS_BASE_URL } from '../data';
 
 interface CircleSequencerProps {
@@ -14,6 +14,7 @@ interface CircleSequencerProps {
   currentStepIndex: number;
   currentMeasure: number;
   maxTicks: number;
+  timeSig: TimeSignature;
   onTogglePlay: () => void;
   onStepChange: (trackId: number, patternId: number, stepIdx: number, newState: string | number, lyric?: string, note?: string) => void;
   langPromptVoiceText: string;
@@ -31,6 +32,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
   currentStepIndex,
   currentMeasure,
   maxTicks,
+  timeSig,
   onTogglePlay,
   onStepChange,
   langPromptVoiceText,
@@ -49,6 +51,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
     currentStepIndex,
     currentMeasure,
     maxTicks,
+    timeSig,
     lang,
     isMetroOn,
     activeCircleIdByInst,
@@ -64,6 +67,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
       currentStepIndex,
       currentMeasure,
       maxTicks,
+      timeSig,
       lang,
       isMetroOn,
       activeCircleIdByInst,
@@ -71,7 +75,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
       activePatternIdByInst,
       hitTriggersRef,
     };
-  }, [tracks, isPlaying, currentStepIndex, currentMeasure, maxTicks, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByInst, hitTriggersRef]);
+  }, [tracks, isPlaying, currentStepIndex, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByInst, hitTriggersRef]);
 
   // Handle click on canvas
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -246,6 +250,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
         isPlaying: localPlaying, 
         currentStepIndex: localStep, 
         maxTicks: localTicks, 
+        timeSig: localTimeSig,
         isMetroOn: localMetroOn, 
         activePatternIdByInst: localActiveByInst,
         hitTriggersRef: localHitTriggers 
@@ -350,8 +355,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
       ctx.setLineDash([]);
 
       // Render Time markers around the rim
-      const sigValue = (localTicks === 144) ? '12/8' : (localTicks === 72 ? '3/4' : (localTicks === 48 ? '2/4' : '4/4'));
-      const markers = getMarkers(sigValue as any, localTicks);
+      const markers = getMarkers(localTimeSig, localTicks);
       markers.forEach((tick, idx) => {
         const angle = -Math.PI / 2 + ((tick / localTicks) * Math.PI * 2);
         const inRad = innerSkinRadius - 35, outRad = innerSkinRadius - 20;
@@ -362,38 +366,54 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
         ctx.lineWidth = (tick === 0) ? 4 : 2;
         ctx.stroke();
 
-        // Draw numbers on the dark wood rim in cream color to prevent overlapping with outer tracks
+        // Draw a premium circular badge on the dark wood rim for the beat number
         const textRad = 540;
-        ctx.fillStyle = '#f4ecd8';
-        ctx.font = 'bold 24px serif';
+        const badgeX = centerX + Math.cos(angle) * textRad;
+        const badgeY = centerY + Math.sin(angle) * textRad;
+
+        ctx.beginPath();
+        ctx.arc(badgeX, badgeY, 18, 0, Math.PI * 2);
+        ctx.fillStyle = '#f4ecd8'; // Cream skin color
+        ctx.fill();
+        ctx.strokeStyle = '#1a1a1a'; // Dark ink outline
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Draw the beat number inside the badge
+        ctx.fillStyle = '#1a1a1a'; // Dark ink text
+        ctx.font = 'bold 20px "Outfit", "Inter", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const strVal = (idx + 1).toString();
-        ctx.fillText(strVal, centerX + Math.cos(angle) * textRad, centerY + Math.sin(angle) * textRad);
+        ctx.fillText(strVal, badgeX, badgeY + 1.5); // slight offset for vertical alignment
       });
 
       // 5b. Grid lines (lines indicating beats and subdivisions) under the sequencer tracks
       ctx.save();
-      const subdivisionTickInterval = 6; // Representing a 16th note subdivision
+      const isCompound = localTimeSig === '6/8' || localTimeSig === '12/8';
       const ticksPerBeat = localTicks / markers.length;
+      
+      // For compound signatures, beat is dotted quarter note = 12 ticks, subdivision is eighth note = 4 ticks.
+      // For simple signatures, beat is quarter note = 24 ticks, subdivision is 16th note = 6 ticks.
+      const subdivisionTickInterval = isCompound ? 4 : 6;
 
       for (let t = 0; t < localTicks; t += subdivisionTickInterval) {
         const angle = -Math.PI / 2 + (t / localTicks) * Math.PI * 2;
         const isMainBeat = t % ticksPerBeat === 0;
 
         ctx.beginPath();
-        // Draw from the inner circle area to the outer skin limit
-        ctx.moveTo(centerX + Math.cos(angle) * 110, centerY + Math.sin(angle) * 110);
-        ctx.lineTo(centerX + Math.cos(angle) * 510, centerY + Math.sin(angle) * 510);
+        // Draw from the play button edge (radius 60) to the outer skin limit (radius 516)
+        ctx.moveTo(centerX + Math.cos(angle) * 60, centerY + Math.sin(angle) * 60);
+        ctx.lineTo(centerX + Math.cos(angle) * 516, centerY + Math.sin(angle) * 516);
 
         if (isMainBeat) {
-          ctx.strokeStyle = 'rgba(26, 26, 26, 0.16)';
-          ctx.lineWidth = 1.5;
+          ctx.strokeStyle = 'rgba(26, 26, 26, 0.28)'; // slightly stronger for better definition
+          ctx.lineWidth = 2.0;
           ctx.setLineDash([]);
         } else {
-          ctx.strokeStyle = 'rgba(26, 26, 26, 0.05)';
-          ctx.lineWidth = 0.8;
-          ctx.setLineDash([4, 4]);
+          ctx.strokeStyle = 'rgba(26, 26, 26, 0.12)'; // slightly stronger dashed lines for subdivisions
+          ctx.lineWidth = 1.0;
+          ctx.setLineDash([5, 5]);
         }
         ctx.stroke();
       }

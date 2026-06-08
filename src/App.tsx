@@ -1098,44 +1098,41 @@ export default function App() {
       
       const isNativeCtx = (ctx: any) => ctx && typeof ctx.createScriptProcessor === 'function';
 
-      if (Tone.context) {
-        const raw = (Tone.context as any).rawContext;
+      // 1. Try to get native context from masterVolumeNode's context wrapper
+      if (masterVolumeNode && masterVolumeNode.context) {
+        const raw = (masterVolumeNode.context as any).rawContext || (masterVolumeNode.context as any)._context || (masterVolumeNode.context as any).context;
         if (isNativeCtx(raw)) audioContext = raw;
-      }
-      
-      if (!audioContext && isNativeCtx(Tone.context)) {
-        audioContext = Tone.context;
       }
 
-      if (!audioContext && typeof Tone.getContext === 'function') {
-        const raw = (Tone.getContext() as any)?.rawContext;
+      // 2. Try global Tone.context wrapper
+      if (!audioContext && Tone.context) {
+        const raw = (Tone.context as any).rawContext || (Tone.context as any)._context || (Tone.context as any).context;
         if (isNativeCtx(raw)) audioContext = raw;
       }
-      
+
+      // 3. Try Tone.getContext() wrapper
+      if (!audioContext && typeof Tone.getContext === 'function') {
+        const raw = (Tone.getContext() as any)?.rawContext || (Tone.getContext() as any)?._context || (Tone.getContext() as any)?.context;
+        if (isNativeCtx(raw)) audioContext = raw;
+      }
+
+      // 4. Try from masterVolumeNode's native output node directly if available
       if (!audioContext && masterVolumeNode) {
-        const nativeNode = (masterVolumeNode as any).input || (masterVolumeNode as any).output;
-        if (nativeNode && isNativeCtx(nativeNode.context)) {
+        const nativeNode = (masterVolumeNode as any).output || (masterVolumeNode as any).input || (masterVolumeNode as any)._gainNode || masterVolumeNode;
+        if (nativeNode && nativeNode.context && isNativeCtx(nativeNode.context)) {
           audioContext = nativeNode.context;
         }
       }
-      
+
+      // 5. Try from Tone.Destination
       if (!audioContext && Tone.Destination) {
-        const nativeDest = (Tone.Destination as any).input || (Tone.Destination as any).output;
-        if (nativeDest && isNativeCtx(nativeDest.context)) {
-          audioContext = nativeDest.context;
-        }
+        const nativeDest = (Tone.Destination as any).input || (Tone.Destination as any).output || Tone.Destination;
+        const raw = nativeDest.context || (Tone.Destination.context as any)?.rawContext;
+        if (isNativeCtx(raw)) audioContext = raw;
       }
 
       if (!audioContext) {
-        const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioCtxClass) {
-          const tempCtx = new AudioCtxClass();
-          if (isNativeCtx(tempCtx)) audioContext = tempCtx;
-        }
-      }
-      
-      if (!audioContext) {
-        throw new Error("L'AudioContext natif n'a pas pu être résolu (createScriptProcessor non supporté).");
+        throw new Error("L'AudioContext de Tone.js n'a pas pu être résolu. Impossible de démarrer l'enregistrement.");
       }
 
       if (!isRecording) {
@@ -1143,23 +1140,34 @@ export default function App() {
         wavRecordingBuffersL = [];
         wavRecordingBuffersR = [];
         
-        // Robust nested fallback creation of scriptProcessorNode to bypass hardware/Safari/device limits
-        try {
-          scriptProcessorNode = audioContext.createScriptProcessor(4096, 2, 2);
-        } catch (e1) {
-          console.warn("createScriptProcessor(4096, 2, 2) failed, trying buffer size 0:", e1);
+        // Loop over safe/standard configuration parameters for createScriptProcessor
+        const configs = [
+          { size: 4096, in: 2, out: 2 },
+          { size: 4096, in: 1, out: 1 },
+          { size: 8192, in: 2, out: 2 },
+          { size: 8192, in: 1, out: 1 },
+          { size: 2048, in: 2, out: 2 },
+          { size: 2048, in: 1, out: 1 },
+          { size: 0, in: 2, out: 2 },
+          { size: 0, in: 1, out: 1 }
+        ];
+
+        let createdNode = null;
+        let lastError = null;
+        for (const config of configs) {
           try {
-            scriptProcessorNode = audioContext.createScriptProcessor(0, 2, 2);
-          } catch (e2) {
-            console.warn("createScriptProcessor(0, 2, 2) failed, trying mono (4096, 1, 1):", e2);
-            try {
-              scriptProcessorNode = audioContext.createScriptProcessor(4096, 1, 1);
-            } catch (e3) {
-              console.warn("createScriptProcessor(4096, 1, 1) failed, trying mono size 0:", e3);
-              scriptProcessorNode = audioContext.createScriptProcessor(0, 1, 1);
-            }
+            createdNode = audioContext.createScriptProcessor(config.size, config.in, config.out);
+            if (createdNode) break;
+          } catch (e) {
+            lastError = e;
+            console.warn(`createScriptProcessor(${config.size}, ${config.in}, ${config.out}) failed:`, e);
           }
         }
+
+        if (!createdNode) {
+          throw lastError || new Error("Failed to create ScriptProcessorNode");
+        }
+        scriptProcessorNode = createdNode;
 
         scriptProcessorNode.onaudioprocess = (e) => {
           // Handle both mono and stereo recording buffers
@@ -1171,8 +1179,8 @@ export default function App() {
 
         if (masterVolumeNode) {
           // Connect native Web Audio nodes directly to bypass Tone.js asserts
-          const nativeNode = (masterVolumeNode as any).input || (masterVolumeNode as any).output || masterVolumeNode;
-          if (typeof nativeNode.connect === 'function') {
+          const nativeNode = (masterVolumeNode as any).output || (masterVolumeNode as any).input || (masterVolumeNode as any)._gainNode || masterVolumeNode;
+          if (nativeNode && typeof nativeNode.connect === 'function') {
             nativeNode.connect(scriptProcessorNode);
           } else {
             masterVolumeNode.connect(scriptProcessorNode);
@@ -2208,7 +2216,8 @@ export default function App() {
                 isPlaying={isPlaying}
                 currentStepIndex={currentStepIndex}
                 currentMeasure={measureCountRef.current % totalMeasures}
-                maxTicks={getMaxTicks(timeSig)}
+                maxTicks={getMaxTicks(measureTimeSigs[measureCountRef.current % totalMeasures] || timeSig)}
+                timeSig={measureTimeSigs[measureCountRef.current % totalMeasures] || timeSig}
                 totalMeasures={totalMeasures}
                 onTogglePlay={handleTogglePlay}
                 onStepChange={handleStepValueSelectAndToggle}
