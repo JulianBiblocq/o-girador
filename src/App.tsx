@@ -205,6 +205,28 @@ export default function App() {
 
   const songSectionsRef = useRef<SongSection[]>([]);
 
+  // Loop bounds states and refs
+  const [loopStartMeasure, setLoopStartMeasure] = useState<number | null>(null);
+  const [loopEndMeasure, setLoopEndMeasure] = useState<number | null>(null);
+  const loopStartRef = useRef<number | null>(null);
+  const loopEndRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    loopStartRef.current = loopStartMeasure;
+    loopEndRef.current = loopEndMeasure;
+  }, [loopStartMeasure, loopEndMeasure]);
+
+  // Zoom state
+  const [measureWidth, setMeasureWidth] = useState<number>(480);
+
+  // Pattern Solo Playback state and ref
+  const [soloPatternPlayId, setSoloPatternPlayId] = useState<number | null>(null);
+  const soloPatternPlayIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    soloPatternPlayIdRef.current = soloPatternPlayId;
+  }, [soloPatternPlayId]);
+
   const [songStructureHistory, setSongStructureHistory] = useState<{
     measureTimeSigs: TimeSignature[];
     measureBpms: number[];
@@ -387,8 +409,12 @@ export default function App() {
   const [isRecordingVocal, setIsRecordingVocal] = useState<boolean>(false);
   const [recordingVocalPatternId, setRecordingVocalPatternId] = useState<number | null>(null);
   const recordingVocalPatternIdRef = useRef<number | null>(null);
-  const vocalMediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const vocalAudioChunksRef = useRef<Blob[]>([]);
+  const vocalMediaRecorderRef = useRef<any>(null);
+  const vocalStreamRef = useRef<MediaStream | null>(null);
+  const vocalScriptNodeRef = useRef<ScriptProcessorNode | null>(null);
+  const vocalSourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const vocalRecordBuffersLRef = useRef<Float32Array[]>([]);
+  const vocalRecordBuffersRRef = useRef<Float32Array[]>([]);
   const vocalRecordingStateRef = useRef<'inactive' | 'waiting' | 'recording'>('inactive');
   const vocalPlayersRef = useRef<{ [patternId: number]: Tone.Player }>({});
   const [recordedPatternIds, setRecordedPatternIds] = useState<number[]>([]);
@@ -585,12 +611,26 @@ export default function App() {
 
         // 1. Commuter la mesure si on arrive à la fin
         if (stepIdx === -1) {
+          if (soloPatternPlayIdRef.current !== null) {
+            measureCountRef.current = 0;
+          } else if (loopStartRef.current !== null && (measureCountRef.current < loopStartRef.current || (loopEndRef.current !== null && measureCountRef.current > loopEndRef.current))) {
+            measureCountRef.current = loopStartRef.current;
+          }
           const firstMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
           const firstTimeSig = measureTimeSigsRef.current[firstMeasureIdx] || '4/4';
           currentTicks = getMaxTicks(firstTimeSig);
           maxTicksRef.current = currentTicks;
         } else if (stepIdx === currentTicks - 1) {
-          measureCountRef.current++;
+          if (soloPatternPlayIdRef.current !== null) {
+            measureCountRef.current = 0;
+          } else {
+            const currentMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
+            if (loopStartRef.current !== null && loopEndRef.current !== null && currentMeasureIdx === loopEndRef.current) {
+              measureCountRef.current = loopStartRef.current;
+            } else {
+              measureCountRef.current++;
+            }
+          }
           const nextMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
           const nextTimeSig = measureTimeSigsRef.current[nextMeasureIdx] || '4/4';
           currentTicks = getMaxTicks(nextTimeSig);
@@ -715,10 +755,26 @@ export default function App() {
             }
           }
 
-          const activePattern = track.patterns.find(p => p.measureAssignments[currentMeasure]);
-          if (!activePattern) return;
+          const isSoloPlayActive = soloPatternPlayIdRef.current !== null;
+          const isTargetSoloTrack = isSoloPlayActive && track.patterns.some(p => p.id === soloPatternPlayIdRef.current);
 
-          const canPlay = hasSolo ? track.isSolo : !track.isMute;
+          let activePattern: Pattern | undefined;
+          let canPlay = false;
+
+          if (isSoloPlayActive) {
+            if (isTargetSoloTrack) {
+              activePattern = track.patterns.find(p => p.id === soloPatternPlayIdRef.current);
+              canPlay = true;
+            } else {
+              // Silence all other tracks during pattern solo playback
+              return;
+            }
+          } else {
+            activePattern = track.patterns.find(p => p.measureAssignments[currentMeasure]);
+            canPlay = hasSolo ? track.isSolo : !track.isMute;
+          }
+
+          if (!activePattern) return;
           if (!canPlay) return;
 
           // If it is a voice track and in 'micro' mode, play the loop at stepIdx === 0
@@ -744,7 +800,7 @@ export default function App() {
               hitTriggersRef.current.push({ trackId: track.id, stepIndex: circleStepIdx, state });
               const baseGain = track.volumeVal / 100;
 
-              const stepVolMultiplier = (activePattern.volumes?.[circleStepIdx] ?? 100) / 100;
+              const stepVolMultiplier = (activePattern.volumes?.[circleStepIdx] ?? 80) / 100;
               const stepDecayMultiplier = (activePattern.decays?.[circleStepIdx] ?? 100) / 100;
 
               const manualMicro = activePattern.microtimings?.[circleStepIdx] ?? 0;
@@ -786,29 +842,29 @@ export default function App() {
                   else if (state === 'grv') { targetKey = 'faible-grave'; isStrong = false; }
                   else if (state === 'AIG') { targetKey = 'fort-aigue'; isStrong = true; }
                   else if (state === 'aig') { targetKey = 'faible-aigue'; isStrong = false; }
-                  else if (state === 'b') { targetKey = 'barulho'; isStrong = true; }
+                  else if (state === 'b' || state === 'T' || state === 't') { targetKey = 'barulho'; isStrong = true; }
                 } else if (inst.id === 'caixa') {
-                  if (state === 'D' || state === 'G') { targetKey = 'fort'; isStrong = true; }
-                  else if (state === 'd' || state === 'g') { targetKey = 'faible'; isStrong = false; }
+                  if (state === 'D' || state === 'G' || state === 'E') { targetKey = 'fort'; isStrong = true; }
+                  else if (state === 'd' || state === 'g' || state === 'e') { targetKey = 'faible'; isStrong = false; }
                   else if (state === 'rd') { targetKey = 'ruffada-D'; isStrong = true; }
-                  else if (state === 'rg') { targetKey = 'ruffada-G'; isStrong = true; }
+                  else if (state === 'rg' || state === 'Re' || state === 're') { targetKey = 'ruffada-G'; isStrong = true; }
                   else if (state === 'x') { targetKey = 'cerclage'; isStrong = true; }
                   else if (state === 'f') { targetKey = 'fla'; isStrong = true; }
-                  else if (state === 'b') { targetKey = 'barulho'; isStrong = true; }
+                  else if (state === 'b' || state === 'T' || state === 't') { targetKey = 'barulho'; isStrong = true; }
                 } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
-                  if (state === 'D' || state === 'G') { targetKey = 'fort'; isStrong = true; }
-                  else if (state === 'd' || state === 'g') { targetKey = 'faible'; isStrong = false; }
-                  else if (state === 'b') { targetKey = 'barulho'; isStrong = true; }
+                  if (state === 'D' || state === 'G' || state === 'E') { targetKey = 'fort'; isStrong = true; }
+                  else if (state === 'd' || state === 'g' || state === 'e') { targetKey = 'faible'; isStrong = false; }
+                  else if (state === 'b' || state === 'T' || state === 't') { targetKey = 'barulho'; isStrong = true; }
                   else if (state === 'x') { targetKey = 'cerclage'; isStrong = true; }
                   else if ((inst.id as string) === 'alfaia' || state === 'i') { targetKey = 'iguarassu'; isStrong = true; }
                 } else if (inst.id === 'agbe') {
-                  if (state === 'G' || state === 'D') { targetKey = 'fort'; isStrong = true; }
-                  else if (state === 'g' || state === 'd') { targetKey = 'faible'; isStrong = false; }
-                  else if (state === 'b') { targetKey = 'barulho'; isStrong = true; }
+                  if (state === 'G' || state === 'D' || state === 'E') { targetKey = 'fort'; isStrong = true; }
+                  else if (state === 'g' || state === 'd' || state === 'e') { targetKey = 'faible'; isStrong = false; }
+                  else if (state === 'b' || state === 'T' || state === 't') { targetKey = 'barulho'; isStrong = true; }
                   else if (state === 's') { targetKey = 'saut'; isStrong = true; }
                 } else {
-                  if (['D', 'G', 'P', 'T'].includes(state as string)) { targetKey = 'fort'; isStrong = true; }
-                  else if (['d', 'g', 'p', 't'].includes(state as string)) { targetKey = 'faible'; isStrong = false; }
+                  if (['D', 'G', 'E', 'P', 'T'].includes(state as string)) { targetKey = 'fort'; isStrong = true; }
+                  else if (['d', 'g', 'e', 'p', 't'].includes(state as string)) { targetKey = 'faible'; isStrong = false; }
                 }
 
                 if (targetKey && playerGroup.has(targetKey)) {
@@ -993,7 +1049,8 @@ export default function App() {
   };
 
   const applyPreset = (p: any) => {
-    pushUndoState();
+    setTracksHistory([]);
+    setSongStructureHistory([]);
     setTracks([]);
     setLetras(p.letras || '');
     setMetadata(p.metadata || { toada: '', nacao: '', compositor: '', ritmo: '' });
@@ -1074,18 +1131,24 @@ export default function App() {
     if (!p.activeSteps) p.activeSteps = Array(p.steps).fill(0);
     if (!p.measureAssignments) p.measureAssignments = Array(totalMeasuresRef.current || 8).fill(false);
 
-    if (!p.volumes) p.volumes = Array(p.steps).fill(100);
+    if (!p.volumes) {
+      p.volumes = Array(p.steps).fill(80);
+    } else if (p.volumes.every(v => v === 100)) {
+      p.volumes = Array(p.steps).fill(80);
+    }
     if (!p.decays) p.decays = Array(p.steps).fill(100);
     if (!p.microtimings) p.microtimings = Array(p.steps).fill(0);
 
     const inst = instrumentsConfig[instIdx];
 
-    // Migration: rf -> rg (rufada gauche rename)
-    if (inst && inst.id === 'caixa') {
+    // Migration: old shortcuts to new ones
+    if (inst && inst.type !== 'voice') {
       for (let i = 0; i < p.steps; i++) {
-        if (p.activeSteps[i] === 'rf') {
-          p.activeSteps[i] = 'rg';
-        }
+        const val = p.activeSteps[i];
+        if (val === 'G') p.activeSteps[i] = 'E';
+        else if (val === 'g') p.activeSteps[i] = 'e';
+        else if (val === 'rg' || val === 'rf') p.activeSteps[i] = 'Re';
+        else if (val === 'b') p.activeSteps[i] = 't';
       }
     }
 
@@ -1157,6 +1220,9 @@ export default function App() {
   // 3. User operations callbacks
   const handleTogglePlay = async () => {
     await Tone.start();
+    if (soloPatternPlayIdRef.current !== null) {
+      setSoloPatternPlayId(null);
+    }
     if (!isPlaying) {
       // Ensure Transport is running
       if (Tone.Transport.state !== 'started') {
@@ -1185,6 +1251,9 @@ export default function App() {
   };
 
   const handleRewind = () => {
+    if (soloPatternPlayIdRef.current !== null) {
+      setSoloPatternPlayId(null);
+    }
     mainLoop?.stop();
     Tone.Transport.stop();
     if (isRecordingVocal) {
@@ -1256,7 +1325,7 @@ export default function App() {
       lyrics: Array(defaultSteps).fill(''),
       notes: Array(defaultSteps).fill(''),
       measureAssignments: Array(totalMeasures).fill(true), // active everywhere by default
-      volumes: Array(defaultSteps).fill(100),
+      volumes: Array(defaultSteps).fill(80),
       decays: Array(defaultSteps).fill(100),
       microtimings: Array(defaultSteps).fill(0),
     };
@@ -1548,7 +1617,7 @@ export default function App() {
           const nextStepsArr = Array(targetSteps).fill(0);
           const nextLyrics = Array(targetSteps).fill('');
           const nextNotes = Array(targetSteps).fill('');
-          const nextVols = Array(targetSteps).fill(100);
+          const nextVols = Array(targetSteps).fill(80);
           const nextDecays = Array(targetSteps).fill(100);
 
           for (let idx = 0; idx < Math.min(targetSteps, p.steps); idx++) {
@@ -1647,15 +1716,21 @@ export default function App() {
     setTracks(tracks.map((t) => (t.id === id ? { ...t, reverbVal: val } : t)));
   };
 
-  const handleTrackStepVolumeChange = (trackId: number, patternId: number, stepIdx: number, val: number) => {
+  const handleTrackStepVolumeChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
     setTracks(tracks.map(t => {
       if (t.id === trackId) {
         return {
           ...t,
           patterns: t.patterns.map(p => {
             if (p.id === patternId) {
-              const copyVols = [...(p.volumes || Array(p.steps).fill(100))];
-              copyVols[stepIdx] = val;
+              const copyVols = [...(p.volumes || Array(p.steps).fill(80))];
+              if (Array.isArray(stepIdx)) {
+                stepIdx.forEach(idx => {
+                  copyVols[idx] = val;
+                });
+              } else {
+                copyVols[stepIdx] = val;
+              }
               return { ...p, volumes: copyVols };
             }
             return p;
@@ -1666,7 +1741,7 @@ export default function App() {
     }));
   };
 
-  const handleTrackStepDecayChange = (trackId: number, patternId: number, stepIdx: number, val: number) => {
+  const handleTrackStepDecayChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
     setTracks(tracks.map(t => {
       if (t.id === trackId) {
         return {
@@ -1674,7 +1749,13 @@ export default function App() {
           patterns: t.patterns.map(p => {
             if (p.id === patternId) {
               const copyDecays = [...(p.decays || Array(p.steps).fill(100))];
-              copyDecays[stepIdx] = val;
+              if (Array.isArray(stepIdx)) {
+                stepIdx.forEach(idx => {
+                  copyDecays[idx] = val;
+                });
+              } else {
+                copyDecays[stepIdx] = val;
+              }
               return { ...p, decays: copyDecays };
             }
             return p;
@@ -1685,7 +1766,7 @@ export default function App() {
     }));
   };
 
-  const handleTrackStepMicrotimingChange = (trackId: number, patternId: number, stepIdx: number, val: number) => {
+  const handleTrackStepMicrotimingChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
     setTracks(tracks.map(t => {
       if (t.id === trackId) {
         return {
@@ -1693,8 +1774,32 @@ export default function App() {
           patterns: t.patterns.map(p => {
             if (p.id === patternId) {
               const copyMicros = [...(p.microtimings || Array(p.steps).fill(0))];
-              copyMicros[stepIdx] = val;
+              if (Array.isArray(stepIdx)) {
+                stepIdx.forEach(idx => {
+                  copyMicros[idx] = val;
+                });
+              } else {
+                copyMicros[stepIdx] = val;
+              }
               return { ...p, microtimings: copyMicros };
+            }
+            return p;
+          })
+        };
+      }
+      return t;
+    }));
+  };
+
+  const handleResetTrackMicrotimings = (trackId: number, patternId: number) => {
+    pushUndoState();
+    setTracks(tracks.map(t => {
+      if (t.id === trackId) {
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            if (p.id === patternId) {
+              return { ...p, microtimings: Array(p.steps).fill(0) };
             }
             return p;
           })
@@ -1718,7 +1823,7 @@ export default function App() {
               const arrSteps = Array(targetSteps).fill(0);
               const arrLyrics = Array(targetSteps).fill('');
               const arrNotes = Array(targetSteps).fill('');
-              const arrVols = Array(targetSteps).fill(100);
+              const arrVols = Array(targetSteps).fill(80);
               const arrDecays = Array(targetSteps).fill(100);
               const arrMicro = Array(targetSteps).fill(0);
 
@@ -1775,6 +1880,17 @@ export default function App() {
     });
   };
 
+  const handleGlobalBpmChange = (newBpm: number) => {
+    const delta = newBpm - bpm;
+    pushUndoState();
+    setBpm(newBpm);
+    setMeasureBpms(prev => prev.map(val => {
+      const currentVal = typeof val === 'number' ? val : bpm;
+      const nextVal = currentVal + delta;
+      return Math.max(40, Math.min(240, nextVal));
+    }));
+  };
+
   const handleMeasureBpmChange = (measureIdx: number, val: number) => {
     pushUndoState();
     setMeasureBpms(prev => {
@@ -1823,6 +1939,241 @@ export default function App() {
     })));
   };
 
+  const handleDeleteMeasure = (measureIdx: number) => {
+    if (totalMeasures <= 1) {
+      alert(lang === 'fr' ? "Impossible de supprimer la dernière mesure restante." : "Não é possível excluir o único compasso restante.");
+      return;
+    }
+    pushUndoState();
+
+    const newTotal = totalMeasures - 1;
+
+    // 1. Update tracks patterns measureAssignments
+    const updatedTracks = tracks.map(t => ({
+      ...t,
+      patterns: t.patterns.map(p => {
+        const assign = [...p.measureAssignments];
+        assign.splice(measureIdx, 1);
+        return { ...p, measureAssignments: assign };
+      })
+    }));
+    setTracks(updatedTracks);
+
+    // 2. Update measure-specific arrays
+    setMeasureTimeSigs(prev => {
+      const arr = [...prev];
+      arr.splice(measureIdx, 1);
+      return arr;
+    });
+    setMeasureBpms(prev => {
+      const arr = [...prev];
+      arr.splice(measureIdx, 1);
+      return arr;
+    });
+    setMeasureBpmTransitions(prev => {
+      const arr = [...prev];
+      arr.splice(measureIdx, 1);
+      return arr;
+    });
+    setMeasureVols(prev => {
+      const arr = [...prev];
+      arr.splice(measureIdx, 1);
+      return arr;
+    });
+    setMeasureVolTransitions(prev => {
+      const arr = [...prev];
+      arr.splice(measureIdx, 1);
+      return arr;
+    });
+
+    // 3. Update song sections
+    setSongSections(prev => {
+      return prev
+        .map(sec => {
+          let start = sec.startMeasure;
+          let end = sec.endMeasure;
+          if (start > measureIdx) {
+            start -= 1;
+          }
+          if (end >= measureIdx) {
+            end -= 1;
+          }
+          return { ...sec, startMeasure: start, endMeasure: end };
+        })
+        .filter(sec => sec.startMeasure <= sec.endMeasure);
+    });
+
+    // 4. Update loop bounds if necessary
+    let newLoopStart = loopStartMeasure;
+    let newLoopEnd = loopEndMeasure;
+    if (newLoopStart !== null) {
+      if (newLoopStart > measureIdx) {
+        newLoopStart -= 1;
+      } else if (newLoopStart === measureIdx) {
+        newLoopStart = Math.min(newLoopStart, newTotal - 1);
+        if (newLoopStart < 0) newLoopStart = null;
+      }
+    }
+    if (newLoopEnd !== null) {
+      if (newLoopEnd > measureIdx) {
+        newLoopEnd -= 1;
+      } else if (newLoopEnd === measureIdx) {
+        newLoopEnd = Math.min(newLoopEnd, newTotal - 1);
+        if (newLoopEnd < 0) newLoopEnd = null;
+      }
+    }
+    if (newLoopStart !== null && newLoopEnd !== null && newLoopStart > newLoopEnd) {
+      newLoopStart = null;
+      newLoopEnd = null;
+    }
+    setLoopStartMeasure(newLoopStart);
+    setLoopEndMeasure(newLoopEnd);
+
+    // 5. Update total measures count
+    setTotalMeasures(newTotal);
+  };
+
+  const handleInsertMeasure = (measureIdx: number) => {
+    pushUndoState();
+
+    const newTotal = totalMeasures + 1;
+
+    // 1. Update tracks patterns measureAssignments
+    const updatedTracks = tracks.map(t => ({
+      ...t,
+      patterns: t.patterns.map(p => {
+        const assign = [...p.measureAssignments];
+        assign.splice(measureIdx, 0, false);
+        return { ...p, measureAssignments: assign };
+      })
+    }));
+    setTracks(updatedTracks);
+
+    // 2. Update measure-specific arrays with values from neighbor measure or defaults
+    setMeasureTimeSigs(prev => {
+      const arr = [...prev];
+      const fallback = arr[measureIdx - 1] || arr[measureIdx] || timeSig;
+      arr.splice(measureIdx, 0, fallback);
+      return arr;
+    });
+    setMeasureBpms(prev => {
+      const arr = [...prev];
+      const fallback = arr[measureIdx - 1] || arr[measureIdx] || bpm;
+      arr.splice(measureIdx, 0, fallback);
+      return arr;
+    });
+    setMeasureBpmTransitions(prev => {
+      const arr = [...prev];
+      const fallback = arr[measureIdx - 1] || arr[measureIdx] || 'immediate';
+      arr.splice(measureIdx, 0, fallback);
+      return arr;
+    });
+    setMeasureVols(prev => {
+      const arr = [...prev];
+      const fallback = arr[measureIdx - 1] !== undefined ? arr[measureIdx - 1] : (arr[measureIdx] !== undefined ? arr[measureIdx] : 100);
+      arr.splice(measureIdx, 0, fallback);
+      return arr;
+    });
+    setMeasureVolTransitions(prev => {
+      const arr = [...prev];
+      const fallback = arr[measureIdx - 1] || arr[measureIdx] || 'immediate';
+      arr.splice(measureIdx, 0, fallback);
+      return arr;
+    });
+
+    // 3. Update song sections
+    setSongSections(prev => {
+      return prev.map(sec => {
+        let start = sec.startMeasure;
+        let end = sec.endMeasure;
+        if (start >= measureIdx) {
+          start += 1;
+        }
+        if (end >= measureIdx) {
+          end += 1;
+        }
+        return { ...sec, startMeasure: start, endMeasure: end };
+      });
+    });
+
+    // 4. Update loop bounds if necessary
+    let newLoopStart = loopStartMeasure;
+    let newLoopEnd = loopEndMeasure;
+    if (newLoopStart !== null && newLoopStart >= measureIdx) {
+      newLoopStart += 1;
+    }
+    if (newLoopEnd !== null && newLoopEnd >= measureIdx) {
+      newLoopEnd += 1;
+    }
+    setLoopStartMeasure(newLoopStart);
+    setLoopEndMeasure(newLoopEnd);
+
+    // 5. Update total measures count
+    setTotalMeasures(newTotal);
+  };
+
+  const handleSetLoopStart = (measureIdx: number) => {
+    if (loopEndMeasure !== null && measureIdx > loopEndMeasure) {
+      setLoopEndMeasure(measureIdx);
+    }
+    setLoopStartMeasure(measureIdx);
+  };
+
+  const handleSetLoopEnd = (measureIdx: number) => {
+    if (loopStartMeasure !== null && measureIdx < loopStartMeasure) {
+      setLoopStartMeasure(measureIdx);
+    }
+    setLoopEndMeasure(measureIdx);
+  };
+
+  const handleClearLoop = () => {
+    setLoopStartMeasure(null);
+    setLoopEndMeasure(null);
+  };
+
+  const handleStartSoloPattern = async (patternId: number) => {
+    await Tone.start();
+    
+    // Stop vocal recording if any
+    if (isRecordingVocal) {
+      stopVocalRecording();
+    }
+    
+    // Reset playhead
+    mainLoop?.stop();
+    Tone.Transport.stop();
+    
+    instrumentsConfig.forEach((inst) => {
+      if (samplers[inst.id]) samplers[inst.id].stopAll();
+      if (voiceSynths[inst.id]) voiceSynths[inst.id].triggerRelease();
+    });
+    (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
+      try {
+        player.stop();
+      } catch (_) {}
+    });
+
+    setSoloPatternPlayId(patternId);
+    
+    // Set step to -1 to start clean, measure count to 0
+    setCurrentStepIndex(-1);
+    currentStepIndexRef.current = -1;
+    measureCountRef.current = 0;
+    Tone.Transport.seconds = 0;
+
+    // Start playback
+    if (Tone.Transport.state !== 'started') {
+      Tone.Transport.start();
+    }
+    mainLoop?.start(0);
+    setIsPlaying(true);
+  };
+
+  const handleStopSoloPattern = () => {
+    setSoloPatternPlayId(null);
+    handleTogglePlay(); // stop main loop and pause
+  };
+
   const handleCopyPattern = (pattern: Pattern) => {
     setCopiedPattern(JSON.parse(JSON.stringify(pattern)));
   };
@@ -1840,7 +2191,7 @@ export default function App() {
               activeSteps: [...copiedPattern.activeSteps],
               lyrics: [...(copiedPattern.lyrics || Array(copiedPattern.steps).fill(''))],
               notes: [...(copiedPattern.notes || Array(copiedPattern.steps).fill(''))],
-              volumes: [...(copiedPattern.volumes || Array(copiedPattern.steps).fill(100))],
+              volumes: [...(copiedPattern.volumes || Array(copiedPattern.steps).fill(80))],
               decays: [...(copiedPattern.decays || Array(copiedPattern.steps).fill(100))],
               microtimings: [...(copiedPattern.microtimings || Array(copiedPattern.steps).fill(0))],
             };
@@ -2000,40 +2351,45 @@ export default function App() {
                 else if (cleanChar === 'g') parsed = 'grv';
                 else if (cleanChar === 'A') parsed = 'AIG';
                 else if (cleanChar === 'a') parsed = 'aig';
-                else if (cleanChar.toLowerCase() === 'b') parsed = 'b';
+                else if (['T', 't'].includes(cleanChar)) parsed = cleanChar;
               } else if (inst.id === 'mineiro') {
                 if (['P', 'T', 'p', 't'].includes(cleanChar)) parsed = cleanChar;
               } else if (inst.id === 'caixa') {
                 const normVal = val.trim().toLowerCase();
                 if (normVal === 'rd') parsed = 'rd';
-                else if (normVal === 'rg') parsed = 'rg';
+                else if (normVal === 're') parsed = 'Re';
+                else if (normVal === 'rg') parsed = 'Re';
                 else {
                   const lowerChar = cleanChar.toLowerCase();
                   if (lowerChar === 'r') parsed = 'rd';
-                  else if (lowerChar === 'e') parsed = 'rg';
+                  else if (lowerChar === 'z') parsed = 'Re';
                   else if (lowerChar === 'x') parsed = 'x';
                   else if (lowerChar === 'f') parsed = 'f';
-                  else if (lowerChar === 'b') parsed = 'b';
-                  else if (['d', 'g'].includes(lowerChar)) {
+                  else if (lowerChar === 't') parsed = cleanChar;
+                  else if (['d', 'e'].includes(lowerChar)) {
                     parsed = cleanChar;
                   }
                 }
               } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
                 const lowerChar = cleanChar.toLowerCase();
-                if (['b', 'x', 'i'].includes(lowerChar)) {
+                if (['x', 'i'].includes(lowerChar)) {
                   parsed = lowerChar;
-                } else if (['d', 'g'].includes(lowerChar)) {
+                } else if (['t'].includes(lowerChar)) {
+                  parsed = cleanChar;
+                } else if (['d', 'e'].includes(lowerChar)) {
                   parsed = cleanChar;
                 }
               } else if (inst.id === 'agbe') {
                 const lowerChar = cleanChar.toLowerCase();
-                if (['b', 's'].includes(lowerChar)) {
-                  parsed = lowerChar;
-                } else if (['d', 'g'].includes(lowerChar)) {
+                if (['s'].includes(lowerChar)) {
+                  parsed = cleanChar;
+                } else if (['t'].includes(lowerChar)) {
+                  parsed = cleanChar;
+                } else if (['d', 'e'].includes(lowerChar)) {
                   parsed = cleanChar;
                 }
               } else {
-                if (['D', 'G', 'd', 'g'].includes(cleanChar)) parsed = cleanChar;
+                if (['D', 'E', 'd', 'e'].includes(cleanChar)) parsed = cleanChar;
               }
             }
             copySteps[stepIdx] = parsed;
@@ -2086,6 +2442,65 @@ export default function App() {
     }
   };
 
+  const cleanupVocalNodes = () => {
+    if (vocalScriptNodeRef.current) {
+      try {
+        vocalScriptNodeRef.current.disconnect();
+      } catch (_) {}
+      vocalScriptNodeRef.current = null;
+    }
+    if (vocalSourceNodeRef.current) {
+      try {
+        vocalSourceNodeRef.current.disconnect();
+      } catch (_) {}
+      vocalSourceNodeRef.current = null;
+    }
+    if (vocalStreamRef.current) {
+      try {
+        vocalStreamRef.current.getTracks().forEach((track) => track.stop());
+      } catch (_) {}
+      vocalStreamRef.current = null;
+    }
+  };
+
+  const finalizeAndSaveVocalRecording = async () => {
+    const patternId = recordingVocalPatternIdRef.current;
+    if (patternId === null) return;
+
+    try {
+      const audioContext = Tone.getContext().rawContext;
+      const sampleRate = audioContext.sampleRate;
+      
+      if (vocalRecordBuffersLRef.current.length > 0) {
+        const wavBlob = bufferToWav(vocalRecordBuffersLRef.current, vocalRecordBuffersRRef.current, sampleRate);
+        await saveVocalRecording(patternId, wavBlob);
+        await loadVocalRecording(patternId);
+
+        setTracks((prevTracks) => {
+          return prevTracks.map((t) => {
+            const hasPattern = t.patterns.some((p) => p.id === patternId);
+            if (!hasPattern) return t;
+            return {
+              ...t,
+              patterns: t.patterns.map((p) => {
+                if (p.id === patternId) {
+                  return { ...p, vocalMode: 'micro' };
+                }
+                return p;
+              }),
+            };
+          });
+        });
+      }
+    } catch (err) {
+      console.error("Error finalizing vocal recording:", err);
+    } finally {
+      setIsRecordingVocal(false);
+      setRecordingVocalPatternId(null);
+      cleanupVocalNodes();
+    }
+  };
+
   const startVocalRecording = async (patternId: number) => {
     try {
       let targetTrack: TrackGroup | undefined;
@@ -2100,63 +2515,39 @@ export default function App() {
       }
       if (!targetTrack || !targetPattern) return;
 
+      cleanupVocalNodes();
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
         },
       });
-      let mimeType = 'audio/webm';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/mp4';
-      }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = '';
-      }
-      
-      const mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      vocalMediaRecorderRef.current = mediaRecorder;
-      vocalAudioChunksRef.current = [];
-      
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-          vocalAudioChunksRef.current.push(e.data);
+      vocalStreamRef.current = stream;
+
+      const audioContext = Tone.getContext().rawContext as AudioContext;
+      const source = audioContext.createMediaStreamSource(stream);
+      vocalSourceNodeRef.current = source;
+
+      const processor = audioContext.createScriptProcessor(4096, 1, 1);
+      vocalScriptNodeRef.current = processor;
+      vocalRecordBuffersLRef.current = [];
+      vocalRecordBuffersRRef.current = [];
+
+      processor.onaudioprocess = (e) => {
+        if (vocalRecordingStateRef.current === 'recording') {
+          const left = e.inputBuffer.getChannelData(0);
+          vocalRecordBuffersLRef.current.push(new Float32Array(left));
+          vocalRecordBuffersRRef.current.push(new Float32Array(left));
         }
       };
-      
-      mediaRecorder.onstop = async () => {
-        try {
-          stream.getTracks().forEach((track) => track.stop());
-          if (vocalAudioChunksRef.current.length > 0) {
-            const blob = new Blob(vocalAudioChunksRef.current, { type: mediaRecorder.mimeType || 'audio/webm' });
-            await saveVocalRecording(patternId, blob);
-            await loadVocalRecording(patternId);
-            
-            setTracks((prevTracks) => {
-              return prevTracks.map((t) => {
-                const hasPattern = t.patterns.some((p) => p.id === patternId);
-                if (!hasPattern) return t;
-                return {
-                  ...t,
-                  patterns: t.patterns.map((p) => {
-                    if (p.id === patternId) {
-                      return { ...p, vocalMode: 'micro' };
-                    }
-                    return p;
-                  }),
-                };
-              });
-            });
-          }
-        } catch (err) {
-          console.error("Error finalizing vocal recording:", err);
-        } finally {
-          setIsRecordingVocal(false);
-          setRecordingVocalPatternId(null);
-          vocalRecordingStateRef.current = 'inactive';
-        }
-      };
+
+      const silentGain = audioContext.createGain();
+      silentGain.gain.setValueAtTime(0, audioContext.currentTime);
+      source.connect(processor);
+      processor.connect(silentGain);
+      silentGain.connect(audioContext.destination);
       
       let measureIdx = targetPattern.measureAssignments.indexOf(true);
       if (measureIdx === -1) {
@@ -2200,27 +2591,23 @@ export default function App() {
     } catch (err) {
       console.error("Failed to start vocal recording:", err);
       alert("Erreur d'accès au microphone : " + err);
+      cleanupVocalNodes();
+      setIsRecordingVocal(false);
+      setRecordingVocalPatternId(null);
+      vocalRecordingStateRef.current = 'inactive';
     }
   };
 
   const stopVocalRecording = () => {
     setIsRecordingVocal(false);
     setRecordingVocalPatternId(null);
+    const wasRecording = vocalRecordingStateRef.current === 'recording';
     vocalRecordingStateRef.current = 'inactive';
 
-    if (vocalMediaRecorderRef.current) {
-      try {
-        if (vocalMediaRecorderRef.current.state === 'recording') {
-          vocalMediaRecorderRef.current.stop();
-        } else {
-          if (vocalMediaRecorderRef.current.stream) {
-            vocalMediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop());
-          }
-        }
-      } catch (err) {
-        console.error("Failed to stop MediaRecorder manually:", err);
-      }
-      vocalMediaRecorderRef.current = null;
+    if (wasRecording) {
+      finalizeAndSaveVocalRecording();
+    } else {
+      cleanupVocalNodes();
     }
   };
 
@@ -2378,8 +2765,12 @@ export default function App() {
         let trackStr = '';
         for (let i = 0; i < p.steps; i++) {
           if (p.activeSteps[i] !== 0 && p.lyrics[i]) {
-            const syl = p.lyrics[i].trim();
-            trackStr += `${syl.replace(/-/g, '')}${syl.endsWith('-') ? '' : ' '}`;
+            const rawLyric = p.lyrics[i];
+            const hasSpace = rawLyric.endsWith(' ');
+            const syl = rawLyric.replace(/-$/, '').trim();
+            if (syl) {
+              trackStr += syl + (hasSpace ? ' ' : '');
+            }
           }
         }
         if (trackStr) {
@@ -2410,7 +2801,21 @@ export default function App() {
     const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
     const dlLink = document.createElement('a');
     dlLink.href = URL.createObjectURL(blob);
-    dlLink.download = 'rythme_samambaia.json';
+    
+    let fileName = 'rythme_samambaia.json';
+    if (metadata?.toada && metadata.toada.trim() !== '') {
+      const cleanTitle = metadata.toada.trim()
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9_-]+/gi, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '');
+      if (cleanTitle) {
+        fileName = `${cleanTitle}.json`;
+      }
+    }
+    
+    dlLink.download = fileName;
     dlLink.click();
   };
 
@@ -2563,6 +2968,7 @@ export default function App() {
           pushUndoState();
           setTracks([]);
           setLetras('');
+          setMetadata({ toada: '', nacao: '', compositor: '', ritmo: '', youtubeUrl: '', partitionImage: undefined });
         }}
         onSave={handleSaveState}
         onSaveToLocal={handleSaveToLocal}
@@ -2664,7 +3070,7 @@ export default function App() {
                         lyrics: Array(p.steps).fill(''),
                         notes: Array(p.steps).fill(''),
                         measureAssignments: Array(totalMeasures).fill(false),
-                        volumes: Array(p.steps).fill(100),
+                        volumes: Array(p.steps).fill(80),
                         decays: Array(p.steps).fill(100),
                         microtimings: Array(p.steps).fill(0),
                       };
@@ -2706,6 +3112,10 @@ export default function App() {
                 isMetroOn={isMetroOn}
                 activePatternIdByInst={activePatternIdByInst}
                 hitTriggersRef={hitTriggersRef}
+                bpm={bpm}
+                measureBpms={measureBpms}
+                measureVols={measureVols}
+                isMobile={isMobile}
               />
             )}
           </>
@@ -2743,6 +3153,7 @@ export default function App() {
               onStepVolumeChange={handleTrackStepVolumeChange}
               onStepDecayChange={handleTrackStepDecayChange}
               onStepMicrotimingChange={handleTrackStepMicrotimingChange}
+              onResetMicrotimings={handleResetTrackMicrotimings}
               isSwingOn={isSwingOn}
               onTrackSelectPattern={(trackId, patternId) => {
                 setTracks(tracks.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
@@ -2777,7 +3188,7 @@ export default function App() {
                       lyrics: Array(p.steps).fill(''),
                       notes: Array(p.steps).fill(''),
                       measureAssignments: Array(totalMeasures).fill(false),
-                      volumes: Array(p.steps).fill(100),
+                      volumes: Array(p.steps).fill(80),
                       decays: Array(p.steps).fill(100),
                       microtimings: Array(p.steps).fill(0),
                     };
@@ -2807,6 +3218,9 @@ export default function App() {
               onStopVocalRecording={stopVocalRecording}
               onVocalModeChange={handleVocalModeChange}
               onDeleteVocalRecording={handleDeleteVocalRecording}
+              soloPatternPlayId={soloPatternPlayId}
+              onStartSoloPattern={handleStartSoloPattern}
+              onStopSoloPattern={handleStopSoloPattern}
             />
           </div>
         )}
@@ -2844,6 +3258,15 @@ export default function App() {
             onPasteSection={handlePasteSongSection}
             metadata={metadata}
             letras={letras}
+            loopStartMeasure={loopStartMeasure}
+            loopEndMeasure={loopEndMeasure}
+            onSetLoopStart={handleSetLoopStart}
+            onSetLoopEnd={handleSetLoopEnd}
+            onClearLoop={handleClearLoop}
+            measureWidth={measureWidth}
+            onMeasureWidthChange={setMeasureWidth}
+            onDeleteMeasure={handleDeleteMeasure}
+            onInsertMeasure={handleInsertMeasure}
           />
         )}
 
@@ -2918,7 +3341,7 @@ export default function App() {
         recordingSeconds={recordingSeconds}
         onRecordToggle={handleAudioRecordingToggle}
         bpm={bpm}
-        onBpmChange={setBpm}
+        onBpmChange={handleGlobalBpmChange}
         isMetroOn={isMetroOn}
         onMetroToggle={() => setIsMetroOn(!isMetroOn)}
         isSwingOn={isSwingOn}

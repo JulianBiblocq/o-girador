@@ -238,17 +238,32 @@ export const VerticalTrackMixer: React.FC<VerticalTrackMixerProps> = ({
           </div>
           
           <div className="flex flex-col gap-2">
-            {track.patterns.map((ptn, idx) => (
-              <div key={ptn.id} className="flex flex-col gap-1.5 pb-1 last:pb-0">
-                <div className="flex items-center gap-2">
-                  <input type="radio" checked={track.selectedPatternId === ptn.id} onChange={() => onSelectPattern(ptn.id)} className="w-4 h-4 accent-[var(--cordel-border)]" />
-                  <span className={`font-cactus font-bold cursor-pointer ${track.selectedPatternId === ptn.id ? 'text-[var(--cordel-text)] text-sm' : 'text-[var(--cordel-text)]/60 text-xs'}`} onClick={() => onSelectPattern(ptn.id)}>Padrão {idx + 1} <span className="font-sans font-normal opacity-70">({ptn.steps} pas)</span></span>
-                  {track.patterns.length > 1 && (
-                    <button onClick={() => onDeletePattern(ptn.id)} className="text-[#8b2a1a] ml-auto text-xs px-1 font-bold hover:underline">✕</button>
-                  )}
+            {track.patterns.map((ptn, idx) => {
+              const activeMeasures = ptn.measureAssignments
+                .map((assigned, mIdx) => assigned ? mIdx + 1 : null)
+                .filter(m => m !== null);
+              
+              const assignedText = activeMeasures.length > 0 
+                ? activeMeasures.join(', ')
+                : (lang === 'pt' ? 'Sem compasso' : 'Aucune mesure');
+
+              return (
+                <div key={ptn.id} className="flex flex-col gap-1 pb-1 last:pb-0 border-b border-[var(--cordel-border)]/20 last:border-b-0">
+                  <div className="flex items-center gap-2">
+                    <input type="radio" checked={track.selectedPatternId === ptn.id} onChange={() => onSelectPattern(ptn.id)} className="w-4 h-4 accent-[var(--cordel-border)]" />
+                    <span className={`font-cactus font-bold cursor-pointer ${track.selectedPatternId === ptn.id ? 'text-[var(--cordel-text)] text-sm' : 'text-[var(--cordel-text)]/60 text-xs'}`} onClick={() => onSelectPattern(ptn.id)}>
+                      Padrão {idx + 1} <span className="font-sans font-normal opacity-70">({ptn.steps} pas)</span>
+                    </span>
+                    {track.patterns.length > 1 && (
+                      <button onClick={() => onDeletePattern(ptn.id)} className="text-[#8b2a1a] ml-auto text-xs px-1 font-bold hover:underline">✕</button>
+                    )}
+                  </div>
+                  <span className="text-[10px] text-[var(--cordel-text)]/70 pl-6 leading-tight">
+                    M: {assignedText}
+                  </span>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

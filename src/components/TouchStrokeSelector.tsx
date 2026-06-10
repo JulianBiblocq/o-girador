@@ -36,13 +36,19 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
     switch (stroke) {
       case 'D': return isPt ? 'Mão Direita (Forte)' : 'Main Droite (Fort)';
       case 'd': return isPt ? 'Mão Direita (Fraca)' : 'Main Droite (Faible)';
-      case 'G': return isPt ? 'Mão Esquerda (Forte)' : 'Main Gauche (Fort)';
-      case 'g': return isPt ? 'Mão Esquerda (Fraca)' : 'Main Gauche (Faible)';
+      case 'G':
+      case 'E': return isPt ? 'Mão Esquerda (Forte)' : 'Main Gauche (Fort)';
+      case 'g':
+      case 'e': return isPt ? 'Mão Esquerda (Fraca)' : 'Main Gauche (Faible)';
       case 'rd': return isPt ? 'Rufada Direita' : 'Roulement court D';
-      case 'rg': return isPt ? 'Rufada Esquerda' : 'Roulement court G';
+      case 'rg':
+      case 'Re':
+      case 're': return isPt ? 'Rufada Esquerda' : 'Roulement court G';
       case 'x': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
       case 'f': return isPt ? 'Fla' : 'Fla';
-      case 'b': return isPt ? 'Barulho / Vassourada' : 'Fatra (brossé)';
+      case 'b':
+      case 'T':
+      case 't': return isPt ? 'Trêmulo' : 'Trémolo';
       default: return stroke;
     }
   }
@@ -51,9 +57,13 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
     switch (stroke) {
       case 'D': return isPt ? 'Mão Direita (Forte)' : 'Main Droite (Fort)';
       case 'd': return isPt ? 'Mão Direita (Fraca)' : 'Main Droite (Faible)';
-      case 'G': return isPt ? 'Mão Esquerda (Forte)' : 'Main Gauche (Fort)';
-      case 'g': return isPt ? 'Mão Esquerda (Fraca)' : 'Main Gauche (Faible)';
-      case 'b': return isPt ? 'Toque abafado (Barulho)' : 'Coup étouffé (Barulho)';
+      case 'G':
+      case 'E': return isPt ? 'Mão Esquerda (Forte)' : 'Main Gauche (Fort)';
+      case 'g':
+      case 'e': return isPt ? 'Mão Esquerda (Fraca)' : 'Main Gauche (Faible)';
+      case 'b':
+      case 'T':
+      case 't': return isPt ? 'Trêmulo' : 'Trémolo';
       case 'x': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
       case 'i': return isPt ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Iguarassu)';
       default: return stroke;
@@ -66,18 +76,24 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'grv': return isPt ? 'Grave Fraco' : 'Grave Faible';
       case 'AIG': return isPt ? 'Agudo Forte' : 'Aigu Fort';
       case 'aig': return isPt ? 'Agudo Fraco' : 'Aigu Faible';
-      case 'b': return isPt ? 'Toque abafado' : 'Coup étouffé';
+      case 'b':
+      case 'T':
+      case 't': return isPt ? 'Trêmulo' : 'Trémolo';
       default: return stroke;
     }
   }
 
   if (instId === 'agbe') {
     switch (stroke) {
-      case 'G': return isPt ? 'Esquerda (Forte)' : 'Gauche (Fort)';
-      case 'g': return isPt ? 'Esquerda (Fraca)' : 'Gauche (Faible)';
+      case 'G':
+      case 'E': return isPt ? 'Esquerda (Forte)' : 'Gauche (Fort)';
+      case 'g':
+      case 'e': return isPt ? 'Esquerda (Fraca)' : 'Gauche (Faible)';
       case 'D': return isPt ? 'Direita (Forte)' : 'Droite (Fort)';
       case 'd': return isPt ? 'Direita (Fraca)' : 'Droite (Faible)';
-      case 'b': return isPt ? 'Vassourada (Barulho)' : 'Brossé (Barulho)';
+      case 'b':
+      case 'T':
+      case 't': return isPt ? 'Trêmulo' : 'Trémolo';
       case 's': return isPt ? 'Salto / Lançamento' : 'Saut / Lancer';
       default: return stroke;
     }

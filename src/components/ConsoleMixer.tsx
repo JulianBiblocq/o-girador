@@ -33,9 +33,9 @@ interface ConsoleMixerProps {
   onAddPattern: (trackId: number) => void;
   onDeletePattern: (trackId: number, patternId: number) => void;
   onReverbChange: (trackId: number, val: number) => void;
-  onStepVolumeChange: (trackId: number, patternId: number, stepIdx: number, val: number) => void;
-  onStepDecayChange: (trackId: number, patternId: number, stepIdx: number, val: number) => void;
-  onStepMicrotimingChange: (trackId: number, patternId: number, stepIdx: number, val: number) => void;
+  onStepVolumeChange: (trackId: number, patternId: number, stepIdx: number | number[], val: number) => void;
+  onStepDecayChange: (trackId: number, patternId: number, stepIdx: number | number[], val: number) => void;
+  onStepMicrotimingChange: (trackId: number, patternId: number, stepIdx: number | number[], val: number) => void;
   isSwingOn: boolean;
   isMobile: boolean;
   onStepTouchStart?: (

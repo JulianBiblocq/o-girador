@@ -20,9 +20,9 @@ interface InstrumentDetailEditorProps {
   onVolumeChange: (val: number) => void;
   onMuteToggle: () => void;
   onSoloToggle: () => void;
-  onStepVolumeChange: (patternId: number, stepIdx: number, val: number) => void;
-  onStepDecayChange: (patternId: number, stepIdx: number, val: number) => void;
-  onStepMicrotimingChange: (patternId: number, stepIdx: number, val: number) => void;
+  onStepVolumeChange: (patternId: number, stepIdx: number | number[], val: number) => void;
+  onStepDecayChange: (patternId: number, stepIdx: number | number[], val: number) => void;
+  onStepMicrotimingChange: (patternId: number, stepIdx: number | number[], val: number) => void;
   isSwingOn: boolean;
   isPlaying: boolean;
   currentStepIndex: number;
@@ -59,52 +59,53 @@ interface StrokeDef {
   colorKey: string;
 }
 
-function getStrokesForInstrument(instId: string, instType: string): StrokeDef[] {
+function getStrokesForInstrument(instId: string, instType: string, lang: string): StrokeDef[] {
+  const isFr = lang === 'fr';
   if (instId === 'caixa') {
     return [
-      { symbol: 'D/d', label: 'Mão Direita', shortcut: 'D / d', colorKey: 'D' },
-      { symbol: 'G/g', label: 'Mão Esquerda', shortcut: 'G / g', colorKey: 'G' },
-      { symbol: 'rd', label: 'Rufada Direita', shortcut: 'R → rd', colorKey: 'rd' },
-      { symbol: 'rg', label: 'Rufada Esquerda', shortcut: 'E → rg', colorKey: 'rf' },
-      { symbol: 'x', label: 'Cerclage', shortcut: 'X → x', colorKey: 'x' },
+      { symbol: 'D/d', label: isFr ? 'Main Droite' : 'Mão Direita', shortcut: 'D / d', colorKey: 'D' },
+      { symbol: 'E/e', label: isFr ? 'Main Gauche' : 'Mão Esquerda', shortcut: 'E / e', colorKey: 'E' },
+      { symbol: 'rd', label: isFr ? 'Roulement court D' : 'Rufada Direita', shortcut: 'R → rd', colorKey: 'rd' },
+      { symbol: 'Re', label: isFr ? 'Roulement court G' : 'Rufada Esquerda', shortcut: 'Z / z', colorKey: 'Re' },
+      { symbol: 'x', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X → x', colorKey: 'x' },
       { symbol: 'f', label: 'Fla', shortcut: 'F → f', colorKey: 'f' },
-      { symbol: 'b', label: 'Barulho', shortcut: 'B → b', colorKey: 'b' },
+      { symbol: 'T/t', label: isFr ? 'Tremblement' : 'Tremor', shortcut: 'T / t', colorKey: 'T' },
     ];
   }
   if (instId === 'marcante' || instId === 'meiao' || instId === 'repique') {
     return [
-      { symbol: 'D/d', label: 'Mão Direita', shortcut: 'D / d', colorKey: 'D' },
-      { symbol: 'G/g', label: 'Mão Esquerda', shortcut: 'G / g', colorKey: 'G' },
-      { symbol: 'b', label: 'Barulho', shortcut: 'B → b', colorKey: 'b' },
-      { symbol: 'x', label: 'Cerclage', shortcut: 'X → x', colorKey: 'x' },
+      { symbol: 'D/d', label: isFr ? 'Main Droite' : 'Mão Direita', shortcut: 'D / d', colorKey: 'D' },
+      { symbol: 'E/e', label: isFr ? 'Main Gauche' : 'Mão Esquerda', shortcut: 'E / e', colorKey: 'E' },
+      { symbol: 'T/t', label: isFr ? 'Tremblement' : 'Tremor', shortcut: 'T / t', colorKey: 'T' },
+      { symbol: 'x', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X → x', colorKey: 'x' },
       { symbol: 'i', label: 'Iguarassu', shortcut: 'I → i', colorKey: 'i' },
     ];
   }
   if (instType === 'gongue') {
     return [
       { symbol: 'G/g', label: 'Grave', shortcut: 'G / g', colorKey: 'GRV' },
-      { symbol: 'A/a', label: 'Aigu', shortcut: 'A / a', colorKey: 'AIG' },
-      { symbol: 'b', label: 'Barulho', shortcut: 'B → b', colorKey: 'b' },
+      { symbol: 'A/a', label: isFr ? 'Aigu' : 'Agudo', shortcut: 'A / a', colorKey: 'AIG' },
+      { symbol: 'T/t', label: isFr ? 'Tremblement' : 'Tremor', shortcut: 'T / t', colorKey: 'T' },
     ];
   }
   if (instId === 'agbe') {
     return [
-      { symbol: 'G/g', label: 'Esquerda', shortcut: 'G / g', colorKey: 'G' },
-      { symbol: 'D/d', label: 'Direita', shortcut: 'D / d', colorKey: 'D' },
-      { symbol: 'b', label: 'Barulho', shortcut: 'B → b', colorKey: 'b' },
-      { symbol: 's', label: 'Saut', shortcut: 'S → s', colorKey: 's' },
+      { symbol: 'E/e', label: isFr ? 'Gauche' : 'Esquerda', shortcut: 'E / e', colorKey: 'E' },
+      { symbol: 'D/d', label: isFr ? 'Droite' : 'Direita', shortcut: 'D / d', colorKey: 'D' },
+      { symbol: 'T/t', label: isFr ? 'Tremblement' : 'Tremor', shortcut: 'T / t', colorKey: 'T' },
+      { symbol: 's', label: isFr ? 'Saut' : 'Salto', shortcut: 'S → s', colorKey: 's' },
     ];
   }
   if (instId === 'mineiro') {
     return [
-      { symbol: 'P/p', label: 'Push (Cima)', shortcut: 'P / p', colorKey: 'P' },
-      { symbol: 'T/t', label: 'Pull (Baixo)', shortcut: 'T / t', colorKey: 'T' },
+      { symbol: 'P/p', label: isFr ? 'Haut' : 'Push (Cima)', shortcut: 'P / p', colorKey: 'P' },
+      { symbol: 'T/t', label: isFr ? 'Bas' : 'Pull (Baixo)', shortcut: 'T / t', colorKey: 'T' },
     ];
   }
   if (instType === 'voice') {
     return [
       { symbol: 'P', label: 'Puxador', shortcut: 'Click top', colorKey: 'P' },
-      { symbol: 'C', label: 'Coro', shortcut: 'Click top', colorKey: 'C' },
+      { symbol: 'C', label: isFr ? 'Chœur' : 'Coro', shortcut: 'Click top', colorKey: 'C' },
     ];
   }
   return [];
@@ -125,12 +126,12 @@ export function getNextStepValue(instId: string, instType: string, currentVal: s
     return 0;
   }
   if (instId === 'agbe') {
-    if (norm === 0 || norm === '0' || !norm) return 'g';
-    if (norm === 'g') return 'G';
-    if (norm === 'G') return 'd';
+    if (norm === 0 || norm === '0' || !norm) return 'e';
+    if (norm === 'g' || norm === 'e') return 'E';
+    if (norm === 'G' || norm === 'E') return 'd';
     if (norm === 'd') return 'D';
-    if (norm === 'D') return 'b';
-    if (norm === 'b') return 's';
+    if (norm === 'D') return 't';
+    if (norm === 'b' || norm === 't') return 's';
     return 0;
   }
   if (instType === 'gongue') {
@@ -138,36 +139,38 @@ export function getNextStepValue(instId: string, instType: string, currentVal: s
     if (norm === 'grv') return 'GRV';
     if (norm === 'GRV') return 'aig';
     if (norm === 'aig') return 'AIG';
-    if (norm === 'AIG') return 'b';
+    if (norm === 'AIG') return 't';
+    if (norm === 'b' || norm === 't') return 0;
     return 0;
   }
   if (instId === 'caixa') {
     if (norm === 0 || norm === '0' || !norm) return 'd';
     if (norm === 'd') return 'D';
-    if (norm === 'D') return 'g';
-    if (norm === 'g') return 'G';
-    if (norm === 'G') return 'rd';
-    if (norm === 'rd') return 'rg';
-    if (norm === 'rg') return 'x';
+    if (norm === 'D') return 'e';
+    if (norm === 'g' || norm === 'e') return 'E';
+    if (norm === 'G' || norm === 'E') return 'rd';
+    if (norm === 'rd') return 'Re';
+    if (norm === 'rg' || norm === 'Re' || norm === 're') return 'x';
     if (norm === 'x') return 'f';
-    if (norm === 'f') return 'b';
+    if (norm === 'f') return 't';
+    if (norm === 'b' || norm === 't') return 0;
     return 0;
   }
   if (instId === 'marcante' || instId === 'meiao' || instId === 'repique') {
     if (norm === 0 || norm === '0' || !norm) return 'd';
     if (norm === 'd') return 'D';
-    if (norm === 'D') return 'g';
-    if (norm === 'g') return 'G';
-    if (norm === 'G') return 'b';
-    if (norm === 'b') return 'x';
+    if (norm === 'D') return 'e';
+    if (norm === 'g' || norm === 'e') return 'E';
+    if (norm === 'G' || norm === 'E') return 't';
+    if (norm === 'b' || norm === 't') return 'x';
     if (norm === 'x') return 'i';
     return 0;
   }
   // default
   if (norm === 0 || norm === '0' || !norm) return 'd';
   if (norm === 'd') return 'D';
-  if (norm === 'D') return 'g';
-  if (norm === 'g') return 'G';
+  if (norm === 'D') return 'e';
+  if (norm === 'g' || norm === 'e') return 'E';
   return 0;
 }
 
@@ -247,7 +250,10 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
   };
 
   const [selectedStepIdx, setSelectedStepIdx] = useState<number | null>(null);
-  const [selectedPatternId, setSelectedPatternId] = useState<number | null>(null);
+  const [selectedStepIndices, setSelectedStepIndices] = useState<number[]>([]);
+  const [selectedPatternId, setSelectedPatternId] = useState<number | null>(track.selectedPatternId);
+  const [isDragSelecting, setIsDragSelecting] = useState(false);
+  const [dragStartIdx, setDragStartIdx] = useState<number | null>(null);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
 
   const isMouseDownRef = React.useRef(false);
@@ -256,12 +262,20 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
   React.useEffect(() => {
     const handleGlobalMouseUp = () => {
       isMouseDownRef.current = false;
+      setIsDragSelecting(false);
+      setDragStartIdx(null);
     };
     window.addEventListener('mouseup', handleGlobalMouseUp);
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
   }, []);
 
-  const strokes = getStrokesForInstrument(inst.id, inst.type);
+  React.useEffect(() => {
+    setSelectedPatternId(track.selectedPatternId);
+    setSelectedStepIdx(null);
+    setSelectedStepIndices([]);
+  }, [track.id, track.selectedPatternId]);
+
+  const strokes = getStrokesForInstrument(inst.id, inst.type, lang);
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
   const handleStart = (e: React.MouseEvent | React.TouchEvent, patternId: number, stepIdx: number, currentVal: string | number) => {
@@ -793,26 +807,79 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                                       if (!isTouchDevice) {
                                         e.target.select();
                                       }
-                                      setSelectedStepIdx(i);
                                       setSelectedPatternId(ptn.id);
                                     }}
                                     onMouseDown={(e) => {
                                       if (e.button !== 0) return;
-                                      if (e.shiftKey) {
+                                      setSelectedPatternId(ptn.id);
+
+                                      // 1. Alt Key Paint Editing
+                                      if (e.altKey) {
                                         isMouseDownRef.current = true;
                                         const nextVal = getNextStepValue(inst.id, inst.type, val);
                                         paintValueRef.current = nextVal;
                                         onStepValueChange(ptn.id, i, String(nextVal));
-                                      } else {
-                                        handleStart(e, ptn.id, i, val);
+                                        return;
                                       }
+
+                                      // 2. Shift + Clic (Selection Range)
+                                      if (e.shiftKey) {
+                                        e.preventDefault();
+                                        if (selectedStepIdx !== null) {
+                                          const start = Math.min(selectedStepIdx, i);
+                                          const end = Math.max(selectedStepIdx, i);
+                                          const rangeIndices = Array.from({ length: end - start + 1 }, (_, k) => start + k);
+                                          setSelectedStepIndices(rangeIndices);
+                                        } else {
+                                          setSelectedStepIdx(i);
+                                          setSelectedStepIndices([i]);
+                                        }
+                                        return;
+                                      }
+
+                                      // 3. Ctrl/Cmd + Clic (Toggle individual step selection)
+                                      if (e.ctrlKey || e.metaKey) {
+                                        e.preventDefault();
+                                        setSelectedStepIndices(prev => {
+                                          if (prev.includes(i)) {
+                                            const next = prev.filter(idx => idx !== i);
+                                            if (next.length > 0) {
+                                              setSelectedStepIdx(next[next.length - 1]);
+                                            } else {
+                                              setSelectedStepIdx(null);
+                                            }
+                                            return next;
+                                          } else {
+                                            setSelectedStepIdx(i);
+                                            return [...prev, i];
+                                          }
+                                        });
+                                        return;
+                                      }
+
+                                      // 4. Normal click -> Start Drag selection
+                                      setIsDragSelecting(true);
+                                      setDragStartIdx(i);
+                                      setSelectedStepIdx(i);
+                                      setSelectedStepIndices([i]);
+                                      handleStart(e, ptn.id, i, val);
                                     }}
                                     onMouseEnter={() => {
                                       if (isMouseDownRef.current) {
                                         onStepValueChange(ptn.id, i, String(paintValueRef.current));
                                       }
+                                      if (isDragSelecting && dragStartIdx !== null) {
+                                        const start = Math.min(dragStartIdx, i);
+                                        const end = Math.max(dragStartIdx, i);
+                                        const rangeIndices = Array.from({ length: end - start + 1 }, (_, k) => start + k);
+                                        setSelectedStepIndices(rangeIndices);
+                                        setSelectedStepIdx(i);
+                                      }
                                     }}
                                     onTouchStart={(e) => {
+                                      setSelectedPatternId(ptn.id);
+                                      setSelectedStepIdx(i);
+                                      setSelectedStepIndices([i]);
                                       handleStart(e, ptn.id, i, val);
                                     }}
                                     onChange={(e) => onStepValueChange(ptn.id, i, e.target.value)}
@@ -850,6 +917,12 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                                         ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#8b2a1a] scale-110 shadow-[0_0_8px_rgba(139,42,26,0.6)]'
                                         : val === 0
                                           ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
+                                          : ''
+                                    } ${
+                                      selectedStepIdx === i
+                                        ? 'outline outline-2 outline-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+                                        : selectedStepIndices.includes(i)
+                                          ? 'outline outline-2 outline-[#8b2a1a]/50 shadow-[0_0_6px_rgba(139,42,26,0.3)] scale-105 z-15'
                                           : ''
                                     }`}
                                     style={{
@@ -898,17 +971,22 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                     <div className="bg-[#ece4d0] cordel-border-sm p-3 mt-3 flex flex-col gap-2 shrink-0">
                       <div className="flex items-center justify-between text-xs border-b border-[#1a1a1a]/20 pb-1.5 text-[#1a1a1a]">
                         <span className="font-bold">
-                          🎛️ {lang === 'fr' ? 'Sculpteur' : 'Escultor'} — {lang === 'fr' ? 'Pas' : 'Passo'} {selectedStepIdx + 1}
-                          {(() => {
+                          🎛️ {lang === 'fr' ? 'Sculpteur' : 'Escultor'} — {
+                            selectedStepIndices.length > 1
+                              ? (lang === 'fr' ? `${selectedStepIndices.length} pas sélectionnés` : `${selectedStepIndices.length} passos selecionados`)
+                              : (lang === 'fr' ? `Pas ${selectedStepIdx + 1}` : `Passo ${selectedStepIdx + 1}`)
+                          }
+                          {selectedStepIndices.length <= 1 && (() => {
                             const stepVal = ptn.activeSteps[selectedStepIdx];
                             return ` (${stepVal === 0 ? (lang === 'fr' ? 'Silence' : 'Silêncio') : `${lang === 'fr' ? 'Coup' : 'Golpe'}: ${stepVal}`})`;
                           })()}
                         </span>
                         <button 
                           onClick={() => {
-                            onStepVolumeChange(ptn.id, selectedStepIdx, 100);
-                            onStepDecayChange(ptn.id, selectedStepIdx, 100);
-                            onStepMicrotimingChange(ptn.id, selectedStepIdx, 0);
+                            const targets = selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx];
+                            onStepVolumeChange(ptn.id, targets, 80);
+                            onStepDecayChange(ptn.id, targets, 100);
+                            onStepMicrotimingChange(ptn.id, targets, 0);
                           }}
                           className="text-[#8b2a1a] font-bold text-[10px] uppercase hover:underline cursor-pointer"
                         >
@@ -921,14 +999,14 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                         <div className="flex flex-col gap-0.5">
                           <div className="flex justify-between text-[10px] font-bold">
                             <span>🔊 Volume</span>
-                            <span>{ptn.volumes?.[selectedStepIdx] ?? 100}%</span>
+                            <span>{ptn.volumes?.[selectedStepIdx] ?? 80}%</span>
                           </div>
                           <input 
                             type="range"
                             min="0"
                             max="100"
-                            value={ptn.volumes?.[selectedStepIdx] ?? 100}
-                            onChange={(e) => onStepVolumeChange(ptn.id, selectedStepIdx, parseInt(e.target.value))}
+                            value={ptn.volumes?.[selectedStepIdx] ?? 80}
+                            onChange={(e) => onStepVolumeChange(ptn.id, selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx], parseInt(e.target.value))}
                             className="w-full accent-green-600 cursor-pointer h-2 bg-[#1a1a1a]/10"
                           />
                         </div>
@@ -944,58 +1022,72 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                             min="10"
                             max="100"
                             value={ptn.decays?.[selectedStepIdx] ?? 100}
-                            onChange={(e) => onStepDecayChange(ptn.id, selectedStepIdx, parseInt(e.target.value))}
+                            onChange={(e) => onStepDecayChange(ptn.id, selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx], parseInt(e.target.value))}
                             className="w-full accent-amber-500 cursor-pointer h-2 bg-[#1a1a1a]/10"
                           />
                         </div>
 
                         {/* Micro-timing slider */}
                         <div className="flex flex-col gap-0.5">
-                          <div className="flex justify-between text-[10px] font-bold">
-                            <span>⏱️ Micro-timing ({lang === 'fr' ? 'Décalage' : 'Desvio'})</span>
-                            <span>
-                              {ptn.microtimings?.[selectedStepIdx] !== undefined
-                                ? (ptn.microtimings[selectedStepIdx] > 0 ? `+${ptn.microtimings[selectedStepIdx]}` : ptn.microtimings[selectedStepIdx])
-                                : 0}%
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2 relative h-6">
-                            <span className="text-[8px] font-bold opacity-60 shrink-0">-50%</span>
-                            <div className="flex-grow h-2 relative flex items-center">
-                              {/* Background track with a center notch */}
-                              <div className="absolute inset-x-0 h-1 bg-[#1a1a1a]/15 rounded" />
-                              <div className="absolute left-1/2 -translate-x-1/2 w-[2px] h-3 bg-[#1a1a1a]/40 z-10" />
-                              
-                              {/* Bi-directional Blue track representing offset from center */}
-                              {(() => {
-                                const val = ptn.microtimings?.[selectedStepIdx] ?? 0;
-                                if (val !== 0) {
-                                  const widthPercent = Math.min(50, Math.abs(val)); // half-width is 50%
-                                  return (
-                                    <div
-                                      className="absolute h-1 bg-[#2980b9]"
-                                      style={{
-                                        left: val > 0 ? '50%' : 'auto',
-                                        right: val < 0 ? '50%' : 'auto',
-                                        width: `${widthPercent}%`
-                                      }}
-                                    />
-                                  );
-                                }
-                                return null;
-                              })()}
+                          {(() => {
+                            const manualVal = ptn.microtimings?.[selectedStepIdx] ?? 0;
+                            const swingOffset = getStepSwingPercent(selectedStepIdx, ptn.steps);
+                            const totalVal = manualVal + swingOffset;
+                            const clampedTotalVal = Math.max(-50, Math.min(50, totalVal));
 
-                              <input
-                                type="range"
-                                min="-50"
-                                max="50"
-                                value={ptn.microtimings?.[selectedStepIdx] ?? 0}
-                                onChange={(e) => onStepMicrotimingChange(ptn.id, selectedStepIdx, parseInt(e.target.value))}
-                                className="absolute inset-x-0 w-full h-4 opacity-100 cursor-pointer slider-transparent-track"
-                              />
-                            </div>
-                            <span className="text-[8px] font-bold opacity-60 shrink-0">+50%</span>
-                          </div>
+                            return (
+                              <>
+                                <div className="flex justify-between text-[10px] font-bold">
+                                  <span>⏱️ Micro-timing ({lang === 'fr' ? 'Décalage' : 'Desvio'})</span>
+                                  <span>
+                                    {totalVal > 0 ? `+${totalVal}` : totalVal}%
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 relative h-6">
+                                  <span className="text-[8px] font-bold opacity-60 shrink-0">-50%</span>
+                                  <div className="flex-grow h-2 relative flex items-center">
+                                    {/* Background track with a center notch */}
+                                    <div className="absolute inset-x-0 h-1 bg-[#1a1a1a]/15 rounded" />
+                                    <div className="absolute left-1/2 -translate-x-1/2 w-[2px] h-3 bg-[#1a1a1a]/40 z-10" />
+                                    
+                                    {/* Bi-directional Blue track representing offset from center */}
+                                    {totalVal !== 0 && (() => {
+                                      const widthPercent = Math.min(50, Math.abs(totalVal)); // half-width is 50%
+                                      return (
+                                        <div
+                                          className="absolute h-1 bg-[#2980b9]"
+                                          style={{
+                                            left: totalVal > 0 ? '50%' : 'auto',
+                                            right: totalVal < 0 ? '50%' : 'auto',
+                                            width: `${widthPercent}%`
+                                          }}
+                                        />
+                                      );
+                                    })()}
+
+                                    <input
+                                      type="range"
+                                      min="-50"
+                                      max="50"
+                                      value={clampedTotalVal}
+                                      onChange={(e) => {
+                                        const newTotal = parseInt(e.target.value);
+                                        const newManual = newTotal - swingOffset;
+                                        const clampedManual = Math.max(-50, Math.min(50, newManual));
+                                        onStepMicrotimingChange(
+                                          ptn.id,
+                                          selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx],
+                                          clampedManual
+                                        );
+                                      }}
+                                      className="absolute inset-x-0 w-full h-4 opacity-100 cursor-pointer slider-transparent-track"
+                                    />
+                                  </div>
+                                  <span className="text-[8px] font-bold opacity-60 shrink-0">+50%</span>
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>

@@ -23,6 +23,10 @@ interface CircleSequencerProps {
   totalMeasures: number;
   activePatternIdByInst: Record<number, number>;
   hitTriggersRef?: React.MutableRefObject<HitTrigger[]>;
+  bpm: number;
+  measureBpms: number[];
+  measureVols: number[];
+  isMobile?: boolean;
 }
 
 export const CircleSequencer: React.FC<CircleSequencerProps> = ({
@@ -41,6 +45,10 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
   totalMeasures,
   activePatternIdByInst,
   hitTriggersRef,
+  bpm,
+  measureBpms,
+  measureVols,
+  isMobile,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -58,6 +66,10 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
     totalMeasures,
     activePatternIdByInst,
     hitTriggersRef,
+    bpm,
+    measureBpms,
+    measureVols,
+    isMobile,
   });
 
   useEffect(() => {
@@ -74,8 +86,12 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
       totalMeasures,
       activePatternIdByInst,
       hitTriggersRef,
+      bpm,
+      measureBpms,
+      measureVols,
+      isMobile,
     };
-  }, [tracks, isPlaying, currentStepIndex, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByInst, hitTriggersRef]);
+  }, [tracks, isPlaying, currentStepIndex, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByInst, hitTriggersRef, bpm, measureBpms, measureVols, isMobile]);
 
   // Handle click on canvas
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -295,7 +311,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
 
       // 1. Ropes (Cordas) - drawn with black ink style
       const numCords = 16;
-      ctx.lineWidth = 4;
+      ctx.lineWidth = 7;
       ctx.strokeStyle = '#1a1a1a';
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
@@ -557,7 +573,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
                 if (stateStr.toLowerCase() === 'p') textSymbol = '↑';
                 else if (stateStr.toLowerCase() === 't') textSymbol = '↓';
               } else if (inst.id === 'agbe') {
-                if (stateStr.toLowerCase() === 'g') textSymbol = '←';
+                if (stateStr.toLowerCase() === 'g' || stateStr.toLowerCase() === 'e') textSymbol = '←';
                 else if (stateStr.toLowerCase() === 'd') textSymbol = '→';
               }
             }
@@ -594,9 +610,19 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
             let txtColor = inst.type === 'voice' ? '#1a1a1a' : '#f4ecd8';
             ctx.fillStyle = txtColor;
             const fontSize = Math.max(10, Math.floor((textSymbol.length > 1 ? 15 : 20) * dynamicScale * 0.9));
-            ctx.font = `bold ${fontSize}px sans-serif`;
+            ctx.font = `900 ${fontSize}px "Outfit", "Inter", sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
+
+            // Draw text outline for arrow symbols to make them extra bold/thick
+            if (['↑', '↓', '←', '→'].includes(textSymbol)) {
+              ctx.save();
+              ctx.strokeStyle = txtColor;
+              ctx.lineWidth = 2.5;
+              ctx.strokeText(textSymbol, x, y + 2);
+              ctx.restore();
+            }
+
             ctx.fillText(textSymbol, x, y + 2);
           }
 
@@ -632,6 +658,9 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
     };
   }, []);
 
+  const activeBpm = measureBpms[currentMeasure] || bpm;
+  const activeVol = measureVols[currentMeasure] !== undefined ? measureVols[currentMeasure] : 100;
+
   return (
     <div
       id="circle-sequencer-panel"
@@ -643,6 +672,27 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
         backgroundRepeat: 'no-repeat',
       }}
     >
+      {/* Dynamic Measure Information Widgets around the Roda */}
+      <div className="absolute top-2 left-2 md:top-4 md:left-4 bg-[#f4ecd8]/95 text-[#1a1a1a] cordel-border-sm p-1.5 px-2.5 md:p-2 md:px-3.5 shadow-[3px_3px_0px_#1a1a1a] md:shadow-[4px_4px_0px_#1a1a1a] flex flex-col items-start min-w-[90px] md:min-w-[120px] z-20 pointer-events-none">
+        <span className="text-[8px] md:text-[9px] uppercase opacity-65 tracking-wider font-bold">{lang === 'pt' ? 'Compasso' : 'Mesure'}</span>
+        <span className="text-sm md:text-lg font-cactus font-bold leading-tight">{currentMeasure + 1} / {totalMeasures}</span>
+      </div>
+
+      <div className="absolute top-2 right-2 md:top-4 md:right-4 bg-[#f4ecd8]/95 text-[#1a1a1a] cordel-border-sm p-1.5 px-2.5 md:p-2 md:px-3.5 shadow-[3px_3px_0px_#1a1a1a] md:shadow-[4px_4px_0px_#1a1a1a] flex flex-col items-end min-w-[90px] md:min-w-[120px] z-20 pointer-events-none">
+        <span className="text-[8px] md:text-[9px] uppercase opacity-65 tracking-wider font-bold">{lang === 'pt' ? 'Fórmula' : 'Rythme'}</span>
+        <span className="text-sm md:text-lg font-cactus font-bold leading-tight">{timeSig}</span>
+      </div>
+
+      <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 bg-[#f4ecd8]/95 text-[#1a1a1a] cordel-border-sm p-1.5 px-2.5 md:p-2 md:px-3.5 shadow-[3px_3px_0px_#1a1a1a] md:shadow-[4px_4px_0px_#1a1a1a] flex flex-col items-start min-w-[90px] md:min-w-[120px] z-20 pointer-events-none">
+        <span className="text-[8px] md:text-[9px] uppercase opacity-65 tracking-wider font-bold">Tempo</span>
+        <span className="text-sm md:text-lg font-cactus font-bold leading-tight">{activeBpm} <span className="text-[10px] md:text-xs font-sans font-bold">BPM</span></span>
+      </div>
+
+      <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 bg-[#f4ecd8]/95 text-[#1a1a1a] cordel-border-sm p-1.5 px-2.5 md:p-2 md:px-3.5 shadow-[3px_3px_0px_#1a1a1a] md:shadow-[4px_4px_0px_#1a1a1a] flex flex-col items-end min-w-[90px] md:min-w-[120px] z-20 pointer-events-none">
+        <span className="text-[8px] md:text-[9px] uppercase opacity-65 tracking-wider font-bold">Volume</span>
+        <span className="text-sm md:text-lg font-cactus font-bold leading-tight">{activeVol}%</span>
+      </div>
+
       <div className="flex-1 min-h-0 relative w-full h-full max-w-[800px] mx-auto flex items-center justify-center">
         <canvas
           ref={canvasRef}
@@ -652,7 +702,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
           className="max-w-full max-h-full aspect-square cursor-pointer block select-none"
         />
       </div>
-      <div className="absolute top-2 right-3 text-[10px] text-[#eaddcf]/40 pointer-events-none select-none font-medium tracking-wide">
+      <div className="absolute top-2 right-3 text-[10px] text-[#eaddcf]/40 pointer-events-none select-none font-medium tracking-wide hidden md:block">
         Créé par Julian Biblocq | Art: Toni Braga
       </div>
     </div>

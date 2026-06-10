@@ -14,6 +14,7 @@ interface RightSidebarProps {
   tracks: TrackGroup[];
   letras: string;
   onLetrasChange: (val: string) => void;
+  onExtractLyrics?: () => void;
   metadata?: PresetMetadata;
   onMetadataChange?: (val: PresetMetadata) => void;
   currentPlayState: {
@@ -31,6 +32,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
   tracks,
   letras,
   onLetrasChange,
+  onExtractLyrics,
   metadata,
   onMetadataChange,
   currentPlayState,
@@ -257,7 +259,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)]">
-                    G / g
+                    E / e
                   </span>
                   <span>{t('mainGauche')}</span>
                 </div>
@@ -271,8 +273,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               </span>
               <div className="flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center w-6 h-[18px] text-[9px] font-bold bg-[#4c1c1c] text-[#f4ecd8] mr-1">
-                    b
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4c1c1c] text-[#f4ecd8] mr-1">
+                    T / t
                   </span>
                   <span>{t('legendAlfaiaBarulho')}</span>
                 </div>
@@ -302,7 +304,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                     rd
                   </span>
                   <span className="inline-flex items-center justify-center w-6 h-[18px] text-[9px] font-bold bg-[#d8b4fe] text-[#1a1a1a] mr-1">
-                    rg
+                    Re
                   </span>
                   <span>{t('legendCaixaRufada')}</span>
                 </div>
@@ -319,8 +321,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   <span>{t('legendCaixaFla')}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center w-6 h-[18px] text-[9px] font-bold bg-[#4a044e] text-[#f4ecd8] mr-1">
-                    b
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4a044e] text-[#f4ecd8] mr-1">
+                    T / t
                   </span>
                   <span>{t('legendCaixaBarulho')}</span>
                 </div>
@@ -347,7 +349,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#6d4c41] text-[#f4ecd8]">
-                    b
+                    T / t
                   </span>
                   <span>{t('gongueBarulho')}</span>
                 </div>
@@ -362,7 +364,7 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
               <div className="flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)]">
-                    G / g
+                    E / e
                   </span>
                   <span>{t('agbeG')}</span>
                 </div>
@@ -373,8 +375,8 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                   <span>{t('agbeD')}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center w-6 h-[18px] text-[9px] font-bold bg-[#133816] text-[#f4ecd8] mr-1">
-                    b
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#133816] text-[#f4ecd8] mr-1">
+                    T / t
                   </span>
                   <span>{t('legendAgbeBarulho')}</span>
                 </div>
@@ -482,6 +484,16 @@ export const RightSidebar: React.FC<RightSidebarProps> = ({
                 onChange={(e) => onLetrasChange(e.target.value)}
                 className="w-full h-[150px] min-h-[100px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-[2px] border-[var(--cordel-border)] p-2 font-sans text-xs outline-none resize-none focus:border-[var(--cordel-border)] mb-4 shrink-0"
               />
+              
+              {onExtractLyrics && (
+                <button
+                  onClick={onExtractLyrics}
+                  className="w-full py-1.5 bg-[#8b2a1a] text-[#f4ecd8] text-xs font-bold cordel-border-sm hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer mb-4 shrink-0 flex items-center justify-center gap-1.5"
+                  title={t('extractBtn')}
+                >
+                  <span>{t('extractBtn')}</span>
+                </button>
+              )}
               
               <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus mb-1 shrink-0">
                 🎤 Karaokê

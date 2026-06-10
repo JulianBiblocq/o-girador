@@ -40,9 +40,17 @@ interface TimelineSequencerProps {
   onPasteSection: (destStartMeasure: number) => void;
   metadata?: PresetMetadata;
   letras: string;
+  loopStartMeasure: number | null;
+  loopEndMeasure: number | null;
+  onSetLoopStart: (measureIdx: number) => void;
+  onSetLoopEnd: (measureIdx: number) => void;
+  onClearLoop: () => void;
+  measureWidth: number;
+  onMeasureWidthChange: (width: number) => void;
+  onDeleteMeasure?: (measureIdx: number) => void;
+  onInsertMeasure?: (measureIdx: number) => void;
 }
 
-const MEASURE_W = 480;
 const HEADER_W = 180;
 
 function getDisplayVal(val: string | number) {
@@ -83,7 +91,17 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   onPasteSection,
   metadata,
   letras,
+  loopStartMeasure,
+  loopEndMeasure,
+  onSetLoopStart,
+  onSetLoopEnd,
+  onClearLoop,
+  measureWidth,
+  onMeasureWidthChange,
+  onDeleteMeasure,
+  onInsertMeasure,
 }) => {
+  const MEASURE_W = measureWidth;
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
@@ -138,6 +156,13 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                     else if (val === 'AIG') measureStr += 'A';
                     else if (val === 'aig') measureStr += 'a';
                     else measureStr += String(val);
+                  } else if (inst.type === 'voice') {
+                    const syl = activePtn.lyrics?.[stepIdx];
+                    if (syl && syl.trim() !== '') {
+                      measureStr += syl.trim();
+                    } else {
+                      measureStr += String(val);
+                    }
                   } else {
                     measureStr += String(val);
                   }
@@ -202,23 +227,41 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                   ? `Mesures ${sys.startM} à ${sys.endM}`
                   : `Compassos ${sys.startM} a ${sys.endM}`}
               </div>
-              <div className="flex flex-col gap-1 font-mono">
-                {sys.tracksData.map((tData) => (
-                  <div key={tData.trackId} className="flex items-start w-full text-black">
-                    <div className="w-[120px] font-sans font-bold shrink-0 truncate uppercase text-[10px] text-black">
-                      {tData.instName} :
-                    </div>
-                    <div className="flex-grow flex gap-2 font-mono tracking-wider font-extrabold text-[12px] text-black">
-                      {tData.measures.map((mStr, mIdx) => (
-                        <span key={mIdx} className="flex items-center">
-                          <span className="opacity-40">|</span>
-                          <span className="px-1.5">{mStr}</span>
-                          {mIdx === tData.measures.length - 1 && <span className="opacity-40">|</span>}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+              <div className="w-full overflow-x-auto">
+                <table className="w-full border-collapse text-black tab-system-table font-mono text-[12px]">
+                  <tbody>
+                    {sys.tracksData.map((tData) => (
+                      <tr key={tData.trackId} className="tab-system-row border-0">
+                        <td className="w-[120px] tab-inst-name font-sans font-bold shrink-0 truncate uppercase text-[10px] text-black pr-2 align-middle">
+                          {tData.instName} :
+                        </td>
+                        {tData.measures.map((mStr, mIdx) => {
+                          const steps = mStr.split('.');
+                          return (
+                            <React.Fragment key={mIdx}>
+                              <td className="tab-barline opacity-40 font-mono text-[12px] text-black text-center px-0.5 align-middle select-none">
+                                |
+                              </td>
+                              {steps.map((stepVal, stepIdx) => (
+                                <td 
+                                  key={stepIdx} 
+                                  className="tab-step-cell text-center font-mono font-extrabold text-[12px] text-black px-1 align-middle"
+                                >
+                                  {stepVal}
+                                </td>
+                              ))}
+                              {mIdx === tData.measures.length - 1 && (
+                                <td className="tab-barline opacity-40 font-mono text-[12px] text-black text-center px-0.5 align-middle select-none">
+                                  |
+                                </td>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           ))}
@@ -391,6 +434,48 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
         <span className="font-cactus font-bold text-xs md:text-sm uppercase tracking-wider flex items-center gap-1.5">
           <span>🎞️ {lang === 'fr' ? 'Séquenceur Linéaire' : 'Sequenciador Linear'}</span>
         </span>
+
+        {/* Zoom & Loop Controls */}
+        <div className="flex items-center gap-2">
+          {/* Zoom Controls */}
+          <span className="text-[10px] uppercase font-bold text-[var(--cordel-text)]/70">{lang === 'fr' ? 'Zoom' : 'Zoom'} :</span>
+          <button
+            onClick={() => onMeasureWidthChange(Math.max(240, measureWidth - 60))}
+            disabled={measureWidth <= 240}
+            className={`font-bold text-[10px] md:text-xs px-2 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
+              measureWidth <= 240 ? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+            }`}
+            title={lang === 'fr' ? 'Zoom arrière' : 'Reduzir zoom'}
+          >
+            ➖
+          </button>
+          <button
+            onClick={() => onMeasureWidthChange(Math.min(960, measureWidth + 60))}
+            disabled={measureWidth >= 960}
+            className={`font-bold text-[10px] md:text-xs px-2 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
+              measureWidth >= 960 ? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+            }`}
+            title={lang === 'fr' ? 'Zoom avant' : 'Ampliar zoom'}
+          >
+            ➕
+          </button>
+
+          {/* Loop indicator and Clear Button */}
+          {loopStartMeasure !== null && loopEndMeasure !== null && (
+            <div className="flex items-center gap-1.5 ml-4 bg-[#8b2a1a]/10 border border-[#8b2a1a]/40 px-2 py-0.5 rounded cordel-border-sm">
+              <span className="text-[9px] md:text-[10px] uppercase font-bold text-[#8b2a1a]">
+                🔁 {lang === 'fr' ? `Boucle: M. ${loopStartMeasure + 1}-${loopEndMeasure + 1}` : `Loop: Comp. ${loopStartMeasure + 1}-${loopEndMeasure + 1}`}
+              </span>
+              <button
+                onClick={onClearLoop}
+                className="text-[#8b2a1a] hover:text-[#a63320] font-bold text-[10px] ml-1.5 cursor-pointer"
+                title={lang === 'fr' ? 'Effacer la boucle' : 'Limpar loop'}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
         <button
           onClick={() => setTablatureModalOpen(true)}
           className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] md:text-xs px-2.5 py-0.5 md:py-1 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer flex items-center gap-1 shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans"
@@ -527,15 +612,80 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
               const mVolTransition = measureVolTransitions[mIdx] || 'immediate';
               const localBeats = mTimeSig === '3/4' || mTimeSig === '6/8' ? 3 : mTimeSig === '2/4' ? 2 : mTimeSig === '12/8' ? 12 : 4;
 
+              const isInLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
+
               return (
                 <div
                   key={mIdx}
-                  className="border-r border-[var(--cordel-border)]/30 flex flex-col justify-between px-2 py-1 text-[10px] font-bold"
+                  className={`border-r border-[var(--cordel-border)]/30 flex flex-col justify-between px-2 py-1 text-[10px] font-bold relative transition-all ${
+                    isInLoop
+                      ? 'bg-blue-600/5 border-t-4 border-t-blue-600/80 dark:border-t-blue-500/80'
+                      : ''
+                  }`}
                   style={{ width: MEASURE_W, minWidth: MEASURE_W }}
                 >
                   <div className="flex items-center justify-between w-full mt-0.5 gap-2">
-                    <span className="font-cactus text-xs tracking-wide flex items-center gap-1.5">
-                      <span>{lang === 'fr' ? 'Mesure' : 'Compasso'} {mIdx + 1}</span>
+                    <span className="font-cactus text-xs tracking-wide flex items-center gap-1.5 shrink-0">
+                      <span>{lang === 'fr' ? 'M.' : 'C.'} {mIdx + 1}</span>
+                      
+                      {/* Loop Delimiters */}
+                      <div className="flex gap-0.5 border-l border-[var(--cordel-border)]/20 pl-1.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSetLoopStart(mIdx);
+                          }}
+                          className={`px-1 py-px rounded font-extrabold text-[10px] cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors border ${
+                            loopStartMeasure === mIdx 
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-transparent text-[var(--cordel-text)] border-[var(--cordel-border)]/30'
+                          }`}
+                          title={lang === 'fr' ? 'Définir comme début de boucle' : 'Definir como início do loop'}
+                        >
+                          [
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSetLoopEnd(mIdx);
+                          }}
+                          className={`px-1 py-px rounded font-extrabold text-[10px] cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors border ${
+                            loopEndMeasure === mIdx 
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-transparent text-[var(--cordel-text)] border-[var(--cordel-border)]/30'
+                          }`}
+                          title={lang === 'fr' ? 'Définir comme fin de boucle' : 'Definir como fim do loop'}
+                        >
+                          ]
+                        </button>
+                      </div>
+
+                      {/* Measure Insertion / Deletion */}
+                      <div className="flex gap-0.5 ml-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onInsertMeasure && onInsertMeasure(mIdx);
+                          }}
+                          className="w-4 h-4 flex items-center justify-center rounded bg-emerald-600/10 text-emerald-700 hover:bg-emerald-700 hover:text-white border border-emerald-600/30 transition-colors font-bold text-[9px] cursor-pointer"
+                          title={lang === 'fr' ? 'Insérer une mesure avant' : 'Inserir compasso antes'}
+                        >
+                          ➕
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(lang === 'fr' ? `Supprimer la mesure ${mIdx + 1} ?` : `Excluir o compasso ${mIdx + 1} ?`)) {
+                              onDeleteMeasure && onDeleteMeasure(mIdx);
+                            }
+                          }}
+                          className="w-4 h-4 flex items-center justify-center rounded bg-rose-600/10 text-rose-700 hover:bg-rose-700 hover:text-white border border-rose-600/30 transition-colors font-bold text-[9px] cursor-pointer"
+                          title={lang === 'fr' ? 'Supprimer la mesure' : 'Excluir compasso'}
+                        >
+                          ✕
+                        </button>
+                      </div>
+
                       {copiedSection && (
                         <button
                           onClick={(e) => {
@@ -728,7 +878,11 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                   return (
                     <div
                       key={mIdx}
-                      className="h-full border-r border-[var(--cordel-border)]/20 relative cursor-pointer"
+                      className={`h-full border-r border-[var(--cordel-border)]/20 relative cursor-pointer ${
+                        loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure
+                          ? 'bg-blue-600/[0.03]'
+                          : ''
+                      }`}
                       style={{ width: MEASURE_W, minWidth: MEASURE_W }}
                       onClick={(e) => {
                         const rect = e.currentTarget.getBoundingClientRect();

@@ -162,7 +162,12 @@ export const TrackMixer: React.FC<TrackMixerProps> = ({
       className={`relative bg-[#f4ecd8] cordel-border p-4 mb-4 select-none flex flex-col text-[#1a1a1a] ${instDropdownOpen ? 'z-50' : 'z-10'}`}
       style={{
         zIndex: instDropdownOpen ? 9999 : 10,
-      }}
+        '--cordel-bg': '#f4ecd8',
+        '--cordel-text': '#1a1a1a',
+        '--cordel-border': '#1a1a1a',
+        '--fader-thumb-bg': '#8b2a1a',
+        '--fader-thumb-border': '#1a1a1a',
+      } as React.CSSProperties}
     >
 
       <div className={`flex justify-between items-center mb-2 relative ${instDropdownOpen ? 'z-[9999]' : 'z-[2]'}`}>
@@ -277,7 +282,7 @@ export const TrackMixer: React.FC<TrackMixerProps> = ({
               max="100"
               value={track.volumeVal}
               onChange={(e) => onVolumeChange(parseInt(e.target.value))}
-              className="flex-grow h-2 bg-[#1a1a1a] border border-[#f4ecd8] rounded-none outline-none cursor-pointer accent-[#f4ecd8]"
+              className="flex-grow h-2 bg-[#1a1a1a] border border-[#1a1a1a] rounded-none outline-none cursor-pointer accent-[#8b2a1a]"
             />
             <div className="w-[35px] h-2 bg-[#1a1a1a] relative overflow-hidden cordel-border-sm shrink-0">
               <div
@@ -317,33 +322,22 @@ export const TrackMixer: React.FC<TrackMixerProps> = ({
         </div>
         {/* Patterns Summary (No checkboxes) */}
         <div className="grid grid-cols-2 gap-1 w-full max-h-[80px] overflow-y-auto custom-scrollbar">
-          {track.patterns.map((ptn, idx) => {
-            const activeMeasures = ptn.measureAssignments
-              .map((assigned, mIdx) => assigned ? mIdx + 1 : null)
-              .filter(m => m !== null);
-            
-            const assignedText = activeMeasures.length > 0 
-              ? activeMeasures.join(', ')
-              : 'Aucune mesure';
-
-            return (
-              <div key={ptn.id} className="flex items-start gap-2 border-b border-[#1a1a1a]/30 pb-1 last:border-0 last:pb-0">
-                <input
-                  type="radio"
-                  checked={track.selectedPatternId === ptn.id}
-                  onChange={() => onSelectPattern(ptn.id)}
-                  className="w-3 h-3 mt-0.5 accent-[#1a1a1a]"
-                />
-                <div 
-                  className={`flex flex-col cursor-pointer ${track.selectedPatternId === ptn.id ? 'text-[#1a1a1a]' : 'text-[#666]'}`}
-                  onClick={() => onSelectPattern(ptn.id)}
-                >
-                  <span className="text-[10px] font-cactus font-bold leading-tight">{t('patterns').slice(0,-1)} {idx + 1}</span>
-                  <span className="text-[9px] leading-tight">M: {assignedText}</span>
-                </div>
-              </div>
-            );
-          })}
+          {track.patterns.map((ptn, idx) => (
+            <div key={ptn.id} className="flex items-center gap-2 border-b border-[#1a1a1a]/30 pb-1 last:border-0 last:pb-0 h-6">
+              <input
+                type="radio"
+                checked={track.selectedPatternId === ptn.id}
+                onChange={() => onSelectPattern(ptn.id)}
+                className="w-3 h-3 accent-[#1a1a1a]"
+              />
+              <span 
+                className={`text-[10px] font-cactus font-bold cursor-pointer ${track.selectedPatternId === ptn.id ? 'text-[#1a1a1a]' : 'text-[#666]'}`}
+                onClick={() => onSelectPattern(ptn.id)}
+              >
+                {t('patterns').slice(0,-1)} {idx + 1}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 

@@ -468,13 +468,47 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
+        <div className="relative ml-2" ref={addDropRef}>
+          <button
+            onClick={() => setAddDropOpen(!addDropOpen)}
+            className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button px-3 h-[34px] text-xs font-bold font-cactus uppercase transition-all duration-200 cursor-pointer"
+          >
+            + {t('addInst')}
+          </button>
+          
+          {addDropOpen && (
+            <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] shadow-[4px_4px_0_var(--cordel-border)] min-w-[200px] max-h-[300px] overflow-y-auto z-[100]">
+              {instrumentsConfig.map((inst, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    onAddInstrument(idx);
+                    setAddDropOpen(false);
+                  }}
+                  className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-b border-[var(--cordel-border)] cursor-pointer"
+                >
+                  <img
+                    src={`${ASSETS_BASE_URL}${inst.iconImg}`}
+                    alt={inst.name}
+                    className="w-5 h-5 object-contain filter invert opacity-80"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                  <span>{inst.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <button
           onClick={onUndo}
           disabled={!canUndo}
-          className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button px-2.5 py-1 text-xs font-bold font-cactus uppercase cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 h-[34px] ml-1 shrink-0"
+          className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button w-[34px] h-[34px] flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ml-1.5 shrink-0"
           title={lang === 'pt' ? 'Desfazer (Ctrl+Z)' : 'Annuler (Ctrl+Z)'}
         >
-          ↩️ {lang === 'pt' ? 'Desfazer' : 'Annuler'}
+          ↩️
         </button>
       </div>
 
@@ -530,40 +564,6 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <FileText className="w-4 h-4" /> TOADA
         </button>
-
-        <div className="relative" ref={addDropRef}>
-          <button
-            onClick={() => setAddDropOpen(!addDropOpen)}
-            className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button px-4 h-[36px] text-sm font-bold font-cactus uppercase transition-all duration-200 cursor-pointer"
-          >
-            + {t('addInst')}
-          </button>
-          
-          {addDropOpen && (
-            <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] shadow-[4px_4px_0_var(--cordel-border)] min-w-[200px] max-h-[300px] overflow-y-auto z-[100]">
-              {instrumentsConfig.map((inst, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => {
-                    onAddInstrument(idx);
-                    setAddDropOpen(false);
-                  }}
-                  className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-b border-[var(--cordel-border)] cursor-pointer"
-                >
-                  <img
-                    src={`${ASSETS_BASE_URL}${inst.iconImg}`}
-                    alt={inst.name}
-                    className="w-5 h-5 object-contain filter invert opacity-80"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                  <span>{inst.name}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* RIGHT: Auxiliary */}
