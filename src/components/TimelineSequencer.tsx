@@ -590,7 +590,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
 
           {/* ══════════ RULER ROW ══════════ */}
           <div
-            className="flex h-16 border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-pointer select-none"
+            className="flex min-h-16 h-auto border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-pointer select-none"
             style={{ width: `${HEADER_W + totalContentW + 150}px` }}
             onMouseDown={handleRulerMouseDown}
             onTouchStart={handleRulerTouchStart}
@@ -624,7 +624,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                   }`}
                   style={{ width: MEASURE_W, minWidth: MEASURE_W }}
                 >
-                  <div className="flex items-center justify-between w-full mt-0.5 gap-2">
+                  <div className="flex flex-wrap items-center justify-between w-full mt-0.5 gap-x-2 gap-y-1">
                     <span className="font-cactus text-xs tracking-wide flex items-center gap-1.5 shrink-0">
                       <span>{lang === 'fr' ? 'M.' : 'C.'} {mIdx + 1}</span>
                       
@@ -761,7 +761,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                           max={100}
                           value={mVol}
                           onChange={e => onMeasureVolChange(mIdx, Math.max(0, Math.min(100, Math.round(Number(e.target.value)))))}
-                          className="w-8 bg-[var(--cordel-bg)] text-[9px] font-bold border border-[var(--cordel-border)]/50 rounded px-0.5 py-px text-center outline-none"
+                          className="w-10 bg-[var(--cordel-bg)] text-[9px] font-bold border border-[var(--cordel-border)]/50 rounded px-0.5 py-px text-center outline-none"
                           style={{ height: '18px' }}
                         />
                         <span className="text-[8px] opacity-75">%</span>
