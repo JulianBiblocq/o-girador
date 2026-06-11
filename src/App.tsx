@@ -41,7 +41,6 @@ let scriptProcessorNode: ScriptProcessorNode | null = null;
 let reverbNode: Tone.Reverb | null = null;
 const reverbSends: { [id: string]: Tone.Gain } = {};
 let masterVolumeNode: Tone.Gain | null = null;
-let masterLowCutNode: Tone.Filter | null = null;
 let masterEqNode: Tone.EQ3 | null = null;
 let masterCompressorNode: Tone.Compressor | null = null;
 let masterLimiterNode: Tone.Limiter | null = null;
@@ -127,7 +126,7 @@ export default function App() {
         if (response.ok) {
           const data = await response.json();
           const latestVersion = Number(data.version);
-          const CURRENT_VERSION = 15; // Matches version.json
+          const CURRENT_VERSION = 16; // Matches version.json
           
           if (latestVersion > CURRENT_VERSION) {
             console.log(`New version detected: ${latestVersion}. Clearing Service Worker and reloading...`);
@@ -171,8 +170,6 @@ export default function App() {
   });
 
   // Master FX states
-  const [isLowCutOn, setIsLowCutOn] = useState<boolean>(false);
-  const [lowCutFreq, setLowCutFreq] = useState<number>(40);
   const [isEqOn, setIsEqOn] = useState<boolean>(false);
   const [eqLow, setEqLow] = useState<number>(0);
   const [eqMid, setEqMid] = useState<number>(0);
@@ -621,11 +618,6 @@ export default function App() {
       if (!masterVolumeNode) {
         try {
           masterVolumeNode = new Tone.Gain(1.0);
-          masterLowCutNode = new Tone.Filter({
-            type: 'highpass',
-            frequency: 10,
-            Q: 0.707
-          });
           masterEqNode = new Tone.EQ3({
             low: 0,
             mid: 0,
@@ -644,8 +636,7 @@ export default function App() {
             normalRange: false
           });
 
-          masterVolumeNode.connect(masterLowCutNode);
-          masterLowCutNode.connect(masterEqNode);
+          masterVolumeNode.connect(masterEqNode);
           masterEqNode.connect(masterCompressorNode);
           masterCompressorNode.connect(masterLimiterNode);
           masterLimiterNode.connect(masterMeterNode);
@@ -1105,10 +1096,6 @@ export default function App() {
   useEffect(() => {
     if (!masterVolumeNode) return;
 
-    if (masterLowCutNode) {
-      masterLowCutNode.frequency.value = isLowCutOn ? lowCutFreq : 10;
-    }
-
     if (masterEqNode) {
       masterEqNode.low.value = isEqOn ? eqLow : 0;
       masterEqNode.mid.value = isEqOn ? eqMid : 0;
@@ -1126,7 +1113,6 @@ export default function App() {
       masterLimiterNode.threshold.value = isLimiterOn ? limiterThreshold : 0;
     }
   }, [
-    isLowCutOn, lowCutFreq,
     isEqOn, eqLow, eqMid, eqHigh,
     isCompressorOn, compThreshold, compRatio, compAttack, compRelease,
     isLimiterOn, limiterThreshold
@@ -1139,7 +1125,6 @@ export default function App() {
     try {
       // Disconnect all nodes from their outgoing connections
       masterVolumeNode.disconnect();
-      if (masterLowCutNode) masterLowCutNode.disconnect();
       if (masterEqNode) masterEqNode.disconnect();
       if (masterCompressorNode) masterCompressorNode.disconnect();
       if (masterLimiterNode) masterLimiterNode.disconnect();
@@ -1147,11 +1132,6 @@ export default function App() {
 
       // Build active chain
       let lastNode: Tone.ToneAudioNode = masterVolumeNode;
-
-      if (isLowCutOn && masterLowCutNode) {
-        lastNode.connect(masterLowCutNode);
-        lastNode = masterLowCutNode;
-      }
 
       if (isEqOn && masterEqNode) {
         lastNode.connect(masterEqNode);
@@ -1173,7 +1153,7 @@ export default function App() {
     } catch (err) {
       console.warn("Failed to reconnect master effects chain:", err);
     }
-  }, [isLowCutOn, isEqOn, isCompressorOn, isLimiterOn]);
+  }, [isEqOn, isCompressorOn, isLimiterOn]);
 
   // Update BPM of Transport
   useEffect(() => {
@@ -3115,8 +3095,6 @@ export default function App() {
       measureVols,
       measureVolTransitions,
       songSections,
-      masterLowCutOn: isLowCutOn,
-      masterLowCutFreq: lowCutFreq,
       masterEqOn: isEqOn,
       masterEqLow: eqLow,
       masterEqMid: eqMid,
@@ -3166,8 +3144,6 @@ export default function App() {
       }
 
       // Restore Master FX settings
-      setIsLowCutOn(!!data.masterLowCutOn);
-      setLowCutFreq(data.masterLowCutFreq !== undefined ? data.masterLowCutFreq : 40);
       setIsEqOn(!!data.masterEqOn);
       setEqLow(data.masterEqLow !== undefined ? data.masterEqLow : 0);
       setEqMid(data.masterEqMid !== undefined ? data.masterEqMid : 0);
@@ -3264,8 +3240,6 @@ export default function App() {
       measureVols,
       measureVolTransitions,
       songSections,
-      masterLowCutOn: isLowCutOn,
-      masterLowCutFreq: lowCutFreq,
       masterEqOn: isEqOn,
       masterEqLow: eqLow,
       masterEqMid: eqMid,
@@ -3515,10 +3489,6 @@ export default function App() {
                 canPaste={!!copiedPattern}
                 masterVol={masterVol}
                 onMasterVolChange={setMasterVol}
-                isLowCutOn={isLowCutOn}
-                setIsLowCutOn={setIsLowCutOn}
-                lowCutFreq={lowCutFreq}
-                setLowCutFreq={setLowCutFreq}
                 isEqOn={isEqOn}
                 setIsEqOn={setIsEqOn}
                 eqLow={eqLow}
@@ -3680,10 +3650,6 @@ export default function App() {
               onStopSoloPattern={handleStopSoloPattern}
               masterVol={masterVol}
               onMasterVolChange={setMasterVol}
-              isLowCutOn={isLowCutOn}
-              setIsLowCutOn={setIsLowCutOn}
-              lowCutFreq={lowCutFreq}
-              setLowCutFreq={setLowCutFreq}
               isEqOn={isEqOn}
               setIsEqOn={setIsEqOn}
               eqLow={eqLow}

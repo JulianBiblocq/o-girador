@@ -66,10 +66,6 @@ interface ConsoleMixerProps {
   onVocalGuideToggle?: (enabled: boolean) => void;
   masterVol: number;
   onMasterVolChange: (vol: number) => void;
-  isLowCutOn: boolean;
-  setIsLowCutOn: (on: boolean) => void;
-  lowCutFreq: number;
-  setLowCutFreq: (freq: number) => void;
   isEqOn: boolean;
   setIsEqOn: (on: boolean) => void;
   eqLow: number;
@@ -149,10 +145,6 @@ export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
   onVocalGuideToggle,
   masterVol,
   onMasterVolChange,
-  isLowCutOn,
-  setIsLowCutOn,
-  lowCutFreq,
-  setLowCutFreq,
   isEqOn,
   setIsEqOn,
   eqLow,
@@ -263,41 +255,6 @@ export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
             {/* Content Container */}
             <div className="relative z-10 flex-1 p-3 flex flex-col gap-3 overflow-y-auto custom-scrollbar border-b-[3px] border-[var(--cordel-border)]">
               
-              {/* EFFECT 1: LOW CUT FILTER */}
-              <div className="bg-[var(--cordel-bg)] p-2 cordel-border-sm flex flex-col gap-1.5">
-                <div className="flex justify-between items-center border-b border-[var(--cordel-border)]/20 pb-0.5">
-                  <span className="font-cactus font-bold text-xs">
-                    {t('lowCut')}
-                  </span>
-                  <button
-                    onClick={() => setIsLowCutOn(!isLowCutOn)}
-                    className={`px-1.5 py-0.5 text-[10px] font-bold cordel-border-sm ${
-                      isLowCutOn 
-                        ? 'bg-[var(--cordel-wood)] text-[var(--cordel-text)]' 
-                        : 'bg-transparent text-[var(--cordel-text)]/60'
-                    }`}
-                  >
-                    {isLowCutOn ? 'ON' : 'BYPASS'}
-                  </button>
-                </div>
-                {isLowCutOn && (
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[10px] opacity-80">
-                      <span>{t('frequency')}</span>
-                      <span>{lowCutFreq} Hz</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="20"
-                      max="150"
-                      value={lowCutFreq}
-                      onChange={(e) => setLowCutFreq(parseInt(e.target.value))}
-                      className="w-full h-1 bg-[var(--cordel-text)] rounded outline-none cursor-pointer"
-                      style={{ accentColor: 'var(--cordel-wood)' }}
-                    />
-                  </div>
-                )}
-              </div>
 
               {/* EFFECT 2: EQ3 (3-BAND EQ) */}
               <div className="bg-[var(--cordel-bg)] p-2 cordel-border-sm flex flex-col gap-1.5">

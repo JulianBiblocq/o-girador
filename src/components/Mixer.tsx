@@ -51,10 +51,6 @@ interface MixerProps {
   canPaste: boolean;
   masterVol: number;
   onMasterVolChange: (vol: number) => void;
-  isLowCutOn: boolean;
-  setIsLowCutOn: (on: boolean) => void;
-  lowCutFreq: number;
-  setLowCutFreq: (freq: number) => void;
   isEqOn: boolean;
   setIsEqOn: (on: boolean) => void;
   eqLow: number;
@@ -115,10 +111,6 @@ export const Mixer: React.FC<MixerProps> = ({
   canPaste,
   masterVol,
   onMasterVolChange,
-  isLowCutOn,
-  setIsLowCutOn,
-  lowCutFreq,
-  setLowCutFreq,
   isEqOn,
   setIsEqOn,
   eqLow,
@@ -221,7 +213,6 @@ export const Mixer: React.FC<MixerProps> = ({
               </span>
               {/* Quick indicators of what's active */}
               <div className="flex gap-1">
-                {isLowCutOn && <span className="text-[9px] bg-[var(--cordel-wood)] text-white px-1 font-bold">LC</span>}
                 {isEqOn && <span className="text-[9px] bg-[var(--cordel-wood)] text-white px-1 font-bold">EQ</span>}
                 {isCompressorOn && <span className="text-[9px] bg-[var(--cordel-wood)] text-white px-1 font-bold">CP</span>}
                 {isLimiterOn && <span className="text-[9px] bg-[var(--cordel-wood)] text-white px-1 font-bold">LM</span>}
@@ -265,35 +256,6 @@ export const Mixer: React.FC<MixerProps> = ({
                 </div>
               </div>
 
-              {/* Low Cut */}
-              <div className="bg-[#1c1815] p-2 cordel-border-sm flex flex-col gap-1.5">
-                <div className="flex justify-between items-center border-b border-[#333] pb-1">
-                  <span className="font-cactus font-bold text-xs text-[#eaddcf]">{t('lowCut')}</span>
-                  <button 
-                    onClick={() => setIsLowCutOn(!isLowCutOn)}
-                    className={`px-1.5 py-0.5 text-[9px] font-bold cordel-border-sm ${isLowCutOn ? 'bg-[var(--cordel-wood)] text-white' : 'bg-transparent text-[#eaddcf]/50'}`}
-                  >
-                    {isLowCutOn ? 'ON' : 'BYPASS'}
-                  </button>
-                </div>
-                {isLowCutOn && (
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[9px] text-[#eaddcf]/80">
-                      <span>{t('frequency')}</span>
-                      <span>{lowCutFreq} Hz</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="20"
-                      max="150"
-                      value={lowCutFreq}
-                      onChange={(e) => setLowCutFreq(parseInt(e.target.value))}
-                      className="w-full h-1 bg-[var(--cordel-text)] rounded outline-none cursor-pointer"
-                      style={{ accentColor: 'var(--cordel-wood)' }}
-                    />
-                  </div>
-                )}
-              </div>
 
               {/* EQ */}
               <div className="bg-[#1c1815] p-2 cordel-border-sm flex flex-col gap-1.5">
