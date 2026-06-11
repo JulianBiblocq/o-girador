@@ -421,6 +421,24 @@ export default function App() {
   const vocalPlayersRef = useRef<{ [patternId: number]: Tone.Player }>({});
   const [recordedPatternIds, setRecordedPatternIds] = useState<number[]>([]);
 
+  const getSystemDefaultLatencyMs = () => {
+    let latencySec = 0.08; // 80 ms default for hardware input / encoder startup
+    try {
+      const rawCtx = Tone.context.rawContext as any;
+      if (rawCtx) {
+        if (typeof rawCtx.outputLatency === 'number') {
+          latencySec += rawCtx.outputLatency;
+        }
+        if (typeof rawCtx.baseLatency === 'number') {
+          latencySec += rawCtx.baseLatency;
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to retrieve raw AudioContext latency values:", e);
+    }
+    return Math.round(latencySec * 1000);
+  };
+
   const loadVocalRecording = async (patternId: number) => {
     try {
       const blob = await getVocalRecording(patternId);
@@ -795,8 +813,17 @@ export default function App() {
             if (player && player.loaded) {
               try {
                 player.stop();
-                const latencySec = (activePattern.vocalLatency || 0) / 1000;
-                player.start(time, latencySec);
+                const userLatencyMs = activePattern.vocalLatency || 0;
+                const systemDefaultLatencyMs = getSystemDefaultLatencyMs();
+                const totalLatencyMs = userLatencyMs + systemDefaultLatencyMs;
+
+                if (totalLatencyMs >= 0) {
+                  const offsetSec = totalLatencyMs / 1000;
+                  player.start(time, offsetSec);
+                } else {
+                  const startDelaySec = Math.abs(totalLatencyMs) / 1000;
+                  player.start(time + startDelaySec, 0);
+                }
               } catch (err) {
                 console.warn("Failed to play vocal player loop:", err);
               }

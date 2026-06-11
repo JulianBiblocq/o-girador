@@ -623,13 +623,13 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                             <div className="flex flex-col gap-1 w-full border-t border-[#1a1a1a]/10 pt-2 mt-1">
                               <div className="flex justify-between text-[10px] font-bold">
                                 <span>⏱️ {lang === 'fr' ? "Calage temporel (Compensation de la latence)" : "Ajuste de atraso (Compensação de latência)"}</span>
-                                <span>{ptn.vocalLatency || 0} ms</span>
+                                <span>{ptn.vocalLatency > 0 ? '+' : ''}{ptn.vocalLatency || 0} ms</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <span className="text-[8px] font-bold opacity-60 shrink-0">0 ms</span>
+                                <span className="text-[8px] font-bold opacity-60 shrink-0">-300 ms</span>
                                 <input
                                   type="range"
-                                  min="0"
+                                  min="-300"
                                   max="800"
                                   step="5"
                                   value={ptn.vocalLatency || 0}
