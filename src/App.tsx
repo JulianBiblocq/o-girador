@@ -785,7 +785,8 @@ export default function App() {
             if (player && player.loaded) {
               try {
                 player.stop();
-                player.start(time);
+                const latencySec = (activePattern.vocalLatency || 0) / 1000;
+                player.start(time, latencySec);
               } catch (err) {
                 console.warn("Failed to play vocal player loop:", err);
               }
@@ -2471,61 +2472,14 @@ export default function App() {
   };
 
   const cleanupVocalNodes = () => {
-    if (vocalScriptNodeRef.current) {
-      try {
-        vocalScriptNodeRef.current.disconnect();
-      } catch (_) {}
-      vocalScriptNodeRef.current = null;
-    }
-    if (vocalSourceNodeRef.current) {
-      try {
-        vocalSourceNodeRef.current.disconnect();
-      } catch (_) {}
-      vocalSourceNodeRef.current = null;
+    if (vocalMediaRecorderRef.current) {
+      vocalMediaRecorderRef.current = null;
     }
     if (vocalStreamRef.current) {
       try {
         vocalStreamRef.current.getTracks().forEach((track) => track.stop());
       } catch (_) {}
       vocalStreamRef.current = null;
-    }
-  };
-
-  const finalizeAndSaveVocalRecording = async () => {
-    const patternId = recordingVocalPatternIdRef.current;
-    if (patternId === null) return;
-
-    try {
-      const audioContext = Tone.getContext().rawContext;
-      const sampleRate = audioContext.sampleRate;
-      
-      if (vocalRecordBuffersLRef.current.length > 0) {
-        const wavBlob = bufferToWav(vocalRecordBuffersLRef.current, vocalRecordBuffersRRef.current, sampleRate);
-        await saveVocalRecording(patternId, wavBlob);
-        await loadVocalRecording(patternId);
-
-        setTracks((prevTracks) => {
-          return prevTracks.map((t) => {
-            const hasPattern = t.patterns.some((p) => p.id === patternId);
-            if (!hasPattern) return t;
-            return {
-              ...t,
-              patterns: t.patterns.map((p) => {
-                if (p.id === patternId) {
-                  return { ...p, vocalMode: 'micro' };
-                }
-                return p;
-              }),
-            };
-          });
-        });
-      }
-    } catch (err) {
-      console.error("Error finalizing vocal recording:", err);
-    } finally {
-      setIsRecordingVocal(false);
-      setRecordingVocalPatternId(null);
-      cleanupVocalNodes();
     }
   };
 
@@ -2554,29 +2508,46 @@ export default function App() {
       });
       vocalStreamRef.current = stream;
 
-      const audioContext = Tone.getContext().rawContext as AudioContext;
-      const source = audioContext.createMediaStreamSource(stream);
-      vocalSourceNodeRef.current = source;
+      const mediaRecorder = new MediaRecorder(stream);
+      vocalMediaRecorderRef.current = mediaRecorder;
+      const chunks: Blob[] = [];
 
-      const processor = audioContext.createScriptProcessor(4096, 1, 1);
-      vocalScriptNodeRef.current = processor;
-      vocalRecordBuffersLRef.current = [];
-      vocalRecordBuffersRRef.current = [];
-
-      processor.onaudioprocess = (e) => {
-        if (vocalRecordingStateRef.current === 'recording') {
-          const left = e.inputBuffer.getChannelData(0);
-          vocalRecordBuffersLRef.current.push(new Float32Array(left));
-          vocalRecordBuffersRRef.current.push(new Float32Array(left));
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          chunks.push(e.data);
         }
       };
 
-      const silentGain = audioContext.createGain();
-      silentGain.gain.setValueAtTime(0, audioContext.currentTime);
-      source.connect(processor);
-      processor.connect(silentGain);
-      silentGain.connect(audioContext.destination);
-      
+      mediaRecorder.onstop = async () => {
+        try {
+          const blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+          await saveVocalRecording(patternId, blob);
+          await loadVocalRecording(patternId);
+
+          setTracks((prevTracks) => {
+            return prevTracks.map((t) => {
+              const hasPattern = t.patterns.some((p) => p.id === patternId);
+              if (!hasPattern) return t;
+              return {
+                ...t,
+                patterns: t.patterns.map((p) => {
+                  if (p.id === patternId) {
+                    return { ...p, vocalMode: 'micro' };
+                  }
+                  return p;
+                }),
+              };
+            });
+          });
+        } catch (err) {
+          console.error("Error saving vocal recording:", err);
+        } finally {
+          setIsRecordingVocal(false);
+          setRecordingVocalPatternId(null);
+          cleanupVocalNodes();
+        }
+      };
+
       let measureIdx = targetPattern.measureAssignments.indexOf(true);
       if (measureIdx === -1) {
         pushUndoState();
@@ -2632,8 +2603,13 @@ export default function App() {
     const wasRecording = vocalRecordingStateRef.current === 'recording';
     vocalRecordingStateRef.current = 'inactive';
 
-    if (wasRecording) {
-      finalizeAndSaveVocalRecording();
+    if (vocalMediaRecorderRef.current && vocalMediaRecorderRef.current.state === 'recording') {
+      try {
+        vocalMediaRecorderRef.current.stop();
+      } catch (err) {
+        console.error("Error stopping MediaRecorder manually:", err);
+        cleanupVocalNodes();
+      }
     } else {
       cleanupVocalNodes();
     }
@@ -2650,6 +2626,25 @@ export default function App() {
           patterns: t.patterns.map((p) => {
             if (p.id === patternId) {
               return { ...p, vocalMode: mode };
+            }
+            return p;
+          }),
+        };
+      });
+    });
+  };
+
+  const handleVocalLatencyChange = (patternId: number, latencyMs: number) => {
+    pushUndoState();
+    setTracks((prevTracks) => {
+      return prevTracks.map((t) => {
+        const hasPattern = t.patterns.some((p) => p.id === patternId);
+        if (!hasPattern) return t;
+        return {
+          ...t,
+          patterns: t.patterns.map((p) => {
+            if (p.id === patternId) {
+              return { ...p, vocalLatency: latencyMs };
             }
             return p;
           }),
@@ -3258,6 +3253,7 @@ export default function App() {
               onStopVocalRecording={stopVocalRecording}
               onVocalModeChange={handleVocalModeChange}
               onDeleteVocalRecording={handleDeleteVocalRecording}
+              onVocalLatencyChange={handleVocalLatencyChange}
               soloPatternPlayId={soloPatternPlayId}
               onStartSoloPattern={handleStartSoloPattern}
               onStopSoloPattern={handleStopSoloPattern}
