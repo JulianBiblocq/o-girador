@@ -32,7 +32,7 @@ interface TimelineSequencerProps {
   onMeasureVolTransitionChange: (measureIdx: number, val: 'immediate' | 'ramp') => void;
   onTotalMeasuresChange: (val: number) => void;
   songSections: SongSection[];
-  copiedSection: { length: number } | null;
+  copiedSection: { length: number; name: string; color: string } | null;
   onCreateSection: (name: string, start: number, end: number, color?: string) => void;
   onUpdateSection: (id: string, name: string, start: number, end: number, color?: string) => void;
   onDeleteSection: (id: string) => void;
@@ -112,6 +112,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   const [sectionFormStart, setSectionFormStart] = React.useState<number>(1);
   const [sectionFormEnd, setSectionFormEnd] = React.useState<number>(4);
   const [sectionFormColor, setSectionFormColor] = React.useState<string>('#f19066');
+  const [hoveredPasteMeasure, setHoveredPasteMeasure] = React.useState<number | null>(null);
 
   // Tablature state
   const [tablatureModalOpen, setTablatureModalOpen] = React.useState<boolean>(false);
@@ -585,6 +586,56 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                   </div>
                 );
               })}
+
+              {/* Paste buttons in the sections bar */}
+              {copiedSection && Array.from({ length: totalMeasures }).map((_, mIdx) => {
+                const startX = mIdx * MEASURE_W;
+                return (
+                  <button
+                    key={`paste-sec-${mIdx}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPasteSection(mIdx);
+                    }}
+                    onMouseEnter={() => setHoveredPasteMeasure(mIdx)}
+                    onMouseLeave={() => setHoveredPasteMeasure(null)}
+                    className="absolute top-1 bottom-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-800 dark:text-emerald-300 font-sans font-bold text-[9px] px-2 rounded border border-dashed border-emerald-600 flex items-center justify-center gap-1 cursor-pointer z-30 transition-all hover:scale-105 shadow-[1px_1px_2px_rgba(0,0,0,0.1)]"
+                    style={{
+                      left: `${startX + 4}px`,
+                      width: `${Math.min(100, MEASURE_W - 8)}px`,
+                    }}
+                    title={lang === 'fr' ? `Coller à la mesure ${mIdx + 1}` : `Colar no compasso ${mIdx + 1}`}
+                  >
+                    📋 {lang === 'fr' ? `Coller M.${mIdx + 1}` : `Colar C.${mIdx + 1}`}
+                  </button>
+                );
+              })}
+
+              {/* Ghost preview block */}
+              {copiedSection && hoveredPasteMeasure !== null && (
+                (() => {
+                  const startX = hoveredPasteMeasure * MEASURE_W;
+                  const width = copiedSection.length * MEASURE_W;
+                  return (
+                    <div
+                      className="absolute top-1 bottom-1 flex items-center justify-between px-3 text-xs font-bold rounded border border-dashed pointer-events-none opacity-50 z-20 animate-pulse"
+                      style={{
+                        left: `${startX}px`,
+                        width: `${width - 8}px`,
+                        marginLeft: '4px',
+                        backgroundColor: copiedSection.color || '#f19066',
+                        color: '#1a1a1a',
+                        borderColor: '#1a1a1a',
+                        borderWidth: '1.5px',
+                      }}
+                    >
+                      <span className="truncate max-w-[80%] font-cactus uppercase tracking-wider">
+                        {copiedSection.name} ({lang === 'fr' ? 'Aperçu' : 'Prévia'})
+                      </span>
+                    </div>
+                  );
+                })()
+              )}
             </div>
           </div>
 
@@ -686,18 +737,6 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                         </button>
                       </div>
 
-                      {copiedSection && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onPasteSection(mIdx);
-                          }}
-                          className="bg-emerald-600 dark:bg-emerald-500 text-white font-cactus font-bold text-[9px] px-1 py-px rounded cordel-border-sm hover:bg-emerald-700 cursor-pointer animate-pulse shrink-0"
-                          title={lang === 'fr' ? 'Coller la section ici' : 'Colar seção aqui'}
-                        >
-                          📥 Coller
-                        </button>
-                      )}
                     </span>
 
                     <div 

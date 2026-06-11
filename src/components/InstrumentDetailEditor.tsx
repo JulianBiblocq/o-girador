@@ -48,6 +48,7 @@ interface InstrumentDetailEditorProps {
   onStopVocalRecording?: () => void;
   onVocalModeChange?: (patternId: number, mode: 'synth' | 'micro') => void;
   onDeleteVocalRecording?: (patternId: number) => void;
+  onVocalLatencyChange?: (patternId: number, latencyMs: number) => void;
 }
 
 /* ── Stroke legend definitions ─────────────────────────────── */
@@ -215,6 +216,7 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
   onStopVocalRecording,
   onVocalModeChange,
   onDeleteVocalRecording,
+  onVocalLatencyChange,
 }) => {
   const inst = instrumentsConfig[track.instrumentIdx];
   const t = (key: string) => (i18n[lang] as any)[key] || key;
@@ -578,40 +580,70 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                       </div>
 
                       {ptn.vocalMode === 'micro' && (
-                        <div className="flex flex-wrap items-center gap-3 flex-grow w-full border-t md:border-t-0 md:border-l border-[#1a1a1a]/20 pt-3 md:pt-0 md:pl-4">
-                          {isRecordingVocal && recordingVocalPatternId === ptn.id ? (
-                            <button
-                              onClick={() => onStopVocalRecording && onStopVocalRecording()}
-                              className="px-4 py-2 bg-[#8b2a1a] text-[#f4ecd8] font-bold text-xs cordel-border-sm cursor-pointer animate-pulse flex items-center gap-1.5"
-                            >
-                              <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
-                              {vocalT('recording')}
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => onStartVocalRecording && onStartVocalRecording(ptn.id)}
-                              className="px-4 py-2 bg-green-700 text-[#f4ecd8] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-green-800 transition-colors flex items-center gap-1.5"
-                            >
-                              🎤 {recordedPatternIds.includes(ptn.id) ? vocalT('reRecord') : vocalT('recordVocal')}
-                            </button>
-                          )}
-
-                          {recordedPatternIds.includes(ptn.id) ? (
-                            <div className="flex items-center gap-3 ml-auto flex-wrap">
-                              <span className="text-xs font-bold text-green-800 flex items-center gap-1">
-                                ✅ {vocalT('hasRecord')}
-                              </span>
+                        <div className="flex flex-col gap-2 flex-grow w-full border-t md:border-t-0 md:border-l border-[#1a1a1a]/20 pt-3 md:pt-0 md:pl-4">
+                          <div className="flex flex-wrap items-center gap-3 w-full">
+                            {isRecordingVocal && recordingVocalPatternId === ptn.id ? (
                               <button
-                                onClick={() => onDeleteVocalRecording && onDeleteVocalRecording(ptn.id)}
-                                className="px-2 py-1 text-[#8b2a1a] font-bold text-[11px] cordel-border-sm cursor-pointer hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors"
+                                onClick={() => onStopVocalRecording && onStopVocalRecording()}
+                                className="px-4 py-2 bg-[#8b2a1a] text-[#f4ecd8] font-bold text-xs cordel-border-sm cursor-pointer animate-pulse flex items-center gap-1.5"
                               >
-                                {vocalT('deleteRecord')}
+                                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
+                                {vocalT('recording')}
                               </button>
+                            ) : (
+                              <button
+                                onClick={() => onStartVocalRecording && onStartVocalRecording(ptn.id)}
+                                className="px-4 py-2 bg-green-700 text-[#f4ecd8] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-green-800 transition-colors flex items-center gap-1.5"
+                              >
+                                🎤 {recordedPatternIds.includes(ptn.id) ? vocalT('reRecord') : vocalT('recordVocal')}
+                              </button>
+                            )}
+
+                            {recordedPatternIds.includes(ptn.id) ? (
+                              <div className="flex items-center gap-3 ml-auto flex-wrap">
+                                <span className="text-xs font-bold text-green-800 flex items-center gap-1">
+                                  ✅ {vocalT('hasRecord')}
+                                </span>
+                                <button
+                                  onClick={() => onDeleteVocalRecording && onDeleteVocalRecording(ptn.id)}
+                                  className="px-2 py-1 text-[#8b2a1a] font-bold text-[11px] cordel-border-sm cursor-pointer hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors"
+                                >
+                                  {vocalT('deleteRecord')}
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-[#666] italic ml-auto">
+                                {vocalT('noRecordYet')}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Latency adjustment slider */}
+                          {recordedPatternIds.includes(ptn.id) && (
+                            <div className="flex flex-col gap-1 w-full border-t border-[#1a1a1a]/10 pt-2 mt-1">
+                              <div className="flex justify-between text-[10px] font-bold">
+                                <span>⏱️ {lang === 'fr' ? "Calage temporel (Compensation de la latence)" : "Ajuste de atraso (Compensação de latência)"}</span>
+                                <span>{ptn.vocalLatency || 0} ms</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-[8px] font-bold opacity-60 shrink-0">0 ms</span>
+                                <input
+                                  type="range"
+                                  min="0"
+                                  max="400"
+                                  step="5"
+                                  value={ptn.vocalLatency || 0}
+                                  onChange={(e) => onVocalLatencyChange && onVocalLatencyChange(ptn.id, parseInt(e.target.value) || 0)}
+                                  className="flex-grow accent-green-700 cursor-pointer h-1 bg-[#1a1a1a]/10"
+                                />
+                                <span className="text-[8px] font-bold opacity-60 shrink-0">400 ms</span>
+                              </div>
+                              <span className="text-[8px] text-[#666] font-medium leading-normal">
+                                {lang === 'fr' 
+                                  ? "Décale le début de la voix vers la gauche (plus tôt) pour compenser le retard du micro, du smartphone ou du Bluetooth."
+                                  : "Desloca o início da voz para a esquerda (mais cedo) para compensar o atraso do microfone, celular ou Bluetooth."}
+                              </span>
                             </div>
-                          ) : (
-                            <span className="text-xs text-[#666] italic ml-auto">
-                              {vocalT('noRecordYet')}
-                            </span>
                           )}
                         </div>
                       )}

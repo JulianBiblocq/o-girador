@@ -56,6 +56,7 @@ interface ConsoleMixerProps {
   onStopVocalRecording?: () => void;
   onVocalModeChange?: (patternId: number, mode: 'synth' | 'micro') => void;
   onDeleteVocalRecording?: (patternId: number) => void;
+  onVocalLatencyChange?: (patternId: number, latencyMs: number) => void;
 }
 
 export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
@@ -104,6 +105,7 @@ export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
   onStopVocalRecording,
   onVocalModeChange,
   onDeleteVocalRecording,
+  onVocalLatencyChange,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
@@ -217,6 +219,7 @@ export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
           onStopVocalRecording={onStopVocalRecording}
           onVocalModeChange={onVocalModeChange}
           onDeleteVocalRecording={onDeleteVocalRecording}
+          onVocalLatencyChange={onVocalLatencyChange}
         />
       )}
     </div>

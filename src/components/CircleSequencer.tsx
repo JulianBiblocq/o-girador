@@ -21,7 +21,7 @@ interface CircleSequencerProps {
   isMetroOn?: boolean;
   activeCircleIdByInst?: { [instIdx: number]: number | null };
   totalMeasures: number;
-  activePatternIdByInst: Record<number, number>;
+  activePatternIdByTrack: Record<number, number | null>;
   hitTriggersRef?: React.MutableRefObject<HitTrigger[]>;
   bpm: number;
   measureBpms: number[];
@@ -43,7 +43,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
   isMetroOn,
   activeCircleIdByInst,
   totalMeasures,
-  activePatternIdByInst,
+  activePatternIdByTrack,
   hitTriggersRef,
   bpm,
   measureBpms,
@@ -64,7 +64,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
     isMetroOn,
     activeCircleIdByInst,
     totalMeasures,
-    activePatternIdByInst,
+    activePatternIdByTrack,
     hitTriggersRef,
     bpm,
     measureBpms,
@@ -84,14 +84,15 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
       isMetroOn,
       activeCircleIdByInst,
       totalMeasures,
-      activePatternIdByInst,
+      activePatternIdByTrack,
       hitTriggersRef,
       bpm,
       measureBpms,
       measureVols,
       isMobile,
     };
-  }, [tracks, isPlaying, currentStepIndex, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByInst, hitTriggersRef, bpm, measureBpms, measureVols, isMobile]);
+    console.log("CircleSequencer: activePatternIdByTrack =", activePatternIdByTrack, "currentMeasure =", currentMeasure);
+  }, [tracks, isPlaying, currentStepIndex, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile]);
 
   // Handle click on canvas
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -121,7 +122,10 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
     currentTracks.forEach((track) => {
       if (track.isHidden) return;
       
-      const activePatternId = stateRef.current.activePatternIdByInst[track.instrumentIdx] || track.selectedPatternId;
+      const activePatternId = stateRef.current.activePatternIdByTrack[track.id] !== undefined
+        ? stateRef.current.activePatternIdByTrack[track.id]
+        : track.selectedPatternId;
+      if (activePatternId === null) return;
       const activePattern = track.patterns.find(p => p.id === activePatternId);
       if (!activePattern) return;
 
@@ -268,7 +272,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
         maxTicks: localTicks, 
         timeSig: localTimeSig,
         isMetroOn: localMetroOn, 
-        activePatternIdByInst: localActiveByInst,
+        activePatternIdByTrack: localActiveByTrack,
         hitTriggersRef: localHitTriggers 
       } = stateRef.current;
 
@@ -280,7 +284,10 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
           if (track && !track.isHidden && !track.isMute) {
             const inst = instrumentsConfig[track.instrumentIdx];
             const color = inst.colors[hit.state as any] || '#1a1a1a';
-            const activePatternId = localActiveByInst[track.instrumentIdx] || track.patterns[0].id;
+            const activePatternId = localActiveByTrack[track.id] !== undefined
+              ? localActiveByTrack[track.id]
+              : track.patterns[0].id;
+            if (activePatternId === null) return;
             const activePattern = track.patterns.find(p => p.id === activePatternId) || track.patterns[0];
             const angle = -Math.PI / 2 + ((hit.stepIndex / activePattern.steps) * Math.PI * 2);
             const radius = track.radius || 0;
@@ -513,17 +520,29 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
       currentTracks.forEach((track) => {
         if (track.isHidden) return;
 
-        const activePatternId = localActiveByInst[track.instrumentIdx] || track.selectedPatternId;
-        const activePattern = track.patterns.find(p => p.id === activePatternId);
-        if (!activePattern) return;
+        const activePatternId = localActiveByTrack[track.id] !== undefined
+          ? localActiveByTrack[track.id]
+          : track.selectedPatternId;
 
         const inst = instrumentsConfig[track.instrumentIdx];
+        if (!stateRef.current.prevActivePatternIds) {
+          (stateRef.current as any).prevActivePatternIds = {};
+        }
+        const prevActive = (stateRef.current as any).prevActivePatternIds[track.id];
+        if (prevActive !== activePatternId) {
+          (stateRef.current as any).prevActivePatternIds[track.id] = activePatternId;
+          console.log(`[CircleSequencer] Track ${track.id} (${inst?.name}) activePatternId changed from ${prevActive} to ${activePatternId}`);
+        }
+
+        if (activePatternId === null) return;
+        const activePattern = track.patterns.find(p => p.id === activePatternId);
+        if (!activePattern) return;
         const hasSolo = currentTracks.some(t => t.isSolo);
         const hasAnyNotes = activePattern.activeSteps.some(s => s !== 0);
         // Muted or solo logic
         const isMutedOut = hasSolo ? !track.isSolo : track.isMute;
         // "Waiting" = another track of same instrument is currently active
-        const groupActiveId = localActiveByInst[track.instrumentIdx];
+        const groupActiveId = localActiveByTrack[track.id];
         const isWaiting = localPlaying && groupActiveId !== undefined && groupActiveId !== null && groupActiveId !== activePatternId;
         const isActiveState = !isMutedOut && hasAnyNotes;
 

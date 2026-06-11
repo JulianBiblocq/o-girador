@@ -27,6 +27,7 @@ export interface Pattern {
   decays?: number[];
   microtimings?: number[];
   vocalMode?: 'synth' | 'micro';
+  vocalLatency?: number;
 }
 
 export interface HitTrigger {

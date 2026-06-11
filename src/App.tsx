@@ -186,6 +186,8 @@ export default function App() {
   const [songSections, setSongSections] = useState<SongSection[]>([]);
   const [copiedSection, setCopiedSection] = useState<{
     length: number;
+    name: string;
+    color: string;
     assignments: { [trackId: number]: (number | null)[] };
   } | null>(null);
 
@@ -2245,12 +2247,19 @@ export default function App() {
       }
       assignments[track.id] = trackAssignments;
     });
-    setCopiedSection({ length: len, assignments });
+    setCopiedSection({
+      length: len,
+      name: section.name,
+      color: section.color || '#f19066',
+      assignments,
+    });
   };
 
   const handlePasteSongSection = (destStartMeasure: number) => {
     if (!copiedSection) return;
     pushUndoState();
+    
+    // 1. Paste track assignments
     setTracks(prevTracks => {
       return prevTracks.map(track => {
         const trackAssignments = copiedSection.assignments[track.id];
@@ -2274,6 +2283,21 @@ export default function App() {
 
         return { ...track, patterns: nextPatterns };
       });
+    });
+
+    // 2. Add the pasted section block to songSections
+    const newSection: SongSection = {
+      id: String(Date.now() + Math.floor(Math.random() * 1000)),
+      name: copiedSection.name,
+      startMeasure: destStartMeasure,
+      endMeasure: Math.min(totalMeasures - 1, destStartMeasure + copiedSection.length - 1),
+      color: copiedSection.color,
+    };
+    
+    setSongSections(prev => {
+      const next = [...prev, newSection];
+      next.sort((a, b) => a.startMeasure - b.startMeasure);
+      return next;
     });
   };
 
@@ -2345,7 +2369,11 @@ export default function App() {
             const copySteps = [...p.activeSteps];
             const inst = instrumentsConfig[t.instrumentIdx];
             let parsed: string | number = 0;
-            if (cleanChar && cleanChar.trim() !== '') {
+            if (val === '0') {
+              parsed = 0;
+            } else if (inst.colors[val] !== undefined && val !== 'text') {
+              parsed = val;
+            } else if (cleanChar && cleanChar.trim() !== '') {
               if (inst.type === 'gongue') {
                 if (cleanChar === 'G') parsed = 'GRV';
                 else if (cleanChar === 'g') parsed = 'grv';
@@ -2943,6 +2971,18 @@ export default function App() {
     }
   });
 
+  const activePatternIdByTrack: { [trackId: number]: number | null } = {};
+  tracks.forEach(t => {
+    if (soloPatternPlayId !== null) {
+      const hasSoloPattern = t.patterns.some(p => p.id === soloPatternPlayId);
+      activePatternIdByTrack[t.id] = hasSoloPattern ? soloPatternPlayId : null;
+    } else {
+      const currentMeasure = measureCountRef.current % totalMeasuresRef.current;
+      const activePattern = t.patterns.find(p => p.measureAssignments[currentMeasure]);
+      activePatternIdByTrack[t.id] = activePattern ? activePattern.id : null;
+    }
+  });
+
   return (
     <div className="flex flex-col h-screen text-[#f5f5f5] bg-[#0a0807] overflow-hidden select-none font-sans relative">
       {/* Visual buffer loader loading overlay */}
@@ -3110,7 +3150,7 @@ export default function App() {
                 onStepChange={handleStepValueSelectAndToggle}
                 langPromptVoiceText={t('promptVoice')}
                 isMetroOn={isMetroOn}
-                activePatternIdByInst={activePatternIdByInst}
+                activePatternIdByTrack={activePatternIdByTrack}
                 hitTriggersRef={hitTriggersRef}
                 bpm={bpm}
                 measureBpms={measureBpms}
