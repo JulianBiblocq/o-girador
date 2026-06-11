@@ -126,7 +126,7 @@ export default function App() {
         if (response.ok) {
           const data = await response.json();
           const latestVersion = Number(data.version);
-          const CURRENT_VERSION = 16; // Matches version.json
+          const CURRENT_VERSION = 17; // Matches version.json
           
           if (latestVersion > CURRENT_VERSION) {
             console.log(`New version detected: ${latestVersion}. Clearing Service Worker and reloading...`);
@@ -614,6 +614,14 @@ export default function App() {
   useEffect(() => {
     const initAudio = async () => {
       if (bMetroClick) return; // already initialized
+
+      try {
+        const context = new Tone.Context({ latencyHint: 'playback' });
+        Tone.setContext(context);
+        Tone.getContext().lookAhead = 0.25;
+      } catch (err) {
+        console.warn("Failed to set Tone.js latencyHint to playback:", err);
+      }
 
       if (!masterVolumeNode) {
         try {
