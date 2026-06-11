@@ -274,7 +274,7 @@ export default function App() {
         if (response.ok) {
           const data = await response.json();
           const latestVersion = Number(data.version);
-          const CURRENT_VERSION = 25; // Matches version.json
+          const CURRENT_VERSION = 26; // Matches version.json
           
           if (latestVersion > CURRENT_VERSION) {
             console.log(`New version detected: ${latestVersion}. Clearing Service Worker and reloading...`);
@@ -771,11 +771,11 @@ export default function App() {
         masterVolumeNode.gain.value = Tone.dbToGain(masterVolRef.current === -40 ? -Infinity : masterVolRef.current);
       }
 
-      // Augmenter le lookAhead de Tone.js à 250ms pour pré-scheduler les événements audio
-      // suffisamment en avance et absorber les pics de charge du thread principal React.
-      // Valeur par défaut = 100ms : trop faible quand React fait un gros render.
+      // Configurer le lookAhead de Tone.js à 80ms pour pré-scheduler les événements audio.
+      // Avec la mémoïsation React complète, 80ms est optimal pour garantir à la fois l'absence de coupures
+      // et une synchronisation audio-visuelle parfaite.
       try {
-        Tone.getContext().lookAhead = 0.25;
+        Tone.getContext().lookAhead = 0.08;
       } catch (err) {
         console.warn("Failed to set Tone.js lookAhead:", err);
       }
@@ -918,23 +918,19 @@ export default function App() {
         const _measureForUI = measureCountRef.current % totalMeasuresRef.current;
         const _currentTicks = currentTicks;
         requestAnimationFrame(() => {
-          const visualStep = Math.floor(_stepForUI / 6);
-          const prevVisualStep = Math.floor(((_stepForUI - 1 + _currentTicks) % _currentTicks) / 6);
-          if (visualStep !== prevVisualStep || _stepForUI === 0) {
-            setCurrentStepIndex(_stepForUI);
-          }
+          setCurrentStepIndex(_stepForUI);
           if (_stepForUI === 0) {
             setCurrentMeasure(_measureForUI);
           }
         });
 
         // Pré-calculer la durée d'un 96n une seule fois par tick (formule mathématique sans allocation d'objet)
-        const tick96nSec = 2.5 / (Tone.Transport.bpm.value || 100);
+        const currentMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
+        const targetBpm = measureBpmsRef.current[currentMeasureIdx] ?? 100;
+        const tick96nSec = 2.5 / targetBpm;
 
         // 3. Appliquer le BPM — uniquement au début de la mesure via AudioParam scheduling
         // (évite 96 écritures/mesure qui forçaient Tone.js à recalculer son horloge interne)
-        const currentMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
-        const targetBpm = measureBpmsRef.current[currentMeasureIdx] ?? 100;
         const transition = measureBpmTransitionsRef.current[currentMeasureIdx] || 'immediate';
 
         if (stepIdx === 0) {
@@ -948,7 +944,8 @@ export default function App() {
               Tone.Transport.bpm.setValueAtTime(startBpm, time);
               Tone.Transport.bpm.linearRampToValueAtTime(targetBpm, time + measureDurationSec);
             } else {
-              Tone.Transport.bpm.value = targetBpm;
+              Tone.Transport.bpm.cancelScheduledValues(time);
+              Tone.Transport.bpm.setValueAtTime(targetBpm, time);
             }
           } catch (e) {}
         }
@@ -1374,6 +1371,15 @@ export default function App() {
     setMeasureBpmTransitions(loadedBpmTransitions);
     setMeasureVols(loadedVols);
     setMeasureVolTransitions(loadedVolTransitions);
+
+    // Sync refs immediately to avoid audio scheduling lag
+    tracksRef.current = loadedTracks;
+    totalMeasuresRef.current = loadedMeasures;
+    measureBpmsRef.current = loadedBpms;
+    measureTimeSigsRef.current = loadedTimeSigs;
+    measureBpmTransitionsRef.current = loadedBpmTransitions;
+    measureVolsRef.current = loadedVols;
+    measureVolTransitionsRef.current = loadedVolTransitions;
 
     measureCountRef.current = 0;
   };
@@ -3182,6 +3188,16 @@ export default function App() {
       } else {
         setSongSections([]);
       }
+
+      // Sync refs immediately to avoid audio scheduling lag
+      tracksRef.current = loadedTracks;
+      totalMeasuresRef.current = loadedMeasures;
+      measureBpmsRef.current = loadedBpms;
+      measureTimeSigsRef.current = loadedTimeSigs;
+      measureBpmTransitionsRef.current = loadedBpmTransitions;
+      measureVolsRef.current = loadedVols;
+      measureVolTransitionsRef.current = loadedVolTransitions;
+
       measureCountRef.current = 0;
       setCurrentMeasure(0);
     } catch (err) {
