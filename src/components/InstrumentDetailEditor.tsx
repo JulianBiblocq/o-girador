@@ -56,6 +56,7 @@ interface InstrumentDetailEditorProps {
   isVocalGuideEnabled?: boolean;
   onVocalGuideToggle?: (enabled: boolean) => void;
   onVocalBpmSyncToggle?: (patternId: number, sync: boolean) => void;
+  onPatternNameChange?: (patternId: number, name: string) => void;
 }
 
 /* ── Stroke legend definitions ─────────────────────────────── */
@@ -231,9 +232,19 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   isVocalGuideEnabled = true,
   onVocalGuideToggle,
   onVocalBpmSyncToggle,
+  onPatternNameChange,
 }) => {
   const inst = instrumentsConfig[track.instrumentIdx];
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
+  const [editName, setEditName] = useState<string>('');
+
+  const handleSave = (patternId: number) => {
+    if (onPatternNameChange) {
+      onPatternNameChange(patternId, editName);
+    }
+    setEditingPatternId(null);
+  };
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
   const vocalT = (key: string) => {
@@ -501,15 +512,49 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                       onChange={() => onSelectPattern(ptn.id)}
                       className="w-4 h-4 accent-[#1a1a1a] cursor-pointer"
                     />
-                    <span
-                      className={`font-cactus font-bold cursor-pointer ${
-                        isSelected ? 'text-[#1a1a1a] text-base' : 'text-[#666] text-sm'
-                      }`}
-                      onClick={() => onSelectPattern(ptn.id)}
-                    >
-                      {lang === 'fr' ? 'Motif' : 'Padrão'} {ptnIdx + 1}
-                      {ptn.name ? ` — ${ptn.name}` : ''}
-                    </span>
+                    {editingPatternId === ptn.id ? (
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onBlur={() => handleSave(ptn.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSave(ptn.id);
+                          if (e.key === 'Escape') setEditingPatternId(null);
+                        }}
+                        className="font-cactus font-bold text-sm bg-transparent border-b border-[#1a1a1a] outline-none text-[#1a1a1a] px-1 py-0.5"
+                        autoFocus
+                        onFocus={(e) => e.target.select()}
+                      />
+                    ) : (
+                      <span
+                        className={`font-cactus font-bold cursor-pointer select-none ${
+                          isSelected ? 'text-[#1a1a1a] text-base' : 'text-[#666] text-sm'
+                        }`}
+                        onClick={() => onSelectPattern(ptn.id)}
+                        onDoubleClick={() => {
+                          setEditingPatternId(ptn.id);
+                          setEditName(ptn.name || '');
+                        }}
+                        title={lang === 'fr' ? 'Double-cliquez pour renommer' : 'Double clique para renomear'}
+                      >
+                        {ptn.name ? ptn.name : `${lang === 'fr' ? 'Motif' : 'Padrão'} ${ptnIdx + 1}`}
+                      </span>
+                    )}
+
+                    {editingPatternId !== ptn.id && isMobile && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingPatternId(ptn.id);
+                          setEditName(ptn.name || '');
+                        }}
+                        className="text-xs opacity-60 hover:opacity-100 p-1 cursor-pointer flex items-center justify-center"
+                        title={lang === 'fr' ? 'Renommer' : 'Renomear'}
+                      >
+                        ✏️
+                      </button>
+                    )}
 
                     {isCurrentPlaying && (
                       <span className="bg-[#8b2a1a] text-[#f4ecd8] text-[9px] uppercase px-1.5 py-0.5 cordel-border-sm font-bold flex items-center gap-1 animate-pulse select-none">

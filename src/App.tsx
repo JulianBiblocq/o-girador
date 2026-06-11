@@ -3114,6 +3114,24 @@ export default function App() {
     });
   };
 
+  const handlePatternNameChange = (trackId: number, patternId: number, name: string) => {
+    pushUndoState();
+    setTracks((prevTracks) => {
+      return prevTracks.map((t) => {
+        if (t.id !== trackId) return t;
+        return {
+          ...t,
+          patterns: t.patterns.map((p) => {
+            if (p.id === patternId) {
+              return { ...p, name: name.trim() };
+            }
+            return p;
+          }),
+        };
+      });
+    });
+  };
+
   const handleVocalLatencyChange = (patternId: number, latencyMs: number) => {
     pushUndoState();
     setTracks((prevTracks) => {
@@ -3799,6 +3817,7 @@ export default function App() {
               onTrackSelectPattern={(trackId, patternId) => {
                 setTracks(tracks.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
               }}
+              onPatternNameChange={handlePatternNameChange}
               onPatternAssign={(trackId, patternId, measureIdx, val) => {
                 pushUndoState();
                 setTracks(tracks.map(t => {

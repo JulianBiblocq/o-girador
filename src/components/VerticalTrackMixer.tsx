@@ -48,6 +48,7 @@ interface VerticalTrackMixerProps {
   onCopyPattern?: (pattern: any) => void;
   onPastePattern?: (trackId: number, patternId: number) => void;
   canPaste?: boolean;
+  onPatternNameChange?: (patternId: number, name: string) => void;
 }
 
 const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
@@ -87,9 +88,19 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
   onCopyPattern,
   onPastePattern,
   canPaste,
+  onPatternNameChange,
 }) => {
   const [instDropdownOpen, setInstDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
+  const [editName, setEditName] = useState<string>('');
+
+  const handleSave = (patternId: number) => {
+    if (onPatternNameChange) {
+      onPatternNameChange(patternId, editName);
+    }
+    setEditingPatternId(null);
+  };
 
   const isMouseDownRef = useRef(false);
   const paintValueRef = useRef<string | number>(0);
@@ -251,14 +262,61 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
                 ? activeMeasures.join(', ')
                 : (lang === 'pt' ? 'Sem compasso' : 'Aucune mesure');
 
+              const isEditing = editingPatternId === ptn.id;
+
               return (
                 <div key={ptn.id} className="flex flex-col gap-1 pb-1 last:pb-0 border-b border-[var(--cordel-border)]/20 last:border-b-0">
-                  <div className="flex items-center gap-2">
-                    <input type="radio" checked={track.selectedPatternId === ptn.id} onChange={() => onSelectPattern(ptn.id)} className="w-4 h-4 accent-[var(--cordel-border)]" />
-                    <span className={`font-cactus font-bold cursor-pointer ${track.selectedPatternId === ptn.id ? 'text-[var(--cordel-text)] text-sm' : 'text-[var(--cordel-text)]/60 text-xs'}`} onClick={() => onSelectPattern(ptn.id)}>
-                      Padrão {idx + 1} <span className="font-sans font-normal opacity-70">({ptn.steps} pas)</span>
-                    </span>
-                    {track.patterns.length > 1 && (
+                  <div className="flex items-center gap-2 min-h-[28px]">
+                    <input type="radio" checked={track.selectedPatternId === ptn.id} onChange={() => onSelectPattern(ptn.id)} className="w-4 h-4 accent-[var(--cordel-border)] cursor-pointer" />
+                    
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onBlur={() => handleSave(ptn.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSave(ptn.id);
+                          if (e.key === 'Escape') setEditingPatternId(null);
+                        }}
+                        className="font-cactus font-bold text-xs bg-transparent border-b border-[var(--cordel-border)] outline-none text-[var(--cordel-text)] px-1 py-0.5 flex-1 min-w-0"
+                        autoFocus
+                        onFocus={(e) => e.target.select()}
+                      />
+                    ) : (
+                      <span 
+                        className={`font-cactus font-bold cursor-pointer flex-1 truncate select-none ${
+                          track.selectedPatternId === ptn.id 
+                            ? 'text-[var(--cordel-text)] text-sm' 
+                            : 'text-[var(--cordel-text)]/60 text-xs'
+                        }`} 
+                        onClick={() => onSelectPattern(ptn.id)}
+                        onDoubleClick={() => {
+                          setEditingPatternId(ptn.id);
+                          setEditName(ptn.name || '');
+                        }}
+                        title={lang === 'fr' ? 'Double-cliquez pour renommer' : 'Double clique para renomear'}
+                      >
+                        {ptn.name ? ptn.name : `${lang === 'fr' ? 'Motif' : 'Padrão'} ${idx + 1}`}
+                        <span className="font-sans font-normal opacity-70 text-[10px]"> ({ptn.steps} pas)</span>
+                      </span>
+                    )}
+
+                    {!isEditing && isTouchDevice && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingPatternId(ptn.id);
+                          setEditName(ptn.name || '');
+                        }}
+                        className="text-xs opacity-60 hover:opacity-100 p-1 cursor-pointer flex items-center justify-center"
+                        title={lang === 'fr' ? 'Renommer' : 'Renomear'}
+                      >
+                        ✏️
+                      </button>
+                    )}
+
+                    {track.patterns.length > 1 && !isEditing && (
                       <button onClick={() => onDeletePattern(ptn.id)} className="text-[#8b2a1a] ml-auto text-xs px-1 font-bold hover:underline">✕</button>
                     )}
                   </div>

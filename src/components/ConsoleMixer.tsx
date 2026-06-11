@@ -71,6 +71,7 @@ interface ConsoleMixerProps {
   onMasterEQChange: (eq: { low: number; mid: number; high: number }) => void;
   masterCompressor: { threshold: number; ratio: number };
   onMasterCompressorChange: (comp: { threshold: number; ratio: number }) => void;
+  onPatternNameChange?: (trackId: number, patternId: number, name: string) => void;
 }
 
 const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
@@ -133,6 +134,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   onMasterEQChange,
   masterCompressor,
   onMasterCompressorChange,
+  onPatternNameChange,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
@@ -199,6 +201,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             onCopyPattern={onCopyPattern}
             onPastePattern={onPastePattern}
             canPaste={canPaste}
+            onPatternNameChange={(pid, name) => onPatternNameChange && onPatternNameChange(track.id, pid, name)}
           />
         ))}
 
@@ -413,6 +416,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           isVocalGuideEnabled={isVocalGuideEnabled}
           onVocalGuideToggle={onVocalGuideToggle}
           onVocalBpmSyncToggle={onVocalBpmSyncToggle}
+          onPatternNameChange={(pid, name) => onPatternNameChange && onPatternNameChange(editingTrack.id, pid, name)}
         />
       )}
     </div>
