@@ -28,6 +28,8 @@ export interface Pattern {
   microtimings?: number[];
   vocalMode?: 'synth' | 'micro';
   vocalLatency?: number;
+  vocalBaseBpm?: number;
+  vocalBpmSync?: boolean;
 }
 
 export interface HitTrigger {
@@ -101,6 +103,8 @@ export interface Preset {
   measureVolTransitions?: ('immediate' | 'ramp')[];
   songSections?: SongSection[];
   measureSignals?: (string | null)[]; // signal id par mesure
+  masterEQ?: { low: number; mid: number; high: number };
+  masterCompressor?: { threshold: number; ratio: number };
 }
 
 export interface CatalogItem {

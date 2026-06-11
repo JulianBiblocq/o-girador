@@ -43,6 +43,12 @@ let scriptProcessorNode: ScriptProcessorNode | null = null;
 let reverbNode: Tone.Reverb | null = null;
 const reverbSends: { [id: string]: Tone.Gain } = {};
 let masterVolumeNode: Tone.Gain | null = null;
+let masterMeterNode: Tone.Meter | null = null;
+let masterEQNode: Tone.EQ3 | null = null;
+let masterCompressorNode: Tone.Compressor | null = null;
+
+const VOCAL_RECORDING_ARM_DELAY_MS = 300;
+const VOCAL_RECORDING_ARM_DELAY_SEC = 0.3;
 
 // ─── Cache et Pool de Performance ───────────────────────────────────────────
 const RANDOM_POOL_SIZE = 1000;
@@ -305,6 +311,8 @@ export default function App() {
   const [lang, setLang] = useState<Language>('pt');
   const [bpm, setBpm] = useState<number>(83);
   const [masterVol, setMasterVol] = useState<number>(-6);
+  const [masterEQ, setMasterEQ] = useState<{ low: number; mid: number; high: number }>({ low: 0, mid: 0, high: 0 });
+  const [masterCompressor, setMasterCompressor] = useState<{ threshold: number; ratio: number }>({ threshold: -20, ratio: 4 });
   const [timeSig, setTimeSig] = useState<TimeSignature>('4/4');
   const [isMetroOn, setIsMetroOn] = useState<boolean>(false);
   const [whistleVol, setWhistleVol] = useState<number>(() => {
@@ -365,6 +373,8 @@ export default function App() {
   const measureVolsRef = useRef<number[]>([]);
   const measureVolTransitionsRef = useRef<('immediate' | 'ramp')[]>([]);
   const masterVolRef = useRef<number>(-6);
+  const masterEQRef = useRef({ low: 0, mid: 0, high: 0 });
+  const masterCompressorRef = useRef({ threshold: -20, ratio: 4 });
 
   const songSectionsRef = useRef<SongSection[]>([]);
 
@@ -442,6 +452,23 @@ export default function App() {
   useEffect(() => {
     masterVolRef.current = masterVol;
   }, [masterVol]);
+
+  useEffect(() => {
+    masterEQRef.current = masterEQ;
+    if (masterEQNode) {
+      masterEQNode.low.value = masterEQ.low;
+      masterEQNode.mid.value = masterEQ.mid;
+      masterEQNode.high.value = masterEQ.high;
+    }
+  }, [masterEQ]);
+
+  useEffect(() => {
+    masterCompressorRef.current = masterCompressor;
+    if (masterCompressorNode) {
+      masterCompressorNode.threshold.value = masterCompressor.threshold;
+      masterCompressorNode.ratio.value = masterCompressor.ratio;
+    }
+  }, [masterCompressor]);
 
   useEffect(() => {
     songStructureHistoryRef.current = songStructureHistory;
@@ -597,6 +624,9 @@ export default function App() {
   const lastPlayedSignalIdRef = useRef<string | null>(null);
 
   // For vocal recording
+  const recordingDurationMeasuresRef = useRef<number>(1);
+  const recordedMeasuresCountRef = useRef<number>(0);
+  const vocalRecordArmTimeoutRef = useRef<any>(null);
   const [isRecordingVocal, setIsRecordingVocal] = useState<boolean>(false);
   const [recordingVocalPatternId, setRecordingVocalPatternId] = useState<number | null>(null);
   const recordingVocalPatternIdRef = useRef<number | null>(null);
@@ -607,7 +637,7 @@ export default function App() {
   const vocalRecordBuffersLRef = useRef<Float32Array[]>([]);
   const vocalRecordBuffersRRef = useRef<Float32Array[]>([]);
   const vocalRecordingStateRef = useRef<'inactive' | 'waiting' | 'recording'>('inactive');
-  const vocalPlayersRef = useRef<{ [patternId: number]: Tone.Player }>({});
+  const vocalPlayersRef = useRef<{ [patternId: number]: any }>({});
   const [recordedPatternIds, setRecordedPatternIds] = useState<number[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedAudioDeviceId, setSelectedAudioDeviceId] = useState<string>(() => {
@@ -657,6 +687,17 @@ export default function App() {
       await loadVocalRecording(patternId);
       
       setTracks((prevTracks) => {
+        let targetPattern: Pattern | undefined;
+        for (const t of prevTracks) {
+          const p = t.patterns.find((pat) => pat.id === patternId);
+          if (p) {
+            targetPattern = p;
+            break;
+          }
+        }
+        const measureIdx = targetPattern ? targetPattern.measureAssignments.indexOf(true) : -1;
+        const baseBpmOfImport = measureIdx !== -1 ? (measureBpms[measureIdx] || bpm) : bpm;
+
         return prevTracks.map((t) => {
           const hasPattern = t.patterns.some((p) => p.id === patternId);
           if (!hasPattern) return t;
@@ -664,7 +705,12 @@ export default function App() {
             ...t,
             patterns: t.patterns.map((p) => {
               if (p.id === patternId) {
-                return { ...p, vocalMode: 'micro' };
+                return { 
+                  ...p, 
+                  vocalMode: 'micro',
+                  vocalBaseBpm: baseBpmOfImport,
+                  vocalBpmSync: true
+                };
               }
               return p;
             }),
@@ -708,7 +754,9 @@ export default function App() {
           } catch (_) {}
         }
         
-        const player = new Tone.Player(audioBuffer);
+        const player = new Tone.GrainPlayer(audioBuffer);
+        player.grainSize = 0.09;
+        player.overlap = 0.04;
         const channel = channels['voice'];
         if (channel) {
           player.connect(channel);
@@ -803,8 +851,27 @@ export default function App() {
       if (bMetroClick) return; // already initialized
 
       if (!masterVolumeNode) {
-        masterVolumeNode = new Tone.Gain(1.0).toDestination();
+        masterEQNode = new Tone.EQ3({
+          low: masterEQRef.current.low,
+          mid: masterEQRef.current.mid,
+          high: masterEQRef.current.high
+        });
+        masterCompressorNode = new Tone.Compressor({
+          threshold: masterCompressorRef.current.threshold,
+          ratio: masterCompressorRef.current.ratio,
+          attack: 0.03,
+          release: 0.25
+        });
+
+        masterVolumeNode = new Tone.Gain(1.0);
+        
+        masterVolumeNode.connect(masterEQNode);
+        masterEQNode.connect(masterCompressorNode);
+        masterCompressorNode.toDestination();
+        
         masterVolumeNode.gain.value = Tone.dbToGain(masterVolRef.current === -40 ? -Infinity : masterVolRef.current);
+        masterMeterNode = new Tone.Meter();
+        masterCompressorNode.connect(masterMeterNode);
       }
 
       // Configurer le lookAhead de Tone.js à 80ms pour pré-scheduler les événements audio.
@@ -1138,15 +1205,18 @@ export default function App() {
                 }, startDelayMs);
               }
               if (stepIdx === currentTicks - 1 && vocalRecordingStateRef.current === 'recording') {
-                vocalRecordingStateRef.current = 'inactive';
-                const stopDelayMs = Math.max(0, (time + tick96nSec - Tone.context.rawContext.currentTime) * 1000);
-                setTimeout(() => {
-                  let stopped = false;
-                  if (vocalMediaRecorderRef.current && vocalMediaRecorderRef.current.state === 'recording') {
-                    try { vocalMediaRecorderRef.current.stop(); stopped = true; } catch (err) {}
-                  }
-                  if (!stopped) { setIsRecordingVocal(false); setRecordingVocalPatternId(null); cleanupVocalNodes(); }
-                }, stopDelayMs);
+                recordedMeasuresCountRef.current++;
+                if (recordedMeasuresCountRef.current >= recordingDurationMeasuresRef.current) {
+                  vocalRecordingStateRef.current = 'inactive';
+                  const stopDelayMs = Math.max(0, (time + tick96nSec - Tone.context.rawContext.currentTime) * 1000);
+                  setTimeout(() => {
+                    let stopped = false;
+                    if (vocalMediaRecorderRef.current && vocalMediaRecorderRef.current.state === 'recording') {
+                      try { vocalMediaRecorderRef.current.stop(); stopped = true; } catch (err) {}
+                    }
+                    if (!stopped) { setIsRecordingVocal(false); setRecordingVocalPatternId(null); cleanupVocalNodes(); }
+                  }, stopDelayMs);
+                }
               }
             }
           }
@@ -1169,14 +1239,30 @@ export default function App() {
 
           // Micro mode: loop vocal recording at measure start
           if (activePattern.vocalMode === 'micro' && stepIdx === 0 && recordingVocalPatternIdRef.current !== activePattern.id) {
-            const player = vocalPlayersRef.current[activePattern.id];
-            if (player?.loaded) {
-              try {
-                player.stop();
-                const totalLatencyMs = (activePattern.vocalLatency || 0) + getSystemDefaultLatencyMs();
-                if (totalLatencyMs >= 0) { player.start(time, totalLatencyMs / 1000); }
-                else { player.start(time + Math.abs(totalLatencyMs) / 1000, 0); }
-              } catch (_) {}
+            const isContinuation = currentMeasureLocal > 0 && activePattern.measureAssignments[currentMeasureLocal - 1];
+            if (!isContinuation) {
+              const player = vocalPlayersRef.current[activePattern.id];
+              if (player?.loaded) {
+                try {
+                  player.stop();
+                  const totalLatencyMs = (activePattern.vocalLatency || 0) + getSystemDefaultLatencyMs();
+                  const offsetSec = Math.max(0, VOCAL_RECORDING_ARM_DELAY_SEC + (totalLatencyMs / 1000));
+                  
+                  // Calculate dynamic playback rate for time-stretching (BPM sync)
+                  let rate = 1.0;
+                  if (activePattern.vocalBpmSync !== false && activePattern.vocalBaseBpm) {
+                    const currentMeasureBpm = measureBpmsRef.current[currentMeasureLocal] ?? targetBpm;
+                    rate = currentMeasureBpm / activePattern.vocalBaseBpm;
+                  }
+                  player.playbackRate = rate;
+
+                  if (totalLatencyMs >= 0) { 
+                    player.start(time, offsetSec); 
+                  } else { 
+                    player.start(time + Math.abs(totalLatencyMs) / 1000, VOCAL_RECORDING_ARM_DELAY_SEC); 
+                  }
+                } catch (_) {}
+              }
             }
           }
 
@@ -1316,6 +1402,14 @@ export default function App() {
           }
         }
       });
+
+      // Update Master VU meter
+      const masterBar = document.getElementById('meter-bar-master');
+      if (masterBar && masterMeterNode) {
+        const val = isPlayingRef.current ? dbToPercent(masterMeterNode.getValue() as number) + '%' : '0%';
+        masterBar.style.height = val;
+        masterBar.style.width = '100%';
+      }
     };
 
     const timer = setInterval(updateLocalMenders, 80);
@@ -2817,6 +2911,10 @@ export default function App() {
   };
 
   const cleanupVocalNodes = () => {
+    if (vocalRecordArmTimeoutRef.current) {
+      clearTimeout(vocalRecordArmTimeoutRef.current);
+      vocalRecordArmTimeoutRef.current = null;
+    }
     if (vocalMediaRecorderRef.current) {
       vocalMediaRecorderRef.current = null;
     }
@@ -2841,6 +2939,11 @@ export default function App() {
         }
       }
       if (!targetTrack || !targetPattern) return;
+
+      const initialMeasureIdx = targetPattern.measureAssignments.indexOf(true) !== -1 
+        ? targetPattern.measureAssignments.indexOf(true) 
+        : 0;
+      const baseBpmOfRecording = measureBpms[initialMeasureIdx] || bpm;
 
       cleanupVocalNodes();
 
@@ -2881,7 +2984,12 @@ export default function App() {
                 ...t,
                 patterns: t.patterns.map((p) => {
                   if (p.id === patternId) {
-                    return { ...p, vocalMode: 'micro' };
+                    return { 
+                      ...p, 
+                      vocalMode: 'micro',
+                      vocalBaseBpm: baseBpmOfRecording,
+                      vocalBpmSync: true
+                    };
                   }
                   return p;
                 }),
@@ -2920,23 +3028,45 @@ export default function App() {
         measureIdx = 0;
       }
       
-      vocalRecordingStateRef.current = 'waiting';
+      // Calculate consecutive measures assigned to this pattern starting from measureIdx
+      let consecutiveMeasures = 0;
+      for (let i = measureIdx; i < totalMeasures; i++) {
+        if (targetPattern.measureAssignments[i]) {
+          consecutiveMeasures++;
+        } else {
+          break;
+        }
+      }
+      recordingDurationMeasuresRef.current = Math.max(1, consecutiveMeasures);
+      recordedMeasuresCountRef.current = 0;
+
+      // Start MediaRecorder immediately to avoid startup latency cutting off the beginning
+      if (mediaRecorder && mediaRecorder.state === 'inactive') {
+        mediaRecorder.start();
+        vocalRecordingStateRef.current = 'recording';
+      } else {
+        vocalRecordingStateRef.current = 'waiting';
+      }
+
       setRecordingVocalPatternId(patternId);
       setIsRecordingVocal(true);
       
       await Tone.start();
       
-      if (!isPlayingRef.current) {
-        measureCountRef.current = measureIdx;
-        currentStepIndexRef.current = -1;
-        Tone.Transport.seconds = 0;
-        lastPlayedSignalIdRef.current = null;
-        if (Tone.Transport.state !== 'started') {
-          Tone.Transport.start();
+      // Delay playhead start by 300ms to allow the recorder to fully arm and record silence
+      vocalRecordArmTimeoutRef.current = setTimeout(() => {
+        if (!isPlayingRef.current) {
+          measureCountRef.current = measureIdx;
+          currentStepIndexRef.current = -1;
+          Tone.Transport.seconds = 0;
+          lastPlayedSignalIdRef.current = null;
+          if (Tone.Transport.state !== 'started') {
+            Tone.Transport.start();
+          }
+          mainLoop?.start(0);
+          setIsPlaying(true);
         }
-        mainLoop?.start(0);
-        setIsPlaying(true);
-      }
+      }, VOCAL_RECORDING_ARM_DELAY_MS);
     } catch (err) {
       console.error("Failed to start vocal recording:", err);
       alert("Erreur d'accès au microphone : " + err);
@@ -2995,6 +3125,25 @@ export default function App() {
           patterns: t.patterns.map((p) => {
             if (p.id === patternId) {
               return { ...p, vocalLatency: latencyMs };
+            }
+            return p;
+          }),
+        };
+      });
+    });
+  };
+
+  const handleVocalBpmSyncToggle = (patternId: number, sync: boolean) => {
+    pushUndoState();
+    setTracks((prevTracks) => {
+      return prevTracks.map((t) => {
+        const hasPattern = t.patterns.some((p) => p.id === patternId);
+        if (!hasPattern) return t;
+        return {
+          ...t,
+          patterns: t.patterns.map((p) => {
+            if (p.id === patternId) {
+              return { ...p, vocalBpmSync: sync };
             }
             return p;
           }),
@@ -3170,7 +3319,9 @@ export default function App() {
       measureVols,
       measureVolTransitions,
       songSections,
-      measureSignals
+      measureSignals,
+      masterEQ,
+      masterCompressor
     };
     const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
     const dlLink = document.createElement('a');
@@ -3264,6 +3415,18 @@ export default function App() {
         setMeasureSignals(Array(loadedMeasures).fill(null));
       }
 
+      if (data.masterEQ) {
+        setMasterEQ(data.masterEQ);
+      } else {
+        setMasterEQ({ low: 0, mid: 0, high: 0 });
+      }
+
+      if (data.masterCompressor) {
+        setMasterCompressor(data.masterCompressor);
+      } else {
+        setMasterCompressor({ threshold: -20, ratio: 4 });
+      }
+
       // Sync refs immediately to avoid audio scheduling lag
       tracksRef.current = loadedTracks;
       totalMeasuresRef.current = loadedMeasures;
@@ -3309,7 +3472,9 @@ export default function App() {
       measureVols,
       measureVolTransitions,
       songSections,
-      measureSignals
+      measureSignals,
+      masterEQ,
+      masterCompressor
     };
     try {
       const jsonStr = JSON.stringify(dataToSave);
@@ -3625,6 +3790,12 @@ export default function App() {
               onStepMicrotimingChange={handleTrackStepMicrotimingChange}
               onResetMicrotimings={handleResetTrackMicrotimings}
               isSwingOn={isSwingOn}
+              masterVol={masterVol}
+              onMasterVolChange={(val) => setMasterVol(val)}
+              masterEQ={masterEQ}
+              onMasterEQChange={setMasterEQ}
+              masterCompressor={masterCompressor}
+              onMasterCompressorChange={setMasterCompressor}
               onTrackSelectPattern={(trackId, patternId) => {
                 setTracks(tracks.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
               }}
@@ -3695,6 +3866,7 @@ export default function App() {
               onImportVocalFile={handleImportVocalFile}
               isVocalGuideEnabled={isVocalGuideEnabled}
               onVocalGuideToggle={setIsVocalGuideEnabled}
+              onVocalBpmSyncToggle={handleVocalBpmSyncToggle}
               soloPatternPlayId={soloPatternPlayId}
               onStartSoloPattern={handleStartSoloPattern}
               onStopSoloPattern={handleStopSoloPattern}
@@ -3846,8 +4018,6 @@ export default function App() {
         onMetroToggle={() => setIsMetroOn(!isMetroOn)}
         isSwingOn={isSwingOn}
         onSwingToggle={() => setIsSwingOn(!isSwingOn)}
-        masterVol={masterVol}
-        onMasterVolChange={(val) => setMasterVol(val)}
         reverbType={reverbType}
         onReverbTypeChange={setReverbType}
       />

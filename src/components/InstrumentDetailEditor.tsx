@@ -55,6 +55,7 @@ interface InstrumentDetailEditorProps {
   onImportVocalFile?: (patternId: number, file: File) => void;
   isVocalGuideEnabled?: boolean;
   onVocalGuideToggle?: (enabled: boolean) => void;
+  onVocalBpmSyncToggle?: (patternId: number, sync: boolean) => void;
 }
 
 /* ── Stroke legend definitions ─────────────────────────────── */
@@ -229,6 +230,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   onImportVocalFile,
   isVocalGuideEnabled = true,
   onVocalGuideToggle,
+  onVocalBpmSyncToggle,
 }) => {
   const inst = instrumentsConfig[track.instrumentIdx];
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -719,6 +721,34 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 {lang === 'fr' 
                                   ? "Décale le début de la voix vers la gauche (plus tôt) pour compenser le retard du micro, du smartphone ou du Bluetooth."
                                   : "Desloca o início da voz para a esquerda (mais cedo) para compensar o atraso do microfone, celular ou Bluetooth."}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Sync Tempo (Time-stretch) toggle */}
+                          {recordedPatternIds.includes(ptn.id) && (
+                            <div className="flex flex-col gap-1 w-full border-t border-[#1a1a1a]/10 pt-2 mt-2">
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="checkbox"
+                                  id={`vocal-sync-toggle-${ptn.id}`}
+                                  checked={ptn.vocalBpmSync !== false}
+                                  onChange={(e) => onVocalBpmSyncToggle && onVocalBpmSyncToggle(ptn.id, e.target.checked)}
+                                  className="accent-green-700 cursor-pointer w-3.5 h-3.5"
+                                />
+                                <label
+                                  htmlFor={`vocal-sync-toggle-${ptn.id}`}
+                                  className="text-[10px] font-bold opacity-80 cursor-pointer select-none"
+                                >
+                                  🔄 {lang === 'fr' 
+                                    ? "Sync Tempo / Time-stretch (Conserver la hauteur)" 
+                                    : "Sync Tempo / Time-stretch (Manter o tom)"}
+                                </label>
+                              </div>
+                              <span className="text-[8px] text-[#666] font-medium leading-normal pl-5">
+                                {lang === 'fr' 
+                                  ? `Ajuste automatiquement la vitesse de la voix si le tempo change, sans changer sa hauteur. Tempo d'origine détecté : ${ptn.vocalBaseBpm || '?'} BPM.`
+                                  : `Ajusta automaticamente a velocidade da voz se o tempo mudar, sem alterar o tom. Tempo original detectado: ${ptn.vocalBaseBpm || '?'} BPM.`}
                               </span>
                             </div>
                           )}

@@ -17,8 +17,6 @@ interface TransportBarProps {
   onMetroToggle: () => void;
   isSwingOn: boolean;
   onSwingToggle: () => void;
-  masterVol: number;
-  onMasterVolChange: (vol: number) => void;
   reverbType: 'room' | 'studio' | 'hall';
   onReverbTypeChange: (type: 'room' | 'studio' | 'hall') => void;
   viewMode: 'roda' | 'console' | 'timeline';
@@ -38,8 +36,6 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
   onMetroToggle,
   isSwingOn,
   onSwingToggle,
-  masterVol,
-  onMasterVolChange,
   reverbType,
   onReverbTypeChange,
   viewMode,
@@ -169,23 +165,8 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
         </div>
       </div>
 
-      {/* Right side: Volume */}
-      <div className="hidden md:flex items-center justify-end gap-4 flex-1">
-        
-        <div className="flex items-center gap-2" title="Volume Geral">
-          <Volume2 className="w-4 h-4 text-[var(--cordel-text)] shrink-0" />
-          <input
-            type="range"
-            min="-40"
-            max="6"
-            value={masterVol}
-            onChange={(e) => onMasterVolChange(parseFloat(e.target.value))}
-            className="w-20 md:w-24 h-2 bg-[var(--cordel-text)] border border-[var(--cordel-border)] rounded-none outline-none cursor-pointer"
-            style={{ accentColor: 'var(--cordel-text)' }}
-          />
-        </div>
-
-      </div>
+      {/* Right side filler to keep center controls centered */}
+      <div className="hidden md:block flex-1" />
     </div>
   );
 };

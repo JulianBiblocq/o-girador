@@ -64,6 +64,13 @@ interface ConsoleMixerProps {
   onImportVocalFile?: (patternId: number, file: File) => void;
   isVocalGuideEnabled?: boolean;
   onVocalGuideToggle?: (enabled: boolean) => void;
+  onVocalBpmSyncToggle?: (patternId: number, sync: boolean) => void;
+  masterVol: number;
+  onMasterVolChange: (vol: number) => void;
+  masterEQ: { low: number; mid: number; high: number };
+  onMasterEQChange: (eq: { low: number; mid: number; high: number }) => void;
+  masterCompressor: { threshold: number; ratio: number };
+  onMasterCompressorChange: (comp: { threshold: number; ratio: number }) => void;
 }
 
 const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
@@ -119,6 +126,13 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   onImportVocalFile,
   isVocalGuideEnabled = true,
   onVocalGuideToggle,
+  onVocalBpmSyncToggle,
+  masterVol,
+  onMasterVolChange,
+  masterEQ,
+  onMasterEQChange,
+  masterCompressor,
+  onMasterCompressorChange,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
@@ -188,6 +202,162 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           />
         ))}
 
+        {tracks.length > 0 && (
+          <div 
+            className="flex flex-col bg-[var(--cordel-bg)] cordel-border w-[160px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-colors"
+            style={{
+              '--fader-thumb-bg': '#8b2a1a',
+              '--fader-thumb-border': 'var(--cordel-border)',
+            } as React.CSSProperties}
+          >
+            {/* Header / Title */}
+            <div className="relative p-3 pb-1 flex justify-center items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
+              <span className="font-cactus font-bold text-sm tracking-wider">👑 MASTER</span>
+            </div>
+
+            {/* Middle Section (EQ & Compressor Controls) */}
+            <div className="relative z-10 flex-1 p-3 flex flex-col gap-3.5 overflow-y-auto custom-scrollbar border-b-[3px] border-[var(--cordel-border)] bg-[#1a1a1a]/5">
+              
+              {/* EQ 3-BANDES */}
+              <div className="flex flex-col gap-1.5 border-b border-[var(--cordel-border)]/20 pb-2">
+                <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
+                  🎛️ EQ 3-Bandes
+                </span>
+                
+                {/* Low Gain */}
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex justify-between text-[8px] font-bold opacity-60">
+                    <span>{lang === 'fr' ? 'Grave / Low' : 'Grave / Low'}</span>
+                    <span>{masterEQ.low > 0 ? '+' : ''}{masterEQ.low} dB</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-12"
+                    max="12"
+                    step="0.5"
+                    value={masterEQ.low}
+                    onChange={(e) => onMasterEQChange({ ...masterEQ, low: parseFloat(e.target.value) })}
+                    className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
+                  />
+                </div>
+
+                {/* Mid Gain */}
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex justify-between text-[8px] font-bold opacity-60">
+                    <span>{lang === 'fr' ? 'Médium / Mid' : 'Médio / Mid'}</span>
+                    <span>{masterEQ.mid > 0 ? '+' : ''}{masterEQ.mid} dB</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-12"
+                    max="12"
+                    step="0.5"
+                    value={masterEQ.mid}
+                    onChange={(e) => onMasterEQChange({ ...masterEQ, mid: parseFloat(e.target.value) })}
+                    className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
+                  />
+                </div>
+
+                {/* High Gain */}
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex justify-between text-[8px] font-bold opacity-60">
+                    <span>{lang === 'fr' ? 'Aigu / High' : 'Agudo / High'}</span>
+                    <span>{masterEQ.high > 0 ? '+' : ''}{masterEQ.high} dB</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-12"
+                    max="12"
+                    step="0.5"
+                    value={masterEQ.high}
+                    onChange={(e) => onMasterEQChange({ ...masterEQ, high: parseFloat(e.target.value) })}
+                    className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* COMPRESSEUR */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
+                  🌀 Compressor
+                </span>
+
+                {/* Threshold */}
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex justify-between text-[8px] font-bold opacity-60">
+                    <span>{lang === 'fr' ? 'Seuil / Threshold' : 'Limiar / Threshold'}</span>
+                    <span>{masterCompressor.threshold} dB</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-60"
+                    max="0"
+                    step="1"
+                    value={masterCompressor.threshold}
+                    onChange={(e) => onMasterCompressorChange({ ...masterCompressor, threshold: parseFloat(e.target.value) })}
+                    className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
+                  />
+                </div>
+
+                {/* Ratio */}
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex justify-between text-[8px] font-bold opacity-60">
+                    <span>Ratio</span>
+                    <span>{masterCompressor.ratio}:1</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="20"
+                    step="0.5"
+                    value={masterCompressor.ratio}
+                    onChange={(e) => onMasterCompressorChange({ ...masterCompressor, ratio: parseFloat(e.target.value) })}
+                    className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+            </div>
+
+            {/* Fader & VU Meter Section */}
+            <div className="relative z-10 p-4 pt-4 flex justify-around items-end h-[200px] gap-2">
+              {/* Volume Master Fader */}
+              <div className="flex flex-col items-center gap-1.5 h-full">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Volume</span>
+                <div className="h-[145px] flex justify-center items-center relative w-12">
+                  <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
+                  <input
+                    type="range"
+                    min="-40"
+                    max="6"
+                    step="0.5"
+                    orient="vertical"
+                    value={masterVol}
+                    onChange={(e) => onMasterVolChange(parseFloat(e.target.value))}
+                    className="vertical-fader z-10 h-[130px] w-8 cursor-pointer"
+                  />
+                </div>
+                <span className="text-[10px] font-bold text-[var(--cordel-text)] text-center leading-none">
+                  {masterVol === -40 ? 'Mute' : `${masterVol > 0 ? '+' : ''}${masterVol} dB`}
+                </span>
+              </div>
+
+              {/* Master VU Meter */}
+              <div className="flex flex-col items-center gap-1.5 h-full">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
+                <div className="w-3.5 h-[145px] bg-[var(--cordel-bg)] cordel-border-sm relative overflow-hidden">
+                  <div
+                    id="meter-bar-master"
+                    className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#2ecc71] w-full transition-all duration-[0.05s]"
+                    style={{ height: '0%' }}
+                  />
+                </div>
+                <div className="h-[15px]" />
+              </div>
+            </div>
+          </div>
+        )}
+
         {tracks.length === 0 && (
           <div className="m-auto text-[var(--cordel-text)] font-cactus font-bold text-2xl">
             Ajoutez un instrument pour commencer...
@@ -242,6 +412,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           onImportVocalFile={onImportVocalFile}
           isVocalGuideEnabled={isVocalGuideEnabled}
           onVocalGuideToggle={onVocalGuideToggle}
+          onVocalBpmSyncToggle={onVocalBpmSyncToggle}
         />
       )}
     </div>
