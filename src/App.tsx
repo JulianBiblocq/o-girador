@@ -424,6 +424,8 @@ export default function App() {
   const [selectedAudioDeviceId, setSelectedAudioDeviceId] = useState<string>(() => {
     return localStorage.getItem('baquemix_vocal_device_id') || '';
   });
+  const [isVocalGuideEnabled, setIsVocalGuideEnabled] = useState<boolean>(true);
+  const isVocalGuideEnabledRef = useRef<boolean>(true);
 
   const updateAudioDevices = async () => {
     try {
@@ -552,7 +554,8 @@ export default function App() {
     isMetroOnRef.current = isMetroOn;
     isSwingOnRef.current = isSwingOn;
     recordingVocalPatternIdRef.current = recordingVocalPatternId;
-  }, [tracks, totalMeasures, isPlaying, currentStepIndex, timeSig, isMetroOn, isSwingOn, recordingVocalPatternId]);
+    isVocalGuideEnabledRef.current = isVocalGuideEnabled;
+  }, [tracks, totalMeasures, isPlaying, currentStepIndex, timeSig, isMetroOn, isSwingOn, recordingVocalPatternId, isVocalGuideEnabled]);
 
   useEffect(() => {
     const voicePatternIds: number[] = [];
@@ -873,7 +876,7 @@ export default function App() {
           if (!canPlay) return;
 
           // If it is a voice track and in 'micro' mode, play the loop at stepIdx === 0
-          if (inst.type === 'voice' && activePattern.vocalMode === 'micro' && stepIdx === 0) {
+          if (inst.type === 'voice' && activePattern.vocalMode === 'micro' && stepIdx === 0 && recordingVocalPatternIdRef.current !== activePattern.id) {
             const player = vocalPlayersRef.current[activePattern.id];
             if (player && player.loaded) {
               try {
@@ -914,7 +917,7 @@ export default function App() {
               const finalTriggerTime = swingTime + microTimeOffset;
 
               if (inst.type === 'voice') {
-                if (activePattern.vocalMode !== 'micro') {
+                if (activePattern.vocalMode !== 'micro' || (recordingVocalPatternIdRef.current === activePattern.id && isVocalGuideEnabledRef.current)) {
                   let note = 'C5';
                   if (
                     activePattern.notes &&
@@ -3362,6 +3365,8 @@ export default function App() {
               selectedAudioDeviceId={selectedAudioDeviceId}
               onAudioDeviceChange={handleAudioDeviceChange}
               onImportVocalFile={handleImportVocalFile}
+              isVocalGuideEnabled={isVocalGuideEnabled}
+              onVocalGuideToggle={setIsVocalGuideEnabled}
               soloPatternPlayId={soloPatternPlayId}
               onStartSoloPattern={handleStartSoloPattern}
               onStopSoloPattern={handleStopSoloPattern}

@@ -61,6 +61,8 @@ interface ConsoleMixerProps {
   selectedAudioDeviceId?: string;
   onAudioDeviceChange?: (deviceId: string) => void;
   onImportVocalFile?: (patternId: number, file: File) => void;
+  isVocalGuideEnabled?: boolean;
+  onVocalGuideToggle?: (enabled: boolean) => void;
 }
 
 export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
@@ -114,6 +116,8 @@ export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
   selectedAudioDeviceId = '',
   onAudioDeviceChange,
   onImportVocalFile,
+  isVocalGuideEnabled = true,
+  onVocalGuideToggle,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
@@ -232,6 +236,8 @@ export const ConsoleMixer: React.FC<ConsoleMixerProps> = ({
           selectedAudioDeviceId={selectedAudioDeviceId}
           onAudioDeviceChange={onAudioDeviceChange}
           onImportVocalFile={onImportVocalFile}
+          isVocalGuideEnabled={isVocalGuideEnabled}
+          onVocalGuideToggle={onVocalGuideToggle}
         />
       )}
     </div>

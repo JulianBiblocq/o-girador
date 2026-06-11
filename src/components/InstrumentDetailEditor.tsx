@@ -53,6 +53,8 @@ interface InstrumentDetailEditorProps {
   selectedAudioDeviceId?: string;
   onAudioDeviceChange?: (deviceId: string) => void;
   onImportVocalFile?: (patternId: number, file: File) => void;
+  isVocalGuideEnabled?: boolean;
+  onVocalGuideToggle?: (enabled: boolean) => void;
 }
 
 /* ── Stroke legend definitions ─────────────────────────────── */
@@ -225,6 +227,8 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
   selectedAudioDeviceId = '',
   onAudioDeviceChange,
   onImportVocalFile,
+  isVocalGuideEnabled = true,
+  onVocalGuideToggle,
 }) => {
   const inst = instrumentsConfig[track.instrumentIdx];
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -611,6 +615,25 @@ export const InstrumentDetailEditor: React.FC<InstrumentDetailEditorProps> = ({
                                 ))
                               )}
                             </select>
+                          </div>
+
+                          {/* Melodic guide option */}
+                          <div className="flex items-center gap-2 w-full mb-1">
+                            <input
+                              type="checkbox"
+                              id={`vocal-guide-toggle-${ptn.id}`}
+                              checked={isVocalGuideEnabled}
+                              onChange={(e) => onVocalGuideToggle && onVocalGuideToggle(e.target.checked)}
+                              className="accent-green-700 cursor-pointer w-3.5 h-3.5"
+                            />
+                            <label
+                              htmlFor={`vocal-guide-toggle-${ptn.id}`}
+                              className="text-[10px] font-bold opacity-80 cursor-pointer select-none"
+                            >
+                              🎵 {lang === 'fr' 
+                                ? "Jouer le guide mélodique (synthétiseur) pendant l'enregistrement" 
+                                : "Tocar guia melódico (sintetizador) durante a gravação"}
+                            </label>
                           </div>
 
                           <div className="flex flex-wrap items-center gap-3 w-full">
