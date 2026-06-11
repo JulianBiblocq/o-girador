@@ -93,7 +93,6 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
       measureVols,
       isMobile,
     };
-    console.log("CircleSequencer: activePatternIdByTrack =", activePatternIdByTrack, "currentMeasure =", currentMeasure);
   }, [tracks, isPlaying, currentStepIndex, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile]);
 
   // Handle click on canvas
@@ -527,14 +526,6 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
           : track.selectedPatternId;
 
         const inst = instrumentsConfig[track.instrumentIdx];
-        if (!stateRef.current.prevActivePatternIds) {
-          (stateRef.current as any).prevActivePatternIds = {};
-        }
-        const prevActive = (stateRef.current as any).prevActivePatternIds[track.id];
-        if (prevActive !== activePatternId) {
-          (stateRef.current as any).prevActivePatternIds[track.id] = activePatternId;
-          console.log(`[CircleSequencer] Track ${track.id} (${inst?.name}) activePatternId changed from ${prevActive} to ${activePatternId}`);
-        }
 
         if (activePatternId === null) return;
         const activePattern = track.patterns.find(p => p.id === activePatternId);
