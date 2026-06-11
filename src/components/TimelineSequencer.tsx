@@ -908,7 +908,11 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                         className="flex items-center gap-1 px-1.5 py-0.5 bg-[var(--cordel-border)]/20 hover:bg-[var(--cordel-border)]/40 transition-colors rounded text-[9px] font-bold text-[var(--cordel-text)] max-w-full"
                         title={activeSig.name}
                       >
-                        <img src={activeSig.image} alt={activeSig.name} className="w-6 h-6 object-contain flex-shrink-0" />
+                        {activeSig.image ? (
+                          <img src={activeSig.image} alt={activeSig.name} className="w-6 h-6 object-contain flex-shrink-0" />
+                        ) : (
+                          <span className="text-[12px] flex-shrink-0 leading-none">📢</span>
+                        )}
                         <span className="truncate max-w-[70px]">{activeSig.name}</span>
                       </button>
                     ) : (
@@ -954,7 +958,11 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                               sigId === sig.id ? 'bg-[var(--cordel-border)]/30' : ''
                             }`}
                           >
-                            <img src={sig.image} alt={sig.name} className="w-6 h-6 object-contain flex-shrink-0" />
+                            {sig.image ? (
+                              <img src={sig.image} alt={sig.name} className="w-6 h-6 object-contain flex-shrink-0" />
+                            ) : (
+                              <span className="text-[12px] w-6 h-6 flex items-center justify-center bg-black/10 rounded flex-shrink-0 leading-none">📢</span>
+                            )}
                             <span className="truncate">{sig.name}</span>
                           </button>
                         ))}

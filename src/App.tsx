@@ -3477,13 +3477,22 @@ export default function App() {
   };
 
   function handleShare() {
+    const cleanMetadata = metadata ? {
+      ...metadata,
+      partitionImage: undefined,
+      rhythmSignals: metadata.rhythmSignals ? metadata.rhythmSignals.map(sig => ({
+        ...sig,
+        image: '' // Remove heavy base64 image data for sharing
+      })) : undefined
+    } : undefined;
+
     const dataToSave: Preset = {
       bpm,
       timeSig,
       totalMeasures,
       tracks,
       letras,
-      metadata,
+      metadata: cleanMetadata,
       measureTimeSigs,
       measureBpms,
       measureBpmTransitions,

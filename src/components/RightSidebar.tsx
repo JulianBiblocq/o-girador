@@ -734,7 +734,11 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                       <div className="flex flex-col gap-1.5">
                         {(metadata.rhythmSignals || []).map(sig => (
                           <div key={sig.id} className="flex items-center gap-2 bg-[var(--cordel-bg)] cordel-border-sm p-1.5">
-                            <img src={sig.image} alt={sig.name} className="w-10 h-10 object-contain flex-shrink-0 bg-black/10" />
+                            {sig.image ? (
+                              <img src={sig.image} alt={sig.name} className="w-10 h-10 object-contain flex-shrink-0 bg-black/10" />
+                            ) : (
+                              <div className="w-10 h-10 flex items-center justify-center bg-black/10 text-[16px] flex-shrink-0">📢</div>
+                            )}
                             <span className="flex-grow text-[10px] font-bold text-[var(--cordel-text)] truncate">{sig.name}</span>
                             <button
                               onClick={() => handleDeleteSignal(sig.id)}
