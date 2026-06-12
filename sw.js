@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const CACHE_NAME = 'baquemix-cache-v32';
+const CACHE_NAME = 'baquemix-cache-v33';
 
 // Core static files to cache immediately on SW install
 const STATIC_ASSETS = [
@@ -89,7 +89,7 @@ self.addEventListener('fetch', (e) => {
       // 2. Stale-While-Revalidate for app code (HTML, JS, CSS, presets JSON)
       e.respondWith(
         caches.match(e.request).then((cachedResponse) => {
-          const CURRENT_VERSION = 32; // Matches version.json
+          const CURRENT_VERSION = 33; // Matches version.json
           const fetchPromise = fetch(e.request).then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
               return caches.open(CACHE_NAME).then((cache) => {
