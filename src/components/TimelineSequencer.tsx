@@ -1036,7 +1036,12 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                   </div>
                 </div>
 
-                {/* ─                  // Find if there is a section covering this measure
+                {/* ── Measure cells ── */}
+                {Array.from({ length: totalMeasures }).map((_, mIdx) => {
+                  const activePattern = track.patterns.find(p => p.measureAssignments[mIdx]);
+                  const steps = activePattern ? activePattern.steps : 16;
+
+                  // Find if there is a section covering this measure
                   const measureSection = songSections.find(s => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
                   const isSectionStart = measureSection && mIdx === measureSection.startMeasure;
                   const isSectionEnd = measureSection && mIdx === measureSection.endMeasure;

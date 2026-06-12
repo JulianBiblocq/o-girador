@@ -319,7 +319,7 @@ const base64ToBlob = (base64Data: string): Blob => {
 };
 
 export default function App() {
-  const CURRENT_VERSION = 31; // Matches version.json
+  const CURRENT_VERSION = 32; // Matches version.json
 
   // PWA Auto-Update Check
   useEffect(() => {

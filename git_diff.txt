@@ -1,0 +1,405 @@
+diff --git a/src/components/TimelineSequencer.tsx b/src/components/TimelineSequencer.tsx
+index 4229724..a9be8d4 100644
+--- a/src/components/TimelineSequencer.tsx
++++ b/src/components/TimelineSequencer.tsx
+@@ -5,7 +5,7 @@
+ 
+ import React, { useEffect, useRef } from 'react';
+ import { TrackGroup, Language, TimeSignature, SongSection, PresetMetadata, RhythmSignal } from '../types';
+-import { ASSETS_BASE_URL, instrumentsConfig, getMaxTicks, getMarkers } from '../data';
++import { ASSETS_BASE_URL, instrumentsConfig, getMaxTicks, getMarkers, isDarkText } from '../data';
+ 
+ interface TimelineSequencerProps {
+   lang: Language;
+@@ -107,6 +107,8 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
+   onMeasureSignalChange,
+   rhythmSignals = [],
+ }) => {
++  const isMacro = measureWidth <= 240;
++  const HEADER_W = isMacro ? 120 : 180;
+   const MEASURE_W = measureWidth;
+   const scrollRef = useRef<HTMLDivElement>(null);
+   const isDragging = useRef(false);
+@@ -435,8 +437,17 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
+ 
+ 
+ 
++  const zoomStyles = {
++    '--zoom-level': String(measureWidth / 480),
++    '--measure-width': `${measureWidth}px`,
++  } as React.CSSProperties;
++
+   return (
+-    <div className="flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden bg-[var(--cordel-bg)] text-[var(--cordel-text)] select-none">
++    <div
++      data-zoom={isMacro ? 'macro' : 'normal'}
++      style={zoomStyles}
++      className="timeline-sequencer-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden bg-[var(--cordel-bg)] text-[var(--cordel-text)] select-none"
++    >
+       {/* Séquenceur Title Sub-header with Partition Export Button */}
+       <div className="h-10 border-b-2 border-[var(--cordel-border)] px-4 flex items-center justify-between shrink-0 bg-[var(--cordel-bg)] z-10">
+         <span className="font-cactus font-bold text-xs md:text-sm uppercase tracking-wider flex items-center gap-1.5">
+@@ -448,10 +459,10 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
+           {/* Zoom Controls */}
+           <span className="text-[10px] uppercase font-bold text-[var(--cordel-text)]/70">{lang === 'fr' ? 'Zoom' : 'Zoom'} :</span>
+           <button
+-            onClick={() => onMeasureWidthChange(Math.max(240, measureWidth - 60))}
+-            disabled={measureWidth <= 240}
++            onClick={() => onMeasureWidthChange(Math.max(120, measureWidth - 60))}
++            disabled={measureWidth <= 120}
+             className={`font-bold text-[10px] md:text-xs px-2 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
+-              measureWidth <= 240 ? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
++              measureWidth <= 120 ? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+             }`}
+             title={lang === 'fr' ? 'Zoom arrière' : 'Reduzir zoom'}
+           >
+@@ -682,12 +693,12 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
+                   }`}
+                   style={{ width: MEASURE_W, minWidth: MEASURE_W }}
+                 >
+-                  <div className="flex flex-wrap items-center justify-between w-full mt-0.5 gap-x-2 gap-y-1">
++                  <div className="ruler-measure-header flex flex-wrap items-center justify-between w-full mt-0.5 gap-x-2 gap-y-1">
+                     <span className="font-cactus text-xs tracking-wide flex items-center gap-1.5 shrink-0">
+                       <span>{lang === 'fr' ? 'M.' : 'C.'} {mIdx + 1}</span>
+                       
+                       {/* Loop Delimiters */}
+-                      <div className="flex gap-0.5 border-l border-[var(--cordel-border)]/20 pl-1.5">
++                      <div className="ruler-detailed flex gap-0.5 border-l border-[var(--cordel-border)]/20 pl-1.5">
+                         <button
+                           onClick={(e) => {
+                             e.stopPropagation();
+@@ -747,7 +758,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
+                     </span>
+ 
+                     <div 
+-                      className="flex items-center gap-1.5"
++                      className="ruler-detailed flex items-center gap-1.5"
+                       onClick={e => e.stopPropagation()}
+                       onMouseDown={e => e.stopPropagation()}
+                       onTouchStart={e => e.stopPropagation()}
+@@ -833,7 +844,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
+                     </div>
+                   </div>
+ 
+-                  <div className="flex w-full opacity-50 text-[8px] pb-0.5">
++                  <div className="ruler-detailed flex w-full opacity-50 text-[8px] pb-0.5">
+                     {Array.from({ length: localBeats }).map((_, b) => (
+                       <span
+                         key={b}
+@@ -913,7 +924,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
+                         ) : (
+                           <span className="text-[12px] flex-shrink-0 leading-none">📢</span>
+                         )}
+-                        <span className="truncate max-w-[70px]">{activeSig.name}</span>
++                        <span className="ruler-detailed truncate max-w-[70px]">{activeSig.name}</span>
+                       </button>
+                     ) : (
+                       <button
+@@ -1001,13 +1012,13 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
+                     <img
+                       src={`${ASSETS_BASE_URL}${inst.iconImg}`}
+                       alt={inst.name}
+-                      className="w-8 h-8 object-contain filter invert-[var(--cordel-invert)] dark:invert-0"
++                      className="track-header-icon w-8 h-8 object-contain filter invert-[var(--cordel-invert)] dark:invert-0"
+                     />
+-                    <span className="font-cactus text-sm font-bold truncate text-[var(--cordel-text)] tracking-wider">
++                    <span className="track-header-name font-cactus text-sm font-bold truncate text-[var(--cordel-text)] tracking-wider">
+                       {inst.name}
+                     </span>
+                   </div>
+-                  <div className="flex gap-1 shrink-0">
++                  <div className="track-header-controls flex gap-1 shrink-0">
+                     <button
+                       onClick={() => onMuteToggle(track.id)}
+                       className={`w-6 h-6 flex items-center justify-center text-[11px] font-bold cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+@@ -1025,10 +1036,11 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
+                   </div>
+                 </div>
+ 
+-                {/* ── Measure cells ── */}
+-                {Array.from({ length: totalMeasures }).map((_, mIdx) => {
+-                  const activePattern = track.patterns.find(p => p.measureAssignments[mIdx]);
+-                  const steps = activePattern ? activePattern.steps : 16;
++                {/* ─                  // Find if there is a section covering this measure
++                  const measureSection = songSections.find(s => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
++                  const isSectionStart = measureSection && mIdx === measureSection.startMeasure;
++                  const isSectionEnd = measureSection && mIdx === measureSection.endMeasure;
++                  const sectionColor = measureSection?.color || '';
+ 
+                   return (
+                     <div
+@@ -1037,8 +1049,18 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
+                         loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure
+                           ? 'bg-blue-600/[0.03]'
+                           : ''
++                      } ${
++                        measureSection ? 'cell-section-tint' : ''
++                      } ${
++                        isSectionStart ? 'cell-section-start' : ''
++                      } ${
++                        isSectionEnd ? 'cell-section-end' : ''
+                       }`}
+-                      style={{ width: MEASURE_W, minWidth: MEASURE_W }}
++                      style={{ 
++                        width: MEASURE_W, 
++                        minWidth: MEASURE_W,
++                        ...({ '--section-color': sectionColor } as React.CSSProperties)
++                      }}
+                       onClick={(e) => {
+                         const rect = e.currentTarget.getBoundingClientRect();
+                         const clickX = e.clientX - rect.left;
+@@ -1046,106 +1068,160 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
+                         onNavigate(mIdx, Math.floor(ratio * steps), steps);
+                       }}
+                     >
+-                      {/* Pattern selector */}
+-                      <div
+-                        className="absolute top-1 left-1 z-20"
+-                        onClick={e => e.stopPropagation()}
+-                        onMouseDown={e => e.stopPropagation()}
+-                        onTouchStart={e => e.stopPropagation()}
+-                      >
+-                        <select
+-                          value={activePattern ? String(activePattern.id) : 'silence'}
+-                          onChange={e => {
+-                            const v = e.target.value;
+-                            onPatternAssignForMeasure(
+-                              track.id,
+-                              v === 'silence' ? null : Number(v),
+-                              mIdx,
+-                            );
+-                          }}
+-                          className="bg-[var(--cordel-bg)]/95 text-[var(--cordel-text)] text-[10px] font-cactus font-bold border border-[var(--cordel-border)]/50 rounded px-1 py-px outline-none cursor-pointer tracking-wider uppercase max-w-[125px] leading-tight"
+-                          style={{ fontSize: '10px', height: '22px' }}
++                      {/* Cell content (Detailed View) */}
++                      <div className="cell-detailed w-full h-full relative">
++                        {/* Pattern selector */}
++                        <div
++                          className="absolute top-1 left-1 z-20"
++                          onClick={e => e.stopPropagation()}
++                          onMouseDown={e => e.stopPropagation()}
++                          onTouchStart={e => e.stopPropagation()}
+                         >
+-                          <option value="silence">
+-                            {lang === 'fr' ? '— Silence' : '— Silêncio'}
+-                          </option>
+-                          {track.patterns.map((p, pidx) => (
+-                            <option key={p.id} value={String(p.id)}>
+-                              {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
++                          <select
++                            value={activePattern ? String(activePattern.id) : 'silence'}
++                            onChange={e => {
++                              const v = e.target.value;
++                              onPatternAssignForMeasure(
++                                track.id,
++                                v === 'silence' ? null : Number(v),
++                                mIdx,
++                              );
++                            }}
++                            className="bg-[var(--cordel-bg)]/95 text-[var(--cordel-text)] text-[10px] font-cactus font-bold border border-[var(--cordel-border)]/50 rounded px-1 py-px outline-none cursor-pointer tracking-wider uppercase max-w-[125px] leading-tight"
++                            style={{ fontSize: '10px', height: '22px' }}
++                          >
++                            <option value="silence">
++                              {lang === 'fr' ? '— Silence' : '— Silêncio'}
+                             </option>
+-                          ))}
+-                        </select>
+-                      </div>
+-
+-                      {activePattern && activePattern.vocalMode === 'micro' && (
+-                        <div className="absolute bottom-1.5 right-1.5 bg-[#27ae60] text-white border border-black/20 font-sans font-bold text-[8px] px-1 py-px rounded-sm z-20 pointer-events-none select-none flex items-center gap-0.5 shadow-sm">
+-                          🎙️ MIC
++                            {track.patterns.map((p, pidx) => (
++                              <option key={p.id} value={String(p.id)}>
++                                {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
++                              </option>
++                            ))}
++                          </select>
+                         </div>
+-                      )}
+ 
+-                      {/* Cell content */}
+-                      {!activePattern ? (
+-                        /* Silence hatching */
+-                        <div
+-                          className="w-full h-full opacity-15"
+-                          style={{
+-                            backgroundImage:
+-                              'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
+-                            backgroundSize: '10px 10px',
+-                          }}
+-                        />
+-                      ) : (
+-                        /* Steps grid */
+-                        <div className="flex h-full w-full">
+-                          {Array.from({ length: steps }).map((_, sIdx) => {
+-                            const val = activePattern.activeSteps[sIdx];
+-                            const display = getDisplayVal(val);
+-                            const isActive = val !== 0 && val !== '';
+-                            const mMaxTicks = getMaxTicks(measureTimeSigs[mIdx] || '4/4');
+-                            const isCurrent =
+-                              isPlaying &&
+-                              currentMeasure === mIdx &&
+-                              Math.floor((tickPos / mMaxTicks) * steps) === sIdx;
+-
+-                            let style: React.CSSProperties = {
+-                              width: `${MEASURE_W / steps}px`,
+-                            };
+-                            if (isActive) {
+-                              const bg = inst.colors[val as string] || '#111';
+-                              let fg = inst.colors.text || '#f4ecd8';
+-                              if (inst.id === 'gongue' && (val === 'AIG' || val === 'aig')) fg = '#000';
+-                              style = { ...style, backgroundColor: bg, color: fg };
+-                            }
++                        {activePattern && activePattern.vocalMode === 'micro' && (
++                          <div className="absolute bottom-1.5 right-1.5 bg-[#27ae60] text-white border border-black/20 font-sans font-bold text-[8px] px-1 py-px rounded-sm z-20 pointer-events-none select-none flex items-center gap-0.5 shadow-sm">
++                            🎙️ MIC
++                          </div>
++                        )}
+ 
+-                            return (
+-                              <div
+-                                key={sIdx}
+-                                className={`h-full border-r border-[var(--cordel-border)]/10 flex flex-col items-center justify-center text-center ${
+-                                  isCurrent
+-                                    ? 'outline outline-2 outline-amber-500 z-10 bg-[var(--cordel-text)]/15'
+-                                    : ''
+-                                }`}
+-                                style={style}
+-                              >
+-                                {inst.type === 'voice' ? (
+-                                  <div className="flex flex-col items-center justify-center leading-none px-0.5 overflow-hidden w-full h-full">
+-                                    <span className="text-[9px] font-bold uppercase opacity-75">
+-                                      {val === 'P' ? 'PUX' : val === 'C' ? 'CORO' : ''}
+-                                    </span>
+-                                    <span className="text-[11px] font-cactus font-bold truncate max-w-full">
+-                                      {activePattern.lyrics?.[sIdx] || ''}
++                        {!activePattern ? (
++                          /* Silence hatching */
++                          <div
++                            className="w-full h-full opacity-15"
++                            style={{
++                              backgroundImage:
++                                'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
++                              backgroundSize: '10px 10px',
++                            }}
++                          />
++                        ) : (
++                          /* Steps grid */
++                          <div className="flex h-full w-full">
++                            {Array.from({ length: steps }).map((_, sIdx) => {
++                              const val = activePattern.activeSteps[sIdx];
++                              const display = getDisplayVal(val);
++                              const isActive = val !== 0 && val !== '';
++                              const mMaxTicks = getMaxTicks(measureTimeSigs[mIdx] || '4/4');
++                              const isCurrent =
++                                isPlaying &&
++                                currentMeasure === mIdx &&
++                                Math.floor((tickPos / mMaxTicks) * steps) === sIdx;
++
++                              let style: React.CSSProperties = {
++                                width: `${MEASURE_W / steps}px`,
++                              };
++                              if (isActive) {
++                                const bg = inst.colors[val as string] || '#111';
++                                let fg = inst.colors.text || '#f4ecd8';
++                                if (isDarkText(inst.id, String(val))) {
++                                  fg = '#1a1a1a';
++                                }
++                                style = { ...style, backgroundColor: bg, color: fg };
++                              }
++
++                              return (
++                                <div
++                                  key={sIdx}
++                                  className={`h-full border-r border-[var(--cordel-border)]/10 flex flex-col items-center justify-center text-center ${
++                                    isCurrent
++                                      ? 'outline outline-2 outline-amber-500 z-10 bg-[var(--cordel-text)]/15'
++                                      : ''
++                                  }`}
++                                  style={style}
++                                >
++                                  {inst.type === 'voice' ? (
++                                    <div className="flex flex-col items-center justify-center leading-none px-0.5 overflow-hidden w-full h-full">
++                                      <span className="text-[9px] font-bold uppercase opacity-75">
++                                        {val === 'P' ? 'PUX' : val === 'C' ? 'CORO' : ''}
++                                      </span>
++                                      <span className="text-[11px] font-cactus font-bold truncate max-w-full">
++                                        {activePattern.lyrics?.[sIdx] || ''}
++                                      </span>
++                                    </div>
++                                  ) : (
++                                    <span className="text-[13px] font-extrabold tracking-wide">
++                                      {display}
+                                     </span>
+-                                  </div>
+-                                ) : (
+-                                  <span className="text-[13px] font-extrabold tracking-wide">
+-                                    {display}
+-                                  </span>
+-                                )}
+-                              </div>
+-                            );
+-                          })}
+-                        </div>
+-                      )}
++                                  )}
++                                </div>
++                              );
++                            })}
++                          </div>
++                        )}
++                      </div>
++
++                      {/* Cell content (Macro View) */}
++                      <div className="cell-macro w-full h-full p-1">
++                        {!activePattern ? (
++                          /* Faded silence hatched block */
++                          <div
++                            className="w-full h-full opacity-[0.05] border border-dashed border-[var(--cordel-border)]/30 rounded"
++                            style={{
++                              backgroundImage:
++                                'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
++                              backgroundSize: '8px 8px',
++                            }}
++                          />
++                        ) : (
++                          /* Merged continuous visual block */
++                          <div
++                            className="macro-pattern-block w-full h-full flex flex-col justify-between p-1.5 border rounded-sm transition-all"
++                            style={{
++                              backgroundColor: `${inst.mixerBg}cc`, // semi-transparent instrument background
++                              borderColor: `${inst.colors['D'] || inst.colors['E'] || 'var(--cordel-border)'}40`,
++                              borderLeftWidth: '3px',
++                              borderLeftColor: inst.colors['D'] || inst.colors['E'] || 'var(--cordel-border)',
++                            }}
++                            title={`${activePattern.name || (lang === 'fr' ? 'Motif' : 'Padrão')} (${inst.name})`}
++                          >
++                            {/* Pattern Name */}
++                            <span className="font-cactus text-[9px] font-bold truncate tracking-wider uppercase text-[var(--cordel-text)] leading-none">
++                              {activePattern.vocalMode === 'micro' ? '🎙️ ' : ''}
++                              {activePattern.name || `${lang === 'fr' ? 'Motif' : 'Padrão'}`}
++                            </span>
++
++                            {/* Mini-beats density dots */}
++                            <div className="flex flex-wrap gap-[2px] items-center max-h-[12px] overflow-hidden opacity-90">
++                              {activePattern.activeSteps.map((val, sIdx) => {
++                                const isActive = val !== 0 && val !== '';
++                                if (!isActive) return null;
++                                const bg = inst.colors[val as string] || '#111';
++                                return (
++                                  <span
++                                    key={sIdx}
++                                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
++                                    style={{ backgroundColor: bg }}
++                                    title={String(val)}
++                                  />
++                                );
++                              })}
++                            </div>
++                          </div>
++                        )}
++                      </div>
+                     </div>
+                   );
+                 })}
