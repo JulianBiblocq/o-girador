@@ -1552,15 +1552,11 @@ export default function App() {
   };
 
   const applyPreset = async (p: any) => {
-    console.log("[BaqueMix] applyPreset started", p);
     try {
       setTracksHistory([]);
       setSongStructureHistory([]);
       setLetras(p.letras || '');
-      const loadedMetadata = p.metadata || { toada: '', nacao: '', compositor: '', ritmo: '' };
-      console.log("[BaqueMix] rhythmSignals in JSON:", loadedMetadata.rhythmSignals?.length ?? 0, "signals,", 
-        (loadedMetadata.rhythmSignals || []).map((s: any) => `${s.name}: image=${s.image ? s.image.substring(0,30)+'...' : 'EMPTY'}`));
-      setMetadata(loadedMetadata);
+      setMetadata(p.metadata || { toada: '', nacao: '', compositor: '', ritmo: '' });
       
       let loadedTracks: TrackGroup[] = [];
       let loadedMeasures = p.totalMeasures || 8;
@@ -3536,14 +3532,12 @@ export default function App() {
 
   // Master Load state from uploaded JSON
   const handleLoadState = (file: File) => {
-    console.log("[BaqueMix] handleLoadState started for file:", file.name);
+    console.log("[BaqueMix] handleLoadState called for file:", file.name);
     const reader = new FileReader();
     reader.onload = async (evt) => {
       try {
         const resultText = evt.target?.result as string;
-        console.log("[BaqueMix] File read successfully, parsing JSON...");
         const data = JSON.parse(resultText);
-        console.log("[BaqueMix] JSON parsed successfully, applying preset...");
         await applyPreset(data);
         console.log("[BaqueMix] Preset applied successfully!");
       } catch (err: any) {
@@ -3624,49 +3618,60 @@ export default function App() {
       const isMobileOrTablet = /Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent) ||
         ('ontouchstart' in window && navigator.maxTouchPoints > 0);
 
+      let sharedNatively = false;
+
       // Try native file sharing (works on Android Chrome, iOS Safari 15+, desktop Chrome with share target)
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        const shareText = lang === 'pt'
-          ? 'Ouvrir dans BaqueMix pour jouer ce rythme de Maracatu !'
-          : 'Ouvrez dans BaqueMix pour jouer ce rythme de Maracatu !';
-        await navigator.share({
-          title: metadata?.toada || 'BaqueMix',
-          text: shareText,
-          files: [file]
-        });
-        return;
+        try {
+          const shareText = lang === 'pt'
+            ? 'Abra no BaqueMix para jogar este ritmo de Maracatu!'
+            : 'Ouvrez dans BaqueMix pour jouer ce rythme de Maracatu !';
+          await navigator.share({
+            title: metadata?.toada || 'BaqueMix',
+            text: shareText,
+            files: [file]
+          });
+          sharedNatively = true;
+        } catch (shareErr: any) {
+          if (shareErr?.name === 'AbortError') {
+            // User cancelled/closed the share sheet. We should just return without downloading.
+            return;
+          }
+          console.warn('Native share failed, falling back to download', shareErr);
+        }
       }
 
-      // Fallback: download the file + show instructions
-      const dlUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = dlUrl;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(dlUrl), 5000);
+      if (!sharedNatively) {
+        // Fallback: download the file + show instructions
+        const dlUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = dlUrl;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(dlUrl), 5000);
 
-      if (isMobileOrTablet) {
-        window.alert(
-          lang === 'pt'
-            ? `Fichier "${fileName}" téléchargé !\nEnvoyez-le par WhatsApp, email, etc. Votre contact pourra l'ouvrir directement dans BaqueMix.`
-            : `Fichier "${fileName}" téléchargé !\nEnvoyez-le par WhatsApp, email, etc. Votre contact pourra l'ouvrir directement dans BaqueMix.`
-        );
-      } else {
-        window.alert(
-          lang === 'pt'
-            ? `Fichier "${fileName}" téléchargé !\nEnvoyez ce fichier à vos amis. Ils pourront l'importer dans BaqueMix via le bouton 📂.`
-            : `Fichier "${fileName}" téléchargé !\nEnvoyez ce fichier à vos amis. Ils pourront l'importer dans BaqueMix via le bouton 📂.`
-        );
+        if (isMobileOrTablet) {
+          window.alert(
+            lang === 'pt'
+              ? `Arquivo "${fileName}" baixado!\nEnvie-o pelo WhatsApp, e-mail, etc. Seu contato poderá abri-lo diretamente no BaqueMix.`
+              : `Fichier "${fileName}" téléchargé !\nEnvoyez-le par WhatsApp, email, etc. Votre contact pourra l'ouvrir directement dans BaqueMix.`
+          );
+        } else {
+          window.alert(
+            lang === 'pt'
+              ? `Arquivo "${fileName}" baixado!\nEnvie este arquivo para seus amigos. Eles poderão importá-lo no BaqueMix através do botão 📂.`
+              : `Fichier "${fileName}" téléchargé !\nEnvoyez ce fichier à vos amis. Ils pourront l'importer dans BaqueMix via le bouton 📂.`
+          );
+        }
       }
     } catch (e: any) {
-      if (e?.name === 'AbortError') return; // user dismissed share sheet — not an error
-      console.error('Failed to share preset file', e);
+      console.error('Failed to prepare or download preset file', e);
       window.alert(
         lang === 'pt'
-          ? 'Erreur lors du partage. Réessayez ou utilisez le bouton Sauvegarder.'
-          : 'Erreur lors du partage. Réessayez ou utilisez le bouton Sauvegarder.'
+          ? 'Erro ao exportar o ritmo. Por favor, tente novamente.'
+          : 'Erreur lors de l\'exportation du rythme. Veuillez réessayer.'
       );
     }
   }
