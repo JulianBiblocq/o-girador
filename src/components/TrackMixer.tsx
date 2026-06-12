@@ -314,7 +314,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                 className={`text-[10px] font-cactus font-bold cursor-pointer ${track.selectedPatternId === ptn.id ? 'text-[#1a1a1a]' : 'text-[#666]'}`}
                 onClick={() => onSelectPattern(ptn.id)}
               >
-                {t('patterns').slice(0,-1)} {idx + 1}
+                {ptn.name ? ptn.name : `${t('patterns').slice(0,-1)} ${idx + 1}`}
               </span>
             </div>
           ))}

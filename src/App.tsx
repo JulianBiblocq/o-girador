@@ -1354,28 +1354,48 @@ export default function App() {
   useEffect(() => {
     const hash = window.location.hash;
     let loadedFromHash = false;
-    if (hash && hash.startsWith('#state=')) {
+
+    const tryLoadHash = async () => {
+      if (!hash || !hash.startsWith('#state=')) return false;
+      const encoded = hash.substring(7);
+      // Try new compressed format first (gzip + base64url)
       try {
-        const base64Str = hash.substring(7);
-        const jsonStr = decodeURIComponent(escape(atob(base64Str)));
+        const padding = '='.repeat((4 - encoded.length % 4) % 4);
+        const standard = (encoded + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const binary = atob(standard);
+        const bytes = new Uint8Array([...binary].map(c => c.charCodeAt(0)));
+        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+        const jsonStr = await new Response(stream).text();
         const stateData = JSON.parse(jsonStr);
         applyPresetState(stateData);
-        loadedFromHash = true;
+        return true;
+      } catch (_) {}
+      // Fallback: try old uncompressed base64 format
+      try {
+        const jsonStr = decodeURIComponent(escape(atob(encoded)));
+        const stateData = JSON.parse(jsonStr);
+        applyPresetState(stateData);
+        return true;
       } catch (err) {
-        console.error("Failed to load shared state from URL hash:", err);
+        console.error('Failed to load shared state from URL hash:', err);
       }
-    }
+      return false;
+    };
 
-    fetch(`${ASSETS_BASE_URL}presets/catalog.json`)
-      .then((res) => res.json())
-      .then((files: string[]) => {
-        setPresetFiles(files);
-        if (files.length > 0 && !loadedFromHash) {
-          setActivePresetName(files[0]);
-          loadFallbackPreset(files[0]);
-        }
-      })
-      .catch((err) => console.error("Could not load catalog.json:", err));
+    tryLoadHash().then((loaded) => {
+      loadedFromHash = loaded;
+
+      fetch(`${ASSETS_BASE_URL}presets/catalog.json`)
+        .then((res) => res.json())
+        .then((files: string[]) => {
+          setPresetFiles(files);
+          if (files.length > 0 && !loadedFromHash) {
+            setActivePresetName(files[0]);
+            loadFallbackPreset(files[0]);
+          }
+        })
+        .catch((err) => console.error('Could not load catalog.json:', err));
+    });
   }, []);
 
   // Sync levels display bar via non-re-rendering dynamic canvas interval
@@ -2129,34 +2149,36 @@ export default function App() {
   };
 
   const handleTrackMuteToggle = (id: number) => {
-    setTracks(tracks.map((t) => (t.id === id ? { ...t, isMute: !t.isMute } : t)));
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, isMute: !t.isMute } : t)));
   };
 
   const handleTrackSoloToggle = (id: number) => {
-    setTracks(tracks.map((t) => (t.id === id ? { ...t, isSolo: !t.isSolo } : t)));
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, isSolo: !t.isSolo } : t)));
   };
 
   const handleTrackHideToggle = (id: number) => {
-    setTracks(tracks.map((t) => (t.id === id ? { ...t, isHidden: !t.isHidden } : t)));
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, isHidden: !t.isHidden } : t)));
   };
 
   const handleTrackDelete = (id: number) => {
     pushUndoState();
-    const remaining = tracks.filter((t) => t.id !== id);
-    updateRadii(remaining);
-    setTracks(remaining);
+    setTracks(prev => {
+      const remaining = prev.filter((t) => t.id !== id);
+      updateRadii(remaining);
+      return remaining;
+    });
   };
 
   const handleTrackVolumeChange = (id: number, val: number) => {
-    setTracks(tracks.map((t) => (t.id === id ? { ...t, volumeVal: val } : t)));
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, volumeVal: val } : t)));
   };
 
   const handleTrackReverbChange = (id: number, val: number) => {
-    setTracks(tracks.map((t) => (t.id === id ? { ...t, reverbVal: val } : t)));
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, reverbVal: val } : t)));
   };
 
   const handleTrackStepVolumeChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
-    setTracks(tracks.map(t => {
+    setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         return {
           ...t,
@@ -2181,7 +2203,7 @@ export default function App() {
   };
 
   const handleTrackStepDecayChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
-    setTracks(tracks.map(t => {
+    setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         return {
           ...t,
@@ -2206,7 +2228,7 @@ export default function App() {
   };
 
   const handleTrackStepMicrotimingChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
-    setTracks(tracks.map(t => {
+    setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         return {
           ...t,
@@ -2232,7 +2254,7 @@ export default function App() {
 
   const handleResetTrackMicrotimings = (trackId: number, patternId: number) => {
     pushUndoState();
-    setTracks(tracks.map(t => {
+    setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         return {
           ...t,
@@ -2249,13 +2271,13 @@ export default function App() {
   };
 
   const handleTrackPanChange = (id: number, val: number) => {
-    setTracks(tracks.map((t) => (t.id === id ? { ...t, panVal: val } : t)));
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, panVal: val } : t)));
   };
 
   const handleTrackStepsChange = (trackId: number, patternId: number, targetSteps: number) => {
     pushUndoState();
-    setTracks(
-      tracks.map((t) => {
+    setTracks(prev =>
+      prev.map((t) => {
         if (t.id === trackId) {
           const nextPatterns = t.patterns.map(p => {
             if (p.id === patternId) {
@@ -2802,7 +2824,7 @@ export default function App() {
   const handleTrackStepValueChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
     pushUndoState();
     const cleanChar = val.slice(-1);
-    setTracks(tracks.map(t => {
+    setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         const nextPatterns = t.patterns.map(p => {
           if (p.id === patternId) {
@@ -3200,7 +3222,7 @@ export default function App() {
   // Vocals inputs handlers
   const handleVoiceTypeToggle = (trackId: number, patternId: number, stepIdx: number) => {
     pushUndoState();
-    setTracks(tracks.map(t => {
+    setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         const nextPatterns = t.patterns.map(p => {
           if (p.id === patternId) {
@@ -3223,7 +3245,7 @@ export default function App() {
     if (prevVal === '' && val !== '') {
       pushUndoState();
     }
-    setTracks(tracks.map(t => {
+    setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         const nextPatterns = t.patterns.map(p => {
           if (p.id === patternId) {
@@ -3255,7 +3277,7 @@ export default function App() {
     if (prevVal === '' && val !== '') {
       pushUndoState();
     }
-    setTracks(tracks.map(t => {
+    setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         const nextPatterns = t.patterns.map(p => {
           if (p.id === patternId) {
@@ -3277,7 +3299,7 @@ export default function App() {
     if (trimmed.length === 1 || (trimmed.length === 2 && (trimmed.includes('#') || trimmed.includes('b')))) {
       if (/^[a-gA-G][#b]?$/.test(trimmed)) {
         const completedNote = trimmed.toUpperCase() + '4';
-        setTracks(tracks.map(t => {
+        setTracks(prev => prev.map(t => {
           if (t.id === trackId) {
             const nextPatterns = t.patterns.map(p => {
               if (p.id === patternId) {
@@ -3476,7 +3498,7 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  function handleShare() {
+  async function handleShare() {
     const cleanMetadata = metadata ? {
       ...metadata,
       partitionImage: undefined,
@@ -3486,28 +3508,47 @@ export default function App() {
       })) : undefined
     } : undefined;
 
+    // Strip redundant per-measure arrays when all values are identical to defaults
+    const defaultBpm = measureBpms[0] ?? bpm;
+    const defaultTimeSig = measureTimeSigs[0] ?? timeSig;
+    const defaultVol = measureVols[0] ?? 100;
+    const allBpmsSame = measureBpms.every(v => v === defaultBpm);
+    const allTimeSigsSame = measureTimeSigs.every(v => v === defaultTimeSig);
+    const allVolsSame = measureVols.every(v => v === defaultVol);
+    const allBpmTransSame = measureBpmTransitions.every(v => v === 'immediate');
+    const allVolTransSame = measureVolTransitions.every(v => v === 'immediate');
+    const hasSignals = (measureSignals || []).some(s => s !== null);
+
     const dataToSave: Preset = {
       bpm,
       timeSig,
       totalMeasures,
       tracks,
-      letras,
       metadata: cleanMetadata,
-      measureTimeSigs,
-      measureBpms,
-      measureBpmTransitions,
-      measureVols,
-      measureVolTransitions,
-      songSections,
-      measureSignals,
+      ...(allBpmsSame ? {} : { measureBpms }),
+      ...(allTimeSigsSame ? {} : { measureTimeSigs }),
+      ...(allVolsSame ? {} : { measureVols }),
+      ...(allBpmTransSame ? {} : { measureBpmTransitions }),
+      ...(allVolTransSame ? {} : { measureVolTransitions }),
+      ...(songSections && songSections.length > 0 ? { songSections } : {}),
+      ...(hasSignals ? { measureSignals } : {}),
       masterEQ,
       masterCompressor
     };
     try {
       const jsonStr = JSON.stringify(dataToSave);
-      const base64Str = btoa(unescape(encodeURIComponent(jsonStr)));
-      const shareUrl = window.location.origin + window.location.pathname + '#state=' + base64Str;
-      
+      console.log('[Share] JSON size before compression:', jsonStr.length, 'bytes');
+
+      // Compress with gzip using native CompressionStream
+      const stream = new Blob([jsonStr]).stream().pipeThrough(new CompressionStream('gzip'));
+      const buffer = await new Response(stream).arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      const binary = String.fromCharCode(...bytes);
+      const base64url = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+      const shareUrl = window.location.origin + window.location.pathname + '#state=' + base64url;
+      console.log('[Share] Compressed URL length:', shareUrl.length);
+
       const text = lang === 'pt' 
         ? 'Descubra BaqueMix, um sequenciador de ritmos de Maracatu!' 
         : 'Découvrez BaqueMix, un séquenceur de rythmes de Maracatu !';
@@ -3733,10 +3774,10 @@ export default function App() {
                 onToggleLeftPanel={() => setIsLeftPanelCollapsed(true)}
                 totalMeasures={totalMeasures}
                 onTrackSelectPattern={(trackId, patternId) => {
-                  setTracks(tracks.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
+                  setTracks(prev => prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
                 }}
                 onPatternAssign={(trackId, patternId, measureIdx, val) => {
-                  setTracks(tracks.map(t => {
+                  setTracks(prev => prev.map(t => {
                     if (t.id === trackId) {
                       const nextPatterns = t.patterns.map(p => {
                         if (p.id === patternId) {
@@ -3752,7 +3793,7 @@ export default function App() {
                   }));
                 }}
                 onAddPattern={(trackId) => {
-                  setTracks(tracks.map(t => {
+                  setTracks(prev => prev.map(t => {
                     if (t.id === trackId) {
                       const p = t.patterns[0];
                       const newPattern: Pattern = {
@@ -3773,7 +3814,7 @@ export default function App() {
                   }));
                 }}
                 onDeletePattern={(trackId, patternId) => {
-                  setTracks(tracks.map(t => {
+                  setTracks(prev => prev.map(t => {
                     if (t.id === trackId && t.patterns.length > 1) {
                       const nextPatterns = t.patterns.filter(p => p.id !== patternId);
                       const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;
@@ -3863,12 +3904,12 @@ export default function App() {
               masterCompressor={masterCompressor}
               onMasterCompressorChange={setMasterCompressor}
               onTrackSelectPattern={(trackId, patternId) => {
-                setTracks(tracks.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
+                setTracks(prev => prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
               }}
               onPatternNameChange={handlePatternNameChange}
               onPatternAssign={(trackId, patternId, measureIdx, val) => {
                 pushUndoState();
-                setTracks(tracks.map(t => {
+                setTracks(prev => prev.map(t => {
                   if (t.id === trackId) {
                     const nextPatterns = t.patterns.map(p => {
                       if (p.id === patternId) {
@@ -3885,7 +3926,7 @@ export default function App() {
               }}
               onAddPattern={(trackId) => {
                 pushUndoState();
-                setTracks(tracks.map(t => {
+                setTracks(prev => prev.map(t => {
                   if (t.id === trackId) {
                     const p = t.patterns[0];
                     const newPattern: Pattern = {
@@ -3907,7 +3948,7 @@ export default function App() {
               }}
               onDeletePattern={(trackId, patternId) => {
                 pushUndoState();
-                setTracks(tracks.map(t => {
+                setTracks(prev => prev.map(t => {
                   if (t.id === trackId && t.patterns.length > 1) {
                     const nextPatterns = t.patterns.filter(p => p.id !== patternId);
                     const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;

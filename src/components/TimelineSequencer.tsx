@@ -1071,7 +1071,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                           </option>
                           {track.patterns.map((p, pidx) => (
                             <option key={p.id} value={String(p.id)}>
-                              {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `Padrão ${pidx + 1}`}
+                              {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
                             </option>
                           ))}
                         </select>
