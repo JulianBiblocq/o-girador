@@ -108,6 +108,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
       case 'F': return isPt ? 'Fla' : 'Fla';
       case 'C': return isPt ? 'Click' : 'Click';
+      case 'T': return isPt ? 'Trêmulo' : 'Trémolo';
       default: return stroke;
     }
   }

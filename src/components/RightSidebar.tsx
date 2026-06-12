@@ -366,25 +366,25 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
               <div className="flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#3a506b] text-[#f4ecd8]">
-                    X / x
+                    X
                   </span>
                   <span>{t('legendTarolCerclage')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#60a5fa] text-[#1a1a1a]">
-                    F / f
+                    F
                   </span>
                   <span>{t('legendTarolFla')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#bfdbfe] text-[#1a1a1a]">
-                    C / c
+                    C
                   </span>
                   <span>{t('legendTarolClick')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#10b981] text-[#f4ecd8]">
-                    T / t
+                    T
                   </span>
                   <span>{t('legendTarolTremer')}</span>
                 </div>

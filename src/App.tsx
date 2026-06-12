@@ -322,7 +322,7 @@ const base64ToBlob = (base64Data: string): Blob => {
 };
 
 export default function App() {
-  const CURRENT_VERSION = 33; // Matches version.json
+  const CURRENT_VERSION = 34; // Matches version.json
 
   // PWA Auto-Update Check
   useEffect(() => {
@@ -3090,6 +3090,8 @@ export default function App() {
                   parsed = 'F';
                 } else if (lowerChar === 'c') {
                   parsed = 'C';
+                } else if (lowerChar === 't') {
+                  parsed = 'T';
                 }
               } else if (inst.id === 'agbe') {
                 const lowerChar = cleanChar.toLowerCase();

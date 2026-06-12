@@ -51,7 +51,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#102a3a',
     path: 'Tarol',
-    colors: { 'd': '#3b82f6', 'D': '#1e3a8a', 'e': '#93c5fd', 'E': '#2563eb', 'X': '#3a506b', 'F': '#60a5fa', 'C': '#bfdbfe', text: '#f4ecd8' }
+    colors: { 'd': '#3b82f6', 'D': '#1e3a8a', 'e': '#93c5fd', 'E': '#2563eb', 'X': '#3a506b', 'F': '#60a5fa', 'C': '#bfdbfe', 'T': '#059669', text: '#f4ecd8' }
   },
   {
     id: 'gongue',
