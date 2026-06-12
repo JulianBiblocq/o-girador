@@ -1398,6 +1398,25 @@ export default function App() {
     });
   }, []);
 
+  // PWA File Handler: handle files opened via the OS file handler (launchQueue API)
+  useEffect(() => {
+    if ('launchQueue' in window) {
+      (window as any).launchQueue.setConsumer(async (launchParams: any) => {
+        if (!launchParams.files || launchParams.files.length === 0) return;
+        try {
+          const fileHandle = launchParams.files[0];
+          const file: File = await fileHandle.getFile();
+          if (!file.name.endsWith('.json')) return;
+          const text = await file.text();
+          const data = JSON.parse(text);
+          applyPresetState(data);
+        } catch (err) {
+          console.error('Failed to load file from launchQueue:', err);
+        }
+      });
+    }
+  }, []);
+
   // Sync levels display bar via non-re-rendering dynamic canvas interval
   useEffect(() => {
     const dbToPercent = (db: number) => {
@@ -3524,6 +3543,7 @@ export default function App() {
       timeSig,
       totalMeasures,
       tracks,
+      letras,
       metadata: cleanMetadata,
       ...(allBpmsSame ? {} : { measureBpms }),
       ...(allTimeSigsSame ? {} : { measureTimeSigs }),
@@ -3535,77 +3555,70 @@ export default function App() {
       masterEQ,
       masterCompressor
     };
+
     try {
-      const jsonStr = JSON.stringify(dataToSave);
-      console.log('[Share] JSON size before compression:', jsonStr.length, 'bytes');
-
-      // Compress with gzip using native CompressionStream
-      const stream = new Blob([jsonStr]).stream().pipeThrough(new CompressionStream('gzip'));
-      const buffer = await new Response(stream).arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      const binary = String.fromCharCode(...bytes);
-      const base64url = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-
-      const shareUrl = window.location.origin + window.location.pathname + '#state=' + base64url;
-      console.log('[Share] Compressed URL length:', shareUrl.length);
-
-      const text = lang === 'pt' 
-        ? 'Descubra BaqueMix, um sequenciador de ritmos de Maracatu!' 
-        : 'Découvrez BaqueMix, un séquenceur de rythmes de Maracatu !';
-      
-      const copyToClipboard = () => {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(shareUrl).then(() => {
-            window.alert(lang === 'pt' ? 'Link de compartilhamento copiado para a área de transferência!' : 'Lien de partage copié dans le presse-papiers !');
-          }).catch((err) => {
-            fallbackCopyText(shareUrl);
-          });
-        } else {
-          fallbackCopyText(shareUrl);
-        }
-      };
-
-      const fallbackCopyText = (textToCopy: string) => {
-        try {
-          const textArea = document.createElement("textarea");
-          textArea.value = textToCopy;
-          textArea.style.position = "fixed";  // Avoid scrolling to bottom
-          document.body.appendChild(textArea);
-          textArea.focus();
-          textArea.select();
-          const successful = document.execCommand('copy');
-          document.body.removeChild(textArea);
-          if (successful) {
-            window.alert(lang === 'pt' ? 'Link de compartilhamento copiado!' : 'Lien de partage copié !');
-          } else {
-            showUrlPrompt(textToCopy);
-          }
-        } catch (err) {
-          showUrlPrompt(textToCopy);
-        }
-      };
-
-      const showUrlPrompt = (textToPrompt: string) => {
-        window.prompt(lang === 'pt' ? 'Copie o link abaixo para compartilhar:' : 'Copiez le lien ci-dessous pour partager :', textToPrompt);
-      };
-
-      const isMobileOrTablet = /Mobi|Android|iPhone|iPad|Tablet|Macintosh/i.test(navigator.userAgent) && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-
-      if (isMobileOrTablet && navigator.share) {
-        navigator.share({
-          title: 'BaqueMix',
-          text: text,
-          url: shareUrl
-        }).catch((err) => {
-          console.warn("Share sheet failed, falling back to clipboard copy", err);
-          copyToClipboard();
-        });
-      } else {
-        copyToClipboard();
+      // Build a clean filename from the title metadata
+      let fileName = 'baquemix_rythme.json';
+      if (metadata?.toada && metadata.toada.trim() !== '') {
+        const cleanTitle = metadata.toada.trim()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9_\- ]/gi, '')
+          .trim()
+          .replace(/\s+/g, '_');
+        if (cleanTitle) fileName = `${cleanTitle}.json`;
       }
-    } catch (e) {
-      console.error("Failed to generate share link", e);
-      window.alert(lang === 'pt' ? 'Erro ao gerar o link de compartilhamento.' : 'Erreur lors de la génération du lien de partage.');
+
+      const jsonStr = JSON.stringify(dataToSave, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const file = new File([blob], fileName, { type: 'application/json' });
+
+      const isMobileOrTablet = /Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent) ||
+        ('ontouchstart' in window && navigator.maxTouchPoints > 0);
+
+      // Try native file sharing (works on Android Chrome, iOS Safari 15+, desktop Chrome with share target)
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        const shareText = lang === 'pt'
+          ? 'Ouvrir dans BaqueMix pour jouer ce rythme de Maracatu !'
+          : 'Ouvrez dans BaqueMix pour jouer ce rythme de Maracatu !';
+        await navigator.share({
+          title: metadata?.toada || 'BaqueMix',
+          text: shareText,
+          files: [file]
+        });
+        return;
+      }
+
+      // Fallback: download the file + show instructions
+      const dlUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = dlUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 5000);
+
+      if (isMobileOrTablet) {
+        window.alert(
+          lang === 'pt'
+            ? `Fichier "${fileName}" téléchargé !\nEnvoyez-le par WhatsApp, email, etc. Votre contact pourra l'ouvrir directement dans BaqueMix.`
+            : `Fichier "${fileName}" téléchargé !\nEnvoyez-le par WhatsApp, email, etc. Votre contact pourra l'ouvrir directement dans BaqueMix.`
+        );
+      } else {
+        window.alert(
+          lang === 'pt'
+            ? `Fichier "${fileName}" téléchargé !\nEnvoyez ce fichier à vos amis. Ils pourront l'importer dans BaqueMix via le bouton 📂.`
+            : `Fichier "${fileName}" téléchargé !\nEnvoyez ce fichier à vos amis. Ils pourront l'importer dans BaqueMix via le bouton 📂.`
+        );
+      }
+    } catch (e: any) {
+      if (e?.name === 'AbortError') return; // user dismissed share sheet — not an error
+      console.error('Failed to share preset file', e);
+      window.alert(
+        lang === 'pt'
+          ? 'Erreur lors du partage. Réessayez ou utilisez le bouton Sauvegarder.'
+          : 'Erreur lors du partage. Réessayez ou utilisez le bouton Sauvegarder.'
+      );
     }
   }
 

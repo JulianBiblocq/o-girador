@@ -27,5 +27,22 @@
   "display": "standalone",
   "orientation": "any",
   "lang": "pt-BR",
-  "categories": ["music", "education"]
+  "categories": ["music", "education"],
+  "file_handlers": [
+    {
+      "action": ".",
+      "accept": {
+        "application/json": [".json"]
+      }
+    }
+  ],
+  "share_target": {
+    "action": ".",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }
