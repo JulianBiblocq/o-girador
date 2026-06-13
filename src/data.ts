@@ -15,7 +15,8 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#3a1010',
     path: 'Alfaia/Marcante',
-    colors: { 'd': '#632b2b', 'D': '#8a2b2b', 'e': '#b55a5a', 'E': '#c74c4c', 't': '#4c1c1c', 'x': '#8c7b7b', 'i': '#ff8da1', 'c': '#a89f91', 'C': '#a89f91', text: '#f4ecd8' }
+    colors: { 'd': '#632b2b', 'D': '#8a2b2b', 'e': '#b55a5a', 'E': '#c74c4c', 't': '#4c1c1c', 'x': '#8c7b7b', 'i': '#ff8da1', 'c': '#a89f91', 'C': '#a89f91', text: '#f4ecd8' },
+    color: '#8a2b2b'
   },
   {
     id: 'meiao',
@@ -24,7 +25,8 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#3a2010',
     path: 'Alfaia/Meiao',
-    colors: { 'd': '#8c502b', 'D': '#ab5318', 'e': '#c79c3e', 'E': '#c98124', 't': '#4c2c16', 'x': '#9c8476', 'i': '#ffb74d', 'c': '#a89f91', 'C': '#a89f91', text: '#f4ecd8' }
+    colors: { 'd': '#8c502b', 'D': '#ab5318', 'e': '#c79c3e', 'E': '#c98124', 't': '#4c2c16', 'x': '#9c8476', 'i': '#ffb74d', 'c': '#a89f91', 'C': '#a89f91', text: '#f4ecd8' },
+    color: '#ab5318'
   },
   {
     id: 'repique',
@@ -33,7 +35,8 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#3a3010',
     path: 'Alfaia/Repique',
-    colors: { 'd': '#947f2b', 'D': '#c9a724', 'e': '#d4cca1', 'E': '#d4c492', 't': '#4d441c', 'x': '#9c9984', 'i': '#fff59d', 'c': '#a89f91', 'C': '#a89f91', text: '#1a1a1a' }
+    colors: { 'd': '#947f2b', 'D': '#c9a724', 'e': '#d4cca1', 'E': '#d4c492', 't': '#4d441c', 'x': '#9c9984', 'i': '#fff59d', 'c': '#a89f91', 'C': '#a89f91', text: '#1a1a1a' },
+    color: '#c9a724'
   },
   {
     id: 'caixa',
@@ -42,7 +45,8 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#2a103a',
     path: 'Caixa',
-    colors: { 'd': '#3f255e', 'D': '#4c267a', 'e': '#925c9c', 'E': '#7a3187', 'rd': '#a855f7', 're': '#d8b4fe', 'x': '#7e7b8c', 'f': '#d946ef', 't': '#4a044e', text: '#f4ecd8' }
+    colors: { 'd': '#3f255e', 'D': '#4c267a', 'e': '#925c9c', 'E': '#7a3187', 'rd': '#a855f7', 're': '#d8b4fe', 'x': '#7e7b8c', 'f': '#d946ef', 't': '#4a044e', text: '#f4ecd8' },
+    color: '#7a3187'
   },
   {
     id: 'tarol',
@@ -51,7 +55,8 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#102a3a',
     path: 'Tarol',
-    colors: { 'd': '#3b82f6', 'D': '#1e3a8a', 'e': '#93c5fd', 'E': '#2563eb', 'X': '#3a506b', 'F': '#60a5fa', 'C': '#bfdbfe', 'T': '#0284c7', text: '#f4ecd8' }
+    colors: { 'd': '#3b82f6', 'D': '#1e3a8a', 'e': '#93c5fd', 'E': '#2563eb', 'Rd': '#312e81', 'Re': '#818cf8', 'X': '#3a506b', 'F': '#60a5fa', 'C': '#bfdbfe', 'T': '#0284c7', text: '#f4ecd8' },
+    color: '#2563eb'
   },
   {
     id: 'gongue',
@@ -60,7 +65,8 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'gongue',
     mixerBg: '#1a1a1a',
     path: 'Gongue',
-    colors: { 'grv': '#444444', 'GRV': '#222222', 'aig': '#7f8c8d', 'AIG': '#bdc3c7', 't': '#6d4c41', text: '#f4ecd8' }
+    colors: { 'grv': '#444444', 'GRV': '#222222', 'aig': '#7f8c8d', 'AIG': '#bdc3c7', 't': '#6d4c41', text: '#f4ecd8' },
+    color: '#bdc3c7'
   },
   {
     id: 'agbe',
@@ -69,7 +75,8 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'shake',
     mixerBg: '#103a20',
     path: 'Agbe',
-    colors: { 'e': '#22c55e', 'E': '#15803d', 'd': '#86efac', 'D': '#4ade80', 's': '#dcfce7', 't': '#052e16', text: '#f4ecd8' }
+    colors: { 'e': '#22c55e', 'E': '#15803d', 'd': '#86efac', 'D': '#4ade80', 's': '#dcfce7', 't': '#052e16', text: '#f4ecd8' },
+    color: '#22c55e'
   },
   {
     id: 'mineiro',
@@ -78,7 +85,8 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'shake',
     mixerBg: '#3a1a10',
     path: 'Mineiro',
-    colors: { 'p': '#ea580c', 'P': '#c2410c', 't': '#fdba74', 'T': '#f97316', text: '#f4ecd8' }
+    colors: { 'p': '#ea580c', 'P': '#c2410c', 't': '#fdba74', 'T': '#f97316', text: '#f4ecd8' },
+    color: '#ea580c'
   },
   {
     id: 'voice',
@@ -87,7 +95,8 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'voice',
     mixerBg: '#114a4a',
     path: 'internal',
-    colors: { 'C': '#449c9c', 'P': '#c4864b', text: '#f4ecd8' }
+    colors: { 'C': '#449c9c', 'P': '#c4864b', text: '#f4ecd8' },
+    color: '#449c9c'
   }
 ];
 

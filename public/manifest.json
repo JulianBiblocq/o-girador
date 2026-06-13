@@ -2,8 +2,8 @@
   "name": "BaqueMix - Sequenciador de Maracatu de Baque Virado",
   "short_name": "BaqueMix",
   "description": "Sequenciador interativo de ritmos de Maracatu de Baque Virado. Crie, visualize e escute padrões rítmicos.",
-  "start_url": ".",
-  "scope": ".",
+  "start_url": "/BaqueMix/",
+  "scope": "/BaqueMix/",
   "icons": [
     {
       "src": "favicon.svg",

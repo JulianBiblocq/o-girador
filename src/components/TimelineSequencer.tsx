@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
+import * as Tone from 'tone';
 import { TrackGroup, Language, TimeSignature, SongSection, PresetMetadata, RhythmSignal } from '../types';
 import { ASSETS_BASE_URL, instrumentsConfig, getMaxTicks, getMarkers, isDarkText } from '../data';
 
@@ -111,6 +112,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   const HEADER_W = isMacro ? 120 : 180;
   const MEASURE_W = measureWidth;
   const scrollRef = useRef<HTMLDivElement>(null);
+  const playheadRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
   // Navigation & Snapping States
@@ -467,18 +469,54 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     };
   }, []);
 
-  // Auto-scroll to keep playhead visible
+  // Listen to CustomEvent 'baquemix-tick' to move playhead and handle auto-scroll (Bypass React)
   React.useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    if (!isPlaying || currentStepIndex < 0) {
-      if (currentStepIndex === -1) el.scrollLeft = 0;
-      return;
+    const handleTick = (e: Event) => {
+      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
+      const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+      
+      const el = playheadRef.current;
+      if (!el) return;
+
+      if (step < 0) {
+        el.style.display = 'none';
+        return;
+      }
+
+      // Calculate position using pre-calculated ratio
+      const playheadX = measure * MEASURE_W + ratio * MEASURE_W;
+      
+      // Direct DOM manipulation
+      el.style.transform = `translateX(${HEADER_W + playheadX}px)`;
+      el.style.display = 'block';
+
+      // Auto-scroll logic inside custom event listener
+      const scrollEl = scrollRef.current;
+      if (scrollEl && isPlaying) {
+        const vw = scrollEl.clientWidth - HEADER_W;
+        if (vw > 0) {
+          scrollEl.scrollLeft = Math.max(0, playheadX - vw * 0.4);
+        }
+      }
+    };
+
+    window.addEventListener('baquemix-tick', handleTick);
+    return () => {
+      window.removeEventListener('baquemix-tick', handleTick);
+    };
+  }, [isPlaying, MEASURE_W, HEADER_W]);
+
+  // Handle resetting scroll and hiding playhead when play stops/rewinds
+  React.useEffect(() => {
+    if (!isPlaying && currentStepIndex === -1) {
+      const el = scrollRef.current;
+      if (el) el.scrollLeft = 0;
+      
+      if (playheadRef.current) {
+        playheadRef.current.style.display = 'none';
+      }
     }
-    const vw = el.clientWidth - HEADER_W;
-    if (vw <= 0) return;
-    el.scrollLeft = Math.max(0, playheadX - vw * 0.4);
-  }, [currentStepIndex, currentMeasure, isPlaying, playheadX, HEADER_W]);
+  }, [isPlaying, currentStepIndex]);
 
   // Viewport Panning logic
   const handleViewportPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1463,7 +1501,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                     {/* Dropdown de sélection */}
                     {signalDropdownOpen === mIdx && (
                       <div
-                        className="absolute top-full left-0 z-50 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] shadow-lg min-w-[140px] flex flex-col py-1"
+                        className="absolute top-full left-0 z-50 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] cordel-shadow min-w-[140px] flex flex-col py-1"
                         style={{ marginTop: 2 }}
                         onClick={e => e.stopPropagation()}
                       >
@@ -1760,13 +1798,17 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
             );
           })}
 
-          {/* ══════════ PLAYHEAD ══════════ */}
-          {currentStepIndex >= 0 && (
-            <div
-              className="absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-30 shadow-[0_0_10px_rgba(220,38,38,0.7)]"
-              style={{ left: `${HEADER_W + playheadX}px` }}
-            />
-          )}
+          {/* ══════════ PLAYHEAD (Bypass React via Ref) ══════════ */}
+          <div
+            ref={playheadRef}
+            className="absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-30 shadow-[0_0_10px_rgba(220,38,38,0.7)]"
+            style={{
+              left: 0,
+              transform: `translateX(${HEADER_W + (currentStepIndex >= 0 ? currentMeasure * MEASURE_W + (tickPos / currentMeasureTicks) * MEASURE_W : 0)}px)`,
+              display: currentStepIndex >= 0 ? 'block' : 'none',
+              willChange: 'transform',
+            }}
+          />
 
           {/* ══════════ SNAP GUIDE (📍 NEW) ══════════ */}
           {snapGuideX !== null && (
@@ -1780,7 +1822,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
 
       {/* 📍 NEW - Panning Hotkey overlay tooltip (similar to sandbox) */}
       {isPanningActive && (
-        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 bg-[var(--cordel-bg)] border border-[var(--cordel-border)]/50 rounded-full px-4 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] shadow-lg z-50 flex items-center gap-1.5 animate-pulse uppercase tracking-wider">
+        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 bg-[var(--cordel-bg)] border border-[var(--cordel-border)]/50 rounded-full px-4 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] cordel-shadow z-50 flex items-center gap-1.5 animate-pulse uppercase tracking-wider">
           <span>✋ {lang === 'fr' ? 'Mode Déplacement Actif' : 'Modo Arrastar Ativo'}</span>
           <span className="text-[8px] opacity-60 normal-case">{lang === 'fr' ? '(Glissez le fond pour scroller)' : '(Arraste o fundo para rolar)'}</span>
         </div>
@@ -1798,51 +1840,51 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
       {/* ══════════ SECTION FORM MODAL ══════════ */}
       {sectionModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs">
-          <div className="w-[360px] bg-[#f4ecd8] text-[#1a1a1a] p-5 cordel-border-sm shadow-2xl flex flex-col gap-4">
-            <h3 className="font-cactus text-xl font-bold uppercase border-b border-[#1a1a1a] pb-2 text-[#1a1a1a]">
+          <div className="w-[360px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-5 cordel-border-sm cordel-shadow flex flex-col gap-4">
+            <h3 className="font-cactus text-xl font-bold uppercase border-b border-[var(--cordel-border)] pb-2 text-[var(--cordel-text)]">
               {editingSection 
                 ? (lang === 'fr' ? 'Modifier la Section' : 'Editar Seção')
                 : (lang === 'fr' ? 'Créer une Section' : 'Criar Seção')}
             </h3>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold uppercase text-[#1a1a1a]">{lang === 'fr' ? 'Nom de la section' : 'Nome da seção'}</label>
+              <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">{lang === 'fr' ? 'Nom de la section' : 'Nome da seção'}</label>
               <input
                 type="text"
                 value={sectionFormName}
                 onChange={(e) => setSectionFormName(e.target.value)}
                 placeholder="Ex: Partie A / Refrain"
-                className="w-full bg-[#eaddcf] border-2 border-[#1a1a1a] px-3 py-1.5 text-sm font-bold outline-none rounded-none focus:bg-[#eaddcf]/80 text-[#1a1a1a]"
+                className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-3 py-1.5 text-sm font-bold outline-none rounded-none focus:bg-[var(--cordel-border)]/10 text-[var(--cordel-text)]"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold uppercase text-[#1a1a1a]">{lang === 'fr' ? 'Début (Mesure)' : 'Compasso inicial'}</label>
+                <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">{lang === 'fr' ? 'Début (Mesure)' : 'Compasso inicial'}</label>
                 <input
                   type="number"
                   min={1}
                   max={totalMeasures}
                   value={sectionFormStart}
                   onChange={(e) => setSectionFormStart(Math.max(1, Math.min(totalMeasures, parseInt(e.target.value) || 1)))}
-                  className="w-full bg-[#eaddcf] border-2 border-[#1a1a1a] px-2 py-1.5 text-sm font-bold outline-none rounded-none text-center text-[#1a1a1a]"
+                  className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-2 py-1.5 text-sm font-bold outline-none rounded-none text-center text-[var(--cordel-text)]"
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold uppercase text-[#1a1a1a]">{lang === 'fr' ? 'Fin (Mesure)' : 'Compasso final'}</label>
+                <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">{lang === 'fr' ? 'Fin (Mesure)' : 'Compasso final'}</label>
                 <input
                   type="number"
                   min={sectionFormStart}
                   max={totalMeasures}
                   value={sectionFormEnd}
                   onChange={(e) => setSectionFormEnd(Math.max(sectionFormStart, Math.min(totalMeasures, parseInt(e.target.value) || 1)))}
-                  className="w-full bg-[#eaddcf] border-2 border-[#1a1a1a] px-2 py-1.5 text-sm font-bold outline-none rounded-none text-center text-[#1a1a1a]"
+                  className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-2 py-1.5 text-sm font-bold outline-none rounded-none text-center text-[var(--cordel-text)]"
                 />
               </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold uppercase text-[#1a1a1a]">{lang === 'fr' ? 'Couleur du bloc' : 'Cor do bloco'}</label>
+              <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">{lang === 'fr' ? 'Couleur du bloc' : 'Cor do bloco'}</label>
               <div className="flex flex-wrap gap-2 mt-1">
                 {[
                   { value: '#e08283', label: 'Rouge' },
@@ -1857,7 +1899,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                     key={colorOpt.value}
                     onClick={() => setSectionFormColor(colorOpt.value)}
                     className={`w-7 h-7 rounded-full cursor-pointer cordel-border-sm transition-transform ${
-                      sectionFormColor === colorOpt.value ? 'scale-115 ring-2 ring-amber-600' : 'opacity-85'
+                      sectionFormColor === colorOpt.value ? 'scale-115 ring-2 ring-[var(--cordel-text)]' : 'opacity-85'
                     }`}
                     style={{ backgroundColor: colorOpt.value }}
                     title={colorOpt.label}
@@ -1866,10 +1908,10 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
               </div>
             </div>
 
-            <div className="flex justify-end gap-2.5 mt-2 border-t border-[#1a1a1a] pt-3">
+            <div className="flex justify-end gap-2.5 mt-2 border-t border-[var(--cordel-border)]/30 pt-3">
               <button
                 onClick={() => setSectionModalOpen(false)}
-                className="px-3 py-1.5 bg-gray-300 hover:bg-gray-400 text-[#1a1a1a] text-xs font-bold cordel-border-sm cursor-pointer"
+                className="px-3 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
               >
                 {lang === 'fr' ? 'Annuler' : 'Cancelar'}
               </button>
@@ -1883,7 +1925,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                   }
                   setSectionModalOpen(false);
                 }}
-                className="px-4 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] text-xs font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
+                className="px-4 py-1.5 bg-[var(--cordel-wood)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
               >
                 {lang === 'fr' ? 'Valider' : 'Confirmar'}
               </button>
@@ -1895,19 +1937,19 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
       {/* ══════════ TABLATURE EXPORT MODAL ══════════ */}
       {tablatureModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs">
-          <div className="w-[850px] max-w-[95%] h-[80vh] bg-[#f4ecd8] text-[#1a1a1a] p-5 cordel-border-sm shadow-2xl flex flex-col md:flex-row gap-5 overflow-hidden">
+          <div className="w-[850px] max-w-[95%] h-[80vh] bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-5 cordel-border-sm cordel-shadow flex flex-col md:flex-row gap-5 overflow-hidden">
             {/* Left Sidebar: configuration */}
             <div className="w-full md:w-[220px] shrink-0 flex flex-col gap-4">
-              <h3 className="font-cactus text-lg font-bold uppercase border-b border-[#1a1a1a] pb-2 text-[#1a1a1a]">
+              <h3 className="font-cactus text-lg font-bold uppercase border-b border-[var(--cordel-border)] pb-2 text-[var(--cordel-text)]">
                 {lang === 'fr' ? 'Configuration' : 'Configuração'}
               </h3>
               
               {/* Checkboxes list */}
-              <div className="flex-grow flex flex-col gap-2 bg-[#eaddcf] p-3 cordel-border-sm overflow-y-auto">
-                <div className="border-b border-[#1a1a1a]/30 pb-2 mb-1.5 flex justify-between text-[10px] font-cactus uppercase text-[#1a1a1a]">
+              <div className="flex-grow flex flex-col gap-2 bg-[var(--cordel-bg)]/40 p-3 cordel-border-sm overflow-y-auto">
+                <div className="border-b border-[var(--cordel-border)]/30 pb-2 mb-1.5 flex justify-between text-[10px] font-cactus uppercase text-[var(--cordel-text)]">
                   <span>{lang === 'fr' ? 'Pistes à inclure :' : 'Instrumentos :'}</span>
                 </div>
-                <div className="flex flex-col gap-2 text-xs text-[#1a1a1a]">
+                <div className="flex flex-col gap-2 text-xs text-[var(--cordel-text)]">
                   {tracks.map(t => {
                     const inst = instrumentsConfig[t.instrumentIdx];
                     const isChecked = selectedTracksForTab.includes(t.id);
@@ -1923,7 +1965,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                               setSelectedTracksForTab([...selectedTracksForTab, t.id]);
                             }
                           }}
-                          className="accent-[#1a1a1a]"
+                          className="accent-[var(--cordel-border)]"
                         />
                         <img src={ASSETS_BASE_URL + inst.iconImg} alt="" className="w-5 h-5 object-contain filter invert-[var(--cordel-invert)] dark:invert-0" />
                         <span className="truncate">{inst.name}</span>
@@ -1937,13 +1979,13 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
               <div className="flex flex-col gap-2 mt-auto">
                 <button
                   onClick={() => window.print()}
-                  className="w-full py-2 bg-[#8b2a1a] text-[#f4ecd8] text-xs font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  className="w-full py-2 bg-[var(--cordel-wood)] text-[var(--cordel-text)] border border-[var(--cordel-border)] text-xs font-bold cordel-border-sm hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                 >
                   🖨️ {lang === 'fr' ? 'Imprimer (A4)' : 'Imprimir (A4)'}
                 </button>
                 <button
                   onClick={() => setTablatureModalOpen(false)}
-                  className="w-full py-2 bg-gray-300 hover:bg-gray-400 text-[#1a1a1a] text-xs font-bold cordel-border-sm transition-colors cursor-pointer"
+                  className="w-full py-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] text-xs font-bold cordel-border-sm hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer"
                 >
                   {lang === 'fr' ? 'Fermer' : 'Fechar'}
                 </button>
@@ -1951,7 +1993,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
             </div>
 
             {/* Right Zone: print preview */}
-            <div className="flex-grow flex flex-col overflow-hidden bg-white p-1 rounded-sm border border-[#1a1a1a]/20">
+            <div className="flex-grow flex flex-col overflow-hidden bg-white p-1 rounded-sm border border-[var(--cordel-border)]/20">
               {renderTablaturePreview()}
             </div>
           </div>

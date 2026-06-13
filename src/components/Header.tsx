@@ -8,7 +8,9 @@ import {
   Video,
   Share2,
   SlidersHorizontal,
-  MessageSquare
+  MessageSquare,
+  Download,
+  Upload
 } from 'lucide-react';
 import { Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
@@ -146,18 +148,15 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               {/* Project Options */}
               <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/30 pb-2">
                 <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide">Projet</span>
-                <div className="grid grid-cols-2 gap-1.5 mt-1">
-                  <button onClick={() => { onClear(); setMobileMenuOpen(false); }} className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer">
-                    🗑️ {t('clear')}
+                <div className="flex flex-col gap-1.5 mt-1">
+                  <button onClick={() => { onClear(); setMobileMenuOpen(false); }} className="flex items-center gap-2 px-3 py-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
+                    <Trash2 className="w-4 h-4" /> {t('clear')}
                   </button>
-                  <button onClick={() => { onSave(); setMobileMenuOpen(false); }} className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer">
-                    💾 {t('saveFile').split(' ')[0]}
+                  <button onClick={() => { onSave(); setMobileMenuOpen(false); }} className="flex items-center gap-2 px-3 py-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
+                    <Download className="w-4 h-4" /> {lang === 'pt' ? 'Exportar (.json)' : 'Exporter (.json)'}
                   </button>
-                  <button onClick={() => { onSaveToLocal(); setMobileMenuOpen(false); }} className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer">
-                    🏠 {t('saveLocal').split(' ')[0]}
-                  </button>
-                  <button onClick={() => { fileInputRef.current?.click(); setMobileMenuOpen(false); }} className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer">
-                    📂 {t('loadFile').split(' ')[0]}
+                  <button onClick={() => { fileInputRef.current?.click(); setMobileMenuOpen(false); }} className="flex items-center gap-2 px-3 py-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
+                    <Upload className="w-4 h-4" /> {lang === 'pt' ? 'Importar (.json)' : 'Importer (.json)'}
                   </button>
                 </div>
               </div>
@@ -434,13 +433,10 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 <Trash2 className="w-4 h-4" /> {t('clear')}
               </button>
               <button onClick={() => { onSave(); setProjectDropOpen(false); }} className="flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors text-[var(--cordel-text)] cursor-pointer">
-                <Save className="w-4 h-4" /> {t('saveFile')}
-              </button>
-              <button onClick={() => { onSaveToLocal(); setProjectDropOpen(false); }} className="flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors border-b-2 border-[var(--cordel-border)] text-[var(--cordel-text)] cursor-pointer">
-                <Save className="w-4 h-4" /> {t('saveLocal')}
+                <Download className="w-4 h-4" /> {lang === 'pt' ? 'Exportar (.json)' : 'Exporter (.json)'}
               </button>
               <button onClick={() => { fileInputRef.current?.click(); setProjectDropOpen(false); }} className="flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors border-b-2 border-[var(--cordel-border)] text-[var(--cordel-text)] cursor-pointer">
-                <FolderOpen className="w-4 h-4" /> {t('loadFile')}
+                <Upload className="w-4 h-4" /> {lang === 'pt' ? 'Importar (.json)' : 'Importer (.json)'}
               </button>
 
 
@@ -470,6 +466,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             </div>
           )}
         </div>
+
         {/* File input always in DOM so fileInputRef.current is never null */}
         <input type="file" ref={fileInputRef} accept=".json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onLoadRef.current(f); e.target.value = ''; }} />
 

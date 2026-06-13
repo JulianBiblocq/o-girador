@@ -111,6 +111,8 @@ function getStrokesForInstrument(instId: string, instType: string, lang: string)
       { symbol: 'd', label: isFr ? 'Main Droite Faible' : 'Mão Direita Fraca', shortcut: 'd', colorKey: 'd' },
       { symbol: 'E', label: isFr ? 'Main Gauche Forte' : 'Mão Esquerda Forte', shortcut: 'E', colorKey: 'E' },
       { symbol: 'e', label: isFr ? 'Main Gauche Faible' : 'Mão Esquerda Fraca', shortcut: 'e', colorKey: 'e' },
+      { symbol: 'Rd', label: isFr ? 'Roulement court D' : 'Rufada Direita', shortcut: 'R → Rd', colorKey: 'Rd' },
+      { symbol: 'Re', label: isFr ? 'Roulement court G' : 'Rufada Esquerda', shortcut: 'r → Re', colorKey: 'Re' },
       { symbol: 'X', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
       { symbol: 'F', label: 'Fla', shortcut: 'F', colorKey: 'F' },
       { symbol: 'C', label: isFr ? 'Click' : 'Click', shortcut: 'C', colorKey: 'C' },
@@ -280,6 +282,27 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
+  const [liveMeasure, setLiveMeasure] = useState<number>(currentMeasure);
+
+  React.useEffect(() => {
+    const handleTick = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        const { measure } = customEvent.detail;
+        setLiveMeasure((prev) => (prev !== measure ? measure : prev));
+      }
+    };
+    window.addEventListener('baquemix-tick', handleTick);
+    return () => {
+      window.removeEventListener('baquemix-tick', handleTick);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (!isPlaying) {
+      setLiveMeasure(currentMeasure);
+    }
+  }, [isPlaying, currentMeasure]);
 
   const handleSave = (patternId: number) => {
     if (onPatternNameChange) {
@@ -532,7 +555,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             {track.patterns.map((ptn, ptnIdx) => {
               const isSelected = track.selectedPatternId === ptn.id;
               const currentStep = getCurrentStep(ptn.steps);
-              const isCurrentPlaying = isPlaying && ptn.measureAssignments[currentMeasure];
+              const livePattern = track.patterns.find(p => p.measureAssignments[liveMeasure]) || track.patterns[0];
+              const isCurrentPlaying = isPlaying && ptn.id === livePattern.id;
 
               return (
                 <div
@@ -1055,7 +1079,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                   <div className="text-[8px] text-[#999] font-bold mb-0.5 z-10 relative">{i + 1}</div>
                                   <input
                                     type="text"
-                                    maxLength={inst.id === 'caixa' ? 2 : 1}
+                                    maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
                                     value={displayVal}
                                     readOnly={isTouchDevice}
                                     inputMode={isTouchDevice ? 'none' : undefined}

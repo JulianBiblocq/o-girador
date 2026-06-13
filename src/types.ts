@@ -13,6 +13,7 @@ export interface InstrumentConfig {
   colors: {
     [key: string]: string;
   };
+  color?: string;
 }
 
 export interface Pattern {

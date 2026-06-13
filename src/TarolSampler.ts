@@ -31,6 +31,11 @@ const filenames = {
   ],
   cerclage: [
     'Tarol cerclage x.wav'
+  ],
+  rufada: [
+    'Tarol rufada1.wav',
+    'Tarol rufada2.wav',
+    'Tarol rufada3.wav'
   ]
 };
 
@@ -41,7 +46,8 @@ export class TarolSampler {
     click: [],
     fla: [],
     tremer: [],
-    cerclage: []
+    cerclage: [],
+    rufada: []
   };
 
   private lastIndices: { [key: string]: number } = {
@@ -50,7 +56,8 @@ export class TarolSampler {
     click: -1,
     fla: -1,
     tremer: -1,
-    cerclage: -1
+    cerclage: -1,
+    rufada: -1
   };
 
   private channel: Tone.Channel | null = null;
@@ -68,7 +75,7 @@ export class TarolSampler {
   }
 
   /**
-   * Preload all 14 samples using Tone.ToneAudioBuffer
+   * Preload all samples using Tone.ToneAudioBuffer
    */
   public async load(baseUrl: string, onSampleLoaded?: () => void): Promise<void> {
     const promises: Promise<void>[] = [];
@@ -142,6 +149,8 @@ export class TarolSampler {
       groupKey = 'tremer';
     } else if (k === 'cerclage') {
       groupKey = 'cerclage';
+    } else if (k === 'rufada-d' || k === 'rufada-e' || k === 'rufada') {
+      groupKey = 'rufada';
     } else {
       console.warn(`TarolSampler: unknown stroke key: ${strokeKey}`);
       return;
@@ -155,36 +164,54 @@ export class TarolSampler {
     const buffer = groupBuffers[chosenIdx];
     if (!buffer || !buffer.loaded) return;
 
+    const nativeAudioBuffer = buffer.get();
+    if (!nativeAudioBuffer) return;
+
     // Choke trêmulo: stop any active trêmulo sound when another sound starts
     if (this.activeTremerSources.size > 0) {
       this.activeTremerSources.forEach((src) => {
         try {
-          src.stop(time);
+          (src as unknown as AudioBufferSourceNode).stop(time);
         } catch (_) {}
       });
       this.activeTremerSources.clear();
     }
 
-    // Create Tone.ToneBufferSource (autoDispose is true by default)
-    const source = new Tone.ToneBufferSource({
-      url: buffer
-    });
+    // Create native AudioBufferSourceNode (bypasses Tone.js wrapper overhead)
+    const rawCtx = Tone.getContext().rawContext as AudioContext;
+    const source = rawCtx.createBufferSource();
+    source.buffer = nativeAudioBuffer;
 
-    // Create a Gain node to control velocity/volume
-    const gainNode = new Tone.Gain(velocity);
+    // Create native GainNode for precise velocity
+    const gainNode = rawCtx.createGain();
+    gainNode.gain.setValueAtTime(velocity, time);
+
     source.connect(gainNode);
 
-    // Connect to channel or destination
+    // Connect native GainNode directly to the channel input node
     if (this.channel) {
-      gainNode.connect(this.channel);
+      // Recursively resolve native AudioNode if wrapped in a ToneAudioNode
+      let destNode: any = this.channel.input;
+      while (destNode && !(destNode instanceof AudioNode) && destNode.input) {
+        destNode = destNode.input;
+      }
+      if (destNode instanceof AudioNode) {
+        gainNode.connect(destNode);
+      } else {
+        try {
+          (gainNode as any).connect(this.channel.input);
+        } catch (_) {
+          gainNode.connect(rawCtx.destination);
+        }
+      }
     } else {
-      gainNode.toDestination();
+      gainNode.connect(rawCtx.destination);
     }
 
     // Apply decay multiplier if less than 1.0 (truncates duration)
-    const duration = buffer.duration * decayMultiplier;
+    const duration = nativeAudioBuffer.duration * decayMultiplier;
     
-    // Play sound
+    // Play sound on absolute timeline
     if (decayMultiplier < 1.0) {
       source.start(time, 0, duration);
     } else {
@@ -192,19 +219,20 @@ export class TarolSampler {
     }
 
     // Keep track of active sources for stopAll
-    this.activeSources.add(source);
+    const wrappedSource = source as unknown as Tone.ToneBufferSource;
+    this.activeSources.add(wrappedSource);
     
     if (groupKey === 'tremer') {
-      this.activeTremerSources.add(source);
+      this.activeTremerSources.add(wrappedSource);
       source.onended = () => {
-        this.activeTremerSources.delete(source);
-        this.activeSources.delete(source);
-        gainNode.dispose();
+        this.activeTremerSources.delete(wrappedSource);
+        this.activeSources.delete(wrappedSource);
+        gainNode.disconnect();
       };
     } else {
       source.onended = () => {
-        this.activeSources.delete(source);
-        gainNode.dispose();
+        this.activeSources.delete(wrappedSource);
+        gainNode.disconnect();
       };
     }
   }
@@ -215,7 +243,7 @@ export class TarolSampler {
   public stopAll(): void {
     this.activeSources.forEach((source) => {
       try {
-        source.stop();
+        (source as unknown as AudioBufferSourceNode).stop();
       } catch (_) {}
     });
     this.activeSources.clear();

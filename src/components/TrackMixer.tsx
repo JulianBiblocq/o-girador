@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import * as Tone from 'tone';
 import { Eye, EyeOff } from 'lucide-react';
 import { TrackGroup, Language, Pattern } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText } from '../data';
@@ -44,9 +45,11 @@ interface TrackMixerProps {
     currentVal: string | number,
     onSelect: (val: string) => void
   ) => void;
-  onCopyPattern?: (pattern: Pattern) => void;
+    onCopyPattern?: (pattern: Pattern) => void;
   onPastePattern?: (trackId: number, patternId: number) => void;
   canPaste?: boolean;
+  meter?: any;
+  soloPatternPlayId?: number | null;
 }
 
 const TrackMixerComponent: React.FC<TrackMixerProps> = ({
@@ -84,6 +87,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   onCopyPattern,
   onPastePattern,
   canPaste,
+  meter,
+  soloPatternPlayId,
 }) => {
   const [instDropdownOpen, setInstDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -91,18 +96,62 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const isMouseDownRef = useRef(false);
   const paintValueRef = useRef<string | number>(0);
 
-  useEffect(() => {
-    const handleGlobalMouseUp = () => {
-      isMouseDownRef.current = false;
-    };
-    window.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, []);
+  const vuMeterRef = useRef<HTMLDivElement>(null);
+  const [liveMeasure, setLiveMeasure] = useState<number>(-1);
+  const lastMeasureRef = useRef<number>(-1);
+  const lastRatioRef = useRef<number>(-1);
+  const lastVuStepRef = useRef<number>(-1);
+
+  const liveActivePatternId = (() => {
+    if (liveMeasure >= 0) {
+      if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
+        const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
+        if (hasSoloPattern) return soloPatternPlayId;
+      }
+      const assignedPattern = track.patterns.find(p => p.measureAssignments[liveMeasure]);
+      return assignedPattern ? assignedPattern.id : track.selectedPatternId;
+    }
+    return track.selectedPatternId;
+  })();
+
+  const activePattern = track.patterns.find(p => p.id === liveActivePatternId) || track.patterns[0];
+
+  const activateElement = (el: HTMLElement) => {
+    const type = el.getAttribute('data-step-type');
+    if (type === 'voice') {
+      el.classList.remove('border-[#1a1a1a]');
+      el.classList.add('border-[#8b2a1a]');
+    } else if (type === 'sampler') {
+      el.classList.remove('bg-[#f4ecd8]', 'text-[#1a1a1a]');
+      el.classList.add('bg-[#1a1a1a]', 'text-[#f4ecd8]', 'border-[#1a1a1a]', 'scale-105');
+      el.style.backgroundColor = '';
+      el.style.borderColor = '';
+      el.style.color = '';
+    }
+  };
+
+  const deactivateElement = (el: HTMLElement) => {
+    const type = el.getAttribute('data-step-type');
+    if (type === 'voice') {
+      el.classList.remove('border-[#8b2a1a]');
+      el.classList.add('border-[#1a1a1a]');
+    } else if (type === 'sampler') {
+      el.classList.remove('bg-[#1a1a1a]', 'text-[#f4ecd8]', 'border-[#1a1a1a]', 'scale-105');
+      const isValZero = el.getAttribute('data-val-zero') === 'true';
+      if (isValZero) {
+        el.classList.add('bg-[#f4ecd8]', 'text-[#1a1a1a]');
+      } else {
+        el.style.backgroundColor = el.getAttribute('data-bg-color') || '';
+        el.style.borderColor = el.getAttribute('data-border-color') || '';
+        el.style.color = el.getAttribute('data-text-color') || '';
+      }
+    }
+  };
+
+  // Event-based VU meters do not need a requestAnimationFrame loop, they are animated directly in handleTick
 
   const inst = instrumentsConfig[track.instrumentIdx];
   const t = (key: string) => (i18n[lang] as any)[key] || key;
-
-  const activePattern = track.patterns.find(p => p.id === track.selectedPatternId) || track.patterns[0];
 
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
@@ -135,6 +184,160 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const currentStep = (isPlaying && currentStepIndex >= 0)
     ? Math.floor((currentStepIndex / maxTicks) * activePattern.steps)
     : -1;
+
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      isMouseDownRef.current = false;
+    };
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, []);
+
+  // Listen to CustomEvent 'baquemix-tick' to highlight step cells dynamically (Bypass React)
+  useEffect(() => {
+    let activeElements: HTMLElement[] = [];
+
+    const handleTick = (e: Event) => {
+      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
+      const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+      
+      if (step < 0) {
+        if (lastMeasureRef.current !== -1) {
+          lastMeasureRef.current = -1;
+          setLiveMeasure(-1);
+        }
+        lastRatioRef.current = -1;
+        lastVuStepRef.current = -1;
+        activeElements.forEach(el => {
+          deactivateElement(el);
+        });
+        activeElements = [];
+        if (vuMeterRef.current) {
+          vuMeterRef.current.style.transition = 'none';
+          vuMeterRef.current.style.width = '0%';
+        }
+        return;
+      }
+
+      lastRatioRef.current = ratio;
+
+      if (measure !== lastMeasureRef.current) {
+        lastMeasureRef.current = measure;
+        setLiveMeasure(prev => (prev !== measure ? measure : prev));
+      }
+
+      // Resolve the live active pattern dynamically inside the tick listener to avoid stale closure issues
+      const getLivePatternForMeasure = (m: number) => {
+        if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
+          const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
+          if (hasSoloPattern) {
+            return track.patterns.find(p => p.id === soloPatternPlayId);
+          }
+        }
+        return track.patterns.find(p => p.measureAssignments[m]);
+      };
+
+      const currentLivePattern = getLivePatternForMeasure(measure);
+
+      if (!currentLivePattern) {
+        // Deactivate old active elements and keep VU meter at 0%
+        activeElements.forEach(el => {
+          deactivateElement(el);
+        });
+        activeElements = [];
+        lastVuStepRef.current = -1;
+        return;
+      }
+
+      // Calculate track-specific step index using the ratio sent by the audio engine
+      const stepsCount = currentLivePattern.steps;
+      const targetStep = Math.floor(ratio * stepsCount);
+
+      // Edge trigger VU fader width update on step transitions
+      if (targetStep !== lastVuStepRef.current) {
+        lastVuStepRef.current = targetStep;
+        if (!track.isMute) {
+          const val = currentLivePattern.activeSteps[targetStep];
+          const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
+          if (isHit && vuMeterRef.current) {
+            vuMeterRef.current.style.transition = 'none';
+            vuMeterRef.current.style.width = '100%';
+            void vuMeterRef.current.offsetHeight; // force reflow
+            requestAnimationFrame(() => {
+              if (vuMeterRef.current) {
+                vuMeterRef.current.style.transition = 'width 1.5s ease-out';
+                vuMeterRef.current.style.width = '0%';
+              }
+            });
+          }
+        }
+      }
+
+      // Check if target step has changed to avoid redundant DOM queries
+      const currentActiveIndex = activeElements.length > 0 ? Number(activeElements[0].getAttribute('data-step-index')) : -1;
+      if (targetStep === currentActiveIndex) {
+        return;
+      }
+
+      // Deactivate old active elements
+      activeElements.forEach(el => {
+        deactivateElement(el);
+      });
+      activeElements = [];
+
+      // Find and activate the new active elements for this track
+      const activeStepElements = document.querySelectorAll(
+        `[data-track-id="${track.id}"][data-step-index="${targetStep}"]`
+      );
+
+      activeStepElements.forEach(el => {
+        const htmlEl = el as HTMLElement;
+        activateElement(htmlEl);
+        activeElements.push(htmlEl);
+      });
+    };
+
+    window.addEventListener('baquemix-tick', handleTick);
+    return () => {
+      window.removeEventListener('baquemix-tick', handleTick);
+      activeElements.forEach(el => {
+        deactivateElement(el);
+      });
+    };
+  }, [track, soloPatternPlayId]);
+
+  // Post-render highlight to prevent visual flicker during pattern transitions
+  useEffect(() => {
+    if (lastRatioRef.current >= 0) {
+      const stepsCount = activePattern.steps;
+      const targetStep = Math.floor(lastRatioRef.current * stepsCount);
+      const activeStepElements = document.querySelectorAll(
+        `[data-track-id="${track.id}"][data-step-index="${targetStep}"]`
+      );
+      activeStepElements.forEach(el => {
+        activateElement(el as HTMLElement);
+      });
+    }
+  });
+
+  // Synchronize the visually active pattern selection index in parent state during playback
+  useEffect(() => {
+    if (isPlaying && liveMeasure >= 0) {
+      const livePattern = (() => {
+        if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
+          const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
+          if (hasSoloPattern) {
+            return track.patterns.find(p => p.id === soloPatternPlayId) || track.patterns[0];
+          }
+        }
+        return track.patterns.find(p => p.measureAssignments[liveMeasure]) || track.patterns[0];
+      })();
+
+      if (livePattern && livePattern.id !== track.selectedPatternId) {
+        onSelectPattern(livePattern.id);
+      }
+    }
+  }, [liveMeasure, isPlaying, track.patterns, track.selectedPatternId, soloPatternPlayId, onSelectPattern]);
 
   const handleVoiceNav = (el: HTMLInputElement, key: string, type: 'syl' | 'note') => {
     if (key === 'Tab') return;
@@ -213,7 +416,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
             </button>
 
             {instDropdownOpen && (
-              <div className="absolute top-7 left-0 bg-[#f4ecd8] text-[#1a1a1a] cordel-border shadow-[0_4px_10px_rgba(0,0,0,0.8)] min-w-[180px] max-h-[220px] overflow-y-auto z-[99]">
+              <div className="absolute top-7 left-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-shadow min-w-[180px] max-h-[220px] overflow-y-auto z-[99]">
                 {instrumentsConfig.map((opt, oIdx) => (
                   <div
                     key={oIdx}
@@ -221,7 +424,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                       onInstrumentChange(oIdx);
                       setInstDropdownOpen(false);
                     }}
-                    className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold border-b border-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]"
+                    className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold border-b border-[var(--cordel-border)]/30 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
                   >
                     <img
                       src={`${ASSETS_BASE_URL}${opt.iconImg}`}
@@ -289,8 +492,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
             />
             <div className="w-[35px] h-2 bg-[#1a1a1a] relative overflow-hidden cordel-border-sm shrink-0">
               <div
+                ref={vuMeterRef}
                 id={`meter-bar-${track.id}`}
-                className="h-full bg-[#f4ecd8] w-0 transition-all duration-[0.05s]"
+                className="h-full bg-[#f4ecd8] w-0"
+                style={{ transition: 'width 0.7s ease-out' }}
               />
             </div>
           </div>
@@ -309,12 +514,12 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               <div className="flex items-center gap-2 min-w-0">
                 <input
                   type="radio"
-                  checked={track.selectedPatternId === ptn.id}
+                  checked={liveActivePatternId === ptn.id}
                   onChange={() => onSelectPattern(ptn.id)}
                   className="w-3 h-3 accent-[#1a1a1a] flex-shrink-0 cursor-pointer"
                 />
                 <span 
-                  className={`text-[10px] font-cactus font-bold cursor-pointer truncate ${track.selectedPatternId === ptn.id ? 'text-[#1a1a1a]' : 'text-[#666]'}`}
+                  className={`text-[10px] font-cactus font-bold cursor-pointer truncate ${liveActivePatternId === ptn.id ? 'text-[#1a1a1a]' : 'text-[#666]'}`}
                   onClick={() => onSelectPattern(ptn.id)}
                 >
                   {ptn.name ? ptn.name : `${t('patterns').slice(0,-1)} ${idx + 1}`}
@@ -377,6 +582,9 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     className={`v-card flex flex-col w-12 shrink-0 bg-[#f4ecd8] cordel-border-sm overflow-hidden ${
                       currentStep === i ? 'border-[#8b2a1a]' : 'border-[#1a1a1a]'
                     }`}
+                    data-track-id={track.id}
+                    data-step-index={i}
+                    data-step-type="voice"
                   >
                     <div
                       onClick={() => onVoiceTypeToggle(activePattern.id, i)}
@@ -454,7 +662,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     <div className="text-[#666] text-[8px] mb-0.5 w-full text-center font-bold">{i + 1}</div>
                     <input
                       type="text"
-                      maxLength={inst.id === 'caixa' ? 2 : 1}
+                      maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
                       value={displayVal}
                       readOnly={isTouchDevice}
                       inputMode={isTouchDevice ? 'none' : undefined}
@@ -517,6 +725,13 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                         currentStep === i ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] scale-105' : (val === 0 ? 'bg-[#f4ecd8] text-[#1a1a1a]' : '')
                       }`}
                       style={currentStep === i ? {} : colorStyle}
+                      data-track-id={track.id}
+                      data-step-index={i}
+                      data-step-type="sampler"
+                      data-val-zero={val === 0}
+                      data-bg-color={colorStyle.backgroundColor || ''}
+                      data-border-color={colorStyle.borderColor || ''}
+                      data-text-color={colorStyle.color || ''}
                     />
                   </div>
                 );
@@ -544,6 +759,9 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     className={`v-card flex flex-col w-12 bg-[#f4ecd8] cordel-border-sm overflow-hidden ${
                       currentStep === i ? 'border-[#8b2a1a]' : 'border-[#1a1a1a]'
                     }`}
+                    data-track-id={track.id}
+                    data-step-index={i}
+                    data-step-type="voice"
                   >
                     <div
                       onClick={() => onVoiceTypeToggle(activePattern.id, i)}
@@ -641,7 +859,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     <div className="text-[#666] text-[8px] mb-0.5 w-full text-center font-bold">{i + 1}</div>
                     <input
                       type="text"
-                      maxLength={inst.id === 'caixa' ? 2 : 1}
+                      maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
                       value={displayVal}
                       readOnly={isTouchDevice}
                       inputMode={isTouchDevice ? 'none' : undefined}
@@ -704,6 +922,13 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                         currentStep === i ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] scale-105' : (val === 0 ? 'bg-[#f4ecd8] text-[#1a1a1a]' : '')
                       }`}
                       style={currentStep === i ? {} : colorStyle}
+                      data-track-id={track.id}
+                      data-step-index={i}
+                      data-step-type="sampler"
+                      data-val-zero={val === 0}
+                      data-bg-color={colorStyle.backgroundColor || ''}
+                      data-border-color={colorStyle.borderColor || ''}
+                      data-text-color={colorStyle.color || ''}
                     />
                   </div>
                 );

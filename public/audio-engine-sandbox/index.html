@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BaqueMix - Lookahead AudioEngine Sandbox</title>
+  
+  <!-- Outfit & JetBrains Mono Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #0f172a, #020617);
+      --card-bg: rgba(30, 41, 59, 0.45);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      
+      --color-primary: #3b82f6;      /* Blue Accent */
+      --color-accent: #10b981;       /* Emerald Accent for Playhead */
+      --color-schedule: #a855f7;     /* Purple Accent for scheduling logs */
+      --glow-active: 0 0 20px rgba(16, 185, 129, 0.6);
+      --glow-schedule: 0 0 15px rgba(168, 85, 247, 0.4);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.5rem;
+      overflow-x: hidden;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+      max-width: 800px;
+    }
+
+    header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(to right, #3b82f6, #10b981, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.75rem;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      line-height: 1.6;
+    }
+
+    .sandbox-layout {
+      width: 100%;
+      max-width: 1000px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    @media (min-width: 768px) {
+      .sandbox-layout {
+        grid-template-columns: 350px 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 2rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* Left Panel Styles */
+    .controls-group {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 500;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+    }
+
+    .value-display {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    .slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+      transition: background 0.2s;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+      transition: transform 0.1s;
+    }
+
+    .slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .btn-action {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 1.1rem;
+      padding: 1rem;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-play {
+      background: linear-gradient(135deg, var(--color-accent), #059669);
+      color: white;
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+    }
+
+    .btn-play:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(16, 185, 129, 0.45);
+    }
+
+    .btn-stop {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      color: white;
+      box-shadow: 0 6px 20px rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-stop:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(239, 68, 68, 0.45);
+    }
+
+    .info-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 1.25rem;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: var(--text-muted);
+    }
+
+    .info-card strong {
+      color: var(--text-main);
+    }
+
+    /* Right Panel Styles */
+    .sequencer-grid-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .grid-header {
+      font-size: 1.2rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .pulse-indicator {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      transition: background 0.1s;
+    }
+
+    .pulse-indicator.active {
+      background: var(--color-accent);
+      box-shadow: var(--glow-active);
+    }
+
+    .steps-row {
+      display: grid;
+      grid-template-columns: repeat(16, 1fr);
+      gap: 0.35rem;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 0.75rem;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .step-node {
+      aspect-ratio: 1;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      transition: all 0.1s ease;
+    }
+
+    /* Highlighting subdivisions */
+    .step-node.downbeat {
+      border-color: rgba(59, 130, 246, 0.3);
+      background: rgba(59, 130, 246, 0.07);
+    }
+    
+    .step-node.midbeat {
+      border-color: rgba(168, 85, 247, 0.2);
+      background: rgba(168, 85, 247, 0.04);
+    }
+
+    /* Active Highlight States */
+    .step-node.scheduled {
+      border-color: var(--color-schedule);
+      background: rgba(168, 85, 247, 0.15);
+      box-shadow: 0 0 8px rgba(168, 85, 247, 0.3);
+    }
+
+    .step-node.active-playhead {
+      background: var(--color-accent) !important;
+      border-color: var(--color-accent) !important;
+      color: #0b1528 !important;
+      font-weight: 700;
+      box-shadow: var(--glow-active);
+      transform: scale(1.05);
+    }
+
+    /* Log Panel Styles */
+    .logs-header {
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .btn-clear {
+      font-family: 'Outfit', sans-serif;
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      padding: 2px 8px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+
+    .btn-clear:hover {
+      color: var(--text-main);
+      border-color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .logs-container {
+      flex: 1;
+      min-height: 250px;
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      padding: 1rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      max-height: 350px;
+    }
+
+    .log-entry {
+      line-height: 1.4;
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .log-entry .timestamp {
+      color: var(--text-muted);
+    }
+
+    .log-entry .tag-schedule {
+      color: var(--color-schedule);
+      font-weight: bold;
+    }
+
+    .log-entry .tag-playback {
+      color: var(--color-accent);
+      font-weight: bold;
+    }
+
+    .log-entry .value {
+      color: var(--text-main);
+    }
+
+    .log-entry .offset {
+      color: #e2e8f0;
+      opacity: 0.8;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>BaqueMix Precision Scheduler</h1>
+    <p>
+      Démonstration du moteur audio utilisant le pattern <strong>Web Audio Lookahead</strong>. 
+      La planification audio a lieu en avance sur la timeline matérielle (100ms), tandis que les 
+      animations visuelles du séquenceur sont synchronisées à la milliseconde près en comparant
+      les horloges matérielle et logicielle dans <code>requestAnimationFrame</code>.
+    </p>
+  </header>
+
+  <main class="sandbox-layout">
+    
+    <!-- Controls (Left Panel) -->
+    <section class="panel">
+      <button id="btnPlayStop" class="btn-action btn-play">
+        <span id="btnIcon">▶</span> <span id="btnText">Démarrer le Séquenceur</span>
+      </button>
+
+      <div class="controls-group">
+        <div class="control-label">
+          <span>Tempo</span>
+          <span class="value-display"><span id="bpmVal">120</span> BPM</span>
+        </div>
+        <input type="range" id="inputBpm" class="slider" min="60" max="220" value="120">
+      </div>
+
+      <div class="controls-group">
+        <div class="control-label">
+          <span>Volume Master</span>
+          <span class="value-display"><span id="volVal">80</span>%</span>
+        </div>
+        <input type="range" id="inputVol" class="slider" min="0" max="100" value="80">
+      </div>
+
+      <div class="info-card">
+        <strong>Pourquoi cette précision ?</strong><br>
+        Web Audio utilise une horloge système matérielle (<code>AudioContext.currentTime</code>) 
+        qui est séparée du thread JavaScript principal. Notre scheduler 
+        prépare les sons 100ms en avance. Un tampon de queue UI garantit que la case verte ne s'allume
+        <strong>que lorsque le son retentit réellement</strong>, créant une harmonie parfaite audio/vidéo.
+      </div>
+    </section>
+
+    <!-- Visualizer & Event Monitor (Right Panel) -->
+    <section class="panel">
+      <div class="sequencer-grid-container">
+        <div class="grid-header">
+          <div id="pulseIndicator" class="pulse-indicator"></div>
+          <span>Séquenceur 16 Pas (Subdivision 4)</span>
+        </div>
+        
+        <div id="stepsRow" class="steps-row">
+          <!-- Will be generated by script -->
+        </div>
+      </div>
+
+      <div class="logs-header">
+        <span>Moniteur d'Événements</span>
+        <button id="btnClearLogs" class="btn-clear">Effacer les Logs</button>
+      </div>
+
+      <div id="logsContainer" class="logs-container">
+        <div class="log-entry" style="color: var(--text-muted)">
+          [Console] Prêt. Cliquez sur Démarrer.
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script type="module">
+    import { AudioEngine } from './audioEngine.js';
+
+    // UI elements
+    const btnPlayStop = document.getElementById('btnPlayStop');
+    const btnIcon = document.getElementById('btnIcon');
+    const btnText = document.getElementById('btnText');
+    const inputBpm = document.getElementById('inputBpm');
+    const bpmVal = document.getElementById('bpmVal');
+    const inputVol = document.getElementById('inputVol');
+    const volVal = document.getElementById('volVal');
+    const stepsRow = document.getElementById('stepsRow');
+    const pulseIndicator = document.getElementById('pulseIndicator');
+    const logsContainer = document.getElementById('logsContainer');
+    const btnClearLogs = document.getElementById('btnClearLogs');
+
+    // Create 16 step elements
+    const stepNodes = [];
+    for (let i = 0; i < 16; i++) {
+      const node = document.createElement('div');
+      node.classList.add('step-node');
+      if (i === 0) {
+        node.classList.add('downbeat'); // beat 1 accent
+      } else if (i % 4 === 0) {
+        node.classList.add('midbeat');  // beats 2, 3, 4 accents
+      }
+      node.textContent = i + 1;
+      stepsRow.appendChild(node);
+      stepNodes.push(node);
+    }
+
+    // Queue of notes scheduled but not yet sounded
+    let notesInQueue = [];
+
+    // Instantiate AudioEngine
+    const engine = new AudioEngine({
+      bpm: 120,
+      subdivision: 4,
+      loopLength: 16,
+      onStep: (stepNumber, time) => {
+        // Step callback fired in advance (Audio Context scheduler thread)
+        notesInQueue.push({ stepNumber, time });
+
+        // Highlight scheduling flash on the step node briefly
+        triggerVisualScheduleFlash(stepNumber);
+        
+        // Log the scheduling event
+        logEvent('SCHED', `Pas ${stepNumber + 1} planifié pour t = ${time.toFixed(3)}s`);
+      }
+    });
+
+    // Handle play / stop trigger
+    btnPlayStop.addEventListener('click', async () => {
+      if (!engine.isPlaying) {
+        // Start engine
+        await engine.play();
+        
+        // Update UI state
+        btnPlayStop.classList.remove('btn-play');
+        btnPlayStop.classList.add('btn-stop');
+        btnIcon.textContent = '⏹';
+        btnText.textContent = 'Arrêter le Séquenceur';
+        pulseIndicator.classList.add('active');
+
+        logEvent('SYSTEM', 'Séquenceur lancé, AudioContext démarré.');
+
+        // Launch requestAnimationFrame loop
+        requestAnimationFrame(drawVisuals);
+      } else {
+        // Stop engine
+        engine.stop();
+        
+        // Clear state
+        btnPlayStop.classList.remove('btn-stop');
+        btnPlayStop.classList.add('btn-play');
+        btnIcon.textContent = '▶';
+        btnText.textContent = 'Démarrer le Séquenceur';
+        pulseIndicator.classList.remove('active');
+        
+        notesInQueue = [];
+        resetStepHighlights();
+        
+        logEvent('SYSTEM', 'Séquenceur arrêté.');
+      }
+    });
+
+    // Real-time control handlers
+    inputBpm.addEventListener('input', (e) => {
+      const val = e.target.value;
+      bpmVal.textContent = val;
+      engine.setBpm(val);
+    });
+
+    inputVol.addEventListener('input', (e) => {
+      const pct = e.target.value;
+      volVal.textContent = pct;
+      engine.setVolume(pct / 100);
+    });
+
+    btnClearLogs.addEventListener('click', () => {
+      logsContainer.innerHTML = '';
+    });
+
+    // UI helper: highlight step as scheduled in advance
+    function triggerVisualScheduleFlash(stepNumber) {
+      const node = stepNodes[stepNumber];
+      node.classList.add('scheduled');
+      // Remove schedule highlight after 150ms
+      setTimeout(() => {
+        node.classList.remove('scheduled');
+      }, 150);
+    }
+
+    // UI helper: reset all highlight classes
+    function resetStepHighlights() {
+      stepNodes.forEach(node => {
+        node.classList.remove('active-playhead', 'scheduled');
+      });
+    }
+
+    // UI helper: set active playing node
+    function updateActivePlayhead(stepNumber) {
+      resetStepHighlights();
+      if (stepNumber >= 0 && stepNumber < stepNodes.length) {
+        stepNodes[stepNumber].classList.add('active-playhead');
+      }
+    }
+
+    // Log console helper
+    function logEvent(type, message) {
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(now.getMilliseconds()).padStart(3, '0')}`;
+      
+      const logEntry = document.createElement('div');
+      logEntry.classList.add('log-entry');
+
+      let tagSpan = '';
+      if (type === 'SCHED') {
+        tagSpan = `<span class="tag-schedule">[Schedule]</span>`;
+      } else if (type === 'PLAY') {
+        tagSpan = `<span class="tag-playback">[Playback]</span>`;
+      } else {
+        tagSpan = `<span class="tag-system" style="color: #60a5fa; font-weight: bold;">[System]</span>`;
+      }
+
+      logEntry.innerHTML = `
+        <span class="timestamp">${timeStr}</span>
+        ${tagSpan}
+        <span class="value">${message}</span>
+      `;
+
+      logsContainer.appendChild(logEntry);
+      
+      // Auto scroll
+      logsContainer.scrollTop = logsContainer.scrollHeight;
+
+      // Limit log history size to 40 entries
+      while (logsContainer.children.length > 40) {
+        logsContainer.removeChild(logsContainer.firstChild);
+      }
+    }
+
+    // requestAnimationFrame sync loop
+    let lastVisualStep = -1;
+
+    function drawVisuals() {
+      if (!engine.isPlaying) return;
+
+      // Request next frame
+      requestAnimationFrame(drawVisuals);
+
+      const currentTime = engine.getCurrentAudioTime();
+
+      // Read from queue. Find steps that should sound.
+      // Since it's sorted by time, we keep popping elements that have played.
+      let activeStep = -1;
+      let activeTime = 0;
+
+      while (notesInQueue.length > 0 && notesInQueue[0].time <= currentTime) {
+        activeStep = notesInQueue[0].stepNumber;
+        activeTime = notesInQueue[0].time;
+        notesInQueue.shift(); // remove from queue
+      }
+
+      // If a new step was reached, update UI
+      if (activeStep !== -1 && activeStep !== lastVisualStep) {
+        lastVisualStep = activeStep;
+        updateActivePlayhead(lastVisualStep);
+        
+        // Log the playback timing event and show visual precision sync info
+        const delayStr = ((currentTime - activeTime) * 1000).toFixed(1);
+        logEvent('PLAY', `Pas ${lastVisualStep + 1} joué en synchronisation (retard graphique: ${delayStr}ms)`);
+      }
+    }
+  </script>
+</body>
+</html>

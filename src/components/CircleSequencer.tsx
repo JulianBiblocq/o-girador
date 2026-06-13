@@ -4,6 +4,7 @@
  */
 
 import React, { useRef, useEffect } from 'react';
+import * as Tone from 'tone';
 import { TrackGroup, Language, HitTrigger, TimeSignature } from '../types';
 import { instrumentsConfig, getMarkers, ASSETS_BASE_URL, isDarkText } from '../data';
 
@@ -29,6 +30,7 @@ interface CircleSequencerProps {
   isMobile?: boolean;
   onNavigateMeasure?: (measureIdx: number) => void;
   activeSignal?: { id: string; name: string; image: string } | null;
+  soloPatternPlayId?: number | null;
 }
 
 export const CircleSequencer: React.FC<CircleSequencerProps> = ({
@@ -53,8 +55,60 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
   isMobile,
   onNavigateMeasure,
   activeSignal,
+  soloPatternPlayId = null,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const measureDisplayRef = useRef<HTMLSpanElement>(null);
+
+  const livePlaybackRef = useRef({
+    step: -1,
+    measure: 0,
+    maxTicks: 96,
+    ratio: 0,
+  });
+
+  useEffect(() => {
+    const handleTick = (e: Event) => {
+      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
+      const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+      
+      livePlaybackRef.current = {
+        step,
+        measure,
+        maxTicks,
+        ratio,
+      };
+
+      if (measureDisplayRef.current) {
+        measureDisplayRef.current.innerText = `${measure + 1} / ${totalMeasures}`;
+      }
+    };
+
+    window.addEventListener('baquemix-tick', handleTick);
+    return () => {
+      window.removeEventListener('baquemix-tick', handleTick);
+    };
+  }, [totalMeasures]);
+
+  const getLiveActivePatternId = (track: TrackGroup): number | null => {
+    const live = livePlaybackRef.current;
+    const state = stateRef.current;
+    if (live && live.step >= 0) {
+      const liveMeasure = live.measure;
+      const soloPlayId = state.soloPatternPlayId;
+      if (soloPlayId !== undefined && soloPlayId !== null) {
+        const hasSoloPattern = track.patterns.some(p => p.id === soloPlayId);
+        return hasSoloPattern ? soloPlayId : null;
+      } else {
+        const assignedPattern = track.patterns.find(p => p.measureAssignments[liveMeasure]);
+        return assignedPattern ? assignedPattern.id : null;
+      }
+    } else {
+      return state.activePatternIdByTrack[track.id] !== undefined
+        ? state.activePatternIdByTrack[track.id]
+        : track.selectedPatternId;
+    }
+  };
 
   // Use refs in the animation loop to avoid stale closure issues
   const stateRef = useRef({
@@ -74,6 +128,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
     measureBpms,
     measureVols,
     isMobile,
+    soloPatternPlayId,
   });
 
   useEffect(() => {
@@ -94,8 +149,9 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
       measureBpms,
       measureVols,
       isMobile,
+      soloPatternPlayId,
     };
-  }, [tracks, isPlaying, currentStepIndex, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile]);
+  }, [tracks, isPlaying, currentStepIndex, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId]);
 
   // Handle click on canvas
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -125,9 +181,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
     currentTracks.forEach((track) => {
       if (track.isHidden) return;
       
-      const activePatternId = stateRef.current.activePatternIdByTrack[track.id] !== undefined
-        ? stateRef.current.activePatternIdByTrack[track.id]
-        : track.selectedPatternId;
+      const activePatternId = getLiveActivePatternId(track);
       if (activePatternId === null) return;
       const activePattern = track.patterns.find(p => p.id === activePatternId);
       if (!activePattern) return;
@@ -148,31 +202,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
             const inst = instrumentsConfig[track.instrumentIdx];
             const currentVal = activePattern.activeSteps[i];
 
-            if (inst.id === 'mineiro') {
-              let nextState: string | number = 0;
-              if (currentVal === 0) nextState = 'p';
-              else if (currentVal === 'p') nextState = 'P';
-              else if (currentVal === 'P') nextState = 't';
-              else if (currentVal === 't') nextState = 'T';
-              onStepChange(track.id, activePattern.id, i, nextState);
-            } else if (inst.id === 'agbe') {
-              let nextState: string | number = 0;
-              if (currentVal === 0) nextState = 'g';
-              else if (currentVal === 'g') nextState = 'G';
-              else if (currentVal === 'G') nextState = 'd';
-              else if (currentVal === 'd') nextState = 'D';
-              else if (currentVal === 'D') nextState = 'b';
-              else if (currentVal === 'b') nextState = 's';
-              onStepChange(track.id, activePattern.id, i, nextState);
-            } else if (inst.type === 'gongue') {
-              let nextState: string | number = 0;
-              if (currentVal === 0) nextState = 'grv';
-              else if (currentVal === 'grv') nextState = 'GRV';
-              else if (currentVal === 'GRV') nextState = 'aig';
-              else if (currentVal === 'aig') nextState = 'AIG';
-              else if (currentVal === 'AIG') nextState = 'b';
-              onStepChange(track.id, activePattern.id, i, nextState);
-            } else if (inst.type === 'voice') {
+            if (inst.type === 'voice') {
               // Dialog prompt to customize vocals
               const currentNote = (activePattern.notes && activePattern.notes[i]) ? activePattern.notes[i] + ':' : '';
               const lyricPrompt = currentNote + (currentVal === 'P' ? '*' : '') + (activePattern.lyrics[i] || '');
@@ -206,34 +236,13 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
                   onStepChange(track.id, activePattern.id, i, activeType, parsedSyllable, parsedNote.toUpperCase());
                 }
               }
-            } else if (inst.id === 'caixa') {
-              let nextState: string | number = 0;
-              if (currentVal === 0) nextState = 'd';
-              else if (currentVal === 'd') nextState = 'D';
-              else if (currentVal === 'D') nextState = 'g';
-              else if (currentVal === 'g') nextState = 'G';
-              else if (currentVal === 'G') nextState = 'rd';
-              else if (currentVal === 'rd') nextState = 'rg';
-              else if (currentVal === 'rg') nextState = 'x';
-              else if (currentVal === 'x') nextState = 'f';
-              else if (currentVal === 'f') nextState = 'b';
-              onStepChange(track.id, activePattern.id, i, nextState);
-            } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
-              let nextState: string | number = 0;
-              if (currentVal === 0) nextState = 'd';
-              else if (currentVal === 'd') nextState = 'D';
-              else if (currentVal === 'D') nextState = 'g';
-              else if (currentVal === 'g') nextState = 'G';
-              else if (currentVal === 'G') nextState = 'b';
-              else if (currentVal === 'b') nextState = 'x';
-              else if (currentVal === 'x') nextState = 'i';
-              onStepChange(track.id, activePattern.id, i, nextState);
             } else {
-              let nextState: string | number = 0;
-              if (currentVal === 0) nextState = 'd';
-              else if (currentVal === 'd') nextState = 'D';
-              else if (currentVal === 'D') nextState = 'g';
-              else if (currentVal === 'g') nextState = 'G';
+              const validStrokes = Object.keys(inst.colors).filter((k) => k !== 'text');
+              const choices = [0, ...validStrokes];
+              let currentIndex = choices.findIndex((choice) => String(choice) === String(currentVal));
+              if (currentIndex === -1) currentIndex = 0;
+              const nextIndex = (currentIndex + 1) % choices.length;
+              const nextState = choices[nextIndex];
               onStepChange(track.id, activePattern.id, i, nextState);
             }
             return;
@@ -268,16 +277,24 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
     let ripples: Ripple[] = [];
 
     const drawLoop = () => {
+      const computedStyle = getComputedStyle(document.documentElement);
+      const themeBg = computedStyle.getPropertyValue('--cordel-bg').trim() || '#f4ecd8';
+      const themeText = computedStyle.getPropertyValue('--cordel-text').trim() || '#1a1a1a';
+      const themeBorder = computedStyle.getPropertyValue('--cordel-border').trim() || '#1a1a1a';
+      const themeWood = computedStyle.getPropertyValue('--cordel-wood').trim() || '#8b2a1a';
+
       const { 
         tracks: currentTracks, 
         isPlaying: localPlaying, 
-        currentStepIndex: localStep, 
-        maxTicks: localTicks, 
         timeSig: localTimeSig,
         isMetroOn: localMetroOn, 
         activePatternIdByTrack: localActiveByTrack,
         hitTriggersRef: localHitTriggers 
       } = stateRef.current;
+
+      const live = livePlaybackRef.current;
+      const localStep = localPlaying ? live.step : -1;
+      const localTicks = live.maxTicks || 96;
 
       // Consume hit triggers to create ripples
       if (localHitTriggers && localHitTriggers.current.length > 0) {
@@ -286,10 +303,8 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
           const track = currentTracks.find(t => t.id === hit.trackId);
           if (track && !track.isHidden && !track.isMute) {
             const inst = instrumentsConfig[track.instrumentIdx];
-            const color = inst.colors[hit.state as any] || '#1a1a1a';
-            const activePatternId = localActiveByTrack[track.id] !== undefined
-              ? localActiveByTrack[track.id]
-              : track.patterns[0].id;
+            const color = inst.colors[hit.state as any] || themeText;
+            const activePatternId = getLiveActivePatternId(track);
             if (activePatternId === null) return;
             const activePattern = track.patterns.find(p => p.id === activePatternId) || track.patterns[0];
             const angle = -Math.PI / 2 + ((hit.stepIndex / activePattern.steps) * Math.PI * 2);
@@ -322,7 +337,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
       // 1. Ropes (Cordas) - drawn with black ink style
       const numCords = 16;
       ctx.lineWidth = 7;
-      ctx.strokeStyle = '#1a1a1a';
+      ctx.strokeStyle = themeBorder;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
 
@@ -349,33 +364,36 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
       ctx.beginPath();
       ctx.arc(centerX, centerY, rimRadius - 18, 0, Math.PI * 2);
       ctx.lineWidth = 4;
-      ctx.strokeStyle = '#1a1a1a';
+      ctx.strokeStyle = themeBorder;
       ctx.stroke();
       
       ctx.beginPath();
       ctx.arc(centerX, centerY, rimRadius + 18, 0, Math.PI * 2);
       ctx.lineWidth = 4;
-      ctx.strokeStyle = '#1a1a1a';
+      ctx.strokeStyle = themeBorder;
       ctx.stroke();
 
       // 3. Animal Skin (Couro) - Cream paper
       ctx.beginPath();
       ctx.arc(centerX, centerY, innerSkinRadius, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(244, 236, 216, 0.85)';
+      ctx.fillStyle = themeBg;
+      ctx.save();
+      ctx.globalAlpha = 0.85;
       ctx.fill();
+      ctx.restore();
 
       // Skin edge ink shadow
       ctx.beginPath();
       ctx.arc(centerX, centerY, innerSkinRadius, 0, Math.PI * 2);
       ctx.lineWidth = 5;
-      ctx.strokeStyle = '#1a1a1a';
+      ctx.strokeStyle = themeBorder;
       ctx.stroke();
 
       // Inner decorative ring (Cordel style dashes)
       ctx.beginPath();
       ctx.arc(centerX, centerY, innerSkinRadius - 15, 0, Math.PI * 2);
       ctx.lineWidth = 1.5;
-      ctx.strokeStyle = '#1a1a1a';
+      ctx.strokeStyle = themeBorder;
       ctx.setLineDash([8, 8]);
       ctx.stroke();
       ctx.setLineDash([]);
@@ -388,9 +406,14 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
         ctx.beginPath();
         ctx.moveTo(centerX + Math.cos(angle) * inRad, centerY + Math.sin(angle) * inRad);
         ctx.lineTo(centerX + Math.cos(angle) * outRad, centerY + Math.sin(angle) * outRad);
-        ctx.strokeStyle = (tick === 0) ? '#1a1a1a' : 'rgba(26,26,26,0.3)';
+        ctx.strokeStyle = themeBorder;
+        ctx.save();
+        if (tick !== 0) {
+          ctx.globalAlpha = 0.3;
+        }
         ctx.lineWidth = (tick === 0) ? 4 : 2;
         ctx.stroke();
+        ctx.restore();
 
         // Draw a premium circular badge on the dark wood rim for the beat number
         const textRad = 540;
@@ -399,14 +422,14 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
 
         ctx.beginPath();
         ctx.arc(badgeX, badgeY, 18, 0, Math.PI * 2);
-        ctx.fillStyle = '#f4ecd8'; // Cream skin color
+        ctx.fillStyle = themeBg; // Cream skin color
         ctx.fill();
-        ctx.strokeStyle = '#1a1a1a'; // Dark ink outline
+        ctx.strokeStyle = themeBorder; // Dark ink outline
         ctx.lineWidth = 1.5;
         ctx.stroke();
 
         // Draw the beat number inside the badge
-        ctx.fillStyle = '#1a1a1a'; // Dark ink text
+        ctx.fillStyle = themeText; // Dark ink text
         ctx.font = 'bold 20px "Outfit", "Inter", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
@@ -432,12 +455,13 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
         ctx.moveTo(centerX + Math.cos(angle) * 60, centerY + Math.sin(angle) * 60);
         ctx.lineTo(centerX + Math.cos(angle) * 516, centerY + Math.sin(angle) * 516);
 
+        ctx.strokeStyle = themeBorder;
         if (isMainBeat) {
-          ctx.strokeStyle = 'rgba(26, 26, 26, 0.28)'; // slightly stronger for better definition
+          ctx.globalAlpha = 0.28;
           ctx.lineWidth = 2.0;
           ctx.setLineDash([]);
         } else {
-          ctx.strokeStyle = 'rgba(26, 26, 26, 0.12)'; // slightly stronger dashed lines for subdivisions
+          ctx.globalAlpha = 0.12;
           ctx.lineWidth = 1.0;
           ctx.setLineDash([5, 5]);
         }
@@ -450,7 +474,8 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
         ctx.save();
         ctx.beginPath();
         ctx.arc(centerX, centerY, innerSkinRadius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(26, 26, 26, ${flashAlpha * 0.15})`;
+        ctx.fillStyle = themeBorder;
+        ctx.globalAlpha = flashAlpha * 0.15;
         ctx.fill();
         ctx.restore();
       }
@@ -486,12 +511,12 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
       ctx.lineTo(stickLength - 10, 1);
       ctx.lineTo(0, 2);
       ctx.closePath();
-      ctx.fillStyle = '#1a1a1a';
+      ctx.fillStyle = themeBorder;
       ctx.fill();
 
       ctx.beginPath();
       ctx.ellipse(stickLength - 5, 0, 5, 3, 0, 0, Math.PI * 2);
-      ctx.fillStyle = '#1a1a1a';
+      ctx.fillStyle = themeBorder;
       ctx.fill();
       ctx.restore();
 
@@ -523,15 +548,11 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
       currentTracks.forEach((track) => {
         if (track.isHidden) return;
 
-        const activePatternId = localActiveByTrack[track.id] !== undefined
-          ? localActiveByTrack[track.id]
-          : track.selectedPatternId;
-
-        const inst = instrumentsConfig[track.instrumentIdx];
-
+        const activePatternId = getLiveActivePatternId(track);
         if (activePatternId === null) return;
         const activePattern = track.patterns.find(p => p.id === activePatternId);
         if (!activePattern) return;
+        const inst = instrumentsConfig[track.instrumentIdx];
         const hasSolo = currentTracks.some(t => t.isSolo);
         const hasAnyNotes = activePattern.activeSteps.some(s => s !== 0);
         // Muted or solo logic
@@ -546,10 +567,17 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
         ctx.beginPath();
         const tRad = track.radius || 0;
         ctx.arc(centerX, centerY, tRad, 0, Math.PI * 2);
-        ctx.strokeStyle = track.isSolo ? '#1a1a1a' : 'rgba(26,26,26,0.2)';
+        ctx.strokeStyle = themeBorder;
         ctx.lineWidth = 1.5;
         ctx.setLineDash([5, 5]);
-        ctx.stroke();
+        if (!track.isSolo) {
+          ctx.save();
+          ctx.globalAlpha = ctx.globalAlpha * 0.2;
+          ctx.stroke();
+          ctx.restore();
+        } else {
+          ctx.stroke();
+        }
         ctx.setLineDash([]);
 
         const currentStep = (localPlaying && localStep >= 0) ? Math.floor((localStep / localTicks) * activePattern.steps) : -1;
@@ -598,7 +626,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
           if (i === currentStep) {
             ctx.beginPath();
             ctx.arc(x, y, radiusSize + 5, 0, Math.PI * 2);
-            ctx.strokeStyle = '#8b2a1a';
+            ctx.strokeStyle = themeWood;
             ctx.lineWidth = 2.5;
             ctx.stroke();
           }
@@ -616,15 +644,22 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
           ctx.arc(x, y, radiusSize, 0, Math.PI * 2);
           ctx.fillStyle = fillColor;
           ctx.fill();
-          ctx.strokeStyle = '#1a1a1a';
-          ctx.lineWidth = 2;
+
+          const isHit = state !== 0 && state !== '0' && state !== '';
+          if (isHit) {
+            ctx.strokeStyle = inst.color || themeBorder;
+            ctx.lineWidth = 2.5;
+          } else {
+            ctx.strokeStyle = themeBorder;
+            ctx.lineWidth = 2;
+          }
           ctx.stroke();
 
           // Render letter/direction marker on top of step
           if (state !== 0) {
-            let txtColor = inst.type === 'voice' ? '#1a1a1a' : '#f4ecd8';
+            let txtColor = inst.type === 'voice' ? themeText : themeBg;
             if (isDarkText(inst.id, String(state))) {
-              txtColor = '#1a1a1a';
+              txtColor = themeText;
             }
             ctx.fillStyle = txtColor;
             const fontSize = Math.max(10, Math.floor((textSymbol.length > 1 ? 15 : 20) * dynamicScale * 0.9));
@@ -648,7 +683,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
           if (i === 0) {
             ctx.save();
             ctx.globalAlpha = 1.0;
-            ctx.fillStyle = '#1a1a1a';
+            ctx.fillStyle = themeText;
             ctx.font = 'bold 10px serif';
             ctx.textAlign = 'left';
             let labelText = inst.name;
@@ -682,7 +717,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
   return (
     <div
       id="circle-sequencer-panel"
-      className="flex-grow flex items-center justify-center bg-[#0a0807] relative p-2.5 overflow-hidden w-full h-full select-none"
+      className="flex-grow flex items-center justify-center bg-[var(--cordel-bg)] relative p-2.5 overflow-hidden w-full h-full select-none"
       style={{
         backgroundImage: `url(${ASSETS_BASE_URL}Pictures/atelier.png)`,
         backgroundSize: 'cover',
@@ -691,7 +726,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
       }}
     >
       {/* Dynamic Measure Information Widgets around the Roda */}
-      <div className="absolute top-2 left-2 md:top-4 md:left-4 bg-[#f4ecd8]/95 text-[#1a1a1a] cordel-border-sm p-1.5 px-2 md:p-2 md:px-3 shadow-[3px_3px_0px_#1a1a1a] md:shadow-[4px_4px_0px_#1a1a1a] flex flex-col items-center min-w-[115px] md:min-w-[150px] z-20 select-none">
+      <div className="absolute top-2 left-2 md:top-4 md:left-4 bg-[var(--cordel-bg)]/95 text-[var(--cordel-text)] cordel-border-sm p-1.5 px-2 md:p-2 md:px-3 shadow-[3px_3px_0px_var(--cordel-border)] md:shadow-[4px_4px_0px_var(--cordel-border)] flex flex-col items-center min-w-[115px] md:min-w-[150px] z-20 select-none">
         <span className="text-[8px] md:text-[9px] uppercase opacity-65 tracking-wider font-bold select-none">{lang === 'pt' ? 'Compasso' : 'Mesure'}</span>
         <div className="flex items-center justify-between w-full mt-1.5 px-1.5 gap-2">
           <button
@@ -700,13 +735,13 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
               const prev = (currentMeasure - 1 + totalMeasures) % totalMeasures;
               onNavigateMeasure?.(prev);
             }}
-            className="w-6 h-6 flex items-center justify-center bg-[var(--cordel-bg)] text-[#1a1a1a] border border-[#1a1a1a] font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[var(--cordel-bg)] transition-colors rounded-sm active:scale-95"
+            className="w-6 h-6 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors rounded-sm active:scale-95"
             title={lang === 'pt' ? 'Compasso anterior' : 'Mesure précédente'}
             style={{ padding: 0 }}
           >
             &lt;
           </button>
-          <span className="text-sm md:text-base font-cactus font-bold leading-none select-none flex-grow text-center">
+          <span ref={measureDisplayRef} className="text-sm md:text-base font-cactus font-bold leading-none select-none flex-grow text-center">
             {currentMeasure + 1} / {totalMeasures}
           </span>
           <button
@@ -715,7 +750,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
               const next = (currentMeasure + 1) % totalMeasures;
               onNavigateMeasure?.(next);
             }}
-            className="w-6 h-6 flex items-center justify-center bg-[var(--cordel-bg)] text-[#1a1a1a] border border-[#1a1a1a] font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[var(--cordel-bg)] transition-colors rounded-sm active:scale-95"
+            className="w-6 h-6 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors rounded-sm active:scale-95"
             title={lang === 'pt' ? 'Próximo compasso' : 'Mesure suivante'}
             style={{ padding: 0 }}
           >
@@ -724,17 +759,17 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
         </div>
       </div>
 
-      <div className="absolute top-2 right-2 md:top-4 md:right-4 bg-[#f4ecd8]/95 text-[#1a1a1a] cordel-border-sm p-1.5 px-2.5 md:p-2 md:px-3.5 shadow-[3px_3px_0px_#1a1a1a] md:shadow-[4px_4px_0px_#1a1a1a] flex flex-col items-end min-w-[90px] md:min-w-[120px] z-20 pointer-events-none">
+      <div className="absolute top-2 right-2 md:top-4 md:right-4 bg-[var(--cordel-bg)]/95 text-[var(--cordel-text)] cordel-border-sm p-1.5 px-2.5 md:p-2 md:px-3.5 shadow-[3px_3px_0px_var(--cordel-border)] md:shadow-[4px_4px_0px_var(--cordel-border)] flex flex-col items-end min-w-[90px] md:min-w-[120px] z-20 pointer-events-none">
         <span className="text-[8px] md:text-[9px] uppercase opacity-65 tracking-wider font-bold">{lang === 'pt' ? 'Fórmula' : 'Rythme'}</span>
         <span className="text-sm md:text-lg font-cactus font-bold leading-tight">{timeSig}</span>
       </div>
 
-      <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 bg-[#f4ecd8]/95 text-[#1a1a1a] cordel-border-sm p-1.5 px-2.5 md:p-2 md:px-3.5 shadow-[3px_3px_0px_#1a1a1a] md:shadow-[4px_4px_0px_#1a1a1a] flex flex-col items-start min-w-[90px] md:min-w-[120px] z-20 pointer-events-none">
+      <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 bg-[var(--cordel-bg)]/95 text-[var(--cordel-text)] cordel-border-sm p-1.5 px-2.5 md:p-2 md:px-3.5 shadow-[3px_3px_0px_var(--cordel-border)] md:shadow-[4px_4px_0px_var(--cordel-border)] flex flex-col items-start min-w-[90px] md:min-w-[120px] z-20 pointer-events-none">
         <span className="text-[8px] md:text-[9px] uppercase opacity-65 tracking-wider font-bold">Tempo</span>
         <span className="text-sm md:text-lg font-cactus font-bold leading-tight">{activeBpm} <span className="text-[10px] md:text-xs font-sans font-bold">BPM</span></span>
       </div>
 
-      <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 bg-[#f4ecd8]/95 text-[#1a1a1a] cordel-border-sm p-1.5 px-2.5 md:p-2 md:px-3.5 shadow-[3px_3px_0px_#1a1a1a] md:shadow-[4px_4px_0px_#1a1a1a] flex flex-col items-end min-w-[90px] md:min-w-[120px] z-20 pointer-events-none">
+      <div className="absolute bottom-2 right-2 md:bottom-4 md:right-4 bg-[var(--cordel-bg)]/95 text-[var(--cordel-text)] cordel-border-sm p-1.5 px-2.5 md:p-2 md:px-3.5 shadow-[3px_3px_0px_var(--cordel-border)] md:shadow-[4px_4px_0px_var(--cordel-border)] flex flex-col items-end min-w-[90px] md:min-w-[120px] z-20 pointer-events-none">
         <span className="text-[8px] md:text-[9px] uppercase opacity-65 tracking-wider font-bold">Volume</span>
         <span className="text-sm md:text-lg font-cactus font-bold leading-tight">{activeVol}%</span>
       </div>
@@ -760,17 +795,17 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = ({
               <img
                 src={activeSignal.image}
                 alt={activeSignal.name}
-                className="w-[28%] aspect-square object-cover rounded-full border-4 border-[#f4ecd8] shadow-2xl select-none"
+                className="w-[28%] aspect-square object-cover rounded-full border-4 border-[var(--cordel-border)] shadow-2xl select-none"
                 style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))' }}
               />
-              <span className="mt-2 text-[#f4ecd8] font-cactus font-bold text-sm uppercase tracking-widest select-none" style={{ textShadow: '0 2px 6px #000' }}>
+              <span className="mt-2 text-[var(--cordel-text)] font-cactus font-bold text-sm uppercase tracking-widest select-none" style={{ textShadow: '0 2px 6px #000' }}>
                 {activeSignal.name}
               </span>
             </>
           )}
         </div>
       </div>
-      <div className="absolute top-2 right-3 text-[10px] text-[#eaddcf]/40 pointer-events-none select-none font-medium tracking-wide hidden md:block">
+      <div className="absolute top-2 right-3 text-[10px] text-[var(--cordel-text)]/40 pointer-events-none select-none font-medium tracking-wide hidden md:block">
         Créé par Julian Biblocq | Art: Toni Braga
       </div>
     </div>

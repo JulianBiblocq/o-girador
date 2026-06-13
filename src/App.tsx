@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import LZString from 'lz-string';
 import * as Tone from 'tone';
 import { Circle, TrackGroup, Pattern, Language, Preset, TimeSignature, PresetMetadata, HitTrigger, SongSection, RhythmSignal } from './types';
 import { migrateCirclesToTracks } from './migration';
@@ -27,6 +28,7 @@ import { TimelineSequencer } from './components/TimelineSequencer';
 import { TouchStrokeSelector, TouchSelectorState } from './components/TouchStrokeSelector';
 import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from './db';
 import { TarolSampler } from './TarolSampler';
+import { AudioEngine } from './AudioEngine';
 
 // Module scope audio engines to avoid duplicate instantiations on React re-renders
 let bMetroClick: Tone.Synth | null = null;
@@ -38,7 +40,54 @@ const samplers: { [id: string]: Tone.Players } = {};
 const tarolSampler = new TarolSampler();
 const voiceSynths: { [id: string]: any } = {};
 let loadedCount = 0;
-let mainLoop: Tone.Loop | null = null;
+let audioEngine: AudioEngine | null = null;
+const activePlayerSources = new Map<string, AudioBufferSourceNode>();
+
+function playNativeSample(
+  audioContext: AudioContext,
+  buffer: AudioBuffer,
+  outputNode: any,
+  time: number,
+  velocity: number,
+  decayMultiplier: number
+): AudioBufferSourceNode {
+  const source = audioContext.createBufferSource();
+  source.buffer = buffer;
+
+  const gainNode = audioContext.createGain();
+  gainNode.gain.setValueAtTime(velocity, time);
+
+  source.connect(gainNode);
+
+  // Recursively resolve native AudioNode if it's wrapped in a ToneAudioNode
+  let destNode: any = outputNode;
+  while (destNode && !(destNode instanceof AudioNode) && destNode.input) {
+    destNode = destNode.input;
+  }
+
+  if (destNode instanceof AudioNode) {
+    gainNode.connect(destNode);
+  } else {
+    try {
+      gainNode.connect(outputNode);
+    } catch (_) {
+      gainNode.connect(audioContext.destination);
+    }
+  }
+
+  if (decayMultiplier < 1.0) {
+    source.start(time, 0, buffer.duration * decayMultiplier);
+  } else {
+    source.start(time);
+  }
+
+  source.onended = () => {
+    gainNode.disconnect();
+  };
+
+  return source;
+}
+
 let wavRecordingBuffersL: Float32Array[] = [];
 let wavRecordingBuffersR: Float32Array[] = [];
 let scriptProcessorNode: ScriptProcessorNode | null = null;
@@ -75,7 +124,7 @@ function getCachedMarkers(timeSig: string, ticks: number): number[] {
 // ─── Pré-compilation du séquenceur ───────────────────────────────────────────
 // Plutôt que de faire forEach/find à chaque tick (133x/sec), on pre-compiles
 // toutes les notes à jouer dans une Map (measureIdx → tickIdx → notes[]).
-// Le Tone.Loop ne fait alors qu'un accès O(1) — le thread audio n'est plus
+// La boucle AudioEngine ne fait alors qu'un accès O(1) — le thread audio n'est plus
 // chargé par les calculs React.
 interface ScheduledNote {
   instId: string;
@@ -90,7 +139,7 @@ interface ScheduledNote {
   circleStepIdx: number;
   state: any;
 }
-let tickSchedule: Map<number, Map<number, ScheduledNote[]>> = new Map();
+
 
 function buildTickSchedule(
   tracks: any[],
@@ -171,6 +220,8 @@ function buildTickSchedule(
           else if (state === 'e') { targetKey = 'faible-e'; }
           else if (state === 'D') { targetKey = 'fort-D'; isStrong = true; }
           else if (state === 'E') { targetKey = 'fort-E'; isStrong = true; }
+          else if (state === 'Rd' || state === 'rd') { targetKey = 'rufada-d'; isStrong = true; }
+          else if (state === 'Re' || state === 're') { targetKey = 'rufada-e'; isStrong = true; }
           else if (state === 'x' || state === 'X') { targetKey = 'cerclage'; isStrong = true; }
           else if (state === 'c' || state === 'C') { targetKey = 'click'; isStrong = true; }
           else if (state === 'f' || state === 'F') { targetKey = 'fla'; isStrong = true; }
@@ -322,7 +373,7 @@ const base64ToBlob = (base64Data: string): Blob => {
 };
 
 export default function App() {
-  const CURRENT_VERSION = "2.1"; // Matches version.json
+  const CURRENT_VERSION = "2.2"; // Matches version.json
 
   // PWA Auto-Update Check
   useEffect(() => {
@@ -393,7 +444,17 @@ export default function App() {
     window.innerWidth <= 768 ? 'letras' : (window.innerWidth >= 1024 ? 'letras' : null)
   );
   const [viewMode, setViewMode] = useState<'roda' | 'console' | 'timeline'>('roda');
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    const savedTheme = localStorage.getItem('baquemix-theme');
+    if (savedTheme) {
+      return savedTheme === 'dark';
+    }
+    const mediaDark = window.matchMedia('(prefers-color-scheme: dark)');
+    const mediaLight = window.matchMedia('(prefers-color-scheme: light)');
+    if (mediaDark.matches) return true;
+    if (mediaLight.matches) return false;
+    return true; // default to true
+  });
   const [localPresets, setLocalPresets] = useState<string[]>([]);
   const [tracksHistory, setTracksHistory] = useState<TrackGroup[][]>([]);
   const tracksHistoryRef = useRef<TrackGroup[][]>([]);
@@ -534,9 +595,11 @@ export default function App() {
     setLocalPresets(Object.keys(getLocalLibrary()));
   }, []);
 
-  // Apply theme to document
+  // Apply theme to document and save to localStorage
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', isDarkMode ? 'dark' : 'light');
+    const theme = isDarkMode ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('baquemix-theme', theme);
   }, [isDarkMode]);
 
   // Adjust measure arrays length when totalMeasures changes
@@ -671,8 +734,10 @@ export default function App() {
   const isMetroOnRef = useRef<boolean>(false);
   const isSwingOnRef = useRef<boolean>(true);
   const hitTriggersRef = useRef<HitTrigger[]>([]);
+  const engineTimeoutsRef = useRef<any[]>([]);
   const measureSignalsRef = useRef<(string | null)[]>([]);
   const lastPlayedSignalIdRef = useRef<string | null>(null);
+  const tickScheduleRef = useRef<Map<number, Map<number, ScheduledNote[]>>>(new Map());
 
   // For vocal recording
   const recordingDurationMeasuresRef = useRef<number>(1);
@@ -832,26 +897,56 @@ export default function App() {
     }
   };
 
-  // Synchronisation des refs légères (currentStepIndex uniquement) — se déclenche à chaque tick audio (~16x/sec)
-  useEffect(() => {
-    currentStepIndexRef.current = currentStepIndex;
-  }, [currentStepIndex]);
 
-  // Synchronisation des refs lourdes — se déclenche uniquement sur des changements significatifs (pas à chaque tick)
+
+  // Dedicated synchronization of audio engine refs and recompilation of tick schedule
+  // when composition structure, tracks, or states change (runs on load, clean, or bounds edits)
   useEffect(() => {
+    console.log("⚙️⚙️⚙️ [AUDIO_ENGINE_SYNC_&_RECOMPILE] State changed! Syncing refs and recompiling tickScheduleRef...");
     tracksRef.current = tracks;
     totalMeasuresRef.current = totalMeasures;
-    isPlayingRef.current = isPlaying;
+    measureTimeSigsRef.current = measureTimeSigs;
+    measureBpmsRef.current = measureBpms;
+    measureBpmTransitionsRef.current = measureBpmTransitions;
+    measureVolsRef.current = measureVols;
+    measureVolTransitionsRef.current = measureVolTransitions;
+    measureSignalsRef.current = measureSignals;
     maxTicksRef.current = getMaxTicks(timeSig);
+
+    try {
+      const schedule = buildTickSchedule(
+        tracks,
+        totalMeasures,
+        measureTimeSigs,
+        instrumentsConfig,
+        soloPatternPlayId
+      );
+      tickScheduleRef.current = schedule;
+      console.log("✅✅✅ [AUDIO_ENGINE_SYNC_&_RECOMPILE] Success. Compiled measure map size:", schedule.size);
+    } catch (err) {
+      console.error("❌❌❌ [AUDIO_ENGINE_SYNC_&_RECOMPILE] Failed to compile tick schedule:", err);
+    }
+  }, [
+    tracks,
+    totalMeasures,
+    measureTimeSigs,
+    measureBpms,
+    measureBpmTransitions,
+    measureVols,
+    measureVolTransitions,
+    measureSignals,
+    timeSig,
+    soloPatternPlayId
+  ]);
+
+  // Synchronisation des refs de statut d'exécution (se déclenche lors des play/pause, metronome, swing, vocal state changes)
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
     isMetroOnRef.current = isMetroOn;
     isSwingOnRef.current = isSwingOn;
     recordingVocalPatternIdRef.current = recordingVocalPatternId;
     isVocalGuideEnabledRef.current = isVocalGuideEnabled;
-  }, [tracks, totalMeasures, isPlaying, timeSig, isMetroOn, isSwingOn, recordingVocalPatternId, isVocalGuideEnabled]);
-
-  useEffect(() => {
-    measureSignalsRef.current = measureSignals;
-  }, [measureSignals]);
+  }, [isPlaying, isMetroOn, isSwingOn, recordingVocalPatternId, isVocalGuideEnabled]);
 
   useEffect(() => {
     const voicePatternIds: number[] = [];
@@ -880,17 +975,6 @@ export default function App() {
       }
     });
   }, [tracks]);
-
-  // Recompile the sequencer tick schedule when structure or assignments change
-  useEffect(() => {
-    tickSchedule = buildTickSchedule(
-      tracks,
-      totalMeasures,
-      measureTimeSigs,
-      instrumentsConfig,
-      soloPatternPlayId
-    );
-  }, [tracks, totalMeasures, measureTimeSigs, soloPatternPlayId]);
 
   const t = (key: string) => {
     return (i18n[lang] as any)[key] || key;
@@ -922,14 +1006,15 @@ export default function App() {
         
         masterVolumeNode.gain.value = Tone.dbToGain(masterVolRef.current === -40 ? -Infinity : masterVolRef.current);
         masterMeterNode = new Tone.Meter();
-        masterCompressorNode.connect(masterMeterNode);
+        (window as any).masterMeterNode = masterMeterNode;
+        Tone.Destination.connect(masterMeterNode);
       }
 
-      // Configurer le lookAhead de Tone.js à 80ms pour pré-scheduler les événements audio.
-      // Avec la mémoïsation React complète, 80ms est optimal pour garantir à la fois l'absence de coupures
+      // Configurer le lookAhead de Tone.js à 150ms pour pré-scheduler les événements audio.
+      // Avec la mémoïsation React complète, 150ms est optimal pour garantir à la fois l'absence de coupures
       // et une synchronisation audio-visuelle parfaite.
       try {
-        Tone.getContext().lookAhead = 0.08;
+        Tone.getContext().lookAhead = 0.15;
       } catch (err) {
         console.warn("Failed to set Tone.js lookAhead:", err);
       }
@@ -1058,8 +1143,12 @@ export default function App() {
         }
       });
 
-      // Stable 96-tick sequencing loop
-      mainLoop = new Tone.Loop((time) => {
+      // Stable 96-tick sequencing loop using our AudioEngine
+      const rawCtx = Tone.getContext().rawContext as AudioContext;
+      audioEngine = new AudioEngine(
+        rawCtx,
+        (time) => {
+        console.log("⏰⏰⏰ [AUDIO ENGINE ON_TICK CALLBACK] Fired. time parameter: " + time + " | Current step index ref: " + currentStepIndexRef.current);
         let currentTicks = maxTicksRef.current;
         let stepIdx = currentStepIndexRef.current;
 
@@ -1069,8 +1158,10 @@ export default function App() {
             measureCountRef.current = 0;
           } else if (loopStartRef.current !== null && (measureCountRef.current < loopStartRef.current || (loopEndRef.current !== null && measureCountRef.current > loopEndRef.current))) {
             measureCountRef.current = loopStartRef.current;
+          } else {
+            measureCountRef.current = measureCountRef.current % (totalMeasuresRef.current || 1);
           }
-          const firstMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
+          const firstMeasureIdx = measureCountRef.current;
           const firstTimeSig = measureTimeSigsRef.current[firstMeasureIdx] || '4/4';
           currentTicks = getMaxTicks(firstTimeSig);
           maxTicksRef.current = currentTicks;
@@ -1078,14 +1169,14 @@ export default function App() {
           if (soloPatternPlayIdRef.current !== null) {
             measureCountRef.current = 0;
           } else {
-            const currentMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
+            const currentMeasureIdx = measureCountRef.current;
             if (loopStartRef.current !== null && loopEndRef.current !== null && currentMeasureIdx === loopEndRef.current) {
               measureCountRef.current = loopStartRef.current;
             } else {
-              measureCountRef.current++;
+              measureCountRef.current = (measureCountRef.current + 1) % (totalMeasuresRef.current || 1);
             }
           }
-          const nextMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
+          const nextMeasureIdx = measureCountRef.current;
           const nextTimeSig = measureTimeSigsRef.current[nextMeasureIdx] || '4/4';
           currentTicks = getMaxTicks(nextTimeSig);
           maxTicksRef.current = currentTicks;
@@ -1095,8 +1186,9 @@ export default function App() {
         stepIdx = (stepIdx + 1) % currentTicks;
         currentStepIndexRef.current = stepIdx;
 
+        const currentMeasureIdx = measureCountRef.current;
+
         if (stepIdx === 0) {
-          const currentMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
           const sigId = measureSignalsRef.current[currentMeasureIdx] || null;
           if (sigId && sigId !== lastPlayedSignalIdRef.current) {
             if (whistleSynth) {
@@ -1107,21 +1199,29 @@ export default function App() {
           lastPlayedSignalIdRef.current = sigId;
         }
 
-        // Mise à jour visuelle React via requestAnimationFrame pour ne jamais bloquer le thread audio.
-        // Le callback Tone.Loop doit rester le plus léger possible — on délègue les setState au
-        // prochain frame de rendu navigateur, découplé du scheduling audio.
-        const _stepForUI = stepIdx;
-        const _measureForUI = measureCountRef.current % totalMeasuresRef.current;
-        const _currentTicks = currentTicks;
-        requestAnimationFrame(() => {
-          setCurrentStepIndex(_stepForUI);
-          if (_stepForUI === 0) {
-            setCurrentMeasure(_measureForUI);
-          }
-        });
+        const _stepForUI = isNaN(stepIdx) ? 0 : stepIdx;
+        const _measureForUI = isNaN(currentMeasureIdx) ? 0 : currentMeasureIdx;
+        const _currentTicks = isNaN(currentTicks) || currentTicks <= 0 ? 96 : currentTicks;
+        const ratioVal = _stepForUI / _currentTicks;
+
+        const delayMs = Math.max(0, (time - rawCtx.currentTime) * 1000);
+        const timeoutId = setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('baquemix-tick', {
+            detail: {
+              step: _stepForUI,
+              measure: _measureForUI,
+              maxTicks: _currentTicks,
+              ratio: ratioVal,
+              visualStep16: Math.floor(ratioVal * 16),
+              visualStep12: Math.floor(ratioVal * 12),
+              time: time
+            }
+          }));
+          engineTimeoutsRef.current = engineTimeoutsRef.current.filter(id => id !== timeoutId);
+        }, delayMs);
+        engineTimeoutsRef.current.push(timeoutId);
 
         // Pré-calculer la durée d'un 96n une seule fois par tick (formule mathématique sans allocation d'objet)
-        const currentMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
         const targetBpm = measureBpmsRef.current[currentMeasureIdx] ?? 100;
         const tick96nSec = 2.5 / targetBpm;
 
@@ -1208,7 +1308,7 @@ export default function App() {
         // ─── LECTURE DEPUIS LE TABLEAU PRÉ-COMPILÉ (O(1) par tick) ───────
         // Les instruments (non-voix) sont joués depuis tickSchedule pour
         // éviter tout forEach/find/switch dans le thread audio.
-        const measureMap = tickSchedule.get(currentMeasureIdx);
+        const measureMap = tickScheduleRef.current.get(currentMeasureIdx);
         const scheduledNotes = measureMap?.get(stepIdx);
 
         if (scheduledNotes) {
@@ -1229,8 +1329,15 @@ export default function App() {
                 const microOffset = (note.microtimingPct / 100) * stepDurSec * 0.5;
                 const triggerTime = swingTime + microOffset;
 
+                console.log("🎵 [PLAY NOTE] tarol", note.playerKey, triggerTime);
                 tarolSampler.play(note.playerKey, triggerTime, note.baseGain * vel, note.stepDecayMultiplier);
-                hitTriggersRef.current.push({ trackId: note.trackId, stepIndex: note.circleStepIdx, state: note.state });
+                
+                const delayMs = Math.max(0, (triggerTime - rawCtx.currentTime) * 1000);
+                const timeoutId = setTimeout(() => {
+                  hitTriggersRef.current.push({ trackId: note.trackId, stepIndex: note.circleStepIdx, state: note.state });
+                  engineTimeoutsRef.current = engineTimeoutsRef.current.filter(id => id !== timeoutId);
+                }, delayMs);
+                engineTimeoutsRef.current.push(timeoutId);
                 continue;
               }
 
@@ -1239,15 +1346,23 @@ export default function App() {
               const player = playerGroup.player(note.playerKey);
               if (!player.loaded) continue;
 
-              // Barulho choke
-              if (note.playerKey !== 'barulho' && playerGroup.has('barulho')) {
-                try { playerGroup.player('barulho').stop(); } catch(_) {}
-              }
+              const nativeBuffer = player.buffer.get();
+              if (!nativeBuffer) continue;
 
               // Micro-timing offset
               const stepDurSec = tick96nSec * (currentTicks / note.stepsPerMeasure);
               const microOffset = (note.microtimingPct / 100) * stepDurSec * 0.5;
               const triggerTime = swingTime + microOffset;
+
+              // Choke barulho: stop any active barulho source when another sound in the group starts
+              if (note.playerKey !== 'barulho') {
+                const barulhoKey = `${note.instId}_barulho`;
+                const activeBarulho = activePlayerSources.get(barulhoKey);
+                if (activeBarulho) {
+                  try { activeBarulho.stop(triggerTime); } catch(_) {}
+                  activePlayerSources.delete(barulhoKey);
+                }
+              }
 
               // Velocity humanization (random — can't be pre-computed)
               let vel = 1.0;
@@ -1257,15 +1372,33 @@ export default function App() {
                   : 0.4 + (nextRandom() * 0.24 - 0.12);
               }
               vel *= note.stepVolMultiplier;
-              player.volume.setValueAtTime(Tone.gainToDb(note.baseGain * vel), triggerTime);
 
-              if (note.stepDecayMultiplier < 1.0) {
-                player.start(triggerTime, 0, player.buffer.duration * note.stepDecayMultiplier);
-              } else {
-                player.start(triggerTime);
-              }
+              // Play sample natively using AudioContext nodes connected directly to the channel input
+              console.log("🎵 [PLAY NOTE] generic", note.instId, note.playerKey, triggerTime);
+              const source = playNativeSample(
+                rawCtx,
+                nativeBuffer,
+                channels[note.instId].input,
+                triggerTime,
+                note.baseGain * vel,
+                note.stepDecayMultiplier
+              );
 
-              hitTriggersRef.current.push({ trackId: note.trackId, stepIndex: note.circleStepIdx, state: note.state });
+              const sourceKey = `${note.instId}_${note.playerKey}`;
+              activePlayerSources.set(sourceKey, source);
+
+              source.onended = () => {
+                if (activePlayerSources.get(sourceKey) === source) {
+                  activePlayerSources.delete(sourceKey);
+                }
+              };
+
+              const delayMs = Math.max(0, (triggerTime - rawCtx.currentTime) * 1000);
+              const timeoutId = setTimeout(() => {
+                hitTriggersRef.current.push({ trackId: note.trackId, stepIndex: note.circleStepIdx, state: note.state });
+                engineTimeoutsRef.current = engineTimeoutsRef.current.filter(id => id !== timeoutId);
+              }, delayMs);
+              engineTimeoutsRef.current.push(timeoutId);
             } catch (_) {}
           }
         }
@@ -1380,7 +1513,13 @@ export default function App() {
             } catch (_) {}
           }
         });
-      }, '96n');
+        },
+        () => {
+          const currentMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
+          const targetBpm = measureBpmsRef.current[currentMeasureIdx] ?? 100;
+          return 2.5 / targetBpm;
+        }
+      );
 
       // Set fallback timer if loading assets get blocked
       setTimeout(() => {
@@ -1440,7 +1579,26 @@ export default function App() {
     const hash = window.location.hash;
     let loadedFromHash = false;
 
-    const tryLoadHash = async () => {
+    const tryLoadQueryOrHash = async () => {
+      // 1. Try URL query parameter '?baque='
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const baqueParam = urlParams.get('baque');
+        if (baqueParam) {
+          const decompressed = LZString.decompressFromEncodedURIComponent(baqueParam);
+          if (decompressed) {
+            const preset = JSON.parse(decompressed);
+            await applyPreset(preset);
+            // Clean URL immediately to keep address bar clean
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return true;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load shared state from URL query parameter:', err);
+      }
+
+      // 2. Fallback to existing '#state=' hash
       if (!hash || !hash.startsWith('#state=')) return false;
       const encoded = hash.substring(7);
       // Try new compressed format first (gzip + base64url)
@@ -1467,7 +1625,7 @@ export default function App() {
       return false;
     };
 
-    tryLoadHash().then((loaded) => {
+    tryLoadQueryOrHash().then((loaded) => {
       loadedFromHash = loaded;
 
       fetch(`${ASSETS_BASE_URL}presets/catalog.json`)
@@ -1502,43 +1660,8 @@ export default function App() {
     }
   }, []);
 
-  // Sync levels display bar via non-re-rendering dynamic canvas interval
-  useEffect(() => {
-    const dbToPercent = (db: number) => {
-      if (db < -50) return 0;
-      if (db > 0) return 100;
-      return Math.floor(((db + 50) / 50) * 100);
-    };
+  // VU-meters are now animated locally inside components using requestAnimationFrame for better performance and encapsulation
 
-    const updateLocalMenders = () => {
-      tracksRef.current.forEach((c) => {
-        const inst = instrumentsConfig[c.instrumentIdx];
-        const bar = document.getElementById(`meter-bar-${c.id}`);
-        const meter = meters[inst.id];
-        if (bar && meter) {
-          const val = isPlayingRef.current ? dbToPercent(meter.getValue() as number) + '%' : '0%';
-          if (bar.classList.contains('meter-vertical')) {
-            bar.style.height = val;
-            bar.style.width = '100%';
-          } else {
-            bar.style.width = val;
-            bar.style.height = '100%';
-          }
-        }
-      });
-
-      // Update Master VU meter
-      const masterBar = document.getElementById('meter-bar-master');
-      if (masterBar && masterMeterNode) {
-        const val = isPlayingRef.current ? dbToPercent(masterMeterNode.getValue() as number) + '%' : '0%';
-        masterBar.style.height = val;
-        masterBar.style.width = '100%';
-      }
-    };
-
-    const timer = setInterval(updateLocalMenders, 80);
-    return () => clearInterval(timer);
-  }, []);
 
   // Recording duration timer
   useEffect(() => {
@@ -1736,6 +1859,20 @@ export default function App() {
       measureVolsRef.current = loadedVols;
       measureVolTransitionsRef.current = loadedVolTransitions;
 
+      try {
+        console.log("⚙️⚙️⚙️ [loadFallbackPreset] Compiling tick schedule synchronously...");
+        tickScheduleRef.current = buildTickSchedule(
+          loadedTracks,
+          loadedMeasures,
+          loadedTimeSigs,
+          instrumentsConfig,
+          null
+        );
+        console.log("✅✅✅ [loadFallbackPreset] Done. Compiled measures count:", tickScheduleRef.current.size);
+      } catch (err) {
+        console.error("❌❌❌ [loadFallbackPreset] Synchronous compilation failed:", err);
+      }
+
       measureCountRef.current = 0;
       setCurrentMeasure(0);
     } catch (err) {
@@ -1866,6 +2003,7 @@ export default function App() {
 
   // 3. User operations callbacks
   const handleTogglePlay = async () => {
+    console.log("📣📣📣 [PLAY_BUTTON_TRIGGERED] handleTogglePlay called! Current state -> isPlaying: " + isPlaying + " | First step (currentStepIndexRef.current): " + currentStepIndexRef.current);
     await Tone.start();
     if (soloPatternPlayIdRef.current !== null) {
       setSoloPatternPlayId(null);
@@ -1876,10 +2014,15 @@ export default function App() {
       if (Tone.Transport.state !== 'started') {
         Tone.Transport.start();
       }
-      mainLoop?.start(0);
+      console.log("🚀 [AUDIO ENGINE START] Starting audioEngine. Step index ref:", currentStepIndexRef.current);
+      audioEngine?.start();
       setIsPlaying(true);
     } else {
-      mainLoop?.stop();
+      console.log("⏸️ [AUDIO ENGINE STOP] Stopping audioEngine.");
+      audioEngine?.stop();
+      engineTimeoutsRef.current.forEach(clearTimeout);
+      engineTimeoutsRef.current = [];
+      hitTriggersRef.current = [];
       Tone.Transport.pause();
       if (isRecordingVocal) {
         stopVocalRecording();
@@ -1893,12 +2036,19 @@ export default function App() {
         }
         if (voiceSynths[inst.id]) voiceSynths[inst.id].triggerRelease();
       });
+      activePlayerSources.forEach((src) => {
+        try { src.stop(); } catch(_) {}
+      });
+      activePlayerSources.clear();
       (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
         try {
           player.stop();
         } catch (_) {}
       });
       setIsPlaying(false);
+      window.dispatchEvent(new CustomEvent('baquemix-tick', {
+        detail: { step: -1, measure: 0, maxTicks: 16 }
+      }));
     }
   };
 
@@ -1906,7 +2056,10 @@ export default function App() {
     if (soloPatternPlayIdRef.current !== null) {
       setSoloPatternPlayId(null);
     }
-    mainLoop?.stop();
+    audioEngine?.stop();
+    engineTimeoutsRef.current.forEach(clearTimeout);
+    engineTimeoutsRef.current = [];
+    hitTriggersRef.current = [];
     Tone.Transport.stop();
     if (isRecordingVocal) {
       stopVocalRecording();
@@ -1919,6 +2072,10 @@ export default function App() {
       }
       if (voiceSynths[inst.id]) voiceSynths[inst.id].triggerRelease();
     });
+    activePlayerSources.forEach((src) => {
+      try { src.stop(); } catch(_) {}
+    });
+    activePlayerSources.clear();
     (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
       try {
         player.stop();
@@ -1931,6 +2088,9 @@ export default function App() {
     setCurrentMeasure(0);
     Tone.Transport.seconds = 0;
     lastPlayedSignalIdRef.current = null;
+    window.dispatchEvent(new CustomEvent('baquemix-tick', {
+      detail: { step: -1, measure: 0, maxTicks: 16 }
+    }));
   };
 
   const handlePresetSelect = (value: string) => {
@@ -2809,7 +2969,7 @@ export default function App() {
     }
     
     // Reset playhead
-    mainLoop?.stop();
+    audioEngine?.stop();
     Tone.Transport.stop();
     
     instrumentsConfig.forEach((inst) => {
@@ -2820,6 +2980,10 @@ export default function App() {
       }
       if (voiceSynths[inst.id]) voiceSynths[inst.id].triggerRelease();
     });
+    activePlayerSources.forEach((src) => {
+      try { src.stop(); } catch(_) {}
+    });
+    activePlayerSources.clear();
     (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
       try {
         player.stop();
@@ -2840,7 +3004,7 @@ export default function App() {
     if (Tone.Transport.state !== 'started') {
       Tone.Transport.start();
     }
-    mainLoop?.start(0);
+    audioEngine?.start();
     setIsPlaying(true);
   };
 
@@ -3014,6 +3178,18 @@ export default function App() {
     setCurrentStepIndex(tickIdx);
     maxTicksRef.current = currentTicks;
 
+    const ratioVal = tickIdx / currentTicks;
+    window.dispatchEvent(new CustomEvent('baquemix-tick', {
+      detail: {
+        step: tickIdx,
+        measure: measureIdx % totalMeasures,
+        maxTicks: currentTicks,
+        ratio: ratioVal,
+        visualStep16: Math.floor(ratioVal * 16),
+        visualStep12: Math.floor(ratioVal * 12)
+      }
+    }));
+
     // Apply target BPM instantly when navigating
     const targetBpm = measureBpms[measureIdx] || bpm;
     try {
@@ -3081,17 +3257,24 @@ export default function App() {
                   parsed = cleanChar;
                 }
               } else if (inst.id === 'tarol') {
-                const lowerChar = cleanChar.toLowerCase();
-                if (['d', 'D', 'e', 'E'].includes(cleanChar)) {
+                const normVal = val.trim();
+                if (normVal === 'Re') parsed = 'Re';
+                else if (normVal === 'Rd') parsed = 'Rd';
+                else if (cleanChar === 'r') parsed = 'Re';
+                else if (cleanChar === 'R') parsed = 'Rd';
+                else if (['d', 'D', 'e', 'E'].includes(cleanChar)) {
                   parsed = cleanChar;
-                } else if (lowerChar === 'x') {
-                  parsed = 'X';
-                } else if (lowerChar === 'f') {
-                  parsed = 'F';
-                } else if (lowerChar === 'c') {
-                  parsed = 'C';
-                } else if (lowerChar === 't') {
-                  parsed = 'T';
+                } else {
+                  const lowerChar = cleanChar.toLowerCase();
+                  if (lowerChar === 'x') {
+                    parsed = 'X';
+                  } else if (lowerChar === 'f') {
+                    parsed = 'F';
+                  } else if (lowerChar === 'c') {
+                    parsed = 'C';
+                  } else if (lowerChar === 't') {
+                    parsed = 'T';
+                  }
                 }
               } else if (inst.id === 'agbe') {
                 const lowerChar = cleanChar.toLowerCase();
@@ -3309,7 +3492,7 @@ export default function App() {
           if (Tone.Transport.state !== 'started') {
             Tone.Transport.start();
           }
-          mainLoop?.start(0);
+          audioEngine?.start();
           setIsPlaying(true);
         }
       }, VOCAL_RECORDING_ARM_DELAY_MS);
@@ -3677,8 +3860,7 @@ export default function App() {
   async function handleShare() {
     // Note: vocal audio recordings are NOT included in the shared file —
     // they are device-local (stored in IndexedDB) and would make the file
-    // several MB large, causing navigator.share() to fail. The recipient
-    // can record their own voice in BaqueMix.
+    // several MB large. The recipient can record their own voice in BaqueMix.
     const tracksCopy = JSON.parse(JSON.stringify(tracks));
     // Strip any vocalAudioData that may be in memory (shouldn't be, but safety)
     tracksCopy.forEach((t: any) => t.patterns?.forEach((p: any) => { delete p.vocalAudioData; }));
@@ -3723,28 +3905,17 @@ export default function App() {
     };
 
     try {
-      // Build a clean filename from the title metadata
-      let fileName = 'baquemix_rythme.json';
-      if (metadata?.toada && metadata.toada.trim() !== '') {
-        const cleanTitle = metadata.toada.trim()
-          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-          .replace(/[^a-z0-9_\- ]/gi, '')
-          .trim()
-          .replace(/\s+/g, '_');
-        if (cleanTitle) fileName = `${cleanTitle}.json`;
-      }
-
-      const jsonStr = JSON.stringify(dataToSave, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json' });
-      const file = new File([blob], fileName, { type: 'application/json' });
+      const jsonStr = JSON.stringify(dataToSave);
+      const compressed = LZString.compressToEncodedURIComponent(jsonStr);
+      const shareUrl = `${window.location.origin}${window.location.pathname}?baque=${compressed}`;
 
       const isMobileOrTablet = /Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent) ||
         ('ontouchstart' in window && navigator.maxTouchPoints > 0);
 
       let sharedNatively = false;
 
-      // Try native file sharing (works on Android Chrome, iOS Safari 15+, desktop Chrome with share target)
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      // Try native text sharing (works on Android Chrome, iOS Safari)
+      if (isMobileOrTablet && navigator.share) {
         try {
           const shareText = lang === 'pt'
             ? 'Abra no BaqueMix para jogar este ritmo de Maracatu!'
@@ -3752,45 +3923,29 @@ export default function App() {
           await navigator.share({
             title: metadata?.toada || 'BaqueMix',
             text: shareText,
-            files: [file]
+            url: shareUrl
           });
           sharedNatively = true;
         } catch (shareErr: any) {
           if (shareErr?.name === 'AbortError') {
-            // User cancelled/closed the share sheet. We should just return without downloading.
+            // User cancelled/closed the share sheet.
             return;
           }
-          console.warn('Native share failed, falling back to download', shareErr);
+          console.warn('Native share failed, falling back to clipboard copy', shareErr);
         }
       }
 
       if (!sharedNatively) {
-        // Fallback: download the file + show instructions
-        const dlUrl = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = dlUrl;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(dlUrl), 5000);
-
-        if (isMobileOrTablet) {
-          window.alert(
-            lang === 'pt'
-              ? `Arquivo "${fileName}" baixado!\nEnvie-o pelo WhatsApp, e-mail, etc. Seu contato poderá abri-lo diretamente no BaqueMix.`
-              : `Fichier "${fileName}" téléchargé !\nEnvoyez-le par WhatsApp, email, etc. Votre contact pourra l'ouvrir directement dans BaqueMix.`
-          );
-        } else {
-          window.alert(
-            lang === 'pt'
-              ? `Arquivo "${fileName}" baixado!\nEnvie este arquivo para seus amigos. Eles poderão importá-lo no BaqueMix através do botão 📂.`
-              : `Fichier "${fileName}" téléchargé !\nEnvoyez ce fichier à vos amis. Ils pourront l'importer dans BaqueMix via le bouton 📂.`
-          );
-        }
+        // Fallback: copy the magic link to clipboard
+        await navigator.clipboard.writeText(shareUrl);
+        window.alert(
+          lang === 'pt'
+            ? 'Link de compartilhamento copiado para a área de transferência!'
+            : 'Lien de partage copié dans le presse-papiers !'
+        );
       }
     } catch (e: any) {
-      console.error('Failed to prepare or download preset file', e);
+      console.error('Failed to prepare or compress preset data for sharing', e);
       window.alert(
         lang === 'pt'
           ? 'Erro ao exportar o ritmo. Por favor, tente novamente.'
@@ -3867,7 +4022,7 @@ export default function App() {
   }, [tracks, currentMeasure, soloPatternPlayId]);
 
   return (
-    <div className="flex flex-col h-screen text-[#f5f5f5] bg-[#0a0807] overflow-hidden select-none font-sans relative">
+    <div className="flex flex-col h-screen text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
       {/* Visual buffer loader loading overlay */}
       {isLoading && (
         <div id="loading-overlay" className="absolute inset-0 bg-[#121212]/90 flex flex-col items-center justify-center z-[9999] gap-2.5">
@@ -3941,6 +4096,7 @@ export default function App() {
               <Mixer
                 lang={lang}
                 tracks={tracks}
+                meters={meters}
                 onMoveUp={handleTrackMoveUp}
                 onMoveDown={handleTrackMoveDown}
                 onInstrumentChange={handleTrackInstrumentIdxChange}
@@ -4038,6 +4194,7 @@ export default function App() {
                 langPromptVoiceText={t('promptVoice')}
                 isMetroOn={isMetroOn}
                 activePatternIdByTrack={activePatternIdByTrack}
+                soloPatternPlayId={soloPatternPlayId}
                 hitTriggersRef={hitTriggersRef}
                 bpm={bpm}
                 measureBpms={measureBpms}
@@ -4059,6 +4216,8 @@ export default function App() {
             <ConsoleMixer
               isMobile={isMobile}
               lang={lang}
+              meters={meters}
+              masterMeter={masterMeterNode}
               tracks={tracks}
               onMoveUp={handleTrackMoveUp}
               onMoveDown={handleTrackMoveDown}
@@ -4273,11 +4432,11 @@ export default function App() {
 
       {/* Mobile view Tab Bar (Roda, Mixeur, Toada) */}
       {isMobile && viewMode === 'roda' && (
-        <div className="flex w-full bg-[#f4ecd8] border-t-2 border-[#1a1a1a] h-12 shrink-0 z-40 text-[#1a1a1a]">
+        <div className="flex w-full bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] h-12 shrink-0 z-40 text-[var(--cordel-text)]">
           <button
             onClick={() => setMobileTab('roda')}
-            className={`flex-1 font-cactus font-bold text-xs flex flex-col items-center justify-center border-r border-[#1a1a1a] cursor-pointer ${
-              mobileTab === 'roda' ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a]'
+            className={`flex-1 font-cactus font-bold text-xs flex flex-col items-center justify-center border-r border-[var(--cordel-border)] cursor-pointer ${
+              mobileTab === 'roda' ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
             }`}
           >
             <span className="text-sm">⭕</span>
@@ -4285,8 +4444,8 @@ export default function App() {
           </button>
           <button
             onClick={() => setMobileTab('mixer')}
-            className={`flex-1 font-cactus font-bold text-xs flex flex-col items-center justify-center border-r border-[#1a1a1a] cursor-pointer ${
-              mobileTab === 'mixer' ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a]'
+            className={`flex-1 font-cactus font-bold text-xs flex flex-col items-center justify-center border-r border-[var(--cordel-border)] cursor-pointer ${
+              mobileTab === 'mixer' ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
             }`}
           >
             <span className="text-sm">🎛️</span>
@@ -4295,7 +4454,7 @@ export default function App() {
           <button
             onClick={() => setMobileTab('toada')}
             className={`flex-1 font-cactus font-bold text-xs flex flex-col items-center justify-center cursor-pointer ${
-              mobileTab === 'toada' ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a]'
+              mobileTab === 'toada' ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
             }`}
           >
             <span className="text-sm">📝</span>

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import * as Tone from 'tone';
 import { TrackGroup, Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText } from '../data';
 import { PanKnob } from './PanKnob';
@@ -50,6 +51,8 @@ interface VerticalTrackMixerProps {
   canPaste?: boolean;
   onPatternNameChange?: (patternId: number, name: string) => void;
   onReorderPatterns?: (patternId: number, direction: 'up' | 'down') => void;
+  meter?: any;
+  soloPatternPlayId?: number | null;
 }
 
 const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
@@ -91,11 +94,122 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
   canPaste,
   onPatternNameChange,
   onReorderPatterns,
+  meter,
+  soloPatternPlayId,
 }) => {
   const [instDropdownOpen, setInstDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
+
+  const vuMeterRef = useRef<HTMLDivElement>(null);
+  const [liveMeasure, setLiveMeasure] = useState<number>(-1);
+  const lastMeasureRef = useRef<number>(-1);
+  const lastVuStepRef = useRef<number>(-1);
+
+  const liveActivePatternId = (() => {
+    if (liveMeasure >= 0) {
+      if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
+        const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
+        if (hasSoloPattern) return soloPatternPlayId;
+      }
+      const assignedPattern = track.patterns.find(p => p.measureAssignments[liveMeasure]);
+      return assignedPattern ? assignedPattern.id : track.selectedPatternId;
+    }
+    return track.selectedPatternId;
+  })();
+
+  const activePattern = track.patterns.find(p => p.id === liveActivePatternId) || track.patterns[0];
+
+  useEffect(() => {
+    const handleTick = (e: Event) => {
+      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
+      const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+      
+      if (step < 0) {
+        if (lastMeasureRef.current !== -1) {
+          lastMeasureRef.current = -1;
+          setLiveMeasure(-1);
+        }
+        lastVuStepRef.current = -1;
+        if (vuMeterRef.current) {
+          vuMeterRef.current.style.transition = 'none';
+          vuMeterRef.current.style.height = '0%';
+        }
+        return;
+      }
+      if (measure !== lastMeasureRef.current) {
+        lastMeasureRef.current = measure;
+        setLiveMeasure(prev => (prev !== measure ? measure : prev));
+      }
+
+      // Resolve the live active pattern dynamically inside the tick listener to avoid stale closure issues
+      const getLivePatternForMeasure = (m: number) => {
+        if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
+          const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
+          if (hasSoloPattern) {
+            return track.patterns.find(p => p.id === soloPatternPlayId);
+          }
+        }
+        return track.patterns.find(p => p.measureAssignments[m]);
+      };
+
+      const currentLivePattern = getLivePatternForMeasure(measure);
+
+      if (!currentLivePattern) {
+        lastVuStepRef.current = -1;
+        if (vuMeterRef.current) {
+          vuMeterRef.current.style.transition = 'none';
+          vuMeterRef.current.style.height = '0%';
+        }
+        return;
+      }
+
+      // Update event-based VU-meter height directly in DOM based on active step hits
+      const stepsCount = currentLivePattern.steps;
+      const targetStep = Math.floor(ratio * stepsCount);
+
+      if (targetStep !== lastVuStepRef.current) {
+        lastVuStepRef.current = targetStep;
+        if (!track.isMute) {
+          const val = currentLivePattern.activeSteps[targetStep];
+          const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
+          if (isHit && vuMeterRef.current) {
+            vuMeterRef.current.style.transition = 'none';
+            vuMeterRef.current.style.height = '100%';
+            void vuMeterRef.current.offsetHeight; // force reflow
+            requestAnimationFrame(() => {
+              if (vuMeterRef.current) {
+                vuMeterRef.current.style.transition = 'height 1.5s ease-out';
+                vuMeterRef.current.style.height = '0%';
+              }
+            });
+          }
+        }
+      }
+    };
+    window.addEventListener('baquemix-tick', handleTick);
+    return () => window.removeEventListener('baquemix-tick', handleTick);
+  }, [track, soloPatternPlayId]);
+
+  // Synchronize the visually active pattern selection index in parent state during playback
+  useEffect(() => {
+    if (isPlaying && liveMeasure >= 0) {
+      const livePattern = (() => {
+        if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
+          const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
+          if (hasSoloPattern) {
+            return track.patterns.find(p => p.id === soloPatternPlayId) || track.patterns[0];
+          }
+        }
+        return track.patterns.find(p => p.measureAssignments[liveMeasure]) || track.patterns[0];
+      })();
+
+      if (livePattern && livePattern.id !== track.selectedPatternId) {
+        onSelectPattern(livePattern.id);
+      }
+    }
+  }, [liveMeasure, isPlaying, track.patterns, track.selectedPatternId, soloPatternPlayId, onSelectPattern]);
 
   const handleSave = (patternId: number) => {
     if (onPatternNameChange) {
@@ -117,8 +231,6 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
 
   const inst = instrumentsConfig[track.instrumentIdx];
   const t = (key: string) => (i18n[lang] as any)[key] || key;
-
-  const activePattern = track.patterns.find(p => p.id === track.selectedPatternId) || track.patterns[0];
 
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
@@ -208,7 +320,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
             </button>
 
             {instDropdownOpen && (
-              <div className="absolute top-10 left-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border shadow-2xl min-w-[200px] max-h-[300px] overflow-y-auto z-[99]">
+              <div className="absolute top-10 left-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-shadow min-w-[200px] max-h-[300px] overflow-y-auto z-[99]">
                 {instrumentsConfig.map((opt, oIdx) => (
                   <div key={oIdx} onClick={() => { onInstrumentChange(oIdx); setInstDropdownOpen(false); }} className="flex items-center gap-3 px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]">
                     <img src={`${ASSETS_BASE_URL}${opt.iconImg}`} alt={opt.name} className="w-6 h-6 object-contain" />
@@ -269,7 +381,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
               return (
                 <div key={ptn.id} className="flex flex-col gap-1 pb-1 last:pb-0 border-b border-[var(--cordel-border)]/20 last:border-b-0">
                   <div className="flex items-center gap-2 min-h-[28px]">
-                    <input type="radio" checked={track.selectedPatternId === ptn.id} onChange={() => onSelectPattern(ptn.id)} className="w-4 h-4 accent-[var(--cordel-border)] cursor-pointer" />
+                    <input type="radio" checked={liveActivePatternId === ptn.id} onChange={() => onSelectPattern(ptn.id)} className="w-4 h-4 accent-[var(--cordel-border)] cursor-pointer" />
                     
                     {isEditing ? (
                       <input
@@ -288,7 +400,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
                     ) : (
                       <span 
                         className={`font-cactus font-bold cursor-pointer flex-1 truncate select-none ${
-                          track.selectedPatternId === ptn.id 
+                          liveActivePatternId === ptn.id 
                             ? 'text-[var(--cordel-text)] text-sm' 
                             : 'text-[var(--cordel-text)]/60 text-xs'
                         }`} 
@@ -422,7 +534,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
                     <input
                       key={i}
                       type="text"
-                      maxLength={inst.id === 'caixa' ? 2 : 1}
+                      maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
                       value={displayVal}
                       readOnly={isTouchDevice}
                       inputMode={isTouchDevice ? 'none' : undefined}
@@ -542,9 +654,10 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
           <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
           <div className="w-3 h-[145px] bg-[var(--cordel-bg)] cordel-border-sm relative overflow-hidden">
             <div
+              ref={vuMeterRef}
               id={`meter-bar-${track.id}`}
-              className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--cordel-border)] w-full transition-all duration-[0.05s]"
-              style={{ height: '0%' }}
+              className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--cordel-border)] w-full"
+              style={{ height: '0%', transition: 'height 0.7s ease-out' }}
             />
           </div>
           <div className="h-[15px]" />

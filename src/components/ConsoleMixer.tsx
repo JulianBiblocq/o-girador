@@ -2,11 +2,14 @@ import React, { useRef, useEffect, useState } from 'react';
 import { TrackGroup, Language, Pattern } from '../types';
 import { VerticalTrackMixer } from './VerticalTrackMixer';
 import { InstrumentDetailEditor } from './InstrumentDetailEditor';
-import { i18n } from '../data';
+import { i18n, instrumentsConfig } from '../data';
 
 interface ConsoleMixerProps {
   lang: Language;
   tracks: TrackGroup[];
+  meters?: { [id: string]: any };
+  masterMeter?: any;
+  soloPatternPlayId?: number | null;
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
   onInstrumentChange: (trackId: number, instIdx: number) => void;
@@ -79,6 +82,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   isMobile,
   lang,
   tracks,
+  meters,
+  masterMeter,
+  soloPatternPlayId,
   onMoveUp,
   onMoveDown,
   onInstrumentChange,
@@ -138,6 +144,65 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   onMasterCompressorChange,
   onPatternNameChange,
 }) => {
+  const vuMeterRef = useRef<HTMLDivElement>(null);
+  const dbTextRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let animationFrameId: number;
+
+    const updateMasterMeter = () => {
+      const currentMeter = (window as any).masterMeterNode || masterMeter;
+      
+      if (currentMeter) {
+        try {
+          const valRaw = currentMeter.getValue();
+          let db = -80;
+          if (typeof valRaw === 'number') {
+            db = valRaw;
+          } else if (Array.isArray(valRaw)) {
+            db = valRaw.length > 0 ? Math.max(...valRaw) : -80;
+          } else if (valRaw instanceof Float32Array || (valRaw && typeof (valRaw as any).length === 'number')) {
+            const arr = Array.from(valRaw as any) as number[];
+            db = arr.length > 0 ? Math.max(...arr) : -80;
+          }
+
+          // Borner la valeur entre -80dB (silence) et +6dB (clip)
+          const clampedDb = Math.max(-80, Math.min(6, db));
+
+          // Mise à jour du texte
+          if (dbTextRef.current) {
+            dbTextRef.current.innerText = clampedDb <= -79 ? '-∞ dB' : `${Math.round(clampedDb)} dB`;
+          }
+
+          // Mise à jour de la jauge (Transformation en pourcentage où -80dB = 0% et 0dB = ~93%)
+          if (vuMeterRef.current) {
+            const percentage = Math.max(0, Math.min(100, ((clampedDb + 80) / 86) * 100));
+            vuMeterRef.current.style.height = `${percentage}%`;
+            vuMeterRef.current.style.width = '100%';
+          }
+        } catch (e) {
+          console.error("Error reading master meter value:", e);
+        }
+      } else {
+        if (dbTextRef.current) {
+          dbTextRef.current.innerText = 'NO MTR';
+        }
+        if (vuMeterRef.current) {
+          vuMeterRef.current.style.height = '0%';
+        }
+      }
+      animationFrameId = requestAnimationFrame(updateMasterMeter);
+    };
+
+    animationFrameId = requestAnimationFrame(updateMasterMeter);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      if (vuMeterRef.current) {
+        vuMeterRef.current.style.height = '0%';
+      }
+    };
+  }, [masterMeter]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
 
@@ -171,6 +236,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             track={track}
             index={idx}
             totalTracks={tracks.length}
+            meter={meters ? meters[instrumentsConfig[track.instrumentIdx].id] : undefined}
+            soloPatternPlayId={soloPatternPlayId}
             onMoveUp={() => onMoveUp(idx)}
             onMoveDown={() => onMoveDown(idx)}
             onInstrumentChange={(i) => onInstrumentChange(track.id, i)}
@@ -353,12 +420,13 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
                 <div className="w-3.5 h-[145px] bg-[var(--cordel-bg)] cordel-border-sm relative overflow-hidden">
                   <div
+                    ref={vuMeterRef}
                     id="meter-bar-master"
-                    className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#2ecc71] w-full transition-all duration-[0.05s]"
+                    className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#2ecc71] w-full"
                     style={{ height: '0%' }}
                   />
                 </div>
-                <div className="h-[15px]" />
+                <div ref={dbTextRef} className="text-[8px] font-mono font-bold text-[var(--cordel-text)]/60 h-[15px] flex items-center justify-center">--</div>
               </div>
             </div>
           </div>

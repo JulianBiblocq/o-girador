@@ -6,11 +6,13 @@
 import React, { useState } from 'react';
 import { TrackGroup, Language } from '../types';
 import { TrackMixer } from './TrackMixer';
-import { i18n } from '../data';
+import { i18n, instrumentsConfig } from '../data';
 
 interface MixerProps {
   lang: Language;
   tracks: TrackGroup[];
+  meters?: { [id: string]: any };
+  soloPatternPlayId?: number | null;
   onMoveUp: (id: number) => void;
   onMoveDown: (id: number) => void;
   onInstrumentChange: (id: number, instIdx: number) => void;
@@ -55,6 +57,8 @@ interface MixerProps {
 const MixerComponent: React.FC<MixerProps> = ({
   lang,
   tracks,
+  meters,
+  soloPatternPlayId,
   onMoveUp,
   onMoveDown,
   onInstrumentChange,
@@ -119,6 +123,8 @@ const MixerComponent: React.FC<MixerProps> = ({
               track={track}
               index={idx}
               totalTracks={tracks.length}
+              meter={meters ? meters[instrumentsConfig[track.instrumentIdx].id] : undefined}
+              soloPatternPlayId={soloPatternPlayId}
               onMoveUp={() => onMoveUp(track.id)}
               onMoveDown={() => onMoveDown(track.id)}
               onInstrumentChange={(val) => onInstrumentChange(track.id, val)}

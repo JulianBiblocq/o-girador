@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BaqueMix - Audio Engine & Tarol Sampler Sandbox</title>
+  
+  <!-- Google Fonts Outfit & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-gradient: linear-gradient(135deg, #090d16, #020408);
+      --card-bg: rgba(22, 28, 45, 0.45);
+      --card-border: rgba(255, 255, 255, 0.06);
+      --text-main: #f8fafc;
+      --text-muted: #6b7280;
+      
+      --color-primary: #f97316;     /* Orange Accent for Maracatu energy */
+      --color-success: #10b981;     /* Emerald Playhead Accent */
+      
+      /* Stroke Accent Colors (Matching UI style guide) */
+      --color-stroke-fort-D: #ea580c;  /* Orange foncé */
+      --color-stroke-fort-E: #f97316;  /* Orange vif */
+      --color-stroke-faible-d: #f59e0b; /* Ambre */
+      --color-stroke-faible-e: #fbbf24; /* Ambre clair */
+      --color-stroke-click: #ec4899;    /* Rose */
+      --color-stroke-fla: #38bdf8;      /* Bleu ciel */
+      --color-stroke-tremer: #10b981;   /* Vert émeraude */
+      --color-stroke-cerclage: #6366f1; /* Indigo */
+      
+      --glow-playhead: 0 0 15px rgba(16, 185, 129, 0.5);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.5rem;
+      overflow-x: hidden;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+      max-width: 800px;
+    }
+
+    header h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      background: linear-gradient(to right, #f97316, #fbbf24, #10b981);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.75rem;
+    }
+
+    header p {
+      color: #94a3b8;
+      font-size: 1.05rem;
+      line-height: 1.6;
+    }
+
+    .sandbox-container {
+      width: 100%;
+      max-width: 950px;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    /* Modal / Preload Screen */
+    .preload-overlay {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 3rem 2rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+
+    .preload-title {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .progress-bar-container {
+      width: 100%;
+      max-width: 500px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 999px;
+      height: 10px;
+      overflow: hidden;
+      margin: 1rem 0;
+      display: none;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(to right, var(--color-primary), var(--color-success));
+      transition: width 0.1s ease;
+    }
+
+    .preload-status {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      color: #94a3b8;
+      display: none;
+    }
+
+    /* Sequencer Dashboard Layout */
+    .dashboard {
+      display: none; /* Revealed after load */
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    @media (min-width: 768px) {
+      .dashboard {
+        grid-template-columns: 320px 1fr;
+      }
+    }
+
+    .panel {
+      background: var(--card-bg);
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 1.75rem;
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.25);
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    /* Controls Panel */
+    .btn-main {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 1.1rem;
+      padding: 1rem;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn-play {
+      background: linear-gradient(135deg, var(--color-primary), #ea580c);
+      color: white;
+      box-shadow: 0 4px 15px rgba(249, 115, 22, 0.3);
+    }
+
+    .btn-play:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(249, 115, 22, 0.45);
+    }
+
+    .btn-stop {
+      background: linear-gradient(135deg, #ef4444, #b91c1c);
+      color: white;
+      box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-stop:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(239, 68, 68, 0.45);
+    }
+
+    .control-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      color: #94a3b8;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .control-value {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-main);
+    }
+
+    .slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(249, 115, 22, 0.5);
+    }
+
+    /* Preset Buttons */
+    .presets-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .presets-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .btn-preset {
+      font-family: 'Outfit', sans-serif;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--text-main);
+      padding: 0.65rem 1rem;
+      border-radius: 10px;
+      cursor: pointer;
+      text-align: left;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+    }
+
+    .btn-preset:hover {
+      background: rgba(249, 115, 22, 0.1);
+      border-color: rgba(249, 115, 22, 0.3);
+    }
+
+    /* Grid & Steps Panel */
+    .grid-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .grid-info {
+      font-size: 0.95rem;
+      color: #94a3b8;
+      line-height: 1.4;
+    }
+
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 0.5rem;
+      background: rgba(10, 15, 26, 0.5);
+      padding: 1rem;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    @media (min-width: 500px) {
+      .steps-grid {
+        grid-template-columns: repeat(16, 1fr);
+      }
+    }
+
+    .step-btn {
+      font-family: 'JetBrains Mono', monospace;
+      aspect-ratio: 1;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: 500;
+      position: relative;
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .step-btn:hover {
+      transform: scale(1.05);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .step-btn .step-num {
+      font-size: 0.65rem;
+      color: #4b5563;
+      position: absolute;
+      top: 4px;
+    }
+
+    .step-btn .step-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+
+    /* Style variants based on trigger type */
+    .step-btn[data-stroke="fort_D"] {
+      background: rgba(234, 88, 12, 0.2);
+      border-color: var(--color-stroke-fort-D);
+      color: #ffedd5;
+    }
+    .step-btn[data-stroke="fort_E"] {
+      background: rgba(249, 115, 22, 0.2);
+      border-color: var(--color-stroke-fort-E);
+      color: #ffedd5;
+    }
+    .step-btn[data-stroke="faible_d"] {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: var(--color-stroke-faible-d);
+      color: #fef3c7;
+    }
+    .step-btn[data-stroke="faible_e"] {
+      background: rgba(251, 191, 36, 0.15);
+      border-color: var(--color-stroke-faible-e);
+      color: #fef3c7;
+    }
+    .step-btn[data-stroke="click"] {
+      background: rgba(236, 72, 153, 0.15);
+      border-color: var(--color-stroke-click);
+      color: #fce7f3;
+    }
+    .step-btn[data-stroke="fla"] {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: var(--color-stroke-fla);
+      color: #e0f2fe;
+    }
+    .step-btn[data-stroke="tremer"] {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: var(--color-stroke-tremer);
+      color: #d1fae5;
+    }
+    .step-btn[data-stroke="cerclage"] {
+      background: rgba(99, 102, 241, 0.15);
+      border-color: var(--color-stroke-cerclage);
+      color: #e0e7ff;
+    }
+
+    /* Playhead Sync Highlight */
+    .step-btn.active-playhead {
+      background: var(--color-success) !important;
+      border-color: var(--color-success) !important;
+      color: #064e3b !important;
+      box-shadow: var(--glow-playhead);
+      transform: scale(1.08);
+      z-index: 10;
+    }
+    .step-btn.active-playhead .step-num {
+      color: #064e3b !important;
+    }
+
+    /* Legend grid */
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.75rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 14px;
+      padding: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+
+    .legend-color {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+    }
+
+    /* Monitor Logs */
+    .logs-panel {
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(10, 15, 26, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 16px;
+      padding: 1rem;
+      font-size: 0.8rem;
+      max-height: 200px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .log-item {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .log-item .tag-sched { color: #a855f7; font-weight: 500; }
+    .log-item .tag-play { color: var(--color-success); font-weight: 500; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>BaqueMix Precision Sampler</h1>
+    <p>
+      Écoutez la précision rythmique en action. Cette sandbox associe le séquenceur Lookahead à 
+      notre banque d'échantillons <strong>Tarol (Maracatu)</strong>. Cliquez sur les cases pour changer 
+      les coups (D, E, d, e, etc.), ajustez le tempo, ou lancez un rythme traditionnel.
+    </p>
+  </header>
+
+  <main class="sandbox-container">
+    
+    <!-- Preload Phase Screen -->
+    <div id="preloadOverlay" class="preload-overlay">
+      <div class="preload-title">Baque de Maracatu - Chargement</div>
+      <p id="preloadInstruction">
+        Pour contourner les politiques de sécurité audio des navigateurs, nous devons démarrer l'AudioContext lors d'une interaction. Cliquez ci-dessous pour charger les 14 fichiers sonores.
+      </p>
+      <button id="btnLoadSounds" class="btn-main btn-play" style="padding: 0.8rem 2rem;">
+        Charger les Échantillons Audio
+      </button>
+
+      <div id="progressContainer" class="progress-bar-container">
+        <div id="progressBar" class="progress-bar-fill"></div>
+      </div>
+      <div id="progressText" class="preload-status">Initialisation...</div>
+    </div>
+
+    <!-- Active Sequencer Dashboard -->
+    <div id="dashboard" class="dashboard">
+      
+      <!-- Side panel controls -->
+      <section class="panel">
+        <button id="btnPlayStop" class="btn-main btn-play">
+          <span>▶</span> Démarrer le Rythme
+        </button>
+
+        <div class="control-item">
+          <div class="control-label">
+            <span>Tempo</span>
+            <span class="control-value"><span id="bpmVal">110</span> BPM</span>
+          </div>
+          <input type="range" id="sliderBpm" class="slider" min="60" max="180" value="110">
+        </div>
+
+        <div class="control-item">
+          <div class="control-label">
+            <span>Volume Master</span>
+            <span class="control-value"><span id="volVal">80</span>%</span>
+          </div>
+          <input type="range" id="sliderVol" class="slider" min="0" max="100" value="80">
+        </div>
+
+        <div class="presets-container">
+          <div class="presets-title">Rythmes Traditionnels</div>
+          <button class="btn-preset" data-preset="luanda">
+            🥁 Baque de Luanda (Tarol)
+          </button>
+          <button class="btn-preset" data-preset="rolls">
+            🥁 Trêmo-Fla & Rolls (Test)
+          </button>
+          <button class="btn-preset" data-preset="clear">
+            🗑 Vider la grille
+          </button>
+        </div>
+      </section>
+
+      <!-- Main grid sequencer -->
+      <section class="panel grid-panel">
+        <div class="grid-info">
+          <strong>Éditeur de Séquence :</strong> Cliquez sur un pas pour faire défiler cycliquement les différents coups de baguette du Tarol.
+        </div>
+
+        <div id="stepsGrid" class="steps-grid">
+          <!-- 16 buttons will be injected -->
+        </div>
+
+        <!-- Legend explaining keys and colors -->
+        <div class="legend-grid">
+          <div class="legend-item">
+            <span class="legend-color" style="background: var(--color-stroke-fort-D);"></span>
+            <span>D: Fort Droite</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: var(--color-stroke-fort-E);"></span>
+            <span>E: Fort Gauche</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: var(--color-stroke-faible-d);"></span>
+            <span>d: Faible Droite</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: var(--color-stroke-faible-e);"></span>
+            <span>e: Faible Gauche</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: var(--color-stroke-click);"></span>
+            <span>c: Click (Aro)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: var(--color-stroke-fla);"></span>
+            <span>f: Fla</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: var(--color-stroke-tremer);"></span>
+            <span>t: Trêmulo</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-color" style="background: var(--color-stroke-cerclage);"></span>
+            <span>x: Cerclage</span>
+          </div>
+        </div>
+
+        <!-- Logs console -->
+        <div id="logsPanel" class="logs-panel">
+          <div style="color: #6b7280;">Moniteur d'événements de jeu...</div>
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <script type="module">
+    import { AudioEngine } from '../audio-engine-sandbox/audioEngine.js';
+    import { TarolSampler } from './tarolSampler.js';
+
+    // UI elements
+    const preloadOverlay = document.getElementById('preloadOverlay');
+    const btnLoadSounds = document.getElementById('btnLoadSounds');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const preloadInstruction = document.getElementById('preloadInstruction');
+    
+    const dashboard = document.getElementById('dashboard');
+    const btnPlayStop = document.getElementById('btnPlayStop');
+    const sliderBpm = document.getElementById('sliderBpm');
+    const bpmVal = document.getElementById('bpmVal');
+    const sliderVol = document.getElementById('sliderVol');
+    const volVal = document.getElementById('volVal');
+    const stepsGrid = document.getElementById('stepsGrid');
+    const logsPanel = document.getElementById('logsPanel');
+
+    // Available strokes cycle mapping
+    const STROKE_CYCLE = ['.', 'fort_D', 'fort_E', 'faible_d', 'faible_e', 'click', 'fla', 'tremer', 'cerclage'];
+    const STROKE_LABELS = {
+      '.': '.',
+      'fort_D': 'D',
+      'fort_E': 'E',
+      'faible_d': 'd',
+      'faible_e': 'e',
+      'click': 'c',
+      'fla': 'f',
+      'tremer': 't',
+      'cerclage': 'x'
+    };
+
+    // Current sequence patterns
+    let currentSequence = Array(16).fill('.');
+
+    // Build the grid step nodes
+    const stepNodes = [];
+    for (let i = 0; i < 16; i++) {
+      const btn = document.createElement('button');
+      btn.classList.add('step-btn');
+      btn.setAttribute('data-stroke', '.');
+
+      const numSpan = document.createElement('span');
+      numSpan.classList.add('step-num');
+      numSpan.textContent = i + 1;
+      btn.appendChild(numSpan);
+
+      const valSpan = document.createElement('span');
+      valSpan.classList.add('step-value');
+      valSpan.textContent = '.';
+      btn.appendChild(valSpan);
+
+      // Cyclical click change handler
+      btn.addEventListener('click', () => {
+        const currentVal = btn.getAttribute('data-stroke');
+        const currentIndex = STROKE_CYCLE.indexOf(currentVal);
+        const nextIndex = (currentIndex + 1) % STROKE_CYCLE.length;
+        const nextStroke = STROKE_CYCLE[nextIndex];
+
+        btn.setAttribute('data-stroke', nextStroke);
+        valSpan.textContent = STROKE_LABELS[nextStroke];
+        currentSequence[i] = nextStroke;
+      });
+
+      stepsGrid.appendChild(btn);
+      stepNodes.push(btn);
+    }
+
+    // Engine & Sampler Instances
+    let engine = null;
+    let sampler = null;
+    let notesInQueue = [];
+
+    // Preload triggering
+    btnLoadSounds.addEventListener('click', async () => {
+      btnLoadSounds.style.display = 'none';
+      preloadInstruction.textContent = "Téléchargement et décodage des 14 échantillons WAV...";
+      progressContainer.style.display = 'block';
+      progressText.style.display = 'block';
+
+      // 1. Initialise AudioEngine context
+      engine = new AudioEngine({
+        bpm: 110,
+        subdivision: 4,
+        loopLength: 16,
+        onStep: (stepNumber, time) => {
+          const stroke = currentSequence[stepNumber];
+          
+          // If a note trigger is planned (not silent)
+          if (stroke !== '.') {
+            // Plan audio triggering on sampler at exact time
+            sampler.play(stroke, time);
+            
+            // Queue scheduling logs
+            logEvent('SCHED', `Pas ${stepNumber + 1} (${STROKE_LABELS[stroke]}) planifié pour t = ${time.toFixed(3)}s`);
+          }
+
+          // Visual sync queue tracking
+          notesInQueue.push({ stepNumber, time, stroke });
+        }
+      });
+      engine.initAudio();
+
+      // 2. Instantiate sampler connected to engine's master gain node
+      sampler = new TarolSampler(engine.audioContext, engine.masterGain);
+
+      // 3. Load samples with progress updates
+      try {
+        const samplesFolderUrl = '../sons-maracatu/Tarol/';
+        await sampler.load(samplesFolderUrl, (loaded, total, filename) => {
+          const pct = Math.round((loaded / total) * 100);
+          progressBar.style.width = `${pct}%`;
+          progressText.textContent = `[${loaded}/${total}] ${filename} chargé`;
+        });
+
+        // Hide overlay, reveal dashboard
+        preloadOverlay.style.display = 'none';
+        dashboard.style.display = 'grid';
+
+        // Load Baque de Luanda preset as default
+        loadPreset('luanda');
+        logEvent('SYSTEM', 'Échantillons chargés. Séquenceur prêt.');
+
+      } catch (err) {
+        progressText.innerHTML = `<span style="color: #ef4444;">Erreur de chargement. Veuillez vérifier que le serveur dev tourne.</span>`;
+        console.error(err);
+      }
+    });
+
+    // Playback control toggle
+    btnPlayStop.addEventListener('click', async () => {
+      if (!engine) return;
+
+      if (!engine.isPlaying) {
+        // Start engine
+        await engine.play();
+        btnPlayStop.textContent = '⏹ Arrêter le Séquenceur';
+        btnPlayStop.className = 'btn-main btn-stop';
+
+        // Run animation loop
+        requestAnimationFrame(syncUIPlayhead);
+      } else {
+        // Stop engine
+        engine.stop();
+        btnPlayStop.textContent = '▶ Démarrer le Rythme';
+        btnPlayStop.className = 'btn-main btn-play';
+
+        // Reset highlights
+        notesInQueue = [];
+        resetStepHighlights();
+      }
+    });
+
+    // Volume & BPM input event handlers
+    sliderBpm.addEventListener('input', (e) => {
+      const value = e.target.value;
+      bpmVal.textContent = value;
+      engine.setBpm(value);
+    });
+
+    sliderVol.addEventListener('input', (e) => {
+      const pct = e.target.value;
+      volVal.textContent = pct;
+      engine.setVolume(pct / 100);
+    });
+
+    // Preset loading click handlers
+    document.querySelectorAll('.btn-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const presetKey = btn.getAttribute('data-preset');
+        loadPreset(presetKey);
+      });
+    });
+
+    // Helper: Reset step nodes styling
+    function resetStepHighlights() {
+      stepNodes.forEach(btn => btn.classList.remove('active-playhead'));
+    }
+
+    // Helper: Load specific preset layouts
+    function loadPreset(key) {
+      if (key === 'clear') {
+        currentSequence.fill('.');
+      } else if (key === 'luanda') {
+        // Authentic Maracatu de Luanda Tarol pattern:
+        // G . d g D . g d G . d g D . g d
+        // In our terminology: E . d e D . e d E . d e D . e d
+        currentSequence = [
+          'fort_E', '.', 'faible_d', 'faible_e', 
+          'fort_D', '.', 'faible_e', 'faible_d', 
+          'fort_E', '.', 'faible_d', 'faible_e', 
+          'fort_D', '.', 'faible_e', 'faible_d'
+        ];
+      } else if (key === 'rolls') {
+        // Rolls and Flas showcase pattern
+        currentSequence = [
+          'fort_D', 'fla', 'faible_d', 'faible_e', 
+          'cerclage', '.', 'tremer', '.', 
+          'fort_E', 'click', 'faible_e', 'faible_d', 
+          'cerclage', 'fla', 'tremer', '.'
+        ];
+      }
+
+      // Sync sequence values to UI nodes
+      for (let i = 0; i < 16; i++) {
+        const stroke = currentSequence[i];
+        stepNodes[i].setAttribute('data-stroke', stroke);
+        stepNodes[i].querySelector('.step-value').textContent = STROKE_LABELS[stroke];
+      }
+
+      logEvent('SYSTEM', `Preset "${key}" chargé.`);
+    }
+
+    // Logger console helper
+    function logEvent(tag, message) {
+      const timeStr = new Date().toLocaleTimeString('fr-FR', { hour12: false }) + '.' + String(new Date().getMilliseconds()).padStart(3, '0');
+      const logItem = document.createElement('div');
+      logItem.className = 'log-item';
+
+      let tagSpan = '';
+      if (tag === 'SCHED') {
+        tagSpan = `<span class="tag-sched">[Sched]</span>`;
+      } else if (tag === 'PLAY') {
+        tagSpan = `<span class="tag-play">[Play]</span>`;
+      } else {
+        tagSpan = `<span style="color: #3b82f6; font-weight: 500;">[System]</span>`;
+      }
+
+      logItem.innerHTML = `
+        <span style="color: #4b5563;">${timeStr}</span>
+        ${tagSpan}
+        <span>${message}</span>
+      `;
+
+      logsPanel.appendChild(logItem);
+      logsPanel.scrollTop = logsPanel.scrollHeight;
+
+      // Limit buffer size to 25 items
+      while (logsPanel.children.length > 25) {
+        logsPanel.removeChild(logsPanel.firstChild);
+      }
+    }
+
+    // requestAnimationFrame exact playhead highlighting synchronization
+    let lastVisualStep = -1;
+
+    function syncUIPlayhead() {
+      if (!engine || !engine.isPlaying) return;
+
+      requestAnimationFrame(syncUIPlayhead);
+
+      const currentTime = engine.getCurrentAudioTime();
+
+      let activeStep = -1;
+      let activeStroke = '.';
+      let targetAudioTime = 0;
+
+      // Scan visual queue for steps that have sounded (timestamp is in the past)
+      while (notesInQueue.length > 0 && notesInQueue[0].time <= currentTime) {
+        activeStep = notesInQueue[0].stepNumber;
+        activeStroke = notesInQueue[0].stroke;
+        targetAudioTime = notesInQueue[0].time;
+        notesInQueue.shift(); // remove from queue
+      }
+
+      // If playhead moved to a new step
+      if (activeStep !== -1 && activeStep !== lastVisualStep) {
+        lastVisualStep = activeStep;
+        
+        // Highlight active playhead element
+        resetStepHighlights();
+        stepNodes[lastVisualStep].classList.add('active-playhead');
+
+        // Log visual synchronization quality metrics
+        if (activeStroke !== '.') {
+          const syncJitter = ((currentTime - targetAudioTime) * 1000).toFixed(1);
+          logEvent('PLAY', `Pas ${lastVisualStep + 1} (${STROKE_LABELS[activeStroke]}) joué (décalage UI: +${syncJitter}ms)`);
+        }
+      }
+    }
+  </script>
+</body>
+</html>
