@@ -780,44 +780,27 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                           </div>
 
                           <div className="flex flex-wrap items-center gap-3 w-full">
-                            {isRecordingVocal && recordingVocalPatternId === ptn.id ? (
+                            <div className="flex items-center gap-2">
                               <button
-                                onClick={() => onStopVocalRecording && onStopVocalRecording()}
-                                className="px-4 py-2 bg-[#8b2a1a] text-[#f4ecd8] font-bold text-xs cordel-border-sm cursor-pointer animate-pulse flex items-center gap-1.5"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="px-4 py-2 bg-[#b89f74] text-[#1a1a1a] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[#a68e64] transition-colors flex items-center gap-1.5 font-semibold"
+                                title={lang === 'fr' ? "Importer un fichier audio existant" : "Importar um arquivo de áudio existente"}
                               >
-                                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
-                                {vocalT('recording')}
+                                📥 {lang === 'fr' ? 'Importer' : 'Importar'}
                               </button>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => onStartVocalRecording && onStartVocalRecording(ptn.id)}
-                                  className="px-4 py-2 bg-green-700 text-[#f4ecd8] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-green-800 transition-colors flex items-center gap-1.5"
-                                >
-                                  🎤 {recordedPatternIds.includes(ptn.id) ? vocalT('reRecord') : vocalT('recordVocal')}
-                                </button>
-
-                                <button
-                                  onClick={() => fileInputRef.current?.click()}
-                                  className="px-4 py-2 bg-[#b89f74] text-[#1a1a1a] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[#a68e64] transition-colors flex items-center gap-1.5 font-semibold"
-                                  title={lang === 'fr' ? "Importer un fichier audio existant" : "Importar um arquivo de áudio existente"}
-                                >
-                                  📥 {lang === 'fr' ? 'Importer' : 'Importar'}
-                                </button>
-                                <input
-                                  type="file"
-                                  accept="audio/*"
-                                  ref={fileInputRef}
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file && onImportVocalFile) {
-                                      onImportVocalFile(ptn.id, file);
-                                    }
-                                  }}
-                                  className="hidden"
-                                />
-                              </div>
-                            )}
+                              <input
+                                type="file"
+                                accept="audio/*"
+                                ref={fileInputRef}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file && onImportVocalFile) {
+                                    onImportVocalFile(ptn.id, file);
+                                  }
+                                }}
+                                className="hidden"
+                              />
+                            </div>
 
                             {recordedPatternIds.includes(ptn.id) ? (
                               <div className="flex items-center gap-3 ml-auto flex-wrap">

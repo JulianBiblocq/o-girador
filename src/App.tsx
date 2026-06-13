@@ -839,6 +839,50 @@ export default function App() {
     }
   };
 
+  const handleAudioPatternCreated = async (wavBlob: Blob, durationInMeasures: number, name?: string) => {
+    try {
+      const newPatternId = Date.now();
+      
+      // 1. Save sliced WAV Blob in IndexedDB
+      await saveVocalRecording(newPatternId, wavBlob);
+      
+      // 2. Load the vocal playback player
+      await loadVocalRecording(newPatternId);
+
+      // 3. Inject new Pattern into active voice tracks
+      setTracks((prevTracks) => {
+        return prevTracks.map((t) => {
+          const inst = instrumentsConfig[t.instrumentIdx];
+          if (inst && inst.type === 'voice') {
+            const newPattern: Pattern = {
+              id: newPatternId,
+              name: name || `Découpe (${durationInMeasures} mes.)`,
+              steps: 16,
+              activeSteps: Array(16).fill(0),
+              lyrics: Array(16).fill(''),
+              notes: Array(16).fill(''),
+              measureAssignments: Array(totalMeasures).fill(false),
+              vocalMode: 'micro',
+              vocalBaseBpm: bpm,
+              vocalBpmSync: true
+            };
+            newPattern.measureAssignments[0] = true;
+
+            return {
+              ...t,
+              patterns: [...t.patterns, newPattern],
+              selectedPatternId: newPatternId
+            };
+          }
+          return t;
+        });
+      });
+    } catch (err) {
+      console.error("Error creating audio pattern from sliced slice:", err);
+      alert("Erreur lors de la création du pattern découpé : " + err);
+    }
+  };
+
   const getSystemDefaultLatencyMs = () => {
     let latencySec = 0.08; // 80 ms default for hardware input / encoder startup
     try {
@@ -4426,6 +4470,11 @@ export default function App() {
               setWhistleVol(val);
               localStorage.setItem('baquemix_whistle_vol', String(val));
             }}
+            bpm={bpm}
+            beatsPerMeasure={parseInt(timeSig.split('/')[0]) || 4}
+            isPlaying={isPlaying}
+            onTogglePlay={handleTogglePlay}
+            onAudioPatternCreated={handleAudioPatternCreated}
           />
         )}
       </div>

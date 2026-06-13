@@ -4,8 +4,9 @@
  */
 
 import React from 'react';
-import { TrackGroup, Language, PresetMetadata } from '../types';
+import { TrackGroup, Language, PresetMetadata, RhythmSignal } from '../types';
 import { i18n, instrumentsConfig } from '../data';
+import { AudioTrackRecorder } from './AudioTrackRecorder';
 
 interface RightSidebarProps {
   lang: Language;
@@ -25,6 +26,11 @@ interface RightSidebarProps {
   totalMeasures: number;
   whistleVol?: number;
   onWhistleVolChange?: (val: number) => void;
+  bpm?: number;
+  beatsPerMeasure?: number;
+  isPlaying?: boolean;
+  onTogglePlay?: () => void;
+  onAudioPatternCreated?: (wavBlob: Blob, durationInMeasures: number, name?: string) => void;
 }
 
 const RightSidebarComponent: React.FC<RightSidebarProps> = ({
@@ -41,11 +47,16 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   totalMeasures,
   whistleVol,
   onWhistleVolChange,
+  bpm = 120,
+  beatsPerMeasure = 4,
+  isPlaying = false,
+  onTogglePlay,
+  onAudioPatternCreated,
 }) => {
   const [signalCameraActive, setSignalCameraActive] = React.useState<boolean>(false);
   const signalVideoRef = React.useRef<HTMLVideoElement | null>(null);
   const signalStreamRef = React.useRef<MediaStream | null>(null);
-  const [subTab, setSubTab] = React.useState<'toada' | 'info'>('info');
+  const [subTab, setSubTab] = React.useState<'toada' | 'info' | 'gravacao'>('toada');
   const [pendingSignalImage, setPendingSignalImage] = React.useState<string | null>(null);
   const [pendingSignalName, setPendingSignalName] = React.useState<string>('');
 
@@ -531,6 +542,16 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
             >
               ℹ️ Info
             </button>
+            <button
+              onClick={() => setSubTab('gravacao')}
+              className={`flex-1 py-1.5 font-cactus font-bold text-xs uppercase cordel-border-sm cursor-pointer transition-colors ${
+                subTab === 'gravacao'
+                  ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                  : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/10'
+              }`}
+            >
+              🎙️ Gravação
+            </button>
           </div>
 
           {/* Tab 1: Paroles / Lyrics */}
@@ -860,6 +881,19 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                     : 'Nenhuma informação disponible para este rythme.'}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Tab 3: Gravação */}
+          {subTab === 'gravacao' && onAudioPatternCreated && (
+            <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar min-h-0">
+              <AudioTrackRecorder
+                patternId={9999}
+                bpm={bpm}
+                beatsPerMeasure={beatsPerMeasure}
+                onStartSequencer={onTogglePlay}
+                onAudioPatternCreated={onAudioPatternCreated}
+              />
             </div>
           )}
         </div>
