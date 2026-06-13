@@ -484,15 +484,17 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   const handleViewportPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const isHandMode = toolMode === 'hand' || isSpacePressed;
     const targetEl = e.target as HTMLElement;
-    const isClickingEmpty = targetEl.classList.contains('cell-detailed') || 
-                            targetEl.classList.contains('cell-macro') || 
-                            targetEl.classList.contains('grid-lines-overlay');
+    const isClickingEmpty = targetEl?.classList?.contains('cell-detailed') || 
+                            targetEl?.classList?.contains('cell-macro') || 
+                            targetEl?.classList?.contains('grid-lines-overlay');
 
     if (e.button === 0 && (isHandMode || isClickingEmpty)) {
       isPanningDragging.current = true;
       panPointerId.current = e.pointerId;
       const el = e.currentTarget;
-      el.setPointerCapture(e.pointerId);
+      if (typeof el.setPointerCapture === 'function') {
+        el.setPointerCapture(e.pointerId);
+      }
       
       panStartX.current = e.clientX;
       panStartY.current = e.clientY;
@@ -523,7 +525,9 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
       isPanningDragging.current = false;
       panPointerId.current = null;
       const el = e.currentTarget;
-      el.releasePointerCapture(e.pointerId);
+      if (typeof el.releasePointerCapture === 'function') {
+        el.releasePointerCapture(e.pointerId);
+      }
       el.classList.remove('panning-dragging');
       e.stopPropagation();
     }
@@ -579,7 +583,10 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     const minimapWidth = rect.width;
     
     const totalContentWidth = totalMeasures * MEASURE_W;
+    if (totalContentWidth <= 0) return;
     const ratio = minimapWidth / totalContentWidth;
+    if (ratio <= 0) return;
+    
     const sliderWidth = parseFloat(sliderEl.style.width) || 50;
     
     let newLeft = clickX - sliderWidth / 2;
@@ -638,8 +645,10 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     if (toolMode === 'hand' || isSpacePressed) return;
     if (e.button !== 0) return;
     const el = e.currentTarget;
-    el.setPointerCapture(e.pointerId);
-    el.dataset.hasMoved = 'false';
+    if (typeof el.setPointerCapture === 'function') {
+      el.setPointerCapture(e.pointerId);
+    }
+    el.setAttribute('data-has-moved', 'false');
     
     const startX = e.clientX;
     const startMeasure = section.startMeasure;
@@ -648,7 +657,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     const handlePointerMove = (moveEv: PointerEvent) => {
       const dx = moveEv.clientX - startX;
       if (Math.abs(dx) > 3) {
-        el.dataset.hasMoved = 'true';
+        el.setAttribute('data-has-moved', 'true');
       }
       
       const proposedStart = startMeasure + (dx / MEASURE_W);
@@ -675,7 +684,9 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     };
     
     const handlePointerUp = () => {
-      el.releasePointerCapture(e.pointerId);
+      if (typeof el.releasePointerCapture === 'function') {
+        el.releasePointerCapture(e.pointerId);
+      }
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       setSnapGuideX(null);
@@ -703,7 +714,9 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     if (e.button !== 0) return;
     
     const el = e.currentTarget;
-    el.setPointerCapture(e.pointerId);
+    if (typeof el.setPointerCapture === 'function') {
+      el.setPointerCapture(e.pointerId);
+    }
     
     const startX = e.clientX;
     const startMeasure = section.startMeasure;
@@ -735,7 +748,9 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     };
     
     const handlePointerUp = () => {
-      el.releasePointerCapture(e.pointerId);
+      if (typeof el.releasePointerCapture === 'function') {
+        el.releasePointerCapture(e.pointerId);
+      }
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       setSnapGuideX(null);
