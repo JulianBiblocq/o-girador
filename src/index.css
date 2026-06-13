@@ -457,8 +457,11 @@ body {
   left: 0;
   right: 0;
   background-color: var(--section-color);
-  opacity: 0.03;
-  pointer-events: none;
+}
+
+/* ══════════════ PANNING & DRAGGING CURSORS ══════════════ */
+.panning-dragging {
+  cursor: grabbing !important;
 }
 
 

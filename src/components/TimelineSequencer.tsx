@@ -113,6 +113,28 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
 
+  // Navigation & Snapping States
+  const [toolMode, setToolMode] = React.useState<'cursor' | 'hand'>('cursor');
+  const [isSpacePressed, setIsSpacePressed] = React.useState<boolean>(false);
+  const [snapMode, setSnapMode] = React.useState<'measure' | 'beat' | 'none'>('measure');
+  const [snapGuideX, setSnapGuideX] = React.useState<number | null>(null);
+
+  const isPanningActive = toolMode === 'hand' || isSpacePressed;
+  
+  // Refs for panning state
+  const isPanningDragging = React.useRef<boolean>(false);
+  const panPointerId = React.useRef<number | null>(null);
+  const panStartX = React.useRef<number>(0);
+  const panStartY = React.useRef<number>(0);
+  const panStartScrollLeft = React.useRef<number>(0);
+  const panStartScrollTop = React.useRef<number>(0);
+
+  // Refs for mini-map
+  const minimapContainerRef = React.useRef<HTMLDivElement>(null);
+  const minimapSliderRef = React.useRef<HTMLDivElement>(null);
+  const isMinimapDragging = React.useRef<boolean>(false);
+  const minimapPointerId = React.useRef<number | null>(null);
+
   // Song Section modals state
   const [sectionModalOpen, setSectionModalOpen] = React.useState<boolean>(false);
   const [editingSection, setEditingSection] = React.useState<SongSection | null>(null);
@@ -361,7 +383,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   const totalContentW = totalMeasures * MEASURE_W;
 
   // 1. Mouse wheel horizontal scroll
-  useEffect(() => {
+  React.useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const handleWheel = (e: WheelEvent) => {
@@ -374,15 +396,42 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     return () => el.removeEventListener('wheel', handleWheel);
   }, []);
 
-  // 2. Drag-scroll and Scrubbing global handlers
-  useEffect(() => {
+  // Keyboard listener for Spacebar panning shortcut
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        const activeEl = document.activeElement;
+        const isInput = activeEl && (
+          activeEl.tagName === 'INPUT' || 
+          activeEl.tagName === 'TEXTAREA' || 
+          (activeEl as HTMLElement).isContentEditable
+        );
+        if (!isInput) {
+          e.preventDefault();
+          setIsSpacePressed(true);
+        }
+      }
+    };
+    
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setIsSpacePressed(false);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
+  // 2. Scrubbing ruler handler (Global mouse move/up listener)
+  React.useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isScrubbing.current) {
         handleRulerClickOrDrag(e.clientX);
-      } else if (isDragging.current && scrollRef.current) {
-        const x = e.pageX - scrollRef.current.offsetLeft;
-        const walk = (x - startX.current) * 1.5; // Défilement avec multiplicateur
-        scrollRef.current.scrollLeft = startScrollLeft.current - walk;
       }
     };
 
@@ -397,10 +446,6 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     const handleMouseUp = () => {
       if (isScrubbing.current) {
         isScrubbing.current = false;
-      }
-      if (isDragging.current) {
-        isDragging.current = false;
-        document.body.style.cursor = '';
       }
     };
 
@@ -423,7 +468,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   }, []);
 
   // Auto-scroll to keep playhead visible
-  useEffect(() => {
+  React.useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     if (!isPlaying || currentStepIndex < 0) {
@@ -433,7 +478,283 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     const vw = el.clientWidth - HEADER_W;
     if (vw <= 0) return;
     el.scrollLeft = Math.max(0, playheadX - vw * 0.4);
-  }, [currentStepIndex, currentMeasure, isPlaying, playheadX]);
+  }, [currentStepIndex, currentMeasure, isPlaying, playheadX, HEADER_W]);
+
+  // Viewport Panning logic
+  const handleViewportPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const isHandMode = toolMode === 'hand' || isSpacePressed;
+    const targetEl = e.target as HTMLElement;
+    const isClickingEmpty = targetEl.classList.contains('cell-detailed') || 
+                            targetEl.classList.contains('cell-macro') || 
+                            targetEl.classList.contains('grid-lines-overlay');
+
+    if (e.button === 0 && (isHandMode || isClickingEmpty)) {
+      isPanningDragging.current = true;
+      panPointerId.current = e.pointerId;
+      const el = e.currentTarget;
+      el.setPointerCapture(e.pointerId);
+      
+      panStartX.current = e.clientX;
+      panStartY.current = e.clientY;
+      panStartScrollLeft.current = el.scrollLeft;
+      panStartScrollTop.current = el.scrollTop;
+      
+      el.classList.add('panning-dragging');
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+
+  const handleViewportPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isPanningDragging.current && e.pointerId === panPointerId.current) {
+      const dx = e.clientX - panStartX.current;
+      const dy = e.clientY - panStartY.current;
+      const el = e.currentTarget;
+      el.scrollLeft = panStartScrollLeft.current - dx;
+      el.scrollTop = panStartScrollTop.current - dy;
+      
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  };
+
+  const handleViewportPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isPanningDragging.current && e.pointerId === panPointerId.current) {
+      isPanningDragging.current = false;
+      panPointerId.current = null;
+      const el = e.currentTarget;
+      el.releasePointerCapture(e.pointerId);
+      el.classList.remove('panning-dragging');
+      e.stopPropagation();
+    }
+  };
+
+  // Mini-Map Viewport synchronisation
+  const updateMinimapViewport = React.useCallback(() => {
+    if (!scrollRef.current || !minimapSliderRef.current || !minimapContainerRef.current) return;
+    const scrollEl = scrollRef.current;
+    const sliderEl = minimapSliderRef.current;
+    const containerEl = minimapContainerRef.current;
+    
+    const totalContentWidth = totalMeasures * MEASURE_W;
+    const viewportWidth = scrollEl.clientWidth - HEADER_W;
+    const minimapWidth = containerEl.clientWidth;
+    
+    if (totalContentWidth <= 0 || minimapWidth <= 0) return;
+    
+    const ratio = minimapWidth / totalContentWidth;
+    const sliderWidth = Math.max(16, Math.min(minimapWidth, viewportWidth * ratio));
+    const sliderLeft = scrollEl.scrollLeft * ratio;
+    
+    sliderEl.style.width = `${sliderWidth}px`;
+    sliderEl.style.left = `${sliderLeft}px`;
+  }, [totalMeasures, MEASURE_W, HEADER_W]);
+
+  React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const handleScroll = () => {
+      updateMinimapViewport();
+    };
+    el.addEventListener('scroll', handleScroll);
+    updateMinimapViewport();
+    
+    window.addEventListener('resize', updateMinimapViewport);
+    
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', updateMinimapViewport);
+    };
+  }, [updateMinimapViewport]);
+
+  // Mini-Map Navigation / Dragging logic
+  const handleMinimapDrag = React.useCallback((clientX: number) => {
+    if (!scrollRef.current || !minimapContainerRef.current || !minimapSliderRef.current) return;
+    const scrollEl = scrollRef.current;
+    const containerEl = minimapContainerRef.current;
+    const sliderEl = minimapSliderRef.current;
+    
+    const rect = containerEl.getBoundingClientRect();
+    const clickX = clientX - rect.left;
+    const minimapWidth = rect.width;
+    
+    const totalContentWidth = totalMeasures * MEASURE_W;
+    const ratio = minimapWidth / totalContentWidth;
+    const sliderWidth = parseFloat(sliderEl.style.width) || 50;
+    
+    let newLeft = clickX - sliderWidth / 2;
+    if (newLeft < 0) newLeft = 0;
+    if (newLeft > minimapWidth - sliderWidth) newLeft = minimapWidth - sliderWidth;
+    
+    scrollEl.scrollLeft = newLeft / ratio;
+    sliderEl.style.left = `${newLeft}px`;
+  }, [totalMeasures, MEASURE_W]);
+
+  const handleMinimapPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    isMinimapDragging.current = true;
+    minimapPointerId.current = e.pointerId;
+    const containerEl = minimapContainerRef.current;
+    if (containerEl) {
+      containerEl.setPointerCapture(e.pointerId);
+    }
+    handleMinimapDrag(e.clientX);
+    e.preventDefault();
+  };
+
+  const handleMinimapPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isMinimapDragging.current && e.pointerId === minimapPointerId.current) {
+      handleMinimapDrag(e.clientX);
+    }
+  };
+
+  const handleMinimapPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isMinimapDragging.current && e.pointerId === minimapPointerId.current) {
+      isMinimapDragging.current = false;
+      minimapPointerId.current = null;
+      const containerEl = minimapContainerRef.current;
+      if (containerEl) {
+        containerEl.releasePointerCapture(e.pointerId);
+      }
+    }
+  };
+
+  // Section Marker double-click and drag handlers
+  const handleMarkerRulerDblClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    let measureIdx = Math.floor(clickX / MEASURE_W);
+    measureIdx = Math.max(0, Math.min(totalMeasures - 1, measureIdx));
+    
+    setEditingSection(null);
+    setSectionFormName(lang === 'fr' ? 'Nouvelle Section' : 'Nova Seção');
+    setSectionFormStart(measureIdx + 1);
+    setSectionFormEnd(Math.min(measureIdx + 4, totalMeasures));
+    setSectionFormColor('#f19066');
+    setSectionModalOpen(true);
+  };
+
+  const handleMarkerPointerDown = (e: React.PointerEvent<HTMLDivElement>, section: SongSection) => {
+    if (toolMode === 'hand' || isSpacePressed) return;
+    if (e.button !== 0) return;
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    el.dataset.hasMoved = 'false';
+    
+    const startX = e.clientX;
+    const startMeasure = section.startMeasure;
+    const duration = section.endMeasure - section.startMeasure;
+    
+    const handlePointerMove = (moveEv: PointerEvent) => {
+      const dx = moveEv.clientX - startX;
+      if (Math.abs(dx) > 3) {
+        el.dataset.hasMoved = 'true';
+      }
+      
+      const proposedStart = startMeasure + (dx / MEASURE_W);
+      
+      let snappedStart = section.startMeasure;
+      if (snapMode === 'measure') {
+        snappedStart = Math.round(proposedStart);
+      } else if (snapMode === 'beat') {
+        snappedStart = Math.round(proposedStart * 4) / 4;
+      } else {
+        snappedStart = proposedStart;
+      }
+      
+      snappedStart = Math.max(0, Math.min(totalMeasures - 1 - duration, snappedStart));
+      const currentLeft = snappedStart * MEASURE_W;
+      
+      el.style.left = `${currentLeft}px`;
+      
+      if (snapMode !== 'none') {
+        setSnapGuideX(HEADER_W + currentLeft);
+      } else {
+        setSnapGuideX(null);
+      }
+    };
+    
+    const handlePointerUp = () => {
+      el.releasePointerCapture(e.pointerId);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      setSnapGuideX(null);
+      
+      const finalLeft = parseFloat(el.style.left) || (section.startMeasure * MEASURE_W);
+      const finalStart = Math.max(0, Math.min(totalMeasures - 1 - duration, Math.round(finalLeft / MEASURE_W)));
+      const finalEnd = finalStart + duration;
+      
+      if (finalStart !== section.startMeasure) {
+        onUpdateSection(section.id, section.name, finalStart, finalEnd, section.color);
+      } else {
+        el.style.left = `${section.startMeasure * MEASURE_W}px`;
+      }
+    };
+    
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    e.stopPropagation();
+  };
+
+  // Section Block Drag-and-Drop Handler (Smart Snapping)
+  const handleSectionBlockPointerDown = (e: React.PointerEvent<HTMLDivElement>, section: SongSection) => {
+    if (toolMode === 'hand' || isSpacePressed) return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    if (e.button !== 0) return;
+    
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    
+    const startX = e.clientX;
+    const startMeasure = section.startMeasure;
+    const duration = section.endMeasure - section.startMeasure;
+    
+    const handlePointerMove = (moveEv: PointerEvent) => {
+      const dx = moveEv.clientX - startX;
+      const proposedStart = startMeasure + (dx / MEASURE_W);
+      
+      let snappedStart = section.startMeasure;
+      if (snapMode === 'measure') {
+        snappedStart = Math.round(proposedStart);
+      } else if (snapMode === 'beat') {
+        snappedStart = Math.round(proposedStart * 4) / 4;
+      } else {
+        snappedStart = proposedStart;
+      }
+      
+      snappedStart = Math.max(0, Math.min(totalMeasures - 1 - duration, snappedStart));
+      const currentLeft = snappedStart * MEASURE_W;
+      
+      el.style.left = `${currentLeft}px`;
+      
+      if (snapMode !== 'none') {
+        setSnapGuideX(HEADER_W + currentLeft);
+      } else {
+        setSnapGuideX(null);
+      }
+    };
+    
+    const handlePointerUp = () => {
+      el.releasePointerCapture(e.pointerId);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      setSnapGuideX(null);
+      
+      const finalLeft = parseFloat(el.style.left) || (section.startMeasure * MEASURE_W);
+      const finalStart = Math.max(0, Math.min(totalMeasures - 1 - duration, Math.round(finalLeft / MEASURE_W)));
+      const finalEnd = finalStart + duration;
+      
+      if (finalStart !== section.startMeasure) {
+        onUpdateSection(section.id, section.name, finalStart, finalEnd, section.color);
+      } else {
+        el.style.left = `${section.startMeasure * MEASURE_W}px`;
+      }
+    };
+    
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    e.stopPropagation();
+  };
 
 
 
@@ -454,30 +775,69 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
           <span>🎞️ {lang === 'fr' ? 'Séquenceur Linéaire' : 'Sequenciador Linear'}</span>
         </span>
 
-        {/* Zoom & Loop Controls */}
-        <div className="flex items-center gap-2">
+        {/* Zoom, Tools & Snap Controls */}
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
           {/* Zoom Controls */}
-          <span className="text-[10px] uppercase font-bold text-[var(--cordel-text)]/70">{lang === 'fr' ? 'Zoom' : 'Zoom'} :</span>
-          <button
-            onClick={() => onMeasureWidthChange(Math.max(120, measureWidth - 60))}
-            disabled={measureWidth <= 120}
-            className={`font-bold text-[10px] md:text-xs px-2 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
-              measureWidth <= 120 ? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-            }`}
-            title={lang === 'fr' ? 'Zoom arrière' : 'Reduzir zoom'}
-          >
-            ➖
-          </button>
-          <button
-            onClick={() => onMeasureWidthChange(Math.min(960, measureWidth + 60))}
-            disabled={measureWidth >= 960}
-            className={`font-bold text-[10px] md:text-xs px-2 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
-              measureWidth >= 960 ? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-            }`}
-            title={lang === 'fr' ? 'Zoom avant' : 'Ampliar zoom'}
-          >
-            ➕
-          </button>
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] md:text-[10px] uppercase font-bold text-[var(--cordel-text)]/70">{lang === 'fr' ? 'Zoom' : 'Zoom'} :</span>
+            <button
+              onClick={() => onMeasureWidthChange(Math.max(120, measureWidth - 60))}
+              disabled={measureWidth <= 120}
+              className={`font-bold text-[9px] md:text-xs px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
+                measureWidth <= 120 ? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+              }`}
+              title={lang === 'fr' ? 'Zoom arrière' : 'Reduzir zoom'}
+            >
+              ➖
+            </button>
+            <button
+              onClick={() => onMeasureWidthChange(Math.min(960, measureWidth + 60))}
+              disabled={measureWidth >= 960}
+              className={`font-bold text-[9px] md:text-xs px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
+                measureWidth >= 960 ? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+              }`}
+              title={lang === 'fr' ? 'Zoom avant' : 'Ampliar zoom'}
+            >
+              ➕
+            </button>
+          </div>
+
+          {/* Navigation Tools (Cursor vs Hand) */}
+          <div className="flex items-center gap-1 border-l border-[var(--cordel-border)]/30 pl-2">
+            <span className="text-[9px] md:text-[10px] uppercase font-bold text-[var(--cordel-text)]/70 shrink-0">{lang === 'fr' ? 'Outil' : 'Ferramenta'} :</span>
+            <button
+              onClick={() => setToolMode('cursor')}
+              className={`font-bold text-[9px] md:text-[10px] px-2 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
+                toolMode === 'cursor' ? 'bg-blue-600 text-white border-blue-600' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+              }`}
+              title={lang === 'fr' ? 'Pointeur de sélection' : 'Ponteiro de seleção'}
+            >
+              🖱️ {lang === 'fr' ? 'Pointeur' : 'Ponteiro'}
+            </button>
+            <button
+              onClick={() => setToolMode('hand')}
+              className={`font-bold text-[9px] md:text-[10px] px-2 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
+                toolMode === 'hand' ? 'bg-blue-600 text-white border-blue-600' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+              }`}
+              title={lang === 'fr' ? 'Défilement libre (Maintenez Espace pour l\'activer)' : 'Arrastar timeline (Segure Espaço para ativar)'}
+            >
+              ✋ {lang === 'fr' ? 'Main' : 'Mão'}
+            </button>
+          </div>
+
+          {/* Snapping Selection */}
+          <div className="flex items-center gap-1 border-l border-[var(--cordel-border)]/30 pl-2">
+            <span className="text-[9px] md:text-[10px] uppercase font-bold text-[var(--cordel-text)]/70 shrink-0">{lang === 'fr' ? 'Magnétisme' : 'Atracão'} :</span>
+            <select
+              value={snapMode}
+              onChange={(e) => setSnapMode(e.target.value as 'measure' | 'beat' | 'none')}
+              className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] text-[9px] md:text-[10px] font-bold rounded cordel-border-sm px-1.5 py-0.5 outline-none cursor-pointer tracking-wider shadow-[1.5px_1.5px_0_var(--cordel-border)]"
+            >
+              <option value="measure">{lang === 'fr' ? 'Mesure' : 'Compasso'}</option>
+              <option value="beat">{lang === 'fr' ? 'Temps' : 'Tempos'}</option>
+              <option value="none">{lang === 'fr' ? 'Désactivé' : 'Livre'}</option>
+            </select>
+          </div>
 
           {/* Loop indicator and Clear Button */}
           {loopStartMeasure !== null && loopEndMeasure !== null && (
@@ -505,15 +865,154 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
         </button>
       </div>
 
+      {/* ══════════ TIMELINE OVERVIEW (MINI-MAP) ══════════ */}
+      <div className="border-b border-[var(--cordel-border)]/20 bg-[var(--cordel-bg)] px-4 py-2 shrink-0 select-none">
+        <div className="flex justify-between items-center text-[9px] font-bold text-[var(--cordel-text)]/70 uppercase mb-1 tracking-wider">
+          <span>🗺️ {lang === 'fr' ? 'Vue d\'ensemble (Mini-Map)' : 'Visão Geral (Mini-Map)'}</span>
+          <span className="text-[8px] text-[var(--cordel-text)]/40 normal-case">{lang === 'fr' ? 'Glissez ou cliquez pour naviguer rapidement' : 'Clique ou arraste para navegar rapidamente'}</span>
+        </div>
+        <div 
+          ref={minimapContainerRef}
+          className="h-10 w-full relative bg-black/40 rounded border border-[var(--cordel-border)]/15 overflow-hidden cursor-pointer"
+          onPointerDown={handleMinimapPointerDown}
+          onPointerMove={handleMinimapPointerMove}
+          onPointerUp={handleMinimapPointerUp}
+          onPointerCancel={handleMinimapPointerUp}
+        >
+          {/* Miniature Grid Lines */}
+          <div className="absolute inset-0 pointer-events-none">
+            {Array.from({ length: totalMeasures }).map((_, mIdx) => {
+              if (mIdx === 0 || mIdx === totalMeasures) return null;
+              const isSection = mIdx % 4 === 0;
+              return (
+                <div 
+                  key={mIdx}
+                  className={`absolute top-0 bottom-0 w-[1px] ${
+                    isSection ? 'bg-blue-500/25' : 'bg-[var(--cordel-border)]/5'
+                  }`}
+                  style={{ left: `${(mIdx / totalMeasures) * 100}%` }}
+                />
+              );
+            })}
+          </div>
+
+          {/* Miniature Track Preview */}
+          <div className="absolute inset-0 flex flex-col justify-around py-0.5 pointer-events-none">
+            {tracks.map((track) => {
+              const inst = instrumentsConfig[track.instrumentIdx];
+              return (
+                <div key={track.id} className="h-1 w-full relative">
+                  {Array.from({ length: totalMeasures }).map((_, mIdx) => {
+                    const activePattern = track.patterns.find(p => p.measureAssignments[mIdx]);
+                    if (!activePattern) return null;
+                    const bg = inst.colors['D'] || inst.colors['E'] || '#3b82f6';
+                    return (
+                      <div 
+                        key={mIdx}
+                        className="absolute top-0 bottom-0 rounded-xs opacity-50"
+                        style={{
+                          left: `${(mIdx / totalMeasures) * 100}%`,
+                          width: `${(1 / totalMeasures) * 100}%`,
+                          backgroundColor: bg
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Viewport Translucent Slider */}
+          <div 
+            ref={minimapSliderRef}
+            className="absolute top-0 bottom-0 bg-blue-500/10 dark:bg-blue-400/10 border-2 border-blue-500 dark:border-blue-400 rounded shadow-[0_0_6px_rgba(59,130,246,0.25)] cursor-grab active:cursor-grabbing z-10"
+            style={{ width: '100px', left: '0px' }}
+          />
+        </div>
+      </div>
+
       <div
         ref={scrollRef}
-        className="flex-grow overflow-x-auto overflow-y-auto relative custom-scrollbar"
+        onPointerDown={handleViewportPointerDown}
+        onPointerMove={handleViewportPointerMove}
+        onPointerUp={handleViewportPointerUp}
+        onPointerCancel={handleViewportPointerUp}
+        className={`flex-grow overflow-x-auto overflow-y-auto relative custom-scrollbar ${
+          isPanningActive ? 'cursor-grab select-none' : ''
+        }`}
       >
         {/* 
           We use a single wrapper with explicit width so the ruler row and
           every track row share the same coordinate space.
         */}
         <div style={{ width: `${HEADER_W + totalContentW + 150}px`, minHeight: '100%' }} className="relative">
+
+          {/* ══════════ MARKER RULER ROW (📍 NEW) ══════════ */}
+          <div
+            className="flex h-7 border-b border-[var(--cordel-border)]/15 bg-[var(--cordel-bg)]/50 relative select-none"
+            style={{ width: `${HEADER_W + totalContentW + 150}px` }}
+          >
+            {/* Sticky Label */}
+            <div
+              className="sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between px-3 font-cactus text-[9px] font-bold uppercase shrink-0 text-[var(--cordel-text)]/40"
+              style={{ width: HEADER_W, minWidth: HEADER_W }}
+            >
+              <span>{lang === 'fr' ? 'Repères' : 'Marcadores'}</span>
+            </div>
+
+            {/* Marker Ruler Track Area */}
+            <div 
+              className="flex-grow relative h-full cursor-copy"
+              onDoubleClick={handleMarkerRulerDblClick}
+            >
+              {songSections.length === 0 && (
+                <div className="absolute inset-0 flex items-center pl-4 text-[8px] text-[var(--cordel-text)]/20 italic pointer-events-none">
+                  {lang === 'fr' ? 'Double-cliquez ici pour ajouter un repère de section' : 'Double-clique aqui para adicionar um marcador'}
+                </div>
+              )}
+
+              {/* Render Section Markers */}
+              {songSections.map((section) => {
+                const posX = section.startMeasure * MEASURE_W;
+                return (
+                  <div
+                    key={`marker-${section.id}`}
+                    className={`absolute top-1 h-[18px] px-2 rounded-full text-[9px] font-bold text-white flex items-center gap-1 shadow-sm cursor-grab select-none hover:brightness-110 active:cursor-grabbing transform -translate-x-1/2 border border-black/10 z-40 ${
+                      isPanningActive ? 'pointer-events-none' : ''
+                    }`}
+                    style={{
+                      left: `${posX}px`,
+                      backgroundColor: section.color || '#f19066',
+                    }}
+                    onPointerDown={(e) => handleMarkerPointerDown(e, section)}
+                    onClick={(e) => {
+                      if ((e.currentTarget as HTMLElement).dataset.hasMoved === 'true') return;
+                      e.stopPropagation();
+                      setEditingSection(section);
+                      setSectionFormName(section.name);
+                      setSectionFormStart(section.startMeasure + 1);
+                      setSectionFormEnd(section.endMeasure + 1);
+                      setSectionFormColor(section.color || '#f19066');
+                      setSectionModalOpen(true);
+                    }}
+                  >
+                    <span>📍 {section.name}</span>
+                    <span 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteSection(section.id);
+                      }}
+                      className="opacity-70 hover:opacity-100 cursor-pointer ml-1 text-[11px]"
+                      title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
+                    >
+                      &times;
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           {/* ══════════ SECTIONS ROW ══════════ */}
           <div
@@ -552,7 +1051,10 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                 return (
                   <div
                     key={section.id}
-                    className="absolute top-1 bottom-1 flex items-center justify-between px-3 text-xs font-bold rounded cordel-border-sm select-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)]"
+                    className={`absolute top-1 bottom-1 flex items-center justify-between px-3 text-xs font-bold rounded cordel-border-sm select-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)] cursor-grab active:cursor-grabbing hover:brightness-105 transition-[background-color] ${
+                      isPanningActive ? 'pointer-events-none' : ''
+                    }`}
+                    onPointerDown={(e) => handleSectionBlockPointerDown(e, section)}
                     style={{
                       left: `${startX}px`,
                       width: `${width - 8}px`, // 4px margin left & right
@@ -686,7 +1188,11 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
               return (
                 <div
                   key={mIdx}
-                  className={`border-r border-[var(--cordel-border)]/30 flex flex-col justify-between px-2 py-1 text-[10px] font-bold relative transition-all ${
+                  className={`flex flex-col justify-between px-2 py-1 text-[10px] font-bold relative transition-all border-r ${
+                    (mIdx + 1) % 4 === 0
+                      ? 'border-r-2 border-r-blue-500/50 dark:border-r-blue-400/50 shadow-[1px_0_0_0_rgba(59,130,246,0.1)]'
+                      : 'border-r-[var(--cordel-border)]/30'
+                  } ${
                     isInLoop
                       ? 'bg-blue-600/5 border-t-4 border-t-blue-600/80 dark:border-t-blue-500/80'
                       : ''
@@ -1050,7 +1556,11 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                   return (
                     <div
                       key={mIdx}
-                      className={`h-full border-r border-[var(--cordel-border)]/20 relative cursor-pointer ${
+                      className={`h-full relative cursor-pointer border-r ${
+                        (mIdx + 1) % 4 === 0
+                          ? 'border-r-2 border-r-blue-500/40 dark:border-r-blue-400/40 shadow-[1px_0_0_0_rgba(59,130,246,0.15)]'
+                          : 'border-r-[var(--cordel-border)]/20'
+                      } ${
                         loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure
                           ? 'bg-blue-600/[0.03]'
                           : ''
@@ -1067,6 +1577,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                         ...({ '--section-color': sectionColor } as React.CSSProperties)
                       }}
                       onClick={(e) => {
+                        if (isPanningActive) return; // Prevent navigations when panning
                         const rect = e.currentTarget.getBoundingClientRect();
                         const clickX = e.clientX - rect.left;
                         const ratio = Math.max(0, Math.min(1, clickX / MEASURE_W));
@@ -1077,7 +1588,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                       <div className="cell-detailed w-full h-full relative">
                         {/* Pattern selector */}
                         <div
-                          className="absolute top-1 left-1 z-20"
+                          className={`absolute top-1 left-1 z-20 ${isPanningActive ? 'pointer-events-none opacity-65' : ''}`}
                           onClick={e => e.stopPropagation()}
                           onMouseDown={e => e.stopPropagation()}
                           onTouchStart={e => e.stopPropagation()}
@@ -1241,8 +1752,24 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
               style={{ left: `${HEADER_W + playheadX}px` }}
             />
           )}
+
+          {/* ══════════ SNAP GUIDE (📍 NEW) ══════════ */}
+          {snapGuideX !== null && (
+            <div 
+              className="absolute top-0 bottom-0 w-0.5 bg-yellow-500 shadow-[0_0_8px_#f1c40f] z-50 pointer-events-none"
+              style={{ left: `${snapGuideX}px` }}
+            />
+          )}
         </div>
       </div>
+
+      {/* 📍 NEW - Panning Hotkey overlay tooltip (similar to sandbox) */}
+      {isPanningActive && (
+        <div className="fixed bottom-12 left-1/2 -translate-x-1/2 bg-[var(--cordel-bg)] border border-[var(--cordel-border)]/50 rounded-full px-4 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] shadow-lg z-50 flex items-center gap-1.5 animate-pulse uppercase tracking-wider">
+          <span>✋ {lang === 'fr' ? 'Mode Déplacement Actif' : 'Modo Arrastar Ativo'}</span>
+          <span className="text-[8px] opacity-60 normal-case">{lang === 'fr' ? '(Glissez le fond pour scroller)' : '(Arraste o fundo para rolar)'}</span>
+        </div>
+      )}
 
       {/* Bottom legend */}
       {!isMobile && (

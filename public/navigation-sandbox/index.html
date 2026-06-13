@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BaqueMix - Prototype de Navigation Global</title>
+  
+  <!-- Outfit Google Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- EN-TÊTE DU PROTOTYPE -->
+  <header>
+    <div class="header-title">
+      <h1>BaqueMix - Navigation & Snapping Sandbox</h1>
+      <p>Prototype de navigation globale : Panning, Mini-Map, Règle de Marqueurs, et Aimantage Magnétique.</p>
+    </div>
+    
+    <!-- BARRE D'OUTILS ET CONTRÔLES -->
+    <div class="controls-toolbar">
+      <!-- Sélection de l'outil -->
+      <div class="toolbar-group">
+        <span class="toolbar-label">Outil :</span>
+        <button id="cursorToolBtn" class="btn active" title="Outil Sélection (Standard)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>
+          Pointeur
+        </button>
+        <button id="panToolBtn" class="btn" title="Outil Main (Défilement libre - Maintenez Espace pour l'activer à tout moment)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v5"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v6.5"/><path d="M6 15V10H4a2 2 0 0 0-2 2v0a8 8 0 0 0 8 8h2a6 6 0 0 0 6-6V11"/><path d="M22 13V9a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v4"/></svg>
+          Main
+        </button>
+      </div>
+
+      <!-- Zoom -->
+      <div class="toolbar-group">
+        <span class="toolbar-label">Zoom :</span>
+        <button id="zoomOutBtn" class="btn" title="Zoom Arrière">-</button>
+        <span id="zoomVal" style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; width: 45px; text-align: center;">100%</span>
+        <button id="zoomInBtn" class="btn" title="Zoom Avant">+</button>
+      </div>
+
+      <!-- Magnétisme (Snapping) -->
+      <div class="toolbar-group">
+        <span class="toolbar-label">Aimantage :</span>
+        <select id="snapSelect" class="select-input">
+          <option value="measure">Début de Mesure</option>
+          <option value="beat">Temps (Beat)</option>
+          <option value="none">Désactivé (Libre)</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- 1. MINI-MAP (TIMELINE OVERVIEW) -->
+  <section class="minimap-wrapper">
+    <div class="minimap-title">
+      <span>Vue d'ensemble de la timeline (Mini-Map)</span>
+      <span style="font-size: 0.65rem; opacity: 0.7; text-transform: none;">Cliquez ou glissez pour naviguer instantanément</span>
+    </div>
+    <div id="minimapContainer" class="minimap-container">
+      <!-- Grille simplifiée sous la mini-carte -->
+      <div class="minimap-grid-lines"></div>
+      
+      <!-- Aperçu simplifié des pistes et blocs -->
+      <div class="minimap-tracks-preview"></div>
+      
+      <!-- Rectangle Viewport rouge translucide -->
+      <div id="minimapViewportSlider" class="minimap-viewport-slider"></div>
+    </div>
+  </section>
+
+  <!-- 2. SÉQUENCEUR DE TEST -->
+  <main class="sequencer-card">
+    <div class="sequencer-layout">
+      
+      <!-- Colonne en-tête des pistes (Fixe à gauche) -->
+      <section class="sequencer-headers">
+        <!-- Coin supérieur gauche vide aligné avec les règles -->
+        <div class="headers-corner">
+          Pistes
+        </div>
+        <div id="sequencerHeadersList">
+          <!-- Injecté dynamiquement par app.js -->
+        </div>
+      </section>
+
+      <!-- Viewport défilable (Timeline principale) -->
+      <section id="sequencerViewport" class="sequencer-viewport">
+        <div id="sequencerTimeline" class="sequencer-timeline">
+          
+          <!-- RÈGLES VISUELLES SUPÉRIEURES (Ruler) -->
+          <div class="rulers-container">
+            <!-- Règle de Marqueurs (Double-cliquer pour ajouter un repère) -->
+            <div id="markerRuler" class="marker-ruler">
+              <div class="marker-ruler-placeholder">Double-cliquez ici pour ajouter un marqueur de section...</div>
+              <!-- Injecté dynamiquement -->
+            </div>
+            <!-- Règle temporelle principale (Mesures & Beats) -->
+            <div class="beat-ruler">
+              <!-- Injecté dynamiquement -->
+            </div>
+          </div>
+
+          <!-- GRILLE INTERNE ET PISTES -->
+          <div id="trackRowsList" class="track-rows-container">
+            <!-- Injecté dynamiquement par app.js -->
+          </div>
+
+          <!-- Lignes de Grille Verticales globales -->
+          <div class="grid-lines-overlay">
+            <!-- Injecté dynamiquement -->
+          </div>
+
+          <!-- Ligne Guide Magnétique temporaire (Jaune) -->
+          <div id="snapGuide" class="snap-guide"></div>
+
+          <!-- Texte d'aide en fond d'écran si vide -->
+          <div class="empty-notice">Zone Séquenceur</div>
+
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- INFOS RACCOURCIS ET AIDE -->
+  <div class="hotkey-indicator">
+    <span>💡 Astuce : Maintenez la touche <span class="key-badge">Espace</span> enfoncée pour faire défiler la grille (outil main).</span>
+  </div>
+
+  <!-- MODALE D'ÉDITION ET D'AJOUT DE MARQUEUR -->
+  <div id="markerModal" class="modal-backdrop">
+    <div class="modal-content">
+      <div id="modalTitle" class="modal-title">Ajouter un Marqueur</div>
+      
+      <div class="form-group">
+        <label for="markerLabelInput" class="form-label">Nom de la section</label>
+        <input type="text" id="markerLabelInput" class="input-text" placeholder="Ex: Intro, Refrain, Virada...">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Couleur de repère</label>
+        <div class="color-presets">
+          <div class="color-dot selected" data-color="#f19066" style="background-color: #f19066;"></div>
+          <div class="color-dot" data-color="#9b59b6" style="background-color: #9b59b6;"></div>
+          <div class="color-dot" data-color="#e74c3c" style="background-color: #e74c3c;"></div>
+          <div class="color-dot" data-color="#2ecc71" style="background-color: #2ecc71;"></div>
+          <div class="color-dot" data-color="#f1c40f" style="background-color: #f1c40f;"></div>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button id="deleteMarkerBtn" class="btn" style="background-color: rgba(231, 76, 60, 0.2); border-color: rgba(231, 76, 60, 0.4); color: #e74c3c; margin-right: auto;">Supprimer</button>
+        <button id="cancelMarkerBtn" class="btn">Annuler</button>
+        <button id="saveMarkerBtn" class="btn active">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHARGEMENT DES SCRIPTS JS -->
+  <script src="navigation-manager.js"></script>
+  <script src="app.js"></script>
+
+</body>
+</html>
