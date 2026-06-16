@@ -203,8 +203,8 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   const [sectionModalOpen, setSectionModalOpen] = React.useState<boolean>(false);
   const [editingSection, setEditingSection] = React.useState<SongSection | null>(null);
   const [sectionFormName, setSectionFormName] = React.useState<string>('');
-  const [sectionFormStart, setSectionFormStart] = React.useState<number>(1);
-  const [sectionFormEnd, setSectionFormEnd] = React.useState<number>(4);
+  const [sectionFormStart, setSectionFormStart] = React.useState<number | string>(1);
+  const [sectionFormEnd, setSectionFormEnd] = React.useState<number | string>(4);
   const [sectionFormColor, setSectionFormColor] = React.useState<string>('#f19066');
   const [hoveredPasteMeasure, setHoveredPasteMeasure] = React.useState<number | null>(null);
   const [signalDropdownOpen, setSignalDropdownOpen] = React.useState<number | null>(null);
@@ -1802,7 +1802,16 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                   min={1}
                   max={totalMeasures}
                   value={sectionFormStart}
-                  onChange={(e) => setSectionFormStart(Math.max(1, Math.min(totalMeasures, parseInt(e.target.value) || 1)))}
+                  onChange={(e) => setSectionFormStart(e.target.value)}
+                  onBlur={() => {
+                    let val = parseInt(String(sectionFormStart)) || 1;
+                    val = Math.max(1, Math.min(totalMeasures, val));
+                    setSectionFormStart(val);
+                    let endVal = parseInt(String(sectionFormEnd)) || 1;
+                    if (endVal < val) {
+                      setSectionFormEnd(val);
+                    }
+                  }}
                   className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-2 py-1.5 text-sm font-bold outline-none rounded-none text-center text-[var(--cordel-text)]"
                 />
               </div>
@@ -1813,7 +1822,13 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                   min={sectionFormStart}
                   max={totalMeasures}
                   value={sectionFormEnd}
-                  onChange={(e) => setSectionFormEnd(Math.max(sectionFormStart, Math.min(totalMeasures, parseInt(e.target.value) || 1)))}
+                  onChange={(e) => setSectionFormEnd(e.target.value)}
+                  onBlur={() => {
+                    let val = parseInt(String(sectionFormEnd)) || 1;
+                    let startVal = parseInt(String(sectionFormStart)) || 1;
+                    val = Math.max(startVal, Math.min(totalMeasures, val));
+                    setSectionFormEnd(val);
+                  }}
                   className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-2 py-1.5 text-sm font-bold outline-none rounded-none text-center text-[var(--cordel-text)]"
                 />
               </div>
@@ -1851,13 +1866,17 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
               >
                 {lang === 'fr' ? 'Annuler' : 'Cancelar'}
               </button>
-              <button
+               <button
                 onClick={() => {
                   if (!sectionFormName.trim()) return;
+                  let startVal = parseInt(String(sectionFormStart)) || 1;
+                  startVal = Math.max(1, Math.min(totalMeasures, startVal));
+                  let endVal = parseInt(String(sectionFormEnd)) || 1;
+                  endVal = Math.max(startVal, Math.min(totalMeasures, endVal));
                   if (editingSection) {
-                    onUpdateSection(editingSection.id, sectionFormName, sectionFormStart - 1, sectionFormEnd - 1, sectionFormColor);
+                    onUpdateSection(editingSection.id, sectionFormName, startVal - 1, endVal - 1, sectionFormColor);
                   } else {
-                    onCreateSection(sectionFormName, sectionFormStart - 1, sectionFormEnd - 1, sectionFormColor);
+                    onCreateSection(sectionFormName, startVal - 1, endVal - 1, sectionFormColor);
                   }
                   setSectionModalOpen(false);
                 }}
