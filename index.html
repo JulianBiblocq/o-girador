@@ -108,6 +108,14 @@
               .then(reg => {
                 console.log('Service Worker registered:', reg.scope);
                 
+                // If there's already a waiting worker on load, prompt the user
+                if (reg.waiting) {
+                  console.log('Service Worker waiting on load; prompting refresh.');
+                  setTimeout(() => {
+                    window.dispatchEvent(new CustomEvent('sw-update-available', { detail: reg }));
+                  }, 1000);
+                }
+
                 // Detect updates to the service worker code
                 reg.onupdatefound = () => {
                   const installingWorker = reg.installing;
@@ -117,9 +125,7 @@
                         if (navigator.serviceWorker.controller) {
                           // A new service worker has been installed and is ready to activate
                           console.log('New content is available; prompting refresh.');
-                          if (confirm('Une nouvelle version de BaqueMix est disponible. Voulez-vous recharger la page pour l\'appliquer ?')) {
-                            window.location.reload();
-                          }
+                          window.dispatchEvent(new CustomEvent('sw-update-available', { detail: reg }));
                         }
                       }
                     };

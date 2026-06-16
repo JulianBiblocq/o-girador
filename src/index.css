@@ -14,7 +14,7 @@
   --cordel-text: #f4ecd8;
   --cordel-border: #f4ecd8;
   --cordel-wood: #8b2a1a;
-  --cordel-shadow-color: rgba(244, 236, 216, 0.08); /* Halo beige très subtil */
+  --cordel-shadow-color: rgba(0, 0, 0, 0.55); /* Ombre sombre douce en mode nuit */
 }
 
 [data-theme='light'] {
@@ -187,17 +187,17 @@ body {
 
 /* Design System: Literatura de Cordel */
 
-/* Cordel Woodcut effect: Sharp, slightly irregular, high contrast */
+/* Cordel Woodcut effect: Sharp, slightly irregular, high contrast with soft shadow */
 .cordel-border {
   border: 3px solid var(--cordel-border);
   border-radius: 2px 2px 2px 2px / 2px 2px 2px 2px;
-  box-shadow: 4px 4px 0px 0px var(--cordel-border);
+  box-shadow: 0 4px 10px var(--cordel-shadow-color), 0 1px 3px var(--cordel-shadow-color);
 }
 
 .cordel-border-sm {
   border: 2px solid var(--cordel-border);
   border-radius: 1px;
-  box-shadow: 2px 2px 0px 0px var(--cordel-border);
+  box-shadow: 0 2px 5px var(--cordel-shadow-color), 0 1px 2px var(--cordel-shadow-color);
 }
 
 .cordel-shadow {
@@ -217,15 +217,15 @@ body {
   background-color: var(--cordel-wood);
   color: var(--cordel-text);
   border: 3px solid var(--cordel-border);
-  box-shadow: 3px 3px 0px 0px var(--cordel-border);
+  box-shadow: 0 4px 10px var(--cordel-shadow-color), 0 1px 3px var(--cordel-shadow-color);
 }
 
 .cordel-button {
-  transition: transform 0.1s, box-shadow 0.1s;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
 }
 .cordel-button:active {
-  transform: translate(2px, 2px);
-  box-shadow: 0px 0px 0px 0px var(--cordel-border);
+  transform: translateY(1.5px);
+  box-shadow: 0 1px 3px var(--cordel-shadow-color) !important;
 }
 
 .vertical-fader {
@@ -392,9 +392,7 @@ body {
 /* ══════════════ SMART ZOOM / MACRO MODE ══════════════ */
 
 /* Hide detailed controls in Macro mode */
-.timeline-sequencer-container[data-zoom="macro"] .ruler-detailed,
-.timeline-sequencer-container[data-zoom="macro"] .track-header-icon,
-.timeline-sequencer-container[data-zoom="macro"] .track-header-controls {
+.timeline-sequencer-container[data-zoom="macro"] .ruler-detailed {
   display: none !important;
 }
 
@@ -404,20 +402,6 @@ body {
 }
 .timeline-sequencer-container[data-zoom="macro"] .cell-detailed {
   display: none !important;
-}
-
-/* Style sticky track header in Macro mode */
-.timeline-sequencer-container[data-zoom="macro"] .track-header-name {
-  width: 100%;
-  text-align: center;
-  font-size: 11px;
-  line-height: 1.25;
-  white-space: normal;
-  word-break: break-word;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
 }
 
 /* Center ruler measure content in Macro mode */
@@ -469,11 +453,38 @@ body {
   left: 0;
   right: 0;
   background-color: var(--section-color);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 5;
 }
 
 /* ══════════════ PANNING & DRAGGING CURSORS ══════════════ */
 .panning-dragging {
   cursor: grabbing !important;
+}
+
+/* ══════════════ TOUCH SCREEN OPTIMIZATIONS ══════════════ */
+/* Prevent native context menu / download-share callouts on images and sliders */
+img,
+.vertical-fader,
+input[type="range"] {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Prevent decorative images from capturing touch events to avoid dragging conflicts */
+.track-mixer img,
+.vertical-track-mixer img,
+.console-mixer img,
+#top-bar img {
+  pointer-events: none !important;
+}
+
+/* Prevent touch gestures from scrolling the page when moving faders */
+.vertical-fader,
+input[type="range"] {
+  touch-action: none !important;
 }
 
 

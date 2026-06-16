@@ -1,12 +1,26 @@
 import React, { useCallback, useState, useRef } from 'react';
 import { TrackGroup, Language } from '../types';
-import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText } from '../data';
+import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
+
+const getGlobalClipboard = () => {
+  if (typeof window !== 'undefined') {
+    return (window as any).__baquemixRelativeClipboard || null;
+  }
+  return null;
+};
 
 interface InstrumentDetailEditorProps {
   lang: Language;
+  isLeftHanded?: boolean;
   track: TrackGroup;
   onClose: () => void;
-  onStepValueChange: (patternId: number, stepIdx: number, val: string) => void;
+  onStepValueChange: (
+    patternId: number,
+    stepIdx: number | number[],
+    val: string | string[],
+    lyrics?: string[],
+    notes?: string[]
+  ) => void;
   onStepKeyDown: (patternId: number, stepIdx: number, key: string, currentVal: string, targetEl: HTMLInputElement) => void;
   onStepsChange: (patternId: number, steps: number) => void;
   onVoiceTypeToggle: (patternId: number, stepIdx: number) => void;
@@ -69,81 +83,115 @@ interface StrokeDef {
   colorKey: string;
 }
 
-function getStrokesForInstrument(instId: string, instType: string, lang: string): StrokeDef[] {
+function getStrokesForInstrument(instId: string, instType: string, lang: string, isLeftHanded: boolean): StrokeDef[] {
   const isFr = lang === 'fr';
+  let strokes: StrokeDef[] = [];
   if (instId === 'caixa') {
-    return [
+    strokes = [
       { symbol: 'D', label: isFr ? 'Main Droite Forte' : 'Mão Direita Forte', shortcut: 'D', colorKey: 'D' },
-      { symbol: 'd', label: isFr ? 'Main Droite Faible' : 'Mão Direita Fraca', shortcut: 'd', colorKey: 'd' },
       { symbol: 'E', label: isFr ? 'Main Gauche Forte' : 'Mão Esquerda Forte', shortcut: 'E', colorKey: 'E' },
-      { symbol: 'e', label: isFr ? 'Main Gauche Faible' : 'Mão Esquerda Fraca', shortcut: 'e', colorKey: 'e' },
-      { symbol: 'rd', label: isFr ? 'Roulement court D' : 'Rufada Direita', shortcut: 'R → rd', colorKey: 'rd' },
-      { symbol: 're', label: isFr ? 'Roulement court G' : 'Rufada Esquerda', shortcut: 'Z → re', colorKey: 're' },
-      { symbol: 'x', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X → x', colorKey: 'x' },
-      { symbol: 'f', label: 'Fla', shortcut: 'F → f', colorKey: 'f' },
-      { symbol: 't', label: isFr ? 'Tremblement' : 'Tremor', shortcut: 't', colorKey: 't' },
-    ];
-  }
-  if (instId === 'marcante' || instId === 'meiao' || instId === 'repique') {
-    return [
-      { symbol: 'D', label: isFr ? 'Main Droite Forte' : 'Mão Direita Forte', shortcut: 'D', colorKey: 'D' },
+      { symbol: 'Q', label: isFr ? 'Main Gauche Forte (Alt)' : 'Mão Esquerda Forte (Alt)', shortcut: 'Q', colorKey: 'Q' },
       { symbol: 'd', label: isFr ? 'Main Droite Faible' : 'Mão Direita Fraca', shortcut: 'd', colorKey: 'd' },
-      { symbol: 'E', label: isFr ? 'Main Gauche Forte' : 'Mão Esquerda Forte', shortcut: 'E', colorKey: 'E' },
       { symbol: 'e', label: isFr ? 'Main Gauche Faible' : 'Mão Esquerda Fraca', shortcut: 'e', colorKey: 'e' },
-      { symbol: 'x', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X → x', colorKey: 'x' },
-      { symbol: 'i', label: isFr ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Iguarassu)', shortcut: 'I → i', colorKey: 'i' },
-      { symbol: 'c', label: isFr ? 'Click' : 'Click', shortcut: 'C → c', colorKey: 'c' },
-      { symbol: 't', label: isFr ? 'Tremblement' : 'Tremor', shortcut: 't', colorKey: 't' },
-    ];
-  }
-  if (instType === 'gongue') {
-    return [
-      { symbol: 'G', label: isFr ? 'Grave Forte' : 'Grave Forte', shortcut: 'G', colorKey: 'GRV' },
-      { symbol: 'g', label: isFr ? 'Grave Faible' : 'Grave Fraco', shortcut: 'g', colorKey: 'grv' },
-      { symbol: 'A', label: isFr ? 'Aigu Forte' : 'Agudo Forte', shortcut: 'A', colorKey: 'AIG' },
-      { symbol: 'a', label: isFr ? 'Aigu Faible' : 'Agudo Fraco', shortcut: 'a', colorKey: 'aig' },
-      { symbol: 't', label: isFr ? 'Tremblement' : 'Tremor', shortcut: 't', colorKey: 't' },
-    ];
-  }
-  if (instId === 'tarol') {
-    return [
-      { symbol: 'D', label: isFr ? 'Main Droite Forte' : 'Mão Direita Forte', shortcut: 'D', colorKey: 'D' },
-      { symbol: 'd', label: isFr ? 'Main Droite Faible' : 'Mão Direita Fraca', shortcut: 'd', colorKey: 'd' },
-      { symbol: 'E', label: isFr ? 'Main Gauche Forte' : 'Mão Esquerda Forte', shortcut: 'E', colorKey: 'E' },
-      { symbol: 'e', label: isFr ? 'Main Gauche Faible' : 'Mão Esquerda Fraca', shortcut: 'e', colorKey: 'e' },
-      { symbol: 'Rd', label: isFr ? 'Roulement court D' : 'Rufada Direita', shortcut: 'R → Rd', colorKey: 'Rd' },
-      { symbol: 'Re', label: isFr ? 'Roulement court G' : 'Rufada Esquerda', shortcut: 'r → Re', colorKey: 'Re' },
+      { symbol: 'q', label: isFr ? 'Main Gauche Faible (Alt)' : 'Mão Esquerda Fraca (Alt)', shortcut: 'q', colorKey: 'q' },
       { symbol: 'X', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
-      { symbol: 'F', label: 'Fla', shortcut: 'F', colorKey: 'F' },
       { symbol: 'C', label: isFr ? 'Click' : 'Click', shortcut: 'C', colorKey: 'C' },
-      { symbol: 'T', label: isFr ? 'Trémulo' : 'Trêmulo', shortcut: 'T', colorKey: 'T' },
+      { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
+      { symbol: 'F', label: 'Fla', shortcut: 'F', colorKey: 'F' },
+      { symbol: 'R', label: isFr ? 'Roulement court D' : 'Rufada Direita', shortcut: 'R', colorKey: 'R' },
+      { symbol: 'r', label: isFr ? 'Roulement court G' : 'Rufada Esquerda', shortcut: 'r', colorKey: 'r' },
     ];
   }
-  if (instId === 'agbe') {
-    return [
+  else if (instId === 'marcante' || instId === 'meiao' || instId === 'repique') {
+    strokes = [
+      { symbol: 'Q', label: isFr ? 'Main Gauche Forte (Alt)' : 'Mão Esquerda Forte (Alt)', shortcut: 'Q', colorKey: 'Q' },
+      { symbol: 'D', label: isFr ? 'Main Droite Forte' : 'Mão Direita Forte', shortcut: 'D', colorKey: 'D' },
+      { symbol: 'E', label: isFr ? 'Main Gauche Forte' : 'Mão Esquerda Forte', shortcut: 'E', colorKey: 'E' },
+      { symbol: 'd', label: isFr ? 'Main Droite Faible' : 'Mão Direita Fraca', shortcut: 'd', colorKey: 'd' },
+      { symbol: 'e', label: isFr ? 'Main Gauche Faible' : 'Mão Esquerda Fraca', shortcut: 'e', colorKey: 'e' },
+      { symbol: 'q', label: isFr ? 'Main Gauche Faible (Alt)' : 'Mão Esquerda Fraca (Alt)', shortcut: 'q', colorKey: 'q' },
+      { symbol: 'X', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
+      { symbol: 'C', label: isFr ? 'Click' : 'Click', shortcut: 'C', colorKey: 'C' },
+      { symbol: 'I', label: isFr ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Iguarassu)', shortcut: 'I', colorKey: 'I' },
+      { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
+    ];
+  }
+  else if (instType === 'gongue') {
+    strokes = [
+      { symbol: 'G', label: isFr ? 'Grave Forte' : 'Grave Forte', shortcut: 'G', colorKey: 'G' },
+      { symbol: 'g', label: isFr ? 'Grave Faible' : 'Grave Fraco', shortcut: 'g', colorKey: 'g' },
+      { symbol: 'A', label: isFr ? 'Aigu Forte' : 'Agudo Forte', shortcut: 'A', colorKey: 'A' },
+      { symbol: 'a', label: isFr ? 'Aigu Faible' : 'Agudo Fraco', shortcut: 'a', colorKey: 'a' },
+      { symbol: 'X', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
+      { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
+    ];
+  }
+  else if (instId === 'tarol') {
+    strokes = [
+      { symbol: 'D', label: isFr ? 'Main Droite Forte' : 'Mão Direita Forte', shortcut: 'D', colorKey: 'D' },
+      { symbol: 'E', label: isFr ? 'Main Gauche Forte' : 'Mão Esquerda Forte', shortcut: 'E', colorKey: 'E' },
+      { symbol: 'Q', label: isFr ? 'Main Gauche Forte (Alt)' : 'Mão Esquerda Forte (Alt)', shortcut: 'Q', colorKey: 'Q' },
+      { symbol: 'd', label: isFr ? 'Main Droite Faible' : 'Mão Direita Fraca', shortcut: 'd', colorKey: 'd' },
+      { symbol: 'e', label: isFr ? 'Main Gauche Faible' : 'Mão Esquerda Fraca', shortcut: 'e', colorKey: 'e' },
+      { symbol: 'q', label: isFr ? 'Main Gauche Faible (Alt)' : 'Mão Esquerda Fraca (Alt)', shortcut: 'q', colorKey: 'q' },
+      { symbol: 'X', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
+      { symbol: 'C', label: isFr ? 'Click' : 'Click', shortcut: 'C', colorKey: 'C' },
+      { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
+      { symbol: 'F', label: 'Fla', shortcut: 'F', colorKey: 'F' },
+      { symbol: 'R', label: isFr ? 'Roulement court D' : 'Rufada Direita', shortcut: 'R', colorKey: 'R' },
+      { symbol: 'r', label: isFr ? 'Roulement court G' : 'Rufada Esquerda', shortcut: 'r', colorKey: 'r' },
+    ];
+  }
+  else if (instId === 'agbe') {
+    strokes = [
       { symbol: 'E', label: isFr ? 'Gauche Forte' : 'Esquerda Forte', shortcut: 'E', colorKey: 'E' },
-      { symbol: 'e', label: isFr ? 'Gauche Faible' : 'Esquerda Fraca', shortcut: 'e', colorKey: 'e' },
       { symbol: 'D', label: isFr ? 'Droite Forte' : 'Direita Forte', shortcut: 'D', colorKey: 'D' },
+      { symbol: 'e', label: isFr ? 'Gauche Faible' : 'Esquerda Fraca', shortcut: 'e', colorKey: 'e' },
       { symbol: 'd', label: isFr ? 'Droite Faible' : 'Direita Fraca', shortcut: 'd', colorKey: 'd' },
-      { symbol: 's', label: isFr ? 'Salto' : 'Salto', shortcut: 'S → s', colorKey: 's' },
-      { symbol: 't', label: isFr ? 'Tremblement' : 'Tremor', shortcut: 't', colorKey: 't' },
+      { symbol: 'S', label: isFr ? 'Salto' : 'Salto', shortcut: 'S', colorKey: 'S' },
+      { symbol: 'V', label: isFr ? 'Volta' : 'Volta', shortcut: 'V', colorKey: 'V' },
+      { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
     ];
   }
-  if (instId === 'mineiro') {
-    return [
+  else if (instId === 'mineiro') {
+    strokes = [
       { symbol: 'P', label: isFr ? 'Haut Forte' : 'Push Forte (Cima)', shortcut: 'P', colorKey: 'P' },
-      { symbol: 'p', label: isFr ? 'Haut Faible' : 'Push Fraco (Cima)', shortcut: 'p', colorKey: 'p' },
       { symbol: 'T', label: isFr ? 'Bas Forte' : 'Pull Forte (Baixo)', shortcut: 'T', colorKey: 'T' },
+      { symbol: 'p', label: isFr ? 'Haut Faible' : 'Push Fraco (Cima)', shortcut: 'p', colorKey: 'p' },
       { symbol: 't', label: isFr ? 'Bas Faible' : 'Pull Fraco (Baixo)', shortcut: 't', colorKey: 't' },
+      { symbol: 'L', label: isFr ? 'Lado' : 'Lado', shortcut: 'L', colorKey: 'L' },
+      { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
     ];
   }
-  if (instType === 'voice') {
-    return [
+  else if (instType === 'voice') {
+    strokes = [
       { symbol: 'P', label: 'Puxador', shortcut: 'Click top', colorKey: 'P' },
       { symbol: 'C', label: isFr ? 'Chœur' : 'Coro', shortcut: 'Click top', colorKey: 'C' },
     ];
   }
-  return [];
+
+  if (isLeftHanded && ['marcante', 'meiao', 'repique', 'caixa', 'tarol'].includes(instId)) {
+    strokes = strokes.map(s => {
+      const visualSymbol = String(getVisualStrokeSymbol(s.symbol, true, instId));
+      const visualShortcut = String(getVisualStrokeSymbol(s.shortcut, true, instId));
+      const visualColorKey = String(getVisualStrokeSymbol(s.colorKey, true, instId));
+
+      let visualLabel = s.label;
+      if (visualLabel.includes('Droite')) visualLabel = visualLabel.replace('Droite', 'Gauche');
+      else if (visualLabel.includes('Gauche')) visualLabel = visualLabel.replace('Gauche', 'Droite');
+      if (visualLabel.includes('Direita')) visualLabel = visualLabel.replace('Direita', 'Esquerda');
+      else if (visualLabel.includes('Esquerda')) visualLabel = visualLabel.replace('Esquerda', 'Direita');
+
+      return {
+        symbol: visualSymbol,
+        label: visualLabel,
+        shortcut: visualShortcut,
+        colorKey: visualColorKey
+      };
+    });
+  }
+
+  return strokes;
 }
 
 
@@ -160,38 +208,42 @@ export function getNextStepValue(instId: string, instType: string, currentVal: s
     if (norm === 'p') return 'P';
     if (norm === 'P') return 't';
     if (norm === 't') return 'T';
+    if (norm === 'T') return 'L';
+    if (norm === 'L') return 'B';
     return 0;
   }
   if (instId === 'agbe') {
     if (norm === 0 || norm === '0' || !norm) return 'e';
-    if (norm === 'e' || norm === 'g') return 'E';
-    if (norm === 'E' || norm === 'G') return 'd';
+    if (norm === 'e') return 'E';
+    if (norm === 'E') return 'd';
     if (norm === 'd') return 'D';
-    if (norm === 'D') return 's';
-    if (norm === 's') return 't';
-    if (norm === 't' || norm === 'b') return 0;
+    if (norm === 'D') return 'S';
+    if (norm === 'S' || norm === 's') return 'V';
+    if (norm === 'V' || norm === 'v') return 'B';
     return 0;
   }
   if (instType === 'gongue') {
-    if (norm === 0 || norm === '0' || !norm) return 'grv';
-    if (norm === 'grv') return 'GRV';
-    if (norm === 'GRV') return 'aig';
-    if (norm === 'aig') return 'AIG';
-    if (norm === 'AIG') return 't';
-    if (norm === 't' || norm === 'b') return 0;
+    if (norm === 0 || norm === '0' || !norm) return 'g';
+    if (norm === 'g') return 'G';
+    if (norm === 'G') return 'a';
+    if (norm === 'a') return 'A';
+    if (norm === 'A') return 'X';
+    if (norm === 'X') return 'B';
     return 0;
   }
   if (instId === 'caixa') {
     if (norm === 0 || norm === '0' || !norm) return 'd';
     if (norm === 'd') return 'D';
     if (norm === 'D') return 'e';
-    if (norm === 'e' || norm === 'g') return 'E';
-    if (norm === 'E' || norm === 'G') return 'rd';
-    if (norm === 'rd') return 're';
-    if (norm === 're' || norm === 'Re' || norm === 'rg') return 'x';
-    if (norm === 'x') return 'f';
-    if (norm === 'f') return 't';
-    if (norm === 't' || norm === 'b') return 0;
+    if (norm === 'e') return 'E';
+    if (norm === 'E') return 'q';
+    if (norm === 'q') return 'Q';
+    if (norm === 'Q') return 'R';
+    if (norm === 'R') return 'r';
+    if (norm === 'r') return 'X';
+    if (norm === 'X') return 'C';
+    if (norm === 'C') return 'F';
+    if (norm === 'F') return 'B';
     return 0;
   }
   if (instId === 'tarol') {
@@ -199,34 +251,36 @@ export function getNextStepValue(instId: string, instType: string, currentVal: s
     if (norm === 'd') return 'D';
     if (norm === 'D') return 'e';
     if (norm === 'e') return 'E';
-    if (norm === 'E') return 'X';
-    if (norm === 'X') return 'F';
-    if (norm === 'F') return 'C';
-    if (norm === 'C') return 'T';
-    if (norm === 'T') return 0;
+    if (norm === 'E') return 'q';
+    if (norm === 'q') return 'Q';
+    if (norm === 'Q') return 'R';
+    if (norm === 'R') return 'r';
+    if (norm === 'r') return 'X';
+    if (norm === 'X') return 'C';
+    if (norm === 'C') return 'F';
+    if (norm === 'F') return 'B';
     return 0;
   }
   if (instId === 'marcante' || instId === 'meiao' || instId === 'repique') {
     if (norm === 0 || norm === '0' || !norm) return 'd';
     if (norm === 'd') return 'D';
     if (norm === 'D') return 'e';
-    if (norm === 'e' || norm === 'g') return 'E';
-    if (norm === 'E' || norm === 'G') return 'x';
-    if (norm === 'x') return 'i';
-    if (norm === 'i') return 'c';
-    if (norm === 'c') return 't';
-    if (norm === 't' || norm === 'b') return 0;
+    if (norm === 'e') return 'E';
+    if (norm === 'E') return 'q';
+    if (norm === 'q') return 'Q';
+    if (norm === 'Q') return 'X';
+    if (norm === 'X') return 'I';
+    if (norm === 'I') return 'C';
+    if (norm === 'C') return 'B';
     return 0;
   }
   // default
   if (norm === 0 || norm === '0' || !norm) return 'd';
   if (norm === 'd') return 'D';
   if (norm === 'D') return 'e';
-  if (norm === 'g' || norm === 'e') return 'E';
+  if (norm === 'e') return 'E';
   return 0;
 }
-
-/* ── Component ─────────────────────────────────────────────── */
 
 const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = ({
   lang,
@@ -277,6 +331,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   onVocalGuideToggle,
   onVocalBpmSyncToggle,
   onPatternNameChange,
+  isLeftHanded = false,
 }) => {
   const inst = instrumentsConfig[track.instrumentIdx];
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -352,15 +407,81 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const isMouseDownRef = React.useRef(false);
   const paintValueRef = React.useRef<string | number>(0);
 
+  const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
+  const [hasClipboard, setHasClipboard] = useState(false);
+
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const isSelectingRef = useRef(false);
+  const hasDraggedRef = useRef(false);
+  const initialTouchIndexRef = useRef<number | null>(null);
+  const wasSelectedRef = useRef(false);
+
   React.useEffect(() => {
-    const handleGlobalMouseUp = () => {
+    setHasClipboard(!!getGlobalClipboard());
+    const handleChanged = () => {
+      setHasClipboard(!!getGlobalClipboard());
+    };
+    window.addEventListener('baquemixClipboardChanged', handleChanged);
+    return () => window.removeEventListener('baquemixClipboardChanged', handleChanged);
+  }, []);
+
+  React.useEffect(() => {
+    const handleGlobalMouseUp = (e: MouseEvent) => {
+      if (isMultiSelectActive && isSelectingRef.current) {
+        isSelectingRef.current = false;
+        if (!hasDraggedRef.current && initialTouchIndexRef.current !== null) {
+          const tappedIdx = initialTouchIndexRef.current;
+          if (wasSelectedRef.current) {
+            const activePtn = track.patterns.find(p => p.id === selectedPatternId) || track.patterns[0];
+            const stepVal = activePtn.activeSteps[tappedIdx];
+            if (onStepTouchStart) {
+              onStepTouchStart(e as any, activePtn.id, tappedIdx, inst.id, stepVal, (newVal) => {
+                onStepValueChange(activePtn.id, selectedStepIndices, newVal);
+                setSelectedStepIndices([]);
+              });
+            }
+          }
+        }
+      }
       isMouseDownRef.current = false;
       setIsDragSelecting(false);
       setDragStartIdx(null);
     };
     window.addEventListener('mouseup', handleGlobalMouseUp);
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, []);
+  }, [isMultiSelectActive, selectedStepIndices, selectedPatternId, track.patterns, inst.id, onStepTouchStart, onStepValueChange]);
+
+  React.useEffect(() => {
+    if (!isMultiSelectActive || selectedStepIndices.length === 0 || !selectedPatternId) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (
+        document.activeElement &&
+        (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') &&
+        !(document.activeElement as HTMLInputElement).readOnly
+      ) {
+        return;
+      }
+
+      const key = e.key;
+
+      if (key === 'Delete' || key === 'Backspace' || key === '0') {
+        e.preventDefault();
+        onStepValueChange(selectedPatternId, selectedStepIndices, '0');
+        setSelectedStepIndices([]);
+        return;
+      }
+
+      if (key.length === 1 && /^[a-zA-Z0-9]$/.test(key)) {
+        e.preventDefault();
+        onStepValueChange(selectedPatternId, selectedStepIndices, key);
+        setSelectedStepIndices([]);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isMultiSelectActive, selectedStepIndices, selectedPatternId, onStepValueChange]);
 
   React.useEffect(() => {
     setSelectedPatternId(track.selectedPatternId);
@@ -368,8 +489,193 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     setSelectedStepIndices([]);
   }, [track.id, track.selectedPatternId]);
 
-  const strokes = getStrokesForInstrument(inst.id, inst.type, lang);
+  const strokes = getStrokesForInstrument(inst.id, inst.type, lang, isLeftHanded);
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
+  const handleStepTouchStartMulti = (e: React.TouchEvent, index: number) => {
+    if (!isMultiSelectActive) return;
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    isSelectingRef.current = true;
+    hasDraggedRef.current = false;
+    initialTouchIndexRef.current = index;
+  };
+
+  const handleGridTouchMove = (e: React.TouchEvent, ptn: any) => {
+    if (!isMultiSelectActive || !isSelectingRef.current || !touchStartPos.current) return;
+
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartPos.current.x;
+    const dy = touch.clientY - touchStartPos.current.y;
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+      if (Math.abs(dx) > 10) {
+        hasDraggedRef.current = true;
+      }
+
+      const element = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (element) {
+        const stepInput = element.closest('[data-track-id][data-step-index]');
+        if (stepInput) {
+          const trackIdAttr = stepInput.getAttribute('data-track-id');
+          const stepIdxAttr = stepInput.getAttribute('data-step-index');
+
+          if (trackIdAttr === String(track.id) && stepIdxAttr !== null) {
+            const stepIdx = parseInt(stepIdxAttr, 10);
+            setSelectedStepIndices(prev => {
+              if (prev.includes(stepIdx)) return prev;
+              return [...prev, stepIdx];
+            });
+          }
+        }
+      }
+    }
+  };
+
+  const handleGridTouchEnd = (e: React.TouchEvent, ptn: any) => {
+    if (!isMultiSelectActive || !isSelectingRef.current) return;
+    isSelectingRef.current = false;
+
+    if (!hasDraggedRef.current && initialTouchIndexRef.current !== null) {
+      const tappedIdx = initialTouchIndexRef.current;
+      if (selectedStepIndices.includes(tappedIdx) && selectedStepIndices.length > 0) {
+        const stepVal = ptn.activeSteps[tappedIdx];
+        if (onStepTouchStart) {
+          onStepTouchStart(e, ptn.id, tappedIdx, inst.id, stepVal, (newVal) => {
+            onStepValueChange(ptn.id, selectedStepIndices, newVal);
+            setSelectedStepIndices([]);
+          });
+        }
+      } else {
+        setSelectedStepIndices(prev => {
+          if (prev.includes(tappedIdx)) {
+            return prev.filter(idx => idx !== tappedIdx);
+          } else {
+            return [...prev, tappedIdx];
+          }
+        });
+      }
+    }
+
+    touchStartPos.current = null;
+    initialTouchIndexRef.current = null;
+  };
+
+  const handleStepMouseDownMulti = (e: React.MouseEvent, index: number) => {
+    if (!isMultiSelectActive) return;
+    if (e.button !== 0) return;
+    isSelectingRef.current = true;
+    hasDraggedRef.current = false;
+    initialTouchIndexRef.current = index;
+
+    const wasSel = selectedStepIndices.includes(index);
+    wasSelectedRef.current = wasSel;
+
+    if (!wasSel) {
+      setSelectedStepIndices(prev => [...prev, index]);
+    }
+  };
+
+  const handleStepMouseEnterMulti = (index: number) => {
+    if (!isMultiSelectActive || !isSelectingRef.current) return;
+    hasDraggedRef.current = true;
+    setSelectedStepIndices(prev => {
+      if (prev.includes(index)) return prev;
+      return [...prev, index];
+    });
+  };
+
+  const handleCopyRelative = (ptn: any) => {
+    if (selectedStepIndices.length === 0) return;
+    const sorted = [...selectedStepIndices].sort((a, b) => a - b);
+    const baseIdx = sorted[0];
+    const copiedSteps = sorted.map(idx => ({
+      offset: idx - baseIdx,
+      val: ptn.activeSteps[idx],
+      lyric: ptn.lyrics?.[idx] || '',
+      note: ptn.notes?.[idx] || '',
+    }));
+    if (typeof window !== 'undefined') {
+      (window as any).__baquemixRelativeClipboard = { steps: copiedSteps };
+      window.dispatchEvent(new CustomEvent('baquemixClipboardChanged'));
+    }
+  };
+
+  const handlePasteRelative = (ptn: any, targetIdx: number) => {
+    const globalClipboard = getGlobalClipboard();
+    if (!globalClipboard) return;
+    const destIndices: number[] = [];
+    const destValues: string[] = [];
+    const destLyrics: string[] = [];
+    const destNotes: string[] = [];
+
+    globalClipboard.steps.forEach((item: any) => {
+      const destIdx = targetIdx + item.offset;
+      if (destIdx >= 0 && destIdx < ptn.steps) {
+        destIndices.push(destIdx);
+        destValues.push(String(item.val));
+        destLyrics.push(item.lyric || '');
+        destNotes.push(item.note || '');
+      }
+    });
+
+    if (destIndices.length > 0) {
+      onStepValueChange(ptn.id, destIndices, destValues, destLyrics, destNotes);
+      setSelectedStepIndices([]);
+    }
+  };
+
+  const renderSelectionToolbar = (ptn: any) => {
+    return (
+      <div className="flex justify-between items-center bg-[#f4ecd8] border-b border-[#1a1a1a]/20 pb-1.5 mb-2 text-[10px] font-bold w-full select-none">
+        <span className="text-[#666] uppercase tracking-wider">
+          {lang === 'fr' ? 'Multi-sélection' : 'Multi-selection'}
+        </span>
+        <div className="flex gap-1.5 items-center">
+          {selectedStepIndices.length > 0 && (
+            <>
+              <button
+                onClick={() => handleCopyRelative(ptn)}
+                className="px-1.5 py-0.5 bg-[#8b2a1a] text-[#f4ecd8] rounded border border-[#1a1a1a] text-[8px] cursor-pointer font-bold hover:bg-[#a63d2d] transition-colors"
+              >
+                {lang === 'fr' ? 'Copier' : 'Copy'} ({selectedStepIndices.length})
+              </button>
+              <button
+                onClick={() => setSelectedStepIndices([])}
+                className="px-1.5 py-0.5 bg-[#8b2a1a] text-[#f4ecd8] rounded border border-[#1a1a1a] text-[8px] cursor-pointer font-bold hover:bg-[#a63d2d] transition-colors"
+              >
+                {lang === 'fr' ? 'Annuler' : 'Cancel'}
+              </button>
+            </>
+          )}
+          {hasClipboard && selectedStepIndices.length === 1 && (
+            <button
+              onClick={() => handlePasteRelative(ptn, selectedStepIndices[0])}
+              className="px-1.5 py-0.5 bg-[#1e824c] text-white rounded border border-[#1a1a1a] text-[8px] cursor-pointer font-bold hover:bg-[#27ae60] transition-colors"
+            >
+              {lang === 'fr' ? 'Coller' : 'Paste'}
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setIsMultiSelectActive(!isMultiSelectActive);
+              setSelectedStepIndices([]);
+            }}
+            className={`px-1.5 py-0.5 rounded border border-[#1a1a1a] text-[9px] cursor-pointer font-bold ${
+              isMultiSelectActive ? 'bg-blue-600 text-white' : 'bg-transparent text-[#1a1a1a]'
+            }`}
+          >
+            {isMultiSelectActive 
+              ? (lang === 'fr' ? 'Mode Normal' : 'Normal Mode') 
+              : (lang === 'fr' ? 'Multi-sél. Off' : 'Multi-sel. Off')}
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const handleStart = (e: React.MouseEvent | React.TouchEvent, patternId: number, stepIdx: number, currentVal: string | number) => {
     if ('shiftKey' in e && e.shiftKey) return;
@@ -431,12 +737,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   /* Gongue display value mapping */
   const getDisplayVal = (val: string | number): string => {
     if (val === 0) return '';
-    if (inst.type === 'gongue') {
-      if (val === 'GRV') return 'G';
-      if (val === 'grv') return 'g';
-      if (val === 'AIG') return 'A';
-      if (val === 'aig') return 'a';
-    }
     return String(val);
   };
 
@@ -632,7 +932,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                     <div className="flex gap-1 ml-4">
                       <button
                         onClick={() => onCopyPattern && onCopyPattern(ptn)}
-                        className="px-1.5 py-0.5 bg-[#eaddcf] text-[10px] font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
+                        className="px-1.5 py-0.5 bg-[#eaddcf] text-[#1a1a1a] text-[10px] font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
                         title={lang === 'fr' ? 'Copier le motif' : 'Copiar o padrão'}
                       >
                         📋 {lang === 'fr' ? 'Copier' : 'Copiar'}
@@ -882,11 +1182,14 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                   )}
 
                   {/* Step grid */}
+                  {ptn.id === selectedPatternId && renderSelectionToolbar(ptn)}
                   {inst.type === 'voice' ? (
                     /* ──── Voice step grid ──── */
                     <div
                       className="step-boxes flex flex-wrap gap-y-4 gap-x-6"
                       id={`detail-voice-${track.id}-${ptn.id}`}
+                      onTouchMove={(e) => handleGridTouchMove(e, ptn)}
+                      onTouchEnd={(e) => handleGridTouchEnd(e, ptn)}
                     >
                       {(() => {
                         const groups = [];
@@ -908,6 +1211,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 : {};
 
                               const isCurrentStep = currentStep === i;
+                              const isSelected = selectedStepIndices.includes(i);
 
                               // Calculate total micro-timing shift (manual + global swing)
                               const manualMicro = ptn.microtimings?.[i] ?? 0;
@@ -921,12 +1225,34 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                   <div className="absolute top-[20px] bottom-[10px] left-1/2 w-0 border-l border-dashed border-[#1a1a1a]/30 -translate-x-1/2 pointer-events-none z-0" />
                                   
                                   <div
-                                    className={`v-card flex flex-col bg-[#f4ecd8] cordel-border-sm overflow-hidden z-10 relative transition-transform duration-100 ${
-                                      isCurrentStep ? 'border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.5)]' : 'border-[#1a1a1a]'
+                                    className={`v-card flex flex-col bg-[#f4ecd8] cordel-border-sm overflow-hidden z-10 relative transition-all duration-100 ${
+                                      isCurrentStep 
+                                        ? 'border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.5)]' 
+                                        : isSelected
+                                          ? 'border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f]'
+                                          : 'border-[#1a1a1a]'
                                     }`}
                                     style={{
                                       width: '56px',
                                       transform: `translateX(${shiftPx}px)`,
+                                    }}
+                                    data-track-id={track.id}
+                                    data-step-index={i}
+                                    data-step-type="voice"
+                                    onTouchStart={(e) => {
+                                      if (isMultiSelectActive) {
+                                        handleStepTouchStartMulti(e, i);
+                                      }
+                                    }}
+                                    onMouseDown={(e) => {
+                                      if (isMultiSelectActive) {
+                                        handleStepMouseDownMulti(e, i);
+                                      }
+                                    }}
+                                    onMouseEnter={() => {
+                                      if (isMultiSelectActive) {
+                                        handleStepMouseEnterMulti(i);
+                                      }
                                     }}
                                   >
                                     {/* Step number */}
@@ -936,7 +1262,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
                                     {/* PUX / CORO toggle */}
                                     <div
-                                      onClick={() => onVoiceTypeToggle(ptn.id, i)}
+                                      onClick={() => {
+                                        if (!isMultiSelectActive) {
+                                          onVoiceTypeToggle(ptn.id, i);
+                                        }
+                                      }}
                                       className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`}
                                       style={typeStyle}
                                     >
@@ -947,12 +1277,15 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                     <input
                                       type="text"
                                       value={syl}
+                                      readOnly={isMultiSelectActive}
                                       onChange={(e) => onVoiceSylChange(ptn.id, i, e.target.value)}
                                       placeholder="-"
                                       className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-[#1a1a1a] outline-none"
                                       onFocus={() => {
-                                        setSelectedStepIdx(i);
-                                        setSelectedPatternId(ptn.id);
+                                        if (!isMultiSelectActive) {
+                                          setSelectedStepIdx(i);
+                                          setSelectedPatternId(ptn.id);
+                                        }
                                       }}
                                       onKeyDown={(e) => {
                                         if (e.key === 'Tab') {
@@ -968,13 +1301,16 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                     <input
                                       type="text"
                                       value={note}
+                                      readOnly={isMultiSelectActive}
                                       onChange={(e) => onVoiceNoteChange(ptn.id, i, e.target.value)}
                                       onBlur={(e) => onVoiceNoteBlur(ptn.id, i, e.target.value)}
                                       placeholder="C4"
                                       className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase outline-none"
                                       onFocus={() => {
-                                        setSelectedStepIdx(i);
-                                        setSelectedPatternId(ptn.id);
+                                        if (!isMultiSelectActive) {
+                                          setSelectedStepIdx(i);
+                                          setSelectedPatternId(ptn.id);
+                                        }
                                       }}
                                       onKeyDown={(e) => {
                                         if (e.key === 'Tab') {
@@ -1020,6 +1356,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                     <div
                       className="step-boxes flex flex-wrap gap-y-4 gap-x-6"
                       id={`detail-steps-${track.id}-${ptn.id}`}
+                      onTouchMove={(e) => handleGridTouchMove(e, ptn)}
+                      onTouchEnd={(e) => handleGridTouchEnd(e, ptn)}
                     >
                       {(() => {
                         const groups = [];
@@ -1054,6 +1392,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               const totalShift = manualMicro + swingOffset;
                               const shiftPx = (totalShift / 50) * 8; // Max 8px shift
 
+                              const isSelected = selectedStepIndices.includes(i);
+
                               return (
                                 <div key={i} className="relative flex flex-col items-center" style={{ width: '36px' }}>
                                   {/* Axis vertical centerline (0%) behind steps */}
@@ -1064,7 +1404,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                     type="text"
                                     maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
                                     value={displayVal}
-                                    readOnly={isTouchDevice}
+                                    readOnly={isTouchDevice || isMultiSelectActive}
                                     inputMode={isTouchDevice ? 'none' : undefined}
                                     onFocus={(e) => {
                                       if (!isTouchDevice) {
@@ -1075,6 +1415,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                     onMouseDown={(e) => {
                                       if (e.button !== 0) return;
                                       setSelectedPatternId(ptn.id);
+
+                                      if (isMultiSelectActive) {
+                                        handleStepMouseDownMulti(e, i);
+                                        return;
+                                      }
 
                                       // 1. Alt Key Paint Editing
                                       if (e.altKey) {
@@ -1128,22 +1473,30 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                       handleStart(e, ptn.id, i, val);
                                     }}
                                     onMouseEnter={() => {
-                                      if (isMouseDownRef.current) {
-                                        onStepValueChange(ptn.id, i, String(paintValueRef.current));
-                                      }
-                                      if (isDragSelecting && dragStartIdx !== null) {
-                                        const start = Math.min(dragStartIdx, i);
-                                        const end = Math.max(dragStartIdx, i);
-                                        const rangeIndices = Array.from({ length: end - start + 1 }, (_, k) => start + k);
-                                        setSelectedStepIndices(rangeIndices);
-                                        setSelectedStepIdx(i);
+                                      if (isMultiSelectActive) {
+                                        handleStepMouseEnterMulti(i);
+                                      } else {
+                                        if (isMouseDownRef.current) {
+                                          onStepValueChange(ptn.id, i, String(paintValueRef.current));
+                                        }
+                                        if (isDragSelecting && dragStartIdx !== null) {
+                                          const start = Math.min(dragStartIdx, i);
+                                          const end = Math.max(dragStartIdx, i);
+                                          const rangeIndices = Array.from({ length: end - start + 1 }, (_, k) => start + k);
+                                          setSelectedStepIndices(rangeIndices);
+                                          setSelectedStepIdx(i);
+                                        }
                                       }
                                     }}
                                     onTouchStart={(e) => {
                                       setSelectedPatternId(ptn.id);
-                                      setSelectedStepIdx(i);
-                                      setSelectedStepIndices([i]);
-                                      handleStart(e, ptn.id, i, val);
+                                      if (isMultiSelectActive) {
+                                        handleStepTouchStartMulti(e, i);
+                                      } else {
+                                        setSelectedStepIdx(i);
+                                        setSelectedStepIndices([i]);
+                                        handleStart(e, ptn.id, i, val);
+                                      }
                                     }}
                                     onChange={(e) => onStepValueChange(ptn.id, i, e.target.value)}
                                     onKeyDown={(e) => {
@@ -1182,17 +1535,17 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                           ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
                                           : ''
                                     } ${
-                                      selectedStepIdx === i
-                                        ? 'outline outline-2 outline-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                                        : selectedStepIndices.includes(i)
-                                          ? 'outline outline-2 outline-[#8b2a1a]/50 shadow-[0_0_6px_rgba(139,42,26,0.3)] scale-105 z-15'
+                                      isSelected
+                                        ? 'bg-[#f1c40f] text-black border-[#1a1a1a] scale-110 ring-2 ring-[#1a1a1a]'
+                                        : selectedStepIdx === i
+                                          ? 'outline outline-2 outline-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
                                           : ''
                                     }`}
                                     style={{
                                       width: '36px',
                                       height: '36px',
                                       transform: `translateX(${shiftPx}px)`,
-                                      ...(isCurrentStep ? {} : colorStyle),
+                                      ...((isCurrentStep || isSelected) ? {} : colorStyle),
                                     }}
                                   />
                                   {/* Sculpting micro-bars */}

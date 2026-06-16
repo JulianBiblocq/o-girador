@@ -1,16 +1,20 @@
 /**
- * BaqueMix - High-Precision Web Audio Lookahead Engine
+ * BaqueMix - High-Precision Web Audio Lookahead Engine & Sampler
  * 
  * Drives the sequencer's tick clock using a dual-scheduler strategy:
  *  1. Primary: Inline Web Worker thread setInterval (prevents tab-throttling in background).
  *  2. Fallback: Main thread setInterval (if Worker is blocked by Content Security Policy).
  * 
- * Mathematical Precision:
- *  - Anchored Time Reference: Eliminates floating-point accumulation drift.
- *    Instead of relative additions (nextTickTime += duration), it calculates timestamps
- *    using multiplication relative to a tempo-change anchor (anchorTime + (ticks * duration)).
- *  - Automatic Tempo Tracking: Instantly updates anchors when BPM changes.
+ * Drives Sample playback using Web Audio API:
+ *  - Memory Pooling: Deduplicates loaded AudioBuffers by absolute file path.
+ *  - Strict Round-Robin: Avoids repeating the same audio file twice in a row when size > 1.
+ *  - Micro-pitching (Humanize): Applies a random pitch variation (±2% for most, ±0.7% for Alfaias) to each non-barulho, non-gonguê hit.
+ *  - Macro-pitching: Handles instrument transpositions (e.g. Alfaias Marcante 0.85, Meião 1.0, Repique 1.15).
+ *  - Barulho Loop: Loops barulho sounds on keydown and stops them on keyup.
  */
+
+import { instrumentAudioConfigs, StrokeMapping, InstrumentAudioConfig } from './data/audioConfig';
+
 export class AudioEngine {
   private audioContext: AudioContext;
   private isPlaying: boolean = false;
@@ -18,7 +22,6 @@ export class AudioEngine {
   // Timing variables
   private readonly LOOKAHEAD_INTERVAL = 10.0; // ms
   private readonly SCHEDULE_AHEAD_TIME = 0.200; // seconds
-  
   private nextTickTime: number = 0.0;
   
   // Math Anchors for Drift Elimination
@@ -34,8 +37,18 @@ export class AudioEngine {
   private onTick: (time: number) => void;
   private getTickDuration: () => number;
 
+  // Sampler State & Buffers
+  private bufferPool = new Map<string, AudioBuffer>(); // Maps absolute path -> AudioBuffer (Sample Pooling)
+  private lastPlayedIndices = new Map<string, number>(); // Maps "instrumentId_strokeSymbol" -> last played index (Round-Robin)
+  private instrumentChannels = new Map<string, any>(); // Maps instrumentId -> Output Web Audio node/Tone.js channel
+  private activeBarulhoNodes = new Map<string, AudioBufferSourceNode>(); // Maps instrumentId -> active looping Barulho source
+  private activeBarulhoGains = new Map<string, GainNode>(); // Maps instrumentId -> gainNode of active Barulho (for cleanup)
+
+  // O(1) lookup cache for instrument configurations (built once in constructor)
+  private readonly configMap: Map<string, InstrumentAudioConfig>;
+
   /**
-   * @param {AudioContext} audioContext - Native AudioContext to drive the clock
+   * @param {AudioContext} audioContext - Native AudioContext to drive the clock and play samples
    * @param {Function} onTick - Callback fired when a tick is reached: (time: number) => void
    * @param {Function} getTickDuration - Callback returning the duration of a single tick in seconds
    */
@@ -47,6 +60,9 @@ export class AudioEngine {
     this.audioContext = audioContext;
     this.onTick = onTick;
     this.getTickDuration = getTickDuration;
+
+    // Pre-build O(1) config lookup map (avoids Array.find() on every note played)
+    this.configMap = new Map(instrumentAudioConfigs.map(c => [c.id, c]));
 
     this.initWorker();
   }
@@ -76,6 +92,7 @@ export class AudioEngine {
       const blob = new Blob([workerCode], { type: 'application/javascript' });
       const workerUrl = URL.createObjectURL(blob);
       this.worker = new Worker(workerUrl);
+      URL.revokeObjectURL(workerUrl); // Libérer immédiatement la Blob URL — le Worker est déjà chargé
 
       this.worker.onmessage = () => {
         if (this.isPlaying) {
@@ -135,16 +152,21 @@ export class AudioEngine {
   }
 
   /**
+   * Returns the current AudioContext time (used by InputManager for precise scheduling)
+   */
+  public getCurrentTime(): number {
+    return this.audioContext.currentTime;
+  }
+
+  /**
    * The scheduler loop checks if any ticks fall within the lookahead window.
-   * Uses anchor-multiplication to guarantee drift-free timing.
    */
   private scheduler(): void {
     if (!this.isPlaying) return;
 
     const currentTime = this.audioContext.currentTime;
 
-    // Clock Drift Recovery: if the scheduler falls behind due to heavy main-thread lag,
-    // catch up instantly by resetting anchors to current context time.
+    // Clock Drift Recovery
     if (this.nextTickTime < currentTime) {
       this.nextTickTime = currentTime;
       this.anchorTime = currentTime;
@@ -153,15 +175,10 @@ export class AudioEngine {
 
     // Schedule events in advance
     while (this.nextTickTime < currentTime + this.SCHEDULE_AHEAD_TIME) {
-      console.log("⏱️⏱️⏱️ [AUDIO_ENGINE_SCHEDULER] Scheduling tick at nextTickTime: " + this.nextTickTime + " | currentTime: " + currentTime);
-      // Execute the tick callback (triggers synthesizers or players)
       this.onTick(this.nextTickTime);
 
-      // Retrieve current tick duration (dependent on dynamic BPM)
       const tickDuration = this.getTickDuration();
 
-      // If the tempo (tick duration) changes, reset the anchor to this tick time
-      // to avoid calculating past ticks with the new duration.
       if (Math.abs(tickDuration - this.lastTickDuration) > 1e-6) {
         this.anchorTime = this.nextTickTime;
         this.anchorTickCount = 0;
@@ -169,9 +186,256 @@ export class AudioEngine {
       }
 
       this.anchorTickCount++;
-
-      // Absolute calculation within the current tempo segment
       this.nextTickTime = this.anchorTime + (this.anchorTickCount * tickDuration);
+    }
+  }
+
+  /**
+   * Preload all unique audio files mapped in instrumentAudioConfigs to memory.
+   * Leverages caching to guarantee sample pooling (duplicate files are only loaded once).
+   */
+  public async loadAllSamples(onProgress?: (loadedCount: number, totalCount: number) => void): Promise<void> {
+    const allUniquePaths = new Set<string>();
+    for (const inst of instrumentAudioConfigs) {
+      for (const stroke of inst.strokes) {
+        for (const file of stroke.files) {
+          allUniquePaths.add(file);
+        }
+      }
+    }
+
+    const pathsArray = Array.from(allUniquePaths);
+    const totalCount = pathsArray.length;
+    let loadedCount = 0;
+
+    const loadPath = async (path: string): Promise<void> => {
+      if (this.bufferPool.has(path)) {
+        loadedCount++;
+        if (onProgress) onProgress(loadedCount, totalCount);
+        return;
+      }
+
+      try {
+        // Fetch and decode local ogg files
+        let fetchPath = path;
+        if (path.includes('Mixdown/') || path.includes('mixdown/')) {
+          const filename = path.substring(path.lastIndexOf('/') + 1);
+          // @ts-ignore
+          fetchPath = `${import.meta.env.BASE_URL || '/'}Mixdown/${filename}`;
+        } else {
+          fetchPath = path.startsWith('/') ? path : '/' + path;
+        }
+        const response = await fetch(fetchPath);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+        this.bufferPool.set(path, audioBuffer);
+      } catch (err) {
+        console.error(`AudioEngine: Failed to load sample: ${path}`, err);
+      } finally {
+        loadedCount++;
+        if (onProgress) onProgress(loadedCount, totalCount);
+      }
+    };
+
+    // Load in batches or concurrently
+    await Promise.all(pathsArray.map(path => loadPath(path)));
+    console.log(`AudioEngine: Completed preloading of all samples. Pooled ${this.bufferPool.size} unique buffers in memory.`);
+  }
+
+  /**
+   * Register output destination / channel for an instrument ID
+   */
+  public setInstrumentChannel(instrumentId: string, channel: any): void {
+    this.instrumentChannels.set(instrumentId, channel);
+  }
+
+  /**
+   * Plays a specific stroke for an instrument with velocity, decay, round-robin, and pitching.
+   */
+  public playNote(
+    instrumentId: string,
+    strokeSymbol: string,
+    time: number,
+    velocity: number,
+    decayMultiplier: number
+  ): void {
+    // 1. Find the configuration for this instrument — O(1) Map lookup instead of O(n) Array.find()
+    const config = this.configMap.get(instrumentId);
+    if (!config) {
+      console.warn(`AudioEngine: Unknown instrument ID: ${instrumentId}`);
+      return;
+    }
+
+    let normSymbol = strokeSymbol;
+
+    // Normalizations for legacy sequencer symbol compatibilities
+    // Note: G→E normalization for Alfaias removed — symbols are now canonical and unambiguous.
+    if (['marcante', 'meiao', 'repique', 'caixa', 'tarol'].includes(instrumentId)) {
+      if (normSymbol === 't' || normSymbol === 'T') normSymbol = 'B';
+      else if (normSymbol === 'C') normSymbol = 'c';
+    } else if (instrumentId === 'agbe') {
+      if (normSymbol === 't') normSymbol = 'B';
+    } else if (instrumentId === 'gongue') {
+      if (normSymbol === 't') normSymbol = 'B';
+    }
+
+    // 2. Find the stroke mapping
+    const stroke = config.strokes.find(s => s.symbol === normSymbol);
+    if (!stroke || stroke.files.length === 0) {
+      // Fallback matching if symbol casing differs (for case-insensitive actions)
+      const fallbackStroke = config.strokes.find(s => s.symbol.toUpperCase() === normSymbol.toUpperCase());
+      if (!fallbackStroke || fallbackStroke.files.length === 0) {
+        console.warn(`AudioEngine: No stroke mapped for symbol "${strokeSymbol}" (normalized: "${normSymbol}") on instrument "${instrumentId}"`);
+        return;
+      }
+      this.playStroke(instrumentId, config, fallbackStroke, time, velocity, decayMultiplier);
+      return;
+    }
+
+    this.playStroke(instrumentId, config, stroke, time, velocity, decayMultiplier);
+  }
+
+  /**
+   * Helper to perform play and pitching of a specific stroke mapping
+   */
+  private playStroke(
+    instrumentId: string,
+    config: InstrumentAudioConfig,
+    stroke: StrokeMapping,
+    time: number,
+    velocity: number,
+    decayMultiplier: number
+  ): void {
+    // 1. Round-Robin Index Selection
+    const rrKey = `${instrumentId}_${stroke.symbol}`;
+    const numFiles = stroke.files.length;
+    let chosenIdx = 0;
+
+    if (numFiles > 1) {
+      const lastIdx = this.lastPlayedIndices.has(rrKey) ? this.lastPlayedIndices.get(rrKey)! : -1;
+      const availableIndices: number[] = [];
+      for (let i = 0; i < numFiles; i++) {
+        if (i !== lastIdx) {
+          availableIndices.push(i);
+        }
+      }
+      chosenIdx = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+      this.lastPlayedIndices.set(rrKey, chosenIdx);
+    } else {
+      this.lastPlayedIndices.set(rrKey, 0);
+    }
+
+    const filePath = stroke.files[chosenIdx];
+    const buffer = this.bufferPool.get(filePath);
+
+    if (!buffer) {
+      console.warn(`AudioEngine: Buffer not loaded for path: ${filePath}`);
+      return;
+    }
+
+    // 2. Stop active looping Barulho if playing a normal note (Choking)
+    if (!stroke.isBarulho) {
+      this.stopBarulho(instrumentId, time);
+    }
+
+    // 3. Create AudioNodes
+    const source = this.audioContext.createBufferSource();
+    source.buffer = buffer;
+
+    const gainNode = this.audioContext.createGain();
+    gainNode.gain.setValueAtTime(velocity, time);
+    source.connect(gainNode);
+
+    // 4. Pitch Calculations (Macro & Micro/Humanization)
+    let macroPitch = config.macroPitch !== undefined ? config.macroPitch : 1.0;
+    
+    // Organically vary the playback rate unless it is a Barulho or Gonguê
+    let microPitch = 1.0;
+    if (!stroke.isBarulho && instrumentId !== 'gongue') {
+      if (['marcante', 'meiao', 'repique'].includes(instrumentId)) {
+        microPitch = 0.993 + Math.random() * 0.014; // Subtle +/- 0.7% variation
+      } else {
+        microPitch = 0.98 + Math.random() * 0.04; // Normal +/- 2% variation
+      }
+    }
+
+    source.playbackRate.setValueAtTime(macroPitch * microPitch, time);
+
+    // 5. Connecting to the correct Mixer channel/destination
+    const channel = this.instrumentChannels.get(instrumentId);
+    let outputNode: any = channel ? (channel.input || channel) : this.audioContext.destination;
+    
+    // Resolve ToneAudioNode wrapping if any
+    while (outputNode && !(outputNode instanceof AudioNode) && outputNode.input) {
+      outputNode = outputNode.input;
+    }
+
+    if (outputNode instanceof AudioNode) {
+      gainNode.connect(outputNode);
+    } else {
+      try {
+        gainNode.connect(channel);
+      } catch (_) {
+        gainNode.connect(this.audioContext.destination);
+      }
+    }
+
+    // 6. Handle play duration and looping
+    if (stroke.isBarulho) {
+      source.loop = true;
+      
+      // Choke any existing looping barulho for this instrument (also cleans up its gainNode)
+      this.stopBarulho(instrumentId, time);
+
+      source.start(time);
+      this.activeBarulhoNodes.set(instrumentId, source);
+      this.activeBarulhoGains.set(instrumentId, gainNode); // Track gainNode for proper cleanup
+    } else {
+      const duration = buffer.duration * decayMultiplier;
+      if (decayMultiplier < 1.0) {
+        source.start(time, 0, duration);
+      } else {
+        source.start(time);
+      }
+
+      source.onended = () => {
+        gainNode.disconnect();
+      };
+    }
+  }
+
+  /**
+   * Stops looping Barulho sounds for a specific instrument
+   */
+  public stopBarulho(instrumentId: string, time: number = this.audioContext.currentTime): void {
+    const activeNode = this.activeBarulhoNodes.get(instrumentId);
+    if (activeNode) {
+      try {
+        activeNode.stop(time);
+      } catch (_) {
+        // Source might have been stopped already
+      }
+      this.activeBarulhoNodes.delete(instrumentId);
+    }
+    // Always disconnect the gainNode to prevent audio graph leaks
+    const activeGain = this.activeBarulhoGains.get(instrumentId);
+    if (activeGain) {
+      try { activeGain.disconnect(); } catch (_) {}
+      this.activeBarulhoGains.delete(instrumentId);
+    }
+  }
+
+  /**
+   * Stop all active looping Barulho sounds
+   */
+  public stopAllBarulho(): void {
+    const keys = Array.from(this.activeBarulhoNodes.keys());
+    for (const key of keys) {
+      this.stopBarulho(key);
     }
   }
 }

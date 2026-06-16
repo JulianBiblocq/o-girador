@@ -7,6 +7,7 @@ import React from 'react';
 import { TrackGroup, Language, PresetMetadata, RhythmSignal } from '../types';
 import { i18n, instrumentsConfig } from '../data';
 import { AudioTrackRecorder } from './AudioTrackRecorder';
+import gifshot from 'gifshot';
 
 interface RightSidebarProps {
   lang: Language;
@@ -56,9 +57,13 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   const [signalCameraActive, setSignalCameraActive] = React.useState<boolean>(false);
   const signalVideoRef = React.useRef<HTMLVideoElement | null>(null);
   const signalStreamRef = React.useRef<MediaStream | null>(null);
-  const [subTab, setSubTab] = React.useState<'toada' | 'info' | 'gravacao'>('toada');
+  const [subTab, setSubTab] = React.useState<'toada' | 'info' | 'gravacao'>('info');
   const [pendingSignalImage, setPendingSignalImage] = React.useState<string | null>(null);
   const [pendingSignalName, setPendingSignalName] = React.useState<string>('');
+  const [isCapturingBurst, setIsCapturingBurst] = React.useState<boolean>(false);
+  const [burstCount, setBurstCount] = React.useState<number>(0);
+  const [isProcessingGif, setIsProcessingGif] = React.useState<boolean>(false);
+  const [flashActive, setFlashActive] = React.useState<boolean>(false);
 
   // Stop camera stream on unmount
   React.useEffect(() => {
@@ -148,23 +153,78 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   };
 
   const captureSignalPhoto = () => {
+    if (isCapturingBurst || isProcessingGif) return;
     if (signalVideoRef.current) {
+      setIsCapturingBurst(true);
+      setBurstCount(0);
+      setIsProcessingGif(false);
+      
       const video = signalVideoRef.current;
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob((blob) => {
-          if (blob) {
-            compressAndResizeImage(blob, (base64) => {
-              setPendingSignalImage(base64);
+      const frames: string[] = [];
+      const totalFrames = 4;
+      const intervalMs = 1000; // 4 frames over 3 seconds (t=0s, t=1s, t=2s, t=3s)
+
+      const captureFrame = (frameIndex: number) => {
+        if (!signalStreamRef.current) {
+          setIsCapturingBurst(false);
+          return;
+        }
+
+        // 1. Flash effect
+        setFlashActive(true);
+        setTimeout(() => setFlashActive(false), 150);
+
+        // 2. Draw square-cropped frame to canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = 200;
+        canvas.height = 200;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const videoWidth = video.videoWidth || 640;
+          const videoHeight = video.videoHeight || 480;
+          const size = Math.min(videoWidth, videoHeight);
+          const sx = (videoWidth - size) / 2;
+          const sy = (videoHeight - size) / 2;
+          ctx.drawImage(video, sx, sy, size, size, 0, 0, 200, 200);
+          
+          const frameBase64 = canvas.toDataURL('image/jpeg', 0.4); // compressed frame
+          frames.push(frameBase64);
+          setBurstCount(frameIndex + 1);
+        }
+
+        if (frameIndex + 1 >= totalFrames) {
+          // Finished capturing, create GIF
+          setIsCapturingBurst(false);
+          setIsProcessingGif(true);
+
+          gifshot.createGIF({
+            images: frames,
+            gifWidth: 160, // highly optimized size
+            gifHeight: 160,
+            numFrames: totalFrames,
+            frameDuration: 7.5, // 750ms per frame = 3s total loop duration
+            sampleInterval: 12, // strong compression
+            numWorkers: 2,
+          }, (obj) => {
+            setIsProcessingGif(false);
+            if (!obj.error) {
+              setPendingSignalImage(obj.image);
               stopSignalCamera();
-            });
-          }
-        }, 'image/jpeg', 0.5);
-      }
+            } else {
+              console.error('GIF creation error:', obj.errorMsg);
+              window.alert(lang === 'fr' 
+                ? "Erreur lors de la génération du GIF." 
+                : "Erro ao gerar o GIF.");
+            }
+          });
+        } else {
+          setTimeout(() => {
+            captureFrame(frameIndex + 1);
+          }, intervalMs);
+        }
+      };
+
+      captureFrame(0);
     }
   };
 
@@ -813,17 +873,49 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                           <div className="flex flex-col gap-2">
                             <div className="aspect-video bg-black cordel-border-sm overflow-hidden relative">
                               <video ref={signalVideoRef} className="w-full h-full object-cover" playsInline muted />
+                              
+                              {/* Flash effect overlay */}
+                              <div 
+                                className="absolute inset-0 bg-white z-20 pointer-events-none transition-opacity duration-150"
+                                style={{ opacity: flashActive ? 0.7 : 0 }}
+                              />
+                              
+                              {/* Capture/Processing status overlay */}
+                              {(isCapturingBurst || isProcessingGif) && (
+                                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 text-white z-10 select-none animate-fade-in">
+                                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                  <span className="text-[10px] font-cactus font-bold tracking-wider uppercase">
+                                    {isProcessingGif 
+                                      ? (lang === 'fr' ? 'Création du GIF...' : 'Criando GIF...')
+                                      : `${lang === 'fr' ? 'Capture' : 'Capturando'} : ${burstCount}/4`}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                             <div className="flex gap-2">
                               <button
                                 onClick={captureSignalPhoto}
-                                className="flex-1 py-1 bg-emerald-600 text-white text-[10px] font-bold cordel-border-sm hover:opacity-85 cursor-pointer"
+                                disabled={isCapturingBurst || isProcessingGif}
+                                className={`flex-1 py-1 text-white text-[10px] font-bold cordel-border-sm cursor-pointer transition-opacity ${
+                                  (isCapturingBurst || isProcessingGif)
+                                    ? 'bg-emerald-800 opacity-50 cursor-not-allowed'
+                                    : 'bg-emerald-600 hover:opacity-85'
+                                }`}
                               >
-                                📸 {lang === 'fr' ? 'Capturer' : 'Capturar'}
+                                📸 {isProcessingGif 
+                                  ? (lang === 'fr' ? 'Création...' : 'Criando...')
+                                  : isCapturingBurst 
+                                    ? `${lang === 'fr' ? 'Rafale' : 'Rajada'} ${burstCount}/4`
+                                    : (lang === 'fr' ? 'Capturer' : 'Capturar')}
                               </button>
                               <button
                                 onClick={stopSignalCamera}
-                                className="py-1 px-3 bg-gray-300 text-black text-[10px] font-bold cordel-border-sm hover:opacity-85 cursor-pointer"
+                                disabled={isCapturingBurst || isProcessingGif}
+                                className={`py-1 px-3 text-black text-[10px] font-bold cordel-border-sm cursor-pointer transition-opacity ${
+                                  (isCapturingBurst || isProcessingGif)
+                                    ? 'bg-gray-400 opacity-50 cursor-not-allowed'
+                                    : 'bg-gray-300 hover:opacity-85'
+                                }`}
                               >
                                 {lang === 'fr' ? 'Annuler' : 'Cancelar'}
                               </button>

@@ -16,6 +16,7 @@ import {
   getMaxTicks,
   i18n,
   ASSETS_BASE_URL,
+  getVisualStrokeSymbol,
 } from './data';
 import { getLocalLibrary, savePresetToLibrary, deletePresetFromLibrary } from './library';
 import { Header } from './components/Header';
@@ -27,66 +28,25 @@ import { RightSidebar } from './components/RightSidebar';
 import { TimelineSequencer } from './components/TimelineSequencer';
 import { TouchStrokeSelector, TouchSelectorState } from './components/TouchStrokeSelector';
 import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from './db';
-import { TarolSampler } from './TarolSampler';
 import { AudioEngine } from './AudioEngine';
+import { InputManager } from './InputManager';
+import { instrumentAudioConfigs } from './data/audioConfig';
+import { QuizEngine } from './components/QuizEngine';
+import { DicteeEngine } from './components/DicteeEngine';
+import { InspecteurEngine } from './components/InspecteurEngine';
+import { MestreEngine } from './components/MestreEngine';
+import { RythmeLiveEngine } from './components/RythmeLiveEngine';
+import { VaralCordel } from './components/VaralCordel';
+import { MestreStudio } from './components/MestreStudio';
 
 // Module scope audio engines to avoid duplicate instantiations on React re-renders
 let bMetroClick: Tone.Synth | null = null;
-let whistleSynth: Tone.Synth | null = null;
-let whistleVibrato: Tone.Vibrato | null = null;
+let whistleSynth: Tone.Player | null = null;
 const channels: { [id: string]: Tone.Channel } = {};
 const meters: { [id: string]: Tone.Meter } = {};
-const samplers: { [id: string]: Tone.Players } = {};
-const tarolSampler = new TarolSampler();
 const voiceSynths: { [id: string]: any } = {};
-let loadedCount = 0;
 let audioEngine: AudioEngine | null = null;
-const activePlayerSources = new Map<string, AudioBufferSourceNode>();
-
-function playNativeSample(
-  audioContext: AudioContext,
-  buffer: AudioBuffer,
-  outputNode: any,
-  time: number,
-  velocity: number,
-  decayMultiplier: number
-): AudioBufferSourceNode {
-  const source = audioContext.createBufferSource();
-  source.buffer = buffer;
-
-  const gainNode = audioContext.createGain();
-  gainNode.gain.setValueAtTime(velocity, time);
-
-  source.connect(gainNode);
-
-  // Recursively resolve native AudioNode if it's wrapped in a ToneAudioNode
-  let destNode: any = outputNode;
-  while (destNode && !(destNode instanceof AudioNode) && destNode.input) {
-    destNode = destNode.input;
-  }
-
-  if (destNode instanceof AudioNode) {
-    gainNode.connect(destNode);
-  } else {
-    try {
-      gainNode.connect(outputNode);
-    } catch (_) {
-      gainNode.connect(audioContext.destination);
-    }
-  }
-
-  if (decayMultiplier < 1.0) {
-    source.start(time, 0, buffer.duration * decayMultiplier);
-  } else {
-    source.start(time);
-  }
-
-  source.onended = () => {
-    gainNode.disconnect();
-  };
-
-  return source;
-}
+let inputManager: InputManager | null = null;
 
 let wavRecordingBuffersL: Float32Array[] = [];
 let wavRecordingBuffersR: Float32Array[] = [];
@@ -191,49 +151,21 @@ function buildTickSchedule(
         const tickIdx = Math.floor((step * maxTicks) / stepCount);
 
         // Resolve player key
-        let targetKey: string | null = null;
+        let targetKey: string | null = typeof state === 'string' ? state : String(state);
         let isStrong = false;
 
         if (inst.type === 'gongue') {
-          if (state === 'GRV') { targetKey = 'fort-grave'; isStrong = true; }
-          else if (state === 'grv') { targetKey = 'faible-grave'; }
-          else if (state === 'AIG') { targetKey = 'fort-aigue'; isStrong = true; }
-          else if (state === 'aig') { targetKey = 'faible-aigue'; }
-          else if (state === 'b' || state === 'T' || state === 't') { targetKey = 'barulho'; isStrong = true; }
+          if (state === 'G' || state === 'A') { isStrong = true; }
         } else if (inst.id === 'caixa') {
-          if (state === 'D' || state === 'G' || state === 'E') { targetKey = 'fort'; isStrong = true; }
-          else if (state === 'd' || state === 'g' || state === 'e') { targetKey = 'faible'; }
-          else if (state === 'rd') { targetKey = 'ruffada-D'; isStrong = true; }
-          else if (state === 'rg' || state === 'Re' || state === 're') { targetKey = 'ruffada-G'; isStrong = true; }
-          else if (state === 'x') { targetKey = 'cerclage'; isStrong = true; }
-          else if (state === 'f') { targetKey = 'fla'; isStrong = true; }
-          else if (state === 'b' || state === 'T' || state === 't') { targetKey = 'barulho'; isStrong = true; }
+          if (['D', 'E', 'Q', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
         } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
-          if (state === 'D' || state === 'G' || state === 'E') { targetKey = 'fort'; isStrong = true; }
-          else if (state === 'd' || state === 'g' || state === 'e') { targetKey = 'faible'; }
-          else if (state === 'b' || state === 'T' || state === 't') { targetKey = 'barulho'; isStrong = true; }
-          else if (state === 'x') { targetKey = 'cerclage'; isStrong = true; }
-          else if (state === 'i') { targetKey = 'iguarassu'; isStrong = true; }
-          else if (state === 'c' || state === 'C') { targetKey = 'click'; isStrong = true; }
+          if (['D', 'E', 'Q', 'X', 'I', 'C'].includes(state)) { isStrong = true; }
         } else if (inst.id === 'tarol') {
-          if (state === 'd') { targetKey = 'faible-d'; }
-          else if (state === 'e') { targetKey = 'faible-e'; }
-          else if (state === 'D') { targetKey = 'fort-D'; isStrong = true; }
-          else if (state === 'E') { targetKey = 'fort-E'; isStrong = true; }
-          else if (state === 'Rd' || state === 'rd') { targetKey = 'rufada-d'; isStrong = true; }
-          else if (state === 'Re' || state === 're') { targetKey = 'rufada-e'; isStrong = true; }
-          else if (state === 'x' || state === 'X') { targetKey = 'cerclage'; isStrong = true; }
-          else if (state === 'c' || state === 'C') { targetKey = 'click'; isStrong = true; }
-          else if (state === 'f' || state === 'F') { targetKey = 'fla'; isStrong = true; }
-          else if (state === 't' || state === 'T') { targetKey = 'tremer'; isStrong = true; }
+          if (['D', 'E', 'Q', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
         } else if (inst.id === 'agbe') {
-          if (state === 'G' || state === 'D' || state === 'E') { targetKey = 'fort'; isStrong = true; }
-          else if (state === 'g' || state === 'd' || state === 'e') { targetKey = 'faible'; }
-          else if (state === 'b' || state === 'T' || state === 't') { targetKey = 'barulho'; isStrong = true; }
-          else if (state === 's') { targetKey = 'saut'; isStrong = true; }
+          if (['D', 'E', 'S'].includes(state)) { isStrong = true; }
         } else {
-          if (['D', 'G', 'E', 'P', 'T'].includes(state as string)) { targetKey = 'fort'; isStrong = true; }
-          else if (['d', 'g', 'e', 'p', 't'].includes(state as string)) { targetKey = 'faible'; }
+          if (['D', 'E', 'P', 'T'].includes(state as string)) { isStrong = true; }
         }
 
         if (!targetKey) continue;
@@ -246,7 +178,7 @@ function buildTickSchedule(
         measureMap.get(tickIdx)!.push({
           instId: inst.id,
           playerKey: targetKey,
-          baseGain: track.volumeVal / 100,
+          baseGain: 1.0,
           stepVolMultiplier,
           stepDecayMultiplier,
           isStrong,
@@ -372,43 +304,17 @@ const base64ToBlob = (base64Data: string): Blob => {
   return new Blob(byteArrays, { type: contentType || 'audio/webm' });
 };
 
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+    platform: string;
+  }>;
+  prompt(): Promise<void>;
+}
+
 export default function App() {
   const CURRENT_VERSION = "2.2"; // Matches version.json
-
-  // PWA Auto-Update Check
-  useEffect(() => {
-    const checkVersion = async () => {
-      try {
-        const response = await fetch(
-          `${window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/'}version.json?t=${Date.now()}`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          const latestVersion = String(data.version);
-          
-          if (latestVersion !== CURRENT_VERSION) {
-            console.log(`New version detected: ${latestVersion}. Clearing Service Worker and reloading...`);
-            if ('serviceWorker' in navigator) {
-              const registrations = await navigator.serviceWorker.getRegistrations();
-              for (const registration of registrations) {
-                await registration.unregister();
-              }
-            }
-            if ('caches' in window) {
-              const keys = await caches.keys();
-              for (const key of keys) {
-                await caches.delete(key);
-              }
-            }
-            window.location.reload();
-          }
-        }
-      } catch (err) {
-        console.warn('Auto-update check failed:', err);
-      }
-    };
-    checkVersion();
-  }, []);
 
   const [lang, setLang] = useState<Language>('pt');
   const [bpm, setBpm] = useState<number>(83);
@@ -423,6 +329,35 @@ export default function App() {
   const [activePresetName, setActivePresetName] = useState<string>('');
   const [presetFiles, setPresetFiles] = useState<string[]>([]);
   const [tracks, setTracks] = useState<TrackGroup[]>([]);
+  const [isLeftHanded, setIsLeftHanded] = useState<boolean>(() => localStorage.getItem('baquemix_left_handed') === 'true');
+  const [activeKeyboardInstrumentId, setActiveKeyboardInstrumentId] = useState<string | null>(null);
+
+  // Sync left-handed preference
+  useEffect(() => {
+    localStorage.setItem('baquemix_left_handed', String(isLeftHanded));
+    if (inputManager) {
+      inputManager.setLeftHanded(isLeftHanded);
+    }
+  }, [isLeftHanded]);
+
+  // Sync active instrument to InputManager
+  useEffect(() => {
+    if (inputManager) {
+      inputManager.setActiveInstrument(activeKeyboardInstrumentId);
+    }
+  }, [activeKeyboardInstrumentId]);
+
+  // Default active keyboard instrument if none is selected
+  useEffect(() => {
+    if (tracks.length > 0 && !activeKeyboardInstrumentId) {
+      const firstNonVoice = tracks.find(t => instrumentsConfig[t.instrumentIdx] && instrumentsConfig[t.instrumentIdx].type !== 'voice');
+      if (firstNonVoice) {
+        setActiveKeyboardInstrumentId(instrumentsConfig[firstNonVoice.instrumentIdx].id);
+      } else {
+        setActiveKeyboardInstrumentId(instrumentsConfig[tracks[0].instrumentIdx].id);
+      }
+    }
+  }, [tracks, activeKeyboardInstrumentId]);
   const [totalMeasures, setTotalMeasures] = useState<number>(8);
   const [letras, setLetras] = useState<string>('');
   const [metadata, setMetadata] = useState<PresetMetadata>({
@@ -443,7 +378,31 @@ export default function App() {
   const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | null>(
     window.innerWidth <= 768 ? 'letras' : (window.innerWidth >= 1024 ? 'letras' : null)
   );
-  const [viewMode, setViewMode] = useState<'roda' | 'console' | 'timeline'>('roda');
+  const [viewMode, setViewMode] = useState<'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio'>('roda');
+  const [unlockedFolhetos, setUnlockedFolhetos] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('baquemix-unlocked-folhetos');
+      return saved ? JSON.parse(saved) : [];
+    } catch (_) {
+      return [];
+    }
+  });
+  const [justUnlockedBookletId, setJustUnlockedBookletId] = useState<string | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('baquemix-unlocked-folhetos', JSON.stringify(unlockedFolhetos));
+  }, [unlockedFolhetos]);
+
+  const unlockBooklet = (id: string) => {
+    setUnlockedFolhetos((prev) => {
+      if (prev.includes(id)) return prev;
+      // Newly unlocked!
+      setJustUnlockedBookletId(id);
+      setViewMode('varal');
+      return [...prev, id];
+    });
+  };
+
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     const savedTheme = localStorage.getItem('baquemix-theme');
     if (savedTheme) {
@@ -456,8 +415,229 @@ export default function App() {
     return true; // default to true
   });
   const [localPresets, setLocalPresets] = useState<string[]>([]);
+  
+  // Custom non-blocking modal overlay state (replaces window.alert, window.confirm, window.prompt)
+  const [customDialog, setCustomDialog] = useState<{
+    type: 'alert' | 'confirm' | 'prompt';
+    message: string;
+    defaultValue?: string;
+    onResolve: (value: any) => void;
+  } | null>(null);
+
+  const alertAsync = (message: string): Promise<void> => {
+    return new Promise((resolve) => {
+      setCustomDialog({ type: 'alert', message, onResolve: resolve });
+    });
+  };
+
+  const confirmAsync = (message: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+      setCustomDialog({ type: 'confirm', message, onResolve: resolve });
+    });
+  };
+
+  const promptAsync = (message: string, defaultValue = ''): Promise<string | null> => {
+    return new Promise((resolve) => {
+      setCustomDialog({ type: 'prompt', message, defaultValue, onResolve: resolve });
+    });
+  };
+
+  // A2HS Deferred Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  // Capture beforeinstallprompt event
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    await deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to the A2HS prompt: ${outcome}`);
+    setDeferredPrompt(null);
+  };
+
+  // Helper for unified app updates (clean SW + clean caches + reload)
+  const handleAppUpdate = async (reg: ServiceWorkerRegistration) => {
+    const shouldUpdate = await confirmAsync(
+      lang === 'fr' 
+        ? "Une nouvelle version de BaqueMix est disponible. Recharger pour mettre à jour ?"
+        : "Uma nova versão do BaqueMix está disponível. Recarregar para atualizar ?"
+    );
+    if (shouldUpdate) {
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
+
+      // Clear caches
+      try {
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          for (const key of keys) {
+            await caches.delete(key);
+          }
+        }
+      } catch (err) {
+        console.warn('Error clearing caches:', err);
+      }
+
+      // Trigger skipWaiting on the waiting worker
+      if (reg && reg.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      } else {
+        // Fallback if no waiting worker, unregister all SWs and reload
+        try {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (const registration of registrations) {
+            await registration.unregister();
+          }
+        } catch (err) {
+          console.warn('Error unregistering service workers:', err);
+        }
+        window.location.reload();
+      }
+    }
+  };
+
+  // Listen for the custom service worker update event
+  useEffect(() => {
+    const handleSWUpdateEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<ServiceWorkerRegistration>;
+      handleAppUpdate(customEvent.detail);
+    };
+    window.addEventListener('sw-update-available', handleSWUpdateEvent);
+    return () => {
+      window.removeEventListener('sw-update-available', handleSWUpdateEvent);
+    };
+  }, [lang, confirmAsync]);
+
+  // Secure version.json check to prevent reload loops
+  useEffect(() => {
+    const checkVersion = async () => {
+      if (!navigator.onLine) {
+        console.log('Offline: skipping version.json update check.');
+        return;
+      }
+      try {
+        const response = await fetch(
+          `${window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/'}version.json?t=${Date.now()}`
+        );
+        if (response.ok) {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const data = await response.json();
+            if (data && typeof data === 'object' && 'version' in data) {
+              const latestVersion = String(data.version);
+              
+              if (latestVersion && latestVersion !== "undefined" && latestVersion !== CURRENT_VERSION) {
+                console.log(`New version detected via version.json: ${latestVersion}. Prompting user...`);
+                
+                const shouldUpdate = await confirmAsync(
+                  lang === 'fr' 
+                    ? "Une nouvelle version de BaqueMix est disponible. Recharger pour mettre à jour ?"
+                    : "Uma nova versão do BaqueMix está disponível. Recarregar para atualizar ?"
+                );
+                
+                if (shouldUpdate) {
+                  let refreshing = false;
+                  navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    if (!refreshing) {
+                      refreshing = true;
+                      window.location.reload();
+                    }
+                  });
+
+                  // Clear caches
+                  try {
+                    if ('caches' in window) {
+                      const keys = await caches.keys();
+                      for (const key of keys) {
+                        await caches.delete(key);
+                      }
+                    }
+                  } catch (err) {
+                    console.warn('Error clearing caches:', err);
+                  }
+
+                  // Unregister service workers so new version loads cleanly
+                  try {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const registration of registrations) {
+                      await registration.unregister();
+                    }
+                  } catch (err) {
+                    console.warn('Error unregistering service workers:', err);
+                  }
+                  
+                  window.location.reload();
+                }
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('version.json update check failed:', err);
+      }
+    };
+    
+    // Delay check slightly to not block initial loading metrics
+    const timer = setTimeout(checkVersion, 3000);
+    return () => clearTimeout(timer);
+  }, [lang, confirmAsync]);
+
+  // Prevent context menus on faders, sliders and images to avoid touch screen copy/share popup interference
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target && (
+          target.tagName === 'IMG' || 
+          (target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'range') ||
+          target.classList.contains('vertical-fader') ||
+          target.closest('.vertical-fader')
+        )
+      ) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('contextmenu', handleContextMenu);
+    return () => {
+      window.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, []);
+
   const [tracksHistory, setTracksHistory] = useState<TrackGroup[][]>([]);
   const tracksHistoryRef = useRef<TrackGroup[][]>([]);
+  const [tracksRedoHistory, setTracksRedoHistory] = useState<TrackGroup[][]>([]);
+  const tracksRedoHistoryRef = useRef<TrackGroup[][]>([]);
+  const [songStructureRedoHistory, setSongStructureRedoHistory] = useState<{
+    measureTimeSigs: TimeSignature[];
+    measureBpms: number[];
+    measureBpmTransitions: ('immediate' | 'ramp')[];
+    measureVols: number[];
+    measureVolTransitions: ('immediate' | 'ramp')[];
+    songSections?: SongSection[];
+  }[]>([]);
+  const songStructureRedoHistoryRef = useRef<{
+    measureTimeSigs: TimeSignature[];
+    measureBpms: number[];
+    measureBpmTransitions: ('immediate' | 'ramp')[];
+    measureVols: number[];
+    measureVolTransitions: ('immediate' | 'ramp')[];
+    songSections?: SongSection[];
+  }[]>([]);
   const [reverbType, setReverbType] = useState<'room' | 'studio' | 'hall'>('studio');
   const [touchSelector, setTouchSelector] = useState<TouchSelectorState | null>(null);
   const [hoveredStroke, setHoveredStroke] = useState<string | null>(null);
@@ -504,6 +684,9 @@ export default function App() {
   // Zoom state
   const [measureWidth, setMeasureWidth] = useState<number>(480);
 
+  // Autosave notification state
+  const [isSavedIndicatorVisible, setIsSavedIndicatorVisible] = useState<boolean>(false);
+
   // Pattern Solo Playback state and ref
   const [soloPatternPlayId, setSoloPatternPlayId] = useState<number | null>(null);
   const soloPatternPlayIdRef = useRef<number | null>(null);
@@ -511,6 +694,264 @@ export default function App() {
   useEffect(() => {
     soloPatternPlayIdRef.current = soloPatternPlayId;
   }, [soloPatternPlayId]);
+
+  // Inspecteur sequences state and ref
+  const inspecteurSequencesRef = useRef<{
+    alfaia?: Tone.Sequence;
+    gongue?: Tone.Sequence;
+    agbe?: Tone.Sequence;
+    caixaParfaite?: Tone.Sequence;
+    caixaErreur?: Tone.Sequence;
+  }>({});
+  const [inspecteurCaixaParfaite, setInspecteurCaixaParfaite] = useState<Tone.Sequence | undefined>(undefined);
+  const [inspecteurCaixaErreur, setInspecteurCaixaErreur] = useState<Tone.Sequence | undefined>(undefined);
+
+  const stopInspecteurAudio = () => {
+    const seqs = inspecteurSequencesRef.current;
+    if (seqs.alfaia) seqs.alfaia.dispose();
+    if (seqs.gongue) seqs.gongue.dispose();
+    if (seqs.agbe) seqs.agbe.dispose();
+    if (seqs.caixaParfaite) seqs.caixaParfaite.dispose();
+    if (seqs.caixaErreur) seqs.caixaErreur.dispose();
+    
+    inspecteurSequencesRef.current = {};
+    setInspecteurCaixaParfaite(undefined);
+    setInspecteurCaixaErreur(undefined);
+    Tone.Transport.stop();
+  };
+
+  const startInspecteurAudio = () => {
+    stopInspecteurAudio();
+    Tone.start();
+
+    const playSample = (instId: string, playerKey: string, time: number) => {
+      if (!audioEngine) return;
+      
+      let symbol = playerKey;
+      let velocity = 1.0;
+      
+      // Map educational mode playerKeys to definitive symbols and velocities
+      if (playerKey === 'fort') {
+        symbol = 'D';
+        velocity = 1.0;
+      } else if (playerKey === 'faible') {
+        symbol = 'd';
+        velocity = 0.4;
+      } else if (playerKey === 'fort-grave') {
+        symbol = 'G';
+        velocity = 1.0;
+      } else if (playerKey === 'fort-aigue') {
+        symbol = 'A';
+        velocity = 1.0;
+      } else if (playerKey === 'faible-grave') {
+        symbol = 'g';
+        velocity = 0.4;
+      } else if (playerKey === 'faible-aigue') {
+        symbol = 'a';
+        velocity = 0.4;
+      } else if (playerKey === 'barulho') {
+        symbol = 'B';
+        velocity = 0.8;
+      } else if (playerKey === 'ruffada-D') {
+        symbol = 'R';
+        velocity = 1.0;
+      } else if (playerKey === 'ruffada-G') {
+        symbol = 'r';
+        velocity = 1.0;
+      } else if (playerKey === 'saut') {
+        symbol = 'S';
+        velocity = 1.0;
+      }
+      
+      audioEngine.playNote(instId, symbol, time, velocity, 1.0);
+    };
+
+    const alfaia = new Tone.Sequence((time, note) => {
+      if (note) playSample('marcante', note, time);
+    }, ["fort", "faible", "fort", "faible"], "4n").start(0);
+
+    const gongue = new Tone.Sequence((time, note) => {
+      if (note) playSample('gongue', note, time);
+    }, ["fort-grave", "fort-aigue", "fort-grave", "fort-aigue"], "4n").start(0);
+
+    const agbe = new Tone.Sequence((time, note) => {
+      if (note) playSample('agbe', note, time);
+    }, ["fort", "faible", "fort", "faible"], "4n").start(0);
+
+    const caixaParfaite = new Tone.Sequence((time, note) => {
+      if (note) playSample('caixa', note, time);
+    }, ["fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible"], "16n").start(0);
+
+    const caixaErreur = new Tone.Sequence((time, note) => {
+      if (note) playSample('caixa', note, time);
+    }, ["fort", null, "faible", "fort", null, "fort", "faible", null, "fort", null, "faible", "fort", null, "fort", "faible", null], "16n").start(0);
+
+    caixaParfaite.mute = true;
+    caixaErreur.mute = false;
+
+    inspecteurSequencesRef.current = { alfaia, gongue, agbe, caixaParfaite, caixaErreur };
+    setInspecteurCaixaParfaite(caixaParfaite);
+    setInspecteurCaixaErreur(caixaErreur);
+
+    Tone.Transport.start();
+  };
+
+  // Mestre sequences state and ref
+  const [mestreRhythmState, setMestreRhythmState] = useState<'base' | 'variation' | 'rufo'>('base');
+  const mestreSequencesRef = useRef<{
+    alfaia?: Tone.Sequence;
+    caixa?: Tone.Sequence;
+    gongue?: Tone.Sequence;
+    agbe?: Tone.Sequence;
+  }>({});
+  const mestreRhythmStateRef = useRef<'base' | 'variation' | 'rufo'>('base');
+
+  useEffect(() => {
+    mestreRhythmStateRef.current = mestreRhythmState;
+  }, [mestreRhythmState]);
+
+  const stopMestreAudio = () => {
+    const seqs = mestreSequencesRef.current;
+    if (seqs.alfaia) seqs.alfaia.dispose();
+    if (seqs.caixa) seqs.caixa.dispose();
+    if (seqs.gongue) seqs.gongue.dispose();
+    if (seqs.agbe) seqs.agbe.dispose();
+    
+    mestreSequencesRef.current = {};
+    setMestreRhythmState('base');
+    Tone.Transport.stop();
+    Tone.Transport.cancel();
+  };
+
+  const startMestreAudio = () => {
+    stopMestreAudio();
+    Tone.start();
+
+    const playSample = (instId: string, playerKey: string, time: number) => {
+      if (!audioEngine) return;
+      
+      let symbol = playerKey;
+      let velocity = 1.0;
+      
+      // Map educational mode playerKeys to definitive symbols and velocities
+      if (playerKey === 'fort') {
+        symbol = 'D';
+        velocity = 1.0;
+      } else if (playerKey === 'faible') {
+        symbol = 'd';
+        velocity = 0.4;
+      } else if (playerKey === 'fort-grave') {
+        symbol = 'G';
+        velocity = 1.0;
+      } else if (playerKey === 'fort-aigue') {
+        symbol = 'A';
+        velocity = 1.0;
+      } else if (playerKey === 'faible-grave') {
+        symbol = 'g';
+        velocity = 0.4;
+      } else if (playerKey === 'faible-aigue') {
+        symbol = 'a';
+        velocity = 0.4;
+      } else if (playerKey === 'barulho') {
+        symbol = 'B';
+        velocity = 0.8;
+      } else if (playerKey === 'ruffada-D') {
+        symbol = 'R';
+        velocity = 1.0;
+      } else if (playerKey === 'ruffada-G') {
+        symbol = 'r';
+        velocity = 1.0;
+      } else if (playerKey === 'saut') {
+        symbol = 'S';
+        velocity = 1.0;
+      }
+      
+      audioEngine.playNote(instId, symbol, time, velocity, 1.0);
+    };
+
+    const alfaia = new Tone.Sequence((time, note) => {
+      const state = mestreRhythmStateRef.current;
+      if (state === 'rufo') {
+        playSample('marcante', 'barulho', time);
+      } else if (state === 'variation') {
+        if (note === 'fort') {
+          playSample('marcante', 'fort', time);
+          playSample('marcante', 'fort', time + 0.15);
+        } else if (note) {
+          playSample('marcante', 'faible', time);
+        }
+      } else {
+        if (note) playSample('marcante', note, time);
+      }
+    }, ["fort", "faible", "fort", "faible"], "4n").start(0);
+
+    const caixa = new Tone.Sequence((time, note) => {
+      const state = mestreRhythmStateRef.current;
+      if (state === 'rufo') {
+        playSample('caixa', 'ruffada-D', time);
+        playSample('caixa', 'ruffada-G', time + 0.15);
+      } else if (state === 'variation') {
+        if (note) {
+          playSample('caixa', 'fort', time);
+          playSample('caixa', 'faible', time + 0.075);
+        }
+      } else {
+        if (note) playSample('caixa', note, time);
+      }
+    }, ["fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible"], "16n").start(0);
+
+    const gongue = new Tone.Sequence((time, note) => {
+      const state = mestreRhythmStateRef.current;
+      if (state === 'rufo') {
+        playSample('gongue', 'barulho', time);
+      } else if (state === 'variation') {
+        if (note) playSample('gongue', 'fort-aigue', time);
+      } else {
+        if (note) playSample('gongue', note, time);
+      }
+    }, ["fort-grave", "fort-aigue", "fort-grave", "fort-aigue"], "4n").start(0);
+
+    const agbe = new Tone.Sequence((time, note) => {
+      const state = mestreRhythmStateRef.current;
+      if (state === 'rufo') {
+        playSample('agbe', 'barulho', time);
+      } else if (state === 'variation') {
+        if (note) {
+          playSample('agbe', 'fort', time);
+          playSample('agbe', 'saut', time + 0.15);
+        }
+      } else {
+        if (note) playSample('agbe', note, time);
+      }
+    }, ["fort", "faible", "fort", "faible"], "4n").start(0);
+
+    mestreSequencesRef.current = { alfaia, caixa, gongue, agbe };
+    Tone.Transport.start();
+  };
+
+  useEffect(() => {
+    if (viewMode === 'inspecteur') {
+      if (isPlaying) {
+        handleRewind();
+      }
+      startInspecteurAudio();
+    } else {
+      stopInspecteurAudio();
+    }
+
+    if (viewMode === 'mestre') {
+      if (isPlaying) {
+        handleRewind();
+      }
+      startMestreAudio();
+    } else {
+      stopMestreAudio();
+    }
+    
+    if ((viewMode === 'quiz' || viewMode === 'dictee' || viewMode === 'rythmelive' || viewMode === 'varal' || viewMode === 'studio') && isPlaying) {
+      handleRewind();
+    }
+  }, [viewMode]);
 
   const [songStructureHistory, setSongStructureHistory] = useState<{
     measureTimeSigs: TimeSignature[];
@@ -540,6 +981,10 @@ export default function App() {
   useEffect(() => {
     tracksHistoryRef.current = tracksHistory;
   }, [tracksHistory]);
+
+  useEffect(() => {
+    tracksRedoHistoryRef.current = tracksRedoHistory;
+  }, [tracksRedoHistory]);
 
   useEffect(() => {
     measureTimeSigsRef.current = measureTimeSigs;
@@ -585,6 +1030,10 @@ export default function App() {
   useEffect(() => {
     songStructureHistoryRef.current = songStructureHistory;
   }, [songStructureHistory]);
+
+  useEffect(() => {
+    songStructureRedoHistoryRef.current = songStructureRedoHistory;
+  }, [songStructureRedoHistory]);
 
   useEffect(() => {
     songSectionsRef.current = songSections;
@@ -677,20 +1126,28 @@ export default function App() {
     });
   }, [totalMeasures, timeSig, bpm]);
 
-  // Synchronize Reverb send levels and panning whenever tracks update
+  // Memoize mixer control values snapshot to trigger sync effect only when they actually change
+  const hasSoloActive = tracks.some(t => t.isSolo);
+  const mixerControlsKey = tracks.map(t => `${t.id}:${t.volumeVal ?? 100}:${t.reverbVal || 0}:${t.panVal || 0}:${t.isMute ? 1 : 0}:${t.isSolo ? 1 : 0}`).join('|') + `|solo:${hasSoloActive ? 1 : 0}`;
+
+  // Synchronize track volume, panning, reverb send levels, and mute/solo state whenever tracks update
   useEffect(() => {
+    const hasSolo = tracks.some(t => t.isSolo);
     tracks.forEach(t => {
       const inst = instrumentsConfig[t.instrumentIdx];
       if (inst) {
+        if (channels[inst.id]) {
+          const gain = (t.volumeVal ?? 100) / 100;
+          channels[inst.id].volume.value = Tone.gainToDb(gain);
+          channels[inst.id].pan.value = (t.panVal || 0) / 100;
+          channels[inst.id].mute = t.isMute || (hasSolo && !t.isSolo);
+        }
         if (reverbSends[inst.id]) {
           reverbSends[inst.id].gain.value = (t.reverbVal || 0) / 100;
         }
-        if (channels[inst.id]) {
-          channels[inst.id].pan.value = (t.panVal || 0) / 100;
-        }
       }
     });
-  }, [tracks]);
+  }, [mixerControlsKey]);
 
   // Synchronize Reverb parameters when reverbType changes
   useEffect(() => {
@@ -1070,19 +1527,12 @@ export default function App() {
       }).connect(masterVolumeNode);
 
       if (!whistleSynth) {
-        whistleVibrato = new Tone.Vibrato({
-          maxDelay: 0.002,
-          frequency: 22,
-          depth: 0.8,
-        }).connect(masterVolumeNode);
-
         const initVol = whistleVol === 0 ? -Infinity : Tone.gainToDb((whistleVol / 100) * 0.4);
 
-        whistleSynth = new Tone.Synth({
-          oscillator: { type: 'triangle' },
-          envelope: { attack: 0.02, decay: 0.1, sustain: 0.6, release: 0.15 },
+        whistleSynth = new Tone.Player({
+          url: `${ASSETS_BASE_URL}sons-maracatu/Apito.wav`,
           volume: initVol,
-        }).connect(whistleVibrato);
+        }).connect(masterVolumeNode);
       }
 
       if (!reverbNode) {
@@ -1111,69 +1561,23 @@ export default function App() {
             envelope: { attack: 0.05, decay: 0.2 },
             volume: -10,
           }).connect(channels[inst.id]);
-        } else if (inst.id === 'tarol') {
-          tarolSampler.connect(channels[inst.id]);
-          const baseUrl = `${ASSETS_BASE_URL}sons-maracatu/${inst.path}/`;
-          tarolSampler.load(baseUrl)
-            .then(() => {
-              loadedCount++;
-              if (loadedCount >= totalAudioCount) {
-                setIsLoading(false);
-              }
-            })
-            .catch((err) => {
-              console.error("Failed to load Tarol Round-Robin sampler:", err);
-            });
-        } else {
-          let urls;
-          if (inst.id === 'caixa') {
-            urls = {
-              faible: 'faible.wav',
-              fort: 'fort.wav',
-              'ruffada-D': 'Caixa-ruffada-D.wav',
-              'ruffada-G': 'Caixa-ruffada-G.wav',
-              cerclage: 'Caixa-cerclage.wav',
-              fla: 'Caixa-fla.wav',
-              barulho: 'Caixa-barulho.wav',
-            };
-          } else if (inst.type === 'gongue') {
-            urls = {
-              'faible-grave': 'faible-grave.wav',
-              'fort-grave': 'fort-grave.wav',
-              'faible-aigue': 'faible-aigue.wav',
-              'fort-aigue': 'fort-aigue.wav',
-              barulho: 'Gongue-barulho.wav',
-            };
-          } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
-            urls = {
-              faible: 'faible.wav',
-              fort: 'fort.wav',
-              barulho: 'barulho.wav',
-              cerclage: 'cerclage.wav',
-              iguarassu: 'iguarassu.wav',
-              click: 'click.wav',
-            };
-          } else if (inst.id === 'agbe') {
-            urls = {
-              faible: 'faible.wav',
-              fort: 'fort.wav',
-              barulho: 'barulho.wav',
-              saut: 'saut.wav',
-            };
-          } else {
-            urls = { faible: 'faible.wav', fort: 'fort.wav' };
-          }
+        }
+      });
 
-          samplers[inst.id] = new Tone.Players({
-            urls,
-            baseUrl: `${ASSETS_BASE_URL}sons-maracatu/${inst.path}/`,
-            onload: () => {
-              loadedCount++;
-              if (loadedCount >= totalAudioCount) {
-                setIsLoading(false);
-              }
-            },
-          }).connect(channels[inst.id]);
+      // Synchronize track volume, panning, reverb levels, and mute/solo initially once nodes exist
+      const initialHasSolo = tracksRef.current.some((t: any) => t.isSolo);
+      tracksRef.current.forEach((t) => {
+        const inst = instrumentsConfig[t.instrumentIdx];
+        if (inst) {
+          if (channels[inst.id]) {
+            const gain = (t.volumeVal ?? 100) / 100;
+            channels[inst.id].volume.value = Tone.gainToDb(gain);
+            channels[inst.id].pan.value = (t.panVal || 0) / 100;
+            channels[inst.id].mute = t.isMute || (initialHasSolo && !t.isSolo);
+          }
+          if (reverbSends[inst.id]) {
+            reverbSends[inst.id].gain.value = (t.reverbVal || 0) / 100;
+          }
         }
       });
 
@@ -1233,11 +1637,12 @@ export default function App() {
         const currentMeasureIdx = measureCountRef.current;
 
         if (stepIdx === 0) {
-          const sigId = measureSignalsRef.current[currentMeasureIdx] || null;
+          // Play the whistle sound with a 1-measure delay (on the transition measure)
+          const prevMeasureIdx = (currentMeasureIdx - 1 + (totalMeasuresRef.current || 1)) % (totalMeasuresRef.current || 1);
+          const sigId = measureSignalsRef.current[prevMeasureIdx] || null;
           if (sigId && sigId !== lastPlayedSignalIdRef.current) {
-            if (whistleSynth) {
-              whistleSynth.triggerAttackRelease("A6", "16n", time);
-              whistleSynth.triggerAttackRelease("A6", "8n", time + 0.12);
+            if (whistleSynth && whistleSynth.loaded) {
+              whistleSynth.start(time);
             }
           }
           lastPlayedSignalIdRef.current = sigId;
@@ -1358,56 +1763,6 @@ export default function App() {
         if (scheduledNotes) {
           for (const note of scheduledNotes) {
             try {
-              if (note.instId === 'tarol') {
-                // Velocity humanization (random — can't be pre-computed)
-                let vel = 1.0;
-                if (isSwingOnRef.current) {
-                  vel = note.isStrong
-                    ? 0.8 + (nextRandom() * 0.2 - 0.1)
-                    : 0.4 + (nextRandom() * 0.24 - 0.12);
-                }
-                vel *= note.stepVolMultiplier;
-
-                // Micro-timing offset
-                const stepDurSec = tick96nSec * (currentTicks / note.stepsPerMeasure);
-                const microOffset = (note.microtimingPct / 100) * stepDurSec * 0.5;
-                const triggerTime = swingTime + microOffset;
-
-                console.log("🎵 [PLAY NOTE] tarol", note.playerKey, triggerTime);
-                tarolSampler.play(note.playerKey, triggerTime, note.baseGain * vel, note.stepDecayMultiplier);
-                
-                const delayMs = Math.max(0, (triggerTime - rawCtx.currentTime) * 1000);
-                const timeoutId = setTimeout(() => {
-                  hitTriggersRef.current.push({ trackId: note.trackId, stepIndex: note.circleStepIdx, state: note.state });
-                  engineTimeoutsRef.current = engineTimeoutsRef.current.filter(id => id !== timeoutId);
-                }, delayMs);
-                engineTimeoutsRef.current.push(timeoutId);
-                continue;
-              }
-
-              const playerGroup = samplers[note.instId];
-              if (!playerGroup?.has(note.playerKey)) continue;
-              const player = playerGroup.player(note.playerKey);
-              if (!player.loaded) continue;
-
-              const nativeBuffer = player.buffer.get();
-              if (!nativeBuffer) continue;
-
-              // Micro-timing offset
-              const stepDurSec = tick96nSec * (currentTicks / note.stepsPerMeasure);
-              const microOffset = (note.microtimingPct / 100) * stepDurSec * 0.5;
-              const triggerTime = swingTime + microOffset;
-
-              // Choke barulho: stop any active barulho source when another sound in the group starts
-              if (note.playerKey !== 'barulho') {
-                const barulhoKey = `${note.instId}_barulho`;
-                const activeBarulho = activePlayerSources.get(barulhoKey);
-                if (activeBarulho) {
-                  try { activeBarulho.stop(triggerTime); } catch(_) {}
-                  activePlayerSources.delete(barulhoKey);
-                }
-              }
-
               // Velocity humanization (random — can't be pre-computed)
               let vel = 1.0;
               if (isSwingOnRef.current) {
@@ -1417,25 +1772,13 @@ export default function App() {
               }
               vel *= note.stepVolMultiplier;
 
-              // Play sample natively using AudioContext nodes connected directly to the channel input
-              console.log("🎵 [PLAY NOTE] generic", note.instId, note.playerKey, triggerTime);
-              const source = playNativeSample(
-                rawCtx,
-                nativeBuffer,
-                channels[note.instId].input,
-                triggerTime,
-                note.baseGain * vel,
-                note.stepDecayMultiplier
-              );
+              // Micro-timing offset
+              const stepDurSec = tick96nSec * (currentTicks / note.stepsPerMeasure);
+              const microOffset = (note.microtimingPct / 100) * stepDurSec * 0.5;
+              const triggerTime = swingTime + microOffset;
 
-              const sourceKey = `${note.instId}_${note.playerKey}`;
-              activePlayerSources.set(sourceKey, source);
-
-              source.onended = () => {
-                if (activePlayerSources.get(sourceKey) === source) {
-                  activePlayerSources.delete(sourceKey);
-                }
-              };
+              console.log("🎵 [PLAY NOTE] AudioEngine", note.instId, note.playerKey, triggerTime);
+              audioEngine?.playNote(note.instId, note.playerKey, triggerTime, note.baseGain * vel, note.stepDecayMultiplier);
 
               const delayMs = Math.max(0, (triggerTime - rawCtx.currentTime) * 1000);
               const timeoutId = setTimeout(() => {
@@ -1538,7 +1881,7 @@ export default function App() {
           if (!state || state === 0) return;
 
           if (activePattern.vocalMode !== 'micro' || (recordingVocalPatternIdRef.current === activePattern.id && isVocalGuideEnabledRef.current)) {
-            const baseGain = track.volumeVal / 100;
+            const baseGain = 1.0;
             const stepVolMultiplier = (activePattern.volumes?.[circleStepIdx] ?? 80) / 100;
             const stepDecayMultiplier = (activePattern.decays?.[circleStepIdx] ?? 100) / 100;
             const manualMicro = activePattern.microtimings?.[circleStepIdx] ?? 0;
@@ -1565,10 +1908,29 @@ export default function App() {
         }
       );
 
-      // Set fallback timer if loading assets get blocked
-      setTimeout(() => {
-        setIsLoading(false);
-      }, 1500);
+      // Initialize InputManager
+      inputManager = new InputManager(audioEngine);
+      inputManager.setLeftHanded(isLeftHanded);
+      if (activeKeyboardInstrumentId) {
+        inputManager.setActiveInstrument(activeKeyboardInstrumentId);
+      }
+
+      // Connect channels to audioEngine
+      instrumentsConfig.forEach((inst) => {
+        if (inst.type !== 'voice' && channels[inst.id]) {
+          audioEngine?.setInstrumentChannel(inst.id, channels[inst.id]);
+        }
+      });
+
+      // Load all samples via the AudioEngine
+      audioEngine.loadAllSamples()
+        .then(() => {
+          setIsLoading(false);
+        })
+        .catch((err) => {
+          console.error("Failed to load samples via AudioEngine:", err);
+          setIsLoading(false);
+        });
     };
 
     initAudio();
@@ -1617,6 +1979,82 @@ export default function App() {
       } catch (err) {}
     }
   }, [isPlaying]);
+
+  // Autosave sequencer state in localStorage with 1 second debounce
+  const isInitialMount = useRef(true);
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const tracksCopy = JSON.parse(JSON.stringify(tracks));
+      // Remove vocalAudioData from tracks copy as it's already stored in IndexedDB by patternId
+      tracksCopy.forEach((t: any) => t.patterns?.forEach((p: any) => { delete p.vocalAudioData; }));
+
+      const dataToSave = {
+        bpm,
+        timeSig,
+        version: 2,
+        totalMeasures,
+        tracks: tracksCopy,
+        letras,
+        metadata,
+        measureTimeSigs,
+        measureBpms,
+        measureBpmTransitions,
+        measureVols,
+        measureVolTransitions,
+        songSections,
+        measureSignals,
+        masterEQ,
+        masterCompressor,
+        masterVol,
+        whistleVol,
+      };
+
+      try {
+        localStorage.setItem('baquemix_autosave', JSON.stringify(dataToSave));
+        setIsSavedIndicatorVisible(true);
+      } catch (err) {
+        console.error('Failed to autosave state to localStorage:', err);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [
+    isLoading,
+    tracks,
+    bpm,
+    timeSig,
+    totalMeasures,
+    measureBpms,
+    measureTimeSigs,
+    measureBpmTransitions,
+    measureVols,
+    measureVolTransitions,
+    songSections,
+    measureSignals,
+    letras,
+    metadata,
+    masterEQ,
+    masterCompressor,
+    masterVol,
+    whistleVol,
+  ]);
+
+  useEffect(() => {
+    if (isSavedIndicatorVisible) {
+      const timer = setTimeout(() => {
+        setIsSavedIndicatorVisible(false);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isSavedIndicatorVisible]);
 
   // 2. Load Preset catalog initially
   useEffect(() => {
@@ -1669,14 +2107,29 @@ export default function App() {
       return false;
     };
 
-    tryLoadQueryOrHash().then((loaded) => {
+    tryLoadQueryOrHash().then(async (loaded) => {
       loadedFromHash = loaded;
+
+      let restoredFromLocalStorage = false;
+      if (!loadedFromHash) {
+        try {
+          const savedSession = localStorage.getItem('baquemix_autosave');
+          if (savedSession) {
+            const data = JSON.parse(savedSession);
+            await applyPreset(data);
+            restoredFromLocalStorage = true;
+            console.log('[BaqueMix] Autosave restored from localStorage.');
+          }
+        } catch (err) {
+          console.error('[BaqueMix] Failed to restore autosave from localStorage:', err);
+        }
+      }
 
       fetch(`${ASSETS_BASE_URL}presets/catalog.json`)
         .then((res) => res.json())
         .then((files: string[]) => {
           setPresetFiles(files);
-          if (files.length > 0 && !loadedFromHash) {
+          if (files.length > 0 && !loadedFromHash && !restoredFromLocalStorage) {
             setActivePresetName(files[0]);
             loadFallbackPreset(files[0]);
           }
@@ -1723,31 +2176,30 @@ export default function App() {
     };
   }, [isRecording]);
 
-  // Keybindings listener: Spacebar & Undo
+
+
+  // Live keyboard play listener using InputManager
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const activeTag = document.activeElement?.tagName || '';
-      const activeId = document.activeElement?.id || '';
-
-      if (
-        e.code === 'Space' &&
-        activeTag !== 'INPUT' &&
-        activeTag !== 'SELECT' &&
-        activeId !== 'letras-textarea'
-      ) {
-        e.preventDefault();
-        handleTogglePlay();
-      }
-
-      const isUndoKey = (e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey);
-      if (isUndoKey) {
-        e.preventDefault();
-        handleUndo();
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (inputManager) {
+        inputManager.handleKeyDown(e);
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlaying]);
+
+    const handleGlobalKeyUp = (e: KeyboardEvent) => {
+      if (inputManager) {
+        inputManager.handleKeyUp(e);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    window.addEventListener('keyup', handleGlobalKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+      window.removeEventListener('keyup', handleGlobalKeyUp);
+    };
+  }, []);
 
   // Dynamic layout radial positioning offsets
   const updateRadii = (list: TrackGroup[]) => {
@@ -1894,6 +2346,13 @@ export default function App() {
         setMasterCompressor({ threshold: -20, ratio: 4 });
       }
 
+      if (p.masterVol !== undefined) {
+        setMasterVol(p.masterVol);
+      }
+      if (p.whistleVol !== undefined) {
+        setWhistleVol(p.whistleVol);
+      }
+
       // Sync refs immediately to avoid audio scheduling lag
       tracksRef.current = loadedTracks;
       totalMeasuresRef.current = loadedMeasures;
@@ -1959,23 +2418,60 @@ export default function App() {
 
     const inst = instrumentsConfig[instIdx];
 
-    // Migration: old shortcuts to new ones
+    // Migration: old shortcuts/symbols to new definitive ones
     if (inst && inst.type !== 'voice') {
       for (let i = 0; i < p.steps; i++) {
-        const val = p.activeSteps[i];
-        if (inst.id === 'caixa' || inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique' || inst.id === 'agbe') {
-          if (val === 'G') p.activeSteps[i] = 'E';
-          else if (val === 'g') p.activeSteps[i] = 'e';
-        }
-        if (inst.id === 'caixa') {
-          if (val === 'rg' || val === 'rf' || val === 'Re') {
-            p.activeSteps[i] = 're';
+        let val = p.activeSteps[i];
+        if (typeof val === 'string') {
+          val = val.trim();
+          
+          // 1. Gonguê: GRV/grv/AIG/aig -> G/g/A/a
+          if (inst.id === 'gongue') {
+            if (val === 'GRV') val = 'G';
+            else if (val === 'grv') val = 'g';
+            else if (val === 'AIG') val = 'A';
+            else if (val === 'aig') val = 'a';
           }
-        }
-        if (['caixa', 'marcante', 'meiao', 'repique', 'gongue', 'agbe'].includes(inst.id)) {
-          if (val === 'b' || val === 'T') {
-            p.activeSteps[i] = 't';
+          
+          // 2. Caixa & Tarol: rd/Rd -> R, re/Re/rg/rf -> r, x/c/f -> X/C/F
+          if (inst.id === 'caixa' || inst.id === 'tarol') {
+            if (val === 'rd' || val === 'Rd') val = 'R';
+            else if (val === 're' || val === 'Re' || val === 'rg' || val === 'rf') val = 'r';
+            else if (val === 'x') val = 'X';
+            else if (val === 'c') val = 'C';
+            else if (val === 'f') val = 'F';
           }
+          
+          // 3. Alfaias: x/c/i -> X/C/I
+          if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
+            if (val === 'x') val = 'X';
+            else if (val === 'c') val = 'C';
+            else if (val === 'i') val = 'I';
+          }
+          
+          // 4. Agbê: s/v -> S/V
+          if (inst.id === 'agbe') {
+            if (val === 's') val = 'S';
+            else if (val === 'v') val = 'V';
+          }
+          
+          // 5. Mineiro: l -> L
+          if (inst.id === 'mineiro') {
+            if (val === 'l') val = 'L';
+          }
+          
+          // 6. Barulho: any lowercase 'b' or alternate 't' / 'barulho' / 'tremblement' -> B
+          if (['b', 't', 'barulho', 'tremblement'].includes(val.toLowerCase())) {
+            val = 'B';
+          }
+          
+          // 7. General E/e swap if G/g is found for hands-based instruments
+          if (['caixa', 'tarol', 'marcante', 'meiao', 'repique', 'agbe'].includes(inst.id)) {
+            if (val === 'G') val = 'E';
+            else if (val === 'g') val = 'e';
+          }
+          
+          p.activeSteps[i] = val;
         }
       }
     }
@@ -1994,6 +2490,10 @@ export default function App() {
   };
 
   const pushUndoState = (customTracksState?: TrackGroup[]) => {
+    // Clear redo history when a new action is performed
+    setTracksRedoHistory([]);
+    setSongStructureRedoHistory([]);
+
     const stateToSave = customTracksState ? customTracksState : tracks;
     setTracksHistory(prev => {
       const cloned = JSON.parse(JSON.stringify(stateToSave));
@@ -2019,6 +2519,21 @@ export default function App() {
 
   const handleUndo = () => {
     if (tracksHistoryRef.current.length === 0) return;
+
+    // Enregistrer l'état actuel dans l'historique de redo
+    const currentTracksCloned = JSON.parse(JSON.stringify(tracks));
+    setTracksRedoHistory(prev => [...prev, currentTracksCloned]);
+
+    const currentStructureCloned = {
+      measureTimeSigs: [...measureTimeSigsRef.current],
+      measureBpms: [...measureBpmsRef.current],
+      measureBpmTransitions: [...measureBpmTransitionsRef.current],
+      measureVols: [...measureVolsRef.current],
+      measureVolTransitions: [...measureVolTransitionsRef.current],
+      songSections: JSON.parse(JSON.stringify(songSectionsRef.current))
+    };
+    setSongStructureRedoHistory(prev => [...prev, currentStructureCloned]);
+
     setTracksHistory(prev => {
       const nextHistory = [...prev];
       const previousState = nextHistory.pop();
@@ -2039,6 +2554,49 @@ export default function App() {
           if (previousState.measureVols) setMeasureVols(previousState.measureVols);
           if (previousState.measureVolTransitions) setMeasureVolTransitions(previousState.measureVolTransitions);
           if (previousState.songSections) setSongSections(previousState.songSections);
+        }
+        return nextHistory;
+      });
+    }
+  };
+
+  const handleRedo = () => {
+    if (tracksRedoHistoryRef.current.length === 0) return;
+
+    // Enregistrer l'état actuel dans l'historique d'undo
+    const currentTracksCloned = JSON.parse(JSON.stringify(tracks));
+    setTracksHistory(prev => [...prev, currentTracksCloned]);
+
+    const currentStructureCloned = {
+      measureTimeSigs: [...measureTimeSigsRef.current],
+      measureBpms: [...measureBpmsRef.current],
+      measureBpmTransitions: [...measureBpmTransitionsRef.current],
+      measureVols: [...measureVolsRef.current],
+      measureVolTransitions: [...measureVolTransitionsRef.current],
+      songSections: JSON.parse(JSON.stringify(songSectionsRef.current))
+    };
+    setSongStructureHistory(prev => [...prev, currentStructureCloned]);
+
+    setTracksRedoHistory(prev => {
+      const nextHistory = [...prev];
+      const nextState = nextHistory.pop();
+      if (nextState) {
+        setTracks(nextState);
+      }
+      return nextHistory;
+    });
+
+    if (songStructureRedoHistoryRef.current.length > 0) {
+      setSongStructureRedoHistory(prev => {
+        const nextHistory = [...prev];
+        const nextState = nextHistory.pop();
+        if (nextState) {
+          setMeasureTimeSigs(nextState.measureTimeSigs);
+          setMeasureBpms(nextState.measureBpms);
+          setMeasureBpmTransitions(nextState.measureBpmTransitions);
+          if (nextState.measureVols) setMeasureVols(nextState.measureVols);
+          if (nextState.measureVolTransitions) setMeasureVolTransitions(nextState.measureVolTransitions);
+          if (nextState.songSections) setSongSections(nextState.songSections);
         }
         return nextHistory;
       });
@@ -2071,19 +2629,12 @@ export default function App() {
       if (isRecordingVocal) {
         stopVocalRecording();
       }
-      // Stop ongoing voice synthesizers decay
+      // Stop ongoing voice synthesizers decay and barulho loops
+      audioEngine?.stopAllBarulho();
       instrumentsConfig.forEach((inst) => {
-        if (inst.id === 'tarol') {
-          tarolSampler.stopAll();
-        } else if (samplers[inst.id]) {
-          samplers[inst.id].stopAll();
-        }
         if (voiceSynths[inst.id]) voiceSynths[inst.id].triggerRelease();
       });
-      activePlayerSources.forEach((src) => {
-        try { src.stop(); } catch(_) {}
-      });
-      activePlayerSources.clear();
+
       (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
         try {
           player.stop();
@@ -2095,6 +2646,50 @@ export default function App() {
       }));
     }
   };
+
+  // Keep event handler refs up to date on every render to prevent stale closures in keybindings
+  const handleTogglePlayRef = useRef(handleTogglePlay);
+  const handleUndoRef = useRef(handleUndo);
+  const handleRedoRef = useRef(handleRedo);
+
+  useEffect(() => {
+    handleTogglePlayRef.current = handleTogglePlay;
+    handleUndoRef.current = handleUndo;
+    handleRedoRef.current = handleRedo;
+  });
+
+  // Keybindings listener: Spacebar & Undo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = document.activeElement?.tagName || '';
+      const activeId = document.activeElement?.id || '';
+
+      if (
+        e.code === 'Space' &&
+        activeTag !== 'INPUT' &&
+        activeTag !== 'SELECT' &&
+        activeId !== 'letras-textarea'
+      ) {
+        e.preventDefault();
+        handleTogglePlayRef.current();
+      }
+
+      const isUndoKey = (e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey;
+      const isRedoKey = 
+        ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
+        ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey));
+      
+      if (isUndoKey) {
+        e.preventDefault();
+        handleUndoRef.current();
+      } else if (isRedoKey) {
+        e.preventDefault();
+        handleRedoRef.current();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleRewind = () => {
     if (soloPatternPlayIdRef.current !== null) {
@@ -2108,18 +2703,11 @@ export default function App() {
     if (isRecordingVocal) {
       stopVocalRecording();
     }
+    audioEngine?.stopAllBarulho();
     instrumentsConfig.forEach((inst) => {
-      if (inst.id === 'tarol') {
-        tarolSampler.stopAll();
-      } else if (samplers[inst.id]) {
-        samplers[inst.id].stopAll();
-      }
       if (voiceSynths[inst.id]) voiceSynths[inst.id].triggerRelease();
     });
-    activePlayerSources.forEach((src) => {
-      try { src.stop(); } catch(_) {}
-    });
-    activePlayerSources.clear();
+
     (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
       try {
         player.stop();
@@ -2142,8 +2730,8 @@ export default function App() {
     loadFallbackPreset(value);
   };
 
-  const handleSaveToLocal = () => {
-    const name = window.prompt(t('promptName'));
+  const handleSaveToLocal = async () => {
+    const name = await promptAsync(t('promptName'));
     if (!name || name.trim() === '') return;
     
     const presetToSave: Preset = {
@@ -2218,6 +2806,11 @@ export default function App() {
     const updated = [...tracks, newTrack];
     updateRadii(updated);
     setTracks(updated);
+
+    const inst = instrumentsConfig[instIdx];
+    if (inst && inst.type !== 'voice') {
+      setActiveKeyboardInstrumentId(inst.id);
+    }
   };
 
   const handleAudioRecordingToggle = async () => {
@@ -2471,7 +3064,7 @@ export default function App() {
     }
   };
 
-  const handleTimeSigChange = (selectValue: TimeSignature) => {
+  const handleTimeSigChange = async (selectValue: TimeSignature) => {
     setTimeSig(selectValue);
     setCurrentStepIndex(-1);
     measureCountRef.current = 0;
@@ -2482,7 +3075,7 @@ export default function App() {
     if (selectValue === '2/4') targetSteps = 8;
     if (selectValue === '12/8') targetSteps = 24;
 
-    const shouldResize = window.confirm(t('confirmResize'));
+    const shouldResize = await confirmAsync(t('confirmResize'));
     if (shouldResize) {
       pushUndoState();
       const resizedList = tracks.map((t) => {
@@ -3016,18 +3609,11 @@ export default function App() {
     audioEngine?.stop();
     Tone.Transport.stop();
     
+    audioEngine?.stopAllBarulho();
     instrumentsConfig.forEach((inst) => {
-      if (inst.id === 'tarol') {
-        tarolSampler.stopAll();
-      } else if (samplers[inst.id]) {
-        samplers[inst.id].stopAll();
-      }
       if (voiceSynths[inst.id]) voiceSynths[inst.id].triggerRelease();
     });
-    activePlayerSources.forEach((src) => {
-      try { src.stop(); } catch(_) {}
-    });
-    activePlayerSources.clear();
+
     (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
       try {
         player.stop();
@@ -3061,27 +3647,33 @@ export default function App() {
     setCopiedPattern(JSON.parse(JSON.stringify(pattern)));
   };
 
-  const handlePastePattern = (trackId: number, patternId: number) => {
+  const handlePastePattern = (trackId: number, patternId?: number) => {
     if (!copiedPattern) return;
     pushUndoState();
-    setTracks(tracks.map(t => {
+    
+    // Deep copy to prevent shared object references
+    const patternClone = JSON.parse(JSON.stringify(copiedPattern)) as Pattern;
+    
+    // Generate new unique ID
+    const newId = Date.now() + Math.floor(Math.random() * 1000);
+    
+    setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
-        const nextPatterns = t.patterns.map(p => {
-          if (p.id === patternId) {
-            return {
-              ...p,
-              steps: copiedPattern.steps,
-              activeSteps: [...copiedPattern.activeSteps],
-              lyrics: [...(copiedPattern.lyrics || Array(copiedPattern.steps).fill(''))],
-              notes: [...(copiedPattern.notes || Array(copiedPattern.steps).fill(''))],
-              volumes: [...(copiedPattern.volumes || Array(copiedPattern.steps).fill(80))],
-              decays: [...(copiedPattern.decays || Array(copiedPattern.steps).fill(100))],
-              microtimings: [...(copiedPattern.microtimings || Array(copiedPattern.steps).fill(0))],
-            };
-          }
-          return p;
-        });
-        return { ...t, patterns: nextPatterns };
+        const newName = `${patternClone.name || (lang === 'fr' ? 'Motif' : 'Padrão')} (${lang === 'fr' ? 'Copie' : 'Cópia'})`;
+        
+        const newPattern: Pattern = {
+          ...patternClone,
+          id: newId,
+          name: newName,
+          // Since it's a new pattern, it shouldn't be assigned to any measures in the timeline yet
+          measureAssignments: Array(totalMeasures).fill(false)
+        };
+        
+        return {
+          ...t,
+          patterns: [...t.patterns, newPattern],
+          selectedPatternId: newId // Set the newly pasted pattern as selected
+        };
       }
       return t;
     }));
@@ -3253,88 +3845,115 @@ export default function App() {
   };
 
   // Text values key bindings helpers for traditional grid steps
-  const handleTrackStepValueChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
+  const handleTrackStepValueChange = (
+    trackId: number,
+    patternId: number,
+    stepIdx: number | number[],
+    val: string | string[],
+    lyrics?: string[],
+    notes?: string[]
+  ) => {
     pushUndoState();
-    const cleanChar = val.slice(-1);
     setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
+        const inst = instrumentsConfig[t.instrumentIdx];
+
+        const parseVal = (v: string): string | number => {
+          if (!v) return 0;
+          const cleanChar = v.slice(-1);
+          let parsed: string | number = 0;
+          if (v === '0') {
+            parsed = 0;
+          } else if (inst.colors[v] !== undefined && v !== 'text') {
+            parsed = v;
+          } else if (cleanChar && cleanChar.trim() !== '') {
+            if (inst.type === 'gongue') {
+              if (['G', 'g', 'A', 'a'].includes(cleanChar)) parsed = cleanChar;
+              else if (['x', 'X'].includes(cleanChar)) parsed = 'X';
+              else if (['b', 'B', 't'].includes(cleanChar)) parsed = 'B';
+            } else if (inst.id === 'mineiro') {
+              if (['P', 'p', 'T', 't'].includes(cleanChar)) parsed = cleanChar;
+              else if (['l', 'L'].includes(cleanChar)) parsed = 'L';
+              else if (['b', 'B'].includes(cleanChar)) parsed = 'B';
+            } else if (inst.id === 'caixa') {
+              const lowerChar = cleanChar.toLowerCase();
+              if (cleanChar === 'r') parsed = 'r';
+              else if (cleanChar === 'R') parsed = 'R';
+              else if (lowerChar === 'x') parsed = 'X';
+              else if (lowerChar === 'f') parsed = 'F';
+              else if (lowerChar === 'c') parsed = 'C';
+              else if (['b', 't'].includes(lowerChar)) parsed = 'B';
+              else if (['d', 'D', 'e', 'E', 'q', 'Q'].includes(cleanChar)) {
+                parsed = cleanChar;
+              }
+            } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
+              const lowerChar = cleanChar.toLowerCase();
+              if (lowerChar === 'x') parsed = 'X';
+              else if (lowerChar === 'i') parsed = 'I';
+              else if (lowerChar === 'c') parsed = 'C';
+              else if (['b', 't'].includes(lowerChar)) parsed = 'B';
+              else if (['d', 'D', 'e', 'E', 'q', 'Q'].includes(cleanChar)) {
+                parsed = cleanChar;
+              }
+            } else if (inst.id === 'tarol') {
+              const lowerChar = cleanChar.toLowerCase();
+              if (cleanChar === 'r') parsed = 'r';
+              else if (cleanChar === 'R') parsed = 'R';
+              else if (lowerChar === 'x') parsed = 'X';
+              else if (lowerChar === 'f') parsed = 'F';
+              else if (lowerChar === 'c') parsed = 'C';
+              else if (['b', 't'].includes(lowerChar)) parsed = 'B';
+              else if (['d', 'D', 'e', 'E', 'q', 'Q'].includes(cleanChar)) {
+                parsed = cleanChar;
+              }
+            } else if (inst.id === 'agbe') {
+              const lowerChar = cleanChar.toLowerCase();
+              if (lowerChar === 's') parsed = 'S';
+              else if (lowerChar === 'v') parsed = 'V';
+              else if (['b', 't'].includes(lowerChar)) parsed = 'B';
+              else if (['d', 'D', 'e', 'E'].includes(cleanChar)) {
+                parsed = cleanChar;
+              }
+            } else {
+              if (['D', 'E', 'd', 'e'].includes(cleanChar)) parsed = cleanChar;
+            }
+          }
+          return getVisualStrokeSymbol(parsed, isLeftHanded, inst.id);
+        };
+
         const nextPatterns = t.patterns.map(p => {
           if (p.id === patternId) {
             const copySteps = [...p.activeSteps];
-            const inst = instrumentsConfig[t.instrumentIdx];
-            let parsed: string | number = 0;
-            if (val === '0') {
-              parsed = 0;
-            } else if (inst.colors[val] !== undefined && val !== 'text') {
-              parsed = val;
-            } else if (cleanChar && cleanChar.trim() !== '') {
-              if (inst.type === 'gongue') {
-                if (cleanChar === 'G') parsed = 'GRV';
-                else if (cleanChar === 'g') parsed = 'grv';
-                else if (cleanChar === 'A') parsed = 'AIG';
-                else if (cleanChar === 'a') parsed = 'aig';
-                else if (cleanChar === 't') parsed = 't';
-              } else if (inst.id === 'mineiro') {
-                if (['P', 'T', 'p', 't'].includes(cleanChar)) parsed = cleanChar;
-              } else if (inst.id === 'caixa') {
-                const normVal = val.trim().toLowerCase();
-                if (normVal === 'rd') parsed = 'rd';
-                else if (normVal === 're') parsed = 're';
-                else {
-                  const lowerChar = cleanChar.toLowerCase();
-                  if (lowerChar === 'r') parsed = 'rd';
-                  else if (lowerChar === 'z') parsed = 're';
-                  else if (lowerChar === 'x') parsed = 'x';
-                  else if (lowerChar === 'f') parsed = 'f';
-                  else if (lowerChar === 't') parsed = 't';
-                  else if (['d', 'e'].includes(lowerChar)) {
-                    parsed = cleanChar;
-                  }
+            const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
+            const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
+
+            if (Array.isArray(stepIdx)) {
+              stepIdx.forEach((idx, i) => {
+                const currentVal = Array.isArray(val) ? val[i] : val;
+                copySteps[idx] = parseVal(currentVal);
+                if (lyrics && lyrics[i] !== undefined) {
+                  arrLyrics[idx] = lyrics[i];
                 }
-              } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
-                const lowerChar = cleanChar.toLowerCase();
-                if (['x', 'i'].includes(lowerChar)) {
-                  parsed = lowerChar;
-                } else if (cleanChar === 't') {
-                  parsed = 't';
-                } else if (['d', 'e', 'c'].includes(lowerChar)) {
-                  parsed = cleanChar;
+                if (notes && notes[i] !== undefined) {
+                  arrNotes[idx] = notes[i];
                 }
-              } else if (inst.id === 'tarol') {
-                const normVal = val.trim();
-                if (normVal === 'Re') parsed = 'Re';
-                else if (normVal === 'Rd') parsed = 'Rd';
-                else if (cleanChar === 'r') parsed = 'Re';
-                else if (cleanChar === 'R') parsed = 'Rd';
-                else if (['d', 'D', 'e', 'E'].includes(cleanChar)) {
-                  parsed = cleanChar;
-                } else {
-                  const lowerChar = cleanChar.toLowerCase();
-                  if (lowerChar === 'x') {
-                    parsed = 'X';
-                  } else if (lowerChar === 'f') {
-                    parsed = 'F';
-                  } else if (lowerChar === 'c') {
-                    parsed = 'C';
-                  } else if (lowerChar === 't') {
-                    parsed = 'T';
-                  }
-                }
-              } else if (inst.id === 'agbe') {
-                const lowerChar = cleanChar.toLowerCase();
-                if (['s'].includes(lowerChar)) {
-                  parsed = cleanChar;
-                } else if (cleanChar === 't') {
-                  parsed = 't';
-                } else if (['d', 'e'].includes(lowerChar)) {
-                  parsed = cleanChar;
-                }
-              } else {
-                if (['D', 'E', 'd', 'e'].includes(cleanChar)) parsed = cleanChar;
+              });
+            } else {
+              const currentVal = Array.isArray(val) ? val[0] : val;
+              copySteps[stepIdx] = parseVal(currentVal);
+              if (lyrics && lyrics[0] !== undefined) {
+                arrLyrics[stepIdx] = lyrics[0];
+              }
+              if (notes && notes[0] !== undefined) {
+                arrNotes[stepIdx] = notes[0];
               }
             }
-            copySteps[stepIdx] = parsed;
-            return { ...p, activeSteps: copySteps };
+            return {
+              ...p,
+              activeSteps: copySteps,
+              lyrics: arrLyrics,
+              notes: arrNotes
+            };
           }
           return p;
         });
@@ -4066,7 +4685,7 @@ export default function App() {
   }, [tracks, currentMeasure, soloPatternPlayId]);
 
   return (
-    <div className="flex flex-col h-screen text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
+    <div className="flex flex-col h-dvh text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
       {/* Visual buffer loader loading overlay */}
       {isLoading && (
         <div id="loading-overlay" className="absolute inset-0 bg-[#121212]/90 flex flex-col items-center justify-center z-[9999] gap-2.5">
@@ -4081,6 +4700,8 @@ export default function App() {
       <Header
         lang={lang}
         onLangToggle={() => setLang(lang === 'pt' ? 'fr' : 'pt')}
+        showInstallButton={!!deferredPrompt}
+        onInstallClick={handleInstallClick}
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
         preset={activePresetName}
@@ -4117,6 +4738,8 @@ export default function App() {
         }}
         onUndo={handleUndo}
         canUndo={tracksHistory.length > 0}
+        onRedo={handleRedo}
+        canRedo={tracksRedoHistory.length > 0}
         isMobile={isMobile}
         isSwingOn={isSwingOn}
         onSwingToggle={() => setIsSwingOn(!isSwingOn)}
@@ -4132,13 +4755,14 @@ export default function App() {
       />
 
       {/* Main Workspace workspace containing expanding grids layouts */}
-      <div id="main-workspace" className="flex flex-grow overflow-hidden relative w-full h-[calc(100vh-130px)] mobile-stack cordel-bg">
+      <div id="main-workspace" className="flex flex-grow overflow-hidden relative w-full h-[calc(100dvh-130px)] mobile-stack cordel-bg">
         {viewMode === 'roda' && (
           <>
             {/* Left column tracks mixers */}
             {(!isMobile || mobileTab === 'mixer') && (
               <Mixer
                 lang={lang}
+                isLeftHanded={isLeftHanded}
                 tracks={tracks}
                 meters={meters}
                 onMoveUp={handleTrackMoveUp}
@@ -4244,13 +4868,21 @@ export default function App() {
                 measureBpms={measureBpms}
                 measureVols={measureVols}
                 isMobile={isMobile}
+                isLeftHanded={isLeftHanded}
                 onNavigateMeasure={(measureIdx) => handleTimelineNavigate(measureIdx, 0, 16)}
                 activeSignal={(() => {
-                  const sigId = measureSignals[currentMeasure];
+                  let sigId = measureSignals[currentMeasure];
+                  if (!sigId && totalMeasures > 0) {
+                    const prevMeasure = (currentMeasure - 1 + totalMeasures) % totalMeasures;
+                    sigId = measureSignals[prevMeasure];
+                  }
                   if (!sigId) return null;
                   const sig = (metadata?.rhythmSignals || []).find(s => s.id === sigId);
                   return sig || null;
                 })()}
+                measureSignals={measureSignals}
+                rhythmSignals={metadata?.rhythmSignals || []}
+                songSections={songSections}
               />
             )}
           </>
@@ -4258,6 +4890,8 @@ export default function App() {
         {viewMode === 'console' && (
           <div className="flex-1 min-w-0 flex flex-col h-full overflow-x-auto overflow-y-hidden custom-scrollbar">
             <ConsoleMixer
+              activeInstrumentId={activeKeyboardInstrumentId}
+              onActiveInstrumentChange={setActiveKeyboardInstrumentId}
               isMobile={isMobile}
               lang={lang}
               meters={meters}
@@ -4434,8 +5068,69 @@ export default function App() {
           />
         )}
 
+        {viewMode === 'quiz' && (
+          <QuizEngine
+            lang={lang}
+            onExit={() => setViewMode('roda')}
+            onSuccess={() => unlockBooklet('folheto_quiz')}
+          />
+        )}
+
+        {viewMode === 'dictee' && (
+          <DicteeEngine
+            lang={lang}
+            onExit={() => setViewMode('roda')}
+            onSuccess={() => unlockBooklet('folheto_dictee')}
+          />
+        )}
+
+        {viewMode === 'inspecteur' && (
+          <InspecteurEngine
+            lang={lang}
+            onExit={() => setViewMode('roda')}
+            caixaParfaite={inspecteurCaixaParfaite}
+            caixaErreur={inspecteurCaixaErreur}
+            onSuccess={() => unlockBooklet('folheto_inspecteur')}
+          />
+        )}
+
+        {viewMode === 'mestre' && (
+          <MestreEngine
+            lang={lang}
+            onExit={() => setViewMode('roda')}
+            rhythmState={mestreRhythmState}
+            setRhythmState={setMestreRhythmState}
+            onSuccess={() => unlockBooklet('folheto_mestre')}
+          />
+        )}
+
+        {viewMode === 'rythmelive' && (
+          <RythmeLiveEngine
+            lang={lang}
+            onExit={() => setViewMode('roda')}
+            onSuccess={() => unlockBooklet('folheto_rythmelive')}
+          />
+        )}
+
+        {viewMode === 'varal' && (
+          <VaralCordel
+            lang={lang}
+            onExit={() => setViewMode('roda')}
+            unlockedFolhetos={unlockedFolhetos}
+            justUnlockedBookletId={justUnlockedBookletId}
+            onClearJustUnlocked={() => setJustUnlockedBookletId(null)}
+          />
+        )}
+
+        {viewMode === 'studio' && (
+          <MestreStudio
+            lang={lang}
+            onExit={() => setViewMode('roda')}
+          />
+        )}
+
         {/* Right drawer sidebar context panel */}
-        {(!isMobile || (viewMode === 'roda' && mobileTab === 'toada')) && (
+        {viewMode !== 'quiz' && viewMode !== 'dictee' && viewMode !== 'inspecteur' && viewMode !== 'mestre' && viewMode !== 'rythmelive' && viewMode !== 'varal' && viewMode !== 'studio' && (!isMobile || (viewMode === 'roda' && mobileTab === 'toada')) && (
           <RightSidebar
             lang={lang}
             activePanel={isMobile ? (activeRightPanel || 'letras') : activeRightPanel}
@@ -4512,24 +5207,28 @@ export default function App() {
         </div>
       )}
 
-      <TransportBar
-        viewMode={viewMode}
-        lang={lang}
-        isPlaying={isPlaying}
-        onTogglePlay={handleTogglePlay}
-        onRewind={handleRewind}
-        isRecording={isRecording}
-        recordingSeconds={recordingSeconds}
-        onRecordToggle={handleAudioRecordingToggle}
-        bpm={bpm}
-        onBpmChange={handleGlobalBpmChange}
-        isMetroOn={isMetroOn}
-        onMetroToggle={() => setIsMetroOn(!isMetroOn)}
-        isSwingOn={isSwingOn}
-        onSwingToggle={() => setIsSwingOn(!isSwingOn)}
-        reverbType={reverbType}
-        onReverbTypeChange={setReverbType}
-      />
+      {viewMode !== 'quiz' && viewMode !== 'dictee' && viewMode !== 'inspecteur' && viewMode !== 'mestre' && viewMode !== 'rythmelive' && viewMode !== 'varal' && viewMode !== 'studio' && (
+        <TransportBar
+          viewMode={viewMode as any}
+          lang={lang}
+          isPlaying={isPlaying}
+          onTogglePlay={handleTogglePlay}
+          onRewind={handleRewind}
+          isRecording={isRecording}
+          recordingSeconds={recordingSeconds}
+          onRecordToggle={handleAudioRecordingToggle}
+          bpm={bpm}
+          onBpmChange={handleGlobalBpmChange}
+          isMetroOn={isMetroOn}
+          onMetroToggle={() => setIsMetroOn(!isMetroOn)}
+          isSwingOn={isSwingOn}
+          onSwingToggle={() => setIsSwingOn(!isSwingOn)}
+          reverbType={reverbType}
+          onReverbTypeChange={setReverbType}
+          isLeftHanded={isLeftHanded}
+          onLeftHandedToggle={() => setIsLeftHanded(!isLeftHanded)}
+        />
+      )}
       {touchSelector && (
         <TouchStrokeSelector
           selector={touchSelector}
@@ -4540,7 +5239,77 @@ export default function App() {
             setHoveredStroke(null);
           }}
           lang={lang}
+          isLeftHanded={isLeftHanded}
         />
+      )}
+
+      {/* Autosave status indicator */}
+      <div
+        className={`fixed bottom-20 md:bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 px-3 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[11px] font-bold border-2 border-[var(--cordel-border)] shadow-[2px_2px_0_var(--cordel-border)] transition-all duration-300 pointer-events-none ${
+          isSavedIndicatorVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
+        }`}
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+        <span>{lang === 'pt' ? 'Salvo' : 'Sauvegardé'}</span>
+      </div>
+
+      {/* Custom Cordel Dialog Overlay */}
+      {customDialog && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[99999] p-4 select-none">
+          <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] shadow-[6px_6px_0px_var(--cordel-border)] p-6 max-w-sm w-full flex flex-col gap-4 font-cactus">
+            <h3 className="font-cactus font-black text-sm uppercase tracking-wider border-b-2 border-dashed border-[var(--cordel-border)] pb-2 select-none">
+              {customDialog.type === 'alert' ? '📢 Info' : customDialog.type === 'confirm' ? '❓' : '📝'} {customDialog.type === 'alert' ? (lang === 'pt' ? 'Aviso' : 'Information') : customDialog.type === 'confirm' ? (lang === 'pt' ? 'Confirmação' : 'Confirmation') : (lang === 'pt' ? 'Entrada' : 'Saisie')}
+            </h3>
+            
+            <p className="text-xs leading-relaxed">{customDialog.message}</p>
+            
+            {customDialog.type === 'prompt' && (
+              <input
+                id="custom-dialog-input"
+                type="text"
+                defaultValue={customDialog.defaultValue}
+                className="bg-transparent border-b-2 border-[var(--cordel-border)] py-1 text-xs font-bold font-cactus outline-none text-[var(--cordel-text)]"
+                autoFocus
+                onFocus={(e) => e.target.select()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const val = (e.currentTarget as HTMLInputElement).value;
+                    customDialog.onResolve(val);
+                    setCustomDialog(null);
+                  }
+                }}
+              />
+            )}
+            
+            <div className="flex justify-end gap-3 mt-2">
+              {customDialog.type !== 'alert' && (
+                <button
+                  onClick={() => {
+                    customDialog.onResolve(customDialog.type === 'prompt' ? null : false);
+                    setCustomDialog(null);
+                  }}
+                  className="px-3 py-1.5 border border-[var(--cordel-border)] text-xs font-bold hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer"
+                >
+                  {lang === 'pt' ? 'Cancelar' : 'Annuler'}
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  if (customDialog.type === 'prompt') {
+                    const input = document.getElementById('custom-dialog-input') as HTMLInputElement;
+                    customDialog.onResolve(input?.value || '');
+                  } else {
+                    customDialog.onResolve(true);
+                  }
+                  setCustomDialog(null);
+                }}
+                className="px-4 py-1.5 bg-[var(--cordel-border)] text-[var(--cordel-bg)] text-xs font-black hover:opacity-90 cursor-pointer"
+              >
+                {lang === 'pt' ? 'Confirmar' : 'Confirmer'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

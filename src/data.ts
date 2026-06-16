@@ -15,7 +15,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#3a1010',
     path: 'Alfaia/Marcante',
-    colors: { 'd': '#632b2b', 'D': '#8a2b2b', 'e': '#b55a5a', 'E': '#c74c4c', 't': '#4c1c1c', 'x': '#8c7b7b', 'i': '#ff8da1', 'c': '#a89f91', 'C': '#a89f91', text: '#f4ecd8' },
+    colors: { 'd': '#632b2b', 'D': '#8a2b2b', 'e': '#b55a5a', 'E': '#c74c4c', 'Q': '#c74c4c', 'q': '#b55a5a', 'B': '#4c1c1c', 'X': '#8c7b7b', 'I': '#ff8da1', 'C': '#a89f91', text: '#f4ecd8' },
     color: '#8a2b2b'
   },
   {
@@ -25,7 +25,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#3a2010',
     path: 'Alfaia/Meiao',
-    colors: { 'd': '#8c502b', 'D': '#ab5318', 'e': '#c79c3e', 'E': '#c98124', 't': '#4c2c16', 'x': '#9c8476', 'i': '#ffb74d', 'c': '#a89f91', 'C': '#a89f91', text: '#f4ecd8' },
+    colors: { 'd': '#8c502b', 'D': '#ab5318', 'e': '#c79c3e', 'E': '#c98124', 'Q': '#c98124', 'q': '#c79c3e', 'B': '#4c2c16', 'X': '#9c8476', 'I': '#ffb74d', 'C': '#a89f91', text: '#f4ecd8' },
     color: '#ab5318'
   },
   {
@@ -35,7 +35,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#3a3010',
     path: 'Alfaia/Repique',
-    colors: { 'd': '#947f2b', 'D': '#c9a724', 'e': '#d4cca1', 'E': '#d4c492', 't': '#4d441c', 'x': '#9c9984', 'i': '#fff59d', 'c': '#a89f91', 'C': '#a89f91', text: '#1a1a1a' },
+    colors: { 'd': '#947f2b', 'D': '#c9a724', 'e': '#d4cca1', 'E': '#d4c492', 'Q': '#d4c492', 'q': '#d4cca1', 'B': '#4d441c', 'X': '#9c9984', 'I': '#fff59d', 'C': '#a89f91', text: '#1a1a1a' },
     color: '#c9a724'
   },
   {
@@ -45,7 +45,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#2a103a',
     path: 'Caixa',
-    colors: { 'd': '#3f255e', 'D': '#4c267a', 'e': '#925c9c', 'E': '#7a3187', 'rd': '#a855f7', 're': '#d8b4fe', 'x': '#7e7b8c', 'f': '#d946ef', 't': '#4a044e', text: '#f4ecd8' },
+    colors: { 'd': '#3f255e', 'D': '#4c267a', 'e': '#925c9c', 'E': '#7a3187', 'Q': '#7a3187', 'q': '#925c9c', 'R': '#a855f7', 'r': '#d8b4fe', 'X': '#7e7b8c', 'F': '#d946ef', 'B': '#4a044e', 'C': '#a89f91', text: '#f4ecd8' },
     color: '#7a3187'
   },
   {
@@ -55,7 +55,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#102a3a',
     path: 'Tarol',
-    colors: { 'd': '#3b82f6', 'D': '#1e3a8a', 'e': '#93c5fd', 'E': '#2563eb', 'Rd': '#312e81', 'Re': '#818cf8', 'X': '#3a506b', 'F': '#60a5fa', 'C': '#bfdbfe', 'T': '#0284c7', text: '#f4ecd8' },
+    colors: { 'd': '#3b82f6', 'D': '#1e3a8a', 'e': '#93c5fd', 'E': '#2563eb', 'Q': '#2563eb', 'q': '#93c5fd', 'R': '#312e81', 'r': '#818cf8', 'X': '#3a506b', 'F': '#60a5fa', 'C': '#bfdbfe', 'B': '#0284c7', text: '#f4ecd8' },
     color: '#2563eb'
   },
   {
@@ -65,7 +65,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'gongue',
     mixerBg: '#1a1a1a',
     path: 'Gongue',
-    colors: { 'grv': '#444444', 'GRV': '#222222', 'aig': '#7f8c8d', 'AIG': '#bdc3c7', 't': '#6d4c41', text: '#f4ecd8' },
+    colors: { 'g': '#444444', 'G': '#222222', 'a': '#7f8c8d', 'A': '#bdc3c7', 'B': '#6d4c41', 'X': '#7f8c8d', text: '#f4ecd8' },
     color: '#bdc3c7'
   },
   {
@@ -75,7 +75,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'shake',
     mixerBg: '#103a20',
     path: 'Agbe',
-    colors: { 'e': '#22c55e', 'E': '#15803d', 'd': '#86efac', 'D': '#4ade80', 's': '#dcfce7', 't': '#052e16', text: '#f4ecd8' },
+    colors: { 'e': '#22c55e', 'E': '#15803d', 'd': '#86efac', 'D': '#4ade80', 'S': '#dcfce7', 'V': '#a7f3d0', 'B': '#052e16', text: '#f4ecd8' },
     color: '#22c55e'
   },
   {
@@ -85,7 +85,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'shake',
     mixerBg: '#3a1a10',
     path: 'Mineiro',
-    colors: { 'p': '#ea580c', 'P': '#c2410c', 't': '#fdba74', 'T': '#f97316', text: '#f4ecd8' },
+    colors: { 'p': '#ea580c', 'P': '#c2410c', 't': '#fdba74', 'T': '#f97316', 'L': '#f59e0b', 'B': '#78350f', text: '#f4ecd8' },
     color: '#ea580c'
   },
   {
@@ -300,7 +300,7 @@ export const vouVadiarPreset: Preset = {
       id: 5,
       steps: 16,
       repeats: 1,
-      activeSteps: [0, "GRV", 0, 0, "GRV", 0, "GRV", 0, 0, "GRV", 0, 0, "GRV", 0, "GRV", 0],
+      activeSteps: [0, "G", 0, 0, "G", 0, "G", 0, 0, "G", 0, 0, "G", 0, "G", 0],
       instrumentIdx: 5,
       lyrics: [],
       notes: [],
@@ -399,7 +399,7 @@ export const baqueDeImalePreset: Preset = {
       id: 5,
       steps: 16,
       repeats: 1,
-      activeSteps: ["GRV", 0, "AIG", 0, "GRV", 0, "AIG", 0, "GRV", "AIG", 0, "aig", "GRV", 0, "AIG", 0],
+      activeSteps: ["G", 0, "A", 0, "G", 0, "A", 0, "G", "A", 0, "a", "G", 0, "A", 0],
       instrumentIdx: 5,
       lyrics: [],
       notes: [],
@@ -444,11 +444,27 @@ export function getMaxTicks(timeSignature: TimeSignature): number {
 
 export function isDarkText(instId: string, strokeVal: string): boolean {
   if (!strokeVal) return false;
-  if (instId === 'gongue' && (strokeVal === 'AIG' || strokeVal === 'aig')) return true;
-  if (instId === 'agbe' && ['s', 'S', 'd', 'D', 'e', 'E'].includes(strokeVal)) return true;
-  if (instId === 'caixa' && ['rg', 'Re', 're'].includes(strokeVal)) return true;
-  if (instId === 'mineiro' && strokeVal === 't') return true;
+  if (instId === 'gongue' && (strokeVal === 'A' || strokeVal === 'a')) return true;
+  if (instId === 'agbe' && ['s', 'S', 'd', 'D', 'e', 'E', 'v', 'V'].includes(strokeVal)) return true;
+  if (instId === 'caixa' && ['r', 'R'].includes(strokeVal)) return true;
+  if (instId === 'mineiro' && ['t', 'T', 'L'].includes(strokeVal)) return true;
   if (instId === 'tarol' && ['C', 'e', 'F'].includes(strokeVal)) return true;
   if (['marcante', 'meiao', 'repique'].includes(instId) && ['c', 'C'].includes(strokeVal)) return true;
   return false;
+}
+
+export function getVisualStrokeSymbol(symbol: string | number, isLeftHanded: boolean, instId: string): string | number {
+  if (!isLeftHanded || typeof symbol !== 'string') return symbol;
+  const targetInsts = ['marcante', 'meiao', 'repique', 'caixa', 'tarol'];
+  if (!targetInsts.includes(instId)) return symbol;
+
+  if (symbol === 'D') return 'E';
+  if (symbol === 'E') return 'D';
+  if (symbol === 'd') return 'e';
+  if (symbol === 'e') return 'd';
+  if (symbol === 'R') return 'r';
+  if (symbol === 'r') return 'R';
+  if (symbol === 'Q') return 'D';
+  if (symbol === 'q') return 'd';
+  return symbol;
 }

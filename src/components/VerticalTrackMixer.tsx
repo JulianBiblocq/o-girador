@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as Tone from 'tone';
 import { TrackGroup, Language } from '../types';
-import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText } from '../data';
+import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
 import { PanKnob } from './PanKnob';
 import { getNextStepValue } from './InstrumentDetailEditor';
 
 interface VerticalTrackMixerProps {
   lang: Language;
+  isLeftHanded?: boolean;
   track: TrackGroup;
   index: number;
   totalTracks: number;
@@ -21,7 +22,13 @@ interface VerticalTrackMixerProps {
   onReverbChange: (val: number) => void;
   onPanChange: (val: number) => void;
   onStepsChange: (patternId: number, steps: number) => void;
-  onStepValueChange: (patternId: number, stepIdx: number, val: string) => void;
+  onStepValueChange: (
+    patternId: number,
+    stepIdx: number | number[],
+    val: string | string[],
+    lyrics?: string[],
+    notes?: string[]
+  ) => void;
   onStepKeyDown: (patternId: number, stepIdx: number, key: string, currentVal: string, targetEl: HTMLInputElement) => void;
   onVoiceTypeToggle: (patternId: number, stepIdx: number) => void;
   onVoiceSylChange: (patternId: number, stepIdx: number, val: string) => void;
@@ -57,6 +64,7 @@ interface VerticalTrackMixerProps {
 
 const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
   lang,
+  isLeftHanded = false,
   track,
   index,
   totalTracks,
@@ -236,14 +244,15 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
 
   const handleStart = (e: React.MouseEvent | React.TouchEvent, stepIdx: number, currentVal: string | number) => {
     if ('shiftKey' in e && e.shiftKey) return;
+    const visualVal = getVisualStrokeSymbol(currentVal, isLeftHanded, inst.id);
     if (onStepTouchStart) {
       if (e.type === 'touchstart') {
-        onStepTouchStart(e, activePattern.id, stepIdx, inst.id, currentVal, (newVal) => {
+        onStepTouchStart(e, activePattern.id, stepIdx, inst.id, visualVal, (newVal) => {
           onStepValueChange(activePattern.id, stepIdx, newVal);
         });
       } else {
         if ('button' in e && e.button !== 0) return;
-        onStepTouchStart(e, activePattern.id, stepIdx, inst.id, currentVal, (newVal) => {
+        onStepTouchStart(e, activePattern.id, stepIdx, inst.id, visualVal, (newVal) => {
           onStepValueChange(activePattern.id, stepIdx, newVal);
         });
       }
@@ -301,8 +310,8 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
       >
         <div className="flex gap-2 items-center">
           <div className="flex flex-col gap-1">
-            <button onClick={onMoveUp} disabled={index === 0} className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button flex items-center justify-center font-bold text-xs hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed">▲</button>
-            <button onClick={onMoveDown} disabled={index === totalTracks - 1} className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button flex items-center justify-center font-bold text-xs hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed">▼</button>
+            <button onClick={onMoveUp} disabled={index === 0} aria-label={lang === 'pt' ? 'Mover para cima' : 'Monter la piste'} className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button flex items-center justify-center font-bold text-xs hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed">▲</button>
+            <button onClick={onMoveDown} disabled={index === totalTracks - 1} aria-label={lang === 'pt' ? 'Mover para baixo' : 'Descendre la piste'} className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button flex items-center justify-center font-bold text-xs hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed">▼</button>
           </div>
           
           <div className="relative flex items-center gap-1.5" ref={dropdownRef}>
@@ -345,7 +354,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
             <div className="flex gap-1">
               <button
                 onClick={() => onCopyPattern && onCopyPattern(activePattern)}
-                className="px-1.5 py-0.5 bg-[#eaddcf] text-[10px] font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
+                className="px-1.5 py-0.5 bg-[#eaddcf] text-[#1a1a1a] text-[10px] font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
                 title="Copier le motif actif"
               >
                 📋 Copier
@@ -381,7 +390,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
               return (
                 <div key={ptn.id} className="flex flex-col gap-1 pb-1 last:pb-0 border-b border-[var(--cordel-border)]/20 last:border-b-0">
                   <div className="flex items-center gap-2 min-h-[28px]">
-                    <input type="radio" checked={liveActivePatternId === ptn.id} onChange={() => onSelectPattern(ptn.id)} className="w-4 h-4 accent-[var(--cordel-border)] cursor-pointer" />
+                    <input type="radio" checked={liveActivePatternId === ptn.id} onChange={() => onSelectPattern(ptn.id)} aria-label={ptn.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${idx + 1}`} className="w-4 h-4 accent-[var(--cordel-border)] cursor-pointer" />
                     
                     {isEditing ? (
                       <input
@@ -513,20 +522,18 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
                 {Array.from({ length: activePattern.steps }).reduce((acc: React.ReactNode[], _, i) => {
                   if (i > 0 && i % 4 === 0 && i % 8 !== 0) acc.push(<div key={`spacer-${i}`} />);
                   const val = activePattern.activeSteps[i];
-                  let displayVal = val === 0 ? '' : String(val);
-                  if (val !== 0 && inst.type === 'gongue') {
-                    if (val === 'GRV') displayVal = 'G'; else if (val === 'grv') displayVal = 'g'; else if (val === 'AIG') displayVal = 'A'; else if (val === 'aig') displayVal = 'a';
-                  }
+                  const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
+                  let displayVal = visualVal === 0 ? '' : String(visualVal);
 
                   let isBeatBound = false;
                   if (timeSig === '6/8' || timeSig === '12/8') { if ((i + 1) % 3 === 0) isBeatBound = true; }
                   else if (timeSig === '3/4') { if ((i + 1) % 2 === 0) isBeatBound = true; }
                   else { if ((i + 1) % 4 === 0) isBeatBound = true; }
 
-                  const isActive = val !== 0;
-                  const stepColor = isActive ? (inst.colors[val as any] || 'var(--cordel-text)') : 'transparent';
+                  const isActive = visualVal !== 0;
+                  const stepColor = isActive ? (inst.colors[visualVal as any] || 'var(--cordel-text)') : 'transparent';
                   let textColor = isActive ? (inst.colors.text || 'var(--cordel-bg)') : 'var(--cordel-text)';
-                  if (isActive && isDarkText(inst.id, String(val))) {
+                  if (isActive && isDarkText(inst.id, String(visualVal))) {
                     textColor = '#1a1a1a';
                   }
 
@@ -547,9 +554,11 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
                         if (e.button !== 0) return;
                         if (e.shiftKey) {
                           isMouseDownRef.current = true;
-                          const nextVal = getNextStepValue(inst.id, inst.type, val);
-                          paintValueRef.current = nextVal;
-                          onStepValueChange(activePattern.id, i, String(nextVal));
+                          const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
+                          const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
+                          const nextSemanticVal = getVisualStrokeSymbol(nextVisualVal, isLeftHanded, inst.id);
+                          paintValueRef.current = nextSemanticVal;
+                          onStepValueChange(activePattern.id, i, String(nextSemanticVal));
                         } else {
                           handleStart(e, i, val);
                         }

@@ -53,6 +53,7 @@ interface TimelineSequencerProps {
   measureSignals?: (string | null)[];
   onMeasureSignalChange?: (measureIdx: number, signalId: string | null) => void;
   rhythmSignals?: RhythmSignal[];
+  onExportTablature: () => void;
 }
 
 const HEADER_W = 180;
@@ -107,13 +108,74 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   measureSignals = [],
   onMeasureSignalChange,
   rhythmSignals = [],
+  onExportTablature,
 }) => {
   const isMacro = measureWidth <= 240;
-  const HEADER_W = isMacro ? 120 : 180;
+  const isMinZoom = measureWidth <= 120;
+  const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  const HEADER_W = isMobile ? 80 : (isMacro ? 150 : 180);
   const MEASURE_W = measureWidth;
   const scrollRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const measureWidthRef = useRef(measureWidth);
+  const initialPinchDist = useRef<number | null>(null);
+  const initialMeasureWidth = useRef<number>(0);
+
+  useEffect(() => {
+    measureWidthRef.current = measureWidth;
+  }, [measureWidth]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        initialPinchDist.current = dist;
+        initialMeasureWidth.current = measureWidthRef.current;
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && initialPinchDist.current !== null) {
+        const t1 = e.touches[0];
+        const t2 = e.touches[1];
+        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        if (dist > 0) {
+          const factor = dist / initialPinchDist.current;
+          let targetW = Math.round(initialMeasureWidth.current * factor);
+          targetW = Math.max(120, Math.min(960, targetW));
+          onMeasureWidthChange(targetW);
+        }
+        e.preventDefault();
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        initialPinchDist.current = null;
+      }
+    };
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: false });
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+    el.addEventListener('touchend', handleTouchEnd, { passive: false });
+    el.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+      el.removeEventListener('touchend', handleTouchEnd);
+      el.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [onMeasureWidthChange]);
 
   // Navigation & Snapping States
   const [toolMode, setToolMode] = React.useState<'cursor' | 'hand'>('cursor');
@@ -147,172 +209,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   const [hoveredPasteMeasure, setHoveredPasteMeasure] = React.useState<number | null>(null);
   const [signalDropdownOpen, setSignalDropdownOpen] = React.useState<number | null>(null);
 
-  // Tablature state
-  const [tablatureModalOpen, setTablatureModalOpen] = React.useState<boolean>(false);
-  const [selectedTracksForTab, setSelectedTracksForTab] = React.useState<number[]>([]);
-  const [includeVocalsInTab, setIncludeVocalsInTab] = React.useState<boolean>(true);
-
-  // Sync selected tracks for tablature
-  React.useEffect(() => {
-    if (tracks.length > 0 && selectedTracksForTab.length === 0) {
-      setSelectedTracksForTab(tracks.map(t => t.id));
-    }
-  }, [tracks]);
-
-  const generateTablatureData = () => {
-    const systemsCount = Math.ceil(totalMeasures / 4);
-    const systems = [];
-
-    for (let s = 0; s < systemsCount; s++) {
-      const startM = s * 4;
-      const endM = Math.min(startM + 3, totalMeasures - 1);
-      
-      const systemTracks = tracks
-        .filter(t => selectedTracksForTab.includes(t.id))
-        .map(t => {
-          const inst = instrumentsConfig[t.instrumentIdx];
-          const measuresData: string[] = [];
-
-          for (let m = startM; m <= endM; m++) {
-            const activePtn = t.patterns.find(p => p.measureAssignments[m]);
-            const stepsCount = activePtn ? activePtn.steps : 16;
-            
-            let measureStr = '';
-            for (let stepIdx = 0; stepIdx < stepsCount; stepIdx++) {
-              if (activePtn) {
-                const val = activePtn.activeSteps[stepIdx];
-                if (val === 0 || val === '0' || !val) {
-                  measureStr += '-';
-                } else {
-                  if (inst.type === 'gongue') {
-                    if (val === 'GRV') measureStr += 'G';
-                    else if (val === 'grv') measureStr += 'g';
-                    else if (val === 'AIG') measureStr += 'A';
-                    else if (val === 'aig') measureStr += 'a';
-                    else measureStr += String(val);
-                  } else if (inst.type === 'voice') {
-                    const syl = activePtn.lyrics?.[stepIdx];
-                    if (syl && syl.trim() !== '') {
-                      measureStr += syl.trim();
-                    } else {
-                      measureStr += String(val);
-                    }
-                  } else {
-                    measureStr += String(val);
-                  }
-                }
-              } else {
-                measureStr += '-';
-              }
-              if (stepIdx < stepsCount - 1) {
-                measureStr += '.';
-              }
-            }
-            measuresData.push(measureStr);
-          }
-
-          return {
-            trackId: t.id,
-            instName: inst.name,
-            iconImg: inst.iconImg,
-            measures: measuresData,
-            instType: inst.type
-          };
-        });
-
-      systems.push({
-        systemIdx: s,
-        startM: startM + 1,
-        endM: endM + 1,
-        tracksData: systemTracks
-      });
-    }
-
-    return systems;
-  };
-
-  const renderTablaturePreview = () => {
-    const data = generateTablatureData();
-    const songName = metadata?.toada || (lang === 'fr' ? 'Rythme Maracatu' : 'Ritmo de Maracatu');
-    const author = metadata?.compositor || 'Traditionnel';
-    const nacao = metadata?.nacao || '';
-    const ritmo = metadata?.ritmo || '';
-
-    return (
-      <div id="print-tablature-area" className="bg-white text-black p-5 font-mono text-[11px] leading-tight flex flex-col gap-5 w-full h-full overflow-y-auto print:max-h-none print:overflow-visible shadow-inner">
-        {/* Partition Header */}
-        <div className="flex flex-col items-center text-center border-b-[2px] border-black pb-3">
-          <h1 className="font-sans font-bold text-2xl uppercase tracking-wider text-black">{songName}</h1>
-          <p className="text-sm font-sans mt-1 text-black">
-            {ritmo && <span className="font-bold">{ritmo}</span>}
-            {nacao && <span> — Nação {nacao}</span>}
-          </p>
-          <p className="text-[10px] font-sans opacity-70 mt-1 text-black">
-            {lang === 'fr' ? 'Composé par' : 'Composto por'} : {author}
-          </p>
-        </div>
-
-        {/* Systems */}
-        <div className="flex flex-col gap-5 flex-grow">
-          {data.map((sys, sysIdx) => (
-            <div key={sysIdx} className="flex flex-col gap-1.5 pb-3 border-b border-dashed border-black/20 last:border-0">
-              <div className="text-[9px] font-sans font-bold opacity-60 text-right text-black">
-                {lang === 'fr' 
-                  ? `Mesures ${sys.startM} à ${sys.endM}`
-                  : `Compassos ${sys.startM} a ${sys.endM}`}
-              </div>
-              <div className="w-full overflow-x-auto">
-                <table className="w-full border-collapse text-black tab-system-table font-mono text-[12px]">
-                  <tbody>
-                    {sys.tracksData.map((tData) => (
-                      <tr key={tData.trackId} className="tab-system-row border-0">
-                        <td className="w-[120px] tab-inst-name font-sans font-bold shrink-0 truncate uppercase text-[10px] text-black pr-2 align-middle">
-                          {tData.instName} :
-                        </td>
-                        {tData.measures.map((mStr, mIdx) => {
-                          const steps = mStr.split('.');
-                          return (
-                            <React.Fragment key={mIdx}>
-                              <td className="tab-barline opacity-40 font-mono text-[12px] text-black text-center px-0.5 align-middle select-none">
-                                |
-                              </td>
-                              {steps.map((stepVal, stepIdx) => (
-                                <td 
-                                  key={stepIdx} 
-                                  className="tab-step-cell text-center font-mono font-extrabold text-[12px] text-black px-1 align-middle"
-                                >
-                                  {stepVal}
-                                </td>
-                              ))}
-                              {mIdx === tData.measures.length - 1 && (
-                                <td className="tab-barline opacity-40 font-mono text-[12px] text-black text-center px-0.5 align-middle select-none">
-                                  |
-                                </td>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Lyrics (Toada) */}
-        {letras && letras.trim() !== '' && (
-          <div className="border-t-[2px] border-black pt-4 mt-3 print:page-break-before-avoid text-black">
-            <h3 className="font-sans font-bold text-xs uppercase mb-2 text-black">{lang === 'fr' ? 'Paroles (Toada)' : 'Letra (Toada)'} :</h3>
-            <pre className="font-sans text-xs whitespace-pre-wrap leading-relaxed italic border-l-2 border-black/30 pl-3 text-black">
-              {letras}
-            </pre>
-          </div>
-        )}
-      </div>
-    );
-  };
+  // Tablature state and logic removed (lifted to App.tsx)
 
   const startX = useRef(0);
   const startScrollLeft = useRef(0);
@@ -818,9 +715,11 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
 
   return (
     <div
+      ref={containerRef}
       data-zoom={isMacro ? 'macro' : 'normal'}
-      style={zoomStyles}
-      className="timeline-sequencer-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden bg-[var(--cordel-bg)] text-[var(--cordel-text)] select-none"
+      data-mobile={isMobile ? 'true' : 'false'}
+      style={{ ...zoomStyles, touchAction: 'pan-x pan-y' }}
+      className="timeline-sequencer-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden sequencer-bg text-[var(--cordel-text)] select-none"
     >
       {/* Séquenceur Title Sub-header with Partition Export Button */}
       <div className="h-10 border-b-2 border-[var(--cordel-border)] px-4 flex items-center justify-between shrink-0 bg-[var(--cordel-bg)] z-10">
@@ -831,52 +730,56 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
         {/* Zoom, Tools & Snap Controls */}
         <div className="flex flex-wrap items-center gap-2 md:gap-3">
           {/* Zoom Controls */}
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] md:text-[10px] uppercase font-bold text-[var(--cordel-text)]/70">{lang === 'fr' ? 'Zoom' : 'Zoom'} :</span>
-            <button
-              onClick={() => onMeasureWidthChange(Math.max(120, measureWidth - 60))}
-              disabled={measureWidth <= 120}
-              className={`font-bold text-[9px] md:text-xs px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
-                measureWidth <= 120 ? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-              }`}
-              title={lang === 'fr' ? 'Zoom arrière' : 'Reduzir zoom'}
-            >
-              ➖
-            </button>
-            <button
-              onClick={() => onMeasureWidthChange(Math.min(960, measureWidth + 60))}
-              disabled={measureWidth >= 960}
-              className={`font-bold text-[9px] md:text-xs px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
-                measureWidth >= 960 ? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-              }`}
-              title={lang === 'fr' ? 'Zoom avant' : 'Ampliar zoom'}
-            >
-              ➕
-            </button>
-          </div>
+          {!isTouchDevice && (
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] md:text-[10px] uppercase font-bold text-[var(--cordel-text)]/70">{lang === 'fr' ? 'Zoom' : 'Zoom'} :</span>
+              <button
+                onClick={() => onMeasureWidthChange(Math.max(120, measureWidth - 60))}
+                disabled={measureWidth <= 120}
+                className={`font-bold text-[9px] md:text-xs px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
+                  measureWidth <= 120 ? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                }`}
+                title={lang === 'fr' ? 'Zoom arrière' : 'Reduzir zoom'}
+              >
+                ➖
+              </button>
+              <button
+                onClick={() => onMeasureWidthChange(Math.min(960, measureWidth + 60))}
+                disabled={measureWidth >= 960}
+                className={`font-bold text-[9px] md:text-xs px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
+                  measureWidth >= 960 ? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                }`}
+                title={lang === 'fr' ? 'Zoom avant' : 'Ampliar zoom'}
+              >
+                ➕
+              </button>
+            </div>
+          )}
 
           {/* Navigation Tools (Cursor vs Hand) */}
-          <div className="flex items-center gap-1 border-l border-[var(--cordel-border)]/30 pl-2">
-            <span className="text-[9px] md:text-[10px] uppercase font-bold text-[var(--cordel-text)]/70 shrink-0">{lang === 'fr' ? 'Outil' : 'Ferramenta'} :</span>
-            <button
-              onClick={() => setToolMode('cursor')}
-              className={`font-bold text-[9px] md:text-[10px] px-2 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
-                toolMode === 'cursor' ? 'bg-blue-600 text-white border-blue-600' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-              }`}
-              title={lang === 'fr' ? 'Pointeur de sélection' : 'Ponteiro de seleção'}
-            >
-              🖱️ {lang === 'fr' ? 'Pointeur' : 'Ponteiro'}
-            </button>
-            <button
-              onClick={() => setToolMode('hand')}
-              className={`font-bold text-[9px] md:text-[10px] px-2 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
-                toolMode === 'hand' ? 'bg-blue-600 text-white border-blue-600' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-              }`}
-              title={lang === 'fr' ? 'Défilement libre (Maintenez Espace pour l\'activer)' : 'Arrastar timeline (Segure Espaço para ativar)'}
-            >
-              ✋ {lang === 'fr' ? 'Main' : 'Mão'}
-            </button>
-          </div>
+          {!isTouchDevice && (
+            <div className="flex items-center gap-1 border-l border-[var(--cordel-border)]/30 pl-2">
+              <span className="text-[9px] md:text-[10px] uppercase font-bold text-[var(--cordel-text)]/70 shrink-0">{lang === 'fr' ? 'Outil' : 'Ferramenta'} :</span>
+              <button
+                onClick={() => setToolMode('cursor')}
+                className={`font-bold text-[9px] md:text-[10px] px-2 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
+                  toolMode === 'cursor' ? 'bg-blue-600 text-white border-blue-600' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                }`}
+                title={lang === 'fr' ? 'Pointeur de sélection' : 'Ponteiro de seleção'}
+              >
+                🖱️ {lang === 'fr' ? 'Pointeur' : 'Ponteiro'}
+              </button>
+              <button
+                onClick={() => setToolMode('hand')}
+                className={`font-bold text-[9px] md:text-[10px] px-2 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
+                  toolMode === 'hand' ? 'bg-blue-600 text-white border-blue-600' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                }`}
+                title={lang === 'fr' ? 'Défilement libre (Maintenez Espace pour l\'activer)' : 'Arrastar timeline (Segure Espaço para ativar)'}
+              >
+                ✋ {lang === 'fr' ? 'Main' : 'Mão'}
+              </button>
+            </div>
+          )}
 
           {/* Snapping Selection */}
           <div className="flex items-center gap-1 border-l border-[var(--cordel-border)]/30 pl-2">
@@ -908,14 +811,16 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
             </div>
           )}
         </div>
-        <button
-          onClick={() => setTablatureModalOpen(true)}
-          className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] md:text-xs px-2.5 py-0.5 md:py-1 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer flex items-center gap-1 shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans"
-          title={lang === 'fr' ? 'Extraction de la tablature' : 'Extrair partitura'}
-        >
-          <span>📋</span>
-          <span>{lang === 'fr' ? 'Exporter la partition (TAB)' : 'Exportar partitura (TAB)'}</span>
-        </button>
+        {!isMobile && (
+          <button
+            onClick={onExportTablature}
+            className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] md:text-xs px-2.5 py-0.5 md:py-1 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer flex items-center gap-1 shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans"
+            title={lang === 'fr' ? 'Extraction de la tablature' : 'Extrair partitura'}
+          >
+            <span>📋</span>
+            <span>{lang === 'fr' ? 'Exporter la partition (TAB)' : 'Exportar partitura (TAB)'}</span>
+          </button>
+        )}
       </div>
 
       {/* ══════════ TIMELINE OVERVIEW (MINI-MAP) ══════════ */}
@@ -1008,10 +913,12 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
           >
             {/* Sticky Label */}
             <div
-              className="sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between px-3 font-cactus text-[9px] font-bold uppercase shrink-0 text-[var(--cordel-text)]/40"
+              className={`sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between font-cactus text-[9px] font-bold uppercase shrink-0 text-[var(--cordel-text)]/40 ${
+                isMobile ? 'px-1.5' : 'px-3'
+              }`}
               style={{ width: HEADER_W, minWidth: HEADER_W }}
             >
-              <span>{lang === 'fr' ? 'Repères' : 'Marcadores'}</span>
+              <span>{isMobile ? 'Rep.' : (lang === 'fr' ? 'Repères' : 'Marcadores')}</span>
             </div>
 
             {/* Marker Ruler Track Area */}
@@ -1074,10 +981,12 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
           >
             {/* Sticky header */}
             <div
-              className="sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between px-3 font-cactus text-[11px] font-bold uppercase shrink-0"
+              className={`sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between font-cactus text-[11px] font-bold uppercase shrink-0 ${
+                isMobile ? 'px-1' : 'px-3'
+              }`}
               style={{ width: HEADER_W, minWidth: HEADER_W }}
             >
-              <span>{lang === 'fr' ? 'Sections' : 'Seções'}</span>
+              <span>{isMobile ? (lang === 'fr' ? 'Sect.' : 'Seç.') : (lang === 'fr' ? 'Sections' : 'Seções')}</span>
               <button
                 onClick={() => {
                   setEditingSection(null);
@@ -1087,11 +996,11 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                   setSectionFormColor('#f19066');
                   setSectionModalOpen(true);
                 }}
-                className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-80 transition-opacity cursor-pointer flex items-center justify-center gap-0.5"
+                className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] px-1 py-0.5 rounded cordel-border-sm hover:opacity-80 transition-opacity cursor-pointer flex items-center justify-center gap-0.5"
                 title={lang === 'fr' ? 'Créer une section' : 'Criar seção'}
               >
                 <span>➕</span>
-                <span>{lang === 'fr' ? 'Sect.' : 'Seção'}</span>
+                {!isMobile && <span>{lang === 'fr' ? 'Sect.' : 'Seção'}</span>}
               </button>
             </div>
 
@@ -1125,7 +1034,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                           e.stopPropagation();
                           onCopySection(section);
                         }}
-                        className="bg-white/80 hover:bg-white text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer font-sans"
+                        className="bg-white/80 hover:bg-white text-black text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer font-sans"
                         title={lang === 'fr' ? 'Copier le bloc' : 'Copiar bloco'}
                       >
                         📋 Copier
@@ -1140,7 +1049,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                           setSectionFormColor(section.color || '#f19066');
                           setSectionModalOpen(true);
                         }}
-                        className="bg-white/80 hover:bg-white text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer"
+                        className="bg-white/80 hover:bg-white text-black text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer"
                         title={lang === 'fr' ? 'Modifier' : 'Editar'}
                       >
                         ✏️
@@ -1221,10 +1130,12 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
           >
              {/* Sticky corner */}
              <div
-               className="sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center px-3 font-cactus text-sm font-bold uppercase"
+               className={`sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center font-cactus text-sm font-bold uppercase ${
+                 isMobile ? 'px-1.5' : 'px-3'
+               }`}
                style={{ width: HEADER_W, minWidth: HEADER_W }}
              >
-               <span>{lang === 'fr' ? 'Instruments' : 'Instrumentos'}</span>
+               <span>{isMobile ? 'Inst.' : (lang === 'fr' ? 'Instruments' : 'Instrumentos')}</span>
              </div>
 
             {/* Measure labels */}
@@ -1446,13 +1357,17 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
             >
               {/* Sticky header */}
               <div
-                className="sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center px-3 py-1 gap-2"
+                className={`sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center py-1 gap-1 ${
+                  isMobile ? 'px-1' : 'px-2'
+                }`}
                 style={{ width: HEADER_W, minWidth: HEADER_W }}
               >
                 <span className="text-base">🥁</span>
-                <span className="font-cactus text-xs font-bold uppercase tracking-wider text-[var(--cordel-text)]">
-                  {lang === 'fr' ? 'Signaux' : 'Sinais'}
-                </span>
+                {!isMobile && (
+                  <span className="font-cactus text-[10px] font-bold uppercase tracking-wider text-[var(--cordel-text)]">
+                    {lang === 'fr' ? 'Signaux' : 'Sinais'}
+                  </span>
+                )}
               </div>
 
               {/* Measure signal cells */}
@@ -1548,7 +1463,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
           )}
 
           {/* ══════════ TRACK ROWS ══════════ */}
-          {tracks.map((track) => {
+          {tracks.map((track, trackIndex) => {
             const inst = instrumentsConfig[track.instrumentIdx];
             const hasSolo = tracks.some(t => t.isSolo);
             const isMutedBySolo = hasSolo && !track.isSolo;
@@ -1564,30 +1479,45 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
               >
                 {/* ── Sticky track header ── */}
                 <div
-                  className="sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between px-3 py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)]"
+                  className={`sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] ${
+                    isMobile ? 'px-1' : 'px-3'
+                  }`}
                   style={{ width: HEADER_W, minWidth: HEADER_W }}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
+                  <div className={`flex items-center min-w-0 flex-grow ${isMobile ? 'gap-0.5' : 'gap-2'}`}>
+                    {isMobile ? (
+                      <span className="font-mono text-[10px] text-[var(--cordel-text)]/60 shrink-0">
+                        #{trackIndex + 1}
+                      </span>
+                    ) : null}
                     <img
                       src={`${ASSETS_BASE_URL}${inst.iconImg}`}
                       alt={inst.name}
-                      className="track-header-icon w-8 h-8 object-contain filter invert-[var(--cordel-invert)] dark:invert-0"
+                      className={`track-header-icon object-contain filter invert-[var(--cordel-invert)] dark:invert-0 shrink-0 ${
+                        isMobile ? 'w-6 h-6' : 'w-8 h-8'
+                      }`}
                     />
-                    <span className="track-header-name font-cactus text-sm font-bold truncate text-[var(--cordel-text)] tracking-wider">
-                      {inst.name}
-                    </span>
+                    {!isMobile ? (
+                      <span className="track-header-name font-cactus text-sm font-bold truncate text-[var(--cordel-text)] tracking-wider">
+                        {inst.name}
+                      </span>
+                    ) : null}
                   </div>
-                  <div className="track-header-controls flex gap-1 shrink-0">
+                  <div className={`track-header-controls flex shrink-0 ${isMobile || isMacro ? 'flex-col gap-0.5' : 'flex-row gap-1'}`}>
                     <button
                       onClick={() => onMuteToggle(track.id)}
-                      className={`w-6 h-6 flex items-center justify-center text-[11px] font-bold cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+                      className={`flex items-center justify-center font-bold cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+                        isMobile ? 'w-5 h-5 text-[9px]' : 'w-6 h-6 text-[11px]'
+                      } ${
                         track.isMute ? 'bg-red-600 text-white border-red-600' : 'bg-transparent text-[var(--cordel-text)]'
                       }`}
                       title="Mute"
                     >M</button>
                     <button
                       onClick={() => onSoloToggle(track.id)}
-                      className={`w-6 h-6 flex items-center justify-center text-[11px] font-bold cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+                      className={`flex items-center justify-center font-bold cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+                        isMobile ? 'w-5 h-5 text-[9px]' : 'w-6 h-6 text-[11px]'
+                      } ${
                         track.isSolo ? 'bg-amber-500 text-black border-amber-500' : 'bg-transparent text-[var(--cordel-text)]'
                       }`}
                       title="Solo"
@@ -1757,7 +1687,9 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                         ) : (
                           /* Merged continuous visual block */
                           <div
-                            className="macro-pattern-block w-full h-full flex flex-col justify-between p-1.5 border rounded-sm transition-all"
+                            className={`macro-pattern-block w-full h-full flex ${
+                              isMinZoom ? 'flex-row justify-center items-center p-1' : 'flex-col justify-between p-1.5'
+                            } border rounded-sm transition-all`}
                             style={{
                               backgroundColor: `${inst.mixerBg}cc`, // semi-transparent instrument background
                               borderColor: `${inst.colors['D'] || inst.colors['E'] || 'var(--cordel-border)'}40`,
@@ -1767,13 +1699,17 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                             title={`${activePattern.name || (lang === 'fr' ? 'Motif' : 'Padrão')} (${inst.name})`}
                           >
                             {/* Pattern Name */}
-                            <span className="font-cactus text-[9px] font-bold truncate tracking-wider uppercase text-[var(--cordel-text)] leading-none">
-                              {activePattern.vocalMode === 'micro' ? '🎙️ ' : ''}
-                              {activePattern.name || `${lang === 'fr' ? 'Motif' : 'Padrão'}`}
-                            </span>
+                            {!isMinZoom && (
+                              <span className="font-cactus text-[9px] font-bold truncate tracking-wider uppercase text-[var(--cordel-text)] leading-none">
+                                {activePattern.vocalMode === 'micro' ? '🎙️ ' : ''}
+                                {activePattern.name || `${lang === 'fr' ? 'Motif' : 'Padrão'}`}
+                              </span>
+                            )}
 
                             {/* Mini-beats density dots */}
-                            <div className="flex flex-wrap gap-[2px] items-center max-h-[12px] overflow-hidden opacity-90">
+                            <div className={`flex flex-wrap gap-[2px] items-center opacity-90 ${
+                              isMinZoom ? 'justify-center max-h-none' : 'max-h-[12px] overflow-hidden'
+                            }`}>
                               {activePattern.activeSteps.map((val, sIdx) => {
                                 const isActive = val !== 0 && val !== '';
                                 if (!isActive) return null;
@@ -1925,7 +1861,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                   }
                   setSectionModalOpen(false);
                 }}
-                className="px-4 py-1.5 bg-[var(--cordel-wood)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
+                className="px-4 py-1.5 bg-[var(--cordel-wood)] text-[#f4ecd8] border border-[var(--cordel-border)] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
               >
                 {lang === 'fr' ? 'Valider' : 'Confirmar'}
               </button>
@@ -1934,71 +1870,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
         </div>
       )}
 
-      {/* ══════════ TABLATURE EXPORT MODAL ══════════ */}
-      {tablatureModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs">
-          <div className="w-[850px] max-w-[95%] h-[80vh] bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-5 cordel-border-sm cordel-shadow flex flex-col md:flex-row gap-5 overflow-hidden">
-            {/* Left Sidebar: configuration */}
-            <div className="w-full md:w-[220px] shrink-0 flex flex-col gap-4">
-              <h3 className="font-cactus text-lg font-bold uppercase border-b border-[var(--cordel-border)] pb-2 text-[var(--cordel-text)]">
-                {lang === 'fr' ? 'Configuration' : 'Configuração'}
-              </h3>
-              
-              {/* Checkboxes list */}
-              <div className="flex-grow flex flex-col gap-2 bg-[var(--cordel-bg)]/40 p-3 cordel-border-sm overflow-y-auto">
-                <div className="border-b border-[var(--cordel-border)]/30 pb-2 mb-1.5 flex justify-between text-[10px] font-cactus uppercase text-[var(--cordel-text)]">
-                  <span>{lang === 'fr' ? 'Pistes à inclure :' : 'Instrumentos :'}</span>
-                </div>
-                <div className="flex flex-col gap-2 text-xs text-[var(--cordel-text)]">
-                  {tracks.map(t => {
-                    const inst = instrumentsConfig[t.instrumentIdx];
-                    const isChecked = selectedTracksForTab.includes(t.id);
-                    return (
-                      <label key={t.id} className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {
-                            if (isChecked) {
-                              setSelectedTracksForTab(selectedTracksForTab.filter(x => x !== t.id));
-                            } else {
-                              setSelectedTracksForTab([...selectedTracksForTab, t.id]);
-                            }
-                          }}
-                          className="accent-[var(--cordel-border)]"
-                        />
-                        <img src={ASSETS_BASE_URL + inst.iconImg} alt="" className="w-5 h-5 object-contain filter invert-[var(--cordel-invert)] dark:invert-0" />
-                        <span className="truncate">{inst.name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex flex-col gap-2 mt-auto">
-                <button
-                  onClick={() => window.print()}
-                  className="w-full py-2 bg-[var(--cordel-wood)] text-[var(--cordel-text)] border border-[var(--cordel-border)] text-xs font-bold cordel-border-sm hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  🖨️ {lang === 'fr' ? 'Imprimer (A4)' : 'Imprimir (A4)'}
-                </button>
-                <button
-                  onClick={() => setTablatureModalOpen(false)}
-                  className="w-full py-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] text-xs font-bold cordel-border-sm hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer"
-                >
-                  {lang === 'fr' ? 'Fermer' : 'Fechar'}
-                </button>
-              </div>
-            </div>
-
-            {/* Right Zone: print preview */}
-            <div className="flex-grow flex flex-col overflow-hidden bg-white p-1 rounded-sm border border-[var(--cordel-border)]/20">
-              {renderTablaturePreview()}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Tablature Export Modal removed (lifted to App.tsx) */}
     </div>
   );
 };

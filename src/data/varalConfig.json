@@ -1,0 +1,35 @@
+{
+  "module": "varal_config",
+  "cordes": [
+    {
+      "cordeIndex": 1,
+      "requiredCount": 1,
+      "oeuvreToniBraga": "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+      "rewardData": "Félicitations ! Vous avez validé la théorie et l'oreille du Maracatu."
+    },
+    {
+      "cordeIndex": 2,
+      "requiredCount": 1,
+      "oeuvreToniBraga": "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+      "rewardData": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    },
+    {
+      "cordeIndex": 3,
+      "requiredCount": 1,
+      "oeuvreToniBraga": "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+      "rewardData": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    },
+    {
+      "cordeIndex": 4,
+      "requiredCount": 1,
+      "oeuvreToniBraga": "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+      "rewardData": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    },
+    {
+      "cordeIndex": 5,
+      "requiredCount": 1,
+      "oeuvreToniBraga": "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+      "rewardData": "Mestre Luiz de França"
+    }
+  ]
+}

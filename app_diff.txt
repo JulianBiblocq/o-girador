@@ -1,0 +1,1335 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index 1f51ff8..99d2e02 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -29,10 +29,19 @@ import { TouchStrokeSelector, TouchSelectorState } from './components/TouchStrok
+ import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from './db';
+ import { TarolSampler } from './TarolSampler';
+ import { AudioEngine } from './AudioEngine';
++import { InputManager } from './InputManager';
++import { instrumentAudioConfigs } from './data/audioConfig';
++import { QuizEngine } from './components/QuizEngine';
++import { DicteeEngine } from './components/DicteeEngine';
++import { InspecteurEngine } from './components/InspecteurEngine';
++import { MestreEngine } from './components/MestreEngine';
++import { RythmeLiveEngine } from './components/RythmeLiveEngine';
++import { VaralCordel } from './components/VaralCordel';
++import { MestreStudio } from './components/MestreStudio';
+ 
+ // Module scope audio engines to avoid duplicate instantiations on React re-renders
+ let bMetroClick: Tone.Synth | null = null;
+-let whistleSynth: Tone.Synth | null = null;
++let whistleSynth: Tone.Player | null = null;
+ let whistleVibrato: Tone.Vibrato | null = null;
+ const channels: { [id: string]: Tone.Channel } = {};
+ const meters: { [id: string]: Tone.Meter } = {};
+@@ -41,6 +50,7 @@ const tarolSampler = new TarolSampler();
+ const voiceSynths: { [id: string]: any } = {};
+ let loadedCount = 0;
+ let audioEngine: AudioEngine | null = null;
++let inputManager: InputManager | null = null;
+ const activePlayerSources = new Map<string, AudioBufferSourceNode>();
+ 
+ function playNativeSample(
+@@ -423,6 +433,35 @@ export default function App() {
+   const [activePresetName, setActivePresetName] = useState<string>('');
+   const [presetFiles, setPresetFiles] = useState<string[]>([]);
+   const [tracks, setTracks] = useState<TrackGroup[]>([]);
++  const [isLeftHanded, setIsLeftHanded] = useState<boolean>(() => localStorage.getItem('baquemix_left_handed') === 'true');
++  const [activeKeyboardInstrumentId, setActiveKeyboardInstrumentId] = useState<string | null>(null);
++
++  // Sync left-handed preference
++  useEffect(() => {
++    localStorage.setItem('baquemix_left_handed', String(isLeftHanded));
++    if (inputManager) {
++      inputManager.setLeftHanded(isLeftHanded);
++    }
++  }, [isLeftHanded]);
++
++  // Sync active instrument to InputManager
++  useEffect(() => {
++    if (inputManager) {
++      inputManager.setActiveInstrument(activeKeyboardInstrumentId);
++    }
++  }, [activeKeyboardInstrumentId]);
++
++  // Default active keyboard instrument if none is selected
++  useEffect(() => {
++    if (tracks.length > 0 && !activeKeyboardInstrumentId) {
++      const firstNonVoice = tracks.find(t => instrumentsConfig[t.instrumentIdx] && instrumentsConfig[t.instrumentIdx].type !== 'voice');
++      if (firstNonVoice) {
++        setActiveKeyboardInstrumentId(instrumentsConfig[firstNonVoice.instrumentIdx].id);
++      } else {
++        setActiveKeyboardInstrumentId(instrumentsConfig[tracks[0].instrumentIdx].id);
++      }
++    }
++  }, [tracks, activeKeyboardInstrumentId]);
+   const [totalMeasures, setTotalMeasures] = useState<number>(8);
+   const [letras, setLetras] = useState<string>('');
+   const [metadata, setMetadata] = useState<PresetMetadata>({
+@@ -443,7 +482,31 @@ export default function App() {
+   const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | null>(
+     window.innerWidth <= 768 ? 'letras' : (window.innerWidth >= 1024 ? 'letras' : null)
+   );
+-  const [viewMode, setViewMode] = useState<'roda' | 'console' | 'timeline'>('roda');
++  const [viewMode, setViewMode] = useState<'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio'>('roda');
++  const [unlockedFolhetos, setUnlockedFolhetos] = useState<string[]>(() => {
++    try {
++      const saved = localStorage.getItem('baquemix-unlocked-folhetos');
++      return saved ? JSON.parse(saved) : [];
++    } catch (_) {
++      return [];
++    }
++  });
++  const [justUnlockedBookletId, setJustUnlockedBookletId] = useState<string | null>(null);
++
++  useEffect(() => {
++    localStorage.setItem('baquemix-unlocked-folhetos', JSON.stringify(unlockedFolhetos));
++  }, [unlockedFolhetos]);
++
++  const unlockBooklet = (id: string) => {
++    setUnlockedFolhetos((prev) => {
++      if (prev.includes(id)) return prev;
++      // Newly unlocked!
++      setJustUnlockedBookletId(id);
++      setViewMode('varal');
++      return [...prev, id];
++    });
++  };
++
+   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+     const savedTheme = localStorage.getItem('baquemix-theme');
+     if (savedTheme) {
+@@ -458,6 +521,24 @@ export default function App() {
+   const [localPresets, setLocalPresets] = useState<string[]>([]);
+   const [tracksHistory, setTracksHistory] = useState<TrackGroup[][]>([]);
+   const tracksHistoryRef = useRef<TrackGroup[][]>([]);
++  const [tracksRedoHistory, setTracksRedoHistory] = useState<TrackGroup[][]>([]);
++  const tracksRedoHistoryRef = useRef<TrackGroup[][]>([]);
++  const [songStructureRedoHistory, setSongStructureRedoHistory] = useState<{
++    measureTimeSigs: TimeSignature[];
++    measureBpms: number[];
++    measureBpmTransitions: ('immediate' | 'ramp')[];
++    measureVols: number[];
++    measureVolTransitions: ('immediate' | 'ramp')[];
++    songSections?: SongSection[];
++  }[]>([]);
++  const songStructureRedoHistoryRef = useRef<{
++    measureTimeSigs: TimeSignature[];
++    measureBpms: number[];
++    measureBpmTransitions: ('immediate' | 'ramp')[];
++    measureVols: number[];
++    measureVolTransitions: ('immediate' | 'ramp')[];
++    songSections?: SongSection[];
++  }[]>([]);
+   const [reverbType, setReverbType] = useState<'room' | 'studio' | 'hall'>('studio');
+   const [touchSelector, setTouchSelector] = useState<TouchSelectorState | null>(null);
+   const [hoveredStroke, setHoveredStroke] = useState<string | null>(null);
+@@ -504,6 +585,9 @@ export default function App() {
+   // Zoom state
+   const [measureWidth, setMeasureWidth] = useState<number>(480);
+ 
++  // Autosave notification state
++  const [isSavedIndicatorVisible, setIsSavedIndicatorVisible] = useState<boolean>(false);
++
+   // Pattern Solo Playback state and ref
+   const [soloPatternPlayId, setSoloPatternPlayId] = useState<number | null>(null);
+   const soloPatternPlayIdRef = useRef<number | null>(null);
+@@ -512,6 +596,200 @@ export default function App() {
+     soloPatternPlayIdRef.current = soloPatternPlayId;
+   }, [soloPatternPlayId]);
+ 
++  // Inspecteur sequences state and ref
++  const inspecteurSequencesRef = useRef<{
++    alfaia?: Tone.Sequence;
++    gongue?: Tone.Sequence;
++    agbe?: Tone.Sequence;
++    caixaParfaite?: Tone.Sequence;
++    caixaErreur?: Tone.Sequence;
++  }>({});
++  const [inspecteurCaixaParfaite, setInspecteurCaixaParfaite] = useState<Tone.Sequence | undefined>(undefined);
++  const [inspecteurCaixaErreur, setInspecteurCaixaErreur] = useState<Tone.Sequence | undefined>(undefined);
++
++  const stopInspecteurAudio = () => {
++    const seqs = inspecteurSequencesRef.current;
++    if (seqs.alfaia) seqs.alfaia.dispose();
++    if (seqs.gongue) seqs.gongue.dispose();
++    if (seqs.agbe) seqs.agbe.dispose();
++    if (seqs.caixaParfaite) seqs.caixaParfaite.dispose();
++    if (seqs.caixaErreur) seqs.caixaErreur.dispose();
++    
++    inspecteurSequencesRef.current = {};
++    setInspecteurCaixaParfaite(undefined);
++    setInspecteurCaixaErreur(undefined);
++    Tone.Transport.stop();
++  };
++
++  const startInspecteurAudio = () => {
++    stopInspecteurAudio();
++    Tone.start();
++
++    const playSample = (instId: string, playerKey: string, time: number) => {
++      const playerGroup = samplers[instId];
++      if (playerGroup?.has(playerKey)) {
++        const player = playerGroup.player(playerKey);
++        if (player.loaded) {
++          player.start(time);
++        }
++      }
++    };
++
++    const alfaia = new Tone.Sequence((time, note) => {
++      if (note) playSample('marcante', note, time);
++    }, ["fort", "faible", "fort", "faible"], "4n").start(0);
++
++    const gongue = new Tone.Sequence((time, note) => {
++      if (note) playSample('gongue', note, time);
++    }, ["fort-grave", "fort-aigue", "fort-grave", "fort-aigue"], "4n").start(0);
++
++    const agbe = new Tone.Sequence((time, note) => {
++      if (note) playSample('agbe', note, time);
++    }, ["fort", "faible", "fort", "faible"], "4n").start(0);
++
++    const caixaParfaite = new Tone.Sequence((time, note) => {
++      if (note) playSample('caixa', note, time);
++    }, ["fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible"], "16n").start(0);
++
++    const caixaErreur = new Tone.Sequence((time, note) => {
++      if (note) playSample('caixa', note, time);
++    }, ["fort", null, "faible", "fort", null, "fort", "faible", null, "fort", null, "faible", "fort", null, "fort", "faible", null], "16n").start(0);
++
++    caixaParfaite.mute = true;
++    caixaErreur.mute = false;
++
++    inspecteurSequencesRef.current = { alfaia, gongue, agbe, caixaParfaite, caixaErreur };
++    setInspecteurCaixaParfaite(caixaParfaite);
++    setInspecteurCaixaErreur(caixaErreur);
++
++    Tone.Transport.start();
++  };
++
++  // Mestre sequences state and ref
++  const [mestreRhythmState, setMestreRhythmState] = useState<'base' | 'variation' | 'rufo'>('base');
++  const mestreSequencesRef = useRef<{
++    alfaia?: Tone.Sequence;
++    caixa?: Tone.Sequence;
++    gongue?: Tone.Sequence;
++    agbe?: Tone.Sequence;
++  }>({});
++  const mestreRhythmStateRef = useRef<'base' | 'variation' | 'rufo'>('base');
++
++  useEffect(() => {
++    mestreRhythmStateRef.current = mestreRhythmState;
++  }, [mestreRhythmState]);
++
++  const stopMestreAudio = () => {
++    const seqs = mestreSequencesRef.current;
++    if (seqs.alfaia) seqs.alfaia.dispose();
++    if (seqs.caixa) seqs.caixa.dispose();
++    if (seqs.gongue) seqs.gongue.dispose();
++    if (seqs.agbe) seqs.agbe.dispose();
++    
++    mestreSequencesRef.current = {};
++    setMestreRhythmState('base');
++    Tone.Transport.stop();
++    Tone.Transport.cancel();
++  };
++
++  const startMestreAudio = () => {
++    stopMestreAudio();
++    Tone.start();
++
++    const playSample = (instId: string, playerKey: string, time: number) => {
++      const playerGroup = samplers[instId];
++      if (playerGroup?.has(playerKey)) {
++        const player = playerGroup.player(playerKey);
++        if (player.loaded) {
++          player.start(time);
++        }
++      }
++    };
++
++    const alfaia = new Tone.Sequence((time, note) => {
++      const state = mestreRhythmStateRef.current;
++      if (state === 'rufo') {
++        playSample('marcante', 'barulho', time);
++      } else if (state === 'variation') {
++        if (note === 'fort') {
++          playSample('marcante', 'fort', time);
++          playSample('marcante', 'fort', time + 0.15);
++        } else if (note) {
++          playSample('marcante', 'faible', time);
++        }
++      } else {
++        if (note) playSample('marcante', note, time);
++      }
++    }, ["fort", "faible", "fort", "faible"], "4n").start(0);
++
++    const caixa = new Tone.Sequence((time, note) => {
++      const state = mestreRhythmStateRef.current;
++      if (state === 'rufo') {
++        playSample('caixa', 'ruffada-D', time);
++        playSample('caixa', 'ruffada-G', time + 0.15);
++      } else if (state === 'variation') {
++        if (note) {
++          playSample('caixa', 'fort', time);
++          playSample('caixa', 'faible', time + 0.075);
++        }
++      } else {
++        if (note) playSample('caixa', note, time);
++      }
++    }, ["fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible"], "16n").start(0);
++
++    const gongue = new Tone.Sequence((time, note) => {
++      const state = mestreRhythmStateRef.current;
++      if (state === 'rufo') {
++        playSample('gongue', 'barulho', time);
++      } else if (state === 'variation') {
++        if (note) playSample('gongue', 'fort-aigue', time);
++      } else {
++        if (note) playSample('gongue', note, time);
++      }
++    }, ["fort-grave", "fort-aigue", "fort-grave", "fort-aigue"], "4n").start(0);
++
++    const agbe = new Tone.Sequence((time, note) => {
++      const state = mestreRhythmStateRef.current;
++      if (state === 'rufo') {
++        playSample('agbe', 'barulho', time);
++      } else if (state === 'variation') {
++        if (note) {
++          playSample('agbe', 'fort', time);
++          playSample('agbe', 'saut', time + 0.15);
++        }
++      } else {
++        if (note) playSample('agbe', note, time);
++      }
++    }, ["fort", "faible", "fort", "faible"], "4n").start(0);
++
++    mestreSequencesRef.current = { alfaia, caixa, gongue, agbe };
++    Tone.Transport.start();
++  };
++
++  useEffect(() => {
++    if (viewMode === 'inspecteur') {
++      if (isPlaying) {
++        handleRewind();
++      }
++      startInspecteurAudio();
++    } else {
++      stopInspecteurAudio();
++    }
++
++    if (viewMode === 'mestre') {
++      if (isPlaying) {
++        handleRewind();
++      }
++      startMestreAudio();
++    } else {
++      stopMestreAudio();
++    }
++    
++    if ((viewMode === 'quiz' || viewMode === 'dictee' || viewMode === 'rythmelive' || viewMode === 'varal' || viewMode === 'studio') && isPlaying) {
++      handleRewind();
++    }
++  }, [viewMode]);
++
+   const [songStructureHistory, setSongStructureHistory] = useState<{
+     measureTimeSigs: TimeSignature[];
+     measureBpms: number[];
+@@ -541,6 +819,10 @@ export default function App() {
+     tracksHistoryRef.current = tracksHistory;
+   }, [tracksHistory]);
+ 
++  useEffect(() => {
++    tracksRedoHistoryRef.current = tracksRedoHistory;
++  }, [tracksRedoHistory]);
++
+   useEffect(() => {
+     measureTimeSigsRef.current = measureTimeSigs;
+   }, [measureTimeSigs]);
+@@ -586,6 +868,10 @@ export default function App() {
+     songStructureHistoryRef.current = songStructureHistory;
+   }, [songStructureHistory]);
+ 
++  useEffect(() => {
++    songStructureRedoHistoryRef.current = songStructureRedoHistory;
++  }, [songStructureRedoHistory]);
++
+   useEffect(() => {
+     songSectionsRef.current = songSections;
+   }, [songSections]);
+@@ -1070,19 +1356,12 @@ export default function App() {
+       }).connect(masterVolumeNode);
+ 
+       if (!whistleSynth) {
+-        whistleVibrato = new Tone.Vibrato({
+-          maxDelay: 0.002,
+-          frequency: 22,
+-          depth: 0.8,
+-        }).connect(masterVolumeNode);
+-
+         const initVol = whistleVol === 0 ? -Infinity : Tone.gainToDb((whistleVol / 100) * 0.4);
+ 
+-        whistleSynth = new Tone.Synth({
+-          oscillator: { type: 'triangle' },
+-          envelope: { attack: 0.02, decay: 0.1, sustain: 0.6, release: 0.15 },
++        whistleSynth = new Tone.Player({
++          url: `${ASSETS_BASE_URL}sons-maracatu/Apito.wav`,
+           volume: initVol,
+-        }).connect(whistleVibrato);
++        }).connect(masterVolumeNode);
+       }
+ 
+       if (!reverbNode) {
+@@ -1111,69 +1390,6 @@ export default function App() {
+             envelope: { attack: 0.05, decay: 0.2 },
+             volume: -10,
+           }).connect(channels[inst.id]);
+-        } else if (inst.id === 'tarol') {
+-          tarolSampler.connect(channels[inst.id]);
+-          const baseUrl = `${ASSETS_BASE_URL}sons-maracatu/${inst.path}/`;
+-          tarolSampler.load(baseUrl)
+-            .then(() => {
+-              loadedCount++;
+-              if (loadedCount >= totalAudioCount) {
+-                setIsLoading(false);
+-              }
+-            })
+-            .catch((err) => {
+-              console.error("Failed to load Tarol Round-Robin sampler:", err);
+-            });
+-        } else {
+-          let urls;
+-          if (inst.id === 'caixa') {
+-            urls = {
+-              faible: 'faible.wav',
+-              fort: 'fort.wav',
+-              'ruffada-D': 'Caixa-ruffada-D.wav',
+-              'ruffada-G': 'Caixa-ruffada-G.wav',
+-              cerclage: 'Caixa-cerclage.wav',
+-              fla: 'Caixa-fla.wav',
+-              barulho: 'Caixa-barulho.wav',
+-            };
+-          } else if (inst.type === 'gongue') {
+-            urls = {
+-              'faible-grave': 'faible-grave.wav',
+-              'fort-grave': 'fort-grave.wav',
+-              'faible-aigue': 'faible-aigue.wav',
+-              'fort-aigue': 'fort-aigue.wav',
+-              barulho: 'Gongue-barulho.wav',
+-            };
+-          } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
+-            urls = {
+-              faible: 'faible.wav',
+-              fort: 'fort.wav',
+-              barulho: 'barulho.wav',
+-              cerclage: 'cerclage.wav',
+-              iguarassu: 'iguarassu.wav',
+-              click: 'click.wav',
+-            };
+-          } else if (inst.id === 'agbe') {
+-            urls = {
+-              faible: 'faible.wav',
+-              fort: 'fort.wav',
+-              barulho: 'barulho.wav',
+-              saut: 'saut.wav',
+-            };
+-          } else {
+-            urls = { faible: 'faible.wav', fort: 'fort.wav' };
+-          }
+-
+-          samplers[inst.id] = new Tone.Players({
+-            urls,
+-            baseUrl: `${ASSETS_BASE_URL}sons-maracatu/${inst.path}/`,
+-            onload: () => {
+-              loadedCount++;
+-              if (loadedCount >= totalAudioCount) {
+-                setIsLoading(false);
+-              }
+-            },
+-          }).connect(channels[inst.id]);
+         }
+       });
+ 
+@@ -1233,11 +1449,12 @@ export default function App() {
+         const currentMeasureIdx = measureCountRef.current;
+ 
+         if (stepIdx === 0) {
+-          const sigId = measureSignalsRef.current[currentMeasureIdx] || null;
++          // Play the whistle sound with a 1-measure delay (on the transition measure)
++          const prevMeasureIdx = (currentMeasureIdx - 1 + (totalMeasuresRef.current || 1)) % (totalMeasuresRef.current || 1);
++          const sigId = measureSignalsRef.current[prevMeasureIdx] || null;
+           if (sigId && sigId !== lastPlayedSignalIdRef.current) {
+-            if (whistleSynth) {
+-              whistleSynth.triggerAttackRelease("A6", "16n", time);
+-              whistleSynth.triggerAttackRelease("A6", "8n", time + 0.12);
++            if (whistleSynth && whistleSynth.loaded) {
++              whistleSynth.start(time);
+             }
+           }
+           lastPlayedSignalIdRef.current = sigId;
+@@ -1358,56 +1575,6 @@ export default function App() {
+         if (scheduledNotes) {
+           for (const note of scheduledNotes) {
+             try {
+-              if (note.instId === 'tarol') {
+-                // Velocity humanization (random — can't be pre-computed)
+-                let vel = 1.0;
+-                if (isSwingOnRef.current) {
+-                  vel = note.isStrong
+-                    ? 0.8 + (nextRandom() * 0.2 - 0.1)
+-                    : 0.4 + (nextRandom() * 0.24 - 0.12);
+-                }
+-                vel *= note.stepVolMultiplier;
+-
+-                // Micro-timing offset
+-                const stepDurSec = tick96nSec * (currentTicks / note.stepsPerMeasure);
+-                const microOffset = (note.microtimingPct / 100) * stepDurSec * 0.5;
+-                const triggerTime = swingTime + microOffset;
+-
+-                console.log("🎵 [PLAY NOTE] tarol", note.playerKey, triggerTime);
+-                tarolSampler.play(note.playerKey, triggerTime, note.baseGain * vel, note.stepDecayMultiplier);
+-                
+-                const delayMs = Math.max(0, (triggerTime - rawCtx.currentTime) * 1000);
+-                const timeoutId = setTimeout(() => {
+-                  hitTriggersRef.current.push({ trackId: note.trackId, stepIndex: note.circleStepIdx, state: note.state });
+-                  engineTimeoutsRef.current = engineTimeoutsRef.current.filter(id => id !== timeoutId);
+-                }, delayMs);
+-                engineTimeoutsRef.current.push(timeoutId);
+-                continue;
+-              }
+-
+-              const playerGroup = samplers[note.instId];
+-              if (!playerGroup?.has(note.playerKey)) continue;
+-              const player = playerGroup.player(note.playerKey);
+-              if (!player.loaded) continue;
+-
+-              const nativeBuffer = player.buffer.get();
+-              if (!nativeBuffer) continue;
+-
+-              // Micro-timing offset
+-              const stepDurSec = tick96nSec * (currentTicks / note.stepsPerMeasure);
+-              const microOffset = (note.microtimingPct / 100) * stepDurSec * 0.5;
+-              const triggerTime = swingTime + microOffset;
+-
+-              // Choke barulho: stop any active barulho source when another sound in the group starts
+-              if (note.playerKey !== 'barulho') {
+-                const barulhoKey = `${note.instId}_barulho`;
+-                const activeBarulho = activePlayerSources.get(barulhoKey);
+-                if (activeBarulho) {
+-                  try { activeBarulho.stop(triggerTime); } catch(_) {}
+-                  activePlayerSources.delete(barulhoKey);
+-                }
+-              }
+-
+               // Velocity humanization (random — can't be pre-computed)
+               let vel = 1.0;
+               if (isSwingOnRef.current) {
+@@ -1417,25 +1584,13 @@ export default function App() {
+               }
+               vel *= note.stepVolMultiplier;
+ 
+-              // Play sample natively using AudioContext nodes connected directly to the channel input
+-              console.log("🎵 [PLAY NOTE] generic", note.instId, note.playerKey, triggerTime);
+-              const source = playNativeSample(
+-                rawCtx,
+-                nativeBuffer,
+-                channels[note.instId].input,
+-                triggerTime,
+-                note.baseGain * vel,
+-                note.stepDecayMultiplier
+-              );
+-
+-              const sourceKey = `${note.instId}_${note.playerKey}`;
+-              activePlayerSources.set(sourceKey, source);
++              // Micro-timing offset
++              const stepDurSec = tick96nSec * (currentTicks / note.stepsPerMeasure);
++              const microOffset = (note.microtimingPct / 100) * stepDurSec * 0.5;
++              const triggerTime = swingTime + microOffset;
+ 
+-              source.onended = () => {
+-                if (activePlayerSources.get(sourceKey) === source) {
+-                  activePlayerSources.delete(sourceKey);
+-                }
+-              };
++              console.log("🎵 [PLAY NOTE] AudioEngine", note.instId, note.playerKey, triggerTime);
++              audioEngine?.playNote(note.instId, note.playerKey, triggerTime, note.baseGain * vel, note.stepDecayMultiplier);
+ 
+               const delayMs = Math.max(0, (triggerTime - rawCtx.currentTime) * 1000);
+               const timeoutId = setTimeout(() => {
+@@ -1565,10 +1720,29 @@ export default function App() {
+         }
+       );
+ 
+-      // Set fallback timer if loading assets get blocked
+-      setTimeout(() => {
+-        setIsLoading(false);
+-      }, 1500);
++      // Initialize InputManager
++      inputManager = new InputManager(audioEngine);
++      inputManager.setLeftHanded(isLeftHanded);
++      if (activeKeyboardInstrumentId) {
++        inputManager.setActiveInstrument(activeKeyboardInstrumentId);
++      }
++
++      // Connect channels to audioEngine
++      instrumentsConfig.forEach((inst) => {
++        if (inst.type !== 'voice' && channels[inst.id]) {
++          audioEngine?.setInstrumentChannel(inst.id, channels[inst.id]);
++        }
++      });
++
++      // Load all samples via the AudioEngine
++      audioEngine.loadAllSamples()
++        .then(() => {
++          setIsLoading(false);
++        })
++        .catch((err) => {
++          console.error("Failed to load samples via AudioEngine:", err);
++          setIsLoading(false);
++        });
+     };
+ 
+     initAudio();
+@@ -1618,6 +1792,82 @@ export default function App() {
+     }
+   }, [isPlaying]);
+ 
++  // Autosave sequencer state in localStorage with 1 second debounce
++  const isInitialMount = useRef(true);
++
++  useEffect(() => {
++    if (isLoading) return;
++
++    if (isInitialMount.current) {
++      isInitialMount.current = false;
++      return;
++    }
++
++    const timer = setTimeout(() => {
++      const tracksCopy = JSON.parse(JSON.stringify(tracks));
++      // Remove vocalAudioData from tracks copy as it's already stored in IndexedDB by patternId
++      tracksCopy.forEach((t: any) => t.patterns?.forEach((p: any) => { delete p.vocalAudioData; }));
++
++      const dataToSave = {
++        bpm,
++        timeSig,
++        version: 2,
++        totalMeasures,
++        tracks: tracksCopy,
++        letras,
++        metadata,
++        measureTimeSigs,
++        measureBpms,
++        measureBpmTransitions,
++        measureVols,
++        measureVolTransitions,
++        songSections,
++        measureSignals,
++        masterEQ,
++        masterCompressor,
++        masterVol,
++        whistleVol,
++      };
++
++      try {
++        localStorage.setItem('baquemix_autosave', JSON.stringify(dataToSave));
++        setIsSavedIndicatorVisible(true);
++      } catch (err) {
++        console.error('Failed to autosave state to localStorage:', err);
++      }
++    }, 1000);
++
++    return () => clearTimeout(timer);
++  }, [
++    isLoading,
++    tracks,
++    bpm,
++    timeSig,
++    totalMeasures,
++    measureBpms,
++    measureTimeSigs,
++    measureBpmTransitions,
++    measureVols,
++    measureVolTransitions,
++    songSections,
++    measureSignals,
++    letras,
++    metadata,
++    masterEQ,
++    masterCompressor,
++    masterVol,
++    whistleVol,
++  ]);
++
++  useEffect(() => {
++    if (isSavedIndicatorVisible) {
++      const timer = setTimeout(() => {
++        setIsSavedIndicatorVisible(false);
++      }, 1500);
++      return () => clearTimeout(timer);
++    }
++  }, [isSavedIndicatorVisible]);
++
+   // 2. Load Preset catalog initially
+   useEffect(() => {
+     const hash = window.location.hash;
+@@ -1669,14 +1919,29 @@ export default function App() {
+       return false;
+     };
+ 
+-    tryLoadQueryOrHash().then((loaded) => {
++    tryLoadQueryOrHash().then(async (loaded) => {
+       loadedFromHash = loaded;
+ 
++      let restoredFromLocalStorage = false;
++      if (!loadedFromHash) {
++        try {
++          const savedSession = localStorage.getItem('baquemix_autosave');
++          if (savedSession) {
++            const data = JSON.parse(savedSession);
++            await applyPreset(data);
++            restoredFromLocalStorage = true;
++            console.log('[BaqueMix] Autosave restored from localStorage.');
++          }
++        } catch (err) {
++          console.error('[BaqueMix] Failed to restore autosave from localStorage:', err);
++        }
++      }
++
+       fetch(`${ASSETS_BASE_URL}presets/catalog.json`)
+         .then((res) => res.json())
+         .then((files: string[]) => {
+           setPresetFiles(files);
+-          if (files.length > 0 && !loadedFromHash) {
++          if (files.length > 0 && !loadedFromHash && !restoredFromLocalStorage) {
+             setActivePresetName(files[0]);
+             loadFallbackPreset(files[0]);
+           }
+@@ -1739,16 +2004,46 @@ export default function App() {
+         handleTogglePlay();
+       }
+ 
+-      const isUndoKey = (e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey);
++      const isUndoKey = (e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey;
++      const isRedoKey = 
++        ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
++        ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey));
++      
+       if (isUndoKey) {
+         e.preventDefault();
+         handleUndo();
++      } else if (isRedoKey) {
++        e.preventDefault();
++        handleRedo();
+       }
+     };
+     window.addEventListener('keydown', handleKeyDown);
+     return () => window.removeEventListener('keydown', handleKeyDown);
+   }, [isPlaying]);
+ 
++  // Live keyboard play listener using InputManager
++  useEffect(() => {
++    const handleGlobalKeyDown = (e: KeyboardEvent) => {
++      if (inputManager) {
++        inputManager.handleKeyDown(e);
++      }
++    };
++
++    const handleGlobalKeyUp = (e: KeyboardEvent) => {
++      if (inputManager) {
++        inputManager.handleKeyUp(e);
++      }
++    };
++
++    window.addEventListener('keydown', handleGlobalKeyDown);
++    window.addEventListener('keyup', handleGlobalKeyUp);
++
++    return () => {
++      window.removeEventListener('keydown', handleGlobalKeyDown);
++      window.removeEventListener('keyup', handleGlobalKeyUp);
++    };
++  }, []);
++
+   // Dynamic layout radial positioning offsets
+   const updateRadii = (list: TrackGroup[]) => {
+     if (list.length === 0) return;
+@@ -1894,6 +2189,13 @@ export default function App() {
+         setMasterCompressor({ threshold: -20, ratio: 4 });
+       }
+ 
++      if (p.masterVol !== undefined) {
++        setMasterVol(p.masterVol);
++      }
++      if (p.whistleVol !== undefined) {
++        setWhistleVol(p.whistleVol);
++      }
++
+       // Sync refs immediately to avoid audio scheduling lag
+       tracksRef.current = loadedTracks;
+       totalMeasuresRef.current = loadedMeasures;
+@@ -1994,6 +2296,10 @@ export default function App() {
+   };
+ 
+   const pushUndoState = (customTracksState?: TrackGroup[]) => {
++    // Clear redo history when a new action is performed
++    setTracksRedoHistory([]);
++    setSongStructureRedoHistory([]);
++
+     const stateToSave = customTracksState ? customTracksState : tracks;
+     setTracksHistory(prev => {
+       const cloned = JSON.parse(JSON.stringify(stateToSave));
+@@ -2019,6 +2325,21 @@ export default function App() {
+ 
+   const handleUndo = () => {
+     if (tracksHistoryRef.current.length === 0) return;
++
++    // Enregistrer l'état actuel dans l'historique de redo
++    const currentTracksCloned = JSON.parse(JSON.stringify(tracks));
++    setTracksRedoHistory(prev => [...prev, currentTracksCloned]);
++
++    const currentStructureCloned = {
++      measureTimeSigs: [...measureTimeSigsRef.current],
++      measureBpms: [...measureBpmsRef.current],
++      measureBpmTransitions: [...measureBpmTransitionsRef.current],
++      measureVols: [...measureVolsRef.current],
++      measureVolTransitions: [...measureVolTransitionsRef.current],
++      songSections: JSON.parse(JSON.stringify(songSectionsRef.current))
++    };
++    setSongStructureRedoHistory(prev => [...prev, currentStructureCloned]);
++
+     setTracksHistory(prev => {
+       const nextHistory = [...prev];
+       const previousState = nextHistory.pop();
+@@ -2045,6 +2366,49 @@ export default function App() {
+     }
+   };
+ 
++  const handleRedo = () => {
++    if (tracksRedoHistoryRef.current.length === 0) return;
++
++    // Enregistrer l'état actuel dans l'historique d'undo
++    const currentTracksCloned = JSON.parse(JSON.stringify(tracks));
++    setTracksHistory(prev => [...prev, currentTracksCloned]);
++
++    const currentStructureCloned = {
++      measureTimeSigs: [...measureTimeSigsRef.current],
++      measureBpms: [...measureBpmsRef.current],
++      measureBpmTransitions: [...measureBpmTransitionsRef.current],
++      measureVols: [...measureVolsRef.current],
++      measureVolTransitions: [...measureVolTransitionsRef.current],
++      songSections: JSON.parse(JSON.stringify(songSectionsRef.current))
++    };
++    setSongStructureHistory(prev => [...prev, currentStructureCloned]);
++
++    setTracksRedoHistory(prev => {
++      const nextHistory = [...prev];
++      const nextState = nextHistory.pop();
++      if (nextState) {
++        setTracks(nextState);
++      }
++      return nextHistory;
++    });
++
++    if (songStructureRedoHistoryRef.current.length > 0) {
++      setSongStructureRedoHistory(prev => {
++        const nextHistory = [...prev];
++        const nextState = nextHistory.pop();
++        if (nextState) {
++          setMeasureTimeSigs(nextState.measureTimeSigs);
++          setMeasureBpms(nextState.measureBpms);
++          setMeasureBpmTransitions(nextState.measureBpmTransitions);
++          if (nextState.measureVols) setMeasureVols(nextState.measureVols);
++          if (nextState.measureVolTransitions) setMeasureVolTransitions(nextState.measureVolTransitions);
++          if (nextState.songSections) setSongSections(nextState.songSections);
++        }
++        return nextHistory;
++      });
++    }
++  };
++
+   // 3. User operations callbacks
+   const handleTogglePlay = async () => {
+     console.log("📣📣📣 [PLAY_BUTTON_TRIGGERED] handleTogglePlay called! Current state -> isPlaying: " + isPlaying + " | First step (currentStepIndexRef.current): " + currentStepIndexRef.current);
+@@ -2071,13 +2435,9 @@ export default function App() {
+       if (isRecordingVocal) {
+         stopVocalRecording();
+       }
+-      // Stop ongoing voice synthesizers decay
++      // Stop ongoing voice synthesizers decay and barulho loops
++      audioEngine?.stopAllBarulho();
+       instrumentsConfig.forEach((inst) => {
+-        if (inst.id === 'tarol') {
+-          tarolSampler.stopAll();
+-        } else if (samplers[inst.id]) {
+-          samplers[inst.id].stopAll();
+-        }
+         if (voiceSynths[inst.id]) voiceSynths[inst.id].triggerRelease();
+       });
+       activePlayerSources.forEach((src) => {
+@@ -2108,12 +2468,8 @@ export default function App() {
+     if (isRecordingVocal) {
+       stopVocalRecording();
+     }
++    audioEngine?.stopAllBarulho();
+     instrumentsConfig.forEach((inst) => {
+-      if (inst.id === 'tarol') {
+-        tarolSampler.stopAll();
+-      } else if (samplers[inst.id]) {
+-        samplers[inst.id].stopAll();
+-      }
+       if (voiceSynths[inst.id]) voiceSynths[inst.id].triggerRelease();
+     });
+     activePlayerSources.forEach((src) => {
+@@ -3016,12 +3372,8 @@ export default function App() {
+     audioEngine?.stop();
+     Tone.Transport.stop();
+     
++    audioEngine?.stopAllBarulho();
+     instrumentsConfig.forEach((inst) => {
+-      if (inst.id === 'tarol') {
+-        tarolSampler.stopAll();
+-      } else if (samplers[inst.id]) {
+-        samplers[inst.id].stopAll();
+-      }
+       if (voiceSynths[inst.id]) voiceSynths[inst.id].triggerRelease();
+     });
+     activePlayerSources.forEach((src) => {
+@@ -3061,27 +3413,33 @@ export default function App() {
+     setCopiedPattern(JSON.parse(JSON.stringify(pattern)));
+   };
+ 
+-  const handlePastePattern = (trackId: number, patternId: number) => {
++  const handlePastePattern = (trackId: number, patternId?: number) => {
+     if (!copiedPattern) return;
+     pushUndoState();
+-    setTracks(tracks.map(t => {
++    
++    // Deep copy to prevent shared object references
++    const patternClone = JSON.parse(JSON.stringify(copiedPattern)) as Pattern;
++    
++    // Generate new unique ID
++    const newId = Date.now() + Math.floor(Math.random() * 1000);
++    
++    setTracks(prev => prev.map(t => {
+       if (t.id === trackId) {
+-        const nextPatterns = t.patterns.map(p => {
+-          if (p.id === patternId) {
+-            return {
+-              ...p,
+-              steps: copiedPattern.steps,
+-              activeSteps: [...copiedPattern.activeSteps],
+-              lyrics: [...(copiedPattern.lyrics || Array(copiedPattern.steps).fill(''))],
+-              notes: [...(copiedPattern.notes || Array(copiedPattern.steps).fill(''))],
+-              volumes: [...(copiedPattern.volumes || Array(copiedPattern.steps).fill(80))],
+-              decays: [...(copiedPattern.decays || Array(copiedPattern.steps).fill(100))],
+-              microtimings: [...(copiedPattern.microtimings || Array(copiedPattern.steps).fill(0))],
+-            };
+-          }
+-          return p;
+-        });
+-        return { ...t, patterns: nextPatterns };
++        const newName = `${patternClone.name || (lang === 'fr' ? 'Motif' : 'Padrão')} (${lang === 'fr' ? 'Copie' : 'Cópia'})`;
++        
++        const newPattern: Pattern = {
++          ...patternClone,
++          id: newId,
++          name: newName,
++          // Since it's a new pattern, it shouldn't be assigned to any measures in the timeline yet
++          measureAssignments: Array(totalMeasures).fill(false)
++        };
++        
++        return {
++          ...t,
++          patterns: [...t.patterns, newPattern],
++          selectedPatternId: newId // Set the newly pasted pattern as selected
++        };
+       }
+       return t;
+     }));
+@@ -3253,88 +3611,129 @@ export default function App() {
+   };
+ 
+   // Text values key bindings helpers for traditional grid steps
+-  const handleTrackStepValueChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
++  const handleTrackStepValueChange = (
++    trackId: number,
++    patternId: number,
++    stepIdx: number | number[],
++    val: string | string[],
++    lyrics?: string[],
++    notes?: string[]
++  ) => {
+     pushUndoState();
+-    const cleanChar = val.slice(-1);
+     setTracks(prev => prev.map(t => {
+       if (t.id === trackId) {
+-        const nextPatterns = t.patterns.map(p => {
+-          if (p.id === patternId) {
+-            const copySteps = [...p.activeSteps];
+-            const inst = instrumentsConfig[t.instrumentIdx];
+-            let parsed: string | number = 0;
+-            if (val === '0') {
+-              parsed = 0;
+-            } else if (inst.colors[val] !== undefined && val !== 'text') {
+-              parsed = val;
+-            } else if (cleanChar && cleanChar.trim() !== '') {
+-              if (inst.type === 'gongue') {
+-                if (cleanChar === 'G') parsed = 'GRV';
+-                else if (cleanChar === 'g') parsed = 'grv';
+-                else if (cleanChar === 'A') parsed = 'AIG';
+-                else if (cleanChar === 'a') parsed = 'aig';
+-                else if (cleanChar === 't') parsed = 't';
+-              } else if (inst.id === 'mineiro') {
+-                if (['P', 'T', 'p', 't'].includes(cleanChar)) parsed = cleanChar;
+-              } else if (inst.id === 'caixa') {
+-                const normVal = val.trim().toLowerCase();
+-                if (normVal === 'rd') parsed = 'rd';
+-                else if (normVal === 're') parsed = 're';
+-                else {
+-                  const lowerChar = cleanChar.toLowerCase();
+-                  if (lowerChar === 'r') parsed = 'rd';
+-                  else if (lowerChar === 'z') parsed = 're';
+-                  else if (lowerChar === 'x') parsed = 'x';
+-                  else if (lowerChar === 'f') parsed = 'f';
+-                  else if (lowerChar === 't') parsed = 't';
+-                  else if (['d', 'e'].includes(lowerChar)) {
+-                    parsed = cleanChar;
+-                  }
+-                }
+-              } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
++        const inst = instrumentsConfig[t.instrumentIdx];
++
++        const parseVal = (v: string): string | number => {
++          if (!v) return 0;
++          const cleanChar = v.slice(-1);
++          let parsed: string | number = 0;
++          if (v === '0') {
++            parsed = 0;
++          } else if (inst.colors[v] !== undefined && v !== 'text') {
++            parsed = v;
++          } else if (cleanChar && cleanChar.trim() !== '') {
++            if (inst.type === 'gongue') {
++              if (cleanChar === 'G') parsed = 'GRV';
++              else if (cleanChar === 'g') parsed = 'grv';
++              else if (cleanChar === 'A') parsed = 'AIG';
++              else if (cleanChar === 'a') parsed = 'aig';
++              else if (cleanChar === 't') parsed = 't';
++            } else if (inst.id === 'mineiro') {
++              if (['P', 'T', 'p', 't'].includes(cleanChar)) parsed = cleanChar;
++            } else if (inst.id === 'caixa') {
++              const normVal = v.trim().toLowerCase();
++              if (normVal === 'rd') parsed = 'rd';
++              else if (normVal === 're') parsed = 're';
++              else {
+                 const lowerChar = cleanChar.toLowerCase();
+-                if (['x', 'i'].includes(lowerChar)) {
+-                  parsed = lowerChar;
+-                } else if (cleanChar === 't') {
+-                  parsed = 't';
+-                } else if (['d', 'e', 'c'].includes(lowerChar)) {
++                if (lowerChar === 'r') parsed = 'rd';
++                else if (lowerChar === 'z') parsed = 're';
++                else if (lowerChar === 'x') parsed = 'x';
++                else if (lowerChar === 'f') parsed = 'f';
++                else if (lowerChar === 't') parsed = 't';
++                else if (['d', 'e'].includes(lowerChar)) {
+                   parsed = cleanChar;
+                 }
+-              } else if (inst.id === 'tarol') {
+-                const normVal = val.trim();
+-                if (normVal === 'Re') parsed = 'Re';
+-                else if (normVal === 'Rd') parsed = 'Rd';
+-                else if (cleanChar === 'r') parsed = 'Re';
+-                else if (cleanChar === 'R') parsed = 'Rd';
+-                else if (['d', 'D', 'e', 'E'].includes(cleanChar)) {
+-                  parsed = cleanChar;
+-                } else {
+-                  const lowerChar = cleanChar.toLowerCase();
+-                  if (lowerChar === 'x') {
+-                    parsed = 'X';
+-                  } else if (lowerChar === 'f') {
+-                    parsed = 'F';
+-                  } else if (lowerChar === 'c') {
+-                    parsed = 'C';
+-                  } else if (lowerChar === 't') {
+-                    parsed = 'T';
+-                  }
+-                }
+-              } else if (inst.id === 'agbe') {
++              }
++            } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
++              const lowerChar = cleanChar.toLowerCase();
++              if (['x', 'i'].includes(lowerChar)) {
++                parsed = lowerChar;
++              } else if (cleanChar === 't') {
++                parsed = 't';
++              } else if (['d', 'e', 'c'].includes(lowerChar)) {
++                parsed = cleanChar;
++              }
++            } else if (inst.id === 'tarol') {
++              const normVal = v.trim();
++              if (normVal === 'Re') parsed = 'Re';
++              else if (normVal === 'Rd') parsed = 'Rd';
++              else if (cleanChar === 'r') parsed = 'Re';
++              else if (cleanChar === 'R') parsed = 'Rd';
++              else if (['d', 'D', 'e', 'E'].includes(cleanChar)) {
++                parsed = cleanChar;
++              } else {
+                 const lowerChar = cleanChar.toLowerCase();
+-                if (['s'].includes(lowerChar)) {
+-                  parsed = cleanChar;
+-                } else if (cleanChar === 't') {
+-                  parsed = 't';
+-                } else if (['d', 'e'].includes(lowerChar)) {
+-                  parsed = cleanChar;
++                if (lowerChar === 'x') {
++                  parsed = 'X';
++                } else if (lowerChar === 'f') {
++                  parsed = 'F';
++                } else if (lowerChar === 'c') {
++                  parsed = 'C';
++                } else if (lowerChar === 't') {
++                  parsed = 'T';
+                 }
+-              } else {
+-                if (['D', 'E', 'd', 'e'].includes(cleanChar)) parsed = cleanChar;
+               }
++            } else if (inst.id === 'agbe') {
++              const lowerChar = cleanChar.toLowerCase();
++              if (['s'].includes(lowerChar)) {
++                parsed = cleanChar;
++              } else if (cleanChar === 't') {
++                parsed = 't';
++              } else if (['d', 'e'].includes(lowerChar)) {
++                parsed = cleanChar;
++              }
++            } else {
++              if (['D', 'E', 'd', 'e'].includes(cleanChar)) parsed = cleanChar;
+             }
+-            copySteps[stepIdx] = parsed;
+-            return { ...p, activeSteps: copySteps };
++          }
++          return parsed;
++        };
++
++        const nextPatterns = t.patterns.map(p => {
++          if (p.id === patternId) {
++            const copySteps = [...p.activeSteps];
++            const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
++            const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
++
++            if (Array.isArray(stepIdx)) {
++              stepIdx.forEach((idx, i) => {
++                const currentVal = Array.isArray(val) ? val[i] : val;
++                copySteps[idx] = parseVal(currentVal);
++                if (lyrics && lyrics[i] !== undefined) {
++                  arrLyrics[idx] = lyrics[i];
++                }
++                if (notes && notes[i] !== undefined) {
++                  arrNotes[idx] = notes[i];
++                }
++              });
++            } else {
++              const currentVal = Array.isArray(val) ? val[0] : val;
++              copySteps[stepIdx] = parseVal(currentVal);
++              if (lyrics && lyrics[0] !== undefined) {
++                arrLyrics[stepIdx] = lyrics[0];
++              }
++              if (notes && notes[0] !== undefined) {
++                arrNotes[stepIdx] = notes[0];
++              }
++            }
++            return {
++              ...p,
++              activeSteps: copySteps,
++              lyrics: arrLyrics,
++              notes: arrNotes
++            };
+           }
+           return p;
+         });
+@@ -4066,7 +4465,7 @@ export default function App() {
+   }, [tracks, currentMeasure, soloPatternPlayId]);
+ 
+   return (
+-    <div className="flex flex-col h-screen text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
++    <div className="flex flex-col h-dvh text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
+       {/* Visual buffer loader loading overlay */}
+       {isLoading && (
+         <div id="loading-overlay" className="absolute inset-0 bg-[#121212]/90 flex flex-col items-center justify-center z-[9999] gap-2.5">
+@@ -4117,6 +4516,8 @@ export default function App() {
+         }}
+         onUndo={handleUndo}
+         canUndo={tracksHistory.length > 0}
++        onRedo={handleRedo}
++        canRedo={tracksRedoHistory.length > 0}
+         isMobile={isMobile}
+         isSwingOn={isSwingOn}
+         onSwingToggle={() => setIsSwingOn(!isSwingOn)}
+@@ -4132,7 +4533,7 @@ export default function App() {
+       />
+ 
+       {/* Main Workspace workspace containing expanding grids layouts */}
+-      <div id="main-workspace" className="flex flex-grow overflow-hidden relative w-full h-[calc(100vh-130px)] mobile-stack cordel-bg">
++      <div id="main-workspace" className="flex flex-grow overflow-hidden relative w-full h-[calc(100dvh-130px)] mobile-stack cordel-bg">
+         {viewMode === 'roda' && (
+           <>
+             {/* Left column tracks mixers */}
+@@ -4246,11 +4647,18 @@ export default function App() {
+                 isMobile={isMobile}
+                 onNavigateMeasure={(measureIdx) => handleTimelineNavigate(measureIdx, 0, 16)}
+                 activeSignal={(() => {
+-                  const sigId = measureSignals[currentMeasure];
++                  let sigId = measureSignals[currentMeasure];
++                  if (!sigId && totalMeasures > 0) {
++                    const prevMeasure = (currentMeasure - 1 + totalMeasures) % totalMeasures;
++                    sigId = measureSignals[prevMeasure];
++                  }
+                   if (!sigId) return null;
+                   const sig = (metadata?.rhythmSignals || []).find(s => s.id === sigId);
+                   return sig || null;
+                 })()}
++                measureSignals={measureSignals}
++                rhythmSignals={metadata?.rhythmSignals || []}
++                songSections={songSections}
+               />
+             )}
+           </>
+@@ -4434,8 +4842,69 @@ export default function App() {
+           />
+         )}
+ 
++        {viewMode === 'quiz' && (
++          <QuizEngine
++            lang={lang}
++            onExit={() => setViewMode('roda')}
++            onSuccess={() => unlockBooklet('folheto_quiz')}
++          />
++        )}
++
++        {viewMode === 'dictee' && (
++          <DicteeEngine
++            lang={lang}
++            onExit={() => setViewMode('roda')}
++            onSuccess={() => unlockBooklet('folheto_dictee')}
++          />
++        )}
++
++        {viewMode === 'inspecteur' && (
++          <InspecteurEngine
++            lang={lang}
++            onExit={() => setViewMode('roda')}
++            caixaParfaite={inspecteurCaixaParfaite}
++            caixaErreur={inspecteurCaixaErreur}
++            onSuccess={() => unlockBooklet('folheto_inspecteur')}
++          />
++        )}
++
++        {viewMode === 'mestre' && (
++          <MestreEngine
++            lang={lang}
++            onExit={() => setViewMode('roda')}
++            rhythmState={mestreRhythmState}
++            setRhythmState={setMestreRhythmState}
++            onSuccess={() => unlockBooklet('folheto_mestre')}
++          />
++        )}
++
++        {viewMode === 'rythmelive' && (
++          <RythmeLiveEngine
++            lang={lang}
++            onExit={() => setViewMode('roda')}
++            onSuccess={() => unlockBooklet('folheto_rythmelive')}
++          />
++        )}
++
++        {viewMode === 'varal' && (
++          <VaralCordel
++            lang={lang}
++            onExit={() => setViewMode('roda')}
++            unlockedFolhetos={unlockedFolhetos}
++            justUnlockedBookletId={justUnlockedBookletId}
++            onClearJustUnlocked={() => setJustUnlockedBookletId(null)}
++          />
++        )}
++
++        {viewMode === 'studio' && (
++          <MestreStudio
++            lang={lang}
++            onExit={() => setViewMode('roda')}
++          />
++        )}
++
+         {/* Right drawer sidebar context panel */}
+-        {(!isMobile || (viewMode === 'roda' && mobileTab === 'toada')) && (
++        {viewMode !== 'quiz' && viewMode !== 'dictee' && viewMode !== 'inspecteur' && viewMode !== 'mestre' && viewMode !== 'rythmelive' && viewMode !== 'varal' && viewMode !== 'studio' && (!isMobile || (viewMode === 'roda' && mobileTab === 'toada')) && (
+           <RightSidebar
+             lang={lang}
+             activePanel={isMobile ? (activeRightPanel || 'letras') : activeRightPanel}
+@@ -4512,24 +4981,30 @@ export default function App() {
+         </div>
+       )}
+ 
+-      <TransportBar
+-        viewMode={viewMode}
+-        lang={lang}
+-        isPlaying={isPlaying}
+-        onTogglePlay={handleTogglePlay}
+-        onRewind={handleRewind}
+-        isRecording={isRecording}
+-        recordingSeconds={recordingSeconds}
+-        onRecordToggle={handleAudioRecordingToggle}
+-        bpm={bpm}
+-        onBpmChange={handleGlobalBpmChange}
+-        isMetroOn={isMetroOn}
+-        onMetroToggle={() => setIsMetroOn(!isMetroOn)}
+-        isSwingOn={isSwingOn}
+-        onSwingToggle={() => setIsSwingOn(!isSwingOn)}
+-        reverbType={reverbType}
+-        onReverbTypeChange={setReverbType}
+-      />
++      {viewMode !== 'quiz' && viewMode !== 'dictee' && viewMode !== 'inspecteur' && viewMode !== 'mestre' && viewMode !== 'rythmelive' && viewMode !== 'varal' && viewMode !== 'studio' && (
++        <TransportBar
++          viewMode={viewMode as any}
++          lang={lang}
++          isPlaying={isPlaying}
++          onTogglePlay={handleTogglePlay}
++          onRewind={handleRewind}
++          isRecording={isRecording}
++          recordingSeconds={recordingSeconds}
++          onRecordToggle={handleAudioRecordingToggle}
++          bpm={bpm}
++          onBpmChange={handleGlobalBpmChange}
++          isMetroOn={isMetroOn}
++          onMetroToggle={() => setIsMetroOn(!isMetroOn)}
++          isSwingOn={isSwingOn}
++          onSwingToggle={() => setIsSwingOn(!isSwingOn)}
++          reverbType={reverbType}
++          onReverbTypeChange={setReverbType}
++          isLeftHanded={isLeftHanded}
++          onLeftHandedToggle={() => setIsLeftHanded(!isLeftHanded)}
++          activeInstrumentId={activeKeyboardInstrumentId}
++          onActiveInstrumentChange={setActiveKeyboardInstrumentId}
++        />
++      )}
+       {touchSelector && (
+         <TouchStrokeSelector
+           selector={touchSelector}
+@@ -4542,6 +5017,16 @@ export default function App() {
+           lang={lang}
+         />
+       )}
++
++      {/* Autosave status indicator */}
++      <div
++        className={`fixed bottom-20 md:bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 px-3 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[11px] font-bold border-2 border-[var(--cordel-border)] shadow-[2px_2px_0_var(--cordel-border)] transition-all duration-300 pointer-events-none ${
++          isSavedIndicatorVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
++        }`}
++      >
++        <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
++        <span>{lang === 'pt' ? 'Salvo' : 'Sauvegardé'}</span>
++      </div>
+     </div>
+   );
+ }

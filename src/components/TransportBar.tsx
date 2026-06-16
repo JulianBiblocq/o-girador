@@ -20,6 +20,8 @@ interface TransportBarProps {
   reverbType: 'room' | 'studio' | 'hall';
   onReverbTypeChange: (type: 'room' | 'studio' | 'hall') => void;
   viewMode: 'roda' | 'console' | 'timeline';
+  isLeftHanded: boolean;
+  onLeftHandedToggle: () => void;
 }
 
 const TransportBarComponent: React.FC<TransportBarProps> = ({
@@ -39,6 +41,8 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
   reverbType,
   onReverbTypeChange,
   viewMode,
+  isLeftHanded,
+  onLeftHandedToggle,
 }) => {
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
@@ -56,7 +60,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
         <button
           onClick={onMetroToggle}
           className={`px-3 py-1 font-cactus font-bold text-sm flex items-center gap-1.5 cordel-border-sm cordel-button ${
-            isMetroOn ? 'bg-[var(--cordel-wood)] text-[var(--cordel-text)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+            isMetroOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
           }`}
           title={t('metroBtn')}
         >
@@ -74,19 +78,32 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
             <circle cx="15" cy="9.5" r="1.5" fill="currentColor" />
             <circle cx="12" cy="18" r="1" fill="currentColor" />
           </svg>
-          <span className="hidden lg:inline">Metrônomo</span>
+          <span className="hidden lg:inline">{lang === 'pt' ? 'Metrônomo' : 'Métronome'}</span>
         </button>
 
         <button
           onClick={onSwingToggle}
           className={`px-3 py-1 font-cactus font-bold text-sm flex items-center gap-1.5 cordel-border-sm cordel-button hidden md:flex ${
-            isSwingOn ? 'bg-[var(--cordel-wood)] text-[var(--cordel-text)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+            isSwingOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
           }`}
-          title="Swing Maracatu"
+          title={lang === 'pt' ? 'Suingue Maracatu' : 'Swing Maracatu'}
         >
-          <span>〰️</span>
-          <span className="hidden lg:inline">Swing</span>
+          <span className="text-base font-bold leading-none">≈</span>
+          <span className="hidden lg:inline">{t('swingBtn')}</span>
         </button>
+
+        <button
+          onClick={onLeftHandedToggle}
+          className={`px-3 py-1 font-cactus font-bold text-sm flex items-center gap-1.5 cordel-border-sm cordel-button ${
+            isLeftHanded ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+          }`}
+          title={lang === 'fr' ? 'Contrôles pour gaucher' : lang === 'pt' ? 'Controles para canhoto' : 'Left-handed controls'}
+        >
+          <span className="text-base font-bold leading-none">🫲</span>
+          <span className="hidden lg:inline">{lang === 'fr' ? 'Gaucher' : 'Canhoto'}</span>
+        </button>
+
+
 
         <div className="flex items-center gap-1.5 bg-[var(--cordel-bg)] px-2 py-1 cordel-border-sm border-[var(--cordel-border)]">
           <span className="font-cactus font-bold text-[var(--cordel-text)] text-sm select-none">
@@ -120,9 +137,9 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
             onChange={(e) => onReverbTypeChange(e.target.value as any)}
             className="bg-transparent text-[var(--cordel-text)] font-cactus text-xs font-bold outline-none cursor-pointer"
           >
-            <option value="room" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Sala (Room)' : 'Sala'}</option>
-            <option value="studio" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Studio' : 'Estúdio'}</option>
-            <option value="hall" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Cathédrale (Hall)' : 'Catedral'}</option>
+            <option value="room" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'pt' ? 'Sala (Room)' : 'Pièce (Room)'}</option>
+            <option value="studio" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'pt' ? 'Estúdio' : 'Studio'}</option>
+            <option value="hall" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'pt' ? 'Catedral (Hall)' : 'Cathédrale (Hall)'}</option>
           </select>
         </div>
       </div>
@@ -132,7 +149,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
         <button
           onClick={onRewind}
           className="w-10 h-10 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors"
-          title="Retour au début"
+          title={lang === 'pt' ? 'Voltar ao início' : 'Retour au début'}
         >
           <SkipBack className="w-5 h-5" fill="currentColor" />
         </button>
@@ -140,9 +157,9 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
         <button
           onClick={onTogglePlay}
           className={`w-14 h-14 cordel-border cordel-button flex items-center justify-center transition-colors ${
-            isPlaying ? 'bg-[#f1c40f] text-[#1a1a1a]' : 'bg-[var(--cordel-wood)] text-[var(--cordel-text)]'
+            isPlaying ? 'bg-[#f1c40f] text-[#1a1a1a]' : 'bg-[var(--cordel-wood)] text-[#f4ecd8]'
           }`}
-          title={isPlaying ? 'Pause' : 'Lecture'}
+          title={isPlaying ? (lang === 'pt' ? 'Pausar' : 'Pause') : (lang === 'pt' ? 'Tocar' : 'Lecture')}
         >
           {isPlaying ? <Square className="w-6 h-6" fill="currentColor" /> : <Play className="w-8 h-8 ml-1" fill="currentColor" />}
         </button>

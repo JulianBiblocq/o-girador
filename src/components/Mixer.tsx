@@ -10,6 +10,7 @@ import { i18n, instrumentsConfig } from '../data';
 
 interface MixerProps {
   lang: Language;
+  isLeftHanded?: boolean;
   tracks: TrackGroup[];
   meters?: { [id: string]: any };
   soloPatternPlayId?: number | null;
@@ -23,7 +24,7 @@ interface MixerProps {
   onVolumeChange: (id: number, val: number) => void;
   onPanChange: (id: number, val: number) => void;
   onStepsChange: (trackId: number, patternId: number, steps: number) => void;
-  onStepValueChange: (trackId: number, patternId: number, stepIdx: number, val: string) => void;
+  onStepValueChange: (trackId: number, patternId: number, stepIdx: number | number[], val: string | string[], lyrics?: string[], notes?: string[]) => void;
   onStepKeyDown: (trackId: number, patternId: number, stepIdx: number, key: string, currentVal: string, targetEl: HTMLInputElement) => void;
   onVoiceTypeToggle: (trackId: number, patternId: number, stepIdx: number) => void;
   onVoiceSylChange: (trackId: number, patternId: number, stepIdx: number, val: string) => void;
@@ -56,6 +57,7 @@ interface MixerProps {
 
 const MixerComponent: React.FC<MixerProps> = ({
   lang,
+  isLeftHanded = false,
   tracks,
   meters,
   soloPatternPlayId,
@@ -120,6 +122,7 @@ const MixerComponent: React.FC<MixerProps> = ({
             <TrackMixer
               key={track.id}
               lang={lang}
+              isLeftHanded={isLeftHanded}
               track={track}
               index={idx}
               totalTracks={tracks.length}
@@ -135,7 +138,7 @@ const MixerComponent: React.FC<MixerProps> = ({
               onVolumeChange={(val) => onVolumeChange(track.id, val)}
               onPanChange={(val) => onPanChange(track.id, val)}
               onStepsChange={(patternId, steps) => onStepsChange(track.id, patternId, steps)}
-              onStepValueChange={(patternId, stepIdx, val) => onStepValueChange(track.id, patternId, stepIdx, val)}
+              onStepValueChange={(patternId, stepIdx, val, lyrics, notes) => onStepValueChange(track.id, patternId, stepIdx, val, lyrics, notes)}
               onStepKeyDown={(patternId, stepIdx, key, cVal, el) => onStepKeyDown(track.id, patternId, stepIdx, key, cVal, el)}
               onVoiceTypeToggle={(patternId, stepIdx) => onVoiceTypeToggle(track.id, patternId, stepIdx)}
               onVoiceSylChange={(patternId, stepIdx, val) => onVoiceSylChange(track.id, patternId, stepIdx, val)}

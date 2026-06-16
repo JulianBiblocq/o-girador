@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
+import { GoogleLoginButton } from './GoogleLoginButton';
 
 interface HeaderProps {
   lang: Language;
@@ -38,6 +39,8 @@ interface HeaderProps {
   onToggleDarkMode: () => void;
   onUndo: () => void;
   canUndo: boolean;
+  onRedo: () => void;
+  canRedo: boolean;
   isMobile: boolean;
   isSwingOn: boolean;
   onSwingToggle: () => void;
@@ -51,6 +54,9 @@ interface HeaderProps {
   onReverbTypeChange: (type: 'room' | 'studio' | 'hall') => void;
   onShare?: () => void;
   version?: string | number;
+  onExportTablature?: () => void;
+  showInstallButton?: boolean;
+  onInstallClick?: () => void;
 }
 
 const HeaderComponent: React.FC<HeaderProps> = ({
@@ -76,6 +82,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   onToggleDarkMode,
   onUndo,
   canUndo,
+  onRedo,
+  canRedo,
   isMobile,
   isSwingOn,
   onSwingToggle,
@@ -89,12 +97,18 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   onReverbTypeChange,
   onShare,
   version,
+  onExportTablature,
+  showInstallButton,
+  onInstallClick,
 }) => {
   const [addDropOpen, setAddDropOpen] = useState(false);
   const addDropRef = useRef<HTMLDivElement>(null);
   
   const [projectDropOpen, setProjectDropOpen] = useState(false);
   const projectDropRef = useRef<HTMLDivElement>(null);
+
+  const [jogoDropOpen, setJogoDropOpen] = useState(false);
+  const jogoDropRef = useRef<HTMLDivElement>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Use a ref to always have the latest onLoad callback, bypassing React.memo stale closure issue
@@ -116,6 +130,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       }
       if (projectDropRef.current && !projectDropRef.current.contains(e.target as Node)) {
         setProjectDropOpen(false);
+      }
+      if (jogoDropRef.current && !jogoDropRef.current.contains(e.target as Node)) {
+        setJogoDropOpen(false);
       }
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target as Node)) {
         setMobileMenuOpen(false);
@@ -141,107 +158,104 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             ☰
           </button>
 
-          {/* Drawer Menu dropdown overlay */}
           {mobileMenuOpen && (
-            <div className="absolute top-12 left-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] w-[280px] max-h-[80vh] overflow-y-auto z-[999] flex flex-col p-3 gap-3">
+            <div className="absolute top-12 left-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] w-[280px] max-h-[80vh] overflow-y-auto z-[999] flex flex-col p-3 gap-4">
               
-              {/* Project Options */}
-              <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/30 pb-2">
-                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide">Projet</span>
-                <div className="flex flex-col gap-1.5 mt-1">
-                  <button onClick={() => { onClear(); setMobileMenuOpen(false); }} className="flex items-center gap-2 px-3 py-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
-                    <Trash2 className="w-4 h-4" /> {t('clear')}
-                  </button>
-                  <button onClick={() => { onSave(); setMobileMenuOpen(false); }} className="flex items-center gap-2 px-3 py-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
-                    <Download className="w-4 h-4" /> {lang === 'pt' ? 'Exportar (.json)' : 'Exporter (.json)'}
-                  </button>
-                  <button onClick={() => { fileInputRef.current?.click(); setMobileMenuOpen(false); }} className="flex items-center gap-2 px-3 py-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
-                    <Upload className="w-4 h-4" /> {lang === 'pt' ? 'Importar (.json)' : 'Importer (.json)'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Preset Selector */}
-              <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/30 pb-2">
-                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide">Presets</span>
-                <select
-                  value={preset}
-                  onChange={(e) => { onPresetChange(e.target.value); setMobileMenuOpen(false); }}
-                  className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus text-xs font-bold p-1.5 cordel-border-sm outline-none cursor-pointer mt-1"
-                >
-                  <option value="" disabled>{lang === 'pt' ? 'Escolha um ritmo' : 'Choisir un rythme'}</option>
-                  {presetFiles.map((file) => {
-                    let label = file.replace(/\.json$/, '');
-                    if (label.startsWith('_')) label = label.substring(1);
-                    label = label.replace(/_/g, ' ');
-                    return (
-                      <option key={file} value={file} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
-                        {label}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              {/* Master Volume */}
-              <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/30 pb-2">
-                <span className="text-[10px] font-bold text-[var(--cordel-text)]/70 uppercase tracking-wide">Volume Général</span>
-                <input
-                  type="range"
-                  min="-40"
-                  max="6"
-                  value={masterVol}
-                  onChange={(e) => onMasterVolChange(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-[var(--cordel-text)] border border-[var(--cordel-border)] rounded-none outline-none cursor-pointer mt-1"
-                  style={{ accentColor: 'var(--cordel-text)' }}
-                />
-              </div>
-
-              {/* Reverb, Swing, Tempo Sig, Measures */}
-              <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-2">
-                {viewMode === 'console' && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-cactus font-bold text-[var(--cordel-text)]">Reverb</span>
-                    <select
-                      value={reverbType}
-                      onChange={(e) => onReverbTypeChange(e.target.value as any)}
-                      className="bg-transparent text-[var(--cordel-text)] font-cactus text-xs font-bold outline-none cursor-pointer cordel-border-sm px-1.5 py-0.5"
-                    >
-                      <option value="room" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Sala (Room)' : 'Sala'}</option>
-                      <option value="studio" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Studio' : 'Estúdio'}</option>
-                      <option value="hall" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Cathédrale (Hall)' : 'Catedral'}</option>
-                    </select>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-cactus font-bold text-[var(--cordel-text)]">Swing Maracatu</span>
+              {/* 📲 PWA INSTALLATION */}
+              {showInstallButton && onInstallClick && (
+                <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
+                  <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                    📲 PWA
+                  </span>
                   <button
-                    onClick={onSwingToggle}
-                    className={`px-2 py-0.5 font-cactus font-bold text-xs cordel-border-sm cordel-button cursor-pointer ${
-                      isSwingOn ? 'bg-[var(--cordel-wood)] text-[var(--cordel-text)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-                    }`}
+                    onClick={() => {
+                      onInstallClick();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="flex items-center justify-center gap-2 w-full px-3 py-2 bg-[#e67e22] text-[#1a1a1a] hover:opacity-90 font-bold font-cactus uppercase cordel-border-sm cursor-pointer"
                   >
-                    {isSwingOn ? 'ON' : 'OFF'}
+                    <Download className="w-4 h-4 shrink-0" />
+                    {lang === 'pt' ? 'Instalar App' : "Installer l'app"}
                   </button>
                 </div>
+              )}
 
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-cactus font-bold text-[var(--cordel-text)]">{t('tsLabel')}</span>
+              {/* 🔑 AUTHENTIFICATION */}
+              <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
+                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                  🔑 {lang === 'pt' ? 'Autenticação' : 'Authentification'}
+                </span>
+                <GoogleLoginButton className="w-full justify-center" />
+              </div>
+              
+              {/* 📂 PROJET */}
+              <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
+                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                  📂 {lang === 'pt' ? 'Projeto' : 'Projet'}
+                </span>
+                
+                {/* Presets Selector */}
+                <div className="flex flex-col gap-1 mt-1">
+                  <span className="text-[9px] font-bold text-[var(--cordel-text)]/60 uppercase tracking-wider">Presets</span>
                   <select
-                    value={timeSig}
-                    onChange={(e) => onTimeSigChange(e.target.value as any)}
-                    className="bg-transparent text-[var(--cordel-text)] font-cactus text-xs font-bold outline-none cursor-pointer cordel-border-sm px-1.5 py-0.5"
+                    value={preset}
+                    onChange={(e) => { onPresetChange(e.target.value); setMobileMenuOpen(false); }}
+                    className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus text-xs font-bold p-1.5 cordel-border-sm outline-none cursor-pointer"
                   >
-                    <option value="4/4" className="bg-[var(--cordel-bg)]">4/4</option>
-                    <option value="3/4" className="bg-[var(--cordel-bg)]">3/4</option>
-                    <option value="2/4" className="bg-[var(--cordel-bg)]">2/4</option>
-                    <option value="6/8" className="bg-[var(--cordel-bg)]">6/8</option>
-                    <option value="12/8" className="bg-[var(--cordel-bg)]">12/8</option>
+                    <option value="" disabled>{lang === 'pt' ? 'Escolha um rythme' : 'Choisir un rythme'}</option>
+                    {presetFiles.map((file) => {
+                      let label = file.replace(/\.json$/, '');
+                      if (label.startsWith('_')) label = label.substring(1);
+                      label = label.replace(/_/g, ' ');
+                      return (
+                        <option key={file} value={file} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+                          {label}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="grid grid-cols-2 gap-1.5 mt-1">
+                  <button onClick={() => { onClear(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
+                    <Trash2 className="w-3.5 h-3.5 shrink-0" /> {t('clear')}
+                  </button>
+                  <button onClick={() => {
+                    if (onShare) {
+                      onShare();
+                    }
+                    setMobileMenuOpen(false);
+                  }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
+                    <Share2 className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Compartilhar' : 'Partager'}
+                  </button>
+                  <button onClick={() => { fileInputRef.current?.click(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
+                    <Upload className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Importar' : 'Importer'}
+                  </button>
+                  <button onClick={() => { onSave(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
+                    <Download className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Exportar' : 'Exporter'}
+                  </button>
+                  <button onClick={() => { onExportTablature?.(); setMobileMenuOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-center w-full col-span-2">
+                    <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'fr' ? 'Exporter Partition (TAB)' : 'Exportar Partitura (TAB)'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 📝 ÉDITION */}
+              <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
+                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                  📝 {lang === 'pt' ? 'Edição' : 'Édition'}
+                </span>
+                
+                <div className="grid grid-cols-2 gap-1.5 mt-1">
+                  <button onClick={() => { onUndo(); setMobileMenuOpen(false); }} disabled={!canUndo} className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-1">
+                    ↩️ {lang === 'pt' ? 'Desfazer' : 'Annuler'}
+                  </button>
+                  <button onClick={() => { onRedo(); setMobileMenuOpen(false); }} disabled={!canRedo} className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-1">
+                    ↪️ {lang === 'pt' ? 'Refazer' : 'Rétablir'}
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between mt-1">
                   <span className="text-xs font-cactus font-bold text-[var(--cordel-text)]">Mesures</span>
                   <div className="flex items-center gap-1">
                     <button
@@ -266,42 +280,112 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                     >+</button>
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-cactus font-bold text-[var(--cordel-text)]">{t('tsLabel')}</span>
+                  <select
+                    value={timeSig}
+                    onChange={(e) => onTimeSigChange(e.target.value as any)}
+                    className="bg-transparent text-[var(--cordel-text)] font-cactus text-xs font-bold outline-none cursor-pointer cordel-border-sm px-1.5 py-0.5"
+                  >
+                    <option value="4/4" className="bg-[var(--cordel-bg)]">4/4</option>
+                    <option value="3/4" className="bg-[var(--cordel-bg)]">3/4</option>
+                    <option value="2/4" className="bg-[var(--cordel-bg)]">2/4</option>
+                    <option value="6/8" className="bg-[var(--cordel-bg)]">6/8</option>
+                    <option value="12/8" className="bg-[var(--cordel-bg)]">12/8</option>
+                  </select>
+                </div>
               </div>
 
-              {/* Secondary Buttons Panel */}
-              <div className="grid grid-cols-2 gap-1.5">
-                <button onClick={() => { onUndo(); setMobileMenuOpen(false); }} disabled={!canUndo} className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer">
-                  ↩️ {lang === 'pt' ? 'Desfazer' : 'Annuler'}
-                </button>
-                <button onClick={() => { onToggleDarkMode(); setMobileMenuOpen(false); }} className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer">
-                  {isDarkMode ? '🌞 Light' : '🌙 Dark'}
-                </button>
-                <button onClick={() => { onLangToggle(); setMobileMenuOpen(false); }} className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer">
-                  🌐 {lang === 'pt' ? 'FR' : 'PT'}
-                </button>
-                <button onClick={() => { onToggleRightPanel('legend'); setMobileMenuOpen(false); }} className={`px-2 py-1 cordel-border-sm text-xs font-bold font-cactus cursor-pointer ${activeRightPanel === 'legend' ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'}`}>
-                  📖 {t('legend')}
-                </button>
-                <button onClick={() => { onToggleRightPanel('letras'); setMobileMenuOpen(false); }} className={`px-2 py-1 cordel-border-sm text-xs font-bold font-cactus cursor-pointer ${activeRightPanel === 'letras' ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'}`}>
-                  📝 TOADA
-                </button>
-                <button onClick={() => { window.open('https://youtube.com/playlist?list=PLBaYhFEJG6PwhFTn0mbfkdejwOrphZRu1&si=p80nNE9lcbzij4Eo', '_blank'); setMobileMenuOpen(false); }} className="px-2 py-1 bg-[#e67e22] text-[#1a1a1a] cordel-border-sm text-xs font-bold font-cactus hover:opacity-90 cursor-pointer">
-                  🎥 Tuto
-                </button>
-                <button onClick={() => { window.open('tutorial.html', '_blank'); setMobileMenuOpen(false); }} className="px-2 py-1 bg-[#8e44ad] text-[#1a1a1a] cordel-border-sm text-xs font-bold font-cactus hover:opacity-90 cursor-pointer">
-                  📖 Guide
-                </button>
-                <button onClick={() => {
-                  if (onShare) {
-                    onShare();
-                  }
-                  setMobileMenuOpen(false);
-                }} className="px-2 py-1 bg-[#2980b9] text-[#1a1a1a] cordel-border-sm text-xs font-bold font-cactus hover:opacity-90 cursor-pointer">
-                  🔗 Partager
-                </button>
-                <button onClick={() => { window.open('https://github.com/JulianBiblocq/BaqueMix/issues', '_blank'); setMobileMenuOpen(false); }} className="px-2 py-1 bg-[#27ae60] text-[#1a1a1a] cordel-border-sm text-xs font-bold font-cactus hover:opacity-90 cursor-pointer col-span-2">
-                  💬 {t('feedbackBtn')}
-                </button>
+              {/* 🎛️ OPTIONS AUDIO */}
+              <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
+                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                  🎛️ {lang === 'pt' ? 'Áudio' : 'Audio'}
+                </span>
+                
+                {/* Master Volume */}
+                <div className="flex flex-col gap-1 mt-1">
+                  <span className="text-[9px] font-bold text-[var(--cordel-text)]/60 uppercase tracking-wider">Volume Général</span>
+                  <input
+                    type="range"
+                    min="-40"
+                    max="6"
+                    value={masterVol}
+                    onChange={(e) => onMasterVolChange(parseFloat(e.target.value))}
+                    className="w-full h-2 bg-[var(--cordel-text)] border border-[var(--cordel-border)] rounded-none outline-none cursor-pointer"
+                    style={{ accentColor: 'var(--cordel-text)' }}
+                  />
+                </div>
+
+                {viewMode === 'console' && (
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-xs font-cactus font-bold text-[var(--cordel-text)]">Reverb</span>
+                    <select
+                      value={reverbType}
+                      onChange={(e) => onReverbTypeChange(e.target.value as any)}
+                      className="bg-transparent text-[var(--cordel-text)] font-cactus text-xs font-bold outline-none cursor-pointer cordel-border-sm px-1.5 py-0.5"
+                    >
+                      <option value="room" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Sala (Room)' : 'Sala'}</option>
+                      <option value="studio" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Studio' : 'Estúdio'}</option>
+                      <option value="hall" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Cathédrale (Hall)' : 'Catedral'}</option>
+                    </select>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-cactus font-bold text-[var(--cordel-text)]">
+                    {lang === 'pt' ? 'Suingue Maracatu' : 'Swing Maracatu'}
+                  </span>
+                  <button
+                    onClick={onSwingToggle}
+                    className={`px-2 py-0.5 font-cactus font-bold text-xs cordel-border-sm cordel-button cursor-pointer ${
+                      isSwingOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+                    }`}
+                  >
+                    {isSwingOn ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 👁️ AFFICHAGE & LANGUE */}
+              <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
+                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                  👁️ {lang === 'pt' ? 'Visualização & Idioma' : 'Affichage & Langue'}
+                </span>
+                
+                <div className="grid grid-cols-2 gap-1.5 mt-1">
+                  <button onClick={() => { onToggleDarkMode(); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer">
+                    {isDarkMode ? '🌞 Light' : '🌙 Dark'}
+                  </button>
+                  <button onClick={() => { onLangToggle(); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer">
+                    🌐 {lang === 'pt' ? 'FR' : 'PT'}
+                  </button>
+                  <button onClick={() => { onToggleRightPanel('legend'); setMobileMenuOpen(false); }} className={`px-2 py-1.5 cordel-border-sm text-xs font-bold font-cactus cursor-pointer ${activeRightPanel === 'legend' ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'}`}>
+                    📖 {t('legend')}
+                  </button>
+                  <button onClick={() => { onToggleRightPanel('letras'); setMobileMenuOpen(false); }} className={`px-2 py-1.5 cordel-border-sm text-xs font-bold font-cactus cursor-pointer ${activeRightPanel === 'letras' ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'}`}>
+                    📝 TOADA
+                  </button>
+                </div>
+              </div>
+
+              {/* ❓ AIDE & COMMUNAUTÉ */}
+              <div className="flex flex-col gap-2">
+                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                  ❓ {lang === 'pt' ? 'Ajuda & Comunidade' : 'Aide & Communauté'}
+                </span>
+                
+                <div className="grid grid-cols-2 gap-1.5 mt-1">
+                  <button onClick={() => { window.open('https://youtube.com/playlist?list=PLBaYhFEJG6PwhFTn0mbfkdejwOrphZRu1&si=p80nNE9lcbzij4Eo', '_blank'); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[#e67e22] text-[#1a1a1a] cordel-border-sm text-xs font-bold font-cactus hover:opacity-90 cursor-pointer flex items-center justify-center gap-1">
+                    🎥 Tuto
+                  </button>
+                  <button onClick={() => { window.open('tutorial.html', '_blank'); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[#8e44ad] text-[#1a1a1a] cordel-border-sm text-xs font-bold font-cactus hover:opacity-90 cursor-pointer flex items-center justify-center gap-1">
+                    📖 Guide
+                  </button>
+                  <button onClick={() => { window.open('https://github.com/JulianBiblocq/BaqueMix/issues', '_blank'); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[#27ae60] text-[#1a1a1a] cordel-border-sm text-xs font-bold font-cactus hover:opacity-90 cursor-pointer col-span-2 flex items-center justify-center gap-1">
+                    💬 {t('feedbackBtn')}
+                  </button>
+                </div>
               </div>
 
             </div>
@@ -309,8 +393,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         </div>
 
         {/* Center: App Title */}
-        <span className="font-cactus text-[var(--cordel-text)] text-2xl font-medium tracking-widest uppercase select-none cursor-default">
-          BaqueMix {version && <span className="text-[10px] lowercase opacity-50 ml-1 font-sans">v{version}</span>}
+        <span className="font-cactus text-[var(--cordel-text)] text-base font-bold tracking-wide uppercase select-none cursor-default whitespace-nowrap">
+          BaqueMix
         </span>
 
         {/* Right: Quick actions (View Switcher and Add Instrument) */}
@@ -353,6 +437,84 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           >
             🎞️
           </button>
+
+          {/* JOGO DROPDOWN (MOBILE) */}
+          <div className="relative font-sans" ref={jogoDropRef}>
+            <button
+              onClick={() => setJogoDropOpen(!jogoDropOpen)}
+              className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
+                viewMode === 'quiz' || viewMode === 'dictee' || viewMode === 'inspecteur' || viewMode === 'mestre' || viewMode === 'rythmelive'
+                  ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                  : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+              }`}
+              title={lang === 'pt' ? 'Jogos' : 'Jeux'}
+            >
+              🎮
+            </button>
+            
+            {jogoDropOpen && (
+              <div className="absolute top-10 right-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] min-w-[160px] z-[100] flex flex-col py-1">
+                <button
+                  onClick={() => { onViewModeToggle('quiz'); setJogoDropOpen(false); }}
+                  className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                    viewMode === 'quiz' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                  }`}
+                >
+                  🎓 {lang === 'pt' ? 'Quiz' : 'Quiz'}
+                </button>
+                <button
+                  onClick={() => { onViewModeToggle('dictee'); setJogoDropOpen(false); }}
+                  className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                    viewMode === 'dictee' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                  }`}
+                >
+                  🧩 {lang === 'pt' ? 'Ditado' : 'Dictée'}
+                </button>
+                <button
+                  onClick={() => { onViewModeToggle('inspecteur'); setJogoDropOpen(false); }}
+                  className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                    viewMode === 'inspecteur' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                  }`}
+                >
+                  🔍 {lang === 'pt' ? 'Inspetor' : 'Inspecteur'}
+                </button>
+                <button
+                  onClick={() => { onViewModeToggle('mestre'); setJogoDropOpen(false); }}
+                  className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                    viewMode === 'mestre' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                  }`}
+                >
+                  ⏳ {lang === 'pt' ? 'Mestre' : 'Mestre'}
+                </button>
+                <button
+                  onClick={() => { onViewModeToggle('rythmelive'); setJogoDropOpen(false); }}
+                  className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                    viewMode === 'rythmelive' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                  }`}
+                >
+                  🥁 {lang === 'pt' ? 'Ritmo Live' : 'Rythme Live'}
+                </button>
+                <div className="border-t border-dashed border-[var(--cordel-border)]/30 my-1"></div>
+                <button
+                  onClick={() => { onViewModeToggle('varal'); setJogoDropOpen(false); }}
+                  className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                    viewMode === 'varal' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                  }`}
+                >
+                  🪢 {lang === 'pt' ? 'Varal (Progresso)' : 'Varal (Progression)'}
+                </button>
+                <div className="border-t border-dashed border-[var(--cordel-border)]/30 my-1"></div>
+                <button
+                  onClick={() => { onViewModeToggle('studio'); setJogoDropOpen(false); }}
+                  className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                    viewMode === 'studio' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                  }`}
+                >
+                  👑 {lang === 'pt' ? 'Estúdio do Mestre' : 'Studio du Mestre'}
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Add Instrument Dropdown */}
           <div className="relative" ref={addDropRef}>
@@ -401,7 +563,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       id="top-bar"
       className="w-full min-h-[70px] bg-[var(--cordel-bg)] border-b-2 border-[var(--cordel-border)] flex flex-wrap items-center justify-between px-5 py-2.5 gap-2 z-50 relative select-none shrink-0"
     >
-      {/* LEFT: Burger, Title, Project Menu */}
       <div className="flex items-center gap-3">
         {isLeftPanelCollapsed && (
           <button
@@ -512,6 +673,15 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         >
           ↩️
         </button>
+
+        <button
+          onClick={onRedo}
+          disabled={!canRedo}
+          className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button w-[34px] h-[34px] flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ml-1.5 shrink-0"
+          title={lang === 'pt' ? 'Refazer (Ctrl+Y)' : 'Rétablir (Ctrl+Y)'}
+        >
+          ↪️
+        </button>
       </div>
 
       {/* CENTER: Main Core Actions */}
@@ -555,6 +725,84 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           🎞️ {lang === 'fr' ? 'SÉQUENCE' : 'SEQUÊNCIA'}
         </button>
 
+        {/* JOGOS DROPDOWN (DESKTOP) */}
+        <div className="relative font-sans" ref={jogoDropRef}>
+          <button
+            onClick={() => setJogoDropOpen(!jogoDropOpen)}
+            className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${
+              viewMode === 'quiz' || viewMode === 'dictee' || viewMode === 'inspecteur' || viewMode === 'mestre' || viewMode === 'rythmelive'
+                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+            }`}
+            title={lang === 'pt' ? 'Jogos' : 'Jeux'}
+          >
+            🎮 {lang === 'pt' ? 'JOGOS' : 'JEUX'} <span className="text-[10px]">▼</span>
+          </button>
+          
+          {jogoDropOpen && (
+            <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] min-w-[200px] z-[100] flex flex-col py-1">
+              <button
+                onClick={() => { onViewModeToggle('quiz'); setJogoDropOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                  viewMode === 'quiz' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                }`}
+              >
+                🎓 {lang === 'pt' ? 'Quiz Pedagógico' : 'Quiz Pédagogique'}
+              </button>
+              <button
+                onClick={() => { onViewModeToggle('dictee'); setJogoDropOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                  viewMode === 'dictee' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                }`}
+              >
+                🧩 {lang === 'pt' ? 'Ditado de Blocos' : 'Dictée de Blocs'}
+              </button>
+              <button
+                onClick={() => { onViewModeToggle('inspecteur'); setJogoDropOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                  viewMode === 'inspecteur' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                }`}
+              >
+                🔍 {lang === 'pt' ? 'O Inspetor' : "L'Inspecteur"}
+              </button>
+              <button
+                onClick={() => { onViewModeToggle('mestre'); setJogoDropOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                  viewMode === 'mestre' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                }`}
+              >
+                ⏳ {lang === 'pt' ? 'Sabão do Mestre' : 'Sablier du Mestre'}
+              </button>
+              <button
+                onClick={() => { onViewModeToggle('rythmelive'); setJogoDropOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                  viewMode === 'rythmelive' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                }`}
+              >
+                🥁 {lang === 'pt' ? 'Ritmo Live' : 'Rythme Live'}
+              </button>
+              <div className="border-t border-dashed border-[var(--cordel-border)]/30 my-1"></div>
+              <button
+                onClick={() => { onViewModeToggle('varal'); setJogoDropOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                  viewMode === 'varal' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                }`}
+              >
+                🪢 {lang === 'pt' ? 'Varal (Progresso)' : 'Varal (Progression)'}
+              </button>
+              <div className="border-t border-dashed border-[var(--cordel-border)]/30 my-1"></div>
+              <button
+                onClick={() => { onViewModeToggle('studio'); setJogoDropOpen(false); }}
+                className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                  viewMode === 'studio' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                }`}
+              >
+                👑 {lang === 'pt' ? 'Estúdio do Mestre' : 'Studio du Mestre'}
+              </button>
+            </div>
+          )}
+        </div>
+
         <button
           onClick={() => onToggleRightPanel('letras')}
           className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${
@@ -566,10 +814,32 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         >
           <FileText className="w-4 h-4" /> TOADA
         </button>
+
+        <button
+          onClick={() => onToggleRightPanel('legend')}
+          className={`flex items-center justify-center h-[36px] w-[36px] cordel-border cordel-button cursor-pointer ${
+            activeRightPanel === 'legend'
+              ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+          }`}
+          title={lang === 'fr' ? 'Afficher / Masquer la légende' : 'Ocultar / Mostrar legenda'}
+        >
+          <BookOpen className="w-4.5 h-4.5" />
+        </button>
       </div>
 
       {/* RIGHT: Auxiliary */}
       <div className="flex items-center justify-end flex-wrap gap-2.5">
+        {showInstallButton && onInstallClick && (
+          <button
+            onClick={onInstallClick}
+            className="bg-[#e67e22] text-[#1a1a1a] hover:opacity-90 px-3 h-[34px] text-xs font-bold font-cactus uppercase cordel-border-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+            title={lang === 'pt' ? 'Instalar App' : "Installer l'app"}
+          >
+            <Download className="w-4 h-4" /> {lang === 'pt' ? 'Instalar' : 'Installer'}
+          </button>
+        )}
+        <GoogleLoginButton />
         <button
           onClick={onToggleDarkMode}
           className="bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-text)] cordel-button text-xl px-2 py-1 w-12 text-center cursor-pointer flex justify-center items-center"

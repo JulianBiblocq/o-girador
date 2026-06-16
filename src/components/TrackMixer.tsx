@@ -2,12 +2,20 @@ import React, { useState, useRef, useEffect } from 'react';
 import * as Tone from 'tone';
 import { Eye, EyeOff } from 'lucide-react';
 import { TrackGroup, Language, Pattern } from '../types';
-import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText } from '../data';
+import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
 import { PanKnob } from './PanKnob';
 import { getNextStepValue } from './InstrumentDetailEditor';
 
+const getGlobalClipboard = () => {
+  if (typeof window !== 'undefined') {
+    return (window as any).__baquemixRelativeClipboard || null;
+  }
+  return null;
+};
+
 interface TrackMixerProps {
   lang: Language;
+  isLeftHanded?: boolean;
   track: TrackGroup;
   index: number;
   totalTracks: number;
@@ -21,7 +29,7 @@ interface TrackMixerProps {
   onVolumeChange: (val: number) => void;
   onPanChange: (val: number) => void;
   onStepsChange: (patternId: number, steps: number) => void;
-  onStepValueChange: (patternId: number, stepIdx: number, val: string) => void;
+  onStepValueChange: (patternId: number, stepIdx: number | number[], val: string | string[], lyrics?: string[], notes?: string[]) => void;
   onStepKeyDown: (patternId: number, stepIdx: number, key: string, currentVal: string, targetEl: HTMLInputElement) => void;
   onVoiceTypeToggle: (patternId: number, stepIdx: number) => void;
   onVoiceSylChange: (patternId: number, stepIdx: number, val: string) => void;
@@ -54,6 +62,7 @@ interface TrackMixerProps {
 
 const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   lang,
+  isLeftHanded = false,
   track,
   index,
   totalTracks,
@@ -101,6 +110,16 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const lastMeasureRef = useRef<number>(-1);
   const lastRatioRef = useRef<number>(-1);
   const lastVuStepRef = useRef<number>(-1);
+
+  // Touch Multi-selection State & Refs
+  const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
+  const [selectedStepIndices, setSelectedStepIndices] = useState<number[]>([]);
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const isSelectingRef = useRef(false);
+  const hasDraggedRef = useRef(false);
+  const initialTouchIndexRef = useRef<number | null>(null);
+  const [hasClipboard, setHasClipboard] = useState(false);
+  const wasSelectedRef = useRef(false);
 
   const liveActivePatternId = (() => {
     if (liveMeasure >= 0) {
@@ -157,14 +176,15 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
   const handleStart = (e: React.MouseEvent | React.TouchEvent, stepIdx: number, currentVal: string | number) => {
     if ('shiftKey' in e && e.shiftKey) return;
+    const visualVal = getVisualStrokeSymbol(currentVal, isLeftHanded, inst.id);
     if (onStepTouchStart) {
       if (e.type === 'touchstart') {
-        onStepTouchStart(e, activePattern.id, stepIdx, inst.id, currentVal, (newVal) => {
+        onStepTouchStart(e, activePattern.id, stepIdx, inst.id, visualVal, (newVal) => {
           onStepValueChange(activePattern.id, stepIdx, newVal);
         });
       } else {
         if ('button' in e && e.button !== 0) return;
-        onStepTouchStart(e, activePattern.id, stepIdx, inst.id, currentVal, (newVal) => {
+        onStepTouchStart(e, activePattern.id, stepIdx, inst.id, visualVal, (newVal) => {
           onStepValueChange(activePattern.id, stepIdx, newVal);
         });
       }
@@ -186,12 +206,69 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     : -1;
 
   useEffect(() => {
-    const handleGlobalMouseUp = () => {
+    setHasClipboard(!!getGlobalClipboard());
+    const handleChanged = () => {
+      setHasClipboard(!!getGlobalClipboard());
+    };
+    window.addEventListener('baquemixClipboardChanged', handleChanged);
+    return () => window.removeEventListener('baquemixClipboardChanged', handleChanged);
+  }, []);
+
+  useEffect(() => {
+    const handleGlobalMouseUp = (e: MouseEvent) => {
+      if (isMultiSelectActive && isSelectingRef.current) {
+        isSelectingRef.current = false;
+        if (!hasDraggedRef.current && initialTouchIndexRef.current !== null) {
+          const tappedIdx = initialTouchIndexRef.current;
+          if (wasSelectedRef.current) {
+            const stepVal = activePattern.activeSteps[tappedIdx];
+            if (onStepTouchStart) {
+              onStepTouchStart(e as any, activePattern.id, tappedIdx, inst.id, stepVal, (newVal) => {
+                onStepValueChange(activePattern.id, selectedStepIndices, newVal);
+                setSelectedStepIndices([]);
+              });
+            }
+          }
+        }
+      }
       isMouseDownRef.current = false;
+      isSelectingRef.current = false;
     };
     window.addEventListener('mouseup', handleGlobalMouseUp);
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, []);
+  }, [isMultiSelectActive, selectedStepIndices, activePattern.id, activePattern.activeSteps, inst.id, onStepTouchStart, onStepValueChange]);
+
+  useEffect(() => {
+    if (!isMultiSelectActive || selectedStepIndices.length === 0) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (
+        document.activeElement &&
+        (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') &&
+        !(document.activeElement as HTMLInputElement).readOnly
+      ) {
+        return;
+      }
+
+      const key = e.key;
+
+      if (key === 'Delete' || key === 'Backspace' || key === '0') {
+        e.preventDefault();
+        onStepValueChange(activePattern.id, selectedStepIndices, '0');
+        setSelectedStepIndices([]);
+        return;
+      }
+
+      if (key.length === 1 && /^[a-zA-Z0-9]$/.test(key)) {
+        e.preventDefault();
+        onStepValueChange(activePattern.id, selectedStepIndices, key);
+        setSelectedStepIndices([]);
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isMultiSelectActive, selectedStepIndices, activePattern.id, onStepValueChange]);
 
   // Listen to CustomEvent 'baquemix-tick' to highlight step cells dynamically (Bypass React)
   useEffect(() => {
@@ -318,7 +395,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         activateElement(el as HTMLElement);
       });
     }
-  });
+  }, [activePattern.id, track.id]);
 
   // Synchronize the visually active pattern selection index in parent state during playback
   useEffect(() => {
@@ -363,6 +440,195 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     }
   };
 
+  const handleStepTouchStartMulti = (e: React.TouchEvent, index: number) => {
+    if (!isMultiSelectActive) return;
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    isSelectingRef.current = true;
+    hasDraggedRef.current = false;
+    initialTouchIndexRef.current = index;
+  };
+
+  const handleGridTouchMove = (e: React.TouchEvent) => {
+    if (!isMultiSelectActive || !isSelectingRef.current || !touchStartPos.current) return;
+
+    const touch = e.touches[0];
+    const dx = touch.clientX - touchStartPos.current.x;
+    const dy = touch.clientY - touchStartPos.current.y;
+
+    if (Math.abs(dx) > Math.abs(dy)) {
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+      if (Math.abs(dx) > 10) {
+        hasDraggedRef.current = true;
+      }
+
+      const element = document.elementFromPoint(touch.clientX, touch.clientY);
+      if (element) {
+        const stepInput = element.closest('[data-track-id][data-step-index]');
+        if (stepInput) {
+          const trackIdAttr = stepInput.getAttribute('data-track-id');
+          const stepIdxAttr = stepInput.getAttribute('data-step-index');
+
+          if (trackIdAttr === String(track.id) && stepIdxAttr !== null) {
+            const stepIdx = parseInt(stepIdxAttr, 10);
+            setSelectedStepIndices(prev => {
+              if (prev.includes(stepIdx)) return prev;
+              return [...prev, stepIdx];
+            });
+          }
+        }
+      }
+    }
+  };
+
+  const handleGridTouchEnd = (e: React.TouchEvent) => {
+    if (!isMultiSelectActive || !isSelectingRef.current) return;
+    isSelectingRef.current = false;
+
+    if (!hasDraggedRef.current && initialTouchIndexRef.current !== null) {
+      const tappedIdx = initialTouchIndexRef.current;
+      if (selectedStepIndices.includes(tappedIdx) && selectedStepIndices.length > 0) {
+        const stepVal = activePattern.activeSteps[tappedIdx];
+        if (onStepTouchStart) {
+          const stepEl = document.querySelector(`[data-track-id="${track.id}"][data-step-index="${tappedIdx}"]`) as HTMLElement;
+          if (stepEl) {
+            const rect = stepEl.getBoundingClientRect();
+            onStepTouchStart(e, activePattern.id, tappedIdx, inst.id, stepVal, (newVal) => {
+              onStepValueChange(activePattern.id, selectedStepIndices, newVal);
+              setSelectedStepIndices([]);
+            });
+          }
+        }
+      } else {
+        setSelectedStepIndices(prev => {
+          if (prev.includes(tappedIdx)) {
+            return prev.filter(idx => idx !== tappedIdx);
+          } else {
+            return [...prev, tappedIdx];
+          }
+        });
+      }
+    }
+
+    touchStartPos.current = null;
+    initialTouchIndexRef.current = null;
+  };
+
+  const handleCopyRelative = () => {
+    if (selectedStepIndices.length === 0) return;
+    const sorted = [...selectedStepIndices].sort((a, b) => a - b);
+    const baseIdx = sorted[0];
+    const copiedSteps = sorted.map(idx => ({
+      offset: idx - baseIdx,
+      val: activePattern.activeSteps[idx],
+      lyric: activePattern.lyrics?.[idx] || '',
+      note: activePattern.notes?.[idx] || '',
+    }));
+    if (typeof window !== 'undefined') {
+      (window as any).__baquemixRelativeClipboard = { steps: copiedSteps };
+      window.dispatchEvent(new CustomEvent('baquemixClipboardChanged'));
+    }
+  };
+
+  const handlePasteRelative = (targetIdx: number) => {
+    const globalClipboard = getGlobalClipboard();
+    if (!globalClipboard) return;
+    const destIndices: number[] = [];
+    const destValues: string[] = [];
+    const destLyrics: string[] = [];
+    const destNotes: string[] = [];
+
+    globalClipboard.steps.forEach((item: any) => {
+      const destIdx = targetIdx + item.offset;
+      if (destIdx >= 0 && destIdx < activePattern.steps) {
+        destIndices.push(destIdx);
+        destValues.push(String(item.val));
+        destLyrics.push(item.lyric || '');
+        destNotes.push(item.note || '');
+      }
+    });
+
+    if (destIndices.length > 0) {
+      onStepValueChange(activePattern.id, destIndices, destValues, destLyrics, destNotes);
+      setSelectedStepIndices([]);
+    }
+  };
+
+  const handleStepMouseDownMulti = (e: React.MouseEvent, index: number) => {
+    if (!isMultiSelectActive) return;
+    if (e.button !== 0) return;
+    isSelectingRef.current = true;
+    hasDraggedRef.current = false;
+    initialTouchIndexRef.current = index;
+
+    const wasSel = selectedStepIndices.includes(index);
+    wasSelectedRef.current = wasSel;
+
+    if (!wasSel) {
+      setSelectedStepIndices(prev => [...prev, index]);
+    }
+  };
+
+  const handleStepMouseEnterMulti = (index: number) => {
+    if (!isMultiSelectActive || !isSelectingRef.current) return;
+    hasDraggedRef.current = true;
+    setSelectedStepIndices(prev => {
+      if (prev.includes(index)) return prev;
+      return [...prev, index];
+    });
+  };
+
+  const renderSelectionToolbar = () => {
+    return (
+      <div className="flex justify-between items-center bg-[#f4ecd8] border-b border-[#1a1a1a]/20 pb-1.5 mb-1.5 text-[10px] font-bold w-full select-none">
+        <span className="text-[#666] uppercase tracking-wider">
+          {lang === 'fr' ? 'Multi-sélection' : 'Multi-selection'}
+        </span>
+        <div className="flex gap-1.5 items-center">
+          {selectedStepIndices.length > 0 && (
+            <>
+              <button
+                onClick={handleCopyRelative}
+                className="px-1.5 py-0.5 bg-[#8b2a1a] text-[#f4ecd8] rounded border border-[#1a1a1a] text-[8px] cursor-pointer font-bold hover:bg-[#a63d2d] transition-colors"
+              >
+                {lang === 'fr' ? 'Copier' : 'Copy'} ({selectedStepIndices.length})
+              </button>
+              <button
+                onClick={() => setSelectedStepIndices([])}
+                className="px-1.5 py-0.5 bg-[#8b2a1a] text-[#f4ecd8] rounded border border-[#1a1a1a] text-[8px] cursor-pointer font-bold hover:bg-[#a63d2d] transition-colors"
+              >
+                {lang === 'fr' ? 'Annuler' : 'Cancel'}
+              </button>
+            </>
+          )}
+          {hasClipboard && selectedStepIndices.length === 1 && (
+            <button
+              onClick={() => handlePasteRelative(selectedStepIndices[0])}
+              className="px-1.5 py-0.5 bg-[#1e824c] text-white rounded border border-[#1a1a1a] text-[8px] cursor-pointer font-bold hover:bg-[#27ae60] transition-colors"
+            >
+              {lang === 'fr' ? 'Coller' : 'Paste'}
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setIsMultiSelectActive(!isMultiSelectActive);
+              setSelectedStepIndices([]);
+            }}
+            className={`px-1.5 py-0.5 rounded border border-[#1a1a1a] text-[9px] cursor-pointer font-bold ${
+              isMultiSelectActive ? 'bg-blue-600 text-white' : 'bg-transparent text-[#1a1a1a]'
+            }`}
+          >
+            {isMultiSelectActive 
+              ? (lang === 'fr' ? 'Mode Normal' : 'Normal Mode') 
+              : (lang === 'fr' ? 'Multi-sél. Off' : 'Multi-sel. Off')}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       className={`relative bg-[#f4ecd8] cordel-border p-4 mb-4 select-none flex flex-col text-[#1a1a1a] ${instDropdownOpen ? 'z-50' : 'z-10'}`}
@@ -382,6 +648,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
             <button
               onClick={onMoveUp}
               disabled={index === 0}
+              aria-label={lang === 'pt' ? 'Mover para cima' : 'Monter la piste'}
               className="bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button text-[8px] px-1.5 py-[2px] cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] disabled:opacity-30 disabled:cursor-not-allowed"
             >
               ▲
@@ -389,6 +656,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
             <button
               onClick={onMoveDown}
               disabled={index === totalTracks - 1}
+              aria-label={lang === 'pt' ? 'Mover para baixo' : 'Descendre la piste'}
               className="bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button text-[8px] px-1.5 py-[2px] cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] disabled:opacity-30 disabled:cursor-not-allowed"
             >
               ▼
@@ -398,7 +666,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setInstDropdownOpen(!instDropdownOpen)}
-              className="flex items-center gap-2 cordel-border-sm cordel-button px-2 py-1 text-xs cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-[11px] cursor-pointer transition-colors"
               style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
             >
               <img
@@ -516,6 +784,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                   type="radio"
                   checked={liveActivePatternId === ptn.id}
                   onChange={() => onSelectPattern(ptn.id)}
+                  aria-label={ptn.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${idx + 1}`}
                   className="w-3 h-3 accent-[#1a1a1a] flex-shrink-0 cursor-pointer"
                 />
                 <span 
@@ -561,381 +830,471 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
 
       <div className="flex gap-2 items-start mt-2 border-t-[2px] border-[#1a1a1a] pt-2 relative z-[2] w-full">
-        {isTouchDevice || window.innerWidth <= 768 ? (
-          /* ── MOBILE TOUCH LAYOUT: Horizontal Scrollable List ── */
-          inst.type === 'voice' ? (
-            <div className="step-boxes flex overflow-x-auto gap-2 py-1 w-full shrink-0 custom-scrollbar select-none" id={`voice-boxes-${track.id}`}>
-              {Array.from({ length: activePattern.steps }).map((_, i) => {
-                const state = activePattern.activeSteps[i];
-                const isActive = state !== 0;
-                const isPux = state === 'P';
-                const syl = activePattern.lyrics?.[i] || '';
-                const note = activePattern.notes?.[i] || '';
+        {isTouchDevice || window.innerWidth <= 1024 ? (
+          /* ── MOBILE TOUCH LAYOUT: Grid 8 per line with grouping and multi-select ── */
+          <div className="flex flex-col gap-2 w-full select-none">
+            {renderSelectionToolbar()}
 
-                const typeText = isActive ? (isPux ? 'PUX' : 'CORO') : '---';
-                const typeClass = isActive ? '' : 'bg-transparent text-[#666] cursor-default';
-                const typeStyle = isActive ? { backgroundColor: isPux ? inst.colors['P'] : inst.colors['C'], color: '#1a1a1a' } : {};
-
-                return (
-                  <div
-                    key={i}
-                    className={`v-card flex flex-col w-12 shrink-0 bg-[#f4ecd8] cordel-border-sm overflow-hidden ${
-                      currentStep === i ? 'border-[#8b2a1a]' : 'border-[#1a1a1a]'
-                    }`}
-                    data-track-id={track.id}
-                    data-step-index={i}
-                    data-step-type="voice"
-                  >
-                    <div
-                      onClick={() => onVoiceTypeToggle(activePattern.id, i)}
-                      className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`}
-                      style={typeStyle}
-                    >
-                      {typeText}
-                    </div>
-                    
-                    <input
-                      type="text"
-                      value={syl}
-                      onChange={(e) => onVoiceSylChange(activePattern.id, i, e.target.value)}
-                      placeholder="-"
-                      className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-[#1a1a1a] focus:outline-none"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Tab') {
-                          e.preventDefault();
-                          handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'syl');
-                        } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
-                          handleVoiceNav(e.target as HTMLInputElement, e.key, 'syl');
-                        }
-                      }}
-                    />
-
-                    <input
-                      type="text"
-                      value={note}
-                      onChange={(e) => onVoiceNoteChange(activePattern.id, i, e.target.value)}
-                      onBlur={(e) => onVoiceNoteBlur(activePattern.id, i, e.target.value)}
-                      placeholder="Ex:C4"
-                      className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase focus:outline-none"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Tab') {
-                          e.preventDefault();
-                          handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
-                        } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
-                          handleVoiceNav(e.target as HTMLInputElement, e.key, 'note');
-                        }
-                      }}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="step-boxes flex overflow-x-auto gap-2 py-1 w-full shrink-0 custom-scrollbar select-none" id={`step-boxes-${track.id}`}>
-              {Array.from({ length: activePattern.steps }).map((_, i) => {
-                const val = activePattern.activeSteps[i];
-                let displayVal = val === 0 ? '' : String(val);
-
-                if (val !== 0 && inst.type === 'gongue') {
-                  if (val === 'GRV') displayVal = 'G';
-                  else if (val === 'grv') displayVal = 'g';
-                  else if (val === 'AIG') displayVal = 'A';
-                  else if (val === 'aig') displayVal = 'a';
-                }
-
-                let colorStyle: React.CSSProperties = {};
-                if (val !== 0 && val !== '') {
-                  const bgColor = inst.colors[val] || '#111';
-                  let txtColor = inst.colors.text || '#fff';
-                  if (isDarkText(inst.id, String(val))) {
-                    txtColor = '#1a1a1a';
+            {inst.type === 'voice' ? (
+              <div 
+                className="step-boxes grid gap-y-2 gap-x-1 w-full items-center justify-start animate-fade-in"
+                style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) 12px repeat(4, minmax(0, 1fr))' }}
+                id={`voice-boxes-${track.id}`}
+                onTouchMove={handleGridTouchMove}
+                onTouchEnd={handleGridTouchEnd}
+              >
+                {Array.from({ length: activePattern.steps }).reduce((acc: React.ReactNode[], _, i) => {
+                  if (i > 0 && i % 4 === 0 && i % 8 !== 0) {
+                    acc.push(<div key={`spacer-${i}`} />);
                   }
-                  colorStyle = {
-                    backgroundColor: bgColor,
-                    borderColor: bgColor,
-                    color: txtColor,
-                  };
-                }
 
-                return (
-                  <div key={i} className="relative flex flex-col items-center justify-center shrink-0 w-[38px]">
-                    <div className="text-[#666] text-[8px] mb-0.5 w-full text-center font-bold">{i + 1}</div>
-                    <input
-                      type="text"
-                      maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
-                      value={displayVal}
-                      readOnly={isTouchDevice}
-                      inputMode={isTouchDevice ? 'none' : undefined}
-                      onFocus={(e) => {
-                        if (!isTouchDevice) {
-                          e.target.select();
-                        }
-                      }}
-                      onMouseDown={(e) => {
-                        if (e.button !== 0) return;
-                        if (e.shiftKey) {
-                          isMouseDownRef.current = true;
-                          const nextVal = getNextStepValue(inst.id, inst.type, val);
-                          paintValueRef.current = nextVal;
-                          onStepValueChange(activePattern.id, i, String(nextVal));
-                        } else {
-                          handleStart(e, i, val);
-                        }
-                      }}
-                      onMouseEnter={() => {
-                        if (isMouseDownRef.current) {
-                          onStepValueChange(activePattern.id, i, String(paintValueRef.current));
-                        }
-                      }}
-                      onTouchStart={(e) => {
-                        e.preventDefault();
-                        handleStart(e, i, val);
-                      }}
-                      onChange={(e) => onStepValueChange(activePattern.id, i, e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
-                        
-                        const isCtrlOrMeta = e.ctrlKey || e.metaKey;
-                        if (isCtrlOrMeta && e.key.toLowerCase() === 'c') {
-                          e.preventDefault();
-                          onCopyPattern && onCopyPattern(activePattern);
-                          return;
-                        }
-                        if (isCtrlOrMeta && e.key.toLowerCase() === 'v') {
-                          e.preventDefault();
-                          if (canPaste) {
-                            onPastePattern && onPastePattern(track.id, activePattern.id);
-                          }
-                          return;
-                        }
-                        if (e.key === 'Delete' || e.key === 'Backspace') {
-                          e.preventDefault();
-                          onStepValueChange(activePattern.id, i, '0');
-                          if (e.key === 'Backspace') {
-                            const inputEl = e.currentTarget as HTMLInputElement;
-                            onStepKeyDown(activePattern.id, i, e.key, '', inputEl);
-                          }
-                          return;
-                        }
+                  const state = activePattern.activeSteps[i];
+                  const isActive = state !== 0;
+                  const isPux = state === 'P';
+                  const syl = activePattern.lyrics?.[i] || '';
+                  const note = activePattern.notes?.[i] || '';
 
-                        const inputEl = e.currentTarget as HTMLInputElement;
-                        onStepKeyDown(activePattern.id, i, e.key, inputEl.value, inputEl);
-                      }}
-                      className={`w-[38px] h-[38px] text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border focus:border-[#8b2a1a] transition-all duration-200 ${
-                        currentStep === i ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] scale-105' : (val === 0 ? 'bg-[#f4ecd8] text-[#1a1a1a]' : '')
+                  const typeText = isActive ? (isPux ? 'PUX' : 'CORO') : '---';
+                  const typeClass = isActive ? '' : 'bg-transparent text-[#666] cursor-default';
+                  const typeStyle = isActive ? { backgroundColor: isPux ? inst.colors['P'] : inst.colors['C'], color: '#1a1a1a' } : {};
+
+                  const isSelected = selectedStepIndices.includes(i);
+
+                  acc.push(
+                    <div
+                      key={i}
+                      className={`v-card flex flex-col w-full bg-[#f4ecd8] cordel-border-sm overflow-hidden ${
+                        currentStep === i 
+                          ? 'border-[#8b2a1a]' 
+                          : isSelected
+                            ? 'border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f]'
+                            : 'border-[#1a1a1a]'
                       }`}
-                      style={currentStep === i ? {} : colorStyle}
                       data-track-id={track.id}
                       data-step-index={i}
-                      data-step-type="sampler"
-                      data-val-zero={val === 0}
-                      data-bg-color={colorStyle.backgroundColor || ''}
-                      data-border-color={colorStyle.borderColor || ''}
-                      data-text-color={colorStyle.color || ''}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          )
+                      data-step-type="voice"
+                      onTouchStart={(e) => {
+                        if (isMultiSelectActive) {
+                          handleStepTouchStartMulti(e, i);
+                        }
+                      }}
+                    >
+                      <div
+                        onClick={() => {
+                          if (!isMultiSelectActive) {
+                            onVoiceTypeToggle(activePattern.id, i);
+                          }
+                        }}
+                        className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`}
+                        style={typeStyle}
+                      >
+                        {typeText}
+                      </div>
+                      
+                      <input
+                        type="text"
+                        value={syl}
+                        readOnly={isMultiSelectActive}
+                        onChange={(e) => onVoiceSylChange(activePattern.id, i, e.target.value)}
+                        placeholder="-"
+                        className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-[#1a1a1a] focus:outline-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Tab') {
+                            e.preventDefault();
+                            handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'syl');
+                          } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
+                            handleVoiceNav(e.target as HTMLInputElement, e.key, 'syl');
+                          }
+                        }}
+                      />
+
+                      <input
+                        type="text"
+                        value={note}
+                        readOnly={isMultiSelectActive}
+                        onChange={(e) => onVoiceNoteChange(activePattern.id, i, e.target.value)}
+                        onBlur={(e) => onVoiceNoteBlur(activePattern.id, i, e.target.value)}
+                        placeholder="Ex:C4"
+                        className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase focus:outline-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Tab') {
+                            e.preventDefault();
+                            handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
+                          } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
+                            handleVoiceNav(e.target as HTMLInputElement, e.key, 'note');
+                          }
+                        }}
+                      />
+                    </div>
+                  );
+                  return acc;
+                }, [] as React.ReactNode[])}
+              </div>
+            ) : (
+              <div 
+                className="step-boxes grid gap-y-2 gap-x-1 w-full items-center justify-start animate-fade-in" 
+                style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) 12px repeat(4, minmax(0, 1fr))' }} 
+                id={`step-boxes-${track.id}`}
+                onTouchMove={handleGridTouchMove}
+                onTouchEnd={handleGridTouchEnd}
+              >
+                {Array.from({ length: activePattern.steps }).reduce((acc: React.ReactNode[], _, i) => {
+                  if (i > 0 && i % 4 === 0 && i % 8 !== 0) {
+                    acc.push(<div key={`spacer-${i}`} />);
+                  }
+
+                  const val = activePattern.activeSteps[i];
+                  const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
+                  let displayVal = visualVal === 0 ? '' : String(visualVal);
+
+                  let colorStyle: React.CSSProperties = {};
+                  if (visualVal !== 0 && visualVal !== '') {
+                    const bgColor = inst.colors[visualVal] || '#111';
+                    let txtColor = inst.colors.text || '#fff';
+                    if (isDarkText(inst.id, String(visualVal))) {
+                      txtColor = '#1a1a1a';
+                    }
+                    colorStyle = {
+                      backgroundColor: bgColor,
+                      borderColor: bgColor,
+                      color: txtColor,
+                    };
+                  }
+
+                  const isSelected = selectedStepIndices.includes(i);
+                  const isSecondBlockOfFour = Math.floor(i / 4) % 2 === 1;
+                  const inactiveBg = isSecondBlockOfFour ? 'bg-[#ebdccb]' : 'bg-[#f4ecd8]';
+
+                  acc.push(
+                    <div key={i} className="relative flex flex-col items-center justify-center w-full">
+                      <div className="text-[#666] text-[8px] mb-0.5 w-full text-center font-bold">{i + 1}</div>
+                      <input
+                        type="text"
+                        maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
+                        value={displayVal}
+                        readOnly={isTouchDevice || isMultiSelectActive}
+                        inputMode={isTouchDevice ? 'none' : undefined}
+                        onFocus={(e) => {
+                          if (!isTouchDevice) {
+                            e.target.select();
+                          }
+                        }}
+                        onMouseDown={(e) => {
+                          if (e.button !== 0) return;
+                          if (e.shiftKey) {
+                            isMouseDownRef.current = true;
+                            const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
+                            const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
+                            const nextSemanticVal = getVisualStrokeSymbol(nextVisualVal, isLeftHanded, inst.id);
+                            paintValueRef.current = nextSemanticVal;
+                            onStepValueChange(activePattern.id, i, String(nextSemanticVal));
+                          } else {
+                            handleStart(e, i, val);
+                          }
+                        }}
+                        onMouseEnter={() => {
+                          if (isMouseDownRef.current) {
+                            onStepValueChange(activePattern.id, i, String(paintValueRef.current));
+                          }
+                        }}
+                        onTouchStart={(e) => {
+                          if (isMultiSelectActive) {
+                            handleStepTouchStartMulti(e, i);
+                          } else {
+                            e.preventDefault();
+                            handleStart(e, i, val);
+                          }
+                        }}
+                        onChange={(e) => onStepValueChange(activePattern.id, i, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
+                          
+                          const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+                          if (isCtrlOrMeta && e.key.toLowerCase() === 'c') {
+                            e.preventDefault();
+                            onCopyPattern && onCopyPattern(activePattern);
+                            return;
+                          }
+                          if (isCtrlOrMeta && e.key.toLowerCase() === 'v') {
+                            e.preventDefault();
+                            if (canPaste) {
+                              onPastePattern && onPastePattern(track.id, activePattern.id);
+                            }
+                            return;
+                          }
+                          if (e.key === 'Delete' || e.key === 'Backspace') {
+                            e.preventDefault();
+                            onStepValueChange(activePattern.id, i, '0');
+                            if (e.key === 'Backspace') {
+                              const inputEl = e.currentTarget as HTMLInputElement;
+                              onStepKeyDown(activePattern.id, i, e.key, '', inputEl);
+                            }
+                            return;
+                          }
+
+                          const inputEl = e.currentTarget as HTMLInputElement;
+                          onStepKeyDown(activePattern.id, i, e.key, inputEl.value, inputEl);
+                        }}
+                        className={`w-full aspect-square text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border focus:border-[#8b2a1a] transition-all duration-200 ${
+                          currentStep === i 
+                            ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] scale-105' 
+                            : isSelected
+                              ? 'bg-[#f1c40f] text-black border-[#1a1a1a] scale-105 ring-2 ring-[#1a1a1a]'
+                              : (val === 0 ? `${inactiveBg} text-[#1a1a1a]` : '')
+                        }`}
+                        style={currentStep === i || isSelected ? {} : colorStyle}
+                        data-track-id={track.id}
+                        data-step-index={i}
+                        data-step-type="sampler"
+                        data-val-zero={val === 0}
+                        data-bg-color={colorStyle.backgroundColor || ''}
+                        data-border-color={colorStyle.borderColor || ''}
+                        data-text-color={colorStyle.color || ''}
+                      />
+                    </div>
+                  );
+                  return acc;
+                }, [] as React.ReactNode[])}
+              </div>
+            )}
+          </div>
         ) : (
           /* ── DESKTOP GRID LAYOUT: Double Rows ── */
-          inst.type === 'voice' ? (
-            <div className="grid grid-cols-4 gap-1.5 w-full flex-grow step-boxes" id={`voice-boxes-${track.id}`}>
-              {Array.from({ length: activePattern.steps }).map((_, i) => {
-                const state = activePattern.activeSteps[i];
-                const isActive = state !== 0;
-                const isPux = state === 'P';
-                const syl = activePattern.lyrics?.[i] || '';
-                const note = activePattern.notes?.[i] || '';
+          <div className="flex flex-col gap-2 w-full select-none">
+            {renderSelectionToolbar()}
+            {inst.type === 'voice' ? (
+              <div 
+                className="grid grid-cols-4 gap-1.5 w-full flex-grow step-boxes" 
+                id={`voice-boxes-${track.id}`}
+                onTouchMove={handleGridTouchMove}
+                onTouchEnd={handleGridTouchEnd}
+              >
+                {Array.from({ length: activePattern.steps }).map((_, i) => {
+                  const state = activePattern.activeSteps[i];
+                  const isActive = state !== 0;
+                  const isPux = state === 'P';
+                  const syl = activePattern.lyrics?.[i] || '';
+                  const note = activePattern.notes?.[i] || '';
 
-                const typeText = isActive ? (isPux ? 'PUX' : 'CORO') : '---';
-                const typeClass = isActive ? '' : 'bg-transparent text-[#666] cursor-default';
-                const typeStyle = isActive ? { backgroundColor: isPux ? inst.colors['P'] : inst.colors['C'], color: '#1a1a1a' } : {};
+                  const typeText = isActive ? (isPux ? 'PUX' : 'CORO') : '---';
+                  const typeClass = isActive ? '' : 'bg-transparent text-[#666] cursor-default';
+                  const typeStyle = isActive ? { backgroundColor: isPux ? inst.colors['P'] : inst.colors['C'], color: '#1a1a1a' } : {};
 
-                return (
-                  <div
-                    key={i}
-                    className={`v-card flex flex-col w-12 bg-[#f4ecd8] cordel-border-sm overflow-hidden ${
-                      currentStep === i ? 'border-[#8b2a1a]' : 'border-[#1a1a1a]'
-                    }`}
-                    data-track-id={track.id}
-                    data-step-index={i}
-                    data-step-type="voice"
-                  >
+                  const isSelected = selectedStepIndices.includes(i);
+
+                  return (
                     <div
-                      onClick={() => onVoiceTypeToggle(activePattern.id, i)}
-                      className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`}
-                      style={typeStyle}
-                    >
-                      {typeText}
-                    </div>
-                    
-                    <input
-                      type="text"
-                      value={syl}
-                      onChange={(e) => onVoiceSylChange(activePattern.id, i, e.target.value)}
-                      placeholder="-"
-                      className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-[#1a1a1a] focus:outline-none"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Tab') {
-                          e.preventDefault();
-                          handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'syl');
-                        } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
-                          handleVoiceNav(e.target as HTMLInputElement, e.key, 'syl');
-                        }
-                      }}
-                    />
-
-                    <input
-                      type="text"
-                      value={note}
-                      onChange={(e) => onVoiceNoteChange(activePattern.id, i, e.target.value)}
-                      onBlur={(e) => onVoiceNoteBlur(activePattern.id, i, e.target.value)}
-                      placeholder="Ex:C4"
-                      className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase focus:outline-none"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Tab') {
-                          e.preventDefault();
-                          handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
-                        } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
-                          handleVoiceNav(e.target as HTMLInputElement, e.key, 'note');
-                        }
-                      }}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="step-boxes grid gap-y-2 gap-x-1 w-full flex-grow items-center justify-start" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) 12px repeat(4, minmax(0, 1fr))' }} id={`step-boxes-${track.id}`}>
-              {Array.from({ length: activePattern.steps }).reduce((acc: React.ReactNode[], _, i) => {
-                if (i > 0 && i % 4 === 0 && i % 8 !== 0) {
-                  acc.push(<div key={`spacer-${i}`} />);
-                }
-
-                const val = activePattern.activeSteps[i];
-                let displayVal = val === 0 ? '' : String(val);
-
-                if (val !== 0 && inst.type === 'gongue') {
-                  if (val === 'GRV') displayVal = 'G';
-                  else if (val === 'grv') displayVal = 'g';
-                  else if (val === 'AIG') displayVal = 'A';
-                  else if (val === 'aig') displayVal = 'a';
-                }
-
-                let extraStyle = '';
-                let isBeatBound = false;
-                if (timeSig === '6/8' || timeSig === '12/8') {
-                  if ((i + 1) % 3 === 0) isBeatBound = true;
-                } else if (timeSig === '3/4') {
-                  const stepDiv = activePattern.steps === 12 ? 4 : Math.floor(activePattern.steps / 3);
-                  if ((i + 1) % (stepDiv || 4) === 0) isBeatBound = true;
-                } else {
-                  const stepDiv = Math.floor(activePattern.steps / (timeSig === '4/4' ? 4 : 2));
-                  if ((i + 1) % (stepDiv || 4) === 0) isBeatBound = true;
-                }
-
-                if (isBeatBound && i !== activePattern.steps - 1) {
-                  extraStyle = 'margin-right: 10px;';
-                }
-
-                let colorStyle: React.CSSProperties = {};
-                if (val !== 0 && val !== '') {
-                  const bgColor = inst.colors[val] || '#111';
-                  let txtColor = inst.colors.text || '#fff';
-                  if (isDarkText(inst.id, String(val))) {
-                    txtColor = '#1a1a1a';
-                  }
-                  colorStyle = {
-                    backgroundColor: bgColor,
-                    borderColor: bgColor,
-                    color: txtColor,
-                  };
-                }
-
-                acc.push(
-                  <div key={i} className="relative flex flex-col items-center justify-center w-full">
-                    <div className="text-[#666] text-[8px] mb-0.5 w-full text-center font-bold">{i + 1}</div>
-                    <input
-                      type="text"
-                      maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
-                      value={displayVal}
-                      readOnly={isTouchDevice}
-                      inputMode={isTouchDevice ? 'none' : undefined}
-                      onFocus={(e) => {
-                        if (!isTouchDevice) {
-                          e.target.select();
+                      key={i}
+                      className={`v-card flex flex-col w-12 bg-[#f4ecd8] cordel-border-sm overflow-hidden ${
+                        currentStep === i 
+                          ? 'border-[#8b2a1a]' 
+                          : isSelected
+                            ? 'border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f]'
+                            : 'border-[#1a1a1a]'
+                      }`}
+                      data-track-id={track.id}
+                      data-step-index={i}
+                      data-step-type="voice"
+                      onTouchStart={(e) => {
+                        if (isMultiSelectActive) {
+                          handleStepTouchStartMulti(e, i);
                         }
                       }}
                       onMouseDown={(e) => {
-                        if (e.button !== 0) return;
-                        if (e.shiftKey) {
-                          isMouseDownRef.current = true;
-                          const nextVal = getNextStepValue(inst.id, inst.type, val);
-                          paintValueRef.current = nextVal;
-                          onStepValueChange(activePattern.id, i, String(nextVal));
-                        } else {
-                          handleStart(e, i, val);
+                        if (isMultiSelectActive) {
+                          handleStepMouseDownMulti(e, i);
                         }
                       }}
                       onMouseEnter={() => {
-                        if (isMouseDownRef.current) {
-                          onStepValueChange(activePattern.id, i, String(paintValueRef.current));
+                        if (isMultiSelectActive) {
+                          handleStepMouseEnterMulti(i);
                         }
                       }}
-                      onTouchStart={(e) => {
-                        e.preventDefault();
-                        handleStart(e, i, val);
-                      }}
-                      onChange={(e) => onStepValueChange(activePattern.id, i, e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
-                        
-                        const isCtrlOrMeta = e.ctrlKey || e.metaKey;
-                        if (isCtrlOrMeta && e.key.toLowerCase() === 'c') {
-                          e.preventDefault();
-                          onCopyPattern && onCopyPattern(activePattern);
-                          return;
-                        }
-                        if (isCtrlOrMeta && e.key.toLowerCase() === 'v') {
-                          e.preventDefault();
-                          if (canPaste) {
-                            onPastePattern && onPastePattern(track.id, activePattern.id);
+                    >
+                      <div
+                        onClick={() => {
+                          if (!isMultiSelectActive) {
+                            onVoiceTypeToggle(activePattern.id, i);
                           }
-                          return;
-                        }
-                        if (e.key === 'Delete' || e.key === 'Backspace') {
-                          e.preventDefault();
-                          onStepValueChange(activePattern.id, i, '0');
-                          if (e.key === 'Backspace') {
-                            const inputEl = e.currentTarget as HTMLInputElement;
-                            onStepKeyDown(activePattern.id, i, e.key, '', inputEl);
+                        }}
+                        className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`}
+                        style={typeStyle}
+                      >
+                        {typeText}
+                      </div>
+                      
+                      <input
+                        type="text"
+                        value={syl}
+                        readOnly={isMultiSelectActive}
+                        onChange={(e) => onVoiceSylChange(activePattern.id, i, e.target.value)}
+                        placeholder="-"
+                        className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-[#1a1a1a] focus:outline-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Tab') {
+                            e.preventDefault();
+                            handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'syl');
+                          } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
+                            handleVoiceNav(e.target as HTMLInputElement, e.key, 'syl');
                           }
-                          return;
-                        }
+                        }}
+                      />
 
-                        const inputEl = e.currentTarget as HTMLInputElement;
-                        onStepKeyDown(activePattern.id, i, e.key, inputEl.value, inputEl);
-                      }}
-                      className={`w-full aspect-square text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border focus:border-[#8b2a1a] transition-all duration-200 ${
-                        currentStep === i ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] scale-105' : (val === 0 ? 'bg-[#f4ecd8] text-[#1a1a1a]' : '')
-                      }`}
-                      style={currentStep === i ? {} : colorStyle}
-                      data-track-id={track.id}
-                      data-step-index={i}
-                      data-step-type="sampler"
-                      data-val-zero={val === 0}
-                      data-bg-color={colorStyle.backgroundColor || ''}
-                      data-border-color={colorStyle.borderColor || ''}
-                      data-text-color={colorStyle.color || ''}
-                    />
-                  </div>
-                );
-                return acc;
-              }, [] as React.ReactNode[])}
-            </div>
-          )
+                      <input
+                        type="text"
+                        value={note}
+                        readOnly={isMultiSelectActive}
+                        onChange={(e) => onVoiceNoteChange(activePattern.id, i, e.target.value)}
+                        onBlur={(e) => onVoiceNoteBlur(activePattern.id, i, e.target.value)}
+                        placeholder="Ex:C4"
+                        className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase focus:outline-none"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Tab') {
+                            e.preventDefault();
+                            handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
+                          } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
+                            handleVoiceNav(e.target as HTMLInputElement, e.key, 'note');
+                          }
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div 
+                className="step-boxes grid gap-y-2 gap-x-1 w-full flex-grow items-center justify-start" 
+                style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) 12px repeat(4, minmax(0, 1fr))' }} 
+                id={`step-boxes-${track.id}`}
+                onTouchMove={handleGridTouchMove}
+                onTouchEnd={handleGridTouchEnd}
+              >
+                {Array.from({ length: activePattern.steps }).reduce((acc: React.ReactNode[], _, i) => {
+                  if (i > 0 && i % 4 === 0 && i % 8 !== 0) {
+                    acc.push(<div key={`spacer-${i}`} />);
+                  }
+
+                  const val = activePattern.activeSteps[i];
+                  const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
+                  let displayVal = visualVal === 0 ? '' : String(visualVal);
+
+                  let colorStyle: React.CSSProperties = {};
+                  if (visualVal !== 0 && visualVal !== '') {
+                    const bgColor = inst.colors[visualVal] || '#111';
+                    let txtColor = inst.colors.text || '#fff';
+                    if (isDarkText(inst.id, String(visualVal))) {
+                      txtColor = '#1a1a1a';
+                    }
+                    colorStyle = {
+                      backgroundColor: bgColor,
+                      borderColor: bgColor,
+                      color: txtColor,
+                    };
+                  }
+
+                  const isSelected = selectedStepIndices.includes(i);
+                  const isSecondBlockOfFour = Math.floor(i / 4) % 2 === 1;
+                  const inactiveBg = isSecondBlockOfFour ? 'bg-[#ebdccb]' : 'bg-[#f4ecd8]';
+
+                  acc.push(
+                    <div key={i} className="relative flex flex-col items-center justify-center w-full">
+                      <div className="text-[#666] text-[8px] mb-0.5 w-full text-center font-bold">{i + 1}</div>
+                      <input
+                        type="text"
+                        maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
+                        value={displayVal}
+                        readOnly={isTouchDevice || isMultiSelectActive}
+                        inputMode={isTouchDevice ? 'none' : undefined}
+                        onFocus={(e) => {
+                          if (!isTouchDevice) {
+                            e.target.select();
+                          }
+                        }}
+                        onMouseDown={(e) => {
+                          if (e.button !== 0) return;
+                          if (isMultiSelectActive) {
+                            handleStepMouseDownMulti(e, i);
+                          } else {
+                            if (e.shiftKey) {
+                              isMouseDownRef.current = true;
+                              const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
+                              const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
+                              const nextSemanticVal = getVisualStrokeSymbol(nextVisualVal, isLeftHanded, inst.id);
+                              paintValueRef.current = nextSemanticVal;
+                              onStepValueChange(activePattern.id, i, String(nextSemanticVal));
+                            } else {
+                              handleStart(e, i, val);
+                            }
+                          }
+                        }}
+                        onMouseEnter={() => {
+                          if (isMultiSelectActive) {
+                            handleStepMouseEnterMulti(i);
+                          } else if (isMouseDownRef.current) {
+                            onStepValueChange(activePattern.id, i, String(paintValueRef.current));
+                          }
+                        }}
+                        onTouchStart={(e) => {
+                          if (isMultiSelectActive) {
+                            handleStepTouchStartMulti(e, i);
+                          } else {
+                            e.preventDefault();
+                            handleStart(e, i, val);
+                          }
+                        }}
+                        onChange={(e) => onStepValueChange(activePattern.id, i, e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
+                          
+                          const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+                          if (isCtrlOrMeta && e.key.toLowerCase() === 'c') {
+                            e.preventDefault();
+                            onCopyPattern && onCopyPattern(activePattern);
+                            return;
+                          }
+                          if (isCtrlOrMeta && e.key.toLowerCase() === 'v') {
+                            e.preventDefault();
+                            if (canPaste) {
+                              onPastePattern && onPastePattern(track.id, activePattern.id);
+                            }
+                            return;
+                          }
+                          if (e.key === 'Delete' || e.key === 'Backspace') {
+                            e.preventDefault();
+                            onStepValueChange(activePattern.id, i, '0');
+                            if (e.key === 'Backspace') {
+                              const inputEl = e.currentTarget as HTMLInputElement;
+                              onStepKeyDown(activePattern.id, i, e.key, '', inputEl);
+                            }
+                            return;
+                          }
+
+                          const inputEl = e.currentTarget as HTMLInputElement;
+                          onStepKeyDown(activePattern.id, i, e.key, inputEl.value, inputEl);
+                        }}
+                        className={`w-full aspect-square text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border focus:border-[#8b2a1a] transition-all duration-200 ${
+                          currentStep === i 
+                            ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] scale-105' 
+                            : isSelected
+                              ? 'bg-[#f1c40f] text-black border-[#1a1a1a] scale-105 ring-2 ring-[#1a1a1a]'
+                              : (val === 0 ? `${inactiveBg} text-[#1a1a1a]` : '')
+                        }`}
+                        style={currentStep === i || isSelected ? {} : colorStyle}
+                        data-track-id={track.id}
+                        data-step-index={i}
+                        data-step-type="sampler"
+                        data-val-zero={val === 0}
+                        data-bg-color={colorStyle.backgroundColor || ''}
+                        data-border-color={colorStyle.borderColor || ''}
+                        data-text-color={colorStyle.color || ''}
+                      />
+                    </div>
+                  );
+                  return acc;
+                }, [] as React.ReactNode[])}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

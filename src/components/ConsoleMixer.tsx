@@ -5,6 +5,9 @@ import { InstrumentDetailEditor } from './InstrumentDetailEditor';
 import { i18n, instrumentsConfig } from '../data';
 
 interface ConsoleMixerProps {
+  isLeftHanded?: boolean;
+  activeInstrumentId?: string | null;
+  onActiveInstrumentChange?: (id: string | null) => void;
   lang: Language;
   tracks: TrackGroup[];
   meters?: { [id: string]: any };
@@ -20,7 +23,14 @@ interface ConsoleMixerProps {
   onVolumeChange: (trackId: number, val: number) => void;
   onPanChange: (trackId: number, val: number) => void;
   onStepsChange: (trackId: number, patternId: number, steps: number) => void;
-  onStepValueChange: (trackId: number, patternId: number, stepIdx: number, val: string) => void;
+  onStepValueChange: (
+    trackId: number,
+    patternId: number,
+    stepIdx: number | number[],
+    val: string | string[],
+    lyrics?: string[],
+    notes?: string[]
+  ) => void;
   onStepKeyDown: (trackId: number, patternId: number, stepIdx: number, key: string, currentVal: string, targetEl: HTMLInputElement) => void;
   onVoiceTypeToggle: (trackId: number, patternId: number, stepIdx: number) => void;
   onVoiceSylChange: (trackId: number, patternId: number, stepIdx: number, val: string) => void;
@@ -79,6 +89,9 @@ interface ConsoleMixerProps {
 }
 
 const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
+  isLeftHanded = false,
+  activeInstrumentId,
+  onActiveInstrumentChange,
   isMobile,
   lang,
   tracks,
@@ -211,6 +224,15 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const editingTrack = tracks.find(t => t.id === editingTrackId);
 
   useEffect(() => {
+    if (editingTrack) {
+      const inst = instrumentsConfig[editingTrack.instrumentIdx];
+      if (inst && inst.type !== 'voice' && onActiveInstrumentChange) {
+        onActiveInstrumentChange(inst.id);
+      }
+    }
+  }, [editingTrack, onActiveInstrumentChange]);
+
+  useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
@@ -233,6 +255,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           <VerticalTrackMixer
             key={track.id}
             lang={lang}
+            isLeftHanded={isLeftHanded}
             track={track}
             index={idx}
             totalTracks={tracks.length}
@@ -249,7 +272,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             onReverbChange={(val) => onReverbChange(track.id, val)}
             onPanChange={(val) => onPanChange(track.id, val)}
             onStepsChange={(pid, steps) => onStepsChange(track.id, pid, steps)}
-            onStepValueChange={(pid, sIdx, val) => onStepValueChange(track.id, pid, sIdx, val)}
+            onStepValueChange={(pid, sIdx, val, lyrics, notes) => onStepValueChange(track.id, pid, sIdx, val, lyrics, notes)}
             onStepKeyDown={(pid, sIdx, k, cVal, el) => onStepKeyDown(track.id, pid, sIdx, k, cVal, el)}
             onVoiceTypeToggle={(pid, sIdx) => onVoiceTypeToggle(track.id, pid, sIdx)}
             onVoiceSylChange={(pid, sIdx, val) => onVoiceSylChange(track.id, pid, sIdx, val)}
@@ -443,9 +466,10 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         <InstrumentDetailEditor
           isMobile={isMobile}
           lang={lang}
+          isLeftHanded={isLeftHanded}
           track={editingTrack}
           onClose={() => setEditingTrackId(null)}
-          onStepValueChange={(pid, sIdx, val) => onStepValueChange(editingTrack.id, pid, sIdx, val)}
+          onStepValueChange={(pid, sIdx, val, lyrics, notes) => onStepValueChange(editingTrack.id, pid, sIdx, val, lyrics, notes)}
           onStepKeyDown={(pid, sIdx, k, cVal, el) => onStepKeyDown(editingTrack.id, pid, sIdx, k, cVal, el)}
           onStepsChange={(pid, steps) => onStepsChange(editingTrack.id, pid, steps)}
           onVoiceTypeToggle={(pid, sIdx) => onVoiceTypeToggle(editingTrack.id, pid, sIdx)}

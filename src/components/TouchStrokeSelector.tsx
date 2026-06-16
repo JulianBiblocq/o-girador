@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
-import { instrumentsConfig, isDarkText } from '../data';
+import { instrumentsConfig, isDarkText, getVisualStrokeSymbol } from '../data';
 import { Language } from '../types';
 import { getNextStepValue } from './InstrumentDetailEditor';
 
@@ -24,6 +24,7 @@ interface TouchStrokeSelectorProps {
   setHoveredStroke: (val: string | null) => void;
   onClose: () => void;
   lang: Language;
+  isLeftHanded?: boolean;
 }
 
 const getStrokeDescription = (instId: string, instType: string, stroke: string, lang: Language): string => {
@@ -32,23 +33,20 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
     return isPt ? 'Silêncio' : 'Silence';
   }
 
-  if (instId === 'caixa') {
+  if (instId === 'caixa' || instId === 'tarol') {
     switch (stroke) {
       case 'D': return isPt ? 'Mão Direita (Forte)' : 'Main Droite (Fort)';
       case 'd': return isPt ? 'Mão Direita (Fraca)' : 'Main Droite (Faible)';
-      case 'G':
       case 'E': return isPt ? 'Mão Esquerda (Forte)' : 'Main Gauche (Fort)';
-      case 'g':
       case 'e': return isPt ? 'Mão Esquerda (Fraca)' : 'Main Gauche (Faible)';
-      case 'rd': return isPt ? 'Rufada Direita' : 'Roulement court D';
-      case 'rg':
-      case 'Re':
-      case 're': return isPt ? 'Rufada Esquerda' : 'Roulement court G';
-      case 'x': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
-      case 'f': return isPt ? 'Fla' : 'Fla';
-      case 'b':
-      case 'T':
-      case 't': return isPt ? 'Trêmulo' : 'Trémolo';
+      case 'Q': return isPt ? 'Mão Esquerda (Forte - Alt)' : 'Main Gauche (Fort - Alt)';
+      case 'q': return isPt ? 'Mão Esquerda (Fraca - Alt)' : 'Main Gauche (Faible - Alt)';
+      case 'R': return isPt ? 'Rufada Direita' : 'Roulement court D';
+      case 'r': return isPt ? 'Rufada Esquerda' : 'Roulement court G';
+      case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
+      case 'F': return isPt ? 'Fla' : 'Fla';
+      case 'C': return isPt ? 'Click' : 'Click';
+      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
       default: return stroke;
     }
   }
@@ -57,68 +55,51 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
     switch (stroke) {
       case 'D': return isPt ? 'Mão Direita (Forte)' : 'Main Droite (Fort)';
       case 'd': return isPt ? 'Mão Direita (Fraca)' : 'Main Droite (Faible)';
-      case 'G':
       case 'E': return isPt ? 'Mão Esquerda (Forte)' : 'Main Gauche (Fort)';
-      case 'g':
       case 'e': return isPt ? 'Mão Esquerda (Fraca)' : 'Main Gauche (Faible)';
-      case 'b':
-      case 'T':
-      case 't': return isPt ? 'Trêmulo' : 'Trémolo';
-      case 'x': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
-      case 'i': return isPt ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Iguarassu)';
+      case 'Q': return isPt ? 'Mão Esquerda (Forte - Alt)' : 'Main Gauche (Fort - Alt)';
+      case 'q': return isPt ? 'Mão Esquerda (Fraca - Alt)' : 'Main Gauche (Faible - Alt)';
+      case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
+      case 'C': return isPt ? 'Click' : 'Click';
+      case 'I': return isPt ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Iguarassu)';
+      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
       default: return stroke;
     }
   }
 
   if (instType === 'gongue') {
     switch (stroke) {
-      case 'GRV': return isPt ? 'Grave Forte' : 'Grave Fort';
-      case 'grv': return isPt ? 'Grave Fraco' : 'Grave Faible';
-      case 'AIG': return isPt ? 'Agudo Forte' : 'Aigu Fort';
-      case 'aig': return isPt ? 'Agudo Fraco' : 'Aigu Faible';
-      case 'b':
-      case 'T':
-      case 't': return isPt ? 'Trêmulo' : 'Trémolo';
+      case 'G': return isPt ? 'Grave Forte' : 'Grave Fort';
+      case 'g': return isPt ? 'Grave Fraco' : 'Grave Faible';
+      case 'A': return isPt ? 'Agudo Forte' : 'Aigu Fort';
+      case 'a': return isPt ? 'Agudo Fraco' : 'Aigu Faible';
+      case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
+      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
       default: return stroke;
     }
   }
 
   if (instId === 'agbe') {
     switch (stroke) {
-      case 'G':
       case 'E': return isPt ? 'Esquerda (Forte)' : 'Gauche (Fort)';
-      case 'g':
       case 'e': return isPt ? 'Esquerda (Fraca)' : 'Gauche (Faible)';
       case 'D': return isPt ? 'Direita (Forte)' : 'Droite (Fort)';
       case 'd': return isPt ? 'Direita (Fraca)' : 'Droite (Faible)';
-      case 'b':
-      case 'T':
-      case 't': return isPt ? 'Trêmulo' : 'Trémolo';
-      case 's': return isPt ? 'Salto / Lançamento' : 'Saut / Lancer';
-      default: return stroke;
-    }
-  }
-
-  if (instId === 'tarol') {
-    switch (stroke) {
-      case 'D': return isPt ? 'Mão Direita (Forte)' : 'Main Droite (Fort)';
-      case 'd': return isPt ? 'Mão Direita (Fraca)' : 'Main Droite (Faible)';
-      case 'E': return isPt ? 'Mão Esquerda (Forte)' : 'Main Gauche (Fort)';
-      case 'e': return isPt ? 'Mão Esquerda (Fraca)' : 'Main Gauche (Faible)';
-      case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
-      case 'F': return isPt ? 'Fla' : 'Fla';
-      case 'C': return isPt ? 'Click' : 'Click';
-      case 'T': return isPt ? 'Trêmulo' : 'Trémolo';
+      case 'S': return isPt ? 'Salto' : 'Salto';
+      case 'V': return isPt ? 'Volta' : 'Volta';
+      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
       default: return stroke;
     }
   }
 
   if (instId === 'mineiro') {
     switch (stroke) {
-      case 'P': return isPt ? 'Cima / Puxar (Forte)' : 'Haut / Pousser (Fort)';
-      case 'p': return isPt ? 'Cima / Puxar (Fraco)' : 'Haut / Pousser (Faible)';
-      case 'T': return isPt ? 'Baixo / Tirar (Forte)' : 'Bas / Tirer (Fort)';
-      case 't': return isPt ? 'Baixo / Tirar (Fraco)' : 'Bas / Tirer (Faible)';
+      case 'P': return isPt ? 'Push (Forte)' : 'Pousser (Fort)';
+      case 'p': return isPt ? 'Push (Fraco)' : 'Pousser (Faible)';
+      case 'T': return isPt ? 'Pull (Forte)' : 'Tirer (Fort)';
+      case 't': return isPt ? 'Pull (Fraco)' : 'Tirer (Faible)';
+      case 'L': return isPt ? 'Lado' : 'Lado';
+      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
       default: return stroke;
     }
   }
@@ -140,6 +121,7 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
   setHoveredStroke,
   onClose,
   lang,
+  isLeftHanded = false,
 }) => {
   const hoveredStrokeRef = useRef<string | null>(null);
   const [isSticky, setIsSticky] = useState<boolean>(false);
@@ -266,7 +248,7 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
         {/* Helper translation header */}
         <span className="text-[10px] font-bold border-b border-[#1a1a1a]/25 pb-1 mb-1 text-center text-[#1a1a1a] uppercase tracking-wider font-cactus w-full">
           {hoveredStroke 
-            ? getStrokeDescription(selector.instId, inst.type, hoveredStroke, lang) 
+            ? getStrokeDescription(selector.instId, inst.type, String(getVisualStrokeSymbol(hoveredStroke, isLeftHanded, inst.id)), lang) 
             : (lang === 'fr' ? 'Glissez ou touchez un coup' : 'Arraste ou toque num golpe')}
         </span>
 
@@ -277,21 +259,17 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
             const strokeVal = isSilence ? '0' : stroke;
             const isHovered = hoveredStroke === strokeVal;
 
-            let bgColor = isSilence ? '#7f8c8d' : (inst.colors[stroke] || '#111');
+            const visualStroke = getVisualStrokeSymbol(stroke, isLeftHanded, inst.id);
+            let bgColor = isSilence ? '#7f8c8d' : (inst.colors[visualStroke as string] || '#111');
             let textColor = isSilence ? '#fff' : (inst.colors.text || '#fff');
-            if (isDarkText(inst.id, stroke)) {
+            if (isDarkText(inst.id, String(visualStroke))) {
               textColor = '#1a1a1a';
             }
 
             // Display label formatting
-            let displayLabel = stroke;
+            let displayLabel = String(visualStroke);
             if (isSilence) {
               displayLabel = 'Ø';
-            } else if (inst.type === 'gongue') {
-              if (stroke === 'GRV') displayLabel = 'G';
-              else if (stroke === 'grv') displayLabel = 'g';
-              else if (stroke === 'AIG') displayLabel = 'A';
-              else if (stroke === 'aig') displayLabel = 'a';
             }
 
             const handleButtonSelect = (e: React.MouseEvent | React.TouchEvent) => {

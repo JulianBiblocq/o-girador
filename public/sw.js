@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const CACHE_NAME = 'baquemix-cache-v2.2';
+const CACHE_NAME = 'baquemix-cache-v2.3';
 
 // Core static files to cache immediately on SW install
 const STATIC_ASSETS = [
@@ -20,6 +20,7 @@ const STATIC_ASSETS = [
 
 // Audio files to cache immediately for offline usage
 const AUDIO_ASSETS = [
+  './sons-maracatu/Apito.wav',
   './sons-maracatu/Agbe/barulho.wav',
   './sons-maracatu/Agbe/faible.wav',
   './sons-maracatu/Agbe/fort.wav',
