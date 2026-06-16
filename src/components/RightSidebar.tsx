@@ -383,7 +383,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4c1c1c] text-[#f4ecd8]">
-                    t
+                    B / b
                   </span>
                   <span>{t('legendAlfaiaBarulho')}</span>
                 </div>
@@ -398,13 +398,13 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
               <div className="flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a855f7] text-[#f4ecd8]">
-                    R / r
+                    R
                   </span>
                   <span>{t('legendCaixaRufadaD')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#d8b4fe] text-[#1a1a1a]">
-                    Z / z
+                    r
                   </span>
                   <span>{t('legendCaixaRufadaG')}</span>
                 </div>
@@ -422,7 +422,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4a044e] text-[#f4ecd8]">
-                    t
+                    B / b
                   </span>
                   <span>{t('legendCaixaBarulho')}</span>
                 </div>
@@ -436,26 +436,38 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
               </span>
               <div className="flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
                 <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#312e81] text-[#f4ecd8]">
+                    R
+                  </span>
+                  <span>{t('legendCaixaRufadaD')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#818cf8] text-[#1a1a1a]">
+                    r
+                  </span>
+                  <span>{t('legendCaixaRufadaG')}</span>
+                </div>
+                <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#3a506b] text-[#f4ecd8]">
-                    X
+                    X / x
                   </span>
                   <span>{t('legendTarolCerclage')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#60a5fa] text-[#1a1a1a]">
-                    F
+                    F / f
                   </span>
                   <span>{t('legendTarolFla')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#bfdbfe] text-[#1a1a1a]">
-                    C
+                    C / c
                   </span>
                   <span>{t('legendTarolClick')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#0284c7] text-[#f4ecd8]">
-                    T
+                    B / b
                   </span>
                   <span>{t('legendTarolTremer')}</span>
                 </div>
@@ -482,7 +494,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#6d4c41] text-[#f4ecd8]">
-                    t
+                    B / b
                   </span>
                   <span>{t('gongueBarulho')}</span>
                 </div>
@@ -514,8 +526,14 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                   <span>{t('legendAgbeSaut')}</span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a7f3d0] text-[#1a1a1a]">
+                    V / v
+                  </span>
+                  <span>{t('legendAgbeVolta')}</span>
+                </div>
+                <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#052e16] text-[#f4ecd8]">
-                    t
+                    B / b
                   </span>
                   <span>{t('legendAgbeBarulho')}</span>
                 </div>
@@ -539,6 +557,18 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                     T / t
                   </span>
                   <span>{t('mineiroT')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#f59e0b] text-[#1a1a1a]">
+                    L / l
+                  </span>
+                  <span>{t('mineiroL')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#78350f] text-[#f4ecd8]">
+                    B / b
+                  </span>
+                  <span>{t('mineiroB')}</span>
                 </div>
               </div>
             </div>
