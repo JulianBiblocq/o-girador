@@ -382,6 +382,12 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                   <span>{t('legendAlfaiaIguarassu')}</span>
                 </div>
                 <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a89f91] text-[#1a1a1a]">
+                    C / c
+                  </span>
+                  <span>{t('legendTarolClick')}</span>
+                </div>
+                <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4c1c1c] text-[#f4ecd8]">
                     B / b
                   </span>
@@ -419,6 +425,12 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                     F / f
                   </span>
                   <span>{t('legendCaixaFla')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a89f91] text-[#1a1a1a]">
+                    C / c
+                  </span>
+                  <span>{t('legendTarolClick')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4a044e] text-[#f4ecd8]">
@@ -491,6 +503,12 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                     A / a
                   </span>
                   <span>{t('gongueAigu')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#7f8c8d] text-[#f4ecd8]">
+                    X / x
+                  </span>
+                  <span>{t('legendGongueBord')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#6d4c41] text-[#f4ecd8]">
