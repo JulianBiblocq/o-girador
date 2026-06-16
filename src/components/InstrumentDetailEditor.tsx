@@ -274,6 +274,11 @@ export function getNextStepValue(instId: string, instType: string, currentVal: s
     if (norm === 'C') return 'B';
     return 0;
   }
+  if (instId === 'apito') {
+    if (norm === 0 || norm === '0' || !norm) return 'W';
+    if (norm === 'W') return 'w';
+    return 0;
+  }
   // default
   if (norm === 0 || norm === '0' || !norm) return 'd';
   if (norm === 'd') return 'D';

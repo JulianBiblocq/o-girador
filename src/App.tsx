@@ -2767,6 +2767,7 @@ export default function App() {
     if (timeSig === '12/8') defaultSteps = 24;
 
     const patternId = Date.now() + Math.floor(Math.random() * 1000);
+    const isApito = instrumentsConfig[instIdx]?.id === 'apito';
     const newPattern: Pattern = {
       id: patternId,
       name: 'Padrão 1',
@@ -2774,7 +2775,7 @@ export default function App() {
       activeSteps: Array(defaultSteps).fill(0),
       lyrics: Array(defaultSteps).fill(''),
       notes: Array(defaultSteps).fill(''),
-      measureAssignments: Array(totalMeasures).fill(true), // active everywhere by default
+      measureAssignments: Array(totalMeasures).fill(isApito ? false : true),
       volumes: Array(defaultSteps).fill(80),
       decays: Array(defaultSteps).fill(100),
       microtimings: Array(defaultSteps).fill(0),
@@ -3904,6 +3905,8 @@ export default function App() {
               else if (['d', 'D', 'e', 'E'].includes(cleanChar)) {
                 parsed = cleanChar;
               }
+            } else if (inst.id === 'apito') {
+              if (['W', 'w'].includes(cleanChar)) parsed = cleanChar;
             } else {
               if (['D', 'E', 'd', 'e'].includes(cleanChar)) parsed = cleanChar;
             }
@@ -3980,7 +3983,7 @@ export default function App() {
       prevEl.focus();
       prevEl.select();
     } else if (
-      ['d', 'D', 'p', 'P', 't', 'T', 'g', 'G', 'a', 'A', 'r', 'R', 'e', 'E', 'x', 'X', 'f', 'F', 'i', 'I', 's', 'S', 'c', 'C'].includes(key) &&
+      ['d', 'D', 'p', 'P', 't', 'T', 'g', 'G', 'a', 'A', 'r', 'R', 'e', 'E', 'x', 'X', 'f', 'F', 'i', 'I', 's', 'S', 'c', 'C', 'w', 'W'].includes(key) &&
       indexInGrid < inputs.length - 1
     ) {
       // Focus advance on character entry
