@@ -39,11 +39,11 @@ export class AudioEngine {
   private getTickDuration: () => number;
 
   // Sampler State & Buffers
-  private bufferPool = new Map<string, AudioBuffer>(); // Maps absolute path -> AudioBuffer (Sample Pooling)
+  private bufferPool = new Map<string, Tone.ToneAudioBuffer>(); // Maps absolute path -> ToneAudioBuffer (Sample Pooling)
   private lastPlayedIndices = new Map<string, number>(); // Maps "instrumentId_strokeSymbol" -> last played index (Round-Robin)
-  private instrumentChannels = new Map<string, any>(); // Maps instrumentId -> Output Web Audio node/Tone.js channel
-  private activeBarulhoNodes = new Map<string, AudioBufferSourceNode>(); // Maps instrumentId -> active looping Barulho source
-  private activeBarulhoGains = new Map<string, GainNode>(); // Maps instrumentId -> gainNode of active Barulho (for cleanup)
+  private instrumentChannels = new Map<string, any>(); // Maps instrumentId -> Tone.Channel
+  private activeBarulhoNodes = new Map<string, Tone.ToneBufferSource>(); // Maps instrumentId -> active looping ToneBufferSource
+  private activeBarulhoGains = new Map<string, Tone.Gain>(); // Maps instrumentId -> Tone.Gain of active Barulho (for cleanup)
 
   // O(1) lookup cache for instrument configurations (built once in constructor)
   private readonly configMap: Map<string, InstrumentAudioConfig>;
@@ -238,7 +238,8 @@ export class AudioEngine {
         }
         const arrayBuffer = await response.arrayBuffer();
         const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-        this.bufferPool.set(path, audioBuffer);
+        const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
+        this.bufferPool.set(path, toneBuffer);
       } catch (err) {
         console.error(`AudioEngine: Failed to load sample: ${path}`, err);
       } finally {
@@ -343,20 +344,7 @@ export class AudioEngine {
       return;
     }
 
-    // 2. Stop active looping Barulho if playing a normal note (Choking)
-    if (!stroke.isBarulho) {
-      this.stopBarulho(instrumentId, time);
-    }
-
-    // 3. Create AudioNodes inside Tone's context to maintain compatibility with the mixer graph
-    const source = Tone.getContext().createBufferSource();
-    source.buffer = buffer;
-
-    const gainNode = Tone.getContext().createGain();
-    gainNode.gain.setValueAtTime(velocity, time);
-    source.connect(gainNode);
-
-    // 4. Pitch Calculations (Macro & Micro/Humanization)
+    // 3. Pitch Calculations (Macro & Micro/Humanization)
     let macroPitch = config.macroPitch !== undefined ? config.macroPitch : 1.0;
     
     // Organically vary the playback rate unless it is a Barulho or Gonguê
@@ -369,21 +357,30 @@ export class AudioEngine {
       }
     }
 
-    source.playbackRate.setValueAtTime(macroPitch * microPitch, time);
+    const calculatedPitch = macroPitch * microPitch;
 
-    // 5. Connect to the mapped channel (or fallback to Master Destination) using Tone.connect
+    // 4. Instantiation 100% Tone.js
+    const source = new Tone.ToneBufferSource({
+      url: buffer,
+      playbackRate: calculatedPitch
+    });
+
+    const gainNode = new Tone.Gain(velocity);
+    source.connect(gainNode);
+
+    // 5. Connect to the mapped channel (or fallback to Master Destination)
     const channel = this.instrumentChannels.get(instrumentId);
     if (channel) {
-      Tone.connect(gainNode, channel);
+      gainNode.connect(channel);
     } else {
-      Tone.connect(gainNode, Tone.getContext().destination);
+      gainNode.connect(Tone.Destination);
     }
 
     // 6. Handle play duration and looping
     if (stroke.isBarulho) {
       source.loop = true;
       
-      // Choke any existing looping barulho for this instrument (also cleans up its gainNode)
+      // Choke any existing looping barulho for this instrument (also cleans up its Gain)
       this.stopBarulho(instrumentId, time);
 
       source.start(time);
@@ -398,7 +395,8 @@ export class AudioEngine {
       }
 
       source.onended = () => {
-        gainNode.disconnect();
+        try { source.dispose(); } catch (_) {}
+        try { gainNode.dispose(); } catch (_) {}
       };
     }
 
@@ -422,10 +420,10 @@ export class AudioEngine {
       }
       this.activeBarulhoNodes.delete(instrumentId);
     }
-    // Always disconnect the gainNode to prevent audio graph leaks
+    // Always dispose the gainNode to prevent audio graph leaks
     const activeGain = this.activeBarulhoGains.get(instrumentId);
     if (activeGain) {
-      try { activeGain.disconnect(); } catch (_) {}
+      try { activeGain.dispose(); } catch (_) {}
       this.activeBarulhoGains.delete(instrumentId);
     }
   }

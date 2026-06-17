@@ -50,7 +50,7 @@ let inputManager: InputManager | null = null;
 let wavRecordingBuffersL: Float32Array[] = [];
 let wavRecordingBuffersR: Float32Array[] = [];
 let scriptProcessorNode: ScriptProcessorNode | null = null;
-let reverbNode: Tone.Reverb | null = null;
+let reverbNode: Tone.Freeverb | null = null;
 const reverbSends: { [id: string]: Tone.Gain } = {};
 let masterVolumeNode: Tone.Gain | null = null;
 let masterMeterNode: Tone.Meter | null = null;
@@ -1152,14 +1152,13 @@ export default function App() {
   useEffect(() => {
     if (reverbNode) {
       const config = {
-        room: { decay: 0.8, pre: 0.0 },
-        studio: { decay: 1.4, pre: 0.0 },
-        hall: { decay: 2.8, pre: 0.008 }
+        room: { roomSize: 0.4, dampening: 4000 },
+        studio: { roomSize: 0.6, dampening: 3000 },
+        hall: { roomSize: 0.85, dampening: 1500 }
       }[reverbType];
 
-      reverbNode.decay = config.decay;
-      reverbNode.preDelay = config.pre;
-      reverbNode.generate().catch(err => console.error("Error generating Tone.Reverb on type change:", err));
+      reverbNode.roomSize.value = config.roomSize;
+      reverbNode.dampening = config.dampening;
     }
   }, [reverbType]);
 
@@ -1518,8 +1517,7 @@ export default function App() {
       // whistleSynth initialization removed (Apito is now a standalone track)
 
       if (!reverbNode) {
-        reverbNode = new Tone.Reverb({ decay: 1.4, preDelay: 0.0 }).connect(masterVolumeNode);
-        reverbNode.generate().catch(err => console.error("Error generating initial Tone.Reverb:", err));
+        reverbNode = new Tone.Freeverb({ roomSize: 0.6, dampening: 3000 }).connect(masterVolumeNode);
       }
 
       const totalAudioCount = instrumentsConfig.filter((i) => i.type !== 'voice').length;
