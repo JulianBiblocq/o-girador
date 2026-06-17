@@ -3,44 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { TrackGroup, Language } from '../types';
+import React from 'react';
 import { TrackMixer } from './TrackMixer';
 import { i18n, instrumentsConfig } from '../data';
+import { useSequencer } from '../contexts/SequencerContext';
+import { useAudio } from '../contexts/AudioContext';
+import { meters } from '../hooks/useAudioSync';
+import { Pattern } from '../types';
 
 interface MixerProps {
-  lang: Language;
-  isLeftHanded?: boolean;
-  tracks: TrackGroup[];
-  meters?: { [id: string]: any };
-  soloPatternPlayId?: number | null;
-  onMoveUp: (id: number) => void;
-  onMoveDown: (id: number) => void;
-  onInstrumentChange: (id: number, instIdx: number) => void;
-  onMuteToggle: (id: number) => void;
-  onSoloToggle: (id: number) => void;
-  onHideToggle: (id: number) => void;
-  onDelete: (id: number) => void;
-  onVolumeChange: (id: number, val: number) => void;
-  onPanChange: (id: number, val: number) => void;
-  onStepsChange: (trackId: number, patternId: number, steps: number) => void;
-  onStepValueChange: (trackId: number, patternId: number, stepIdx: number | number[], val: string | string[], lyrics?: string[], notes?: string[]) => void;
-  onStepKeyDown: (trackId: number, patternId: number, stepIdx: number, key: string, currentVal: string, targetEl: HTMLInputElement) => void;
-  onVoiceTypeToggle: (trackId: number, patternId: number, stepIdx: number) => void;
-  onVoiceSylChange: (trackId: number, patternId: number, stepIdx: number, val: string) => void;
-  onVoiceNoteChange: (trackId: number, patternId: number, stepIdx: number, val: string) => void;
-  onVoiceNoteBlur: (trackId: number, patternId: number, stepIdx: number, val: string) => void;
-  isPlaying: boolean;
-  currentStepIndex: number;
-  maxTicks: number;
-  timeSig: string;
   isLeftPanelCollapsed: boolean;
   onToggleLeftPanel: () => void;
-  totalMeasures: number;
-  onTrackSelectPattern: (trackId: number, patternId: number) => void;
-  onPatternAssign: (trackId: number, patternId: number, measureIdx: number, val: boolean) => void;
-  onAddPattern: (trackId: number) => void;
-  onDeletePattern: (trackId: number, patternId: number) => void;
   onStepTouchStart?: (
     e: React.MouseEvent | React.TouchEvent,
     patternId: number,
@@ -49,54 +22,112 @@ interface MixerProps {
     currentVal: string | number,
     onSelect: (val: string) => void
   ) => void;
-  onCopyPattern: (pattern: any) => void;
-  onPastePattern: (trackId: number, patternId: number) => void;
-  canPaste: boolean;
-  onReorderPatterns?: (trackId: number, patternId: number, direction: 'up' | 'down') => void;
 }
 
 const MixerComponent: React.FC<MixerProps> = ({
-  lang,
-  isLeftHanded = false,
-  tracks,
-  meters,
-  soloPatternPlayId,
-  onMoveUp,
-  onMoveDown,
-  onInstrumentChange,
-  onMuteToggle,
-  onSoloToggle,
-  onHideToggle,
-  onDelete,
-  onVolumeChange,
-  onPanChange,
-  onStepsChange,
-  onStepValueChange,
-  onStepKeyDown,
-  onVoiceTypeToggle,
-  onVoiceSylChange,
-  onVoiceNoteChange,
-  onVoiceNoteBlur,
-  isPlaying,
-  currentStepIndex,
-  maxTicks,
-  timeSig,
   isLeftPanelCollapsed,
   onToggleLeftPanel,
-  totalMeasures,
-  onTrackSelectPattern,
-  onPatternAssign,
-  onAddPattern,
-  onDeletePattern,
   onStepTouchStart,
-  onCopyPattern,
-  onPastePattern,
-  canPaste,
-  onReorderPatterns,
 }) => {
+  const sequencer = useSequencer();
+  const audio = useAudio();
+
+  const {
+    lang,
+    isLeftHanded = false,
+    tracks,
+    totalMeasures,
+    timeSig,
+    copiedPattern,
+    handleCopyPattern,
+    handlePastePattern,
+    handleTrackMoveUp: onMoveUp,
+    handleTrackMoveDown: onMoveDown,
+    handleTrackInstrumentIdxChange: onInstrumentChange,
+    handleTrackMuteToggle: onMuteToggle,
+    handleTrackSoloToggle: onSoloToggle,
+    handleTrackHideToggle: onHideToggle,
+    handleTrackDelete: onDelete,
+    handleTrackVolumeChange: onVolumeChange,
+    handleTrackPanChange: onPanChange,
+    handleTrackStepsChange: onStepsChange,
+    handleTrackStepValueChange: onStepValueChange,
+    handleTrackStepKeyDown: onStepKeyDown,
+    handleVoiceTypeToggle: onVoiceTypeToggle,
+    handleVoiceSylChange: onVoiceSylChange,
+    handleVoiceNoteChange: onVoiceNoteChange,
+    handleVoiceNoteBlur: onVoiceNoteBlur,
+    handleReorderPatterns: onReorderPatterns,
+  } = sequencer;
+
+  const {
+    isPlaying,
+    currentStepIndex,
+    maxTicksRef,
+    soloPatternPlayId,
+  } = audio;
+
+  const maxTicks = maxTicksRef.current;
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
   if (isLeftPanelCollapsed) return null;
+
+  const onTrackSelectPattern = (trackId: number, patternId: number) => {
+    sequencer.setTracks(prev => prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
+  };
+
+  const onPatternAssign = (trackId: number, patternId: number, measureIdx: number, val: boolean) => {
+    sequencer.pushUndoState();
+    sequencer.setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const assign = [...p.measureAssignments];
+            assign[measureIdx] = val;
+            return { ...p, measureAssignments: assign };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const onAddPattern = (trackId: number) => {
+    sequencer.pushUndoState();
+    sequencer.setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const p = t.patterns[0];
+        const newPattern: Pattern = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          name: `Padrão ${t.patterns.length + 1}`,
+          steps: p.steps,
+          activeSteps: Array(p.steps).fill(0),
+          lyrics: Array(p.steps).fill(''),
+          notes: Array(p.steps).fill(''),
+          measureAssignments: Array(totalMeasures).fill(false),
+          volumes: Array(p.steps).fill(80),
+          decays: Array(p.steps).fill(100),
+          microtimings: Array(p.steps).fill(0),
+        };
+        return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
+      }
+      return t;
+    }));
+  };
+
+  const onDeletePattern = (trackId: number, patternId: number) => {
+    sequencer.pushUndoState();
+    sequencer.setTracks(prev => prev.map(t => {
+      if (t.id === trackId && t.patterns.length > 1) {
+        const nextPatterns = t.patterns.filter(p => p.id !== patternId);
+        const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;
+        return { ...t, patterns: nextPatterns, selectedPatternId: nextSelected };
+      }
+      return t;
+    }));
+  };
 
   return (
     <div
@@ -154,51 +185,19 @@ const MixerComponent: React.FC<MixerProps> = ({
               onAddPattern={() => onAddPattern(track.id)}
               onDeletePattern={(patternId) => onDeletePattern(track.id, patternId)}
               onStepTouchStart={onStepTouchStart}
-              onCopyPattern={onCopyPattern}
-              onPastePattern={onPastePattern}
-              canPaste={canPaste}
+              onCopyPattern={handleCopyPattern}
+              onPastePattern={() => handlePastePattern(track.id)}
+              canPaste={!!copiedPattern}
               onReorderPatterns={(patternId, direction) => onReorderPatterns && onReorderPatterns(track.id, patternId, direction)}
             />
           ))}
         </div>
       </div>
-
-
     </div>
   );
 };
 
 export const Mixer = React.memo(MixerComponent, (prevProps, nextProps) => {
   if (prevProps.isLeftPanelCollapsed && nextProps.isLeftPanelCollapsed) return true;
-
-  const getVisualSteps = (props: any) => {
-    return props.tracks
-      .map((t: any) => {
-        const activePattern = t.patterns.find((p: any) => p.id === t.selectedPatternId) || t.patterns[0];
-        if (!activePattern) return '-1';
-        const currentStep = (props.isPlaying && props.currentStepIndex >= 0)
-          ? Math.floor((props.currentStepIndex / props.maxTicks) * activePattern.steps)
-          : -1;
-        return `${t.id}:${currentStep}`;
-      })
-      .join(',');
-  };
-
-  const prevVisualSteps = getVisualSteps(prevProps);
-  const nextVisualSteps = getVisualSteps(nextProps);
-
-  if (prevVisualSteps !== nextVisualSteps) {
-    return false;
-  }
-
-  const keys = Object.keys(prevProps) as Array<keyof MixerProps>;
-  for (const key of keys) {
-    if (typeof prevProps[key] === 'function') {
-      continue;
-    }
-    if (prevProps[key] !== nextProps[key]) {
-      return false;
-    }
-  }
-  return true;
+  return prevProps.isLeftPanelCollapsed === nextProps.isLeftPanelCollapsed;
 });

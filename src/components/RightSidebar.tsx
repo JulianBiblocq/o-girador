@@ -4,52 +4,73 @@
  */
 
 import React from 'react';
-import { TrackGroup, Language, PresetMetadata, RhythmSignal } from '../types';
-import { i18n, instrumentsConfig } from '../data';
+import { i18n, instrumentsConfig, getMaxTicks } from '../data';
 import { AudioTrackRecorder } from './AudioTrackRecorder';
 import gifshot from 'gifshot';
+import { useSequencer } from '../contexts/SequencerContext';
+import { useAudio } from '../contexts/AudioContext';
+import { PresetMetadata } from '../types';
 
 interface RightSidebarProps {
-  lang: Language;
   activePanel: 'legend' | 'letras' | null;
   onTogglePanel: (panel: 'legend' | 'letras') => void;
-  tracks: TrackGroup[];
-  letras: string;
-  onLetrasChange: (val: string) => void;
-  onExtractLyrics?: () => void;
-  metadata?: PresetMetadata;
-  onMetadataChange?: (val: PresetMetadata) => void;
-  currentPlayState: {
-    stepIndex: number;
-    maxTicks: number;
-    activePatternIdByInst: { [instIdx: number]: number | null };
-  } | null;
-  totalMeasures: number;
-  bpm?: number;
-  beatsPerMeasure?: number;
-  isPlaying?: boolean;
-  onTogglePlay?: () => void;
-  onAudioPatternCreated?: (wavBlob: Blob, durationInMeasures: number, name?: string) => void;
 }
 
 const RightSidebarComponent: React.FC<RightSidebarProps> = ({
-  lang,
   activePanel,
   onTogglePanel,
-  tracks,
-  letras,
-  onLetrasChange,
-  onExtractLyrics,
-  metadata,
-  onMetadataChange,
-  currentPlayState,
-  totalMeasures,
-  bpm = 120,
-  beatsPerMeasure = 4,
-  isPlaying = false,
-  onTogglePlay,
-  onAudioPatternCreated,
 }) => {
+  const sequencer = useSequencer();
+  const audio = useAudio();
+
+  const {
+    lang,
+    tracks,
+    letras,
+    setLetras: onLetrasChange,
+    metadata,
+    totalMeasures,
+    bpm = 120,
+    timeSig,
+    handleExtractLyrics: onExtractLyrics,
+    handleAudioPatternCreated: onAudioPatternCreated,
+  } = sequencer;
+
+  const {
+    isPlaying = false,
+    currentStepIndex,
+    currentMeasure,
+    handleTogglePlay: onTogglePlay,
+  } = audio;
+
+  const beatsPerMeasure = parseInt(timeSig.split('/')[0]) || 4;
+
+  const onMetadataChange = (newMeta: PresetMetadata) => {
+    sequencer.setMetadata(newMeta);
+    if (newMeta.rhythmSignals !== sequencer.metadata?.rhythmSignals) {
+      const validIds = new Set((newMeta.rhythmSignals || []).map(s => s.id));
+      sequencer.setMeasureSignals(prev => prev.map(id => (id && validIds.has(id)) ? id : null));
+    }
+  };
+
+  const currentPlayState = isPlaying ? {
+    stepIndex: currentStepIndex,
+    maxTicks: getMaxTicks(timeSig),
+    activePatternIdByInst: (() => {
+      const result: { [instIdx: number]: number | null } = {};
+      tracks.forEach(t => {
+        if (result[t.instrumentIdx] === undefined) {
+          if (isPlaying) {
+            const activePattern = t.patterns.find(p => p.measureAssignments[currentMeasure]);
+            result[t.instrumentIdx] = activePattern ? activePattern.id : null;
+          } else {
+            result[t.instrumentIdx] = t.selectedPatternId;
+          }
+        }
+      });
+      return result;
+    })(),
+  } : null;
   const [signalCameraActive, setSignalCameraActive] = React.useState<boolean>(false);
   const signalVideoRef = React.useRef<HTMLVideoElement | null>(null);
   const signalStreamRef = React.useRef<MediaStream | null>(null);
@@ -1014,50 +1035,4 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   );
 };
 
-export const RightSidebar = React.memo(RightSidebarComponent, (prevProps, nextProps) => {
-  if (prevProps.activePanel !== 'letras' && nextProps.activePanel !== 'letras') {
-    return (
-      prevProps.lang === nextProps.lang &&
-      prevProps.activePanel === nextProps.activePanel &&
-      prevProps.tracks === nextProps.tracks &&
-      prevProps.letras === nextProps.letras &&
-      prevProps.metadata === nextProps.metadata &&
-      prevProps.totalMeasures === nextProps.totalMeasures
-    );
-  }
-
-  const getVisualSteps = (props: RightSidebarProps) => {
-    if (!props.currentPlayState) return '';
-    const { stepIndex, maxTicks, activePatternIdByInst } = props.currentPlayState;
-    return props.tracks
-      .filter(t => instrumentsConfig[t.instrumentIdx]?.type === 'voice' && !t.isMute)
-      .map(t => {
-        const activePatternId = activePatternIdByInst?.[t.instrumentIdx];
-        const activePattern = t.patterns.find(p => p.id === activePatternId) || t.patterns[0];
-        if (!activePattern) return '-1';
-        const isThisPatternActive = !activePatternIdByInst || activePatternIdByInst[t.instrumentIdx] === activePattern.id;
-        if (!isThisPatternActive) return '-1';
-        const currentStep = Math.floor((stepIndex / maxTicks) * activePattern.steps);
-        return `${t.id}:${currentStep}`;
-      })
-      .join(',');
-  };
-
-  const prevVisualSteps = getVisualSteps(prevProps);
-  const nextVisualSteps = getVisualSteps(nextProps);
-
-  if (prevVisualSteps !== nextVisualSteps) {
-    return false;
-  }
-
-  const keys = Object.keys(prevProps) as Array<keyof RightSidebarProps>;
-  for (const key of keys) {
-    if (typeof prevProps[key] === 'function') {
-      continue;
-    }
-    if (prevProps[key] !== nextProps[key]) {
-      return false;
-    }
-  }
-  return true;
-});
+export const RightSidebar = React.memo(RightSidebarComponent);

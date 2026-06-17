@@ -6,66 +6,80 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as Tone from 'tone';
 import { TrackGroup, Language, HitTrigger, TimeSignature, SongSection } from '../types';
-import { instrumentsConfig, getMarkers, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
+import { instrumentsConfig, getMarkers, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol, i18n } from '../data';
 import { getNextStepValue } from './InstrumentDetailEditor';
+import { useSequencer } from '../contexts/SequencerContext';
+import { useAudio } from '../contexts/AudioContext';
 
 interface CircleSequencerProps {
-  lang: Language;
-  isLeftHanded?: boolean;
-  tracks: TrackGroup[];
-  isPlaying: boolean;
-  currentStepIndex: number;
-  currentMeasure: number;
-  maxTicks: number;
-  timeSig: TimeSignature;
-  onTogglePlay: () => void;
-  onStepChange: (trackId: number, patternId: number, stepIdx: number, newState: string | number, lyric?: string, note?: string) => void;
-  langPromptVoiceText: string;
-  isMetroOn?: boolean;
-  activeCircleIdByInst?: { [instIdx: number]: number | null };
-  totalMeasures: number;
-  activePatternIdByTrack: Record<number, number | null>;
-  hitTriggersRef?: React.MutableRefObject<HitTrigger[]>;
-  bpm: number;
-  measureBpms: number[];
-  measureVols: number[];
   isMobile?: boolean;
-  onNavigateMeasure?: (measureIdx: number) => void;
-  activeSignal?: { id: string; name: string; image: string } | null;
-  soloPatternPlayId?: number | null;
-  measureSignals?: (string | null)[];
-  rhythmSignals?: { id: string; name: string; image: string }[];
-  songSections?: SongSection[];
 }
 
 export const CircleSequencer: React.FC<CircleSequencerProps> = ({
-  lang,
-  isLeftHanded = false,
-  tracks,
-  isPlaying,
-  currentStepIndex,
-  currentMeasure,
-  maxTicks,
-  timeSig,
-  onTogglePlay,
-  onStepChange,
-  langPromptVoiceText,
-  isMetroOn,
-  activeCircleIdByInst,
-  totalMeasures,
-  activePatternIdByTrack,
-  hitTriggersRef,
-  bpm,
-  measureBpms,
-  measureVols,
-  isMobile,
-  onNavigateMeasure,
-  activeSignal,
-  soloPatternPlayId = null,
-  measureSignals = [],
-  rhythmSignals = [],
-  songSections = [],
+  isMobile = false,
 }) => {
+  const sequencer = useSequencer();
+  const audio = useAudio();
+
+  const {
+    lang,
+    isLeftHanded = false,
+    tracks,
+    totalMeasures,
+    bpm,
+    measureBpms,
+    measureVols,
+    measureSignals = [],
+    metadata,
+    songSections = [],
+    handleStepValueSelectAndToggle: onStepChange,
+  } = sequencer;
+
+  const rhythmSignals = metadata?.rhythmSignals || [];
+
+  const {
+    isPlaying,
+    currentStepIndex,
+    currentMeasure,
+    maxTicksRef,
+    soloPatternPlayId = null,
+    hitTriggersRef,
+    isMetroOn,
+    handleTogglePlay,
+    handleTimelineNavigate,
+  } = audio;
+
+  const maxTicks = maxTicksRef.current;
+  const timeSig = sequencer.measureTimeSigs[currentMeasure] || sequencer.timeSig;
+  const onTogglePlay = handleTogglePlay;
+  const onNavigateMeasure = (measureIdx: number) => handleTimelineNavigate(measureIdx, 0, 16);
+
+  const t = (key: string) => (i18n[lang] as any)[key] || key;
+  const langPromptVoiceText = t('promptVoice');
+
+  // Compute activePatternIdByTrack
+  const activePatternIdByTrack = (() => {
+    const result: { [trackId: number]: number | null } = {};
+    tracks.forEach(track => {
+      if (soloPatternPlayId !== null) {
+        const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
+        result[track.id] = hasSoloPattern ? soloPatternPlayId : null;
+      } else {
+        const activePattern = track.patterns.find(p => p.measureAssignments[currentMeasure]);
+        result[track.id] = activePattern ? activePattern.id : null;
+      }
+    });
+    return result;
+  })();
+
+  const activeCircleIdByInst = (() => {
+    const result: { [instIdx: number]: number | null } = {};
+    tracks.forEach(track => {
+      const pId = activePatternIdByTrack[track.id];
+      result[track.instrumentIdx] = pId;
+    });
+    return result;
+  })();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const measureDisplayRef = useRef<HTMLSpanElement>(null);
   const centerOverlayRef = useRef<HTMLDivElement>(null);

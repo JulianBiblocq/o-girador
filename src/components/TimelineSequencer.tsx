@@ -8,52 +8,14 @@ import * as Tone from 'tone';
 import { TrackGroup, Language, TimeSignature, SongSection, PresetMetadata, RhythmSignal } from '../types';
 import { ASSETS_BASE_URL, instrumentsConfig, getMaxTicks, getMarkers, isDarkText } from '../data';
 
+import { useSequencer } from '../contexts/SequencerContext';
+import { useAudio } from '../contexts/AudioContext';
+
 interface TimelineSequencerProps {
-  lang: Language;
-  tracks: TrackGroup[];
-  isPlaying: boolean;
-  currentStepIndex: number;
-  currentMeasure: number;
-  maxTicks: number;
-  totalMeasures: number;
   isMobile: boolean;
-  onMuteToggle: (trackId: number) => void;
-  onSoloToggle: (trackId: number) => void;
-  onPatternAssignForMeasure: (trackId: number, patternId: number | null, measureIdx: number) => void;
-  onNavigate: (measureIdx: number, stepIdx: number, steps: number) => void;
-  measureTimeSigs: TimeSignature[];
-  measureBpms: number[];
-  measureBpmTransitions: ('immediate' | 'ramp')[];
-  measureVols: number[];
-  measureVolTransitions: ('immediate' | 'ramp')[];
-  onMeasureTimeSigChange: (measureIdx: number, val: TimeSignature) => void;
-  onMeasureBpmChange: (measureIdx: number, val: number) => void;
-  onMeasureTransitionChange: (measureIdx: number, val: 'immediate' | 'ramp') => void;
-  onMeasureVolChange: (measureIdx: number, val: number) => void;
-  onMeasureVolTransitionChange: (measureIdx: number, val: 'immediate' | 'ramp') => void;
-  onTotalMeasuresChange: (val: number) => void;
-  songSections: SongSection[];
-  copiedSection: { length: number; name: string; color: string } | null;
-  onCreateSection: (name: string, start: number, end: number, color?: string) => void;
-  onUpdateSection: (id: string, name: string, start: number, end: number, color?: string) => void;
-  onDeleteSection: (id: string) => void;
-  onCopySection: (section: SongSection) => void;
-  onPasteSection: (destStartMeasure: number) => void;
-  metadata?: PresetMetadata;
-  letras: string;
-  loopStartMeasure: number | null;
-  loopEndMeasure: number | null;
-  onSetLoopStart: (measureIdx: number) => void;
-  onSetLoopEnd: (measureIdx: number) => void;
-  onClearLoop: () => void;
   measureWidth: number;
   onMeasureWidthChange: (width: number) => void;
-  onDeleteMeasure?: (measureIdx: number) => void;
-  onInsertMeasure?: (measureIdx: number) => void;
-  measureSignals?: (string | null)[];
-  onMeasureSignalChange?: (measureIdx: number, signalId: string | null) => void;
-  rhythmSignals?: RhythmSignal[];
-  onExportTablature: () => void;
+  onExportTablature?: () => void;
 }
 
 const HEADER_W = 180;
@@ -64,52 +26,71 @@ function getDisplayVal(val: string | number) {
 }
 
 export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
-  lang,
-  tracks,
-  isPlaying,
-  currentStepIndex,
-  currentMeasure,
-  maxTicks,
-  totalMeasures,
   isMobile,
-  onMuteToggle,
-  onSoloToggle,
-  onPatternAssignForMeasure,
-  onNavigate,
-  measureTimeSigs,
-  measureBpms,
-  measureBpmTransitions,
-  measureVols,
-  measureVolTransitions,
-  onMeasureTimeSigChange,
-  onMeasureBpmChange,
-  onMeasureTransitionChange,
-  onMeasureVolChange,
-  onMeasureVolTransitionChange,
-  onTotalMeasuresChange,
-  songSections,
-  copiedSection,
-  onCreateSection,
-  onUpdateSection,
-  onDeleteSection,
-  onCopySection,
-  onPasteSection,
-  metadata,
-  letras,
-  loopStartMeasure,
-  loopEndMeasure,
-  onSetLoopStart,
-  onSetLoopEnd,
-  onClearLoop,
   measureWidth,
   onMeasureWidthChange,
-  onDeleteMeasure,
-  onInsertMeasure,
-  measureSignals = [],
-  onMeasureSignalChange,
-  rhythmSignals = [],
   onExportTablature,
 }) => {
+  const sequencer = useSequencer();
+  const audio = useAudio();
+
+  const {
+    lang,
+    tracks,
+    totalMeasures,
+    measureTimeSigs,
+    measureBpms,
+    measureBpmTransitions,
+    measureVols,
+    measureVolTransitions,
+    songSections,
+    copiedSection,
+    metadata,
+    letras,
+    loopStartMeasure,
+    loopEndMeasure,
+    measureSignals = [],
+    handleTrackMuteToggle: onMuteToggle,
+    handleTrackSoloToggle: onSoloToggle,
+    handleTimelinePatternAssign: onPatternAssignForMeasure,
+    handleMeasureTimeSigChange: onMeasureTimeSigChange,
+    handleMeasureBpmChange: onMeasureBpmChange,
+    handleMeasureTransitionChange: onMeasureTransitionChange,
+    handleMeasureVolChange: onMeasureVolChange,
+    handleMeasureVolTransitionChange: onMeasureVolTransitionChange,
+    handleTotalMeasuresChange: onTotalMeasuresChange,
+    handleCreateSongSection: onCreateSection,
+    handleUpdateSongSection: onUpdateSection,
+    handleDeleteSongSection: onDeleteSection,
+    handleCopySongSection: onCopySection,
+    handlePasteSongSection: onPasteSection,
+    handleSetLoopStart: onSetLoopStart,
+    handleSetLoopEnd: onSetLoopEnd,
+    handleClearLoop: onClearLoop,
+    handleDeleteMeasure: onDeleteMeasure,
+    handleInsertMeasure: onInsertMeasure,
+  } = sequencer;
+
+  const rhythmSignals = metadata?.rhythmSignals || [];
+
+  const {
+    isPlaying,
+    currentStepIndex,
+    currentMeasure,
+    maxTicksRef,
+    handleTimelineNavigate: onNavigate,
+  } = audio;
+
+  const maxTicks = maxTicksRef.current;
+
+  const onMeasureSignalChange = (mIdx: number, sigId: string | null) => {
+    sequencer.setMeasureSignals(prev => {
+      const arr = [...prev];
+      while (arr.length <= mIdx) arr.push(null);
+      arr[mIdx] = sigId;
+      return arr;
+    });
+  };
   const isMacro = measureWidth <= 240;
   const isMinZoom = measureWidth <= 120;
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);

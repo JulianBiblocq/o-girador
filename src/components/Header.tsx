@@ -15,20 +15,12 @@ import {
 import { Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { GoogleLoginButton } from './GoogleLoginButton';
+import { useSequencer } from '../contexts/SequencerContext';
+import { useAudio } from '../contexts/AudioContext';
 
 interface HeaderProps {
-  lang: Language;
-  onLangToggle: () => void;
-  preset: string;
   presetFiles: string[];
-  onPresetChange: (val: string) => void;
-  onClear: () => void;
-  onSave: () => void;
-  onSaveToLocal: () => void;
-  onLoad: (file: File) => void;
   localPresets: string[];
-  onLoadLocalPreset: (name: string) => void;
-  onAddInstrument: (instIdx: number) => void;
   activeRightPanel: 'legend' | 'letras' | null;
   onToggleRightPanel: (panel: 'legend' | 'letras') => void;
   isLeftPanelCollapsed: boolean;
@@ -37,22 +29,7 @@ interface HeaderProps {
   onViewModeToggle: (mode: 'roda' | 'console' | 'timeline') => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
-  onUndo: () => void;
-  canUndo: boolean;
-  onRedo: () => void;
-  canRedo: boolean;
   isMobile: boolean;
-  isSwingOn: boolean;
-  onSwingToggle: () => void;
-  masterVol: number;
-  onMasterVolChange: (vol: number) => void;
-  timeSig: string;
-  onTimeSigChange: (sig: any) => void;
-  totalMeasures: number;
-  onTotalMeasuresChange: (val: number) => void;
-  reverbType: 'room' | 'studio' | 'hall';
-  onReverbTypeChange: (type: 'room' | 'studio' | 'hall') => void;
-  onShare?: () => void;
   version?: string | number;
   onExportTablature?: () => void;
   showInstallButton?: boolean;
@@ -60,18 +37,8 @@ interface HeaderProps {
 }
 
 const HeaderComponent: React.FC<HeaderProps> = ({
-  lang,
-  onLangToggle,
-  preset,
   presetFiles = [],
-  onPresetChange,
-  onClear,
-  onSave,
-  onSaveToLocal,
-  onLoad,
   localPresets = [],
-  onLoadLocalPreset,
-  onAddInstrument,
   activeRightPanel,
   onToggleRightPanel,
   isLeftPanelCollapsed,
@@ -80,27 +47,57 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   onViewModeToggle,
   isDarkMode,
   onToggleDarkMode,
-  onUndo,
-  canUndo,
-  onRedo,
-  canRedo,
   isMobile,
-  isSwingOn,
-  onSwingToggle,
-  masterVol,
-  onMasterVolChange,
-  timeSig,
-  onTimeSigChange,
-  totalMeasures,
-  onTotalMeasuresChange,
-  reverbType,
-  onReverbTypeChange,
-  onShare,
   version,
   onExportTablature,
   showInstallButton,
   onInstallClick,
 }) => {
+  const sequencer = useSequencer();
+  const audio = useAudio();
+
+  const {
+    lang,
+    setLang,
+    timeSig,
+    totalMeasures,
+    setTotalMeasures,
+    tracksHistory,
+    tracksRedoHistory,
+    handleUndo,
+    handleRedo,
+    handleClear,
+    handleAddTrackInstrument,
+  } = sequencer;
+
+  const {
+    activePresetName: preset,
+    handlePresetSelect: onPresetChange,
+    handleSaveState: onSave,
+    handleLoadState: onLoad,
+    handleShare: onShare,
+    handleSaveToLocal: onSaveToLocal,
+    handleLoadLocalPreset: onLoadLocalPreset,
+    isSwingOn,
+    setIsSwingOn,
+    masterVol,
+    setMasterVol,
+    reverbType,
+    setReverbType,
+    handleTimeSigChange: onTimeSigChange,
+  } = audio;
+
+  const onLangToggle = () => setLang(lang === 'pt' ? 'fr' : 'pt');
+  const onClear = handleClear;
+  const onAddInstrument = handleAddTrackInstrument;
+  const onUndo = handleUndo;
+  const canUndo = tracksHistory.length > 0;
+  const onRedo = handleRedo;
+  const canRedo = tracksRedoHistory.length > 0;
+  const onSwingToggle = () => setIsSwingOn(!isSwingOn);
+  const onMasterVolChange = setMasterVol;
+  const onTotalMeasuresChange = setTotalMeasures;
+  const onReverbTypeChange = setReverbType;
   const [addDropOpen, setAddDropOpen] = useState(false);
   const addDropRef = useRef<HTMLDivElement>(null);
   

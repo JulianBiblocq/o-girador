@@ -1,49 +1,38 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React from 'react';
-import { Play, Square, SkipBack, Circle, Volume2 } from 'lucide-react';
-import { Language, TimeSignature } from '../types';
+import { Play, Square, SkipBack, Circle } from 'lucide-react';
+import { useSequencer } from '../contexts/SequencerContext';
+import { useAudio } from '../contexts/AudioContext';
 import { i18n } from '../data';
 
 interface TransportBarProps {
-  lang: Language;
-  isPlaying: boolean;
-  onTogglePlay: () => void;
-  onRewind: () => void;
-  isRecording: boolean;
-  recordingSeconds?: number;
-  onRecordToggle: () => void;
-  bpm: number;
-  onBpmChange: (val: number) => void;
-  isMetroOn: boolean;
-  onMetroToggle: () => void;
-  isSwingOn: boolean;
-  onSwingToggle: () => void;
-  reverbType: 'room' | 'studio' | 'hall';
-  onReverbTypeChange: (type: 'room' | 'studio' | 'hall') => void;
   viewMode: 'roda' | 'console' | 'timeline';
-  isLeftHanded: boolean;
-  onLeftHandedToggle: () => void;
 }
 
-const TransportBarComponent: React.FC<TransportBarProps> = ({
-  lang,
-  isPlaying,
-  onTogglePlay,
-  onRewind,
-  isRecording,
-  recordingSeconds = 0,
-  onRecordToggle,
-  bpm,
-  onBpmChange,
-  isMetroOn,
-  onMetroToggle,
-  isSwingOn,
-  onSwingToggle,
-  reverbType,
-  onReverbTypeChange,
-  viewMode,
-  isLeftHanded,
-  onLeftHandedToggle,
-}) => {
+const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
+  const sequencer = useSequencer();
+  const audio = useAudio();
+
+  const { lang, bpm, setBpm, isLeftHanded, setIsLeftHanded } = sequencer;
+  const {
+    isPlaying,
+    isRecording,
+    recordingSeconds = 0,
+    isMetroOn,
+    setIsMetroOn,
+    isSwingOn,
+    setIsSwingOn,
+    reverbType,
+    setReverbType,
+    handleTogglePlay,
+    handleStop,
+    handleAudioRecordingToggle,
+  } = audio;
+
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
   const formatRecordingTime = (secs: number) => {
@@ -58,7 +47,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
       {/* Left side: Metro, Swing, BPM */}
       <div className="flex items-center gap-4 flex-1">
         <button
-          onClick={onMetroToggle}
+          onClick={() => setIsMetroOn(!isMetroOn)}
           className={`px-3 py-1 font-cactus font-bold text-sm flex items-center gap-1.5 cordel-border-sm cordel-button ${
             isMetroOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
           }`}
@@ -82,7 +71,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
         </button>
 
         <button
-          onClick={onSwingToggle}
+          onClick={() => setIsSwingOn(!isSwingOn)}
           className={`px-3 py-1 font-cactus font-bold text-sm flex items-center gap-1.5 cordel-border-sm cordel-button hidden md:flex ${
             isSwingOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
           }`}
@@ -93,7 +82,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
         </button>
 
         <button
-          onClick={onLeftHandedToggle}
+          onClick={() => setIsLeftHanded(!isLeftHanded)}
           className={`px-3 py-1 font-cactus font-bold text-sm flex items-center gap-1.5 cordel-border-sm cordel-button ${
             isLeftHanded ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
           }`}
@@ -103,15 +92,13 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
           <span className="hidden lg:inline">{lang === 'fr' ? 'Gaucher' : 'Canhoto'}</span>
         </button>
 
-
-
         <div className="flex items-center gap-1.5 bg-[var(--cordel-bg)] px-2 py-1 cordel-border-sm border-[var(--cordel-border)]">
           <span className="font-cactus font-bold text-[var(--cordel-text)] text-sm select-none">
             {lang === 'fr' ? 'Vitesse' : lang === 'pt' ? 'Velocidade' : 'Tempo'}
           </span>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => onBpmChange(Math.max(40, bpm - 1))}
+              onClick={() => setBpm(Math.max(40, bpm - 1))}
               className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] rounded-sm active:scale-95 transition-all"
               title={lang === 'fr' ? 'Diminuer le tempo' : lang === 'pt' ? 'Diminuir o tempo' : 'Decrease tempo'}
               style={{ padding: 0 }}
@@ -119,7 +106,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
               -
             </button>
             <button
-              onClick={() => onBpmChange(Math.min(240, bpm + 1))}
+              onClick={() => setBpm(Math.min(240, bpm + 1))}
               className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] rounded-sm active:scale-95 transition-all"
               title={lang === 'fr' ? 'Augmenter le tempo' : lang === 'pt' ? 'Aumentar o tempo' : 'Increase tempo'}
               style={{ padding: 0 }}
@@ -134,7 +121,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
           <span className="font-cactus font-bold text-[var(--cordel-text)] text-xs uppercase">Reverb</span>
           <select
             value={reverbType}
-            onChange={(e) => onReverbTypeChange(e.target.value as any)}
+            onChange={(e) => setReverbType(e.target.value as any)}
             className="bg-transparent text-[var(--cordel-text)] font-cactus text-xs font-bold outline-none cursor-pointer"
           >
             <option value="room" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'pt' ? 'Sala (Room)' : 'Pièce (Room)'}</option>
@@ -147,15 +134,15 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
       {/* Center: Main Transport Controls */}
       <div className="flex items-center justify-center gap-3 flex-1">
         <button
-          onClick={onRewind}
+          onClick={handleStop}
           className="w-10 h-10 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors"
-          title={lang === 'pt' ? 'Voltar ao início' : 'Retour au début'}
+          title={lang === 'pt' ? 'Voltar au início' : 'Retour au début'}
         >
           <SkipBack className="w-5 h-5" fill="currentColor" />
         </button>
         
         <button
-          onClick={onTogglePlay}
+          onClick={handleTogglePlay}
           className={`w-14 h-14 cordel-border cordel-button flex items-center justify-center transition-colors ${
             isPlaying ? 'bg-[#f1c40f] text-[#1a1a1a]' : 'bg-[var(--cordel-wood)] text-[#f4ecd8]'
           }`}
@@ -166,7 +153,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
         
         <div className="flex items-center gap-2 relative">
           <button
-            onClick={onRecordToggle}
+            onClick={handleAudioRecordingToggle}
             className={`w-10 h-10 cordel-border cordel-button flex items-center justify-center transition-colors ${
               isRecording ? 'bg-red-600 text-white animate-pulse-red' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-red-100 hover:text-red-800'
             }`}
@@ -188,15 +175,4 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({
   );
 };
 
-export const TransportBar = React.memo(TransportBarComponent, (prevProps, nextProps) => {
-  const keys = Object.keys(prevProps) as Array<keyof TransportBarProps>;
-  for (const key of keys) {
-    if (typeof prevProps[key] === 'function') {
-      continue;
-    }
-    if (prevProps[key] !== nextProps[key]) {
-      return false;
-    }
-  }
-  return true;
-});
+export const TransportBar = React.memo(TransportBarComponent);

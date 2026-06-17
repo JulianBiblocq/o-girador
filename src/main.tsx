@@ -2,6 +2,8 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import {GoogleOAuthProvider} from '@react-oauth/google';
 import {GameDataProvider} from './contexts/GameDataContext.tsx';
+import {SequencerProvider} from './contexts/SequencerContext.tsx';
+import {AudioProvider} from './contexts/AudioContext.tsx';
 import App from './App.tsx';
 import './index.css';
 
@@ -30,12 +32,20 @@ createRoot(document.getElementById('root')!).render(
     {hasGoogleClientId ? (
       <GoogleOAuthProvider clientId={googleClientId}>
         <GameDataProvider>
-          <App />
+          <SequencerProvider>
+            <AudioProvider>
+              <App />
+            </AudioProvider>
+          </SequencerProvider>
         </GameDataProvider>
       </GoogleOAuthProvider>
     ) : (
       <GameDataProvider>
-        <App />
+        <SequencerProvider>
+          <AudioProvider>
+            <App />
+          </AudioProvider>
+        </SequencerProvider>
       </GameDataProvider>
     )}
   </StrictMode>,

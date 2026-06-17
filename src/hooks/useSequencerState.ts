@@ -4,7 +4,8 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { TrackGroup, TimeSignature, SongSection } from '../types';
+import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language } from '../types';
+import { instrumentsConfig, getVisualStrokeSymbol, getMaxTicks } from '../data';
 
 export function useSequencerState() {
   const [tracks, setTracks] = useState<TrackGroup[]>([]);
@@ -22,6 +23,18 @@ export function useSequencerState() {
 
   const [loopStartMeasure, setLoopStartMeasure] = useState<number | null>(null);
   const [loopEndMeasure, setLoopEndMeasure] = useState<number | null>(null);
+
+  // Letras, metadata, settings
+  const [letras, setLetras] = useState<string>('');
+  const [metadata, setMetadata] = useState<PresetMetadata>({ toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] });
+  const [isLeftHanded, setIsLeftHanded] = useState<boolean>(() => localStorage.getItem('baquemix_left_handed') === 'true');
+  const [lang, setLang] = useState<Language>('pt');
+  const [copiedPattern, setCopiedPattern] = useState<Pattern | null>(null);
+  const [copiedSection, setCopiedSection] = useState<any>(null);
+
+  useEffect(() => {
+    localStorage.setItem('baquemix_left_handed', String(isLeftHanded));
+  }, [isLeftHanded]);
 
   // History states
   const [tracksHistory, setTracksHistory] = useState<TrackGroup[][]>([]);
@@ -174,7 +187,6 @@ export function useSequencerState() {
   }, [totalMeasures, timeSig, bpm]);
 
   const pushUndoState = (customTracksState?: TrackGroup[]) => {
-    // Clear redo history when a new action is performed
     setTracksRedoHistory([]);
     setSongStructureRedoHistory([]);
 
@@ -204,7 +216,6 @@ export function useSequencerState() {
   const handleUndo = () => {
     if (tracksHistoryRef.current.length === 0) return;
 
-    // Enregistrer l'état actuel dans l'historique de redo
     const currentTracksCloned = JSON.parse(JSON.stringify(tracksRef.current));
     setTracksRedoHistory(prev => [...prev, currentTracksCloned]);
 
@@ -247,7 +258,6 @@ export function useSequencerState() {
   const handleRedo = () => {
     if (tracksRedoHistoryRef.current.length === 0) return;
 
-    // Enregistrer l'état actuel dans l'historique d'undo
     const currentTracksCloned = JSON.parse(JSON.stringify(tracksRef.current));
     setTracksHistory(prev => [...prev, currentTracksCloned]);
 
@@ -294,6 +304,912 @@ export function useSequencerState() {
     setSongStructureRedoHistory([]);
   };
 
+  // Dynamic layout radial positioning offsets
+  const updateRadii = (list: TrackGroup[]) => {
+    const visibleList = list.filter(t => {
+      const inst = instrumentsConfig[t.instrumentIdx];
+      return !t.isHidden && inst?.id !== 'apito';
+    });
+    if (visibleList.length === 0) return;
+    const minRadius = 180;
+    const maxRadius = 495;
+
+    if (visibleList.length === 1) {
+      visibleList[0].radius = (minRadius + maxRadius) / 2;
+    } else {
+      const gap = (maxRadius - minRadius) / (visibleList.length - 1);
+      visibleList.forEach((t, idx) => {
+        t.radius = minRadius + idx * gap;
+      });
+    }
+  };
+
+  const handleTrackMoveUp = (id: number) => {
+    pushUndoState();
+    const idx = tracks.findIndex((t) => t.id === id);
+    if (idx > 0) {
+      const copy = [...tracks];
+      const temp = copy[idx];
+      copy[idx] = copy[idx - 1];
+      copy[idx - 1] = temp;
+      updateRadii(copy);
+      setTracks(copy);
+    }
+  };
+
+  const handleTrackMoveDown = (id: number) => {
+    pushUndoState();
+    const idx = tracks.findIndex((t) => t.id === id);
+    if (idx > -1 && idx < tracks.length - 1) {
+      const copy = [...tracks];
+      const temp = copy[idx];
+      copy[idx] = copy[idx + 1];
+      copy[idx + 1] = temp;
+      updateRadii(copy);
+      setTracks(copy);
+    }
+  };
+
+  const handleTrackInstrumentIdxChange = (id: number, targetInstIdx: number) => {
+    pushUndoState();
+    const updated = tracks.map((t) => {
+      if (t.id === id) {
+        return {
+          ...t,
+          instrumentIdx: targetInstIdx,
+        };
+      }
+      return t;
+    });
+    setTracks(updated);
+  };
+
+  const handleTrackMuteToggle = (id: number) => {
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, isMute: !t.isMute } : t)));
+  };
+
+  const handleTrackSoloToggle = (id: number) => {
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, isSolo: !t.isSolo } : t)));
+  };
+
+  const handleTrackHideToggle = (id: number) => {
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, isHidden: !t.isHidden } : t)));
+  };
+
+  const handleTrackDelete = (id: number) => {
+    pushUndoState();
+    setTracks(prev => {
+      const remaining = prev.filter((t) => t.id !== id);
+      updateRadii(remaining);
+      return remaining;
+    });
+  };
+
+  const handleTrackVolumeChange = (id: number, val: number) => {
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, volumeVal: val } : t)));
+  };
+
+  const handleTrackReverbChange = (id: number, val: number) => {
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, reverbVal: val } : t)));
+  };
+
+  const handleTrackStepVolumeChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            if (p.id === patternId) {
+              const copyVols = [...(p.volumes || Array(p.steps).fill(80))];
+              if (Array.isArray(stepIdx)) {
+                stepIdx.forEach(idx => {
+                  copyVols[idx] = val;
+                });
+              } else {
+                copyVols[stepIdx] = val;
+              }
+              return { ...p, volumes: copyVols };
+            }
+            return p;
+          })
+        };
+      }
+      return t;
+    }));
+  };
+
+  const handleTrackStepDecayChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            if (p.id === patternId) {
+              const copyDecays = [...(p.decays || Array(p.steps).fill(100))];
+              if (Array.isArray(stepIdx)) {
+                stepIdx.forEach(idx => {
+                  copyDecays[idx] = val;
+                });
+              } else {
+                copyDecays[stepIdx] = val;
+              }
+              return { ...p, decays: copyDecays };
+            }
+            return p;
+          })
+        };
+      }
+      return t;
+    }));
+  };
+
+  const handleTrackStepMicrotimingChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            if (p.id === patternId) {
+              const copyMicros = [...(p.microtimings || Array(p.steps).fill(0))];
+              if (Array.isArray(stepIdx)) {
+                stepIdx.forEach(idx => {
+                  copyMicros[idx] = val;
+                });
+              } else {
+                copyMicros[stepIdx] = val;
+              }
+              return { ...p, microtimings: copyMicros };
+            }
+            return p;
+          })
+        };
+      }
+      return t;
+    }));
+  };
+
+  const handleResetTrackMicrotimings = (trackId: number, patternId: number) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            if (p.id === patternId) {
+              return { ...p, microtimings: Array(p.steps).fill(0) };
+            }
+            return p;
+          })
+        };
+      }
+      return t;
+    }));
+  };
+
+  const handleTrackPanChange = (id: number, val: number) => {
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, panVal: val } : t)));
+  };
+
+  const handleTrackStepsChange = (trackId: number, patternId: number, targetSteps: number) => {
+    pushUndoState();
+    setTracks(prev =>
+      prev.map((t) => {
+        if (t.id === trackId) {
+          const nextPatterns = t.patterns.map(p => {
+            if (p.id === patternId) {
+              const arrSteps = Array(targetSteps).fill(0);
+              const arrLyrics = Array(targetSteps).fill('');
+              const arrNotes = Array(targetSteps).fill('');
+              const arrVols = Array(targetSteps).fill(80);
+              const arrDecays = Array(targetSteps).fill(100);
+              const arrMicro = Array(targetSteps).fill(0);
+
+              for (let i = 0; i < Math.min(targetSteps, p.steps); i++) {
+                arrSteps[i] = p.activeSteps[i];
+                arrLyrics[i] = p.lyrics?.[i] || '';
+                arrNotes[i] = p.notes?.[i] || '';
+                if (p.volumes && p.volumes[i] !== undefined) arrVols[i] = p.volumes[i];
+                if (p.decays && p.decays[i] !== undefined) arrDecays[i] = p.decays[i];
+                if (p.microtimings && p.microtimings[i] !== undefined) arrMicro[i] = p.microtimings[i];
+              }
+
+              return {
+                ...p,
+                steps: targetSteps,
+                activeSteps: arrSteps,
+                lyrics: arrLyrics,
+                notes: arrNotes,
+                volumes: arrVols,
+                decays: arrDecays,
+                microtimings: arrMicro,
+              };
+            }
+            return p;
+          });
+          return { ...t, patterns: nextPatterns };
+        }
+        return t;
+      })
+    );
+  };
+
+  const handleTimelinePatternAssign = (trackId: number, patternId: number | null, measureIdx: number) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          const assign = [...p.measureAssignments];
+          assign[measureIdx] = p.id === patternId;
+          return { ...p, measureAssignments: assign };
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleMeasureTimeSigChange = (measureIdx: number, val: TimeSignature) => {
+    pushUndoState();
+    setMeasureTimeSigs(prev => {
+      const arr = [...prev];
+      arr[measureIdx] = val;
+      return arr;
+    });
+  };
+
+  const handleMeasureBpmChange = (measureIdx: number, val: number) => {
+    pushUndoState();
+    setMeasureBpms(prev => {
+      const arr = [...prev];
+      arr[measureIdx] = val;
+      return arr;
+    });
+  };
+
+  const handleMeasureTransitionChange = (measureIdx: number, val: 'immediate' | 'ramp') => {
+    pushUndoState();
+    setMeasureBpmTransitions(prev => {
+      const arr = [...prev];
+      arr[measureIdx] = val;
+      return arr;
+    });
+  };
+
+  const handleMeasureVolChange = (measureIdx: number, val: number) => {
+    pushUndoState();
+    setMeasureVols(prev => {
+      const arr = [...prev];
+      arr[measureIdx] = val;
+      return arr;
+    });
+  };
+
+  const handleMeasureVolTransitionChange = (measureIdx: number, val: 'immediate' | 'ramp') => {
+    pushUndoState();
+    setMeasureVolTransitions(prev => {
+      const arr = [...prev];
+      arr[measureIdx] = val;
+      return arr;
+    });
+  };
+
+  const handleTotalMeasuresChange = (val: number) => {
+    pushUndoState();
+    setTotalMeasures(val);
+  };
+
+  const handleDeleteMeasure = (measureIdx: number) => {
+    pushUndoState();
+    if (totalMeasures <= 1) return;
+    setTotalMeasures(prev => prev - 1);
+    setMeasureTimeSigs(prev => prev.filter((_, idx) => idx !== measureIdx));
+    setMeasureBpms(prev => prev.filter((_, idx) => idx !== measureIdx));
+    setMeasureBpmTransitions(prev => prev.filter((_, idx) => idx !== measureIdx));
+    setMeasureVols(prev => prev.filter((_, idx) => idx !== measureIdx));
+    setMeasureVolTransitions(prev => prev.filter((_, idx) => idx !== measureIdx));
+    setMeasureSignals(prev => prev.filter((_, idx) => idx !== measureIdx));
+    setTracks(prev => prev.map(t => ({
+      ...t,
+      patterns: t.patterns.map(p => ({
+        ...p,
+        measureAssignments: p.measureAssignments.filter((_, idx) => idx !== measureIdx)
+      }))
+    })));
+  };
+
+  const handleInsertMeasure = (measureIdx: number) => {
+    pushUndoState();
+    setTotalMeasures(prev => prev + 1);
+    const refSig = measureTimeSigs[measureIdx] || timeSig;
+    const refBpm = measureBpms[measureIdx] || bpm;
+    const refVol = measureVols[measureIdx] !== undefined ? measureVols[measureIdx] : 100;
+
+    setMeasureTimeSigs(prev => {
+      const arr = [...prev];
+      arr.splice(measureIdx + 1, 0, refSig);
+      return arr;
+    });
+    setMeasureBpms(prev => {
+      const arr = [...prev];
+      arr.splice(measureIdx + 1, 0, refBpm);
+      return arr;
+    });
+    setMeasureBpmTransitions(prev => {
+      const arr = [...prev];
+      arr.splice(measureIdx + 1, 0, 'immediate');
+      return arr;
+    });
+    setMeasureVols(prev => {
+      const arr = [...prev];
+      arr.splice(measureIdx + 1, 0, refVol);
+      return arr;
+    });
+    setMeasureVolTransitions(prev => {
+      const arr = [...prev];
+      arr.splice(measureIdx + 1, 0, 'immediate');
+      return arr;
+    });
+    setMeasureSignals(prev => {
+      const arr = [...prev];
+      arr.splice(measureIdx + 1, 0, null);
+      return arr;
+    });
+    setTracks(prev => prev.map(t => ({
+      ...t,
+      patterns: t.patterns.map(p => {
+        const arr = [...p.measureAssignments];
+        arr.splice(measureIdx + 1, 0, false);
+        return { ...p, measureAssignments: arr };
+      })
+    })));
+  };
+
+  const handleSetLoopStart = (measureIdx: number) => {
+    setLoopStartMeasure(measureIdx);
+  };
+
+  const handleSetLoopEnd = (measureIdx: number) => {
+    setLoopEndMeasure(measureIdx);
+  };
+
+  const handleClearLoop = () => {
+    setLoopStartMeasure(null);
+    setLoopEndMeasure(null);
+  };
+
+  const handleCopyPattern = (pattern: Pattern) => {
+    const clone = JSON.parse(JSON.stringify(pattern));
+    setCopiedPattern(clone);
+  };
+
+  const handlePastePattern = (trackId: number) => {
+    if (!copiedPattern) return;
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const firstP = t.patterns[0];
+        const pasted: Pattern = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          name: `${copiedPattern.name} (Cópia)`,
+          steps: firstP.steps,
+          activeSteps: [...copiedPattern.activeSteps],
+          lyrics: [...copiedPattern.lyrics],
+          notes: [...copiedPattern.notes],
+          measureAssignments: Array(totalMeasures).fill(false),
+          volumes: copiedPattern.volumes ? [...copiedPattern.volumes] : Array(firstP.steps).fill(80),
+          decays: copiedPattern.decays ? [...copiedPattern.decays] : Array(firstP.steps).fill(100),
+          microtimings: copiedPattern.microtimings ? [...copiedPattern.microtimings] : Array(firstP.steps).fill(0),
+        };
+        while (pasted.activeSteps.length < firstP.steps) pasted.activeSteps.push(0);
+        while (pasted.lyrics.length < firstP.steps) pasted.lyrics.push('');
+        while (pasted.notes.length < firstP.steps) pasted.notes.push('');
+        if (pasted.volumes) while (pasted.volumes.length < firstP.steps) pasted.volumes.push(80);
+        if (pasted.decays) while (pasted.decays.length < firstP.steps) pasted.decays.push(100);
+        if (pasted.microtimings) while (pasted.microtimings.length < firstP.steps) pasted.microtimings.push(0);
+
+        pasted.activeSteps.length = firstP.steps;
+        pasted.lyrics.length = firstP.steps;
+        pasted.notes.length = firstP.steps;
+        if (pasted.volumes) pasted.volumes.length = firstP.steps;
+        if (pasted.decays) pasted.decays.length = firstP.steps;
+        if (pasted.microtimings) pasted.microtimings.length = firstP.steps;
+
+        return {
+          ...t,
+          patterns: [...t.patterns, pasted],
+          selectedPatternId: pasted.id
+        };
+      }
+      return t;
+    }));
+  };
+
+  const handleCreateSongSection = (name: string, start: number, end: number, color?: string) => {
+    const newSection: SongSection = {
+      id: Date.now().toString(),
+      name,
+      startMeasure: start,
+      endMeasure: end,
+      color: color || '#27ae60',
+    };
+    
+    setSongSections(prev => {
+      const next = [...prev, newSection];
+      next.sort((a, b) => a.startMeasure - b.startMeasure);
+      return next;
+    });
+  };
+
+  const handleUpdateSongSection = (id: string, name: string, start: number, end: number, color?: string) => {
+    setSongSections(prev => {
+      const next = prev.map(s => s.id === id ? { ...s, name, startMeasure: start, endMeasure: end, color } : s);
+      next.sort((a, b) => a.startMeasure - b.startMeasure);
+      return next;
+    });
+  };
+
+  const handleDeleteSongSection = (id: string) => {
+    setSongSections(prev => prev.filter(s => s.id !== id));
+  };
+
+  const handleCopySongSection = (section: SongSection) => {
+    const length = section.endMeasure - section.startMeasure + 1;
+    const assignments: { [trackId: number]: (number | null)[] } = {};
+
+    tracks.forEach(t => {
+      const arr: (number | null)[] = [];
+      for (let m = section.startMeasure; m <= section.endMeasure; m++) {
+        const assignedPattern = t.patterns.find(p => p.measureAssignments[m]);
+        arr.push(assignedPattern ? assignedPattern.id : null);
+      }
+      assignments[t.id] = arr;
+    });
+
+    const data = {
+      length,
+      name: section.name,
+      color: section.color || '#27ae60',
+      assignments,
+    };
+    setCopiedSection(data);
+  };
+
+  const handlePasteSongSection = (destStartMeasure: number) => {
+    if (!copiedSection) return;
+    pushUndoState();
+
+    const len = copiedSection.length;
+    const end = destStartMeasure + len - 1;
+
+    if (end >= totalMeasures) {
+      setTotalMeasures(end + 1);
+    }
+
+    setTracks(prev => prev.map(t => {
+      const copiedArr = copiedSection.assignments[t.id];
+      if (!copiedArr) return t;
+
+      const nextPatterns = t.patterns.map(p => {
+        const assign = [...p.measureAssignments];
+        while (assign.length <= end) assign.push(false);
+        
+        for (let i = 0; i < len; i++) {
+          const mIdx = destStartMeasure + i;
+          assign[mIdx] = p.id === copiedArr[i];
+        }
+        return { ...p, measureAssignments: assign };
+      });
+      return { ...t, patterns: nextPatterns };
+    }));
+
+    handleCreateSongSection(copiedSection.name, destStartMeasure, end, copiedSection.color);
+  };
+
+  const handleStepValueSelectAndToggle = (
+    trackId: number,
+    patternId: number,
+    stepIdx: number,
+    newState: string | number,
+    optLyric?: string,
+    optNote?: string
+  ) => {
+    pushUndoState();
+    setTracks(tracks.map((t) => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const arrSteps = [...p.activeSteps];
+            arrSteps[stepIdx] = newState;
+            const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
+            const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
+
+            if (optLyric !== undefined) arrLyrics[stepIdx] = optLyric;
+            if (optNote !== undefined) arrNotes[stepIdx] = optNote;
+
+            return {
+              ...p,
+              activeSteps: arrSteps,
+              lyrics: arrLyrics,
+              notes: arrNotes,
+            };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleVoiceTypeToggle = (trackId: number, patternId: number, stepIdx: number) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const copySteps = [...p.activeSteps];
+            if (copySteps[stepIdx] === 0) return p;
+            copySteps[stepIdx] = copySteps[stepIdx] === 'P' ? 'C' : 'P';
+            return { ...p, activeSteps: copySteps };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleVoiceSylChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
+    const activePattern = tracks.find(t => t.id === trackId)?.patterns.find(p => p.id === patternId);
+    const prevVal = activePattern?.lyrics?.[stepIdx] || '';
+    if (prevVal === '' && val !== '') {
+      pushUndoState();
+    }
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const copySteps = [...p.activeSteps];
+            const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
+            const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
+            arrLyrics[stepIdx] = val;
+            if (val.trim() !== '') {
+              if (copySteps[stepIdx] === 0) {
+                copySteps[stepIdx] = 'C';
+                if (!arrNotes[stepIdx]) arrNotes[stepIdx] = 'C4';
+              }
+            } else {
+              copySteps[stepIdx] = 0;
+            }
+            return { ...p, activeSteps: copySteps, lyrics: arrLyrics, notes: arrNotes };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleVoiceNoteChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
+    const activePattern = tracks.find(t => t.id === trackId)?.patterns.find(p => p.id === patternId);
+    const prevVal = activePattern?.notes?.[stepIdx] || '';
+    if (prevVal === '' && val !== '') {
+      pushUndoState();
+    }
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
+            arrNotes[stepIdx] = val;
+            return { ...p, notes: arrNotes };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleVoiceNoteBlur = (trackId: number, patternId: number, stepIdx: number, val: string) => {
+    pushUndoState();
+    const trimmed = val.trim();
+    if (trimmed.length === 1 || (trimmed.length === 2 && (trimmed.includes('#') || trimmed.includes('b')))) {
+      if (/^[a-gA-G][#b]?$/.test(trimmed)) {
+        const completedNote = trimmed.toUpperCase() + '4';
+        setTracks(prev => prev.map(t => {
+          if (t.id === trackId) {
+            const nextPatterns = t.patterns.map(p => {
+              if (p.id === patternId) {
+                const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
+                arrNotes[stepIdx] = completedNote;
+                return { ...p, notes: arrNotes };
+              }
+              return p;
+            });
+            return { ...t, patterns: nextPatterns };
+          }
+          return t;
+        }));
+      }
+    }
+  };
+
+  const handleExtractLyrics = () => {
+    const voiceTracks = tracks.filter((t) => instrumentsConfig[t.instrumentIdx].type === 'voice');
+    const htmlArr: string[] = [];
+
+    voiceTracks.forEach((t) => {
+      t.patterns.forEach(p => {
+        let trackStr = '';
+        for (let i = 0; i < p.steps; i++) {
+          if (p.activeSteps[i] !== 0 && p.lyrics[i]) {
+            const rawLyric = p.lyrics[i];
+            const hasSpace = rawLyric.endsWith(' ');
+            const syl = rawLyric.replace(/-$/, '').trim();
+            if (syl) {
+              trackStr += syl + (hasSpace ? ' ' : '');
+            }
+          }
+        }
+        if (trackStr) {
+          htmlArr.push(trackStr.trim());
+        }
+      });
+    });
+
+    setLetras(htmlArr.join('\n\n'));
+  };
+
+  const handleTrackStepValueChange = (
+    trackId: number,
+    patternId: number,
+    stepIdx: number | number[],
+    val: string | string[],
+    lyrics?: string[],
+    notes?: string[]
+  ) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const inst = instrumentsConfig[t.instrumentIdx];
+
+        const parseVal = (v: string): string | number => {
+          if (!v) return 0;
+          const cleanChar = v.slice(-1);
+          let parsed: string | number = 0;
+          if (v === '0') {
+            parsed = 0;
+          } else if (inst.colors[v] !== undefined && v !== 'text') {
+            parsed = v;
+          } else if (cleanChar && cleanChar.trim() !== '') {
+            if (inst.type === 'gongue') {
+              if (['G', 'g', 'A', 'a'].includes(cleanChar)) parsed = cleanChar;
+              else if (['x', 'X'].includes(cleanChar)) parsed = 'X';
+              else if (['b', 'B', 't'].includes(cleanChar)) parsed = 'B';
+            } else if (inst.id === 'mineiro') {
+              if (['P', 'p', 'T', 't'].includes(cleanChar)) parsed = cleanChar;
+              else if (['l', 'L'].includes(cleanChar)) parsed = 'L';
+              else if (['b', 'B'].includes(cleanChar)) parsed = 'B';
+            } else if (inst.id === 'caixa') {
+              const lowerChar = cleanChar.toLowerCase();
+              if (cleanChar === 'r') parsed = 'r';
+              else if (cleanChar === 'R') parsed = 'R';
+              else if (lowerChar === 'x') parsed = 'X';
+              else if (lowerChar === 'f') parsed = 'F';
+              else if (lowerChar === 'c') parsed = 'C';
+              else if (['b', 't'].includes(lowerChar)) parsed = 'B';
+              else if (['d', 'D', 'e', 'E', 'q', 'Q'].includes(cleanChar)) {
+                parsed = cleanChar;
+              }
+            } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
+              const lowerChar = cleanChar.toLowerCase();
+              if (lowerChar === 'x') parsed = 'X';
+              else if (lowerChar === 'i') parsed = 'I';
+              else if (lowerChar === 'c') parsed = 'C';
+              else if (['b', 't'].includes(lowerChar)) parsed = 'B';
+              else if (['d', 'D', 'e', 'E', 'q', 'Q'].includes(cleanChar)) {
+                parsed = cleanChar;
+              }
+            } else if (inst.id === 'tarol') {
+              const lowerChar = cleanChar.toLowerCase();
+              if (cleanChar === 'r') parsed = 'r';
+              else if (cleanChar === 'R') parsed = 'R';
+              else if (lowerChar === 'x') parsed = 'X';
+              else if (lowerChar === 'f') parsed = 'F';
+              else if (lowerChar === 'c') parsed = 'C';
+              else if (['b', 't'].includes(lowerChar)) parsed = 'B';
+              else if (['d', 'D', 'e', 'E', 'q', 'Q'].includes(cleanChar)) {
+                parsed = cleanChar;
+              }
+            } else if (inst.id === 'agbe') {
+              const lowerChar = cleanChar.toLowerCase();
+              if (lowerChar === 's') parsed = 'S';
+              else if (lowerChar === 'v') parsed = 'V';
+              else if (['b', 't'].includes(lowerChar)) parsed = 'B';
+              else if (['d', 'D', 'e', 'E'].includes(cleanChar)) {
+                parsed = cleanChar;
+              }
+            } else if (inst.id === 'apito') {
+              if (['W', 'w'].includes(cleanChar)) parsed = cleanChar;
+            } else {
+              if (['D', 'E', 'd', 'e'].includes(cleanChar)) parsed = cleanChar;
+            }
+          }
+          return getVisualStrokeSymbol(parsed, isLeftHanded, inst.id);
+        };
+
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const copySteps = [...p.activeSteps];
+            const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
+            const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
+
+            if (Array.isArray(stepIdx)) {
+              stepIdx.forEach((idx, i) => {
+                const currentVal = Array.isArray(val) ? val[i] : val;
+                copySteps[idx] = parseVal(currentVal);
+                if (lyrics && lyrics[i] !== undefined) {
+                  arrLyrics[idx] = lyrics[i];
+                }
+                if (notes && notes[i] !== undefined) {
+                  arrNotes[idx] = notes[i];
+                }
+              });
+            } else {
+              const currentVal = Array.isArray(val) ? val[0] : val;
+              copySteps[stepIdx] = parseVal(currentVal);
+              if (lyrics && lyrics[0] !== undefined) {
+                arrLyrics[stepIdx] = lyrics[0];
+              }
+              if (notes && notes[0] !== undefined) {
+                arrNotes[stepIdx] = notes[0];
+              }
+            }
+            return {
+              ...p,
+              activeSteps: copySteps,
+              lyrics: arrLyrics,
+              notes: arrNotes
+            };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleTrackStepKeyDown = (
+    trackId: number,
+    patternId: number,
+    stepIdx: number,
+    key: string,
+    currentWord: string,
+    targetInputEl: HTMLInputElement
+  ) => {
+    const cardGrid = targetInputEl.closest('.step-boxes');
+    if (!cardGrid) return;
+    const inputs = Array.from(cardGrid.querySelectorAll('input'));
+    const indexInGrid = inputs.indexOf(targetInputEl);
+
+    if (key === 'Backspace' && currentWord === '' && indexInGrid > 0) {
+      const prevEl = inputs[indexInGrid - 1] as HTMLInputElement;
+      prevEl.focus();
+      prevEl.select();
+    } else if ((key === 'ArrowRight' || key === 'Tab' || key === 'Enter') && indexInGrid < inputs.length - 1) {
+      const nextEl = inputs[indexInGrid + 1] as HTMLInputElement;
+      nextEl.focus();
+      nextEl.select();
+    } else if (key === 'ArrowLeft' && indexInGrid > 0) {
+      const prevEl = inputs[indexInGrid - 1] as HTMLInputElement;
+      prevEl.focus();
+      prevEl.select();
+    } else if (
+      ['d', 'D', 'p', 'P', 't', 'T', 'g', 'G', 'a', 'A', 'r', 'R', 'e', 'E', 'x', 'X', 'f', 'F', 'i', 'I', 's', 'S', 'c', 'C', 'w', 'W'].includes(key) &&
+      indexInGrid < inputs.length - 1
+    ) {
+      setTimeout(() => {
+        const nextEl = inputs[indexInGrid + 1] as HTMLInputElement;
+        nextEl.focus();
+        nextEl.select();
+      }, 10);
+    }
+  };
+
+  const handlePatternNameChange = (trackId: number, patternId: number, name: string) => {
+    pushUndoState();
+    setTracks((prevTracks) => {
+      return prevTracks.map((t) => {
+        if (t.id !== trackId) return t;
+        return {
+          ...t,
+          patterns: t.patterns.map((p) => {
+            if (p.id === patternId) {
+              return { ...p, name: name.trim() };
+            }
+            return p;
+          }),
+        };
+      });
+    });
+  };
+
+  const handleReorderPatterns = (trackId: number, patternId: number, direction: 'up' | 'down') => {
+    pushUndoState();
+    setTracks((prevTracks) => {
+      return prevTracks.map((t) => {
+        if (t.id !== trackId) return t;
+        const index = t.patterns.findIndex((p) => p.id === patternId);
+        if (index === -1) return t;
+        const newPatterns = [...t.patterns];
+        if (direction === 'up' && index > 0) {
+          const temp = newPatterns[index];
+          newPatterns[index] = newPatterns[index - 1];
+          newPatterns[index - 1] = temp;
+        } else if (direction === 'down' && index < newPatterns.length - 1) {
+          const temp = newPatterns[index];
+          newPatterns[index] = newPatterns[index + 1];
+          newPatterns[index + 1] = temp;
+        }
+        return {
+          ...t,
+          patterns: newPatterns
+        };
+      });
+    });
+  };
+
+  const handleClear = () => {
+    pushUndoState();
+    setTracks([]);
+    setLetras('');
+    setMeasureSignals([]);
+    setMetadata({ toada: '', nacao: '', compositor: '', ritmo: '', youtubeUrl: '', partitionImage: undefined, rhythmSignals: [] });
+  };
+
+  const handleAddTrackInstrument = (instIdx: number, currentMeasure: number = 0) => {
+    pushUndoState();
+    const inst = instrumentsConfig[instIdx];
+    const newTrack: TrackGroup = {
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      instrumentIdx: instIdx,
+      patterns: [
+        {
+          id: Date.now() + Math.floor(Math.random() * 1000) + 1,
+          name: 'Padrão 1',
+          steps: 16,
+          activeSteps: Array(16).fill(0),
+          lyrics: Array(16).fill(''),
+          notes: Array(16).fill(''),
+          measureAssignments: Array(totalMeasures).fill(false),
+          volumes: Array(16).fill(80),
+          decays: Array(16).fill(100),
+          microtimings: Array(16).fill(0),
+        },
+      ],
+      isMute: false,
+      isSolo: false,
+      isHidden: false,
+      volumeVal: 100,
+      selectedPatternId: 0,
+      reverbVal: 0,
+      panVal: 0,
+    };
+    newTrack.selectedPatternId = newTrack.patterns[0].id;
+    newTrack.patterns[0].measureAssignments[currentMeasure] = true;
+
+    setTracks(prev => {
+      const next = [...prev, newTrack];
+      updateRadii(next);
+      return next;
+    });
+  };
+
   return {
     // States & Setters
     tracks, setTracks, tracksRef,
@@ -309,12 +1225,65 @@ export function useSequencerState() {
     measureSignals, setMeasureSignals, measureSignalsRef,
     loopStartMeasure, setLoopStartMeasure, loopStartRef,
     loopEndMeasure, setLoopEndMeasure, loopEndRef,
+    letras, setLetras,
+    metadata, setMetadata,
+    isLeftHanded, setIsLeftHanded,
+    lang, setLang,
     // History
     tracksHistory,
     tracksRedoHistory,
     pushUndoState,
     handleUndo,
     handleRedo,
-    clearHistory
+    clearHistory,
+    // Handlers
+    handleTrackMoveUp,
+    handleTrackMoveDown,
+    handleTrackInstrumentIdxChange,
+    handleTrackMuteToggle,
+    handleTrackSoloToggle,
+    handleTrackHideToggle,
+    handleTrackDelete,
+    handleTrackVolumeChange,
+    handleTrackReverbChange,
+    handleTrackStepVolumeChange,
+    handleTrackStepDecayChange,
+    handleTrackStepMicrotimingChange,
+    handleResetTrackMicrotimings,
+    handleTrackPanChange,
+    handleTrackStepsChange,
+    handleTimelinePatternAssign,
+    handleMeasureTimeSigChange,
+    handleMeasureBpmChange,
+    handleMeasureTransitionChange,
+    handleMeasureVolChange,
+    handleMeasureVolTransitionChange,
+    handleTotalMeasuresChange,
+    handleDeleteMeasure,
+    handleInsertMeasure,
+    handleSetLoopStart,
+    handleSetLoopEnd,
+    handleClearLoop,
+    copiedPattern,
+    handleCopyPattern,
+    handlePastePattern,
+    handleCreateSongSection,
+    handleUpdateSongSection,
+    handleDeleteSongSection,
+    handleCopySongSection,
+    handlePasteSongSection,
+    copiedSection,
+    handleStepValueSelectAndToggle,
+    handleVoiceTypeToggle,
+    handleVoiceSylChange,
+    handleVoiceNoteChange,
+    handleVoiceNoteBlur,
+    handleExtractLyrics,
+    handleTrackStepValueChange,
+    handleTrackStepKeyDown,
+    handlePatternNameChange,
+    handleReorderPatterns,
+    handleClear,
+    handleAddTrackInstrument
   };
 }

@@ -107,6 +107,7 @@ export interface Preset {
   measureSignals?: (string | null)[]; // signal id par mesure
   masterEQ?: { low: number; mid: number; high: number };
   masterCompressor?: { threshold: number; ratio: number };
+  masterVol?: number;
   version?: number;
 }
 

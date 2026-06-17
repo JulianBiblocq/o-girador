@@ -7,6 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { instrumentsConfig, isDarkText, getVisualStrokeSymbol } from '../data';
 import { Language } from '../types';
 import { getNextStepValue } from './InstrumentDetailEditor';
+import { useSequencer } from '../contexts/SequencerContext';
 
 export interface TouchSelectorState {
   patternId: number;
@@ -23,8 +24,6 @@ interface TouchStrokeSelectorProps {
   hoveredStroke: string | null;
   setHoveredStroke: (val: string | null) => void;
   onClose: () => void;
-  lang: Language;
-  isLeftHanded?: boolean;
 }
 
 const getStrokeDescription = (instId: string, instType: string, stroke: string, lang: Language): string => {
@@ -120,9 +119,8 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
   hoveredStroke,
   setHoveredStroke,
   onClose,
-  lang,
-  isLeftHanded = false,
 }) => {
+  const { lang, isLeftHanded = false } = useSequencer();
   const hoveredStrokeRef = useRef<string | null>(null);
   const [isSticky, setIsSticky] = useState<boolean>(false);
   const stickyTimeRef = useRef<number>(0);

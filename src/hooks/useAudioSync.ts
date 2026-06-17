@@ -59,7 +59,7 @@ interface ScheduledNote {
   state: any;
 }
 
-function buildTickSchedule(
+export function buildTickSchedule(
   tracks: any[],
   totalMeasures: number,
   measureTimeSigs: string[],
@@ -907,6 +907,30 @@ export function useAudioSync({
     handleTogglePlay();
   };
 
+  const handleTimelineNavigate = (measureIdx: number, stepIdxInMeasure: number, stepsInMeasure: number) => {
+    const mSig = measureTimeSigs[measureIdx] || '4/4';
+    const currentTicks = getMaxTicks(mSig);
+    const tickIdx = Math.max(0, Math.min(currentTicks - 1, Math.floor((stepIdxInMeasure / stepsInMeasure) * currentTicks)));
+    
+    measureCountRef.current = measureIdx;
+    setCurrentMeasure(measureIdx % totalMeasures);
+    currentStepIndexRef.current = tickIdx - 1; // -1 so the next loop cycle increments to tickIdx
+    setCurrentStepIndex(tickIdx);
+    maxTicksRef.current = currentTicks;
+
+    const ratioVal = tickIdx / currentTicks;
+    window.dispatchEvent(new CustomEvent('baquemix-tick', {
+      detail: {
+        step: tickIdx,
+        measure: measureIdx % totalMeasures,
+        maxTicks: currentTicks,
+        ratio: ratioVal,
+        visualStep16: Math.floor(ratioVal * 16),
+        visualStep12: Math.floor(ratioVal * 12)
+      }
+    }));
+  };
+
   return {
     isPlaying,
     isLoading,
@@ -926,6 +950,7 @@ export function useAudioSync({
     handleRewind: handleStop, // alias for backwards compatibility
     handleStartSoloPattern,
     handleStopSoloPattern,
+    handleTimelineNavigate,
     // Scheduling references/refs needed by circle sequencer/etc.
     isPlayingRef,
     currentStepIndexRef,

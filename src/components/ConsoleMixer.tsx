@@ -1,57 +1,18 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, { useRef, useEffect, useState } from 'react';
-import { TrackGroup, Language, Pattern } from '../types';
+import { Pattern } from '../types';
 import { VerticalTrackMixer } from './VerticalTrackMixer';
 import { InstrumentDetailEditor } from './InstrumentDetailEditor';
 import { i18n, instrumentsConfig } from '../data';
+import { useSequencer } from '../contexts/SequencerContext';
+import { useAudio } from '../contexts/AudioContext';
+import { meters, masterMeterNode } from '../hooks/useAudioSync';
 
 interface ConsoleMixerProps {
-  isLeftHanded?: boolean;
-  activeInstrumentId?: string | null;
-  onActiveInstrumentChange?: (id: string | null) => void;
-  lang: Language;
-  tracks: TrackGroup[];
-  meters?: { [id: string]: any };
-  masterMeter?: any;
-  soloPatternPlayId?: number | null;
-  onMoveUp: (index: number) => void;
-  onMoveDown: (index: number) => void;
-  onInstrumentChange: (trackId: number, instIdx: number) => void;
-  onMuteToggle: (trackId: number) => void;
-  onSoloToggle: (trackId: number) => void;
-  onHideToggle: (trackId: number) => void;
-  onDelete: (trackId: number) => void;
-  onVolumeChange: (trackId: number, val: number) => void;
-  onPanChange: (trackId: number, val: number) => void;
-  onStepsChange: (trackId: number, patternId: number, steps: number) => void;
-  onStepValueChange: (
-    trackId: number,
-    patternId: number,
-    stepIdx: number | number[],
-    val: string | string[],
-    lyrics?: string[],
-    notes?: string[]
-  ) => void;
-  onStepKeyDown: (trackId: number, patternId: number, stepIdx: number, key: string, currentVal: string, targetEl: HTMLInputElement) => void;
-  onVoiceTypeToggle: (trackId: number, patternId: number, stepIdx: number) => void;
-  onVoiceSylChange: (trackId: number, patternId: number, stepIdx: number, val: string) => void;
-  onVoiceNoteChange: (trackId: number, patternId: number, stepIdx: number, val: string) => void;
-  onVoiceNoteBlur: (trackId: number, patternId: number, stepIdx: number, val: string) => void;
-  isPlaying: boolean;
-  currentStepIndex: number;
-  currentMeasure: number;
-  maxTicks: number;
-  timeSig: string;
-  totalMeasures: number;
-  onTrackSelectPattern: (trackId: number, patternId: number) => void;
-  onPatternAssign: (trackId: number, patternId: number, measureIdx: number, val: boolean) => void;
-  onAddPattern: (trackId: number) => void;
-  onDeletePattern: (trackId: number, patternId: number) => void;
-  onReorderPatterns?: (trackId: number, patternId: number, direction: 'up' | 'down') => void;
-  onReverbChange: (trackId: number, val: number) => void;
-  onStepVolumeChange: (trackId: number, patternId: number, stepIdx: number | number[], val: number) => void;
-  onStepDecayChange: (trackId: number, patternId: number, stepIdx: number | number[], val: number) => void;
-  onStepMicrotimingChange: (trackId: number, patternId: number, stepIdx: number | number[], val: number) => void;
-  isSwingOn: boolean;
   isMobile: boolean;
   onStepTouchStart?: (
     e: React.MouseEvent | React.TouchEvent,
@@ -61,102 +22,90 @@ interface ConsoleMixerProps {
     currentVal: string | number,
     onSelect: (val: string) => void
   ) => void;
-  onCopyPattern: (pattern: any) => void;
-  onPastePattern: (trackId: number, patternId: number) => void;
-  canPaste: boolean;
-  isRecordingVocal?: boolean;
-  recordingVocalPatternId?: number | null;
-  recordedPatternIds?: number[];
-  onStartVocalRecording?: (patternId: number) => void;
-  onStopVocalRecording?: () => void;
-  onVocalModeChange?: (patternId: number, mode: 'synth' | 'micro') => void;
-  onDeleteVocalRecording?: (patternId: number) => void;
-  onVocalLatencyChange?: (patternId: number, latencyMs: number) => void;
-  audioDevices?: MediaDeviceInfo[];
-  selectedAudioDeviceId?: string;
-  onAudioDeviceChange?: (deviceId: string) => void;
-  onImportVocalFile?: (patternId: number, file: File) => void;
-  isVocalGuideEnabled?: boolean;
-  onVocalGuideToggle?: (enabled: boolean) => void;
-  onVocalBpmSyncToggle?: (patternId: number, sync: boolean) => void;
-  masterVol: number;
-  onMasterVolChange: (vol: number) => void;
-  masterEQ: { low: number; mid: number; high: number };
-  onMasterEQChange: (eq: { low: number; mid: number; high: number }) => void;
-  masterCompressor: { threshold: number; ratio: number };
-  onMasterCompressorChange: (comp: { threshold: number; ratio: number }) => void;
-  onPatternNameChange?: (trackId: number, patternId: number, name: string) => void;
 }
 
 const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
-  isLeftHanded = false,
-  activeInstrumentId,
-  onActiveInstrumentChange,
   isMobile,
-  lang,
-  tracks,
-  meters,
-  masterMeter,
-  soloPatternPlayId,
-  onMoveUp,
-  onMoveDown,
-  onInstrumentChange,
-  onMuteToggle,
-  onSoloToggle,
-  onHideToggle,
-  onDelete,
-  onVolumeChange,
-  onPanChange,
-  onStepsChange,
-  onStepValueChange,
-  onStepKeyDown,
-  onVoiceTypeToggle,
-  onVoiceSylChange,
-  onVoiceNoteChange,
-  onVoiceNoteBlur,
-  isPlaying,
-  currentStepIndex,
-  currentMeasure,
-  maxTicks,
-  timeSig,
-  totalMeasures,
-  onTrackSelectPattern,
-  onPatternAssign,
-  onAddPattern,
-  onDeletePattern,
-  onReorderPatterns,
-  onReverbChange,
-  onStepVolumeChange,
-  onStepDecayChange,
-  onStepMicrotimingChange,
-  isSwingOn,
   onStepTouchStart,
-  onCopyPattern,
-  onPastePattern,
-  canPaste,
-  isRecordingVocal = false,
-  recordingVocalPatternId = null,
-  recordedPatternIds = [],
-  onStartVocalRecording,
-  onStopVocalRecording,
-  onVocalModeChange,
-  onDeleteVocalRecording,
-  onVocalLatencyChange,
-  audioDevices = [],
-  selectedAudioDeviceId = '',
-  onAudioDeviceChange,
-  onImportVocalFile,
-  isVocalGuideEnabled = true,
-  onVocalGuideToggle,
-  onVocalBpmSyncToggle,
-  masterVol,
-  onMasterVolChange,
-  masterEQ,
-  onMasterEQChange,
-  masterCompressor,
-  onMasterCompressorChange,
-  onPatternNameChange,
 }) => {
+  const sequencer = useSequencer();
+  const audio = useAudio();
+
+  const {
+    lang,
+    isLeftHanded = false,
+    tracks,
+    totalMeasures,
+    timeSig,
+    copiedPattern,
+    handleCopyPattern,
+    handlePastePattern,
+    handleTrackMoveUp: onMoveUp,
+    handleTrackMoveDown: onMoveDown,
+    handleTrackInstrumentIdxChange: onInstrumentChange,
+    handleTrackMuteToggle: onMuteToggle,
+    handleTrackSoloToggle: onSoloToggle,
+    handleTrackHideToggle: onHideToggle,
+    handleTrackDelete: onDelete,
+    handleTrackVolumeChange: onVolumeChange,
+    handleTrackPanChange: onPanChange,
+    handleTrackStepsChange: onStepsChange,
+    handleTrackStepValueChange: onStepValueChange,
+    handleTrackStepKeyDown: onStepKeyDown,
+    handleVoiceTypeToggle: onVoiceTypeToggle,
+    handleVoiceSylChange: onVoiceSylChange,
+    handleVoiceNoteChange: onVoiceNoteChange,
+    handleVoiceNoteBlur: onVoiceNoteBlur,
+    handleReorderPatterns: onReorderPatterns,
+    handleTrackReverbChange: onReverbChange,
+    handleTrackStepVolumeChange: onStepVolumeChange,
+    handleTrackStepDecayChange: onStepDecayChange,
+    handleTrackStepMicrotimingChange: onStepMicrotimingChange,
+    handleResetTrackMicrotimings: onResetMicrotimings,
+    handlePatternNameChange: onPatternNameChange,
+    // Vocal Recorder
+    isRecordingVocal = false,
+    recordingVocalPatternId = null,
+    recordedPatternIds = [],
+    startVocalRecording: onStartVocalRecording,
+    stopVocalRecording: onStopVocalRecording,
+    handleVocalModeChange: onVocalModeChange,
+    handleDeleteVocalRecording: onDeleteVocalRecording,
+    handleVocalLatencyChange: onVocalLatencyChange,
+    audioDevices = [],
+    selectedAudioDeviceId = '',
+    handleAudioDeviceChange: onAudioDeviceChange,
+    handleImportVocalFile: onImportVocalFile,
+    isVocalGuideEnabled = true,
+    setIsVocalGuideEnabled: onVocalGuideToggle,
+    handleVocalBpmSyncToggle: onVocalBpmSyncToggle,
+  } = sequencer;
+
+  const {
+    isPlaying,
+    currentStepIndex,
+    currentMeasure,
+    maxTicksRef,
+    soloPatternPlayId,
+    handleStartSoloPattern,
+    handleStopSoloPattern,
+    activeKeyboardInstrumentId,
+    setActiveKeyboardInstrumentId,
+    isSwingOn,
+    masterVol,
+    setMasterVol,
+    masterEQ,
+    setMasterEQ,
+    masterCompressor,
+    setMasterCompressor,
+  } = audio;
+
+  const maxTicks = maxTicksRef.current;
+  const onActiveInstrumentChange = setActiveKeyboardInstrumentId;
+  const onMasterVolChange = setMasterVol;
+  const onMasterEQChange = setMasterEQ;
+  const onMasterCompressorChange = setMasterCompressor;
+
   const vuMeterRef = useRef<HTMLDivElement>(null);
   const dbTextRef = useRef<HTMLDivElement>(null);
 
@@ -164,7 +113,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     let animationFrameId: number;
 
     const updateMasterMeter = () => {
-      const currentMeter = (window as any).masterMeterNode || masterMeter;
+      const currentMeter = (window as any).masterMeterNode || masterMeterNode;
       
       if (currentMeter) {
         try {
@@ -215,7 +164,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         vuMeterRef.current.style.height = '0%';
       }
     };
-  }, [masterMeter]);
+  }, []);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
 
@@ -238,7 +188,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
     const onWheel = (e: WheelEvent) => {
       if (e.deltaY !== 0) {
-        // Optionnel: On peut multiplier deltaY si on veut que le scroll aille plus vite
         e.preventDefault();
         el.scrollLeft += e.deltaY;
       }
@@ -247,6 +196,63 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
+
+  const onTrackSelectPattern = (trackId: number, patternId: number) => {
+    sequencer.setTracks(prev => prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
+  };
+
+  const onPatternAssign = (trackId: number, patternId: number, measureIdx: number, val: boolean) => {
+    sequencer.pushUndoState();
+    sequencer.setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const assign = [...p.measureAssignments];
+            assign[measureIdx] = val;
+            return { ...p, measureAssignments: assign };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const onAddPattern = (trackId: number) => {
+    sequencer.pushUndoState();
+    sequencer.setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const p = t.patterns[0];
+        const newPattern: Pattern = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          name: `Padrão ${t.patterns.length + 1}`,
+          steps: p.steps,
+          activeSteps: Array(p.steps).fill(0),
+          lyrics: Array(p.steps).fill(''),
+          notes: Array(p.steps).fill(''),
+          measureAssignments: Array(totalMeasures).fill(false),
+          volumes: Array(p.steps).fill(80),
+          decays: Array(p.steps).fill(100),
+          microtimings: Array(p.steps).fill(0),
+        };
+        return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
+      }
+      return t;
+    }));
+  };
+
+  const onDeletePattern = (trackId: number, patternId: number) => {
+    sequencer.pushUndoState();
+    sequencer.setTracks(prev => prev.map(t => {
+      if (t.id === trackId && t.patterns.length > 1) {
+        const nextPatterns = t.patterns.filter(p => p.id !== patternId);
+        const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;
+        return { ...t, patterns: nextPatterns, selectedPatternId: nextSelected };
+      }
+      return t;
+    }));
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
@@ -261,8 +267,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             totalTracks={tracks.length}
             meter={meters ? meters[instrumentsConfig[track.instrumentIdx].id] : undefined}
             soloPatternPlayId={soloPatternPlayId}
-            onMoveUp={() => onMoveUp(idx)}
-            onMoveDown={() => onMoveDown(idx)}
+            onMoveUp={() => onMoveUp(track.id)}
+            onMoveDown={() => onMoveDown(track.id)}
             onInstrumentChange={(i) => onInstrumentChange(track.id, i)}
             onMuteToggle={() => onMuteToggle(track.id)}
             onSoloToggle={() => onSoloToggle(track.id)}
@@ -290,9 +296,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             onDeletePattern={(pid) => onDeletePattern(track.id, pid)}
             onOpenDetailEditor={() => setEditingTrackId(track.id)}
             onStepTouchStart={onStepTouchStart}
-            onCopyPattern={onCopyPattern}
-            onPastePattern={onPastePattern}
-            canPaste={canPaste}
+            onCopyPattern={handleCopyPattern}
+            onPastePattern={() => handlePastePattern(track.id)}
+            canPaste={!!copiedPattern}
             onPatternNameChange={(pid, name) => onPatternNameChange && onPatternNameChange(track.id, pid, name)}
             onReorderPatterns={(pid, direction) => onReorderPatterns && onReorderPatterns(track.id, pid, direction)}
           />
@@ -323,7 +329,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 {/* Low Gain */}
                 <div className="flex flex-col gap-0.5">
                   <div className="flex justify-between text-[8px] font-bold opacity-60">
-                    <span>{lang === 'fr' ? 'Grave / Low' : 'Grave / Low'}</span>
+                    <span>Grave / Low</span>
                     <span>{masterEQ.low > 0 ? '+' : ''}{masterEQ.low} dB</span>
                   </div>
                   <input
@@ -340,7 +346,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 {/* Mid Gain */}
                 <div className="flex flex-col gap-0.5">
                   <div className="flex justify-between text-[8px] font-bold opacity-60">
-                    <span>{lang === 'fr' ? 'Médium / Mid' : 'Médio / Mid'}</span>
+                    <span>Médio / Mid</span>
                     <span>{masterEQ.mid > 0 ? '+' : ''}{masterEQ.mid} dB</span>
                   </div>
                   <input
@@ -357,7 +363,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 {/* High Gain */}
                 <div className="flex flex-col gap-0.5">
                   <div className="flex justify-between text-[8px] font-bold opacity-60">
-                    <span>{lang === 'fr' ? 'Aigu / High' : 'Agudo / High'}</span>
+                    <span>Agudo / High</span>
                     <span>{masterEQ.high > 0 ? '+' : ''}{masterEQ.high} dB</span>
                   </div>
                   <input
@@ -381,7 +387,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 {/* Threshold */}
                 <div className="flex flex-col gap-0.5">
                   <div className="flex justify-between text-[8px] font-bold opacity-60">
-                    <span>{lang === 'fr' ? 'Seuil / Threshold' : 'Limiar / Threshold'}</span>
+                    <span>Limiar / Threshold</span>
                     <span>{masterCompressor.threshold} dB</span>
                   </div>
                   <input
@@ -412,7 +418,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   />
                 </div>
               </div>
-
             </div>
 
             {/* Fader & VU Meter Section */}
@@ -494,9 +499,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           maxTicks={maxTicks}
           totalMeasures={totalMeasures}
           onStepTouchStart={onStepTouchStart}
-          onCopyPattern={onCopyPattern}
-          onPastePattern={(pid) => onPastePattern(editingTrack.id, pid)}
-          canPaste={canPaste}
+          onCopyPattern={handleCopyPattern}
+          onPastePattern={() => handlePastePattern(editingTrack.id)}
+          canPaste={!!copiedPattern}
           isRecordingVocal={isRecordingVocal}
           recordingVocalPatternId={recordingVocalPatternId}
           recordedPatternIds={recordedPatternIds}
@@ -519,35 +524,4 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   );
 };
 
-export const ConsoleMixer = React.memo(ConsoleMixerComponent, (prevProps, nextProps) => {
-  const getVisualSteps = (props: any) => {
-    return props.tracks
-      .map((t: any) => {
-        const activePattern = t.patterns.find((p: any) => p.id === t.selectedPatternId) || t.patterns[0];
-        if (!activePattern) return '-1';
-        const currentStep = (props.isPlaying && props.currentStepIndex >= 0)
-          ? Math.floor((props.currentStepIndex / props.maxTicks) * activePattern.steps)
-          : -1;
-        return `${t.id}:${currentStep}`;
-      })
-      .join(',');
-  };
-
-  const prevVisualSteps = getVisualSteps(prevProps);
-  const nextVisualSteps = getVisualSteps(nextProps);
-
-  if (prevVisualSteps !== nextVisualSteps) {
-    return false;
-  }
-
-  const keys = Object.keys(prevProps) as Array<keyof ConsoleMixerProps>;
-  for (const key of keys) {
-    if (typeof prevProps[key] === 'function') {
-      continue;
-    }
-    if (prevProps[key] !== nextProps[key]) {
-      return false;
-    }
-  }
-  return true;
-});
+export const ConsoleMixer = React.memo(ConsoleMixerComponent);

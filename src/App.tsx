@@ -4,21 +4,20 @@
  */
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import LZString from 'lz-string';
 import * as Tone from 'tone';
-import { Circle, TrackGroup, Pattern, Language, Preset, TimeSignature, PresetMetadata, HitTrigger, SongSection, RhythmSignal } from './types';
-import { migrateCirclesToTracks } from './migration';
+import { useSequencer } from './contexts/SequencerContext';
+import { useAudio } from './contexts/AudioContext';
 import {
-  instrumentsConfig,
-  vouVadiarPreset,
-  baqueDeImalePreset,
-  getMarkers,
-  getMaxTicks,
-  i18n,
-  ASSETS_BASE_URL,
-  getVisualStrokeSymbol,
-} from './data';
-import { getLocalLibrary, savePresetToLibrary, deletePresetFromLibrary } from './library';
+  audioEngine,
+  inputManager,
+  channels,
+  meters,
+  masterVolumeNode,
+  reverbSends,
+  masterMeterNode,
+} from './hooks/useAudioSync';
+import { i18n, ASSETS_BASE_URL, instrumentsConfig, getMaxTicks } from './data';
+import { getLocalLibrary, deletePresetFromLibrary } from './library';
 import { Header } from './components/Header';
 import { TransportBar } from './components/TransportBar';
 import { Mixer } from './components/Mixer';
@@ -26,21 +25,7 @@ import { ConsoleMixer } from './components/ConsoleMixer';
 import { CircleSequencer } from './components/CircleSequencer';
 import { RightSidebar } from './components/RightSidebar';
 import { TimelineSequencer } from './components/TimelineSequencer';
-import { TouchStrokeSelector, TouchSelectorState } from './components/TouchStrokeSelector';
-import { saveVocalRecording, getVocalRecording } from './db';
-import { useVocalRecorder } from './hooks/useVocalRecorder';
-import { useSequencerState } from './hooks/useSequencerState';
-import {
-  useAudioSync,
-  audioEngine,
-  inputManager,
-  channels,
-  meters,
-  masterVolumeNode,
-  reverbSends,
-  masterMeterNode
-} from './hooks/useAudioSync';
-import { instrumentAudioConfigs } from './data/audioConfig';
+import { TouchStrokeSelector } from './components/TouchStrokeSelector';
 import { QuizEngine } from './components/QuizEngine';
 import { DicteeEngine } from './components/DicteeEngine';
 import { InspecteurEngine } from './components/InspecteurEngine';
@@ -48,257 +33,7 @@ import { MestreEngine } from './components/MestreEngine';
 import { RythmeLiveEngine } from './components/RythmeLiveEngine';
 import { VaralCordel } from './components/VaralCordel';
 import { MestreStudio } from './components/MestreStudio';
-
-// Module scope recording and mixdown nodes
-let wavRecordingBuffersL: Float32Array[] = [];
-let wavRecordingBuffersR: Float32Array[] = [];
-let scriptProcessorNode: ScriptProcessorNode | null = null;
-
-const VOCAL_RECORDING_ARM_DELAY_MS = 300;
-const VOCAL_RECORDING_ARM_DELAY_SEC = 0.3;
-
-// ─── Cache et Pool de Performance ───────────────────────────────────────────
-const RANDOM_POOL_SIZE = 1000;
-const randomPool = Array.from({ length: RANDOM_POOL_SIZE }, () => Math.random());
-let randomPoolIdx = 0;
-
-function nextRandom(): number {
-  const val = randomPool[randomPoolIdx];
-  randomPoolIdx = (randomPoolIdx + 1) % RANDOM_POOL_SIZE;
-  return val;
-}
-
-const markersCache = new Map<string, number[]>();
-function getCachedMarkers(timeSig: string, ticks: number): number[] {
-  const key = `${timeSig}_${ticks}`;
-  if (!markersCache.has(key)) {
-    markersCache.set(key, getMarkers(timeSig as any, ticks));
-  }
-  return markersCache.get(key)!;
-}
-
-// ─── Pré-compilation du séquenceur ───────────────────────────────────────────
-// Plutôt que de faire forEach/find à chaque tick (133x/sec), on pre-compiles
-// toutes les notes à jouer dans une Map (measureIdx → tickIdx → notes[]).
-// La boucle AudioEngine ne fait alors qu'un accès O(1) — le thread audio n'est plus
-// chargé par les calculs React.
-interface ScheduledNote {
-  instId: string;
-  playerKey: string;
-  baseGain: number;           // trackVol * 1 (stepVol applied at trigger)
-  stepVolMultiplier: number;  // activeSteps volume per step
-  stepDecayMultiplier: number;
-  isStrong: boolean;
-  microtimingPct: number;     // -100..+100, applied relative to tick96nSec
-  stepsPerMeasure: number;    // needed for microOffset calc
-  trackId: number;
-  circleStepIdx: number;
-  state: any;
-}
-
-
-function buildTickSchedule(
-  tracks: any[],
-  totalMeasures: number,
-  measureTimeSigs: string[],
-  instConfig: any[],
-  soloPatternPlayId: number | null
-): Map<number, Map<number, ScheduledNote[]>> {
-  const schedule = new Map<number, Map<number, ScheduledNote[]>>();
-  const hasSolo = tracks.some((t: any) => t.isSolo);
-  const isSoloPlayActive = soloPatternPlayId !== null;
-
-  for (let measureIdx = 0; measureIdx < totalMeasures; measureIdx++) {
-    const timeSig = measureTimeSigs[measureIdx] || '4/4';
-    // getMaxTicks is defined inside App component — duplicate inline for module-level access
-    const parts = timeSig.split('/');
-    const beats = parseInt(parts[0], 10);
-    const beatUnit = parseInt(parts[1], 10);
-    const maxTicks = beats * (96 / beatUnit);
-    const measureMap = new Map<number, ScheduledNote[]>();
-
-    tracks.forEach((track: any) => {
-      const inst = instConfig[track.instrumentIdx];
-      if (!inst || inst.type === 'voice') return; // voice handled separately in loop
-
-      let activePattern: any = null;
-      let canPlay = false;
-
-      if (isSoloPlayActive) {
-        const isTargetSoloTrack = track.patterns.some((p: any) => p.id === soloPatternPlayId);
-        if (isTargetSoloTrack) {
-          activePattern = track.patterns.find((p: any) => p.id === soloPatternPlayId);
-          canPlay = true;
-        }
-      } else {
-        activePattern = track.patterns.find((p: any) => p.measureAssignments[measureIdx]);
-        canPlay = hasSolo ? track.isSolo : !track.isMute;
-      }
-
-      if (!activePattern || !canPlay) return;
-
-      const stepCount = activePattern.steps;
-
-      for (let step = 0; step < stepCount; step++) {
-        const state = activePattern.activeSteps[step];
-        if (!state || state === 0) continue;
-
-        // Which 96th-note tick does this step land on?
-        const tickIdx = Math.floor((step * maxTicks) / stepCount);
-
-        // Resolve player key
-        let targetKey: string | null = typeof state === 'string' ? state : String(state);
-        let isStrong = false;
-
-        if (inst.type === 'gongue') {
-          if (state === 'G' || state === 'A') { isStrong = true; }
-        } else if (inst.id === 'caixa') {
-          if (['D', 'E', 'Q', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
-        } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
-          if (['D', 'E', 'Q', 'X', 'I', 'C'].includes(state)) { isStrong = true; }
-        } else if (inst.id === 'tarol') {
-          if (['D', 'E', 'Q', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
-        } else if (inst.id === 'agbe') {
-          if (['D', 'E', 'S'].includes(state)) { isStrong = true; }
-        } else {
-          if (['D', 'E', 'P', 'T'].includes(state as string)) { isStrong = true; }
-        }
-
-        if (!targetKey) continue;
-
-        const stepVolMultiplier = (activePattern.volumes?.[step] ?? 80) / 100;
-        const stepDecayMultiplier = (activePattern.decays?.[step] ?? 100) / 100;
-        const microtimingPct = activePattern.microtimings?.[step] ?? 0;
-
-        if (!measureMap.has(tickIdx)) measureMap.set(tickIdx, []);
-        measureMap.get(tickIdx)!.push({
-          instId: inst.id,
-          playerKey: targetKey,
-          baseGain: 1.0,
-          stepVolMultiplier,
-          stepDecayMultiplier,
-          isStrong,
-          microtimingPct,
-          stepsPerMeasure: stepCount,
-          trackId: track.id,
-          circleStepIdx: step,
-          state,
-        });
-      }
-    });
-
-    schedule.set(measureIdx, measureMap);
-  }
-  return schedule;
-}
-// ─────────────────────────────────────────────────────────────────────────────
-
-function bufferToWav(leftBuffers: Float32Array[], rightBuffers: Float32Array[], sampleRate: number): Blob {
-  let totalLength = 0;
-  for (let i = 0; i < leftBuffers.length; i++) {
-    totalLength += leftBuffers[i].length;
-  }
-
-  const mergedLeft = new Float32Array(totalLength);
-  const mergedRight = new Float32Array(totalLength);
-  let offset = 0;
-  for (let i = 0; i < leftBuffers.length; i++) {
-    mergedLeft.set(leftBuffers[i], offset);
-    mergedRight.set(rightBuffers[i], offset);
-    offset += leftBuffers[i].length;
-  }
-
-  const interleaved = new Float32Array(totalLength * 2);
-  for (let i = 0; i < totalLength; i++) {
-    interleaved[i * 2] = mergedLeft[i];
-    interleaved[i * 2 + 1] = mergedRight[i];
-  }
-
-  const buffer = new ArrayBuffer(44 + interleaved.length * 2);
-  const view = new DataView(buffer);
-
-  // RIFF identifier
-  writeString(view, 0, 'RIFF');
-  // file length
-  view.setUint32(4, 36 + interleaved.length * 2, true);
-  // WAVE identifier
-  writeString(view, 8, 'WAVE');
-  // format chunk identifier
-  writeString(view, 12, 'fmt ');
-  // format chunk length
-  view.setUint32(16, 16, true);
-  // sample format (raw PCM = 1)
-  view.setUint16(20, 1, true);
-  // channel count (stereo = 2)
-  view.setUint16(22, 2, true);
-  // sample rate
-  view.setUint32(24, sampleRate, true);
-  // byte rate (sample rate * block align)
-  view.setUint32(28, sampleRate * 4, true);
-  // block align (channel count * bytes per sample)
-  view.setUint16(32, 4, true);
-  // bits per sample (16-bit)
-  view.setUint16(34, 16, true);
-  // data chunk identifier
-  writeString(view, 36, 'data');
-  // data chunk length
-  view.setUint32(40, interleaved.length * 2, true);
-
-  // Write PCM audio data
-  let index = 44;
-  for (let i = 0; i < interleaved.length; i++) {
-    const sample = Math.max(-1, Math.min(1, interleaved[i]));
-    const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
-    view.setInt16(index, intSample, true);
-    index += 2;
-  }
-
-  return new Blob([view], { type: 'audio/wav' });
-}
-
-function writeString(view: DataView, offset: number, string: string) {
-  for (let i = 0; i < string.length; i++) {
-    view.setUint8(offset + i, string.charCodeAt(i));
-  }
-}
-
-// Helpers for base64 vocal recording conversion
-const blobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      resolve(result);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-};
-
-const base64ToBlob = (base64Data: string): Blob => {
-  const parts = base64Data.split(';base64,');
-  let contentType = '';
-  let rawBase64 = base64Data;
-  if (parts.length === 2) {
-    contentType = parts[0].replace('data:', '');
-    rawBase64 = parts[1];
-  }
-  const sliceSize = 512;
-  const byteCharacters = atob(rawBase64);
-  const byteArrays = [];
-
-  for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
-    const slice = byteCharacters.slice(offset, offset + sliceSize);
-    const byteNumbers = new Array(slice.length);
-    for (let i = 0; i < slice.length; i++) {
-      byteNumbers[i] = slice.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    byteArrays.push(byteArray);
-  }
-
-  return new Blob(byteArrays, { type: contentType || 'audio/webm' });
-};
+import { PresetMetadata, Pattern, SongSection, TimeSignature } from './types';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -312,201 +47,17 @@ interface BeforeInstallPromptEvent extends Event {
 export default function App() {
   const CURRENT_VERSION = "2.2"; // Matches version.json
 
-  const {
-    tracks, setTracks, tracksRef,
-    bpm, setBpm,
-    totalMeasures, setTotalMeasures, totalMeasuresRef,
-    timeSig, setTimeSig,
-    measureTimeSigs, setMeasureTimeSigs, measureTimeSigsRef,
-    measureBpms, setMeasureBpms, measureBpmsRef,
-    measureBpmTransitions, setMeasureBpmTransitions, measureBpmTransitionsRef,
-    measureVols, setMeasureVols, measureVolsRef,
-    measureVolTransitions, setMeasureVolTransitions, measureVolTransitionsRef,
-    songSections, setSongSections, songSectionsRef,
-    measureSignals, setMeasureSignals, measureSignalsRef,
-    loopStartMeasure, setLoopStartMeasure, loopStartRef,
-    loopEndMeasure, setLoopEndMeasure, loopEndRef,
-    tracksHistory,
-    tracksRedoHistory,
-    pushUndoState,
-    handleUndo,
-    handleRedo,
-    clearHistory
-  } = useSequencerState();
+  // Consume contexts
+  const sequencer = useSequencer();
+  const audio = useAudio();
 
-  const [lang, setLang] = useState<Language>('pt');
-  const [masterVol, setMasterVol] = useState<number>(-6);
-  const [masterEQ, setMasterEQ] = useState<{ low: number; mid: number; high: number }>({ low: 0, mid: 0, high: 0 });
-  const [masterCompressor, setMasterCompressor] = useState<{ threshold: number; ratio: number }>({ threshold: -20, ratio: 4 });
-  const [reverbType, setReverbType] = useState<'room' | 'studio' | 'hall'>('studio');
-  const [isLeftHanded, setIsLeftHanded] = useState<boolean>(() => localStorage.getItem('baquemix_left_handed') === 'true');
-  const [activeKeyboardInstrumentId, setActiveKeyboardInstrumentId] = useState<string | null>(null);
-
-  // Shared audio and transport Refs to resolve hook circular dependency
-  const isPlayingRef = useRef<boolean>(false);
-  const measureCountRef = useRef<number>(0);
-  const currentStepIndexRef = useRef<number>(-1);
-  const lastPlayedSignalIdRef = useRef<string | null>(null);
-  const setIsPlayingRef = useRef<(val: boolean) => void>(() => {});
-
-  // 2. Vocal Recorder custom Hook
-  const {
-    isRecordingVocal,
-    recordingVocalPatternId,
-    recordedPatternIds,
-    audioDevices,
-    selectedAudioDeviceId,
-    isVocalGuideEnabled,
-    setIsVocalGuideEnabled,
-    recordingVocalPatternIdRef,
-    vocalRecordingStateRef,
-    vocalMediaRecorderRef,
-    recordedMeasuresCountRef,
-    recordingDurationMeasuresRef,
-    vocalPlayersRef,
-    isVocalGuideEnabledRef,
-    handleAudioDeviceChange,
-    handleImportVocalFile,
-    handleAudioPatternCreated,
-    startVocalRecording,
-    stopVocalRecording,
-    finishVocalRecording,
-    handleVocalModeChange,
-    handleVocalLatencyChange,
-    handleVocalBpmSyncToggle,
-    handleDeleteVocalRecording,
-    getSystemDefaultLatencyMs,
-    loadVocalRecording
-  } = useVocalRecorder({
-    tracks,
-    setTracks,
-    pushUndoState,
-    bpm,
-    measureBpms,
-    totalMeasures,
-    audioEngine,
-    setIsPlaying: (val) => setIsPlayingRef.current(val),
-    channels,
-    masterVolumeNode,
-    isPlayingRef,
-    measureCountRef,
-    currentStepIndexRef,
-    lastPlayedSignalIdRef
-  });
-
-  // 3. Audio Sync & Transport custom Hook
-  const {
-    isPlaying,
-    isLoading,
-    currentMeasure,
-    currentStepIndex,
-    setCurrentMeasure,
-    setCurrentStepIndex,
-    isMetroOn,
-    setIsMetroOn,
-    isSwingOn,
-    setIsSwingOn,
-    soloPatternPlayId,
-    setSoloPatternPlayId,
-    // Control Handlers
-    handleTogglePlay,
-    handleStop,
-    handleRewind,
-    handleStartSoloPattern,
-    handleStopSoloPattern,
-    // Scheduling references
-    hitTriggersRef,
-    soloPatternPlayIdRef,
-    maxTicksRef,
-    tickScheduleRef
-  } = useAudioSync({
-    tracks,
-    tracksRef,
-    totalMeasures,
-    totalMeasuresRef,
-    measureTimeSigs,
-    measureTimeSigsRef,
-    measureBpms,
-    measureBpmsRef,
-    measureBpmTransitionsRef,
-    measureVolsRef,
-    measureVolTransitionsRef,
-    measureSignalsRef,
-    loopStartRef,
-    loopEndRef,
-
-    isRecordingVocal,
-    startVocalRecording,
-    stopVocalRecording,
-    finishVocalRecording,
-    recordingVocalPatternIdRef,
-    vocalRecordingStateRef,
-    recordedMeasuresCountRef,
-    recordingDurationMeasuresRef,
-    vocalPlayersRef,
-    isVocalGuideEnabledRef,
-    loadVocalRecording,
-
-    isPlayingRef,
-    currentStepIndexRef,
-    measureCountRef,
-    lastPlayedSignalIdRef,
-    setIsPlayingRef,
-
-    bpm,
-    isLeftHanded,
-    activeKeyboardInstrumentId,
-    masterVol,
-    masterEQ,
-    masterCompressor,
-    reverbType
-  });
-
-  const [activePresetName, setActivePresetName] = useState<string>('');
-  const [presetFiles, setPresetFiles] = useState<string[]>([]);
-
-  // Sync left-handed preference
-  useEffect(() => {
-    localStorage.setItem('baquemix_left_handed', String(isLeftHanded));
-    if (inputManager) {
-      inputManager.setLeftHanded(isLeftHanded);
-    }
-  }, [isLeftHanded]);
-
-  // Sync active instrument to InputManager
-  useEffect(() => {
-    if (inputManager) {
-      inputManager.setActiveInstrument(activeKeyboardInstrumentId);
-    }
-  }, [activeKeyboardInstrumentId]);
-
-  // Default active keyboard instrument if none is selected
-  useEffect(() => {
-    if (tracks.length > 0 && !activeKeyboardInstrumentId) {
-      const firstNonVoice = tracks.find(t => instrumentsConfig[t.instrumentIdx] && instrumentsConfig[t.instrumentIdx].type !== 'voice');
-      if (firstNonVoice) {
-        setActiveKeyboardInstrumentId(instrumentsConfig[firstNonVoice.instrumentIdx].id);
-      } else {
-        setActiveKeyboardInstrumentId(instrumentsConfig[tracks[0].instrumentIdx].id);
-      }
-    }
-  }, [tracks, activeKeyboardInstrumentId]);
-  const [letras, setLetras] = useState<string>('');
-  const [metadata, setMetadata] = useState<PresetMetadata>({
-    toada: '',
-    nacao: '',
-    compositor: '',
-    ritmo: ''
-  });
-
-
-
+  // Local Layout / UI States
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 1024);
   const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | null>(
-    window.innerWidth < 1024 ? 'letras' : (window.innerWidth >= 1024 ? 'letras' : null)
+    window.innerWidth < 1024 ? 'letras' : 'letras'
   );
   const [viewMode, setViewMode] = useState<'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio'>('roda');
   const [unlockedFolhetos, setUnlockedFolhetos] = useState<string[]>(() => {
@@ -518,35 +69,19 @@ export default function App() {
     }
   });
   const [justUnlockedBookletId, setJustUnlockedBookletId] = useState<string | null>(null);
-
-  useEffect(() => {
-    localStorage.setItem('baquemix-unlocked-folhetos', JSON.stringify(unlockedFolhetos));
-  }, [unlockedFolhetos]);
-
-  const unlockBooklet = (id: string) => {
-    setUnlockedFolhetos((prev) => {
-      if (prev.includes(id)) return prev;
-      // Newly unlocked!
-      setJustUnlockedBookletId(id);
-      setViewMode('varal');
-      return [...prev, id];
-    });
-  };
-
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     const savedTheme = localStorage.getItem('baquemix-theme');
     if (savedTheme) {
       return savedTheme === 'dark';
     }
     const mediaDark = window.matchMedia('(prefers-color-scheme: dark)');
-    const mediaLight = window.matchMedia('(prefers-color-scheme: light)');
     if (mediaDark.matches) return true;
-    if (mediaLight.matches) return false;
     return true; // default to true
   });
   const [localPresets, setLocalPresets] = useState<string[]>([]);
-  
-  // Custom non-blocking modal overlay state (replaces window.alert, window.confirm, window.prompt)
+  const [presetFiles, setPresetFiles] = useState<string[]>([]);
+
+  // Dialog System
   const [customDialog, setCustomDialog] = useState<{
     type: 'alert' | 'confirm' | 'prompt';
     message: string;
@@ -572,33 +107,33 @@ export default function App() {
     });
   };
 
-  // A2HS Deferred Prompt State
+  // A2HS install prompt
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
-  // Capture beforeinstallprompt event
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    await deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`User response to the A2HS prompt: ${outcome}`);
-    setDeferredPrompt(null);
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const choiceResult = await deferredPrompt.userChoice;
+      if (choiceResult.outcome === 'accepted') {
+        console.log('User accepted the install prompt');
+      }
+      setDeferredPrompt(null);
+    }
   };
 
-  // Helper for unified app updates (clean SW + clean caches + reload)
+  // SW Update Handler
   const handleAppUpdate = async (reg: ServiceWorkerRegistration) => {
     const shouldUpdate = await confirmAsync(
-      lang === 'fr' 
+      sequencer.lang === 'fr' 
         ? "Une nouvelle version de BaqueMix est disponible. Recharger pour mettre à jour ?"
         : "Uma nova versão do BaqueMix está disponível. Recarregar para atualizar ?"
     );
@@ -610,8 +145,6 @@ export default function App() {
           window.location.reload();
         }
       });
-
-      // Clear caches
       try {
         if ('caches' in window) {
           const keys = await caches.keys();
@@ -622,12 +155,9 @@ export default function App() {
       } catch (err) {
         console.warn('Error clearing caches:', err);
       }
-
-      // Trigger skipWaiting on the waiting worker
       if (reg && reg.waiting) {
         reg.waiting.postMessage({ type: 'SKIP_WAITING' });
       } else {
-        // Fallback if no waiting worker, unregister all SWs and reload
         try {
           const registrations = await navigator.serviceWorker.getRegistrations();
           for (const registration of registrations) {
@@ -641,25 +171,19 @@ export default function App() {
     }
   };
 
-  // Listen for the custom service worker update event
   useEffect(() => {
     const handleSWUpdateEvent = (e: Event) => {
       const customEvent = e as CustomEvent<ServiceWorkerRegistration>;
       handleAppUpdate(customEvent.detail);
     };
     window.addEventListener('sw-update-available', handleSWUpdateEvent);
-    return () => {
-      window.removeEventListener('sw-update-available', handleSWUpdateEvent);
-    };
-  }, [lang, confirmAsync]);
+    return () => window.removeEventListener('sw-update-available', handleSWUpdateEvent);
+  }, [sequencer.lang]);
 
-  // Secure version.json check to prevent reload loops
+  // Check remote version
   useEffect(() => {
     const checkVersion = async () => {
-      if (!navigator.onLine) {
-        console.log('Offline: skipping version.json update check.');
-        return;
-      }
+      if (!navigator.onLine) return;
       try {
         const response = await fetch(
           `${window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/'}version.json?t=${Date.now()}`
@@ -670,16 +194,12 @@ export default function App() {
             const data = await response.json();
             if (data && typeof data === 'object' && 'version' in data) {
               const latestVersion = String(data.version);
-              
               if (latestVersion && latestVersion !== "undefined" && latestVersion !== CURRENT_VERSION) {
-                console.log(`New version detected via version.json: ${latestVersion}. Prompting user...`);
-                
                 const shouldUpdate = await confirmAsync(
-                  lang === 'fr' 
+                  sequencer.lang === 'fr' 
                     ? "Une nouvelle version de BaqueMix est disponible. Recharger pour mettre à jour ?"
                     : "Uma nova versão do BaqueMix está disponível. Recarregar para atualizar ?"
                 );
-                
                 if (shouldUpdate) {
                   let refreshing = false;
                   navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -688,8 +208,6 @@ export default function App() {
                       window.location.reload();
                     }
                   });
-
-                  // Clear caches
                   try {
                     if ('caches' in window) {
                       const keys = await caches.keys();
@@ -697,37 +215,26 @@ export default function App() {
                         await caches.delete(key);
                       }
                     }
-                  } catch (err) {
-                    console.warn('Error clearing caches:', err);
-                  }
-
-                  // Unregister service workers so new version loads cleanly
+                  } catch (err) {}
                   try {
                     const registrations = await navigator.serviceWorker.getRegistrations();
                     for (const registration of registrations) {
                       await registration.unregister();
                     }
-                  } catch (err) {
-                    console.warn('Error unregistering service workers:', err);
-                  }
-                  
+                  } catch (err) {}
                   window.location.reload();
                 }
               }
             }
           }
         }
-      } catch (err) {
-        console.warn('version.json update check failed:', err);
-      }
+      } catch (err) {}
     };
-    
-    // Delay check slightly to not block initial loading metrics
     const timer = setTimeout(checkVersion, 3000);
     return () => clearTimeout(timer);
-  }, [lang, confirmAsync]);
+  }, [sequencer.lang]);
 
-  // Prevent context menus on faders, sliders and images to avoid touch screen copy/share popup interference
+  // Context menu prevention on UI elements
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -743,432 +250,160 @@ export default function App() {
       }
     };
     window.addEventListener('contextmenu', handleContextMenu);
-    return () => {
-      window.removeEventListener('contextmenu', handleContextMenu);
-    };
+    return () => window.removeEventListener('contextmenu', handleContextMenu);
   }, []);
 
-
-  const [touchSelector, setTouchSelector] = useState<TouchSelectorState | null>(null);
-  const [hoveredStroke, setHoveredStroke] = useState<string | null>(null);
-  const [mobileTab, setMobileTab] = useState<'roda' | 'mixer' | 'toada'>('roda');
-  const [copiedPattern, setCopiedPattern] = useState<Pattern | null>(null);
-
-  const [copiedSection, setCopiedSection] = useState<{
-    length: number;
-    name: string;
-    color: string;
-    assignments: { [trackId: number]: (number | null)[] };
-  } | null>(null);
-
-  // Zoom state
-  const [measureWidth, setMeasureWidth] = useState<number>(480);
-
-  // Autosave notification state
-  const [isSavedIndicatorVisible, setIsSavedIndicatorVisible] = useState<boolean>(false);
-
-  // Inspecteur sequences state and ref
-  const inspecteurSequencesRef = useRef<{
-    alfaia?: Tone.Sequence;
-    gongue?: Tone.Sequence;
-    agbe?: Tone.Sequence;
-    caixaParfaite?: Tone.Sequence;
-    caixaErreur?: Tone.Sequence;
-  }>({});
-  const [inspecteurCaixaParfaite, setInspecteurCaixaParfaite] = useState<Tone.Sequence | undefined>(undefined);
-  const [inspecteurCaixaErreur, setInspecteurCaixaErreur] = useState<Tone.Sequence | undefined>(undefined);
-
-  const stopInspecteurAudio = () => {
-    const seqs = inspecteurSequencesRef.current;
-    if (seqs.alfaia) seqs.alfaia.dispose();
-    if (seqs.gongue) seqs.gongue.dispose();
-    if (seqs.agbe) seqs.agbe.dispose();
-    if (seqs.caixaParfaite) seqs.caixaParfaite.dispose();
-    if (seqs.caixaErreur) seqs.caixaErreur.dispose();
-    
-    inspecteurSequencesRef.current = {};
-    setInspecteurCaixaParfaite(undefined);
-    setInspecteurCaixaErreur(undefined);
-    Tone.Transport.stop();
-  };
-
-  const startInspecteurAudio = () => {
-    stopInspecteurAudio();
-    Tone.start();
-
-    const playSample = (instId: string, playerKey: string, time: number) => {
-      if (!audioEngine) return;
-      
-      let symbol = playerKey;
-      let velocity = 1.0;
-      
-      // Map educational mode playerKeys to definitive symbols and velocities
-      if (playerKey === 'fort') {
-        symbol = 'D';
-        velocity = 1.0;
-      } else if (playerKey === 'faible') {
-        symbol = 'd';
-        velocity = 0.4;
-      } else if (playerKey === 'fort-grave') {
-        symbol = 'G';
-        velocity = 1.0;
-      } else if (playerKey === 'fort-aigue') {
-        symbol = 'A';
-        velocity = 1.0;
-      } else if (playerKey === 'faible-grave') {
-        symbol = 'g';
-        velocity = 0.4;
-      } else if (playerKey === 'faible-aigue') {
-        symbol = 'a';
-        velocity = 0.4;
-      } else if (playerKey === 'barulho') {
-        symbol = 'B';
-        velocity = 0.8;
-      } else if (playerKey === 'ruffada-D') {
-        symbol = 'R';
-        velocity = 1.0;
-      } else if (playerKey === 'ruffada-G') {
-        symbol = 'r';
-        velocity = 1.0;
-      } else if (playerKey === 'saut') {
-        symbol = 'S';
-        velocity = 1.0;
-      }
-      
-      audioEngine.playNote(instId, symbol, time, velocity, 1.0);
-    };
-
-    const alfaia = new Tone.Sequence((time, note) => {
-      if (note) playSample('marcante', note, time);
-    }, ["fort", "faible", "fort", "faible"], "4n").start(0);
-
-    const gongue = new Tone.Sequence((time, note) => {
-      if (note) playSample('gongue', note, time);
-    }, ["fort-grave", "fort-aigue", "fort-grave", "fort-aigue"], "4n").start(0);
-
-    const agbe = new Tone.Sequence((time, note) => {
-      if (note) playSample('agbe', note, time);
-    }, ["fort", "faible", "fort", "faible"], "4n").start(0);
-
-    const caixaParfaite = new Tone.Sequence((time, note) => {
-      if (note) playSample('caixa', note, time);
-    }, ["fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible"], "16n").start(0);
-
-    const caixaErreur = new Tone.Sequence((time, note) => {
-      if (note) playSample('caixa', note, time);
-    }, ["fort", null, "faible", "fort", null, "fort", "faible", null, "fort", null, "faible", "fort", null, "fort", "faible", null], "16n").start(0);
-
-    caixaParfaite.mute = true;
-    caixaErreur.mute = false;
-
-    inspecteurSequencesRef.current = { alfaia, gongue, agbe, caixaParfaite, caixaErreur };
-    setInspecteurCaixaParfaite(caixaParfaite);
-    setInspecteurCaixaErreur(caixaErreur);
-
-    Tone.Transport.start();
-  };
-
-  // Mestre sequences state and ref
-  const [mestreRhythmState, setMestreRhythmState] = useState<'base' | 'variation' | 'rufo'>('base');
-  const mestreSequencesRef = useRef<{
-    alfaia?: Tone.Sequence;
-    caixa?: Tone.Sequence;
-    gongue?: Tone.Sequence;
-    agbe?: Tone.Sequence;
-  }>({});
-  const mestreRhythmStateRef = useRef<'base' | 'variation' | 'rufo'>('base');
-
-  useEffect(() => {
-    mestreRhythmStateRef.current = mestreRhythmState;
-  }, [mestreRhythmState]);
-
-  const stopMestreAudio = () => {
-    const seqs = mestreSequencesRef.current;
-    if (seqs.alfaia) seqs.alfaia.dispose();
-    if (seqs.caixa) seqs.caixa.dispose();
-    if (seqs.gongue) seqs.gongue.dispose();
-    if (seqs.agbe) seqs.agbe.dispose();
-    
-    mestreSequencesRef.current = {};
-    setMestreRhythmState('base');
-    Tone.Transport.stop();
-    Tone.Transport.cancel();
-  };
-
-  const startMestreAudio = () => {
-    stopMestreAudio();
-    Tone.start();
-
-    const playSample = (instId: string, playerKey: string, time: number) => {
-      if (!audioEngine) return;
-      
-      let symbol = playerKey;
-      let velocity = 1.0;
-      
-      // Map educational mode playerKeys to definitive symbols and velocities
-      if (playerKey === 'fort') {
-        symbol = 'D';
-        velocity = 1.0;
-      } else if (playerKey === 'faible') {
-        symbol = 'd';
-        velocity = 0.4;
-      } else if (playerKey === 'fort-grave') {
-        symbol = 'G';
-        velocity = 1.0;
-      } else if (playerKey === 'fort-aigue') {
-        symbol = 'A';
-        velocity = 1.0;
-      } else if (playerKey === 'faible-grave') {
-        symbol = 'g';
-        velocity = 0.4;
-      } else if (playerKey === 'faible-aigue') {
-        symbol = 'a';
-        velocity = 0.4;
-      } else if (playerKey === 'barulho') {
-        symbol = 'B';
-        velocity = 0.8;
-      } else if (playerKey === 'ruffada-D') {
-        symbol = 'R';
-        velocity = 1.0;
-      } else if (playerKey === 'ruffada-G') {
-        symbol = 'r';
-        velocity = 1.0;
-      } else if (playerKey === 'saut') {
-        symbol = 'S';
-        velocity = 1.0;
-      }
-      
-      audioEngine.playNote(instId, symbol, time, velocity, 1.0);
-    };
-
-    const alfaia = new Tone.Sequence((time, note) => {
-      const state = mestreRhythmStateRef.current;
-      if (state === 'rufo') {
-        playSample('marcante', 'barulho', time);
-      } else if (state === 'variation') {
-        if (note === 'fort') {
-          playSample('marcante', 'fort', time);
-          playSample('marcante', 'fort', time + 0.15);
-        } else if (note) {
-          playSample('marcante', 'faible', time);
-        }
-      } else {
-        if (note) playSample('marcante', note, time);
-      }
-    }, ["fort", "faible", "fort", "faible"], "4n").start(0);
-
-    const caixa = new Tone.Sequence((time, note) => {
-      const state = mestreRhythmStateRef.current;
-      if (state === 'rufo') {
-        playSample('caixa', 'ruffada-D', time);
-        playSample('caixa', 'ruffada-G', time + 0.15);
-      } else if (state === 'variation') {
-        if (note) {
-          playSample('caixa', 'fort', time);
-          playSample('caixa', 'faible', time + 0.075);
-        }
-      } else {
-        if (note) playSample('caixa', note, time);
-      }
-    }, ["fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible", "fort", "faible"], "16n").start(0);
-
-    const gongue = new Tone.Sequence((time, note) => {
-      const state = mestreRhythmStateRef.current;
-      if (state === 'rufo') {
-        playSample('gongue', 'barulho', time);
-      } else if (state === 'variation') {
-        if (note) playSample('gongue', 'fort-aigue', time);
-      } else {
-        if (note) playSample('gongue', note, time);
-      }
-    }, ["fort-grave", "fort-aigue", "fort-grave", "fort-aigue"], "4n").start(0);
-
-    const agbe = new Tone.Sequence((time, note) => {
-      const state = mestreRhythmStateRef.current;
-      if (state === 'rufo') {
-        playSample('agbe', 'barulho', time);
-      } else if (state === 'variation') {
-        if (note) {
-          playSample('agbe', 'fort', time);
-          playSample('agbe', 'saut', time + 0.15);
-        }
-      } else {
-        if (note) playSample('agbe', note, time);
-      }
-    }, ["fort", "faible", "fort", "faible"], "4n").start(0);
-
-    mestreSequencesRef.current = { alfaia, caixa, gongue, agbe };
-    Tone.Transport.start();
-  };
-
-  useEffect(() => {
-    if (viewMode === 'inspecteur') {
-      if (isPlaying) {
-        handleRewind();
-      }
-      startInspecteurAudio();
-    } else {
-      stopInspecteurAudio();
-    }
-
-    if (viewMode === 'mestre') {
-      if (isPlaying) {
-        handleRewind();
-      }
-      startMestreAudio();
-    } else {
-      stopMestreAudio();
-    }
-    
-    if ((viewMode === 'quiz' || viewMode === 'dictee' || viewMode === 'rythmelive' || viewMode === 'varal' || viewMode === 'studio') && isPlaying) {
-      handleRewind();
-    }
-  }, [viewMode]);
-
-
-
+  // Panel sizing responsive collapsing
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024);
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) {
+        if (!activeRightPanel) setActiveRightPanel('letras');
+      } else {
+        if (viewMode === 'roda' && !activeRightPanel) {
+          setActiveRightPanel('letras');
+        }
+      }
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [viewMode, activeRightPanel]);
 
-
-
-
-
-
-
-
-  useEffect(() => {
-    setLocalPresets(Object.keys(getLocalLibrary()));
-  }, []);
-
-  // Apply theme to document and save to localStorage
-  useEffect(() => {
-    const theme = isDarkMode ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('baquemix-theme', theme);
-  }, [isDarkMode]);
-
-
-
-  // Memoize mixer control values snapshot to trigger sync effect only when they actually change
-  const hasSoloActive = tracks.some(t => t.isSolo);
-  const mixerControlsKey = tracks.map(t => `${t.id}:${t.volumeVal ?? 100}:${t.reverbVal || 0}:${t.panVal || 0}:${t.isMute ? 1 : 0}:${t.isSolo ? 1 : 0}`).join('|') + `|solo:${hasSoloActive ? 1 : 0}`;
-
-  // Synchronize track volume, panning, reverb send levels, and mute/solo state whenever tracks update
-  useEffect(() => {
-    const hasSolo = tracks.some(t => t.isSolo);
-    tracks.forEach(t => {
-      const inst = instrumentsConfig[t.instrumentIdx];
-      if (inst) {
-        if (channels[inst.id]) {
-          const gain = (t.volumeVal ?? 100) / 100;
-          channels[inst.id].volume.value = Tone.gainToDb(gain);
-          channels[inst.id].pan.value = (t.panVal || 0) / 100;
-          channels[inst.id].mute = t.isMute || (hasSolo && !t.isSolo);
-        }
-        if (reverbSends[inst.id]) {
-          reverbSends[inst.id].gain.value = (t.reverbVal || 0) / 100;
-        }
-      }
-    });
-  }, [mixerControlsKey]);
-
-
-  useEffect(() => {
-    const voicePatternIds: number[] = [];
-    tracks.forEach((t) => {
-      const inst = instrumentsConfig[t.instrumentIdx];
-      if (inst && inst.type === 'voice') {
-        t.patterns.forEach((p) => {
-          voicePatternIds.push(p.id);
-        });
-      }
-    });
-    
-    voicePatternIds.forEach((id) => {
-      if (!vocalPlayersRef.current[id]) {
-        loadVocalRecording(id);
-      }
-    });
-    
-    Object.keys(vocalPlayersRef.current).forEach((key) => {
-      const id = Number(key);
-      if (!voicePatternIds.includes(id)) {
-        try {
-          vocalPlayersRef.current[id].dispose();
-        } catch (_) {}
-        delete vocalPlayersRef.current[id];
-      }
-    });
-  }, [tracks]);
-
-  const t = (key: string) => {
-    return (i18n[lang] as any)[key] || key;
-  };
-
-  // Resize collapse left sidebar on small width screens
   useEffect(() => {
     if (window.innerWidth <= 1000) {
       setIsLeftPanelCollapsed(true);
     }
   }, []);
 
-  // Prevent context menu (long press options) on step edit cells & touch selector bubble
+  // Sync theme
   useEffect(() => {
-    const preventContextMenu = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (target && (target.closest('.step-boxes') || target.closest('#touch-stroke-selector-bubble'))) {
-        e.preventDefault();
-      }
+    const theme = isDarkMode ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('baquemix-theme', theme);
+  }, [isDarkMode]);
+
+  // Local folhetos persistence
+  useEffect(() => {
+    localStorage.setItem('baquemix-unlocked-folhetos', JSON.stringify(unlockedFolhetos));
+  }, [unlockedFolhetos]);
+
+  const unlockBooklet = (id: string) => {
+    setUnlockedFolhetos((prev) => {
+      if (prev.includes(id)) return prev;
+      setJustUnlockedBookletId(id);
+      setViewMode('varal');
+      return [...prev, id];
+    });
+  };
+
+  // Fetch presets catalog & library
+  useEffect(() => {
+    fetch(`${ASSETS_BASE_URL}presets/catalog.json`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setPresetFiles(data.map((item: any) => item.file));
+        }
+      })
+      .catch(err => console.error("Failed to load presets catalog:", err));
+  }, []);
+
+  const refreshLocalPresets = async () => {
+    try {
+      const library = await getLocalLibrary();
+      setLocalPresets(Object.keys(library));
+    } catch (err) {
+      console.error("Failed to load local presets:", err);
+    }
+  };
+
+  useEffect(() => {
+    refreshLocalPresets();
+  }, [sequencer.tracks]);
+
+  // InputManager Keyboard Listeners
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (inputManager) inputManager.handleKeyDown(e);
     };
-    document.addEventListener('contextmenu', preventContextMenu);
+    const handleGlobalKeyUp = (e: KeyboardEvent) => {
+      if (inputManager) inputManager.handleKeyUp(e);
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    window.addEventListener('keyup', handleGlobalKeyUp);
     return () => {
-      document.removeEventListener('contextmenu', preventContextMenu);
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+      window.removeEventListener('keyup', handleGlobalKeyUp);
     };
   }, []);
 
+  // Keyboard Shortcuts (Spacebar & Undo/Redo)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = document.activeElement?.tagName || '';
+      const activeId = document.activeElement?.id || '';
 
-  // Autosave sequencer state in localStorage with 1 second debounce
+      if (
+        e.code === 'Space' &&
+        activeTag !== 'INPUT' &&
+        activeTag !== 'SELECT' &&
+        activeId !== 'letras-textarea'
+      ) {
+        e.preventDefault();
+        audio.handleTogglePlay();
+      }
+
+      const isUndoKey = (e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey;
+      const isRedoKey = 
+        ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
+        ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey));
+      
+      if (isUndoKey) {
+        e.preventDefault();
+        sequencer.handleUndo();
+      } else if (isRedoKey) {
+        e.preventDefault();
+        sequencer.handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [audio.handleTogglePlay, sequencer.handleUndo, sequencer.handleRedo]);
+
+  // Autosave
   const isInitialMount = useRef(true);
+  const [isSavedIndicatorVisible, setIsSavedIndicatorVisible] = useState<boolean>(false);
 
   useEffect(() => {
-    if (isLoading) return;
-
+    if (audio.isLoading) return;
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
-
     const timer = setTimeout(() => {
-      const tracksCopy = JSON.parse(JSON.stringify(tracks));
-      // Remove vocalAudioData from tracks copy as it's already stored in IndexedDB by patternId
+      const tracksCopy = JSON.parse(JSON.stringify(sequencer.tracks));
       tracksCopy.forEach((t: any) => t.patterns?.forEach((p: any) => { delete p.vocalAudioData; }));
 
       const dataToSave = {
-        bpm,
-        timeSig,
+        bpm: sequencer.bpm,
+        timeSig: sequencer.timeSig,
         version: 3,
-        totalMeasures,
+        totalMeasures: sequencer.totalMeasures,
         tracks: tracksCopy,
-        letras,
-        metadata,
-        measureTimeSigs,
-        measureBpms,
-        measureBpmTransitions,
-        measureVols,
-        measureVolTransitions,
-        songSections,
-        measureSignals,
-        masterEQ,
-        masterCompressor,
-        masterVol,
+        letras: sequencer.letras,
+        metadata: sequencer.metadata,
+        measureTimeSigs: sequencer.measureTimeSigs,
+        measureBpms: sequencer.measureBpms,
+        measureBpmTransitions: sequencer.measureBpmTransitions,
+        measureVols: sequencer.measureVols,
+        measureVolTransitions: sequencer.measureVolTransitions,
+        songSections: sequencer.songSections,
+        measureSignals: sequencer.measureSignals,
+        masterEQ: audio.masterEQ,
+        masterCompressor: audio.masterCompressor,
+        masterVol: audio.masterVol,
       };
-
       try {
         localStorage.setItem('baquemix_autosave', JSON.stringify(dataToSave));
         setIsSavedIndicatorVisible(true);
@@ -1176,844 +411,60 @@ export default function App() {
         console.error('Failed to autosave state to localStorage:', err);
       }
     }, 1000);
-
     return () => clearTimeout(timer);
   }, [
-    isLoading,
-    tracks,
-    bpm,
-    timeSig,
-    totalMeasures,
-    measureBpms,
-    measureTimeSigs,
-    measureBpmTransitions,
-    measureVols,
-    measureVolTransitions,
-    songSections,
-    measureSignals,
-    letras,
-    metadata,
-    masterEQ,
-    masterCompressor,
-    masterVol,
+    sequencer.tracks, sequencer.bpm, sequencer.timeSig, sequencer.totalMeasures, sequencer.letras,
+    sequencer.metadata, sequencer.measureTimeSigs, sequencer.measureBpms, sequencer.measureBpmTransitions,
+    sequencer.measureVols, sequencer.measureVolTransitions, sequencer.songSections, sequencer.measureSignals,
+    audio.masterEQ, audio.masterCompressor, audio.masterVol, audio.isLoading
   ]);
 
   useEffect(() => {
     if (isSavedIndicatorVisible) {
-      const timer = setTimeout(() => {
-        setIsSavedIndicatorVisible(false);
-      }, 1500);
+      const timer = setTimeout(() => setIsSavedIndicatorVisible(false), 2000);
       return () => clearTimeout(timer);
     }
   }, [isSavedIndicatorVisible]);
 
-  // 2. Load Preset catalog initially
+  // Default Instrument selection for keyboard play
   useEffect(() => {
-    const hash = window.location.hash;
-    let loadedFromHash = false;
-
-    const tryLoadQueryOrHash = async () => {
-      // 1. Try URL query parameter '?baque='
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const baqueParam = urlParams.get('baque');
-        if (baqueParam) {
-          const decompressed = LZString.decompressFromEncodedURIComponent(baqueParam);
-          if (decompressed) {
-            const preset = JSON.parse(decompressed);
-            await applyPreset(preset);
-            // Clean URL immediately to keep address bar clean
-            window.history.replaceState({}, document.title, window.location.pathname);
-            return true;
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load shared state from URL query parameter:', err);
-      }
-
-      // 2. Fallback to existing '#state=' hash
-      if (!hash || !hash.startsWith('#state=')) return false;
-      const encoded = hash.substring(7);
-      // Try new compressed format first (gzip + base64url)
-      try {
-        const padding = '='.repeat((4 - encoded.length % 4) % 4);
-        const standard = (encoded + padding).replace(/-/g, '+').replace(/_/g, '/');
-        const binary = atob(standard);
-        const bytes = new Uint8Array([...binary].map(c => c.charCodeAt(0)));
-        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
-        const jsonStr = await new Response(stream).text();
-        const stateData = JSON.parse(jsonStr);
-        await applyPreset(stateData);
-        return true;
-      } catch (_) {}
-      // Fallback: try old uncompressed base64 format
-      try {
-        const jsonStr = decodeURIComponent(escape(atob(encoded)));
-        const stateData = JSON.parse(jsonStr);
-        await applyPreset(stateData);
-        return true;
-      } catch (err) {
-        console.error('Failed to load shared state from URL hash:', err);
-      }
-      return false;
-    };
-
-    tryLoadQueryOrHash().then(async (loaded) => {
-      loadedFromHash = loaded;
-
-      let restoredFromLocalStorage = false;
-      if (!loadedFromHash) {
-        try {
-          const savedSession = localStorage.getItem('baquemix_autosave');
-          if (savedSession) {
-            const data = JSON.parse(savedSession);
-            await applyPreset(data);
-            restoredFromLocalStorage = true;
-            console.log('[BaqueMix] Autosave restored from localStorage.');
-          }
-        } catch (err) {
-          console.error('[BaqueMix] Failed to restore autosave from localStorage:', err);
-        }
-      }
-
-      fetch(`${ASSETS_BASE_URL}presets/catalog.json`)
-        .then((res) => res.json())
-        .then((files: string[]) => {
-          setPresetFiles(files);
-          if (files.length > 0 && !loadedFromHash && !restoredFromLocalStorage) {
-            setActivePresetName(files[0]);
-            loadFallbackPreset(files[0]);
-          }
-        })
-        .catch((err) => console.error('Could not load catalog.json:', err));
-    });
-  }, []);
-
-  // PWA File Handler: handle files opened via the OS file handler (launchQueue API)
-  useEffect(() => {
-    if ('launchQueue' in window) {
-      (window as any).launchQueue.setConsumer(async (launchParams: any) => {
-        if (!launchParams.files || launchParams.files.length === 0) return;
-        try {
-          const fileHandle = launchParams.files[0];
-          const file: File = await fileHandle.getFile();
-          if (!file.name.endsWith('.json')) return;
-          const text = await file.text();
-          const data = JSON.parse(text);
-          await applyPreset(data);
-        } catch (err) {
-          console.error('Failed to load file from launchQueue:', err);
-        }
+    if (sequencer.tracks.length > 0 && !audio.activeKeyboardInstrumentId) {
+      const firstNonVoice = sequencer.tracks.find(t => {
+        const conf = instrumentsConfig[t.instrumentIdx];
+        return conf && conf.type !== 'voice';
       });
-    }
-  }, []);
-
-  // VU-meters are now animated locally inside components using requestAnimationFrame for better performance and encapsulation
-
-
-  // Recording duration timer
-  useEffect(() => {
-    let interval: any = null;
-    if (isRecording) {
-      setRecordingSeconds(0);
-      interval = setInterval(() => {
-        setRecordingSeconds((prev) => prev + 1);
-      }, 1000);
-    } else {
-      setRecordingSeconds(0);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isRecording]);
-
-
-
-  // Live keyboard play listener using InputManager
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (inputManager) {
-        inputManager.handleKeyDown(e);
-      }
-    };
-
-    const handleGlobalKeyUp = (e: KeyboardEvent) => {
-      if (inputManager) {
-        inputManager.handleKeyUp(e);
-      }
-    };
-
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    window.addEventListener('keyup', handleGlobalKeyUp);
-
-    return () => {
-      window.removeEventListener('keydown', handleGlobalKeyDown);
-      window.removeEventListener('keyup', handleGlobalKeyUp);
-    };
-  }, []);
-
-  // Dynamic layout radial positioning offsets
-  const updateRadii = (list: TrackGroup[]) => {
-    const visibleList = list.filter(t => {
-      const inst = instrumentsConfig[t.instrumentIdx];
-      return !t.isHidden && inst?.id !== 'apito';
-    });
-    if (visibleList.length === 0) return;
-    const minRadius = 180;
-    const maxRadius = 495;
-
-    if (visibleList.length === 1) {
-      visibleList[0].radius = (minRadius + maxRadius) / 2;
-    } else {
-      const gap = (maxRadius - minRadius) / (visibleList.length - 1);
-      visibleList.forEach((t, idx) => {
-        t.radius = minRadius + idx * gap;
-      });
-    }
-  };
-
-  const applyPreset = async (p: any) => {
-    try {
-      clearHistory();
-      setLetras(p.letras || '');
-      setMetadata(p.metadata || { toada: '', nacao: '', compositor: '', ritmo: '' });
-      
-      let loadedTracks: TrackGroup[] = [];
-      let loadedMeasures = p.totalMeasures || 8;
-      const version = p.version || 1;
-
-      if (p.tracks) {
-        loadedTracks = JSON.parse(JSON.stringify(p.tracks));
-        if (version < 2) {
-          loadedTracks.forEach(t => {
-            if (t.instrumentIdx >= 4) {
-              t.instrumentIdx += 1;
-            }
-          });
-        }
-        if (version < 3) {
-          loadedTracks.forEach(t => {
-            if (t.instrumentIdx >= 8) {
-              t.instrumentIdx += 1;
-            }
-          });
-        }
-        loadedTracks.forEach(t => t.patterns.forEach(ptn => normalizePatternData(ptn, t.instrumentIdx)));
-      } else if (p.circles) {
-        // Migrate old format
-        const oldCircles: Circle[] = JSON.parse(JSON.stringify(p.circles));
-        if (version < 2) {
-          oldCircles.forEach(c => {
-            if (c.instrumentIdx >= 4) {
-              c.instrumentIdx += 1;
-            }
-          });
-        }
-        if (version < 3) {
-          oldCircles.forEach(c => {
-            if (c.instrumentIdx >= 8) {
-              c.instrumentIdx += 1;
-            }
-          });
-        }
-        loadedTracks = migrateCirclesToTracks(oldCircles, loadedMeasures);
-        loadedTracks.forEach(t => t.patterns.forEach(ptn => normalizePatternData(ptn, t.instrumentIdx)));
-      }
-      
-      // Process vocal audio data if present
-      const promises: Promise<void>[] = [];
-      loadedTracks.forEach(t => {
-        const inst = instrumentsConfig[t.instrumentIdx];
-        if (inst && inst.type === 'voice') {
-          t.patterns.forEach(ptn => {
-            if (ptn.vocalAudioData) {
-              const patternId = ptn.id;
-              const b64 = ptn.vocalAudioData;
-              // Clean it from the pattern to save React state memory
-              delete ptn.vocalAudioData;
-              promises.push(
-                (async () => {
-                  try {
-                    const blob = base64ToBlob(b64);
-                    await saveVocalRecording(patternId, blob);
-                  } catch (err) {
-                    console.error(`Failed to save vocal recording for pattern ${patternId}:`, err);
-                  }
-                })()
-              );
-            }
-          });
-        }
-      });
-
-      if (promises.length > 0) {
-        try {
-          await Promise.all(promises);
-        } catch (err) {
-          console.error("Error restoring vocal recordings from base64:", err);
-        }
-      }
-
-      updateRadii(loadedTracks);
-
-      setTracks(loadedTracks);
-      setTotalMeasures(loadedMeasures);
-      setBpm(Math.round(p.bpm || 90));
-      setTimeSig(p.timeSig || '4/4');
-
-      const defaultBpm = Math.round(p.bpm || 90);
-      const defaultTimeSig = p.timeSig || '4/4';
-
-      const loadedBpms = p.measureBpms && Array.isArray(p.measureBpms)
-        ? p.measureBpms.map((b: number) => Math.round(b))
-        : Array(loadedMeasures).fill(defaultBpm);
-
-      const loadedTimeSigs = p.measureTimeSigs && Array.isArray(p.measureTimeSigs)
-        ? p.measureTimeSigs
-        : Array(loadedMeasures).fill(defaultTimeSig);
-
-      const loadedBpmTransitions = p.measureBpmTransitions && Array.isArray(p.measureBpmTransitions)
-        ? p.measureBpmTransitions
-        : Array(loadedMeasures).fill('immediate');
-
-      const loadedVols = p.measureVols && Array.isArray(p.measureVols)
-        ? p.measureVols.map((v: number) => Math.round(v))
-        : Array(loadedMeasures).fill(100);
-
-      const loadedVolTransitions = p.measureVolTransitions && Array.isArray(p.measureVolTransitions)
-        ? p.measureVolTransitions
-        : Array(loadedMeasures).fill('immediate');
-
-      setMeasureBpms(loadedBpms);
-      setMeasureTimeSigs(loadedTimeSigs);
-      setMeasureBpmTransitions(loadedBpmTransitions);
-      setMeasureVols(loadedVols);
-      setMeasureVolTransitions(loadedVolTransitions);
-
-      if (p.songSections && Array.isArray(p.songSections)) {
-        setSongSections(p.songSections);
+      if (firstNonVoice) {
+        audio.setActiveKeyboardInstrumentId(instrumentsConfig[firstNonVoice.instrumentIdx].id);
       } else {
-        setSongSections([]);
-      }
-
-      if (p.measureSignals && Array.isArray(p.measureSignals)) {
-        setMeasureSignals(p.measureSignals);
-      } else {
-        setMeasureSignals(Array(loadedMeasures).fill(null));
-      }
-
-      if (p.masterEQ) {
-        setMasterEQ(p.masterEQ);
-      } else {
-        setMasterEQ({ low: 0, mid: 0, high: 0 });
-      }
-
-      if (p.masterCompressor) {
-        setMasterCompressor(p.masterCompressor);
-      } else {
-        setMasterCompressor({ threshold: -20, ratio: 4 });
-      }
-
-      if (p.masterVol !== undefined) {
-        setMasterVol(p.masterVol);
-      }
-
-
-      // Sync refs immediately to avoid audio scheduling lag
-      tracksRef.current = loadedTracks;
-      totalMeasuresRef.current = loadedMeasures;
-      measureBpmsRef.current = loadedBpms;
-      measureTimeSigsRef.current = loadedTimeSigs;
-      measureBpmTransitionsRef.current = loadedBpmTransitions;
-      measureVolsRef.current = loadedVols;
-      measureVolTransitionsRef.current = loadedVolTransitions;
-
-      try {
-        console.log("⚙️⚙️⚙️ [loadFallbackPreset] Compiling tick schedule synchronously...");
-        tickScheduleRef.current = buildTickSchedule(
-          loadedTracks,
-          loadedMeasures,
-          loadedTimeSigs,
-          instrumentsConfig,
-          null
-        );
-        console.log("✅✅✅ [loadFallbackPreset] Done. Compiled measures count:", tickScheduleRef.current.size);
-      } catch (err) {
-        console.error("❌❌❌ [loadFallbackPreset] Synchronous compilation failed:", err);
-      }
-
-      measureCountRef.current = 0;
-      setCurrentMeasure(0);
-    } catch (err) {
-      console.error("Failed to apply preset:", err);
-      throw err;
-    }
-  };
-
-  const loadFallbackPreset = async (name: string) => {
-    let p;
-    if (name.endsWith('.json')) {
-      try {
-        const response = await fetch(`${ASSETS_BASE_URL}presets/${name}`);
-        if (!response.ok) throw new Error('Network response was not ok');
-        p = await response.json();
-      } catch (error) {
-        console.error('Error fetching preset:', error);
-        window.alert(t('invalidFile'));
-        return;
-      }
-    } else {
-      p = name === 'baque-de-imale' ? baqueDeImalePreset : vouVadiarPreset;
-    }
-    await applyPreset(p);
-  };
-
-  const normalizePatternData = (p: Pattern, instIdx: number) => {
-    if (!p.notes) p.notes = Array(p.steps).fill('');
-    if (!p.lyrics) p.lyrics = Array(p.steps).fill('');
-    if (!p.activeSteps) p.activeSteps = Array(p.steps).fill(0);
-    if (!p.measureAssignments) p.measureAssignments = Array(totalMeasuresRef.current || 8).fill(false);
-
-    if (!p.volumes) {
-      p.volumes = Array(p.steps).fill(80);
-    } else if (p.volumes.every(v => v === 100)) {
-      p.volumes = Array(p.steps).fill(80);
-    }
-    if (!p.decays) p.decays = Array(p.steps).fill(100);
-    if (!p.microtimings) p.microtimings = Array(p.steps).fill(0);
-
-    const inst = instrumentsConfig[instIdx];
-
-    // Migration: old shortcuts/symbols to new definitive ones
-    if (inst && inst.type !== 'voice') {
-      for (let i = 0; i < p.steps; i++) {
-        let val = p.activeSteps[i];
-        if (typeof val === 'string') {
-          val = val.trim();
-          
-          // 1. Gonguê: GRV/grv/AIG/aig -> G/g/A/a
-          if (inst.id === 'gongue') {
-            if (val === 'GRV') val = 'G';
-            else if (val === 'grv') val = 'g';
-            else if (val === 'AIG') val = 'A';
-            else if (val === 'aig') val = 'a';
-          }
-          
-          // 2. Caixa & Tarol: rd/Rd -> R, re/Re/rg/rf -> r, x/c/f -> X/C/F
-          if (inst.id === 'caixa' || inst.id === 'tarol') {
-            if (val === 'rd' || val === 'Rd') val = 'R';
-            else if (val === 're' || val === 'Re' || val === 'rg' || val === 'rf') val = 'r';
-            else if (val === 'x') val = 'X';
-            else if (val === 'c') val = 'C';
-            else if (val === 'f') val = 'F';
-          }
-          
-          // 3. Alfaias: x/c/i -> X/C/I
-          if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
-            if (val === 'x') val = 'X';
-            else if (val === 'c') val = 'C';
-            else if (val === 'i') val = 'I';
-          }
-          
-          // 4. Agbê: s/v -> S/V
-          if (inst.id === 'agbe') {
-            if (val === 's') val = 'S';
-            else if (val === 'v') val = 'V';
-          }
-          
-          // 5. Mineiro: l -> L
-          if (inst.id === 'mineiro') {
-            if (val === 'l') val = 'L';
-          }
-          
-          // 6. Barulho: any lowercase 'b' or alternate 't' / 'barulho' / 'tremblement' -> B
-          if (['b', 't', 'barulho', 'tremblement'].includes(val.toLowerCase())) {
-            val = 'B';
-          }
-          
-          // 7. General E/e swap if G/g is found for hands-based instruments
-          if (['caixa', 'tarol', 'marcante', 'meiao', 'repique', 'agbe'].includes(inst.id)) {
-            if (val === 'G') val = 'E';
-            else if (val === 'g') val = 'e';
-          }
-          
-          p.activeSteps[i] = val;
-        }
+        audio.setActiveKeyboardInstrumentId(instrumentsConfig[sequencer.tracks[0].instrumentIdx].id);
       }
     }
+  }, [sequencer.tracks, audio.activeKeyboardInstrumentId]);
 
-    if (inst && inst.type === 'voice') {
-      for (let i = 0; i < p.steps; i++) {
-        const stepState = p.activeSteps[i];
-        if (stepState !== 0 && stepState !== 'P' && stepState !== 'C' && stepState !== 'X') {
-          p.notes[i] = String(stepState);
-          p.activeSteps[i] = 'C';
-        } else if (stepState === 'X') {
-          p.activeSteps[i] = 'C';
-        }
-      }
-    }
-  };
+  // Touch selector Bubble states
+  const [touchSelector, setTouchSelector] = useState<any | null>(null);
+  const [hoveredStroke, setHoveredStroke] = useState<string | null>(null);
+  const [measureWidth, setMeasureWidth] = useState<number>(480);
+  const [mobileTab, setMobileTab] = useState<'roda' | 'mixer' | 'toada'>('roda');
 
-
-
-
-
-  const handlePresetSelect = (value: string) => {
-    setActivePresetName(value);
-    loadFallbackPreset(value);
-  };
-
-  const handleSaveToLocal = async () => {
-    const name = await promptAsync(t('promptName'));
-    if (!name || name.trim() === '') return;
-    
-    const presetToSave: Preset = {
-      bpm,
-      timeSig,
-      totalMeasures,
-      tracks,
-      letras,
-      metadata,
-      measureBpms,
-      measureTimeSigs,
-      measureBpmTransitions,
-      measureVols,
-      measureVolTransitions,
-      songSections,
-      measureSignals,
-      masterEQ,
-      masterCompressor
-    };
-    savePresetToLibrary(name.trim(), presetToSave);
-    setLocalPresets(Object.keys(getLocalLibrary()));
-  };
-
-  const handleLoadLocalPreset = async (name: string) => {
-    const lib = getLocalLibrary();
-    const preset = lib[name];
-    if (preset) {
-      await applyPreset(preset);
-      setActivePresetName(name);
-    }
-  };
-
-  const handleAddTrackInstrument = (instIdx: number) => {
-    pushUndoState();
-    if (tracks.length >= 20) {
-      window.alert(t('limitReached'));
-      return;
-    }
-
-    let defaultSteps = 16;
-    if (timeSig === '3/4' || timeSig === '6/8') defaultSteps = 12;
-    if (timeSig === '2/4') defaultSteps = 8;
-    if (timeSig === '12/8') defaultSteps = 24;
-
-    const patternId = Date.now() + Math.floor(Math.random() * 1000);
-    const isApito = instrumentsConfig[instIdx]?.id === 'apito';
-    const newPattern: Pattern = {
-      id: patternId,
-      name: 'Padrão 1',
-      steps: defaultSteps,
-      activeSteps: Array(defaultSteps).fill(0),
-      lyrics: Array(defaultSteps).fill(''),
-      notes: Array(defaultSteps).fill(''),
-      measureAssignments: Array(totalMeasures).fill(isApito ? false : true),
-      volumes: Array(defaultSteps).fill(80),
-      decays: Array(defaultSteps).fill(100),
-      microtimings: Array(defaultSteps).fill(0),
-    };
-
-    const newTrack: TrackGroup = {
-      id: Date.now() + 1 + Math.floor(Math.random() * 1000),
-      instrumentIdx: instIdx,
-      patterns: [newPattern],
-      isMute: false,
-      isSolo: false,
-      isHidden: false,
-      volumeVal: 100,
-      selectedPatternId: patternId,
-      reverbVal: 0,
-      panVal: 0,
-    };
-
-    const updated = [...tracks, newTrack];
-    updateRadii(updated);
-    setTracks(updated);
-
-    const inst = instrumentsConfig[instIdx];
-    if (inst && inst.type !== 'voice') {
-      setActiveKeyboardInstrumentId(inst.id);
-    }
-  };
-
-  const handleAudioRecordingToggle = async () => {
-    // Check if this object is a native AudioContext
-    const isNativeAudioContextInstance = (obj: any): boolean => {
-      if (!obj) return false;
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const BaseAudioCtx = (window as any).BaseAudioContext;
-      if (AudioCtx && obj instanceof AudioCtx) return true;
-      if (BaseAudioCtx && obj instanceof BaseAudioCtx) return true;
-      
-      // Constructor name fallback
-      const name = obj.constructor?.name;
-      return name === 'AudioContext' || name === 'webkitAudioContext' || name === 'BaseAudioContext';
-    };
-
-    const isNativeCtx = (ctx: any) => ctx && typeof ctx.createScriptProcessor === 'function';
-
-    // Recursively search any object properties for the native AudioContext
-    const findNativeAudioContext = (obj: any, visited: Set<any> = new Set()): any => {
-      if (!obj || typeof obj !== 'object') return null;
-      if (visited.has(obj)) return null;
-      visited.add(obj);
-
-      if (isNativeAudioContextInstance(obj) && isNativeCtx(obj)) {
-        return obj;
-      }
-
-      // Avoid traversing DOM elements or React internal objects
-      if (obj.nodeType || obj.$$typeof) return null;
-
-      // Try standard properties first for speed
-      const directProps = ['_nativeContext', '_nativeAudioContext', 'rawContext', 'context', '_context'];
-      for (const prop of directProps) {
-        try {
-          const val = obj[prop];
-          if (val && typeof val === 'object') {
-            const found = findNativeAudioContext(val, visited);
-            if (found) return found;
-          }
-        } catch (e) {}
-      }
-
-      // Then search all other properties
-      for (const key of Object.keys(obj)) {
-        try {
-          const val = obj[key];
-          if (val && typeof val === 'object') {
-            const found = findNativeAudioContext(val, visited);
-            if (found) return found;
-          }
-        } catch (e) {}
-      }
-
-      // Search prototype
-      try {
-        const proto = Object.getPrototypeOf(obj);
-        if (proto) {
-          const found = findNativeAudioContext(proto, visited);
-          if (found) return found;
-        }
-      } catch (e) {}
-
-      return null;
-    };
-
-    // Recursively search any object properties for the native AudioNode instance
-    const findNativeAudioNode = (obj: any, visited: Set<any> = new Set()): any => {
-      if (!obj || typeof obj !== 'object') return null;
-      if (visited.has(obj)) return null;
-      visited.add(obj);
-
-      // Check if this object is a native AudioNode instance
-      const isNativeAudioNodeInstance = (val: any): boolean => {
-        if (!val) return false;
-        const AudioNodeClass = window.AudioNode;
-        if (AudioNodeClass && val instanceof AudioNodeClass) return true;
-        // Check standard constructor names just in case
-        const name = val.constructor?.name;
-        return typeof name === 'string' && (
-          name === 'GainNode' ||
-          name === 'AudioNode' ||
-          name === 'AudioDestinationNode' ||
-          name === 'ChannelMergerNode' ||
-          name.endsWith('Node')
-        );
-      };
-
-      if (isNativeAudioNodeInstance(obj)) {
-        return obj;
-      }
-
-      // Avoid traversing DOM elements or React internal objects
-      if (obj.nodeType || obj.$$typeof) return null;
-
-      // Try standard properties first for speed
-      const directProps = ['_nativeAudioNode', 'output', 'input', '_gainNode'];
-      for (const prop of directProps) {
-        try {
-          const val = obj[prop];
-          if (val && typeof val === 'object') {
-            const found = findNativeAudioNode(val, visited);
-            if (found) return found;
-          }
-        } catch (e) {}
-      }
-
-      // Then search all other properties
-      for (const key of Object.keys(obj)) {
-        try {
-          const val = obj[key];
-          if (val && typeof val === 'object') {
-            const found = findNativeAudioNode(val, visited);
-            if (found) return found;
-          }
-        } catch (e) {}
-      }
-
-      // Search prototype
-      try {
-        const proto = Object.getPrototypeOf(obj);
-        if (proto) {
-          const found = findNativeAudioNode(proto, visited);
-          if (found) return found;
-        }
-      } catch (e) {}
-
-      return null;
-    };
-
-    let audioContext: any = null;
-    try {
-      await Tone.start();
-      
-      // 1. Try to get native context from masterVolumeNode
-      if (masterVolumeNode) {
-        audioContext = findNativeAudioContext(masterVolumeNode);
-      }
-
-      // 2. Try global Tone.context wrapper
-      if (!audioContext && Tone.context) {
-        audioContext = findNativeAudioContext(Tone.context);
-      }
-
-      // 3. Try Tone.getContext() wrapper
-      if (!audioContext && typeof Tone.getContext === 'function') {
-        audioContext = findNativeAudioContext(Tone.getContext());
-      }
-
-      if (!audioContext) {
-        throw new Error("L'AudioContext de l'application n'a pas pu être résolu. Impossible de démarrer l'enregistrement.");
-      }
-
-      if (!isRecording) {
-        // Start recording
-        wavRecordingBuffersL = [];
-        wavRecordingBuffersR = [];
-        
-        // Loop over safe/standard configuration parameters for createScriptProcessor
-        const configs = [
-          { size: 4096, in: 2, out: 2 },
-          { size: 4096, in: 1, out: 1 },
-          { size: 8192, in: 2, out: 2 },
-          { size: 8192, in: 1, out: 1 },
-          { size: 2048, in: 2, out: 2 },
-          { size: 2048, in: 1, out: 1 },
-          { size: 0, in: 2, out: 2 },
-          { size: 0, in: 1, out: 1 }
-        ];
-
-        let createdNode = null;
-        let lastError = null;
-        for (const config of configs) {
-          try {
-            createdNode = audioContext.createScriptProcessor(config.size, config.in, config.out);
-            if (createdNode) break;
-          } catch (e) {
-            lastError = e;
-            console.warn(`createScriptProcessor(${config.size}, ${config.in}, ${config.out}) failed:`, e);
-          }
-        }
-
-        if (!createdNode) {
-          throw lastError || new Error("Failed to create ScriptProcessorNode");
-        }
-        scriptProcessorNode = createdNode;
-
-        scriptProcessorNode.onaudioprocess = (e) => {
-          // Handle both mono and stereo recording buffers
-          const left = e.inputBuffer.getChannelData(0);
-          const right = e.inputBuffer.numberOfChannels > 1 ? e.inputBuffer.getChannelData(1) : left;
-          wavRecordingBuffersL.push(new Float32Array(left));
-          wavRecordingBuffersR.push(new Float32Array(right));
-        };
-
-        if (masterVolumeNode) {
-          // Connect native Web Audio nodes directly to bypass Tone.js asserts
-          const nativeNode = findNativeAudioNode(masterVolumeNode);
-          if (nativeNode && typeof nativeNode.connect === 'function') {
-            nativeNode.connect(scriptProcessorNode);
-          } else {
-            masterVolumeNode.connect(scriptProcessorNode);
-          }
-        }
-        scriptProcessorNode.connect(audioContext.destination);
-        setIsRecording(true);
-      } else {
-        // Stop recording
-        const sampleRate = audioContext.sampleRate;
-        if (scriptProcessorNode) {
-          try {
-            scriptProcessorNode.disconnect();
-            if (masterVolumeNode) {
-              const nativeNode = findNativeAudioNode(masterVolumeNode);
-              if (nativeNode && typeof nativeNode.disconnect === 'function') {
-                try {
-                  nativeNode.disconnect(scriptProcessorNode);
-                } catch (e) {
-                  try {
-                    nativeNode.disconnect();
-                  } catch (inner) {}
-                }
-              } else {
-                masterVolumeNode.disconnect(scriptProcessorNode);
-              }
-            }
-          } catch (e) {
-            console.warn("Erreur lors de la déconnexion du scriptProcessorNode:", e);
-          }
-          scriptProcessorNode = null;
-        }
-        setIsRecording(false);
-
-        if (wavRecordingBuffersL.length > 0) {
-          const wavBlob = bufferToWav(wavRecordingBuffersL, wavRecordingBuffersR, sampleRate);
-          const url = URL.createObjectURL(wavBlob);
-          const downloadLink = document.createElement('a');
-          downloadLink.download = 'BaqueMix_Export.wav';
-          downloadLink.href = url;
-          downloadLink.click();
-        }
-      }
-    } catch (err) {
-      console.error("Erreur avec l'enregistrement WAV:", err);
-      const ctxName = audioContext ? audioContext.constructor.name : 'null';
-      const errStr = String(err);
-      const errMsg = (err as any)?.message || 'pas de message';
-      const errName = (err as any)?.name || 'pas de nom';
-      const errStack = (err as any)?.stack || 'pas de stack';
-      alert("Erreur WAV : " + errStr + "\nNom: " + errName + "\nMsg: " + errMsg + "\n(ctx: " + ctxName + ")\n\nStack:\n" + errStack);
-    }
+  const t = (key: string) => {
+    return (i18n[sequencer.lang] as any)[key] || key;
   };
 
   const handleTimeSigChange = async (selectValue: TimeSignature) => {
-    setTimeSig(selectValue);
-    setCurrentStepIndex(-1);
-    measureCountRef.current = 0;
-    setCurrentMeasure(0);
-
-    let targetSteps = 16;
-    if (selectValue === '3/4' || selectValue === '6/8') targetSteps = 12;
-    if (selectValue === '2/4') targetSteps = 8;
-    if (selectValue === '12/8') targetSteps = 24;
-
     const shouldResize = await confirmAsync(t('confirmResize'));
     if (shouldResize) {
-      pushUndoState();
-      const resizedList = tracks.map((t) => {
+      sequencer.pushUndoState();
+      sequencer.setTimeSig(selectValue);
+      audio.setCurrentStepIndex(-1);
+      audio.setCurrentMeasure(0);
+      
+      let targetSteps = 16;
+      if (selectValue === '3/4' || selectValue === '6/8') targetSteps = 12;
+      if (selectValue === '2/4') targetSteps = 8;
+      if (selectValue === '12/8') targetSteps = 24;
+
+      const resizedList = sequencer.tracks.map((t) => {
         const nextPatterns = t.patterns.map(p => {
           const nextStepsArr = Array(targetSteps).fill(0);
           const nextLyrics = Array(targetSteps).fill('');
@@ -2045,626 +496,52 @@ export default function App() {
           patterns: nextPatterns
         };
       });
-      setTracks(resizedList);
+      sequencer.setTracks(resizedList);
     }
   };
 
-  // Local tracks updates
-  const handleTrackMoveUp = (id: number) => {
-    pushUndoState();
-    const idx = tracks.findIndex((t) => t.id === id);
-    if (idx > 0) {
-      const copy = [...tracks];
-      const temp = copy[idx];
-      copy[idx] = copy[idx - 1];
-      copy[idx - 1] = temp;
-      updateRadii(copy);
-      setTracks(copy);
-    }
-  };
-
-  const handleTrackMoveDown = (id: number) => {
-    pushUndoState();
-    const idx = tracks.findIndex((t) => t.id === id);
-    if (idx > -1 && idx < tracks.length - 1) {
-      const copy = [...tracks];
-      const temp = copy[idx];
-      copy[idx] = copy[idx + 1];
-      copy[idx + 1] = temp;
-      updateRadii(copy);
-      setTracks(copy);
-    }
-  };
-
-  const handleTrackInstrumentIdxChange = (id: number, targetInstIdx: number) => {
-    pushUndoState();
-    const updated = tracks.map((t) => {
-      if (t.id === id) {
-        return {
-          ...t,
-          instrumentIdx: targetInstIdx,
-        };
-      }
-      return t;
-    });
-    setTracks(updated);
-  };
-
-  const handleTrackMuteToggle = (id: number) => {
-    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, isMute: !t.isMute } : t)));
-  };
-
-  const handleTrackSoloToggle = (id: number) => {
-    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, isSolo: !t.isSolo } : t)));
-  };
-
-  const handleTrackHideToggle = (id: number) => {
-    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, isHidden: !t.isHidden } : t)));
-  };
-
-  const handleTrackDelete = (id: number) => {
-    pushUndoState();
-    setTracks(prev => {
-      const remaining = prev.filter((t) => t.id !== id);
-      updateRadii(remaining);
-      return remaining;
-    });
-  };
-
-  const handleTrackVolumeChange = (id: number, val: number) => {
-    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, volumeVal: val } : t)));
-  };
-
-  const handleTrackReverbChange = (id: number, val: number) => {
-    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, reverbVal: val } : t)));
-  };
-
-  const handleTrackStepVolumeChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
-    setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        return {
-          ...t,
-          patterns: t.patterns.map(p => {
-            if (p.id === patternId) {
-              const copyVols = [...(p.volumes || Array(p.steps).fill(80))];
-              if (Array.isArray(stepIdx)) {
-                stepIdx.forEach(idx => {
-                  copyVols[idx] = val;
-                });
-              } else {
-                copyVols[stepIdx] = val;
-              }
-              return { ...p, volumes: copyVols };
-            }
-            return p;
-          })
-        };
-      }
-      return t;
-    }));
-  };
-
-  const handleTrackStepDecayChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
-    setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        return {
-          ...t,
-          patterns: t.patterns.map(p => {
-            if (p.id === patternId) {
-              const copyDecays = [...(p.decays || Array(p.steps).fill(100))];
-              if (Array.isArray(stepIdx)) {
-                stepIdx.forEach(idx => {
-                  copyDecays[idx] = val;
-                });
-              } else {
-                copyDecays[stepIdx] = val;
-              }
-              return { ...p, decays: copyDecays };
-            }
-            return p;
-          })
-        };
-      }
-      return t;
-    }));
-  };
-
-  const handleTrackStepMicrotimingChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
-    setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        return {
-          ...t,
-          patterns: t.patterns.map(p => {
-            if (p.id === patternId) {
-              const copyMicros = [...(p.microtimings || Array(p.steps).fill(0))];
-              if (Array.isArray(stepIdx)) {
-                stepIdx.forEach(idx => {
-                  copyMicros[idx] = val;
-                });
-              } else {
-                copyMicros[stepIdx] = val;
-              }
-              return { ...p, microtimings: copyMicros };
-            }
-            return p;
-          })
-        };
-      }
-      return t;
-    }));
-  };
-
-  const handleResetTrackMicrotimings = (trackId: number, patternId: number) => {
-    pushUndoState();
-    setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        return {
-          ...t,
-          patterns: t.patterns.map(p => {
-            if (p.id === patternId) {
-              return { ...p, microtimings: Array(p.steps).fill(0) };
-            }
-            return p;
-          })
-        };
-      }
-      return t;
-    }));
-  };
-
-  const handleTrackPanChange = (id: number, val: number) => {
-    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, panVal: val } : t)));
-  };
-
-  const handleTrackStepsChange = (trackId: number, patternId: number, targetSteps: number) => {
-    pushUndoState();
-    setTracks(prev =>
-      prev.map((t) => {
-        if (t.id === trackId) {
-          const nextPatterns = t.patterns.map(p => {
-            if (p.id === patternId) {
-              const arrSteps = Array(targetSteps).fill(0);
-              const arrLyrics = Array(targetSteps).fill('');
-              const arrNotes = Array(targetSteps).fill('');
-              const arrVols = Array(targetSteps).fill(80);
-              const arrDecays = Array(targetSteps).fill(100);
-              const arrMicro = Array(targetSteps).fill(0);
-
-              for (let i = 0; i < Math.min(targetSteps, p.steps); i++) {
-                arrSteps[i] = p.activeSteps[i];
-                arrLyrics[i] = p.lyrics?.[i] || '';
-                arrNotes[i] = p.notes?.[i] || '';
-                if (p.volumes && p.volumes[i] !== undefined) arrVols[i] = p.volumes[i];
-                if (p.decays && p.decays[i] !== undefined) arrDecays[i] = p.decays[i];
-                if (p.microtimings && p.microtimings[i] !== undefined) arrMicro[i] = p.microtimings[i];
-              }
-
-              return {
-                ...p,
-                steps: targetSteps,
-                activeSteps: arrSteps,
-                lyrics: arrLyrics,
-                notes: arrNotes,
-                volumes: arrVols,
-                decays: arrDecays,
-                microtimings: arrMicro,
-              };
-            }
-            return p;
-          });
-          return { ...t, patterns: nextPatterns };
-        }
-        return t;
-      })
-    );
-  };
-
-  const handleTimelinePatternAssign = (trackId: number, patternId: number | null, measureIdx: number) => {
-    pushUndoState();
-    setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        const nextPatterns = t.patterns.map(p => {
-          const assign = [...p.measureAssignments];
-          assign[measureIdx] = p.id === patternId;
-          return { ...p, measureAssignments: assign };
-        });
-        return { ...t, patterns: nextPatterns };
-      }
-      return t;
-    }));
-  };
-
-  const handleMeasureTimeSigChange = (measureIdx: number, val: TimeSignature) => {
-    pushUndoState();
-    setMeasureTimeSigs(prev => {
-      const arr = [...prev];
-      arr[measureIdx] = val;
-      return arr;
-    });
-  };
-
-  const handleGlobalBpmChange = (newBpm: number) => {
-    const delta = newBpm - bpm;
-    pushUndoState();
-    setBpm(newBpm);
-    setMeasureBpms(prev => prev.map(val => {
-      const currentVal = typeof val === 'number' ? val : bpm;
-      const nextVal = currentVal + delta;
-      return Math.max(40, Math.min(240, nextVal));
-    }));
-  };
-
-  const handleMeasureBpmChange = (measureIdx: number, val: number) => {
-    pushUndoState();
-    setMeasureBpms(prev => {
-      const arr = [...prev];
-      arr[measureIdx] = val;
-      return arr;
-    });
-  };
-
-  const handleMeasureTransitionChange = (measureIdx: number, val: 'immediate' | 'ramp') => {
-    pushUndoState();
-    setMeasureBpmTransitions(prev => {
-      const arr = [...prev];
-      arr[measureIdx] = val;
-      return arr;
-    });
-  };
-
-  const handleMeasureVolChange = (measureIdx: number, val: number) => {
-    pushUndoState();
-    setMeasureVols(prev => {
-      const arr = [...prev];
-      arr[measureIdx] = val;
-      return arr;
-    });
-  };
-
-  const handleMeasureVolTransitionChange = (measureIdx: number, val: 'immediate' | 'ramp') => {
-    pushUndoState();
-    setMeasureVolTransitions(prev => {
-      const arr = [...prev];
-      arr[measureIdx] = val;
-      return arr;
-    });
-  };
-
-  const handleTotalMeasuresChange = (val: number) => {
-    pushUndoState();
-    setTotalMeasures(val);
-    setTracks(prev => prev.map(t => ({
-      ...t,
-      patterns: t.patterns.map(p => ({
-        ...p,
-        measureAssignments: Array(val).fill(false).map((_, i) => p.measureAssignments[i] || false)
-      }))
-    })));
-  };
-
-  const handleDeleteMeasure = (measureIdx: number) => {
-    if (totalMeasures <= 1) {
-      alert(lang === 'fr' ? "Impossible de supprimer la dernière mesure restante." : "Não é possível excluir o único compasso restante.");
-      return;
-    }
-    pushUndoState();
-
-    const newTotal = totalMeasures - 1;
-
-    // 1. Update tracks patterns measureAssignments
-    setTracks(prev => prev.map(t => ({
-      ...t,
-      patterns: t.patterns.map(p => {
-        const assign = [...p.measureAssignments];
-        assign.splice(measureIdx, 1);
-        return { ...p, measureAssignments: assign };
-      })
-    })));
-
-    // 2. Update measure-specific arrays
-    setMeasureTimeSigs(prev => {
-      const arr = [...prev];
-      arr.splice(measureIdx, 1);
-      return arr;
-    });
-    setMeasureBpms(prev => {
-      const arr = [...prev];
-      arr.splice(measureIdx, 1);
-      return arr;
-    });
-    setMeasureBpmTransitions(prev => {
-      const arr = [...prev];
-      arr.splice(measureIdx, 1);
-      return arr;
-    });
-    setMeasureVols(prev => {
-      const arr = [...prev];
-      arr.splice(measureIdx, 1);
-      return arr;
-    });
-    setMeasureVolTransitions(prev => {
-      const arr = [...prev];
-      arr.splice(measureIdx, 1);
-      return arr;
-    });
-
-    // 3. Update song sections
-    setSongSections(prev => {
-      return prev
-        .map(sec => {
-          let start = sec.startMeasure;
-          let end = sec.endMeasure;
-          if (start > measureIdx) {
-            start -= 1;
-          }
-          if (end >= measureIdx) {
-            end -= 1;
-          }
-          return { ...sec, startMeasure: start, endMeasure: end };
-        })
-        .filter(sec => sec.startMeasure <= sec.endMeasure);
-    });
-
-    // 4. Update loop bounds if necessary
-    let newLoopStart = loopStartMeasure;
-    let newLoopEnd = loopEndMeasure;
-    if (newLoopStart !== null) {
-      if (newLoopStart > measureIdx) {
-        newLoopStart -= 1;
-      } else if (newLoopStart === measureIdx) {
-        newLoopStart = Math.min(newLoopStart, newTotal - 1);
-        if (newLoopStart < 0) newLoopStart = null;
-      }
-    }
-    if (newLoopEnd !== null) {
-      if (newLoopEnd > measureIdx) {
-        newLoopEnd -= 1;
-      } else if (newLoopEnd === measureIdx) {
-        newLoopEnd = Math.min(newLoopEnd, newTotal - 1);
-        if (newLoopEnd < 0) newLoopEnd = null;
-      }
-    }
-    if (newLoopStart !== null && newLoopEnd !== null && newLoopStart > newLoopEnd) {
-      newLoopStart = null;
-      newLoopEnd = null;
-    }
-    setLoopStartMeasure(newLoopStart);
-    setLoopEndMeasure(newLoopEnd);
-
-    // 5. Update total measures count
-    setTotalMeasures(newTotal);
-  };
-
-  const handleInsertMeasure = (measureIdx: number) => {
-    pushUndoState();
-
-    const newTotal = totalMeasures + 1;
-
-    // 1. Update tracks patterns measureAssignments
-    setTracks(prev => prev.map(t => ({
-      ...t,
-      patterns: t.patterns.map(p => {
-        const assign = [...p.measureAssignments];
-        assign.splice(measureIdx, 0, false);
-        return { ...p, measureAssignments: assign };
-      })
-    })));
-
-    // 2. Update measure-specific arrays with values from neighbor measure or defaults
-    setMeasureTimeSigs(prev => {
-      const arr = [...prev];
-      const fallback = arr[measureIdx - 1] || arr[measureIdx] || timeSig;
-      arr.splice(measureIdx, 0, fallback);
-      return arr;
-    });
-    setMeasureBpms(prev => {
-      const arr = [...prev];
-      const fallback = arr[measureIdx - 1] || arr[measureIdx] || bpm;
-      arr.splice(measureIdx, 0, fallback);
-      return arr;
-    });
-    setMeasureBpmTransitions(prev => {
-      const arr = [...prev];
-      const fallback = arr[measureIdx - 1] || arr[measureIdx] || 'immediate';
-      arr.splice(measureIdx, 0, fallback);
-      return arr;
-    });
-    setMeasureVols(prev => {
-      const arr = [...prev];
-      const fallback = arr[measureIdx - 1] !== undefined ? arr[measureIdx - 1] : (arr[measureIdx] !== undefined ? arr[measureIdx] : 100);
-      arr.splice(measureIdx, 0, fallback);
-      return arr;
-    });
-    setMeasureVolTransitions(prev => {
-      const arr = [...prev];
-      const fallback = arr[measureIdx - 1] || arr[measureIdx] || 'immediate';
-      arr.splice(measureIdx, 0, fallback);
-      return arr;
-    });
-
-    // 3. Update song sections
-    setSongSections(prev => {
-      return prev.map(sec => {
-        let start = sec.startMeasure;
-        let end = sec.endMeasure;
-        if (start >= measureIdx) {
-          start += 1;
-        }
-        if (end >= measureIdx) {
-          end += 1;
-        }
-        return { ...sec, startMeasure: start, endMeasure: end };
-      });
-    });
-
-    // 4. Update loop bounds if necessary
-    let newLoopStart = loopStartMeasure;
-    let newLoopEnd = loopEndMeasure;
-    if (newLoopStart !== null && newLoopStart >= measureIdx) {
-      newLoopStart += 1;
-    }
-    if (newLoopEnd !== null && newLoopEnd >= measureIdx) {
-      newLoopEnd += 1;
-    }
-    setLoopStartMeasure(newLoopStart);
-    setLoopEndMeasure(newLoopEnd);
-
-    // 5. Update total measures count
-    setTotalMeasures(newTotal);
-  };
-
-  const handleSetLoopStart = (measureIdx: number) => {
-    if (loopEndMeasure !== null && measureIdx > loopEndMeasure) {
-      setLoopEndMeasure(measureIdx);
-    }
-    setLoopStartMeasure(measureIdx);
-  };
-
-  const handleSetLoopEnd = (measureIdx: number) => {
-    if (loopStartMeasure !== null && measureIdx < loopStartMeasure) {
-      setLoopStartMeasure(measureIdx);
-    }
-    setLoopEndMeasure(measureIdx);
-  };
-
-  const handleClearLoop = () => {
-    setLoopStartMeasure(null);
-    setLoopEndMeasure(null);
-  };
-
-
-
-  const handleCopyPattern = (pattern: Pattern) => {
-    setCopiedPattern(JSON.parse(JSON.stringify(pattern)));
-  };
-
-  const handlePastePattern = (trackId: number, patternId?: number) => {
-    if (!copiedPattern) return;
-    pushUndoState();
-    
-    // Deep copy to prevent shared object references
-    const patternClone = JSON.parse(JSON.stringify(copiedPattern)) as Pattern;
-    
-    // Generate new unique ID
-    const newId = Date.now() + Math.floor(Math.random() * 1000);
-    
-    setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        const newName = `${patternClone.name || (lang === 'fr' ? 'Motif' : 'Padrão')} (${lang === 'fr' ? 'Copie' : 'Cópia'})`;
-        
-        const newPattern: Pattern = {
-          ...patternClone,
-          id: newId,
-          name: newName,
-          // Since it's a new pattern, it shouldn't be assigned to any measures in the timeline yet
-          measureAssignments: Array(totalMeasures).fill(false)
-        };
-        
-        return {
-          ...t,
-          patterns: [...t.patterns, newPattern],
-          selectedPatternId: newId // Set the newly pasted pattern as selected
-        };
-      }
-      return t;
-    }));
-  };
-
-  const handleCreateSongSection = (name: string, start: number, end: number, color?: string) => {
-    pushUndoState();
-    const newSection: SongSection = {
-      id: String(Date.now() + Math.floor(Math.random() * 1000)),
-      name,
-      startMeasure: start,
-      endMeasure: end,
-      color: color || '#f39c12',
-    };
-    setSongSections(prev => {
-      const next = [...prev, newSection];
-      next.sort((a, b) => a.startMeasure - b.startMeasure);
-      return next;
-    });
-  };
-
-  const handleUpdateSongSection = (id: string, name: string, start: number, end: number, color?: string) => {
-    pushUndoState();
-    setSongSections(prev => {
-      const next = prev.map(s => s.id === id ? { ...s, name, startMeasure: start, endMeasure: end, color } : s);
-      next.sort((a, b) => a.startMeasure - b.startMeasure);
-      return next;
-    });
-  };
-
-  const handleDeleteSongSection = (id: string) => {
-    pushUndoState();
-    setSongSections(prev => prev.filter(s => s.id !== id));
-  };
-
-  const handleCopySongSection = (section: SongSection) => {
-    const len = section.endMeasure - section.startMeasure + 1;
-    const assignments: { [trackId: number]: (number | null)[] } = {};
-    tracks.forEach(track => {
-      const trackAssignments: (number | null)[] = [];
-      for (let m = section.startMeasure; m <= section.endMeasure; m++) {
-        const activePtn = track.patterns.find(p => p.measureAssignments[m]);
-        trackAssignments.push(activePtn ? activePtn.id : null);
-      }
-      assignments[track.id] = trackAssignments;
-    });
-    setCopiedSection({
-      length: len,
-      name: section.name,
-      color: section.color || '#f19066',
-      assignments,
-    });
-  };
-
-  const handlePasteSongSection = (destStartMeasure: number) => {
-    if (!copiedSection) return;
-    pushUndoState();
-    
-    // 1. Paste track assignments
-    setTracks(prevTracks => {
-      return prevTracks.map(track => {
-        const trackAssignments = copiedSection.assignments[track.id];
-        if (!trackAssignments) return track;
-
-        const nextPatterns = track.patterns.map(pattern => {
-          const nextMeasureAssignments = [...pattern.measureAssignments];
-          for (let i = 0; i < copiedSection.length; i++) {
-            const targetM = destStartMeasure + i;
-            if (targetM >= totalMeasures) break;
-
-            const copiedPtnId = trackAssignments[i];
-            if (copiedPtnId === pattern.id) {
-              nextMeasureAssignments[targetM] = true;
-            } else {
-              nextMeasureAssignments[targetM] = false;
-            }
-          }
-          return { ...pattern, measureAssignments: nextMeasureAssignments };
-        });
-
-        return { ...track, patterns: nextPatterns };
-      });
-    });
-
-    // 2. Add the pasted section block to songSections
-    const newSection: SongSection = {
-      id: String(Date.now() + Math.floor(Math.random() * 1000)),
-      name: copiedSection.name,
-      startMeasure: destStartMeasure,
-      endMeasure: Math.min(totalMeasures - 1, destStartMeasure + copiedSection.length - 1),
-      color: copiedSection.color,
-    };
-    
-    setSongSections(prev => {
-      const next = [...prev, newSection];
-      next.sort((a, b) => a.startMeasure - b.startMeasure);
-      return next;
-    });
-  };
-
+  const handleTrackMoveUp = (id: number) => sequencer.handleTrackMoveUp(id);
+  const handleTrackMoveDown = (id: number) => sequencer.handleTrackMoveDown(id);
+  const handleTrackInstrumentIdxChange = (id: number, targetInstIdx: number) => sequencer.handleTrackInstrumentIdxChange(id, targetInstIdx);
+  const handleTrackMuteToggle = (id: number) => sequencer.handleTrackMuteToggle(id);
+  const handleTrackSoloToggle = (id: number) => sequencer.handleTrackSoloToggle(id);
+  const handleTrackHideToggle = (id: number) => sequencer.handleTrackHideToggle(id);
+  const handleTrackDelete = (id: number) => sequencer.handleTrackDelete(id);
+  const handleTrackVolumeChange = (id: number, val: number) => sequencer.handleTrackVolumeChange(id, val);
+  const handleTrackReverbChange = (id: number, val: number) => sequencer.handleTrackReverbChange(id, val);
+  const handleTrackStepVolumeChange = (tId: number, pId: number, sIdx: number | number[], val: number) => sequencer.handleTrackStepVolumeChange(tId, pId, sIdx, val);
+  const handleTrackStepDecayChange = (tId: number, pId: number, sIdx: number | number[], val: number) => sequencer.handleTrackStepDecayChange(tId, pId, sIdx, val);
+  const handleTrackStepMicrotimingChange = (tId: number, pId: number, sIdx: number | number[], val: number) => sequencer.handleTrackStepMicrotimingChange(tId, pId, sIdx, val);
+  const handleResetTrackMicrotimings = (tId: number, pId: number) => sequencer.handleResetTrackMicrotimings(tId, pId);
+  const handleTrackPanChange = (id: number, val: number) => sequencer.handleTrackPanChange(id, val);
+  const handleTrackStepsChange = (tId: number, pId: number, s: number) => sequencer.handleTrackStepsChange(tId, pId, s);
+  const handleTimelinePatternAssign = (tId: number, pId: number | null, mIdx: number) => sequencer.handleTimelinePatternAssign(tId, pId, mIdx);
+  const handleMeasureTimeSigChange = (mIdx: number, val: TimeSignature) => sequencer.handleMeasureTimeSigChange(mIdx, val);
+  const handleMeasureBpmChange = (mIdx: number, val: number) => sequencer.handleMeasureBpmChange(mIdx, val);
+  const handleMeasureTransitionChange = (mIdx: number, val: 'immediate' | 'ramp') => sequencer.handleMeasureTransitionChange(mIdx, val);
+  const handleMeasureVolChange = (mIdx: number, val: number) => sequencer.handleMeasureVolChange(mIdx, val);
+  const handleMeasureVolTransitionChange = (mIdx: number, val: 'immediate' | 'ramp') => sequencer.handleMeasureVolTransitionChange(mIdx, val);
+  const handleTotalMeasuresChange = (val: number) => sequencer.handleTotalMeasuresChange(val);
+  const handleDeleteMeasure = (mIdx: number) => sequencer.handleDeleteMeasure(mIdx);
+  const handleInsertMeasure = (mIdx: number) => sequencer.handleInsertMeasure(mIdx);
+  const handleSetLoopStart = (mIdx: number) => sequencer.handleSetLoopStart(mIdx);
+  const handleSetLoopEnd = (mIdx: number) => sequencer.handleSetLoopEnd(mIdx);
+  const handleClearLoop = () => sequencer.handleClearLoop();
+  const handleCopyPattern = (ptn: Pattern) => sequencer.handleCopyPattern(ptn);
+  const handlePastePattern = (tId: number) => sequencer.handlePastePattern(tId);
+  const handleCreateSongSection = (name: string, start: number, end: number, color?: string) => sequencer.handleCreateSongSection(name, start, end, color);
+  const handleUpdateSongSection = (id: string, name: string, start: number, end: number, color?: string) => sequencer.handleUpdateSongSection(id, name, start, end, color);
+  const handleDeleteSongSection = (id: string) => sequencer.handleDeleteSongSection(id);
+  const handleCopySongSection = (sec: SongSection) => sequencer.handleCopySongSection(sec);
+  const handlePasteSongSection = (dest: number) => sequencer.handlePasteSongSection(dest);
+  const handleStepValueSelectAndToggle = (tId: number, pId: number, sIdx: number, state: string | number, l?: string, n?: string) => sequencer.handleStepValueSelectAndToggle(tId, pId, sIdx, state, l, n);
+  const handleVoiceTypeToggle = (tId: number, pId: number, sIdx: number) => sequencer.handleVoiceTypeToggle(tId, pId, sIdx);
+  const handleVoiceSylChange = (tId: number, pId: number, sIdx: number, val: string) => sequencer.handleVoiceSylChange(tId, pId, sIdx, val);
+  const handleVoiceNoteChange = (tId: number, pId: number, sIdx: number, val: string) => sequencer.handleVoiceNoteChange(tId, pId, sIdx, val);
+  const handleVoiceNoteBlur = (tId: number, pId: number, sIdx: number, val: string) => sequencer.handleVoiceNoteBlur(tId, pId, sIdx, val);
+  const handleExtractLyrics = () => sequencer.handleExtractLyrics();
+  const handleTrackStepValueChange = (tId: number, pId: number, sIdx: number | number[], val: string | string[], l?: string[], n?: string[]) => sequencer.handleTrackStepValueChange(tId, pId, sIdx, val, l, n);
+  const handleTrackStepKeyDown = (tId: number, pId: number, sIdx: number, k: string, w: string, el: HTMLInputElement) => sequencer.handleTrackStepKeyDown(tId, pId, sIdx, k, w, el);
 
   const handleStepTouchStart = (
     e: React.MouseEvent | React.TouchEvent,
@@ -2675,13 +552,7 @@ export default function App() {
     onSelect: (val: string) => void
   ) => {
     if ('button' in e && e.button !== 0) return;
-
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-    const targetEl = e.currentTarget as HTMLElement;
-    const rect = targetEl.getBoundingClientRect();
-
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     setTouchSelector({
       patternId,
       stepIdx,
@@ -2694,625 +565,23 @@ export default function App() {
     setHoveredStroke(String(currentVal));
   };
 
-  const handleTimelineNavigate = (measureIdx: number, stepIdxInMeasure: number, stepsInMeasure: number) => {
-    const mSig = measureTimeSigs[measureIdx] || timeSig;
-    const currentTicks = getMaxTicks(mSig);
-    const tickIdx = Math.max(0, Math.min(currentTicks - 1, Math.floor((stepIdxInMeasure / stepsInMeasure) * currentTicks)));
-    
-    measureCountRef.current = measureIdx;
-    setCurrentMeasure(measureIdx % totalMeasures);
-    currentStepIndexRef.current = tickIdx - 1; // -1 so the next loop cycle increments to tickIdx
-    setCurrentStepIndex(tickIdx);
-    maxTicksRef.current = currentTicks;
+  const handlePresetSelect = (val: string) => audio.handlePresetSelect(val);
+  const handleShare = () => audio.handleShare();
+  const handleSaveState = () => audio.handleSaveState();
+  const handleLoadState = (file: File) => audio.handleLoadState(file);
+  const handleSaveToLocal = () => audio.handleSaveToLocal();
+  const handleLoadLocalPreset = (name: string) => audio.handleLoadLocalPreset(name);
+  const handleAddTrackInstrument = (instIdx: number) => sequencer.handleAddTrackInstrument(instIdx, audio.currentMeasure);
 
-    const ratioVal = tickIdx / currentTicks;
-    window.dispatchEvent(new CustomEvent('baquemix-tick', {
-      detail: {
-        step: tickIdx,
-        measure: measureIdx % totalMeasures,
-        maxTicks: currentTicks,
-        ratio: ratioVal,
-        visualStep16: Math.floor(ratioVal * 16),
-        visualStep12: Math.floor(ratioVal * 12)
-      }
-    }));
-
-    // Apply target BPM instantly when navigating
-    const targetBpm = measureBpms[measureIdx] || bpm;
-    try {
-      Tone.Transport.bpm.cancelScheduledValues(0);
-      Tone.Transport.bpm.value = targetBpm;
-    } catch (e) {}
-
-    // Sync Tone.js Transport position
-    const stepDurationSec = Tone.Time('96n').toSeconds();
-    let totalTicksBefore = 0;
-    for (let i = 0; i < measureIdx; i++) {
-      const prevSig = measureTimeSigs[i] || timeSig;
-      totalTicksBefore += getMaxTicks(prevSig);
-    }
-    totalTicksBefore += tickIdx;
-    Tone.Transport.seconds = totalTicksBefore * stepDurationSec;
-  };
-
-  // Text values key bindings helpers for traditional grid steps
-  const handleTrackStepValueChange = (
-    trackId: number,
-    patternId: number,
-    stepIdx: number | number[],
-    val: string | string[],
-    lyrics?: string[],
-    notes?: string[]
-  ) => {
-    pushUndoState();
-    setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        const inst = instrumentsConfig[t.instrumentIdx];
-
-        const parseVal = (v: string): string | number => {
-          if (!v) return 0;
-          const cleanChar = v.slice(-1);
-          let parsed: string | number = 0;
-          if (v === '0') {
-            parsed = 0;
-          } else if (inst.colors[v] !== undefined && v !== 'text') {
-            parsed = v;
-          } else if (cleanChar && cleanChar.trim() !== '') {
-            if (inst.type === 'gongue') {
-              if (['G', 'g', 'A', 'a'].includes(cleanChar)) parsed = cleanChar;
-              else if (['x', 'X'].includes(cleanChar)) parsed = 'X';
-              else if (['b', 'B', 't'].includes(cleanChar)) parsed = 'B';
-            } else if (inst.id === 'mineiro') {
-              if (['P', 'p', 'T', 't'].includes(cleanChar)) parsed = cleanChar;
-              else if (['l', 'L'].includes(cleanChar)) parsed = 'L';
-              else if (['b', 'B'].includes(cleanChar)) parsed = 'B';
-            } else if (inst.id === 'caixa') {
-              const lowerChar = cleanChar.toLowerCase();
-              if (cleanChar === 'r') parsed = 'r';
-              else if (cleanChar === 'R') parsed = 'R';
-              else if (lowerChar === 'x') parsed = 'X';
-              else if (lowerChar === 'f') parsed = 'F';
-              else if (lowerChar === 'c') parsed = 'C';
-              else if (['b', 't'].includes(lowerChar)) parsed = 'B';
-              else if (['d', 'D', 'e', 'E', 'q', 'Q'].includes(cleanChar)) {
-                parsed = cleanChar;
-              }
-            } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
-              const lowerChar = cleanChar.toLowerCase();
-              if (lowerChar === 'x') parsed = 'X';
-              else if (lowerChar === 'i') parsed = 'I';
-              else if (lowerChar === 'c') parsed = 'C';
-              else if (['b', 't'].includes(lowerChar)) parsed = 'B';
-              else if (['d', 'D', 'e', 'E', 'q', 'Q'].includes(cleanChar)) {
-                parsed = cleanChar;
-              }
-            } else if (inst.id === 'tarol') {
-              const lowerChar = cleanChar.toLowerCase();
-              if (cleanChar === 'r') parsed = 'r';
-              else if (cleanChar === 'R') parsed = 'R';
-              else if (lowerChar === 'x') parsed = 'X';
-              else if (lowerChar === 'f') parsed = 'F';
-              else if (lowerChar === 'c') parsed = 'C';
-              else if (['b', 't'].includes(lowerChar)) parsed = 'B';
-              else if (['d', 'D', 'e', 'E', 'q', 'Q'].includes(cleanChar)) {
-                parsed = cleanChar;
-              }
-            } else if (inst.id === 'agbe') {
-              const lowerChar = cleanChar.toLowerCase();
-              if (lowerChar === 's') parsed = 'S';
-              else if (lowerChar === 'v') parsed = 'V';
-              else if (['b', 't'].includes(lowerChar)) parsed = 'B';
-              else if (['d', 'D', 'e', 'E'].includes(cleanChar)) {
-                parsed = cleanChar;
-              }
-            } else if (inst.id === 'apito') {
-              if (['W', 'w'].includes(cleanChar)) parsed = cleanChar;
-            } else {
-              if (['D', 'E', 'd', 'e'].includes(cleanChar)) parsed = cleanChar;
-            }
-          }
-          return getVisualStrokeSymbol(parsed, isLeftHanded, inst.id);
-        };
-
-        const nextPatterns = t.patterns.map(p => {
-          if (p.id === patternId) {
-            const copySteps = [...p.activeSteps];
-            const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
-            const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
-
-            if (Array.isArray(stepIdx)) {
-              stepIdx.forEach((idx, i) => {
-                const currentVal = Array.isArray(val) ? val[i] : val;
-                copySteps[idx] = parseVal(currentVal);
-                if (lyrics && lyrics[i] !== undefined) {
-                  arrLyrics[idx] = lyrics[i];
-                }
-                if (notes && notes[i] !== undefined) {
-                  arrNotes[idx] = notes[i];
-                }
-              });
-            } else {
-              const currentVal = Array.isArray(val) ? val[0] : val;
-              copySteps[stepIdx] = parseVal(currentVal);
-              if (lyrics && lyrics[0] !== undefined) {
-                arrLyrics[stepIdx] = lyrics[0];
-              }
-              if (notes && notes[0] !== undefined) {
-                arrNotes[stepIdx] = notes[0];
-              }
-            }
-            return {
-              ...p,
-              activeSteps: copySteps,
-              lyrics: arrLyrics,
-              notes: arrNotes
-            };
-          }
-          return p;
-        });
-        return { ...t, patterns: nextPatterns };
-      }
-      return t;
-    }));
-  };
-
-  const handleTrackStepKeyDown = (
-    trackId: number,
-    patternId: number,
-    stepIdx: number,
-    key: string,
-    currentWord: string,
-    targetInputEl: HTMLInputElement
-  ) => {
-    const cardGrid = targetInputEl.closest('.step-boxes');
-    if (!cardGrid) return;
-    const inputs = Array.from(cardGrid.querySelectorAll('input'));
-    const indexInGrid = inputs.indexOf(targetInputEl);
-
-    // Auto advancing cell index focus triggers
-    if (key === 'Backspace' && currentWord === '' && indexInGrid > 0) {
-      const prevEl = inputs[indexInGrid - 1] as HTMLInputElement;
-      prevEl.focus();
-      prevEl.select();
-    } else if ((key === 'ArrowRight' || key === 'Tab' || key === 'Enter') && indexInGrid < inputs.length - 1) {
-      const nextEl = inputs[indexInGrid + 1] as HTMLInputElement;
-      nextEl.focus();
-      nextEl.select();
-    } else if (key === 'ArrowLeft' && indexInGrid > 0) {
-      const prevEl = inputs[indexInGrid - 1] as HTMLInputElement;
-      prevEl.focus();
-      prevEl.select();
-    } else if (
-      ['d', 'D', 'p', 'P', 't', 'T', 'g', 'G', 'a', 'A', 'r', 'R', 'e', 'E', 'x', 'X', 'f', 'F', 'i', 'I', 's', 'S', 'c', 'C', 'w', 'W'].includes(key) &&
-      indexInGrid < inputs.length - 1
-    ) {
-      // Focus advance on character entry
-      setTimeout(() => {
-        const nextEl = inputs[indexInGrid + 1] as HTMLInputElement;
-        nextEl.focus();
-        nextEl.select();
-      }, 10);
-    }
-  };
-
-  const handlePatternNameChange = (trackId: number, patternId: number, name: string) => {
-    pushUndoState();
-    setTracks((prevTracks) => {
-      return prevTracks.map((t) => {
-        if (t.id !== trackId) return t;
-        return {
-          ...t,
-          patterns: t.patterns.map((p) => {
-            if (p.id === patternId) {
-              return { ...p, name: name.trim() };
-            }
-            return p;
-          }),
-        };
-      });
-    });
-  };
-
-  const handleReorderPatterns = (trackId: number, patternId: number, direction: 'up' | 'down') => {
-    pushUndoState();
-    setTracks((prevTracks) => {
-      return prevTracks.map((t) => {
-        if (t.id !== trackId) return t;
-        const index = t.patterns.findIndex((p) => p.id === patternId);
-        if (index === -1) return t;
-        const newPatterns = [...t.patterns];
-        if (direction === 'up' && index > 0) {
-          const temp = newPatterns[index];
-          newPatterns[index] = newPatterns[index - 1];
-          newPatterns[index - 1] = temp;
-        } else if (direction === 'down' && index < newPatterns.length - 1) {
-          const temp = newPatterns[index];
-          newPatterns[index] = newPatterns[index + 1];
-          newPatterns[index + 1] = temp;
-        }
-        return {
-          ...t,
-          patterns: newPatterns
-        };
-      });
-    });
-  };
-
-
-  // Vocals inputs handlers
-  const handleVoiceTypeToggle = (trackId: number, patternId: number, stepIdx: number) => {
-    pushUndoState();
-    setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        const nextPatterns = t.patterns.map(p => {
-          if (p.id === patternId) {
-            const copySteps = [...p.activeSteps];
-            if (copySteps[stepIdx] === 0) return p;
-            copySteps[stepIdx] = copySteps[stepIdx] === 'P' ? 'C' : 'P';
-            return { ...p, activeSteps: copySteps };
-          }
-          return p;
-        });
-        return { ...t, patterns: nextPatterns };
-      }
-      return t;
-    }));
-  };
-
-  const handleVoiceSylChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
-    const activePattern = tracks.find(t => t.id === trackId)?.patterns.find(p => p.id === patternId);
-    const prevVal = activePattern?.lyrics?.[stepIdx] || '';
-    if (prevVal === '' && val !== '') {
-      pushUndoState();
-    }
-    setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        const nextPatterns = t.patterns.map(p => {
-          if (p.id === patternId) {
-            const copySteps = [...p.activeSteps];
-            const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
-            const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
-            arrLyrics[stepIdx] = val;
-            if (val.trim() !== '') {
-              if (copySteps[stepIdx] === 0) {
-                copySteps[stepIdx] = 'C';
-                if (!arrNotes[stepIdx]) arrNotes[stepIdx] = 'C4';
-              }
-            } else {
-              copySteps[stepIdx] = 0;
-            }
-            return { ...p, activeSteps: copySteps, lyrics: arrLyrics, notes: arrNotes };
-          }
-          return p;
-        });
-        return { ...t, patterns: nextPatterns };
-      }
-      return t;
-    }));
-  };
-
-  const handleVoiceNoteChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
-    const activePattern = tracks.find(t => t.id === trackId)?.patterns.find(p => p.id === patternId);
-    const prevVal = activePattern?.notes?.[stepIdx] || '';
-    if (prevVal === '' && val !== '') {
-      pushUndoState();
-    }
-    setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        const nextPatterns = t.patterns.map(p => {
-          if (p.id === patternId) {
-            const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
-            arrNotes[stepIdx] = val;
-            return { ...p, notes: arrNotes };
-          }
-          return p;
-        });
-        return { ...t, patterns: nextPatterns };
-      }
-      return t;
-    }));
-  };
-
-  const handleVoiceNoteBlur = (trackId: number, patternId: number, stepIdx: number, val: string) => {
-    pushUndoState();
-    const trimmed = val.trim();
-    if (trimmed.length === 1 || (trimmed.length === 2 && (trimmed.includes('#') || trimmed.includes('b')))) {
-      if (/^[a-gA-G][#b]?$/.test(trimmed)) {
-        const completedNote = trimmed.toUpperCase() + '4';
-        setTracks(prev => prev.map(t => {
-          if (t.id === trackId) {
-            const nextPatterns = t.patterns.map(p => {
-              if (p.id === patternId) {
-                const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
-                arrNotes[stepIdx] = completedNote;
-                return { ...p, notes: arrNotes };
-              }
-              return p;
-            });
-            return { ...t, patterns: nextPatterns };
-          }
-          return t;
-        }));
-      }
-    }
-  };
-
-  // Interactive syllables trigger extraction formatting
-  const handleExtractLyrics = () => {
-    const voiceTracks = tracks.filter((t) => instrumentsConfig[t.instrumentIdx].type === 'voice');
-    const htmlArr: string[] = [];
-
-    voiceTracks.forEach((t) => {
-      t.patterns.forEach(p => {
-        let trackStr = '';
-        for (let i = 0; i < p.steps; i++) {
-          if (p.activeSteps[i] !== 0 && p.lyrics[i]) {
-            const rawLyric = p.lyrics[i];
-            const hasSpace = rawLyric.endsWith(' ');
-            const syl = rawLyric.replace(/-$/, '').trim();
-            if (syl) {
-              trackStr += syl + (hasSpace ? ' ' : '');
-            }
-          }
-        }
-        if (trackStr) {
-          htmlArr.push(trackStr.trim());
-        }
-      });
-    });
-
-    setLetras(htmlArr.join('\n\n'));
-  };
-
-  // Master Save Preset state down to local downloadable JSON
-  const handleSaveState = async () => {
-    const tracksCopy = JSON.parse(JSON.stringify(tracks));
-    for (const t of tracksCopy) {
-      const inst = instrumentsConfig[t.instrumentIdx];
-      if (inst && inst.type === 'voice') {
-        for (const p of t.patterns) {
-          try {
-            const blob = await getVocalRecording(p.id);
-            if (blob) {
-              const b64 = await blobToBase64(blob);
-              p.vocalAudioData = b64;
-            }
-          } catch (err) {
-            console.error(`Failed to get vocal recording for pattern ${p.id}:`, err);
-          }
-        }
-      }
-    }
-
-    const dataToSave: Preset = {
-      bpm,
-      timeSig,
-      version: 3,
-      totalMeasures,
-      tracks: tracksCopy,
-      letras,
-      metadata,
-      measureTimeSigs,
-      measureBpms,
-      measureBpmTransitions,
-      measureVols,
-      measureVolTransitions,
-      songSections,
-      measureSignals,
-      masterEQ,
-      masterCompressor
-    };
-    const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
-    const dlLink = document.createElement('a');
-    dlLink.href = URL.createObjectURL(blob);
-    
-    let fileName = 'rythme_samambaia.json';
-    if (metadata?.toada && metadata.toada.trim() !== '') {
-      const cleanTitle = metadata.toada.trim()
-        .toLowerCase()
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9_-]+/gi, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_+|_+$/g, '');
-      if (cleanTitle) {
-        fileName = `${cleanTitle}.json`;
-      }
-    }
-    
-    dlLink.download = fileName;
-    dlLink.click();
-  };
-
-  // Master Load state from uploaded JSON
-  const handleLoadState = (file: File) => {
-    console.log("[BaqueMix] handleLoadState called for file:", file.name);
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const resultText = evt.target?.result as string;
-        const data = JSON.parse(resultText);
-        await applyPreset(data);
-        console.log("[BaqueMix] Preset applied successfully!");
-      } catch (err: any) {
-        console.error("[BaqueMix] Error loading preset file:", err);
-        window.alert(`${t('invalidFile')}\n\nError details: ${err?.message || err}`);
-      }
-    };
-    reader.onerror = () => {
-      console.error("[BaqueMix] FileReader error:", reader.error);
-      window.alert(`FileReader error: ${reader.error?.message || 'Unknown error'}`);
-    };
-    reader.readAsText(file);
-  };
-
-  async function handleShare() {
-    // Note: vocal audio recordings are NOT included in the shared file —
-    // they are device-local (stored in IndexedDB) and would make the file
-    // several MB large. The recipient can record their own voice in BaqueMix.
-    const tracksCopy = JSON.parse(JSON.stringify(tracks));
-    // Strip any vocalAudioData that may be in memory (shouldn't be, but safety)
-    tracksCopy.forEach((t: any) => t.patterns?.forEach((p: any) => { delete p.vocalAudioData; }));
-
-    const cleanMetadata = metadata ? {
-      ...metadata,
-      partitionImage: undefined,
-      rhythmSignals: metadata.rhythmSignals ? metadata.rhythmSignals.map(sig => ({
-        ...sig,
-        image: '' // Remove heavy base64 image data for sharing
-      })) : undefined
-    } : undefined;
-
-    // Strip redundant per-measure arrays when all values are identical to defaults
-    const defaultBpm = measureBpms[0] ?? bpm;
-    const defaultTimeSig = measureTimeSigs[0] ?? timeSig;
-    const defaultVol = measureVols[0] ?? 100;
-    const allBpmsSame = measureBpms.every(v => v === defaultBpm);
-    const allTimeSigsSame = measureTimeSigs.every(v => v === defaultTimeSig);
-    const allVolsSame = measureVols.every(v => v === defaultVol);
-    const allBpmTransSame = measureBpmTransitions.every(v => v === 'immediate');
-    const allVolTransSame = measureVolTransitions.every(v => v === 'immediate');
-    const hasSignals = (measureSignals || []).some(s => s !== null);
-
-    const dataToSave: Preset = {
-      bpm,
-      timeSig,
-      version: 3,
-      totalMeasures,
-      tracks: tracksCopy,
-      letras,
-      metadata: cleanMetadata,
-      ...(allBpmsSame ? {} : { measureBpms }),
-      ...(allTimeSigsSame ? {} : { measureTimeSigs }),
-      ...(allVolsSame ? {} : { measureVols }),
-      ...(allBpmTransSame ? {} : { measureBpmTransitions }),
-      ...(allVolTransSame ? {} : { measureVolTransitions }),
-      ...(songSections && songSections.length > 0 ? { songSections } : {}),
-      ...(hasSignals ? { measureSignals } : {}),
-      masterEQ,
-      masterCompressor
-    };
-
-    try {
-      const jsonStr = JSON.stringify(dataToSave);
-      const compressed = LZString.compressToEncodedURIComponent(jsonStr);
-      const shareUrl = `${window.location.origin}${window.location.pathname}?baque=${compressed}`;
-
-      const isMobileOrTablet = /Mobi|Android|iPhone|iPad|Tablet/i.test(navigator.userAgent) ||
-        ('ontouchstart' in window && navigator.maxTouchPoints > 0);
-
-      let sharedNatively = false;
-
-      // Try native text sharing (works on Android Chrome, iOS Safari)
-      if (isMobileOrTablet && navigator.share) {
-        try {
-          const shareText = lang === 'pt'
-            ? 'Abra no BaqueMix para jogar este ritmo de Maracatu!'
-            : 'Ouvrez dans BaqueMix pour jouer ce rythme de Maracatu !';
-          await navigator.share({
-            title: metadata?.toada || 'BaqueMix',
-            text: shareText,
-            url: shareUrl
-          });
-          sharedNatively = true;
-        } catch (shareErr: any) {
-          if (shareErr?.name === 'AbortError') {
-            // User cancelled/closed the share sheet.
-            return;
-          }
-          console.warn('Native share failed, falling back to clipboard copy', shareErr);
-        }
-      }
-
-      if (!sharedNatively) {
-        // Fallback: copy the magic link to clipboard
-        await navigator.clipboard.writeText(shareUrl);
-        window.alert(
-          lang === 'pt'
-            ? 'Link de compartilhamento copiado para a área de transferência!'
-            : 'Lien de partage copié dans le presse-papiers !'
-        );
-      }
-    } catch (e: any) {
-      console.error('Failed to prepare or compress preset data for sharing', e);
-      window.alert(
-        lang === 'pt'
-          ? 'Erro ao exportar o ritmo. Por favor, tente novamente.'
-          : 'Erreur lors de l\'exportation du rythme. Veuillez réessayer.'
-      );
-    }
-  }
-
-  const handleStepValueSelectAndToggle = (
-    trackId: number,
-    patternId: number,
-    stepIdx: number,
-    newState: string | number,
-    optLyric?: string,
-    optNote?: string
-  ) => {
-    pushUndoState();
-    setTracks(tracks.map((t) => {
-      if (t.id === trackId) {
-        const nextPatterns = t.patterns.map(p => {
-          if (p.id === patternId) {
-            const arrSteps = [...p.activeSteps];
-            arrSteps[stepIdx] = newState;
-            const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
-            const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
-
-            if (optLyric !== undefined) arrLyrics[stepIdx] = optLyric;
-            if (optNote !== undefined) arrNotes[stepIdx] = optNote;
-
-            return {
-              ...p,
-              activeSteps: arrSteps,
-              lyrics: arrLyrics,
-              notes: arrNotes,
-            };
-          }
-          return p;
-        });
-        return { ...t, patterns: nextPatterns };
-      }
-      return t;
-    }));
-  };
-
-  // Memoize pattern-to-track/inst mappings: only recompute when tracks, currentMeasure,
-  // isPlaying or soloPatternPlayId change — NOT on every currentStepIndex tick (16x/sec)
-  const activePatternIdByInst = useMemo(() => {
-    const result: { [instIdx: number]: number | null } = {};
-    tracks.forEach(t => {
-      if (result[t.instrumentIdx] === undefined) {
-        if (isPlaying) {
-          const activePattern = t.patterns.find(p => p.measureAssignments[currentMeasure]);
-          result[t.instrumentIdx] = activePattern ? activePattern.id : null;
-        } else {
-          result[t.instrumentIdx] = t.selectedPatternId;
-        }
-      }
-    });
-    return result;
-  }, [tracks, currentMeasure, isPlaying]);
-
-  const activePatternIdByTrack = useMemo(() => {
-    const result: { [trackId: number]: number | null } = {};
-    tracks.forEach(t => {
-      if (soloPatternPlayId !== null) {
-        const hasSoloPattern = t.patterns.some(p => p.id === soloPatternPlayId);
-        result[t.id] = hasSoloPattern ? soloPatternPlayId : null;
-      } else {
-        const activePattern = t.patterns.find(p => p.measureAssignments[currentMeasure]);
-        result[t.id] = activePattern ? activePattern.id : null;
-      }
-    });
-    return result;
-  }, [tracks, currentMeasure, soloPatternPlayId]);
+  // Game Engine state definitions
+  const [inspecteurCaixaParfaite, setInspecteurCaixaParfaite] = useState<number>(0);
+  const [inspecteurCaixaErreur, setInspecteurCaixaErreur] = useState<number>(0);
+  const [mestreRhythmState, setMestreRhythmState] = useState<number>(0);
 
   return (
     <div className="flex flex-col h-dvh text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
       {/* Visual buffer loader loading overlay */}
-      {isLoading && (
+      {audio.isLoading && (
         <div id="loading-overlay" className="absolute inset-0 bg-[#121212]/90 flex flex-col items-center justify-center z-[9999] gap-2.5">
           <span className="text-3xl">🌿</span>
           <span className="text-xl font-bold font-cactus tracking-wider text-[#f1c40f]">
@@ -3323,29 +592,12 @@ export default function App() {
 
       {/* Header controls bar */}
       <Header
-        lang={lang}
-        onLangToggle={() => setLang(lang === 'pt' ? 'fr' : 'pt')}
         showInstallButton={!!deferredPrompt}
         onInstallClick={handleInstallClick}
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
-        preset={activePresetName}
         presetFiles={presetFiles}
-        onPresetChange={handlePresetSelect}
-        onShare={handleShare}
-        onClear={() => {
-          pushUndoState();
-          setTracks([]);
-          setLetras('');
-          setMeasureSignals([]);
-          setMetadata({ toada: '', nacao: '', compositor: '', ritmo: '', youtubeUrl: '', partitionImage: undefined, rhythmSignals: [] });
-        }}
-        onSave={handleSaveState}
-        onSaveToLocal={handleSaveToLocal}
-        onLoad={handleLoadState}
         localPresets={localPresets}
-        onLoadLocalPreset={handleLoadLocalPreset}
-        onAddInstrument={handleAddTrackInstrument}
         activeRightPanel={activeRightPanel}
         onToggleRightPanel={(p) => setActiveRightPanel(activeRightPanel === p ? null : p)}
         isLeftPanelCollapsed={isLeftPanelCollapsed}
@@ -3361,21 +613,7 @@ export default function App() {
             }
           }
         }}
-        onUndo={handleUndo}
-        canUndo={tracksHistory.length > 0}
-        onRedo={handleRedo}
-        canRedo={tracksRedoHistory.length > 0}
         isMobile={isMobile}
-        isSwingOn={isSwingOn}
-        onSwingToggle={() => setIsSwingOn(!isSwingOn)}
-        masterVol={masterVol}
-        onMasterVolChange={(val) => setMasterVol(val)}
-        timeSig={timeSig}
-        onTimeSigChange={handleTimeSigChange}
-        totalMeasures={totalMeasures}
-        onTotalMeasuresChange={handleTotalMeasuresChange}
-        reverbType={reverbType}
-        onReverbTypeChange={setReverbType}
         version={CURRENT_VERSION}
       />
 
@@ -3386,124 +624,16 @@ export default function App() {
             {/* Left column tracks mixers */}
             {(!isMobile || mobileTab === 'mixer') && (
               <Mixer
-                lang={lang}
-                isLeftHanded={isLeftHanded}
-                tracks={tracks}
-                meters={meters}
-                onMoveUp={handleTrackMoveUp}
-                onMoveDown={handleTrackMoveDown}
-                onInstrumentChange={handleTrackInstrumentIdxChange}
-                onMuteToggle={handleTrackMuteToggle}
-                onSoloToggle={handleTrackSoloToggle}
-                onHideToggle={handleTrackHideToggle}
-                onDelete={handleTrackDelete}
-                onVolumeChange={handleTrackVolumeChange}
-                onPanChange={handleTrackPanChange}
-                onStepsChange={handleTrackStepsChange}
-                onStepValueChange={handleTrackStepValueChange}
-                onStepKeyDown={handleTrackStepKeyDown}
-                onStepTouchStart={handleStepTouchStart}
-                onVoiceTypeToggle={handleVoiceTypeToggle}
-                onVoiceSylChange={handleVoiceSylChange}
-                onVoiceNoteChange={handleVoiceNoteChange}
-                onVoiceNoteBlur={handleVoiceNoteBlur}
-                isPlaying={isPlaying}
-                currentStepIndex={currentStepIndex}
-                maxTicks={getMaxTicks(timeSig)}
-                timeSig={timeSig}
                 isLeftPanelCollapsed={isMobile ? false : isLeftPanelCollapsed}
                 onToggleLeftPanel={() => setIsLeftPanelCollapsed(true)}
-                totalMeasures={totalMeasures}
-                onTrackSelectPattern={(trackId, patternId) => {
-                  setTracks(prev => prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
-                }}
-                onPatternAssign={(trackId, patternId, measureIdx, val) => {
-                  setTracks(prev => prev.map(t => {
-                    if (t.id === trackId) {
-                      const nextPatterns = t.patterns.map(p => {
-                        if (p.id === patternId) {
-                          const assign = [...p.measureAssignments];
-                          assign[measureIdx] = val;
-                          return { ...p, measureAssignments: assign };
-                        }
-                        return p;
-                      });
-                      return { ...t, patterns: nextPatterns };
-                    }
-                    return t;
-                  }));
-                }}
-                onAddPattern={(trackId) => {
-                  setTracks(prev => prev.map(t => {
-                    if (t.id === trackId) {
-                      const p = t.patterns[0];
-                      const newPattern: Pattern = {
-                        id: Date.now() + Math.floor(Math.random() * 1000),
-                        name: `Padrão ${t.patterns.length + 1}`,
-                        steps: p.steps,
-                        activeSteps: Array(p.steps).fill(0),
-                        lyrics: Array(p.steps).fill(''),
-                        notes: Array(p.steps).fill(''),
-                        measureAssignments: Array(totalMeasures).fill(false),
-                        volumes: Array(p.steps).fill(80),
-                        decays: Array(p.steps).fill(100),
-                        microtimings: Array(p.steps).fill(0),
-                      };
-                      return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
-                    }
-                    return t;
-                  }));
-                }}
-                onDeletePattern={(trackId, patternId) => {
-                  setTracks(prev => prev.map(t => {
-                    if (t.id === trackId && t.patterns.length > 1) {
-                      const nextPatterns = t.patterns.filter(p => p.id !== patternId);
-                      const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;
-                      return { ...t, patterns: nextPatterns, selectedPatternId: nextSelected };
-                    }
-                    return t;
-                  }));
-                }}
-                onCopyPattern={handleCopyPattern}
-                onPastePattern={handlePastePattern}
-                canPaste={!!copiedPattern}
-                onReorderPatterns={handleReorderPatterns}
+                onStepTouchStart={handleStepTouchStart}
               />
             )}
 
             {/* Center circle visual canvas engine */}
             {(!isMobile || mobileTab === 'roda') && (
               <CircleSequencer
-                lang={lang}
-                tracks={tracks}
-                isPlaying={isPlaying}
-                currentStepIndex={currentStepIndex}
-                currentMeasure={currentMeasure}
-                maxTicks={getMaxTicks(measureTimeSigs[currentMeasure] || timeSig)}
-                timeSig={measureTimeSigs[currentMeasure] || timeSig}
-                totalMeasures={totalMeasures}
-                onTogglePlay={handleTogglePlay}
-                onStepChange={handleStepValueSelectAndToggle}
-                langPromptVoiceText={t('promptVoice')}
-                isMetroOn={isMetroOn}
-                activePatternIdByTrack={activePatternIdByTrack}
-                soloPatternPlayId={soloPatternPlayId}
-                hitTriggersRef={hitTriggersRef}
-                bpm={bpm}
-                measureBpms={measureBpms}
-                measureVols={measureVols}
                 isMobile={isMobile}
-                isLeftHanded={isLeftHanded}
-                onNavigateMeasure={(measureIdx) => handleTimelineNavigate(measureIdx, 0, 16)}
-                activeSignal={(() => {
-                  const sigId = measureSignals[currentMeasure];
-                  if (!sigId) return null;
-                  const sig = (metadata?.rhythmSignals || []).find(s => s.id === sigId);
-                  return sig || null;
-                })()}
-                measureSignals={measureSignals}
-                rhythmSignals={metadata?.rhythmSignals || []}
-                songSections={songSections}
               />
             )}
           </>
@@ -3511,187 +641,22 @@ export default function App() {
         {viewMode === 'console' && (
           <div className="flex-1 min-w-0 flex flex-col h-full overflow-x-auto overflow-y-hidden custom-scrollbar">
             <ConsoleMixer
-              activeInstrumentId={activeKeyboardInstrumentId}
-              onActiveInstrumentChange={setActiveKeyboardInstrumentId}
               isMobile={isMobile}
-              lang={lang}
-              meters={meters}
-              masterMeter={masterMeterNode}
-              tracks={tracks}
-              onMoveUp={handleTrackMoveUp}
-              onMoveDown={handleTrackMoveDown}
-              onInstrumentChange={handleTrackInstrumentIdxChange}
-              onMuteToggle={handleTrackMuteToggle}
-              onSoloToggle={handleTrackSoloToggle}
-              onHideToggle={handleTrackHideToggle}
-              onDelete={handleTrackDelete}
-              onVolumeChange={handleTrackVolumeChange}
-              onPanChange={handleTrackPanChange}
-              onStepsChange={handleTrackStepsChange}
-              onStepValueChange={handleTrackStepValueChange}
-              onStepKeyDown={handleTrackStepKeyDown}
               onStepTouchStart={handleStepTouchStart}
-              onVoiceTypeToggle={handleVoiceTypeToggle}
-              onVoiceSylChange={handleVoiceSylChange}
-              onVoiceNoteChange={handleVoiceNoteChange}
-              onVoiceNoteBlur={handleVoiceNoteBlur}
-              isPlaying={isPlaying}
-              currentStepIndex={currentStepIndex}
-              currentMeasure={currentMeasure}
-              maxTicks={getMaxTicks(timeSig)}
-              timeSig={timeSig}
-              totalMeasures={totalMeasures}
-              onReverbChange={handleTrackReverbChange}
-              onStepVolumeChange={handleTrackStepVolumeChange}
-              onStepDecayChange={handleTrackStepDecayChange}
-              onStepMicrotimingChange={handleTrackStepMicrotimingChange}
-              onResetMicrotimings={handleResetTrackMicrotimings}
-              isSwingOn={isSwingOn}
-              masterVol={masterVol}
-              onMasterVolChange={(val) => setMasterVol(val)}
-              masterEQ={masterEQ}
-              onMasterEQChange={setMasterEQ}
-              masterCompressor={masterCompressor}
-              onMasterCompressorChange={setMasterCompressor}
-              onTrackSelectPattern={(trackId, patternId) => {
-                setTracks(prev => prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
-              }}
-              onPatternNameChange={handlePatternNameChange}
-              onReorderPatterns={handleReorderPatterns}
-              onPatternAssign={(trackId, patternId, measureIdx, val) => {
-                pushUndoState();
-                setTracks(prev => prev.map(t => {
-                  if (t.id === trackId) {
-                    const nextPatterns = t.patterns.map(p => {
-                      if (p.id === patternId) {
-                        const assign = [...p.measureAssignments];
-                        assign[measureIdx] = val;
-                        return { ...p, measureAssignments: assign };
-                      }
-                      return p;
-                    });
-                    return { ...t, patterns: nextPatterns };
-                  }
-                  return t;
-                }));
-              }}
-              onAddPattern={(trackId) => {
-                pushUndoState();
-                setTracks(prev => prev.map(t => {
-                  if (t.id === trackId) {
-                    const p = t.patterns[0];
-                    const newPattern: Pattern = {
-                      id: Date.now() + Math.floor(Math.random() * 1000),
-                      name: `Padrão ${t.patterns.length + 1}`,
-                      steps: p.steps,
-                      activeSteps: Array(p.steps).fill(0),
-                      lyrics: Array(p.steps).fill(''),
-                      notes: Array(p.steps).fill(''),
-                      measureAssignments: Array(totalMeasures).fill(false),
-                      volumes: Array(p.steps).fill(80),
-                      decays: Array(p.steps).fill(100),
-                      microtimings: Array(p.steps).fill(0),
-                    };
-                    return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
-                  }
-                  return t;
-                }));
-              }}
-              onDeletePattern={(trackId, patternId) => {
-                pushUndoState();
-                setTracks(prev => prev.map(t => {
-                  if (t.id === trackId && t.patterns.length > 1) {
-                    const nextPatterns = t.patterns.filter(p => p.id !== patternId);
-                    const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;
-                    return { ...t, patterns: nextPatterns, selectedPatternId: nextSelected };
-                  }
-                  return t;
-                }));
-              }}
-              onCopyPattern={handleCopyPattern}
-              onPastePattern={handlePastePattern}
-              canPaste={!!copiedPattern}
-              isRecordingVocal={isRecordingVocal}
-              recordingVocalPatternId={recordingVocalPatternId}
-              recordedPatternIds={recordedPatternIds}
-              onStartVocalRecording={startVocalRecording}
-              onStopVocalRecording={stopVocalRecording}
-              onVocalModeChange={handleVocalModeChange}
-              onDeleteVocalRecording={handleDeleteVocalRecording}
-              onVocalLatencyChange={handleVocalLatencyChange}
-              audioDevices={audioDevices}
-              selectedAudioDeviceId={selectedAudioDeviceId}
-              onAudioDeviceChange={handleAudioDeviceChange}
-              onImportVocalFile={handleImportVocalFile}
-              isVocalGuideEnabled={isVocalGuideEnabled}
-              onVocalGuideToggle={setIsVocalGuideEnabled}
-              onVocalBpmSyncToggle={handleVocalBpmSyncToggle}
-              soloPatternPlayId={soloPatternPlayId}
-              onStartSoloPattern={handleStartSoloPattern}
-              onStopSoloPattern={handleStopSoloPattern}
-
             />
           </div>
         )}
         {viewMode === 'timeline' && (
           <TimelineSequencer
-            lang={lang}
-            tracks={tracks}
-            isPlaying={isPlaying}
-            currentStepIndex={currentStepIndex}
-            currentMeasure={currentMeasure}
-            maxTicks={getMaxTicks(timeSig)}
-            totalMeasures={totalMeasures}
             isMobile={isMobile}
-            onMuteToggle={handleTrackMuteToggle}
-            onSoloToggle={handleTrackSoloToggle}
-            onPatternAssignForMeasure={handleTimelinePatternAssign}
-            onNavigate={handleTimelineNavigate}
-            measureTimeSigs={measureTimeSigs}
-            measureBpms={measureBpms}
-            measureBpmTransitions={measureBpmTransitions}
-            measureVols={measureVols}
-            measureVolTransitions={measureVolTransitions}
-            onMeasureTimeSigChange={handleMeasureTimeSigChange}
-            onMeasureBpmChange={handleMeasureBpmChange}
-            onMeasureTransitionChange={handleMeasureTransitionChange}
-            onMeasureVolChange={handleMeasureVolChange}
-            onMeasureVolTransitionChange={handleMeasureVolTransitionChange}
-            onTotalMeasuresChange={handleTotalMeasuresChange}
-            songSections={songSections}
-            copiedSection={copiedSection}
-            onCreateSection={handleCreateSongSection}
-            onUpdateSection={handleUpdateSongSection}
-            onDeleteSection={handleDeleteSongSection}
-            onCopySection={handleCopySongSection}
-            onPasteSection={handlePasteSongSection}
-            metadata={metadata}
-            letras={letras}
-            loopStartMeasure={loopStartMeasure}
-            loopEndMeasure={loopEndMeasure}
-            onSetLoopStart={handleSetLoopStart}
-            onSetLoopEnd={handleSetLoopEnd}
-            onClearLoop={handleClearLoop}
             measureWidth={measureWidth}
             onMeasureWidthChange={setMeasureWidth}
-            onDeleteMeasure={handleDeleteMeasure}
-            onInsertMeasure={handleInsertMeasure}
-            measureSignals={measureSignals}
-            onMeasureSignalChange={(mIdx, sigId) => {
-              setMeasureSignals(prev => {
-                const arr = [...prev];
-                while (arr.length <= mIdx) arr.push(null);
-                arr[mIdx] = sigId;
-                return arr;
-              });
-            }}
-            rhythmSignals={metadata?.rhythmSignals || []}
           />
         )}
 
         {viewMode === 'quiz' && (
           <QuizEngine
-            lang={lang}
+            lang={sequencer.lang}
             onExit={() => setViewMode('roda')}
             onSuccess={() => unlockBooklet('folheto_quiz')}
           />
@@ -3699,7 +664,7 @@ export default function App() {
 
         {viewMode === 'dictee' && (
           <DicteeEngine
-            lang={lang}
+            lang={sequencer.lang}
             onExit={() => setViewMode('roda')}
             onSuccess={() => unlockBooklet('folheto_dictee')}
           />
@@ -3707,7 +672,7 @@ export default function App() {
 
         {viewMode === 'inspecteur' && (
           <InspecteurEngine
-            lang={lang}
+            lang={sequencer.lang}
             onExit={() => setViewMode('roda')}
             caixaParfaite={inspecteurCaixaParfaite}
             caixaErreur={inspecteurCaixaErreur}
@@ -3717,7 +682,7 @@ export default function App() {
 
         {viewMode === 'mestre' && (
           <MestreEngine
-            lang={lang}
+            lang={sequencer.lang}
             onExit={() => setViewMode('roda')}
             rhythmState={mestreRhythmState}
             setRhythmState={setMestreRhythmState}
@@ -3727,7 +692,7 @@ export default function App() {
 
         {viewMode === 'rythmelive' && (
           <RythmeLiveEngine
-            lang={lang}
+            lang={sequencer.lang}
             onExit={() => setViewMode('roda')}
             onSuccess={() => unlockBooklet('folheto_rythmelive')}
           />
@@ -3735,7 +700,7 @@ export default function App() {
 
         {viewMode === 'varal' && (
           <VaralCordel
-            lang={lang}
+            lang={sequencer.lang}
             onExit={() => setViewMode('roda')}
             unlockedFolhetos={unlockedFolhetos}
             justUnlockedBookletId={justUnlockedBookletId}
@@ -3745,7 +710,7 @@ export default function App() {
 
         {viewMode === 'studio' && (
           <MestreStudio
-            lang={lang}
+            lang={sequencer.lang}
             onExit={() => setViewMode('roda')}
           />
         )}
@@ -3753,7 +718,6 @@ export default function App() {
         {/* Right drawer sidebar context panel */}
         {viewMode !== 'quiz' && viewMode !== 'dictee' && viewMode !== 'inspecteur' && viewMode !== 'mestre' && viewMode !== 'rythmelive' && viewMode !== 'varal' && viewMode !== 'studio' && (!isMobile || (viewMode === 'roda' && mobileTab === 'toada')) && (
           <RightSidebar
-            lang={lang}
             activePanel={isMobile ? (activeRightPanel || 'letras') : activeRightPanel}
             onTogglePanel={(p) => {
               if (isMobile) {
@@ -3762,35 +726,11 @@ export default function App() {
                 setActiveRightPanel(activeRightPanel === p ? null : p);
               }
             }}
-            tracks={tracks}
-            letras={letras}
-            onLetrasChange={setLetras}
-            metadata={metadata}
-            onMetadataChange={(newMeta) => {
-              setMetadata(newMeta);
-              // Si les signaux changent, nettoyer les assignations orphelines
-              if (newMeta.rhythmSignals !== metadata?.rhythmSignals) {
-                const validIds = new Set((newMeta.rhythmSignals || []).map((s: RhythmSignal) => s.id));
-                setMeasureSignals(prev => prev.map(id => (id && validIds.has(id)) ? id : null));
-              }
-            }}
-            onExtractLyrics={handleExtractLyrics}
-            currentPlayState={isPlaying ? {
-              stepIndex: currentStepIndex,
-              maxTicks: getMaxTicks(timeSig),
-              activePatternIdByInst,
-            } : null}
-            totalMeasures={totalMeasures}
-            bpm={bpm}
-            beatsPerMeasure={parseInt(timeSig.split('/')[0]) || 4}
-            isPlaying={isPlaying}
-            onTogglePlay={handleTogglePlay}
-            onAudioPatternCreated={handleAudioPatternCreated}
           />
         )}
       </div>
 
-      {/* Mobile view Tab Bar (Roda, Mixeur, Toada) */}
+      {/* Mobile view Tab Bar */}
       {isMobile && viewMode === 'roda' && (
         <div className="flex w-full bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] h-12 shrink-0 z-40 text-[var(--cordel-text)]">
           <button
@@ -3809,7 +749,7 @@ export default function App() {
             }`}
           >
             <span className="text-sm">🎛️</span>
-            <span className="text-[9px] uppercase tracking-wider mt-0.5 font-bold">{lang === 'pt' ? 'Mixador' : 'Mixeur'}</span>
+            <span className="text-[9px] uppercase tracking-wider mt-0.5 font-bold">{sequencer.lang === 'pt' ? 'Mixador' : 'Mixeur'}</span>
           </button>
           <button
             onClick={() => setMobileTab('toada')}
@@ -3826,23 +766,6 @@ export default function App() {
       {viewMode !== 'quiz' && viewMode !== 'dictee' && viewMode !== 'inspecteur' && viewMode !== 'mestre' && viewMode !== 'rythmelive' && viewMode !== 'varal' && viewMode !== 'studio' && (
         <TransportBar
           viewMode={viewMode as any}
-          lang={lang}
-          isPlaying={isPlaying}
-          onTogglePlay={handleTogglePlay}
-          onRewind={handleRewind}
-          isRecording={isRecording}
-          recordingSeconds={recordingSeconds}
-          onRecordToggle={handleAudioRecordingToggle}
-          bpm={bpm}
-          onBpmChange={handleGlobalBpmChange}
-          isMetroOn={isMetroOn}
-          onMetroToggle={() => setIsMetroOn(!isMetroOn)}
-          isSwingOn={isSwingOn}
-          onSwingToggle={() => setIsSwingOn(!isSwingOn)}
-          reverbType={reverbType}
-          onReverbTypeChange={setReverbType}
-          isLeftHanded={isLeftHanded}
-          onLeftHandedToggle={() => setIsLeftHanded(!isLeftHanded)}
         />
       )}
       {touchSelector && (
@@ -3854,8 +777,6 @@ export default function App() {
             setTouchSelector(null);
             setHoveredStroke(null);
           }}
-          lang={lang}
-          isLeftHanded={isLeftHanded}
         />
       )}
 
@@ -3866,62 +787,57 @@ export default function App() {
         }`}
       >
         <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-        <span>{lang === 'pt' ? 'Salvo' : 'Sauvegardé'}</span>
+        <span>{sequencer.lang === 'pt' ? 'Salvo' : 'Sauvegardé'}</span>
       </div>
 
-      {/* Custom Cordel Dialog Overlay */}
       {customDialog && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[99999] p-4 select-none">
-          <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] shadow-[6px_6px_0px_var(--cordel-border)] p-6 max-w-sm w-full flex flex-col gap-4 font-cactus">
-            <h3 className="font-cactus font-black text-sm uppercase tracking-wider border-b-2 border-dashed border-[var(--cordel-border)] pb-2 select-none">
-              {customDialog.type === 'alert' ? '📢 Info' : customDialog.type === 'confirm' ? '❓' : '📝'} {customDialog.type === 'alert' ? (lang === 'pt' ? 'Aviso' : 'Information') : customDialog.type === 'confirm' ? (lang === 'pt' ? 'Confirmação' : 'Confirmation') : (lang === 'pt' ? 'Entrada' : 'Saisie')}
-            </h3>
-            
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[#121212]/80 backdrop-blur-sm select-text text-sm">
+          <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] shadow-[4px_4px_0_var(--cordel-border)] p-5 max-w-sm w-full mx-4 flex flex-col gap-4 font-mono select-text">
+            <div className="font-cactus font-bold text-base border-b-2 border-[var(--cordel-border)] pb-2 select-none">
+              {customDialog.type === 'alert' ? '📢 Info' : customDialog.type === 'confirm' ? '❓' : '📝'} {customDialog.type === 'alert' ? (sequencer.lang === 'pt' ? 'Aviso' : 'Information') : customDialog.type === 'confirm' ? (sequencer.lang === 'pt' ? 'Confirmação' : 'Confirmation') : (sequencer.lang === 'pt' ? 'Entrada' : 'Saisie')}
+            </div>
             <p className="text-xs leading-relaxed">{customDialog.message}</p>
-            
             {customDialog.type === 'prompt' && (
               <input
-                id="custom-dialog-input"
+                id="custom-prompt-input"
                 type="text"
+                autoComplete="off"
+                className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] p-1.5 text-xs outline-none focus:bg-[var(--cordel-text)] focus:text-[var(--cordel-bg)]"
                 defaultValue={customDialog.defaultValue}
-                className="bg-transparent border-b-2 border-[var(--cordel-border)] py-1 text-xs font-bold font-cactus outline-none text-[var(--cordel-text)]"
-                autoFocus
-                onFocus={(e) => e.target.select()}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    const val = (e.currentTarget as HTMLInputElement).value;
-                    customDialog.onResolve(val);
+                    const val = (e.target as HTMLInputElement).value;
                     setCustomDialog(null);
+                    customDialog.onResolve(val);
                   }
                 }}
               />
             )}
-            
-            <div className="flex justify-end gap-3 mt-2">
+            <div className="flex justify-end gap-2.5 mt-2 select-none">
               {customDialog.type !== 'alert' && (
                 <button
                   onClick={() => {
-                    customDialog.onResolve(customDialog.type === 'prompt' ? null : false);
                     setCustomDialog(null);
+                    customDialog.onResolve(customDialog.type === 'prompt' ? null : false);
                   }}
-                  className="px-3 py-1.5 border border-[var(--cordel-border)] text-xs font-bold hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer"
+                  className="px-3 py-1 text-xs border-2 border-[var(--cordel-border)] hover:bg-[var(--cordel-border)] hover:text-[var(--cordel-bg)] transition-colors font-bold cursor-pointer"
                 >
-                  {lang === 'pt' ? 'Cancelar' : 'Annuler'}
+                  {sequencer.lang === 'pt' ? 'Cancelar' : 'Annuler'}
                 </button>
               )}
               <button
                 onClick={() => {
+                  const input = document.getElementById('custom-prompt-input') as HTMLInputElement;
+                  setCustomDialog(null);
                   if (customDialog.type === 'prompt') {
-                    const input = document.getElementById('custom-dialog-input') as HTMLInputElement;
                     customDialog.onResolve(input?.value || '');
                   } else {
                     customDialog.onResolve(true);
                   }
-                  setCustomDialog(null);
                 }}
-                className="px-4 py-1.5 bg-[var(--cordel-border)] text-[var(--cordel-bg)] text-xs font-black hover:opacity-90 cursor-pointer"
+                className="px-4 py-1 text-xs bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold hover:bg-[var(--cordel-border)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer"
               >
-                {lang === 'pt' ? 'Confirmar' : 'Confirmer'}
+                {sequencer.lang === 'pt' ? 'OK' : 'Valider'}
               </button>
             </div>
           </div>
