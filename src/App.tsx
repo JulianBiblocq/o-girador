@@ -29,6 +29,7 @@ import { TimelineSequencer } from './components/TimelineSequencer';
 import { TouchStrokeSelector, TouchSelectorState } from './components/TouchStrokeSelector';
 import { saveVocalRecording, getVocalRecording } from './db';
 import { useVocalRecorder } from './hooks/useVocalRecorder';
+import { useSequencerState } from './hooks/useSequencerState';
 import { AudioEngine } from './AudioEngine';
 import { InputManager } from './InputManager';
 import { instrumentAudioConfigs } from './data/audioConfig';
@@ -316,19 +317,38 @@ interface BeforeInstallPromptEvent extends Event {
 export default function App() {
   const CURRENT_VERSION = "2.2"; // Matches version.json
 
+  const {
+    tracks, setTracks, tracksRef,
+    bpm, setBpm,
+    totalMeasures, setTotalMeasures, totalMeasuresRef,
+    timeSig, setTimeSig,
+    measureTimeSigs, setMeasureTimeSigs, measureTimeSigsRef,
+    measureBpms, setMeasureBpms, measureBpmsRef,
+    measureBpmTransitions, setMeasureBpmTransitions, measureBpmTransitionsRef,
+    measureVols, setMeasureVols, measureVolsRef,
+    measureVolTransitions, setMeasureVolTransitions, measureVolTransitionsRef,
+    songSections, setSongSections, songSectionsRef,
+    measureSignals, setMeasureSignals, measureSignalsRef,
+    loopStartMeasure, setLoopStartMeasure, loopStartRef,
+    loopEndMeasure, setLoopEndMeasure, loopEndRef,
+    tracksHistory,
+    tracksRedoHistory,
+    pushUndoState,
+    handleUndo,
+    handleRedo,
+    clearHistory
+  } = useSequencerState();
+
   const [lang, setLang] = useState<Language>('pt');
-  const [bpm, setBpm] = useState<number>(83);
   const [masterVol, setMasterVol] = useState<number>(-6);
   const [masterEQ, setMasterEQ] = useState<{ low: number; mid: number; high: number }>({ low: 0, mid: 0, high: 0 });
   const [masterCompressor, setMasterCompressor] = useState<{ threshold: number; ratio: number }>({ threshold: -20, ratio: 4 });
-  const [timeSig, setTimeSig] = useState<TimeSignature>('4/4');
   const [isMetroOn, setIsMetroOn] = useState<boolean>(false);
   const [whistleVol, setWhistleVol] = useState<number>(() => {
     return Number(localStorage.getItem('baquemix_whistle_vol') ?? '60');
   });
   const [activePresetName, setActivePresetName] = useState<string>('');
   const [presetFiles, setPresetFiles] = useState<string[]>([]);
-  const [tracks, setTracks] = useState<TrackGroup[]>([]);
   const [isLeftHanded, setIsLeftHanded] = useState<boolean>(() => localStorage.getItem('baquemix_left_handed') === 'true');
   const [activeKeyboardInstrumentId, setActiveKeyboardInstrumentId] = useState<string | null>(null);
 
@@ -358,7 +378,6 @@ export default function App() {
       }
     }
   }, [tracks, activeKeyboardInstrumentId]);
-  const [totalMeasures, setTotalMeasures] = useState<number>(8);
   const [letras, setLetras] = useState<string>('');
   const [metadata, setMetadata] = useState<PresetMetadata>({
     toada: '',
@@ -618,33 +637,13 @@ export default function App() {
     };
   }, []);
 
-  const [tracksHistory, setTracksHistory] = useState<TrackGroup[][]>([]);
-  const tracksHistoryRef = useRef<TrackGroup[][]>([]);
-  const [tracksRedoHistory, setTracksRedoHistory] = useState<TrackGroup[][]>([]);
-  const tracksRedoHistoryRef = useRef<TrackGroup[][]>([]);
-  const [songStructureRedoHistory, setSongStructureRedoHistory] = useState<{
-    measureTimeSigs: TimeSignature[];
-    measureBpms: number[];
-    measureBpmTransitions: ('immediate' | 'ramp')[];
-    measureVols: number[];
-    measureVolTransitions: ('immediate' | 'ramp')[];
-    songSections?: SongSection[];
-  }[]>([]);
-  const songStructureRedoHistoryRef = useRef<{
-    measureTimeSigs: TimeSignature[];
-    measureBpms: number[];
-    measureBpmTransitions: ('immediate' | 'ramp')[];
-    measureVols: number[];
-    measureVolTransitions: ('immediate' | 'ramp')[];
-    songSections?: SongSection[];
-  }[]>([]);
+
   const [reverbType, setReverbType] = useState<'room' | 'studio' | 'hall'>('studio');
   const [touchSelector, setTouchSelector] = useState<TouchSelectorState | null>(null);
   const [hoveredStroke, setHoveredStroke] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<'roda' | 'mixer' | 'toada'>('roda');
   const [copiedPattern, setCopiedPattern] = useState<Pattern | null>(null);
-  const [songSections, setSongSections] = useState<SongSection[]>([]);
-  const [measureSignals, setMeasureSignals] = useState<(string | null)[]>([]);
+
   const [copiedSection, setCopiedSection] = useState<{
     length: number;
     name: string;
@@ -653,33 +652,9 @@ export default function App() {
   } | null>(null);
 
 
-  const [measureTimeSigs, setMeasureTimeSigs] = useState<TimeSignature[]>([]);
-  const [measureBpms, setMeasureBpms] = useState<number[]>([]);
-  const [measureBpmTransitions, setMeasureBpmTransitions] = useState<('immediate' | 'ramp')[]>([]);
-  const [measureVols, setMeasureVols] = useState<number[]>([]);
-  const [measureVolTransitions, setMeasureVolTransitions] = useState<('immediate' | 'ramp')[]>([]);
-
-  const measureTimeSigsRef = useRef<TimeSignature[]>([]);
-  const measureBpmsRef = useRef<number[]>([]);
-  const measureBpmTransitionsRef = useRef<('immediate' | 'ramp')[]>([]);
-  const measureVolsRef = useRef<number[]>([]);
-  const measureVolTransitionsRef = useRef<('immediate' | 'ramp')[]>([]);
   const masterVolRef = useRef<number>(-6);
   const masterEQRef = useRef({ low: 0, mid: 0, high: 0 });
   const masterCompressorRef = useRef({ threshold: -20, ratio: 4 });
-
-  const songSectionsRef = useRef<SongSection[]>([]);
-
-  // Loop bounds states and refs
-  const [loopStartMeasure, setLoopStartMeasure] = useState<number | null>(null);
-  const [loopEndMeasure, setLoopEndMeasure] = useState<number | null>(null);
-  const loopStartRef = useRef<number | null>(null);
-  const loopEndRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    loopStartRef.current = loopStartMeasure;
-    loopEndRef.current = loopEndMeasure;
-  }, [loopStartMeasure, loopEndMeasure]);
 
   // Zoom state
   const [measureWidth, setMeasureWidth] = useState<number>(480);
@@ -953,22 +928,7 @@ export default function App() {
     }
   }, [viewMode]);
 
-  const [songStructureHistory, setSongStructureHistory] = useState<{
-    measureTimeSigs: TimeSignature[];
-    measureBpms: number[];
-    measureBpmTransitions: ('immediate' | 'ramp')[];
-    measureVols: number[];
-    measureVolTransitions: ('immediate' | 'ramp')[];
-    songSections?: SongSection[];
-  }[]>([]);
-  const songStructureHistoryRef = useRef<{
-    measureTimeSigs: TimeSignature[];
-    measureBpms: number[];
-    measureBpmTransitions: ('immediate' | 'ramp')[];
-    measureVols: number[];
-    measureVolTransitions: ('immediate' | 'ramp')[];
-    songSections?: SongSection[];
-  }[]>([]);
+
 
   useEffect(() => {
     const handleResize = () => {
@@ -978,33 +938,7 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    tracksHistoryRef.current = tracksHistory;
-  }, [tracksHistory]);
 
-  useEffect(() => {
-    tracksRedoHistoryRef.current = tracksRedoHistory;
-  }, [tracksRedoHistory]);
-
-  useEffect(() => {
-    measureTimeSigsRef.current = measureTimeSigs;
-  }, [measureTimeSigs]);
-
-  useEffect(() => {
-    measureBpmsRef.current = measureBpms;
-  }, [measureBpms]);
-
-  useEffect(() => {
-    measureBpmTransitionsRef.current = measureBpmTransitions;
-  }, [measureBpmTransitions]);
-
-  useEffect(() => {
-    measureVolsRef.current = measureVols;
-  }, [measureVols]);
-
-  useEffect(() => {
-    measureVolTransitionsRef.current = measureVolTransitions;
-  }, [measureVolTransitions]);
 
   useEffect(() => {
     masterVolRef.current = masterVol;
@@ -1027,17 +961,7 @@ export default function App() {
     }
   }, [masterCompressor]);
 
-  useEffect(() => {
-    songStructureHistoryRef.current = songStructureHistory;
-  }, [songStructureHistory]);
 
-  useEffect(() => {
-    songStructureRedoHistoryRef.current = songStructureRedoHistory;
-  }, [songStructureRedoHistory]);
-
-  useEffect(() => {
-    songSectionsRef.current = songSections;
-  }, [songSections]);
 
 
   useEffect(() => {
@@ -1051,80 +975,7 @@ export default function App() {
     localStorage.setItem('baquemix-theme', theme);
   }, [isDarkMode]);
 
-  // Adjust measure arrays length when totalMeasures changes
-  useEffect(() => {
-    setMeasureTimeSigs(prev => {
-      const arr = [...prev];
-      if (arr.length === totalMeasures) return prev;
-      while (arr.length < totalMeasures) {
-        arr.push(timeSig);
-      }
-      if (arr.length > totalMeasures) {
-        arr.length = totalMeasures;
-      }
-      return arr;
-    });
 
-    setMeasureBpms(prev => {
-      const arr = [...prev];
-      if (arr.length === totalMeasures) return prev;
-      while (arr.length < totalMeasures) {
-        arr.push(bpm);
-      }
-      if (arr.length > totalMeasures) {
-        arr.length = totalMeasures;
-      }
-      return arr;
-    });
-
-    setMeasureBpmTransitions(prev => {
-      const arr = [...prev];
-      if (arr.length === totalMeasures) return prev;
-      while (arr.length < totalMeasures) {
-        arr.push('immediate');
-      }
-      if (arr.length > totalMeasures) {
-        arr.length = totalMeasures;
-      }
-      return arr;
-    });
-
-    setMeasureVols(prev => {
-      const arr = [...prev];
-      if (arr.length === totalMeasures) return prev;
-      while (arr.length < totalMeasures) {
-        arr.push(100);
-      }
-      if (arr.length > totalMeasures) {
-        arr.length = totalMeasures;
-      }
-      return arr;
-    });
-
-    setMeasureVolTransitions(prev => {
-      const arr = [...prev];
-      if (arr.length === totalMeasures) return prev;
-      while (arr.length < totalMeasures) {
-        arr.push('immediate');
-      }
-      if (arr.length > totalMeasures) {
-        arr.length = totalMeasures;
-      }
-      return arr;
-    });
-
-    setMeasureSignals(prev => {
-      const arr = [...prev];
-      if (arr.length === totalMeasures) return prev;
-      while (arr.length < totalMeasures) {
-        arr.push(null);
-      }
-      if (arr.length > totalMeasures) {
-        arr.length = totalMeasures;
-      }
-      return arr;
-    });
-  }, [totalMeasures, timeSig, bpm]);
 
   // Memoize mixer control values snapshot to trigger sync effect only when they actually change
   const hasSoloActive = tracks.some(t => t.isSolo);
@@ -1170,10 +1021,7 @@ export default function App() {
 
   const [currentMeasure, setCurrentMeasure] = useState<number>(0);
 
-  // Measure counter tracks loops boundaries
   const measureCountRef = useRef<number>(0);
-  const tracksRef = useRef<TrackGroup[]>([]);
-  const totalMeasuresRef = useRef<number>(8);
   const isPlayingRef = useRef<boolean>(false);
   const currentStepIndexRef = useRef<number>(-1);
   const maxTicksRef = useRef<number>(96);
@@ -1181,7 +1029,6 @@ export default function App() {
   const isSwingOnRef = useRef<boolean>(true);
   const hitTriggersRef = useRef<HitTrigger[]>([]);
   const engineTimeoutsRef = useRef<any[]>([]);
-  const measureSignalsRef = useRef<(string | null)[]>([]);
   const lastPlayedSignalIdRef = useRef<string | null>(null);
   const tickScheduleRef = useRef<Map<number, Map<number, ScheduledNote[]>>>(new Map());
 
@@ -1994,8 +1841,7 @@ export default function App() {
 
   const applyPreset = async (p: any) => {
     try {
-      setTracksHistory([]);
-      setSongStructureHistory([]);
+      clearHistory();
       setLetras(p.letras || '');
       setMetadata(p.metadata || { toada: '', nacao: '', compositor: '', ritmo: '' });
       
@@ -2278,33 +2124,6 @@ export default function App() {
     }
   };
 
-  const pushUndoState = (customTracksState?: TrackGroup[]) => {
-    // Clear redo history when a new action is performed
-    setTracksRedoHistory([]);
-    setSongStructureRedoHistory([]);
-
-    const stateToSave = customTracksState ? customTracksState : tracks;
-    setTracksHistory(prev => {
-      const cloned = JSON.parse(JSON.stringify(stateToSave));
-      const next = [...prev, cloned];
-      if (next.length > 50) next.shift();
-      return next;
-    });
-
-    setSongStructureHistory(prev => {
-      const cloned = {
-        measureTimeSigs: [...measureTimeSigsRef.current],
-        measureBpms: [...measureBpmsRef.current],
-        measureBpmTransitions: [...measureBpmTransitionsRef.current],
-        measureVols: [...measureVolsRef.current],
-        measureVolTransitions: [...measureVolTransitionsRef.current],
-        songSections: JSON.parse(JSON.stringify(songSectionsRef.current))
-      };
-      const next = [...prev, cloned];
-      if (next.length > 50) next.shift();
-      return next;
-    });
-  };
 
   const {
     isRecordingVocal,
@@ -2350,91 +2169,6 @@ export default function App() {
     lastPlayedSignalIdRef
   });
 
-  const handleUndo = () => {
-    if (tracksHistoryRef.current.length === 0) return;
-
-    // Enregistrer l'état actuel dans l'historique de redo
-    const currentTracksCloned = JSON.parse(JSON.stringify(tracks));
-    setTracksRedoHistory(prev => [...prev, currentTracksCloned]);
-
-    const currentStructureCloned = {
-      measureTimeSigs: [...measureTimeSigsRef.current],
-      measureBpms: [...measureBpmsRef.current],
-      measureBpmTransitions: [...measureBpmTransitionsRef.current],
-      measureVols: [...measureVolsRef.current],
-      measureVolTransitions: [...measureVolTransitionsRef.current],
-      songSections: JSON.parse(JSON.stringify(songSectionsRef.current))
-    };
-    setSongStructureRedoHistory(prev => [...prev, currentStructureCloned]);
-
-    setTracksHistory(prev => {
-      const nextHistory = [...prev];
-      const previousState = nextHistory.pop();
-      if (previousState) {
-        setTracks(previousState);
-      }
-      return nextHistory;
-    });
-
-    if (songStructureHistoryRef.current.length > 0) {
-      setSongStructureHistory(prev => {
-        const nextHistory = [...prev];
-        const previousState = nextHistory.pop();
-        if (previousState) {
-          setMeasureTimeSigs(previousState.measureTimeSigs);
-          setMeasureBpms(previousState.measureBpms);
-          setMeasureBpmTransitions(previousState.measureBpmTransitions);
-          if (previousState.measureVols) setMeasureVols(previousState.measureVols);
-          if (previousState.measureVolTransitions) setMeasureVolTransitions(previousState.measureVolTransitions);
-          if (previousState.songSections) setSongSections(previousState.songSections);
-        }
-        return nextHistory;
-      });
-    }
-  };
-
-  const handleRedo = () => {
-    if (tracksRedoHistoryRef.current.length === 0) return;
-
-    // Enregistrer l'état actuel dans l'historique d'undo
-    const currentTracksCloned = JSON.parse(JSON.stringify(tracks));
-    setTracksHistory(prev => [...prev, currentTracksCloned]);
-
-    const currentStructureCloned = {
-      measureTimeSigs: [...measureTimeSigsRef.current],
-      measureBpms: [...measureBpmsRef.current],
-      measureBpmTransitions: [...measureBpmTransitionsRef.current],
-      measureVols: [...measureVolsRef.current],
-      measureVolTransitions: [...measureVolTransitionsRef.current],
-      songSections: JSON.parse(JSON.stringify(songSectionsRef.current))
-    };
-    setSongStructureHistory(prev => [...prev, currentStructureCloned]);
-
-    setTracksRedoHistory(prev => {
-      const nextHistory = [...prev];
-      const nextState = nextHistory.pop();
-      if (nextState) {
-        setTracks(nextState);
-      }
-      return nextHistory;
-    });
-
-    if (songStructureRedoHistoryRef.current.length > 0) {
-      setSongStructureRedoHistory(prev => {
-        const nextHistory = [...prev];
-        const nextState = nextHistory.pop();
-        if (nextState) {
-          setMeasureTimeSigs(nextState.measureTimeSigs);
-          setMeasureBpms(nextState.measureBpms);
-          setMeasureBpmTransitions(nextState.measureBpmTransitions);
-          if (nextState.measureVols) setMeasureVols(nextState.measureVols);
-          if (nextState.measureVolTransitions) setMeasureVolTransitions(nextState.measureVolTransitions);
-          if (nextState.songSections) setSongSections(nextState.songSections);
-        }
-        return nextHistory;
-      });
-    }
-  };
 
   // 3. User operations callbacks
   const handleTogglePlay = async () => {
