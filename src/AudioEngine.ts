@@ -348,11 +348,11 @@ export class AudioEngine {
       this.stopBarulho(instrumentId, time);
     }
 
-    // 3. Create AudioNodes
-    const source = this.audioContext.createBufferSource();
+    // 3. Create AudioNodes inside Tone's context to maintain compatibility with the mixer graph
+    const source = Tone.getContext().createBufferSource();
     source.buffer = buffer;
 
-    const gainNode = this.audioContext.createGain();
+    const gainNode = Tone.getContext().createGain();
     gainNode.gain.setValueAtTime(velocity, time);
     source.connect(gainNode);
 
@@ -371,23 +371,12 @@ export class AudioEngine {
 
     source.playbackRate.setValueAtTime(macroPitch * microPitch, time);
 
-    // 5. Connecting to the correct Mixer channel/destination
+    // 5. Connect to the mapped channel (or fallback to Master Destination) using Tone.connect
     const channel = this.instrumentChannels.get(instrumentId);
-    let outputNode: any = channel ? (channel.input || channel) : this.audioContext.destination;
-    
-    // Resolve ToneAudioNode wrapping if any
-    while (outputNode && !(outputNode instanceof AudioNode) && outputNode.input) {
-      outputNode = outputNode.input;
-    }
-
-    if (outputNode instanceof AudioNode) {
-      gainNode.connect(outputNode);
+    if (channel) {
+      Tone.connect(gainNode, channel);
     } else {
-      try {
-        gainNode.connect(channel);
-      } catch (_) {
-        gainNode.connect(this.audioContext.destination);
-      }
+      Tone.connect(gainNode, Tone.getContext().destination);
     }
 
     // 6. Handle play duration and looping
