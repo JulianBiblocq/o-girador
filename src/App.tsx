@@ -344,9 +344,7 @@ export default function App() {
   const [masterEQ, setMasterEQ] = useState<{ low: number; mid: number; high: number }>({ low: 0, mid: 0, high: 0 });
   const [masterCompressor, setMasterCompressor] = useState<{ threshold: number; ratio: number }>({ threshold: -20, ratio: 4 });
   const [isMetroOn, setIsMetroOn] = useState<boolean>(false);
-  const [whistleVol, setWhistleVol] = useState<number>(() => {
-    return Number(localStorage.getItem('baquemix_whistle_vol') ?? '60');
-  });
+
   const [activePresetName, setActivePresetName] = useState<string>('');
   const [presetFiles, setPresetFiles] = useState<string[]>([]);
   const [isLeftHanded, setIsLeftHanded] = useState<boolean>(() => localStorage.getItem('baquemix_left_handed') === 'true');
@@ -1014,8 +1012,6 @@ export default function App() {
     }
   }, [reverbType]);
 
-  // whistleVol state is maintained to prevent breaking RightSidebar integration
-
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSwingOn, setIsSwingOn] = useState<boolean>(true);
 
@@ -1632,7 +1628,6 @@ export default function App() {
         masterEQ,
         masterCompressor,
         masterVol,
-        whistleVol,
       };
 
       try {
@@ -1662,7 +1657,6 @@ export default function App() {
     masterEQ,
     masterCompressor,
     masterVol,
-    whistleVol,
   ]);
 
   useEffect(() => {
@@ -1984,9 +1978,7 @@ export default function App() {
       if (p.masterVol !== undefined) {
         setMasterVol(p.masterVol);
       }
-      if (p.whistleVol !== undefined) {
-        setWhistleVol(p.whistleVol);
-      }
+
 
       // Sync refs immediately to avoid audio scheduling lag
       tracksRef.current = loadedTracks;
@@ -4473,11 +4465,6 @@ export default function App() {
               activePatternIdByInst,
             } : null}
             totalMeasures={totalMeasures}
-            whistleVol={whistleVol}
-            onWhistleVolChange={(val) => {
-              setWhistleVol(val);
-              localStorage.setItem('baquemix_whistle_vol', String(val));
-            }}
             bpm={bpm}
             beatsPerMeasure={parseInt(timeSig.split('/')[0]) || 4}
             isPlaying={isPlaying}

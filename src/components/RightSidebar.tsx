@@ -25,8 +25,6 @@ interface RightSidebarProps {
     activePatternIdByInst: { [instIdx: number]: number | null };
   } | null;
   totalMeasures: number;
-  whistleVol?: number;
-  onWhistleVolChange?: (val: number) => void;
   bpm?: number;
   beatsPerMeasure?: number;
   isPlaying?: boolean;
@@ -46,8 +44,6 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   onMetadataChange,
   currentPlayState,
   totalMeasures,
-  whistleVol,
-  onWhistleVolChange,
   bpm = 120,
   beatsPerMeasure = 4,
   isPlaying = false,
@@ -863,24 +859,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                         : 'Estas imagens aparecem em transparência na Roda e podem ser atribuídas a compassos na Timeline.'}
                     </span>
 
-                    {/* Whistle Volume Slider */}
-                    {whistleVol !== undefined && onWhistleVolChange && (
-                      <div className="flex flex-col gap-1 mt-0.5 bg-[var(--cordel-bg)] cordel-border-sm p-2">
-                        <div className="flex justify-between items-center text-[9px] font-bold text-[var(--cordel-text)] uppercase font-cactus">
-                          <span>{lang === 'fr' ? 'Volume du sifflet' : 'Volume do apito'}</span>
-                          <span>{whistleVol}%</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          value={whistleVol}
-                          onChange={(e) => onWhistleVolChange(parseInt(e.target.value))}
-                          className="w-full h-2 bg-[var(--cordel-text)]/20 border border-[var(--cordel-border)] rounded-none outline-none cursor-pointer mt-0.5"
-                          style={{ accentColor: 'var(--cordel-text)' }}
-                        />
-                      </div>
-                    )}
+
 
                     {/* Galerie des signaux existants */}
                     {(metadata?.rhythmSignals || []).length > 0 && (
