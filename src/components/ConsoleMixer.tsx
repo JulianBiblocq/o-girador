@@ -101,13 +101,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   } = audio;
 
   const maxTicks = maxTicksRef.current;
-  if (!tracks || tracks.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full min-h-[300px]">
-        <div className="w-8 h-8 border-4 border-[var(--cordel-border)] border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
+  if (!tracks) return null;
   const onActiveInstrumentChange = setActiveKeyboardInstrumentId;
   const onMasterVolChange = setMasterVol;
   const onMasterEQChange = setMasterEQ;

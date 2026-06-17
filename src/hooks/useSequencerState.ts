@@ -13,13 +13,13 @@ export function useSequencerState() {
   const [totalMeasures, setTotalMeasures] = useState<number>(8);
   const [timeSig, setTimeSig] = useState<TimeSignature>('4/4');
 
-  const [measureTimeSigs, setMeasureTimeSigs] = useState<TimeSignature[]>([]);
-  const [measureBpms, setMeasureBpms] = useState<number[]>([]);
-  const [measureBpmTransitions, setMeasureBpmTransitions] = useState<('immediate' | 'ramp')[]>([]);
-  const [measureVols, setMeasureVols] = useState<number[]>([]);
-  const [measureVolTransitions, setMeasureVolTransitions] = useState<('immediate' | 'ramp')[]>([]);
+  const [measureTimeSigs, setMeasureTimeSigs] = useState<TimeSignature[]>(() => Array(8).fill('4/4'));
+  const [measureBpms, setMeasureBpms] = useState<number[]>(() => Array(8).fill(83));
+  const [measureBpmTransitions, setMeasureBpmTransitions] = useState<('immediate' | 'ramp')[]>(() => Array(8).fill('immediate'));
+  const [measureVols, setMeasureVols] = useState<number[]>(() => Array(8).fill(100));
+  const [measureVolTransitions, setMeasureVolTransitions] = useState<('immediate' | 'ramp')[]>(() => Array(8).fill('immediate'));
   const [songSections, setSongSections] = useState<SongSection[]>([]);
-  const [measureSignals, setMeasureSignals] = useState<(string | null)[]>([]);
+  const [measureSignals, setMeasureSignals] = useState<(string | null)[]>(() => Array(8).fill(null));
 
   const [loopStartMeasure, setLoopStartMeasure] = useState<number | null>(null);
   const [loopEndMeasure, setLoopEndMeasure] = useState<number | null>(null);
