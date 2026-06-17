@@ -283,10 +283,14 @@ export default function App() {
 
   const hasLoadedInitialPreset = useRef(false);
 
-  // Load Preset catalog and decode initial composition from URL query/hash or local storage
+  // Load Preset catalog and decode initial composition from URL query/hash or local storage.
+  // We wait for isLoading to become false (samples ready) before restoring any preset,
+  // to avoid stale closure and race condition issues with applyPreset.
   useEffect(() => {
-    if (!hasLoadedInitialPreset.current) {
-      hasLoadedInitialPreset.current = true;
+    // Only trigger once, and only after the audio engine has finished loading samples
+    if (audio.isLoading) return;
+    if (hasLoadedInitialPreset.current) return;
+    hasLoadedInitialPreset.current = true;
 
       const hash = window.location.hash;
       let loadedFromHash = false;
@@ -358,9 +362,9 @@ export default function App() {
           })
           .catch((err) => console.error('Could not load catalog.json:', err));
       });
-    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [audio.isLoading]);
+
 
   // PWA File Handler: handle files opened via the OS file handler (launchQueue API)
   useEffect(() => {

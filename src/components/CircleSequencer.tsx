@@ -701,7 +701,11 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       ctx.save();
       ctx.translate(centerX, centerY);
       ctx.rotate(stickAngle);
-      const stickLength = currentTracks.length > 0 ? (currentTracks[currentTracks.length - 1].radius || 0) + 35 : 120;
+      const visibleTrackRadii = currentTracks
+        .filter(t => !t.isHidden && instrumentsConfig[t.instrumentIdx]?.id !== 'apito')
+        .map(t => t.radius || 0);
+      const maxVisibleRadius = visibleTrackRadii.length > 0 ? Math.max(...visibleTrackRadii) : 120;
+      const stickLength = maxVisibleRadius + 35;
       ctx.beginPath();
       ctx.moveTo(0, -2);
       ctx.lineTo(stickLength - 10, -1);
