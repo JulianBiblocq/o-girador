@@ -1,6 +1,6 @@
 /**
  * NavigationManager.js
- * Module de navigation global et moderne pour séquenceur web (BaqueMix).
+ * Module de navigation global et moderne pour séquenceur web (O Girador).
  * Gère le défilement Clic-Glissé (Panning), la Mini-Map interactive, 
  * les Marqueurs de Section, et la Grille de Snapping magnétique.
  */

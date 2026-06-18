@@ -35,7 +35,7 @@
   </g>
   
   <!-- Title -->
-  <text x="600" y="260" text-anchor="middle" font-family="'Cinzel Decorative', serif" font-weight="700" font-size="90" fill="white" letter-spacing="6" style="filter:drop-shadow(0 4px 12px rgba(0,0,0,0.8))">BaqueMix</text>
+  <text x="600" y="260" text-anchor="middle" font-family="'Cinzel Decorative', serif" font-weight="700" font-size="90" fill="white" letter-spacing="6" style="filter:drop-shadow(0 4px 12px rgba(0,0,0,0.8))">O Girador</text>
   
   <!-- Subtitle line -->
   <line x1="350" y1="290" x2="850" y2="290" stroke="url(#gold)" stroke-width="2" opacity="0.6"/>
@@ -47,7 +47,7 @@
   <text x="600" y="390" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="400" font-size="20" fill="#eaddcf" opacity="0.7" letter-spacing="1">Crie, visualize e escute padrões rítmicos de Baque Virado</text>
   
   <!-- URL -->
-  <text x="600" y="560" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="600" font-size="18" fill="#eaddcf" opacity="0.4" letter-spacing="2">julianbiblocq.github.io/BaqueMix</text>
+  <text x="600" y="560" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="600" font-size="18" fill="#eaddcf" opacity="0.4" letter-spacing="2">julianbiblocq.github.io/o-girador</text>
   
   <!-- Credit -->
   <text x="600" y="600" text-anchor="middle" font-family="'Inter', sans-serif" font-weight="400" font-size="14" fill="#eaddcf" opacity="0.25">Criado por Julian Biblocq | Arte: Toni Braga</text>
