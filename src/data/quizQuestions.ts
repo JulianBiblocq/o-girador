@@ -20,7 +20,7 @@ export const quizQuestions: QuizQuestion[] = [
   {
     id: 'q1',
     type: 'audio',
-    mediaUrl: 'sons-maracatu/Gongue/fort-grave.wav',
+    mediaUrl: 'Mixdown/Gongue G 1.ogg',
     questionText: {
       fr: 'Quel instrument joue ce coup grave et ouvert ?',
       pt: 'Qual instrumento toca esse golpe grave e aberto ?'
@@ -37,7 +37,7 @@ export const quizQuestions: QuizQuestion[] = [
   {
     id: 'q2',
     type: 'audio',
-    mediaUrl: 'sons-maracatu/Caixa/Caixa-ruffada-D.wav',
+    mediaUrl: 'Mixdown/Caixa R 1.ogg',
     questionText: {
       fr: 'Quel type de frappe de Caixa entendez-vous ?',
       pt: 'Qual tipo de toque de Caixa você está escutando ?'
@@ -54,7 +54,7 @@ export const quizQuestions: QuizQuestion[] = [
   {
     id: 'q3',
     type: 'audio',
-    mediaUrl: 'sons-maracatu/Alfaia/Marcante/fort.wav',
+    mediaUrl: 'Mixdown/Alfaia meiao F 1.ogg',
     questionText: {
       fr: 'Quel instrument produit ce son lourd et bas ?',
       pt: 'Qual instrumento produz esse som grave e pesado ?'
@@ -71,7 +71,7 @@ export const quizQuestions: QuizQuestion[] = [
   {
     id: 'q4',
     type: 'audio',
-    mediaUrl: 'sons-maracatu/Agbe/saut.wav',
+    mediaUrl: 'Mixdown/Agbe S 1.ogg',
     questionText: {
       fr: "Quel geste technique de l'Agbê produit ce son ?",
       pt: 'Qual gesto técnico do Agbê produz esse som ?'
@@ -88,7 +88,7 @@ export const quizQuestions: QuizQuestion[] = [
   {
     id: 'q5',
     type: 'audio',
-    mediaUrl: 'sons-maracatu/Mineiro/fort.wav',
+    mediaUrl: 'Mixdown/Mineiro F P 1.ogg',
     questionText: {
       fr: 'Quel instrument produit ce son de secousse continue ?',
       pt: 'Qual instrumento produz esse som de chocalho contínuo ?'

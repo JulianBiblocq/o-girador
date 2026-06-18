@@ -40,6 +40,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     copiedPattern,
     handleCopyPattern,
     handlePastePattern,
+    handleLoadLibraryPattern,
     handleTrackMoveUp: onMoveUp,
     handleTrackMoveDown: onMoveDown,
     handleTrackInstrumentIdxChange: onInstrumentChange,
@@ -63,6 +64,14 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     handleTrackStepMicrotimingChange: onStepMicrotimingChange,
     handleResetTrackMicrotimings: onResetMicrotimings,
     handlePatternNameChange: onPatternNameChange,
+    handleAddPatternVariation: onAddPatternVariation,
+    handleUpdatePatternVariationProbability: onUpdatePatternVariationProbability,
+    handleTogglePatternVariationFirstTimeOnly: onTogglePatternVariationFirstTimeOnly,
+    handleVariationStepValueChange: onVariationStepValueChange,
+    handleVariationStepVolumeChange: onVariationStepVolumeChange,
+    handleVariationStepDecayChange: onVariationStepDecayChange,
+    handleVariationStepMicrotimingChange: onVariationStepMicrotimingChange,
+    handleDeletePatternVariation: onDeletePatternVariation,
     // Vocal Recorder
     isRecordingVocal = false,
     recordingVocalPatternId = null,
@@ -87,17 +96,14 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     currentMeasure,
     maxTicksRef,
     soloPatternPlayId,
+    soloPatternVariationId,
     handleStartSoloPattern,
     handleStopSoloPattern,
     activeKeyboardInstrumentId,
     setActiveKeyboardInstrumentId,
-    isSwingOn,
-    masterVol,
-    setMasterVol,
-    masterEQ,
-    setMasterEQ,
-    masterCompressor,
-    setMasterCompressor,
+    handleTimeSigChange,
+    masterVol, setMasterVol, masterEQ, setMasterEQ, masterCompressor, setMasterCompressor, reverbType,
+    metroVolume, setMetroVolume, metroSound, setMetroSound, isMetroOn, setIsMetroOn, isSwingOn
   } = audio;
 
   const maxTicks = maxTicksRef.current;
@@ -299,11 +305,82 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             onStepTouchStart={onStepTouchStart}
             onCopyPattern={handleCopyPattern}
             onPastePattern={() => handlePastePattern(track.id)}
+            onLoadLibraryPattern={(targetPtnId, libPattern) => handleLoadLibraryPattern(track.id, targetPtnId, libPattern)}
             canPaste={!!copiedPattern}
             onPatternNameChange={(pid, name) => onPatternNameChange && onPatternNameChange(track.id, pid, name)}
             onReorderPatterns={(pid, direction) => onReorderPatterns && onReorderPatterns(track.id, pid, direction)}
           />
         ))}
+
+        {tracks.length > 0 && (
+          <div 
+            className="flex flex-col bg-[var(--cordel-bg)] cordel-border w-[160px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-colors"
+            style={{
+              zIndex: 1,
+              '--fader-thumb-bg': '#8b2a1a',
+              '--fader-thumb-border': 'var(--cordel-border)',
+            } as React.CSSProperties}
+          >
+            {/* Header / Title */}
+            <div className="relative p-3 pb-1 flex justify-center items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
+              <div className="flex items-center gap-1.5">
+                <svg className="w-4 h-4 object-contain" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3L4 21h16L12 3z" />
+                  <line x1="12" y1="18" x2="16" y2="7" />
+                  <circle cx="15" cy="9.5" r="1.5" fill="currentColor" />
+                  <circle cx="12" cy="18" r="1" fill="currentColor" />
+                </svg>
+                <span className="font-cactus font-bold text-sm tracking-wider">MÉTRONOME</span>
+              </div>
+            </div>
+
+            {/* Middle Section (Sound Selection) */}
+            <div className="relative z-10 flex-1 p-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar border-b-[3px] border-[var(--cordel-border)] bg-[#1a1a1a]/5">
+              <div className="flex flex-col gap-1.5 border-b border-[var(--cordel-border)]/20 pb-2">
+                <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
+                  🎵 SON DU CLIC
+                </span>
+                <div className="flex flex-col gap-1.5 mt-1">
+                  <label className="flex items-center gap-1.5 cursor-pointer group">
+                    <input type="radio" name="metroSound" value="synth" checked={metroSound === 'synth'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3.5 h-3.5 cursor-pointer" />
+                    <span className="font-bold text-[10px] group-hover:text-[#8b2a1a] transition-colors leading-none mt-0.5">Beep (Synth)</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer group">
+                    <input type="radio" name="metroSound" value="clave" checked={metroSound === 'clave'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3.5 h-3.5 cursor-pointer" />
+                    <span className="font-bold text-[10px] group-hover:text-[#8b2a1a] transition-colors leading-none mt-0.5">Clave Bois</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer group">
+                    <input type="radio" name="metroSound" value="cowbell" checked={metroSound === 'cowbell'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3.5 h-3.5 cursor-pointer" />
+                    <span className="font-bold text-[10px] group-hover:text-[#8b2a1a] transition-colors leading-none mt-0.5">Cloche</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Fader */}
+            <div className="relative z-10 p-4 pt-4 flex justify-around items-end h-[200px] gap-2">
+              <div className="flex flex-col items-center gap-1.5 h-full w-full">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Volume</span>
+                <div className="h-[145px] flex justify-center items-center relative w-12">
+                  <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    orient="vertical"
+                    value={metroVolume}
+                    onChange={(e) => setMetroVolume(parseFloat(e.target.value))}
+                    className="vertical-fader z-10 h-[130px] w-8 cursor-pointer"
+                  />
+                </div>
+                <span className="text-[10px] font-bold text-[var(--cordel-text)] text-center leading-none">
+                  {metroVolume}%
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {tracks.length > 0 && (
           <div 
@@ -475,6 +552,10 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           isLeftHanded={isLeftHanded}
           track={editingTrack}
           onClose={() => setEditingTrackId(null)}
+          soloPatternPlayId={soloPatternPlayId}
+          soloPatternVariationId={soloPatternVariationId}
+          onPlaySoloPattern={handleStartSoloPattern}
+          onStopSoloPattern={handleStopSoloPattern}
           onStepValueChange={(pid, sIdx, val, lyrics, notes) => onStepValueChange(editingTrack.id, pid, sIdx, val, lyrics, notes)}
           onStepKeyDown={(pid, sIdx, k, cVal, el) => onStepKeyDown(editingTrack.id, pid, sIdx, k, cVal, el)}
           onStepsChange={(pid, steps) => onStepsChange(editingTrack.id, pid, steps)}
@@ -485,6 +566,14 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           onAddPattern={() => onAddPattern(editingTrack.id)}
           onDeletePattern={(pid) => onDeletePattern(editingTrack.id, pid)}
           onReorderPatterns={(pid, direction) => onReorderPatterns && onReorderPatterns(editingTrack.id, pid, direction)}
+          onAddPatternVariation={(pid) => onAddPatternVariation && onAddPatternVariation(editingTrack.id, pid)}
+          onUpdatePatternVariationProbability={(pid, vid, prob) => onUpdatePatternVariationProbability && onUpdatePatternVariationProbability(editingTrack.id, pid, vid, prob)}
+          onTogglePatternVariationFirstTimeOnly={(pid, vid, val) => onTogglePatternVariationFirstTimeOnly && onTogglePatternVariationFirstTimeOnly(editingTrack.id, pid, vid, val)}
+          onVariationStepValueChange={(pid, vid, sIdx, val) => onVariationStepValueChange && onVariationStepValueChange(editingTrack.id, pid, vid, sIdx, val)}
+          onVariationStepVolumeChange={(pid, vid, sIdx, val) => onVariationStepVolumeChange && onVariationStepVolumeChange(editingTrack.id, pid, vid, sIdx, val)}
+          onVariationStepDecayChange={(pid, vid, sIdx, val) => onVariationStepDecayChange && onVariationStepDecayChange(editingTrack.id, pid, vid, sIdx, val)}
+          onVariationStepMicrotimingChange={(pid, vid, sIdx, val) => onVariationStepMicrotimingChange && onVariationStepMicrotimingChange(editingTrack.id, pid, vid, sIdx, val)}
+          onDeletePatternVariation={(pid, vid) => onDeletePatternVariation && onDeletePatternVariation(editingTrack.id, pid, vid)}
           onSelectPattern={(pid) => onTrackSelectPattern(editingTrack.id, pid)}
           onPatternAssign={(pid, mIdx, val) => onPatternAssign(editingTrack.id, pid, mIdx, val)}
           onVolumeChange={(val) => onVolumeChange(editingTrack.id, val)}
@@ -502,6 +591,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           onStepTouchStart={onStepTouchStart}
           onCopyPattern={handleCopyPattern}
           onPastePattern={() => handlePastePattern(editingTrack.id)}
+          onLoadLibraryPattern={(targetPtnId, libPattern) => handleLoadLibraryPattern(editingTrack.id, targetPtnId, libPattern)}
           canPaste={!!copiedPattern}
           isRecordingVocal={isRecordingVocal}
           recordingVocalPatternId={recordingVocalPatternId}

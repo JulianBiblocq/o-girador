@@ -1,6 +1,9 @@
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Play, Square } from 'lucide-react';
 import { TrackGroup, Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
+import { usePatternLibraryStore } from '../hooks/usePatternLibraryStore';
 
 const getGlobalClipboard = () => {
   if (typeof window !== 'undefined') {
@@ -31,6 +34,11 @@ interface InstrumentDetailEditorProps {
   onDeletePattern: (patternId: number) => void;
   onSelectPattern: (patternId: number) => void;
   onReorderPatterns?: (patternId: number, direction: 'up' | 'down') => void;
+  onAddPatternVariation?: (patternId: number) => void;
+  onUpdatePatternVariationProbability?: (patternId: number, variationId: string, probability: number) => void;
+  onTogglePatternVariationFirstTimeOnly?: (patternId: number, variationId: string, val: boolean) => void;
+  onVariationStepValueChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: string | string[]) => void;
+  onDeletePatternVariation?: (patternId: number, variationId: string) => void;
   onPatternAssign: (patternId: number, measureIdx: number, val: boolean) => void;
   onVolumeChange: (val: number) => void;
   onMuteToggle: () => void;
@@ -38,6 +46,9 @@ interface InstrumentDetailEditorProps {
   onStepVolumeChange: (patternId: number, stepIdx: number | number[], val: number) => void;
   onStepDecayChange: (patternId: number, stepIdx: number | number[], val: number) => void;
   onStepMicrotimingChange: (patternId: number, stepIdx: number | number[], val: number) => void;
+  onVariationStepVolumeChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: number) => void;
+  onVariationStepDecayChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: number) => void;
+  onVariationStepMicrotimingChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: number) => void;
   isSwingOn: boolean;
   isPlaying: boolean;
   currentStepIndex: number;
@@ -55,6 +66,7 @@ interface InstrumentDetailEditorProps {
   ) => void;
   onCopyPattern?: (pattern: any) => void;
   onPastePattern?: (patternId: number) => void;
+  onLoadLibraryPattern?: (targetPatternId: number, libraryPattern: any) => void;
   canPaste?: boolean;
   isRecordingVocal?: boolean;
   recordingVocalPatternId?: number | null;
@@ -72,6 +84,10 @@ interface InstrumentDetailEditorProps {
   onVocalGuideToggle?: (enabled: boolean) => void;
   onVocalBpmSyncToggle?: (patternId: number, sync: boolean) => void;
   onPatternNameChange?: (patternId: number, name: string) => void;
+  soloPatternPlayId?: number | null;
+  soloPatternVariationId?: string | null;
+  onPlaySoloPattern?: (patternId: number, variationId?: string) => void;
+  onStopSoloPattern?: () => void;
 }
 
 /* ── Stroke legend definitions ─────────────────────────────── */
@@ -302,6 +318,14 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   onDeletePattern,
   onSelectPattern,
   onReorderPatterns,
+  onAddPatternVariation,
+  onUpdatePatternVariationProbability,
+  onTogglePatternVariationFirstTimeOnly,
+  onVariationStepValueChange,
+  onVariationStepVolumeChange,
+  onVariationStepDecayChange,
+  onVariationStepMicrotimingChange,
+  onDeletePatternVariation,
   onPatternAssign,
   onVolumeChange,
   onMuteToggle,
@@ -319,6 +343,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   onStepTouchStart,
   onCopyPattern,
   onPastePattern,
+  onLoadLibraryPattern,
   canPaste,
   isRecordingVocal = false,
   recordingVocalPatternId = null,
@@ -337,12 +362,82 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   onVocalBpmSyncToggle,
   onPatternNameChange,
   isLeftHanded = false,
+  soloPatternPlayId,
+  soloPatternVariationId,
+  onPlaySoloPattern,
+  onStopSoloPattern,
 }) => {
   const inst = instrumentsConfig[track.instrumentIdx];
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
   const [liveMeasure, setLiveMeasure] = useState<number>(currentMeasure);
+
+  // --- Pattern Library Store Logic ---
+  const { savePattern, deletePattern, getPatternsByInstrumentId } = usePatternLibraryStore();
+  const existingLibraryPatterns = getPatternsByInstrumentId(inst.id);
+  const existingFolders = Array.from(new Set(existingLibraryPatterns.map(p => p.folder))).filter(Boolean);
+
+  const [saveModalPatternId, setSaveModalPatternId] = useState<number | null>(null);
+  const [savePatternName, setSavePatternName] = useState('');
+  const [savePatternFolder, setSavePatternFolder] = useState('');
+  const [loadModalPatternId, setLoadModalPatternId] = useState<number | null>(null);
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const handleSavePatternToLibrary = () => {
+    if (saveModalPatternId === null || !savePatternName.trim()) return;
+    const ptn = track.patterns.find(p => p.id === saveModalPatternId);
+    if (!ptn) return;
+
+    savePattern({
+      id: crypto.randomUUID(),
+      instrumentId: inst.id,
+      name: savePatternName.trim(),
+      folder: savePatternFolder.trim() || 'Général',
+      steps: [...ptn.activeSteps],
+      variations: JSON.parse(JSON.stringify(ptn.variations || [])),
+      volumes: ptn.volumes ? [...ptn.volumes] : undefined,
+      decays: ptn.decays ? [...ptn.decays] : undefined,
+      microtimings: ptn.microtimings ? [...ptn.microtimings] : undefined,
+      createdAt: Date.now()
+    });
+
+    setSaveModalPatternId(null);
+    setToastMessage(lang === 'fr' ? 'Sauvegardé !' : 'Salvo !');
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleLoadPatternFromLibrary = (libraryPatternId: string) => {
+    if (loadModalPatternId === null) return;
+    const libPtn = existingLibraryPatterns.find(p => p.id === libraryPatternId);
+    if (!libPtn) return;
+    
+    if (confirm(lang === 'fr' ? 'Attention, cela remplacera la phrase en cours. Continuer ?' : 'Atenção, isso substituirá o padrão atual. Continuar?')) {
+      if (onLoadLibraryPattern) {
+        onLoadLibraryPattern(loadModalPatternId, libPtn);
+      }
+      setLoadModalPatternId(null);
+    }
+  };
+
+  const toggleFolder = (folder: string) => {
+    setExpandedFolders(prev => ({ ...prev, [folder]: !prev[folder] }));
+  };
+
+  // Ensure we always call the latest onStopSoloPattern, but ONLY on component unmount
+  const stopSoloRef = useRef(onStopSoloPattern);
+  useEffect(() => {
+    stopSoloRef.current = onStopSoloPattern;
+  }, [onStopSoloPattern]);
+
+  useEffect(() => {
+    return () => {
+      if (stopSoloRef.current) {
+        stopSoloRef.current();
+      }
+    };
+  }, []);
 
   React.useEffect(() => {
     const handleTick = (e: Event) => {
@@ -403,11 +498,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   };
 
   const [selectedStepIdx, setSelectedStepIdx] = useState<number | null>(null);
+  const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
   const [selectedStepIndices, setSelectedStepIndices] = useState<number[]>([]);
   const [selectedPatternId, setSelectedPatternId] = useState<number | null>(track.selectedPatternId);
   const [isDragSelecting, setIsDragSelecting] = useState(false);
   const [dragStartIdx, setDragStartIdx] = useState<number | null>(null);
-  const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState(false);
+  const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState<boolean>(false);
 
   const isMouseDownRef = React.useRef(false);
   const paintValueRef = React.useRef<string | number>(0);
@@ -490,8 +586,10 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   React.useEffect(() => {
     setSelectedPatternId(track.selectedPatternId);
-    setSelectedStepIdx(null);
     setSelectedStepIndices([]);
+    setSelectedStepIdx(null);
+    setSelectedVariationId(null);
+    setIsMultiSelectActive(false);
   }, [track.id, track.selectedPatternId]);
 
   const strokes = getStrokesForInstrument(inst.id, inst.type, lang, isLeftHanded);
@@ -741,7 +839,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   /* Gongue display value mapping */
   const getDisplayVal = (val: string | number): string => {
-    if (val === 0) return '';
+    if (val === 0 || val === '0') return '';
     return String(val);
   };
 
@@ -770,9 +868,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 z-[99999] flex items-center justify-center"
       style={{ backgroundColor: 'rgba(0,0,0,0.72)' }}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
@@ -781,8 +879,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         className="bg-[#f4ecd8] cordel-border-sm text-[#1a1a1a] flex flex-col relative overflow-hidden"
         style={{
           maxWidth: isMobile ? '100%' : '1600px',
-          width: isMobile ? '95vw' : '98vw',
-          maxHeight: isMobile ? '94vh' : '96vh',
+          width: isMobile ? '98vw' : '96vw',
+          maxHeight: isMobile ? 'calc(100dvh - 180px)' : 'calc(100vh - 160px)',
           boxShadow: '8px 8px 0px 0px #1a1a1a',
         }}
       >
@@ -933,15 +1031,56 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                       </span>
                     )}
 
-                    {/* Copy/Paste buttons */}
-                    <div className="flex gap-1 ml-4">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble') {
+                          onStopSoloPattern && onStopSoloPattern();
+                        } else {
+                          onPlaySoloPattern && onPlaySoloPattern(ptn.id, 'ensemble');
+                        }
+                      }}
+                      className={`p-1 rounded-sm transition-colors ml-2 ${
+                        soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble'
+                          ? 'bg-[#8b2a1a] text-[#f4ecd8]'
+                          : 'text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+                      }`}
+                      title={soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble' ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar leitura') : (lang === 'fr' ? 'Écouter ce motif complet en solo (Base + Variations)' : 'Ouvir este padrão completo em solo')}
+                    >
+                      {soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                    </button>
+
                       <button
-                        onClick={() => onCopyPattern && onCopyPattern(ptn)}
-                        className="px-1.5 py-0.5 bg-[#eaddcf] text-[#1a1a1a] text-[10px] font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
-                        title={lang === 'fr' ? 'Copier le motif' : 'Copiar o padrão'}
+                        onClick={() => {
+                          setSaveModalPatternId(ptn.id);
+                          setSavePatternName(ptn.name || '');
+                          setSavePatternFolder(existingFolders[0] || 'Général');
+                        }}
+                        className="p-1 rounded-sm transition-colors ml-4 text-[#1a1a1a] hover:bg-[#1a1a1a]/10"
+                        title={lang === 'fr' ? 'Sauvegarder la phrase dans le catalogue' : 'Salvar o padrão no catálogo'}
                       >
-                        📋 {lang === 'fr' ? 'Copier' : 'Copiar'}
+                        💾
                       </button>
+
+                      <button
+                        onClick={() => {
+                          setLoadModalPatternId(ptn.id);
+                        }}
+                        className="p-1 rounded-sm transition-colors ml-1 text-[#1a1a1a] hover:bg-[#1a1a1a]/10"
+                        title={lang === 'fr' ? 'Ouvrir le catalogue' : 'Abrir o catálogo'}
+                      >
+                        📂
+                      </button>
+
+                      {/* Copy/Paste buttons */}
+                      <div className="flex gap-1 ml-4">
+                        <button
+                          onClick={() => onCopyPattern && onCopyPattern(ptn)}
+                          className="px-1.5 py-0.5 bg-[#eaddcf] text-[#1a1a1a] text-[10px] font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
+                          title={lang === 'fr' ? 'Copier le motif' : 'Copiar o padrão'}
+                        >
+                          📋 {lang === 'fr' ? 'Copier' : 'Copiar'}
+                        </button>
                       <button
                         onClick={() => onPastePattern && onPastePattern(ptn.id)}
                         disabled={!canPaste}
@@ -1154,6 +1293,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             </div>
                           )}
 
+
                           {/* Sync Tempo (Time-stretch) toggle */}
                           {recordedPatternIds.includes(ptn.id) && (
                             <div className="flex flex-col gap-1 w-full border-t border-[#1a1a1a]/10 pt-2 mt-2">
@@ -1188,6 +1328,40 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
                   {/* Step grid */}
                   {ptn.id === selectedPatternId && renderSelectionToolbar(ptn)}
+                  {(() => {
+                    const totalVarProb = (ptn.variations || [])
+                      .filter(v => !v.playFirstTimeOnly)
+                      .reduce((acc, v) => acc + v.probability, 0);
+                    const baseProb = Math.max(0, 100 - totalVarProb);
+                    return (
+                      <div className="text-xs font-bold text-[#666] mb-2 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span>{lang === 'fr' ? 'Probabilité de base (Base Track) :' : 'Probabilidade base (Pista Base) :'} {baseProb}%</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (soloPatternPlayId === ptn.id && soloPatternVariationId === 'base') {
+                                onStopSoloPattern && onStopSoloPattern();
+                              } else {
+                                onPlaySoloPattern && onPlaySoloPattern(ptn.id, 'base');
+                              }
+                            }}
+                            className={`p-1 rounded-sm transition-colors ${
+                              soloPatternPlayId === ptn.id && soloPatternVariationId === 'base'
+                                ? 'bg-[#8b2a1a] text-[#f4ecd8]'
+                                : 'text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+                            }`}
+                            title={soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar leitura') : (lang === 'fr' ? 'Écouter ce motif de base en solo (sans variations)' : 'Ouvir este padrão base em solo (sem variações)')}
+                          >
+                            {soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                          </button>
+                        </div>
+                        {(ptn.variations?.length || 0) > 0 && totalVarProb > 100 && (
+                          <span className="text-[#8b2a1a] text-[10px]">⚠️ {lang === 'fr' ? 'Somme > 100%' : 'Soma > 100%'}</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {inst.type === 'voice' ? (
                     /* ──── Voice step grid ──── */
                     <div
@@ -1377,6 +1551,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               const isActive = val !== 0 && val !== '';
                               const isCurrentStep = currentStep === i;
 
+                              const isSelected = selectedStepIndices.includes(i);
+                              const isSingleSelected = selectedStepIdx === i;
+
                               let colorStyle: React.CSSProperties = {};
                               if (isActive) {
                                 const bgColor = inst.colors[val as string] || '#111';
@@ -1386,7 +1563,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 }
                                 colorStyle = {
                                   backgroundColor: bgColor,
-                                  borderColor: bgColor,
+                                  borderColor: (isSelected || isSingleSelected) ? undefined : bgColor,
                                   color: txtColor,
                                 };
                               }
@@ -1397,7 +1574,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               const totalShift = manualMicro + swingOffset;
                               const shiftPx = (totalShift / 50) * 8; // Max 8px shift
 
-                              const isSelected = selectedStepIndices.includes(i);
+                              const isMultiSelected = selectedStepIndices.includes(i) && selectedStepIndices.length > 1;
 
                               return (
                                 <div key={i} className="relative flex flex-col items-center" style={{ width: '36px' }}>
@@ -1420,6 +1597,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                     onMouseDown={(e) => {
                                       if (e.button !== 0) return;
                                       setSelectedPatternId(ptn.id);
+                                      setSelectedVariationId(null);
 
                                       if (isMultiSelectActive) {
                                         handleStepMouseDownMulti(e, i);
@@ -1495,6 +1673,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                     }}
                                     onTouchStart={(e) => {
                                       setSelectedPatternId(ptn.id);
+                                      setSelectedVariationId(null);
                                       if (isMultiSelectActive) {
                                         handleStepTouchStartMulti(e, i);
                                       } else {
@@ -1540,11 +1719,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                           ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
                                           : ''
                                     } ${
-                                      isSelected
-                                        ? 'bg-[#f1c40f] text-black border-[#1a1a1a] scale-110 ring-2 ring-[#1a1a1a]'
+                                      isMultiSelected
+                                        ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
                                         : selectedStepIdx === i
-                                          ? 'outline outline-2 outline-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                                          : ''
+                                          ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+                                          : 'outline-none'
                                     }`}
                                     style={{
                                       width: '36px',
@@ -1587,6 +1766,256 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                     </div>
                   )}
 
+                  {/* Variations */}
+                  {inst.type !== 'voice' && inst.id !== 'apito' && (
+                    <div className="flex flex-col gap-3 mt-2 mb-2 pl-4 border-l-[3px] border-dashed border-[#1a1a1a]/20">
+                      {(ptn.variations || []).map((variation, vIdx) => {
+                        return (
+                          <div key={variation.id} className="flex flex-col gap-1.5 p-2 bg-[#ece4d0]/60 cordel-border-sm border-dashed">
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-cactus font-bold text-[#1a1a1a]">{variation.name}</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (soloPatternPlayId === ptn.id && soloPatternVariationId === variation.id) {
+                                    onStopSoloPattern && onStopSoloPattern();
+                                  } else {
+                                    onPlaySoloPattern && onPlaySoloPattern(ptn.id, variation.id);
+                                  }
+                                }}
+                                className={`p-1 rounded-sm transition-colors ml-2 ${
+                                  soloPatternPlayId === ptn.id && soloPatternVariationId === variation.id
+                                    ? 'bg-[#8b2a1a] text-[#f4ecd8]'
+                                    : 'text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+                                }`}
+                                title={soloPatternPlayId === ptn.id && soloPatternVariationId === variation.id ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar leitura') : (lang === 'fr' ? 'Écouter cette variation en solo' : 'Ouvir esta variação em solo')}
+                              >
+                                {soloPatternPlayId === ptn.id && soloPatternVariationId === variation.id ? <Square className="w-3 h-3 fill-current" /> : <Play className="w-3 h-3 fill-current" />}
+                              </button>
+                              <div className="flex items-center gap-1 ml-4">
+                                <label className="flex items-center gap-1 mr-3 cursor-pointer" title={lang === 'fr' ? 'Forcer cette variation à jouer uniquement la première fois (levée d\'entrée)' : 'Forçar esta variação a tocar apenas na primeira vez'}>
+                                  <input 
+                                    type="checkbox"
+                                    checked={!!variation.playFirstTimeOnly}
+                                    onChange={(e) => onTogglePatternVariationFirstTimeOnly && onTogglePatternVariationFirstTimeOnly(ptn.id, variation.id, e.target.checked)}
+                                    className="accent-[#8b2a1a] cursor-pointer"
+                                  />
+                                  <span className="text-[10px] uppercase font-bold text-[#666]">{lang === 'fr' ? '1ère fois' : '1ª vez'}</span>
+                                </label>
+
+                                {!variation.playFirstTimeOnly ? (
+                                  <>
+                                    <span className="text-[10px] uppercase font-bold text-[#666]">Prob:</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      value={variation.probability}
+                                      onChange={(e) => onUpdatePatternVariationProbability && onUpdatePatternVariationProbability(ptn.id, variation.id, parseInt(e.target.value) || 0)}
+                                      className="w-12 text-xs bg-[#f4ecd8] border border-[#1a1a1a] p-0.5 text-center font-bold"
+                                    />
+                                    <span className="text-[10px] font-bold text-[#666]">%</span>
+                                  </>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-[#8b2a1a] bg-[#8b2a1a]/10 px-1.5 py-0.5 rounded-sm">100% ({lang === 'fr' ? 'Entrée' : 'Entrada'})</span>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => onDeletePatternVariation && onDeletePatternVariation(ptn.id, variation.id)}
+                                className="text-[#8b2a1a] text-[10px] font-bold hover:underline cursor-pointer ml-auto"
+                              >
+                                ✕ {lang === 'fr' ? 'Supprimer' : 'Excluir'}
+                              </button>
+                            </div>
+                            
+                            {/* Variation Grid */}
+                            <div className="step-boxes flex flex-wrap gap-y-2 gap-x-4 scale-[0.9] origin-top-left mt-1">
+                              {(() => {
+                                const groups = [];
+                                for (let g = 0; g < variation.steps.length; g += 4) {
+                                  groups.push(Array.from({ length: Math.min(4, variation.steps.length - g) }, (_, idx) => g + idx));
+                                }
+                                return groups.map((group, groupIdx) => (
+                                  <div key={groupIdx} className="flex gap-4 p-1 bg-[#f4ecd8]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
+                                    {group.map((i) => {
+                                      const val = variation.steps[i];
+                                      const displayVal = getDisplayVal(val);
+                                      const isActive = val !== 0 && val !== '0' && val !== '';
+                                      
+                                      const isSelected = selectedStepIdx === i && selectedVariationId === variation.id;
+                                      
+                                      let colorStyle: React.CSSProperties = {};
+                                      if (isActive) {
+                                        const bgColor = inst.colors[val as string] || '#111';
+                                        let txtColor = inst.colors.text || '#f4ecd8';
+                                        if (isDarkText(inst.id, val as string)) {
+                                          txtColor = '#1a1a1a';
+                                        }
+                                        colorStyle = {
+                                          backgroundColor: bgColor,
+                                          borderColor: isSelected ? undefined : bgColor,
+                                          color: txtColor,
+                                        };
+                                      }
+                                      
+                                      return (
+                                        <div key={i} className="relative flex flex-col items-center" style={{ width: '36px' }}>
+                                          <div className="text-[8px] text-[#999] font-bold mb-0.5 z-10 relative">{i + 1}</div>
+                                          <input
+                                            type="text"
+                                            maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
+                                            value={displayVal}
+                                            readOnly={isTouchDevice}
+                                            inputMode={isTouchDevice ? 'none' : undefined}
+                                            onFocus={(e) => {
+                                              if (!isTouchDevice) {
+                                                e.target.select();
+                                              }
+                                              setSelectedPatternId(ptn.id);
+                                            }}
+                                            onMouseDown={(e) => {
+                                              if (e.button !== 0) return;
+                                              setSelectedPatternId(ptn.id);
+                                              setSelectedStepIdx(i);
+                                              setSelectedVariationId(variation.id);
+                                              setSelectedStepIndices([]);
+                                              if ('shiftKey' in e && e.shiftKey) return;
+                                              if (onStepTouchStart) {
+                                                onStepTouchStart(e, ptn.id, i, inst.id, val, (newVal) => {
+                                                  onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, newVal);
+                                                });
+                                              }
+                                            }}
+                                            onTouchStart={(e) => {
+                                              setSelectedPatternId(ptn.id);
+                                              setSelectedStepIdx(i);
+                                              setSelectedVariationId(variation.id);
+                                              setSelectedStepIndices([]);
+                                              if ('shiftKey' in e && e.shiftKey) return;
+                                              if (onStepTouchStart) {
+                                                onStepTouchStart(e, ptn.id, i, inst.id, val, (newVal) => {
+                                                  onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, newVal);
+                                                });
+                                              }
+                                            }}
+                                            onChange={(e) => {
+                                              onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, e.target.value.toUpperCase());
+                                            }}
+                                            onKeyDown={(e) => {
+                                              const inputEl = e.currentTarget;
+                                              const cardGrid = inputEl.closest('.step-boxes');
+                                              const inputs = cardGrid ? Array.from(cardGrid.querySelectorAll('input')) : [];
+                                              const indexInGrid = inputs.indexOf(inputEl);
+
+                                              if (e.key === 'Delete' || e.key === 'Backspace') {
+                                                e.preventDefault();
+                                                onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, '0');
+                                                if (e.key === 'Backspace' && indexInGrid > 0) {
+                                                  const prevEl = inputs[indexInGrid - 1] as HTMLInputElement;
+                                                  prevEl.focus();
+                                                  prevEl.select();
+                                                }
+                                                return;
+                                              }
+
+                                              if (e.key === 'ArrowRight' || e.key === 'Tab' || e.key === 'Enter') {
+                                                e.preventDefault();
+                                                if (indexInGrid < inputs.length - 1) {
+                                                  const nextEl = inputs[indexInGrid + 1] as HTMLInputElement;
+                                                  nextEl.focus();
+                                                  nextEl.select();
+                                                }
+                                                return;
+                                              }
+                                              
+                                              if (e.key === 'ArrowLeft') {
+                                                e.preventDefault();
+                                                if (indexInGrid > 0) {
+                                                  const prevEl = inputs[indexInGrid - 1] as HTMLInputElement;
+                                                  prevEl.focus();
+                                                  prevEl.select();
+                                                }
+                                                return;
+                                              }
+
+                                              const upper = e.key.toUpperCase();
+                                              const isAlphaNum = upper.length === 1 && upper.match(/^[A-Z0-9]$/);
+                                              if (isAlphaNum && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                                                e.preventDefault();
+                                                onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, upper);
+                                                if (indexInGrid < inputs.length - 1) {
+                                                  const nextEl = inputs[indexInGrid + 1] as HTMLInputElement;
+                                                  nextEl.focus();
+                                                  nextEl.select();
+                                                }
+                                              }
+                                            }}
+                                            className={`text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${
+                                              (val === 0 || val === '0') ? 'bg-[#ece4d0] text-[#1a1a1a]' : ''
+                                            } ${
+                                              selectedStepIdx === i && selectedVariationId === variation.id
+                                                ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+                                                : 'focus:border-[#8b2a1a]'
+                                            }`}
+                                            style={{
+                                              width: '36px',
+                                              height: '36px',
+                                              ...colorStyle,
+                                            }}
+                                          />
+                                          {/* Sculpting micro-bars */}
+                                          <div className="w-full flex flex-col gap-[2px] mt-1 z-10 relative">
+                                            {/* Volume bar (Green) */}
+                                            <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+                                              <div className="h-full bg-green-600 transition-all" style={{ width: `${variation.volumes?.[i] ?? 100}%` }} />
+                                            </div>
+                                            {/* Decay bar (Amber) */}
+                                            <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+                                              <div className="h-full bg-amber-500 transition-all" style={{ width: `${variation.decays?.[i] ?? 100}%` }} />
+                                            </div>
+                                            {/* Micro-timing bar (Blue bi-directional) */}
+                                            {(() => {
+                                              const manualVal = variation.microtimings?.[i] ?? 0;
+                                              const swingOffset = getStepSwingPercent(i, variation.steps.length);
+                                              const totalShift = Math.max(-50, Math.min(50, manualVal + swingOffset));
+                                              return (
+                                                <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
+                                                  <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
+                                                  {totalShift !== 0 && (
+                                                    <div
+                                                      className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
+                                                      style={{
+                                                        left: totalShift > 0 ? '50%' : 'auto',
+                                                        right: totalShift < 0 ? '50%' : 'auto',
+                                                        width: `${Math.min(50, (Math.abs(totalShift) / 50) * 50)}%`
+                                                      }}
+                                                    />
+                                                  )}
+                                                </div>
+                                              );
+                                            })()}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ));
+                              })()}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      
+                      {/* Add Variation Button */}
+                      <button
+                        onClick={() => onAddPatternVariation && onAddPatternVariation(ptn.id)}
+                        className="text-xs font-bold text-[#1a1a1a] bg-transparent border-2 border-dashed border-[#1a1a1a]/40 px-3 py-1.5 self-start hover:border-[#1a1a1a] hover:bg-[#1a1a1a]/5 transition-colors"
+                      >
+                        + {lang === 'fr' ? 'Ajouter une variation probabiliste' : 'Adicionar variação probabilística'}
+                      </button>
+                    </div>
+                  )}
+
                   {/* Step Sculptor Panel for this pattern */}
                   {selectedPatternId === ptn.id && selectedStepIdx !== null && (
                     <div className="bg-[#ece4d0] cordel-border-sm p-3 mt-3 flex flex-col gap-2 shrink-0">
@@ -1597,17 +2026,32 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               ? (lang === 'fr' ? `${selectedStepIndices.length} pas sélectionnés` : `${selectedStepIndices.length} passos selecionados`)
                               : (lang === 'fr' ? `Pas ${selectedStepIdx + 1}` : `Passo ${selectedStepIdx + 1}`)
                           }
+                          {(() => {
+                            const activeVarObj = selectedVariationId ? ptn.variations?.find(v => v.id === selectedVariationId) : null;
+                            if (activeVarObj) {
+                              return ` (Var: ${activeVarObj.name})`;
+                            }
+                            return '';
+                          })()}
                           {selectedStepIndices.length <= 1 && (() => {
-                            const stepVal = ptn.activeSteps[selectedStepIdx];
+                            const activeVarObj = selectedVariationId ? ptn.variations?.find(v => v.id === selectedVariationId) : null;
+                            const effectiveSteps = activeVarObj ? activeVarObj.steps : ptn.activeSteps;
+                            const stepVal = effectiveSteps[selectedStepIdx];
                             return ` (${stepVal === 0 ? (lang === 'fr' ? 'Silence' : 'Silêncio') : `${lang === 'fr' ? 'Coup' : 'Golpe'}: ${stepVal}`})`;
                           })()}
                         </span>
                         <button 
                           onClick={() => {
                             const targets = selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx];
-                            onStepVolumeChange(ptn.id, targets, 80);
-                            onStepDecayChange(ptn.id, targets, 100);
-                            onStepMicrotimingChange(ptn.id, targets, 0);
+                            if (selectedVariationId && onVariationStepVolumeChange && onVariationStepDecayChange && onVariationStepMicrotimingChange) {
+                              onVariationStepVolumeChange(ptn.id, selectedVariationId, targets, 80);
+                              onVariationStepDecayChange(ptn.id, selectedVariationId, targets, 100);
+                              onVariationStepMicrotimingChange(ptn.id, selectedVariationId, targets, 0);
+                            } else {
+                              onStepVolumeChange(ptn.id, targets, 80);
+                              onStepDecayChange(ptn.id, targets, 100);
+                              onStepMicrotimingChange(ptn.id, targets, 0);
+                            }
                           }}
                           className="text-[#8b2a1a] font-bold text-[10px] uppercase hover:underline cursor-pointer"
                         >
@@ -1618,40 +2062,76 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[#1a1a1a]">
                         {/* Volume slider */}
                         <div className="flex flex-col gap-0.5">
-                          <div className="flex justify-between text-[10px] font-bold">
-                            <span>🔊 Volume</span>
-                            <span>{ptn.volumes?.[selectedStepIdx] ?? 80}%</span>
-                          </div>
-                          <input 
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={ptn.volumes?.[selectedStepIdx] ?? 80}
-                            onChange={(e) => onStepVolumeChange(ptn.id, selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx], parseInt(e.target.value))}
-                            className="w-full accent-green-600 cursor-pointer h-2 bg-[#1a1a1a]/10"
-                          />
+                          {(() => {
+                            const activeVarObj = selectedVariationId ? ptn.variations?.find(v => v.id === selectedVariationId) : null;
+                            const effectiveVolumes = activeVarObj ? activeVarObj.volumes : ptn.volumes;
+                            const currVol = effectiveVolumes?.[selectedStepIdx] ?? 80;
+                            return (
+                              <>
+                                <div className="flex justify-between text-[10px] font-bold">
+                                  <span>🔊 Volume</span>
+                                  <span>{currVol}%</span>
+                                </div>
+                                <input 
+                                  type="range"
+                                  min="0"
+                                  max="100"
+                                  value={currVol}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    const targets = selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx];
+                                    if (selectedVariationId && onVariationStepVolumeChange) {
+                                      onVariationStepVolumeChange(ptn.id, selectedVariationId, targets, val);
+                                    } else {
+                                      onStepVolumeChange(ptn.id, targets, val);
+                                    }
+                                  }}
+                                  className="w-full accent-green-600 cursor-pointer h-2 bg-[#1a1a1a]/10"
+                                />
+                              </>
+                            );
+                          })()}
                         </div>
 
                         {/* Decay slider */}
                         <div className="flex flex-col gap-0.5">
-                          <div className="flex justify-between text-[10px] font-bold">
-                            <span>⏳ {lang === 'fr' ? 'Résonance' : 'Ressonância'} (Decay)</span>
-                            <span>{ptn.decays?.[selectedStepIdx] ?? 100}%</span>
-                          </div>
-                          <input 
-                            type="range"
-                            min="10"
-                            max="100"
-                            value={ptn.decays?.[selectedStepIdx] ?? 100}
-                            onChange={(e) => onStepDecayChange(ptn.id, selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx], parseInt(e.target.value))}
-                            className="w-full accent-amber-500 cursor-pointer h-2 bg-[#1a1a1a]/10"
-                          />
+                          {(() => {
+                            const activeVarObj = selectedVariationId ? ptn.variations?.find(v => v.id === selectedVariationId) : null;
+                            const effectiveDecays = activeVarObj ? activeVarObj.decays : ptn.decays;
+                            const currDecay = effectiveDecays?.[selectedStepIdx] ?? 100;
+                            return (
+                              <>
+                                <div className="flex justify-between text-[10px] font-bold">
+                                  <span>⏳ {lang === 'fr' ? 'Résonance' : 'Ressonância'} (Decay)</span>
+                                  <span>{currDecay}%</span>
+                                </div>
+                                <input 
+                                  type="range"
+                                  min="10"
+                                  max="100"
+                                  value={currDecay}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    const targets = selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx];
+                                    if (selectedVariationId && onVariationStepDecayChange) {
+                                      onVariationStepDecayChange(ptn.id, selectedVariationId, targets, val);
+                                    } else {
+                                      onStepDecayChange(ptn.id, targets, val);
+                                    }
+                                  }}
+                                  className="w-full accent-amber-500 cursor-pointer h-2 bg-[#1a1a1a]/10"
+                                />
+                              </>
+                            );
+                          })()}
                         </div>
 
                         {/* Micro-timing slider */}
                         <div className="flex flex-col gap-0.5">
                           {(() => {
-                            const manualVal = ptn.microtimings?.[selectedStepIdx] ?? 0;
+                            const activeVarObj = selectedVariationId ? ptn.variations?.find(v => v.id === selectedVariationId) : null;
+                            const effectiveMicros = activeVarObj ? activeVarObj.microtimings : ptn.microtimings;
+                            const manualVal = effectiveMicros?.[selectedStepIdx] ?? 0;
                             const swingOffset = getStepSwingPercent(selectedStepIdx, ptn.steps);
                             const totalVal = manualVal + swingOffset;
                             const clampedTotalVal = Math.max(-50, Math.min(50, totalVal));
@@ -1695,11 +2175,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                         const newTotal = parseInt(e.target.value);
                                         const newManual = newTotal - swingOffset;
                                         const clampedManual = Math.max(-50, Math.min(50, newManual));
-                                        onStepMicrotimingChange(
-                                          ptn.id,
-                                          selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx],
-                                          clampedManual
-                                        );
+                                        const targets = selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx];
+                                        if (selectedVariationId && onVariationStepMicrotimingChange) {
+                                          onVariationStepMicrotimingChange(ptn.id, selectedVariationId, targets, clampedManual);
+                                        } else {
+                                          onStepMicrotimingChange(ptn.id, targets, clampedManual);
+                                        }
                                       }}
                                       className="absolute inset-x-0 w-full h-4 opacity-100 cursor-pointer slider-transparent-track"
                                     />
@@ -1831,7 +2312,148 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           </div>
         </div>
       </div>
-    </div>
+
+      {/* Load Pattern Modal */}
+      {loadModalPatternId !== null && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setLoadModalPatternId(null)}>
+          <div className="bg-[#f4ecd8] border-2 border-[#1a1a1a] p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto rounded-sm shadow-[8px_8px_0px_rgba(0,0,0,1)]" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6 border-b-2 border-[#1a1a1a] pb-2">
+              <h3 className="font-cactus text-3xl font-bold text-[#1a1a1a]">
+                {lang === 'fr' ? 'Catalogue - ' : 'Catálogo - '}{inst.name}
+              </h3>
+              <button onClick={() => setLoadModalPatternId(null)} className="text-[#1a1a1a] font-bold text-xl hover:text-[#8b2a1a]">
+                ✕
+              </button>
+            </div>
+            
+            {existingFolders.length === 0 ? (
+              <div className="text-center py-8 text-[#666] font-bold text-sm italic">
+                {lang === 'fr' ? 'Aucune phrase sauvegardée pour cet instrument.' : 'Nenhum padrão salvo para este instrumento.'}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {existingFolders.map(folder => {
+                  const isExpanded = expandedFolders[folder] ?? true;
+                  const folderPatterns = existingLibraryPatterns.filter(p => p.folder === folder);
+                  return (
+                    <div key={folder} className="border border-[#1a1a1a] rounded-sm bg-[#eaddcf]">
+                      <button 
+                        onClick={() => toggleFolder(folder)}
+                        className="w-full flex items-center justify-between p-3 bg-[#1a1a1a]/5 hover:bg-[#1a1a1a]/10 transition-colors font-bold text-[#1a1a1a] text-lg font-cactus text-left"
+                      >
+                        <span className="flex items-center gap-2">
+                          {isExpanded ? '📂' : '📁'} {folder} <span className="text-xs opacity-60">({folderPatterns.length})</span>
+                        </span>
+                        <span>{isExpanded ? '▲' : '▼'}</span>
+                      </button>
+                      
+                      {isExpanded && (
+                        <div className="flex flex-col divide-y divide-[#1a1a1a]/20">
+                          {folderPatterns.map(libPtn => (
+                            <div key={libPtn.id} className="flex items-center justify-between p-3 hover:bg-white/50 transition-colors">
+                              <div className="flex flex-col">
+                                <span className="font-bold text-[#1a1a1a]">{libPtn.name}</span>
+                                <span className="text-xs text-[#666]">{new Date(libPtn.createdAt).toLocaleDateString()}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleLoadPatternFromLibrary(libPtn.id)}
+                                  className="px-3 py-1 bg-[#8b2a1a] text-[#f4ecd8] font-bold text-xs hover:bg-[#6b1e11] transition-colors cordel-border-sm"
+                                >
+                                  {lang === 'fr' ? 'Charger' : 'Carregar'}
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (confirm(lang === 'fr' ? 'Supprimer définitivement cette phrase du catalogue ?' : 'Excluir permanentemente este padrão do catálogo?')) {
+                                      deletePattern(libPtn.id);
+                                    }
+                                  }}
+                                  className="p-1 hover:bg-[#1a1a1a]/10 rounded transition-colors text-xl"
+                                  title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Save Pattern Modal */}
+      {saveModalPatternId !== null && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setSaveModalPatternId(null)}>
+          <div className="bg-[#f4ecd8] border-2 border-[#1a1a1a] p-6 max-w-sm w-full rounded-sm shadow-[8px_8px_0px_rgba(0,0,0,1)]" onClick={e => e.stopPropagation()}>
+            <h3 className="font-cactus text-2xl font-bold text-[#1a1a1a] mb-4">
+              {lang === 'fr' ? 'Sauvegarder dans le catalogue' : 'Salvar no catálogo'}
+            </h3>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-bold text-[#1a1a1a] mb-1">
+                {lang === 'fr' ? 'Nom de la phrase' : 'Nome do padrão'}
+              </label>
+              <input
+                type="text"
+                value={savePatternName}
+                onChange={(e) => setSavePatternName(e.target.value)}
+                className="w-full bg-[#eaddcf] border border-[#1a1a1a] p-2 text-sm font-bold text-[#1a1a1a] outline-none focus:ring-2 focus:ring-[#8b2a1a]"
+                placeholder={lang === 'fr' ? 'Ex: Groovy Break' : 'Ex: Groovy Break'}
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-bold text-[#1a1a1a] mb-1">
+                {lang === 'fr' ? 'Dossier / Répertoire' : 'Pasta / Diretório'}
+              </label>
+              <input
+                type="text"
+                list="folder-suggestions"
+                value={savePatternFolder}
+                onChange={(e) => setSavePatternFolder(e.target.value)}
+                className="w-full bg-[#eaddcf] border border-[#1a1a1a] p-2 text-sm font-bold text-[#1a1a1a] outline-none focus:ring-2 focus:ring-[#8b2a1a]"
+                placeholder={lang === 'fr' ? 'Ex: Général' : 'Ex: Geral'}
+              />
+              <datalist id="folder-suggestions">
+                {existingFolders.map(folder => (
+                  <option key={folder} value={folder} />
+                ))}
+              </datalist>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setSaveModalPatternId(null)}
+                className="px-4 py-2 border border-[#1a1a1a] text-[#1a1a1a] font-bold text-sm hover:bg-[#eaddcf] transition-colors"
+              >
+                {lang === 'fr' ? 'Annuler' : 'Cancelar'}
+              </button>
+              <button
+                onClick={handleSavePatternToLibrary}
+                disabled={!savePatternName.trim()}
+                className="px-4 py-2 bg-[#8b2a1a] text-[#f4ecd8] font-bold text-sm disabled:opacity-50 hover:bg-[#6b1e11] transition-colors shadow-[2px_2px_0px_rgba(0,0,0,1)]"
+              >
+                {lang === 'fr' ? 'Enregistrer' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toastMessage && (
+        <div className="fixed bottom-8 right-8 bg-[#8b2a1a] text-[#f4ecd8] font-cactus font-bold text-lg px-6 py-3 rounded-sm shadow-[4px_4px_0px_rgba(0,0,0,1)] z-[100] animate-bounce">
+          {toastMessage}
+        </div>
+      )}
+    </div>,
+    document.body
   );
 };
 

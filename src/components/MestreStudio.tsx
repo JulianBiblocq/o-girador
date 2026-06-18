@@ -187,6 +187,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
   ]);
 
   // 2. Quiz State
+  const [quizCordeCible, setQuizCordeCible] = useState<number>(1);
   const [quizTitle, setQuizTitle] = useState('');
   const [quizRewardText, setQuizRewardText] = useState('');
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestionStudio[]>([
@@ -206,6 +207,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
   ]);
 
   // 3. Dictée de Blocs State
+  const [dicteeCordeCible, setDicteeCordeCible] = useState<number>(2);
   const [dicteeTitle, setDicteeTitle] = useState('');
   const [dicteeRewardVideoUrl, setDicteeRewardVideoUrl] = useState('');
   const [dicteeBpm, setDicteeBpm] = useState(83);
@@ -214,6 +216,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
   const [dicteeTracks, setDicteeTracks] = useState<TrackGroup[]>(() => createInitialTracks('dictee'));
 
   // 4. L'Inspecteur State
+  const [inspecteurCordeCible, setInspecteurCordeCible] = useState<number>(3);
   const [inspecteurTitle, setInspecteurTitle] = useState('');
   const [inspecteurDescription, setInspecteurDescription] = useState('');
   const [inspecteurBpm, setInspecteurBpm] = useState(83);
@@ -233,6 +236,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
   }, [inspecteurGuiltyInstrument]);
 
   // 5. Sablier du Mestre State
+  const [sablierCordeCible, setSablierCordeCible] = useState<number>(4);
   const [sablierTitle, setSablierTitle] = useState('');
   const [sablierRewardVideoUrl, setSablierRewardVideoUrl] = useState('');
   const [sablierBpm, setSablierBpm] = useState(83);
@@ -246,6 +250,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
   const [sablierSuccessAudioState, setSablierSuccessAudioState] = useState<'variation' | 'parada'>('variation');
 
   // 6. Rythme Live State
+  const [rythmeLiveCordeCible, setRythmeLiveCordeCible] = useState<number>(5);
   const [rythmeLiveTitle, setRythmeLiveTitle] = useState('');
   const [rythmeLiveRewardSignatory, setRythmeLiveRewardSignatory] = useState('');
   const [rythmeLiveBpm, setRythmeLiveBpm] = useState(83);
@@ -457,6 +462,152 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
 
   // --- QUIZ QUESTION EDITING HELPERS ---
 
+  const handleLoadDraft = (e: React.ChangeEvent<HTMLInputElement>, moduleName: string) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        if (json.module !== moduleName) {
+          alert(`Erreur : Le fichier importé n'est pas un module "${moduleName}".`);
+          return;
+        }
+
+        if (moduleName === 'quiz') {
+          if (json.corde_cible) setQuizCordeCible(Number(json.corde_cible));
+          setQuizTitle(json.folheto_titre || '');
+          setQuizRewardText(json.recompense_texte || '');
+          if (json.questions && Array.isArray(json.questions)) {
+            const mappedQs: QuizQuestionStudio[] = json.questions.map((q: any, i: number) => ({
+              id: q.id || `q_${i+1}`,
+              type: q.type || 'text',
+              questionTextFr: q.questionText?.fr || '',
+              questionTextPt: q.questionText?.pt || '',
+              mediaUrl: q.mediaUrl || '',
+              mediaFile: q.mediaUrl?.startsWith('data:') ? q.mediaUrl : '',
+              optionsFr: q.options?.fr || ['', '', '', ''],
+              optionsPt: q.options?.pt || ['', '', '', ''],
+              correctIndex: q.options?.fr?.indexOf(q.correctAnswer?.fr) >= 0 
+                              ? q.options?.fr?.indexOf(q.correctAnswer?.fr) 
+                              : 0,
+              explanationFr: q.explanation?.fr || '',
+              explanationPt: q.explanation?.pt || ''
+            }));
+            setQuizQuestions(mappedQs);
+          }
+        } else if (moduleName === 'dictee') {
+          if (json.corde_cible) setDicteeCordeCible(Number(json.corde_cible));
+          setDicteeTitle(json.folheto_titre || '');
+          setDicteeRewardVideoUrl(json.recompense_video_url || '');
+          setDicteeBpm(json.bpm || 83);
+          if (json.nombre_de_blocs) setDicteeBlocksCount(json.nombre_de_blocs as 4 | 8);
+          if (json.blocs_a_ordonner) {
+            setDicteeBlockTags(Array.from({length: 8}).map((_, i) => json.blocs_a_ordonner[i]?.label || ''));
+          }
+          if (json.sequence_audio && Array.isArray(json.sequence_audio)) {
+            setDicteeTracks(prev => prev.map(t => {
+               const saved = json.sequence_audio.find((st: any) => st.instrumentIdx === t.instrumentIdx);
+               if (saved) {
+                 return {
+                   ...t,
+                   patterns: [{ ...t.patterns[0], activeSteps: saved.activeSteps || Array(16).fill(0), lyrics: saved.lyrics || Array(16).fill(''), notes: saved.notes || Array(16).fill('') }]
+                 };
+               }
+               return t;
+            }));
+          }
+        } else if (moduleName === 'inspecteur') {
+          if (json.corde_cible) setInspecteurCordeCible(Number(json.corde_cible));
+          setInspecteurTitle(json.folheto_titre || '');
+          setInspecteurDescription(json.description || '');
+          setInspecteurBpm(json.bpm || 83);
+          setInspecteurGuiltyInstrument(json.instrument_coupable || 'caixa');
+          if (json.partition_parfaite && Array.isArray(json.partition_parfaite)) {
+             setInspecteurPerfectTracks(prev => prev.map(t => {
+               const saved = json.partition_parfaite.find((st: any) => st.instrumentIdx === t.instrumentIdx);
+               if (saved) {
+                 return {
+                   ...t,
+                   patterns: [{ ...t.patterns[0], activeSteps: saved.activeSteps || Array(16).fill(0) }]
+                 };
+               }
+               return t;
+            }));
+          }
+          if (json.piste_sabotee && Array.isArray(json.piste_sabotee)) {
+             setInspecteurSabotagedTracks(prev => {
+                const copy = [...prev];
+                const saved = json.piste_sabotee[0];
+                if (saved) {
+                   copy[0].patterns[0].activeSteps = saved.activeSteps || Array(16).fill(0);
+                }
+                return copy;
+             });
+          }
+        } else if (moduleName === 'sablier_mestre') {
+          if (json.corde_cible) setSablierCordeCible(Number(json.corde_cible));
+          setSablierTitle(json.folheto_titre || '');
+          setSablierRewardVideoUrl(json.recompense_video_url || '');
+          setSablierBpm(json.bpm || 83);
+          setSablierMeasures(json.sablier_mesures as 1 | 2 || 2);
+          if (json.signe_image) {
+            if (json.signe_image.startsWith('data:')) {
+              setSablierHandImageType('upload');
+              setSablierHandImageFile(json.signe_image);
+            } else {
+              setSablierHandImageType('url');
+              setSablierHandImageUrl(json.signe_image);
+            }
+          }
+          if (json.options) {
+             setSablierOptionsFr(json.options.fr || ['', '', '']);
+             setSablierOptionsPt(json.options.pt || ['', '', '']);
+          }
+          setSablierCorrectIndex(json.correct_index || 0);
+          setSablierSuccessAudioState(json.etat_audio_succes || 'variation');
+        } else if (moduleName === 'rythme_live') {
+          if (json.corde_cible) setRythmeLiveCordeCible(Number(json.corde_cible));
+          setRythmeLiveTitle(json.folheto_titre || '');
+          setRythmeLiveRewardSignatory(json.recompense_diplome_signataire || '');
+          setRythmeLiveBpm(json.bpm || 83);
+          setRythmeLiveLoopsRequired(json.boucles_requises || 2);
+          setRythmeLiveToleranceMs(json.tolerance_ms as 30 | 80 || 80);
+          setRythmeLiveStudentInstrument(json.instrument_eleve || 'caixa');
+          if (json.playback_audio && Array.isArray(json.playback_audio)) {
+             setRythmeLivePlaybackTracks(prev => prev.map(t => {
+               const saved = json.playback_audio.find((st: any) => st.instrumentIdx === t.instrumentIdx);
+               if (saved) {
+                 return {
+                   ...t,
+                   patterns: [{ ...t.patterns[0], activeSteps: saved.activeSteps || Array(16).fill(0) }]
+                 };
+               }
+               return t;
+            }));
+          }
+          if (json.partition_cible && Array.isArray(json.partition_cible)) {
+             setRythmeLiveTargetTracks(prev => {
+                const copy = [...prev];
+                const saved = json.partition_cible[0];
+                if (saved) {
+                   copy[0].patterns[0].activeSteps = saved.activeSteps || Array(16).fill(0);
+                }
+                return copy;
+             });
+          }
+        }
+        
+        alert(`Brouillon chargé avec succès !`);
+      } catch (err) {
+        alert("Erreur de lecture du fichier JSON.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // reset
+  };
+
   const addQuestion = () => {
     if (quizQuestions.length >= 10) return;
     setQuizQuestions(prev => [
@@ -512,6 +663,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
 
   const handleGenerateExercise = () => {
     let exportData: any = null;
+    const uniqueId = `custom_${Date.now()}`;
 
     if (activeTab === 'varal') {
       exportData = {
@@ -525,6 +677,8 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
       };
     } else if (activeTab === 'quiz') {
       exportData = {
+        id: uniqueId,
+        corde_cible: Number(quizCordeCible),
         module: 'quiz',
         folheto_titre: quizTitle,
         recompense_texte: quizRewardText,
@@ -552,6 +706,8 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
       };
     } else if (activeTab === 'dictee') {
       exportData = {
+        id: uniqueId,
+        corde_cible: Number(dicteeCordeCible),
         module: 'dictee',
         folheto_titre: dicteeTitle,
         recompense_video_url: dicteeRewardVideoUrl,
@@ -570,6 +726,8 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
       };
     } else if (activeTab === 'inspecteur') {
       exportData = {
+        id: uniqueId,
+        corde_cible: Number(inspecteurCordeCible),
         module: 'inspecteur',
         folheto_titre: inspecteurTitle,
         description: inspecteurDescription,
@@ -586,6 +744,8 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
       };
     } else if (activeTab === 'sablier') {
       exportData = {
+        id: uniqueId,
+        corde_cible: Number(sablierCordeCible),
         module: 'sablier_mestre',
         folheto_titre: sablierTitle,
         recompense_video_url: sablierRewardVideoUrl,
@@ -601,6 +761,8 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
       };
     } else if (activeTab === 'rythmelive') {
       exportData = {
+        id: uniqueId,
+        corde_cible: Number(rythmeLiveCordeCible),
         module: 'rythme_live',
         folheto_titre: rythmeLiveTitle,
         recompense_diplome_signataire: rythmeLiveRewardSignatory,
@@ -815,11 +977,31 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
         {/* 2. CORDE 1: QUIZ */}
         {activeTab === 'quiz' && (
           <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-2 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
+              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1">
+                <span>📂 Charger un exercice pour le modifier (.json)</span>
+                <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'quiz')} className="text-[10px] cursor-pointer" />
+              </label>
+            </div>
             <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
               <span className="font-cactus text-lg font-black text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1">
                 Paramètres du Livret
               </span>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Corde Cible</label>
+                  <select
+                    value={quizCordeCible}
+                    onChange={(e) => setQuizCordeCible(Number(e.target.value))}
+                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
+                  >
+                    <option value={1}>Corde 1</option>
+                    <option value={2}>Corde 2</option>
+                    <option value={3}>Corde 3</option>
+                    <option value={4}>Corde 4</option>
+                    <option value={5}>Corde 5</option>
+                  </select>
+                </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Titre du Folheto</label>
                   <input
@@ -1005,11 +1187,31 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
         {/* 3. CORDE 2: DICTÉE DE BLOCS */}
         {activeTab === 'dictee' && (
           <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-2 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
+              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1">
+                <span>📂 Charger un exercice pour le modifier (.json)</span>
+                <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'dictee')} className="text-[10px] cursor-pointer" />
+              </label>
+            </div>
             <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
               <span className="font-cactus text-lg font-black text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1">
                 Paramètres du Défi
               </span>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Corde Cible</label>
+                  <select
+                    value={dicteeCordeCible}
+                    onChange={(e) => setDicteeCordeCible(Number(e.target.value))}
+                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
+                  >
+                    <option value={1}>Corde 1</option>
+                    <option value={2}>Corde 2</option>
+                    <option value={3}>Corde 3</option>
+                    <option value={4}>Corde 4</option>
+                    <option value={5}>Corde 5</option>
+                  </select>
+                </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Titre du Folheto</label>
                   <input
@@ -1103,11 +1305,31 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
         {/* 4. CORDE 3: L'INSPECTEUR */}
         {activeTab === 'inspecteur' && (
           <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-2 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
+              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1">
+                <span>📂 Charger un exercice pour le modifier (.json)</span>
+                <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'inspecteur')} className="text-[10px] cursor-pointer" />
+              </label>
+            </div>
             <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
               <span className="font-cactus text-lg font-black text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1">
                 Paramètres de l'Enquête
               </span>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Corde Cible</label>
+                  <select
+                    value={inspecteurCordeCible}
+                    onChange={(e) => setInspecteurCordeCible(Number(e.target.value))}
+                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
+                  >
+                    <option value={1}>Corde 1</option>
+                    <option value={2}>Corde 2</option>
+                    <option value={3}>Corde 3</option>
+                    <option value={4}>Corde 4</option>
+                    <option value={5}>Corde 5</option>
+                  </select>
+                </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Titre du Folheto</label>
                   <input
@@ -1210,11 +1432,31 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
         {/* 5. CORDE 4: SABLIER DU MESTRE */}
         {activeTab === 'sablier' && (
           <div className="flex flex-col gap-6 max-w-3xl mx-auto">
+            <div className="flex flex-col gap-2 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
+              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1">
+                <span>📂 Charger un exercice pour le modifier (.json)</span>
+                <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'sablier_mestre')} className="text-[10px] cursor-pointer" />
+              </label>
+            </div>
             <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
               <span className="font-cactus text-lg font-black text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1">
                 Configuration du Sablier
               </span>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Corde Cible</label>
+                  <select
+                    value={sablierCordeCible}
+                    onChange={(e) => setSablierCordeCible(Number(e.target.value))}
+                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
+                  >
+                    <option value={1}>Corde 1</option>
+                    <option value={2}>Corde 2</option>
+                    <option value={3}>Corde 3</option>
+                    <option value={4}>Corde 4</option>
+                    <option value={5}>Corde 5</option>
+                  </select>
+                </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Titre du Folheto</label>
                   <input
@@ -1385,11 +1627,31 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
         {/* 6. CORDE 5: RYTHME LIVE */}
         {activeTab === 'rythmelive' && (
           <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-2 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
+              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1">
+                <span>📂 Charger un exercice pour le modifier (.json)</span>
+                <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'rythme_live')} className="text-[10px] cursor-pointer" />
+              </label>
+            </div>
             <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
               <span className="font-cactus text-lg font-black text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1">
                 Paramètres de l'Examen Rythmique
               </span>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                <div className="flex flex-col gap-1 md:col-span-1">
+                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Corde Cible</label>
+                  <select
+                    value={rythmeLiveCordeCible}
+                    onChange={(e) => setRythmeLiveCordeCible(Number(e.target.value))}
+                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
+                  >
+                    <option value={1}>Corde 1</option>
+                    <option value={2}>Corde 2</option>
+                    <option value={3}>Corde 3</option>
+                    <option value={4}>Corde 4</option>
+                    <option value={5}>Corde 5</option>
+                  </select>
+                </div>
                 <div className="flex flex-col gap-1 md:col-span-2">
                   <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Titre du Folheto</label>
                   <input
@@ -1577,9 +1839,14 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
                         <span className="text-xs font-bold text-[var(--cordel-text)]">
                           {ex.folheto_titre || `Exercice ${ex.module}`}
                         </span>
-                        <span className="text-[9px] uppercase font-bold text-gray-500">
-                          {lang === 'fr' ? `Module : ${ex.module}` : `Módulo: ${ex.module}`}
-                        </span>
+                        <div className="flex gap-2 items-center">
+                          <span className="text-[9px] uppercase font-bold text-gray-500">
+                            {lang === 'fr' ? `Module : ${ex.module}` : `Módulo: ${ex.module}`}
+                          </span>
+                          <span className="text-[9px] uppercase font-bold text-[var(--cordel-wood)]">
+                            (Corde {ex.corde_cible || '?'})
+                          </span>
+                        </div>
                       </div>
                       <button
                         onClick={() => removeExercise(ex.id)}

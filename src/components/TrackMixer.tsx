@@ -3,8 +3,8 @@ import * as Tone from 'tone';
 import { Eye, EyeOff } from 'lucide-react';
 import { TrackGroup, Language, Pattern } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
-import { PanKnob } from './PanKnob';
 import { getNextStepValue } from './InstrumentDetailEditor';
+import { useSequencer } from '../contexts/SequencerContext';
 
 const getGlobalClipboard = () => {
   if (typeof window !== 'undefined') {
@@ -44,6 +44,12 @@ interface TrackMixerProps {
   onPatternAssign: (patternId: number, measureIdx: number, val: boolean) => void;
   onAddPattern: () => void;
   onDeletePattern: (patternId: number) => void;
+  onOpenDetailEditor?: () => void;
+  onPatternNameChange?: (patternId: number, name: string) => void;
+  onAddPatternVariation?: (patternId: number) => void;
+  onUpdatePatternVariationProbability?: (patternId: number, variationId: string, probability: number) => void;
+  onTogglePatternVariationFirstTimeOnly?: (patternId: number, variationId: string, val: boolean) => void;
+  onVariationStepValueChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: string | string[]) => void;
   onReorderPatterns?: (patternId: number, direction: 'up' | 'down') => void;
   onStepTouchStart?: (
     e: React.MouseEvent | React.TouchEvent,
@@ -58,6 +64,7 @@ interface TrackMixerProps {
   canPaste?: boolean;
   meter?: any;
   soloPatternPlayId?: number | null;
+  isCollapsed?: boolean;
 }
 
 const TrackMixerComponent: React.FC<TrackMixerProps> = ({
@@ -91,6 +98,12 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   onPatternAssign,
   onAddPattern,
   onDeletePattern,
+  onOpenDetailEditor,
+  onPatternNameChange,
+  onAddPatternVariation,
+  onUpdatePatternVariationProbability,
+  onTogglePatternVariationFirstTimeOnly,
+  onVariationStepValueChange,
   onReorderPatterns,
   onStepTouchStart,
   onCopyPattern,
@@ -98,7 +111,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   canPaste,
   meter,
   soloPatternPlayId,
+  isCollapsed = false,
 }) => {
+  const sequencer = useSequencer();
+  const { activeAoVivoTrackId, setActiveAoVivoTrackId } = sequencer;
   const [instDropdownOpen, setInstDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -120,6 +136,11 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const initialTouchIndexRef = useRef<number | null>(null);
   const [hasClipboard, setHasClipboard] = useState(false);
   const wasSelectedRef = useRef(false);
+
+  const isAoVivo = activeAoVivoTrackId === track.id;
+  const toggleAoVivo = () => {
+    setActiveAoVivoTrackId(isAoVivo ? null : track.id);
+  };
 
   const liveActivePatternId = (() => {
     if (liveMeasure >= 0) {
@@ -580,58 +601,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     });
   };
 
-  const renderSelectionToolbar = () => {
-    return (
-      <div className="flex justify-between items-center bg-[#f4ecd8] border-b border-[#1a1a1a]/20 pb-1.5 mb-1.5 text-[10px] font-bold w-full select-none">
-        <span className="text-[#666] uppercase tracking-wider">
-          {lang === 'fr' ? 'Multi-sélection' : 'Multi-selection'}
-        </span>
-        <div className="flex gap-1.5 items-center">
-          {selectedStepIndices.length > 0 && (
-            <>
-              <button
-                onClick={handleCopyRelative}
-                className="px-1.5 py-0.5 bg-[#8b2a1a] text-[#f4ecd8] rounded border border-[#1a1a1a] text-[8px] cursor-pointer font-bold hover:bg-[#a63d2d] transition-colors"
-              >
-                {lang === 'fr' ? 'Copier' : 'Copy'} ({selectedStepIndices.length})
-              </button>
-              <button
-                onClick={() => setSelectedStepIndices([])}
-                className="px-1.5 py-0.5 bg-[#8b2a1a] text-[#f4ecd8] rounded border border-[#1a1a1a] text-[8px] cursor-pointer font-bold hover:bg-[#a63d2d] transition-colors"
-              >
-                {lang === 'fr' ? 'Annuler' : 'Cancel'}
-              </button>
-            </>
-          )}
-          {hasClipboard && selectedStepIndices.length === 1 && (
-            <button
-              onClick={() => handlePasteRelative(selectedStepIndices[0])}
-              className="px-1.5 py-0.5 bg-[#1e824c] text-white rounded border border-[#1a1a1a] text-[8px] cursor-pointer font-bold hover:bg-[#27ae60] transition-colors"
-            >
-              {lang === 'fr' ? 'Coller' : 'Paste'}
-            </button>
-          )}
-          <button
-            onClick={() => {
-              setIsMultiSelectActive(!isMultiSelectActive);
-              setSelectedStepIndices([]);
-            }}
-            className={`px-1.5 py-0.5 rounded border border-[#1a1a1a] text-[9px] cursor-pointer font-bold ${
-              isMultiSelectActive ? 'bg-blue-600 text-white' : 'bg-transparent text-[#1a1a1a]'
-            }`}
-          >
-            {isMultiSelectActive 
-              ? (lang === 'fr' ? 'Mode Normal' : 'Normal Mode') 
-              : (lang === 'fr' ? 'Multi-sél. Off' : 'Multi-sel. Off')}
-          </button>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div
-      className={`relative bg-[#f4ecd8] cordel-border p-4 mb-4 select-none flex flex-col text-[#1a1a1a] ${instDropdownOpen ? 'z-50' : 'z-10'}`}
+      className={`relative bg-[#f4ecd8] cordel-border p-2 mb-2 select-none flex flex-col text-[#1a1a1a] ${instDropdownOpen ? 'z-50' : 'z-10'}`}
       style={{
         zIndex: instDropdownOpen ? 9999 : 10,
         '--cordel-bg': '#f4ecd8',
@@ -642,7 +615,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       } as React.CSSProperties}
     >
 
-      <div className={`flex justify-between items-center mb-2 relative ${instDropdownOpen ? 'z-[9999]' : 'z-[2]'}`}>
+      <div className={`flex justify-between items-center ${isCollapsed ? '' : 'mb-2'} relative ${instDropdownOpen ? 'z-[9999]' : 'z-[2]'}`}>
         <div className="flex items-center gap-2">
           <div className="flex flex-col gap-[2px] mr-2">
             <button
@@ -663,7 +636,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
             </button>
           </div>
 
-          <div className="relative" ref={dropdownRef}>
+          <div className="relative flex items-center" ref={dropdownRef}>
             <button
               onClick={() => setInstDropdownOpen(!instDropdownOpen)}
               className="flex items-center gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-[11px] cursor-pointer transition-colors"
@@ -682,6 +655,16 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               </span>
               <span className="text-[8px]">▼</span>
             </button>
+
+            {onOpenDetailEditor && (
+              <button
+                onClick={onOpenDetailEditor}
+                className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
+                title={lang === 'pt' ? 'Editor detalhado' : 'Éditeur détaillé'}
+              >
+                ✏️
+              </button>
+            )}
 
             {instDropdownOpen && (
               <div className="absolute top-7 left-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-shadow min-w-[180px] max-h-[220px] overflow-y-auto z-[99]">
@@ -705,6 +688,16 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     <span>{opt.name}</span>
                   </div>
                 ))}
+                <div
+                  onClick={() => {
+                    onDelete();
+                    setInstDropdownOpen(false);
+                  }}
+                  className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold text-[#8b2a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]"
+                >
+                  <span className="w-5 text-center">✕</span>
+                  <span>{lang === 'fr' ? 'Supprimer la piste' : lang === 'pt' ? 'Excluir pista' : 'Delete track'}</span>
+                </div>
               </div>
             )}
           </div>
@@ -727,6 +720,24 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
           >
             S
           </button>
+          
+          {inst.id !== 'apito' && (
+            <button
+              onClick={toggleAoVivo}
+              className={`w-6 h-6 cordel-border-sm cordel-button text-[9px] font-bold cursor-pointer transition-all flex items-center justify-center ${
+                isAoVivo ? 'bg-[#27ae60] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
+              }`}
+              title="Ao Vivo (Live POV)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                <path d="M11 22 L5 6" />
+                <circle cx="4" cy="3" r="2.5" fill="currentColor" />
+                <path d="M13 22 L19 6" />
+                <circle cx="20" cy="3" r="2.5" fill="currentColor" />
+              </svg>
+            </button>
+          )}
+
           <button
             onClick={onHideToggle}
             className={`w-6 h-6 cordel-border-sm cordel-button text-[10px] font-bold cursor-pointer transition-all flex items-center justify-center ${
@@ -736,105 +747,17 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
           >
             {track.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
           </button>
-          <button
-            onClick={onDelete}
-            className="w-6 h-6 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button hover:bg-[#1a1a1a] text-[10px] font-bold cursor-pointer transition-colors flex items-center justify-center"
-          >
-            ✕
-          </button>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3 mb-2 relative z-[2]">
-        <PanKnob value={track.panVal || 0} onChange={onPanChange} label="Pan" />
-        <div className="flex-grow flex flex-col gap-1 justify-center h-full min-w-0">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-[#1a1a1a]/60">Volume</span>
-          <div className="flex items-center gap-2">
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={track.volumeVal}
-              onChange={(e) => onVolumeChange(parseInt(e.target.value))}
-              className="flex-grow h-2 bg-[#1a1a1a] border border-[#1a1a1a] rounded-none outline-none cursor-pointer accent-[#8b2a1a]"
-            />
-            <div className="w-[35px] h-2 bg-[#1a1a1a] relative overflow-hidden cordel-border-sm shrink-0">
-              <div
-                ref={vuMeterRef}
-                id={`meter-bar-${track.id}`}
-                className="h-full bg-[#f4ecd8] w-0"
-                style={{ transition: 'width 0.7s ease-out' }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* PATTERNS MANAGEMENT */}
-      <div className="bg-[#f4ecd8] cordel-border-sm p-2 mb-2 relative z-[2] text-xs">
-        <div className="flex justify-between items-center mb-1.5 border-b-[2px] border-[#1a1a1a] pb-1">
-          <span className="font-cactus font-bold uppercase">{t('patterns')}:</span>
-        </div>
-        {/* Patterns Summary (No checkboxes) */}
-        <div className="flex flex-col gap-1 w-full max-h-[90px] overflow-y-auto custom-scrollbar">
-          {track.patterns.map((ptn, idx) => (
-            <div key={ptn.id} className="flex items-center justify-between border-b border-[#1a1a1a]/20 pb-1 last:border-0 last:pb-0 min-h-6 h-auto py-0.5">
-              <div className="flex items-center gap-2 min-w-0">
-                <input
-                  type="radio"
-                  checked={liveActivePatternId === ptn.id}
-                  onChange={() => onSelectPattern(ptn.id)}
-                  aria-label={ptn.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${idx + 1}`}
-                  className="w-3 h-3 accent-[#1a1a1a] flex-shrink-0 cursor-pointer"
-                />
-                <span 
-                  className={`text-[10px] font-cactus font-bold cursor-pointer truncate ${liveActivePatternId === ptn.id ? 'text-[#1a1a1a]' : 'text-[#666]'}`}
-                  onClick={() => onSelectPattern(ptn.id)}
-                >
-                  {ptn.name ? ptn.name : `${t('patterns').slice(0,-1)} ${idx + 1}`}
-                </span>
-              </div>
-              
-              {onReorderPatterns && track.patterns.length > 1 && (
-                <div className="flex gap-0.5 flex-shrink-0">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onReorderPatterns(ptn.id, 'up'); }}
-                    disabled={idx === 0}
-                    className={`px-1 py-px text-[8px] font-bold border border-[#1a1a1a]/20 rounded-sm leading-none flex items-center justify-center h-4 w-4 ${
-                      idx === 0
-                        ? 'text-gray-400 cursor-not-allowed opacity-50 border-gray-200'
-                        : 'text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer'
-                    }`}
-                    title={lang === 'fr' ? 'Monter' : 'Subir'}
-                  >
-                    ▲
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onReorderPatterns(ptn.id, 'down'); }}
-                    disabled={idx === track.patterns.length - 1}
-                    className={`px-1 py-px text-[8px] font-bold border border-[#1a1a1a]/20 rounded-sm leading-none flex items-center justify-center h-4 w-4 ${
-                      idx === track.patterns.length - 1
-                        ? 'text-gray-400 cursor-not-allowed opacity-50 border-gray-200'
-                        : 'text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer'
-                    }`}
-                    title={lang === 'fr' ? 'Descendre' : 'Descer'}
-                  >
-                    ▼
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
         </div>
       </div>
 
 
-      <div className="flex gap-2 items-start mt-2 border-t-[2px] border-[#1a1a1a] pt-2 relative z-[2] w-full">
-        {isTouchDevice || window.innerWidth <= 1024 ? (
+
+      <div className="flex gap-2 items-start relative z-[2] w-full">
+        {!isCollapsed && (() => {
+          const activePlayingSteps = sequencer.activeVariationsRef?.current[track.id] || activePattern.activeSteps;
+          return isTouchDevice || window.innerWidth <= 1024 ? (
           /* ── MOBILE TOUCH LAYOUT: Grid 8 per line with grouping and multi-select ── */
           <div className="flex flex-col gap-2 w-full select-none">
-            {renderSelectionToolbar()}
-
             {inst.type === 'voice' ? (
               <div 
                 className="step-boxes grid gap-y-2 gap-x-1 w-full items-center justify-start animate-fade-in"
@@ -848,7 +771,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     acc.push(<div key={`spacer-${i}`} />);
                   }
 
-                  const state = activePattern.activeSteps[i];
+                  const state = activePlayingSteps[i];
                   const isActive = state !== 0;
                   const isPux = state === 'P';
                   const syl = activePattern.lyrics?.[i] || '';
@@ -943,9 +866,11 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     acc.push(<div key={`spacer-${i}`} />);
                   }
 
-                  const val = activePattern.activeSteps[i];
+                  const val = activePlayingSteps[i];
                   const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
                   let displayVal = visualVal === 0 ? '' : String(visualVal);
+
+                  const isSelected = selectedStepIndices.includes(i);
 
                   let colorStyle: React.CSSProperties = {};
                   if (visualVal !== 0 && visualVal !== '') {
@@ -956,12 +881,11 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     }
                     colorStyle = {
                       backgroundColor: bgColor,
-                      borderColor: bgColor,
+                      borderColor: isSelected ? undefined : bgColor,
                       color: txtColor,
                     };
                   }
 
-                  const isSelected = selectedStepIndices.includes(i);
                   const isSecondBlockOfFour = Math.floor(i / 4) % 2 === 1;
                   const inactiveBg = isSecondBlockOfFour ? 'bg-[#ebdccb]' : 'bg-[#f4ecd8]';
 
@@ -1039,7 +963,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                           currentStep === i 
                             ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] scale-105' 
                             : isSelected
-                              ? 'bg-[#f1c40f] text-black border-[#1a1a1a] scale-105 ring-2 ring-[#1a1a1a]'
+                              ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-105'
                               : (val === 0 ? `${inactiveBg} text-[#1a1a1a]` : '')
                         }`}
                         style={currentStep === i || isSelected ? {} : colorStyle}
@@ -1061,7 +985,6 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         ) : (
           /* ── DESKTOP GRID LAYOUT: Double Rows ── */
           <div className="flex flex-col gap-2 w-full select-none">
-            {renderSelectionToolbar()}
             {inst.type === 'voice' ? (
               <div 
                 className="grid grid-cols-4 gap-1.5 w-full flex-grow step-boxes" 
@@ -1070,7 +993,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                 onTouchEnd={handleGridTouchEnd}
               >
                 {Array.from({ length: activePattern.steps }).map((_, i) => {
-                  const state = activePattern.activeSteps[i];
+                  const state = activePlayingSteps[i];
                   const isActive = state !== 0;
                   const isPux = state === 'P';
                   const syl = activePattern.lyrics?.[i] || '';
@@ -1174,9 +1097,11 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     acc.push(<div key={`spacer-${i}`} />);
                   }
 
-                  const val = activePattern.activeSteps[i];
+                  const val = activePlayingSteps[i];
                   const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
                   let displayVal = visualVal === 0 ? '' : String(visualVal);
+
+                  const isSelected = selectedStepIndices.includes(i);
 
                   let colorStyle: React.CSSProperties = {};
                   if (visualVal !== 0 && visualVal !== '') {
@@ -1187,12 +1112,11 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     }
                     colorStyle = {
                       backgroundColor: bgColor,
-                      borderColor: bgColor,
+                      borderColor: isSelected ? undefined : bgColor,
                       color: txtColor,
                     };
                   }
 
-                  const isSelected = selectedStepIndices.includes(i);
                   const isSecondBlockOfFour = Math.floor(i / 4) % 2 === 1;
                   const inactiveBg = isSecondBlockOfFour ? 'bg-[#ebdccb]' : 'bg-[#f4ecd8]';
 
@@ -1272,14 +1196,14 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                           const inputEl = e.currentTarget as HTMLInputElement;
                           onStepKeyDown(activePattern.id, i, e.key, inputEl.value, inputEl);
                         }}
-                        className={`w-full aspect-square text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border focus:border-[#8b2a1a] transition-all duration-200 ${
+                        className={`w-full aspect-square text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border transition-all duration-200 ${
                           currentStep === i 
                             ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] scale-105' 
                             : isSelected
-                              ? 'bg-[#f1c40f] text-black border-[#1a1a1a] scale-105 ring-2 ring-[#1a1a1a]'
-                              : (val === 0 ? `${inactiveBg} text-[#1a1a1a]` : '')
+                              ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+                              : (val === 0 || val === '0' ? `${inactiveBg} text-[#1a1a1a] focus:border-[#8b2a1a]` : 'focus:border-[#8b2a1a]')
                         }`}
-                        style={currentStep === i || isSelected ? {} : colorStyle}
+                        style={currentStep === i ? {} : colorStyle}
                         data-track-id={track.id}
                         data-step-index={i}
                         data-step-type="sampler"
@@ -1295,7 +1219,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               </div>
             )}
           </div>
-        )}
+        ); })()}
       </div>
     </div>
   );

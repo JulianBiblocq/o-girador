@@ -4,6 +4,7 @@ import { TrackGroup, Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
 import { PanKnob } from './PanKnob';
 import { getNextStepValue } from './InstrumentDetailEditor';
+import { useSequencer } from '../contexts/SequencerContext';
 
 interface VerticalTrackMixerProps {
   lang: Language;
@@ -105,6 +106,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
   meter,
   soloPatternPlayId,
 }) => {
+  const sequencer = useSequencer();
   const [instDropdownOpen, setInstDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
@@ -496,10 +498,12 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
             <span className="font-bold text-xs">{t('stepsNum')}</span>
             <input type="number" min="2" max="32" value={activePattern.steps} onChange={(e) => onStepsChange(activePattern.id, parseInt(e.target.value) || 4)} className="w-12 bg-transparent border-b-2 border-[var(--cordel-border)] text-center font-bold font-cactus outline-none text-[var(--cordel-text)]" />
           </div>          <div className="flex gap-2 items-start w-full">
-            {inst.type === 'voice' ? (
+            {(() => {
+              const activePlayingSteps = sequencer.activeVariationsRef?.current[track.id] || activePattern.activeSteps;
+              return inst.type === 'voice' ? (
               <div className="grid grid-cols-4 gap-1.5 w-full step-boxes">
                 {Array.from({ length: activePattern.steps }).map((_, i) => {
-                  const state = activePattern.activeSteps[i];
+                  const state = activePlayingSteps[i];
                   const isActive = state !== 0;
                   const isPux = state === 'P';
                   const syl = activePattern.lyrics?.[i] || '';
@@ -521,7 +525,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
               <div className="grid gap-y-2 gap-x-1 w-full justify-start step-boxes" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) 8px repeat(4, minmax(0, 1fr))' }}>
                 {Array.from({ length: activePattern.steps }).reduce((acc: React.ReactNode[], _, i) => {
                   if (i > 0 && i % 4 === 0 && i % 8 !== 0) acc.push(<div key={`spacer-${i}`} />);
-                  const val = activePattern.activeSteps[i];
+                  const val = activePlayingSteps[i];
                   const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
                   let displayVal = visualVal === 0 ? '' : String(visualVal);
 
@@ -605,7 +609,8 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
                   return acc;
                 }, [] as React.ReactNode[])}
               </div>
-            )}
+            );
+            })()}
           </div>
         </div>
       </div>

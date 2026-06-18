@@ -7,11 +7,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import * as Tone from 'tone';
 import { AudioEngine } from '../AudioEngine';
 import { InputManager } from '../InputManager';
-import { TrackGroup, TimeSignature, HitTrigger } from '../types';
+import { TrackGroup, TimeSignature, HitTrigger, SongSection } from '../types';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 
 // Module scope audio engines and nodes to avoid duplicate instantiations on React re-renders
 export let bMetroClick: Tone.Synth | null = null;
+export let metroClaveClick: Tone.MembraneSynth | null = null;
+export let metroCowbellClick: Tone.MetalSynth | null = null;
+export let metroChannel: Tone.Channel | null = null;
 export const channels: { [id: string]: Tone.Channel } = {};
 export const meters: { [id: string]: Tone.Meter } = {};
 export const voiceSynths: { [id: string]: any } = {};
@@ -127,7 +130,13 @@ export function buildTickSchedule(
 
         if (!targetKey) continue;
 
-        const stepVolMultiplier = (activePattern.volumes?.[step] ?? 80) / 100;
+        const baseVol = activePattern.volumes?.[step] ?? 80;
+        // Humanization : la variation est proportionnelle au volume (+/- 15% du volume actuel)
+        const volVariation = (Math.random() * 2 - 1) * (baseVol * 0.15);
+        let finalVol = baseVol + volVariation;
+        finalVol = Math.max(0, Math.min(100, finalVol)); // Clamp entre 0 et 100
+
+        const stepVolMultiplier = finalVol / 100;
         const stepDecayMultiplier = (activePattern.decays?.[step] ?? 100) / 100;
         const microtimingPct = activePattern.microtimings?.[step] ?? 0;
 
@@ -153,6 +162,159 @@ export function buildTickSchedule(
   return schedule;
 }
 
+function buildDynamicMeasureSchedule(
+  tracks: any[],
+  measureIdx: number,
+  timeSig: string,
+  instConfig: any[],
+  soloPatternPlayId: number | null,
+  soloPatternVariationId: string | null,
+  activeVariationsRef: React.MutableRefObject<Record<number, (string | number)[]>>,
+  lastPlayedPatternRef: React.MutableRefObject<Record<number, number>>
+): Map<number, ScheduledNote[]> {
+  const measureMap = new Map<number, ScheduledNote[]>();
+  const hasSolo = tracks.some((t: any) => t.isSolo);
+  const isSoloPlayActive = soloPatternPlayId !== null;
+
+  const parts = timeSig.split('/');
+  const beats = parseInt(parts[0], 10);
+  const beatUnit = parseInt(parts[1], 10);
+  const maxTicks = beats * (96 / beatUnit);
+
+  tracks.forEach((track: any) => {
+    const inst = instConfig[track.instrumentIdx];
+    if (!inst || inst.type === 'voice') return;
+
+    let activePattern: any = null;
+    let canPlay = false;
+
+    if (isSoloPlayActive) {
+      const isTargetSoloTrack = track.patterns.some((p: any) => p.id === soloPatternPlayId);
+      if (isTargetSoloTrack) {
+        activePattern = track.patterns.find((p: any) => p.id === soloPatternPlayId);
+        canPlay = true;
+      }
+    } else {
+      activePattern = track.patterns.find((p: any) => p.measureAssignments[measureIdx]);
+      canPlay = hasSolo ? track.isSolo : !track.isMute;
+    }
+
+    if (!activePattern || !canPlay) return;
+
+    let stepsToPlay = activePattern.activeSteps;
+    let effectiveVolumes = activePattern.volumes;
+    let effectiveDecays = activePattern.decays;
+    let effectiveMicrotimings = activePattern.microtimings;
+
+    const isFirstTime = lastPlayedPatternRef.current[track.id] !== activePattern.id;
+    lastPlayedPatternRef.current[track.id] = activePattern.id;
+
+    if (isSoloPlayActive && soloPatternVariationId === 'base') {
+      // Base phrase only, NO variations
+    } else if (isSoloPlayActive && soloPatternVariationId && soloPatternVariationId !== 'ensemble' && soloPatternVariationId !== 'base') {
+      // Force play specific variation when soloing
+      const matchedVariation = activePattern.variations?.find((v: any) => v.id === soloPatternVariationId);
+      if (matchedVariation) {
+        stepsToPlay = matchedVariation.steps;
+        if (matchedVariation.volumes) effectiveVolumes = matchedVariation.volumes;
+        if (matchedVariation.decays) effectiveDecays = matchedVariation.decays;
+        if (matchedVariation.microtimings) effectiveMicrotimings = matchedVariation.microtimings;
+      }
+    } else if (
+      (!isSoloPlayActive && activePattern.measureAllowVariations?.[measureIdx]) ||
+      (isSoloPlayActive && soloPatternVariationId === 'ensemble')
+    ) {
+      if (activePattern.variations && activePattern.variations.length > 0) {
+        let matchedVariation = null;
+
+        if (isFirstTime) {
+          matchedVariation = activePattern.variations.find((v: any) => v.playFirstTimeOnly);
+        }
+
+        if (!matchedVariation) {
+          const validVariations = activePattern.variations.filter((v: any) => !v.playFirstTimeOnly);
+          if (validVariations.length > 0) {
+            const rand = nextRandom() * 100;
+            let sum = 0;
+            for (const variation of validVariations) {
+              if (rand >= sum && rand < sum + variation.probability) {
+                matchedVariation = variation;
+                break;
+              }
+              sum += variation.probability;
+            }
+          }
+        }
+
+        if (matchedVariation) {
+          stepsToPlay = matchedVariation.steps;
+          if (matchedVariation.volumes) effectiveVolumes = matchedVariation.volumes;
+          if (matchedVariation.decays) effectiveDecays = matchedVariation.decays;
+          if (matchedVariation.microtimings) effectiveMicrotimings = matchedVariation.microtimings;
+        }
+      }
+    }
+
+    // Save the chosen steps so the UI can render them
+    activeVariationsRef.current[track.id] = stepsToPlay;
+
+    const stepCount = activePattern.steps;
+
+    for (let step = 0; step < stepCount; step++) {
+      const state = stepsToPlay[step];
+      if (!state || state === 0) continue;
+
+      const tickIdx = Math.floor((step * maxTicks) / stepCount);
+
+      let targetKey: string | null = typeof state === 'string' ? state : String(state);
+      let isStrong = false;
+
+      if (inst.type === 'gongue') {
+        if (state === 'G' || state === 'A') { isStrong = true; }
+      } else if (inst.id === 'caixa') {
+        if (['D', 'E', 'Q', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
+      } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
+        if (['D', 'E', 'Q', 'X', 'I', 'C'].includes(state)) { isStrong = true; }
+      } else if (inst.id === 'tarol') {
+        if (['D', 'E', 'Q', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
+      } else if (inst.id === 'agbe') {
+        if (['D', 'E', 'S'].includes(state)) { isStrong = true; }
+      } else {
+        if (['D', 'E', 'P', 'T'].includes(state as string)) { isStrong = true; }
+      }
+
+      if (!targetKey) continue;
+
+      const baseVol = effectiveVolumes?.[step] ?? 80;
+      // Humanization : la variation est proportionnelle au volume (+/- 15% du volume actuel)
+      const volVariation = (Math.random() * 2 - 1) * (baseVol * 0.15);
+      let finalVol = baseVol + volVariation;
+      finalVol = Math.max(0, Math.min(100, finalVol)); // Clamp entre 0 et 100
+
+      const stepVolMultiplier = finalVol / 100;
+      const stepDecayMultiplier = (effectiveDecays?.[step] ?? 100) / 100;
+      const microtimingPct = effectiveMicrotimings?.[step] ?? 0;
+
+      if (!measureMap.has(tickIdx)) measureMap.set(tickIdx, []);
+      measureMap.get(tickIdx)!.push({
+        instId: inst.id,
+        playerKey: targetKey,
+        baseGain: 1.0,
+        stepVolMultiplier,
+        stepDecayMultiplier,
+        isStrong,
+        microtimingPct,
+        stepsPerMeasure: stepCount,
+        trackId: track.id,
+        circleStepIdx: step,
+        state,
+      });
+    }
+  });
+
+  return measureMap;
+}
+
 interface UseAudioSyncProps {
   tracks: TrackGroup[];
   tracksRef: React.MutableRefObject<TrackGroup[]>;
@@ -168,6 +330,10 @@ interface UseAudioSyncProps {
   measureSignalsRef: React.MutableRefObject<(string | null)[]>;
   loopStartRef: React.MutableRefObject<number | null>;
   loopEndRef: React.MutableRefObject<number | null>;
+  isLoopRegionActiveRef: React.MutableRefObject<boolean>;
+  isLoopingRef: React.MutableRefObject<boolean>;
+  songSectionsRef: React.MutableRefObject<SongSection[]>;
+  activeVariationsRef: React.MutableRefObject<Record<number, (string | number)[]>>;
 
   // Vocal Recorder state & handlers
   isRecordingVocal: boolean;
@@ -214,6 +380,10 @@ export function useAudioSync({
   measureSignalsRef,
   loopStartRef,
   loopEndRef,
+  isLoopRegionActiveRef,
+  isLoopingRef,
+  songSectionsRef,
+  activeVariationsRef,
 
   isRecordingVocal,
   startVocalRecording,
@@ -247,18 +417,30 @@ export function useAudioSync({
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(-1);
 
   const [isMetroOn, setIsMetroOn] = useState<boolean>(false);
+  const [metroVolume, setMetroVolume] = useState<number>(80);
+  const [metroSound, setMetroSound] = useState<'synth' | 'clave' | 'cowbell'>('synth');
+  const sectionIterationRef = useRef<number>(1);
+  const lastPlayedPatternRef = useRef<Record<number, number>>({});
   const [isSwingOn, setIsSwingOn] = useState<boolean>(true);
   const [soloPatternPlayId, setSoloPatternPlayId] = useState<number | null>(null);
+  const [soloPatternVariationId, setSoloPatternVariationId] = useState<string | null>(null);
 
   // Scheduling loop safety refs
   const maxTicksRef = useRef<number>(96);
   const isMetroOnRef = useRef<boolean>(false);
+  const metroVolumeRef = useRef<number>(80);
+  const metroSoundRef = useRef<string>('synth');
   const isSwingOnRef = useRef<boolean>(true);
   const soloPatternPlayIdRef = useRef<number | null>(null);
+  const soloPatternVariationIdRef = useRef<string | null>(null);
 
   const hitTriggersRef = useRef<HitTrigger[]>([]);
   const engineTimeoutsRef = useRef<any[]>([]);
+  // We still keep tickScheduleRef for rendering static partition / export / pre-compilation
   const tickScheduleRef = useRef<Map<number, Map<number, ScheduledNote[]>>>(new Map());
+  
+  // Dynamic schedule for the currently playing measure
+  const currentDynamicScheduleRef = useRef<Map<number, ScheduledNote[]>>(new Map());
 
   // Local values sync
   useEffect(() => {
@@ -272,11 +454,18 @@ export function useAudioSync({
   useEffect(() => {
     isMetroOnRef.current = isMetroOn;
     isSwingOnRef.current = isSwingOn;
-  }, [isMetroOn, isSwingOn]);
+    metroVolumeRef.current = metroVolume;
+    metroSoundRef.current = metroSound;
+    if (metroChannel) {
+      metroChannel.volume.value = Tone.gainToDb(metroVolume / 100);
+      metroChannel.mute = !isMetroOn;
+    }
+  }, [isMetroOn, isSwingOn, metroVolume, metroSound]);
 
   useEffect(() => {
     soloPatternPlayIdRef.current = soloPatternPlayId;
-  }, [soloPatternPlayId]);
+    soloPatternVariationIdRef.current = soloPatternVariationId;
+  }, [soloPatternPlayId, soloPatternVariationId]);
 
   // Sync InputManager configurations
   useEffect(() => {
@@ -348,7 +537,9 @@ export function useAudioSync({
 
   // Recompile tick schedule when state changes
   useEffect(() => {
-    console.log("⚙️⚙️⚙️ [AUDIO_ENGINE_SYNC_&_RECOMPILE] Hook state changed! Recompiling tickScheduleRef...");
+    if (import.meta.env.DEV) {
+      console.log("⚙️⚙️⚙️ [AUDIO_ENGINE_SYNC_&_RECOMPILE] Hook state changed! Recompiling tickScheduleRef...");
+    }
     try {
       const schedule = buildTickSchedule(
         tracks,
@@ -404,11 +595,29 @@ export function useAudioSync({
         console.warn("Failed to set Tone.js lookAhead:", err);
       }
 
+      metroChannel = new Tone.Channel({ volume: Tone.gainToDb(metroVolumeRef.current / 100) }).connect(masterVolumeNode);
+      metroChannel.mute = !isMetroOnRef.current;
+
       bMetroClick = new Tone.Synth({
         oscillator: { type: 'square' },
         envelope: { attack: 0.001, decay: 0.05, sustain: 0.0, release: 0.01 },
-        volume: 4,
-      }).connect(masterVolumeNode);
+      }).connect(metroChannel);
+
+      metroClaveClick = new Tone.MembraneSynth({
+        pitchDecay: 0.008,
+        octaves: 2,
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.01 }
+      }).connect(metroChannel);
+
+      metroCowbellClick = new Tone.MetalSynth({
+        envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
+        harmonicity: 5.1,
+        modulationIndex: 32,
+        resonance: 4000,
+        octaves: 1.5
+      }).connect(metroChannel);
+      metroCowbellClick.frequency.value = 200;
 
       if (!reverbNode) {
         reverbNode = new Tone.Freeverb({ roomSize: 0.6, dampening: 3000 }).connect(masterVolumeNode);
@@ -468,7 +677,9 @@ export function useAudioSync({
       audioEngine = new AudioEngine(
         rawCtx,
         (time) => {
-          console.log("⏰⏰⏰ [AUDIO ENGINE ON_TICK CALLBACK] Fired. time: " + time + " | currentStepIndexRef: " + currentStepIndexRef.current);
+          if (import.meta.env.DEV) {
+            console.log("⏰⏰⏰ [AUDIO ENGINE ON_TICK CALLBACK] Fired. time: " + time + " | currentStepIndexRef: " + currentStepIndexRef.current);
+          }
           let currentTicks = maxTicksRef.current;
           let stepIdx = currentStepIndexRef.current;
 
@@ -479,7 +690,7 @@ export function useAudioSync({
             nextStepIdx = 0;
             if (soloPatternPlayIdRef.current !== null) {
               measureCountRef.current = 0;
-            } else if (loopStartRef.current !== null && (measureCountRef.current < loopStartRef.current || (loopEndRef.current !== null && measureCountRef.current > loopEndRef.current))) {
+            } else if (isLoopRegionActiveRef.current && loopStartRef.current !== null && (measureCountRef.current < loopStartRef.current || (loopEndRef.current !== null && measureCountRef.current > loopEndRef.current))) {
               measureCountRef.current = loopStartRef.current;
             } else {
               measureCountRef.current = measureCountRef.current % (totalMeasuresRef.current || 1);
@@ -494,9 +705,30 @@ export function useAudioSync({
               measureCountRef.current = 0;
             } else {
               const currentMeasureIdx = measureCountRef.current;
-              if (loopStartRef.current !== null && loopEndRef.current !== null && currentMeasureIdx === loopEndRef.current) {
-                measureCountRef.current = loopStartRef.current;
+              const effectiveLoopEnd = (isLoopRegionActiveRef.current && loopEndRef.current !== null) ? loopEndRef.current : (totalMeasuresRef.current - 1);
+
+              const activeSection = songSectionsRef.current?.find(s => currentMeasureIdx === s.endMeasure);
+
+              if (currentMeasureIdx === effectiveLoopEnd) {
+                // Global boundary logic wins
+                sectionIterationRef.current = 1;
+                if (!isLoopingRef.current) {
+                  setTimeout(() => {
+                    handleStop();
+                  }, 0);
+                  measureCountRef.current = (isLoopRegionActiveRef.current && loopStartRef.current !== null) ? loopStartRef.current : 0;
+                } else {
+                  measureCountRef.current = (isLoopRegionActiveRef.current && loopStartRef.current !== null) ? loopStartRef.current : 0;
+                }
+              } else if (activeSection && sectionIterationRef.current < (activeSection.repeatCount || 1)) {
+                // Local section jump
+                sectionIterationRef.current++;
+                measureCountRef.current = activeSection.startMeasure;
               } else {
+                // Normal progression
+                if (activeSection) {
+                  sectionIterationRef.current = 1; // reset for the next pass
+                }
                 measureCountRef.current = (measureCountRef.current + 1) % (totalMeasuresRef.current || 1);
               }
             }
@@ -520,6 +752,19 @@ export function useAudioSync({
             lastPlayedSignalIdRef.current = sigId;
             // Update React state explicitly for context subscribers, once per measure boundary
             setCurrentMeasure(currentMeasureIdx);
+
+            // Dynamically evaluate variations and build schedule for this measure
+            const timeSig = measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
+            currentDynamicScheduleRef.current = buildDynamicMeasureSchedule(
+              tracksRef.current,
+              currentMeasureIdx,
+              timeSig,
+              instrumentsConfig,
+              soloPatternPlayIdRef.current,
+              soloPatternVariationIdRef.current,
+              activeVariationsRef,
+              lastPlayedPatternRef
+            );
           }
 
           const _stepForUI = isNaN(stepIdx) ? 0 : stepIdx;
@@ -597,8 +842,15 @@ export function useAudioSync({
           const markers = getCachedMarkers(currentMeasureSig, currentTicks);
 
           if (isMetroOnRef.current && markers.includes(stepIdx)) {
-            const noteVal = stepIdx === 0 ? 'A5' : 'E5';
-            bMetroClick?.triggerAttackRelease(noteVal, '32n', time);
+            if (metroSoundRef.current === 'clave') {
+              const noteVal = stepIdx === 0 ? 'A5' : 'E5';
+              metroClaveClick?.triggerAttackRelease(noteVal, '32n', time);
+            } else if (metroSoundRef.current === 'cowbell') {
+              metroCowbellClick?.triggerAttackRelease('32n', time, stepIdx === 0 ? 1 : 0.6);
+            } else {
+              const noteVal = stepIdx === 0 ? 'A5' : 'E5';
+              bMetroClick?.triggerAttackRelease(noteVal, '32n', time);
+            }
           }
 
           // Parse trigger of step events
@@ -623,9 +875,8 @@ export function useAudioSync({
           }
           const swingTime = time + swingOffset;
 
-          // Play non-voice scheduled notes
-          const measureMap = tickScheduleRef.current.get(currentMeasureIdx);
-          const scheduledNotes = measureMap?.get(stepIdx);
+          // Play non-voice scheduled notes from DYNAMIC schedule
+          const scheduledNotes = currentDynamicScheduleRef.current?.get(stepIdx);
 
           if (scheduledNotes) {
             for (const note of scheduledNotes) {
@@ -642,7 +893,9 @@ export function useAudioSync({
                 const microOffset = (note.microtimingPct / 100) * stepDurSec * 0.5;
                 const triggerTime = swingTime + microOffset;
 
-                console.log("🎵 [PLAY NOTE] AudioEngine", note.instId, note.playerKey, triggerTime);
+                if (import.meta.env.DEV) {
+                  console.log("🎵 [PLAY NOTE] AudioEngine", note.instId, note.playerKey, triggerTime);
+                }
                 audioEngine?.playNote(note.instId, note.playerKey, triggerTime, note.baseGain * vel, note.stepDecayMultiplier);
 
                 const delayMs = Math.max(0, (triggerTime - rawCtx.currentTime) * 1000);
@@ -780,7 +1033,9 @@ export function useAudioSync({
   }, []);
 
   const handleTogglePlay = async () => {
-    console.log("📣📣📣 [PLAY_BUTTON_TRIGGERED] handleTogglePlay called! Current state -> isPlaying: " + isPlaying + " | currentStepIndexRef: " + currentStepIndexRef.current);
+    if (import.meta.env.DEV) {
+      console.log("📣📣📣 [PLAY_BUTTON_TRIGGERED] handleTogglePlay called! Current state -> isPlaying: " + isPlaying + " | currentStepIndexRef: " + currentStepIndexRef.current);
+    }
     await Tone.start();
     if (soloPatternPlayIdRef.current !== null) {
       setSoloPatternPlayId(null);
@@ -790,11 +1045,15 @@ export function useAudioSync({
       if (Tone.Transport.state !== 'started') {
         Tone.Transport.start();
       }
-      console.log("🚀 [AUDIO ENGINE START] Starting audioEngine. Step index ref:", currentStepIndexRef.current);
+      if (import.meta.env.DEV) {
+        console.log("🚀 [AUDIO ENGINE START] Starting audioEngine. Step index ref:", currentStepIndexRef.current);
+      }
       audioEngine?.start();
       setIsPlaying(true);
     } else {
-      console.log("⏸️ [AUDIO ENGINE STOP] Stopping audioEngine.");
+      if (import.meta.env.DEV) {
+        console.log("⏸️ [AUDIO ENGINE STOP] Stopping audioEngine.");
+      }
       audioEngine?.stop();
       engineTimeoutsRef.current.forEach(clearTimeout);
       engineTimeoutsRef.current = [];
@@ -847,6 +1106,7 @@ export function useAudioSync({
     engineTimeoutsRef.current.forEach(clearTimeout);
     engineTimeoutsRef.current = [];
     hitTriggersRef.current = [];
+    lastPlayedPatternRef.current = {};
     Tone.Transport.stop();
     if (isRecordingVocal) {
       stopVocalRecording();
@@ -877,7 +1137,7 @@ export function useAudioSync({
     }));
   };
 
-  const handleStartSoloPattern = async (patternId: number) => {
+  const handleStartSoloPattern = async (patternId: number, variationId?: string) => {
     await Tone.start();
     if (isRecordingVocal) {
       stopVocalRecording();
@@ -900,6 +1160,7 @@ export function useAudioSync({
     });
 
     setSoloPatternPlayId(patternId);
+    setSoloPatternVariationId(variationId || null);
     setCurrentStepIndex(-1);
     currentStepIndexRef.current = -1;
     measureCountRef.current = 0;
@@ -916,7 +1177,10 @@ export function useAudioSync({
 
   const handleStopSoloPattern = () => {
     setSoloPatternPlayId(null);
-    handleTogglePlay();
+    setSoloPatternVariationId(null);
+    if (isPlayingRef.current) {
+      handleStop();
+    }
   };
 
   const handleTimelineNavigate = (measureIdx: number, stepIdxInMeasure: number, stepsInMeasure: number) => {
@@ -974,10 +1238,16 @@ export function useAudioSync({
     setIsLoading,
     isMetroOn,
     setIsMetroOn,
+    metroVolume,
+    setMetroVolume,
+    metroSound,
+    setMetroSound,
     isSwingOn,
     setIsSwingOn,
     soloPatternPlayId,
     setSoloPatternPlayId,
+    soloPatternVariationId,
+    setSoloPatternVariationId,
     // Control Handlers
     handleTogglePlay,
     handleStop,
@@ -993,6 +1263,7 @@ export function useAudioSync({
     isMetroOnRef,
     isSwingOnRef,
     soloPatternPlayIdRef,
+    soloPatternVariationIdRef,
     hitTriggersRef,
     engineTimeoutsRef,
     lastPlayedSignalIdRef,

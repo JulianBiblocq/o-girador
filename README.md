@@ -4,7 +4,7 @@
 > **Le séquenceur de rythmes de Maracatu de Baque Virado interactif dans votre navigateur.**
 
 <div align="center">
-  <img src="https://julianbiblocq.github.io/BaqueMix/og-image.png" alt="BaqueMix Banner" width="800" style="border: 3px solid #1a1a1a; box-shadow: 4px 4px 0px 0px #1a1a1a;" />
+  <img src="https://julianbiblocq.github.io/BaqueMix/og-image.jpg" alt="BaqueMix Banner" width="800" style="border: 3px solid #1a1a1a; box-shadow: 4px 4px 0px 0px #1a1a1a;" />
 </div>
 
 ---
