@@ -35,7 +35,7 @@ export const usePatternLibraryStore = create<PatternLibraryState>()(
       }
     }),
     {
-      name: 'baquemix-pattern-library',
+      name: 'o-girador-pattern-library',
     }
   )
 );

@@ -649,7 +649,7 @@ export const VaralCordel: React.FC<VaralCordelProps> = ({
                 </div>
                 <span className="text-[8px] italic uppercase text-[#1a1a1a]/60 mt-3 text-center leading-normal">
                   Xilogravura artesanal <br />
-                  BaqueMix Coleção
+                  O Girador Coleção
                 </span>
               </div>
 

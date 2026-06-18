@@ -80,7 +80,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
             addExercise(json);
             setImportMessages(prev => [...prev, `Exercice "${json.folheto_titre || json.module}" importé avec succès (${file.name}) !`]);
           } else {
-            setImportMessages(prev => [...prev, `Erreur : Le fichier ${file.name} n'est pas un module BaqueMix valide.`]);
+            setImportMessages(prev => [...prev, `Erreur : Le fichier ${file.name} n'est pas un module O Girador valide.`]);
           }
         } catch (err) {
           setImportMessages(prev => [...prev, `Erreur de lecture de ${file.name} : format JSON invalide.`]);
@@ -299,7 +299,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
   useEffect(() => {
     if (!studioPlaying) {
       setStudioStep(-1);
-      window.dispatchEvent(new CustomEvent('baquemix-tick', {
+      window.dispatchEvent(new CustomEvent('o-girador-tick', {
         detail: { step: -1, measure: 0, maxTicks: 16, ratio: 0 }
       }));
       return;
@@ -354,7 +354,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
       });
 
       // Dispatch event to animate canvas playheads
-      window.dispatchEvent(new CustomEvent('baquemix-tick', {
+      window.dispatchEvent(new CustomEvent('o-girador-tick', {
         detail: {
           step: currentStep,
           measure: 0,

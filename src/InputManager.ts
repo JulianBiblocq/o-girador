@@ -1,5 +1,5 @@
 /**
- * BaqueMix Keyboard Event Manager (InputManager)
+ * O Girador Keyboard Event Manager (InputManager)
  * 
  * Manages live keyboard routing:
  *  - Handles case-sensitive and case-insensitive keys.

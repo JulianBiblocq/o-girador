@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const CACHE_NAME = 'baquemix-cache-v2.5';
+const CACHE_NAME = 'o-girador-cache-v2.5';
 
 // Core static files to cache immediately on SW install
 const STATIC_ASSETS = [

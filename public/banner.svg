@@ -44,7 +44,7 @@
     </style>
   </defs>
   
-  <a href="https://JulianBiblocq.github.io/BaqueMix/" target="_blank" rel="noopener noreferrer">
+  <a href="https://JulianBiblocq.github.io/O Girador/" target="_blank" rel="noopener noreferrer">
     <rect class="bg" width="800" height="400" />
     
     <!-- Abstract subtle circles in background (Roda) -->
@@ -53,7 +53,7 @@
     <circle class="drum-circle" cx="400" cy="200" r="100" />
     
     <!-- Text -->
-    <text x="400" y="190" class="title">BaqueMix</text>
+    <text x="400" y="190" class="title">O Girador</text>
     <text x="400" y="240" class="slogan">Séquenceur cylindrique à pas !</text>
     
     <!-- CTA Button -->

@@ -1,5 +1,5 @@
 /**
- * BaqueMix Audio Configuration & Mappings Database
+ * O Girador Audio Configuration & Mappings Database
  * Contains all absolute local paths, stroke mapping, case-sensitivity rules, and UI orders.
  */
 

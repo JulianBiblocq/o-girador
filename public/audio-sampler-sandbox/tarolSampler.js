@@ -1,5 +1,5 @@
 /**
- * BaqueMix - Web Audio Sampler for Tarol (Maracatu Snare)
+ * O Girador - Web Audio Sampler for Tarol (Maracatu Snare)
  * 
  * Native Web Audio API implementation of the Tarol sampler.
  * Supports:

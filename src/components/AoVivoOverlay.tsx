@@ -460,8 +460,8 @@ export const AoVivoOverlay: React.FC = () => {
       }
     };
 
-    window.addEventListener('baquemix-tick', handleTick);
-    return () => window.removeEventListener('baquemix-tick', handleTick);
+    window.addEventListener('o-girador-tick', handleTick);
+    return () => window.removeEventListener('o-girador-tick', handleTick);
   }, [activeAoVivoTrackId, tracks]);
 
   if (activeAoVivoTrackId === null) return null;

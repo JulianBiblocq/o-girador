@@ -610,7 +610,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                   : "Uma ideia, um bug ou feedback? Venha conversar no fórum!"}
               </p>
               <button
-                onClick={() => window.open('https://github.com/JulianBiblocq/BaqueMix/issues', '_blank')}
+                onClick={() => window.open('https://github.com/JulianBiblocq/o-girador/issues', '_blank')}
                 className="bg-[#27ae60] text-[#1a1a1a] hover:opacity-90 px-3 py-1 text-xs font-bold cordel-border-sm cursor-pointer mx-auto flex items-center gap-1"
               >
                 <span>💬</span>

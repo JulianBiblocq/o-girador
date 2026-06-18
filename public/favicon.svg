@@ -4,7 +4,7 @@
       @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&amp;display=swap');
       
       .bg {
-        fill: #0a0807; /* Très sombre, couleur de fond BaqueMix */
+        fill: #0a0807; /* Très sombre, couleur de fond O Girador */
       }
       .letter-m {
         font-family: 'Cinzel Decorative', serif;

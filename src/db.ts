@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const DB_NAME = 'BaqueMixDB';
+const DB_NAME = 'O GiradorDB';
 const DB_VERSION = 1;
 const STORE_NAME = 'vocalRecordings';
 

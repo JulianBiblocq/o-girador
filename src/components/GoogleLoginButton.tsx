@@ -51,7 +51,7 @@ const GoogleLoginButtonActive: React.FC<GoogleLoginButtonProps> = ({
 
   // Restore session from localStorage on mount
   useEffect(() => {
-    const savedProfile = localStorage.getItem('baquemix_user_profile');
+    const savedProfile = localStorage.getItem('o_girador_user_profile');
     if (savedProfile) {
       try {
         const parsed = JSON.parse(savedProfile);
@@ -61,7 +61,7 @@ const GoogleLoginButtonActive: React.FC<GoogleLoginButtonProps> = ({
         }
       } catch (err) {
         console.error('Failed to parse saved user profile:', err);
-        localStorage.removeItem('baquemix_user_profile');
+        localStorage.removeItem('o_girador_user_profile');
       }
     }
   }, []);
@@ -87,7 +87,7 @@ const GoogleLoginButtonActive: React.FC<GoogleLoginButtonProps> = ({
         });
         const profileData = await res.json();
         setProfile(profileData);
-        localStorage.setItem('baquemix_user_profile', JSON.stringify(profileData));
+        localStorage.setItem('o_girador_user_profile', JSON.stringify(profileData));
         if (onProfileUpdate) {
           onProfileUpdate(profileData);
         }
@@ -105,7 +105,7 @@ const GoogleLoginButtonActive: React.FC<GoogleLoginButtonProps> = ({
     googleLogout();
     setProfile(null);
     setDropdownOpen(false);
-    localStorage.removeItem('baquemix_user_profile');
+    localStorage.removeItem('o_girador_user_profile');
     if (onProfileUpdate) {
       onProfileUpdate(null);
     }

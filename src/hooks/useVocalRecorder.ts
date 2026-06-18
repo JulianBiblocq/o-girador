@@ -60,7 +60,7 @@ export function useVocalRecorder({
   const [recordedPatternIds, setRecordedPatternIds] = useState<number[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedAudioDeviceId, setSelectedAudioDeviceId] = useState<string>(() => {
-    return localStorage.getItem('baquemix_vocal_device_id') || '';
+    return localStorage.getItem('oGirador_vocal_device_id') || '';
   });
   const [isVocalGuideEnabled, setIsVocalGuideEnabled] = useState<boolean>(true);
   const isVocalGuideEnabledRef = useRef<boolean>(true);
@@ -106,7 +106,7 @@ export function useVocalRecorder({
 
   const handleAudioDeviceChange = (deviceId: string) => {
     setSelectedAudioDeviceId(deviceId);
-    localStorage.setItem('baquemix_vocal_device_id', deviceId);
+    localStorage.setItem('oGirador_vocal_device_id', deviceId);
   };
 
   const loadVocalRecording = async (patternId: number) => {
