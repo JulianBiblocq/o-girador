@@ -30,14 +30,14 @@
   "categories": ["music", "education"],
   "file_handlers": [
     {
-      "action": ".",
+      "action": "/o-girador/",
       "accept": {
         "application/json": [".json"]
       }
     }
   ],
   "share_target": {
-    "action": ".",
+    "action": "/o-girador/",
     "method": "GET",
     "params": {
       "title": "title",
