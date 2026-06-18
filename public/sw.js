@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const CACHE_NAME = 'baquemix-cache-v2.4';
+const CACHE_NAME = 'baquemix-cache-v2.5';
 
 // Core static files to cache immediately on SW install
 const STATIC_ASSETS = [
@@ -20,67 +20,116 @@ const STATIC_ASSETS = [
 
 // Audio files to cache immediately for offline usage
 const AUDIO_ASSETS = [
-  './sons-maracatu/Apito.ogg',
-  './sons-maracatu/Agbe/barulho.wav',
-  './sons-maracatu/Agbe/faible.wav',
-  './sons-maracatu/Agbe/fort.wav',
-  './sons-maracatu/Agbe/saut.wav',
+  './Mixdown/Apito W long.ogg',
+  './Mixdown/Apito w court.ogg',
 
-  './sons-maracatu/Alfaia/Marcante/barulho.wav',
-  './sons-maracatu/Alfaia/Marcante/cerclage.wav',
-  './sons-maracatu/Alfaia/Marcante/click.wav',
-  './sons-maracatu/Alfaia/Marcante/faible.wav',
-  './sons-maracatu/Alfaia/Marcante/fort.wav',
-  './sons-maracatu/Alfaia/Marcante/iguarassu.wav',
+  './Mixdown/Agbe A 1.ogg',
+  './Mixdown/Agbe A 2.ogg',
+  './Mixdown/Agbe B.ogg',
+  './Mixdown/Agbe f 1.ogg',
+  './Mixdown/Agbe f 2.ogg',
+  './Mixdown/Agbe f 3.ogg',
+  './Mixdown/Agbe f 4.ogg',
+  './Mixdown/Agbe F D 1.ogg',
+  './Mixdown/Agbe F D 2.ogg',
+  './Mixdown/Agbe F D 3.ogg',
+  './Mixdown/Agbe F D 4.ogg',
+  './Mixdown/Agbe F E 1.ogg',
+  './Mixdown/Agbe F E 2.ogg',
+  './Mixdown/Agbe F E 3.ogg',
+  './Mixdown/Agbe F E 4.ogg',
+  './Mixdown/Agbe S 1.ogg',
+  './Mixdown/Agbe S 2.ogg',
 
-  './sons-maracatu/Alfaia/Meiao/barulho.wav',
-  './sons-maracatu/Alfaia/Meiao/cerclage.wav',
-  './sons-maracatu/Alfaia/Meiao/click.wav',
-  './sons-maracatu/Alfaia/Meiao/faible.wav',
-  './sons-maracatu/Alfaia/Meiao/fort.wav',
-  './sons-maracatu/Alfaia/Meiao/iguarassu.wav',
+  './Mixdown/Alfaia meiao B.ogg',
+  './Mixdown/Alfaia meiao C 1.ogg',
+  './Mixdown/Alfaia meiao C 2.ogg',
+  './Mixdown/Alfaia meiao F 1.ogg',
+  './Mixdown/Alfaia meiao F 2.ogg',
+  './Mixdown/Alfaia meiao F 3.ogg',
+  './Mixdown/Alfaia meiao F 4.ogg',
+  './Mixdown/Alfaia meiao F 5.ogg',
+  './Mixdown/Alfaia meiao F 6.ogg',
+  './Mixdown/Alfaia meiao faible 1.ogg',
+  './Mixdown/Alfaia meiao faible 2.ogg',
+  './Mixdown/Alfaia meiao faible 3.ogg',
+  './Mixdown/Alfaia meiao faible 4.ogg',
+  './Mixdown/Alfaia meiao I 1.ogg',
+  './Mixdown/Alfaia meiao I 2.ogg',
+  './Mixdown/Alfaia meiao X 1.ogg',
+  './Mixdown/Alfaia meiao X 2.ogg',
 
-  './sons-maracatu/Alfaia/Repique/barulho.wav',
-  './sons-maracatu/Alfaia/Repique/cerclage.wav',
-  './sons-maracatu/Alfaia/Repique/click.wav',
-  './sons-maracatu/Alfaia/Repique/faible.wav',
-  './sons-maracatu/Alfaia/Repique/fort.wav',
-  './sons-maracatu/Alfaia/Repique/iguarassu.wav',
+  './Mixdown/Caixa B.ogg',
+  './Mixdown/Caixa C 1.ogg',
+  './Mixdown/Caixa C 2.ogg',
+  './Mixdown/Caixa F 1.ogg',
+  './Mixdown/Caixa F 2.ogg',
+  './Mixdown/Caixa F 3.ogg',
+  './Mixdown/Caixa F 4.ogg',
+  './Mixdown/Caixa faible 1.ogg',
+  './Mixdown/Caixa faible 2.ogg',
+  './Mixdown/Caixa faible 3.ogg',
+  './Mixdown/Caixa faible 4.ogg',
+  './Mixdown/Caixa Fla 1.ogg',
+  './Mixdown/Caixa Fla 2.ogg',
+  './Mixdown/Caixa R 1.ogg',
+  './Mixdown/Caixa R 2.ogg',
+  './Mixdown/Caixa X.ogg',
 
-  './sons-maracatu/Caixa/Caixa-barulho.wav',
-  './sons-maracatu/Caixa/Caixa-cerclage.wav',
-  './sons-maracatu/Caixa/Caixa-fla.wav',
-  './sons-maracatu/Caixa/Caixa-ruffada-D.wav',
-  './sons-maracatu/Caixa/Caixa-ruffada-G.wav',
-  './sons-maracatu/Caixa/faible.wav',
-  './sons-maracatu/Caixa/fort.wav',
+  './Mixdown/Gongue A 1.ogg',
+  './Mixdown/Gongue A 2.ogg',
+  './Mixdown/Gongue A 3.ogg',
+  './Mixdown/Gongue A 4.ogg',
+  './Mixdown/Gongue B.ogg',
+  './Mixdown/Gongue C 1.ogg',
+  './Mixdown/Gongue C 2.ogg',
+  './Mixdown/Gongue f a 1.ogg',
+  './Mixdown/Gongue f a 2.ogg',
+  './Mixdown/Gongue f a 3.ogg',
+  './Mixdown/Gongue f a 4.ogg',
+  './Mixdown/Gongue f g 1.ogg',
+  './Mixdown/Gongue f g 2.ogg',
+  './Mixdown/Gongue f g 3.ogg',
+  './Mixdown/Gongue f g 4.ogg',
+  './Mixdown/Gongue G 1.ogg',
+  './Mixdown/Gongue G 2.ogg',
+  './Mixdown/Gongue G 3.ogg',
+  './Mixdown/Gongue G 4.ogg',
 
-  './sons-maracatu/Gongue/Gongue-barulho.wav',
-  './sons-maracatu/Gongue/faible-aigue.wav',
-  './sons-maracatu/Gongue/faible-grave.wav',
-  './sons-maracatu/Gongue/fort-aigue.wav',
-  './sons-maracatu/Gongue/fort-grave.wav',
+  './Mixdown/Mineiro B.ogg',
+  './Mixdown/Mineiro f 1.ogg',
+  './Mixdown/Mineiro f 2.ogg',
+  './Mixdown/Mineiro f 3.ogg',
+  './Mixdown/Mineiro f 4.ogg',
+  './Mixdown/Mineiro F P 1.ogg',
+  './Mixdown/Mineiro F P 2.ogg',
+  './Mixdown/Mineiro F P 3.ogg',
+  './Mixdown/Mineiro F P 4.ogg',
+  './Mixdown/Mineiro F T 1.ogg',
+  './Mixdown/Mineiro F T 2.ogg',
+  './Mixdown/Mineiro F T 3.ogg',
+  './Mixdown/Mineiro F T 4.ogg',
+  './Mixdown/Mineiro L 1.ogg',
+  './Mixdown/Mineiro L 2.ogg',
+  './Mixdown/Mineiro L 3.ogg',
+  './Mixdown/Mineiro L 4.ogg',
 
-  './sons-maracatu/Mineiro/faible.wav',
-  './sons-maracatu/Mineiro/fort.wav',
-
-  './sons-maracatu/Tarol/Tarol cerclage x.wav',
-  './sons-maracatu/Tarol/Tarol click c1.wav',
-  './sons-maracatu/Tarol/Tarol click c2.wav',
-  './sons-maracatu/Tarol/Tarol faible d1.wav',
-  './sons-maracatu/Tarol/Tarol faible d2.wav',
-  './sons-maracatu/Tarol/Tarol faible d3.wav',
-  './sons-maracatu/Tarol/Tarol faible d4.wav',
-  './sons-maracatu/Tarol/Tarol fla1.wav',
-  './sons-maracatu/Tarol/Tarol fla2.wav',
-  './sons-maracatu/Tarol/Tarol fort D1.wav',
-  './sons-maracatu/Tarol/Tarol fort D2.wav',
-  './sons-maracatu/Tarol/Tarol fort D3.wav',
-  './sons-maracatu/Tarol/Tarol fort D4.wav',
-  './sons-maracatu/Tarol/Tarol rufada1.wav',
-  './sons-maracatu/Tarol/Tarol rufada2.wav',
-  './sons-maracatu/Tarol/Tarol rufada3.wav',
-  './sons-maracatu/Tarol/Tarol tremer.wav'
+  './Mixdown/Tarol B.ogg',
+  './Mixdown/Tarol C 1.ogg',
+  './Mixdown/Tarol C 2.ogg',
+  './Mixdown/Tarol F1.ogg',
+  './Mixdown/Tarol F 2.ogg',
+  './Mixdown/Tarol F 3.ogg',
+  './Mixdown/Tarol F 4.ogg',
+  './Mixdown/Tarol faible 1.ogg',
+  './Mixdown/Tarol faible 2.ogg',
+  './Mixdown/Tarol faible 3.ogg',
+  './Mixdown/Tarol faible 4.ogg',
+  './Mixdown/Tarol Fla 1.ogg',
+  './Mixdown/Tarol Fla 2.ogg',
+  './Mixdown/Tarol R 1.ogg',
+  './Mixdown/Tarol R 2.ogg',
+  './Mixdown/Tarol X.ogg'
 ];
 
 // Preset JSON files to cache immediately for offline usage
@@ -135,7 +184,7 @@ self.addEventListener('fetch', (e) => {
 
     // 1. Cache-First for highly static assets (audio, fonts, icons, images)
     if (
-      path.includes('/sons-maracatu/') ||
+      path.includes('/Mixdown/') ||
       path.includes('/icones/') ||
       path.includes('/fonts/') ||
       path.endsWith('.png') ||
@@ -166,7 +215,6 @@ self.addEventListener('fetch', (e) => {
       // 2. Stale-While-Revalidate for app code (HTML, JS, CSS, presets JSON)
       e.respondWith(
         caches.match(e.request).then((cachedResponse) => {
-          const CURRENT_VERSION = "2.2"; // Matches version.json
           const fetchPromise = fetch(e.request).then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
               return caches.open(CACHE_NAME).then((cache) => {

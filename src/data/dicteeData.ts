@@ -40,28 +40,28 @@ export const dicteeLevels: DicteeLevel[] = [
         id: 'g1-1',
         label: 'TUM',
         instrument: { fr: 'Gonguê Grave', pt: 'Gonguê Grave' },
-        audioUrl: 'sons-maracatu/Gongue/fort-grave.wav',
+        audioUrl: 'Mixdown/Gongue G 1.ogg',
         color: '#8c7b7b'
       },
       {
         id: 'g1-2',
         label: 'TI',
         instrument: { fr: 'Gonguê Aigu', pt: 'Gonguê Agudo' },
-        audioUrl: 'sons-maracatu/Gongue/fort-aigue.wav',
+        audioUrl: 'Mixdown/Gongue A 1.ogg',
         color: '#bdc3c7'
       },
       {
         id: 'g1-3',
         label: 'TUM',
         instrument: { fr: 'Gonguê Grave', pt: 'Gonguê Grave' },
-        audioUrl: 'sons-maracatu/Gongue/fort-grave.wav',
+        audioUrl: 'Mixdown/Gongue G 1.ogg',
         color: '#8c7b7b'
       },
       {
         id: 'g1-4',
         label: 'TI',
         instrument: { fr: 'Gonguê Aigu', pt: 'Gonguê Agudo' },
-        audioUrl: 'sons-maracatu/Gongue/fort-aigue.wav',
+        audioUrl: 'Mixdown/Gongue A 1.ogg',
         color: '#bdc3c7'
       }
     ]
@@ -82,28 +82,28 @@ export const dicteeLevels: DicteeLevel[] = [
         id: 'g2-1',
         label: 'BUM',
         instrument: { fr: 'Alfaia Marcante', pt: 'Alfaia Marcante' },
-        audioUrl: 'sons-maracatu/Alfaia/Marcante/fort.wav',
+        audioUrl: 'Mixdown/Alfaia meiao F 1.ogg',
         color: '#8a2b2b'
       },
       {
         id: 'g2-2',
         label: 'TAC',
         instrument: { fr: 'Caixa', pt: 'Caixa' },
-        audioUrl: 'sons-maracatu/Caixa/fort.wav',
+        audioUrl: 'Mixdown/Caixa F 1.ogg',
         color: '#7a3187'
       },
       {
         id: 'g2-3',
         label: 'BUM',
         instrument: { fr: 'Alfaia Marcante', pt: 'Alfaia Marcante' },
-        audioUrl: 'sons-maracatu/Alfaia/Marcante/fort.wav',
+        audioUrl: 'Mixdown/Alfaia meiao F 1.ogg',
         color: '#8a2b2b'
       },
       {
         id: 'g2-4',
         label: 'TAC',
         instrument: { fr: 'Caixa', pt: 'Caixa' },
-        audioUrl: 'sons-maracatu/Caixa/fort.wav',
+        audioUrl: 'Mixdown/Caixa F 1.ogg',
         color: '#7a3187'
       }
     ]
@@ -124,28 +124,28 @@ export const dicteeLevels: DicteeLevel[] = [
         id: 'g3-1',
         label: 'TUM',
         instrument: { fr: 'Gonguê Grave', pt: 'Gonguê Grave' },
-        audioUrl: 'sons-maracatu/Gongue/fort-grave.wav',
+        audioUrl: 'Mixdown/Gongue G 1.ogg',
         color: '#8c7b7b'
       },
       {
         id: 'g3-2',
         label: 'DÉ',
         instrument: { fr: 'Agbê', pt: 'Agbê' },
-        audioUrl: 'sons-maracatu/Agbe/fort.wav',
+        audioUrl: 'Mixdown/Agbe F D 1.ogg',
         color: '#22c55e'
       },
       {
         id: 'g3-3',
         label: 'TI',
         instrument: { fr: 'Gonguê Aigu', pt: 'Gonguê Agudo' },
-        audioUrl: 'sons-maracatu/Gongue/fort-aigue.wav',
+        audioUrl: 'Mixdown/Gongue A 1.ogg',
         color: '#bdc3c7'
       },
       {
         id: 'g3-4',
         label: 'DÉ',
         instrument: { fr: 'Agbê', pt: 'Agbê' },
-        audioUrl: 'sons-maracatu/Agbe/fort.wav',
+        audioUrl: 'Mixdown/Agbe F D 1.ogg',
         color: '#22c55e'
       }
     ]
@@ -166,28 +166,28 @@ export const dicteeLevels: DicteeLevel[] = [
         id: 'g4-1',
         label: 'RUF',
         instrument: { fr: 'Caixa Roulement', pt: 'Caixa Rufada' },
-        audioUrl: 'sons-maracatu/Caixa/Caixa-ruffada-D.wav',
+        audioUrl: 'Mixdown/Caixa R 1.ogg',
         color: '#a855f7'
       },
       {
         id: 'g4-2',
         label: 'TAC',
         instrument: { fr: 'Caixa', pt: 'Caixa' },
-        audioUrl: 'sons-maracatu/Caixa/fort.wav',
+        audioUrl: 'Mixdown/Caixa F 1.ogg',
         color: '#7a3187'
       },
       {
         id: 'g4-3',
         label: 'BUM',
         instrument: { fr: 'Alfaia Marcante', pt: 'Alfaia Marcante' },
-        audioUrl: 'sons-maracatu/Alfaia/Marcante/fort.wav',
+        audioUrl: 'Mixdown/Alfaia meiao F 1.ogg',
         color: '#8a2b2b'
       },
       {
         id: 'g4-4',
         label: 'TUM',
         instrument: { fr: 'Gonguê Grave', pt: 'Gonguê Grave' },
-        audioUrl: 'sons-maracatu/Gongue/fort-grave.wav',
+        audioUrl: 'Mixdown/Gongue G 1.ogg',
         color: '#8c7b7b'
       }
     ]

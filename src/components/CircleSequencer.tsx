@@ -342,6 +342,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
 
     // Toggle Play when clicking center area
     if (distance < 55) {
+      if (audio.isLoading) return;
       onTogglePlay();
       return;
     }
@@ -748,7 +749,8 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       // Render concentric sequencer tracks
       currentTracks.forEach((track) => {
         const inst = instrumentsConfig[track.instrumentIdx];
-        if (track.isHidden || inst?.id === 'apito') return;
+        if (!inst || track.isHidden || inst.id === 'apito') return;
+
 
         const hasSolo = currentTracks.some(t => t.isSolo);
         const isMutedOut = hasSolo ? !track.isSolo : track.isMute;
@@ -758,11 +760,14 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
         if (activePatternId === null) return;
         const activePattern = track.patterns.find(p => p.id === activePatternId);
         if (!activePattern) return;
-        const hasAnyNotes = activePattern.activeSteps.some(s => s !== 0);
+        const activePlayingSteps = sequencer.activeVariationsRef?.current[track.id] || activePattern.activeSteps;
+        const hasAnyNotes = activePlayingSteps.some((s: string | number) => s !== 0);
         const isActiveState = hasAnyNotes;
 
         ctx.save();
         ctx.globalAlpha = isActiveState ? 1.0 : 0.25;
+
+        // Standard dashed track line
         ctx.beginPath();
         const tRad = track.radius || 0;
         ctx.arc(centerX, centerY, tRad, 0, Math.PI * 2);
@@ -780,13 +785,16 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
         ctx.setLineDash([]);
 
         const currentStep = (localStep >= 0) ? Math.floor((localStep / localTicks) * activePattern.steps) : -1;
+        const stepCount = activePattern.steps;
 
-        for (let i = 0; i < activePattern.steps; i++) {
-          const stepAngle = -Math.PI / 2 + (i * (Math.PI * 2 / activePattern.steps));
+        for (let i = 0; i < stepCount; i++) {
+          const stepAngle = -Math.PI / 2 + (i * (Math.PI * 2 / stepCount));
           const x = centerX + Math.cos(stepAngle) * tRad;
           const y = centerY + Math.sin(stepAngle) * tRad;
 
-          const state = activePattern.activeSteps[i];
+          const state = activePlayingSteps[i];
+          if (!state || state === 0) continue;
+
           const visualState = getVisualStrokeSymbol(state, localLeftHanded || false, inst.id);
           let fillColor = 'rgba(255,255,255,0.2)';
           let radiusSize = 6 * dynamicScale;
@@ -802,7 +810,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
               textSymbol = String(syl).endsWith('-') ? String(syl).slice(0, -1) : String(syl);
             } else {
               const stateStr = String(visualState);
-              fillColor = inst.colors[visualState] || '#fff';
+              fillColor = (inst.colors && inst.colors[visualState]) ? inst.colors[visualState] : '#fff';
               isAccent = (stateStr === stateStr.toUpperCase());
               radiusSize = (isAccent ? 15 : 12) * dynamicScale;
 
@@ -843,7 +851,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
 
           const isHit = state !== 0 && state !== '0' && state !== '';
           if (isHit) {
-            ctx.strokeStyle = inst.color || themeBorder;
+            ctx.strokeStyle = (inst && inst.color) ? inst.color : themeBorder;
             ctx.lineWidth = 2.5;
           } else {
             ctx.strokeStyle = themeBorder;
@@ -882,7 +890,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
             ctx.fillStyle = themeText;
             ctx.font = 'bold 10px serif';
             ctx.textAlign = 'left';
-            let labelText = inst.name;
+            let labelText = inst?.name || 'Instrument';
             const identicals = currentTracks.filter(t => t.instrumentIdx === track.instrumentIdx);
             if (identicals.length > 1) {
               labelText += ` ${identicals.indexOf(track) + 1}`;
@@ -999,7 +1007,6 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
             {/* Background image for signal */}
             <img
               id="center-overlay-img"
-              src=""
               alt=""
               className="absolute inset-0 w-full h-full object-cover"
               style={{ display: 'none' }}
@@ -1019,7 +1026,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
           </div>
         </div>
       </div>
-      <div className="absolute top-2 right-3 text-[10px] text-[var(--cordel-text)]/40 pointer-events-none select-none font-medium tracking-wide hidden md:block">
+      <div className="absolute top-2 left-1/2 -translate-x-1/2 text-[10px] text-[var(--cordel-text)]/40 pointer-events-none select-none font-medium tracking-wide hidden md:block">
         Créé par Julian Biblocq | Art: Toni Braga
       </div>
     </div>

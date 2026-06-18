@@ -34,7 +34,9 @@ import { MestreEngine } from './components/MestreEngine';
 import { RythmeLiveEngine } from './components/RythmeLiveEngine';
 import { VaralCordel } from './components/VaralCordel';
 import { MestreStudio } from './components/MestreStudio';
+import { AoVivoOverlay } from './components/AoVivoOverlay';
 import { PresetMetadata, Pattern, SongSection, TimeSignature } from './types';
+import { exportTablatureFile, printTablature, printLegendOnly } from './utils/exportTablature';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -57,6 +59,9 @@ export default function App() {
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
   const [isLeftPanelCollapsed, setIsLeftPanelCollapsed] = useState<boolean>(false);
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 1024);
+  const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
+  const [selectedExportTracks, setSelectedExportTracks] = useState<Set<number>>(new Set());
+  const [selectedAnnexTracks, setSelectedAnnexTracks] = useState<Set<number>>(new Set());
   const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | null>(
     window.innerWidth < 1024 ? 'letras' : 'letras'
   );
@@ -476,6 +481,10 @@ export default function App() {
         measureVolTransitions: sequencer.measureVolTransitions,
         songSections: sequencer.songSections,
         measureSignals: sequencer.measureSignals,
+        loopStartMeasure: sequencer.loopStartMeasure,
+        loopEndMeasure: sequencer.loopEndMeasure,
+        isLoopRegionActive: sequencer.isLoopRegionActive,
+        isLooping: sequencer.isLooping,
         masterEQ: audio.masterEQ,
         masterCompressor: audio.masterCompressor,
         masterVol: audio.masterVol,
@@ -488,12 +497,13 @@ export default function App() {
       } catch (err) {
         console.error('Failed to autosave state to localStorage:', err);
       }
-    }, 1000);
+    }, 1500);
     return () => clearTimeout(timer);
   }, [
     sequencer.tracks, sequencer.bpm, sequencer.timeSig, sequencer.totalMeasures, sequencer.letras,
     sequencer.metadata, sequencer.measureTimeSigs, sequencer.measureBpms, sequencer.measureBpmTransitions,
     sequencer.measureVols, sequencer.measureVolTransitions, sequencer.songSections, sequencer.measureSignals,
+    sequencer.loopStartMeasure, sequencer.loopEndMeasure, sequencer.isLoopRegionActive, sequencer.isLooping,
     audio.masterEQ, audio.masterCompressor, audio.masterVol, audio.isLoading
   ]);
 
@@ -607,6 +617,7 @@ export default function App() {
   const handleClearLoop = () => sequencer.handleClearLoop();
   const handleCopyPattern = (ptn: Pattern) => sequencer.handleCopyPattern(ptn);
   const handlePastePattern = (tId: number) => sequencer.handlePastePattern(tId);
+  const handleLoadLibraryPattern = (tId: number, targetPtnId: number, libPattern: any) => sequencer.handleLoadLibraryPattern(tId, targetPtnId, libPattern);
   const handleCreateSongSection = (name: string, start: number, end: number, color?: string) => sequencer.handleCreateSongSection(name, start, end, color);
   const handleUpdateSongSection = (id: string, name: string, start: number, end: number, color?: string) => sequencer.handleUpdateSongSection(id, name, start, end, color);
   const handleDeleteSongSection = (id: string) => sequencer.handleDeleteSongSection(id);
@@ -651,6 +662,33 @@ export default function App() {
   const handleLoadLocalPreset = (name: string) => audio.handleLoadLocalPreset(name);
   const handleAddTrackInstrument = (instIdx: number) => sequencer.handleAddTrackInstrument(instIdx, audio.currentMeasure);
 
+  const handleExportTablature = () => {
+    // By default, select all non-excluded tracks (apito, voice are excluded anyway, but we can check them or just check all)
+    const validTrackIds = sequencer.tracks
+      .filter(t => {
+        const conf = instrumentsConfig[t.instrumentIdx];
+        return conf && conf.id !== 'apito' && conf.id !== 'voice';
+      })
+      .map(t => t.id);
+      
+    setSelectedExportTracks(new Set(validTrackIds));
+    setSelectedAnnexTracks(new Set());
+    setShowExportMenu(true);
+  };
+  
+  const executeExport = (wantsPrint: boolean) => {
+    setShowExportMenu(false);
+    
+    // Filter tracks based on selection
+    const tracksToExport = sequencer.tracks.filter(t => selectedExportTracks.has(t.id));
+    
+    if (wantsPrint) {
+      printTablature(tracksToExport, selectedAnnexTracks, sequencer.totalMeasures, sequencer.songSections, sequencer.metadata, sequencer.measureTimeSigs, sequencer.measureBpms, sequencer.letras);
+    } else {
+      exportTablatureFile(tracksToExport, selectedAnnexTracks, sequencer.totalMeasures, sequencer.songSections, sequencer.metadata, sequencer.measureTimeSigs, sequencer.measureBpms, sequencer.letras);
+    }
+  };
+
   // Game Engine state definitions
   const [inspecteurCaixaParfaite, setInspecteurCaixaParfaite] = useState<number>(0);
   const [inspecteurCaixaErreur, setInspecteurCaixaErreur] = useState<number>(0);
@@ -674,6 +712,7 @@ export default function App() {
         onInstallClick={handleInstallClick}
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
+        onExportTablature={handleExportTablature}
         presetFiles={presetFiles}
         localPresets={localPresets}
         activeRightPanel={activeRightPanel}
@@ -705,6 +744,9 @@ export default function App() {
                 isLeftPanelCollapsed={isMobile ? false : isLeftPanelCollapsed}
                 onToggleLeftPanel={() => setIsLeftPanelCollapsed(true)}
                 onStepTouchStart={handleStepTouchStart}
+                onCopyPattern={handleCopyPattern}
+                onPastePattern={handlePastePattern}
+                onLoadLibraryPattern={handleLoadLibraryPattern}
               />
             )}
 
@@ -729,6 +771,7 @@ export default function App() {
             isMobile={isMobile}
             measureWidth={measureWidth}
             onMeasureWidthChange={setMeasureWidth}
+            onExportTablature={handleExportTablature}
           />
         )}
 
@@ -868,6 +911,128 @@ export default function App() {
         <span>{sequencer.lang === 'pt' ? 'Salvo' : 'Sauvegardé'}</span>
       </div>
 
+      {/* Export Menu Modal */}
+      {showExportMenu && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#121212]/80 backdrop-blur-sm select-none">
+          <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] shadow-[8px_8px_0_var(--cordel-border)] p-6 max-w-sm w-full mx-4 flex flex-col gap-5">
+            <h2 className="font-cactus text-2xl font-bold border-b-2 border-[var(--cordel-border)] pb-2">
+              {sequencer.lang === 'fr' ? 'Exportation Tablature' : 'Exportar Partitura'}
+            </h2>
+            
+            <div className="flex flex-col gap-3">
+              <p className="font-cactus text-sm font-bold opacity-80">
+                {sequencer.lang === 'fr' ? 'Sélectionnez les instruments à inclure :' : 'Selecione os instrumentos para incluir :'}
+              </p>
+              
+              <div className="flex flex-col gap-2 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+
+                <label className="flex items-center gap-3 p-2 border-2 border-[var(--cordel-border)] cursor-pointer hover:bg-[var(--cordel-border)]/10 transition-colors">
+                  <input 
+                    type="checkbox" 
+                    className="w-4 h-4 cursor-pointer accent-[var(--cordel-wood)]"
+                    checked={
+                      sequencer.tracks.filter(t => instrumentsConfig[t.instrumentIdx]?.id !== 'apito' && instrumentsConfig[t.instrumentIdx]?.id !== 'voice').length === selectedExportTracks.size
+                    }
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        const allIds = sequencer.tracks
+                          .filter(t => instrumentsConfig[t.instrumentIdx]?.id !== 'apito' && instrumentsConfig[t.instrumentIdx]?.id !== 'voice')
+                          .map(t => t.id);
+                        setSelectedExportTracks(new Set(allIds));
+                      } else {
+                        setSelectedExportTracks(new Set());
+                        setSelectedAnnexTracks(new Set());
+                      }
+                    }}
+                  />
+                  <span className="font-cactus font-bold text-sm">
+                    {sequencer.lang === 'fr' ? 'Tous les instruments' : 'Todos os instrumentos'}
+                  </span>
+                </label>
+
+                {sequencer.tracks.map(track => {
+                  const conf = instrumentsConfig[track.instrumentIdx];
+                  if (!conf || conf.id === 'apito' || conf.id === 'voice') return null;
+                  
+                  return (
+                    <div key={track.id} className="flex flex-col gap-1 p-2 border-2 border-[var(--cordel-border)]/50 ml-4">
+                      <label className="flex items-center gap-3 cursor-pointer hover:bg-[var(--cordel-border)]/5 transition-colors">
+                        <input 
+                          type="checkbox" 
+                          className="w-4 h-4 cursor-pointer accent-[var(--cordel-text)]"
+                          checked={selectedExportTracks.has(track.id)}
+                          onChange={(e) => {
+                            const newSet = new Set(selectedExportTracks);
+                            if (e.target.checked) newSet.add(track.id);
+                            else {
+                              newSet.delete(track.id);
+                              const newAnnexSet = new Set(selectedAnnexTracks);
+                              newAnnexSet.delete(track.id);
+                              setSelectedAnnexTracks(newAnnexSet);
+                            }
+                            setSelectedExportTracks(newSet);
+                          }}
+                        />
+                        <span className="font-cactus text-xs font-bold">{conf.name}</span>
+                      </label>
+                      <label className={`flex items-center gap-2 pl-7 cursor-pointer transition-colors ${!selectedExportTracks.has(track.id) ? 'opacity-50 pointer-events-none' : 'hover:bg-[var(--cordel-border)]/5'}`}>
+                        <input 
+                          type="checkbox" 
+                          className="w-3 h-3 cursor-pointer accent-[var(--cordel-text)]"
+                          checked={selectedAnnexTracks.has(track.id)}
+                          disabled={!selectedExportTracks.has(track.id)}
+                          onChange={(e) => {
+                            const newSet = new Set(selectedAnnexTracks);
+                            if (e.target.checked) newSet.add(track.id);
+                            else newSet.delete(track.id);
+                            setSelectedAnnexTracks(newSet);
+                          }}
+                        />
+                        <span className="font-sans text-[10px] opacity-80">{sequencer.lang === 'fr' ? 'Lexique des variations en annexe' : 'Léxico de variações em anexo'}</span>
+                      </label>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 mt-2">
+              <button
+                onClick={() => setShowExportMenu(false)}
+                className="px-4 py-2 text-sm border-2 border-[var(--cordel-border)] hover:bg-[var(--cordel-border)] hover:text-[var(--cordel-bg)] transition-colors font-bold cursor-pointer font-cactus"
+              >
+                {sequencer.lang === 'fr' ? 'Annuler' : 'Cancelar'}
+              </button>
+              <div className="flex-1 flex gap-2">
+                <button
+                  onClick={() => executeExport(false)}
+                  disabled={selectedExportTracks.size === 0}
+                  className="flex-1 px-3 py-2 text-sm bg-[var(--cordel-wood)] text-[#f4ecd8] font-bold hover:brightness-110 transition-all cursor-pointer font-cactus disabled:opacity-50 disabled:cursor-not-allowed text-center"
+                >
+                  {sequencer.lang === 'fr' ? 'Télécharger (.txt)' : 'Baixar (.txt)'}
+                </button>
+                <button
+                  onClick={() => executeExport(true)}
+                  disabled={selectedExportTracks.size === 0}
+                  className="flex-1 px-3 py-2 text-sm bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold hover:brightness-110 transition-all cursor-pointer font-cactus disabled:opacity-50 disabled:cursor-not-allowed text-center"
+                >
+                  {sequencer.lang === 'fr' ? 'Imprimer (HTML)' : 'Imprimir (HTML)'}
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-2 pt-3 border-t-2 border-[var(--cordel-border)] border-dashed">
+              <button
+                onClick={() => { setShowExportMenu(false); printLegendOnly(); }}
+                className="w-full px-3 py-2 text-sm bg-[var(--cordel-border)] text-[var(--cordel-bg)] font-bold hover:brightness-110 transition-all cursor-pointer font-cactus text-center"
+              >
+                {sequencer.lang === 'fr' ? '🖨️ Imprimer la Légende (Feuille séparée)' : '🖨️ Imprimir a Legenda (Folha separada)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {customDialog && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[#121212]/80 backdrop-blur-sm select-text text-sm">
           <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] shadow-[4px_4px_0_var(--cordel-border)] p-5 max-w-sm w-full mx-4 flex flex-col gap-4 font-mono select-text">
@@ -900,7 +1065,7 @@ export default function App() {
                   }}
                   className="px-3 py-1 text-xs border-2 border-[var(--cordel-border)] hover:bg-[var(--cordel-border)] hover:text-[var(--cordel-bg)] transition-colors font-bold cursor-pointer"
                 >
-                  {sequencer.lang === 'pt' ? 'Cancelar' : 'Annuler'}
+                  {customDialog.cancelLabel || (sequencer.lang === 'pt' ? 'Cancelar' : 'Annuler')}
                 </button>
               )}
               <button
@@ -915,12 +1080,13 @@ export default function App() {
                 }}
                 className="px-4 py-1 text-xs bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold hover:bg-[var(--cordel-border)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer"
               >
-                {sequencer.lang === 'pt' ? 'OK' : 'Valider'}
+                {customDialog.confirmLabel || (sequencer.lang === 'pt' ? 'OK' : 'Valider')}
               </button>
             </div>
           </div>
         </div>
       )}
+      {viewMode === 'roda' && (!isMobile || mobileTab === 'roda') && <AoVivoOverlay />}
     </div>
   );
 }

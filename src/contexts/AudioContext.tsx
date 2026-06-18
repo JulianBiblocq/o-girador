@@ -193,6 +193,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     measureSignalsRef: sequencer.measureSignalsRef,
     loopStartRef: sequencer.loopStartRef,
     loopEndRef: sequencer.loopEndRef,
+    isLoopRegionActiveRef: sequencer.isLoopRegionActiveRef,
+    isLoopingRef: sequencer.isLoopingRef,
+    songSectionsRef: sequencer.songSectionsRef,
+    activeVariationsRef: sequencer.activeVariationsRef,
 
     isRecordingVocal: sequencer.isRecordingVocal,
     startVocalRecording: sequencer.startVocalRecording,
@@ -371,6 +375,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       sequencer.setMeasureVols(loadedVols);
       sequencer.setMeasureVolTransitions(loadedVolTransitions);
 
+      if (p.loopStartMeasure !== undefined) sequencer.setLoopStartMeasure(p.loopStartMeasure);
+      if (p.loopEndMeasure !== undefined) sequencer.setLoopEndMeasure(p.loopEndMeasure);
+      if (p.isLoopRegionActive !== undefined) sequencer.setIsLoopRegionActive(p.isLoopRegionActive);
+      if (p.isLooping !== undefined) sequencer.setIsLooping(p.isLooping);
+
       if (p.songSections && Array.isArray(p.songSections)) {
         sequencer.setSongSections(p.songSections);
       } else {
@@ -409,7 +418,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       sequencer.measureVolTransitionsRef.current = loadedVolTransitions;
 
       try {
-        console.log("⚙️⚙️⚙️ [loadFallbackPreset] Compiling tick schedule synchronously...");
+        if (import.meta.env.DEV) {
+          console.log("⚙️⚙️⚙️ [loadFallbackPreset] Compiling tick schedule synchronously...");
+        }
         audioSync.tickScheduleRef.current = buildTickSchedule(
           loadedTracks,
           loadedMeasures,
@@ -417,7 +428,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           instrumentsConfig,
           null
         );
-        console.log("✅✅✅ [loadFallbackPreset] Done. Compiled measures count:", audioSync.tickScheduleRef.current.size);
+        if (import.meta.env.DEV) {
+          console.log("✅✅✅ [loadFallbackPreset] Done. Compiled measures count:", audioSync.tickScheduleRef.current.size);
+        }
       } catch (err) {
         console.error("❌❌❌ [loadFallbackPreset] Synchronous compilation failed:", err);
       }

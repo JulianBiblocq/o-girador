@@ -15,6 +15,16 @@ export interface InstrumentConfig {
   };
   color?: string;
 }
+export interface PatternVariation {
+  id: string;
+  name: string;
+  steps: (string | number)[];
+  probability: number;
+  volumes?: number[];
+  decays?: number[];
+  microtimings?: number[];
+  playFirstTimeOnly?: boolean;
+}
 
 export interface Pattern {
   id: number;
@@ -24,6 +34,7 @@ export interface Pattern {
   lyrics: string[];
   notes: string[];
   measureAssignments: boolean[];
+  measureAllowVariations?: boolean[];
   volumes?: number[];
   decays?: number[];
   microtimings?: number[];
@@ -32,6 +43,20 @@ export interface Pattern {
   vocalBaseBpm?: number;
   vocalBpmSync?: boolean;
   vocalAudioData?: string;
+  variations?: PatternVariation[];
+}
+
+export interface SavedPattern {
+  id: string;
+  instrumentId: string;
+  name: string;
+  folder: string;
+  steps: (string | number)[];
+  variations: PatternVariation[];
+  volumes?: number[];
+  decays?: number[];
+  microtimings?: number[];
+  createdAt: number;
 }
 
 export interface HitTrigger {
@@ -122,5 +147,6 @@ export interface SongSection {
   startMeasure: number; // 0-based index
   endMeasure: number;   // 0-based index, inclusive
   color?: string;       // couleur CSS (ex: hex)
+  repeatCount?: number; // multiplicateur de section (défaut 1)
 }
 

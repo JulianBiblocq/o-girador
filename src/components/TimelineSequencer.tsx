@@ -49,10 +49,12 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     letras,
     loopStartMeasure,
     loopEndMeasure,
+    isLoopRegionActive,
     measureSignals = [],
     handleTrackMuteToggle: onMuteToggle,
     handleTrackSoloToggle: onSoloToggle,
     handleTimelinePatternAssign: onPatternAssignForMeasure,
+    handleTimelinePatternVariationToggle: onPatternVariationToggleForMeasure,
     handleMeasureTimeSigChange: onMeasureTimeSigChange,
     handleMeasureBpmChange: onMeasureBpmChange,
     handleMeasureTransitionChange: onMeasureTransitionChange,
@@ -61,6 +63,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     handleTotalMeasuresChange: onTotalMeasuresChange,
     handleCreateSongSection: onCreateSection,
     handleUpdateSongSection: onUpdateSection,
+    handleUpdateSectionRepeat: onUpdateSectionRepeat,
     handleDeleteSongSection: onDeleteSection,
     handleCopySongSection: onCopySection,
     handlePasteSongSection: onPasteSection,
@@ -777,21 +780,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
             </select>
           </div>
 
-          {/* Loop indicator and Clear Button */}
-          {loopStartMeasure !== null && loopEndMeasure !== null && (
-            <div className="flex items-center gap-1.5 ml-4 bg-[#8b2a1a]/10 border border-[#8b2a1a]/40 px-2 py-0.5 rounded cordel-border-sm">
-              <span className="text-[9px] md:text-[10px] uppercase font-bold text-[#8b2a1a]">
-                🔁 {lang === 'fr' ? `Boucle: M. ${loopStartMeasure + 1}-${loopEndMeasure + 1}` : `Loop: Comp. ${loopStartMeasure + 1}-${loopEndMeasure + 1}`}
-              </span>
-              <button
-                onClick={onClearLoop}
-                className="text-[#8b2a1a] hover:text-[#a63320] font-bold text-[10px] ml-1.5 cursor-pointer"
-                title={lang === 'fr' ? 'Effacer la boucle' : 'Limpar loop'}
-              >
-                ✕
-              </button>
-            </div>
-          )}
+
         </div>
         {!isMobile && (
           <button
@@ -1012,6 +1001,25 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                     <span className="truncate max-w-[50%] font-cactus uppercase tracking-wider">{section.name}</span>
                     <div className="flex gap-1 shrink-0">
                       <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const val = await sequencer.promptAsync(
+                            lang === 'fr' ? 'Nombre de répétitions pour cette section ?' : 'Número de repetições?',
+                            (section.repeatCount || 1).toString()
+                          );
+                          if (val) {
+                            const count = parseInt(val, 10);
+                            if (!isNaN(count) && count > 0) {
+                              onUpdateSectionRepeat(section.id, count);
+                            }
+                          }
+                        }}
+                        className="bg-white/80 hover:bg-white text-black text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer font-sans font-bold flex items-center gap-0.5"
+                        title={lang === 'fr' ? 'Répétitions' : 'Repetições'}
+                      >
+                        🔁 x{section.repeatCount || 1}
+                      </button>
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onCopySection(section);
@@ -1139,12 +1147,23 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                       ? 'border-r-2 border-r-blue-500/50 dark:border-r-blue-400/50 shadow-[1px_0_0_0_rgba(59,130,246,0.1)]'
                       : 'border-r-[var(--cordel-border)]/30'
                   } ${
-                    isInLoop
-                      ? 'bg-blue-600/5 border-t-4 border-t-blue-600/80 dark:border-t-blue-500/80'
+                    loopStartMeasure !== null && loopEndMeasure !== null
+                      ? (isInLoop ? (isLoopRegionActive ? 'bg-blue-600/5 border-t-4 border-t-blue-600/80 dark:border-t-blue-500/80' : 'bg-gray-500/5 border-t-4 border-t-gray-500/80 dark:border-t-gray-400/80') : (isLoopRegionActive ? 'bg-black/10 dark:bg-black/30 opacity-70' : ''))
                       : ''
                   }`}
                   style={{ width: MEASURE_W, minWidth: MEASURE_W }}
                 >
+                  {isInLoop && (
+                    <div
+                      className="absolute top-[-4px] left-0 right-0 h-3 cursor-pointer z-50 hover:bg-white/20 transition-colors"
+                      title={isLoopRegionActive ? (lang === 'fr' ? 'Désactiver la sélection' : 'Desativar seleção') : (lang === 'fr' ? 'Activer la sélection' : 'Ativar seleção')}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        sequencer.setIsLoopRegionActive(!isLoopRegionActive);
+                      }}
+                    />
+                  )}
                   <div className="ruler-measure-header flex flex-wrap items-center justify-between w-full mt-0.5 gap-x-2 gap-y-1">
                     <span className="font-cactus text-xs tracking-wide flex items-center gap-1.5 shrink-0">
                       <span>{lang === 'fr' ? 'M.' : 'C.'} {mIdx + 1}</span>
@@ -1454,7 +1473,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
             return (
               <div
                 key={track.id}
-                className={`flex border-b border-[var(--cordel-border)]/20 h-16 transition-opacity duration-150 ${
+                className={`flex border-b border-[var(--cordel-border)]/20 h-12 transition-opacity duration-150 ${
                   !canPlay ? 'opacity-50' : ''
                 }`}
                 style={{ width: `${HEADER_W + totalContentW}px` }}
@@ -1526,8 +1545,8 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                           ? 'border-r-2 border-r-blue-500/40 dark:border-r-blue-400/40 shadow-[1px_0_0_0_rgba(59,130,246,0.15)]'
                           : 'border-r-[var(--cordel-border)]/20'
                       } ${
-                        loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure
-                          ? 'bg-blue-600/[0.03]'
+                        loopStartMeasure !== null && loopEndMeasure !== null
+                          ? (mIdx >= loopStartMeasure && mIdx <= loopEndMeasure ? (isLoopRegionActive ? 'bg-blue-600/[0.03]' : '') : (isLoopRegionActive ? 'bg-black/10 dark:bg-black/30 opacity-70' : ''))
                           : ''
                       } ${
                         measureSection ? 'cell-section-tint' : ''
@@ -1580,6 +1599,29 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                               </option>
                             ))}
                           </select>
+                          
+                          {/* Dice Toggle for Variations */}
+                          {activePattern && inst.type !== 'voice' && inst.id !== 'apito' && (activePattern.variations?.length || 0) > 0 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const isAllowed = activePattern.measureAllowVariations?.[mIdx] || false;
+                                onPatternVariationToggleForMeasure(track.id, activePattern.id, mIdx, !isAllowed);
+                              }}
+                              className={`ml-1 px-1 py-0.5 rounded text-[10px] border transition-colors ${
+                                activePattern.measureAllowVariations?.[mIdx] 
+                                  ? 'bg-[#f1c40f] text-black border-yellow-600 shadow-[0_0_4px_rgba(241,196,15,0.6)]' 
+                                  : 'bg-[#2a2a2a] text-white/90 border-black/50 hover:bg-[#3a3a3a] shadow-sm'
+                              }`}
+                              title={
+                                activePattern.measureAllowVariations?.[mIdx] 
+                                  ? (lang === 'fr' ? 'Mode Improvisation activé' : 'Modo Improvisação ativado')
+                                  : (lang === 'fr' ? 'Mode Strict (sans variation)' : 'Modo Estrito (sem variação)')
+                              }
+                            >
+                              🎲
+                            </button>
+                          )}
                         </div>
 
                         {activePattern && activePattern.vocalMode === 'micro' && (

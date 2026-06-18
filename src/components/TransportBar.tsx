@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { Play, Square, SkipBack, Circle } from 'lucide-react';
+import { Play, Square, SkipBack, Circle, Repeat, ArrowRightToLine, Loader2, Gauge } from 'lucide-react';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { i18n } from '../data';
@@ -83,7 +83,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
 
         <button
           onClick={() => setIsLeftHanded(!isLeftHanded)}
-          className={`px-3 py-1 font-cactus font-bold text-sm flex items-center gap-1.5 cordel-border-sm cordel-button ${
+          className={`px-3 py-1 font-cactus font-bold text-sm hidden md:flex items-center gap-1.5 cordel-border-sm cordel-button ${
             isLeftHanded ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
           }`}
           title={lang === 'fr' ? 'Contrôles pour gaucher' : lang === 'pt' ? 'Controles para canhoto' : 'Left-handed controls'}
@@ -93,7 +93,8 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
         </button>
 
         <div className="flex items-center gap-1.5 bg-[var(--cordel-bg)] px-2 py-1 cordel-border-sm border-[var(--cordel-border)]">
-          <span className="font-cactus font-bold text-[var(--cordel-text)] text-sm select-none">
+          <Gauge className="w-4 h-4 text-[var(--cordel-text)] md:hidden" />
+          <span className="font-cactus font-bold text-[var(--cordel-text)] text-sm select-none hidden md:inline">
             {lang === 'fr' ? 'Vitesse' : lang === 'pt' ? 'Velocidade' : 'Tempo'}
           </span>
           <div className="flex items-center gap-1">
@@ -143,14 +144,25 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
         
         <button
           onClick={handleTogglePlay}
+          disabled={audio.isLoading}
           className={`w-14 h-14 cordel-border cordel-button flex items-center justify-center transition-colors ${
-            isPlaying ? 'bg-[#f1c40f] text-[#1a1a1a]' : 'bg-[var(--cordel-wood)] text-[#f4ecd8]'
+            audio.isLoading ? 'bg-gray-400 text-gray-700 cursor-wait' : isPlaying ? 'bg-[#f1c40f] text-[#1a1a1a]' : 'bg-[var(--cordel-wood)] text-[#f4ecd8]'
           }`}
-          title={isPlaying ? (lang === 'pt' ? 'Pausar' : 'Pause') : (lang === 'pt' ? 'Tocar' : 'Lecture')}
+          title={audio.isLoading ? (lang === 'pt' ? 'Carregando sons...' : 'Chargement des sons...') : isPlaying ? (lang === 'pt' ? 'Pausar' : 'Pause') : (lang === 'pt' ? 'Tocar' : 'Lecture')}
         >
-          {isPlaying ? <Square className="w-6 h-6" fill="currentColor" /> : <Play className="w-8 h-8 ml-1" fill="currentColor" />}
+          {audio.isLoading ? <Loader2 className="w-8 h-8 animate-spin" /> : isPlaying ? <Square className="w-6 h-6" fill="currentColor" /> : <Play className="w-8 h-8 ml-1" fill="currentColor" />}
         </button>
         
+        <button
+          onClick={() => sequencer.setIsLooping(!sequencer.isLooping)}
+          className={`w-10 h-10 cordel-border cordel-button flex items-center justify-center transition-colors ${
+            sequencer.isLooping ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] opacity-60 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+          }`}
+          title={lang === 'fr' ? 'Activer/Désactiver la boucle' : 'Toggle Loop'}
+        >
+          {sequencer.isLooping ? <Repeat className="w-5 h-5" /> : <ArrowRightToLine className="w-5 h-5" />}
+        </button>
+
         <div className="flex items-center gap-2 relative">
           <button
             onClick={handleAudioRecordingToggle}

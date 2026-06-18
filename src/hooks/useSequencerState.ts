@@ -23,14 +23,19 @@ export function useSequencerState() {
 
   const [loopStartMeasure, setLoopStartMeasure] = useState<number | null>(null);
   const [loopEndMeasure, setLoopEndMeasure] = useState<number | null>(null);
+  const [isLoopRegionActive, setIsLoopRegionActive] = useState<boolean>(true);
+  const [isLooping, setIsLooping] = useState<boolean>(true);
 
   // Letras, metadata, settings
   const [letras, setLetras] = useState<string>('');
   const [metadata, setMetadata] = useState<PresetMetadata>({ toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] });
+  const activeVariationsRef = useRef<Record<number, (string | number)[]>>({});
   const [isLeftHanded, setIsLeftHanded] = useState<boolean>(() => localStorage.getItem('baquemix_left_handed') === 'true');
   const [lang, setLang] = useState<Language>('pt');
   const [copiedPattern, setCopiedPattern] = useState<Pattern | null>(null);
   const [copiedSection, setCopiedSection] = useState<any>(null);
+
+  const [activeAoVivoTrackId, setActiveAoVivoTrackId] = useState<number | null>(null);
 
   useEffect(() => {
     localStorage.setItem('baquemix_left_handed', String(isLeftHanded));
@@ -70,6 +75,8 @@ export function useSequencerState() {
 
   const loopStartRef = useRef<number | null>(null);
   const loopEndRef = useRef<number | null>(null);
+  const isLoopRegionActiveRef = useRef<boolean>(true);
+  const isLoopingRef = useRef<boolean>(true);
 
   const tracksHistoryRef = useRef<TrackGroup[][]>([]);
   const tracksRedoHistoryRef = useRef<TrackGroup[][]>([]);
@@ -89,6 +96,8 @@ export function useSequencerState() {
     measureSignalsRef.current = measureSignals;
     loopStartRef.current = loopStartMeasure;
     loopEndRef.current = loopEndMeasure;
+    isLoopRegionActiveRef.current = isLoopRegionActive;
+    isLoopingRef.current = isLooping;
     tracksHistoryRef.current = tracksHistory;
     tracksRedoHistoryRef.current = tracksRedoHistory;
     songStructureHistoryRef.current = songStructureHistory;
@@ -105,6 +114,9 @@ export function useSequencerState() {
     measureSignals,
     loopStartMeasure,
     loopEndMeasure,
+    isLoopRegionActive,
+    isLooping,
+    activeVariationsRef,
     tracksHistory,
     tracksRedoHistory,
     songStructureHistory,
@@ -194,7 +206,7 @@ export function useSequencerState() {
     setTracksHistory(prev => {
       const cloned = JSON.parse(JSON.stringify(stateToSave));
       const next = [...prev, cloned];
-      if (next.length > 50) next.shift();
+      if (next.length > 10) return next.slice(-10);
       return next;
     });
 
@@ -208,7 +220,7 @@ export function useSequencerState() {
         songSections: JSON.parse(JSON.stringify(songSectionsRef.current))
       };
       const next = [...prev, cloned];
-      if (next.length > 50) next.shift();
+      if (next.length > 10) return next.slice(-10);
       return next;
     });
   };
@@ -468,6 +480,99 @@ export function useSequencerState() {
     }));
   };
 
+  const handleVariationStepVolumeChange = (trackId: number, patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            if (p.id === patternId && p.variations) {
+              return {
+                ...p,
+                variations: p.variations.map(v => {
+                  if (v.id === variationId) {
+                    const copyVols = [...(v.volumes || Array(p.steps).fill(80))];
+                    if (Array.isArray(stepIdx)) {
+                      stepIdx.forEach(idx => copyVols[idx] = val);
+                    } else {
+                      copyVols[stepIdx] = val;
+                    }
+                    return { ...v, volumes: copyVols };
+                  }
+                  return v;
+                })
+              };
+            }
+            return p;
+          })
+        };
+      }
+      return t;
+    }));
+  };
+
+  const handleVariationStepDecayChange = (trackId: number, patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            if (p.id === patternId && p.variations) {
+              return {
+                ...p,
+                variations: p.variations.map(v => {
+                  if (v.id === variationId) {
+                    const copyDecays = [...(v.decays || Array(p.steps).fill(100))];
+                    if (Array.isArray(stepIdx)) {
+                      stepIdx.forEach(idx => copyDecays[idx] = val);
+                    } else {
+                      copyDecays[stepIdx] = val;
+                    }
+                    return { ...v, decays: copyDecays };
+                  }
+                  return v;
+                })
+              };
+            }
+            return p;
+          })
+        };
+      }
+      return t;
+    }));
+  };
+
+  const handleVariationStepMicrotimingChange = (trackId: number, patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            if (p.id === patternId && p.variations) {
+              return {
+                ...p,
+                variations: p.variations.map(v => {
+                  if (v.id === variationId) {
+                    const copyMicros = [...(v.microtimings || Array(p.steps).fill(0))];
+                    if (Array.isArray(stepIdx)) {
+                      stepIdx.forEach(idx => copyMicros[idx] = val);
+                    } else {
+                      copyMicros[stepIdx] = val;
+                    }
+                    return { ...v, microtimings: copyMicros };
+                  }
+                  return v;
+                })
+              };
+            }
+            return p;
+          })
+        };
+      }
+      return t;
+    }));
+  };
+
   const handleResetTrackMicrotimings = (trackId: number, patternId: number) => {
     pushUndoState();
     setTracks(prev => prev.map(t => {
@@ -541,6 +646,24 @@ export function useSequencerState() {
           const assign = [...p.measureAssignments];
           assign[measureIdx] = p.id === patternId;
           return { ...p, measureAssignments: assign };
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleTimelinePatternVariationToggle = (trackId: number, patternId: number, measureIdx: number, val: boolean) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const currentAllow = p.measureAllowVariations ? [...p.measureAllowVariations] : Array(totalMeasures).fill(false);
+            currentAllow[measureIdx] = val;
+            return { ...p, measureAllowVariations: currentAllow };
+          }
+          return p;
         });
         return { ...t, patterns: nextPatterns };
       }
@@ -665,16 +788,27 @@ export function useSequencerState() {
   };
 
   const handleSetLoopStart = (measureIdx: number) => {
+    pushUndoState();
     setLoopStartMeasure(measureIdx);
+    setIsLoopRegionActive(true);
+    if (loopEndMeasure !== null && measureIdx > loopEndMeasure) {
+      setLoopEndMeasure(measureIdx);
+    }
   };
 
   const handleSetLoopEnd = (measureIdx: number) => {
+    pushUndoState();
     setLoopEndMeasure(measureIdx);
+    setIsLoopRegionActive(true);
+    if (loopStartMeasure !== null && measureIdx < loopStartMeasure) {
+      setLoopStartMeasure(measureIdx);
+    }
   };
 
   const handleClearLoop = () => {
     setLoopStartMeasure(null);
     setLoopEndMeasure(null);
+    setIsLoopRegionActive(false);
   };
 
   const handleCopyPattern = (pattern: Pattern) => {
@@ -724,13 +858,60 @@ export function useSequencerState() {
     }));
   };
 
-  const handleCreateSongSection = (name: string, start: number, end: number, color?: string) => {
+  const handleLoadLibraryPattern = (trackId: number, targetPatternId: number, libPattern: any) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === targetPatternId) {
+            const nextActiveSteps = [...libPattern.steps];
+            while (nextActiveSteps.length < p.steps) nextActiveSteps.push(0);
+            nextActiveSteps.length = p.steps;
+            
+            let nextVolumes = undefined;
+            if (libPattern.volumes) {
+              nextVolumes = [...libPattern.volumes];
+              while (nextVolumes.length < p.steps) nextVolumes.push(80);
+              nextVolumes.length = p.steps;
+            }
+            let nextDecays = undefined;
+            if (libPattern.decays) {
+              nextDecays = [...libPattern.decays];
+              while (nextDecays.length < p.steps) nextDecays.push(100);
+              nextDecays.length = p.steps;
+            }
+            let nextMicrotimings = undefined;
+            if (libPattern.microtimings) {
+              nextMicrotimings = [...libPattern.microtimings];
+              while (nextMicrotimings.length < p.steps) nextMicrotimings.push(0);
+              nextMicrotimings.length = p.steps;
+            }
+
+            return {
+              ...p,
+              activeSteps: nextActiveSteps,
+              variations: JSON.parse(JSON.stringify(libPattern.variations || [])),
+              ...(nextVolumes && { volumes: nextVolumes }),
+              ...(nextDecays && { decays: nextDecays }),
+              ...(nextMicrotimings && { microtimings: nextMicrotimings })
+            };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleCreateSongSection = (name: string, start: number, end: number, color?: string, repeatCount?: number) => {
     const newSection: SongSection = {
       id: Date.now().toString(),
       name,
       startMeasure: start,
       endMeasure: end,
       color: color || '#27ae60',
+      repeatCount: repeatCount || 1,
     };
     
     setSongSections(prev => {
@@ -746,6 +927,10 @@ export function useSequencerState() {
       next.sort((a, b) => a.startMeasure - b.startMeasure);
       return next;
     });
+  };
+
+  const handleUpdateSectionRepeat = (id: string, count: number) => {
+    setSongSections(prev => prev.map(s => s.id === id ? { ...s, repeatCount: count } : s));
   };
 
   const handleDeleteSongSection = (id: string) => {
@@ -769,6 +954,7 @@ export function useSequencerState() {
       length,
       name: section.name,
       color: section.color || '#27ae60',
+      repeatCount: section.repeatCount || 1,
       assignments,
     };
     setCopiedSection(data);
@@ -802,7 +988,7 @@ export function useSequencerState() {
       return { ...t, patterns: nextPatterns };
     }));
 
-    handleCreateSongSection(copiedSection.name, destStartMeasure, end, copiedSection.color);
+    handleCreateSongSection(copiedSection.name, destStartMeasure, end, copiedSection.color, copiedSection.repeatCount);
   };
 
   const handleStepValueSelectAndToggle = (
@@ -1172,6 +1358,114 @@ export function useSequencerState() {
     setMetadata({ toada: '', nacao: '', compositor: '', ritmo: '', youtubeUrl: '', partitionImage: undefined, rhythmSignals: [] });
   };
 
+  const handleAddPatternVariation = (trackId: number, patternId: number) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const currentVariations = p.variations || [];
+            const newVar = {
+              id: Date.now().toString(),
+              name: `Var ${currentVariations.length + 1}`,
+              steps: [...p.activeSteps],
+              probability: 30
+            };
+            return { ...p, variations: [...currentVariations, newVar] };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleUpdatePatternVariationProbability = (trackId: number, patternId: number, variationId: string, probability: number) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId && p.variations) {
+            const nextVariations = p.variations.map(v => 
+              v.id === variationId ? { ...v, probability: Math.max(0, Math.min(100, probability)) } : v
+            );
+            return { ...p, variations: nextVariations };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleTogglePatternVariationFirstTimeOnly = (trackId: number, patternId: number, variationId: string, val: boolean) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId && p.variations) {
+            const nextVariations = p.variations.map(v => 
+              v.id === variationId ? { ...v, playFirstTimeOnly: val } : v
+            );
+            return { ...p, variations: nextVariations };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleVariationStepValueChange = (trackId: number, patternId: number, variationId: string, stepIdx: number | number[], val: string | string[]) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId && p.variations) {
+            const nextVariations = p.variations.map(v => {
+              if (v.id === variationId) {
+                const nextSteps = [...v.steps];
+                if (Array.isArray(stepIdx)) {
+                  stepIdx.forEach((idx, i) => {
+                    nextSteps[idx] = Array.isArray(val) ? val[i] : val;
+                  });
+                } else {
+                  nextSteps[stepIdx] = val as string;
+                }
+                return { ...v, steps: nextSteps };
+              }
+              return v;
+            });
+            return { ...p, variations: nextVariations };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleDeletePatternVariation = (trackId: number, patternId: number, variationId: string) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId && p.variations) {
+            const nextVariations = p.variations.filter(v => v.id !== variationId);
+            return { ...p, variations: nextVariations };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
   const handleAddTrackInstrument = (instIdx: number, currentMeasure: number = 0) => {
     pushUndoState();
     const inst = instrumentsConfig[instIdx];
@@ -1210,10 +1504,21 @@ export function useSequencerState() {
     });
   };
 
+  const handleGlobalBpmChange = (val: number | ((prev: number) => number)) => {
+    setBpm((prevBpm) => {
+      const nextBpm = typeof val === 'function' ? val(prevBpm) : val;
+      const diff = nextBpm - prevBpm;
+      if (diff !== 0) {
+        setMeasureBpms(prev => prev.map(m => Math.max(40, Math.min(240, m + diff))));
+      }
+      return nextBpm;
+    });
+  };
+
   return {
     // States & Setters
     tracks, setTracks, tracksRef,
-    bpm, setBpm,
+    bpm, setBpm: handleGlobalBpmChange as React.Dispatch<React.SetStateAction<number>>,
     totalMeasures, setTotalMeasures, totalMeasuresRef,
     timeSig, setTimeSig,
     measureTimeSigs, setMeasureTimeSigs, measureTimeSigsRef,
@@ -1225,10 +1530,13 @@ export function useSequencerState() {
     measureSignals, setMeasureSignals, measureSignalsRef,
     loopStartMeasure, setLoopStartMeasure, loopStartRef,
     loopEndMeasure, setLoopEndMeasure, loopEndRef,
+    isLoopRegionActive, setIsLoopRegionActive, isLoopRegionActiveRef,
+    isLooping, setIsLooping, isLoopingRef,
     letras, setLetras,
     metadata, setMetadata,
     isLeftHanded, setIsLeftHanded,
     lang, setLang,
+    activeAoVivoTrackId, setActiveAoVivoTrackId,
     // History
     tracksHistory,
     tracksRedoHistory,
@@ -1249,10 +1557,14 @@ export function useSequencerState() {
     handleTrackStepVolumeChange,
     handleTrackStepDecayChange,
     handleTrackStepMicrotimingChange,
+    handleVariationStepVolumeChange,
+    handleVariationStepDecayChange,
+    handleVariationStepMicrotimingChange,
     handleResetTrackMicrotimings,
     handleTrackPanChange,
     handleTrackStepsChange,
     handleTimelinePatternAssign,
+    handleTimelinePatternVariationToggle,
     handleMeasureTimeSigChange,
     handleMeasureBpmChange,
     handleMeasureTransitionChange,
@@ -1267,8 +1579,10 @@ export function useSequencerState() {
     copiedPattern,
     handleCopyPattern,
     handlePastePattern,
+    handleLoadLibraryPattern,
     handleCreateSongSection,
     handleUpdateSongSection,
+    handleUpdateSectionRepeat,
     handleDeleteSongSection,
     handleCopySongSection,
     handlePasteSongSection,
@@ -1284,6 +1598,12 @@ export function useSequencerState() {
     handlePatternNameChange,
     handleReorderPatterns,
     handleClear,
-    handleAddTrackInstrument
+    handleAddPatternVariation,
+    handleUpdatePatternVariationProbability,
+    handleTogglePatternVariationFirstTimeOnly,
+    handleVariationStepValueChange,
+    handleDeletePatternVariation,
+    handleAddTrackInstrument,
+    activeVariationsRef
   };
 }

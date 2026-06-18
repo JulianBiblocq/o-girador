@@ -11,10 +11,9 @@ interface VaralCordelProps {
   onClearJustUnlocked: () => void; // Reset the justUnlocked state in App.tsx
 }
 
-// Rope Y calculation based on quadratic bezier curve for a 500px wide rope
+// Rope Y calculation based on quadratic bezier curve (P0=11, P1=51, P2=11)
 const getRopeY = (t: number) => {
-  // sag is 30px, peak is at t=0.5
-  return 8 + 35 * t * (1 - t);
+  return 11 + 80 * t * (1 - t);
 };
 
 export const VaralCordel: React.FC<VaralCordelProps> = ({
@@ -57,69 +56,74 @@ export const VaralCordel: React.FC<VaralCordelProps> = ({
     }
   }, [justUnlockedBookletId]);
 
-  const getBookletForCorde = (cordeIndex: number): Folheto | undefined => {
+  const getBookletsForCorde = (cordeIndex: number): Folheto[] => {
     const gameIds = ['quiz', 'dictee', 'inspecteur', 'mestre', 'rythmelive'];
     const gameId = gameIds[cordeIndex - 1];
-    const baseBooklet = folhetosData.find(f => f.associatedGameId === gameId);
-    if (!baseBooklet) return undefined;
+    const defaultBaseBooklet = folhetosData.find(f => f.associatedGameId === gameId);
 
-    const customModuleMap: Record<string, string> = {
-      'quiz': 'quiz',
-      'dictee': 'dictee',
-      'inspecteur': 'inspecteur',
-      'mestre': 'sablier_mestre',
-      'rythmelive': 'rythme_live'
-    };
-    const customModule = customModuleMap[gameId];
-    const customEx = customExercises.find(ex => ex.module === customModule);
+    const targetedExercises = customExercises.filter(ex => ex.corde_cible === cordeIndex);
 
-    if (customEx) {
+    if (targetedExercises.length === 0) {
+      return defaultBaseBooklet ? [defaultBaseBooklet] : [];
+    }
+
+    return targetedExercises.map((customEx) => {
+      const customModuleMap: Record<string, string> = {
+        'quiz': 'quiz',
+        'dictee': 'dictee',
+        'inspecteur': 'inspecteur',
+        'sablier_mestre': 'mestre',
+        'rythme_live': 'rythmelive'
+      };
+      const baseGameId = customModuleMap[customEx.module] || gameId;
+      const baseBooklet = folhetosData.find(f => f.associatedGameId === baseGameId) || defaultBaseBooklet || folhetosData[0];
+
       let culturalContentFr = '';
       let culturalContentPt = '';
 
-      if (customModule === 'quiz') {
+      if (customEx.module === 'quiz') {
         culturalContentFr = `Cet exercice de Quiz personnalisé a été importé par le Mestre.\n\nQuestions du Quiz :\n`;
         culturalContentPt = `Este exercício de Quiz personalizado foi importado pelo Mestre.\n\nQuestões do Quiz :\n`;
         customEx.questions?.forEach((q: any, qIdx: number) => {
           culturalContentFr += `\n${qIdx + 1}. ${q.questionText?.fr || q.questionText?.pt}`;
           culturalContentPt += `\n${qIdx + 1}. ${q.questionText?.pt || q.questionText?.fr}`;
         });
-      } else if (customModule === 'dictee') {
+      } else if (customEx.module === 'dictee') {
         culturalContentFr = `Cet exercice de Dictée de blocs personnalisé à ${customEx.bpm || 83} BPM a été importé par le Mestre.\n\nBlocs rythmiques à réordonner :\n`;
         culturalContentPt = `Este exercício de Ditado de blocos personalizado a ${customEx.bpm || 83} BPM foi importado pelo Mestre.\n\nBlocos rítmicos a reordenar :\n`;
         customEx.blocs_a_ordonner?.forEach((b: any) => {
           culturalContentFr += `\n- ${b.label}`;
           culturalContentPt += `\n- ${b.label}`;
         });
-      } else if (customModule === 'inspecteur') {
+      } else if (customEx.module === 'inspecteur') {
         culturalContentFr = `Cet exercice d'Inspecteur personnalisé à ${customEx.bpm || 83} BPM a été importé par le Mestre.\n\nDescription : ${customEx.description || 'Trouvez le coupable.'}\nInstrument saboté : ${customEx.instrument_coupable || 'Caixa'}.`;
         culturalContentPt = `Este exercício de Inspetor personalizado a ${customEx.bpm || 83} BPM foi importado pelo Mestre.\n\nDescrição : ${customEx.description || 'Encontre o culpado.'}\nInstrumento sabotado : ${customEx.instrument_coupable || 'Caixa'}.`;
-      } else if (customModule === 'sablier_mestre') {
+      } else if (customEx.module === 'sablier_mestre') {
         culturalContentFr = `Cet exercice de Sablier du Mestre personnalisé à ${customEx.bpm || 83} BPM a été importé par le Mestre.\n\nDurée du sablier : ${customEx.sablier_mesures || 2} mesure(s).\nÉtat audio attendu en succès : ${customEx.etat_audio_succes || 'variation'}.`;
         culturalContentPt = `Este exercício de Ampulheta do Mestre personalizado a ${customEx.bpm || 83} BPM foi importado pelo Mestre.\n\nDuração da ampulheta : ${customEx.sablier_mesures || 2} compasso(s).\nEstado de áudio esperado em sucesso : ${customEx.etat_audio_succes || 'variation'}.`;
-      } else if (customModule === 'rythme_live') {
+      } else if (customEx.module === 'rythme_live') {
         culturalContentFr = `Cet exercice d'Examen de Rythme Live à ${customEx.bpm || 83} BPM a été importé par le Mestre.\n\nInstrument joué par l'élève : ${customEx.instrument_eleve || 'Alfaia'}\nNombre de boucles requises : ${customEx.boucles_requises || 2}\nTolérance de précision : +/- ${customEx.tolerance_ms || 80} ms.`;
         culturalContentPt = `Este exercício de Exame de Ritmo Live a ${customEx.bpm || 83} BPM foi importado pelo Mestre.\n\nInstrumento tocado pelo aluno : ${customEx.instrument_eleve || 'Alfaia'}\nNúmero de repetições exigidas : ${customEx.boucles_requises || 2}\nTolerância de precisão : +/- ${customEx.tolerance_ms || 80} ms.`;
       }
 
       return {
         ...baseBooklet,
+        id: customEx.id || `custom_${customEx.module}_${Math.random()}`,
+        associatedGameId: baseGameId,
         title: {
           fr: customEx.folheto_titre || baseBooklet.title.fr,
           pt: customEx.folheto_titre || baseBooklet.title.pt,
         },
         shortDescription: {
-          fr: `Exercice personnalisé importé (${customModule})`,
-          pt: `Exercício personalizado importado (${customModule})`,
+          fr: `Exercice personnalisé importé (${customEx.module})`,
+          pt: `Exercício personalizado importado (${customEx.module})`,
         },
         culturalContent: {
           fr: culturalContentFr || baseBooklet.culturalContent.fr,
           pt: culturalContentPt || baseBooklet.culturalContent.pt,
         }
       };
-    }
-
-    return baseBooklet;
+    });
   };
 
   const getRewardForCorde = (cordeIndex: number, defaultReward: string): string => {
@@ -146,7 +150,10 @@ export const VaralCordel: React.FC<VaralCordelProps> = ({
   };
 
   const handleCardClick = (folheto: Folheto) => {
-    const isUnlocked = unlockedFolhetos.includes(folheto.id) || justUnlockedBookletId === folheto.id;
+    const baseGameBooklet = folhetosData.find(f => f.associatedGameId === folheto.associatedGameId);
+    const unlockIdToCheck = baseGameBooklet ? baseGameBooklet.id : folheto.id;
+
+    const isUnlocked = unlockedFolhetos.includes(unlockIdToCheck) || justUnlockedBookletId === unlockIdToCheck;
     if (isUnlocked && !animatingUnlockId) {
       setSelectedFolheto(folheto);
     }
@@ -397,21 +404,24 @@ export const VaralCordel: React.FC<VaralCordelProps> = ({
       {/* 5 Stacked horizontal ropes container */}
       <div className="flex-grow flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar pb-16">
         {varalConfig.cordes.map((corde) => {
-          const booklet = getBookletForCorde(corde.cordeIndex);
-          if (!booklet) return null;
+          const booklets = getBookletsForCorde(corde.cordeIndex);
+          if (booklets.length === 0) return null;
 
-          const isUnlocked = unlockedFolhetos.includes(booklet.id);
-          const isAnimating = animatingUnlockId === booklet.id;
-          const isGlowing = showGlowEffect === booklet.id;
+          const numItems = booklets.length + 1; // booklets + 1 artwork
           
-          const activeUnlocked = isUnlocked || isAnimating;
+          // Calcul dynamique de la largeur du fil en fonction du nombre de livrets + padding
+          const calculatedWidth = (numItems * 180) + 100;
+          const windowWidth = typeof window !== 'undefined' ? window.innerWidth - 60 : 800;
+          const lineWidth = Math.max(windowWidth, calculatedWidth);
 
-          // Booklet coordinates along 500px rope (Booklet at t=0.25, Artwork at t=0.75)
-          const bookletX = 0.25 * 500;
-          const bookletY = getRopeY(0.25);
+          const artworkFraction = numItems / (numItems + 1);
+          const artworkX = artworkFraction * lineWidth;
+          const artworkY = getRopeY(artworkFraction);
 
-          const artworkX = 0.75 * 500;
-          const artworkY = getRopeY(0.75);
+          // We check the artwork unlock status based on the first booklet on this rope (usually they share the same game)
+          const baseGameBookletArt = folhetosData.find(f => f.associatedGameId === booklets[0].associatedGameId);
+          const unlockIdToCheckArt = baseGameBookletArt ? baseGameBookletArt.id : booklets[0].id;
+          const isArtworkUnlocked = unlockedFolhetos.includes(unlockIdToCheckArt) || animatingUnlockId === unlockIdToCheckArt;
 
           return (
             <div 
@@ -435,86 +445,106 @@ export const VaralCordel: React.FC<VaralCordelProps> = ({
 
               {/* Individual Scroll Container for this corde */}
               <div 
-                className="w-full overflow-x-auto overflow-y-visible py-4 flex justify-center scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent"
+                className="w-full overflow-x-auto overflow-y-visible py-4 flex justify-start md:justify-center scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent"
                 style={{ WebkitOverflowScrolling: 'touch' }}
               >
-                {/* 500px wide rope area */}
-                <div className="w-[500px] h-[180px] relative overflow-visible shrink-0 mx-auto">
+                {/* Dynamic width rope area */}
+                <div 
+                  className="h-[180px] relative overflow-visible shrink-0 mx-auto"
+                  style={{ width: `${lineWidth}px` }}
+                >
                   {/* SVG Rope Line */}
-                  <svg className="absolute top-4 left-0 h-16 w-full overflow-visible pointer-events-none" viewBox="0 0 500 50" preserveAspectRatio="none">
-                    <path d="M 0,11 Q 250,51 500,11" fill="none" stroke="black" strokeWidth="3" strokeOpacity="0.1" />
-                    <path d="M 0,10 Q 250,50 500,10" fill="none" stroke="var(--cordel-border)" strokeWidth="2" />
-                    <path d="M 0,11 Q 250,51 500,11" fill="none" stroke="var(--cordel-bg)" strokeWidth="1" strokeDasharray="3 3" />
+                  <svg className="absolute top-4 left-0 h-16 w-full overflow-visible pointer-events-none" viewBox={`0 0 ${lineWidth} 50`} preserveAspectRatio="none">
+                    <path d={`M 0,11 Q ${lineWidth/2},51 ${lineWidth},11`} fill="none" stroke="black" strokeWidth="3" strokeOpacity="0.1" />
+                    <path d={`M 0,10 Q ${lineWidth/2},50 ${lineWidth},10`} fill="none" stroke="var(--cordel-border)" strokeWidth="2" />
+                    <path d={`M 0,11 Q ${lineWidth/2},51 ${lineWidth},11`} fill="none" stroke="var(--cordel-bg)" strokeWidth="1" strokeDasharray="3 3" />
                   </svg>
 
-                  {/* 1. Hanging BOOKLET (Folheto) */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: `${bookletX - 55}px`, // Center the 110px wide card
-                      top: `${bookletY}px`,
-                      width: '110px'
-                    }}
-                    className="flex flex-col items-center overflow-visible z-10"
-                  >
-                    {/* Pegador */}
-                    <svg className="w-3.5 h-6 text-[#a67c52] filter drop-shadow-[1px_1.5px_1px_rgba(0,0,0,0.3)] z-20 pointer-events-none" viewBox="0 0 10 24">
-                      <rect x="3.5" y="0" width="3" height="22" fill="currentColor" rx="0.5" />
-                      <circle cx="5" cy="10" r="2" fill="none" stroke="#555" strokeWidth="0.8" />
-                    </svg>
+                  {/* Hanging BOOKLETS (Folhetos) */}
+                  {booklets.map((booklet, index) => {
+                    const fraction = (index + 1) / (numItems + 1);
+                    const bookletX = fraction * lineWidth;
+                    const bookletY = getRopeY(fraction);
 
-                    {/* Booklet Card */}
-                    <div
-                      onClick={() => handleCardClick(booklet)}
-                      className={`w-28 h-36 border-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-2 flex flex-col items-center justify-between relative shadow-[3px_3px_0_var(--cordel-border)] rounded-sm cursor-pointer cordel-folheto-card -mt-1 ${
-                        isGlowing ? 'animate-glow-unlock' : ''
-                      } ${
-                        activeUnlocked 
-                          ? 'border-[var(--cordel-border)] opacity-100' 
-                          : 'border-[var(--cordel-border)]/40 opacity-40 hover:opacity-50'
-                      }`}
-                      style={{
-                        backgroundColor: activeUnlocked ? '#faf6eb' : 'rgba(100,100,100,0.1)'
-                      }}
-                    >
-                      <div className="absolute inset-1 border border-dashed border-current opacity-20 pointer-events-none" />
+                    const baseGameBooklet = folhetosData.find(f => f.associatedGameId === booklet.associatedGameId);
+                    const unlockIdToCheck = baseGameBooklet ? baseGameBooklet.id : booklet.id;
 
-                      {/* Stamp animation */}
-                      {isAnimating && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-[var(--cordel-wood)]/5 pointer-events-none z-30 overflow-hidden">
-                          <div className="border-2 border-double border-[var(--cordel-wood)] text-[var(--cordel-wood)] font-cactus font-black text-center text-[8px] px-1 py-0.5 rotate-[-12deg] bg-white shadow-lg animate-carimbo">
-                            {t.stampCarimbo}
+                    const isUnlocked = unlockedFolhetos.includes(unlockIdToCheck);
+                    const isAnimating = animatingUnlockId === unlockIdToCheck;
+                    const isGlowing = showGlowEffect === unlockIdToCheck;
+                    const activeUnlocked = isUnlocked || isAnimating;
+
+                    return (
+                      <div
+                        key={booklet.id}
+                        style={{
+                          position: 'absolute',
+                          left: `${bookletX - 55}px`, // Center the 110px wide card
+                          top: `${bookletY}px`,
+                          width: '110px'
+                        }}
+                        className="flex flex-col items-center overflow-visible z-10"
+                      >
+                        {/* Pegador */}
+                        <svg className="w-3.5 h-6 text-[#a67c52] filter drop-shadow-[1px_1.5px_1px_rgba(0,0,0,0.3)] z-20 pointer-events-none" viewBox="0 0 10 24">
+                          <rect x="3.5" y="0" width="3" height="22" fill="currentColor" rx="0.5" />
+                          <circle cx="5" cy="10" r="2" fill="none" stroke="#555" strokeWidth="0.8" />
+                        </svg>
+
+                        {/* Booklet Card */}
+                        <div
+                          onClick={() => handleCardClick(booklet)}
+                          className={`w-28 h-36 border-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-2 flex flex-col items-center justify-between relative shadow-[3px_3px_0_var(--cordel-border)] rounded-sm cursor-pointer cordel-folheto-card -mt-1 ${
+                            isGlowing ? 'animate-glow-unlock' : ''
+                          } ${
+                            activeUnlocked 
+                              ? 'border-[var(--cordel-border)] opacity-100' 
+                              : 'border-[var(--cordel-border)]/40 opacity-40 hover:opacity-50'
+                          }`}
+                          style={{
+                            backgroundColor: activeUnlocked ? '#faf6eb' : 'rgba(100,100,100,0.1)'
+                          }}
+                        >
+                          <div className="absolute inset-1 border border-dashed border-current opacity-20 pointer-events-none" />
+
+                          {/* Stamp animation */}
+                          {isAnimating && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-[var(--cordel-wood)]/5 pointer-events-none z-30 overflow-hidden">
+                              <div className="border-2 border-double border-[var(--cordel-wood)] text-[var(--cordel-wood)] font-cactus font-black text-center text-[8px] px-1 py-0.5 rotate-[-12deg] bg-white shadow-lg animate-carimbo">
+                                {t.stampCarimbo}
+                              </div>
+                            </div>
+                          )}
+
+                          <span className="font-cactus text-[7px] font-extrabold uppercase text-center tracking-wider line-clamp-2 leading-tight">
+                            {booklet.title[lang]}
+                          </span>
+
+                          <div className="flex items-center justify-center my-0.5">
+                            {activeUnlocked ? (
+                              renderWoodcutIllustration(booklet.id, false)
+                            ) : (
+                              <div className="w-12 h-12 rounded-full border border-dashed border-[var(--cordel-border)]/20 flex items-center justify-center bg-black/5">
+                                <Lock className="w-4 h-4 text-[var(--cordel-text)]/40" />
+                              </div>
+                            )}
                           </div>
+
+                          {activeUnlocked ? (
+                            <span className="text-[6px] uppercase tracking-widest font-black text-[var(--cordel-wood)] font-mono animate-pulse">
+                              {t.readBtn}
+                            </span>
+                          ) : (
+                            <span className="text-[6px] uppercase tracking-widest font-bold text-[var(--cordel-text)]/40 font-mono">
+                              {t.lockedLabel}
+                            </span>
+                          )}
                         </div>
-                      )}
-
-                      <span className="font-cactus text-[7px] font-extrabold uppercase text-center tracking-wider line-clamp-2 leading-tight">
-                        {booklet.title[lang]}
-                      </span>
-
-                      <div className="flex items-center justify-center my-0.5">
-                        {activeUnlocked ? (
-                          renderWoodcutIllustration(booklet.id, false)
-                        ) : (
-                          <div className="w-12 h-12 rounded-full border border-dashed border-[var(--cordel-border)]/20 flex items-center justify-center bg-black/5">
-                            <Lock className="w-4 h-4 text-[var(--cordel-text)]/40" />
-                          </div>
-                        )}
                       </div>
+                    );
+                  })}
 
-                      {activeUnlocked ? (
-                        <span className="text-[6px] uppercase tracking-widest font-black text-[var(--cordel-wood)] font-mono animate-pulse">
-                          {t.readBtn}
-                        </span>
-                      ) : (
-                        <span className="text-[6px] uppercase tracking-widest font-bold text-[var(--cordel-text)]/40 font-mono">
-                          {t.lockedLabel}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 2. Hanging ARTWORK (OeuvreToniBraga) */}
+                  {/* Hanging ARTWORK (OeuvreToniBraga) */}
                   <div
                     style={{
                       position: 'absolute',
@@ -532,16 +562,16 @@ export const VaralCordel: React.FC<VaralCordelProps> = ({
 
                     {/* Artwork Card */}
                     <div
-                      onClick={() => handleArtworkClick(corde.cordeIndex, corde.oeuvreToniBraga, getRewardForCorde(corde.cordeIndex, corde.rewardData), activeUnlocked)}
+                      onClick={() => handleArtworkClick(corde.cordeIndex, corde.oeuvreToniBraga, getRewardForCorde(corde.cordeIndex, corde.rewardData), isArtworkUnlocked)}
                       className={`w-28 h-36 border-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-2 flex flex-col items-center justify-between relative shadow-[3px_3px_0_var(--cordel-border)] rounded-sm cursor-pointer cordel-folheto-card -mt-1 ${
-                        isGlowing ? 'animate-glow-unlock' : ''
+                        (showGlowEffect === unlockIdToCheckArt) ? 'animate-glow-unlock' : ''
                       } ${
-                        activeUnlocked 
+                        isArtworkUnlocked 
                           ? 'border-[var(--cordel-border)] opacity-100' 
                           : 'border-[var(--cordel-border)]/40 opacity-40 hover:opacity-50'
                       }`}
                       style={{
-                        backgroundColor: activeUnlocked ? '#fdfaf2' : 'rgba(100,100,100,0.1)'
+                        backgroundColor: isArtworkUnlocked ? '#fdfaf2' : 'rgba(100,100,100,0.1)'
                       }}
                     >
                       <div className="absolute inset-1 border border-dashed border-current opacity-20 pointer-events-none" />
@@ -551,7 +581,7 @@ export const VaralCordel: React.FC<VaralCordelProps> = ({
                       </span>
 
                       <div className="flex items-center justify-center my-0.5">
-                        {activeUnlocked ? (
+                        {isArtworkUnlocked ? (
                           corde.oeuvreToniBraga ? (
                             <img
                               src={corde.oeuvreToniBraga}
@@ -571,7 +601,7 @@ export const VaralCordel: React.FC<VaralCordelProps> = ({
                         )}
                       </div>
 
-                      {activeUnlocked ? (
+                      {isArtworkUnlocked ? (
                         <span className="text-[6px] uppercase tracking-widest font-black text-[var(--cordel-wood)] font-mono animate-pulse">
                           {t.viewArt}
                         </span>

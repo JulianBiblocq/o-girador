@@ -363,6 +363,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   <button onClick={() => { onToggleRightPanel('letras'); setMobileMenuOpen(false); }} className={`px-2 py-1.5 cordel-border-sm text-xs font-bold font-cactus cursor-pointer ${activeRightPanel === 'letras' ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'}`}>
                     📝 TOADA
                   </button>
+                  <button onClick={() => { sequencer.setIsLeftHanded(!sequencer.isLeftHanded); setMobileMenuOpen(false); }} className={`px-2 py-1.5 cordel-border-sm text-xs font-bold font-cactus cursor-pointer md:hidden ${sequencer.isLeftHanded ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'}`}>
+                    🫲 {lang === 'pt' ? 'Canhoto' : 'Gaucher'}
+                  </button>
                 </div>
               </div>
 
@@ -582,7 +585,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             onClick={() => setProjectDropOpen(!projectDropOpen)}
             className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button px-3 py-1.5 font-bold font-cactus uppercase cursor-pointer flex items-center gap-2"
           >
-            Projet <span className="text-[10px]">▼</span>
+            {lang === 'pt' ? 'Projeto' : 'Projet'} <span className="text-[10px]">▼</span>
           </button>
           
           {projectDropOpen && (

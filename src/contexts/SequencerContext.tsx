@@ -12,6 +12,8 @@ export interface CustomDialogState {
   type: 'alert' | 'confirm' | 'prompt';
   message: string;
   defaultValue?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
   onResolve: (value: any) => void;
 }
 
@@ -26,7 +28,7 @@ export type SequencerContextType = ReturnType<typeof useSequencerState> &
     customDialog: CustomDialogState | null;
     setCustomDialog: React.Dispatch<React.SetStateAction<CustomDialogState | null>>;
     alertAsync: (message: string) => Promise<void>;
-    confirmAsync: (message: string) => Promise<boolean>;
+    confirmAsync: (message: string, confirmLabel?: string, cancelLabel?: string) => Promise<boolean>;
     promptAsync: (message: string, defaultValue?: string) => Promise<string | null>;
   };
 
@@ -51,9 +53,9 @@ export const SequencerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   };
 
-  const confirmAsync = (message: string): Promise<boolean> => {
+  const confirmAsync = (message: string, confirmLabel?: string, cancelLabel?: string): Promise<boolean> => {
     return new Promise((resolve) => {
-      setCustomDialog({ type: 'confirm', message, onResolve: resolve });
+      setCustomDialog({ type: 'confirm', message, confirmLabel, cancelLabel, onResolve: resolve });
     });
   };
 

@@ -250,7 +250,9 @@ export class AudioEngine {
 
     // Load in batches or concurrently
     await Promise.all(pathsArray.map(path => loadPath(path)));
-    console.log(`AudioEngine: Completed preloading of all samples. Pooled ${this.bufferPool.size} unique buffers in memory.`);
+    if (import.meta.env.DEV) {
+      console.log(`AudioEngine: Completed preloading of all samples. Pooled ${this.bufferPool.size} unique buffers in memory.`);
+    }
   }
 
   /**
@@ -376,13 +378,12 @@ export class AudioEngine {
       gainNode.connect(Tone.Destination);
     }
 
+    // Choke any existing looping barulho for this instrument (also cleans up its Gain)
+    this.stopBarulho(instrumentId, time);
+
     // 6. Handle play duration and looping
     if (stroke.isBarulho) {
       source.loop = true;
-      
-      // Choke any existing looping barulho for this instrument (also cleans up its Gain)
-      this.stopBarulho(instrumentId, time);
-
       source.start(time);
       this.activeBarulhoNodes.set(instrumentId, source);
       this.activeBarulhoGains.set(instrumentId, gainNode); // Track gainNode for proper cleanup
