@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://julianbiblocq.github.io/BaqueMix/sitemap.xml
+Sitemap: https://julianbiblocq.github.io/o-girador/sitemap.xml

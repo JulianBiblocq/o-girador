@@ -1,6 +1,6 @@
 import { Preset } from './types';
 
-export const LIBRARY_STORAGE_KEY = 'baquemix_personal_library';
+export const LIBRARY_STORAGE_KEY = 'oGirador_personal_library';
 
 export interface LocalLibrary {
   [name: string]: Preset;

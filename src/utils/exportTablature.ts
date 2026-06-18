@@ -447,7 +447,7 @@ export const exportTablatureFile = (
   const outputTxt = generateTablatureCore(tracks, totalMeasures, songSections, measureTimeSigs, measureBpms, false);
   const annexTxt = generateAnnexTablature(tracks, annexTrackIds, false);
   
-  const title = metadata?.toada?.trim() || "BaqueMix Tablature";
+  const title = metadata?.toada?.trim() || "O Girador Tablature";
   
   let finalTxt = `TITRE: ${title}\n`;
   if (metadata?.compositor) finalTxt += `COMPOSITEUR: ${metadata.compositor}\n`;
@@ -459,7 +459,7 @@ export const exportTablatureFile = (
     finalTxt += `\n--- VOIX / PAROLES ---\n${letras}\n`;
   }
   
-  finalTxt += `\n(Généré avec BaqueMix)\n`;
+  finalTxt += `\n(Généré avec O Girador)\n`;
 
   // Create blob and download
   const blob = new Blob([finalTxt], { type: 'text/plain;charset=utf-8' });
@@ -561,7 +561,7 @@ export const printTablature = (
   `;
   document.head.appendChild(styleBlock);
   
-  const title = metadata?.toada?.trim() || "BaqueMix Tablature";
+  const title = metadata?.toada?.trim() || "O Girador Tablature";
   const composer = metadata?.compositor ? `Compositeur : ${metadata.compositor}` : "";
   
   let innerContent = `
@@ -586,7 +586,7 @@ export const printTablature = (
   }
 
   innerContent += `
-    <div class="tab-footer">Généré avec BaqueMix</div>
+    <div class="tab-footer">Généré avec O Girador</div>
   `;
   
   const htmlContent = `

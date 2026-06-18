@@ -8,7 +8,7 @@ import { useSequencer } from '../contexts/SequencerContext';
 
 const getGlobalClipboard = () => {
   if (typeof window !== 'undefined') {
-    return (window as any).__baquemixRelativeClipboard || null;
+    return (window as any).__oGiradorRelativeClipboard || null;
   }
   return null;
 };
@@ -231,8 +231,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     const handleChanged = () => {
       setHasClipboard(!!getGlobalClipboard());
     };
-    window.addEventListener('baquemixClipboardChanged', handleChanged);
-    return () => window.removeEventListener('baquemixClipboardChanged', handleChanged);
+    window.addEventListener('oGiradorClipboardChanged', handleChanged);
+    return () => window.removeEventListener('oGiradorClipboardChanged', handleChanged);
   }, []);
 
   useEffect(() => {
@@ -291,7 +291,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [isMultiSelectActive, selectedStepIndices, activePattern.id, onStepValueChange]);
 
-  // Listen to CustomEvent 'baquemix-tick' to highlight step cells dynamically (Bypass React)
+  // Listen to CustomEvent 'o-girador-tick' to highlight step cells dynamically (Bypass React)
   useEffect(() => {
     let activeElements: HTMLElement[] = [];
 
@@ -395,9 +395,9 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       });
     };
 
-    window.addEventListener('baquemix-tick', handleTick);
+    window.addEventListener('o-girador-tick', handleTick);
     return () => {
-      window.removeEventListener('baquemix-tick', handleTick);
+      window.removeEventListener('o-girador-tick', handleTick);
       activeElements.forEach(el => {
         deactivateElement(el);
       });
@@ -548,8 +548,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       note: activePattern.notes?.[idx] || '',
     }));
     if (typeof window !== 'undefined') {
-      (window as any).__baquemixRelativeClipboard = { steps: copiedSteps };
-      window.dispatchEvent(new CustomEvent('baquemixClipboardChanged'));
+      (window as any).__oGiradorRelativeClipboard = { steps: copiedSteps };
+      window.dispatchEvent(new CustomEvent('oGiradorClipboardChanged'));
     }
   };
 

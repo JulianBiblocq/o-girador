@@ -1,5 +1,5 @@
 /**
- * BaqueMix - High-Precision Web Audio Sequencer Engine
+ * O Girador - High-Precision Web Audio Sequencer Engine
  * 
  * Drives the sequencer's tick clock using a dual-scheduler strategy:
  *  1. Primary: Inline Web Worker thread setInterval (prevents tab-throttling in background).

@@ -351,7 +351,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     };
   }, []);
 
-  // Listen to CustomEvent 'baquemix-tick' to move playhead and handle auto-scroll (Bypass React)
+  // Listen to CustomEvent 'o-girador-tick' to move playhead and handle auto-scroll (Bypass React)
   React.useEffect(() => {
     const handleTick = (e: Event) => {
       const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
@@ -382,9 +382,9 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
       }
     };
 
-    window.addEventListener('baquemix-tick', handleTick);
+    window.addEventListener('o-girador-tick', handleTick);
     return () => {
-      window.removeEventListener('baquemix-tick', handleTick);
+      window.removeEventListener('o-girador-tick', handleTick);
     };
   }, [isPlaying, MEASURE_W, HEADER_W]);
 

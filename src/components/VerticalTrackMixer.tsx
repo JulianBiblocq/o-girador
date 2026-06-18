@@ -198,8 +198,8 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
         }
       }
     };
-    window.addEventListener('baquemix-tick', handleTick);
-    return () => window.removeEventListener('baquemix-tick', handleTick);
+    window.addEventListener('o-girador-tick', handleTick);
+    return () => window.removeEventListener('o-girador-tick', handleTick);
   }, [track, soloPatternPlayId]);
 
   // Synchronize the visually active pattern selection index in parent state during playback

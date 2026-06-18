@@ -8,15 +8,15 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({ command }) => {
   return {
-    base: command === 'build' ? '/BaqueMix/' : '/',
+    base: command === 'build' ? '/o-girador/' : '/',
     plugins: [
       react(),
       tailwindcss(),
       VitePWA({
         injectRegister: false,
         manifest: {
-          name: "BaqueMix - Sequenciador de Maracatu de Baque Virado",
-          short_name: "BaqueMix",
+          name: "O Girador - Sequenciador de Maracatu de Baque Virado",
+          short_name: "O Girador",
           description: "Sequenciador interativo de ritmos de Maracatu de Baque Virado. Crie, visualize e escute padrões rítmicos.",
           theme_color: "#0a0807",
           background_color: "#0a0807",

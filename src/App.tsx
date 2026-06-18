@@ -68,7 +68,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio'>('roda');
   const [unlockedFolhetos, setUnlockedFolhetos] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem('baquemix-unlocked-folhetos');
+      const saved = localStorage.getItem('o-girador-unlocked-folhetos');
       return saved ? JSON.parse(saved) : [];
     } catch (_) {
       return [];
@@ -76,7 +76,7 @@ export default function App() {
   });
   const [justUnlockedBookletId, setJustUnlockedBookletId] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    const savedTheme = localStorage.getItem('baquemix-theme');
+    const savedTheme = localStorage.getItem('o-girador-theme');
     if (savedTheme) {
       return savedTheme === 'dark';
     }
@@ -123,8 +123,8 @@ export default function App() {
   const handleAppUpdate = async (reg: ServiceWorkerRegistration) => {
     const shouldUpdate = await confirmAsync(
       sequencer.lang === 'fr' 
-        ? "Une nouvelle version de BaqueMix est disponible. Recharger pour mettre à jour ?"
-        : "Uma nova versão do BaqueMix está disponível. Recarregar para atualizar ?"
+        ? "Une nouvelle version de O Girador est disponible. Recharger pour mettre à jour ?"
+        : "Uma nova versão do O Girador está disponível. Recarregar para atualizar ?"
     );
     if (shouldUpdate) {
       let refreshing = false;
@@ -186,8 +186,8 @@ export default function App() {
               if (latestVersion && latestVersion !== "undefined" && latestVersion !== CURRENT_VERSION) {
                 const shouldUpdate = await confirmAsync(
                   sequencer.lang === 'fr' 
-                    ? "Une nouvelle version de BaqueMix est disponible. Recharger pour mettre à jour ?"
-                    : "Uma nova versão do BaqueMix está disponível. Recarregar para atualizar ?"
+                    ? "Une nouvelle version de O Girador est disponible. Recharger pour mettre à jour ?"
+                    : "Uma nova versão do O Girador está disponível. Recarregar para atualizar ?"
                 );
                 if (shouldUpdate) {
                   let refreshing = false;
@@ -269,12 +269,12 @@ export default function App() {
   useEffect(() => {
     const theme = isDarkMode ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('baquemix-theme', theme);
+    localStorage.setItem('o-girador-theme', theme);
   }, [isDarkMode]);
 
   // Local folhetos persistence
   useEffect(() => {
-    localStorage.setItem('baquemix-unlocked-folhetos', JSON.stringify(unlockedFolhetos));
+    localStorage.setItem('o-girador-unlocked-folhetos', JSON.stringify(unlockedFolhetos));
   }, [unlockedFolhetos]);
 
   const unlockBooklet = (id: string) => {
@@ -301,7 +301,7 @@ export default function App() {
       let loadedFromHash = false;
 
       const tryLoadQueryOrHash = async () => {
-        // 1. Try URL query parameter '?baque='
+        // 1. Try URL query parameter '?ogirador='
         try {
           const urlParams = new URLSearchParams(window.location.search);
           const baqueParam = urlParams.get('baque');
@@ -316,7 +316,7 @@ export default function App() {
             }
           }
         } catch (err) {
-          console.warn('[BaqueMix] Failed to decode URL query param (?baque=):', err);
+          console.warn('[O Girador] Failed to decode URL query param (?ogirador=):', err);
         }
 
         // 2. Try URL Hash '#...base64...'
@@ -330,7 +330,7 @@ export default function App() {
             window.history.replaceState({}, document.title, window.location.pathname);
             return true;
           } catch (err) {
-            console.warn('[BaqueMix] Failed to decode URL hash:', err);
+            console.warn('[O Girador] Failed to decode URL hash:', err);
           }
         }
         return false;
@@ -344,15 +344,15 @@ export default function App() {
         if (!loadedFromHash) {
           try {
             // Support both key variants for backwards compatibility
-            const savedStateStr = localStorage.getItem('baquemix_autosave') || localStorage.getItem('baquemix-autosave');
+            const savedStateStr = localStorage.getItem('o_girador_autosave') || localStorage.getItem('o-girador-autosave');
             if (savedStateStr) {
               const savedState = JSON.parse(savedStateStr);
               await audio.applyPreset(savedState);
               restoredFromLocalStorage = true;
-              console.log('[BaqueMix] Autosave restored from localStorage.');
+              console.log('[O Girador] Autosave restored from localStorage.');
             }
           } catch (err) {
-            console.error('[BaqueMix] Failed to restore autosave from localStorage:', err);
+            console.error('[O Girador] Failed to restore autosave from localStorage:', err);
           }
         }
 
@@ -490,9 +490,9 @@ export default function App() {
         masterVol: audio.masterVol,
       };
       try {
-        localStorage.setItem('baquemix_autosave', JSON.stringify(dataToSave));
+        localStorage.setItem('o_girador_autosave', JSON.stringify(dataToSave));
         // Clean up old hyphenated key if it exists (migration)
-        localStorage.removeItem('baquemix-autosave');
+        localStorage.removeItem('o-girador-autosave');
         setIsSavedIndicatorVisible(true);
       } catch (err) {
         console.error('Failed to autosave state to localStorage:', err);

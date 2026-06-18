@@ -382,7 +382,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   <button onClick={() => { window.open('tutorial.html', '_blank'); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[#8e44ad] text-[#1a1a1a] cordel-border-sm text-xs font-bold font-cactus hover:opacity-90 cursor-pointer flex items-center justify-center gap-1">
                     📖 Guide
                   </button>
-                  <button onClick={() => { window.open('https://github.com/JulianBiblocq/BaqueMix/issues', '_blank'); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[#27ae60] text-[#1a1a1a] cordel-border-sm text-xs font-bold font-cactus hover:opacity-90 cursor-pointer col-span-2 flex items-center justify-center gap-1">
+                  <button onClick={() => { window.open('https://github.com/JulianBiblocq/o-girador/issues', '_blank'); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[#27ae60] text-[#1a1a1a] cordel-border-sm text-xs font-bold font-cactus hover:opacity-90 cursor-pointer col-span-2 flex items-center justify-center gap-1">
                     💬 {t('feedbackBtn')}
                   </button>
                 </div>
@@ -394,7 +394,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
         {/* Center: App Title */}
         <span className="font-cactus text-[var(--cordel-text)] text-base font-bold tracking-wide uppercase select-none cursor-default whitespace-nowrap">
-          BaqueMix
+          O Girador
         </span>
 
         {/* Right: Quick actions (View Switcher and Add Instrument) */}
@@ -577,7 +577,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           id="header-title-text"
           className="font-cactus text-[var(--cordel-text)] text-3xl font-medium tracking-widest uppercase select-none cursor-default drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
         >
-          BaqueMix {version && <span className="text-xs lowercase opacity-50 ml-1 font-sans">v{version}</span>}
+          O Girador {version && <span className="text-xs lowercase opacity-50 ml-1 font-sans">v{version}</span>}
         </span>
         
         <div className="relative ml-2" ref={projectDropRef}>
@@ -885,7 +885,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         </button>
 
         <button
-          onClick={() => window.open('https://github.com/JulianBiblocq/BaqueMix/issues', '_blank')}
+          onClick={() => window.open('https://github.com/JulianBiblocq/o-girador/issues', '_blank')}
           className="bg-[#27ae60] text-[#1a1a1a] hover:opacity-90 px-3 py-1.5 text-sm font-bold cordel-border-sm flex items-center justify-center cursor-pointer"
           title={t('feedbackBtn')}
         >

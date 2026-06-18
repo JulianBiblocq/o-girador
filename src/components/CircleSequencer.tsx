@@ -229,9 +229,9 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       updateOverlay(measure);
     };
 
-    window.addEventListener('baquemix-tick', handleTick);
+    window.addEventListener('o-girador-tick', handleTick);
     return () => {
-      window.removeEventListener('baquemix-tick', handleTick);
+      window.removeEventListener('o-girador-tick', handleTick);
     };
   }, [totalMeasures]);
 
@@ -251,9 +251,9 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       }, 300);
     };
 
-    window.addEventListener('baquemix-apito-shake', handleApitoShake);
+    window.addEventListener('o-girador-apito-shake', handleApitoShake);
     return () => {
-      window.removeEventListener('baquemix-apito-shake', handleApitoShake);
+      window.removeEventListener('o-girador-apito-shake', handleApitoShake);
       if (timerId) clearTimeout(timerId);
     };
   }, []);

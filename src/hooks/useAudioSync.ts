@@ -774,7 +774,7 @@ export function useAudioSync({
 
           const delayMs = Math.max(0, (time - rawCtx.currentTime) * 1000);
           const timeoutId = setTimeout(() => {
-            window.dispatchEvent(new CustomEvent('baquemix-tick', {
+            window.dispatchEvent(new CustomEvent('o-girador-tick', {
               detail: {
                 step: _stepForUI,
                 measure: _measureForUI,
@@ -1085,7 +1085,7 @@ export function useAudioSync({
       const pausedMaxTicks = maxTicksRef.current;
       const ratioVal = pausedMaxTicks > 0 ? (pausedStep >= 0 ? pausedStep : 0) / pausedMaxTicks : 0;
 
-      window.dispatchEvent(new CustomEvent('baquemix-tick', {
+      window.dispatchEvent(new CustomEvent('o-girador-tick', {
         detail: {
           step: pausedStep,
           measure: pausedMeasure,
@@ -1132,7 +1132,7 @@ export function useAudioSync({
     setCurrentMeasure(0);
     Tone.Transport.seconds = 0;
     lastPlayedSignalIdRef.current = null;
-    window.dispatchEvent(new CustomEvent('baquemix-tick', {
+    window.dispatchEvent(new CustomEvent('o-girador-tick', {
       detail: { step: -1, measure: 0, maxTicks: 16 }
     }));
   };
@@ -1195,7 +1195,7 @@ export function useAudioSync({
     maxTicksRef.current = currentTicks;
 
     const ratioVal = tickIdx / currentTicks;
-    window.dispatchEvent(new CustomEvent('baquemix-tick', {
+    window.dispatchEvent(new CustomEvent('o-girador-tick', {
       detail: {
         step: tickIdx,
         measure: measureIdx % totalMeasures,

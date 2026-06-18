@@ -151,7 +151,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [masterEQ, setMasterEQ] = useState<{ low: number; mid: number; high: number }>({ low: 0, mid: 0, high: 0 });
   const [masterCompressor, setMasterCompressor] = useState<{ threshold: number; ratio: number }>({ threshold: -20, ratio: 4 });
   const [reverbType, setReverbType] = useState<'room' | 'studio' | 'hall'>(() => {
-    return (localStorage.getItem('baquemix_reverb_type') as any) || 'room';
+    return (localStorage.getItem('oGirador_reverb_type') as any) || 'room';
   });
   const [activeKeyboardInstrumentId, setActiveKeyboardInstrumentId] = useState<string | null>(null);
 
@@ -865,7 +865,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           const wavBlob = bufferToWav(wavRecordingBuffersL, wavRecordingBuffersR, sampleRate);
           const url = URL.createObjectURL(wavBlob);
           const downloadLink = document.createElement('a');
-          downloadLink.download = 'BaqueMix_Export.wav';
+          downloadLink.download = 'O Girador_Export.wav';
           downloadLink.href = url;
           downloadLink.click();
         }

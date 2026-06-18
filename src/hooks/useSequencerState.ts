@@ -30,7 +30,7 @@ export function useSequencerState() {
   const [letras, setLetras] = useState<string>('');
   const [metadata, setMetadata] = useState<PresetMetadata>({ toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] });
   const activeVariationsRef = useRef<Record<number, (string | number)[]>>({});
-  const [isLeftHanded, setIsLeftHanded] = useState<boolean>(() => localStorage.getItem('baquemix_left_handed') === 'true');
+  const [isLeftHanded, setIsLeftHanded] = useState<boolean>(() => localStorage.getItem('o_girador_left_handed') === 'true');
   const [lang, setLang] = useState<Language>('pt');
   const [copiedPattern, setCopiedPattern] = useState<Pattern | null>(null);
   const [copiedSection, setCopiedSection] = useState<any>(null);
@@ -38,7 +38,7 @@ export function useSequencerState() {
   const [activeAoVivoTrackId, setActiveAoVivoTrackId] = useState<number | null>(null);
 
   useEffect(() => {
-    localStorage.setItem('baquemix_left_handed', String(isLeftHanded));
+    localStorage.setItem('o_girador_left_handed', String(isLeftHanded));
   }, [isLeftHanded]);
 
   // History states

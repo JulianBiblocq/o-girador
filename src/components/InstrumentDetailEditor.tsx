@@ -7,7 +7,7 @@ import { usePatternLibraryStore } from '../hooks/usePatternLibraryStore';
 
 const getGlobalClipboard = () => {
   if (typeof window !== 'undefined') {
-    return (window as any).__baquemixRelativeClipboard || null;
+    return (window as any).__oGiradorRelativeClipboard || null;
   }
   return null;
 };
@@ -447,9 +447,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         setLiveMeasure((prev) => (prev !== measure ? measure : prev));
       }
     };
-    window.addEventListener('baquemix-tick', handleTick);
+    window.addEventListener('o-girador-tick', handleTick);
     return () => {
-      window.removeEventListener('baquemix-tick', handleTick);
+      window.removeEventListener('o-girador-tick', handleTick);
     };
   }, []);
 
@@ -522,8 +522,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     const handleChanged = () => {
       setHasClipboard(!!getGlobalClipboard());
     };
-    window.addEventListener('baquemixClipboardChanged', handleChanged);
-    return () => window.removeEventListener('baquemixClipboardChanged', handleChanged);
+    window.addEventListener('oGiradorClipboardChanged', handleChanged);
+    return () => window.removeEventListener('oGiradorClipboardChanged', handleChanged);
   }, []);
 
   React.useEffect(() => {
@@ -702,8 +702,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       note: ptn.notes?.[idx] || '',
     }));
     if (typeof window !== 'undefined') {
-      (window as any).__baquemixRelativeClipboard = { steps: copiedSteps };
-      window.dispatchEvent(new CustomEvent('baquemixClipboardChanged'));
+      (window as any).__oGiradorRelativeClipboard = { steps: copiedSteps };
+      window.dispatchEvent(new CustomEvent('oGiradorClipboardChanged'));
     }
   };
 

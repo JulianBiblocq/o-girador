@@ -1,5 +1,5 @@
 /**
- * BaqueMix - High-Precision Web Audio Lookahead Engine & Sampler
+ * O Girador - High-Precision Web Audio Lookahead Engine & Sampler
  * 
  * Drives the sequencer's tick clock using a dual-scheduler strategy:
  *  1. Primary: Inline Web Worker thread setInterval (prevents tab-throttling in background).
@@ -403,7 +403,7 @@ export class AudioEngine {
 
     if (instrumentId === 'apito') {
       Tone.Draw.schedule(() => {
-        window.dispatchEvent(new CustomEvent('baquemix-apito-shake'));
+        window.dispatchEvent(new CustomEvent('o-girador-apito-shake'));
       }, time);
     }
   }

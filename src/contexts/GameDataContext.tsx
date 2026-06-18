@@ -34,7 +34,7 @@ const GameDataContext = createContext<GameDataContextType | undefined>(undefined
 export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [varalConfig, setVaralConfig] = useState<VaralConfigData>(() => {
     try {
-      const saved = localStorage.getItem('baquemix_varal');
+      const saved = localStorage.getItem('oGirador_varal');
       return saved ? JSON.parse(saved) : (defaultVaralConfig as VaralConfigData);
     } catch (_) {
       return defaultVaralConfig as VaralConfigData;
@@ -43,7 +43,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const [customExercises, setCustomExercises] = useState<CustomExercise[]>(() => {
     try {
-      const saved = localStorage.getItem('baquemix_exercices');
+      const saved = localStorage.getItem('oGirador_exercices');
       return saved ? JSON.parse(saved) : [];
     } catch (_) {
       return [];
@@ -52,7 +52,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const loadVaralConfig = (data: VaralConfigData) => {
     setVaralConfig(data);
-    localStorage.setItem('baquemix_varal', JSON.stringify(data));
+    localStorage.setItem('oGirador_varal', JSON.stringify(data));
   };
 
   const addExercise = (data: any) => {
@@ -67,7 +67,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Remove previous exercise of this ID/module to avoid duplicates
       const filtered = prev.filter(ex => ex.id !== exerciseId && ex.module !== data.module);
       const updated = [...filtered, newExercise];
-      localStorage.setItem('baquemix_exercices', JSON.stringify(updated));
+      localStorage.setItem('oGirador_exercices', JSON.stringify(updated));
       return updated;
     });
   };
@@ -75,7 +75,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const removeExercise = (id: string) => {
     setCustomExercises(prev => {
       const updated = prev.filter(ex => ex.id !== id);
-      localStorage.setItem('baquemix_exercices', JSON.stringify(updated));
+      localStorage.setItem('oGirador_exercices', JSON.stringify(updated));
       return updated;
     });
   };
@@ -83,8 +83,8 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const clearAllData = () => {
     setVaralConfig(defaultVaralConfig as VaralConfigData);
     setCustomExercises([]);
-    localStorage.removeItem('baquemix_varal');
-    localStorage.removeItem('baquemix_exercices');
+    localStorage.removeItem('oGirador_varal');
+    localStorage.removeItem('oGirador_exercices');
   };
 
   return (

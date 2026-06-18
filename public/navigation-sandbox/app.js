@@ -5,7 +5,7 @@
  * avec snapping, et synchronise les contrôles de la barre d'outils.
  */
 
-// Données fictives réalistes de BaqueMix (Rythmes de Maracatu)
+// Données fictives réalistes de O Girador (Rythmes de Maracatu)
 const tracksData = [
   {
     name: 'Gongue',

@@ -1,25 +1,25 @@
-# 🥁 BaqueMix
+# 🥁 O Girador
 
 > **O Sequenciador de Ritmos de Maracatu de Baque Virado interativo no seu navegador.**
 > **Le séquenceur de rythmes de Maracatu de Baque Virado interactif dans votre navigateur.**
 
 <div align="center">
-  <img src="https://julianbiblocq.github.io/BaqueMix/og-image.jpg" alt="BaqueMix Banner" width="800" style="border: 3px solid #1a1a1a; box-shadow: 4px 4px 0px 0px #1a1a1a;" />
+  <img src="https://julianbiblocq.github.io/o-girador/og-image.jpg" alt="O Girador Banner" width="800" style="border: 3px solid #1a1a1a; box-shadow: 4px 4px 0px 0px #1a1a1a;" />
 </div>
 
 ---
 
-## 🇧🇷 Sobre o BaqueMix
-O **BaqueMix** é uma ferramenta gratuita e interativa dedicada ao estudo, à composição e à prática do **Maracatu de Baque Virado** (patrimônio imaterial de Pernambuco, Brasil). Ele simula um *bloco de maracatu* completo (Alfaia, Caixa, Gonguê, Agbê, Mineiro e Vozes) diretamente na web.
+## 🇧🇷 Sobre O Girador
+**O Girador** é uma ferramenta gratuita e interativa dedicada ao estudo, à composição e à prática do **Maracatu de Baque Virado** (patrimônio imaterial de Pernambuco, Brasil). Ele simula um *bloco de maracatu* completo (Alfaia, Caixa, Gonguê, Agbê, Mineiro e Vozes) diretamente na web.
 
-Com uma identidade visual única inspirada na literatura de **Cordel** e na **Xilogravura**, o BaqueMix une a tradição percussiva com os recursos modernos do áudio digital (Web Audio API / Tone.js).
+Com uma identidade visual única inspirada na literatura de **Cordel** e na **Xilogravura**, O Girador une a tradição percussiva com os recursos modernos do áudio digital (Web Audio API / Tone.js).
 
 ---
 
-## 🇫🇷 À propos de BaqueMix
-**BaqueMix** est un outil gratuit et interactif dédié à l'étude, à la composition et à la pratique du **Maracatu de Baque Virado** (patrimoine immatériel du Pernambouc, Brésil). Il simule un *bloco de maracatu* complet (Alfaia, Caixa, Gonguê, Agbê, Mineiro et Voix) directement sur le web.
+## 🇫🇷 À propos de O Girador
+**O Girador** est un outil gratuit et interactif dédié à l'étude, à la composition et à la pratique du **Maracatu de Baque Virado** (patrimoine immatériel du Pernambouc, Brésil). Il simule un *bloco de maracatu* complet (Alfaia, Caixa, Gonguê, Agbê, Mineiro et Voix) directement sur le web.
 
-Avec une identité visuelle unique inspirée de la littérature de **Cordel** et de la **Gravure sur bois (Xilogravura)**, BaqueMix allie la tradition des percussions brésiliennes aux fonctionnalités modernes de l'audio numérique (Web Audio API / Tone.js).
+Avec une identité visuelle unique inspirée de la littérature de **Cordel** et de la **Gravure sur bois (Xilogravura)**, O Girador allie la tradition des percussions brésiliennes aux fonctionnalités modernes de l'audio numérique (Web Audio API / Tone.js).
 
 ---
 
@@ -70,5 +70,5 @@ npm install
 npm run dev
 ```
 
-Abra [http://localhost:3000](http://localhost:3000) no seu navegador para experimentar o BaqueMix.
-Ouvrez [http://localhost:3000](http://localhost:3000) dans votre navigateur pour expérimenter BaqueMix.
+Abra [http://localhost:3000](http://localhost:3000) no seu navegador para experimentar O Girador.
+Ouvrez [http://localhost:3000](http://localhost:3000) dans votre navigateur pour expérimenter O Girador.
