@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import * as Tone from 'tone';
 import { AudioEngine } from '../AudioEngine';
 import { InputManager } from '../InputManager';
