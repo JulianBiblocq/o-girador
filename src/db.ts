@@ -20,7 +20,18 @@ function getDB(): Promise<IDBDatabase> {
       };
 
       request.onsuccess = () => {
-        resolve(request.result);
+        const db = request.result;
+
+        // If OS forcefully closes the database connection (e.g. backgrounding on iOS), reset the promise
+        db.onclose = () => {
+          dbPromise = null;
+        };
+        db.onversionchange = () => {
+          db.close();
+          dbPromise = null;
+        };
+
+        resolve(db);
       };
 
       request.onupgradeneeded = (event) => {
