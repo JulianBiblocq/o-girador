@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import * as Tone from 'tone';
 import { useSequencer } from './contexts/SequencerContext';
 import { useAudio } from './contexts/AudioContext';
@@ -22,19 +22,20 @@ import { getLocalLibrary, deletePresetFromLibrary } from './library';
 import { Header } from './components/Header';
 import { TransportBar } from './components/TransportBar';
 import { Mixer } from './components/Mixer';
-import { ConsoleMixer } from './components/ConsoleMixer';
-import { CircleSequencer } from './components/CircleSequencer';
 import { RightSidebar } from './components/RightSidebar';
-import { TimelineSequencer } from './components/TimelineSequencer';
 import { TouchStrokeSelector } from './components/TouchStrokeSelector';
-import { QuizEngine } from './components/QuizEngine';
-import { DicteeEngine } from './components/DicteeEngine';
-import { InspecteurEngine } from './components/InspecteurEngine';
-import { MestreEngine } from './components/MestreEngine';
-import { RythmeLiveEngine } from './components/RythmeLiveEngine';
-import { VaralCordel } from './components/VaralCordel';
-import { MestreStudio } from './components/MestreStudio';
-import { AoVivoOverlay } from './components/AoVivoOverlay';
+const ConsoleMixer = lazy(() => import('./components/ConsoleMixer').then(m => ({ default: m.ConsoleMixer })));
+const CircleSequencer = lazy(() => import('./components/CircleSequencer').then(m => ({ default: m.CircleSequencer })));
+const TimelineSequencer = lazy(() => import('./components/TimelineSequencer').then(m => ({ default: m.TimelineSequencer })));
+const QuizEngine = lazy(() => import('./components/QuizEngine').then(m => ({ default: m.QuizEngine })));
+const DicteeEngine = lazy(() => import('./components/DicteeEngine').then(m => ({ default: m.DicteeEngine })));
+const InspecteurEngine = lazy(() => import('./components/InspecteurEngine').then(m => ({ default: m.InspecteurEngine })));
+const MestreEngine = lazy(() => import('./components/MestreEngine').then(m => ({ default: m.MestreEngine })));
+const RythmeLiveEngine = lazy(() => import('./components/RythmeLiveEngine').then(m => ({ default: m.RythmeLiveEngine })));
+const VaralCordel = lazy(() => import('./components/VaralCordel').then(m => ({ default: m.VaralCordel })));
+const MestreStudio = lazy(() => import('./components/MestreStudio').then(m => ({ default: m.MestreStudio })));
+const AoVivoOverlay = lazy(() => import('./components/AoVivoOverlay').then(m => ({ default: m.AoVivoOverlay })));
+import { Home } from './components/Home';
 import { PresetMetadata, Pattern, SongSection, TimeSignature } from './types';
 import { exportTablatureFile, printTablature, printLegendOnly } from './utils/exportTablature';
 
@@ -65,7 +66,7 @@ export default function App() {
   const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | null>(
     window.innerWidth < 1024 ? 'letras' : 'letras'
   );
-  const [viewMode, setViewMode] = useState<'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio'>('roda');
+  const [viewMode, setViewMode] = useState<'home' | 'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio'>('home');
   const [unlockedFolhetos, setUnlockedFolhetos] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('o-girador-unlocked-folhetos');
@@ -710,7 +711,11 @@ export default function App() {
   const [mestreRhythmState, setMestreRhythmState] = useState<number>(0);
 
   return (
-    <div className="flex flex-col h-dvh text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
+    <>
+      {viewMode === 'home' ? (
+        <Home onEnter={(mode) => setViewMode(mode as any)} lang={sequencer.lang} />
+      ) : (
+        <div className="flex flex-col h-dvh text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
       {/* Visual buffer loader loading overlay */}
       {audio.isLoading && (
         <div id="loading-overlay" className="absolute inset-0 bg-[#121212]/90 flex flex-col items-center justify-center z-[9999] gap-2.5">
@@ -1103,5 +1108,7 @@ export default function App() {
       )}
       {viewMode === 'roda' && (!isMobile || mobileTab === 'roda') && <AoVivoOverlay />}
     </div>
+      )}
+    </>
   );
 }

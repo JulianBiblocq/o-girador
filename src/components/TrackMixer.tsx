@@ -126,6 +126,18 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const paintValueRef = useRef<string | number>(0);
 
   const vuMeterRef = useRef<HTMLDivElement>(null);
+  
+  // DOM Micro-optimization: Map to store references to step inputs to avoid document.querySelectorAll in ticks
+  const cellRefs = useRef<Map<number, HTMLElement[]>>(new Map());
+  const registerCellRef = (index: number, el: HTMLElement | null) => {
+    if (el) {
+      if (!cellRefs.current.has(index)) cellRefs.current.set(index, []);
+      if (!cellRefs.current.get(index)!.includes(el)) {
+        cellRefs.current.get(index)!.push(el);
+      }
+    }
+  };
+
   const [liveMeasure, setLiveMeasure] = useState<number>(-1);
   const lastMeasureRef = useRef<number>(-1);
   const lastRatioRef = useRef<number>(-1);
@@ -388,9 +400,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       activeElements = [];
 
       // Find and activate the new active elements for this track
-      const activeStepElements = document.querySelectorAll(
-        `[data-track-id="${track.id}"][data-step-index="${targetStep}"]`
-      );
+      const activeStepElements = cellRefs.current.get(targetStep) || [];
 
       activeStepElements.forEach(el => {
         const htmlEl = el as HTMLElement;
@@ -413,9 +423,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     if (lastRatioRef.current >= 0) {
       const stepsCount = activePattern.steps;
       const targetStep = Math.floor(lastRatioRef.current * stepsCount);
-      const activeStepElements = document.querySelectorAll(
-        `[data-track-id="${track.id}"][data-step-index="${targetStep}"]`
-      );
+      const activeStepElements = cellRefs.current.get(targetStep) || [];
       activeStepElements.forEach(el => {
         activateElement(el as HTMLElement);
       });
@@ -517,7 +525,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       if (selectedStepIndices.includes(tappedIdx) && selectedStepIndices.length > 0) {
         const stepVal = activePattern.activeSteps[tappedIdx];
         if (onStepTouchStart) {
-          const stepEl = document.querySelector(`[data-track-id="${track.id}"][data-step-index="${tappedIdx}"]`) as HTMLElement;
+          const stepEl = cellRefs.current.get(tappedIdx)?.[0];
           if (stepEl) {
             const rect = stepEl.getBoundingClientRect();
             onStepTouchStart(e, activePattern.id, tappedIdx, inst.id, stepVal, (newVal) => {
@@ -803,6 +811,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                       }`}
                       data-track-id={track.id}
                       data-step-index={i}
+                      ref={(el) => registerCellRef(i, el)}
                       data-step-type="voice"
                       onTouchStart={(e) => {
                         if (isMultiSelectActive) {
@@ -906,6 +915,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                         value={displayVal}
                         readOnly={isTouchDevice || isMultiSelectActive}
                         inputMode={isTouchDevice ? 'none' : undefined}
+                        ref={(el) => registerCellRef(i, el)}
                         onFocus={(e) => {
                           if (!isTouchDevice) {
                             e.target.select();
@@ -1025,6 +1035,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                       }`}
                       data-track-id={track.id}
                       data-step-index={i}
+                      ref={(el) => registerCellRef(i, el)}
                       data-step-type="voice"
                       onTouchStart={(e) => {
                         if (isMultiSelectActive) {
@@ -1137,6 +1148,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                         value={displayVal}
                         readOnly={isTouchDevice || isMultiSelectActive}
                         inputMode={isTouchDevice ? 'none' : undefined}
+                        ref={(el) => registerCellRef(i, el)}
                         onFocus={(e) => {
                           if (!isTouchDevice) {
                             e.target.select();
@@ -1256,7 +1268,7 @@ export const TrackMixer = React.memo(TrackMixerComponent, (prevProps, nextProps)
   for (const key of keys) {
     if (typeof prevProps[key] === 'function') continue;
     if (key === 'track') continue;
-    if (key === 'currentStepIndex' || key === 'currentMeasure') continue;
+    if (key === 'currentStepIndex') continue;
 
     if (prevProps[key] !== nextProps[key]) {
       return false;

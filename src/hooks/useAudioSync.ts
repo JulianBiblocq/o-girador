@@ -580,7 +580,8 @@ export function useAudioSync({
   // Initialize stable Audio Engine Nodes
   useEffect(() => {
     const initAudio = async () => {
-      if (bMetroClick) return; // already initialized
+      try {
+        if (bMetroClick) return; // already initialized
 
       if (!masterVolumeNode) {
         if (!Tone.context || Tone.context.state !== 'running') {
@@ -619,12 +620,6 @@ export function useAudioSync({
         Tone.Destination.connect(masterMeterNode);
       }
 
-      // Configure Tone.js lookAhead to 150ms for pre-scheduling audio events
-      try {
-        Tone.getContext().lookAhead = 0.5;
-      } catch (err) {
-        console.warn("Failed to set Tone.js lookAhead:", err);
-      }
 
       metroChannel = new Tone.Channel({ volume: Tone.gainToDb(metroVolumeRef.current / 100) }).connect(masterVolumeNode);
       metroChannel.mute = !isMetroOnRef.current;
@@ -1069,16 +1064,15 @@ export function useAudioSync({
           audioEngine?.setInstrumentChannel(inst.id, channels[inst.id]);
         }
       });
-
-      // Load all samples via the AudioEngine
-      audioEngine.loadAllSamples()
-        .then(() => {
-          setIsLoading(false);
-        })
-        .catch((err) => {
-          console.error("Failed to load samples via AudioEngine:", err);
-          setIsLoading(false);
-        });
+      } catch (err) {
+        console.error("❌ Critical error during initAudio:", err);
+      } finally {
+        if (audioEngine) {
+          audioEngine.loadCoreSamples().catch(e => console.warn("Background load core samples failed:", e));
+        }
+        // ALWAYS unblock the UI.
+        setIsLoading(false);
+      }
     };
 
     initAudio();

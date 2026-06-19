@@ -148,7 +148,7 @@ export class AudioEngine {
     this.scheduledHits.forEach((source) => {
       try {
         source.stop();
-        source.dispose();
+        source.disconnect();
       } catch (_) {}
     });
     this.scheduledHits.clear();
@@ -204,78 +204,74 @@ export class AudioEngine {
    * Preload all unique audio files mapped in instrumentAudioConfigs to memory.
    * Leverages caching to guarantee sample pooling (duplicate files are only loaded once).
    */
-  public async loadAllSamples(onProgress?: (loadedCount: number, totalCount: number) => void): Promise<void> {
-    const allUniquePaths = new Set<string>();
-    for (const inst of instrumentAudioConfigs) {
-      for (const stroke of inst.strokes) {
-        for (const file of stroke.files) {
-          allUniquePaths.add(file);
-        }
+  private async loadPath(path: string): Promise<void> {
+    if (this.bufferPool.has(path)) return;
+    try {
+      let fetchPath = path;
+      if (path.includes('Mixdown/') || path.includes('mixdown/')) {
+        const filename = path.substring(path.lastIndexOf('/') + 1);
+        // @ts-ignore
+        fetchPath = `${import.meta.env.BASE_URL || '/'}Mixdown/${filename}`;
+      } else {
+        const cleanPath = path.startsWith('/') ? path : '/' + path;
+        // @ts-ignore
+        const baseUrl = import.meta.env.BASE_URL || '/';
+        fetchPath = baseUrl.endsWith('/') ? baseUrl + cleanPath.slice(1) : baseUrl + cleanPath;
       }
-    }
-
-    const pathsArray = Array.from(allUniquePaths);
-    const totalCount = pathsArray.length;
-    let loadedCount = 0;
-
-    const loadPath = async (path: string): Promise<void> => {
-      if (this.bufferPool.has(path)) {
-        loadedCount++;
-        if (onProgress) onProgress(loadedCount, totalCount);
-        return;
+      const encodedFetchPath = fetchPath.split('/').map(segment => encodeURIComponent(segment)).join('/');
+      
+      let response = await fetch(encodedFetchPath);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-
+      let arrayBuffer = await response.arrayBuffer();
+      
       try {
-        // Fetch and decode local ogg files
-        let fetchPath = path;
-        if (path.includes('Mixdown/') || path.includes('mixdown/')) {
-          const filename = path.substring(path.lastIndexOf('/') + 1);
-          // @ts-ignore
-          fetchPath = `${import.meta.env.BASE_URL || '/'}Mixdown/${filename}`;
-        } else {
-          const cleanPath = path.startsWith('/') ? path : '/' + path;
-          // @ts-ignore
-          const baseUrl = import.meta.env.BASE_URL || '/';
-          fetchPath = baseUrl.endsWith('/') ? baseUrl + cleanPath.slice(1) : baseUrl + cleanPath;
-        }
-        // Encode spaces and special characters in the URL path (keep slashes unencoded)
-        const encodedFetchPath = fetchPath.split('/').map(segment => encodeURIComponent(segment)).join('/');
-        
-        let response = await fetch(encodedFetchPath);
+        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+        const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
+        this.bufferPool.set(path, toneBuffer);
+      } catch (decodeErr) {
+        console.warn(`AudioEngine: Safari/iOS fallback triggered for ${path}. Attempting .m4a`);
+        const fallbackPath = encodedFetchPath.replace(/\.ogg$/, '.m4a');
+        response = await fetch(fallbackPath);
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          throw new Error(`Fallback HTTP error! status: ${response.status}`);
         }
-        let arrayBuffer = await response.arrayBuffer();
-        
-        try {
-          const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-          const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
-          this.bufferPool.set(path, toneBuffer);
-        } catch (decodeErr) {
-          console.warn(`AudioEngine: Safari/iOS fallback triggered for ${path}. Attempting .m4a`);
-          const fallbackPath = encodedFetchPath.replace(/\.ogg$/, '.m4a');
-          response = await fetch(fallbackPath);
-          if (!response.ok) {
-            throw new Error(`Fallback HTTP error! status: ${response.status}`);
-          }
-          arrayBuffer = await response.arrayBuffer();
-          const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-          const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
-          this.bufferPool.set(path, toneBuffer);
-        }
-      } catch (err) {
-        console.error(`AudioEngine: Failed to load sample: ${path}`, err);
-      } finally {
-        loadedCount++;
-        if (onProgress) onProgress(loadedCount, totalCount);
+        arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+        const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
+        this.bufferPool.set(path, toneBuffer);
       }
-    };
-
-    // Load in batches or concurrently
-    await Promise.all(pathsArray.map(path => loadPath(path)));
-    if (import.meta.env.DEV) {
-      console.log(`AudioEngine: Completed preloading of all samples. Pooled ${this.bufferPool.size} unique buffers in memory.`);
+    } catch (err) {
+      console.error(`AudioEngine: Failed to load sample: ${path}`, err);
     }
+  }
+
+  public async loadCoreSamples(): Promise<void> {
+    const coreIndices = [0, 1, 3, 5]; // Alfaia Marcante, Alfaia Meio, Caixa, Gonguê
+    const pathsArray: string[] = [];
+    for (const idx of coreIndices) {
+      if (instrumentAudioConfigs[idx]) {
+        for (const stroke of instrumentAudioConfigs[idx].strokes) {
+          for (const file of stroke.files) {
+            pathsArray.push(file);
+          }
+        }
+      }
+    }
+    await Promise.all(pathsArray.map(p => this.loadPath(p)));
+  }
+
+  public async loadInstrumentSamples(instrumentIndex: number): Promise<void> {
+    const pathsArray: string[] = [];
+    if (instrumentAudioConfigs[instrumentIndex]) {
+      for (const stroke of instrumentAudioConfigs[instrumentIndex].strokes) {
+        for (const file of stroke.files) {
+          pathsArray.push(file);
+        }
+      }
+    }
+    await Promise.all(pathsArray.map(p => this.loadPath(p)));
   }
 
   /**

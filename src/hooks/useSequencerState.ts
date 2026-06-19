@@ -6,6 +6,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language } from '../types';
 import { instrumentsConfig, getVisualStrokeSymbol, getMaxTicks } from '../data';
+import { audioEngine } from './useAudioSync';
 
 export function useSequencerState() {
   const [tracks, setTracks] = useState<TrackGroup[]>([]);
@@ -1481,6 +1482,7 @@ export function useSequencerState() {
 
   const handleAddTrackInstrument = (instIdx: number, currentMeasure: number = 0) => {
     pushUndoState();
+    audioEngine.loadInstrumentSamples(instIdx).catch(console.error);
     const inst = instrumentsConfig[instIdx];
     const newTrack: TrackGroup = {
       id: Date.now() + Math.floor(Math.random() * 1000),
