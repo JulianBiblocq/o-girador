@@ -198,6 +198,18 @@ export function useSequencerState() {
     });
   }, [totalMeasures, timeSig, bpm]);
 
+  // Enforce Apito is always the last track in the list
+  useEffect(() => {
+    const apitoIdx = tracks.findIndex((t) => instrumentsConfig[t.instrumentIdx]?.id === 'apito');
+    if (apitoIdx > -1 && apitoIdx !== tracks.length - 1) {
+      const newTracks = [...tracks];
+      const apitoTrack = newTracks.splice(apitoIdx, 1)[0];
+      newTracks.push(apitoTrack);
+      setTracks(newTracks);
+    }
+  }, [tracks]);
+
+
   const pushUndoState = (customTracksState?: TrackGroup[]) => {
     setTracksRedoHistory([]);
     setSongStructureRedoHistory([]);

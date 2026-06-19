@@ -311,10 +311,12 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
         style={{ zIndex: instDropdownOpen ? 40 : 10 }}
       >
         <div className="flex gap-2 items-center">
-          <div className="flex flex-col gap-1">
-            <button onClick={onMoveUp} disabled={index === 0} aria-label={lang === 'pt' ? 'Mover para cima' : 'Monter la piste'} className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button flex items-center justify-center font-bold text-xs hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed">▲</button>
-            <button onClick={onMoveDown} disabled={index === totalTracks - 1} aria-label={lang === 'pt' ? 'Mover para baixo' : 'Descendre la piste'} className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button flex items-center justify-center font-bold text-xs hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed">▼</button>
-          </div>
+          {inst.id !== 'apito' && (
+            <div className="flex flex-col gap-1">
+              <button onClick={onMoveUp} disabled={index === 0} aria-label={lang === 'pt' ? 'Mover para cima' : 'Monter la piste'} className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button flex items-center justify-center font-bold text-xs hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed">▲</button>
+              <button onClick={onMoveDown} disabled={index === totalTracks - 1} aria-label={lang === 'pt' ? 'Mover para baixo' : 'Descendre la piste'} className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button flex items-center justify-center font-bold text-xs hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed">▼</button>
+            </div>
+          )}
           
           <div className="relative flex items-center gap-1.5" ref={dropdownRef}>
             <div onClick={() => setInstDropdownOpen(!instDropdownOpen)} className="flex items-center gap-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-2 py-1 cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors">

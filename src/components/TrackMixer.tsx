@@ -617,24 +617,26 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
       <div className={`flex justify-between items-center ${isCollapsed ? '' : 'mb-2'} relative ${instDropdownOpen ? 'z-[9999]' : 'z-[2]'}`}>
         <div className="flex items-center gap-2">
-          <div className="flex flex-col gap-[2px] mr-2">
-            <button
-              onClick={onMoveUp}
-              disabled={index === 0}
-              aria-label={lang === 'pt' ? 'Mover para cima' : 'Monter la piste'}
-              className="bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button text-[8px] px-1.5 py-[2px] cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              ▲
-            </button>
-            <button
-              onClick={onMoveDown}
-              disabled={index === totalTracks - 1}
-              aria-label={lang === 'pt' ? 'Mover para baixo' : 'Descendre la piste'}
-              className="bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button text-[8px] px-1.5 py-[2px] cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              ▼
-            </button>
-          </div>
+          {inst.id !== 'apito' && (
+            <div className="flex flex-col gap-[2px] mr-2">
+              <button
+                onClick={onMoveUp}
+                disabled={index === 0}
+                aria-label={lang === 'pt' ? 'Mover para cima' : 'Monter la piste'}
+                className="bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button text-[8px] px-1.5 py-[2px] cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                ▲
+              </button>
+              <button
+                onClick={onMoveDown}
+                disabled={index === totalTracks - 1}
+                aria-label={lang === 'pt' ? 'Mover para baixo' : 'Descendre la piste'}
+                className="bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button text-[8px] px-1.5 py-[2px] cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                ▼
+              </button>
+            </div>
+          )}
 
           <div className="relative flex items-center" ref={dropdownRef}>
             <button
@@ -738,15 +740,17 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
             </button>
           )}
 
-          <button
-            onClick={onHideToggle}
-            className={`w-6 h-6 cordel-border-sm cordel-button text-[10px] font-bold cursor-pointer transition-all flex items-center justify-center ${
-              track.isHidden ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
-            }`}
-            title="Ocultar pista"
-          >
-            {track.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-          </button>
+          {inst.id !== 'apito' && (
+            <button
+              onClick={onHideToggle}
+              className={`w-6 h-6 cordel-border-sm cordel-button text-[10px] font-bold cursor-pointer transition-all flex items-center justify-center ${
+                track.isHidden ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
+              }`}
+              title="Ocultar pista"
+            >
+              {track.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            </button>
+          )}
         </div>
       </div>
 

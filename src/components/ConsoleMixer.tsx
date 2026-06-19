@@ -195,6 +195,17 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
     const onWheel = (e: WheelEvent) => {
       if (e.deltaY !== 0) {
+        let target = e.target as HTMLElement | null;
+        while (target && target !== el) {
+          if (target.scrollHeight > target.clientHeight) {
+            const overflowY = window.getComputedStyle(target).overflowY;
+            if (overflowY === 'auto' || overflowY === 'scroll') {
+              // Found a vertically scrollable container, don't intercept
+              return;
+            }
+          }
+          target = target.parentElement;
+        }
         e.preventDefault();
         el.scrollLeft += e.deltaY;
       }
