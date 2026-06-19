@@ -22,7 +22,7 @@ export class AudioEngine {
   
   // Timing variables
   private readonly LOOKAHEAD_INTERVAL = 10.0; // ms
-  private readonly SCHEDULE_AHEAD_TIME = 0.400; // seconds
+  private readonly SCHEDULE_AHEAD_TIME = 0.200; // seconds
   private nextTickTime: number = 0.0;
   
   // Math Anchors for Drift Elimination
@@ -42,9 +42,9 @@ export class AudioEngine {
   private bufferPool = new Map<string, Tone.ToneAudioBuffer>(); // Maps absolute path -> ToneAudioBuffer (Sample Pooling)
   private lastPlayedIndices = new Map<string, number>(); // Maps "instrumentId_strokeSymbol" -> last played index (Round-Robin)
   private instrumentChannels = new Map<string, any>(); // Maps instrumentId -> Tone.Channel
-  private activeBarulhoNodes = new Map<string, Tone.ToneBufferSource>(); // Maps instrumentId -> active looping ToneBufferSource
-  private activeBarulhoGains = new Map<string, Tone.Gain>(); // Maps instrumentId -> Tone.Gain of active Barulho (for cleanup)
-  private scheduledHits = new Set<Tone.ToneBufferSource>();
+  private activeBarulhoNodes = new Map<string, AudioBufferSourceNode>(); // Maps instrumentId -> active looping BufferSource
+  private activeBarulhoGains = new Map<string, GainNode>(); // Maps instrumentId -> GainNode of active Barulho
+  private scheduledHits = new Set<AudioBufferSourceNode>();
 
   // O(1) lookup cache for instrument configurations (built once in constructor)
   private readonly configMap: Map<string, InstrumentAudioConfig>;
@@ -384,24 +384,25 @@ export class AudioEngine {
 
     const calculatedPitch = macroPitch * microPitch;
 
-    // 4. Instantiation 100% Tone.js
-    const source = new Tone.ToneBufferSource({
-      url: buffer,
-      playbackRate: calculatedPitch
-    });
+    // 4. Instantiation Native Web Audio API (Faster on slow devices)
+    const source = this.audioContext.createBufferSource();
+    source.buffer = buffer.get() as AudioBuffer;
+    source.playbackRate.value = calculatedPitch;
 
-    const gainNode = new Tone.Gain(velocity);
+    const gainNode = this.audioContext.createGain();
+    gainNode.gain.value = velocity;
+
     source.connect(gainNode);
 
     // 5. Connect to the mapped channel (or fallback to Master Destination)
     const channel = this.instrumentChannels.get(instrumentId);
     if (channel) {
-      gainNode.connect(channel);
+      Tone.connect(gainNode, channel);
     } else {
-      gainNode.connect(Tone.Destination);
+      Tone.connect(gainNode, Tone.Destination);
     }
 
-    // Choke any existing looping barulho for this instrument (also cleans up its Gain)
+    // Choke any existing looping barulho for this instrument
     this.stopBarulho(instrumentId, time);
 
     // 6. Handle play duration and looping
@@ -409,7 +410,7 @@ export class AudioEngine {
       source.loop = true;
       source.start(time);
       this.activeBarulhoNodes.set(instrumentId, source);
-      this.activeBarulhoGains.set(instrumentId, gainNode); // Track gainNode for proper cleanup
+      this.activeBarulhoGains.set(instrumentId, gainNode);
     } else {
       this.scheduledHits.add(source);
       const duration = buffer.duration * decayMultiplier;
@@ -421,8 +422,8 @@ export class AudioEngine {
 
       source.onended = () => {
         this.scheduledHits.delete(source);
-        try { source.dispose(); } catch (_) {}
-        try { gainNode.dispose(); } catch (_) {}
+        try { source.disconnect(); } catch (_) {}
+        try { gainNode.disconnect(); } catch (_) {}
       };
     }
 
@@ -449,7 +450,7 @@ export class AudioEngine {
     // Always dispose the gainNode to prevent audio graph leaks
     const activeGain = this.activeBarulhoGains.get(instrumentId);
     if (activeGain) {
-      try { activeGain.dispose(); } catch (_) {}
+      try { activeGain.disconnect(); } catch (_) {}
       this.activeBarulhoGains.delete(instrumentId);
     }
   }

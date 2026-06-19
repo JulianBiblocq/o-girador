@@ -792,6 +792,11 @@ export function useAudioSync({
           const ratioVal = _stepForUI / _currentTicks;
 
           const delaySec = Math.max(0, time - rawCtx.currentTime);
+          
+          // Compensate for hardware output latency on mobile devices so visuals match sound
+          const visualDelay = rawCtx.outputLatency || 0.050; // Fallback to 50ms if not supported
+          const drawTime = time + visualDelay;
+
           Tone.Draw.schedule(() => {
             window.dispatchEvent(new CustomEvent('o-girador-tick', {
               detail: {
@@ -804,7 +809,7 @@ export function useAudioSync({
                 time: time
               }
             }));
-          }, time);
+          }, drawTime);
 
           // Pré-calculer la durée d'un 96n une seule fois par tick
           const rawBpm = measureBpmsRef.current[currentMeasureIdx];
