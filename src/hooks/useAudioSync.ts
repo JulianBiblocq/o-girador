@@ -457,7 +457,9 @@ export function useAudioSync({
     metroVolumeRef.current = metroVolume;
     metroSoundRef.current = metroSound;
     if (metroChannel) {
-      metroChannel.volume.value = Tone.gainToDb(metroVolume / 100);
+      const gain = Math.max(0.00001, metroVolume / 100);
+      const db = metroVolume === 0 ? -Infinity : Tone.gainToDb(gain);
+      metroChannel.volume.value = db;
       metroChannel.mute = !isMetroOn;
     }
   }, [isMetroOn, isSwingOn, metroVolume, metroSound]);
@@ -667,8 +669,9 @@ export function useAudioSync({
         const inst = instrumentsConfig[t.instrumentIdx];
         if (inst) {
           if (channels[inst.id]) {
-            const gain = (t.volumeVal ?? 100) / 100;
-            channels[inst.id].volume.value = Tone.gainToDb(gain);
+            const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
+            const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
+            channels[inst.id].volume.value = db;
             channels[inst.id].pan.value = (t.panVal || 0) / 100;
             channels[inst.id].mute = t.isMute || (initialHasSolo && !t.isSolo);
           }
@@ -858,14 +861,17 @@ export function useAudioSync({
           const markers = getCachedMarkers(currentMeasureSig, currentTicks);
 
           if (isMetroOnRef.current && markers.includes(stepIdx)) {
-            if (metroSoundRef.current === 'clave') {
-              const noteVal = stepIdx === 0 ? 'A5' : 'E5';
-              metroClaveClick?.triggerAttackRelease(noteVal, '32n', time);
-            } else if (metroSoundRef.current === 'cowbell') {
-              metroCowbellClick?.triggerAttackRelease('32n', time, stepIdx === 0 ? 1 : 0.6);
-            } else {
-              const noteVal = stepIdx === 0 ? 'A5' : 'E5';
-              bMetroClick?.triggerAttackRelease(noteVal, '32n', time);
+            const metroVolLinear = Math.pow(Math.max(0, metroVolumeRef.current / 100), 2);
+            if (metroVolLinear > 0) {
+              if (metroSoundRef.current === 'clave') {
+                const noteVal = stepIdx === 0 ? 'A5' : 'E5';
+                metroClaveClick?.triggerAttackRelease(noteVal, '32n', time, metroVolLinear);
+              } else if (metroSoundRef.current === 'cowbell') {
+                metroCowbellClick?.triggerAttackRelease('32n', time, (stepIdx === 0 ? 1 : 0.6) * metroVolLinear);
+              } else {
+                const noteVal = stepIdx === 0 ? 'A5' : 'E5';
+                bMetroClick?.triggerAttackRelease(noteVal, '32n', time, metroVolLinear);
+              }
             }
           }
 
@@ -909,10 +915,18 @@ export function useAudioSync({
                 const microOffset = (note.microtimingPct / 100) * stepDurSec * 0.5;
                 const triggerTime = swingTime + microOffset;
 
-                if (import.meta.env.DEV) {
-                  console.log("🎵 [PLAY NOTE] AudioEngine", note.instId, note.playerKey, triggerTime);
+                const liveTrack = tracksRef.current.find(t => t.id === note.trackId);
+                const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
+                
+                if (trackVolPct > 0) {
+                  const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                  const finalVel = note.baseGain * vel * trackVolLinear;
+
+                  if (import.meta.env.DEV) {
+                    console.log("🎵 [PLAY NOTE] AudioEngine", note.instId, note.playerKey, triggerTime);
+                  }
+                  audioEngine?.playNote(note.instId, note.playerKey, triggerTime, finalVel, note.stepDecayMultiplier);
                 }
-                audioEngine?.playNote(note.instId, note.playerKey, triggerTime, note.baseGain * vel, note.stepDecayMultiplier);
 
                 const delayMs = Math.max(0, (triggerTime - rawCtx.currentTime) * 1000);
                 const timeoutId = setTimeout(() => {
@@ -985,7 +999,11 @@ export function useAudioSync({
                 const delaySec = (activePattern.vocalLatency ?? 0) / 1000;
                 const triggerTime = time + delaySec;
 
-                if (stepIdx === 0) {
+                const liveTrack = tracksRef.current.find(t => t.id === track.id);
+                const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
+
+                if (stepIdx === 0 && trackVolPct > 0) {
+                  player.volume.value = Tone.gainToDb(Math.pow(trackVolPct / 100, 2) || 0.0001);
                   player.playbackRate = playbackRate;
                   player.start(triggerTime, 0, measureDurationSec);
 
@@ -1005,7 +1023,12 @@ export function useAudioSync({
                     const symbol = String(state);
                     const noteVal = symbol === 'D' ? 'A3' : symbol === 'E' ? 'E3' : 'C3';
                     const triggerTime = swingTime;
-                    synth.triggerAttackRelease(noteVal, '8n', triggerTime);
+                    const liveTrack = tracksRef.current.find(t => t.id === track.id);
+                    const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
+                    if (trackVolPct > 0) {
+                      const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                      synth.triggerAttackRelease(noteVal, '8n', triggerTime, trackVolLinear);
+                    }
 
                     const delayMs = Math.max(0, (triggerTime - rawCtx.currentTime) * 1000);
                     const timeoutId = setTimeout(() => {
@@ -1233,8 +1256,10 @@ export function useAudioSync({
       const inst = instrumentsConfig[t.instrumentIdx];
       if (!inst || !channels[inst.id]) return;
 
-      const gain = (t.volumeVal ?? 100) / 100;
-      channels[inst.id].volume.value = Tone.gainToDb(gain);
+      const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
+      const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
+      console.log(`Setting track ${inst.id} volume to ${t.volumeVal}% (db: ${db})`);
+      channels[inst.id].volume.value = db;
       channels[inst.id].pan.value = (t.panVal || 0) / 100;
       channels[inst.id].mute = t.isMute || (hasSolo && !t.isSolo);
 
