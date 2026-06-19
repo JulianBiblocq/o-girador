@@ -227,6 +227,45 @@ export default function App() {
     const timer = setTimeout(checkVersion, 3000);
     return () => clearTimeout(timer);
   }, [sequencer.lang]);
+  // Global Keyboard Shortcuts
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Security: Do not trigger if typing in an input or textarea
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        (e.target as HTMLElement).isContentEditable
+      ) {
+        return;
+      }
+
+      const isModifier = e.ctrlKey || e.metaKey;
+      if (!isModifier) return;
+
+      const key = e.key.toLowerCase();
+      
+      switch (key) {
+        case 'z':
+          e.preventDefault();
+          if (e.shiftKey) {
+            sequencer.handleRedo && sequencer.handleRedo();
+          } else {
+            sequencer.handleUndo && sequencer.handleUndo();
+          }
+          break;
+        case 'a':
+        case 'x':
+        case 'c':
+        case 'v':
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent('grid-shortcut', { detail: { key } }));
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [sequencer]);
 
   // Context menu prevention on UI elements
   useEffect(() => {
@@ -631,7 +670,7 @@ export default function App() {
   const handleSetLoopEnd = (mIdx: number) => sequencer.handleSetLoopEnd(mIdx);
   const handleClearLoop = () => sequencer.handleClearLoop();
   const handleCopyPattern = (ptn: Pattern) => sequencer.handleCopyPattern(ptn);
-  const handlePastePattern = (tId: number) => sequencer.handlePastePattern(tId);
+  const handlePastePattern = (tId: number, pId?: number) => sequencer.handlePastePattern(tId, pId);
   const handleLoadLibraryPattern = (tId: number, targetPtnId: number, libPattern: any) => sequencer.handleLoadLibraryPattern(tId, targetPtnId, libPattern);
   const handleCreateSongSection = (name: string, start: number, end: number, color?: string, repeatCount?: number, level?: number) => sequencer.handleCreateSongSection(name, start, end, color, repeatCount, level);
   const handleUpdateSongSection = (id: string, name: string, start: number, end: number, color?: string, level?: number) => sequencer.handleUpdateSongSection(id, name, start, end, color, level);

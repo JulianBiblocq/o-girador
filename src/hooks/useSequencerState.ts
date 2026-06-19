@@ -835,48 +835,84 @@ export function useSequencerState() {
     setIsLoopRegionActive(false);
   };
 
+  const copiedPatternRef = useRef<Pattern | null>(null);
+
   const handleCopyPattern = (pattern: Pattern) => {
+    if (typeof window !== 'undefined') {
+      (window as any).__oGiradorRelativeClipboard = null;
+      window.dispatchEvent(new CustomEvent('oGiradorClipboardChanged'));
+    }
     const clone = JSON.parse(JSON.stringify(pattern));
     setCopiedPattern(clone);
+    copiedPatternRef.current = clone;
   };
 
-  const handlePastePattern = (trackId: number) => {
-    if (!copiedPattern) return;
+  const handlePastePattern = (trackId: number, targetPatternId?: number) => {
+    const patternToPaste = copiedPatternRef.current;
+    if (!patternToPaste) return;
     pushUndoState();
     setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         const firstP = t.patterns[0];
-        const pasted: Pattern = {
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          name: `${copiedPattern.name} (Cópia)`,
-          steps: firstP.steps,
-          activeSteps: [...copiedPattern.activeSteps],
-          lyrics: [...copiedPattern.lyrics],
-          notes: [...copiedPattern.notes],
-          measureAssignments: Array(totalMeasures).fill(false),
-          volumes: copiedPattern.volumes ? [...copiedPattern.volumes] : Array(firstP.steps).fill(80),
-          decays: copiedPattern.decays ? [...copiedPattern.decays] : Array(firstP.steps).fill(100),
-          microtimings: copiedPattern.microtimings ? [...copiedPattern.microtimings] : Array(firstP.steps).fill(0),
-        };
-        while (pasted.activeSteps.length < firstP.steps) pasted.activeSteps.push(0);
-        while (pasted.lyrics.length < firstP.steps) pasted.lyrics.push('');
-        while (pasted.notes.length < firstP.steps) pasted.notes.push('');
-        if (pasted.volumes) while (pasted.volumes.length < firstP.steps) pasted.volumes.push(80);
-        if (pasted.decays) while (pasted.decays.length < firstP.steps) pasted.decays.push(100);
-        if (pasted.microtimings) while (pasted.microtimings.length < firstP.steps) pasted.microtimings.push(0);
+        
+        if (targetPatternId !== undefined) {
+          // Overwrite existing pattern
+          const nextPatterns = t.patterns.map(p => {
+            if (p.id === targetPatternId) {
+              return {
+                ...p,
+                name: patternToPaste.name,
+                activeSteps: [...patternToPaste.activeSteps],
+                lyrics: [...patternToPaste.lyrics],
+                notes: [...patternToPaste.notes],
+                volumes: patternToPaste.volumes ? [...patternToPaste.volumes] : Array(firstP.steps).fill(80),
+                decays: patternToPaste.decays ? [...patternToPaste.decays] : Array(firstP.steps).fill(100),
+                microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(firstP.steps).fill(0),
+                variations: patternToPaste.variations ? JSON.parse(JSON.stringify(patternToPaste.variations)) : undefined,
+              };
+            }
+            return p;
+          });
+          return {
+            ...t,
+            patterns: nextPatterns,
+          };
+        } else {
+          // Append new pattern (fallback/legacy)
+          const pasted: Pattern = {
+            ...patternToPaste,
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            name: `${patternToPaste.name} (Cópia)`,
+            steps: firstP.steps,
+            activeSteps: [...patternToPaste.activeSteps],
+            lyrics: [...patternToPaste.lyrics],
+            notes: [...patternToPaste.notes],
+            measureAssignments: Array(totalMeasures).fill(false),
+            volumes: patternToPaste.volumes ? [...patternToPaste.volumes] : Array(firstP.steps).fill(80),
+            decays: patternToPaste.decays ? [...patternToPaste.decays] : Array(firstP.steps).fill(100),
+            microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(firstP.steps).fill(0),
+            variations: patternToPaste.variations ? JSON.parse(JSON.stringify(patternToPaste.variations)) : undefined,
+          };
+          while (pasted.activeSteps.length < firstP.steps) pasted.activeSteps.push(0);
+          while (pasted.lyrics.length < firstP.steps) pasted.lyrics.push('');
+          while (pasted.notes.length < firstP.steps) pasted.notes.push('');
+          if (pasted.volumes) while (pasted.volumes.length < firstP.steps) pasted.volumes.push(80);
+          if (pasted.decays) while (pasted.decays.length < firstP.steps) pasted.decays.push(100);
+          if (pasted.microtimings) while (pasted.microtimings.length < firstP.steps) pasted.microtimings.push(0);
 
-        pasted.activeSteps.length = firstP.steps;
-        pasted.lyrics.length = firstP.steps;
-        pasted.notes.length = firstP.steps;
-        if (pasted.volumes) pasted.volumes.length = firstP.steps;
-        if (pasted.decays) pasted.decays.length = firstP.steps;
-        if (pasted.microtimings) pasted.microtimings.length = firstP.steps;
+          pasted.activeSteps.length = firstP.steps;
+          pasted.lyrics.length = firstP.steps;
+          pasted.notes.length = firstP.steps;
+          if (pasted.volumes) pasted.volumes.length = firstP.steps;
+          if (pasted.decays) pasted.decays.length = firstP.steps;
+          if (pasted.microtimings) pasted.microtimings.length = firstP.steps;
 
-        return {
-          ...t,
-          patterns: [...t.patterns, pasted],
-          selectedPatternId: pasted.id
-        };
+          return {
+            ...t,
+            patterns: [...t.patterns, pasted],
+            selectedPatternId: pasted.id
+          };
+        }
       }
       return t;
     }));
@@ -1379,7 +1415,9 @@ export function useSequencerState() {
     pushUndoState();
     setTracks([]);
     setLetras('');
-    setMeasureSignals([]);
+    setMeasureSignals(Array(totalMeasures).fill(null));
+    setSongSections([]);
+    setActiveAoVivoTrackId(null);
     setMetadata({ toada: '', nacao: '', compositor: '', ritmo: '', youtubeUrl: '', partitionImage: undefined, rhythmSignals: [] });
   };
 

@@ -240,7 +240,7 @@ const MixerComponent: React.FC<MixerProps> = ({
               onOpenDetailEditor={() => setEditingTrackId(track.id)}
               onStepTouchStart={onStepTouchStart}
               onCopyPattern={handleCopyPattern}
-              onPastePattern={() => handlePastePattern(track.id)}
+              onPastePattern={(pId) => handlePastePattern(track.id, pId)}
               onLoadLibraryPattern={onLoadLibraryPattern ? (pId, lib) => onLoadLibraryPattern(track.id, pId, lib) : undefined}
               canPaste={!!copiedPattern}
               onReorderPatterns={(patternId, direction) => onReorderPatterns && onReorderPatterns(track.id, patternId, direction)}
@@ -290,7 +290,7 @@ const MixerComponent: React.FC<MixerProps> = ({
           maxTicks={maxTicks}
           totalMeasures={totalMeasures}
           onCopyPattern={handleCopyPattern}
-          onPastePattern={() => handlePastePattern(editingTrackId)}
+          onPastePattern={(pId) => handlePastePattern(editingTrackId, pId)}
           onLoadLibraryPattern={onLoadLibraryPattern ? (targetPtnId, libPattern) => onLoadLibraryPattern(editingTrackId, targetPtnId, libPattern) : undefined}
           canPaste={!!copiedPattern}
           isRecordingVocal={isRecordingVocal}

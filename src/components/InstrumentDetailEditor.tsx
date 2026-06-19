@@ -526,14 +526,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         isSelectingRef.current = false;
         if (!hasDraggedRef.current && initialTouchIndexRef.current !== null) {
           const tappedIdx = initialTouchIndexRef.current;
-          if (wasSelectedRef.current) {
-            const activePtn = track.patterns.find(p => p.id === selectedPatternId) || track.patterns[0];
-            const stepVal = activePtn.activeSteps[tappedIdx];
-            if (onStepTouchStart) {
-              onStepTouchStart(e as any, activePtn.id, tappedIdx, inst.id, stepVal, (newVal) => {
-                onStepValueChange(activePtn.id, selectedStepIndices, newVal);
-                setSelectedStepIndices([]);
-              });
+          
+          if (e.ctrlKey || e.metaKey || e.shiftKey) {
+            // Only toggle off if it was already selected before mousedown (handled via wasSelectedRef)
+            if (wasSelectedRef.current) {
+              setSelectedStepIndices(prev => prev.filter(idx => idx !== tappedIdx));
             }
           }
         }
@@ -671,8 +668,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     const wasSel = selectedStepIndices.includes(index);
     wasSelectedRef.current = wasSel;
 
-    if (!wasSel) {
-      setSelectedStepIndices(prev => [...prev, index]);
+    if (e.ctrlKey || e.metaKey || e.shiftKey) {
+      if (!wasSel) {
+        setSelectedStepIndices(prev => [...prev, index]);
+      }
+    } else {
+      setSelectedStepIndices([index]);
     }
   };
 
@@ -724,6 +725,49 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       setSelectedStepIndices([]);
     }
   };
+
+  React.useEffect(() => {
+    const handleGridShortcut = (e: Event) => {
+      const customEvent = e as CustomEvent<{ key: string }>;
+      const { key } = customEvent.detail;
+      const activePtn = track.patterns.find(p => p.id === selectedPatternId) || track.patterns[0];
+      if (!activePtn) return;
+
+      if (key === 'a') {
+        setIsMultiSelectActive(true);
+        setSelectedStepIndices(Array.from({ length: activePtn.steps }, (_, i) => i));
+      } else if (key === 'c') {
+        if (selectedStepIndices.length > 0) {
+          handleCopyRelative(activePtn);
+        } else {
+          onCopyPattern && onCopyPattern(activePtn);
+        }
+      } else if (key === 'x') {
+        if (selectedStepIndices.length > 0) {
+          handleCopyRelative(activePtn);
+          onStepValueChange(activePtn.id, selectedStepIndices, '0');
+          setSelectedStepIndices([]);
+        } else {
+          onCopyPattern && onCopyPattern(activePtn);
+          const allIndices = Array.from({ length: activePtn.steps }, (_, i) => i);
+          onStepValueChange(activePtn.id, allIndices, '0');
+        }
+      } else if (key === 'v') {
+        if (getGlobalClipboard()) {
+          const targetIdx = (isMultiSelectActive && selectedStepIndices.length > 0) ? selectedStepIndices[0] : (selectedStepIdx !== null ? selectedStepIdx : 0);
+          handlePasteRelative(activePtn, targetIdx);
+        } else {
+          if (canPaste && onPastePattern) {
+            onPastePattern(activePtn.id);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('grid-shortcut', handleGridShortcut);
+    return () => window.removeEventListener('grid-shortcut', handleGridShortcut);
+  }, [track.patterns, selectedPatternId, isMultiSelectActive, selectedStepIndices, selectedStepIdx, onCopyPattern, onPastePattern, canPaste, onStepValueChange]);
+
 
   const renderSelectionToolbar = (ptn: any) => {
     return (
@@ -1321,7 +1365,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                   )}
 
                   {/* Step grid */}
-                  {ptn.id === selectedPatternId && renderSelectionToolbar(ptn)}
+                  {ptn.id === selectedPatternId && isTouchDevice && renderSelectionToolbar(ptn)}
                   {(() => {
                     const totalVarProb = (ptn.variations || [])
                       .filter(v => !v.playFirstTimeOnly)
@@ -1384,7 +1428,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 : {};
 
                               const isCurrentStep = currentStep === i;
-                              const isSelected = selectedStepIndices.includes(i);
+                              const isSelected = ptn.id === selectedPatternId && selectedStepIndices.includes(i);
 
                               // Calculate total micro-timing shift (manual + global swing)
                               const manualMicro = ptn.microtimings?.[i] ?? 0;
@@ -1545,7 +1589,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               const isActive = val !== 0 && val !== '';
                               const isCurrentStep = currentStep === i;
 
-                              const isSelected = selectedStepIndices.includes(i);
+                              const isSelected = ptn.id === selectedPatternId && selectedStepIndices.includes(i);
                               const isSingleSelected = selectedStepIdx === i;
 
                               let colorStyle: React.CSSProperties = {};
@@ -1568,7 +1612,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               const totalShift = manualMicro + swingOffset;
                               const shiftPx = (totalShift / 50) * 8; // Max 8px shift
 
-                              const isMultiSelected = selectedStepIndices.includes(i) && selectedStepIndices.length > 1;
+                              const isMultiSelected = ptn.id === selectedPatternId && selectedStepIndices.includes(i) && selectedStepIndices.length > 1;
 
                               return (
                                 <div key={i} className="relative flex flex-col items-center" style={{ width: '36px' }}>
@@ -1686,23 +1730,43 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                       const isCtrlOrMeta = e.ctrlKey || e.metaKey;
                                       if (isCtrlOrMeta && e.key.toLowerCase() === 'c') {
                                         e.preventDefault();
-                                        onCopyPattern && onCopyPattern(ptn);
+                                        if (selectedStepIndices.length > 0) {
+                                          handleCopyRelative(ptn);
+                                        } else {
+                                          onCopyPattern && onCopyPattern(ptn);
+                                        }
                                         return;
                                       }
                                       if (isCtrlOrMeta && e.key.toLowerCase() === 'v') {
                                         e.preventDefault();
-                                        if (canPaste) {
-                                          onPastePattern && onPastePattern(ptn.id);
+                                        if (hasClipboard) {
+                                          handlePasteRelative(ptn, i);
+                                        } else {
+                                          if (canPaste && onPastePattern) {
+                                            onPastePattern(ptn.id);
+                                          }
                                         }
                                         return;
                                       }
                                       if (e.key === 'Delete' || e.key === 'Backspace') {
                                         e.preventDefault();
-                                        onStepValueChange(ptn.id, i, '0');
-                                        if (e.key === 'Backspace') {
-                                          const inputEl = e.currentTarget as HTMLInputElement;
-                                          onStepKeyDown(ptn.id, i, e.key, '', inputEl);
+                                        if (selectedStepIndices.length > 1) {
+                                          onStepValueChange(ptn.id, selectedStepIndices, '0');
+                                          setSelectedStepIndices([]);
+                                        } else {
+                                          onStepValueChange(ptn.id, i, '0');
+                                          if (e.key === 'Backspace') {
+                                            const inputEl = e.currentTarget as HTMLInputElement;
+                                            onStepKeyDown(ptn.id, i, e.key, '', inputEl);
+                                          }
                                         }
+                                        return;
+                                      }
+                                      
+                                      if (selectedStepIndices.length > 1 && e.key.length === 1 && /^[a-zA-Z0-9]$/.test(e.key)) {
+                                        e.preventDefault();
+                                        onStepValueChange(ptn.id, selectedStepIndices, e.key);
+                                        setSelectedStepIndices([]);
                                         return;
                                       }
 
@@ -1718,7 +1782,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                     } ${
                                       isMultiSelected
                                         ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                                        : selectedStepIdx === i
+                                        : (ptn.id === selectedPatternId && selectedStepIdx === i)
                                           ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
                                           : 'outline-none'
                                     }`}

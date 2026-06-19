@@ -317,7 +317,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             onOpenDetailEditor={() => setEditingTrackId(track.id)}
             onStepTouchStart={onStepTouchStart}
             onCopyPattern={handleCopyPattern}
-            onPastePattern={() => handlePastePattern(track.id)}
+            onPastePattern={(pId) => handlePastePattern(track.id, pId)}
             onLoadLibraryPattern={(targetPtnId, libPattern) => handleLoadLibraryPattern(track.id, targetPtnId, libPattern)}
             canPaste={!!copiedPattern}
             onPatternNameChange={(pid, name) => onPatternNameChange && onPatternNameChange(track.id, pid, name)}
@@ -603,7 +603,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           maxTicks={maxTicks}
           totalMeasures={totalMeasures}
           onCopyPattern={handleCopyPattern}
-          onPastePattern={() => handlePastePattern(editingTrack.id)}
+          onPastePattern={(pId) => handlePastePattern(editingTrack.id, pId)}
           onLoadLibraryPattern={(targetPtnId, libPattern) => handleLoadLibraryPattern(editingTrack.id, targetPtnId, libPattern)}
           canPaste={!!copiedPattern}
           isRecordingVocal={isRecordingVocal}
