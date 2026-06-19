@@ -383,6 +383,12 @@ body {
   -webkit-touch-callout: none !important;
 }
 
+/* Restore user-select for text inputs so iOS Safari keyboard can focus them */
+.step-boxes input[type="text"] {
+  -webkit-user-select: auto !important;
+  user-select: auto !important;
+}
+
 #touch-stroke-selector-bubble,
 #touch-stroke-selector-bubble * {
   touch-action: none !important;
