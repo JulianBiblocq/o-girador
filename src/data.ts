@@ -90,7 +90,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
   },
   {
     id: 'apito',
-    iconImg: 'icones/micro.svg',
+    iconImg: 'icones/apito.svg',
     name: 'Apito',
     type: 'hands',
     mixerBg: '#3c3a10',

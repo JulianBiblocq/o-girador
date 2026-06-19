@@ -148,5 +148,6 @@ export interface SongSection {
   endMeasure: number;   // 0-based index, inclusive
   color?: string;       // couleur CSS (ex: hex)
   repeatCount?: number; // multiplicateur de section (défaut 1)
+  level?: number;       // 0 pour base, 1 pour super-section, etc.
 }
 

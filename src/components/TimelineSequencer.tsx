@@ -191,6 +191,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   const [sectionFormStart, setSectionFormStart] = React.useState<number | string>(1);
   const [sectionFormEnd, setSectionFormEnd] = React.useState<number | string>(4);
   const [sectionFormColor, setSectionFormColor] = React.useState<string>('#f19066');
+  const [sectionFormLevel, setSectionFormLevel] = React.useState<number>(0);
   const [hoveredPasteMeasure, setHoveredPasteMeasure] = React.useState<number | null>(null);
   const [signalDropdownOpen, setSignalDropdownOpen] = React.useState<number | null>(null);
 
@@ -554,10 +555,11 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     measureIdx = Math.max(0, Math.min(totalMeasures - 1, measureIdx));
     
     setEditingSection(null);
-    setSectionFormName(lang === 'fr' ? 'Nouvelle Section' : 'Nova Seção');
+    setSectionFormName(lang === 'fr' ? 'Partie A' : 'Parte A');
     setSectionFormStart(measureIdx + 1);
     setSectionFormEnd(Math.min(measureIdx + 4, totalMeasures));
     setSectionFormColor('#f19066');
+    setSectionFormLevel(0);
     setSectionModalOpen(true);
   };
 
@@ -741,30 +743,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
             </div>
           )}
 
-          {/* Navigation Tools (Cursor vs Hand) */}
-          {!isTouchDevice && (
-            <div className="flex items-center gap-1 border-l border-[var(--cordel-border)]/30 pl-2">
-              <span className="text-[9px] md:text-[10px] uppercase font-bold text-[var(--cordel-text)]/70 shrink-0">{lang === 'fr' ? 'Outil' : 'Ferramenta'} :</span>
-              <button
-                onClick={() => setToolMode('cursor')}
-                className={`font-bold text-[9px] md:text-[10px] px-2 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
-                  toolMode === 'cursor' ? 'bg-blue-600 text-white border-blue-600' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                }`}
-                title={lang === 'fr' ? 'Pointeur de sélection' : 'Ponteiro de seleção'}
-              >
-                🖱️ {lang === 'fr' ? 'Pointeur' : 'Ponteiro'}
-              </button>
-              <button
-                onClick={() => setToolMode('hand')}
-                className={`font-bold text-[9px] md:text-[10px] px-2 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
-                  toolMode === 'hand' ? 'bg-blue-600 text-white border-blue-600' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                }`}
-                title={lang === 'fr' ? 'Défilement libre (Maintenez Espace pour l\'activer)' : 'Arrastar timeline (Segure Espaço para ativar)'}
-              >
-                ✋ {lang === 'fr' ? 'Main' : 'Mão'}
-              </button>
-            </div>
-          )}
+
 
           {/* Snapping Selection */}
           <div className="flex items-center gap-1 border-l border-[var(--cordel-border)]/30 pl-2">
@@ -925,6 +904,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                       setSectionFormStart(section.startMeasure + 1);
                       setSectionFormEnd(section.endMeasure + 1);
                       setSectionFormColor(section.color || '#f19066');
+                      setSectionFormLevel(section.level || 0);
                       setSectionModalOpen(true);
                     }}
                   >
@@ -947,8 +927,11 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
 
           {/* ══════════ SECTIONS ROW ══════════ */}
           <div
-            className="flex h-10 border-b border-[var(--cordel-border)]/30 bg-[var(--cordel-bg)]/80 relative"
-            style={{ width: `${HEADER_W + totalContentW + 150}px` }}
+            className="flex border-b border-[var(--cordel-border)]/30 bg-[var(--cordel-bg)]/80 relative"
+            style={{ 
+              width: `${HEADER_W + totalContentW + 150}px`, 
+              height: `${40 + (Math.max(0, ...songSections.map(s => s.level || 0)) * 34)}px` 
+            }}
           >
             {/* Sticky header */}
             <div
@@ -965,6 +948,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                   setSectionFormStart(1);
                   setSectionFormEnd(Math.min(4, totalMeasures));
                   setSectionFormColor('#f19066');
+                  setSectionFormLevel(0);
                   setSectionModalOpen(true);
                 }}
                 className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] px-1 py-0.5 rounded cordel-border-sm hover:opacity-80 transition-opacity cursor-pointer flex items-center justify-center gap-0.5"
@@ -980,11 +964,14 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
               {songSections.map((section) => {
                 const startX = section.startMeasure * MEASURE_W;
                 const width = (section.endMeasure - section.startMeasure + 1) * MEASURE_W;
+                const maxLevel = Math.max(0, ...songSections.map(s => s.level || 0));
+                const level = section.level || 0;
+                const topOffset = (maxLevel - level) * 34 + 4;
 
                 return (
                   <div
                     key={section.id}
-                    className={`absolute top-1 bottom-1 flex items-center justify-between px-3 text-xs font-bold rounded cordel-border-sm select-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)] cursor-grab active:cursor-grabbing hover:brightness-105 transition-[background-color] ${
+                    className={`absolute flex items-center justify-between px-3 text-xs font-bold rounded cordel-border-sm select-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)] cursor-grab active:cursor-grabbing hover:brightness-105 transition-[background-color] ${
                       isPanningActive ? 'pointer-events-none' : ''
                     }`}
                     onPointerDown={(e) => handleSectionBlockPointerDown(e, section)}
@@ -992,6 +979,8 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                       left: `${startX}px`,
                       width: `${width - 8}px`, // 4px margin left & right
                       marginLeft: '4px',
+                      top: `${topOffset}px`,
+                      height: '32px',
                       backgroundColor: section.color || '#eaddcf',
                       color: '#1a1a1a', // Toujours lisible en noir sur fond coloré
                       borderColor: '#1a1a1a',
@@ -1037,6 +1026,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                           setSectionFormStart(section.startMeasure + 1);
                           setSectionFormEnd(section.endMeasure + 1);
                           setSectionFormColor(section.color || '#f19066');
+                          setSectionFormLevel(section.level || 0);
                           setSectionModalOpen(true);
                         }}
                         className="bg-white/80 hover:bg-white text-black text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer"
@@ -1882,6 +1872,18 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                 ))}
               </div>
             </div>
+            <div className="mb-3.5">
+              <label className="block text-xs font-bold mb-1.5 opacity-90">{lang === 'fr' ? 'Niveau d\'imbrication' : 'Nível de aninhamento'}</label>
+              <select
+                value={sectionFormLevel}
+                onChange={(e) => setSectionFormLevel(parseInt(e.target.value))}
+                className="w-full bg-white/10 border border-[var(--cordel-border)]/50 rounded p-1.5 text-xs text-[var(--cordel-text)] outline-none focus:border-[var(--cordel-border)]"
+              >
+                <option value={0} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Niveau 0 (Base)' : 'Nível 0 (Base)'}</option>
+                <option value={1} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Niveau 1 (Groupe)' : 'Nível 1 (Grupo)'}</option>
+                <option value={2} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Niveau 2 (Super-groupe)' : 'Nível 2 (Super-grupo)'}</option>
+              </select>
+            </div>
 
             <div className="flex justify-end gap-2.5 mt-2 border-t border-[var(--cordel-border)]/30 pt-3">
               <button
@@ -1898,9 +1900,9 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                   let endVal = parseInt(String(sectionFormEnd)) || 1;
                   endVal = Math.max(startVal, Math.min(totalMeasures, endVal));
                   if (editingSection) {
-                    onUpdateSection(editingSection.id, sectionFormName, startVal - 1, endVal - 1, sectionFormColor);
+                    onUpdateSection(editingSection.id, sectionFormName, startVal - 1, endVal - 1, sectionFormColor, sectionFormLevel);
                   } else {
-                    onCreateSection(sectionFormName, startVal - 1, endVal - 1, sectionFormColor);
+                    onCreateSection(sectionFormName, startVal - 1, endVal - 1, sectionFormColor, 1, sectionFormLevel);
                   }
                   setSectionModalOpen(false);
                 }}

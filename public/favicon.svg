@@ -1,36 +1,79 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
-  <defs>
-    <style>
-      @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&amp;display=swap');
-      
-      .bg {
-        fill: #0a0807; /* Très sombre, couleur de fond O Girador */
-      }
-      .letter-m {
-        font-family: 'Cinzel Decorative', serif;
-        font-size: 380px;
-        font-weight: 700;
-        fill: #d4c8bb; /* Blanc cassé / beige (lettre du fond) */
-        text-anchor: middle;
-      }
-      .letter-b {
-        font-family: 'Cinzel Decorative', serif;
-        font-size: 420px;
-        font-weight: 700;
-        fill: #ffffff; /* Blanc pur (lettre de devant) */
-        text-anchor: middle;
-        filter: drop-shadow(6px 0px 10px rgba(0,0,0,0.9)); /* Ombre pour marquer le chevauchement */
-      }
-    </style>
-  </defs>
-  
-  <!-- Fond -->
-  <rect class="bg" width="512" height="512" rx="100" />
-  
-  <!-- Lettres -->
-  <!-- M est dessiné en premier (derrière), décalé à droite -->
-  <text x="320" y="410" class="letter-m">M</text>
-  
-  <!-- B est dessiné par dessus, décalé à gauche et plus grand -->
-  <text x="180" y="430" class="letter-b">B</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600">
+    <defs>
+        <style>
+            .lettre-cordel { font-family: 'Cactus', 'Rye', Impact, 'Arial Black', system-ui, sans-serif; font-weight: bold; font-size: 32px; fill: #FFFFFF; }
+        </style>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#000" flood-opacity="0.8"/>
+        </filter>
+        <filter id="shadow-light" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity="0.9"/>
+        </filter>
+        <g id="black-rope-knot">
+            <rect x="-9" y="-268" width="18" height="32" rx="6" fill="#000000" filter="url(#shadow-light)" opacity="0.9"/>
+            <rect x="-9" y="-268" width="18" height="32" rx="6" fill="#151515" />
+            <path d="M -9,-263 L 9,-257 M -9,-257 L 9,-251 M -9,-251 L 9,-245 M -9,-245 L 9,-239" stroke="#3d3d3d" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M -6,-266 L -6,-238" stroke="#333333" stroke-width="1.5" />
+        </g>
+    </defs>
+    <rect width="600" height="600" fill="#121315" rx="100" />
+    <g stroke="#ffffff" stroke-opacity="0.15" stroke-width="2" stroke-dasharray="6,6" fill="none">
+        <circle cx="300" cy="300" r="70" />
+        <circle cx="300" cy="300" r="135" />
+        <circle cx="300" cy="300" r="200" />
+    </g>
+    <g stroke="#ffffff" stroke-opacity="0.08" stroke-width="2">
+        <line x1="300" y1="40" x2="300" y2="560" />
+        <line x1="40" y1="300" x2="560" y2="300" />
+    </g>
+    <g transform="translate(300, 300)">
+        <circle cx="0" cy="0" r="255" fill="none" stroke="#000000" stroke-width="16" opacity="0.8" filter="url(#shadow)"/>
+        <circle cx="0" cy="0" r="248" fill="none" stroke="#E3CDA4" stroke-width="24" />
+        <circle cx="0" cy="0" r="236" fill="none" stroke="#7A5C33" stroke-width="2" />
+        <circle cx="0" cy="0" r="240" fill="none" stroke="#B89C72" stroke-width="1.5" />
+        <circle cx="0" cy="0" r="243" fill="none" stroke="#684A23" stroke-width="1" opacity="0.6"/>
+        <circle cx="0" cy="0" r="246" fill="none" stroke="#C4AB85" stroke-width="2" />
+        <circle cx="0" cy="0" r="249" fill="none" stroke="#5C401B" stroke-width="1" opacity="0.7"/>
+        <circle cx="0" cy="0" r="252" fill="none" stroke="#A88B62" stroke-width="1.5" />
+        <circle cx="0" cy="0" r="256" fill="none" stroke="#8A6E46" stroke-width="2" />
+        <circle cx="0" cy="0" r="260" fill="none" stroke="#3D2910" stroke-width="3" />
+        <use href="#black-rope-knot" transform="rotate(0)" />
+        <use href="#black-rope-knot" transform="rotate(45)" />
+        <use href="#black-rope-knot" transform="rotate(90)" />
+        <use href="#black-rope-knot" transform="rotate(135)" />
+        <use href="#black-rope-knot" transform="rotate(180)" />
+        <use href="#black-rope-knot" transform="rotate(225)" />
+        <use href="#black-rope-knot" transform="rotate(270)" />
+        <use href="#black-rope-knot" transform="rotate(315)" />
+    </g>
+    <g text-anchor="middle" dominant-baseline="central">
+        <g transform="translate(300, 300) rotate(215) translate(200, 0) rotate(-215)">
+            <circle cx="0" cy="0" r="28" fill="#7F8C8D" stroke="#FFFFFF" stroke-width="3" filter="url(#shadow)"/>
+            <text x="0" y="3" class="lettre-cordel">G</text>
+        </g>
+        <g transform="translate(300, 300) rotate(50) translate(200, 0) rotate(-50)">
+            <circle cx="0" cy="0" r="28" fill="#3498DB" stroke="#FFFFFF" stroke-width="3" filter="url(#shadow)"/>
+            <text x="0" y="3" class="lettre-cordel">I</text>
+        </g>
+        <g transform="translate(300, 300) rotate(335) translate(200, 0) rotate(-335)">
+            <circle cx="0" cy="0" r="28" fill="#E74C3C" stroke="#FFFFFF" stroke-width="3" filter="url(#shadow)"/>
+            <text x="0" y="3" class="lettre-cordel">R</text>
+        </g>
+        <g transform="translate(300, 300) rotate(15) translate(135, 0) rotate(-15)">
+            <circle cx="0" cy="0" r="28" fill="#2ECC71" stroke="#FFFFFF" stroke-width="3" filter="url(#shadow)"/>
+            <text x="0" y="3" class="lettre-cordel">A</text>
+        </g>
+        <g transform="translate(300, 300) rotate(160) translate(135, 0) rotate(-160)">
+            <circle cx="0" cy="0" r="28" fill="#F1C40F" stroke="#FFFFFF" stroke-width="3" filter="url(#shadow)"/>
+            <text x="0" y="3" class="lettre-cordel">D</text>
+        </g>
+        <g transform="translate(300, 300) rotate(240) translate(70, 0) rotate(-240)">
+            <circle cx="0" cy="0" r="28" fill="#E67E22" stroke="#FFFFFF" stroke-width="3" filter="url(#shadow)"/>
+            <text x="0" y="3" class="lettre-cordel">O</text>
+        </g>
+        <g transform="translate(300, 300) rotate(290) translate(135, 0) rotate(-290)">
+            <circle cx="0" cy="0" r="28" fill="#9B59B6" stroke="#FFFFFF" stroke-width="3" filter="url(#shadow)"/>
+            <text x="0" y="3" class="lettre-cordel">R</text>
+        </g>
+    </g>
 </svg>

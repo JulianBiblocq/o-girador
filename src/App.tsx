@@ -618,8 +618,8 @@ export default function App() {
   const handleCopyPattern = (ptn: Pattern) => sequencer.handleCopyPattern(ptn);
   const handlePastePattern = (tId: number) => sequencer.handlePastePattern(tId);
   const handleLoadLibraryPattern = (tId: number, targetPtnId: number, libPattern: any) => sequencer.handleLoadLibraryPattern(tId, targetPtnId, libPattern);
-  const handleCreateSongSection = (name: string, start: number, end: number, color?: string) => sequencer.handleCreateSongSection(name, start, end, color);
-  const handleUpdateSongSection = (id: string, name: string, start: number, end: number, color?: string) => sequencer.handleUpdateSongSection(id, name, start, end, color);
+  const handleCreateSongSection = (name: string, start: number, end: number, color?: string, repeatCount?: number, level?: number) => sequencer.handleCreateSongSection(name, start, end, color, repeatCount, level);
+  const handleUpdateSongSection = (id: string, name: string, start: number, end: number, color?: string, level?: number) => sequencer.handleUpdateSongSection(id, name, start, end, color, level);
   const handleDeleteSongSection = (id: string) => sequencer.handleDeleteSongSection(id);
   const handleCopySongSection = (sec: SongSection) => sequencer.handleCopySongSection(sec);
   const handlePasteSongSection = (dest: number) => sequencer.handlePasteSongSection(dest);

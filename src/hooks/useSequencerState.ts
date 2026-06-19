@@ -904,7 +904,7 @@ export function useSequencerState() {
     }));
   };
 
-  const handleCreateSongSection = (name: string, start: number, end: number, color?: string, repeatCount?: number) => {
+  const handleCreateSongSection = (name: string, start: number, end: number, color?: string, repeatCount?: number, level?: number) => {
     const newSection: SongSection = {
       id: Date.now().toString(),
       name,
@@ -912,6 +912,7 @@ export function useSequencerState() {
       endMeasure: end,
       color: color || '#27ae60',
       repeatCount: repeatCount || 1,
+      level: level || 0,
     };
     
     setSongSections(prev => {
@@ -921,9 +922,9 @@ export function useSequencerState() {
     });
   };
 
-  const handleUpdateSongSection = (id: string, name: string, start: number, end: number, color?: string) => {
+  const handleUpdateSongSection = (id: string, name: string, start: number, end: number, color?: string, level?: number) => {
     setSongSections(prev => {
-      const next = prev.map(s => s.id === id ? { ...s, name, startMeasure: start, endMeasure: end, color } : s);
+      const next = prev.map(s => s.id === id ? { ...s, name, startMeasure: start, endMeasure: end, color, level: level || 0 } : s);
       next.sort((a, b) => a.startMeasure - b.startMeasure);
       return next;
     });
@@ -988,7 +989,7 @@ export function useSequencerState() {
       return { ...t, patterns: nextPatterns };
     }));
 
-    handleCreateSongSection(copiedSection.name, destStartMeasure, end, copiedSection.color, copiedSection.repeatCount);
+    handleCreateSongSection(copiedSection.name, destStartMeasure, end, copiedSection.color, copiedSection.repeatCount, copiedSection.level);
   };
 
   const handleStepValueSelectAndToggle = (
@@ -1518,7 +1519,9 @@ export function useSequencerState() {
   return {
     // States & Setters
     tracks, setTracks, tracksRef,
-    bpm, setBpm: handleGlobalBpmChange as React.Dispatch<React.SetStateAction<number>>,
+    bpm, 
+    setBpm: handleGlobalBpmChange as React.Dispatch<React.SetStateAction<number>>,
+    setBpmRaw: setBpm as React.Dispatch<React.SetStateAction<number>>,
     totalMeasures, setTotalMeasures, totalMeasuresRef,
     timeSig, setTimeSig,
     measureTimeSigs, setMeasureTimeSigs, measureTimeSigsRef,

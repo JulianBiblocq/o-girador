@@ -343,7 +343,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       sequencer.setTracks(loadedTracks);
       sequencer.setTotalMeasures(loadedMeasures);
-      sequencer.setBpm(Math.round(p.bpm || 90));
+      sequencer.setBpmRaw(Math.round(p.bpm || 90));
       sequencer.setTimeSig(p.timeSig || '4/4');
 
       const defaultBpm = Math.round(p.bpm || 90);
