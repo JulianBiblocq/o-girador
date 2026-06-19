@@ -408,6 +408,18 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setMasterVol(p.masterVol);
       }
 
+      if (p.reverbType) {
+        setReverbType(p.reverbType);
+      } else {
+        setReverbType('room');
+      }
+
+      if (p.isSwingOn !== undefined) {
+        audioSync.setIsSwingOn(p.isSwingOn);
+      } else {
+        audioSync.setIsSwingOn(false);
+      }
+
       // Sync refs
       sequencer.tracksRef.current = loadedTracks;
       sequencer.totalMeasuresRef.current = loadedMeasures;
@@ -552,7 +564,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       measureSignals: sequencer.measureSignals,
       masterEQ,
       masterCompressor,
-      masterVol
+      masterVol,
+      reverbType,
+      isSwingOn: audioSync.isSwingOn,
+      loopStartMeasure: sequencer.loopStartMeasure,
+      loopEndMeasure: sequencer.loopEndMeasure,
+      isLoopRegionActive: sequencer.isLoopRegionActive,
+      isLooping: sequencer.isLooping
     };
     const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
     const dlLink = document.createElement('a');

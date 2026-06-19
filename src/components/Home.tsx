@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import * as Tone from 'tone';
 import { ASSETS_BASE_URL } from '../data';
 import { audioEngine } from '../hooks/useAudioSync';
+import { GoogleLoginButton } from './GoogleLoginButton';
 
 interface HomeProps {
   onEnter: (mode: string) => void;
@@ -22,6 +23,11 @@ export const Home: React.FC<HomeProps> = ({ onEnter, lang }) => {
 
   return (
     <div className="w-full min-h-screen bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans flex flex-col items-center justify-center relative overflow-hidden px-4 py-8">
+      
+      {/* Top Right Actions */}
+      <div className="absolute top-4 right-4 z-50 flex items-center gap-4">
+        <GoogleLoginButton lang={lang} />
+      </div>
       
       {/* Background Decorative Pattern */}
       <div className="absolute inset-0 opacity-5 pointer-events-none bg-repeat" style={{ backgroundImage: `url("${ASSETS_BASE_URL}assets/cordel-pattern.png")`, backgroundSize: '200px' }} />
