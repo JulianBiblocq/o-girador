@@ -1,7 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="100%" height="100%">
     <defs>
         <style>
-            .lettre-cordel { font-family: 'Cactus', 'Rye', Impact, 'Arial Black', system-ui, sans-serif; font-weight: bold; font-size: 32px; fill: #FFFFFF; }
+            @import url('https://fonts.googleapis.com/css2?family=Rye&amp;display=swap');
+            .lettre-cordel { font-family: 'Cactus', 'Rye', cursive, serif; font-size: 32px; fill: #FFFFFF; }
         </style>
         <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
             <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#000" flood-opacity="0.8"/>

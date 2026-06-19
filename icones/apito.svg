@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="200" height="200">
+  <rect width="100" height="100" fill="#000000" />
+  <g fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Body -->
+    <path d="M 38 25 L 38 75 C 38 80, 62 80, 62 75 L 62 25 Z" />
+    <!-- Mouthpiece -->
+    <path d="M 42 25 L 45 12 L 55 12 L 58 25" />
+    <path d="M 38 35 L 62 35" /> <!-- Band -->
+    <!-- Wings -->
+    <path d="M 38 45 L 25 45 L 25 60 L 38 60" />
+    <path d="M 62 45 L 75 45 L 75 60 L 62 60" />
+    <!-- Sound hole -->
+    <circle cx="50" cy="52" r="3" fill="#FFFFFF" />
+    <!-- Lanyard Ring -->
+    <circle cx="50" cy="85" r="5" />
+    <path d="M 50 75 L 50 80" />
+  </g>
+</svg>

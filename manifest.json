@@ -39,6 +39,7 @@
   "share_target": {
     "action": "/o-girador/",
     "method": "GET",
+    "enctype": "application/x-www-form-urlencoded",
     "params": {
       "title": "title",
       "text": "text",
