@@ -101,7 +101,24 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
   // --- ECO MODE ---
   const [ecoMode, setEcoMode] = useState<boolean>(() => {
-    return localStorage.getItem('o-girador-eco-mode') === 'true';
+    const saved = localStorage.getItem('o-girador-eco-mode');
+    if (saved !== null) {
+      return saved === 'true';
+    }
+    // Auto-détection (Smart Default) pour appareils modestes
+    const isTouch = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    const cpuCores = (navigator as any).hardwareConcurrency || 8; // On suppose puissant si API non supportée
+    const ram = (navigator as any).deviceMemory || 8;
+    
+    const isCpuWeak = cpuCores <= 4;
+    const isRamWeak = ram <= 4;
+    
+    // Si c'est un appareil tactile avec un CPU <= 4 coeurs ou RAM <= 4Go, on active le mode éco d'office
+    if (isTouch && (isCpuWeak || isRamWeak)) {
+      return true;
+    }
+    
+    return false;
   });
 
   const toggleEcoMode = () => {
