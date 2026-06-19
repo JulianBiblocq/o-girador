@@ -329,10 +329,17 @@ GONGUÊ
    e : Aigu (Faible)
    X : Borda (Bord)
 
-AGBÊ / MINEIRO
+AGBÊ
    D / d : Droite (Forte / Faible)
    E / e : Gauche (Forte / Faible)
-   Q : Saut / Lançamento (Agbê)
+   S : Salto / Lançamento
+   V : Volta
+   B : Barulho (Bruit / effet)
+
+MINEIRO
+   P / p : Pousser (Forte / Faible)
+   T / t : Tirer (Forte / Faible)
+   L : Lado (Frappe sur le côté)
    B : Barulho (Bruit / effet)
 
 --- STRUCTURE MUSICALE ---
@@ -375,11 +382,20 @@ const generateLegendHTML = (forcePageBreak: boolean = true) => {
             <li style="margin-bottom: 4px;"><strong>B</strong> : Barulho</li>
           </ul>
           
-          <h3 style="font-size: 16px; margin-top: 20px; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">Agbê & Mineiro</h3>
+          <h3 style="font-size: 16px; margin-top: 20px; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">Agbê</h3>
           <ul style="list-style-type: none; padding-left: 0; margin: 0; font-size: 14px;">
             <li style="margin-bottom: 4px;"><strong>D / d</strong> : Droite (Forte / Faible)</li>
             <li style="margin-bottom: 4px;"><strong>E / e</strong> : Gauche (Forte / Faible)</li>
-            <li style="margin-bottom: 4px;"><strong>Q / q</strong> : Saut / Lançamento</li>
+            <li style="margin-bottom: 4px;"><strong>S</strong> : Salto / Lançamento</li>
+            <li style="margin-bottom: 4px;"><strong>V</strong> : Volta</li>
+            <li style="margin-bottom: 4px;"><strong>B</strong> : Barulho</li>
+          </ul>
+
+          <h3 style="font-size: 16px; margin-top: 20px; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">Mineiro</h3>
+          <ul style="list-style-type: none; padding-left: 0; margin: 0; font-size: 14px;">
+            <li style="margin-bottom: 4px;"><strong>P / p</strong> : Pousser (Forte / Faible)</li>
+            <li style="margin-bottom: 4px;"><strong>T / t</strong> : Tirer (Forte / Faible)</li>
+            <li style="margin-bottom: 4px;"><strong>L</strong> : Lado (Coup sur le côté)</li>
             <li style="margin-bottom: 4px;"><strong>B</strong> : Barulho</li>
           </ul>
         </div>

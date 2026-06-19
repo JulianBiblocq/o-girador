@@ -650,6 +650,7 @@ export default function App() {
       y: rect.top,
       currentVal,
       onSelect,
+      isStickyDefault: e.type !== 'touchstart'
     });
     setHoveredStroke(String(currentVal));
   };

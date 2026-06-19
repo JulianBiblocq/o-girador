@@ -1201,7 +1201,7 @@ export function useSequencerState() {
               else if (lowerChar === 'f') parsed = 'F';
               else if (lowerChar === 'c') parsed = 'C';
               else if (['b', 't'].includes(lowerChar)) parsed = 'B';
-              else if (['d', 'D', 'e', 'E', 'q', 'Q'].includes(cleanChar)) {
+              else if (['d', 'D', 'e', 'E'].includes(cleanChar)) {
                 parsed = cleanChar;
               }
             } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {

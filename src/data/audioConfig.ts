@@ -101,7 +101,7 @@ export const instrumentAudioConfigs: InstrumentAudioConfig[] = [
   {
     id: 'marcante',
     name: 'Alfaia Marcante',
-    uiOrder: ['Q', 'D', 'E', 'q', 'd', 'e', 'X', 'C', 'B', 'I'],
+    uiOrder: ['D', 'E', 'd', 'e', 'X', 'C', 'B', 'I'],
     leftHandedSupport: true,
     macroPitch: Math.pow(2, -2/12), // -2 semitones (Fundamental)
     strokes: getAlfaiaStrokes()
@@ -109,7 +109,7 @@ export const instrumentAudioConfigs: InstrumentAudioConfig[] = [
   {
     id: 'meiao',
     name: 'Alfaia Meião',
-    uiOrder: ['Q', 'D', 'E', 'q', 'd', 'e', 'X', 'C', 'B', 'I'],
+    uiOrder: ['D', 'E', 'd', 'e', 'X', 'C', 'B', 'I'],
     leftHandedSupport: true,
     macroPitch: Math.pow(2, 5/12), // +5 semitones (Perfect Fifth)
     strokes: getAlfaiaStrokes()
@@ -117,7 +117,7 @@ export const instrumentAudioConfigs: InstrumentAudioConfig[] = [
   {
     id: 'repique',
     name: 'Alfaia Repique',
-    uiOrder: ['Q', 'D', 'E', 'q', 'd', 'e', 'X', 'C', 'B', 'I'],
+    uiOrder: ['D', 'E', 'd', 'e', 'X', 'C', 'B', 'I'],
     leftHandedSupport: true,
     macroPitch: Math.pow(2, 10/12), // +10 semitones (Octave relative toMarcante)
     strokes: getAlfaiaStrokes()
@@ -125,7 +125,7 @@ export const instrumentAudioConfigs: InstrumentAudioConfig[] = [
   {
     id: 'caixa',
     name: 'Caixa',
-    uiOrder: ['D', 'E', 'Q', 'd', 'e', 'q', 'X', 'C', 'B', 'F', 'R', 'r'],
+    uiOrder: ['D', 'E', 'd', 'e', 'X', 'C', 'B', 'F', 'R', 'r'],
     leftHandedSupport: true,
     strokes: [
       {
@@ -150,17 +150,7 @@ export const instrumentAudioConfigs: InstrumentAudioConfig[] = [
         ],
         caseSensitive: true
       },
-      {
-        symbol: 'Q', // Alt Fort Left
-        keys: ['Q'],
-        files: [
-          "/Mixdown/Caixa F 1.ogg",
-          "/Mixdown/Caixa F 2.ogg",
-          "/Mixdown/Caixa F 3.ogg",
-          "/Mixdown/Caixa F 4.ogg"
-        ],
-        caseSensitive: true
-      },
+      
       {
         symbol: 'd', // Faible Right
         keys: ['d'],
@@ -183,17 +173,7 @@ export const instrumentAudioConfigs: InstrumentAudioConfig[] = [
         ],
         caseSensitive: true
       },
-      {
-        symbol: 'q', // Alt Faible Left
-        keys: ['q'],
-        files: [
-          "/Mixdown/Caixa faible 1.ogg",
-          "/Mixdown/Caixa faible 2.ogg",
-          "/Mixdown/Caixa faible 3.ogg",
-          "/Mixdown/Caixa faible 4.ogg"
-        ],
-        caseSensitive: true
-      },
+      
       {
         symbol: 'R', // Rufada Right (R)
         keys: ['R'],
@@ -248,7 +228,7 @@ export const instrumentAudioConfigs: InstrumentAudioConfig[] = [
   {
     id: 'tarol',
     name: 'Tarol',
-    uiOrder: ['D', 'E', 'Q', 'd', 'e', 'q', 'X', 'C', 'B', 'F', 'R', 'r'],
+    uiOrder: ['D', 'E', 'd', 'e', 'X', 'C', 'B', 'F', 'R', 'r'],
     leftHandedSupport: true,
     strokes: [
       {
@@ -273,17 +253,7 @@ export const instrumentAudioConfigs: InstrumentAudioConfig[] = [
         ],
         caseSensitive: true
       },
-      {
-        symbol: 'Q', // Alt Fort Left
-        keys: ['Q'],
-        files: [
-          "/Mixdown/Tarol F1.ogg",
-          "/Mixdown/Tarol F 2.ogg",
-          "/Mixdown/Tarol F 3.ogg",
-          "/Mixdown/Tarol F 4.ogg"
-        ],
-        caseSensitive: true
-      },
+      
       {
         symbol: 'd', // Faible Right
         keys: ['d'],
@@ -306,17 +276,7 @@ export const instrumentAudioConfigs: InstrumentAudioConfig[] = [
         ],
         caseSensitive: true
       },
-      {
-        symbol: 'q', // Alt Faible Left
-        keys: ['q'],
-        files: [
-          "/Mixdown/Tarol faible 1.ogg",
-          "/Mixdown/Tarol faible 2.ogg",
-          "/Mixdown/Tarol faible 3.ogg",
-          "/Mixdown/Tarol faible 4.ogg"
-        ],
-        caseSensitive: true
-      },
+      
       {
         symbol: 'R', // Rufada Right (R)
         keys: ['R'],
@@ -556,19 +516,7 @@ function getAlfaiaStrokes(): StrokeMapping[] {
       ],
       caseSensitive: true
     },
-    {
-      symbol: 'Q', // Alt Fort Left
-      keys: ['Q'],
-      files: [
-        "/Mixdown/Alfaia meiao F 1.ogg",
-        "/Mixdown/Alfaia meiao F 2.ogg",
-        "/Mixdown/Alfaia meiao F 3.ogg",
-        "/Mixdown/Alfaia meiao F 4.ogg",
-        "/Mixdown/Alfaia meiao F 5.ogg",
-        "/Mixdown/Alfaia meiao F 6.ogg"
-      ],
-      caseSensitive: true
-    },
+    
     {
       symbol: 'd', // Faible Right
       keys: ['d'],
@@ -591,17 +539,7 @@ function getAlfaiaStrokes(): StrokeMapping[] {
       ],
       caseSensitive: true
     },
-    {
-      symbol: 'q', // Alt Faible Left
-      keys: ['q'],
-      files: [
-        "/Mixdown/Alfaia meiao faible 1.ogg",
-        "/Mixdown/Alfaia meiao faible 2.ogg",
-        "/Mixdown/Alfaia meiao faible 3.ogg",
-        "/Mixdown/Alfaia meiao faible 4.ogg"
-      ],
-      caseSensitive: true
-    },
+    
     {
       symbol: 'X', // Aro (X/x)
       keys: ['X', 'x'],

@@ -15,7 +15,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#3a1010',
     path: 'Alfaia/Marcante',
-    colors: { 'd': '#632b2b', 'D': '#8a2b2b', 'e': '#b55a5a', 'E': '#c74c4c', 'Q': '#c74c4c', 'q': '#b55a5a', 'B': '#4c1c1c', 'X': '#8c7b7b', 'I': '#ff8da1', 'C': '#a89f91', text: '#f4ecd8' },
+    colors: { 'd': '#632b2b', 'D': '#8a2b2b', 'e': '#b55a5a', 'E': '#c74c4c', 'B': '#4c1c1c', 'X': '#8c7b7b', 'I': '#ff8da1', 'C': '#a89f91', text: '#f4ecd8' },
     color: '#8a2b2b'
   },
   {
@@ -25,7 +25,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#3a2010',
     path: 'Alfaia/Meiao',
-    colors: { 'd': '#8c502b', 'D': '#ab5318', 'e': '#c79c3e', 'E': '#c98124', 'Q': '#c98124', 'q': '#c79c3e', 'B': '#4c2c16', 'X': '#9c8476', 'I': '#ffb74d', 'C': '#a89f91', text: '#f4ecd8' },
+    colors: { 'd': '#8c502b', 'D': '#ab5318', 'e': '#c79c3e', 'E': '#c98124', 'B': '#4c2c16', 'X': '#9c8476', 'I': '#ffb74d', 'C': '#a89f91', text: '#f4ecd8' },
     color: '#ab5318'
   },
   {
@@ -35,7 +35,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#3a3010',
     path: 'Alfaia/Repique',
-    colors: { 'd': '#947f2b', 'D': '#c9a724', 'e': '#d4cca1', 'E': '#d4c492', 'Q': '#d4c492', 'q': '#d4cca1', 'B': '#4d441c', 'X': '#9c9984', 'I': '#fff59d', 'C': '#a89f91', text: '#f4ecd8' },
+    colors: { 'd': '#947f2b', 'D': '#c9a724', 'e': '#d4cca1', 'E': '#d4c492', 'B': '#4d441c', 'X': '#9c9984', 'I': '#fff59d', 'C': '#a89f91', text: '#f4ecd8' },
     color: '#c9a724'
   },
   {
@@ -45,7 +45,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#2a103a',
     path: 'Caixa',
-    colors: { 'd': '#3f255e', 'D': '#4c267a', 'e': '#925c9c', 'E': '#7a3187', 'Q': '#7a3187', 'q': '#925c9c', 'R': '#a855f7', 'r': '#d8b4fe', 'X': '#7e7b8c', 'F': '#d946ef', 'B': '#4a044e', 'C': '#a89f91', text: '#f4ecd8' },
+    colors: { 'd': '#3f255e', 'D': '#4c267a', 'e': '#925c9c', 'E': '#7a3187', 'R': '#a855f7', 'r': '#d8b4fe', 'X': '#7e7b8c', 'F': '#d946ef', 'B': '#4a044e', 'C': '#a89f91', text: '#f4ecd8' },
     color: '#7a3187'
   },
   {
@@ -55,7 +55,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
     type: 'hands',
     mixerBg: '#102a3a',
     path: 'Tarol',
-    colors: { 'd': '#3b82f6', 'D': '#1e3a8a', 'e': '#93c5fd', 'E': '#2563eb', 'Q': '#2563eb', 'q': '#93c5fd', 'R': '#312e81', 'r': '#818cf8', 'X': '#3a506b', 'F': '#60a5fa', 'C': '#bfdbfe', 'B': '#0284c7', text: '#f4ecd8' },
+    colors: { 'd': '#3b82f6', 'D': '#1e3a8a', 'e': '#93c5fd', 'E': '#2563eb', 'R': '#312e81', 'r': '#818cf8', 'X': '#3a506b', 'F': '#60a5fa', 'C': '#bfdbfe', 'B': '#0284c7', text: '#f4ecd8' },
     color: '#2563eb'
   },
   {
@@ -154,6 +154,9 @@ export const i18n = {
     mineiroT: "Baixo (Forte / Fraco)",
     mineiroL: "Toque lateral (lado)",
     mineiroB: "Barulho",
+    apitoLegend: "🪈 Apito",
+    apitoLong: "Sopro longo (W)",
+    apitoShort: "Sopro curto (w)",
     addInst: "adicionar",
     clear: "Limpar a Roda",
     save: "Salvar",
@@ -238,6 +241,9 @@ export const i18n = {
     mineiroT: "Bas (Fort / Faible)",
     mineiroL: "Coup sur le côté (lado)",
     mineiroB: "Barulho",
+    apitoLegend: "🪈 Apito",
+    apitoLong: "Souffle long (W)",
+    apitoShort: "Souffle court (w)",
     addInst: "Ajouter",
     clear: "Vider la Roda",
     save: "Sauvegarder",
@@ -481,7 +487,6 @@ export function getVisualStrokeSymbol(symbol: string | number, isLeftHanded: boo
   if (symbol === 'e') return 'd';
   if (symbol === 'R') return 'r';
   if (symbol === 'r') return 'R';
-  if (symbol === 'Q') return 'D';
-  if (symbol === 'q') return 'd';
+  // Removed Q and q
   return symbol;
 }

@@ -599,6 +599,27 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
               </div>
             </div>
 
+            {/* Apito */}
+            <div className="relative flex flex-col gap-1 bg-[var(--cordel-bg)] cordel-border-sm p-2">
+              <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
+                {t('apitoLegend')}
+              </span>
+              <div className="flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#eab308] text-[#1a1a1a]">
+                    W
+                  </span>
+                  <span>{t('apitoLong')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fef08a] text-[#1a1a1a]">
+                    w
+                  </span>
+                  <span>{t('apitoShort')}</span>
+                </div>
+              </div>
+            </div>
+
             {/* Contact & Feedback */}
             <div className="relative flex flex-col gap-1 bg-[var(--cordel-bg)] cordel-border-sm p-3 text-center mt-2 shrink-0">
               <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
@@ -617,6 +638,8 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                 <span>{t('feedbackBtn')}</span>
               </button>
             </div>
+
+
           </div>
         </div>
       )}

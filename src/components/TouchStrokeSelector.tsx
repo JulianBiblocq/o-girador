@@ -17,6 +17,7 @@ export interface TouchSelectorState {
   y: number;
   currentVal: string | number;
   onSelect: (val: string) => void;
+  isStickyDefault?: boolean;
 }
 
 interface TouchStrokeSelectorProps {
@@ -38,8 +39,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'd': return isPt ? 'Mão Direita (Fraca)' : 'Main Droite (Faible)';
       case 'E': return isPt ? 'Mão Esquerda (Forte)' : 'Main Gauche (Fort)';
       case 'e': return isPt ? 'Mão Esquerda (Fraca)' : 'Main Gauche (Faible)';
-      case 'Q': return isPt ? 'Mão Esquerda (Forte - Alt)' : 'Main Gauche (Fort - Alt)';
-      case 'q': return isPt ? 'Mão Esquerda (Fraca - Alt)' : 'Main Gauche (Faible - Alt)';
+
       case 'R': return isPt ? 'Rufada Direita' : 'Roulement court D';
       case 'r': return isPt ? 'Rufada Esquerda' : 'Roulement court G';
       case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
@@ -56,8 +56,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'd': return isPt ? 'Mão Direita (Fraca)' : 'Main Droite (Faible)';
       case 'E': return isPt ? 'Mão Esquerda (Forte)' : 'Main Gauche (Fort)';
       case 'e': return isPt ? 'Mão Esquerda (Fraca)' : 'Main Gauche (Faible)';
-      case 'Q': return isPt ? 'Mão Esquerda (Forte - Alt)' : 'Main Gauche (Fort - Alt)';
-      case 'q': return isPt ? 'Mão Esquerda (Fraca - Alt)' : 'Main Gauche (Faible - Alt)';
+
       case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
       case 'C': return isPt ? 'Click' : 'Click';
       case 'I': return isPt ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Iguarassu)';
@@ -122,7 +121,7 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
 }) => {
   const { lang, isLeftHanded = false } = useSequencer();
   const hoveredStrokeRef = useRef<string | null>(null);
-  const [isSticky, setIsSticky] = useState<boolean>(false);
+  const [isSticky, setIsSticky] = useState<boolean>(selector.isStickyDefault || false);
   const stickyTimeRef = useRef<number>(0);
 
   useEffect(() => {
@@ -225,9 +224,18 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
   }, [isSticky, onClose]);
 
   const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 360;
+  const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 640;
   const bubbleWidth = Math.min(270, screenWidth - 24);
+  const bubbleHeight = 150; // approximate height of the bubble
   const leftPos = Math.max(bubbleWidth / 2 + 12, Math.min(screenWidth - bubbleWidth / 2 - 12, selector.x));
   const arrowOffset = selector.x - leftPos;
+
+  // Collision detection for top of screen
+  const isTooHigh = selector.y - bubbleHeight - 15 < 0;
+  
+  const transformStyle = isTooHigh 
+    ? 'translate(-50%, 0) translateY(15px)' // render below the step
+    : 'translate(-50%, -100%) translateY(-15px)'; // render above the step (default)
 
   return (
     <div
@@ -235,9 +243,19 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
       style={{
         left: `${leftPos}px`,
         top: `${selector.y}px`,
-        transform: 'translate(-50%, -100%) translateY(-15px)',
+        transform: transformStyle,
       }}
     >
+      {/* If rendering below, put arrow on top */}
+      {isTooHigh && (
+        <div
+          className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-[#1a1a1a]"
+          style={{ 
+            marginBottom: '-2px',
+            transform: `translateX(${arrowOffset}px)`
+          }}
+        />
+      )}
       {/* Popover Bubble Container */}
       <div 
         id="touch-stroke-selector-bubble"
@@ -306,14 +324,16 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
         </div>
       </div>
 
-      {/* Popover Downward Arrow */}
-      <div
-        className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[#1a1a1a]"
-        style={{ 
-          marginTop: '-2px',
-          transform: `translateX(${arrowOffset}px)`
-        }}
-      />
+      {/* Popover Downward Arrow (default, when rendering above) */}
+      {!isTooHigh && (
+        <div
+          className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-[#1a1a1a]"
+          style={{ 
+            marginTop: '-2px',
+            transform: `translateX(${arrowOffset}px)`
+          }}
+        />
+      )}
     </div>
   );
 };

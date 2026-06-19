@@ -106,10 +106,10 @@ function getStrokesForInstrument(instId: string, instType: string, lang: string,
     strokes = [
       { symbol: 'D', label: isFr ? 'Main Droite Forte' : 'Mão Direita Forte', shortcut: 'D', colorKey: 'D' },
       { symbol: 'E', label: isFr ? 'Main Gauche Forte' : 'Mão Esquerda Forte', shortcut: 'E', colorKey: 'E' },
-      { symbol: 'Q', label: isFr ? 'Main Gauche Forte (Alt)' : 'Mão Esquerda Forte (Alt)', shortcut: 'Q', colorKey: 'Q' },
+
       { symbol: 'd', label: isFr ? 'Main Droite Faible' : 'Mão Direita Fraca', shortcut: 'd', colorKey: 'd' },
       { symbol: 'e', label: isFr ? 'Main Gauche Faible' : 'Mão Esquerda Fraca', shortcut: 'e', colorKey: 'e' },
-      { symbol: 'q', label: isFr ? 'Main Gauche Faible (Alt)' : 'Mão Esquerda Fraca (Alt)', shortcut: 'q', colorKey: 'q' },
+
       { symbol: 'X', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
       { symbol: 'C', label: isFr ? 'Click' : 'Click', shortcut: 'C', colorKey: 'C' },
       { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
@@ -120,12 +120,12 @@ function getStrokesForInstrument(instId: string, instType: string, lang: string,
   }
   else if (instId === 'marcante' || instId === 'meiao' || instId === 'repique') {
     strokes = [
-      { symbol: 'Q', label: isFr ? 'Main Gauche Forte (Alt)' : 'Mão Esquerda Forte (Alt)', shortcut: 'Q', colorKey: 'Q' },
+
       { symbol: 'D', label: isFr ? 'Main Droite Forte' : 'Mão Direita Forte', shortcut: 'D', colorKey: 'D' },
       { symbol: 'E', label: isFr ? 'Main Gauche Forte' : 'Mão Esquerda Forte', shortcut: 'E', colorKey: 'E' },
       { symbol: 'd', label: isFr ? 'Main Droite Faible' : 'Mão Direita Fraca', shortcut: 'd', colorKey: 'd' },
       { symbol: 'e', label: isFr ? 'Main Gauche Faible' : 'Mão Esquerda Fraca', shortcut: 'e', colorKey: 'e' },
-      { symbol: 'q', label: isFr ? 'Main Gauche Faible (Alt)' : 'Mão Esquerda Fraca (Alt)', shortcut: 'q', colorKey: 'q' },
+
       { symbol: 'X', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
       { symbol: 'C', label: isFr ? 'Click' : 'Click', shortcut: 'C', colorKey: 'C' },
       { symbol: 'I', label: isFr ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Iguarassu)', shortcut: 'I', colorKey: 'I' },
@@ -146,10 +146,10 @@ function getStrokesForInstrument(instId: string, instType: string, lang: string,
     strokes = [
       { symbol: 'D', label: isFr ? 'Main Droite Forte' : 'Mão Direita Forte', shortcut: 'D', colorKey: 'D' },
       { symbol: 'E', label: isFr ? 'Main Gauche Forte' : 'Mão Esquerda Forte', shortcut: 'E', colorKey: 'E' },
-      { symbol: 'Q', label: isFr ? 'Main Gauche Forte (Alt)' : 'Mão Esquerda Forte (Alt)', shortcut: 'Q', colorKey: 'Q' },
+
       { symbol: 'd', label: isFr ? 'Main Droite Faible' : 'Mão Direita Fraca', shortcut: 'd', colorKey: 'd' },
       { symbol: 'e', label: isFr ? 'Main Gauche Faible' : 'Mão Esquerda Fraca', shortcut: 'e', colorKey: 'e' },
-      { symbol: 'q', label: isFr ? 'Main Gauche Faible (Alt)' : 'Mão Esquerda Fraca (Alt)', shortcut: 'q', colorKey: 'q' },
+
       { symbol: 'X', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
       { symbol: 'C', label: isFr ? 'Click' : 'Click', shortcut: 'C', colorKey: 'C' },
       { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
@@ -252,9 +252,7 @@ export function getNextStepValue(instId: string, instType: string, currentVal: s
     if (norm === 'd') return 'D';
     if (norm === 'D') return 'e';
     if (norm === 'e') return 'E';
-    if (norm === 'E') return 'q';
-    if (norm === 'q') return 'Q';
-    if (norm === 'Q') return 'R';
+    if (norm === 'E') return 'R';
     if (norm === 'R') return 'r';
     if (norm === 'r') return 'X';
     if (norm === 'X') return 'C';
@@ -267,9 +265,7 @@ export function getNextStepValue(instId: string, instType: string, currentVal: s
     if (norm === 'd') return 'D';
     if (norm === 'D') return 'e';
     if (norm === 'e') return 'E';
-    if (norm === 'E') return 'q';
-    if (norm === 'q') return 'Q';
-    if (norm === 'Q') return 'R';
+    if (norm === 'E') return 'R';
     if (norm === 'R') return 'r';
     if (norm === 'r') return 'X';
     if (norm === 'X') return 'C';
@@ -282,9 +278,7 @@ export function getNextStepValue(instId: string, instType: string, currentVal: s
     if (norm === 'd') return 'D';
     if (norm === 'D') return 'e';
     if (norm === 'e') return 'E';
-    if (norm === 'E') return 'q';
-    if (norm === 'q') return 'Q';
-    if (norm === 'Q') return 'X';
+    if (norm === 'E') return 'X';
     if (norm === 'X') return 'I';
     if (norm === 'I') return 'C';
     if (norm === 'C') return 'B';

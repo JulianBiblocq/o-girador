@@ -117,11 +117,11 @@ export function buildTickSchedule(
         if (inst.type === 'gongue') {
           if (state === 'G' || state === 'A') { isStrong = true; }
         } else if (inst.id === 'caixa') {
-          if (['D', 'E', 'Q', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
+          if (['D', 'E', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
         } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
-          if (['D', 'E', 'Q', 'X', 'I', 'C'].includes(state)) { isStrong = true; }
+          if (['D', 'E', 'X', 'I', 'C'].includes(state)) { isStrong = true; }
         } else if (inst.id === 'tarol') {
-          if (['D', 'E', 'Q', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
+          if (['D', 'E', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
         } else if (inst.id === 'agbe') {
           if (['D', 'E', 'S'].includes(state)) { isStrong = true; }
         } else {
@@ -272,11 +272,11 @@ function buildDynamicMeasureSchedule(
       if (inst.type === 'gongue') {
         if (state === 'G' || state === 'A') { isStrong = true; }
       } else if (inst.id === 'caixa') {
-        if (['D', 'E', 'Q', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
+        if (['D', 'E', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
       } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
-        if (['D', 'E', 'Q', 'X', 'I', 'C'].includes(state)) { isStrong = true; }
+        if (['D', 'E', 'X', 'I', 'C'].includes(state)) { isStrong = true; }
       } else if (inst.id === 'tarol') {
-        if (['D', 'E', 'Q', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
+        if (['D', 'E', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
       } else if (inst.id === 'agbe') {
         if (['D', 'E', 'S'].includes(state)) { isStrong = true; }
       } else {
