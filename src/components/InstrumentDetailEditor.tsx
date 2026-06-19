@@ -1583,7 +1583,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                     readOnly={isMultiSelectActive}
                                     inputMode={isTouchDevice ? 'none' : undefined}
                                     onClick={(e) => e.stopPropagation()}
-                                    onTouchStart={(e) => e.stopPropagation()}
                                     onFocus={(e) => {
                                       if (!isTouchDevice) {
                                         e.target.select();
@@ -1669,6 +1668,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                       }
                                     }}
                                     onTouchStart={(e) => {
+                                      e.stopPropagation();
                                       setSelectedPatternId(ptn.id);
                                       setSelectedVariationId(null);
                                       if (isMultiSelectActive) {
@@ -1865,7 +1865,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                             readOnly={false}
                                             inputMode={isTouchDevice ? 'none' : undefined}
                                             onClick={(e) => e.stopPropagation()}
-                                            onTouchStart={(e) => e.stopPropagation()}
                                             onFocus={(e) => {
                                               if (!isTouchDevice) {
                                                 e.target.select();
@@ -1887,6 +1886,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                               }
                                             }}
                                             onTouchStart={(e) => {
+                                              e.stopPropagation();
                                               setSelectedPatternId(ptn.id);
                                               setSelectedStepIdx(i);
                                               setSelectedVariationId(variation.id);

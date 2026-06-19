@@ -602,7 +602,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           currentMeasure={currentMeasure}
           maxTicks={maxTicks}
           totalMeasures={totalMeasures}
-          onStepTouchStart={onStepTouchStart}
           onCopyPattern={handleCopyPattern}
           onPastePattern={() => handlePastePattern(editingTrack.id)}
           onLoadLibraryPattern={(targetPtnId, libPattern) => handleLoadLibraryPattern(editingTrack.id, targetPtnId, libPattern)}

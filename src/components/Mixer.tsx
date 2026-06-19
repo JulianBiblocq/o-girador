@@ -289,7 +289,6 @@ const MixerComponent: React.FC<MixerProps> = ({
           currentMeasure={currentMeasure}
           maxTicks={maxTicks}
           totalMeasures={totalMeasures}
-          onStepTouchStart={onStepTouchStart}
           onCopyPattern={handleCopyPattern}
           onPastePattern={() => handlePastePattern(editingTrackId)}
           onLoadLibraryPattern={onLoadLibraryPattern ? (targetPtnId, libPattern) => onLoadLibraryPattern(editingTrackId, targetPtnId, libPattern) : undefined}
