@@ -1580,7 +1580,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                     type="text"
                                     maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
                                     value={displayVal}
-                                    readOnly={isTouchDevice || isMultiSelectActive}
+                                    readOnly={isMultiSelectActive}
                                     inputMode={isTouchDevice ? 'none' : undefined}
                                     onFocus={(e) => {
                                       if (!isTouchDevice) {
@@ -1859,7 +1859,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                             type="text"
                                             maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
                                             value={displayVal}
-                                            readOnly={isTouchDevice}
+                                            readOnly={false}
                                             inputMode={isTouchDevice ? 'none' : undefined}
                                             onFocus={(e) => {
                                               if (!isTouchDevice) {
