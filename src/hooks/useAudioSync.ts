@@ -598,7 +598,11 @@ export function useAudioSync({
         masterVolumeNode = new Tone.Gain(1.0);
         masterVolumeNode.connect(masterEQNode);
         masterEQNode.connect(masterCompressorNode);
-        masterCompressorNode.toDestination();
+        
+        // Add a Limiter at -2dB to prevent digital clipping when many instruments hit simultaneously
+        const masterLimiterNode = new Tone.Limiter(-2);
+        masterCompressorNode.connect(masterLimiterNode);
+        masterLimiterNode.toDestination();
         
         masterVolumeNode.gain.value = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
         masterMeterNode = new Tone.Meter();

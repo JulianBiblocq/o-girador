@@ -147,7 +147,7 @@ function writeString(view: DataView, offset: number, string: string) {
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const sequencer = useSequencer();
 
-  const [masterVol, setMasterVol] = useState<number>(-6);
+  const [masterVol, setMasterVol] = useState<number>(-10);
   const [masterEQ, setMasterEQ] = useState<{ low: number; mid: number; high: number }>({ low: 0, mid: 0, high: 0 });
   const [masterCompressor, setMasterCompressor] = useState<{ threshold: number; ratio: number }>({ threshold: -20, ratio: 4 });
   const [reverbType, setReverbType] = useState<'room' | 'studio' | 'hall'>(() => {
