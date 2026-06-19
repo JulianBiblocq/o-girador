@@ -463,8 +463,13 @@ export default function App() {
       return;
     }
     const timer = setTimeout(() => {
-      const tracksCopy = JSON.parse(JSON.stringify(sequencer.tracks));
-      tracksCopy.forEach((t: any) => t.patterns?.forEach((p: any) => { delete p.vocalAudioData; }));
+      const tracksCopy = sequencer.tracks.map((t: any) => ({
+        ...t,
+        patterns: t.patterns.map((p: any) => {
+          const { vocalAudioData, ...safePattern } = p;
+          return safePattern;
+        })
+      }));
 
       const dataToSave = {
         bpm: sequencer.bpm,
