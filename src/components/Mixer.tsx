@@ -257,6 +257,7 @@ const MixerComponent: React.FC<MixerProps> = ({
           onClose={() => setEditingTrackId(null)}
           soloPatternPlayId={soloPatternPlayId}
           soloPatternVariationId={soloPatternVariationId}
+          onStepTouchStart={onStepTouchStart}
           onPlaySoloPattern={handleStartSoloPattern}
           onStopSoloPattern={handleStopSoloPattern}
           onStepValueChange={(pid, sIdx, val, lyrics, notes) => onStepValueChange(editingTrackId, pid, sIdx, val, lyrics, notes)}

@@ -565,6 +565,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           onClose={() => setEditingTrackId(null)}
           soloPatternPlayId={soloPatternPlayId}
           soloPatternVariationId={soloPatternVariationId}
+          onStepTouchStart={onStepTouchStart}
           onPlaySoloPattern={handleStartSoloPattern}
           onStopSoloPattern={handleStopSoloPattern}
           onStepValueChange={(pid, sIdx, val, lyrics, notes) => onStepValueChange(editingTrack.id, pid, sIdx, val, lyrics, notes)}
