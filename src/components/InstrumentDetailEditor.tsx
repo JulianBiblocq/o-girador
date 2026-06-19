@@ -1582,6 +1582,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                     value={displayVal}
                                     readOnly={isMultiSelectActive}
                                     inputMode={isTouchDevice ? 'none' : undefined}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onTouchStart={(e) => e.stopPropagation()}
                                     onFocus={(e) => {
                                       if (!isTouchDevice) {
                                         e.target.select();
@@ -1589,6 +1591,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                       setSelectedPatternId(ptn.id);
                                     }}
                                     onMouseDown={(e) => {
+                                      e.stopPropagation();
                                       if (e.button !== 0) return;
                                       setSelectedPatternId(ptn.id);
                                       setSelectedVariationId(null);
@@ -1861,6 +1864,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                             value={displayVal}
                                             readOnly={false}
                                             inputMode={isTouchDevice ? 'none' : undefined}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onTouchStart={(e) => e.stopPropagation()}
                                             onFocus={(e) => {
                                               if (!isTouchDevice) {
                                                 e.target.select();
@@ -1868,6 +1873,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                               setSelectedPatternId(ptn.id);
                                             }}
                                             onMouseDown={(e) => {
+                                              e.stopPropagation();
                                               if (e.button !== 0) return;
                                               setSelectedPatternId(ptn.id);
                                               setSelectedStepIdx(i);
