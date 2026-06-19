@@ -22,7 +22,7 @@ export class AudioEngine {
   
   // Timing variables
   private readonly LOOKAHEAD_INTERVAL = 10.0; // ms
-  private readonly SCHEDULE_AHEAD_TIME = 0.200; // seconds
+  private readonly SCHEDULE_AHEAD_TIME = 0.400; // seconds
   private nextTickTime: number = 0.0;
   
   // Math Anchors for Drift Elimination

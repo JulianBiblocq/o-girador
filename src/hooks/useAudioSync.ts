@@ -791,8 +791,8 @@ export function useAudioSync({
           const _currentTicks = isNaN(currentTicks) || currentTicks <= 0 ? 96 : currentTicks;
           const ratioVal = _stepForUI / _currentTicks;
 
-          const delayMs = Math.max(0, (time - rawCtx.currentTime) * 1000);
-          const timeoutId = setTimeout(() => {
+          const delaySec = Math.max(0, time - rawCtx.currentTime);
+          Tone.Draw.schedule(() => {
             window.dispatchEvent(new CustomEvent('o-girador-tick', {
               detail: {
                 step: _stepForUI,
@@ -804,9 +804,7 @@ export function useAudioSync({
                 time: time
               }
             }));
-            engineTimeoutsRef.current.delete(timeoutId);
-          }, delayMs);
-          engineTimeoutsRef.current.add(timeoutId);
+          }, time);
 
           // Pré-calculer la durée d'un 96n une seule fois par tick
           const rawBpm = measureBpmsRef.current[currentMeasureIdx];
@@ -928,12 +926,9 @@ export function useAudioSync({
                   audioEngine?.playNote(note.instId, note.playerKey, triggerTime, finalVel, note.stepDecayMultiplier);
                 }
 
-                const delayMs = Math.max(0, (triggerTime - rawCtx.currentTime) * 1000);
-                const timeoutId = setTimeout(() => {
+                Tone.Draw.schedule(() => {
                   hitTriggersRef.current.push({ trackId: note.trackId, stepIndex: note.circleStepIdx, state: note.state });
-                  engineTimeoutsRef.current.delete(timeoutId);
-                }, delayMs);
-                engineTimeoutsRef.current.add(timeoutId);
+                }, triggerTime);
               } catch (_) {}
             }
           }
@@ -1030,12 +1025,9 @@ export function useAudioSync({
                       synth.triggerAttackRelease(noteVal, '8n', triggerTime, trackVolLinear);
                     }
 
-                    const delayMs = Math.max(0, (triggerTime - rawCtx.currentTime) * 1000);
-                    const timeoutId = setTimeout(() => {
+                    Tone.Draw.schedule(() => {
                       hitTriggersRef.current.push({ trackId: track.id, stepIndex: cellIdx, state });
-                      engineTimeoutsRef.current.delete(timeoutId);
-                    }, delayMs);
-                    engineTimeoutsRef.current.add(timeoutId);
+                    }, triggerTime);
                   }
                 }
               }
@@ -1094,8 +1086,7 @@ export function useAudioSync({
         console.log("⏸️ [AUDIO ENGINE STOP] Stopping audioEngine.");
       }
       audioEngine?.stop();
-      engineTimeoutsRef.current.forEach(clearTimeout);
-      engineTimeoutsRef.current.clear();
+      Tone.Draw.cancel();
       hitTriggersRef.current = [];
       Tone.Transport.pause();
       if (isRecordingVocal) {
@@ -1142,8 +1133,7 @@ export function useAudioSync({
       setSoloPatternPlayId(null);
     }
     audioEngine?.stop();
-    engineTimeoutsRef.current.forEach(clearTimeout);
-    engineTimeoutsRef.current.clear();
+    Tone.Draw.cancel();
     hitTriggersRef.current = [];
     lastPlayedPatternRef.current = {};
     Tone.Transport.stop();

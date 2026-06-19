@@ -127,11 +127,10 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
           </span>
           <div className="flex items-center gap-1">
             <button
-              onMouseDown={() => startBpmChange(-1)}
-              onMouseUp={stopBpmChange}
-              onMouseLeave={stopBpmChange}
-              onTouchStart={(e) => { e.preventDefault(); startBpmChange(-1); }}
-              onTouchEnd={(e) => { e.preventDefault(); stopBpmChange(); }}
+              onPointerDown={(e) => { e.preventDefault(); startBpmChange(-1); }}
+              onPointerUp={(e) => { e.preventDefault(); stopBpmChange(); }}
+              onPointerLeave={(e) => { e.preventDefault(); stopBpmChange(); }}
+              onPointerCancel={(e) => { e.preventDefault(); stopBpmChange(); }}
               className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] rounded-sm active:scale-95 transition-all select-none"
               title={lang === 'fr' ? 'Diminuer le tempo' : lang === 'pt' ? 'Diminuir o tempo' : 'Decrease tempo'}
               style={{ padding: 0, touchAction: 'none' }}
@@ -139,11 +138,10 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
               -
             </button>
             <button
-              onMouseDown={() => startBpmChange(1)}
-              onMouseUp={stopBpmChange}
-              onMouseLeave={stopBpmChange}
-              onTouchStart={(e) => { e.preventDefault(); startBpmChange(1); }}
-              onTouchEnd={(e) => { e.preventDefault(); stopBpmChange(); }}
+              onPointerDown={(e) => { e.preventDefault(); startBpmChange(1); }}
+              onPointerUp={(e) => { e.preventDefault(); stopBpmChange(); }}
+              onPointerLeave={(e) => { e.preventDefault(); stopBpmChange(); }}
+              onPointerCancel={(e) => { e.preventDefault(); stopBpmChange(); }}
               className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] rounded-sm active:scale-95 transition-all select-none"
               title={lang === 'fr' ? 'Augmenter le tempo' : lang === 'pt' ? 'Aumentar o tempo' : 'Increase tempo'}
               style={{ padding: 0, touchAction: 'none' }}
