@@ -38,7 +38,7 @@ export function isValidGoogleClientId(id: string | undefined | null): boolean {
   );
 }
 
-const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '601273236123-e90og6lr85v5ca2lprke41igbs02alrv.apps.googleusercontent.com';
 const hasGoogleClientId = isValidGoogleClientId(googleClientId);
 
 const GoogleLoginButtonActive: React.FC<GoogleLoginButtonProps> = ({
