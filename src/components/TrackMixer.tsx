@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as Tone from 'tone';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, GripVertical } from 'lucide-react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { TrackGroup, Language, Pattern } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
 import { getNextStepValue } from './InstrumentDetailEditor';
@@ -19,8 +21,6 @@ interface TrackMixerProps {
   track: TrackGroup;
   index: number;
   totalTracks: number;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
   onInstrumentChange: (instIdx: number) => void;
   onMuteToggle: () => void;
   onSoloToggle: () => void;
@@ -76,8 +76,6 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   track,
   index,
   totalTracks,
-  onMoveUp,
-  onMoveDown,
   onInstrumentChange,
   onMuteToggle,
   onSoloToggle,
@@ -613,11 +611,27 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     });
   };
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: `track-${track.id}` });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
 
   return (
     <div
-      className={`relative bg-[#f4ecd8] cordel-border p-2 mb-2 select-none flex flex-col text-[#1a1a1a] ${instDropdownOpen ? 'z-50' : 'z-10'}`}
+      ref={setNodeRef}
+      className={`cordel-border p-3 flex flex-col relative transition-all duration-300 bg-[var(--cordel-bg)] w-full ${
+        track.isMute ? 'opacity-60 bg-opacity-80' : ''
+      } ${isCollapsed ? 'py-1 border-x-0 border-t-0 border-b-2 min-h-[56px]' : 'min-h-[130px]'}`}
       style={{
+        ...style,
         zIndex: instDropdownOpen ? 9999 : 10,
         '--cordel-bg': '#f4ecd8',
         '--cordel-text': '#1a1a1a',
@@ -629,26 +643,18 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
       <div className={`flex justify-between items-center ${isCollapsed ? '' : 'mb-2'} relative ${instDropdownOpen ? 'z-[9999]' : 'z-[2]'}`}>
         <div className="flex items-center gap-2">
-          {inst.id !== 'apito' && (
-            <div className="flex flex-col gap-[2px] mr-2">
-              <button
-                onClick={onMoveUp}
-                disabled={index === 0}
-                aria-label={lang === 'pt' ? 'Mover para cima' : 'Monter la piste'}
-                className="bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button text-[8px] px-1.5 py-[2px] cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                ▲
-              </button>
-              <button
-                onClick={onMoveDown}
-                disabled={index === totalTracks - 1}
-                aria-label={lang === 'pt' ? 'Mover para baixo' : 'Descendre la piste'}
-                className="bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button text-[8px] px-1.5 py-[2px] cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                ▼
-              </button>
-            </div>
-          )}
+          <div
+            {...(inst.id !== 'apito' ? attributes : {})}
+            {...(inst.id !== 'apito' ? listeners : {})}
+            className={`mr-2 transition-colors p-1 touch-none flex-shrink-0 ${
+              inst.id === 'apito' 
+                ? 'opacity-0 pointer-events-none' 
+                : 'cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)]'
+            }`}
+            title={inst.id !== 'apito' ? "Drag to reorder" : undefined}
+          >
+            <GripVertical size={16} />
+          </div>
 
           <div className="relative flex items-center" ref={dropdownRef}>
             <button

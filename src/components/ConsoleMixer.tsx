@@ -3,7 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
+import {
+  DndContext,
+  PointerSensor,
+  useSensors,
+  useSensor,
+  DragEndEvent,
+  TouchSensor,
+  pointerWithin,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  horizontalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { Pattern } from '../types';
 import { VerticalTrackMixer } from './VerticalTrackMixer';
 import { InstrumentDetailEditor } from './InstrumentDetailEditor';
@@ -41,8 +54,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     handleCopyPattern,
     handlePastePattern,
     handleLoadLibraryPattern,
-    handleTrackMoveUp: onMoveUp,
-    handleTrackMoveDown: onMoveDown,
+    handleReorderTracksDnd,
     handleTrackInstrumentIdxChange: onInstrumentChange,
     handleTrackMuteToggle: onMuteToggle,
     handleTrackSoloToggle: onSoloToggle,
@@ -57,7 +69,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     handleVoiceSylChange: onVoiceSylChange,
     handleVoiceNoteChange: onVoiceNoteChange,
     handleVoiceNoteBlur: onVoiceNoteBlur,
-    handleReorderPatterns: onReorderPatterns,
+    handleReorderPatternsDnd: onReorderPatternsDnd,
     handleTrackReverbChange: onReverbChange,
     handleTrackStepVolumeChange: onStepVolumeChange,
     handleTrackStepDecayChange: onStepDecayChange,
@@ -273,10 +285,50 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     }));
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const activeId = String(active.id);
+      const overId = String(over.id);
+
+      if (activeId.startsWith('pattern-') && overId.startsWith('pattern-')) {
+        const activePatternId = parseInt(activeId.replace('pattern-', ''), 10);
+        const overPatternId = parseInt(overId.replace('pattern-', ''), 10);
+        const track = tracks.find(t => t.patterns.some(p => p.id === activePatternId));
+        if (track && onReorderPatternsDnd) {
+          const oldIndex = track.patterns.findIndex(p => p.id === activePatternId);
+          const newIndex = track.patterns.findIndex(p => p.id === overPatternId);
+          onReorderPatternsDnd(track.id, oldIndex, newIndex);
+        }
+      } else if (activeId.startsWith('track-') && overId.startsWith('track-')) {
+        const activeTrackId = parseInt(activeId.replace('track-', ''), 10);
+        const overTrackId = parseInt(overId.replace('track-', ''), 10);
+        const oldIndex = tracks.findIndex(t => t.id === activeTrackId);
+        const newIndex = tracks.findIndex(t => t.id === overTrackId);
+        handleReorderTracksDnd(oldIndex, newIndex);
+      }
+    }
+  };
+
+  const trackIds = useMemo(() => tracks.map(t => `track-${t.id}`), [tracks]);
+
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       <div ref={scrollRef} className="flex-grow flex overflow-x-auto p-4 gap-4 custom-scrollbar">
-        {tracks.map((track, idx) => (
+        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
+          <SortableContext items={trackIds} strategy={horizontalListSortingStrategy}>
+            {tracks.map((track, idx) => (
           <VerticalTrackMixer
             key={track.id}
             lang={lang}
@@ -287,8 +339,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             meter={meters ? meters[instrumentsConfig[track.instrumentIdx].id] : undefined}
             soloPatternPlayId={soloPatternPlayId}
             activeVariationsRef={activeVariationsRef}
-            onMoveUp={() => onMoveUp(track.id)}
-            onMoveDown={() => onMoveDown(track.id)}
             onInstrumentChange={(i) => onInstrumentChange(track.id, i)}
             onMuteToggle={() => onMuteToggle(track.id)}
             onSoloToggle={() => onSoloToggle(track.id)}
@@ -321,9 +371,11 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             onLoadLibraryPattern={(targetPtnId, libPattern) => handleLoadLibraryPattern(track.id, targetPtnId, libPattern)}
             canPaste={!!copiedPattern}
             onPatternNameChange={(pid, name) => onPatternNameChange && onPatternNameChange(track.id, pid, name)}
-            onReorderPatterns={(pid, direction) => onReorderPatterns && onReorderPatterns(track.id, pid, direction)}
+            onReorderPatternsDnd={(oldIdx, newIdx) => onReorderPatternsDnd && onReorderPatternsDnd(track.id, oldIdx, newIdx)}
           />
         ))}
+          </SortableContext>
+        </DndContext>
 
         {tracks.length > 0 && (
           <div 
@@ -579,7 +631,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           onVoiceNoteBlur={(pid, sIdx, val) => onVoiceNoteBlur(editingTrack.id, pid, sIdx, val)}
           onAddPattern={() => onAddPattern(editingTrack.id)}
           onDeletePattern={(pid) => onDeletePattern(editingTrack.id, pid)}
-          onReorderPatterns={(pid, direction) => onReorderPatterns && onReorderPatterns(editingTrack.id, pid, direction)}
+          onReorderPatternsDnd={(oldIdx, newIdx) => onReorderPatternsDnd && onReorderPatternsDnd(editingTrack.id, oldIdx, newIdx)}
           onAddPatternVariation={(pid) => onAddPatternVariation && onAddPatternVariation(editingTrack.id, pid)}
           onUpdatePatternVariationProbability={(pid, vid, prob) => onUpdatePatternVariationProbability && onUpdatePatternVariationProbability(editingTrack.id, pid, vid, prob)}
           onTogglePatternVariationFirstTimeOnly={(pid, vid, val) => onTogglePatternVariationFirstTimeOnly && onTogglePatternVariationFirstTimeOnly(editingTrack.id, pid, vid, val)}

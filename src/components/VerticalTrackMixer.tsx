@@ -1,19 +1,24 @@
 import React, { useState, useRef, useEffect } from 'react';
 import * as Tone from 'tone';
+import { Eye, EyeOff, GripHorizontal, GripVertical } from 'lucide-react';
+import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { TrackGroup, Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
 import { PanKnob } from './PanKnob';
 import { getNextStepValue } from './InstrumentDetailEditor';
 
-
+const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+  const style = { ...propStyle, transform: CSS.Transform.toString(transform), transition };
+  return children({ setNodeRef, style, attributes, listeners });
+};
 interface VerticalTrackMixerProps {
   lang: Language;
   isLeftHanded?: boolean;
   track: TrackGroup;
   index: number;
   totalTracks: number;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
   onInstrumentChange: (instIdx: number) => void;
   onMuteToggle: () => void;
   onSoloToggle: () => void;
@@ -58,7 +63,7 @@ interface VerticalTrackMixerProps {
   onPastePattern?: (trackId: number, patternId: number) => void;
   canPaste?: boolean;
   onPatternNameChange?: (patternId: number, name: string) => void;
-  onReorderPatterns?: (patternId: number, direction: 'up' | 'down') => void;
+  onReorderPatternsDnd?: (oldIndex: number, newIndex: number) => void;
   meter?: any;
   soloPatternPlayId?: number | null;
   activeVariationsRef?: React.MutableRefObject<Record<number, (string | number)[]>>;
@@ -70,8 +75,6 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
   track,
   index,
   totalTracks,
-  onMoveUp,
-  onMoveDown,
   onInstrumentChange,
   onMuteToggle,
   onSoloToggle,
@@ -103,7 +106,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
   onPastePattern,
   canPaste,
   onPatternNameChange,
-  onReorderPatterns,
+  onReorderPatternsDnd,
   meter,
   soloPatternPlayId,
   activeVariationsRef,
@@ -298,10 +301,25 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
     }
   };
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: `track-${track.id}` });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   return (
     <div 
+      ref={setNodeRef}
       className="flex flex-col bg-[var(--cordel-bg)] cordel-border w-[340px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-colors"
       style={{
+        ...style,
         zIndex: instDropdownOpen ? 30 : 1,
         '--fader-thumb-bg': '#8b2a1a',
         '--fader-thumb-border': 'var(--cordel-border)',
@@ -313,9 +331,13 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
       >
         <div className="flex gap-2 items-center">
           {inst.id !== 'apito' && (
-            <div className="flex flex-col gap-1">
-              <button onClick={onMoveUp} disabled={index === 0} aria-label={lang === 'pt' ? 'Mover para cima' : 'Monter la piste'} className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button flex items-center justify-center font-bold text-xs hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed">▲</button>
-              <button onClick={onMoveDown} disabled={index === totalTracks - 1} aria-label={lang === 'pt' ? 'Mover para baixo' : 'Descendre la piste'} className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button flex items-center justify-center font-bold text-xs hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed">▼</button>
+            <div 
+              {...attributes}
+              {...listeners}
+              className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none"
+              title="Drag to reorder"
+            >
+              <GripHorizontal size={20} />
             </div>
           )}
           
@@ -381,6 +403,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
           </div>
           
           <div className="flex flex-col gap-2">
+            <SortableContext items={track.patterns.map(p => `pattern-${p.id}`)} strategy={verticalListSortingStrategy}>
             {track.patterns.map((ptn, idx) => {
               const activeMeasures = ptn.measureAssignments
                 .map((assigned, mIdx) => assigned ? mIdx + 1 : null)
@@ -393,7 +416,9 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
               const isEditing = editingPatternId === ptn.id;
 
               return (
-                <div key={ptn.id} className="flex flex-col gap-1 pb-1 last:pb-0 border-b border-[var(--cordel-border)]/20 last:border-b-0">
+                <SortablePatternWrapper key={ptn.id} id={`pattern-${ptn.id}`}>
+                  {({ setNodeRef: setPatternNodeRef, style: patternStyle, attributes: patternAttributes, listeners: patternListeners }: any) => (
+                <div ref={setPatternNodeRef} style={patternStyle} className="flex flex-col gap-1 pb-1 last:pb-0 border-b border-[var(--cordel-border)]/20 last:border-b-0">
                   <div className="flex items-center gap-2 min-h-[28px]">
                     <input type="radio" checked={liveActivePatternId === ptn.id} onChange={() => onSelectPattern(ptn.id)} aria-label={ptn.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${idx + 1}`} className="w-4 h-4 accent-[var(--cordel-border)] cursor-pointer" />
                     
@@ -446,32 +471,14 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
 
                     {!isEditing && (
                       <div className="flex items-center gap-1 ml-auto flex-shrink-0">
-                        {onReorderPatterns && track.patterns.length > 1 && (
-                          <div className="flex gap-0.5">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); onReorderPatterns(ptn.id, 'up'); }}
-                              disabled={idx === 0}
-                              className={`px-1 py-px text-[8px] font-bold border border-[var(--cordel-border)]/20 rounded-sm leading-none flex items-center justify-center h-4.5 w-4.5 ${
-                                idx === 0
-                                  ? 'opacity-30 cursor-not-allowed'
-                                  : 'text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer'
-                              }`}
-                              title={lang === 'fr' ? 'Monter' : 'Subir'}
-                            >
-                              ▲
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); onReorderPatterns(ptn.id, 'down'); }}
-                              disabled={idx === track.patterns.length - 1}
-                              className={`px-1 py-px text-[8px] font-bold border border-[var(--cordel-border)]/20 rounded-sm leading-none flex items-center justify-center h-4.5 w-4.5 ${
-                                idx === track.patterns.length - 1
-                                  ? 'opacity-30 cursor-not-allowed'
-                                  : 'text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer'
-                              }`}
-                              title={lang === 'fr' ? 'Descendre' : 'Descer'}
-                            >
-                              ▼
-                            </button>
+                        {onReorderPatternsDnd && track.patterns.length > 1 && (
+                          <div
+                            {...patternAttributes}
+                            {...patternListeners}
+                            className="cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] px-1 touch-none"
+                            title="Drag to reorder"
+                          >
+                            <GripVertical size={14} />
                           </div>
                         )}
                         {track.patterns.length > 1 && (
@@ -490,8 +497,11 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
                     M: {assignedText}
                   </span>
                 </div>
+                  )}
+                </SortablePatternWrapper>
               );
             })}
+            </SortableContext>
           </div>
         </div>
 

@@ -1,9 +1,30 @@
-import React, { useCallback, useState, useRef, useEffect } from 'react';
+import React, { useCallback, useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Play, Square } from 'lucide-react';
+import { Play, Square, GripVertical } from 'lucide-react';
+import {
+  DndContext,
+  pointerWithin,
+  PointerSensor,
+  useSensors,
+  useSensor,
+  DragEndEvent,
+  TouchSensor,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { TrackGroup, Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
 import { usePatternLibraryStore } from '../hooks/usePatternLibraryStore';
+
+const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
+  const style = { ...propStyle, transform: CSS.Transform.toString(transform), transition };
+  return children({ setNodeRef, style, attributes, listeners });
+};
 
 const getGlobalClipboard = () => {
   if (typeof window !== 'undefined') {
@@ -33,7 +54,7 @@ interface InstrumentDetailEditorProps {
   onAddPattern: () => void;
   onDeletePattern: (patternId: number) => void;
   onSelectPattern: (patternId: number) => void;
-  onReorderPatterns?: (patternId: number, direction: 'up' | 'down') => void;
+  onReorderPatternsDnd?: (oldIndex: number, newIndex: number) => void;
   onAddPatternVariation?: (patternId: number) => void;
   onUpdatePatternVariationProbability?: (patternId: number, variationId: string, probability: number) => void;
   onTogglePatternVariationFirstTimeOnly?: (patternId: number, variationId: string, val: boolean) => void;
@@ -311,7 +332,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   onAddPattern,
   onDeletePattern,
   onSelectPattern,
-  onReorderPatterns,
+  onReorderPatternsDnd,
   onAddPatternVariation,
   onUpdatePatternVariationProbability,
   onTogglePatternVariationFirstTimeOnly,
@@ -366,6 +387,28 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
   const [liveMeasure, setLiveMeasure] = useState<number>(currentMeasure);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 5 },
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id && onReorderPatternsDnd) {
+      const oldIndex = track.patterns.findIndex(p => p.id === active.id);
+      const newIndex = track.patterns.findIndex(p => p.id === over.id);
+      onReorderPatternsDnd(oldIndex, newIndex);
+    }
+  };
+
+  const patternIds = useMemo(() => track.patterns.map(p => p.id), [track.patterns]);
 
   // --- Pattern Library Store Logic ---
   const { savePattern, deletePattern, getPatternsByInstrumentId } = usePatternLibraryStore();
@@ -992,6 +1035,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
           {/* ─── Main scrollable content ─── */}
           <div className="flex-1 md:overflow-y-auto p-3 md:p-5 flex flex-col gap-6" style={{ minWidth: 0, WebkitOverflowScrolling: 'touch' }}>
+            <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
+              <SortableContext items={patternIds} strategy={verticalListSortingStrategy}>
 
             {track.patterns.map((ptn, ptnIdx) => {
               const isSelected = track.selectedPatternId === ptn.id;
@@ -1000,12 +1045,15 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               const isCurrentPlaying = isPlaying && ptn.id === livePattern.id;
 
               return (
+                <SortablePatternWrapper key={ptn.id} id={ptn.id}>
+                  {({ setNodeRef, style, attributes, listeners }: any) => (
                 <div
-                  key={ptn.id}
+                  ref={setNodeRef}
                   className={`cordel-border-sm p-4 flex flex-col gap-3 transition-colors ${
                     isSelected ? 'bg-[#f4ecd8]' : 'bg-[#ece4d0]'
                   }`}
                   style={{
+                    ...style,
                     boxShadow: isCurrentPlaying ? '4px 4px 0px 0px #8b2a1a' : (isSelected ? '4px 4px 0px 0px #1a1a1a' : '2px 2px 0px 0px #bbb'),
                     borderColor: isCurrentPlaying ? '#8b2a1a' : (isSelected ? '#1a1a1a' : '#999'),
                     borderWidth: isCurrentPlaying ? '3px' : '2px',
@@ -1133,33 +1181,15 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                       </button>
                     </div>
 
-                    {/* Reorder buttons */}
-                    {onReorderPatterns && (
-                      <div className="flex gap-1 ml-2">
-                        <button
-                          onClick={() => onReorderPatterns(ptn.id, 'up')}
-                          disabled={ptnIdx === 0 || track.patterns.length <= 1}
-                          className={`px-1.5 py-0.5 text-[10px] font-bold cordel-border-sm ${
-                            (ptnIdx === 0 || track.patterns.length <= 1)
-                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                              : 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer'
-                          }`}
-                          title={lang === 'fr' ? 'Monter le motif' : 'Subir padrão'}
-                        >
-                          ▲
-                        </button>
-                        <button
-                          onClick={() => onReorderPatterns(ptn.id, 'down')}
-                          disabled={ptnIdx === track.patterns.length - 1 || track.patterns.length <= 1}
-                          className={`px-1.5 py-0.5 text-[10px] font-bold cordel-border-sm ${
-                            (ptnIdx === track.patterns.length - 1 || track.patterns.length <= 1)
-                              ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                              : 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer'
-                          }`}
-                          title={lang === 'fr' ? 'Descendre le motif' : 'Descer padrão'}
-                        >
-                          ▼
-                        </button>
+                    {/* Reorder handle */}
+                    {onReorderPatternsDnd && (
+                      <div
+                        {...attributes}
+                        {...listeners}
+                        className="ml-2 flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[#1a1a1a]/60 hover:text-[#1a1a1a] transition-colors touch-none"
+                        title="Drag to reorder patterns"
+                      >
+                        <GripVertical size={16} />
                       </div>
                     )}
 
@@ -2259,8 +2289,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                     </div>
                   )}
               </div>
-            );
-          })}
+                  )}
+                </SortablePatternWrapper>
+              );
+            })}
+              </SortableContext>
+            </DndContext>
 
           {/* Add pattern button */}
           <button

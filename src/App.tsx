@@ -642,8 +642,6 @@ export default function App() {
     }
   };
 
-  const handleTrackMoveUp = (id: number) => sequencer.handleTrackMoveUp(id);
-  const handleTrackMoveDown = (id: number) => sequencer.handleTrackMoveDown(id);
   const handleTrackInstrumentIdxChange = (id: number, targetInstIdx: number) => sequencer.handleTrackInstrumentIdxChange(id, targetInstIdx);
   const handleTrackMuteToggle = (id: number) => sequencer.handleTrackMuteToggle(id);
   const handleTrackSoloToggle = (id: number) => sequencer.handleTrackSoloToggle(id);

@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { arrayMove } from '@dnd-kit/sortable';
 import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language } from '../types';
 import { instrumentsConfig, getVisualStrokeSymbol, getMaxTicks } from '../data';
 import { audioEngine } from './useAudioSync';
@@ -217,7 +218,8 @@ export function useSequencerState() {
     if (needsSort) {
       const apitos = tracks.filter(t => instrumentsConfig[t.instrumentIdx]?.id === 'apito');
       const others = tracks.filter(t => instrumentsConfig[t.instrumentIdx]?.id !== 'apito');
-      setTracks([...others, ...apitos]);
+      const sorted = [...others, ...apitos];
+      setTracks(applyRadii(sorted));
     }
   }, [tracks]);
 
@@ -341,48 +343,29 @@ export function useSequencerState() {
   };
 
   // Dynamic layout radial positioning offsets
-  const updateRadii = (list: TrackGroup[]) => {
-    const visibleList = list.filter(t => {
-      const inst = instrumentsConfig[t.instrumentIdx];
-      return !t.isHidden && inst?.id !== 'apito';
+  const applyRadii = (list: TrackGroup[]): TrackGroup[] => {
+    const visibleList = list.filter((t) => !t.isHidden && instrumentsConfig[t.instrumentIdx]?.id !== 'apito');
+    const gap = visibleList.length > 1 ? (495 - 180) / (visibleList.length - 1) : 0;
+    
+    return list.map(t => {
+      if (t.isHidden || instrumentsConfig[t.instrumentIdx]?.id === 'apito') return t;
+      const visibleIdx = visibleList.findIndex(vt => vt.id === t.id);
+      if (visibleIdx === -1) return t;
+      const newRadius = visibleList.length === 1 ? (180 + 495) / 2 : 180 + visibleIdx * gap;
+      if (t.radius !== newRadius) {
+        return { ...t, radius: newRadius };
+      }
+      return t;
     });
-    if (visibleList.length === 0) return;
-    const minRadius = 180;
-    const maxRadius = 495;
+  };
 
-    if (visibleList.length === 1) {
-      visibleList[0].radius = (minRadius + maxRadius) / 2;
-    } else {
-      const gap = (maxRadius - minRadius) / (visibleList.length - 1);
-      visibleList.forEach((t, idx) => {
-        t.radius = minRadius + idx * gap;
+  const handleReorderTracksDnd = (oldIndex: number, newIndex: number) => {
+    if (oldIndex !== newIndex) {
+      pushUndoState();
+      setTracks((prev) => {
+        const newTracks = arrayMove(prev, oldIndex, newIndex);
+        return applyRadii(newTracks);
       });
-    }
-  };
-
-  const handleTrackMoveUp = (id: number) => {
-    pushUndoState();
-    const idx = tracks.findIndex((t) => t.id === id);
-    if (idx > 0) {
-      const copy = [...tracks];
-      const temp = copy[idx];
-      copy[idx] = copy[idx - 1];
-      copy[idx - 1] = temp;
-      updateRadii(copy);
-      setTracks(copy);
-    }
-  };
-
-  const handleTrackMoveDown = (id: number) => {
-    pushUndoState();
-    const idx = tracks.findIndex((t) => t.id === id);
-    if (idx > -1 && idx < tracks.length - 1) {
-      const copy = [...tracks];
-      const temp = copy[idx];
-      copy[idx] = copy[idx + 1];
-      copy[idx + 1] = temp;
-      updateRadii(copy);
-      setTracks(copy);
     }
   };
 
@@ -409,15 +392,17 @@ export function useSequencerState() {
   };
 
   const handleTrackHideToggle = (id: number) => {
-    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, isHidden: !t.isHidden } : t)));
+    setTracks(prev => {
+      const next = prev.map((t) => (t.id === id ? { ...t, isHidden: !t.isHidden } : t));
+      return applyRadii(next);
+    });
   };
 
   const handleTrackDelete = (id: number) => {
     pushUndoState();
     setTracks(prev => {
       const remaining = prev.filter((t) => t.id !== id);
-      updateRadii(remaining);
-      return remaining;
+      return applyRadii(remaining);
     });
   };
 
@@ -1386,26 +1371,15 @@ export function useSequencerState() {
     });
   };
 
-  const handleReorderPatterns = (trackId: number, patternId: number, direction: 'up' | 'down') => {
+  const handleReorderPatternsDnd = (trackId: number, oldIndex: number, newIndex: number) => {
+    if (oldIndex === newIndex) return;
     pushUndoState();
     setTracks((prevTracks) => {
       return prevTracks.map((t) => {
         if (t.id !== trackId) return t;
-        const index = t.patterns.findIndex((p) => p.id === patternId);
-        if (index === -1) return t;
-        const newPatterns = [...t.patterns];
-        if (direction === 'up' && index > 0) {
-          const temp = newPatterns[index];
-          newPatterns[index] = newPatterns[index - 1];
-          newPatterns[index - 1] = temp;
-        } else if (direction === 'down' && index < newPatterns.length - 1) {
-          const temp = newPatterns[index];
-          newPatterns[index] = newPatterns[index + 1];
-          newPatterns[index + 1] = temp;
-        }
         return {
           ...t,
-          patterns: newPatterns
+          patterns: arrayMove(t.patterns, oldIndex, newIndex)
         };
       });
     });
@@ -1563,8 +1537,7 @@ export function useSequencerState() {
 
     setTracks(prev => {
       const next = [...prev, newTrack];
-      updateRadii(next);
-      return next;
+      return applyRadii(next);
     });
   };
 
@@ -1611,8 +1584,7 @@ export function useSequencerState() {
     handleRedo,
     clearHistory,
     // Handlers
-    handleTrackMoveUp,
-    handleTrackMoveDown,
+    handleReorderTracksDnd,
     handleTrackInstrumentIdxChange,
     handleTrackMuteToggle,
     handleTrackSoloToggle,
@@ -1662,7 +1634,7 @@ export function useSequencerState() {
     handleTrackStepValueChange,
     handleTrackStepKeyDown,
     handlePatternNameChange,
-    handleReorderPatterns,
+    handleReorderPatternsDnd,
     handleClear,
     handleAddPatternVariation,
     handleUpdatePatternVariationProbability,
