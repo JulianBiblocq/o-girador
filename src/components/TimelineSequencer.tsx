@@ -200,8 +200,16 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   const startX = useRef(0);
   const startScrollLeft = useRef(0);
   const isScrubbing = useRef(false);
+  const pendingScrollLeft = useRef<number | null>(null);
   const propsRef = useRef({ totalMeasures, measureTimeSigs, onNavigate });
   
+  React.useLayoutEffect(() => {
+    if (pendingScrollLeft.current !== null && scrollRef.current) {
+      scrollRef.current.scrollLeft = pendingScrollLeft.current;
+      pendingScrollLeft.current = null;
+    }
+  }, [measureWidth]);
+
   useEffect(() => {
     propsRef.current = { totalMeasures, measureTimeSigs, onNavigate };
   });
@@ -235,13 +243,46 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     navigateFn(measureIdx, stepIdx, steps);
   };
 
-  const handleRulerMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleRulerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return; // Clic gauche uniquement
     if (!scrollRef.current) return;
     const rect = scrollRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     if (clickX < HEADER_W) return; // Clic sur en-tête d'instruments, ignoré
     
+    if (e.pointerType === 'mouse') {
+      const initialY = e.clientY;
+      const initialWidth = measureWidthRef.current;
+      
+      const onPointerMove = (moveEvent: PointerEvent) => {
+        const deltaY = moveEvent.clientY - initialY;
+        // Si le mouvement est principalement vertical, on zoome
+        if (Math.abs(deltaY) > 5) {
+          const newWidth = initialWidth + deltaY * 2;
+          const clamped = Math.max(120, Math.min(960, newWidth));
+          onMeasureWidthChange(clamped);
+        }
+        // Scrubbing horizontal
+        handleRulerClickOrDrag(moveEvent.clientX);
+      };
+      
+      const onPointerUp = () => {
+        isScrubbing.current = false;
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        document.body.style.cursor = 'default';
+      };
+      
+      isScrubbing.current = true;
+      handleRulerClickOrDrag(e.clientX);
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      document.body.style.cursor = 'ns-resize';
+      e.preventDefault();
+      return;
+    }
+
+    // Fallback pour tactile / autres pointeurs
     isScrubbing.current = true;
     handleRulerClickOrDrag(e.clientX);
     e.preventDefault();
@@ -557,6 +598,79 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     }
   };
 
+  const handleMinimapZoomRightPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse') return;
+    if (e.button !== 0) return;
+    e.stopPropagation(); // Prevent minimap panning
+    
+    if (!minimapContainerRef.current || !minimapSliderRef.current || !scrollRef.current) return;
+    const initialX = e.clientX;
+    const initialS = minimapSliderRef.current.clientWidth;
+    const initialL = minimapSliderRef.current.offsetLeft;
+    const M = minimapContainerRef.current.clientWidth;
+    const V = scrollRef.current.clientWidth;
+    
+    const onPointerMove = (moveEv: PointerEvent) => {
+      const deltaX = moveEv.clientX - initialX;
+      const targetS = Math.max(16, initialS + deltaX);
+      
+      const newW = ((M * V) / targetS - HEADER_W) / totalMeasures;
+      const clampedW = Math.max(120, Math.min(960, newW));
+      
+      const newC = HEADER_W + totalMeasures * clampedW;
+      pendingScrollLeft.current = (initialL / M) * newC;
+      
+      onMeasureWidthChange(clampedW);
+    };
+    
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      document.body.style.cursor = 'default';
+    };
+    
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    document.body.style.cursor = 'ew-resize';
+  };
+
+  const handleMinimapZoomLeftPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse') return;
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    
+    if (!minimapContainerRef.current || !minimapSliderRef.current || !scrollRef.current) return;
+    const initialX = e.clientX;
+    const initialS = minimapSliderRef.current.clientWidth;
+    const initialL = minimapSliderRef.current.offsetLeft;
+    const M = minimapContainerRef.current.clientWidth;
+    const V = scrollRef.current.clientWidth;
+    
+    const onPointerMove = (moveEv: PointerEvent) => {
+      const deltaX = moveEv.clientX - initialX;
+      const targetS = Math.max(16, initialS - deltaX);
+      const targetL = initialL + deltaX;
+      
+      const newW = ((M * V) / targetS - HEADER_W) / totalMeasures;
+      const clampedW = Math.max(120, Math.min(960, newW));
+      
+      const newC = HEADER_W + totalMeasures * clampedW;
+      pendingScrollLeft.current = (targetL / M) * newC;
+      
+      onMeasureWidthChange(clampedW);
+    };
+    
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      document.body.style.cursor = 'default';
+    };
+    
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    document.body.style.cursor = 'ew-resize';
+  };
+
   // Section Marker double-click and drag handlers
   const handleMarkerRulerDblClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target !== e.currentTarget) return;
@@ -725,37 +839,8 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
           <span>🎞️ {lang === 'fr' ? 'Séquenceur Linéaire' : 'Sequenciador Linear'}</span>
         </span>
 
-        {/* Zoom, Tools & Snap Controls */}
+        {/* Tools & Snap Controls */}
         <div className="flex flex-wrap items-center gap-2 md:gap-3">
-          {/* Zoom Controls */}
-          {!isTouchDevice && (
-            <div className="flex items-center gap-1">
-              <span className="text-[9px] md:text-[10px] uppercase font-bold text-[var(--cordel-text)]/70">{lang === 'fr' ? 'Zoom' : 'Zoom'} :</span>
-              <button
-                onClick={() => onMeasureWidthChange(Math.max(120, measureWidth - 60))}
-                disabled={measureWidth <= 120}
-                className={`font-bold text-[9px] md:text-xs px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
-                  measureWidth <= 120 ? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                }`}
-                title={lang === 'fr' ? 'Zoom arrière' : 'Reduzir zoom'}
-              >
-                ➖
-              </button>
-              <button
-                onClick={() => onMeasureWidthChange(Math.min(960, measureWidth + 60))}
-                disabled={measureWidth >= 960}
-                className={`font-bold text-[9px] md:text-xs px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-85 transition-opacity cursor-pointer shadow-[1.5px_1.5px_0_var(--cordel-border)] font-sans ${
-                  measureWidth >= 960 ? 'bg-gray-300 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                }`}
-                title={lang === 'fr' ? 'Zoom avant' : 'Ampliar zoom'}
-              >
-                ➕
-              </button>
-            </div>
-          )}
-
-
-
           {/* Snapping Selection */}
           <div className="flex items-center gap-1 border-l border-[var(--cordel-border)]/30 pl-2">
             <span className="text-[9px] md:text-[10px] uppercase font-bold text-[var(--cordel-text)]/70 shrink-0">{lang === 'fr' ? 'Magnétisme' : 'Atracão'} :</span>
@@ -845,9 +930,20 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
           {/* Viewport Translucent Slider */}
           <div 
             ref={minimapSliderRef}
-            className="absolute top-0 bottom-0 bg-blue-500/10 dark:bg-blue-400/10 border-2 border-blue-500 dark:border-blue-400 rounded shadow-[0_0_6px_rgba(59,130,246,0.25)] cursor-grab active:cursor-grabbing z-10"
+            className="absolute top-0 bottom-0 bg-blue-500/10 dark:bg-blue-400/10 border-y-2 border-blue-500 dark:border-blue-400 shadow-[0_0_6px_rgba(59,130,246,0.25)] cursor-grab active:cursor-grabbing z-10"
             style={{ width: '100px', left: '0px' }}
-          />
+          >
+            {/* Left Handle */}
+            <div
+              className="absolute left-0 top-0 bottom-0 w-2.5 bg-blue-500 dark:bg-blue-400 cursor-ew-resize opacity-80 hover:opacity-100"
+              onPointerDown={handleMinimapZoomLeftPointerDown}
+            />
+            {/* Right Handle */}
+            <div
+              className="absolute right-0 top-0 bottom-0 w-2.5 bg-blue-500 dark:bg-blue-400 cursor-ew-resize opacity-80 hover:opacity-100"
+              onPointerDown={handleMinimapZoomRightPointerDown}
+            />
+          </div>
         </div>
       </div>
 
@@ -1114,9 +1210,9 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
 
           {/* ══════════ RULER ROW ══════════ */}
           <div
-            className="flex min-h-16 h-auto border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-pointer select-none"
+            className="flex min-h-16 h-auto border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-ns-resize select-none"
             style={{ width: `${HEADER_W + totalContentW + 150}px` }}
-            onMouseDown={handleRulerMouseDown}
+            onPointerDown={handleRulerPointerDown}
             onTouchStart={handleRulerTouchStart}
           >
              {/* Sticky corner */}
