@@ -831,32 +831,6 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
       style={{ ...zoomStyles, touchAction: 'pan-x pan-y' }}
       className="timeline-sequencer-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden sequencer-bg text-[var(--cordel-text)] select-none"
     >
-      {/* Séquenceur Title Sub-header with Partition Export Button */}
-      <div className="h-10 border-b-2 border-[var(--cordel-border)] px-4 flex items-center justify-between shrink-0 bg-[var(--cordel-bg)] z-10">
-        <span className="font-cactus font-bold text-xs md:text-sm uppercase tracking-wider flex items-center gap-1.5">
-          <span>🎞️ {lang === 'fr' ? 'Séquenceur Linéaire' : 'Sequenciador Linear'}</span>
-        </span>
-
-        {/* Tools & Snap Controls */}
-        <div className="flex flex-wrap items-center gap-2 md:gap-3">
-          {/* Snapping Selection */}
-          <div className="flex items-center gap-1 border-l border-[var(--cordel-border)]/30 pl-2">
-            <span className="text-[9px] md:text-[10px] uppercase font-bold text-[var(--cordel-text)]/70 shrink-0">{lang === 'fr' ? 'Magnétisme' : 'Atracão'} :</span>
-            <select
-              value={snapMode}
-              onChange={(e) => setSnapMode(e.target.value as 'measure' | 'beat' | 'none')}
-              className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] text-[9px] md:text-[10px] font-bold rounded cordel-border-sm px-1.5 py-0.5 outline-none cursor-pointer tracking-wider shadow-[1.5px_1.5px_0_var(--cordel-border)]"
-            >
-              <option value="measure">{lang === 'fr' ? 'Mesure' : 'Compasso'}</option>
-              <option value="beat">{lang === 'fr' ? 'Temps' : 'Tempos'}</option>
-              <option value="none">{lang === 'fr' ? 'Désactivé' : 'Livre'}</option>
-            </select>
-          </div>
-
-
-        </div>
-      </div>
-
       {/* ══════════ TIMELINE OVERVIEW (MINI-MAP) ══════════ */}
       <div className="border-b border-[var(--cordel-border)]/20 bg-[var(--cordel-bg)] px-4 py-2 shrink-0 select-none">
         <div className="flex justify-between items-center text-[9px] font-bold text-[var(--cordel-text)]/70 uppercase mb-1 tracking-wider">
@@ -1031,11 +1005,23 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
             {/* Sticky header */}
             <div
               className={`sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between font-cactus text-[11px] font-bold uppercase shrink-0 ${
-                isMobile ? 'px-1' : 'px-3'
+                isMobile ? 'px-1' : 'px-2'
               }`}
               style={{ width: HEADER_W, minWidth: HEADER_W }}
             >
-              <span>{isMobile ? (lang === 'fr' ? 'Sect.' : 'Seç.') : (lang === 'fr' ? 'Sections' : 'Seções')}</span>
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] md:text-[10px] uppercase font-bold text-[var(--cordel-text)]/70 shrink-0 select-none hidden md:inline-block" title="Magnétisme">🧲</span>
+                <select
+                  value={snapMode}
+                  onChange={(e) => setSnapMode(e.target.value as 'measure' | 'beat' | 'none')}
+                  className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] text-[9px] md:text-[10px] font-bold rounded cordel-border-sm px-1 py-0.5 outline-none cursor-pointer tracking-wider shadow-[1.5px_1.5px_0_var(--cordel-border)] max-w-[75px] md:max-w-[85px]"
+                  title={lang === 'fr' ? 'Attraction' : 'Atração'}
+                >
+                  <option value="measure">{isMobile ? (lang === 'fr' ? 'Mes.' : 'Comp.') : (lang === 'fr' ? 'Mesure' : 'Compasso')}</option>
+                  <option value="beat">{isMobile ? (lang === 'fr' ? 'Tps' : 'Tmp') : (lang === 'fr' ? 'Temps' : 'Tempos')}</option>
+                  <option value="none">{lang === 'fr' ? 'Libre' : 'Livre'}</option>
+                </select>
+              </div>
               <button
                 onClick={() => {
                   setEditingSection(null);
@@ -1438,7 +1424,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
           {/* ══════════ SIGNAUX DU RYTHME ROW ══════════ */}
           {rhythmSignals.length > 0 && (
             <div
-              className="flex border-b border-[var(--cordel-border)]/20 h-14"
+              className="flex border-b border-[var(--cordel-border)]/20 h-8"
               style={{ width: `${HEADER_W + totalContentW + 150}px` }}
             >
               {/* Sticky header */}
@@ -1448,7 +1434,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                 }`}
                 style={{ width: HEADER_W, minWidth: HEADER_W }}
               >
-                <span className="text-base">🥁</span>
+                <span className="text-base">🙌</span>
                 {!isMobile && (
                   <span className="font-cactus text-[10px] font-bold uppercase tracking-wider text-[var(--cordel-text)]">
                     {lang === 'fr' ? 'Signaux' : 'Sinais'}

@@ -373,7 +373,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
           const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
           if (isHit && vuMeterRef.current) {
             vuMeterRef.current.style.transition = 'none';
-            vuMeterRef.current.style.width = '100%';
+            vuMeterRef.current.style.width = `${track.volumeVal ?? 100}%`;
             void vuMeterRef.current.offsetHeight; // force reflow
             requestAnimationFrame(() => {
               if (vuMeterRef.current) {

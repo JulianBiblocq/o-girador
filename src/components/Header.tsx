@@ -562,7 +562,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       id="top-bar"
       className="w-full min-h-[70px] bg-[var(--cordel-bg)] border-b-2 border-[var(--cordel-border)] flex flex-wrap items-center justify-between px-5 py-2.5 gap-2 z-50 relative select-none shrink-0"
     >
-      <div className="flex items-center gap-3">
+      <div className="flex-1 flex items-center gap-3">
 
         <span
           id="header-title-text"
@@ -703,7 +703,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       </div>
 
       {/* CENTER: Main Core Actions */}
-      <div className="flex items-center justify-center flex-grow gap-4">
+      <div className="flex items-center justify-center gap-4">
         {/* RODA */}
         <button
           onClick={() => onViewModeToggle('roda')}
@@ -825,7 +825,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       </div>
 
       {/* RIGHT: Auxiliary */}
-      <div className="flex items-center justify-end flex-wrap gap-2.5">
+      <div className="flex-1 flex items-center justify-end flex-wrap gap-2.5">
         {showInstallButton && onInstallClick && (
           <button
             onClick={onInstallClick}
