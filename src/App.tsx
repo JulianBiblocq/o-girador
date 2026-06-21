@@ -990,10 +990,14 @@ export default function App() {
 
         {viewMode === 'studio' && (
           <Suspense fallback={<div className="flex-1 flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
-            <MestreStudio
-              lang={sequencer.lang}
-              onExit={() => setViewMode('roda')}
-            />
+            <div className="flex-1 w-full h-full overflow-hidden flex flex-col relative z-20">
+              <MestreStudio
+                lang={sequencer.lang}
+                onExit={() => setViewMode('roda')}
+                presetFiles={presetFiles}
+                localPresets={localPresets}
+              />
+            </div>
           </Suspense>
         )}
 

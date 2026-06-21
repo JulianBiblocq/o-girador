@@ -24,6 +24,8 @@ import { useGameData } from '../contexts/GameDataContext';
 interface MestreStudioProps {
   lang: Language;
   onExit: () => void;
+  presetFiles?: string[];
+  localPresets?: string[];
 }
 
 // 1. Config Varal Types
@@ -48,7 +50,12 @@ interface QuizQuestionStudio {
   explanationPt: string;
 }
 
-export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
+export const MestreStudio: React.FC<MestreStudioProps> = ({ 
+  lang, 
+  onExit,
+  presetFiles = [],
+  localPresets = []
+}) => {
   // 7 Specialized Tabs
   type TabType = 'varal' | 'quiz' | 'dictee' | 'inspecteur' | 'sablier' | 'rythmelive' | 'valise';
   const [activeTab, setActiveTab] = useState<TabType>('varal');
@@ -458,6 +465,54 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  // --- PRESET LOADING HELPER ---
+  const handleLoadPresetToGame = async (presetName: string, moduleName: string) => {
+    if (!presetName) return;
+    try {
+      let dataStr: string | null = null;
+      if (presetName.endsWith('.json')) {
+        const response = await fetch(`/presets/${presetName}`);
+        if (response.ok) {
+          dataStr = await response.text();
+        }
+      } else {
+        dataStr = localStorage.getItem(`o-girador-preset-${presetName}`);
+      }
+
+      if (!dataStr) {
+        alert('Impossible de charger le preset.');
+        return;
+      }
+
+      const presetData = JSON.parse(dataStr);
+      const loadedTracks = presetData.tracks || [];
+      const bpm = presetData.measureBpms ? presetData.measureBpms[0] : 83;
+
+      if (moduleName === 'inspecteur') {
+        setInspecteurBpm(bpm);
+        setInspecteurPerfectTracks(loadedTracks);
+        // Automatically clone the guilty instrument to sabotaged tracks
+        const targetIdx = getInstrumentIdxFromName(inspecteurGuiltyInstrument);
+        const guiltyTrack = loadedTracks.find((t: any) => t.instrumentIdx === targetIdx);
+        if (guiltyTrack) {
+          setInspecteurSabotagedTracks([JSON.parse(JSON.stringify(guiltyTrack))]);
+        }
+      } else if (moduleName === 'dictee') {
+        setDicteeBpm(bpm);
+        setDicteeTracks(loadedTracks);
+      } else if (moduleName === 'sablier_mestre') {
+        setSablierBpm(bpm);
+        setSablierTracks(loadedTracks);
+      } else if (moduleName === 'rythme_live') {
+        setRythmeLiveBpm(bpm);
+        setRythmeLiveTracks(loadedTracks);
+      }
+    } catch (err) {
+      console.error('Error loading preset:', err);
+      alert('Erreur lors du chargement du preset.');
+    }
   };
 
   // --- QUIZ QUESTION EDITING HELPERS ---
@@ -1187,10 +1242,24 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
         {/* 3. CORDE 2: DICTÉE DE BLOCS */}
         {activeTab === 'dictee' && (
           <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-2 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1">
+            <div className="flex flex-col md:flex-row gap-6 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
+              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
                 <span>📂 Charger un exercice pour le modifier (.json)</span>
                 <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'dictee')} className="text-[10px] cursor-pointer" />
+              </label>
+              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
+                <span>🎵 Charger une piste depuis un Preset</span>
+                <select 
+                  onChange={(e) => {
+                    handleLoadPresetToGame(e.target.value, 'dictee');
+                    e.target.value = '';
+                  }} 
+                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded focus:outline-none text-xs font-bold"
+                >
+                  <option value="">Sélectionner un preset...</option>
+                  {presetFiles.map(p => <option key={p} value={p}>Catalogue: {p.replace('.json', '')}</option>)}
+                  {localPresets.map(p => <option key={p} value={p}>Local: {p}</option>)}
+                </select>
               </label>
             </div>
             <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
@@ -1305,10 +1374,24 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
         {/* 4. CORDE 3: L'INSPECTEUR */}
         {activeTab === 'inspecteur' && (
           <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-2 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1">
+            <div className="flex flex-col md:flex-row gap-6 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
+              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
                 <span>📂 Charger un exercice pour le modifier (.json)</span>
                 <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'inspecteur')} className="text-[10px] cursor-pointer" />
+              </label>
+              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
+                <span>🎵 Charger la partition parfaite depuis un Preset</span>
+                <select 
+                  onChange={(e) => {
+                    handleLoadPresetToGame(e.target.value, 'inspecteur');
+                    e.target.value = '';
+                  }} 
+                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded focus:outline-none text-xs font-bold"
+                >
+                  <option value="">Sélectionner un preset...</option>
+                  {presetFiles.map(p => <option key={p} value={p}>Catalogue: {p.replace('.json', '')}</option>)}
+                  {localPresets.map(p => <option key={p} value={p}>Local: {p}</option>)}
+                </select>
               </label>
             </div>
             <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
@@ -1432,10 +1515,24 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
         {/* 5. CORDE 4: SABLIER DU MESTRE */}
         {activeTab === 'sablier' && (
           <div className="flex flex-col gap-6 max-w-3xl mx-auto">
-            <div className="flex flex-col gap-2 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1">
+            <div className="flex flex-col md:flex-row gap-6 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
+              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
                 <span>📂 Charger un exercice pour le modifier (.json)</span>
                 <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'sablier_mestre')} className="text-[10px] cursor-pointer" />
+              </label>
+              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
+                <span>🎵 Charger la Roda depuis un Preset</span>
+                <select 
+                  onChange={(e) => {
+                    handleLoadPresetToGame(e.target.value, 'sablier_mestre');
+                    e.target.value = '';
+                  }} 
+                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded focus:outline-none text-xs font-bold"
+                >
+                  <option value="">Sélectionner un preset...</option>
+                  {presetFiles.map(p => <option key={p} value={p}>Catalogue: {p.replace('.json', '')}</option>)}
+                  {localPresets.map(p => <option key={p} value={p}>Local: {p}</option>)}
+                </select>
               </label>
             </div>
             <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
@@ -1627,10 +1724,24 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({ lang, onExit }) => {
         {/* 6. CORDE 5: RYTHME LIVE */}
         {activeTab === 'rythmelive' && (
           <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-2 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1">
+            <div className="flex flex-col md:flex-row gap-6 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
+              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
                 <span>📂 Charger un exercice pour le modifier (.json)</span>
                 <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'rythme_live')} className="text-[10px] cursor-pointer" />
+              </label>
+              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
+                <span>🎵 Charger la base musicale depuis un Preset</span>
+                <select 
+                  onChange={(e) => {
+                    handleLoadPresetToGame(e.target.value, 'rythme_live');
+                    e.target.value = '';
+                  }} 
+                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded focus:outline-none text-xs font-bold"
+                >
+                  <option value="">Sélectionner un preset...</option>
+                  {presetFiles.map(p => <option key={p} value={p}>Catalogue: {p.replace('.json', '')}</option>)}
+                  {localPresets.map(p => <option key={p} value={p}>Local: {p}</option>)}
+                </select>
               </label>
             </div>
             <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
