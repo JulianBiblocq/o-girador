@@ -72,7 +72,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
           </svg>
           <button id="entra-btn" className="lp-entra-btn" onClick={handleEnter}>ENTRA<br/>NA RODA</button>
         </div>
-        <h1 className="sr-only">O Girador - Séquenceur de Maracatu de Baque Virado</h1>
+        <h1 className="sr-only">O Girador - Séquenceur et Boîte à Rythmes de Maracatu de Baque Virado | Sequenciador Interativo</h1>
         <div className="lp-title">GIRADOR</div>
       </main>
       
