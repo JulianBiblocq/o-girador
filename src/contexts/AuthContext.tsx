@@ -17,6 +17,7 @@ export interface UserProfile {
   mestreId?: string | null;
   groupLogoUrl?: string | null;
   maxEleves?: number;
+  mestreMessage?: string;
 }
 
 interface AuthContextType {

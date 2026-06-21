@@ -203,14 +203,105 @@
         margin-top: -10vh; /* Remonte le footer pour se rapprocher de O Girador */
       }
 
+      .lp-text-container {
+        display: flex;
+        flex-direction: column;
+        gap: clamp(1rem, 3vh, 2rem);
+        margin-left: clamp(1rem, 4vw, 6rem);
+      }
+
       .lp-text {
         max-width: 700px;
         font-size: clamp(0.9rem, 1.4vw, 1.25rem);
         line-height: 1.5;
         color: #1a1a1a;
-        margin-left: clamp(1rem, 4vw, 6rem);
-        margin-bottom: clamp(2rem, 10vh, 5rem); /* Pousse le texte plus haut */
       }
+
+      /* Mestre Message Box */
+      .lp-mestre-message {
+        max-width: 650px;
+        background-color: rgba(0, 0, 0, 0.05);
+        border-left: 4px solid #8b2a1a;
+        padding: 1rem 1.5rem;
+        border-radius: 0 8px 8px 0;
+        font-family: 'Lora', serif;
+      }
+      .lp-message-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+      }
+      .lp-message-title {
+        font-family: 'Cactus', sans-serif;
+        font-weight: bold;
+        color: #8b2a1a;
+        font-size: 1.1rem;
+        letter-spacing: 0.05em;
+      }
+      .lp-edit-btn {
+        background: transparent;
+        border: none;
+        color: #1a1a1a;
+        opacity: 0.5;
+        cursor: pointer;
+        padding: 4px;
+        transition: opacity 0.2s, color 0.2s;
+      }
+      .lp-edit-btn:hover {
+        opacity: 1;
+        color: #8b2a1a;
+      }
+      .lp-message-content {
+        font-size: 1rem;
+        line-height: 1.5;
+        color: #1a1a1a;
+        white-space: pre-wrap;
+      }
+      .lp-textarea {
+        width: 100%;
+        min-height: 80px;
+        background: transparent;
+        border: 1px solid rgba(0,0,0,0.2);
+        border-radius: 4px;
+        padding: 0.5rem;
+        font-family: 'Lora', serif;
+        font-size: 1rem;
+        resize: vertical;
+        color: #1a1a1a;
+        margin-bottom: 0.5rem;
+      }
+      .lp-textarea:focus {
+        outline: none;
+        border-color: #8b2a1a;
+      }
+      .lp-editor-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+      }
+      .lp-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: bold;
+        cursor: pointer;
+        border: none;
+        transition: background 0.2s;
+      }
+      .lp-btn-cancel {
+        background: rgba(0,0,0,0.1);
+        color: #1a1a1a;
+      }
+      .lp-btn-cancel:hover { background: rgba(0,0,0,0.2); }
+      .lp-btn-save {
+        background: #27ae60;
+        color: #fff;
+      }
+      .lp-btn-save:hover { background: #219653; }
 
       .lp-bandeira {
         width: clamp(280px, 40vw, 450px);
@@ -236,9 +327,11 @@
       }
 
       @media (max-width: 1024px) {
-        .lp-center { flex-direction: column; text-align: center; gap: 1rem; }
-        .lp-footer { grid-template-columns: 1fr; gap: 2rem; justify-items: center; }
-        .lp-text { margin-left: 0; margin-bottom: 0; text-align: center; }
+        .lp-center { flex-direction: column; text-align: center; gap: 1rem; padding-left: 0; }
+        .lp-footer { grid-template-columns: 1fr; gap: 2rem; justify-items: center; margin-top: 0; }
+        .lp-text-container { margin-left: 0; text-align: center; align-items: center; }
+        .lp-text { text-align: center; }
+        .lp-mestre-message { border-left: none; border-top: 4px solid #8b2a1a; border-radius: 0 0 8px 8px; text-align: left; }
         .lp-bandeira { width: 100%; margin: 0 auto; max-width: 300px; transform: none; }
         .lp-title { font-size: 4rem; }
       }
