@@ -280,7 +280,11 @@ export class AudioEngine {
     const keysToDelete: string[] = [];
     for (const [path, buffer] of this.bufferPool.entries()) {
       if (!requiredPaths.has(path)) {
-        buffer.dispose(); // Free up memory in Tone.js/WebAudio
+        try {
+          buffer.dispose(); // Free up memory in Tone.js/WebAudio
+        } catch(e) {
+          // Ignore WebAudio disposal errors on old tablets
+        }
         keysToDelete.push(path);
       }
     }
@@ -288,9 +292,14 @@ export class AudioEngine {
       this.bufferPool.delete(k);
     });
 
-    // Load missing buffers in parallel
+    // Load missing buffers sequentially to avoid crashing Safari/Webkit on old tablets
     const pathsToLoad = Array.from(requiredPaths).filter(p => !this.bufferPool.has(p));
-    await Promise.all(pathsToLoad.map(p => this.loadPath(p)));
+    
+    // Batch processing: load 3 samples at a time
+    for (let i = 0; i < pathsToLoad.length; i += 3) {
+      const batch = pathsToLoad.slice(i, i + 3);
+      await Promise.all(batch.map(p => this.loadPath(p)));
+    }
   }
 
   public async loadInstrumentSamples(instrumentIndex: number): Promise<void> {

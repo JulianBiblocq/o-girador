@@ -317,6 +317,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     const handleTick = (e: Event) => {
       const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
       const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+      const isEco = (window as any).oGiradorEcoMode;
       
       if (step < 0) {
         if (lastMeasureRef.current !== -1) {
@@ -373,7 +374,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       // Edge trigger VU fader width update on step transitions
       if (targetStep !== lastVuStepRef.current) {
         lastVuStepRef.current = targetStep;
-        if (!track.isMute) {
+        if (!track.isMute && !isEco) {
           const val = currentLivePattern.activeSteps[targetStep];
           const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
           if (isHit && vuMeterRef.current) {
@@ -401,6 +402,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         deactivateElement(el);
       });
       activeElements = [];
+
+      if (isEco) return;
 
       // Find and activate the new active elements for this track
       const activeStepElements = cellRefs.current.get(targetStep) || [];

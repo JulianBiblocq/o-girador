@@ -5,7 +5,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import * as Tone from 'tone';
-import { isMobile } from 'react-device-detect';
 import { AudioEngine } from '../AudioEngine';
 import { InputManager } from '../InputManager';
 import { TrackGroup, TimeSignature, HitTrigger, SongSection } from '../types';
@@ -1134,7 +1133,8 @@ export function useAudioSync({
         console.error("❌ Critical error during initAudio:", err);
       } finally {
         if (audioEngine) {
-          if (!isMobile) {
+          const isMobileDevice = window.innerWidth <= 768 || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+          if (!isMobileDevice) {
             audioEngine.loadAllSamples().catch(e => console.warn("Background load samples failed:", e));
           }
         }
@@ -1148,7 +1148,8 @@ export function useAudioSync({
 
   // Dynamic RAM Management for Mobile
   useEffect(() => {
-    if (!audioEngine || !isMobile || tracks.length === 0) return;
+    const isMobileDevice = window.innerWidth <= 768 || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    if (!audioEngine || !isMobileDevice || tracks.length === 0) return;
 
     const hasSolo = tracks.some(t => t.isSolo);
     const activeIndexes = new Set<number>();
