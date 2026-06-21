@@ -660,21 +660,22 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
           <div className="relative flex items-center" ref={dropdownRef}>
             <button
               onClick={() => setInstDropdownOpen(!instDropdownOpen)}
-              className="flex items-center gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-[11px] cursor-pointer transition-colors"
+              className="flex items-center justify-between gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-[11px] cursor-pointer transition-colors w-[110px] sm:w-[120px]"
               style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
             >
               <img
                 src={`${ASSETS_BASE_URL}${inst.iconImg}`}
                 alt={inst.name}
-                className="w-4 h-4 object-contain"
+                className="w-4 h-4 object-contain flex-shrink-0"
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = 'none';
                 }}
               />
-              <span className="font-cactus font-bold">
-                {index + 1}. {inst.name}
+              <span className="font-cactus font-bold text-center leading-[1.1] flex-1">
+                {index + 1}. {inst.name.split(' ')[0]}
+                {inst.name.indexOf(' ') !== -1 && <><br/>{inst.name.substring(inst.name.indexOf(' ') + 1)}</>}
               </span>
-              <span className="text-[8px]">▼</span>
+              <span className="text-[8px] flex-shrink-0">▼</span>
             </button>
 
             {onOpenDetailEditor && (
