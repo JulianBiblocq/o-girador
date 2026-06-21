@@ -47,7 +47,7 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
   }
 
   return (
-    <div className={`grid grid-cols-2 gap-x-1 gap-y-1 ${isFluid ? 'w-full h-full' : 'w-max'} ${className}`} style={style}>
+    <div className={`grid grid-cols-2 gap-x-1 gap-y-1 ${isFluid ? 'w-full' : 'w-max'} ${className}`} style={{ ...style, gridAutoRows: isFluid ? 'minmax(20px, 1fr)' : undefined }}>
       {groups.map((group, groupIdx) => {
         const isTriplet = group.length === 3;
         const isSextuplet = group.length === 6;
@@ -80,8 +80,8 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
                 };
               } else {
                 colorStyle = {
-                  backgroundColor: 'transparent',
-                  border: isSextuplet || isTriplet ? 'none' : '1px solid rgba(26,26,26,0.2)'
+                  backgroundColor: 'rgba(127, 127, 127, 0.15)',
+                  border: isSextuplet || isTriplet ? 'none' : '1px solid rgba(127, 127, 127, 0.3)'
                 };
               }
 

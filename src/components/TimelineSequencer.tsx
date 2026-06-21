@@ -2093,6 +2093,7 @@ const MemoizedTimelineTrackRow = React.memo(({
                                   isLeftHanded={false}
                                   isEditable={false}
                                   isFluid={true}
+                                  className="h-full"
                                 />
                               )}
                             </div>

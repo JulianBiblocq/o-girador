@@ -541,6 +541,8 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
                 inst={inst}
                 isLeftHanded={isLeftHanded}
                 isEditable={true}
+                isFluid={true}
+                className="w-full mb-2"
                 currentStep={currentStep}
                 onStepValueChange={(stepIdx, val) => onStepValueChange(activePattern.id, stepIdx, val)}
                 onStepClick={(e, stepIdx, val) => {
