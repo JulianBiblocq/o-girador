@@ -94,16 +94,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
               <path d="M 25 220 l 1.5 24.6 l 1.5 -18.6 l 1.5 23.2 l 1.5 -18.5 l 1.5 16.4 l 1.5 -20.5 l 1.5 24.9 l 1.5 -19.5 l 1.5 23.5 l 1.5 -22.8 l 1.5 21.1 l 1.5 -20.3 l 1.5 23.2 l 1.5 -16.2 l 1.5 19.0 l 1.5 -21.6 l 1.5 22.8 l 1.5 -17.1 l 1.5 16.2 l 1.5 -23.0 l 1.5 22.5 l 1.5 -18.3 l 1.5 22.3 l 1.5 -15.6 l 1.5 24.2 l 1.5 -20.2 l 1.5 18.8 l 1.5 -17.4 l 1.5 21.2 l 1.5 -17.8 l 1.5 20.2 l 1.5 -19.3 l 1.5 16.5 l 1.5 -18.5 l 1.5 22.3 l 1.5 -22.9 l 1.5 19.7 l 1.5 -23.2 l 1.5 21.9 l 1.5 -22.8 l 1.5 18.6 l 1.5 -17.2 l 1.5 15.0 l 1.5 -23.8 l 1.5 17.8 l 1.5 -20.2 l 1.5 16.8 l 1.5 -17.7 l 1.5 15.3 l 1.5 -16.5 l 1.5 24.5 l 1.5 -15.4 l 1.5 23.5 l 1.5 -22.8 l 1.5 17.7 l 1.5 -18.0 l 1.5 16.6 l 1.5 -22.0 l 1.5 23.5 l 1.5 -17.6 l 1.5 17.8 l 1.5 -15.7 l 1.5 15.3 l 1.5 -23.2 l 1.5 17.9 l 1.5 -24.3 l 1.5 20.5 l 1.5 -18.2 l 1.5 18.4 l 1.5 -18.9 l 1.5 15.7 l 1.5 -21.4 l 1.5 15.7 l 1.5 -21.2 l 1.5 23.3 l 1.5 -24.0 l 1.5 20.2 l 1.5 -15.8 l 1.5 22.3 l 1.5 -20.2 l 1.5 16.3 l 1.5 -18.5 l 1.5 18.2 l 1.5 -22.3 l 1.5 20.2 l 1.5 -17.5 l 1.5 18.0 l 1.5 -21.0 l 1.5 22.9 l 1.5 -20.2 l 1.5 22.6 l 1.5 -17.1 l 1.5 24.3 l 1.5 -22.9 l 1.5 18.0 l 1.5 -19.0 l 1.5 20.0 l 1.5 -16.0 l 1.5 17.0 l 1.5 -21.0" fill="none" stroke="#1a1a1a" strokeWidth="1.2"/>
             </g>
             
-            {logoUrl ? (
-              <image href={logoUrl} x="45" y="80" width="110" height="110" preserveAspectRatio="xMidYMid slice" />
-            ) : (
-              <>
-                <text x="100" y="110" fontFamily="'Cactus', sans-serif" fontSize="22" fill="#1a1a1a" textAnchor="middle">MARACATU</text>
-                <text x="100" y="135" fontFamily="'Lora', serif" fontWeight="bold" fontSize="12" fill="#1a1a1a" textAnchor="middle">DE BAQUE VIRADO</text>
-                <text x="155" y="200" fontFamily="'Cactus', sans-serif" fontSize="20" fill="#1a1a1a" textAnchor="end" transform="rotate(-5 155 200)">2026</text>
-              </>
+            <text x="100" y={logoUrl ? "98" : "110"} fontFamily="Cactus, sans-serif" fontSize={logoUrl ? "24" : "28"} fontWeight="bold" textAnchor="middle" fill="#1a1a1a">MARACATU</text>
+            <text x="100" y={logoUrl ? "115" : "140"} fontFamily="Lora, serif" fontSize={logoUrl ? "10" : "12"} fontWeight="bold" textAnchor="middle" fill="#1a1a1a">DE BAQUE VIRADO</text>
+            
+            {logoUrl && (
+              <image href={logoUrl} x="50" y="125" width="100" height="65" preserveAspectRatio="xMidYMid meet" />
             )}
             
+            <text x="100" y={logoUrl ? "208" : "200"} fontFamily="Cactus, sans-serif" fontSize={logoUrl ? "14" : "16"} textAnchor="middle" fill="#1a1a1a">2026-2027</text>
           </svg>
         </div>
       </footer>
