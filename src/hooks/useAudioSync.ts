@@ -59,7 +59,8 @@ interface ScheduledNote {
   stepsPerMeasure: number;
   trackId: number;
   circleStepIdx: number;
-  state: any;
+  state: string | number;
+  isTuplet?: boolean;
 }
 
 export function buildTickSchedule(
@@ -108,6 +109,7 @@ export function buildTickSchedule(
       const resArray = activePattern.beatResolutions || Array(beats).fill(stepCount / beats);
       
       const stepTickMap: number[] = [];
+      const stepIsTupletMap: boolean[] = [];
       let accumulatedTicks = 0;
       
       for (let b = 0; b < beats; b++) {
@@ -115,6 +117,7 @@ export function buildTickSchedule(
         const ticksPerStep = ticksPerBeat / res;
         for (let r = 0; r < res; r++) {
           stepTickMap.push(Math.round(accumulatedTicks + r * ticksPerStep));
+          stepIsTupletMap.push(res === 3 || res === 6);
         }
         accumulatedTicks += ticksPerBeat;
       }
@@ -169,6 +172,7 @@ export function buildTickSchedule(
           trackId: track.id,
           circleStepIdx: step,
           state,
+          isTuplet: stepIsTupletMap[step] || false,
         });
       }
     });
@@ -923,22 +927,23 @@ export function useAudioSync({
 
           // Parse trigger of step events
           let swingOffset = 0;
+          let swingJitter = 0;
           if (isSwingOnRef.current) {
             const stepDurationSec = tick96nSec * 6; // one 16th note
             const posInBeat = ((stepIdx / (currentTicks / 4)) % 1) * 4;
             const posInGroup = Math.round(posInBeat) % 4;
             const swingIntensity = 1.0;
-            const jitter = (nextRandom() * 0.06 - 0.03) * stepDurationSec;
+            swingJitter = (nextRandom() * 0.06 - 0.03) * stepDurationSec;
 
             if (posInGroup === 0) {
-              swingOffset = (0.05 * swingIntensity * stepDurationSec) + jitter;
+              swingOffset = (0.05 * swingIntensity * stepDurationSec) + swingJitter;
             } else if (posInGroup === 1) {
-              swingOffset = (0.15 * swingIntensity * stepDurationSec) + jitter;
+              swingOffset = (0.15 * swingIntensity * stepDurationSec) + swingJitter;
             } else if (posInGroup === 2) {
               const minimalJitter = (nextRandom() * 0.02 - 0.01) * stepDurationSec;
               swingOffset = (0.02 * swingIntensity * stepDurationSec) + minimalJitter;
             } else if (posInGroup === 3) {
-              swingOffset = (-0.10 * swingIntensity * stepDurationSec) + jitter;
+              swingOffset = (-0.10 * swingIntensity * stepDurationSec) + swingJitter;
             }
           }
           const swingTime = time + swingOffset;
@@ -951,15 +956,21 @@ export function useAudioSync({
               try {
                 let vel = 1.0;
                 if (isSwingOnRef.current) {
-                  vel = note.isStrong
-                    ? 0.8 + (nextRandom() * 0.2 - 0.1)
-                    : 0.4 + (nextRandom() * 0.24 - 0.12);
+                  if (note.isTuplet) {
+                    vel = note.isStrong
+                      ? 0.8 + (nextRandom() * 0.1 - 0.05)
+                      : 0.5 + (nextRandom() * 0.1 - 0.05);
+                  } else {
+                    vel = note.isStrong
+                      ? 0.8 + (nextRandom() * 0.2 - 0.1)
+                      : 0.4 + (nextRandom() * 0.24 - 0.12);
+                  }
                 }
                 vel *= note.stepVolMultiplier;
 
                 const stepDurSec = tick96nSec * (currentTicks / note.stepsPerMeasure);
                 const microOffset = (note.microtimingPct / 100) * stepDurSec * 0.5;
-                const triggerTime = swingTime + microOffset;
+                const triggerTime = time + (note.isTuplet ? swingJitter : swingOffset) + microOffset;
 
                 const liveTrack = tracksRef.current.find(t => t.id === note.trackId);
                 const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;

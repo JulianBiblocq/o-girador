@@ -910,10 +910,25 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   };
 
   /* Compute global swing offset for a step index */
-  const getStepSwingPercent = (stepIdx: number, steps: number) => {
+  const getStepSwingPercent = (stepIdx: number, steps: number, beatResolutions?: number[]) => {
     if (!isSwingOn) return 0;
-    const posInBeat = ((stepIdx / (steps / 4)) % 1) * 4;
-    const posInGroup = Math.round(posInBeat) % 4;
+    
+    let posInGroup = 0;
+    if (beatResolutions && beatResolutions.length > 0) {
+      let accumulated = 0;
+      for (const res of beatResolutions) {
+        if (stepIdx >= accumulated && stepIdx < accumulated + res) {
+          if (res === 3 || res === 6) return 0;
+          posInGroup = stepIdx - accumulated;
+          break;
+        }
+        accumulated += res;
+      }
+    } else {
+      const posInBeat = ((stepIdx / (steps / 4)) % 1) * 4;
+      posInGroup = Math.round(posInBeat) % 4;
+    }
+
     if (posInGroup === 0) return 5;
     if (posInGroup === 1) return 15;
     if (posInGroup === 2) return 2;
@@ -1489,7 +1504,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
                               // Calculate total micro-timing shift (manual + global swing)
                               const manualMicro = ptn.microtimings?.[i] ?? 0;
-                              const swingOffset = getStepSwingPercent(i, ptn.steps);
+                              const swingOffset = getStepSwingPercent(i, ptn.steps, ptn.beatResolutions);
                               const totalShift = manualMicro + swingOffset;
                               const shiftPx = (totalShift / 50) * 8; // Max 8px shift
 
@@ -1694,7 +1709,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
                               // Calculate total micro-timing shift (manual + global swing)
                               const manualMicro = ptn.microtimings?.[i] ?? 0;
-                              const swingOffset = getStepSwingPercent(i, ptn.steps);
+                              const swingOffset = getStepSwingPercent(i, ptn.steps, ptn.beatResolutions);
                               const totalShift = manualMicro + swingOffset;
                               const shiftPx = (totalShift / 50) * 8; // Max 8px shift
 
@@ -2146,7 +2161,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                             {/* Micro-timing bar (Blue bi-directional) */}
                                             {(() => {
                                               const manualVal = variation.microtimings?.[i] ?? 0;
-                                              const swingOffset = getStepSwingPercent(i, variation.steps.length);
+                                              const swingOffset = getStepSwingPercent(i, variation.steps.length, ptn.beatResolutions);
                                               const totalShift = Math.max(-50, Math.min(50, manualVal + swingOffset));
                                               return (
                                                 <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
@@ -2302,7 +2317,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             const activeVarObj = selectedVariationId ? ptn.variations?.find(v => v.id === selectedVariationId) : null;
                             const effectiveMicros = activeVarObj ? activeVarObj.microtimings : ptn.microtimings;
                             const manualVal = effectiveMicros?.[selectedStepIdx] ?? 0;
-                            const swingOffset = getStepSwingPercent(selectedStepIdx, ptn.steps);
+                            const swingOffset = getStepSwingPercent(selectedStepIdx, ptn.steps, ptn.beatResolutions);
                             const totalVal = manualVal + swingOffset;
                             const clampedTotalVal = Math.max(-50, Math.min(50, totalVal));
 
