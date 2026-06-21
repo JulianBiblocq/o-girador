@@ -14,6 +14,8 @@ export interface UserProfile {
   createdAt: number;
   isDarkMode?: boolean;
   isLeftHanded?: boolean;
+  mestreId?: string | null;
+  groupLogoUrl?: string | null;
 }
 
 interface AuthContextType {

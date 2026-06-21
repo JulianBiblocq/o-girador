@@ -37,6 +37,7 @@ const VaralCordel = lazy(() => import('./components/VaralCordel').then(m => ({ d
 const MestreStudio = lazy(() => import('./components/MestreStudio').then(m => ({ default: m.MestreStudio })));
 const AoVivoOverlay = lazy(() => import('./components/AoVivoOverlay').then(m => ({ default: m.AoVivoOverlay })));
 import { Home } from './components/Home';
+import { LandingPage } from './components/LandingPage';
 import { AdminPanel } from './components/AdminPanel';
 import { PresetMetadata, Pattern, SongSection, TimeSignature } from './types';
 import { exportTablatureFile, printTablature, printLegendOnly } from './utils/exportTablature';
@@ -68,7 +69,7 @@ export default function App() {
   const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | 'info' | null>(
     window.innerWidth < 1024 ? 'letras' : 'info'
   );
-  const [viewMode, setViewMode] = useState<'home' | 'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio' | 'admin'>('roda');
+  const [viewMode, setViewMode] = useState<'landing' | 'home' | 'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio' | 'admin'>('landing');
   const [unlockedFolhetos, setUnlockedFolhetos] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('o-girador-unlocked-folhetos');
@@ -777,7 +778,9 @@ export default function App() {
 
   return (
     <>
-      {viewMode === 'home' ? (
+      {viewMode === 'landing' ? (
+        <LandingPage onEnter={() => setViewMode('home')} lang={sequencer.lang} />
+      ) : viewMode === 'home' ? (
         <Home onEnter={(mode) => setViewMode(mode as any)} lang={sequencer.lang} />
       ) : (
         <div className="flex flex-col h-dvh text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">

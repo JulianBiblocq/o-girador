@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LogOut, User, Shield } from 'lucide-react';
+import { LogOut, User, Shield, Image as ImageIcon, Upload } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { doc, updateDoc } from 'firebase/firestore';
+import { storage, db } from '../firebase/config';
 
 interface GoogleLoginButtonProps {
   className?: string;
@@ -15,7 +18,9 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
 }) => {
   const { currentUser, userProfile, signInWithGoogle, logout, loading } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -27,6 +32,35 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser) return;
+    
+    // Only accept images
+    if (!file.type.startsWith('image/')) {
+      alert("Veuillez sélectionner une image.");
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      const storageRef = ref(storage, `logos/${currentUser.uid}_${Date.now()}`);
+      await uploadBytes(storageRef, file);
+      const downloadUrl = await getDownloadURL(storageRef);
+      
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userDocRef, { groupLogoUrl: downloadUrl });
+      
+      alert("Votre logo a été mis à jour avec succès ! Rechargez la page pour voir les changements.");
+    } catch (error) {
+      console.error("Erreur lors de l'upload:", error);
+      alert("Une erreur est survenue lors du téléchargement de l'image.");
+    } finally {
+      setIsUploading(false);
+      setDropdownOpen(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -81,6 +115,26 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
                 <Shield className="w-3.5 h-3.5" />
                 <span>Administration</span>
               </button>
+            )}
+
+            {(userProfile.role === 'mestre' || userProfile.role === 'admin') && (
+              <>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  ref={fileInputRef} 
+                  onChange={handleFileUpload} 
+                  className="hidden" 
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="flex items-center justify-center gap-2 w-full px-3 py-1.5 bg-[var(--cordel-bg)] text-[#2980b9] border border-[#2980b9] font-cactus font-bold text-xs hover:bg-[#2980b9] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isUploading ? <span className="animate-spin">⚙️</span> : <Upload className="w-3.5 h-3.5" />}
+                  <span>Mon Estandarte</span>
+                </button>
+              </>
             )}
 
             <button

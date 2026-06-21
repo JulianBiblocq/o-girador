@@ -44,6 +44,23 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  const handleMestreChange = async (uid: string, newMestreId: string) => {
+    try {
+      const userRef = doc(db, 'users', uid);
+      const mestreIdVal = newMestreId === 'none' ? null : newMestreId;
+      await updateDoc(userRef, { mestreId: mestreIdVal });
+      
+      setUsers(prev => prev.map(user => 
+        user.uid === uid ? { ...user, mestreId: mestreIdVal } : user
+      ));
+    } catch (error) {
+      console.error("Erreur lors de l'association au Mestre:", error);
+      alert("Erreur lors de l'association au Mestre.");
+    }
+  };
+
+  const mestres = users.filter(u => u.role === 'mestre');
+
   const filteredUsers = users.filter(user => 
     user.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) || 
     user.email?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -98,6 +115,7 @@ export const AdminPanel: React.FC = () => {
                     <th className="p-3 font-bold font-cactus tracking-wide">Email</th>
                     <th className="p-3 font-bold font-cactus tracking-wide">Inscription</th>
                     <th className="p-3 font-bold font-cactus tracking-wide">Rôle</th>
+                    <th className="p-3 font-bold font-cactus tracking-wide">Mestre Attitré</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -135,12 +153,26 @@ export const AdminPanel: React.FC = () => {
                           <option value="admin">Admin</option>
                         </select>
                       </td>
+                      <td className="p-3">
+                        {user.role === 'eleve' && (
+                          <select
+                            value={user.mestreId || 'none'}
+                            onChange={(e) => handleMestreChange(user.uid, e.target.value)}
+                            className="px-3 py-1.5 cordel-border-sm bg-transparent cursor-pointer text-sm focus:outline-none focus:ring-1 ring-black"
+                          >
+                            <option value="none">-- Aucun --</option>
+                            {mestres.map(m => (
+                              <option key={m.uid} value={m.uid}>{m.displayName || m.email}</option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
                     </tr>
                   ))}
                   
                   {filteredUsers.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="p-8 text-center opacity-60 italic">
+                      <td colSpan={5} className="p-8 text-center opacity-60 italic">
                         Aucun utilisateur trouvé.
                       </td>
                     </tr>
