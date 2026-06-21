@@ -797,6 +797,7 @@ export default function App() {
                 onCopyPattern={handleCopyPattern}
                 onPastePattern={handlePastePattern}
                 onLoadLibraryPattern={handleLoadLibraryPattern}
+                canPaste={!!sequencer.copiedPattern}
               />
             )}
 

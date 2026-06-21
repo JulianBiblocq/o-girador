@@ -61,7 +61,7 @@ interface VerticalTrackMixerProps {
     onSelect: (val: string) => void
   ) => void;
   onCopyPattern?: (pattern: any) => void;
-  onPastePattern?: (trackId: number, patternId: number) => void;
+  onPastePattern?: (patternId: number) => void;
   canPaste?: boolean;
   onPatternNameChange?: (patternId: number, name: string) => void;
   onReorderPatternsDnd?: (oldIndex: number, newIndex: number) => void;
@@ -388,7 +388,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
                 📋 Copier
               </button>
               <button
-                onClick={() => onPastePattern && onPastePattern(track.id, activePattern.id)}
+                onClick={() => onPastePattern && onPastePattern(activePattern.id)}
                 disabled={!canPaste}
                 className={`px-1.5 py-0.5 text-[10px] font-bold cordel-border-sm cursor-pointer ${
                   canPaste 

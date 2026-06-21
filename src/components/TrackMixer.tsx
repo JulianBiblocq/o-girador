@@ -61,7 +61,7 @@ interface TrackMixerProps {
     onSelect: (val: string) => void
   ) => void;
     onCopyPattern?: (pattern: Pattern) => void;
-  onPastePattern?: (trackId: number, patternId: number) => void;
+  onPastePattern?: (patternId: number) => void;
   canPaste?: boolean;
   meter?: any;
   soloPatternPlayId?: number | null;
@@ -944,7 +944,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     if (isCtrlOrMeta && e.key.toLowerCase() === 'v') {
                       e.preventDefault();
                       if (canPaste) {
-                        onPastePattern && onPastePattern(track.id, activePattern.id);
+                        onPastePattern && onPastePattern(activePattern.id);
                       }
                       return;
                     }
@@ -1127,7 +1127,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     if (isCtrlOrMeta && e.key.toLowerCase() === 'v') {
                       e.preventDefault();
                       if (canPaste) {
-                        onPastePattern && onPastePattern(track.id, activePattern.id);
+                        onPastePattern && onPastePattern(activePattern.id);
                       }
                       return;
                     }
