@@ -105,49 +105,49 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
           <div className="lp-text" id="lp-desc">
             {isFr ? frText : ptText}
           </div>
-          
-          {(mestreMessage || hasAccess('mestre')) && (
-            <div className="lp-mestre-message">
-              <div className="lp-message-header">
-                <span className="lp-message-title">O Mot do Mestre / Le mot du Mestre</span>
-                {hasAccess('mestre') && !isEditingMsg && (
-                  <button onClick={() => { setEditMsgContent(mestreMessage || ''); setIsEditingMsg(true); }} className="lp-edit-btn" title="Modifier le message">
-                    <Edit2 size={14} />
-                  </button>
-                )}
-              </div>
-              
-              {isEditingMsg ? (
-                <div className="lp-message-editor">
-                  <textarea 
-                    value={editMsgContent} 
-                    onChange={(e) => setEditMsgContent(e.target.value)}
-                    placeholder="Tapez ici le mot de la semaine, une consigne, etc."
-                    className="lp-textarea custom-scrollbar"
-                  />
-                  <div className="lp-editor-actions">
-                    <button onClick={() => setIsEditingMsg(false)} className="lp-btn lp-btn-cancel" disabled={isSavingMsg}>
-                      <X size={16} /> Annuler
-                    </button>
-                    <button onClick={handleSaveMessage} className="lp-btn lp-btn-save" disabled={isSavingMsg}>
-                      {isSavingMsg ? <span className="animate-spin">⚙️</span> : <Check size={16} />} Enregistrer
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="lp-message-content">
-                  {mestreMessage ? (
-                    mestreMessage.split('\n').map((line, i) => (
-                      <React.Fragment key={i}>{line}<br/></React.Fragment>
-                    ))
-                  ) : (
-                    <span className="opacity-50 italic">Cliquez sur l'icône pour ajouter un message pour vos élèves...</span>
-                  )}
-                </div>
+        </div>
+        
+        {(mestreMessage || hasAccess('mestre')) && (
+          <div className="lp-mestre-message">
+            <div className="lp-message-header">
+              <span className="lp-message-title">O Mot do Mestre / Le mot du Mestre</span>
+              {hasAccess('mestre') && !isEditingMsg && (
+                <button onClick={() => { setEditMsgContent(mestreMessage || ''); setIsEditingMsg(true); }} className="lp-edit-btn" title="Modifier le message">
+                  <Edit2 size={14} />
+                </button>
               )}
             </div>
-          )}
-        </div>
+            
+            {isEditingMsg ? (
+              <div className="lp-message-editor">
+                <textarea 
+                  value={editMsgContent} 
+                  onChange={(e) => setEditMsgContent(e.target.value)}
+                  placeholder="Tapez ici le mot de la semaine, une consigne, etc."
+                  className="lp-textarea custom-scrollbar"
+                />
+                <div className="lp-editor-actions">
+                  <button onClick={() => setIsEditingMsg(false)} className="lp-btn lp-btn-cancel" disabled={isSavingMsg}>
+                    <X size={16} /> Annuler
+                  </button>
+                  <button onClick={handleSaveMessage} className="lp-btn lp-btn-save" disabled={isSavingMsg}>
+                    {isSavingMsg ? <span className="animate-spin">⚙️</span> : <Check size={16} />} Enregistrer
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="lp-message-content">
+                {mestreMessage ? (
+                  mestreMessage.split('\n').map((line, i) => (
+                    <React.Fragment key={i}>{line}<br/></React.Fragment>
+                  ))
+                ) : (
+                  <span className="opacity-50 italic">Cliquez sur l'icône pour ajouter un message pour vos élèves...</span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         
         <div className="lp-bandeira">
           <svg className="lp-estandarte" viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg">

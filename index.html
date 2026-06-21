@@ -195,8 +195,8 @@
       /* Bottom: Text & Bandeira */
       .lp-footer {
         display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 2rem;
+        grid-template-columns: 1fr auto auto;
+        gap: clamp(1rem, 3vw, 3rem);
         align-items: end;
         position: relative;
         z-index: 2;
@@ -217,14 +217,19 @@
         color: #1a1a1a;
       }
 
-      /* Mestre Message Box */
+      /* Mestre Message Box - Styled as a Post-it */
       .lp-mestre-message {
-        max-width: 650px;
-        background-color: rgba(0, 0, 0, 0.05);
-        border-left: 4px solid #8b2a1a;
-        padding: 1rem 1.5rem;
-        border-radius: 0 8px 8px 0;
+        width: clamp(200px, 25vw, 300px);
+        background-color: #fdf6c6; /* Classic yellow post-it */
+        padding: 1.5rem;
+        box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.15);
         font-family: 'Lora', serif;
+        transform: rotate(-2deg);
+        margin-bottom: clamp(1rem, 5vh, 3rem);
+        transition: transform 0.2s ease;
+      }
+      .lp-mestre-message:hover {
+        transform: rotate(0deg) scale(1.02);
       }
       .lp-message-header {
         display: flex;
@@ -330,8 +335,9 @@
         .lp-center { flex-direction: column; text-align: center; gap: 1rem; padding-left: 0; }
         .lp-footer { grid-template-columns: 1fr; gap: 2rem; justify-items: center; margin-top: 0; }
         .lp-text-container { margin-left: 0; text-align: center; align-items: center; }
-        .lp-text { text-align: center; }
-        .lp-mestre-message { border-left: none; border-top: 4px solid #8b2a1a; border-radius: 0 0 8px 8px; text-align: left; }
+        .lp-text { text-align: center; margin-left: 0; }
+        .lp-mestre-message { transform: none; width: 90%; max-width: 400px; margin-bottom: 0; margin-top: 1rem; }
+        .lp-mestre-message:hover { transform: none; }
         .lp-bandeira { width: 100%; margin: 0 auto; max-width: 300px; transform: none; }
         .lp-title { font-size: 4rem; }
       }
