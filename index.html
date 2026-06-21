@@ -81,12 +81,12 @@
         background-color: #f4ecd8; /* Papier brut texturé */
         color: #1a1a1a;
         z-index: 9999;
-        display: grid;
-        grid-template-rows: auto 1fr auto;
-        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 1.5rem;
         box-sizing: border-box;
-        overflow-y: auto;
-        overflow-x: hidden;
+        overflow: hidden;
         transition: opacity 0.8s ease-out;
         font-family: 'Lora', serif;
       }
@@ -128,14 +128,15 @@
         color: #f4ecd8;
       }
 
-      /* Center: Title Zone */
       .lp-center {
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
+        padding-left: clamp(1rem, 4vw, 6rem);
         gap: 2rem;
         position: relative;
         z-index: 2;
+        flex: 1; /* Take middle space */
       }
       
       .lp-o-container {
@@ -199,15 +200,16 @@
         align-items: end;
         position: relative;
         z-index: 2;
+        margin-top: -10vh; /* Remonte le footer pour se rapprocher de O Girador */
       }
 
       .lp-text {
-        max-width: 650px;
-        font-size: clamp(1rem, 1.6vw, 1.25rem);
-        line-height: 1.6;
+        max-width: 700px;
+        font-size: clamp(0.9rem, 1.4vw, 1.25rem);
+        line-height: 1.5;
         color: #1a1a1a;
-        margin-left: clamp(1rem, 5vw, 4rem);
-        margin-bottom: clamp(1rem, 5vh, 3rem);
+        margin-left: clamp(1rem, 4vw, 6rem);
+        margin-bottom: clamp(1rem, 2vh, 2rem);
       }
 
       .lp-bandeira {
