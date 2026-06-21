@@ -421,8 +421,17 @@ export const AoVivoOverlay: React.FC = () => {
   const [hitEvent, setHitEvent] = useState<HitEvent | null>(null);
   const target = useRodaTarget();
   const { width } = useWindowSize();
+  const [isEco, setIsEco] = useState<boolean>(() => !!(window as any).oGiradorEcoMode);
+
+  useEffect(() => {
+    const handleEcoChange = () => setIsEco(!!(window as any).oGiradorEcoMode);
+    window.addEventListener('eco-mode-changed', handleEcoChange);
+    return () => window.removeEventListener('eco-mode-changed', handleEcoChange);
+  }, []);
 
   const lastVuStepRef = useRef<number>(-1);
+
+  if (isEco) return null;
 
   useEffect(() => {
     if (activeAoVivoTrackId === null) return;

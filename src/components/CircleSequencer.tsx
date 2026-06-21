@@ -499,7 +499,19 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       attributeFilter: ['data-theme']
     });
 
-    const drawLoop = () => {
+    let lastDrawTime = performance.now();
+
+    const drawLoop = (time: number) => {
+      const isEco = (window as any).oGiradorEcoMode;
+      
+      if (isEco) {
+        // Throttle to roughly 30fps to drastically save GPU on old tablets
+        if (time - lastDrawTime < 33) {
+          animId = requestAnimationFrame(drawLoop);
+          return;
+        }
+      }
+      lastDrawTime = time;
 
       const { 
         tracks: currentTracks, 
@@ -517,8 +529,9 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       // Consume hit triggers to create ripples
       if (localHitTriggers && localHitTriggers.current.length > 0) {
         const hits = localHitTriggers.current.splice(0, localHitTriggers.current.length);
-        hits.forEach(hit => {
-          const track = currentTracks.find(t => t.id === hit.trackId);
+        if (!isEco) {
+          hits.forEach(hit => {
+            const track = currentTracks.find(t => t.id === hit.trackId);
           if (track && !track.isHidden && !track.isMute) {
             const inst = instrumentsConfig[track.instrumentIdx];
             const color = inst.colors[hit.state as any] || themeText;
@@ -540,6 +553,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
             });
           }
         });
+      }
       }
 
       const centerX = 600;
@@ -703,7 +717,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       ctx.drawImage(bgCanvas, 0, 0);
 
       // Metronome Flash (if active)
-      if (localMetroOn && flashAlpha > 0) {
+      if (localMetroOn && flashAlpha > 0 && !isEco) {
         ctx.save();
         ctx.beginPath();
         ctx.arc(centerX, centerY, innerSkinRadius, 0, Math.PI * 2);
@@ -915,7 +929,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
           }
 
           // Highlight playhead match step
-          if (i === currentStep) {
+          if (!isEco && i === currentStep) {
             ctx.beginPath();
             ctx.arc(x, y, radiusSize + 5, 0, Math.PI * 2);
             ctx.strokeStyle = themeWood;

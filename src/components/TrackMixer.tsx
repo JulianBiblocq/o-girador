@@ -154,6 +154,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
   const isAoVivo = activeAoVivoTrackId === track.id;
   const toggleAoVivo = () => {
+    if ((window as any).oGiradorEcoMode) {
+      alert("Mode Éco activé : Les animations d'instruments (AoVivo) ont été désactivées pour préserver les performances de la tablette.");
+      return;
+    }
     setActiveAoVivoTrackId(isAoVivo ? null : track.id);
   };
 
