@@ -159,3 +159,15 @@ export interface SongSection {
   level?: number;       // 0 pour base, 1 pour super-section, etc.
 }
 
+export type CatalogVisibility = 'admin_global' | 'mestre_group' | 'private' | 'specific_user';
+
+export interface CloudPreset {
+  id: string; // Document ID
+  name: string;
+  data: string; // JSON stringified Preset (LZString compressed)
+  ownerId: string;
+  visibility: CatalogVisibility;
+  targetUserId?: string; // If specific_user
+  createdAt: number;
+}
+

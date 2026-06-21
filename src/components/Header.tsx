@@ -22,6 +22,7 @@ import { useAuth } from '../contexts/AuthContext';
 interface HeaderProps {
   presetFiles: string[];
   localPresets: string[];
+  cloudPresets?: { id: string; name: string }[];
 
   viewMode: 'roda' | 'console' | 'timeline';
   onViewModeToggle: (mode: 'roda' | 'console' | 'timeline') => void;
@@ -40,6 +41,7 @@ interface HeaderProps {
 const HeaderComponent: React.FC<HeaderProps> = ({
   presetFiles = [],
   localPresets = [],
+  cloudPresets = [],
 
   viewMode,
   onViewModeToggle,
@@ -246,17 +248,40 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                     onChange={(e) => { onPresetChange(e.target.value); setMobileMenuOpen(false); }}
                     className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus text-xs font-bold p-1.5 cordel-border-sm outline-none cursor-pointer"
                   >
-                    <option value="" disabled>{lang === 'pt' ? 'Escolha um rythme' : 'Choisir un rythme'}</option>
-                    {presetFiles.map((file) => {
-                      let label = file.replace(/\.json$/, '');
-                      if (label.startsWith('_')) label = label.substring(1);
-                      label = label.replace(/_/g, ' ');
-                      return (
-                        <option key={file} value={file} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
-                          {label}
-                        </option>
-                      );
-                    })}
+                    <option value="" disabled>{lang === 'pt' ? 'Escolha um ritmo' : 'Choisir un rythme'}</option>
+                    
+                    <optgroup label={lang === 'pt' ? 'Catálogo O Girador' : 'Catalogue O Girador'}>
+                      {presetFiles.map((file) => {
+                        let label = file.replace(/\.json$/, '');
+                        if (label.startsWith('_')) label = label.substring(1);
+                        label = label.replace(/_/g, ' ');
+                        return (
+                          <option key={file} value={file} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+                            {label}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+
+                    {cloudPresets.length > 0 && (
+                      <optgroup label={lang === 'pt' ? 'Catálogo Cloud' : 'Catalogue Cloud'}>
+                        {cloudPresets.map((p) => (
+                          <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
+                            ☁️ {p.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+
+                    {localPresets.length > 0 && (
+                      <optgroup label={lang === 'pt' ? 'Meus Presets' : 'Mes Presets'}>
+                        {localPresets.map((name) => (
+                          <option key={`local:${name}`} value={`local:${name}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+                            💾 {name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
 
@@ -622,16 +647,39 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus text-xs font-bold p-1.5 cordel-border-sm outline-none cursor-pointer mb-1"
                 >
                   <option value="" disabled>{lang === 'pt' ? 'Escolha um ritmo' : 'Choisir un rythme'}</option>
-                  {presetFiles.map((file) => {
-                    let label = file.replace(/\.json$/, '');
-                    if (label.startsWith('_')) label = label.substring(1);
-                    label = label.replace(/_/g, ' ');
-                    return (
-                      <option key={file} value={file} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
-                        {label}
-                      </option>
-                    );
-                  })}
+                  
+                  <optgroup label={lang === 'pt' ? 'Catálogo O Girador' : 'Catalogue O Girador'}>
+                    {presetFiles.map((file) => {
+                      let label = file.replace(/\.json$/, '');
+                      if (label.startsWith('_')) label = label.substring(1);
+                      label = label.replace(/_/g, ' ');
+                      return (
+                        <option key={file} value={file} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+                          {label}
+                        </option>
+                      );
+                    })}
+                  </optgroup>
+
+                  {cloudPresets.length > 0 && (
+                    <optgroup label={lang === 'pt' ? 'Catálogo Cloud' : 'Catalogue Cloud'}>
+                      {cloudPresets.map((p) => (
+                        <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
+                          ☁️ {p.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+
+                  {localPresets.length > 0 && (
+                    <optgroup label={lang === 'pt' ? 'Meus Presets' : 'Mes Presets'}>
+                      {localPresets.map((name) => (
+                        <option key={`local:${name}`} value={`local:${name}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+                          💾 {name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
 
                 <div className="grid grid-cols-2 gap-1.5">

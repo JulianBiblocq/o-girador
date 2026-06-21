@@ -90,6 +90,7 @@ export default function App() {
   });
   const [localPresets, setLocalPresets] = useState<string[]>([]);
   const [presetFiles, setPresetFiles] = useState<string[]>([]);
+  const [cloudPresets, setCloudPresets] = useState<{ id: string; name: string }[]>([]);
 
   // Dialog System from Context
   const {
@@ -443,6 +444,19 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audio.isLoading]);
 
+  // Load Cloud Presets
+  useEffect(() => {
+    import('./cloudLibrary').then(({ fetchCloudPresets }) => {
+      fetchCloudPresets(
+        userProfile?.uid || null,
+        userProfile?.role || 'visiteur',
+        userProfile?.mestreId || null
+      ).then(presets => {
+        setCloudPresets(presets.map(p => ({ id: p.id, name: p.name })));
+      });
+    });
+  }, [userProfile?.uid, userProfile?.role, userProfile?.mestreId]);
+
 
   // PWA File Handler: handle files opened via the OS file handler (launchQueue API)
   useEffect(() => {
@@ -740,7 +754,63 @@ export default function App() {
   const handleShare = () => audio.handleShare();
   const handleSaveState = () => audio.handleSaveState();
   const handleLoadState = (file: File) => audio.handleLoadState(file);
-  const handleSaveToLocal = () => audio.handleSaveToLocal();
+  const handleSaveToLocal = async () => {
+    if (userProfile?.role === 'mestre' || userProfile?.role === 'admin') {
+      const isPt = sequencer.lang === 'pt';
+      const wantCloud = await confirmAsync(
+        isPt ? 'Onde você deseja salvar esta composição?' : 'Où souhaitez-vous sauvegarder cette composition ?',
+        isPt ? '☁️ Nuvem (Catálogo)' : '☁️ Cloud (Catalogue)',
+        isPt ? '💾 Local (Meu PC)' : '💾 Local (Mon PC)'
+      );
+      if (wantCloud) {
+        const presetData = audio.getCurrentPresetData();
+        let name = presetData.metadata?.toada?.trim() || '';
+        if (!name) {
+          const inputName = await promptAsync(isPt ? 'Nome do ritmo:' : 'Nom du rythme :');
+          if (!inputName) return;
+          name = inputName.trim();
+          presetData.metadata = { ...presetData.metadata, toada: name } as any;
+        }
+
+        let visibility: 'admin_global' | 'mestre_group' | 'specific_user' = 'mestre_group';
+        let targetUserId: string | undefined = undefined;
+
+        if (userProfile.role === 'admin') {
+          const makeGlobal = await confirmAsync(
+            isPt ? 'Tornar global (visível para todos)?' : 'Rendre global (visible par tous) ?',
+            isPt ? 'Sim (Global)' : 'Oui (Global)',
+            isPt ? 'Não (Restrito)' : 'Non (Restreint)'
+          );
+          if (makeGlobal) {
+            visibility = 'admin_global';
+          } else {
+            const specificTarget = await promptAsync(
+              isPt ? 'Digite o UID de um visitante/Mestre alvo (ou deixe vazio para você mesmo):' : 'Entrez l\'UID du visiteur privilégié ou du Mestre (laissez vide pour vous-même) :'
+            );
+            if (specificTarget && specificTarget.trim() !== '') {
+              visibility = 'specific_user';
+              targetUserId = specificTarget.trim();
+            }
+          }
+        }
+
+        const { savePresetToCloud, fetchCloudPresets } = await import('./cloudLibrary');
+        try {
+          await savePresetToCloud(name, presetData, userProfile.uid, visibility, targetUserId);
+          await alertAsync(isPt ? '✅ Salvo na nuvem!' : '✅ Sauvegardé dans le cloud !');
+          // Reload cloud presets
+          fetchCloudPresets(userProfile.uid, userProfile.role, userProfile.mestreId).then(presets => {
+            setCloudPresets(presets.map(p => ({ id: p.id, name: p.name })));
+          });
+        } catch (err) {
+          console.error(err);
+          await alertAsync('Error saving to cloud');
+        }
+        return;
+      }
+    }
+    audio.handleSaveToLocal();
+  };
   const handleLoadLocalPreset = (name: string) => audio.handleLoadLocalPreset(name);
   const handleAddTrackInstrument = (instIdx: number) => sequencer.handleAddTrackInstrument(instIdx, audio.currentMeasure);
 
@@ -804,6 +874,7 @@ export default function App() {
         onAdminClick={() => setViewMode('admin')}
         presetFiles={presetFiles}
         localPresets={localPresets}
+        cloudPresets={cloudPresets}
         activeRightPanel={activeRightPanel}
         onToggleRightPanel={(p) => setActiveRightPanel(activeRightPanel === p ? null : p)}
         viewMode={viewMode as any}

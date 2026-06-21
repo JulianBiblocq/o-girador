@@ -43,6 +43,7 @@ export type AudioContextType = ReturnType<typeof useAudioSync> & {
   handleLoadState: (file: File) => void;
   handleShare: () => Promise<void>;
   handleSaveToLocal: () => Promise<void>;
+  getCurrentPresetData: () => Preset;
   handleLoadLocalPreset: (name: string) => Promise<void>;
   activePresetName: string;
   setActivePresetName: React.Dispatch<React.SetStateAction<string>>;
@@ -455,7 +456,23 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const loadFallbackPreset = useCallback(async (name: string) => {
     let p;
-    if (name.endsWith('.json')) {
+    if (name.startsWith('cloud:')) {
+      const id = name.replace('cloud:', '');
+      const { getCloudPreset } = await import('../cloudLibrary');
+      p = await getCloudPreset(id);
+      if (!p) {
+        window.alert(t('invalidFile') || 'Error');
+        return;
+      }
+    } else if (name.startsWith('local:')) {
+      const id = name.replace('local:', '');
+      const { getLocalLibrary } = await import('../library');
+      p = getLocalLibrary()[id];
+      if (!p) {
+        window.alert(t('invalidFile') || 'Error');
+        return;
+      }
+    } else if (name.endsWith('.json')) {
       try {
         const response = await fetch(`${ASSETS_BASE_URL}presets/${name}`);
         if (!response.ok) throw new Error('Network response was not ok');
@@ -647,36 +664,39 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const getCurrentPresetData = (): Preset => {
+    const tracksCopy = JSON.parse(JSON.stringify(sequencer.tracks));
+    tracksCopy.forEach((t: any) => t.patterns?.forEach((p: any) => { delete p.vocalAudioData; }));
+
+    const cleanMetadata = sequencer.metadata ? {
+      ...sequencer.metadata,
+      partitionImage: undefined
+    } : undefined;
+
+    return {
+      bpm: sequencer.bpm,
+      timeSig: sequencer.timeSig,
+      version: 3,
+      totalMeasures: sequencer.totalMeasures,
+      tracks: tracksCopy,
+      letras: sequencer.letras,
+      metadata: cleanMetadata,
+      measureTimeSigs: sequencer.measureTimeSigs,
+      measureBpms: sequencer.measureBpms,
+      measureBpmTransitions: sequencer.measureBpmTransitions,
+      measureVols: sequencer.measureVols,
+      measureVolTransitions: sequencer.measureVolTransitions,
+      songSections: sequencer.songSections,
+      measureSignals: sequencer.measureSignals,
+      masterEQ,
+      masterCompressor,
+      masterVol
+    };
+  };
+
   const handleSaveToLocal = async () => {
     try {
-      const tracksCopy = JSON.parse(JSON.stringify(sequencer.tracks));
-      tracksCopy.forEach((t: any) => t.patterns?.forEach((p: any) => { delete p.vocalAudioData; }));
-
-      const cleanMetadata = sequencer.metadata ? {
-        ...sequencer.metadata,
-        partitionImage: undefined
-      } : undefined;
-
-      const dataToSave: Preset = {
-        bpm: sequencer.bpm,
-        timeSig: sequencer.timeSig,
-        version: 3,
-        totalMeasures: sequencer.totalMeasures,
-        tracks: tracksCopy,
-        letras: sequencer.letras,
-        metadata: cleanMetadata,
-        measureTimeSigs: sequencer.measureTimeSigs,
-        measureBpms: sequencer.measureBpms,
-        measureBpmTransitions: sequencer.measureBpmTransitions,
-        measureVols: sequencer.measureVols,
-        measureVolTransitions: sequencer.measureVolTransitions,
-        songSections: sequencer.songSections,
-        measureSignals: sequencer.measureSignals,
-        masterEQ,
-        masterCompressor,
-        masterVol
-      };
-
+      const dataToSave = getCurrentPresetData();
       const name = sequencer.metadata?.toada?.trim() || 'Sem Título';
       await savePresetToLibrary(name, dataToSave);
       window.alert(t('presetSavedLocal') || 'Saved locally!');
@@ -911,6 +931,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     handleLoadState,
     handleShare,
     handleSaveToLocal,
+    getCurrentPresetData,
     handleLoadLocalPreset,
     activePresetName,
     setActivePresetName,
