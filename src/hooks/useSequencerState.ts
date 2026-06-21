@@ -682,12 +682,14 @@ export function useSequencerState() {
 
           const startIndex = currentRes.slice(0, beatIndex).reduce((sum, val) => sum + val, 0);
 
-          const spliceArray = <T,>(arr: T[] | undefined, defaultVal: T, oldRes: number, newRes: number) => {
+          const spliceArray = <T,>(arr: T[] | undefined, defaultVal: T, oldRes: number, newRes: number, dontCopy: boolean = false) => {
             if (!arr) return undefined;
             const copy = [...arr];
             const replacement = Array(newRes).fill(defaultVal);
-            for (let i = 0; i < Math.min(oldRes, newRes); i++) {
-              replacement[i] = copy[startIndex + i];
+            if (!dontCopy) {
+              for (let i = 0; i < Math.min(oldRes, newRes); i++) {
+                replacement[i] = copy[startIndex + i];
+              }
             }
             copy.splice(startIndex, oldRes, ...replacement);
             return copy;
@@ -708,7 +710,7 @@ export function useSequencerState() {
             notes: spliceArray(pNotes, '', oldRes, newResolution),
             volumes: spliceArray(pVolumes, 80, oldRes, newResolution),
             decays: spliceArray(pDecays, 100, oldRes, newResolution),
-            microtimings: spliceArray(pMicro, 0, oldRes, newResolution),
+            microtimings: spliceArray(pMicro, 0, oldRes, newResolution, newResolution === 3 || newResolution === 6),
           };
         }
         return p;
