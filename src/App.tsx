@@ -779,7 +779,7 @@ export default function App() {
   return (
     <>
       {viewMode === 'landing' ? (
-        <LandingPage onEnter={() => setViewMode('home')} lang={sequencer.lang} />
+        <LandingPage onEnter={() => setViewMode('roda')} lang={sequencer.lang} />
       ) : viewMode === 'home' ? (
         <Home onEnter={(mode) => setViewMode(mode as any)} lang={sequencer.lang} />
       ) : (

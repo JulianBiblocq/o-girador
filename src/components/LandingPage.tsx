@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase/config';
 import { doc, getDoc } from 'firebase/firestore';
 import { GoogleLoginButton } from './GoogleLoginButton';
+import * as Tone from 'tone';
 
 interface LandingPageProps {
   onEnter: () => void;
@@ -39,12 +40,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
 
     fetchLogo();
   }, [userProfile, hasAccess]);
+  const handleEnter = async () => {
+    if (Tone.context.state !== 'running') {
+      await Tone.start();
+    }
+    onEnter();
+  };
 
   const frText = "Le Maracatu de Baque Virado, puissante percussion brésilienne originaire de Recife (Pernambouc), s'apprend au cœur de la roda par la transmission orale des Nações. Aucune machine ne remplacera l'enseignement des mestres. O Girador a été pensé avec humilité pour s'y ajouter : c'est un carnet de notes sonore gratuit, un séquenceur interactif et une boîte à rythmes en ligne pour créer, expérimenter vos baques et entrevoir les polyrythmies secrètes entre les alfaias, la caixa, le tarol, le gonguê, l'agbê, le mineiro et les toadas, en attendant le prochain enseignement vivant.";
   const ptText = "O Maracatu de Baque Virado, poderosa percussão brasileira originária do Recife (Pernambuco), aprende-se no coração da roda pela transmissão oral das Nações. Nenhuma máquina substituirá os ensinamentos dos mestres. O Girador foi pensado com humildade para se somar a isso: é um caderno sonoro gratuito, um sequenciador interativo e uma bateria eletrônica online para criar, experimentar seus baques e vislumbrar as polirritmias secretas entre as alfaias, a caixa, o tarol, o gonguê, o agbê, o mineiro e as toadas, aguardando o próximo ensinamento vivo.";
 
   return (
-    <div id="landing-page" style={{ position: 'relative' }}>
+    <div id="landing-page">
       <header className="lp-header">
         <GoogleLoginButton lang={lang} />
       </header>
@@ -63,7 +70,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
             <path d="M 2 50 L 12 35 L 22 50 L 12 65 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.8" />
             <path d="M 16 16 L 30 10 L 40 22 L 26 30 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.8" />
           </svg>
-          <button id="entra-btn" className="lp-entra-btn" onClick={onEnter}>ENTRA<br/>NA RODA</button>
+          <button id="entra-btn" className="lp-entra-btn" onClick={handleEnter}>ENTRA<br/>NA RODA</button>
         </div>
         <h1 className="sr-only">O Girador - Séquenceur de Maracatu de Baque Virado</h1>
         <div className="lp-title">GIRADOR</div>
