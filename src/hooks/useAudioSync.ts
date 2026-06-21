@@ -539,25 +539,47 @@ export function useAudioSync({
 
   // Sync Master Compressor
   useEffect(() => {
-    if (masterCompressorNode) {
-      masterCompressorNode.threshold.value = masterCompressor.threshold;
-      masterCompressorNode.ratio.value = masterCompressor.ratio;
-    }
+    const applyCompressor = () => {
+      if (masterCompressorNode) {
+        const isEco = (window as any).oGiradorEcoMode;
+        masterCompressorNode.threshold.value = isEco ? 0 : masterCompressor.threshold;
+        masterCompressorNode.ratio.value = isEco ? 1 : masterCompressor.ratio;
+      }
+    };
+    
+    applyCompressor();
+    window.addEventListener('eco-mode-changed', applyCompressor);
+    return () => window.removeEventListener('eco-mode-changed', applyCompressor);
   }, [masterCompressor]);
 
   // Sync Reverb parameters
   useEffect(() => {
-    if (reverbNode) {
-      const config = {
-        room: { roomSize: 0.4, dampening: 4000 },
-        studio: { roomSize: 0.6, dampening: 3000 },
-        hall: { roomSize: 0.85, dampening: 1500 }
-      }[reverbType];
+    const applyReverb = () => {
+      if (reverbNode) {
+        const isEco = (window as any).oGiradorEcoMode;
+        const config = {
+          room: { roomSize: 0.4, dampening: 4000 },
+          studio: { roomSize: 0.6, dampening: 3000 },
+          hall: { roomSize: 0.85, dampening: 1500 }
+        }[reverbType];
 
-      reverbNode.roomSize.value = config.roomSize;
-      reverbNode.dampening = config.dampening;
-    }
-  }, [reverbType]);
+        reverbNode.roomSize.value = config.roomSize;
+        reverbNode.dampening = config.dampening;
+        
+        // Update all existing track sends instantly when eco mode toggles
+        tracks.forEach((t) => {
+          const inst = instrumentsConfig[t.instrumentIdx];
+          if (inst && reverbSends[inst.id]) {
+            reverbSends[inst.id].gain.value = isEco ? 0 : ((t.reverbVal || 0) / 100);
+          }
+        });
+      }
+    };
+
+    applyReverb();
+    window.addEventListener('eco-mode-changed', applyReverb);
+    return () => window.removeEventListener('eco-mode-changed', applyReverb);
+  }, [reverbType, tracks]);
 
   // Sync Transport BPM
   useEffect(() => {
@@ -842,8 +864,8 @@ export function useAudioSync({
           const drawTime = time + visualDelay;
 
           Tone.Draw.schedule(() => {
-            // ECO MODE: Bypass completely the UI visual dispatch during playback to save 100% CPU for audio
-            if ((window as any).oGiradorEcoMode && isPlayingRef.current) return;
+            // ECO MODE: We used to bypass the visual dispatch here, but we now allow the needle to animate
+            // while saving CPU strictly on DSP effects (Reverb, Compressor).
 
             window.dispatchEvent(new CustomEvent('o-girador-tick', {
               detail: {
@@ -1321,7 +1343,8 @@ export function useAudioSync({
         channels[inst.id].mute = muteState;
 
         if (reverbSends[inst.id]) {
-          reverbSends[inst.id].gain.value = reverb;
+          const isEco = (window as any).oGiradorEcoMode;
+          reverbSends[inst.id].gain.value = isEco ? 0 : reverb;
         }
 
         lastAppliedTracksParamsRef.current[t.id] = paramHash;

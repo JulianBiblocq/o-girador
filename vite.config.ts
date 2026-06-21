@@ -9,6 +9,16 @@ import { VitePWA } from 'vite-plugin-pwa';
 export default defineConfig(({ command }) => {
   return {
     base: command === 'build' ? '/o-girador/' : '/',
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'tone': ['tone'],
+            'firebase': ['firebase/app', 'firebase/firestore', 'firebase/auth']
+          }
+        }
+      }
+    },
     plugins: [
       react(),
       tailwindcss(),

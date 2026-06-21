@@ -108,14 +108,10 @@ const HeaderComponent: React.FC<HeaderProps> = ({
     }
     // Auto-détection (Smart Default) pour appareils modestes
     const isTouch = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-    const cpuCores = (navigator as any).hardwareConcurrency || 8; // On suppose puissant si API non supportée
     const ram = (navigator as any).deviceMemory || 8;
     
-    const isCpuWeak = cpuCores <= 4;
-    const isRamWeak = ram <= 4;
-    
-    // Si c'est un appareil tactile avec un CPU <= 4 coeurs ou RAM <= 4Go, on active le mode éco d'office
-    if (isTouch && (isCpuWeak || isRamWeak)) {
+    // Si c'est un appareil tactile avec RAM <= 6Go, on active le mode éco d'office
+    if (isTouch && ram <= 6) {
       return true;
     }
     
@@ -127,10 +123,12 @@ const HeaderComponent: React.FC<HeaderProps> = ({
     setEcoMode(newMode);
     localStorage.setItem('o-girador-eco-mode', String(newMode));
     (window as any).oGiradorEcoMode = newMode;
+    window.dispatchEvent(new Event('eco-mode-changed'));
   };
 
   useEffect(() => {
     (window as any).oGiradorEcoMode = ecoMode;
+    window.dispatchEvent(new Event('eco-mode-changed'));
   }, [ecoMode]);
   // ----------------
   const [addDropOpen, setAddDropOpen] = useState(false);
