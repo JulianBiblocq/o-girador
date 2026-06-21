@@ -862,8 +862,21 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
         const currentStep = (localStep >= 0) ? Math.floor((localStep / localTicks) * activePattern.steps) : -1;
         const stepCount = activePattern.steps;
 
+        const stepAngles: number[] = [];
+        const beatRes = activePattern.beatResolutions || Array(4).fill(Math.floor(stepCount / 4) || 4);
+        const anglePerBeat = (Math.PI * 2) / beatRes.length;
+        let currentAngle = -Math.PI / 2;
+        for (let b = 0; b < beatRes.length; b++) {
+          const res = beatRes[b];
+          const anglePerStep = anglePerBeat / res;
+          for (let s = 0; s < res; s++) {
+            stepAngles.push(currentAngle + s * anglePerStep);
+          }
+          currentAngle += anglePerBeat;
+        }
+
         for (let i = 0; i < stepCount; i++) {
-          const stepAngle = -Math.PI / 2 + (i * (Math.PI * 2 / stepCount));
+          const stepAngle = stepAngles[i] || (-Math.PI / 2 + (i * (Math.PI * 2 / stepCount)));
           const x = centerX + Math.cos(stepAngle) * tRad;
           const y = centerY + Math.sin(stepAngle) * tRad;
 

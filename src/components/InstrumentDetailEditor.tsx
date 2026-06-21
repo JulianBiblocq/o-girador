@@ -19,6 +19,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { TrackGroup, Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
 import { usePatternLibraryStore } from '../hooks/usePatternLibraryStore';
+import { useSequencer } from '../contexts/SequencerContext';
 
 const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -534,10 +535,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     return dictionary[lang]?.[key] || key;
   };
 
+  const { handlePatternBeatResolutionChange } = useSequencer();
   const [selectedStepIdx, setSelectedStepIdx] = useState<number | null>(null);
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
   const [selectedStepIndices, setSelectedStepIndices] = useState<number[]>([]);
-  const [selectedPatternId, setSelectedPatternId] = useState<number | null>(track.selectedPatternId);
+  const [selectedPatternId, setSelectedPatternId] = useState<number>(track.patterns[0]?.id);
+  const [isTupletEditMode, setIsTupletEditMode] = useState(false);
   const [isDragSelecting, setIsDragSelecting] = useState(false);
   const [dragStartIdx, setDragStartIdx] = useState<number | null>(null);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState<boolean>(false);
@@ -1402,7 +1405,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                       .reduce((acc, v) => acc + v.probability, 0);
                     const baseProb = Math.max(0, 100 - totalVarProb);
                     return (
-                      <div className="text-xs font-bold text-[#666] mb-2 flex items-center justify-between">
+                      <div className="text-xs font-bold text-[#666] mb-2 flex items-center justify-between flex-wrap gap-2">
                         <div className="flex items-center gap-3">
                           <span>{lang === 'fr' ? 'Probabilité de base (Base Track) :' : 'Probabilidade base (Pista Base) :'} {baseProb}%</span>
                           <button
@@ -1424,9 +1427,22 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             {soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
                           </button>
                         </div>
-                        {(ptn.variations?.length || 0) > 0 && totalVarProb > 100 && (
-                          <span className="text-[#8b2a1a] text-[10px]">⚠️ {lang === 'fr' ? 'Somme > 100%' : 'Soma > 100%'}</span>
-                        )}
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setIsTupletEditMode(!isTupletEditMode)}
+                            className={`px-2 py-1 text-[10px] rounded-sm transition-colors border ${
+                              isTupletEditMode
+                                ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a]'
+                                : 'bg-transparent text-[#1a1a1a] border-[#1a1a1a]/20 hover:bg-[#1a1a1a]/5'
+                            }`}
+                            title={lang === 'fr' ? 'Éditer les divisions (Triolet, Sextolet...)' : 'Editar divisões (Tercina, Sextina...)'}
+                          >
+                            {lang === 'fr' ? '⚙️ Divisions (Triolets...)' : '⚙️ Divisões (Tercinas...)'}
+                          </button>
+                          {(ptn.variations?.length || 0) > 0 && totalVarProb > 100 && (
+                            <span className="text-[#8b2a1a] text-[10px]">⚠️ {lang === 'fr' ? 'Somme > 100%' : 'Soma > 100%'}</span>
+                          )}
+                        </div>
                       </div>
                     );
                   })()}
@@ -1440,8 +1456,19 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                     >
                       {(() => {
                         const groups = [];
-                        for (let g = 0; g < ptn.steps; g += 4) {
-                          groups.push(Array.from({ length: Math.min(4, ptn.steps - g) }, (_, idx) => g + idx));
+                        let accumulated = 0;
+                        const defaultBeats = 4;
+                        const beatRes = ptn.beatResolutions || Array(Math.ceil(ptn.steps / defaultBeats)).fill(defaultBeats);
+                        for (let b = 0; b < beatRes.length; b++) {
+                          const res = beatRes[b];
+                          const group = [];
+                          for (let i = 0; i < res; i++) {
+                            if (accumulated + i < ptn.steps) {
+                              group.push(accumulated + i);
+                            }
+                          }
+                          if (group.length > 0) groups.push(group);
+                          accumulated += res;
                         }
                         return groups.map((group, groupIdx) => (
                           <div key={groupIdx} className="flex gap-4 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
@@ -1608,12 +1635,41 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                     >
                       {(() => {
                         const groups = [];
-                        for (let g = 0; g < ptn.steps; g += 4) {
-                          groups.push(Array.from({ length: Math.min(4, ptn.steps - g) }, (_, idx) => g + idx));
+                        let accumulated = 0;
+                        const defaultBeats = 4;
+                        const beatRes = ptn.beatResolutions || Array(Math.ceil(ptn.steps / defaultBeats)).fill(defaultBeats);
+                        for (let b = 0; b < beatRes.length; b++) {
+                          const res = beatRes[b];
+                          const group = [];
+                          for (let i = 0; i < res; i++) {
+                            if (accumulated + i < ptn.steps) {
+                              group.push(accumulated + i);
+                            }
+                          }
+                          if (group.length > 0) groups.push(group);
+                          accumulated += res;
                         }
-                        return groups.map((group, groupIdx) => (
-                          <div key={groupIdx} className="flex gap-4 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
-                            {group.map((i) => {
+                        return groups.map((group, groupIdx) => {
+                          const isTriplet = group.length === 3;
+                          const isSextuplet = group.length === 6;
+                          
+                          return (
+                          <div key={groupIdx} className="flex flex-col gap-1 shrink-0">
+                            {isTupletEditMode && (
+                              <div className="flex justify-center mb-1">
+                                <select 
+                                  value={group.length}
+                                  onChange={(e) => handlePatternBeatResolutionChange(ptn.id, groupIdx, parseInt(e.target.value))}
+                                  className="text-[10px] bg-[#ece4d0] border border-[#1a1a1a]/20 rounded-sm outline-none px-1 py-0.5 font-bold cursor-pointer hover:bg-[#ece4d0]/80 transition-colors"
+                                >
+                                  <option value="3">3 (Triolet)</option>
+                                  <option value="4">4 (D.Croches)</option>
+                                  <option value="6">6 (Sextolet)</option>
+                                </select>
+                              </div>
+                            )}
+                            <div className={`p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm relative ${isSextuplet ? 'h-[72px]' : isTriplet ? 'flex justify-between' : 'flex gap-4'}`} style={{ width: '204px' }}>
+                            {group.map((i, indexInGroup) => {
                               const val = ptn.activeSteps[i];
                               const displayVal = getDisplayVal(val);
                               const isActive = val !== 0 && val !== '';
@@ -1644,8 +1700,21 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
                               const isMultiSelected = ptn.id === selectedPatternId && selectedStepIndices.includes(i) && selectedStepIndices.length > 1;
 
+                              let wrapperClasses = "relative flex flex-col items-center";
+                              let wrapperStyle: React.CSSProperties = { width: '36px' };
+                              
+                              if (isSextuplet) {
+                                wrapperClasses = "absolute flex flex-col items-center justify-center top-1.5 z-10 hover:z-20";
+                                wrapperStyle = { 
+                                  width: '54.8px', 
+                                  left: `${6 + indexInGroup * 27.4}px`
+                                };
+                              } else if (isTriplet) {
+                                wrapperStyle = { width: '48px' };
+                              }
+
                               return (
-                                <div key={i} className="relative flex flex-col items-center" style={{ width: '36px' }}>
+                                <div key={i} className={wrapperClasses} style={wrapperStyle}>
                                   {/* Axis vertical centerline (0%) behind steps */}
                                   <div className="absolute top-[12px] bottom-[15px] left-1/2 w-0 border-l border-dashed border-[#1a1a1a]/30 -translate-x-1/2 pointer-events-none z-0" />
 
@@ -1817,10 +1886,15 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                           : 'outline-none'
                                     }`}
                                     style={{
-                                      width: '36px',
-                                      height: '36px',
+                                      ...colorStyle,
+                                      width: isSextuplet || isTriplet ? '100%' : '36px',
+                                      height: isSextuplet || isTriplet ? '48px' : '36px',
                                       transform: `translateX(${shiftPx}px)`,
-                                      ...((isCurrentStep || isSelected) ? {} : colorStyle),
+                                      clipPath: isSextuplet 
+                                        ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
+                                        : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
+                                      border: isSextuplet || isTriplet ? 'none' : colorStyle.border,
+                                      borderRadius: isSextuplet || isTriplet ? '0' : undefined
                                     }}
                                   />
                                   {/* Sculpting micro-bars */}
@@ -1851,8 +1925,10 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 </div>
                               );
                             })}
+                            </div>
                           </div>
-                        ));
+                          );
+                        });
                       })()}
                     </div>
                   )}

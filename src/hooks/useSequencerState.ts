@@ -363,7 +363,7 @@ export function useSequencerState() {
     if (oldIndex !== newIndex) {
       pushUndoState();
       setTracks((prev) => {
-        const newTracks = arrayMove(prev, oldIndex, newIndex);
+        const newTracks = arrayMove(prev, oldIndex, newIndex) as TrackGroup[];
         return applyRadii(newTracks);
       });
     }
@@ -645,6 +645,76 @@ export function useSequencerState() {
         return t;
       })
     );
+  };
+
+  const handlePatternBeatResolutionChange = (patternId: number, beatIndex: number, newResolution: number) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      const nextPatterns = t.patterns.map(p => {
+        if (p.id === patternId) {
+          let currentRes = p.beatResolutions;
+          if (!currentRes) {
+            let inferredBeats = 4;
+            if (timeSig === '3/4') inferredBeats = 3;
+            if (timeSig === '2/4' || timeSig === '6/8') inferredBeats = 2;
+            if (timeSig === '12/8') inferredBeats = 4;
+            
+            // Fallback in case p.steps doesn't perfectly match
+            let stepsPerBeat = Math.floor(p.steps / inferredBeats);
+            if (stepsPerBeat === 0) stepsPerBeat = 4;
+            
+            currentRes = Array(inferredBeats).fill(stepsPerBeat);
+            // adjust the last one if there is a remainder
+            const total = currentRes.reduce((a, b) => a + b, 0);
+            if (total !== p.steps) {
+               currentRes[currentRes.length - 1] += (p.steps - total);
+            }
+          }
+
+          if (beatIndex >= currentRes.length) return p;
+          
+          const oldRes = currentRes[beatIndex];
+          if (oldRes === newResolution) return p;
+
+          const nextRes = [...currentRes];
+          nextRes[beatIndex] = newResolution;
+          const targetSteps = p.steps - oldRes + newResolution;
+
+          const startIndex = currentRes.slice(0, beatIndex).reduce((sum, val) => sum + val, 0);
+
+          const spliceArray = <T,>(arr: T[] | undefined, defaultVal: T, oldRes: number, newRes: number) => {
+            if (!arr) return undefined;
+            const copy = [...arr];
+            const replacement = Array(newRes).fill(defaultVal);
+            for (let i = 0; i < Math.min(oldRes, newRes); i++) {
+              replacement[i] = copy[startIndex + i];
+            }
+            copy.splice(startIndex, oldRes, ...replacement);
+            return copy;
+          };
+
+          const pVolumes = p.volumes || Array(p.steps).fill(80);
+          const pDecays = p.decays || Array(p.steps).fill(100);
+          const pMicro = p.microtimings || Array(p.steps).fill(0);
+          const pLyrics = p.lyrics || Array(p.steps).fill('');
+          const pNotes = p.notes || Array(p.steps).fill('');
+
+          return {
+            ...p,
+            steps: targetSteps,
+            beatResolutions: nextRes,
+            activeSteps: spliceArray(p.activeSteps, 0, oldRes, newResolution) as (string | number)[],
+            lyrics: spliceArray(pLyrics, '', oldRes, newResolution),
+            notes: spliceArray(pNotes, '', oldRes, newResolution),
+            volumes: spliceArray(pVolumes, 80, oldRes, newResolution),
+            decays: spliceArray(pDecays, 100, oldRes, newResolution),
+            microtimings: spliceArray(pMicro, 0, oldRes, newResolution),
+          };
+        }
+        return p;
+      });
+      return { ...t, patterns: nextPatterns };
+    }));
   };
 
   const handleTimelinePatternAssign = (trackId: number, patternId: number | null, measureIdx: number) => {
@@ -1601,6 +1671,7 @@ export function useSequencerState() {
     handleResetTrackMicrotimings,
     handleTrackPanChange,
     handleTrackStepsChange,
+    handlePatternBeatResolutionChange,
     handleTimelinePatternAssign,
     handleTimelinePatternVariationToggle,
     handleMeasureTimeSigChange,

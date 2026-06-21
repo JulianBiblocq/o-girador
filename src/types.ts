@@ -23,6 +23,7 @@ export interface PatternVariation {
   volumes?: number[];
   decays?: number[];
   microtimings?: number[];
+  beatResolutions?: number[]; // Added for tuplet support (e.g. [4, 4, 4, 4])
   playFirstTimeOnly?: boolean;
 }
 
@@ -43,6 +44,7 @@ export interface Pattern {
   vocalBaseBpm?: number;
   vocalBpmSync?: boolean;
   vocalAudioData?: string;
+  beatResolutions?: number[]; // Added for tuplet support
   variations?: PatternVariation[];
 }
 

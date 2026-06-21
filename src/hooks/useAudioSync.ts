@@ -103,12 +103,28 @@ export function buildTickSchedule(
 
       const stepCount = activePattern.steps;
 
+      // --- PPQN ELASTIC TUPLET MATH ---
+      const ticksPerBeat = maxTicks / beats; // exactly 96 / beatUnit
+      const resArray = activePattern.beatResolutions || Array(beats).fill(stepCount / beats);
+      
+      const stepTickMap: number[] = [];
+      let accumulatedTicks = 0;
+      
+      for (let b = 0; b < beats; b++) {
+        const res = resArray[b] || (stepCount / beats);
+        const ticksPerStep = ticksPerBeat / res;
+        for (let r = 0; r < res; r++) {
+          stepTickMap.push(Math.round(accumulatedTicks + r * ticksPerStep));
+        }
+        accumulatedTicks += ticksPerBeat;
+      }
+
       for (let step = 0; step < stepCount; step++) {
         const state = activePattern.activeSteps[step];
-        if (!state || state === 0) continue;
+        if (!state || state === 0 || state === '0') continue;
 
         // Which 96th-note tick does this step land on?
-        const tickIdx = Math.floor((step * maxTicks) / stepCount);
+        const tickIdx = stepTickMap[step] !== undefined ? stepTickMap[step] : Math.floor((step * maxTicks) / stepCount);
 
         // Resolve player key
         let targetKey: string | null = typeof state === 'string' ? state : String(state);
@@ -260,11 +276,27 @@ function buildDynamicMeasureSchedule(
 
     const stepCount = activePattern.steps;
 
+    // --- PPQN ELASTIC TUPLET MATH ---
+    const ticksPerBeat = maxTicks / beats; // exactly 96 / beatUnit
+    const resArray = activePattern.beatResolutions || Array(beats).fill(stepCount / beats);
+    
+    const stepTickMap: number[] = [];
+    let accumulatedTicks = 0;
+    
+    for (let b = 0; b < beats; b++) {
+      const res = resArray[b] || (stepCount / beats);
+      const ticksPerStep = ticksPerBeat / res;
+      for (let r = 0; r < res; r++) {
+        stepTickMap.push(Math.round(accumulatedTicks + r * ticksPerStep));
+      }
+      accumulatedTicks += ticksPerBeat;
+    }
+
     for (let step = 0; step < stepCount; step++) {
       const state = stepsToPlay[step];
-      if (!state || state === 0) continue;
+      if (!state || state === 0 || state === '0') continue;
 
-      const tickIdx = Math.floor((step * maxTicks) / stepCount);
+      const tickIdx = stepTickMap[step] !== undefined ? stepTickMap[step] : Math.floor((step * maxTicks) / stepCount);
 
       let targetKey: string | null = typeof state === 'string' ? state : String(state);
       let isStrong = false;

@@ -1962,14 +1962,36 @@ const MemoizedTimelineTrackRow = React.memo(({
                               const val = activePattern.activeSteps[sIdx];
                               const display = getDisplayVal(val);
                               const isActive = val !== 0 && val !== '';
-                              const mMaxTicks = getMaxTicks(measureTimeSigs[mIdx] || '4/4');
+                              const timeSigStr = measureTimeSigs[mIdx] || '4/4';
+                              const mMaxTicks = getMaxTicks(timeSigStr);
+                              
+                              const defaultBeats = parseInt(timeSigStr.split('/')[0], 10);
+                              const beatRes = activePattern.beatResolutions || Array(defaultBeats).fill(Math.floor(steps / defaultBeats) || 4);
+                              let stepWidth = MEASURE_W / steps;
+                              let accumulated = 0;
+                              let accumulatedTicks = 0;
+                              const ticksPerBeat = mMaxTicks / defaultBeats;
+                              let currentTickIdx = 0;
+                              let currentStepRes = 4;
+                              for (let b = 0; b < beatRes.length; b++) {
+                                if (sIdx >= accumulated && sIdx < accumulated + beatRes[b]) {
+                                  stepWidth = (MEASURE_W / defaultBeats) / beatRes[b];
+                                  const stepInBeat = sIdx - accumulated;
+                                  currentTickIdx = Math.round(accumulatedTicks + stepInBeat * (ticksPerBeat / beatRes[b]));
+                                  currentStepRes = beatRes[b];
+                                  break;
+                                }
+                                accumulated += beatRes[b];
+                                accumulatedTicks += ticksPerBeat;
+                              }
+
                               const isCurrent =
                                 isPlaying &&
                                 currentMeasure === mIdx &&
-                                Math.floor((tickPos / mMaxTicks) * steps) === sIdx;
+                                tickPos >= currentTickIdx && tickPos < currentTickIdx + (ticksPerBeat / currentStepRes);
 
                               let style: React.CSSProperties = {
-                                width: `${MEASURE_W / steps}px`,
+                                width: `${stepWidth}px`,
                               };
                               if (isActive) {
                                 const bg = inst.colors[val as string] || '#111';

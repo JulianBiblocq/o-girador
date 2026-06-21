@@ -266,6 +266,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           volumes: Array(p.steps).fill(80),
           decays: Array(p.steps).fill(100),
           microtimings: Array(p.steps).fill(0),
+          beatResolutions: p.beatResolutions ? [...p.beatResolutions] : undefined,
         };
         return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
       }

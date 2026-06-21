@@ -27,6 +27,8 @@ interface HeaderProps {
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
   isMobile: boolean;
+  activeRightPanel?: 'legend' | 'letras' | null;
+  onToggleRightPanel: (panel: 'legend' | 'letras') => void;
   version?: string | number;
   onExportTablature?: () => void;
   showInstallButton?: boolean;
@@ -42,6 +44,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   isDarkMode,
   onToggleDarkMode,
   isMobile,
+  activeRightPanel,
+  onToggleRightPanel,
   version,
   onExportTablature,
   showInstallButton,
