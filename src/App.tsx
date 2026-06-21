@@ -65,7 +65,7 @@ export default function App() {
   const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | 'info' | null>(
     window.innerWidth < 1024 ? 'letras' : 'info'
   );
-  const [viewMode, setViewMode] = useState<'home' | 'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio'>('home');
+  const [viewMode, setViewMode] = useState<'home' | 'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio'>('roda');
   const [unlockedFolhetos, setUnlockedFolhetos] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('o-girador-unlocked-folhetos');
