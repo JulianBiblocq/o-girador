@@ -29,6 +29,8 @@ interface HeaderProps {
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
   isMobile: boolean;
+  mobileTab?: 'roda' | 'mixer' | 'toada';
+  onMobileTabToggle?: (tab: 'roda' | 'mixer' | 'toada') => void;
   activeRightPanel?: 'legend' | 'letras' | null;
   onToggleRightPanel: (panel: 'legend' | 'letras') => void;
   version?: string | number;
@@ -48,6 +50,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   isDarkMode,
   onToggleDarkMode,
   isMobile,
+  mobileTab = 'roda',
+  onMobileTabToggle,
   activeRightPanel,
   onToggleRightPanel,
   version,
@@ -459,9 +463,12 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-2">
           {/* RODA */}
           <button
-            onClick={() => onViewModeToggle('roda')}
+            onClick={() => {
+              onViewModeToggle('roda');
+              if (onMobileTabToggle) onMobileTabToggle('roda');
+            }}
             className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
-              viewMode === 'roda'
+              viewMode === 'roda' && mobileTab === 'roda'
                 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
                 : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
             }`}
@@ -470,7 +477,25 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             ⭕
           </button>
 
-          {/* MIXER */}
+          {/* MIXADOR (MOBILE ONLY TRACK MIXER) */}
+          {isMobile && (
+            <button
+              onClick={() => {
+                onViewModeToggle('roda');
+                if (onMobileTabToggle) onMobileTabToggle('mixer');
+              }}
+              className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
+                viewMode === 'roda' && mobileTab === 'mixer'
+                  ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                  : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+              }`}
+              title="Mixador (Instruments)"
+            >
+              🥁
+            </button>
+          )}
+
+          {/* CONSOLE */}
           <button
             onClick={() => onViewModeToggle('console')}
             className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${

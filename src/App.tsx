@@ -889,6 +889,8 @@ export default function App() {
           }
         }}
         isMobile={isMobile}
+        mobileTab={mobileTab}
+        onMobileTabToggle={setMobileTab}
         version={CURRENT_VERSION}
       />
 
@@ -1016,39 +1018,6 @@ export default function App() {
           />
         )}
       </div>
-
-      {/* Mobile view Tab Bar */}
-      {isMobile && viewMode === 'roda' && (
-        <div className="flex w-full bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] h-12 shrink-0 z-40 text-[var(--cordel-text)]">
-          <button
-            onClick={() => setMobileTab('roda')}
-            className={`flex-1 font-cactus font-bold text-xs flex flex-col items-center justify-center border-r border-[var(--cordel-border)] cursor-pointer ${
-              mobileTab === 'roda' ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-            }`}
-          >
-            <span className="text-sm">⭕</span>
-            <span className="text-[9px] uppercase tracking-wider mt-0.5 font-bold">Roda</span>
-          </button>
-          <button
-            onClick={() => setMobileTab('mixer')}
-            className={`flex-1 font-cactus font-bold text-xs flex flex-col items-center justify-center border-r border-[var(--cordel-border)] cursor-pointer ${
-              mobileTab === 'mixer' ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-            }`}
-          >
-            <span className="text-sm">🎛️</span>
-            <span className="text-[9px] uppercase tracking-wider mt-0.5 font-bold">{sequencer.lang === 'pt' ? 'Mixador' : 'Mixeur'}</span>
-          </button>
-          <button
-            onClick={() => setMobileTab('toada')}
-            className={`flex-1 font-cactus font-bold text-xs flex flex-col items-center justify-center cursor-pointer ${
-              mobileTab === 'toada' ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-            }`}
-          >
-            <span className="text-sm">📝</span>
-            <span className="text-[9px] uppercase tracking-wider mt-0.5 font-bold font-cactus">Toada</span>
-          </button>
-        </div>
-      )}
 
       {viewMode !== 'quiz' && viewMode !== 'dictee' && viewMode !== 'inspecteur' && viewMode !== 'mestre' && viewMode !== 'rythmelive' && viewMode !== 'varal' && viewMode !== 'studio' && viewMode !== 'admin' && (
         <TransportBar
