@@ -36,6 +36,7 @@ const VaralCordel = lazy(() => import('./components/VaralCordel').then(m => ({ d
 const MestreStudio = lazy(() => import('./components/MestreStudio').then(m => ({ default: m.MestreStudio })));
 const AoVivoOverlay = lazy(() => import('./components/AoVivoOverlay').then(m => ({ default: m.AoVivoOverlay })));
 import { Home } from './components/Home';
+import { AdminPanel } from './components/AdminPanel';
 import { PresetMetadata, Pattern, SongSection, TimeSignature } from './types';
 import { exportTablatureFile, printTablature, printLegendOnly } from './utils/exportTablature';
 
@@ -65,7 +66,7 @@ export default function App() {
   const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | 'info' | null>(
     window.innerWidth < 1024 ? 'letras' : 'info'
   );
-  const [viewMode, setViewMode] = useState<'home' | 'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio'>('roda');
+  const [viewMode, setViewMode] = useState<'home' | 'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio' | 'admin'>('roda');
   const [unlockedFolhetos, setUnlockedFolhetos] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('o-girador-unlocked-folhetos');
@@ -767,11 +768,12 @@ export default function App() {
         isDarkMode={isDarkMode}
         onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
         onExportTablature={handleExportTablature}
+        onAdminClick={() => setViewMode('admin')}
         presetFiles={presetFiles}
         localPresets={localPresets}
         activeRightPanel={activeRightPanel}
         onToggleRightPanel={(p) => setActiveRightPanel(activeRightPanel === p ? null : p)}
-        viewMode={viewMode}
+        viewMode={viewMode as any}
         onViewModeToggle={(mode) => {
           setViewMode(mode);
           if (mode === 'console' || mode === 'timeline') {
@@ -881,10 +883,18 @@ export default function App() {
         )}
 
         {viewMode === 'studio' && (
-          <MestreStudio
-            lang={sequencer.lang}
-            onExit={() => setViewMode('roda')}
-          />
+          <Suspense fallback={<div className="flex-1 flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
+            <MestreStudio
+              lang={sequencer.lang}
+              onExit={() => setViewMode('roda')}
+            />
+          </Suspense>
+        )}
+
+        {viewMode === 'admin' && (
+          <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">
+            <AdminPanel />
+          </div>
         )}
 
         {/* Right drawer sidebar context panel */}
@@ -936,7 +946,7 @@ export default function App() {
         </div>
       )}
 
-      {viewMode !== 'quiz' && viewMode !== 'dictee' && viewMode !== 'inspecteur' && viewMode !== 'mestre' && viewMode !== 'rythmelive' && viewMode !== 'varal' && viewMode !== 'studio' && (
+      {viewMode !== 'quiz' && viewMode !== 'dictee' && viewMode !== 'inspecteur' && viewMode !== 'mestre' && viewMode !== 'rythmelive' && viewMode !== 'varal' && viewMode !== 'studio' && viewMode !== 'admin' && (
         <TransportBar
           viewMode={viewMode as any}
         />

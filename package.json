@@ -22,6 +22,7 @@
     "@react-oauth/google": "^0.13.5",
     "dotenv": "^17.2.3",
     "express": "^4.21.2",
+    "firebase": "^12.15.0",
     "gifshot": "^0.4.5",
     "lucide-react": "^0.546.0",
     "lz-string": "^1.5.0",

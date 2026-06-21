@@ -5,6 +5,7 @@ import {GameDataProvider} from './contexts/GameDataContext.tsx';
 import {SequencerProvider} from './contexts/SequencerContext.tsx';
 import {AudioProvider} from './contexts/AudioContext.tsx';
 import App from './App.tsx';
+import { AuthProvider } from './contexts/AuthContext.tsx';
 import './index.css';
 
 export function isValidGoogleClientId(id: string | undefined | null): boolean {
@@ -31,6 +32,18 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {hasGoogleClientId ? (
       <GoogleOAuthProvider clientId={googleClientId}>
+        <AuthProvider>
+          <GameDataProvider>
+            <SequencerProvider>
+              <AudioProvider>
+                <App />
+              </AudioProvider>
+            </SequencerProvider>
+          </GameDataProvider>
+        </AuthProvider>
+      </GoogleOAuthProvider>
+    ) : (
+      <AuthProvider>
         <GameDataProvider>
           <SequencerProvider>
             <AudioProvider>
@@ -38,15 +51,7 @@ createRoot(document.getElementById('root')!).render(
             </AudioProvider>
           </SequencerProvider>
         </GameDataProvider>
-      </GoogleOAuthProvider>
-    ) : (
-      <GameDataProvider>
-        <SequencerProvider>
-          <AudioProvider>
-            <App />
-          </AudioProvider>
-        </SequencerProvider>
-      </GameDataProvider>
+      </AuthProvider>
     )}
   </StrictMode>,
 );
