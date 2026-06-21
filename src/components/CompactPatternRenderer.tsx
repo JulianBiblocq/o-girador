@@ -14,6 +14,11 @@ interface CompactPatternRendererProps {
   className?: string;
   style?: React.CSSProperties;
   isFluid?: boolean;
+  readOnly?: boolean;
+  onStepKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>, stepIdx: number, val: string | number) => void;
+  registerStepRef?: (stepIdx: number, el: HTMLInputElement | null) => void;
+  onStepMouseEnter?: (stepIdx: number) => void;
+  selectedStepIndices?: number[];
 }
 
 export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
@@ -27,7 +32,12 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
   currentStep,
   className = '',
   style = {},
-  isFluid = false
+  isFluid = false,
+  readOnly = false,
+  onStepKeyDown,
+  registerStepRef,
+  onStepMouseEnter,
+  selectedStepIndices = []
 }) => {
   const defaultBeats = 4;
   const beatRes = pattern.beatResolutions || Array(Math.ceil(pattern.steps / defaultBeats)).fill(defaultBeats);
@@ -65,6 +75,7 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
 
               const isActive = val !== 0 && val !== '';
               const isCurrentStep = currentStep === stepIdx;
+              const isSelected = selectedStepIndices.includes(stepIdx);
 
               let colorStyle: React.CSSProperties = {};
               if (isActive) {
@@ -130,9 +141,11 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
                       type="text"
                       maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
                       value={displayVal}
-                      readOnly={false}
+                      readOnly={readOnly}
                       className={`w-full h-full text-center text-[9px] font-bold outline-none m-0 p-0 transition-all ${
                         isCurrentStep ? 'scale-110 shadow-[0_0_4px_rgba(139,42,26,0.5)] z-20' : ''
+                      } ${
+                        isSelected ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-105 z-10' : ''
                       } ${!isActive ? 'text-[var(--cordel-text)] opacity-50' : ''}`}
                       style={{
                         ...colorStyle,
@@ -140,9 +153,12 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
                         borderRadius: isSextuplet || isTriplet ? '0' : '2px',
                         cursor: 'pointer'
                       }}
+                      ref={(el) => registerStepRef && registerStepRef(stepIdx, el)}
                       onChange={(e) => onStepValueChange && onStepValueChange(stepIdx, e.target.value)}
                       onMouseDown={handleMouseDown}
                       onTouchStart={handleTouchStart}
+                      onKeyDown={(e) => onStepKeyDown && onStepKeyDown(e, stepIdx, val)}
+                      onMouseEnter={() => onStepMouseEnter && onStepMouseEnter(stepIdx)}
                     />
                   </div>
                 );

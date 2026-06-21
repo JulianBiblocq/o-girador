@@ -6,6 +6,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { TrackGroup, Language, Pattern } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
 import { getNextStepValue } from './InstrumentDetailEditor';
+import { CompactPatternRenderer } from './CompactPatternRenderer';
 
 
 const getGlobalClipboard = () => {
@@ -877,132 +878,82 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                 }, [] as React.ReactNode[])}
               </div>
             ) : (
-              <div 
-                className="step-boxes grid gap-y-2 gap-x-1 w-full items-center justify-start animate-fade-in" 
-                style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) 12px repeat(4, minmax(0, 1fr))' }} 
+              <div
                 id={`step-boxes-${track.id}`}
                 onTouchMove={handleGridTouchMove}
                 onTouchEnd={handleGridTouchEnd}
+                className="w-full"
               >
-                {Array.from({ length: activePattern.steps }).reduce((acc: React.ReactNode[], _, i) => {
-                  if (i > 0 && i % 4 === 0 && i % 8 !== 0) {
-                    acc.push(<div key={`spacer-${i}`} />);
-                  }
-
-                  const val = activePlayingSteps[i];
-                  const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
-                  let displayVal = visualVal === 0 ? '' : String(visualVal);
-
-                  const isSelected = selectedStepIndices.includes(i);
-
-                  let colorStyle: React.CSSProperties = {};
-                  if (visualVal !== 0 && visualVal !== '') {
-                    const bgColor = inst.colors[visualVal] || '#111';
-                    let txtColor = inst.colors.text || '#fff';
-                    if (isDarkText(inst.id, String(visualVal))) {
-                      txtColor = '#1a1a1a';
+                <CompactPatternRenderer
+                  pattern={{...activePattern, activeSteps: activePlayingSteps}}
+                  inst={inst}
+                  isLeftHanded={isLeftHanded}
+                  isEditable={true}
+                  isFluid={true}
+                  className="w-full mb-2"
+                  readOnly={isTouchDevice || isMultiSelectActive}
+                  currentStep={currentStep}
+                  selectedStepIndices={selectedStepIndices}
+                  registerStepRef={(stepIdx, el) => registerCellRef(stepIdx, el)}
+                  onStepValueChange={(stepIdx, val) => onStepValueChange(activePattern.id, stepIdx, val)}
+                  onStepClick={(e, stepIdx, val) => {
+                    if (isMultiSelectActive) {
+                      if (e.type === 'touchstart') {
+                        handleStepTouchStartMulti(e as unknown as React.TouchEvent, stepIdx);
+                      } else if (e.type === 'mousedown') {
+                        handleStepMouseDownMulti(e as unknown as React.MouseEvent, stepIdx);
+                      }
+                    } else {
+                      if (e.type === 'touchstart') e.preventDefault();
+                      handleStart(e, stepIdx, val);
                     }
-                    colorStyle = {
-                      backgroundColor: bgColor,
-                      borderColor: isSelected ? undefined : bgColor,
-                      color: txtColor,
-                    };
-                  }
+                  }}
+                  onStepShiftClick={(e, stepIdx, val) => {
+                    isMouseDownRef.current = true;
+                    const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
+                    const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
+                    const nextSemanticVal = getVisualStrokeSymbol(nextVisualVal, isLeftHanded, inst.id);
+                    paintValueRef.current = nextSemanticVal;
+                    onStepValueChange(activePattern.id, stepIdx, String(nextSemanticVal));
+                  }}
+                  onStepMouseEnter={(stepIdx) => {
+                    if (isMouseDownRef.current) {
+                      onStepValueChange(activePattern.id, stepIdx, String(paintValueRef.current));
+                    }
+                    if (isMultiSelectActive) {
+                      handleStepMouseEnterMulti(stepIdx);
+                    }
+                  }}
+                  onStepKeyDown={(e, stepIdx, val) => {
+                    if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
+                    
+                    const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+                    if (isCtrlOrMeta && e.key.toLowerCase() === 'c') {
+                      e.preventDefault();
+                      onCopyPattern && onCopyPattern(activePattern);
+                      return;
+                    }
+                    if (isCtrlOrMeta && e.key.toLowerCase() === 'v') {
+                      e.preventDefault();
+                      if (canPaste) {
+                        onPastePattern && onPastePattern(track.id, activePattern.id);
+                      }
+                      return;
+                    }
+                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                      e.preventDefault();
+                      onStepValueChange(activePattern.id, stepIdx, '0');
+                      if (e.key === 'Backspace') {
+                        const inputEl = e.currentTarget as HTMLInputElement;
+                        onStepKeyDown(activePattern.id, stepIdx, e.key, '', inputEl);
+                      }
+                      return;
+                    }
 
-                  const isSecondBlockOfFour = Math.floor(i / 4) % 2 === 1;
-                  const inactiveBg = isSecondBlockOfFour ? 'bg-[#ebdccb]' : 'bg-[#f4ecd8]';
-
-                  acc.push(
-                    <div key={i} className="relative flex flex-col items-center justify-center w-full">
-                      <div className="text-[#666] text-[8px] mb-0.5 w-full text-center font-bold">{i + 1}</div>
-                      <input
-                        type="text"
-                        maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
-                        value={displayVal}
-                        readOnly={isTouchDevice || isMultiSelectActive}
-                        inputMode={isTouchDevice ? 'none' : undefined}
-                        ref={(el) => registerCellRef(i, el)}
-                        onFocus={(e) => {
-                          if (!isTouchDevice) {
-                            e.target.select();
-                          }
-                        }}
-                        onMouseDown={(e) => {
-                          if (e.button !== 0) return;
-                          if (e.shiftKey) {
-                            isMouseDownRef.current = true;
-                            const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
-                            const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
-                            const nextSemanticVal = getVisualStrokeSymbol(nextVisualVal, isLeftHanded, inst.id);
-                            paintValueRef.current = nextSemanticVal;
-                            onStepValueChange(activePattern.id, i, String(nextSemanticVal));
-                          } else {
-                            handleStart(e, i, val);
-                          }
-                        }}
-                        onMouseEnter={() => {
-                          if (isMouseDownRef.current) {
-                            onStepValueChange(activePattern.id, i, String(paintValueRef.current));
-                          }
-                        }}
-                        onTouchStart={(e) => {
-                          if (isMultiSelectActive) {
-                            handleStepTouchStartMulti(e, i);
-                          } else {
-                            e.preventDefault();
-                            handleStart(e, i, val);
-                          }
-                        }}
-                        onChange={(e) => onStepValueChange(activePattern.id, i, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
-                          
-                          const isCtrlOrMeta = e.ctrlKey || e.metaKey;
-                          if (isCtrlOrMeta && e.key.toLowerCase() === 'c') {
-                            e.preventDefault();
-                            onCopyPattern && onCopyPattern(activePattern);
-                            return;
-                          }
-                          if (isCtrlOrMeta && e.key.toLowerCase() === 'v') {
-                            e.preventDefault();
-                            if (canPaste) {
-                              onPastePattern && onPastePattern(track.id, activePattern.id);
-                            }
-                            return;
-                          }
-                          if (e.key === 'Delete' || e.key === 'Backspace') {
-                            e.preventDefault();
-                            onStepValueChange(activePattern.id, i, '0');
-                            if (e.key === 'Backspace') {
-                              const inputEl = e.currentTarget as HTMLInputElement;
-                              onStepKeyDown(activePattern.id, i, e.key, '', inputEl);
-                            }
-                            return;
-                          }
-
-                          const inputEl = e.currentTarget as HTMLInputElement;
-                          onStepKeyDown(activePattern.id, i, e.key, inputEl.value, inputEl);
-                        }}
-                        className={`w-full aspect-square text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border focus:border-[#8b2a1a] transition-all duration-200 ${
-                          currentStep === i 
-                            ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] scale-105' 
-                            : isSelected
-                              ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-105'
-                              : (val === 0 ? `${inactiveBg} text-[#1a1a1a]` : '')
-                        }`}
-                        style={currentStep === i || isSelected ? {} : colorStyle}
-                        data-track-id={track.id}
-                        data-step-index={i}
-                        data-step-type="sampler"
-                        data-val-zero={val === 0}
-                        data-bg-color={colorStyle.backgroundColor || ''}
-                        data-border-color={colorStyle.borderColor || ''}
-                        data-text-color={colorStyle.color || ''}
-                      />
-                    </div>
-                  );
-                  return acc;
-                }, [] as React.ReactNode[])}
+                    const inputEl = e.currentTarget as HTMLInputElement;
+                    onStepKeyDown(activePattern.id, stepIdx, e.key, inputEl.value, inputEl);
+                  }}
+                />
               </div>
             )}
           </div>
@@ -1110,138 +1061,82 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                 })}
               </div>
             ) : (
-              <div 
-                className="step-boxes grid gap-y-2 gap-x-1 w-full flex-grow items-center justify-start" 
-                style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr)) 12px repeat(4, minmax(0, 1fr))' }} 
+              <div
                 id={`step-boxes-${track.id}`}
                 onTouchMove={handleGridTouchMove}
                 onTouchEnd={handleGridTouchEnd}
+                className="w-full flex-grow"
               >
-                {Array.from({ length: activePattern.steps }).reduce((acc: React.ReactNode[], _, i) => {
-                  if (i > 0 && i % 4 === 0 && i % 8 !== 0) {
-                    acc.push(<div key={`spacer-${i}`} />);
-                  }
-
-                  const val = activePlayingSteps[i];
-                  const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
-                  let displayVal = visualVal === 0 ? '' : String(visualVal);
-
-                  const isSelected = selectedStepIndices.includes(i);
-
-                  let colorStyle: React.CSSProperties = {};
-                  if (visualVal !== 0 && visualVal !== '') {
-                    const bgColor = inst.colors[visualVal] || '#111';
-                    let txtColor = inst.colors.text || '#fff';
-                    if (isDarkText(inst.id, String(visualVal))) {
-                      txtColor = '#1a1a1a';
+                <CompactPatternRenderer
+                  pattern={{...activePattern, activeSteps: activePlayingSteps}}
+                  inst={inst}
+                  isLeftHanded={isLeftHanded}
+                  isEditable={true}
+                  isFluid={true}
+                  className="w-full mb-2"
+                  readOnly={isTouchDevice || isMultiSelectActive}
+                  currentStep={currentStep}
+                  selectedStepIndices={selectedStepIndices}
+                  registerStepRef={(stepIdx, el) => registerCellRef(stepIdx, el)}
+                  onStepValueChange={(stepIdx, val) => onStepValueChange(activePattern.id, stepIdx, val)}
+                  onStepClick={(e, stepIdx, val) => {
+                    if (isMultiSelectActive) {
+                      if (e.type === 'touchstart') {
+                        handleStepTouchStartMulti(e as unknown as React.TouchEvent, stepIdx);
+                      } else if (e.type === 'mousedown') {
+                        handleStepMouseDownMulti(e as unknown as React.MouseEvent, stepIdx);
+                      }
+                    } else {
+                      if (e.type === 'touchstart') e.preventDefault();
+                      handleStart(e, stepIdx, val);
                     }
-                    colorStyle = {
-                      backgroundColor: bgColor,
-                      borderColor: isSelected ? undefined : bgColor,
-                      color: txtColor,
-                    };
-                  }
+                  }}
+                  onStepShiftClick={(e, stepIdx, val) => {
+                    isMouseDownRef.current = true;
+                    const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
+                    const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
+                    const nextSemanticVal = getVisualStrokeSymbol(nextVisualVal, isLeftHanded, inst.id);
+                    paintValueRef.current = nextSemanticVal;
+                    onStepValueChange(activePattern.id, stepIdx, String(nextSemanticVal));
+                  }}
+                  onStepMouseEnter={(stepIdx) => {
+                    if (isMouseDownRef.current) {
+                      onStepValueChange(activePattern.id, stepIdx, String(paintValueRef.current));
+                    }
+                    if (isMultiSelectActive) {
+                      handleStepMouseEnterMulti(stepIdx);
+                    }
+                  }}
+                  onStepKeyDown={(e, stepIdx, val) => {
+                    if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
+                    
+                    const isCtrlOrMeta = e.ctrlKey || e.metaKey;
+                    if (isCtrlOrMeta && e.key.toLowerCase() === 'c') {
+                      e.preventDefault();
+                      onCopyPattern && onCopyPattern(activePattern);
+                      return;
+                    }
+                    if (isCtrlOrMeta && e.key.toLowerCase() === 'v') {
+                      e.preventDefault();
+                      if (canPaste) {
+                        onPastePattern && onPastePattern(track.id, activePattern.id);
+                      }
+                      return;
+                    }
+                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                      e.preventDefault();
+                      onStepValueChange(activePattern.id, stepIdx, '0');
+                      if (e.key === 'Backspace') {
+                        const inputEl = e.currentTarget as HTMLInputElement;
+                        onStepKeyDown(activePattern.id, stepIdx, e.key, '', inputEl);
+                      }
+                      return;
+                    }
 
-                  const isSecondBlockOfFour = Math.floor(i / 4) % 2 === 1;
-                  const inactiveBg = isSecondBlockOfFour ? 'bg-[#ebdccb]' : 'bg-[#f4ecd8]';
-
-                  acc.push(
-                    <div key={i} className="relative flex flex-col items-center justify-center w-full">
-                      <div className="text-[#666] text-[8px] mb-0.5 w-full text-center font-bold">{i + 1}</div>
-                      <input
-                        type="text"
-                        maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
-                        value={displayVal}
-                        readOnly={isTouchDevice || isMultiSelectActive}
-                        inputMode={isTouchDevice ? 'none' : undefined}
-                        ref={(el) => registerCellRef(i, el)}
-                        onFocus={(e) => {
-                          if (!isTouchDevice) {
-                            e.target.select();
-                          }
-                        }}
-                        onMouseDown={(e) => {
-                          if (e.button !== 0) return;
-                          if (isMultiSelectActive) {
-                            handleStepMouseDownMulti(e, i);
-                          } else {
-                            if (e.shiftKey) {
-                              isMouseDownRef.current = true;
-                              const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
-                              const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
-                              const nextSemanticVal = getVisualStrokeSymbol(nextVisualVal, isLeftHanded, inst.id);
-                              paintValueRef.current = nextSemanticVal;
-                              onStepValueChange(activePattern.id, i, String(nextSemanticVal));
-                            } else {
-                              handleStart(e, i, val);
-                            }
-                          }
-                        }}
-                        onMouseEnter={() => {
-                          if (isMultiSelectActive) {
-                            handleStepMouseEnterMulti(i);
-                          } else if (isMouseDownRef.current) {
-                            onStepValueChange(activePattern.id, i, String(paintValueRef.current));
-                          }
-                        }}
-                        onTouchStart={(e) => {
-                          if (isMultiSelectActive) {
-                            handleStepTouchStartMulti(e, i);
-                          } else {
-                            e.preventDefault();
-                            handleStart(e, i, val);
-                          }
-                        }}
-                        onChange={(e) => onStepValueChange(activePattern.id, i, e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
-                          
-                          const isCtrlOrMeta = e.ctrlKey || e.metaKey;
-                          if (isCtrlOrMeta && e.key.toLowerCase() === 'c') {
-                            e.preventDefault();
-                            onCopyPattern && onCopyPattern(activePattern);
-                            return;
-                          }
-                          if (isCtrlOrMeta && e.key.toLowerCase() === 'v') {
-                            e.preventDefault();
-                            if (canPaste) {
-                              onPastePattern && onPastePattern(track.id, activePattern.id);
-                            }
-                            return;
-                          }
-                          if (e.key === 'Delete' || e.key === 'Backspace') {
-                            e.preventDefault();
-                            onStepValueChange(activePattern.id, i, '0');
-                            if (e.key === 'Backspace') {
-                              const inputEl = e.currentTarget as HTMLInputElement;
-                              onStepKeyDown(activePattern.id, i, e.key, '', inputEl);
-                            }
-                            return;
-                          }
-
-                          const inputEl = e.currentTarget as HTMLInputElement;
-                          onStepKeyDown(activePattern.id, i, e.key, inputEl.value, inputEl);
-                        }}
-                        className={`w-full aspect-square text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border transition-all duration-200 ${
-                          currentStep === i 
-                            ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a] scale-105' 
-                            : isSelected
-                              ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                              : (val === 0 || val === '0' ? `${inactiveBg} text-[#1a1a1a] focus:border-[#8b2a1a]` : 'focus:border-[#8b2a1a]')
-                        }`}
-                        style={currentStep === i ? {} : colorStyle}
-                        data-track-id={track.id}
-                        data-step-index={i}
-                        data-step-type="sampler"
-                        data-val-zero={val === 0}
-                        data-bg-color={colorStyle.backgroundColor || ''}
-                        data-border-color={colorStyle.borderColor || ''}
-                        data-text-color={colorStyle.color || ''}
-                      />
-                    </div>
-                  );
-                  return acc;
-                }, [] as React.ReactNode[])}
+                    const inputEl = e.currentTarget as HTMLInputElement;
+                    onStepKeyDown(activePattern.id, stepIdx, e.key, inputEl.value, inputEl);
+                  }}
+                />
               </div>
             )}
           </div>
