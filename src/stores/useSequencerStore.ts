@@ -13,7 +13,7 @@ export interface TrackSlice {
   activeAoVivoTrackId: number | null;
   
   // Actions (Squelette pour l'instant)
-  setTracks: (tracks: TrackGroup[]) => void;
+  setTracks: (tracks: TrackGroup[] | ((prev: TrackGroup[]) => TrackGroup[])) => void;
   setActiveAoVivoTrackId: (id: number | null) => void;
   handleReorderTracksDnd: (oldIndex: number, newIndex: number) => void;
   handleTrackInstrumentIdxChange: (id: number, targetInstIdx: number) => void;
@@ -50,7 +50,7 @@ const applyRadii = (list: TrackGroup[]): TrackGroup[] => {
 const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set, get) => ({
   tracks: [],
   activeAoVivoTrackId: null,
-  setTracks: (tracks) => set({ tracks }),
+  setTracks: (updater) => set(state => ({ tracks: typeof updater === 'function' ? (updater as any)(state.tracks) : updater })),
   setActiveAoVivoTrackId: (id) => set({ activeAoVivoTrackId: id }),
   
   handleReorderTracksDnd: (oldIndex, newIndex) => {
@@ -317,7 +317,7 @@ export interface StructureSlice {
   measureSignals: (string | null)[];
   songSections: SongSection[];
   
-  setTotalMeasures: (total: number) => void;
+  setTotalMeasures: (val: number | ((prev: number) => number)) => void;
   setBpm: (bpm: number) => void;
   setTimeSig: (sig: TimeSignature) => void;
   setMeasureSignals: (updater: (string | null)[] | ((prev: (string | null)[]) => (string | null)[])) => void;
@@ -340,6 +340,8 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
   bpm: 83,
   timeSig: '4/4',
   measureTimeSigs: Array(8).fill('4/4'),
+  setSongSections: (updater) => set(state => ({ songSections: typeof updater === 'function' ? (updater as any)(state.songSections) : updater })),
+  setMeasureTimeSigs: (updater) => set(state => ({ measureTimeSigs: typeof updater === 'function' ? (updater as any)(state.measureTimeSigs) : updater })),
   measureBpms: Array(8).fill(83),
   measureBpmTransitions: Array(8).fill('immediate'),
   measureVols: Array(8).fill(100),
@@ -349,7 +351,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
 
   setBpm: (bpm) => set({ bpm }),
   setTimeSig: (sig) => set({ timeSig: sig }),
-  setTotalMeasures: (total) => set({ totalMeasures: total }),
+  setTotalMeasures: (updater) => set(state => ({ totalMeasures: typeof updater === 'function' ? updater(state.totalMeasures) : updater })),
   
   setMeasureSignals: (updater) => set((state) => ({
     measureSignals: typeof updater === 'function' ? updater(state.measureSignals) : updater
@@ -540,7 +542,7 @@ export interface PlaybackSlice {
   handleSetLoopStart: (measure: number | null) => void;
   handleSetLoopEnd: (measure: number | null) => void;
   handleClearLoop: () => void;
-  setIsLoopRegionActive: (active: boolean) => void;
+  setIsLoopRegionActive: (val: boolean | ((prev: boolean) => boolean)) => void;
   setIsLooping: (looping: boolean) => void;
 }
 
@@ -579,7 +581,7 @@ const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackSlice> =
   },
 
   handleClearLoop: () => set({ loopStartMeasure: null, loopEndMeasure: null, isLoopRegionActive: false }),
-  setIsLoopRegionActive: (active) => set({ isLoopRegionActive: active }),
+  setIsLoopRegionActive: (updater) => set(state => ({ isLoopRegionActive: typeof updater === 'function' ? (updater as any)(state.isLoopRegionActive) : updater })),
   setIsLooping: (looping) => set({ isLooping: looping }),
 });
 

@@ -9,6 +9,7 @@ import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Langua
 import { instrumentsConfig, getVisualStrokeSymbol, getMaxTicks } from '../data';
 import { audioEngine } from './useAudioSync';
 import { useAuth } from '../contexts/AuthContext';
+import { useSequencerStore } from '../stores/useSequencerStore';
 
 export function useSequencerState() {
   const { userProfile, updateUserPreference } = useAuth();
