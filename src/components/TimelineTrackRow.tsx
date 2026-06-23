@@ -3,7 +3,7 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudio } from '../contexts/AudioContext';
 import { instrumentsConfig, isDarkText, ASSETS_BASE_URL, getMaxTicks } from '../data';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
-import { TimelineUIContext } from './TimelineSequencer';
+import { TimelineUIContext } from '../contexts/TimelineUIContext';
 
 interface TimelineTrackRowProps {
   trackId: number;

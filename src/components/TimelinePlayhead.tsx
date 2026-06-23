@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useContext } from 'react';
-import { TimelineUIContext } from './TimelineSequencer';
+import { TimelineUIContext } from '../contexts/TimelineUIContext';
 
 const TimelinePlayheadComponent: React.FC = () => {
   const uiContext = useContext(TimelineUIContext);
