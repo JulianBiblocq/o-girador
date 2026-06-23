@@ -9,6 +9,7 @@ import { AudioEngine } from '../AudioEngine';
 import { InputManager } from '../InputManager';
 import { TrackGroup, TimeSignature, HitTrigger, SongSection } from '../types';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
+import { ScheduledNote } from '../workers/audioCompiler.worker';
 
 // Module scope audio engines and nodes to avoid duplicate instantiations on React re-renders
 export let bMetroClick: Tone.Synth | null = null;
@@ -48,139 +49,7 @@ function getCachedMarkers(timeSig: string, ticks: number): number[] {
   return markersCache.get(key)!;
 }
 
-interface ScheduledNote {
-  instId: string;
-  playerKey: string;
-  baseGain: number;
-  stepVolMultiplier: number;
-  stepDecayMultiplier: number;
-  isStrong: boolean;
-  microtimingPct: number;
-  stepsPerMeasure: number;
-  trackId: number;
-  circleStepIdx: number;
-  state: string | number;
-  isTuplet?: boolean;
-}
 
-export function buildTickSchedule(
-  tracks: any[],
-  totalMeasures: number,
-  measureTimeSigs: string[],
-  instConfig: any[],
-  soloPatternPlayId: number | null
-): Map<number, Map<number, ScheduledNote[]>> {
-  const schedule = new Map<number, Map<number, ScheduledNote[]>>();
-  const hasSolo = tracks.some((t: any) => t.isSolo);
-  const isSoloPlayActive = soloPatternPlayId !== null;
-
-  for (let measureIdx = 0; measureIdx < totalMeasures; measureIdx++) {
-    const timeSig = measureTimeSigs[measureIdx] || '4/4';
-    const parts = timeSig.split('/');
-    const beats = parseInt(parts[0], 10);
-    const beatUnit = parseInt(parts[1], 10);
-    const maxTicks = beats * (96 / beatUnit);
-    const measureMap = new Map<number, ScheduledNote[]>();
-
-    tracks.forEach((track: any) => {
-      const inst = instConfig[track.instrumentIdx];
-      if (!inst || inst.type === 'voice') return; // voice handled separately in loop
-
-      let activePattern: any = null;
-      let canPlay = false;
-
-      if (isSoloPlayActive) {
-        const isTargetSoloTrack = track.patterns.some((p: any) => p.id === soloPatternPlayId);
-        if (isTargetSoloTrack) {
-          activePattern = track.patterns.find((p: any) => p.id === soloPatternPlayId);
-          canPlay = true;
-        }
-      } else {
-        activePattern = track.patterns.find((p: any) => p.measureAssignments[measureIdx]);
-        canPlay = hasSolo ? track.isSolo : !track.isMute;
-      }
-
-      if (!activePattern || !canPlay) return;
-
-      const stepCount = activePattern.steps;
-
-      // --- PPQN ELASTIC TUPLET MATH ---
-      const ticksPerBeat = maxTicks / beats; // exactly 96 / beatUnit
-      const resArray = activePattern.beatResolutions || Array(beats).fill(stepCount / beats);
-      
-      const stepTickMap: number[] = [];
-      const stepIsTupletMap: boolean[] = [];
-      let accumulatedTicks = 0;
-      
-      for (let b = 0; b < beats; b++) {
-        const res = resArray[b] || (stepCount / beats);
-        const ticksPerStep = ticksPerBeat / res;
-        for (let r = 0; r < res; r++) {
-          stepTickMap.push(Math.round(accumulatedTicks + r * ticksPerStep));
-          stepIsTupletMap.push(res === 3 || res === 6);
-        }
-        accumulatedTicks += ticksPerBeat;
-      }
-
-      for (let step = 0; step < stepCount; step++) {
-        const state = activePattern.activeSteps[step];
-        if (!state || state === 0 || state === '0') continue;
-
-        // Which 96th-note tick does this step land on?
-        const tickIdx = stepTickMap[step] !== undefined ? stepTickMap[step] : Math.floor((step * maxTicks) / stepCount);
-
-        // Resolve player key
-        let targetKey: string | null = typeof state === 'string' ? state : String(state);
-        let isStrong = false;
-
-        if (inst.type === 'gongue') {
-          if (state === 'G' || state === 'A') { isStrong = true; }
-        } else if (inst.id === 'caixa') {
-          if (['D', 'E', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
-        } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
-          if (['D', 'E', 'X', 'I', 'C'].includes(state)) { isStrong = true; }
-        } else if (inst.id === 'tarol') {
-          if (['D', 'E', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
-        } else if (inst.id === 'agbe') {
-          if (['D', 'E', 'S'].includes(state)) { isStrong = true; }
-        } else {
-          if (['D', 'E', 'P', 'T'].includes(state as string)) { isStrong = true; }
-        }
-
-        if (!targetKey) continue;
-
-        const baseVol = activePattern.volumes?.[step] ?? 80;
-        // Humanization : la variation est proportionnelle au volume (+/- 15% du volume actuel)
-        const volVariation = (Math.random() * 2 - 1) * (baseVol * 0.15);
-        let finalVol = baseVol + volVariation;
-        finalVol = Math.max(0, Math.min(100, finalVol)); // Clamp entre 0 et 100
-
-        const stepVolMultiplier = finalVol / 100;
-        const stepDecayMultiplier = (activePattern.decays?.[step] ?? 100) / 100;
-        const microtimingPct = activePattern.microtimings?.[step] ?? 0;
-
-        if (!measureMap.has(tickIdx)) measureMap.set(tickIdx, []);
-        measureMap.get(tickIdx)!.push({
-          instId: inst.id,
-          playerKey: targetKey,
-          baseGain: 1.0,
-          stepVolMultiplier,
-          stepDecayMultiplier,
-          isStrong,
-          microtimingPct,
-          stepsPerMeasure: stepCount,
-          trackId: track.id,
-          circleStepIdx: step,
-          state,
-          isTuplet: stepIsTupletMap[step] || false,
-        });
-      }
-    });
-
-    schedule.set(measureIdx, measureMap);
-  }
-  return schedule;
-}
 
 function buildDynamicMeasureSchedule(
   tracks: any[],
@@ -449,6 +318,8 @@ export function useAudioSync({
 }: UseAudioSyncProps) {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isCompiling, setIsCompiling] = useState<boolean>(false);
+  const compilerWorkerRef = useRef<Worker | null>(null);
   const [currentMeasure, setCurrentMeasure] = useState<number>(0);
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(-1);
 
@@ -610,23 +481,50 @@ export function useAudioSync({
     );
   }, [tracks]);
 
-  // Recompile tick schedule when state changes
+  // Recompile tick schedule when state changes (Async Worker)
   useEffect(() => {
     if (import.meta.env.DEV) {
-      console.log("⚙️⚙️⚙️ [AUDIO_ENGINE_SYNC_&_RECOMPILE] Hook state changed! Recompiling tickScheduleRef...");
+      console.log("⚙️⚙️⚙️ [AUDIO_ENGINE_SYNC_&_RECOMPILE] Hook state changed! Triggering Async Compilation...");
     }
-    try {
-      const schedule = buildTickSchedule(
-        tracks,
-        totalMeasures,
-        measureTimeSigs,
-        instrumentsConfig,
-        soloPatternPlayId
-      );
-      tickScheduleRef.current = schedule;
-    } catch (err) {
-      console.error("❌ Failed to compile tick schedule:", err);
+
+    if (compilerWorkerRef.current) {
+      compilerWorkerRef.current.terminate();
     }
+    
+    setIsCompiling(true);
+    const worker = new Worker(new URL('../workers/audioCompiler.worker.ts', import.meta.url), { type: 'module' });
+    compilerWorkerRef.current = worker;
+
+    worker.onmessage = (e) => {
+      setIsCompiling(false);
+      if (e.data.success) {
+        const serialized = e.data.data;
+        const newSchedule = new Map<number, Map<number, ScheduledNote[]>>();
+        for (const [mIdx, measureEntries] of serialized) {
+          const mMap = new Map<number, ScheduledNote[]>(measureEntries);
+          newSchedule.set(mIdx, mMap);
+        }
+        tickScheduleRef.current = newSchedule;
+      } else {
+        console.error("❌ Worker compilation failed:", e.data.error);
+      }
+    };
+
+    worker.postMessage({
+      tracks,
+      totalMeasures,
+      measureTimeSigs,
+      instConfig: instrumentsConfig,
+      soloPatternPlayId
+    });
+
+    return () => {
+      if (compilerWorkerRef.current) {
+        compilerWorkerRef.current.terminate();
+        compilerWorkerRef.current = null;
+        setIsCompiling(false);
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     tracksMusicalSignature,
@@ -1382,6 +1280,7 @@ export function useAudioSync({
     setCurrentMeasure,
     setCurrentStepIndex,
     setIsLoading,
+    isCompiling,
     isMetroOn,
     setIsMetroOn,
     metroVolume,

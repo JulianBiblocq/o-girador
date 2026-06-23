@@ -48,7 +48,7 @@ export default defineConfig(({ command }) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,wav,mp3,ogg,json,woff2,otf}'],
-          maximumFileSizeToCacheInBytes: 15 * 1024 * 1024, // 15MB
+          maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
         }
       }),
 
@@ -61,20 +61,27 @@ export default defineConfig(({ command }) => {
               
               // Check if URL matches the Mixdown folder path or files
               if (decodedUrl.includes('/Mixdown/') || decodedUrl.includes('/mixdown/')) {
-                let filePath = '';
+                const mixdownBaseDir = path.resolve('E:/projets/Roda de maracatu/Mixdown');
                 
-                if (decodedUrl.startsWith('/E:/') || decodedUrl.startsWith('/e:/')) {
-                  filePath = decodedUrl.substring(1);
-                } else if (decodedUrl.includes('Mixdown/')) {
-                  const mixdownIdx = decodedUrl.indexOf('Mixdown/');
-                  filePath = path.join('E:/projets/Roda de maracatu', decodedUrl.substring(mixdownIdx));
-                } else if (decodedUrl.includes('mixdown/')) {
-                  const mixdownIdx = decodedUrl.indexOf('mixdown/');
-                  filePath = path.join('E:/projets/Roda de maracatu/Mixdown', decodedUrl.substring(mixdownIdx + 'mixdown/'.length));
+                // Extract relative path after Mixdown/ to support subdirectories
+                let relativePath = '';
+                if (decodedUrl.includes('/Mixdown/')) {
+                  relativePath = decodedUrl.split('/Mixdown/')[1].split('?')[0];
+                } else {
+                  relativePath = decodedUrl.split('/mixdown/')[1].split('?')[0];
+                }
+                
+                const filePath = path.join(mixdownBaseDir, relativePath);
+                
+                // Strict chroot verification
+                if (!filePath.startsWith(mixdownBaseDir)) {
+                  res.statusCode = 403;
+                  res.end('403 Forbidden: Path traversal attempt detected');
+                  return;
                 }
                 
                 // Let's check absolute path
-                if (filePath && fs.existsSync(filePath)) {
+                if (fs.existsSync(filePath)) {
                   res.setHeader('Content-Type', 'audio/ogg');
                   fs.createReadStream(filePath).pipe(res);
                   return;
@@ -82,8 +89,15 @@ export default defineConfig(({ command }) => {
                 
                 // Fallback: search in sibling Mixdown directory relative to project root
                 const relativeMixdown = path.resolve(__dirname, '..', 'Mixdown');
-                const filename = path.basename(decodedUrl);
-                const fallbackPath = path.join(relativeMixdown, filename);
+                const fallbackPath = path.join(relativeMixdown, relativePath);
+                
+                // Strict chroot verification fallback
+                if (!fallbackPath.startsWith(relativeMixdown)) {
+                  res.statusCode = 403;
+                  res.end('403 Forbidden: Path traversal attempt detected');
+                  return;
+                }
+
                 if (fs.existsSync(fallbackPath)) {
                   res.setHeader('Content-Type', 'audio/ogg');
                   fs.createReadStream(fallbackPath).pipe(res);

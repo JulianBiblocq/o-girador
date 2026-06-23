@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import * as Tone from 'tone';
-import { useAudioSync, audioEngine, masterVolumeNode, buildTickSchedule } from '../hooks/useAudioSync';
+import { useAudioSync, audioEngine, masterVolumeNode } from '../hooks/useAudioSync';
 import { useSequencer } from './SequencerContext';
 import { getVocalRecording, saveVocalRecording } from '../db';
 import { getLocalLibrary, savePresetToLibrary } from '../library';
@@ -48,6 +48,7 @@ export type AudioContextType = ReturnType<typeof useAudioSync> & {
   activePresetName: string;
   setActivePresetName: React.Dispatch<React.SetStateAction<string>>;
   handleTimeSigChange: (selectValue: TimeSignature) => Promise<void>;
+  isCompiling: boolean;
 };
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
@@ -426,23 +427,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       sequencer.measureVolsRef.current = loadedVols;
       sequencer.measureVolTransitionsRef.current = loadedVolTransitions;
 
-      try {
-        if (import.meta.env.DEV) {
-          console.log("⚙️⚙️⚙️ [loadFallbackPreset] Compiling tick schedule synchronously...");
-        }
-        audioSync.tickScheduleRef.current = buildTickSchedule(
-          loadedTracks,
-          loadedMeasures,
-          loadedTimeSigs,
-          instrumentsConfig,
-          null
-        );
-        if (import.meta.env.DEV) {
-          console.log("✅✅✅ [loadFallbackPreset] Done. Compiled measures count:", audioSync.tickScheduleRef.current.size);
-        }
-      } catch (err) {
-        console.error("❌❌❌ [loadFallbackPreset] Synchronous compilation failed:", err);
-      }
+      // La compilation asynchrone est désormais automatiquement déclenchée par le changement 
+      // de références (sequencer.setTracks) via le useEffect du useAudioSync hook.
 
       sequencer.measureCountRef.current = 0;
       audioSync.setCurrentMeasure(0);
