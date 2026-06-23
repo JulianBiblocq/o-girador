@@ -1,5 +1,5 @@
 import { db } from './firebase/config';
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc , query, limit } from 'firebase/firestore';
 import { CloudSection, CatalogVisibility, SavedSectionData } from './types';
 import LZString from 'lz-string';
 
@@ -41,7 +41,7 @@ export async function fetchCloudSections(
   const sectionsRef = collection(db, CLOUD_SECTIONS_COLLECTION);
   
   try {
-    const snapshot = await getDocs(sectionsRef);
+    const snapshot = await getDocs(query(sectionsRef, limit(50)));
     
     snapshot.forEach(docSnap => {
       const data = docSnap.data();

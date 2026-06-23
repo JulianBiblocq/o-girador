@@ -1,5 +1,5 @@
 import { db } from './firebase/config';
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc , query, limit } from 'firebase/firestore';
 import { CloudPattern, CatalogVisibility, SavedPattern } from './types';
 import LZString from 'lz-string';
 
@@ -42,7 +42,7 @@ export async function fetchCloudPatterns(
   const patternsRef = collection(db, CLOUD_PATTERNS_COLLECTION);
   
   try {
-    const snapshot = await getDocs(patternsRef);
+    const snapshot = await getDocs(query(patternsRef, limit(50)));
     
     snapshot.forEach(docSnap => {
       const data = docSnap.data();

@@ -4,6 +4,8 @@
  */
 
 import React from 'react';
+import { RhythmSignal, TrackGroup, Language } from '../types';
+import DOMPurify from 'dompurify';
 import { i18n, instrumentsConfig, getMaxTicks } from '../data';
 import { AudioTrackRecorder } from './AudioTrackRecorder';
 import gifshot from 'gifshot';
@@ -403,11 +405,11 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                 <p className="font-bold text-[var(--cordel-wood)] dark:text-[#f1c40f] mt-0.5 mb-0.5">
                   {t('seqDesktopTitle')}
                 </p>
-                <p dangerouslySetInnerHTML={{ __html: t('seqDesktopKeys') }} className="mb-2 pl-1" />
+                <p dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(t('seqDesktopKeys')) }} className="mb-2 pl-1" />
                 <p className="font-bold text-[var(--cordel-wood)] dark:text-[#f1c40f] mb-0.5">
                   {t('seqMobileTitle')}
                 </p>
-                <p dangerouslySetInnerHTML={{ __html: t('seqMobileKeys') }} className="pl-1" />
+                <p dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(t('seqMobileKeys')) }} className="pl-1" />
               </div>
             </div>
 
@@ -417,7 +419,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                 {t('wavExportTitle')}
               </span>
               <div className="text-[11px] text-[var(--cordel-text)] leading-relaxed">
-                <p dangerouslySetInnerHTML={{ __html: t('wavExportDesc') }} />
+                <p dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(t('wavExportDesc')) }} />
               </div>
             </div>
 
@@ -427,7 +429,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                 {t('pwaOfflineTitle')}
               </span>
               <div className="text-[11px] text-[var(--cordel-text)] leading-relaxed">
-                <p dangerouslySetInnerHTML={{ __html: t('pwaOfflineDesc') }} />
+                <p dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(t('pwaOfflineDesc')) }} />
               </div>
             </div>
 
@@ -438,8 +440,8 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                 {t('voiceLegendTitle')}
               </span>
               <div className="text-xs text-[var(--cordel-text)] leading-relaxed">
-                <p dangerouslySetInnerHTML={{ __html: t('voiceLegend1') }} />
-                <p dangerouslySetInnerHTML={{ __html: t('voiceLegend2') }} />
+                <p dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(t('voiceLegend1')) }} />
+                <p dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(t('voiceLegend2')) }} />
               </div>
             </div>
 

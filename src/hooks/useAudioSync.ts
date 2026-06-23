@@ -484,7 +484,6 @@ export function useAudioSync({
   // Recompile tick schedule when state changes (Async Worker)
   useEffect(() => {
     if (import.meta.env.DEV) {
-      console.log("⚙️⚙️⚙️ [AUDIO_ENGINE_SYNC_&_RECOMPILE] Hook state changed! Triggering Async Compilation...");
     }
 
     if (compilerWorkerRef.current) {
@@ -661,7 +660,6 @@ export function useAudioSync({
         rawCtx,
         (time) => {
           if (import.meta.env.DEV) {
-            console.log("⏰⏰⏰ [AUDIO ENGINE ON_TICK CALLBACK] Fired. time: " + time + " | currentStepIndexRef: " + currentStepIndexRef.current);
           }
           let currentTicks = maxTicksRef.current;
           let stepIdx = currentStepIndexRef.current;
@@ -900,7 +898,6 @@ export function useAudioSync({
                   const finalVel = note.baseGain * vel * trackVolLinear;
 
                   if (import.meta.env.DEV) {
-                    console.log("🎵 [PLAY NOTE] AudioEngine", note.instId, note.playerKey, triggerTime);
                   }
                   audioEngine?.playNote(note.instId, note.playerKey, triggerTime, finalVel, note.stepDecayMultiplier);
                 }
@@ -1065,7 +1062,6 @@ export function useAudioSync({
 
   const handleTogglePlay = async () => {
     if (import.meta.env.DEV) {
-      console.log("📣📣📣 [PLAY_BUTTON_TRIGGERED] handleTogglePlay called! Current state -> isPlaying: " + isPlaying + " | currentStepIndexRef: " + currentStepIndexRef.current);
     }
     await Tone.start();
     if (soloPatternPlayIdRef.current !== null) {
@@ -1077,13 +1073,11 @@ export function useAudioSync({
         Tone.Transport.start();
       }
       if (import.meta.env.DEV) {
-        console.log("🚀 [AUDIO ENGINE START] Starting audioEngine. Step index ref:", currentStepIndexRef.current);
       }
       audioEngine?.start();
       setIsPlaying(true);
     } else {
       if (import.meta.env.DEV) {
-        console.log("⏸️ [AUDIO ENGINE STOP] Stopping audioEngine.");
       }
       audioEngine?.stop();
       Tone.Draw.cancel();
@@ -1257,7 +1251,6 @@ export function useAudioSync({
       const paramHash = `${db}_${pan}_${muteState}_${reverb}`;
 
       if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
-        // console.log(`Setting track ${inst.id} volume to ${t.volumeVal}% (db: ${db})`);
         channels[inst.id].volume.value = db;
         channels[inst.id].pan.value = pan;
         channels[inst.id].mute = muteState;

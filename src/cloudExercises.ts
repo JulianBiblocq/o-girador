@@ -1,5 +1,5 @@
 import { db } from './firebase/config';
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, limit } from 'firebase/firestore';
 import LZString from 'lz-string';
 
 export type GameType = 'quiz' | 'dictee' | 'sablier' | 'inspecteur';
@@ -36,7 +36,7 @@ export async function checkExerciseNameExists(ownerId: string, gameType: GameTyp
     where('gameType', '==', gameType),
     where('name', '==', name)
   );
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(query(q, limit(1)));
   return !snapshot.empty;
 }
 
@@ -77,7 +77,7 @@ export async function fetchMestreExercises(ownerId: string, gameType: GameType):
     where('ownerId', '==', ownerId),
     where('gameType', '==', gameType)
   );
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(query(q, limit(50)));
   
   return snapshot.docs.map(doc => ({
     id: doc.id,
@@ -93,7 +93,7 @@ export async function fetchAllMestreExercises(ownerId: string): Promise<CloudExe
     collection(db, EXERCISES_COLLECTION),
     where('ownerId', '==', ownerId)
   );
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(query(q, limit(50)));
   
   return snapshot.docs.map(doc => ({
     id: doc.id,
@@ -113,7 +113,7 @@ export async function checkProgressionNameExists(ownerId: string, name: string):
     where('ownerId', '==', ownerId),
     where('name', '==', name)
   );
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(query(q, limit(1)));
   return !snapshot.empty;
 }
 
@@ -144,7 +144,7 @@ export async function fetchMestreProgressions(ownerId: string): Promise<CloudPro
     collection(db, PROGRESSIONS_COLLECTION),
     where('ownerId', '==', ownerId)
   );
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(query(q, limit(50)));
   
   return snapshot.docs.map(doc => ({
     id: doc.id,

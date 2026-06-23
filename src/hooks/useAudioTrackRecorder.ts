@@ -267,7 +267,6 @@ export function useAudioTrackRecorder({
         }
       }, 1000);
 
-      console.log(`🔊 [PLAYBACK TRACK] Offset: ${offsetSec}s, Duration: ${audioBuffer.duration}s`);
       player.start(Tone.now(), offsetSec);
     } catch (err: any) {
       console.error("Error during track playback:", err);

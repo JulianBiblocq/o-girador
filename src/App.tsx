@@ -147,7 +147,6 @@ export default function App() {
       deferredPrompt.prompt();
       const choiceResult = await deferredPrompt.userChoice;
       if (choiceResult.outcome === 'accepted') {
-        console.log('User accepted the install prompt');
       }
       setDeferredPrompt(null);
     }
@@ -424,7 +423,6 @@ export default function App() {
               const savedState = JSON.parse(savedStateStr);
               await audio.applyPreset(savedState);
               restoredFromLocalStorage = true;
-              console.log('[O Girador] Autosave restored from localStorage.');
             }
           } catch (err) {
             console.error('[O Girador] Failed to restore autosave from localStorage:', err);

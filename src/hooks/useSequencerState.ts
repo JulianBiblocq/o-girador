@@ -713,7 +713,6 @@ export function useSequencerState() {
                 replacement[i] = copy[startIndex + i];
               }
             } else {
-              console.log(`[DEBUG] dontCopy is true! Replacing with defaultVal:`, defaultVal, `replacement:`, replacement);
             }
             copy.splice(startIndex, oldRes, ...replacement);
             return copy;

@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, getDocs, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, deleteDoc, query, where, limit } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from './firebase/config';
 import { CloudRhythmSignal } from './types';
@@ -8,7 +8,7 @@ export const fetchMestreSignals = async (mestreId: string): Promise<CloudRhythmS
   try {
     const mestreIdsToFetch = mestreId === 'global' ? ['global'] : ['global', mestreId];
     const q = query(collection(db, 'mestre_signals'), where('mestreId', 'in', mestreIdsToFetch));
-    const querySnapshot = await getDocs(q);
+    const querySnapshot = await getDocs(query(q, limit(50)));
     const signals: CloudRhythmSignal[] = [];
     querySnapshot.forEach((doc) => {
       signals.push(doc.data() as CloudRhythmSignal);

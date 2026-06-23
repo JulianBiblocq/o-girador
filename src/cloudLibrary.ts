@@ -1,5 +1,5 @@
 import { db } from './firebase/config';
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc , query, limit } from 'firebase/firestore';
 import { CloudPreset, Preset, CatalogVisibility } from './types';
 import LZString from 'lz-string';
 
@@ -45,7 +45,7 @@ export async function fetchCloudPresets(
   const presetsRef = collection(db, CLOUD_PRESETS_COLLECTION);
   
   try {
-    const snapshot = await getDocs(presetsRef); // Client-side filtering for simplicity due to multiple OR conditions
+    const snapshot = await getDocs(query(presetsRef, limit(50))); // Client-side filtering for simplicity due to multiple OR conditions
     
     snapshot.forEach(doc => {
       const data = doc.data() as Omit<CloudPreset, 'id'>;

@@ -1544,7 +1544,8 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
           )}
 
           {/* ══════════ TRACK ROWS ══════════ */}
-            />
+          {tracks.map(track => (
+            <TimelineTrackRow key={track.id} trackId={track.id} />
           ))}
           {/* ══════════ PLAYHEAD (Bypass React via Ref) ══════════ */}
           <TimelinePlayhead />
