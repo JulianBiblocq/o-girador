@@ -5,17 +5,23 @@
 
 import React, { useEffect, useRef } from 'react';
 import * as Tone from 'tone';
-import { TrackGroup, Language, TimeSignature, SongSection, PresetMetadata, RhythmSignal } from '../types';
+import { TrackGroup, Language, TimeSignature, SongSection, PresetMetadata, RhythmSignal, CloudRhythmSignal } from '../types';
 import { ASSETS_BASE_URL, instrumentsConfig, getMaxTicks, getMarkers, isDarkText, getVisualStrokeSymbol } from '../data';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
 
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
+import { useAuth } from '../contexts/AuthContext';
+import { SubscriptionModal } from './SubscriptionModal';
 
 interface TimelineSequencerProps {
   isMobile: boolean;
   measureWidth: number;
   onMeasureWidthChange: (width: number) => void;
+  onExportTablature?: () => void;
+  mestreSignals?: CloudRhythmSignal[];
+  onSaveCloudSection?: (section: SongSection) => void;
+  onLoadCloudSection?: (insertAtMeasure: number) => void;
 }
 
 const HEADER_W = 180;
@@ -29,9 +35,15 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   isMobile,
   measureWidth,
   onMeasureWidthChange,
+  onExportTablature,
+  mestreSignals = [],
+  onSaveCloudSection,
+  onLoadCloudSection,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
+  const { hasAccess } = useAuth();
+  const [showSubModal, setShowSubModal] = React.useState(false);
 
   const {
     lang,
@@ -73,7 +85,11 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     handleInsertMeasure: onInsertMeasure,
   } = sequencer;
 
-  const rhythmSignals = metadata?.rhythmSignals || [];
+  const localRhythmSignals = metadata?.rhythmSignals || [];
+  const rhythmSignals = [
+    ...mestreSignals.map(s => ({ id: s.id, name: s.name, image: s.imageUrl, isCloud: true })),
+    ...localRhythmSignals.map(s => ({ id: s.id, name: s.name, image: s.image, isCloud: false }))
+  ];
 
   const {
     isPlaying,
@@ -243,7 +259,10 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   };
 
   const handleRulerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return; // Clic gauche uniquement
+    const target = e.target as HTMLElement;
+    if (['INPUT', 'SELECT', 'BUTTON'].includes(target.tagName)) return;
+    
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (!scrollRef.current) return;
     const rect = scrollRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
@@ -288,6 +307,9 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   };
 
   const handleRulerTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    if (['INPUT', 'SELECT', 'BUTTON'].includes(target.tagName)) return;
+    
     if (!scrollRef.current) return;
     const rect = scrollRef.current.getBoundingClientRect();
     const touch = e.touches[0];
@@ -296,6 +318,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     
     isScrubbing.current = true;
     handleRulerClickOrDrag(touch.clientX);
+    // Don't preventDefault here unconditionally if it causes issues, but we already filtered inputs.
     e.preventDefault();
   };
 
@@ -822,6 +845,9 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   const zoomStyles = {
     '--zoom-level': String(measureWidth / 480),
     '--measure-width': `${measureWidth}px`,
+    WebkitTouchCallout: 'none',
+    WebkitUserSelect: 'none',
+    userSelect: 'none',
   } as React.CSSProperties;
 
   return (
@@ -831,6 +857,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
       data-mobile={isMobile ? 'true' : 'false'}
       style={{ ...zoomStyles, touchAction: 'pan-x pan-y' }}
       className="timeline-sequencer-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden sequencer-bg text-[var(--cordel-text)] select-none"
+      onContextMenu={(e) => e.preventDefault()}
     >
       {/* ══════════ TIMELINE OVERVIEW (MINI-MAP) ══════════ */}
       <div className="border-b border-[var(--cordel-border)]/20 bg-[var(--cordel-bg)] px-4 py-2 shrink-0 select-none">
@@ -1081,7 +1108,13 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
                           if (val) {
                             const count = parseInt(val, 10);
                             if (!isNaN(count) && count > 0) {
-                              onUpdateSectionRepeat(section.id, count);
+                              const sectionLength = section.endMeasure - section.startMeasure + 1;
+                              const diff = (count - (section.repeatCount || 1)) * sectionLength;
+                              if (totalMeasures + diff > 20 && !hasAccess('mestre')) {
+                                setShowSubModal(true);
+                              } else {
+                                onUpdateSectionRepeat(section.id, count);
+                              }
                             }
                           }
                         }}
@@ -1411,7 +1444,14 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
               onTouchStart={(e) => e.stopPropagation()}
             >
               <button
-                onClick={() => onTotalMeasuresChange(Math.min(64, totalMeasures + 1))}
+                onClick={() => {
+                  const newTotal = Math.min(64, totalMeasures + 1);
+                  if (newTotal > 20 && !hasAccess('mestre')) {
+                    setShowSubModal(true);
+                  } else {
+                    onTotalMeasuresChange(newTotal);
+                  }
+                }}
                 className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] flex items-center justify-center gap-1 w-full"
                 title={lang === 'fr' ? 'Ajouter une mesure' : 'Adicionar compasso'}
                 style={{ height: '28px' }}
@@ -1611,8 +1651,8 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
 
       {/* ══════════ SECTION FORM MODAL ══════════ */}
       {sectionModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs">
-          <div className="w-[360px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-5 cordel-border-sm cordel-shadow flex flex-col gap-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-[460px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-5 cordel-border-sm cordel-shadow flex flex-col gap-4">
             <h3 className="font-cactus text-xl font-bold uppercase border-b border-[var(--cordel-border)] pb-2 text-[var(--cordel-text)]">
               {editingSection 
                 ? (lang === 'fr' ? 'Modifier la Section' : 'Editar Seção')
@@ -1707,7 +1747,35 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
               </select>
             </div>
 
-            <div className="flex justify-end gap-2.5 mt-2 border-t border-[var(--cordel-border)]/30 pt-3">
+            <div className="flex flex-wrap justify-end gap-2.5 mt-2 border-t border-[var(--cordel-border)]/30 pt-3">
+              <div className="flex flex-wrap gap-2.5 mr-auto">
+                {editingSection && onSaveCloudSection && (
+                  <button
+                    onClick={() => {
+                      onSaveCloudSection(editingSection);
+                      setSectionModalOpen(false);
+                    }}
+                    className="px-3 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[#6b1e11]"
+                    title={lang === 'fr' ? 'Sauvegarder dans le Cloud' : 'Salvar na Nuvem'}
+                  >
+                    ☁️ {lang === 'fr' ? 'Sauvegarder' : 'Salvar'}
+                  </button>
+                )}
+                {onLoadCloudSection && (
+                  <button
+                    onClick={() => {
+                      let startVal = parseInt(String(sectionFormStart)) || 1;
+                      startVal = Math.max(1, Math.min(totalMeasures, startVal));
+                      onLoadCloudSection(startVal - 1);
+                      setSectionModalOpen(false);
+                    }}
+                    className="px-3 py-1.5 bg-white/10 text-[var(--cordel-text)] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-white/20"
+                    title={lang === 'fr' ? 'Importer une Section' : 'Importar uma Seção'}
+                  >
+                    📥 {lang === 'fr' ? 'Importer' : 'Importar'}
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => setSectionModalOpen(false)}
                 className="px-3 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
@@ -1738,6 +1806,9 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
       )}
 
       {/* Tablature Export Modal removed (lifted to App.tsx) */}
+      {showSubModal && (
+        <SubscriptionModal lang={lang} onClose={() => setShowSubModal(false)} />
+      )}
     </div>
   );
 };

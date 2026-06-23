@@ -1,0 +1,59 @@
+{
+  "bpm": 150,
+  "timeSig": "4/4",
+  "version": 3,
+  "totalMeasures": 1,
+  "tracks": [
+    {
+      "id": 1,
+      "instrumentIdx": 0,
+      "isMute": false,
+      "isSolo": false,
+      "patterns": [
+        {
+          "id": 1,
+          "name": "Alfaia",
+          "steps": 16,
+          "activeSteps": ["0","D","0","D","E","0","D","0","D","0","E","0","E","0","E","D"],
+          "measureAssignments": [true],
+          "volumes": [100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "instrumentIdx": 3,
+      "isMute": false,
+      "isSolo": false,
+      "patterns": [
+        {
+          "id": 2,
+          "name": "Caixa",
+          "steps": 16,
+          "activeSteps": ["B","B","B","B","B","B","B","B","B","B","B","B","B","B","B","B"],
+          "measureAssignments": [true],
+          "volumes": [100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "instrumentIdx": 5,
+      "isMute": false,
+      "isSolo": false,
+      "patterns": [
+        {
+          "id": 3,
+          "name": "Gonguê",
+          "steps": 16,
+          "activeSteps": ["B","0","B","0","B","0","B","0","B","0","B","0","B","0","B","0"],
+          "measureAssignments": [true]
+        }
+      ]
+    }
+  ],
+  "letras": [],
+  "metadata": {
+    "title": "Fatras"
+  }
+}

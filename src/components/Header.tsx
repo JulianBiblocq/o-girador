@@ -62,7 +62,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
-  const { hasAccess } = useAuth();
+  const { hasAccess, userProfile } = useAuth();
 
   const {
     lang,
@@ -299,11 +299,13 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
                     <Share2 className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Compartilhar' : 'Partager'}
                   </button>
-                  <button onClick={() => { fileInputRef.current?.click(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
-                    <Upload className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Importar' : 'Importer'}
-                  </button>
+                  {userProfile?.role === 'admin' && (
+                    <button onClick={() => { fileInputRef.current?.click(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
+                      <Upload className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Importar' : 'Importer'}
+                    </button>
+                  )}
                   <button onClick={() => { onSave(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
-                    <Download className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Exportar' : 'Exporter'}
+                    <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar' : 'Sauvegarder'}
                   </button>
                   <button onClick={() => { onExportTablature?.(); setMobileMenuOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-center w-full col-span-2">
                     <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'fr' ? 'Exporter Partition (TAB)' : 'Exportar Partitura (TAB)'}
@@ -539,47 +541,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               {jogoDropOpen && (
               <div className="absolute top-10 right-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] min-w-[160px] z-[100] flex flex-col py-1">
                 <button
-                  onClick={() => { onViewModeToggle('quiz'); setJogoDropOpen(false); }}
-                  className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
-                    viewMode === 'quiz' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
-                  }`}
-                >
-                  🎓 {lang === 'pt' ? 'Quiz' : 'Quiz'}
-                </button>
-                <button
-                  onClick={() => { onViewModeToggle('dictee'); setJogoDropOpen(false); }}
-                  className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
-                    viewMode === 'dictee' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
-                  }`}
-                >
-                  🧩 {lang === 'pt' ? 'Ditado' : 'Dictée'}
-                </button>
-                <button
-                  onClick={() => { onViewModeToggle('inspecteur'); setJogoDropOpen(false); }}
-                  className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
-                    viewMode === 'inspecteur' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
-                  }`}
-                >
-                  🔍 {lang === 'pt' ? 'Inspetor' : 'Inspecteur'}
-                </button>
-                <button
-                  onClick={() => { onViewModeToggle('mestre'); setJogoDropOpen(false); }}
-                  className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
-                    viewMode === 'mestre' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
-                  }`}
-                >
-                  ⏳ {lang === 'pt' ? 'Mestre' : 'Mestre'}
-                </button>
-                <button
-                  onClick={() => { onViewModeToggle('rythmelive'); setJogoDropOpen(false); }}
-                  className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
-                    viewMode === 'rythmelive' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
-                  }`}
-                >
-                  🥁 {lang === 'pt' ? 'Ritmo Live' : 'Rythme Live'}
-                </button>
-                <div className="border-t border-dashed border-[var(--cordel-border)]/30 my-1"></div>
-                <button
                   onClick={() => { onViewModeToggle('varal'); setJogoDropOpen(false); }}
                   className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
                     viewMode === 'varal' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
@@ -587,6 +548,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 >
                   🪢 {lang === 'pt' ? 'Varal (Progresso)' : 'Varal (Progression)'}
                 </button>
+
                 <div className="border-t border-dashed border-[var(--cordel-border)]/30 my-1"></div>
                 {hasAccess('mestre') && (
                   <button
@@ -714,11 +676,13 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   <button onClick={() => { if (onShare) onShare(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[#2980b9] text-[#1a1a1a] cordel-border-sm text-[10px] font-bold font-cactus hover:opacity-90 cursor-pointer w-full border-none">
                     <Share2 className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Compartilhar' : 'Partager'}
                   </button>
-                  <button onClick={() => { fileInputRef.current?.click(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">
-                    <Upload className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Importar' : 'Importer'}
-                  </button>
-                  <button onClick={() => { onSave(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">
-                    <Download className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Exportar' : 'Exporter'}
+                  {userProfile?.role === 'admin' && (
+                    <button onClick={() => { fileInputRef.current?.click(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">
+                      <Upload className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Importar' : 'Importer'}
+                    </button>
+                  )}
+                  <button onClick={() => { onSave(); setProjectDropOpen(false); }} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full ${userProfile?.role !== 'admin' ? 'col-span-2' : ''}`}>
+                    <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar' : 'Sauvegarder'}
                   </button>
                   <button onClick={() => { onExportTablature?.(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full col-span-2">
                     <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Exportar Partitura (TAB)' : 'Exporter Partition (TAB)'}
@@ -850,47 +814,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           {jogoDropOpen && hasAccess('eleve') && (
             <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] min-w-[200px] z-[100] flex flex-col py-1">
               <button
-                onClick={() => { onViewModeToggle('quiz'); setJogoDropOpen(false); }}
-                className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
-                  viewMode === 'quiz' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
-                }`}
-              >
-                🎓 {lang === 'pt' ? 'Quiz Pedagógico' : 'Quiz Pédagogique'}
-              </button>
-              <button
-                onClick={() => { onViewModeToggle('dictee'); setJogoDropOpen(false); }}
-                className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
-                  viewMode === 'dictee' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
-                }`}
-              >
-                🧩 {lang === 'pt' ? 'Ditado de Blocos' : 'Dictée de Blocs'}
-              </button>
-              <button
-                onClick={() => { onViewModeToggle('inspecteur'); setJogoDropOpen(false); }}
-                className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
-                  viewMode === 'inspecteur' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
-                }`}
-              >
-                🔍 {lang === 'pt' ? 'O Inspetor' : "L'Inspecteur"}
-              </button>
-              <button
-                onClick={() => { onViewModeToggle('mestre'); setJogoDropOpen(false); }}
-                className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
-                  viewMode === 'mestre' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
-                }`}
-              >
-                ⏳ {lang === 'pt' ? 'Sabão do Mestre' : 'Sablier du Mestre'}
-              </button>
-              <button
-                onClick={() => { onViewModeToggle('rythmelive'); setJogoDropOpen(false); }}
-                className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
-                  viewMode === 'rythmelive' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
-                }`}
-              >
-                🥁 {lang === 'pt' ? 'Ritmo Live' : 'Rythme Live'}
-              </button>
-              <div className="border-t border-dashed border-[var(--cordel-border)]/30 my-1"></div>
-              <button
                 onClick={() => { onViewModeToggle('varal'); setJogoDropOpen(false); }}
                 className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
                   viewMode === 'varal' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
@@ -898,6 +821,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               >
                 🪢 {lang === 'pt' ? 'Varal (Progresso)' : 'Varal (Progression)'}
               </button>
+
               <div className="border-t border-dashed border-[var(--cordel-border)]/30 my-1"></div>
               {hasAccess('mestre') && (
                 <button

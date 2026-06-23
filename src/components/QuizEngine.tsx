@@ -6,11 +6,17 @@ interface QuizEngineProps {
   lang: 'fr' | 'pt';
   onExit: () => void;
   onSuccess?: () => void;
+  exerciseData?: any;
 }
 
-export const QuizEngine: React.FC<QuizEngineProps> = ({ lang, onExit, onSuccess }) => {
+export const QuizEngine: React.FC<QuizEngineProps> = ({ lang, onExit, onSuccess, exerciseData }) => {
   // Lists of questions
-  const [currentQuestions, setCurrentQuestions] = useState<QuizQuestion[]>(quizQuestions);
+  const [currentQuestions, setCurrentQuestions] = useState<QuizQuestion[]>(() => {
+    if (exerciseData && exerciseData.questions) {
+      return exerciseData.questions;
+    }
+    return quizQuestions;
+  });
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});

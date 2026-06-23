@@ -8,6 +8,7 @@ interface RythmeLiveEngineProps {
   lang: 'fr' | 'pt';
   onExit: () => void;
   onSuccess?: () => void;
+  exerciseData?: any;
 }
 
 interface HitDetail {
@@ -16,14 +17,55 @@ interface HitDetail {
   rating: 'perfect' | 'medium' | 'miss';
 }
 
-export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit, onSuccess }) => {
+export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit, onSuccess, exerciseData }) => {
+  const exercisesList = React.useMemo(() => {
+    if (!exerciseData) return [rhythmLivePattern];
+    if (exerciseData.exercises && Array.isArray(exerciseData.exercises)) {
+      return exerciseData.exercises.map((ex: any) => {
+        let targetSteps: number[] = [];
+        if (ex.partition_cible && ex.partition_cible.length > 0) {
+           ex.partition_cible.forEach((t: any) => {
+             // For RythmeLive, we find the active steps.
+             t.activeSteps.forEach((val: number, idx: number) => {
+                if (val > 0) targetSteps.push(idx);
+             });
+           });
+        }
+        
+        const baseSteps = Array.from(new Set(targetSteps)).sort((a,b)=>a-b);
+        const fullTargetSteps: number[] = [];
+        const measures = ex.boucles_requises || 2;
+        for (let m = 0; m < measures; m++) {
+           baseSteps.forEach(s => fullTargetSteps.push(m * 16 + s));
+        }
+
+        return {
+          id: ex.id,
+          name: { fr: 'Exercice Rythme Live', pt: 'Exercício Ritmo Ao Vivo' },
+          targetInstrument: ex.instrument_eleve || 'caixa',
+          bpm: ex.bpm || 83,
+          totalMeasures: measures,
+          stepsPerMeasure: 16,
+          targetSteps: fullTargetSteps,
+          toleranceMs: ex.tolerance_ms || 80
+        };
+      });
+    }
+    return [rhythmLivePattern];
+  }, [exerciseData]);
+
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
+  const currentPattern = exercisesList[currentExerciseIndex];
+
   // Game state
   const [gameStatus, setGameStatus] = useState<'idle' | 'countdown' | 'playing' | 'finished'>('idle');
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const [progress, setProgress] = useState<number>(0);
-  const [hitDetails, setHitDetails] = useState<(HitDetail | null)[]>(
-    new Array(rhythmLivePattern.targetSteps.length).fill(null)
-  );
+  const [hitDetails, setHitDetails] = useState<(HitDetail | null)[]>([]);
+
+  useEffect(() => {
+    setHitDetails(new Array(currentPattern.targetSteps.length).fill(null));
+  }, [currentPattern]);
   
   // Real-time flash feedback
   const [flashState, setFlashState] = useState<{
@@ -92,7 +134,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
     setGameStatus('countdown');
     setCountdownValue(4);
     setProgress(0);
-    setHitDetails(new Array(rhythmLivePattern.targetSteps.length).fill(null));
+    setHitDetails(new Array(currentPattern.targetSteps.length).fill(null));
     setFlashState(null);
     lastHitTimeRef.current = 0;
 
@@ -109,7 +151,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
     }).toDestination();
 
     // Set Transport BPM to target
-    Tone.Transport.bpm.value = rhythmLivePattern.bpm;
+    Tone.Transport.bpm.value = currentPattern.bpm;
     
     // Make sure Transport is playing
     if (Tone.Transport.state !== 'started') {
@@ -117,7 +159,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
     }
 
     const t0 = Tone.Transport.seconds + 0.1; // 100ms padding
-    const beatDuration = 60 / rhythmLivePattern.bpm;
+    const beatDuration = 60 / currentPattern.bpm;
 
     // 1. Schedule the 4 countdown beats
     for (let i = 0; i < 4; i++) {
@@ -151,7 +193,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
     scheduledEventIdsRef.current.push(playStartEventId);
 
     // 3. Start progress animation loop
-    const totalDuration = rhythmLivePattern.totalMeasures * 4 * beatDuration;
+    const totalDuration = currentPattern.totalMeasures * 4 * beatDuration;
     const playEndTime = playStartTime + totalDuration;
 
     const updatePlayhead = () => {
@@ -195,9 +237,9 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
   };
 
   const handleUserHit = (elapsed: number) => {
-    const beatDuration = 60 / rhythmLivePattern.bpm;
-    const stepDuration = beatDuration / (rhythmLivePattern.stepsPerMeasure / 4);
-    const targets = rhythmLivePattern.targetSteps.map((step) => step * stepDuration);
+    const beatDuration = 60 / currentPattern.bpm;
+    const stepDuration = beatDuration / (currentPattern.stepsPerMeasure / 4);
+    const targets = currentPattern.targetSteps.map((step: number) => step * stepDuration);
 
     let closestIdx = -1;
     let minDiff = Infinity;
@@ -292,7 +334,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
   const perfectCount = hitDetails.filter((d) => d?.rating === 'perfect').length;
   const mediumCount = hitDetails.filter((d) => d?.rating === 'medium').length;
   const missCount = hitDetails.filter((d) => d?.rating === 'miss' || d === null).length;
-  const totalNotes = rhythmLivePattern.targetSteps.length;
+  const totalNotes = currentPattern.targetSteps.length;
   
   // Score: Perfect = 100% points, Medium = 50% points, Miss = 0%
   const scorePercent = totalNotes > 0 
@@ -406,7 +448,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
             </span>
             <div className="grid grid-cols-8 gap-1 p-2 bg-[var(--cordel-text)]/5 border border-[var(--cordel-border)]">
               {Array.from({ length: 32 }).map((_, stepIdx) => {
-                const isTarget = rhythmLivePattern.targetSteps.includes(stepIdx);
+                const isTarget = currentPattern.targetSteps.includes(stepIdx);
                 const beatIdx = Math.floor(stepIdx / 4) + 1;
                 const isBeatStart = stepIdx % 4 === 0;
 
@@ -430,8 +472,8 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
               })}
             </div>
             <div className="flex items-center justify-between text-[9px] text-[var(--cordel-text)]/70 font-semibold mt-1">
-              <span>{t.tempoLabel} {rhythmLivePattern.bpm} BPM</span>
-              <span>{lang === 'fr' ? '2 mesures' : '2 compassos'} ({rhythmLivePattern.targetSteps.length} {lang === 'fr' ? 'frappes' : 'toques'})</span>
+              <span>{t.tempoLabel} {currentPattern.bpm} BPM</span>
+              <span>{lang === 'fr' ? `${currentPattern.totalMeasures} mesures` : `${currentPattern.totalMeasures} compassos`} ({currentPattern.targetSteps.length} {lang === 'fr' ? 'frappes' : 'toques'})</span>
             </div>
           </div>
 
@@ -480,8 +522,9 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
               ))}
 
               {/* Target steps markers */}
-              {rhythmLivePattern.targetSteps.map((stepIdx, idx) => {
-                const stepPos = (stepIdx / 32) * 100;
+              {currentPattern.targetSteps.map((stepIdx: number, idx: number) => {
+                const totalTimelineSteps = currentPattern.totalMeasures * 16;
+                const stepPos = (stepIdx / totalTimelineSteps) * 100;
                 const hit = hitDetails[idx];
                 
                 let markerBg = 'bg-[var(--cordel-bg)]';
@@ -633,7 +676,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
             </span>
             <div className="max-h-24 overflow-y-auto border border-[var(--cordel-border)]/30 p-2 bg-[var(--cordel-text)]/5 flex flex-col gap-1 font-mono text-[9px]">
               {hitDetails.map((detail, idx) => {
-                const targetStep = rhythmLivePattern.targetSteps[idx];
+                const targetStep = currentPattern.targetSteps[idx];
                 const beatNum = Math.floor(targetStep / 4) + 1;
                 const subdiv = (targetStep % 4) + 1;
 
@@ -669,17 +712,43 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-3 mt-1">
-            <button
-              onClick={startGame}
-              className="flex-1 py-2.5 bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-cactus text-xs font-bold uppercase cordel-border flex items-center justify-center gap-1.5 hover:opacity-90 active:translate-y-0.5 cursor-pointer"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              {t.restartBtn}
-            </button>
+          <div className="flex flex-col gap-3 mt-1">
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setGameStatus('idle');
+                }}
+                className="flex-1 py-3 bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus font-bold text-sm uppercase cordel-border flex items-center justify-center gap-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors active:translate-y-0.5"
+              >
+                <RotateCcw className="w-4 h-4" /> {t.btnRetry}
+              </button>
+              
+              {scorePercent >= 70 && (
+                currentExerciseIndex < exercisesList.length - 1 ? (
+                  <button
+                    onClick={() => {
+                      setCurrentExerciseIndex(prev => prev + 1);
+                      setGameStatus('idle');
+                    }}
+                    className="flex-1 py-3 bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-cactus font-bold text-sm uppercase cordel-border flex items-center justify-center gap-2 hover:opacity-95 active:translate-y-0.5 transition-colors shadow-md"
+                  >
+                    {t.btnNext} <ArrowRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      onSuccess?.();
+                    }}
+                    className="flex-1 py-3 bg-green-600 text-white font-cactus font-bold text-sm uppercase cordel-border flex items-center justify-center gap-2 hover:opacity-95 active:translate-y-0.5 transition-colors shadow-md"
+                  >
+                    <Check className="w-4 h-4" /> {lang === 'fr' ? 'Terminer' : 'Terminar'}
+                  </button>
+                )
+              )}
+            </div>
             <button
               onClick={onExit}
-              className="flex-1 py-2.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] font-cactus text-xs font-bold uppercase hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full py-2.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] font-cactus text-xs font-bold uppercase hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] flex items-center justify-center gap-1.5 cursor-pointer"
             >
               {t.exitBtn}
             </button>

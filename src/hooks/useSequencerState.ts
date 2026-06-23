@@ -1648,6 +1648,133 @@ export function useSequencerState() {
     });
   };
 
+  const handleInsertCloudSection = (sectionData: import('../types').SavedSectionData, insertAtMeasure: number) => {
+    pushUndoState();
+    const n = sectionData.numMeasures;
+
+    setTotalMeasures(prev => prev + n);
+
+    setMeasureTimeSigs(prev => [
+      ...prev.slice(0, insertAtMeasure),
+      ...sectionData.timeSigs,
+      ...prev.slice(insertAtMeasure)
+    ]);
+    
+    setMeasureBpms(prev => {
+      const fallbackBpm = insertAtMeasure > 0 && prev[insertAtMeasure - 1] ? prev[insertAtMeasure - 1] : 83;
+      const newBpms = Array(n).fill(fallbackBpm);
+      return [
+        ...prev.slice(0, insertAtMeasure),
+        ...newBpms,
+        ...prev.slice(insertAtMeasure)
+      ];
+    });
+
+    setMeasureBpmTransitions(prev => {
+      const newTrans = Array(n).fill('immediate') as ('immediate' | 'ramp')[];
+      return [
+        ...prev.slice(0, insertAtMeasure),
+        ...newTrans,
+        ...prev.slice(insertAtMeasure)
+      ];
+    });
+
+    setMeasureVols(prev => [
+      ...prev.slice(0, insertAtMeasure),
+      ...sectionData.vols,
+      ...prev.slice(insertAtMeasure)
+    ]);
+
+    setMeasureVolTransitions(prev => [
+      ...prev.slice(0, insertAtMeasure),
+      ...sectionData.volTransitions,
+      ...prev.slice(insertAtMeasure)
+    ]);
+
+    setMeasureSignals(prev => [
+      ...prev.slice(0, insertAtMeasure),
+      ...sectionData.signals,
+      ...prev.slice(insertAtMeasure)
+    ]);
+
+    setSongSections(prev => prev.map(sec => {
+      let newStart = sec.startMeasure;
+      let newEnd = sec.endMeasure;
+      
+      if (sec.startMeasure >= insertAtMeasure) {
+        newStart += n;
+        newEnd += n;
+      } else if (sec.endMeasure >= insertAtMeasure) {
+        newEnd += n;
+      }
+      return { ...sec, startMeasure: newStart, endMeasure: newEnd };
+    }));
+
+    setTracks(prev => {
+      const newTracks = [...prev];
+
+      newTracks.forEach((t, tIdx) => {
+        newTracks[tIdx] = {
+          ...t,
+          patterns: t.patterns.map(p => {
+            if (!p.measureAssignments) return p;
+            const newAssignments = [
+              ...p.measureAssignments.slice(0, insertAtMeasure),
+              ...Array(n).fill(false),
+              ...p.measureAssignments.slice(insertAtMeasure)
+            ];
+            return { ...p, measureAssignments: newAssignments };
+          })
+        };
+      });
+
+      sectionData.tracks.forEach(loadedTrack => {
+        let existingTrackIdx = newTracks.findIndex(t => t.instrumentIdx === loadedTrack.instrumentIdx);
+        
+        if (existingTrackIdx === -1) {
+          const newTrack: TrackGroup = {
+            id: Date.now() + Math.random(),
+            instrumentIdx: loadedTrack.instrumentIdx,
+            patterns: [],
+            isMute: loadedTrack.isMute,
+            isSolo: loadedTrack.isSolo,
+            isHidden: false,
+            volumeVal: loadedTrack.volumeVal,
+            selectedPatternId: -1,
+            reverbVal: loadedTrack.reverbVal,
+            panVal: loadedTrack.panVal
+          };
+          newTracks.push(newTrack);
+          existingTrackIdx = newTracks.length - 1;
+        }
+
+        const trackToUpdate = newTracks[existingTrackIdx];
+        const newPatterns = loadedTrack.patterns.map(loadedPattern => {
+          const newAssignments = [
+            ...Array(insertAtMeasure).fill(false),
+            ...(loadedPattern.measureAssignments || Array(n).fill(true))
+          ];
+          
+          return {
+            ...loadedPattern,
+            id: Math.floor(Math.random() * 1000000000),
+            measureAssignments: newAssignments
+          };
+        });
+
+        newTracks[existingTrackIdx] = {
+          ...trackToUpdate,
+          patterns: [...trackToUpdate.patterns, ...newPatterns]
+        };
+        if (newTracks[existingTrackIdx].selectedPatternId === -1 && newPatterns.length > 0) {
+          newTracks[existingTrackIdx].selectedPatternId = newPatterns[0].id;
+        }
+      });
+
+      return newTracks;
+    });
+  };
+
   return {
     // States & Setters
     tracks, setTracks, tracksRef,
@@ -1672,6 +1799,8 @@ export function useSequencerState() {
     isLeftHanded, setIsLeftHanded,
     lang, setLang,
     activeAoVivoTrackId, setActiveAoVivoTrackId,
+    // Sections
+    handleInsertCloudSection,
     // History
     tracksHistory,
     tracksRedoHistory,

@@ -1,148 +1,221 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, Check, X, RotateCcw, ArrowRight, ArrowLeft, HelpCircle } from 'lucide-react';
-import { DicteeBlock, DicteeLevel, dicteeLevels } from '../data/dicteeData';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import * as Tone from 'tone';
+import { Play, Square, Check, X, RotateCcw, ArrowRight, HelpCircle } from 'lucide-react';
+import { audioEngine } from '../hooks/useAudioSync';
+import { instrumentsConfig } from '../data';
+import { instrumentAudioConfigs } from '../data/audioConfig';
+import { TrackGroup } from '../types';
 
 interface DicteeEngineProps {
   lang: 'fr' | 'pt';
   onExit: () => void;
   onSuccess?: () => void;
+  exerciseData?: any;
 }
 
-// Helper to shuffle blocks in the reserve
-const shuffleArray = <T,>(array: T[]): T[] => {
-  const arr = [...array];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-};
+interface Block {
+  id: string;
+  label: string; // e.g. "D D e D", "16 pas vides", etc.
+  strokes: string[]; // actual strokes
+  originalIndex: number;
+}
 
-export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSuccess }) => {
-  // Game states
-  const [levelIndex, setLevelIndex] = useState<number>(0);
-  const [placedBlocks, setPlacedBlocks] = useState<(DicteeBlock | null)[]>([null, null, null, null]);
-  const [reserveBlocks, setReserveBlocks] = useState<DicteeBlock[]>([]);
+export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSuccess, exerciseData }) => {
+  const [placedBlocks, setPlacedBlocks] = useState<(Block | null)[]>([]);
+  const [reserveBlocks, setReserveBlocks] = useState<Block[]>([]);
   const [activeTileId, setActiveTileId] = useState<string | null>(null);
-  const [validationResult, setValidationResult] = useState<'success' | 'failure' | null>(null);
+    const [validationResult, setValidationResult] = useState<'success' | 'failure' | null>(null);
+  const [blockValidations, setBlockValidations] = useState<('idle' | 'success' | 'failure')[]>([]);
+  const [isAnimatingValidation, setIsAnimatingValidation] = useState(false);
+  
+  // Audio state
+  const [isPlaying, setIsPlaying] = useState(false);
+  const scheduledEventIdsRef = useRef<number[]>([]);
+  const clickSynthRef = useRef<Tone.Synth | null>(null);
 
+  // Focus and keyboard for 16 mode
+  const [activeSlotIdx, setActiveSlotIdx] = useState<number | null>(null);
+
+  const targetTrackId = exerciseData?.instrument_cible || '';
+  const blocksCount = exerciseData?.nombre_de_blocs || 4; // 4, 8, 16
+  const bpm = exerciseData?.bpm || 83;
+  const sequenceAudio: TrackGroup[] = exerciseData?.sequence_audio || [];
+
+  const targetTrack = useMemo(() => {
+    return sequenceAudio.find(t => t.id === targetTrackId);
+  }, [sequenceAudio, targetTrackId]);
+
+  const targetInstIdx = targetTrack?.instrumentIdx ?? -1;
+  const targetInstrument = targetInstIdx !== -1 ? instrumentsConfig[targetInstIdx] : null;
+  const targetAudioConfig = targetInstrument ? instrumentAudioConfigs.find(c => c.id === targetInstrument.id) : null;
+
+  // Initialize the level (chunking)
   useEffect(() => {
-    if (validationResult === 'success' && levelIndex === dicteeLevels.length - 1) {
-      onSuccess?.();
+    if (!targetTrack) return;
+    
+    // Extract the 16 steps of the target pattern
+    const steps: string[] = new Array(16).fill('0');
+    if (targetTrack.patterns && targetTrack.patterns[0] && targetTrack.patterns[0].activeSteps) {
+      const activeSteps = targetTrack.patterns[0].activeSteps;
+      for (let i = 0; i < 16; i++) {
+        if (activeSteps[i]) {
+          steps[i] = activeSteps[i];
+        }
+      }
     }
-  }, [validationResult, levelIndex, onSuccess]);
-  
-  // Audio sequence playing states
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [playingIndex, setPlayingIndex] = useState<number>(-1);
-  
-  const playbackActiveRef = useRef<boolean>(false);
-  const playbackTimeoutRef = useRef<number | null>(null);
-  const audioElementsRef = useRef<HTMLAudioElement[]>([]);
 
-  const activeLevel = dicteeLevels[levelIndex];
+    const newBlocks: Block[] = [];
+    if (blocksCount === 16) {
+      // 16 mode: Empty slots, keyboard input
+      setPlacedBlocks(new Array(16).fill(null));
+      setReserveBlocks([]);
+      return;
+    }
 
-  // Initialize level
-  useEffect(() => {
-    initLevel();
-    return () => {
-      stopSequence();
-    };
-  }, [levelIndex]);
+    const stepPerBlock = 16 / blocksCount; // 4 or 2
+    for (let i = 0; i < blocksCount; i++) {
+      const blockStrokes = steps.slice(i * stepPerBlock, (i + 1) * stepPerBlock);
+      const label = blockStrokes.map(s => s === '0' ? '-' : s).join(' ');
+      newBlocks.push({
+        id: `block_${i}_${Math.random().toString(36).substring(2, 9)}`,
+        label,
+        strokes: blockStrokes,
+        originalIndex: i
+      });
+    }
 
-  const initLevel = () => {
-    stopSequence();
-    setPlacedBlocks([null, null, null, null]);
+    // Shuffle the blocks
+    const shuffled = [...newBlocks].sort(() => Math.random() - 0.5);
+    setReserveBlocks(shuffled);
+    setPlacedBlocks(new Array(blocksCount).fill(null));
     setActiveTileId(null);
     setValidationResult(null);
-    // Shuffle the reserve blocks for the level
-    setReserveBlocks(shuffleArray(activeLevel.blocks));
-  };
+    setBlockValidations([]);
+    setIsAnimatingValidation(false);
 
-  const stopSequence = () => {
-    playbackActiveRef.current = false;
-    if (playbackTimeoutRef.current !== null) {
-      window.clearTimeout(playbackTimeoutRef.current);
-      playbackTimeoutRef.current = null;
-    }
-    // Stop all active audios
-    audioElementsRef.current.forEach((audio) => {
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-      } catch (e) {}
+    return () => {
+      cleanUpAudio();
+    };
+  }, [targetTrack, blocksCount]);
+
+  const cleanUpAudio = () => {
+    scheduledEventIdsRef.current.forEach((id) => {
+      try { Tone.Transport.clear(id); } catch (_) {}
     });
-    audioElementsRef.current = [];
+    scheduledEventIdsRef.current = [];
+
+    if (clickSynthRef.current) {
+      try { clickSynthRef.current.dispose(); } catch (_) {}
+      clickSynthRef.current = null;
+    }
+
+    try { Tone.Transport.stop(); } catch (_) {}
     setIsPlaying(false);
-    setPlayingIndex(-1);
   };
 
   const playSequence = async () => {
     if (isPlaying) {
-      stopSequence();
+      cleanUpAudio();
       return;
     }
 
     setIsPlaying(true);
     setValidationResult(null);
-    playbackActiveRef.current = true;
-    audioElementsRef.current = [];
+    setBlockValidations([]);
 
-    const baseUrl = (import.meta as any).env.BASE_URL || '/';
+    if (Tone.context.state !== 'running') {
+      await Tone.start();
+    }
 
+    clickSynthRef.current = new Tone.Synth({
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.05 },
+      volume: -6
+    }).toDestination();
+
+    Tone.Transport.bpm.value = bpm;
+    
+    if (Tone.Transport.state !== 'started') {
+      Tone.Transport.start();
+    }
+
+    const t0 = Tone.Transport.seconds + 0.1;
+    const beatDuration = 60 / bpm;
+    const stepDuration = beatDuration / 4;
+
+    // 1. Countdown
     for (let i = 0; i < 4; i++) {
-      if (!playbackActiveRef.current) break;
-      setPlayingIndex(i);
+      const clickTime = t0 + i * beatDuration;
+      const id = Tone.Transport.schedule((time) => {
+        if (clickSynthRef.current) {
+          clickSynthRef.current.triggerAttackRelease(i === 3 ? "A5" : "E5", "16n", time);
+        }
+      }, clickTime);
+      scheduledEventIdsRef.current.push(id);
+    }
+
+    // 2. Play all active instruments
+    const playStartTime = t0 + 4 * beatDuration;
+    const totalDuration = 16 * stepDuration;
+
+    sequenceAudio.forEach(track => {
+      if (track.isMute || track.instrumentIdx === -1) return;
+      const inst = instrumentsConfig[track.instrumentIdx];
+      if (!inst) return;
+
+      const activeSteps = track.patterns[0]?.activeSteps || {};
+      const volumes = track.patterns[0]?.volumes || {};
       
-      const block = placedBlocks[i];
-      if (block) {
-        try {
-          const fullUrl = `${baseUrl}${block.audioUrl}`.replace(/\/+/g, '/');
-          const audio = new Audio(fullUrl);
-          audioElementsRef.current.push(audio);
-          audio.play().catch((err) => console.warn("Audio play blocked:", err));
-        } catch (e) {
-          console.warn("Audio initiation failed:", e);
+      for (let i = 0; i < 16; i++) {
+        if (activeSteps[i] && activeSteps[i] !== '0') {
+          const stroke = activeSteps[i];
+          const time = playStartTime + i * stepDuration;
+          const vol = volumes[i] ?? 80;
+          const volMultiplier = vol / 100;
+          
+          const id = Tone.Transport.schedule((time) => {
+            if (audioEngine) {
+              audioEngine.playNote(inst.id, stroke, time, volMultiplier, 1.0);
+            }
+          }, time);
+          scheduledEventIdsRef.current.push(id);
         }
       }
+    });
 
-      // Wait 600ms for the next beat
-      await new Promise<void>((resolve) => {
-        playbackTimeoutRef.current = window.setTimeout(() => {
-          resolve();
-        }, 600);
-      });
-    }
-
-    if (playbackActiveRef.current) {
-      setIsPlaying(false);
-      setPlayingIndex(-1);
-    }
+    // 3. Stop
+    const endId = Tone.Transport.schedule((time) => {
+      Tone.Draw.schedule(() => {
+        setIsPlaying(false);
+        cleanUpAudio();
+      }, time);
+    }, playStartTime + totalDuration + 0.5);
+    scheduledEventIdsRef.current.push(endId);
   };
 
-  // Interactions: Reserve click
-  const handleReserveClick = (block: DicteeBlock) => {
-    if (isPlaying) stopSequence();
+  const handleReserveClick = (block: Block) => {
+    if (isPlaying) cleanUpAudio();
     if (activeTileId === block.id) {
-      setActiveTileId(null); // deselect
+      setActiveTileId(null);
     } else {
-      setActiveTileId(block.id); // select
+      setActiveTileId(block.id);
     }
   };
 
-  // Interactions: Timeline slot click
   const handleSlotClick = (slotIdx: number) => {
-    if (isPlaying) stopSequence();
-    const existingBlock = placedBlocks[slotIdx];
+    if (isPlaying) cleanUpAudio();
 
-    // Case 1: Place active block in slot
+    if (blocksCount === 16) {
+      setActiveSlotIdx(slotIdx);
+      return;
+    }
+
+    const existingBlock = placedBlocks[slotIdx];
     if (activeTileId !== null) {
       const activeBlock = reserveBlocks.find((b) => b.id === activeTileId);
       if (!activeBlock) return;
 
       const nextPlaced = [...placedBlocks];
-      
-      // If there was already a block in this slot, return it to the reserve
       if (existingBlock) {
         setReserveBlocks((prev) => [...prev.filter((b) => b.id !== activeTileId), existingBlock]);
       } else {
@@ -153,94 +226,142 @@ export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSucc
       setPlacedBlocks(nextPlaced);
       setActiveTileId(null);
       setValidationResult(null);
+      setBlockValidations([]);
     } 
-    // Case 2: Remove placed block from slot (when no tile is active)
     else if (existingBlock) {
       const nextPlaced = [...placedBlocks];
       nextPlaced[slotIdx] = null;
       setPlacedBlocks(nextPlaced);
       setReserveBlocks((prev) => [...prev, existingBlock]);
       setValidationResult(null);
+      setBlockValidations([]);
     }
   };
 
-  const handleValidate = () => {
-    // Check if timeline is complete
-    if (placedBlocks.some((b) => b === null)) {
-      return; // Not all blocks placed
+  useEffect(() => {
+    if (blocksCount !== 16) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (activeSlotIdx === null) return;
+      if (!targetAudioConfig) return;
+
+      const key = e.key.toLowerCase();
+      // Backspace to clear
+      if (key === 'backspace' || key === 'delete') {
+        const nextPlaced = [...placedBlocks];
+        nextPlaced[activeSlotIdx] = null;
+        setPlacedBlocks(nextPlaced);
+        // Move prev
+        setActiveSlotIdx(prev => prev! > 0 ? prev! - 1 : prev);
+        return;
+      }
+
+            const targetStroke = targetAudioConfig.strokes.find((s: any) => 
+        s.keys.map((k: string) => k.toLowerCase()).includes(key)
+      );
+
+      if (targetStroke) {
+        const strokeSymbol = targetStroke.symbol;
+        const nextPlaced = [...placedBlocks];
+        nextPlaced[activeSlotIdx] = {
+          id: `block_16_${activeSlotIdx}`,
+          label: strokeSymbol,
+          strokes: [strokeSymbol],
+          originalIndex: activeSlotIdx
+        };
+        setPlacedBlocks(nextPlaced);
+        
+        // Auto-advance
+        if (activeSlotIdx < 15) {
+          setActiveSlotIdx(activeSlotIdx + 1);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeSlotIdx, placedBlocks, blocksCount, targetInstrument]);
+
+    const handleValidate = () => {
+    if (isAnimatingValidation) return;
+
+    if (blocksCount !== 16) {
+      if (placedBlocks.some((b) => b === null)) return;
     }
+    
+    setIsAnimatingValidation(true);
+    setBlockValidations(new Array(blocksCount).fill('idle'));
+    let hasError = false;
 
-    const placedLabels = placedBlocks.map((b) => b?.label || '');
-    const targetLabels = activeLevel.targetLabels;
+    const animateBlock = (idx: number) => {
+      if (idx >= blocksCount) {
+        setIsAnimatingValidation(false);
+        setValidationResult(!hasError ? 'success' : 'failure');
+        return;
+      }
 
-    const isCorrect = placedLabels.every((label, idx) => label === targetLabels[idx]);
+      setBlockValidations(prev => {
+        const next = [...prev];
+        let isCorrect = true;
+        if (blocksCount !== 16) {
+          isCorrect = placedBlocks[idx]?.originalIndex === idx;
+        } else {
+          const activeSteps = targetTrack?.patterns[0]?.activeSteps || {};
+          const target = (activeSteps[idx] && activeSteps[idx] !== '0') ? activeSteps[idx] : null;
+          const placed = placedBlocks[idx]?.strokes[0] || null;
+          isCorrect = target === placed;
+        }
+        
+        if (!isCorrect) hasError = true;
+        next[idx] = isCorrect ? 'success' : 'failure';
+        return next;
+      });
+      
+      setTimeout(() => animateBlock(idx + 1), 300);
+    };
 
-    if (isCorrect) {
-      setValidationResult('success');
-    } else {
-      setValidationResult('failure');
-    }
+    animateBlock(0);
   };
 
-  const handleNextLevel = () => {
-    if (levelIndex < dicteeLevels.length - 1) {
-      setLevelIndex(levelIndex + 1);
-    }
-  };
-
-  const handlePrevLevel = () => {
-    if (levelIndex > 0) {
-      setLevelIndex(levelIndex - 1);
-    }
-  };
-
-  const isTimelineFull = placedBlocks.every((b) => b !== null);
+  const isTimelineFull = blocksCount === 16 ? true : placedBlocks.every((b) => b !== null);
 
   const t = {
     fr: {
-      title: "La Dictée de Blocs",
-      subtitle: "Reconstituez la phrase rythmique",
-      level: "Niveau",
-      of: "sur",
+      title: "Dictée Rythmique",
+      subtitle: "Reconstituez la phrase",
       reserveTitle: "Réserve de Blocs",
       timelineTitle: "Votre Ligne de Temps",
       btnTest: "Tester",
       btnStop: "Stop",
       btnValidate: "Valider",
-      btnNextLevel: "Niveau Suivant",
       btnExit: "Quitter le jeu",
-      emptySlotHint: "Tapotez ici pour placer",
-      instructions: "Astuce : Appuyez sur une tuile de la réserve pour la sélectionner, puis appuyez sur un emplacement vide de la ligne de temps en haut pour la poser.",
-      successMsg: "Félicitations ! Le motif rythmique est parfaitement ordonné !",
-      failureMsg: "Oups ! La phrase n'est pas correcte. Modifiez la place des blocs et réessayez !",
-      allLevelsComplete: "Félicitations ! Vous avez terminé toutes les dictées rythmiques !",
-      restartGame: "Recommencer au niveau 1",
-      missingBlocks: "Placez les 4 blocs avant de valider !"
+      emptySlotHint: "Tapotez ici",
+      successMsg: "Félicitations ! Le motif rythmique est exact !",
+      failureMsg: "Oups ! Il y a des erreurs, réessayez !",
+      restartGame: "Recommencer",
+      missingBlocks: "Complétez avant de valider !",
+      targetInst: "Instrument cible",
+      keyboardLegend: "Touches disponibles :"
     },
     pt: {
-      title: "Ditado de Blocos",
-      subtitle: "Reconstitua a frase rítmica",
-      level: "Nível",
-      of: "de",
+      title: "Ditado Rítmico",
+      subtitle: "Reconstitua a frase",
       reserveTitle: "Reserva de Blocos",
       timelineTitle: "Sua Linha de Tempo",
       btnTest: "Testar",
       btnStop: "Parar",
       btnValidate: "Validar",
-      btnNextLevel: "Próximo Nível",
       btnExit: "Sair do jogo",
-      emptySlotHint: "Toque aqui para colocar",
-      instructions: "Dica: Toque em uma peça da reserva para selecionar e depois toque em um espaço vazio da linha superior para colocá-la.",
-      successMsg: "Parabéns! O padrão rítmico está perfeitamente ordenado!",
-      failureMsg: "Opa! A frase não está correta. Mude a posição dos blocos e tente novamente!",
-      allLevelsComplete: "Parabéns! Você concluiu todos os ditados rítmicos!",
-      restartGame: "Recomeçar no nível 1",
-      missingBlocks: "Coloque os 4 blocos antes de validar!"
+      emptySlotHint: "Toque aqui",
+      successMsg: "Parabéns! O padrão rítmico está exato!",
+      failureMsg: "Opa! Há erros, tente novamente!",
+      restartGame: "Recomeçar",
+      missingBlocks: "Complete antes de validar!",
+      targetInst: "Instrumento alvo",
+      keyboardLegend: "Teclas disponíveis:"
     }
   }[lang];
 
   return (
-    <div className="w-full max-w-xl mx-auto p-4 flex flex-col gap-6 cordel-bg select-none my-4">
+    <div className="w-full max-w-4xl mx-auto p-4 flex flex-col gap-6 cordel-bg select-none my-4 h-full overflow-y-auto pb-16 custom-scrollbar relative z-20">
       {/* Header Bar */}
       <div className="flex items-center justify-between border-b-4 border-[var(--cordel-border)] pb-3">
         <div className="flex flex-col">
@@ -249,78 +370,56 @@ export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSucc
           </h2>
           <span className="text-[10px] text-[var(--cordel-text)]/70 font-semibold">{t.subtitle}</span>
         </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={handlePrevLevel}
-            disabled={levelIndex === 0}
-            className="w-8 h-8 flex items-center justify-center border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] text-[var(--cordel-text)] disabled:opacity-30 cursor-pointer"
-            title="Niveau précédent"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <span className="text-xs font-bold font-mono px-2 py-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm">
-            {t.level} {activeLevel.id} {t.of} {dicteeLevels.length}
-          </span>
-          <button
-            onClick={handleNextLevel}
-            disabled={levelIndex === dicteeLevels.length - 1}
-            className="w-8 h-8 flex items-center justify-center border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] text-[var(--cordel-text)] disabled:opacity-30 cursor-pointer"
-            title="Niveau suivant"
-          >
-            <ArrowRight className="w-4 h-4" />
-          </button>
+        <div className="flex items-center gap-2">
+          {targetInstrument && (
+            <div className="px-3 py-1 border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] flex items-center gap-2">
+               <span className="text-[10px] uppercase font-bold opacity-60">{t.targetInst}:</span>
+               <span className="font-cactus font-bold text-lg text-[var(--cordel-wood)]">{targetInstrument.name}</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Level Info & Target Description */}
-      <div className="p-4 border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)]/50 rounded-sm">
-        <h3 className="font-cactus text-sm font-bold text-[var(--cordel-text)] uppercase mb-1">
-          🎵 {activeLevel.title[lang]}
-        </h3>
-        <p className="text-xs text-[var(--cordel-text)]/80 leading-relaxed font-cactus">
-          {activeLevel.description[lang]}
-        </p>
-      </div>
-
-      {/* TIMELINE AREA (4 slots) */}
+      {/* TIMELINE AREA */}
       <div className="flex flex-col gap-2">
         <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">
           {t.timelineTitle}
         </span>
-        <div className="grid grid-cols-4 gap-3">
+        <div className={`grid gap-2 ${blocksCount === 16 ? 'grid-cols-8 md:grid-cols-16' : (blocksCount === 8 ? 'grid-cols-4 md:grid-cols-8' : 'grid-cols-4')}`}>
           {placedBlocks.map((block, idx) => {
-            const isPlayingThis = playingIndex === idx;
-            
+            const isSelected = activeSlotIdx === idx;
+            const validation = blockValidations[idx] || 'idle';
+            const validationClass = validation === 'success' 
+              ? 'border-green-500 bg-green-500/20 shadow-[0_0_15px_rgba(34,197,94,0.4)]' 
+              : validation === 'failure' 
+              ? 'border-red-500 bg-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.4)]'
+              : block ? 'border-[var(--cordel-border)] bg-[#fdfaf2]' : 'border-dashed border-[var(--cordel-border)]/40 bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)]/5';
+
             return (
               <button
                 key={idx}
                 onClick={() => handleSlotClick(idx)}
-                className={`h-24 rounded border-2 relative transition-all duration-150 flex flex-col items-center justify-center p-1 cursor-pointer overflow-hidden ${
-                  isPlayingThis
-                    ? 'border-yellow-500 bg-yellow-500/10 shadow-[0_0_12px_rgba(234,179,8,0.5)] scale-[1.03]'
-                    : block
-                      ? 'border-[var(--cordel-border)]'
-                      : 'border-dashed border-[var(--cordel-border)]/40 bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)]/5'
+                className={`h-16 md:h-20 rounded border-2 relative transition-all duration-300 flex flex-col items-center justify-center p-1 cursor-pointer overflow-hidden ${
+                  isSelected && validation === 'idle' ? 'border-[var(--cordel-wood)] bg-[var(--cordel-wood)]/10 scale-[1.03]' : validationClass
                 }`}
-                style={block ? { backgroundColor: block.color + '22', borderColor: block.color } : {}}
               >
                 {block ? (
                   <>
-                    <span className="font-cactus text-lg font-black" style={{ color: block.color }}>
+                    <span className="font-cactus text-sm md:text-lg font-black text-[var(--cordel-text)]">
                       {block.label}
                     </span>
-                    <span className="text-[8px] text-[var(--cordel-text)]/70 uppercase tracking-widest text-center mt-1 truncate w-full">
-                      {block.instrument[lang]}
-                    </span>
-                    {/* Small tag return visual */}
-                    <span className="absolute bottom-0.5 right-0.5 text-[8px] opacity-40">✕</span>
+                    {blocksCount !== 16 && (
+                      <span className="absolute bottom-0.5 right-0.5 text-[8px] opacity-40">✕</span>
+                    )}
                   </>
                 ) : (
                   <div className="flex flex-col items-center gap-1 text-[var(--cordel-text)]/30">
-                    <span className="text-sm font-mono">{idx + 1}</span>
-                    <span className="text-[7px] uppercase tracking-wider text-center px-0.5">
-                      {t.emptySlotHint}
-                    </span>
+                    <span className="text-xs font-mono">{idx + 1}</span>
+                    {blocksCount !== 16 && (
+                      <span className="text-[6px] uppercase tracking-wider text-center">
+                        {t.emptySlotHint}
+                      </span>
+                    )}
                   </div>
                 )}
               </button>
@@ -329,50 +428,65 @@ export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSucc
         </div>
       </div>
 
-      {/* RESERVE AREA (Available Shuffled Blocks) */}
-      <div className="flex flex-col gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">
-          {t.reserveTitle}
-        </span>
-        <div className="grid grid-cols-4 gap-3 min-h-[96px] p-3 border-2 border-dashed border-[var(--cordel-border)]/20 bg-[var(--cordel-bg)]/20 relative">
-          {reserveBlocks.map((block) => {
-            const isActive = activeTileId === block.id;
-            
-            return (
-              <button
-                key={block.id}
-                onClick={() => handleReserveClick(block)}
-                className={`h-20 rounded border-2 transition-all duration-150 flex flex-col items-center justify-center p-1 cursor-pointer hover:scale-[1.02] ${
-                  isActive
-                    ? 'border-dashed border-[3px] border-[var(--cordel-wood)] bg-[var(--cordel-wood)]/10 rotate-[-1.5deg] scale-[0.98]'
-                    : 'border-[var(--cordel-border)] bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-                }`}
-                style={{ borderColor: block.color }}
-              >
-                <span className="font-cactus text-base font-extrabold" style={isActive ? { color: 'var(--cordel-wood)' } : { color: block.color }}>
-                  {block.label}
-                </span>
-                <span className={`text-[7px] uppercase tracking-wider text-center mt-1 truncate w-full ${isActive ? 'text-[var(--cordel-wood)]/80' : 'text-[var(--cordel-text)]/60'}`}>
-                  {block.instrument[lang]}
-                </span>
-              </button>
-            );
-          })}
-          {reserveBlocks.length === 0 && (
-            <div className="absolute inset-0 flex items-center justify-center text-[10px] text-[var(--cordel-text)]/30 uppercase tracking-widest pointer-events-none">
-              Tout est placé !
-            </div>
-          )}
+      {/* Keyboard legend for 16 blocks */}
+      {blocksCount === 16 && targetAudioConfig && (
+        <div className="p-3 border border-dashed border-[var(--cordel-border)]/50 bg-black/5 flex flex-col gap-2">
+           <span className="text-[10px] uppercase font-bold opacity-60 flex items-center gap-1">
+             <HelpCircle className="w-3 h-3" /> {t.keyboardLegend}
+           </span>
+           <div className="flex flex-wrap gap-2">
+             {targetAudioConfig.strokes.map((s: any) => (
+               <div key={s.symbol} className="flex items-center gap-1 bg-[var(--cordel-bg)] border border-[var(--cordel-border)] px-2 py-1 rounded">
+                 <kbd className="font-mono font-bold text-xs bg-[var(--cordel-text)] text-[var(--cordel-bg)] px-1.5 py-0.5 rounded shadow">
+                   {s.symbol}
+                 </kbd>
+               </div>
+             ))}
+             <div className="flex items-center gap-1 bg-[var(--cordel-bg)] border border-[var(--cordel-border)] px-2 py-1 rounded">
+                <kbd className="font-mono font-bold text-xs bg-[var(--cordel-text)]/20 text-[var(--cordel-text)] px-1.5 py-0.5 rounded shadow">
+                  Backspace
+                </kbd>
+                <span className="text-[10px] truncate max-w-[100px]">Effacer</span>
+             </div>
+           </div>
         </div>
-      </div>
+      )}
 
-      {/* Tip Box */}
-      <div className="flex gap-2 items-start text-[10px] text-[var(--cordel-text)]/60 leading-normal p-2 border border-dashed border-[var(--cordel-border)]/25 bg-black/5">
-        <HelpCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-        <span>{t.instructions}</span>
-      </div>
+      {/* RESERVE AREA */}
+      {blocksCount !== 16 && (
+        <div className="flex flex-col gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">
+            {t.reserveTitle}
+          </span>
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-3 min-h-[80px] p-3 border-2 border-dashed border-[var(--cordel-border)]/20 bg-[var(--cordel-bg)]/20 relative">
+            {reserveBlocks.map((block) => {
+              const isActive = activeTileId === block.id;
+              return (
+                <button
+                  key={block.id}
+                  onClick={() => handleReserveClick(block)}
+                  className={`h-16 md:h-20 rounded border-2 transition-all duration-150 flex flex-col items-center justify-center p-1 cursor-pointer hover:scale-[1.02] ${
+                    isActive
+                      ? 'border-dashed border-[3px] border-[var(--cordel-wood)] bg-[var(--cordel-wood)]/10 rotate-[-1.5deg] scale-[0.98]'
+                      : 'border-[var(--cordel-border)] bg-[#e0dcd3] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+                  }`}
+                >
+                  <span className={`font-cactus text-sm md:text-base font-extrabold ${isActive ? 'text-[var(--cordel-wood)]' : 'text-[var(--cordel-text)]'}`}>
+                    {block.label}
+                  </span>
+                </button>
+              );
+            })}
+            {reserveBlocks.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center text-[10px] text-[var(--cordel-text)]/30 uppercase tracking-widest pointer-events-none">
+                Tout est placé !
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
-      {/* Validation Feedback Message Stamp */}
+      {/* Validation Feedback */}
       {validationResult !== null && (
         <div 
           className={`p-4 border-3 text-center flex flex-col items-center justify-center relative rotate-[-1deg] ${
@@ -381,17 +495,8 @@ export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSucc
               : 'border-[var(--cordel-wood)] bg-[var(--cordel-wood)]/10 text-[var(--cordel-wood)]'
           }`}
         >
-          {/* Stamp visual symbol */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-15deg] text-8xl font-black opacity-10 pointer-events-none font-cactus">
-            {validationResult === 'success' ? 'OK' : 'X'}
-          </div>
-
           <div className="flex items-center gap-2 z-10">
-            {validationResult === 'success' ? (
-              <Check className="w-5 h-5 text-green-600 shrink-0" />
-            ) : (
-              <X className="w-5 h-5 text-[var(--cordel-wood)] shrink-0" />
-            )}
+            {validationResult === 'success' ? <Check className="w-5 h-5 text-green-600 shrink-0" /> : <X className="w-5 h-5 text-[var(--cordel-wood)] shrink-0" />}
             <span className="font-cactus font-bold text-sm">
               {validationResult === 'success' ? t.successMsg : t.failureMsg}
             </span>
@@ -400,78 +505,43 @@ export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSucc
       )}
 
       {/* Core Action Buttons */}
-      <div className="grid grid-cols-3 gap-3 border-t-2 border-[var(--cordel-border)] pt-4">
-        {/* Play/Test Button */}
+      <div className="flex flex-wrap md:grid md:grid-cols-3 gap-3 border-t-2 border-[var(--cordel-border)] pt-4 mt-auto">
         <button
           onClick={playSequence}
-          className={`px-3 py-2.5 font-cactus text-xs font-bold uppercase cordel-border cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-100 ${
+          className={`flex-1 md:flex-none px-3 py-3 font-cactus text-xs font-bold uppercase cordel-border cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-100 ${
             isPlaying 
-              ? 'bg-[var(--cordel-wood)] text-white hover:opacity-90 active:translate-y-0.5' 
-              : 'bg-yellow-600 text-white hover:opacity-95 active:translate-y-0.5'
+              ? 'bg-[var(--cordel-wood)] text-white hover:opacity-90' 
+              : 'bg-yellow-600 text-white hover:opacity-95'
           }`}
         >
-          {isPlaying ? (
-            <><Square className="w-3.5 h-3.5 fill-current" /> {t.btnStop}</>
-          ) : (
-            <><Play className="w-3.5 h-3.5 fill-current" /> {t.btnTest}</>
-          )}
+          {isPlaying ? <><Square className="w-4 h-4 fill-current" /> {t.btnStop}</> : <><Play className="w-4 h-4 fill-current" /> {t.btnTest}</>}
         </button>
 
-        {/* Validation Button */}
         <button
           onClick={handleValidate}
           disabled={!isTimelineFull || isPlaying}
-          className="px-3 py-2.5 bg-[var(--cordel-text)] text-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] text-xs font-bold uppercase flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-95 active:translate-y-0.5"
+          className="flex-1 md:flex-none px-3 py-3 bg-[var(--cordel-text)] text-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] text-xs font-bold uppercase flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-95"
           title={!isTimelineFull ? t.missingBlocks : ''}
         >
-          <Check className="w-3.5 h-3.5" /> {t.btnValidate}
+          <Check className="w-4 h-4" /> {t.btnValidate}
         </button>
 
-        {/* Level Switch / Reset / Exit button */}
-        {validationResult === 'success' && levelIndex < dicteeLevels.length - 1 ? (
+        {validationResult === 'success' ? (
           <button
-            onClick={handleNextLevel}
-            className="px-3 py-2.5 bg-green-700 text-white font-cactus text-xs font-bold uppercase cordel-border cursor-pointer flex items-center justify-center gap-1.5 hover:opacity-90 active:translate-y-0.5"
+            onClick={() => onSuccess?.()}
+            className="w-full md:w-auto px-3 py-3 bg-green-700 text-white font-cactus text-xs font-bold uppercase cordel-border cursor-pointer flex items-center justify-center gap-1.5 hover:opacity-90 col-span-full md:col-span-1"
           >
-            <ArrowRight className="w-3.5 h-3.5" /> {t.btnNextLevel}
+            <ArrowRight className="w-4 h-4" /> Continuer
           </button>
         ) : (
           <button
-            onClick={initLevel}
-            className="px-3 py-2.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus text-xs font-bold uppercase cordel-border cursor-pointer flex items-center justify-center gap-1.5 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] active:translate-y-0.5"
+            onClick={onExit}
+            className="w-full md:w-auto px-3 py-3 bg-neutral-800 text-white font-cactus text-xs font-bold uppercase cordel-border cursor-pointer flex items-center justify-center gap-1.5 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] col-span-full md:col-span-1"
           >
-            <RotateCcw className="w-3.5 h-3.5" /> Reset
+            {t.btnExit}
           </button>
         )}
       </div>
-
-      {/* Exit Button */}
-      {validationResult === 'success' && levelIndex === dicteeLevels.length - 1 ? (
-        <div className="flex flex-col items-center gap-3 p-4 border-2 border-green-600 bg-green-500/10 text-center">
-          <span className="font-cactus font-black text-sm text-green-700">{t.allLevelsComplete}</span>
-          <div className="flex gap-3 w-full">
-            <button
-              onClick={() => { setLevelIndex(0); initLevel(); }}
-              className="flex-1 px-3 py-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus text-xs font-bold uppercase cordel-border cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
-            >
-              {t.restartGame}
-            </button>
-            <button
-              onClick={onExit}
-              className="flex-1 px-3 py-2 bg-neutral-800 text-white font-cactus text-xs font-bold uppercase cordel-border cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
-            >
-              {t.btnExit}
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          onClick={onExit}
-          className="w-full py-2 bg-neutral-800 text-white font-cactus text-xs font-bold uppercase cordel-border cursor-pointer flex items-center justify-center gap-1.5 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] mt-2"
-        >
-          {t.btnExit}
-        </button>
-      )}
     </div>
   );
 };

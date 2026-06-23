@@ -63,18 +63,18 @@ export const Home: React.FC<HomeProps> = ({ onEnter, lang }) => {
             </span>
           </button>
 
-          {/* Jeux */}
+          {/* Jeux (Varal) */}
           {hasAccess('eleve') && (
             <button
-              onClick={() => handleEnter('quiz')}
+              onClick={() => handleEnter('varal')}
               className="bg-[#2980b9] text-[#1a1a1a] cordel-border flex flex-col items-center justify-center py-6 px-4 cursor-pointer hover:-translate-y-1 transition-transform"
             >
-              <span className="text-3xl mb-2">🎮</span>
+              <span className="text-3xl mb-2">🪢</span>
               <span className="font-cactus font-bold text-xl uppercase tracking-wider">
-                {isFr ? 'Jeux & Quiz' : 'Jogos e Quiz'}
+                {isFr ? 'Le Varal' : 'O Varal'}
               </span>
               <span className="text-xs font-bold opacity-80 mt-1 text-center">
-                {isFr ? 'Entraînement de l\'oreille' : 'Treinamento auditivo'}
+                {isFr ? 'Parcours de jeux et progression' : 'Jornada de jogos e progresso'}
               </span>
             </button>
           )}
@@ -87,7 +87,7 @@ export const Home: React.FC<HomeProps> = ({ onEnter, lang }) => {
             >
               <span className="text-3xl mb-2">👑</span>
               <span className="font-cactus font-bold text-xl uppercase tracking-wider">
-                {isFr ? 'Mestre Studio' : 'Mestre Studio'}
+                {isFr ? 'Studio du mestre' : 'Studio do mestre'}
               </span>
               <span className="text-xs font-bold opacity-80 mt-1 text-center">
                 {isFr ? 'Arrangements avancés' : 'Arranjos avançados'}

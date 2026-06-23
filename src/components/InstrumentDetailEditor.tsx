@@ -16,9 +16,10 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { TrackGroup, Language } from '../types';
+import { TrackGroup, Pattern, RhythmSignal, CloudPattern, CatalogVisibility, Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
-import { usePatternLibraryStore } from '../hooks/usePatternLibraryStore';
+import { useAuth } from '../contexts/AuthContext';
+import { fetchCloudPatterns, savePatternToCloud, deleteCloudPattern, renameCloudPattern } from '../cloudPatterns';
 import { useSequencer } from '../contexts/SequencerContext';
 
 const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
@@ -58,6 +59,8 @@ interface InstrumentDetailEditorProps {
   onReorderPatternsDnd?: (oldIndex: number, newIndex: number) => void;
   onAddPatternVariation?: (patternId: number) => void;
   onUpdatePatternVariationProbability?: (patternId: number, variationId: string, probability: number) => void;
+  onNavigatePrev?: () => void;
+  onNavigateNext?: () => void;
   onTogglePatternVariationFirstTimeOnly?: (patternId: number, variationId: string, val: boolean) => void;
   onVariationStepValueChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: string | string[]) => void;
   onDeletePatternVariation?: (patternId: number, variationId: string) => void;
@@ -382,6 +385,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   soloPatternVariationId,
   onPlaySoloPattern,
   onStopSoloPattern,
+  onNavigatePrev,
+  onNavigateNext,
 }) => {
   const inst = instrumentsConfig[track.instrumentIdx];
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -411,9 +416,25 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   const patternIds = useMemo(() => track.patterns.map(p => p.id), [track.patterns]);
 
-  // --- Pattern Library Store Logic ---
-  const { savePattern, deletePattern, getPatternsByInstrumentId } = usePatternLibraryStore();
-  const existingLibraryPatterns = getPatternsByInstrumentId(inst.id);
+  // --- Pattern Cloud Logic ---
+  const { currentUser, userProfile } = useAuth();
+  const [cloudPatterns, setCloudPatterns] = useState<CloudPattern[]>([]);
+  const [isSavingPattern, setIsSavingPattern] = useState(false);
+  const [isLoadingPatterns, setIsLoadingPatterns] = useState(false);
+  const [savePatternVisibility, setSavePatternVisibility] = useState<CatalogVisibility>('private');
+
+  useEffect(() => {
+    const loadPatterns = async () => {
+      if (!userProfile) return;
+      setIsLoadingPatterns(true);
+      const patterns = await fetchCloudPatterns(userProfile.uid, userProfile.role, userProfile.mestreId || null);
+      setCloudPatterns(patterns);
+      setIsLoadingPatterns(false);
+    };
+    loadPatterns();
+  }, [userProfile]);
+
+  const existingLibraryPatterns = cloudPatterns.filter(p => p.instrumentId === inst.id);
   const existingFolders = Array.from(new Set(existingLibraryPatterns.map(p => p.folder))).filter(Boolean);
 
   const [saveModalPatternId, setSaveModalPatternId] = useState<number | null>(null);
@@ -423,27 +444,41 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const handleSavePatternToLibrary = () => {
-    if (saveModalPatternId === null || !savePatternName.trim()) return;
+  const handleSavePatternToLibrary = async () => {
+    if (saveModalPatternId === null || !savePatternName.trim() || !userProfile) return;
     const ptn = track.patterns.find(p => p.id === saveModalPatternId);
     if (!ptn) return;
 
-    savePattern({
-      id: crypto.randomUUID(),
-      instrumentId: inst.id,
-      name: savePatternName.trim(),
-      folder: savePatternFolder.trim() || 'Général',
-      steps: [...ptn.activeSteps],
-      variations: JSON.parse(JSON.stringify(ptn.variations || [])),
-      volumes: ptn.volumes ? [...ptn.volumes] : undefined,
-      decays: ptn.decays ? [...ptn.decays] : undefined,
-      microtimings: ptn.microtimings ? [...ptn.microtimings] : undefined,
-      createdAt: Date.now()
-    });
+    setIsSavingPattern(true);
+    try {
+      const savedPattern = {
+        id: crypto.randomUUID(),
+        instrumentId: inst.id,
+        name: savePatternName.trim(),
+        folder: savePatternFolder.trim() || 'Général',
+        steps: [...ptn.activeSteps],
+        variations: JSON.parse(JSON.stringify(ptn.variations || [])),
+        volumes: ptn.volumes ? [...ptn.volumes] : undefined,
+        decays: ptn.decays ? [...ptn.decays] : undefined,
+        microtimings: ptn.microtimings ? [...ptn.microtimings] : undefined,
+        createdAt: Date.now()
+      };
 
-    setSaveModalPatternId(null);
-    setToastMessage(lang === 'fr' ? 'Sauvegardé !' : 'Salvo !');
-    setTimeout(() => setToastMessage(null), 3000);
+      await savePatternToCloud(savedPattern, userProfile.uid, savePatternVisibility, userProfile.mestreId || undefined);
+      
+      // Refresh local list
+      const updatedPatterns = await fetchCloudPatterns(userProfile.uid, userProfile.role, userProfile.mestreId || null);
+      setCloudPatterns(updatedPatterns);
+
+      setSaveModalPatternId(null);
+      setToastMessage(lang === 'fr' ? 'Sauvegardé !' : 'Salvo !');
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (err) {
+      console.error(err);
+      alert(lang === 'fr' ? 'Erreur lors de la sauvegarde.' : 'Erro ao salvar.');
+    } finally {
+      setIsSavingPattern(false);
+    }
   };
 
   const handleLoadPatternFromLibrary = (libraryPatternId: string) => {
@@ -996,9 +1031,27 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             className="w-8 h-8 object-contain"
             onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
           />
-          <span className="font-cactus font-bold text-lg tracking-wide mr-auto">
-            {inst.name}
-          </span>
+          <div className="flex items-center gap-2 mr-auto">
+            {onNavigatePrev && (
+              <button 
+                onClick={onNavigatePrev} 
+                className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/20 hover:bg-[#1a1a1a]/40 rounded-full cursor-pointer transition-colors"
+              >
+                ◀
+              </button>
+            )}
+            <span className="font-cactus font-bold text-lg tracking-wide">
+              {inst.name}
+            </span>
+            {onNavigateNext && (
+              <button 
+                onClick={onNavigateNext} 
+                className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/20 hover:bg-[#1a1a1a]/40 rounded-full cursor-pointer transition-colors"
+              >
+                ▶
+              </button>
+            )}
+          </div>
 
           {/* Volume slider */}
           <div className="flex items-center gap-2">
@@ -1155,6 +1208,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                     </button>
 
                       <button
+                        onPointerDown={(e) => e.stopPropagation()}
                         onClick={() => {
                           setSaveModalPatternId(ptn.id);
                           setSavePatternName(ptn.name || '');
@@ -1167,6 +1221,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                       </button>
 
                       <button
+                        onPointerDown={(e) => e.stopPropagation()}
                         onClick={() => {
                           setLoadModalPatternId(ptn.id);
                         }}
@@ -2073,8 +2128,14 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                             onTouchStart={(e) => {
                                               e.stopPropagation();
                                               setSelectedPatternId(ptn.id);
-                                              setSelectedStepIdx(i);
                                               setSelectedVariationId(variation.id);
+
+                                              if (isMultiSelectActive) {
+                                                handleStepMouseDownMulti(e as any, i);
+                                                return;
+                                              }
+
+                                              setSelectedStepIdx(i);
                                               setSelectedStepIndices([]);
                                               if ('shiftKey' in e && e.shiftKey) return;
                                               if (onStepTouchStart) {
@@ -2527,7 +2588,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                   return (
                     <div key={folder} className="border border-[#1a1a1a] rounded-sm bg-[#eaddcf]">
                       <button 
-                        onClick={() => toggleFolder(folder)}
+                        onClick={() => toggleFolder(folder as string)}
                         className="w-full flex items-center justify-between p-3 bg-[#1a1a1a]/5 hover:bg-[#1a1a1a]/10 transition-colors font-bold text-[#1a1a1a] text-lg font-cactus text-left"
                       >
                         <span className="flex items-center gap-2">
@@ -2552,11 +2613,17 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                   {lang === 'fr' ? 'Charger' : 'Carregar'}
                                 </button>
                                 <button
-                                  onClick={() => {
-                                    if (confirm(lang === 'fr' ? 'Supprimer définitivement cette phrase du catalogue ?' : 'Excluir permanentemente este padrão do catálogo?')) {
-                                      deletePattern(libPtn.id);
-                                    }
-                                  }}
+                                    onClick={async () => {
+                                      if (confirm(lang === 'fr' ? 'Supprimer définitivement cette phrase du catalogue ?' : 'Excluir permanentemente este padrão do catálogo?')) {
+                                        try {
+                                          await deleteCloudPattern(libPtn.id);
+                                          setCloudPatterns(prev => prev.filter(p => p.id !== libPtn.id));
+                                        } catch (err) {
+                                          console.error(err);
+                                          alert(lang === 'fr' ? 'Erreur lors de la suppression.' : 'Erro ao excluir.');
+                                        }
+                                      }
+                                    }}
                                   className="p-1 hover:bg-[#1a1a1a]/10 rounded transition-colors text-xl"
                                   title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
                                 >
@@ -2616,19 +2683,39 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               </datalist>
             </div>
 
-            <div className="flex justify-end gap-3">
+            <div className="mb-6">
+              <label className="block text-sm font-bold text-[#1a1a1a] mb-1">
+                {lang === 'fr' ? 'Visibilité' : 'Visibilidade'}
+              </label>
+              <select
+                value={savePatternVisibility}
+                onChange={(e) => setSavePatternVisibility(e.target.value as CatalogVisibility)}
+                className="w-full bg-[#eaddcf] border border-[#1a1a1a] p-2 text-sm font-bold text-[#1a1a1a] outline-none focus:ring-2 focus:ring-[#8b2a1a]"
+              >
+                <option value="private">{lang === 'fr' ? 'Privé (Uniquement moi)' : 'Privado (Somente eu)'}</option>
+                {userProfile?.role === 'mestre' && (
+                  <option value="mestre_group">{lang === 'fr' ? 'Mon groupe' : 'Meu grupo'}</option>
+                )}
+                {userProfile?.role === 'admin' && (
+                  <option value="admin_global">{lang === 'fr' ? 'Global (Tout le monde)' : 'Global (Todos)'}</option>
+                )}
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-2">
               <button
                 onClick={() => setSaveModalPatternId(null)}
                 className="px-4 py-2 border border-[#1a1a1a] text-[#1a1a1a] font-bold text-sm hover:bg-[#eaddcf] transition-colors"
+                disabled={isSavingPattern}
               >
                 {lang === 'fr' ? 'Annuler' : 'Cancelar'}
               </button>
               <button
                 onClick={handleSavePatternToLibrary}
-                disabled={!savePatternName.trim()}
+                disabled={!savePatternName.trim() || isSavingPattern}
                 className="px-4 py-2 bg-[#8b2a1a] text-[#f4ecd8] font-bold text-sm disabled:opacity-50 hover:bg-[#6b1e11] transition-colors shadow-[2px_2px_0px_rgba(0,0,0,1)]"
               >
-                {lang === 'fr' ? 'Enregistrer' : 'Salvar'}
+                {isSavingPattern ? '...' : (lang === 'fr' ? 'Enregistrer' : 'Salvar')}
               </button>
             </div>
           </div>

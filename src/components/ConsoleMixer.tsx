@@ -634,6 +634,16 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           isLeftHanded={isLeftHanded}
           track={editingTrack}
           onClose={() => setEditingTrackId(null)}
+          onNavigatePrev={() => {
+            const idx = tracks.findIndex(t => t.id === editingTrackId);
+            if (idx > 0) setEditingTrackId(tracks[idx - 1].id);
+            else if (tracks.length > 0) setEditingTrackId(tracks[tracks.length - 1].id);
+          }}
+          onNavigateNext={() => {
+            const idx = tracks.findIndex(t => t.id === editingTrackId);
+            if (idx >= 0 && idx < tracks.length - 1) setEditingTrackId(tracks[idx + 1].id);
+            else if (tracks.length > 0) setEditingTrackId(tracks[0].id);
+          }}
           soloPatternPlayId={soloPatternPlayId}
           soloPatternVariationId={soloPatternVariationId}
           onStepTouchStart={onStepTouchStart}

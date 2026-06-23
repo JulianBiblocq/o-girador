@@ -18,6 +18,8 @@ export interface UserProfile {
   groupLogoUrl?: string | null;
   maxEleves?: number;
   mestreMessage?: string;
+  signatureUrl?: string;
+  instrument?: string;
 }
 
 interface AuthContextType {
@@ -28,6 +30,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   hasAccess: (requiredRole: UserRole) => boolean;
   updateUserPreference: (key: 'isDarkMode' | 'isLeftHanded', value: boolean) => Promise<void>;
+  updateUserProfileField: (key: string, value: any) => Promise<void>;
 }
 
 const roleLevels: Record<UserRole, number> = {
@@ -45,6 +48,7 @@ const AuthContext = createContext<AuthContextType>({
   logout: async () => {},
   hasAccess: () => false,
   updateUserPreference: async () => {},
+  updateUserProfileField: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -166,19 +170,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateUserPreference = async (key: 'isDarkMode' | 'isLeftHanded', value: boolean) => {
-    if (currentUser && userProfile) {
-      try {
-        const userRef = doc(db, 'users', currentUser.uid);
-        await setDoc(userRef, { [key]: value }, { merge: true });
-        setUserProfile((prev) => prev ? { ...prev, [key]: value } : null);
-      } catch (error) {
-        console.error(`Error updating ${key}:`, error);
-      }
+    if (!currentUser || !userProfile) return;
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, { [key]: value });
+      setUserProfile({ ...userProfile, [key]: value });
+    } catch (err) {
+      console.error('Error updating user preference:', err);
+    }
+  };
+
+  const updateUserProfileField = async (key: string, value: any) => {
+    if (!currentUser || !userProfile) return;
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, { [key]: value });
+      setUserProfile({ ...userProfile, [key]: value });
+    } catch (err) {
+      console.error(`Error updating user profile field ${key}:`, err);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ currentUser, userProfile, loading, signInWithGoogle, logout, hasAccess, updateUserPreference }}>
+    <AuthContext.Provider value={{ 
+      currentUser, 
+      userProfile, 
+      loading, 
+      signInWithGoogle, 
+      logout,
+      hasAccess,
+      updateUserPreference,
+      updateUserProfileField
+    }}>
       {!loading && children}
     </AuthContext.Provider>
   );

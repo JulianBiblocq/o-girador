@@ -15,7 +15,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   lang = 'pt',
   onAdminClick,
 }) => {
-  const { currentUser, userProfile, signInWithGoogle, logout, loading } = useAuth();
+  const { currentUser, userProfile, signInWithGoogle, logout, loading, updateUserProfileField } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -139,16 +139,33 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
 
         {dropdownOpen && (
           <div className="absolute top-10 right-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] min-w-[200px] z-[1000] flex flex-col p-3 gap-3 select-none">
-            <div className="flex flex-col border-b border-[var(--cordel-border)]/30 pb-2">
-              <span className="text-xs font-cactus font-bold text-[var(--cordel-text)] truncate flex items-center gap-1">
-                {userProfile.displayName}
-                {userProfile.role === 'admin' && <Shield size={12} className="text-[#8b2a1a]" title="Administrateur" />}
-              </span>
-              <span className="text-[10px] font-sans text-[var(--cordel-text)] opacity-60 truncate">
-                {userProfile.email}
-              </span>
+            <div className="flex flex-col border-b border-[var(--cordel-border)]/30 pb-2 gap-2">
+              <div>
+                <span className="text-xs font-cactus font-bold text-[var(--cordel-text)] truncate flex items-center gap-1">
+                  {userProfile.displayName}
+                  {userProfile.role === 'admin' && <Shield size={12} className="text-[#8b2a1a]" title="Administrateur" />}
+                </span>
+                <span className="text-[10px] font-sans text-[var(--cordel-text)] opacity-60 truncate block">
+                  {userProfile.email}
+                </span>
+              </div>
+              
+              <div className="flex flex-col gap-1">
+                <label className="text-[9px] font-bold uppercase text-[var(--cordel-text)]/70">
+                  {lang === 'fr' ? 'Mon Instrument' : 'Meu Instrumento'}
+                </label>
+                <select
+                  value={userProfile.instrument || 'caixa'}
+                  onChange={(e) => updateUserProfileField('instrument', e.target.value)}
+                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 text-xs font-bold w-full rounded outline-none"
+                >
+                  <option value="alfaia">Alfaia</option>
+                  <option value="caixa">Caixa</option>
+                  <option value="gongue">Gonguê</option>
+                  <option value="agbe">Agbê</option>
+                </select>
+              </div>
             </div>
-            
             {userProfile.role === 'admin' && onAdminClick && (
               <button
                 onClick={() => {

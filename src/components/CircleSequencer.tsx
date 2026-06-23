@@ -5,7 +5,7 @@
 
 import React, { useRef, useEffect, useState } from 'react';
 import * as Tone from 'tone';
-import { TrackGroup, Language, HitTrigger, TimeSignature, SongSection } from '../types';
+import { TrackGroup, Language, HitTrigger, TimeSignature, SongSection, CloudRhythmSignal } from '../types';
 import { instrumentsConfig, getMarkers, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol, i18n } from '../data';
 import { getNextStepValue } from './InstrumentDetailEditor';
 import { useSequencer } from '../contexts/SequencerContext';
@@ -37,6 +37,7 @@ interface CircleSequencerProps {
   soloPatternPlayId?: number | null;
   measureSignals?: (string | null)[];
   rhythmSignals?: { id: string; name: string; image: string }[];
+  mestreSignals?: CloudRhythmSignal[];
   songSections?: SongSection[];
   circleId?: number;
   measureIndex?: number;
@@ -71,6 +72,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
 
   const metadata = sequencer.metadata;
   const rhythmSignals = props.rhythmSignals !== undefined ? props.rhythmSignals : (metadata?.rhythmSignals || []);
+  const mestreSignals = props.mestreSignals !== undefined ? props.mestreSignals : [];
 
   const maxTicks = props.maxTicks !== undefined ? props.maxTicks : audio.maxTicksRef.current;
   const timeSig = props.timeSig !== undefined ? props.timeSig : (sequencer.measureTimeSigs[currentMeasure] || sequencer.timeSig);
@@ -126,12 +128,22 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     const {
       measureSignals: currentMeasureSignals,
       rhythmSignals: currentRhythmSignals,
+      mestreSignals: currentMestreSignals,
       songSections: currentSongSections,
     } = stateRef.current;
 
     // 1. Resolve active signal (visible only on the measure it's set)
     const sigId = currentMeasureSignals?.[measureIdx] || null;
-    const activeSig = sigId ? currentRhythmSignals?.find(s => s.id === sigId) : null;
+    let activeSig: { name: string; image: string } | null = null;
+    if (sigId) {
+      const cloudSig = currentMestreSignals?.find(s => s.id === sigId);
+      if (cloudSig) {
+        activeSig = { name: cloudSig.name, image: cloudSig.imageUrl };
+      } else {
+        const localSig = currentRhythmSignals?.find(s => s.id === sigId);
+        if (localSig) activeSig = { name: localSig.name, image: localSig.image };
+      }
+    }
 
     // 2. Resolve active section (last crossed section)
     let activeSec: SongSection | null = null;
@@ -239,7 +251,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     const live = livePlaybackRef.current;
     const measureIdx = isPlaying && live.step >= 0 ? live.measure : currentMeasure;
     updateOverlay(measureIdx);
-  }, [currentMeasure, isPlaying, measureSignals, rhythmSignals, songSections]);
+  }, [currentMeasure, isPlaying, measureSignals, rhythmSignals, mestreSignals, songSections]);
 
   useEffect(() => {
     let timerId: any = null;
@@ -302,6 +314,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     soloPatternPlayId,
     measureSignals,
     rhythmSignals,
+    mestreSignals,
     songSections,
     isLeftHanded,
   });
@@ -327,10 +340,11 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       soloPatternPlayId,
       measureSignals,
       rhythmSignals,
+      mestreSignals,
       songSections,
       isLeftHanded,
     };
-  }, [tracks, isPlaying, currentStepIndex, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, songSections, isLeftHanded]);
+  }, [tracks, isPlaying, currentStepIndex, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, isLeftHanded]);
 
   // Handle click on canvas
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1018,7 +1032,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       animId = requestAnimationFrame(drawLoop);
     };
 
-    drawLoop();
+    drawLoop(performance.now());
 
     return () => {
       cancelAnimationFrame(animId);

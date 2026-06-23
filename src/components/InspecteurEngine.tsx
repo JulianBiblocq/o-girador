@@ -1,315 +1,384 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as Tone from 'tone';
-import { Play, Square, ShieldAlert, Award, ArrowLeft, HelpCircle, UserX, Check } from 'lucide-react';
+import { Play, Square, ShieldAlert, Award, ArrowLeft, Check, X, ArrowRight } from 'lucide-react';
+import { audioEngine } from '../hooks/useAudioSync';
 
 interface InspecteurEngineProps {
   lang: 'fr' | 'pt';
   onExit: () => void;
-  caixaParfaite: Tone.Sequence | undefined;
-  caixaErreur: Tone.Sequence | undefined;
   onSuccess?: () => void;
+  exerciseData?: any;
 }
 
 interface Suspect {
   id: string;
   name: { fr: string; pt: string };
-  description: { fr: string; pt: string };
   icon: string;
-  isGuilty: boolean;
 }
 
 const suspects: Suspect[] = [
-  {
-    id: 'alfaia',
-    name: { fr: 'Alfaia la Lourde', pt: 'Alfaia a Pesada' },
-    description: {
-      fr: 'Soupçonnée de jouer des coups décalés dans les basses.',
-      pt: 'Suspeita de tocar batidas atrasadas nos graves.'
-    },
-    icon: 'icones/alfaia.svg',
-    isGuilty: false
-  },
-  {
-    id: 'caixa',
-    name: { fr: 'Caixa la Tremblante', pt: 'Caixa a Trêmula' },
-    description: {
-      fr: 'Soupçonnée de perturber le roulement régulier avec des ratés.',
-      pt: 'Suspeita de perturbar o toque contínuo com falhas rítmicas.'
-    },
-    icon: 'icones/caixa.svg',
-    isGuilty: true // The target of the investigation!
-  },
-  {
-    id: 'gongue',
-    name: { fr: 'Gonguê le Métallique', pt: 'Gonguê o Metálico' },
-    description: {
-      fr: 'Soupçonné d\'émettre des coups ouverts hors tempo.',
-      pt: 'Suspeito de emitir golpes abertos fora do tempo.'
-    },
-    icon: 'icones/gongue.svg',
-    isGuilty: false
-  },
-  {
-    id: 'agbe',
-    name: { fr: 'Agbê la Perlée', pt: 'Agbê a Perlada' },
-    description: {
-      fr: 'Soupçonnée de saboter le contretemps avec des lancers manqués.',
-      pt: 'Suspeita de sabotar o contratempo com lançamentos errados.'
-    },
-    icon: 'icones/agbe.svg',
-    isGuilty: false
-  }
+  { id: 'alfaia', name: { fr: 'Alfaia la Lourde', pt: 'Alfaia a Pesada' }, icon: 'icones/alfaia.svg' },
+  { id: 'caixa', name: { fr: 'Caixa la Tremblante', pt: 'Caixa a Trêmula' }, icon: 'icones/caixa.svg' },
+  { id: 'gongue', name: { fr: 'Gonguê le Métallique', pt: 'Gonguê o Metálico' }, icon: 'icones/gongue.svg' },
+  { id: 'agbe', name: { fr: 'Agbê la Perlée', pt: 'Agbê a Perlada' }, icon: 'icones/agbe.svg' }
 ];
+
+const getInstrumentNameFromIdx = (idx: number) => {
+  if (idx === 0) return 'alfaia';
+  if (idx === 3) return 'caixa';
+  if (idx === 5) return 'gongue';
+  if (idx === 6) return 'agbe';
+  return 'caixa'; // fallback
+};
 
 export const InspecteurEngine: React.FC<InspecteurEngineProps> = ({
   lang,
   onExit,
-  caixaParfaite,
-  caixaErreur,
-  onSuccess
+  onSuccess,
+  exerciseData
 }) => {
-  // Game state
-  const [accusedState, setAccusedState] = useState<Record<string, 'guilty' | 'innocent' | null>>({});
-  const [isCorrected, setIsCorrected] = useState<boolean>(false);
-  const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(true);
+  // Parse Data
+  const perfectAudio = exerciseData?.partition_parfaite || [];
+  const sabotagedAudio = exerciseData?.piste_sabotee || [];
+  const guiltyInstStr = exerciseData?.instrument_coupable || 'caixa';
+  const loopStart = exerciseData?.loop_start || 0;
+  const loopEnd = exerciseData?.loop_end || 0;
+  const bpm = exerciseData?.bpm || 83;
+  const totalMeasures = perfectAudio.length > 0 ? Math.max(...perfectAudio.map((t: any) => t.patterns?.length || 1)) : 1;
 
-  // Success handler
-  useEffect(() => {
-    if (isCorrected) {
-      onSuccess?.();
+  // Game State
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [selectedSuspect, setSelectedSuspect] = useState<string | null>(null);
+  const [selectedMeasures, setSelectedMeasures] = useState<number[]>([]);
+  const [validationResult, setValidationResult] = useState<'success' | 'failure' | null>(null);
+  const [isResolving, setIsResolving] = useState(false);
+
+  // Compute actual guilty measures
+  const actualGuiltyMeasures = useMemo(() => {
+    const guiltyMeasures: number[] = [];
+    const perfTrack = perfectAudio.find((t: any) => getInstrumentNameFromIdx(t.instrumentIdx) === guiltyInstStr);
+    const sabTrack = sabotagedAudio.find((t: any) => getInstrumentNameFromIdx(t.instrumentIdx) === guiltyInstStr);
+    if (!perfTrack || !sabTrack) return [];
+    
+    for (let m = loopStart; m <= loopEnd; m++) {
+      let isDifferent = false;
+      for (let i = 0; i < 16; i++) {
+        const p = perfTrack.patterns[m]?.activeSteps?.[i];
+        const s = sabTrack.patterns[m]?.activeSteps?.[i];
+        const pNorm = (p === 0 || p === "0") ? null : p;
+        const sNorm = (s === 0 || s === "0") ? null : s;
+        if (pNorm !== sNorm) {
+          isDifferent = true;
+          break;
+        }
+      }
+      if (isDifferent) guiltyMeasures.push(m);
     }
-  }, [isCorrected, onSuccess]);
+    return guiltyMeasures;
+  }, [perfectAudio, sabotagedAudio, guiltyInstStr, loopStart, loopEnd]);
 
-  // Monitor the actual Tone.Transport status
-  useEffect(() => {
-    setIsPlayingAudio(Tone.Transport.state === 'started');
+  const scheduleTracks = (tracks: any[]) => {
+    tracks.forEach(track => {
+      if (track.isMute) return;
+      const patterns = track.patterns || [];
+      const instName = getInstrumentNameFromIdx(track.instrumentIdx);
+      
+      patterns.forEach((pattern: any, m: number) => {
+        const steps = pattern.activeSteps || [];
+        for (let i = 0; i < steps.length; i++) {
+          const step = steps[i];
+          if (step !== 0 && step !== '0' && step !== null) {
+            const beat = Math.floor(i / 4);
+            const sixteenth = i % 4;
+            const timeStr = `${m}:${beat}:${sixteenth}`;
+            
+            Tone.Transport.schedule((time) => {
+              audioEngine.playNote(instName, step, time, 1.0, 1.0);
+            }, timeStr);
+          }
+        }
+      });
+    });
+  };
+
+  const playInvestigation = () => {
+    Tone.Transport.cancel();
+    Tone.Transport.stop();
     
-    // Auto unmute error and mute perfect on start/restart
-    if (caixaErreur) caixaErreur.mute = false;
-    if (caixaParfaite) caixaParfaite.mute = true;
+    // Mix perfect and sabotaged
+    const mixedTracks = perfectAudio.map((track: any) => {
+      if (getInstrumentNameFromIdx(track.instrumentIdx) === guiltyInstStr) {
+        const sabTrack = sabotagedAudio.find((t: any) => getInstrumentNameFromIdx(t.instrumentIdx) === guiltyInstStr);
+        return sabTrack || track;
+      }
+      return track;
+    });
     
-    return () => {
-      // Restore defaults on leave
-      if (caixaErreur) caixaErreur.mute = false;
-      if (caixaParfaite) caixaParfaite.mute = true;
-    };
-  }, [caixaParfaite, caixaErreur]);
+    scheduleTracks(mixedTracks);
+    
+    Tone.Transport.bpm.value = bpm;
+    Tone.Transport.setLoopPoints(`${loopStart}:0:0`, `${loopEnd + 1}:0:0`);
+    Tone.Transport.loop = true;
+    
+    // Resume context if suspended
+    if (Tone.context.state !== 'running') {
+      Tone.context.resume();
+    }
+    
+    Tone.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, `${loopStart}:0:0`);
+    setIsPlaying(true);
+  };
+
+  const playResolution = () => {
+    Tone.Transport.cancel();
+    Tone.Transport.stop();
+    
+    scheduleTracks(perfectAudio);
+    
+    Tone.Transport.bpm.value = bpm;
+    Tone.Transport.loop = false;
+    
+    if (Tone.context.state !== 'running') {
+      Tone.context.resume();
+    }
+    
+    Tone.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
+    setIsPlaying(true);
+    setIsResolving(true);
+    
+    // Wait until total measures finish
+    const durationSec = (totalMeasures * 4 * 60) / bpm;
+    setTimeout(() => {
+      Tone.Transport.stop();
+      setIsPlaying(false);
+      onSuccess?.();
+    }, durationSec * 1000 + 500);
+  };
+
+  const playFatras = async () => {
+    Tone.Transport.cancel();
+    Tone.Transport.stop();
+    
+    try {
+      const res = await fetch('/presets/fatras.json');
+      const fatras = await res.json();
+      
+      scheduleTracks(fatras.tracks);
+      
+      Tone.Transport.bpm.value = fatras.bpm || 150;
+      Tone.Transport.loop = false;
+      
+      if (Tone.context.state !== 'running') {
+        Tone.context.resume();
+      }
+      
+      Tone.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
+      setIsPlaying(true);
+      
+      const measures = fatras.totalMeasures || 1;
+      const durationSec = (measures * 4 * 60) / Tone.Transport.bpm.value;
+      setTimeout(() => {
+        Tone.Transport.stop();
+        setIsPlaying(false);
+      }, durationSec * 1000 + 500);
+    } catch (err) {
+      console.error("Fatras error:", err);
+      // Fallback
+      setIsPlaying(false);
+    }
+  };
 
   const togglePlayback = () => {
-    if (Tone.Transport.state === 'started') {
+    if (isPlaying) {
       Tone.Transport.pause();
-      setIsPlayingAudio(false);
+      setIsPlaying(false);
     } else {
-      Tone.Transport.start();
-      setIsPlayingAudio(true);
+      playInvestigation();
     }
   };
 
-  const handleAccuse = (suspect: Suspect) => {
-    if (isCorrected) return; // Already won
+  const stopPlayback = () => {
+    Tone.Transport.stop();
+    setIsPlaying(false);
+  };
 
-    if (suspect.isGuilty) {
-      // 🎯 SUCCESS!
-      // Instantly mute the error sequence and unmute the perfect sequence
-      if (caixaErreur) {
-        caixaErreur.mute = true;
-      }
-      if (caixaParfaite) {
-        caixaParfaite.mute = false;
-      }
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      Tone.Transport.stop();
+      Tone.Transport.cancel();
+      setIsPlaying(false);
+    };
+  }, []);
 
-      setAccusedState((prev) => ({
-        ...prev,
-        [suspect.id]: 'guilty'
-      }));
-      setIsCorrected(true);
+  const handleValidate = () => {
+    if (validationResult === 'success') return; // Already won
+
+    const isInstCorrect = selectedSuspect === guiltyInstStr;
+    const isMeasuresCorrect = 
+      selectedMeasures.length === actualGuiltyMeasures.length &&
+      selectedMeasures.every(m => actualGuiltyMeasures.includes(m));
+
+    if (isInstCorrect && isMeasuresCorrect) {
+       setValidationResult('success');
+       playResolution();
     } else {
-      // ❌ WRONG SUSPECT
-      setAccusedState((prev) => ({
-        ...prev,
-        [suspect.id]: 'innocent'
-      }));
+       setValidationResult('failure');
+       playFatras();
     }
   };
 
-  const t = {
-    fr: {
-      title: "L'Inspecteur du Baque",
-      subtitle: "Trouvez l'intrus rythmique !",
-      wantedPoster: "AVIS DE RECHERCHE",
-      reward: "RÉCOMPENSE : 1000 COCOS",
-      description: "Une erreur s'est glissée dans le mix rythmique du Maracatu ! Écoutez attentivement le son global, et cliquez sur l'instrument coupable de saboter le tempo.",
-      innocentLabel: "Innocent",
-      guiltyLabel: "Coupable !",
-      correctedStamp: "CORRIGÉ !",
-      btnPlay: "Écouter",
-      btnStop: "Pause",
-      btnExit: "Retour",
-      successMsg: "Excellent travail d'oreille ! La Caixa jouait effectivement à contre-temps. La piste a été corrigée en temps réel !",
-      solvedTitle: "RÉSOLU",
-      tip: "Astuce : Mettez un casque pour bien isoler la stéréo des instruments et localiser la faille rythmique."
-    },
-    pt: {
-      title: "O Inspetor do Baque",
-      subtitle: "Ache o sabotador do ritmo !",
-      wantedPoster: "PROCURADO",
-      reward: "RECOMPENSA: 1000 COCOS",
-      description: "Um erro entrou no mix do Maracatu! Escute atentamente o som global, e clique no instrumento culpado por sabotar o tempo.",
-      innocentLabel: "Inocente",
-      guiltyLabel: "Culpado !",
-      correctedStamp: "CORRIGIDO !",
-      btnPlay: "Escutar",
-      btnStop: "Pausa",
-      btnExit: "Voltar",
-      successMsg: "Excelente trabalho de ouvido! A Caixa estava realmente tocando errado. A faixa foi corrigida em tempo real!",
-      solvedTitle: "RESOLVIDO",
-      tip: "Dica: Use fones de ouvido para isolar o estéreo dos instrumentos e localizar o erro rítmico."
+  const toggleMeasure = (m: number) => {
+    if (selectedMeasures.includes(m)) {
+      setSelectedMeasures(selectedMeasures.filter(x => x !== m));
+    } else {
+      setSelectedMeasures([...selectedMeasures, m]);
     }
-  }[lang];
+  };
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 flex flex-col gap-5 cordel-bg select-none my-4">
-      {/* Header Bar */}
-      <div className="flex items-center justify-between border-b-4 border-[var(--cordel-border)] pb-3">
-        <div className="flex flex-col">
-          <h2 className="font-cactus text-xl uppercase tracking-wide text-[var(--cordel-text)] font-bold">
-            🔍 {t.title}
-          </h2>
-          <span className="text-[10px] text-[var(--cordel-text)]/70 font-semibold">{t.subtitle}</span>
-        </div>
+    <div className="w-full h-full overflow-y-auto cordel-bg select-none font-sans flex flex-col p-4 custom-scrollbar">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b-4 border-[var(--cordel-border)] pb-4 mb-6 relative">
         <button
           onClick={onExit}
-          className="px-3 py-1.5 border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-xs font-bold uppercase flex items-center gap-1 cursor-pointer"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] font-bold text-xs uppercase cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cordel-button z-10"
         >
-          <ArrowLeft className="w-3.5 h-3.5" /> {t.btnExit}
+          <ArrowLeft className="w-4 h-4" />
+          {lang === 'fr' ? 'Retour' : 'Voltar'}
         </button>
-      </div>
-
-      {/* WANTED / PROCURADO Board Title */}
-      <div className="text-center py-2 border-y-2 border-dashed border-[var(--cordel-border)]/30">
-        <span className="font-cactus text-lg font-bold tracking-widest text-[var(--cordel-wood)] uppercase animate-pulse">
-          🚨 {t.wantedPoster} 🚨
-        </span>
-        <div className="text-[10px] font-bold tracking-wider text-[var(--cordel-text)]/80 mt-0.5">
-          {t.reward}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <h2 className="font-cactus text-3xl uppercase tracking-wider text-[var(--cordel-text)] font-extrabold flex items-center gap-2">
+            <ShieldAlert className="w-8 h-8" />
+            {exerciseData?.folheto_titre || "L'Inspecteur"}
+          </h2>
         </div>
       </div>
 
-      {/* Game Instruction Description */}
-      <p className="text-xs text-[var(--cordel-text)]/80 leading-relaxed font-cactus text-center max-w-lg mx-auto">
-        {t.description}
-      </p>
+      <div className="flex flex-col lg:flex-row gap-6 h-full max-w-6xl mx-auto w-full">
+        
+        {/* Left Column: Player & Context */}
+        <div className="w-full lg:w-1/3 flex flex-col gap-4">
+          <div className="border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] p-6 cordel-border flex flex-col items-center justify-center gap-4 text-center">
+            <ShieldAlert className="w-16 h-16 text-[var(--cordel-wood)] mb-2" />
+            <h3 className="font-cactus text-xl font-bold text-[var(--cordel-wood)]">
+              {lang === 'fr' ? "Écoutez la Boucle" : "Ouça o Loop"}
+            </h3>
+            <p className="text-sm font-semibold text-[var(--cordel-text)] opacity-80 italic">
+              {exerciseData?.description || "Un intrus a saboté cette séquence. Trouvez l'erreur !"}
+            </p>
 
-      {/* Main Playback Controller */}
-      <div className="flex justify-center items-center gap-3 py-1">
-        <button
-          onClick={togglePlayback}
-          className={`px-5 py-2.5 font-cactus text-xs font-bold uppercase cordel-border cursor-pointer flex items-center justify-center gap-2 transition-all duration-100 ${
-            isPlayingAudio 
-              ? 'bg-[var(--cordel-wood)] text-white hover:opacity-90' 
-              : 'bg-yellow-600 text-white hover:opacity-95'
-          }`}
-        >
-          {isPlayingAudio ? (
-            <><Square className="w-3.5 h-3.5 fill-current" /> {t.btnStop}</>
-          ) : (
-            <><Play className="w-3.5 h-3.5 fill-current" /> {t.btnPlay}</>
-          )}
-        </button>
-      </div>
-
-      {/* Grid of Suspects ("Avis de recherche") */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {suspects.map((suspect) => {
-          const state = accusedState[suspect.id];
-          const isInnocent = state === 'innocent';
-          const isGuilty = state === 'guilty';
-          
-          return (
-            <button
-              key={suspect.id}
-              disabled={isInnocent || isCorrected}
-              onClick={() => handleAccuse(suspect)}
-              className={`relative flex flex-col items-center p-3 border-3 bg-[var(--cordel-bg)] text-left transition-all duration-150 overflow-hidden min-h-[220px] ${
-                isInnocent
-                  ? 'border-red-800/40 opacity-45 cursor-not-allowed bg-red-950/5'
-                  : isGuilty
-                    ? 'border-green-600 bg-green-500/5 rotate-[-1deg] scale-[1.02]'
-                    : 'border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cordel-border hover:-translate-y-0.5 cursor-pointer'
-              }`}
-            >
-              {/* Instrument Icon */}
-              <div className={`w-16 h-16 p-2 border border-[var(--cordel-border)]/30 rounded bg-white/5 flex items-center justify-center mb-3 ${
-                isGuilty ? 'border-green-600' : ''
-              }`}>
-                <img
-                  src={`${(import.meta as any).env.BASE_URL || '/'}${suspect.icon}`}
-                  alt={suspect.name[lang]}
-                  className={`w-full h-full object-contain filter invert opacity-80 ${
-                    isGuilty ? 'invert-0 text-green-600' : ''
-                  }`}
-                  onError={(e) => {
-                    (e.target as HTMLElement).style.display = 'none';
-                  }}
-                />
-              </div>
-
-              {/* Suspect Info */}
-              <div className="text-center flex flex-col gap-1 w-full mt-auto">
-                <span className="font-cactus text-xs font-black uppercase tracking-wider block truncate">
-                  {suspect.name[lang]}
-                </span>
-                <p className="text-[9px] leading-tight text-[var(--cordel-text)]/70 font-sans h-[36px] overflow-hidden">
-                  {suspect.description[lang]}
-                </p>
-              </div>
-
-              {/* Innocent Visual Stamp */}
-              {isInnocent && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-900/15 pointer-events-none select-none z-10">
-                  {/* Diagonal cross bar */}
-                  <div className="w-[120%] h-1 bg-red-700/80 rotate-[35deg] absolute"></div>
-                  <div className="border-3 border-red-700 text-red-700 font-cactus font-extrabold text-xs px-2 py-1 uppercase tracking-widest rotate-[-10deg] bg-[var(--cordel-bg)] mt-4">
-                    {t.innocentLabel}
-                  </div>
-                </div>
-              )}
-
-              {/* Guilty / Solved Visual Stamp */}
-              {isGuilty && (
-                <div className="absolute inset-0 flex items-center justify-center bg-green-600/10 pointer-events-none select-none z-10">
-                  <div className="border-4 border-dashed border-green-600 text-green-600 font-cactus font-black text-sm px-4 py-2 uppercase tracking-widest rotate-[-15deg] bg-[var(--cordel-bg)] shadow-lg animate-bounce">
-                    {t.correctedStamp}
-                  </div>
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Tip Box */}
-      <div className="flex gap-2 items-start text-[10px] text-[var(--cordel-text)]/60 leading-normal p-2 border border-dashed border-[var(--cordel-border)]/25 bg-black/5">
-        <HelpCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-        <span>{t.tip}</span>
-      </div>
-
-      {/* Success Notification */}
-      {isCorrected && (
-        <div className="p-4 border-3 border-green-600 bg-green-500/10 text-green-700 text-center flex flex-col items-center justify-center relative rotate-[-0.5deg]">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rotate-[-12deg] text-8xl font-black opacity-10 pointer-events-none font-cactus">
-            {t.solvedTitle}
-          </div>
-          <div className="flex flex-col items-center gap-2 z-10">
-            <div className="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center">
-              <Check className="w-6 h-6" />
+            <div className="flex gap-4 mt-4">
+              <button
+                onClick={togglePlayback}
+                disabled={isResolving}
+                className={`w-16 h-16 flex items-center justify-center rounded-full border-4 border-[var(--cordel-border)] font-bold text-xl cordel-button transition-colors ${
+                  isPlaying 
+                    ? 'bg-[var(--cordel-wood)] text-white' 
+                    : 'bg-[#fdfaf2] text-[var(--cordel-wood)] hover:bg-[var(--cordel-wood)] hover:text-white'
+                } ${isResolving ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {isPlaying ? <Square className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current" />}
+              </button>
             </div>
-            <span className="font-cactus font-bold text-sm max-w-md">
-              {t.successMsg}
-            </span>
+            
+            <div className="mt-2 text-xs font-bold uppercase tracking-widest text-[var(--cordel-text)]/60">
+              Boucle : Mesure {loopStart + 1} à {loopEnd + 1}
+            </div>
           </div>
         </div>
-      )}
+
+        {/* Right Column: Investigation Form */}
+        <div className="w-full lg:w-2/3 flex flex-col gap-6">
+          <div className="border-2 border-[var(--cordel-border)] p-6 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-6">
+            
+            {/* Step 1: Instrument */}
+            <div className="flex flex-col gap-3">
+              <h3 className="font-cactus text-lg font-bold text-[var(--cordel-wood)] border-b-2 border-dashed border-[var(--cordel-wood)]/30 pb-2">
+                1. {lang === 'fr' ? 'Qui est le coupable ?' : 'Quem é o culpado?'}
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {suspects.map(s => (
+                  <button
+                    key={s.id}
+                    onClick={() => {
+                      if (!isResolving && validationResult !== 'success') {
+                        setSelectedSuspect(s.id);
+                        setValidationResult(null);
+                      }
+                    }}
+                    className={`border-2 p-3 flex flex-col items-center justify-center gap-2 rounded transition-all ${
+                      selectedSuspect === s.id 
+                        ? 'border-[var(--cordel-wood)] bg-[var(--cordel-wood)]/10 scale-105 shadow-md' 
+                        : 'border-[var(--cordel-border)]/40 hover:bg-black/5'
+                    }`}
+                  >
+                    <img src={`/${s.icon}`} alt={s.name[lang]} className="w-10 h-10 opacity-80" />
+                    <span className="text-[10px] font-bold uppercase text-center">{s.name[lang]}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Step 2: Measures */}
+            <div className="flex flex-col gap-3">
+              <h3 className="font-cactus text-lg font-bold text-[var(--cordel-wood)] border-b-2 border-dashed border-[var(--cordel-wood)]/30 pb-2">
+                2. {lang === 'fr' ? "Où est l'erreur ?" : 'Onde está o erro?'}
+              </h3>
+              <div className="flex flex-wrap gap-3">
+                {Array.from({ length: loopEnd - loopStart + 1 }, (_, i) => loopStart + i).map(m => (
+                  <label key={m} className={`flex items-center gap-2 border-2 px-4 py-2 rounded cursor-pointer transition-all ${
+                    selectedMeasures.includes(m) 
+                      ? 'border-[var(--cordel-wood)] bg-[var(--cordel-wood)]/10' 
+                      : 'border-[var(--cordel-border)]/40 hover:bg-black/5'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      className="hidden" 
+                      checked={selectedMeasures.includes(m)}
+                      onChange={() => {
+                        if (!isResolving && validationResult !== 'success') {
+                          toggleMeasure(m);
+                          setValidationResult(null);
+                        }
+                      }}
+                    />
+                    <span className="text-xs font-bold uppercase">Mesure {m + 1}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Step 3: Validate */}
+            <div className="flex flex-col items-center mt-4">
+              <button
+                onClick={handleValidate}
+                disabled={!selectedSuspect || selectedMeasures.length === 0 || validationResult === 'success'}
+                className="w-full md:w-auto px-10 py-4 bg-[var(--cordel-wood)] text-[#fdfaf2] font-cactus text-lg font-bold uppercase cordel-border cursor-pointer flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                {lang === 'fr' ? "Résoudre l'Enquête" : 'Resolver a Investigação'}
+                <Check className="w-5 h-5" />
+              </button>
+              
+              {/* Feedback */}
+              {validationResult === 'failure' && (
+                <div className="mt-4 p-4 border-2 border-red-500 bg-red-50 text-red-700 font-bold text-sm w-full text-center rounded flex items-center justify-center gap-2">
+                  <X className="w-5 h-5" />
+                  {lang === 'fr' ? 'Mauvaise déduction ! Punition !' : 'Dedução errada! Punição!'}
+                </div>
+              )}
+              {validationResult === 'success' && (
+                <div className="mt-4 p-4 border-2 border-green-500 bg-green-50 text-green-700 font-bold text-sm w-full text-center rounded flex items-center justify-center gap-2">
+                  <Check className="w-5 h-5" />
+                  {lang === 'fr' ? 'Enquête Résolue ! La Roda saine reprend...' : 'Investigação Resolvida!'}
+                </div>
+              )}
+            </div>
+
+          </div>
+        </div>
+
+      </div>
     </div>
   );
 };

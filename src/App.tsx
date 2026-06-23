@@ -39,6 +39,7 @@ const AoVivoOverlay = lazy(() => import('./components/AoVivoOverlay').then(m => 
 import { Home } from './components/Home';
 import { LandingPage } from './components/LandingPage';
 import { AdminPanel } from './components/AdminPanel';
+import { SaveSectionModal, LoadSectionModal } from './components/CloudSectionModals';
 import { PresetMetadata, Pattern, SongSection, TimeSignature } from './types';
 import { exportTablatureFile, printTablature, printLegendOnly } from './utils/exportTablature';
 
@@ -629,6 +630,14 @@ export default function App() {
   // Touch selector Bubble states
   const [touchSelector, setTouchSelector] = useState<any | null>(null);
   const [hoveredStroke, setHoveredStroke] = useState<string | null>(null);
+
+  // Progression State
+  const [activeExercise, setActiveExercise] = useState<any>(null);
+  const [activeCordeIndex, setActiveCordeIndex] = useState<number | null>(null);
+
+  // Cloud Section State
+  const [sectionToSave, setSectionToSave] = useState<SongSection | null>(null);
+  const [loadSectionInsertMeasure, setLoadSectionInsertMeasure] = useState<number | null>(null);
   const [measureWidth, setMeasureWidth] = useState<number>(480);
   const [mobileTab, setMobileTab] = useState<'roda' | 'mixer' | 'toada'>('roda');
 
@@ -931,6 +940,8 @@ export default function App() {
             measureWidth={measureWidth}
             onMeasureWidthChange={setMeasureWidth}
             onExportTablature={handleExportTablature}
+            onSaveCloudSection={setSectionToSave}
+            onLoadCloudSection={setLoadSectionInsertMeasure}
           />
         )}
 
@@ -1229,6 +1240,21 @@ export default function App() {
           </div>
         </div>
       )}
+      
+      {/* Cloud Section Modals */}
+      {sectionToSave && (
+        <SaveSectionModal
+          section={sectionToSave}
+          onClose={() => setSectionToSave(null)}
+        />
+      )}
+      {loadSectionInsertMeasure !== null && (
+        <LoadSectionModal
+          insertAtMeasure={loadSectionInsertMeasure}
+          onClose={() => setLoadSectionInsertMeasure(null)}
+        />
+      )}
+
       {viewMode === 'roda' && (!isMobile || mobileTab === 'roda') && <AoVivoOverlay />}
     </div>
       )}

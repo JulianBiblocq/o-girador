@@ -9,20 +9,28 @@ import { AudioTrackRecorder } from './AudioTrackRecorder';
 import gifshot from 'gifshot';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
-import { PresetMetadata } from '../types';
+import { useAuth } from '../contexts/AuthContext';
+import { PresetMetadata, CloudRhythmSignal } from '../types';
+import { uploadMestreSignal, deleteMestreSignal } from '../cloudSignals';
 
 interface RightSidebarProps {
   activePanel: 'legend' | 'letras' | 'info' | null;
   onTogglePanel: (panel: 'legend' | 'letras') => void;
   isMobile: boolean;
+  mestreSignals?: CloudRhythmSignal[];
+  refreshMestreSignals?: () => void;
 }
 
 const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   activePanel,
   onTogglePanel,
   isMobile,
+  mestreSignals = [],
+  refreshMestreSignals,
 }) => {
   const sequencer = useSequencer();
+  const { userProfile } = useAuth();
+  const [isUploadingSignal, setIsUploadingSignal] = React.useState(false);
   const audio = useAudio();
 
   const {
@@ -83,6 +91,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   const [burstCount, setBurstCount] = React.useState<number>(0);
   const [isProcessingGif, setIsProcessingGif] = React.useState<boolean>(false);
   const [flashActive, setFlashActive] = React.useState<boolean>(false);
+  const [isGlobalUpload, setIsGlobalUpload] = React.useState<boolean>(false);
 
   // Stop camera stream on unmount
   React.useEffect(() => {
@@ -247,23 +256,55 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
     }
   };
 
-  const handleAddSignal = () => {
+  const handleAddSignal = async () => {
     if (!pendingSignalImage || !onMetadataChange || !metadata) return;
-    const newSignal = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      name: pendingSignalName.trim() || (lang === 'fr' ? 'Signal sans nom' : 'Sinal sem nome'),
-      image: pendingSignalImage,
-    };
-    const prev = metadata.rhythmSignals || [];
-    onMetadataChange({ ...metadata, rhythmSignals: [...prev, newSignal] });
-    setPendingSignalImage(null);
-    setPendingSignalName('');
+    
+    const isMestreOrAdmin = userProfile?.role === 'mestre' || userProfile?.role === 'admin';
+    const finalName = pendingSignalName.trim() || (lang === 'fr' ? 'Signal sans nom' : 'Sinal sem nome');
+
+    if (isMestreOrAdmin) {
+      setIsUploadingSignal(true);
+      const mestreIdToUse = isGlobalUpload ? 'global' : (userProfile?.mestreId || userProfile?.uid);
+      if (mestreIdToUse) {
+        const result = await uploadMestreSignal(mestreIdToUse, finalName, pendingSignalImage);
+        if (result) {
+          if (refreshMestreSignals) refreshMestreSignals();
+          setPendingSignalImage(null);
+          setPendingSignalName('');
+        } else {
+          window.alert(lang === 'fr' 
+            ? "Erreur lors de l'upload vers le Cloud. Vérifiez vos règles Firebase (Firestore et Storage)." 
+            : "Erro no upload para a nuvem. Verifique suas regras do Firebase (Firestore e Storage).");
+        }
+      } else {
+        window.alert("Erreur: Mestre ID introuvable.");
+      }
+      setIsUploadingSignal(false);
+    } else {
+      const newSignal = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        name: finalName,
+        image: pendingSignalImage,
+      };
+      const prev = metadata.rhythmSignals || [];
+      onMetadataChange({ ...metadata, rhythmSignals: [...prev, newSignal] });
+      setPendingSignalImage(null);
+      setPendingSignalName('');
+    }
   };
 
-  const handleDeleteSignal = (id: string) => {
-    if (!onMetadataChange || !metadata) return;
-    const updated = (metadata.rhythmSignals || []).filter(s => s.id !== id);
-    onMetadataChange({ ...metadata, rhythmSignals: updated });
+  const handleDeleteSignal = async (id: string, isCloud: boolean, signalMestreId?: string) => {
+    if (isCloud && signalMestreId) {
+      const isMestreOrAdmin = userProfile?.role === 'mestre' || userProfile?.role === 'admin';
+      if (isMestreOrAdmin) {
+        await deleteMestreSignal(id, signalMestreId);
+        if (refreshMestreSignals) refreshMestreSignals();
+      }
+    } else {
+      if (!onMetadataChange || !metadata) return;
+      const updated = (metadata.rhythmSignals || []).filter(s => s.id !== id);
+      onMetadataChange({ ...metadata, rhythmSignals: updated });
+    }
   };
 
   const t = (key: string) => {
@@ -904,21 +945,52 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
 
 
 
-                    {/* Galerie des signaux existants */}
-                    {(metadata?.rhythmSignals || []).length > 0 && (
+                    {/* Galerie des signaux existants (Cloud + Local) */}
+                    {(mestreSignals.length > 0 || (metadata?.rhythmSignals || []).length > 0) && (
                       <div className="flex flex-col gap-1.5">
-                        {(metadata.rhythmSignals || []).map(sig => (
+                        {/* Signaux du Mestre (Cloud) */}
+                        {mestreSignals.map(sig => (
+                          <div key={sig.id} className="flex items-center gap-2 bg-[var(--cordel-bg)] cordel-border-sm p-1.5 border-[#2E689C]">
+                            {sig.imageUrl ? (
+                              <img src={sig.imageUrl} alt={sig.name} className="w-10 h-10 object-contain flex-shrink-0 bg-black/10" />
+                            ) : (
+                              <div className="w-10 h-10 flex items-center justify-center bg-black/10 text-[16px] flex-shrink-0">📢</div>
+                            )}
+                            <div className="flex-grow flex flex-col min-w-0">
+                              <span className="text-[10px] font-bold text-[var(--cordel-text)] truncate">{sig.name}</span>
+                              {sig.mestreId === 'global' ? (
+                                <span className="text-[7px] text-emerald-600 uppercase font-bold">🌍 Global Catalog</span>
+                              ) : (
+                                <span className="text-[7px] text-[#2E689C] uppercase font-bold">☁️ Mestre Catalog</span>
+                              )}
+                            </div>
+                            {(userProfile?.role === 'mestre' || userProfile?.role === 'admin') && (
+                              <button
+                                onClick={() => handleDeleteSignal(sig.id, true, sig.mestreId)}
+                                className="text-[#8b2a1a] font-bold text-[10px] hover:underline cursor-pointer flex-shrink-0 px-1"
+                                title={lang === 'fr' ? 'Supprimer du catalogue Mestre' : 'Excluir do catálogo Mestre'}
+                              >
+                                🗑️
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        {/* Signaux Locaux (Legacy) */}
+                        {(metadata?.rhythmSignals || []).map(sig => (
                           <div key={sig.id} className="flex items-center gap-2 bg-[var(--cordel-bg)] cordel-border-sm p-1.5">
                             {sig.image ? (
                               <img src={sig.image} alt={sig.name} className="w-10 h-10 object-contain flex-shrink-0 bg-black/10" />
                             ) : (
                               <div className="w-10 h-10 flex items-center justify-center bg-black/10 text-[16px] flex-shrink-0">📢</div>
                             )}
-                            <span className="flex-grow text-[10px] font-bold text-[var(--cordel-text)] truncate">{sig.name}</span>
+                            <div className="flex-grow flex flex-col min-w-0">
+                              <span className="text-[10px] font-bold text-[var(--cordel-text)] truncate">{sig.name}</span>
+                              <span className="text-[7px] text-gray-500 uppercase font-bold">Local File</span>
+                            </div>
                             <button
-                              onClick={() => handleDeleteSignal(sig.id)}
+                              onClick={() => handleDeleteSignal(sig.id, false)}
                               className="text-[#8b2a1a] font-bold text-[10px] hover:underline cursor-pointer flex-shrink-0 px-1"
-                              title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
+                              title={lang === 'fr' ? 'Supprimer localement' : 'Excluir localmente'}
                             >
                               🗑️
                             </button>
@@ -1009,12 +1081,26 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                           onKeyDown={e => { if (e.key === 'Enter') handleAddSignal(); }}
                           autoFocus
                         />
-                        <div className="flex gap-2">
+                        {userProfile?.role === 'admin' && (
+                          <label className="flex items-center gap-2 cursor-pointer mt-1">
+                            <input 
+                              type="checkbox" 
+                              checked={isGlobalUpload}
+                              onChange={e => setIsGlobalUpload(e.target.checked)}
+                              className="accent-emerald-600"
+                            />
+                            <span className="text-[10px] font-bold text-[var(--cordel-text)]">
+                              {lang === 'fr' ? '🌍 Rendre public (Catalogue Global)' : '🌍 Tornar público (Catálogo Global)'}
+                            </span>
+                          </label>
+                        )}
+                        <div className="flex gap-2 mt-1">
                           <button
                             onClick={handleAddSignal}
-                            className="flex-1 py-1 bg-[#27ae60] text-[#1a1a1a] text-[10px] font-bold cordel-border-sm hover:opacity-85 cursor-pointer"
+                            disabled={!pendingSignalName.trim() || isUploadingSignal}
+                            className={`flex-1 py-1 bg-black text-white cordel-border-sm text-[10px] font-bold ${(!pendingSignalName.trim() || isUploadingSignal) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-800'}`}
                           >
-                            ✓ {lang === 'fr' ? 'Ajouter' : 'Adicionar'}
+                            {isUploadingSignal ? '...' : (lang === 'fr' ? 'Ajouter' : 'Adicionar')}
                           </button>
                           <button
                             onClick={() => { setPendingSignalImage(null); setPendingSignalName(''); }}

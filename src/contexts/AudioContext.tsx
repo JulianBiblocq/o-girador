@@ -622,45 +622,17 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const handleShare = async () => {
-    const tracksCopy = JSON.parse(JSON.stringify(sequencer.tracks));
-    tracksCopy.forEach((t: any) => t.patterns?.forEach((p: any) => { delete p.vocalAudioData; }));
-
-    const cleanMetadata = sequencer.metadata ? {
-      ...sequencer.metadata,
-      partitionImage: undefined,
-      rhythmSignals: sequencer.metadata.rhythmSignals ? sequencer.metadata.rhythmSignals.map(sig => ({
-        ...sig,
-        image: ''
-      })) : []
-    } : undefined;
-
-    const dataToShare: Preset = {
-      bpm: sequencer.bpm,
-      timeSig: sequencer.timeSig,
-      version: 3,
-      totalMeasures: sequencer.totalMeasures,
-      tracks: tracksCopy,
-      letras: sequencer.letras,
-      metadata: cleanMetadata,
-      measureTimeSigs: sequencer.measureTimeSigs,
-      measureBpms: sequencer.measureBpms,
-      measureBpmTransitions: sequencer.measureBpmTransitions,
-      measureVols: sequencer.measureVols,
-      measureVolTransitions: sequencer.measureVolTransitions,
-      songSections: sequencer.songSections,
-      measureSignals: sequencer.measureSignals,
-      masterEQ,
-      masterCompressor,
-      masterVol
-    };
-
-    const textStr = JSON.stringify(dataToShare);
+    const isPt = sequencer.lang === 'pt';
+    const textStr = isPt 
+      ? "Descubra O Girador, o sequenciador interativo de Maracatu! https://ogirador.web.app" 
+      : "Découvrez O Girador, le séquenceur de Maracatu interactif ! https://ogirador.web.app";
+    
     try {
       await navigator.clipboard.writeText(textStr);
-      window.alert(t('shareSuccess') || 'Link copied to clipboard!');
+      window.alert(isPt ? 'Link copiado para a área de transferência!' : 'Lien copié dans le presse-papier !');
     } catch (err) {
       console.error("Clipboard write failed:", err);
-      window.prompt("Copy this content:", textStr);
+      window.prompt(isPt ? "Copie este texto:" : "Copiez ce texte :", textStr);
     }
   };
 

@@ -61,6 +61,13 @@ export interface SavedPattern {
   createdAt: number;
 }
 
+export interface CloudPattern extends SavedPattern {
+  // CloudPattern inherits id, instrumentId, name, folder, steps, variations, volumes, decays, microtimings, createdAt
+  ownerId: string;
+  visibility: CatalogVisibility;
+  mestreId?: string; // To associate it with a specific mestre catalog
+}
+
 export interface HitTrigger {
   trackId: number;
   stepIndex: number;
@@ -159,6 +166,35 @@ export interface SongSection {
   level?: number;       // 0 pour base, 1 pour super-section, etc.
 }
 
+export interface SavedSectionTrack {
+  instrumentIdx: number;
+  isMute: boolean;
+  isSolo: boolean;
+  volumeVal: number;
+  reverbVal?: number;
+  panVal?: number;
+  patterns: Pattern[]; // Patterns mapped to the section's measures
+}
+
+export interface SavedSectionData {
+  numMeasures: number;
+  timeSigs: TimeSignature[];
+  vols: number[];
+  volTransitions: ('immediate' | 'ramp')[];
+  signals: (string | null)[];
+  tracks: SavedSectionTrack[];
+}
+
+export interface CloudSection {
+  id: string;
+  name: string;
+  ownerId: string;
+  visibility: CatalogVisibility;
+  mestreId?: string;
+  createdAt: number;
+  data: string; // LZString compressed JSON of SavedSectionData
+}
+
 export type CatalogVisibility = 'admin_global' | 'mestre_group' | 'private' | 'specific_user';
 
 export interface CloudPreset {
@@ -171,3 +207,10 @@ export interface CloudPreset {
   createdAt: number;
 }
 
+export interface CloudRhythmSignal {
+  id: string;
+  mestreId: string;
+  name: string;
+  imageUrl: string;
+  createdAt: number;
+}

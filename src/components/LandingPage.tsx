@@ -113,7 +113,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
         {(mestreMessage || hasAccess('mestre')) && (
           <div className="lp-mestre-message">
             <div className="lp-message-header">
-              <span className="lp-message-title">O Mot do Mestre / Le mot du Mestre</span>
+              <span className="lp-message-title">Studio do mestre / Studio du mestre</span>
               {hasAccess('mestre') && !isEditingMsg && (
                 <button onClick={() => { setEditMsgContent(mestreMessage || ''); setIsEditingMsg(true); }} className="lp-edit-btn" title="Modifier le message">
                   <Edit2 size={14} />
