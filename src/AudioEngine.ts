@@ -451,6 +451,9 @@ export class AudioEngine {
       this.scheduledHits.add(source);
       const duration = buffer.duration * decayMultiplier;
       if (decayMultiplier < 1.0) {
+        const fadeTime = Math.min(0.015, duration / 2);
+        gainNode.gain.setValueAtTime(velocity, time + duration - fadeTime);
+        gainNode.gain.linearRampToValueAtTime(0, time + duration);
         source.start(time, 0, duration);
       } else {
         source.start(time);
@@ -475,18 +478,23 @@ export class AudioEngine {
    */
   public stopBarulho(instrumentId: string, time: number = this.audioContext.currentTime): void {
     const activeNode = this.activeBarulhoNodes.get(instrumentId);
-    if (activeNode) {
+    const activeGain = this.activeBarulhoGains.get(instrumentId);
+    
+    if (activeNode && activeGain) {
       try {
-        activeNode.stop(time);
+        const fadeTime = 0.015; // 15ms fade out to avoid clicks
+        activeGain.gain.setValueAtTime(activeGain.gain.value, time);
+        activeGain.gain.linearRampToValueAtTime(0, time + fadeTime);
+        activeNode.stop(time + fadeTime);
+        
+        // Schedule disconnect after fade out
+        setTimeout(() => {
+          try { activeGain.disconnect(); } catch (_) {}
+        }, fadeTime * 1000 + 50);
       } catch (_) {
         // Source might have been stopped already
       }
       this.activeBarulhoNodes.delete(instrumentId);
-    }
-    // Always dispose the gainNode to prevent audio graph leaks
-    const activeGain = this.activeBarulhoGains.get(instrumentId);
-    if (activeGain) {
-      try { activeGain.disconnect(); } catch (_) {}
       this.activeBarulhoGains.delete(instrumentId);
     }
   }
