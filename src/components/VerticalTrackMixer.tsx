@@ -3,6 +3,7 @@ import * as Tone from 'tone';
 import { Eye, EyeOff, GripHorizontal, GripVertical } from 'lucide-react';
 import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useSequencerStore } from '../stores/useSequencerStore';
 import { TrackGroup, Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
 import { PanKnob } from './PanKnob';
@@ -43,7 +44,6 @@ interface VerticalTrackMixerProps {
   onVoiceNoteBlur: (patternId: number, stepIdx: number, val: string) => void;
   isPlaying: boolean;
   currentStepIndex: number;
-  currentMeasure: number;
   maxTicks: number;
   timeSig: string;
   totalMeasures: number;
@@ -93,7 +93,6 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
   onVoiceNoteBlur,
   isPlaying,
   currentStepIndex,
-  currentMeasure,
   maxTicks,
   timeSig,
   totalMeasures,
@@ -111,7 +110,13 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
   meter,
   soloPatternPlayId,
   activeVariationsRef,
+  isSelected,
 }) => {
+  const isLoopRegionActive = useSequencerStore(state => state.isLoopRegionActive);
+  const loopStartMeasure = useSequencerStore(state => state.loopStartMeasure);
+  const loopEndMeasure = useSequencerStore(state => state.loopEndMeasure);
+  const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
+  const currentMeasure = useSequencerStore(state => state.currentMeasure);
   const [instDropdownOpen, setInstDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
@@ -318,10 +323,13 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
   return (
     <div 
       ref={setNodeRef}
-      className="flex flex-col bg-[var(--cordel-bg)] cordel-border w-[340px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-colors"
+      className={`flex flex-col bg-[var(--cordel-bg)] cordel-border w-[340px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-all duration-300 ${
+        hasSolo ? (track.isSolo ? 'bg-[var(--cordel-border)]/5 shadow-[0_0_15px_rgba(0,0,0,0.15)] z-20' : 'opacity-50') : 
+        (track.isMute ? 'opacity-60 bg-black/5 dark:bg-white/5' : 'opacity-100')
+      } ${isSelected ? 'shadow-[0_0_15px_rgba(0,0,0,0.2)] z-10 bg-[var(--cordel-border)]/5' : ''}`}
       style={{
         ...style,
-        zIndex: instDropdownOpen ? 30 : 1,
+        zIndex: instDropdownOpen ? 30 : (isSelected ? 10 : 1),
         '--fader-thumb-bg': '#8b2a1a',
         '--fader-thumb-border': 'var(--cordel-border)',
       } as React.CSSProperties}
@@ -369,7 +377,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
           </div>
         </div>
 
-        <button onClick={onDelete} className="w-8 h-8 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]">✕</button>
+        <button onClick={onDelete} className="w-8 h-8 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8]">✕</button>
       </div>
 
       {/* Editor Section */}
@@ -573,8 +581,18 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
         <div className="flex flex-col gap-2 justify-end h-full pb-1">
           <PanKnob value={track.panVal || 0} onChange={onPanChange} label="Pan" />
           <div className="h-1" />
-          <button onClick={onMuteToggle} className={`w-9 h-9 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${track.isMute ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'}`}>M</button>
-          <button onClick={onSoloToggle} className={`w-9 h-9 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${track.isSolo ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'}`}>S</button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); onMuteToggle(); }} 
+            className={`w-9 h-9 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
+              (track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+            }`}
+          >M</button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); onSoloToggle(); }} 
+            className={`w-9 h-9 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
+              track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+            }`}
+          >S</button>
         </div>
 
         {/* Volume Fader Column */}

@@ -8,6 +8,7 @@ import * as Tone from 'tone';
 import { AudioEngine } from '../AudioEngine';
 import { InputManager } from '../InputManager';
 import { TrackGroup, TimeSignature, HitTrigger, SongSection } from '../types';
+import { useSequencerStore } from '../stores/useSequencerStore';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { ScheduledNote } from '../workers/audioCompiler.worker';
 
@@ -320,7 +321,9 @@ export function useAudioSync({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
   const compilerWorkerRef = useRef<Worker | null>(null);
-  const [currentMeasure, setCurrentMeasure] = useState<number>(0);
+  const isRecordingRef = useRef(false);
+  const currentMeasure = useSequencerStore(state => state.currentMeasure);
+  const setCurrentMeasure = (useSequencerStore as any)(state => state.setCurrentMeasure) as any;
   const [currentStepIndex, setCurrentStepIndex] = useState<number>(-1);
 
   const [isMetroOn, setIsMetroOn] = useState<boolean>(false);
@@ -731,8 +734,6 @@ export function useAudioSync({
             const prevMeasureIdx = (currentMeasureIdx - 1 + (totalMeasuresRef.current || 1)) % (totalMeasuresRef.current || 1);
             const sigId = measureSignalsRef.current[prevMeasureIdx] || null;
             lastPlayedSignalIdRef.current = sigId;
-            // Update React state explicitly for context subscribers, once per measure boundary
-            setCurrentMeasure(currentMeasureIdx);
 
             // Dynamically evaluate variations and build schedule for this measure
             const timeSig = measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
@@ -774,6 +775,17 @@ export function useAudioSync({
                 time: time
               }
             }));
+
+            // Delay the heavy React render until *after* the playhead frame has been painted
+            if (_stepForUI === 0) {
+              requestAnimationFrame(() => {
+                setTimeout(() => {
+                  React.startTransition(() => {
+                    setCurrentMeasure(_measureForUI);
+                  });
+                }, 0);
+              });
+            }
           }, drawTime);
 
           // Pré-calculer la durée d'un 96n une seule fois par tick
@@ -1268,7 +1280,6 @@ export function useAudioSync({
   return {
     isPlaying,
     isLoading,
-    currentMeasure,
     currentStepIndex,
     setCurrentMeasure,
     setCurrentStepIndex,

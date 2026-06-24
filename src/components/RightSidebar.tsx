@@ -9,6 +9,8 @@ import DOMPurify from 'dompurify';
 import { i18n, instrumentsConfig, getMaxTicks } from '../data';
 import { AudioTrackRecorder } from './AudioTrackRecorder';
 import gifshot from 'gifshot';
+import { parseCordelFormatting } from '../utils/cordelFormatter';
+import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +23,8 @@ interface RightSidebarProps {
   isMobile: boolean;
   mestreSignals?: CloudRhythmSignal[];
   refreshMestreSignals?: () => void;
+  hideGlobalSignals?: boolean;
+  onToggleHideGlobalSignals?: () => void;
 }
 
 const RightSidebarComponent: React.FC<RightSidebarProps> = ({
@@ -29,6 +33,8 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   isMobile,
   mestreSignals = [],
   refreshMestreSignals,
+  hideGlobalSignals,
+  onToggleHideGlobalSignals,
 }) => {
   const sequencer = useSequencer();
   const { userProfile } = useAuth();
@@ -51,9 +57,10 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   const {
     isPlaying = false,
     currentStepIndex,
-    currentMeasure,
     handleTogglePlay: onTogglePlay,
   } = audio;
+
+  const currentMeasure = useSequencerStore(state => state.currentMeasure);
 
   const beatsPerMeasure = parseInt(timeSig.split('/')[0]) || 4;
 
@@ -939,13 +946,26 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                     <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
                       🥁 {lang === 'fr' ? 'Signaux du rythme' : 'Sinais do ritmo'}
                     </span>
-                    <span className="text-[8px] text-[var(--cordel-text)] opacity-60 leading-tight">
-                      {lang === 'fr'
-                        ? 'Ces images s\'affichent en transparence dans la Roda et peuvent être assignées à des mesures dans la Timeline.'
-                        : 'Estas imagens aparecem em transparência na Roda e podem ser atribuídas a compassos na Timeline.'}
-                    </span>
-
-
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[8px] text-[var(--cordel-text)] opacity-60 leading-tight">
+                        {lang === 'fr'
+                          ? 'Ces images s\'affichent en transparence dans la Roda et peuvent être assignées à des mesures dans la Timeline.'
+                          : 'Estas imagens aparecem em transparência na Roda e podem ser atribuídas a compassos na Timeline.'}
+                      </span>
+                      {onToggleHideGlobalSignals && (
+                        <label className="flex items-center gap-1.5 cursor-pointer select-none mt-1">
+                          <input 
+                            type="checkbox" 
+                            checked={hideGlobalSignals || false} 
+                            onChange={onToggleHideGlobalSignals}
+                            className="w-3 h-3 cursor-pointer"
+                          />
+                          <span className="text-[10px] text-[var(--cordel-text)] font-bold">
+                            {lang === 'fr' ? 'Masquer le catalogue Global' : 'Ocultar catálogo Global'}
+                          </span>
+                        </label>
+                      )}
+                    </div>
 
                     {/* Galerie des signaux existants (Cloud + Local) */}
                     {(mestreSignals.length > 0 || (metadata?.rhythmSignals || []).length > 0) && (

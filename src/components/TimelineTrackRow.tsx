@@ -7,6 +7,7 @@ import { TimelineUIContext } from '../contexts/TimelineUIContext';
 
 interface TimelineTrackRowProps {
   trackId: number;
+  onNavigate?: (measureIdx: number, stepIdx: number) => void;
 }
 
 function getDisplayVal(val: string | number) {
@@ -14,14 +15,13 @@ function getDisplayVal(val: string | number) {
   return String(val);
 }
 
-const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId }) => {
+const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId, onNavigate }) => {
   // 1. Contextes UI (injectés par TimelineSequencer pour éviter les props)
   const uiContext = useContext(TimelineUIContext);
   if (!uiContext) return null;
   const { MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang } = uiContext;
 
-  // 2. Audio Context (Uniquement actions, AUCUN état lié au tick pour préserver le React.memo)
-  const { handleTimelineNavigate: onNavigate } = useAudio();
+  // 2. Audio Context (Supprimé pour préserver le React.memo)
 
   // 3. Zustand Selectors (Granulaires)
   const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
@@ -45,7 +45,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
 
   const inst = instrumentsConfig[track.instrumentIdx];
   const isMutedBySolo = hasSolo && !track.isSolo;
-  const canPlay = !track.isMute && !isMutedBySolo;
+  const canPlay = track.isSolo || (!track.isMute && !isMutedBySolo);
 
   return (
     <div
@@ -83,10 +83,10 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
         <div className={`track-header-controls flex shrink-0 ${isMobile || isMacro ? 'flex-col gap-0.5' : 'flex-row gap-1'}`}>
           <button
             onClick={() => onMuteToggle(track.id)}
-            className={`flex items-center justify-center font-bold cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+            className={`flex items-center justify-center font-bold cordel-border-sm cursor-pointer transition-colors ${
               isMobile ? 'w-5 h-5 text-[9px]' : 'w-6 h-6 text-[11px]'
             } ${
-              track.isMute ? 'bg-red-600 text-white border-red-600' : 'bg-transparent text-[var(--cordel-text)]'
+              (track.isMute && !track.isSolo) ? 'bg-red-600 text-white border-red-600' : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
             }`}
             title="Mute"
           >M</button>
@@ -138,10 +138,12 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
             }}
             onClick={(e) => {
               if (isPanningActive) return; // Prevent navigations when panning
-              const rect = e.currentTarget.getBoundingClientRect();
-              const clickX = e.clientX - rect.left;
-              const ratio = Math.max(0, Math.min(1, clickX / MEASURE_W));
-              onNavigate(mIdx, Math.floor(ratio * steps), steps);
+              if (onNavigate) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const ratio = Math.max(0, Math.min(1, clickX / MEASURE_W));
+                onNavigate(mIdx, Math.floor(ratio * steps));
+              }
             }}
           >
             {/* Cell content (Detailed View) */}

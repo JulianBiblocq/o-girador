@@ -7,6 +7,7 @@ import { TrackGroup, Language, Pattern } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
 import { getNextStepValue } from './InstrumentDetailEditor';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
+import { useSequencerStore } from '../stores/useSequencerStore';
 
 
 const getGlobalClipboard = () => {
@@ -118,6 +119,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   setActiveAoVivoTrackId,
   activeVariationsRef,
 }) => {
+  const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
   const [instDropdownOpen, setInstDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -636,7 +638,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     <div
       ref={setNodeRef}
       className={`cordel-border p-3 flex flex-col relative transition-all duration-300 bg-[var(--cordel-bg)] w-full ${
-        track.isMute ? 'opacity-60 bg-opacity-80' : ''
+        hasSolo ? (track.isSolo ? '' : 'opacity-50') : 
+        (track.isMute ? 'opacity-60 bg-opacity-80' : '')
       } ${isCollapsed ? 'py-1 border-x-0 border-t-0 border-b-2 min-h-[56px]' : 'min-h-[130px]'}`}
       style={{
         ...style,
@@ -733,22 +736,18 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         </div>
 
         <div className="flex gap-1.5">
-          <button
-            onClick={onMuteToggle}
-            className={`w-6 h-6 cordel-border-sm cordel-button text-[10px] font-bold cursor-pointer transition-all flex items-center justify-center ${
-              track.isMute ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
+          <button 
+            onClick={(e) => { e.stopPropagation(); onMuteToggle(track.id); }} 
+            className={`w-6 h-6 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
+              (track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
             }`}
-          >
-            M
-          </button>
-          <button
-            onClick={onSoloToggle}
-            className={`w-6 h-6 cordel-border-sm cordel-button text-[10px] font-bold cursor-pointer transition-all flex items-center justify-center ${
-              track.isSolo ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
+          >M</button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); onSoloToggle(track.id); }} 
+            className={`w-6 h-6 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
+              track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
             }`}
-          >
-            S
-          </button>
+          >S</button>
           
           {inst.id !== 'apito' && (
             <button
@@ -955,7 +954,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                       }
                       return;
                     }
-                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                    if (e.key === 'Delete' || e.key === 'Backspace' || e.key === ' ') {
                       e.preventDefault();
                       onStepValueChange(activePattern.id, stepIdx, '0');
                       if (e.key === 'Backspace') {
@@ -1138,7 +1137,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                       }
                       return;
                     }
-                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                    if (e.key === 'Delete' || e.key === 'Backspace' || e.key === ' ') {
                       e.preventDefault();
                       onStepValueChange(activePattern.id, stepIdx, '0');
                       if (e.key === 'Backspace') {
@@ -1182,7 +1181,6 @@ export const TrackMixer = React.memo(TrackMixerComponent, (prevProps, nextProps)
 
   const keys = Object.keys(prevProps) as Array<keyof TrackMixerProps>;
   for (const key of keys) {
-    if (typeof prevProps[key] === 'function') continue;
     if (key === 'track') continue;
     if (key === 'currentStepIndex') continue;
 

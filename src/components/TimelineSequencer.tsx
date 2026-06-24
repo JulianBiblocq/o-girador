@@ -26,6 +26,8 @@ interface TimelineSequencerProps {
   mestreSignals?: CloudRhythmSignal[];
   onSaveCloudSection?: (section: SongSection) => void;
   onLoadCloudSection?: (insertAtMeasure: number) => void;
+  onNavigate?: (measureIdx: number, stepIdx: number) => void;
+  maxTicksRef?: React.MutableRefObject<number>;
 }
 
 const HEADER_W = 180;
@@ -35,7 +37,7 @@ function getDisplayVal(val: string | number) {
   return String(val);
 }
 
-export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
+export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   isMobile,
   measureWidth,
   onMeasureWidthChange,
@@ -43,9 +45,10 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   mestreSignals = [],
   onSaveCloudSection,
   onLoadCloudSection,
+  onNavigate,
+  maxTicksRef,
 }) => {
   const sequencer = useSequencer();
-  const audio = useAudio();
   const { hasAccess } = useAuth();
   const [showSubModal, setShowSubModal] = React.useState(false);
 
@@ -95,13 +98,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     ...localRhythmSignals.map(s => ({ id: s.id, name: s.name, image: s.image, isCloud: false }))
   ];
 
-  const {
-    currentMeasure,
-    maxTicksRef,
-    handleTimelineNavigate: onNavigate,
-  } = audio;
-
-  const maxTicks = maxTicksRef.current;
+  const maxTicks = maxTicksRef ? maxTicksRef.current : 0;
   if (!tracks) return null;
 
   const onMeasureSignalChange = (mIdx: number, sigId: string | null) => {
@@ -118,7 +115,6 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   const HEADER_W = isMobile ? 80 : (isMacro ? 150 : 180);
   const MEASURE_W = measureWidth;
   const scrollRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const measureWidthRef = useRef(measureWidth);
@@ -179,7 +175,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
   }, [onMeasureWidthChange]);
 
   // Navigation & Snapping States
-  const [toolMode, setToolMode] = React.useState<'cursor' | 'hand'>('cursor');
+  const [toolMode] = React.useState<'cursor' | 'hand'>('cursor');
   const [isSpacePressed, setIsSpacePressed] = React.useState<boolean>(false);
   const [snapMode, setSnapMode] = React.useState<'measure' | 'beat' | 'none'>('measure');
   const [snapGuideX, setSnapGuideX] = React.useState<number | null>(null);
@@ -213,8 +209,6 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
 
   // Tablature state and logic removed (lifted to App.tsx)
 
-  const startX = useRef(0);
-  const startScrollLeft = useRef(0);
   const isScrubbing = useRef(false);
   const pendingScrollLeft = useRef<number | null>(null);
   const propsRef = useRef({ totalMeasures, measureTimeSigs, onNavigate });
@@ -1443,7 +1437,8 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
               {Array.from({ length: totalMeasures }).map((_, mIdx) => {
                 const sigId = measureSignals[mIdx] ?? null;
                 const activeSig = rhythmSignals.find(s => s.id === sigId) || null;
-                const isCurrentMeasure = mIdx === currentMeasure;
+                const isSectionStart = mIdx % 4 === 0;
+                const isCurrentMeasure = false;
 
                 return (
                   <div
@@ -1533,7 +1528,7 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
 
           {/* ══════════ TRACK ROWS ══════════ */}
           {tracks.map(track => (
-            <TimelineTrackRow key={track.id} trackId={track.id} />
+            <TimelineTrackRow key={track.id} trackId={track.id} onNavigate={onNavigate} />
           ))}
           {/* ══════════ PLAYHEAD (Bypass React via Ref) ══════════ */}
           <TimelinePlayhead />
@@ -1728,7 +1723,9 @@ export const TimelineSequencer: React.FC<TimelineSequencerProps> = ({
     </div>
     </TimelineUIContext.Provider>
   );
-};
-
-
-
+}, (prev, next) => {
+  return prev.isMobile === next.isMobile && 
+         prev.measureWidth === next.measureWidth && 
+         prev.mestreSignals === next.mestreSignals &&
+         prev.onNavigate === next.onNavigate;
+});

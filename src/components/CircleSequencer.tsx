@@ -8,6 +8,8 @@ import * as Tone from 'tone';
 import { TrackGroup, Language, HitTrigger, TimeSignature, SongSection, CloudRhythmSignal } from '../types';
 import { instrumentsConfig, getMarkers, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol, i18n } from '../data';
 import { getNextStepValue } from './InstrumentDetailEditor';
+import { useGameData } from '../contexts/GameDataContext';
+import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 
@@ -65,7 +67,8 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
 
   const isPlaying = props.isPlaying !== undefined ? props.isPlaying : audio.isPlaying;
   const currentStepIndex = props.currentStepIndex !== undefined ? props.currentStepIndex : audio.currentStepIndex;
-  const currentMeasure = props.currentMeasure !== undefined ? props.currentMeasure : audio.currentMeasure;
+  const globalCurrentMeasure = useSequencerStore(state => state.currentMeasure);
+  const currentMeasure = props.currentMeasure !== undefined ? props.currentMeasure : globalCurrentMeasure;
   const isMetroOn = props.isMetroOn !== undefined ? props.isMetroOn : audio.isMetroOn;
   const soloPatternPlayId = props.soloPatternPlayId !== undefined ? props.soloPatternPlayId : audio.soloPatternPlayId;
   const hitTriggersRef = props.hitTriggersRef !== undefined ? props.hitTriggersRef : audio.hitTriggersRef;

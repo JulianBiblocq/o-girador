@@ -24,6 +24,8 @@ import { Header } from './components/Header';
 import { TransportBar } from './components/TransportBar';
 import { Mixer } from './components/Mixer';
 import { RightSidebar } from './components/RightSidebar';
+import { useSequencerStore } from './stores/useSequencerStore';
+import InstrumentDetailEditor from './components/InstrumentDetailEditor';
 import { TouchStrokeSelector } from './components/TouchStrokeSelector';
 const ConsoleMixer = lazy(() => import('./components/ConsoleMixer').then(m => ({ default: m.ConsoleMixer })));
 const CircleSequencer = lazy(() => import('./components/CircleSequencer').then(m => ({ default: m.CircleSequencer })));
@@ -40,8 +42,9 @@ import { Home } from './components/Home';
 import { LandingPage } from './components/LandingPage';
 import { AdminPanel } from './components/AdminPanel';
 import { SaveSectionModal, LoadSectionModal } from './components/CloudSectionModals';
-import { PresetMetadata, Pattern, SongSection, TimeSignature } from './types';
+import { PresetMetadata, Pattern, SongSection, TimeSignature, CloudRhythmSignal } from './types';
 import { exportTablatureFile, printTablature, printLegendOnly } from './utils/exportTablature';
+import { fetchMestreSignals } from './cloudSignals';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -141,6 +144,39 @@ export default function App() {
       updateUserPreference('isDarkMode', newMode);
     }
   };
+
+  const [mestreSignals, setMestreSignals] = useState<CloudRhythmSignal[]>([]);
+  const [hideGlobalSignals, setHideGlobalSignals] = useState(false);
+
+  const filteredMestreSignals = useMemo(() => {
+    if (!hideGlobalSignals) return mestreSignals;
+    return mestreSignals.filter(s => s.mestreId !== 'global');
+  }, [mestreSignals, hideGlobalSignals]);
+
+  const refreshMestreSignals = async () => {
+    const isMestreAdmin = userProfile?.role === 'mestre' || userProfile?.role === 'admin';
+    const isEleve = hasAccess('eleve');
+    
+    let targetMestreId = null;
+    if (isMestreAdmin) {
+      targetMestreId = userProfile.mestreId || userProfile.uid;
+    } else if (isEleve) {
+      targetMestreId = userProfile.mestreId;
+    }
+
+    if (targetMestreId) {
+      const signals = await fetchMestreSignals(targetMestreId);
+      setMestreSignals(signals);
+    } else {
+      // Even if no mestre ID, we can fetch 'global' signals
+      const signals = await fetchMestreSignals('global');
+      setMestreSignals(signals);
+    }
+  };
+
+  useEffect(() => {
+    refreshMestreSignals();
+  }, [userProfile?.uid, userProfile?.mestreId, userProfile?.role]);
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -819,7 +855,7 @@ export default function App() {
     audio.handleSaveToLocal();
   };
   const handleLoadLocalPreset = (name: string) => audio.handleLoadLocalPreset(name);
-  const handleAddTrackInstrument = (instIdx: number) => sequencer.handleAddTrackInstrument(instIdx, audio.currentMeasure);
+  const handleAddTrackInstrument = (instIdx: number) => sequencer.handleAddTrackInstrument(instIdx, useSequencerStore.getState().currentMeasure);
 
   const handleExportTablature = () => {
     // By default, select all non-excluded tracks (apito, voice are excluded anyway, but we can check them or just check all)
@@ -920,6 +956,7 @@ export default function App() {
             {(!isMobile || mobileTab === 'roda') && (
               <CircleSequencer
                 isMobile={isMobile}
+                mestreSignals={filteredMestreSignals}
               />
             )}
           </>
@@ -940,6 +977,9 @@ export default function App() {
             onExportTablature={handleExportTablature}
             onSaveCloudSection={setSectionToSave}
             onLoadCloudSection={setLoadSectionInsertMeasure}
+            onNavigate={audio.handleTimelineNavigate}
+            maxTicksRef={audio.maxTicksRef}
+            mestreSignals={filteredMestreSignals}
           />
         )}
 
@@ -1028,6 +1068,10 @@ export default function App() {
               }
             }}
             isMobile={isMobile}
+            mestreSignals={filteredMestreSignals}
+            refreshMestreSignals={refreshMestreSignals}
+            hideGlobalSignals={hideGlobalSignals}
+            onToggleHideGlobalSignals={() => setHideGlobalSignals(!hideGlobalSignals)}
           />
         )}
       </div>

@@ -867,7 +867,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const value: AudioContextType = {
+  const value: AudioContextType = React.useMemo(() => ({
     ...audioSync,
     masterVol,
     setMasterVol,
@@ -894,7 +894,27 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     activePresetName,
     setActivePresetName,
     handleTimeSigChange
-  };
+  }), [
+    audioSync,
+    masterVol,
+    masterEQ,
+    masterCompressor,
+    reverbType,
+    activeKeyboardInstrumentId,
+    isRecording,
+    recordingSeconds,
+    activePresetName,
+    applyPreset,
+    loadFallbackPreset,
+    handlePresetSelect,
+    handleSaveState,
+    handleLoadState,
+    handleShare,
+    handleSaveToLocal,
+    getCurrentPresetData,
+    handleLoadLocalPreset,
+    handleTimeSigChange
+  ]);
 
   return (
     <AudioContext.Provider value={value}>

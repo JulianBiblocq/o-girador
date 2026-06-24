@@ -24,6 +24,7 @@ import { i18n, instrumentsConfig } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { meters, masterMeterNode } from '../hooks/useAudioSync';
+import { useSequencerStore } from '../stores/useSequencerStore';
 
 interface ConsoleMixerProps {
   isMobile: boolean;
@@ -106,7 +107,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const {
     isPlaying,
     currentStepIndex,
-    currentMeasure,
     maxTicksRef,
     soloPatternPlayId,
     soloPatternVariationId,
@@ -118,6 +118,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     masterVol, setMasterVol, masterEQ, setMasterEQ, masterCompressor, setMasterCompressor, reverbType, setReverbType,
     metroVolume, setMetroVolume, metroSound, setMetroSound, isMetroOn, setIsMetroOn, isSwingOn
   } = audio;
+
 
   const maxTicks = maxTicksRef.current;
   if (!tracks) return null;
@@ -357,7 +358,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             onVoiceNoteBlur={(pid, sIdx, val) => onVoiceNoteBlur(track.id, pid, sIdx, val)}
             isPlaying={isPlaying}
             currentStepIndex={currentStepIndex}
-            currentMeasure={currentMeasure}
             maxTicks={maxTicks}
             timeSig={timeSig}
             totalMeasures={totalMeasures}
@@ -678,7 +678,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           isSwingOn={isSwingOn}
           isPlaying={isPlaying}
           currentStepIndex={currentStepIndex}
-          currentMeasure={currentMeasure}
+          currentMeasure={useSequencerStore.getState().currentMeasure}
           maxTicks={maxTicks}
           totalMeasures={totalMeasures}
           onCopyPattern={handleCopyPattern}

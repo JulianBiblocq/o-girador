@@ -1,27 +1,24 @@
 const fs = require('fs');
-let c = fs.readFileSync('src/stores/useSequencerStore.ts', 'utf8');
+let c = fs.readFileSync('src/components/TimelineSequencer.tsx', 'utf8');
 
-const props = [
-  'TotalMeasures',
-  'SongSections',
-  'MeasureTimeSigs',
-  'LoopStartMeasure',
-  'LoopEndMeasure',
-  'IsLoopRegionActive'
-];
+c = c.replace(/import \{ useAudio \} from '\.\.\/contexts\/AudioContext';\n?/, '');
 
-props.forEach(p => {
-  const pLower = p.charAt(0).toLowerCase() + p.slice(1);
-  
-  // Patch Interface
-  // e.g. setTotalMeasures: (val: number) => void;
-  const regexType = new RegExp(`set${p}: \\\\(([^:]+): ([^)]+)\\\\) => void;`);
-  c = c.replace(regexType, `set${p}: ($1: $2 | ((prev: $2) => $2)) => void;`);
-  
-  // Patch Implementation
-  // e.g. setTotalMeasures: (val) => set({ totalMeasures: val }),
-  const regexImpl = new RegExp(`set${p}: \\\\(([^)]+)\\\\) => set\\\\(\\\\{ ${pLower}: [^ }]+ \\\\}\\\\)`);
-  c = c.replace(regexImpl, `set${p}: ($1) => set(state => ({ ${pLower}: typeof $1 === 'function' ? $1(state.${pLower}) : $1 }))`);
-});
+c = c.replace(/onLoadCloudSection\?: \(insertAtMeasure: number\) => void;/g, `onLoadCloudSection?: (insertAtMeasure: number) => void;
+  onNavigate?: (measureIdx: number, stepIdx: number) => void;
+  maxTicksRef?: React.MutableRefObject<number>;`);
 
-fs.writeFileSync('src/stores/useSequencerStore.ts', c);
+c = c.replace(/onLoadCloudSection,\n\}\) => \{/g, `onLoadCloudSection,
+  onNavigate,
+  maxTicksRef,
+}) => {`);
+
+c = c.replace(/\s*const audio = useAudio\(\);\s*/g, '\n  ');
+
+c = c.replace(/\s*const \{\s*maxTicksRef,\s*handleTimelineNavigate: onNavigate,\s*\} = audio;\s*/g, '\n  ');
+
+c = c.replace(/const maxTicks = maxTicksRef\.current;/g, 'const maxTicks = maxTicksRef ? maxTicksRef.current : 0;');
+
+c = c.replace(/<TimelineTrackRow key=\{track\.id\} trackId=\{track\.id\} \/>/g, '<TimelineTrackRow key={track.id} trackId={track.id} onNavigate={onNavigate} />');
+
+fs.writeFileSync('src/components/TimelineSequencer.tsx', c);
+console.log('TimelineSequencer patched');

@@ -289,8 +289,8 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
             }
 
             const handleButtonSelect = (e: React.MouseEvent | React.TouchEvent) => {
-              e.stopPropagation();
               e.preventDefault();
+              e.stopPropagation();
               selector.onSelect(strokeVal);
               onClose();
             };
@@ -301,12 +301,16 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
                 data-stroke-val={strokeVal}
                 onMouseEnter={() => setHoveredStroke(strokeVal)}
                 onMouseLeave={() => setHoveredStroke(null)}
-                onClick={handleButtonSelect}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleButtonSelect(e);
+                }}
                 onTouchStart={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                }} // Prevent native magnifier / long press menu and stop propagation
-                onTouchEnd={handleButtonSelect}
+                  handleButtonSelect(e);
+                }}
                 className={`w-11 h-11 flex items-center justify-center font-bold text-sm cursor-pointer transition-all border-2 ${
                   isHovered
                     ? 'border-[#f1c40f] scale-110 shadow-[0_0_8px_#f1c40f] z-10'

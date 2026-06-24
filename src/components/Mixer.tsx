@@ -23,6 +23,7 @@ import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { meters } from '../hooks/useAudioSync';
+import { useSequencerStore } from '../stores/useSequencerStore';
 import { Pattern } from '../types';
 
 interface MixerProps {
@@ -101,13 +102,13 @@ const MixerComponent: React.FC<MixerProps> = ({
   const {
     isPlaying,
     currentStepIndex,
-    currentMeasure,
     maxTicksRef,
     soloPatternPlayId,
     soloPatternVariationId,
     handleStartSoloPattern,
     handleStopSoloPattern,
   } = audio;
+
 
   const maxTicks = maxTicksRef.current;
   const t = (key: string) => (i18n[lang] as any)[key] || key;
@@ -246,7 +247,7 @@ const MixerComponent: React.FC<MixerProps> = ({
                 <div
                   key={idx}
                   onClick={() => {
-                    sequencer.handleAddTrackInstrument(idx, audio.currentMeasure);
+                    sequencer.handleAddTrackInstrument(idx, useSequencerStore.getState().currentMeasure);
                     setAddDropOpen(false);
                   }}
                   className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] border-b border-[var(--cordel-border)] cursor-pointer"
@@ -355,7 +356,10 @@ const MixerComponent: React.FC<MixerProps> = ({
           onStepTouchStart={onStepTouchStart}
           onPlaySoloPattern={handleStartSoloPattern}
           onStopSoloPattern={handleStopSoloPattern}
-          onStepValueChange={(pid, sIdx, val, lyrics, notes) => onStepValueChange(editingTrackId, pid, sIdx, val, lyrics, notes)}
+          onStepValueChange={(pid, sIdx, val, lyrics, notes) => {
+            console.log("3️⃣ MIXER : Ordre reçu, transmission à Zustand. Track:", editingTrackId);
+            onStepValueChange(editingTrackId, pid, sIdx, val, lyrics, notes);
+          }}
           onStepKeyDown={(pid, sIdx, k, cVal, el) => onStepKeyDown(editingTrackId, pid, sIdx, k, cVal, el)}
           onStepsChange={(pid, steps) => onStepsChange(editingTrackId, pid, steps)}
           onVoiceTypeToggle={(pid, sIdx) => onVoiceTypeToggle(editingTrackId, pid, sIdx)}
@@ -377,7 +381,7 @@ const MixerComponent: React.FC<MixerProps> = ({
           onSoloToggle={() => onSoloToggle(editingTrackId)}
           isPlaying={isPlaying}
           currentStepIndex={currentStepIndex}
-          currentMeasure={currentMeasure}
+          currentMeasure={useSequencerStore.getState().currentMeasure}
           maxTicks={maxTicks}
           totalMeasures={totalMeasures}
           onCopyPattern={handleCopyPattern}

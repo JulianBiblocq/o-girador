@@ -534,6 +534,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
 // 3. PLAYBACK SLICE
 // ---------------------------------------------------------
 export interface PlaybackSlice {
+  currentMeasure: number;
   loopStartMeasure: number | null;
   loopEndMeasure: number | null;
   isLoopRegionActive: boolean;
@@ -544,13 +545,21 @@ export interface PlaybackSlice {
   handleClearLoop: () => void;
   setIsLoopRegionActive: (val: boolean | ((prev: boolean) => boolean)) => void;
   setIsLooping: (looping: boolean) => void;
+  setLoopStartMeasure: (measure: number | null | ((prev: number | null) => number | null)) => void;
+  setLoopEndMeasure: (measure: number | null | ((prev: number | null) => number | null)) => void;
+  setCurrentMeasure: (measure: number | ((prev: number) => number)) => void;
 }
 
 const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackSlice> = (set, get) => ({
+  currentMeasure: 0,
   loopStartMeasure: null,
   loopEndMeasure: null,
   isLoopRegionActive: true,
   isLooping: true,
+
+  setCurrentMeasure: (updater) => set(state => ({ currentMeasure: typeof updater === 'function' ? updater(state.currentMeasure) : updater })),
+  setLoopStartMeasure: (updater) => set(state => ({ loopStartMeasure: typeof updater === 'function' ? updater(state.loopStartMeasure) : updater })),
+  setLoopEndMeasure: (updater) => set(state => ({ loopEndMeasure: typeof updater === 'function' ? updater(state.loopEndMeasure) : updater })),
 
   handleSetLoopStart: (measureIdx) => {
     if (measureIdx !== null) get().pushUndoState();

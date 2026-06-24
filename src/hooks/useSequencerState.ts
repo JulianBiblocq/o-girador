@@ -3,32 +3,44 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { arrayMove } from '@dnd-kit/sortable';
 import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language } from '../types';
-import { instrumentsConfig, getVisualStrokeSymbol, getMaxTicks } from '../data';
+import { instrumentsConfig, getMarkers, getDefaultTrackPan, getVisualStrokeSymbol } from '../data';
 import { audioEngine } from './useAudioSync';
 import { useAuth } from '../contexts/AuthContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 
 export function useSequencerState() {
   const { userProfile, updateUserPreference } = useAuth();
-  const [tracks, setTracks] = useState<TrackGroup[]>([]);
+  const tracks = useSequencerStore(state => state.tracks);
+  const setTracks = (useSequencerStore as any)(state => state.setTracks) as any;
   const [bpm, setBpm] = useState<number>(83);
-  const [totalMeasures, setTotalMeasures] = useState<number>(8);
+  const totalMeasures = useSequencerStore(state => state.totalMeasures);
+  const setTotalMeasures = (useSequencerStore as any)(state => state.setTotalMeasures) as any;
   const [timeSig, setTimeSig] = useState<TimeSignature>('4/4');
 
-  const [measureTimeSigs, setMeasureTimeSigs] = useState<TimeSignature[]>(() => Array(8).fill('4/4'));
+  const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
+  const setMeasureTimeSigs = (useSequencerStore as any)(state => state.setMeasureTimeSigs) as any;
   const [measureBpms, setMeasureBpms] = useState<number[]>(() => Array(8).fill(83));
   const [measureBpmTransitions, setMeasureBpmTransitions] = useState<('immediate' | 'ramp')[]>(() => Array(8).fill('immediate'));
   const [measureVols, setMeasureVols] = useState<number[]>(() => Array(8).fill(100));
   const [measureVolTransitions, setMeasureVolTransitions] = useState<('immediate' | 'ramp')[]>(() => Array(8).fill('immediate'));
-  const [songSections, setSongSections] = useState<SongSection[]>([]);
+  const songSections = useSequencerStore(state => state.songSections);
+  const setSongSections = (useSequencerStore as any)(state => state.setSongSections) as any;
   const [measureSignals, setMeasureSignals] = useState<(string | null)[]>(() => Array(8).fill(null));
 
-  const [loopStartMeasure, setLoopStartMeasure] = useState<number | null>(null);
-  const [loopEndMeasure, setLoopEndMeasure] = useState<number | null>(null);
-  const [isLoopRegionActive, setIsLoopRegionActive] = useState<boolean>(true);
+  const loopStartMeasure = useSequencerStore(state => state.loopStartMeasure);
+  const setLoopStartMeasure = (useSequencerStore as any)(state => state.setLoopStartMeasure) as any;
+  const loopEndMeasure = useSequencerStore(state => state.loopEndMeasure);
+  const setLoopEndMeasure = (useSequencerStore as any)(state => state.setLoopEndMeasure) as any;
+  const isLoopRegionActive = useSequencerStore(state => state.isLoopRegionActive);
+  const setIsLoopRegionActive = (useSequencerStore as any)(state => state.setIsLoopRegionActive) as any;
   const [isLooping, setIsLooping] = useState<boolean>(true);
 
   // Letras, metadata, settings
@@ -248,6 +260,7 @@ export function useSequencerState() {
 
 
   const pushUndoState = (customTracksState?: TrackGroup[]) => {
+    console.trace("🕵️ QUI A APPELÉ pushUndoState ?");
     setTracksRedoHistory([]);
     setSongStructureRedoHistory([]);
 
@@ -1302,7 +1315,7 @@ export function useSequencerState() {
   ) => {
     pushUndoState();
     setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
+      if (t.id === trackId || String(t.id) === String(trackId)) {
         const inst = instrumentsConfig[t.instrumentIdx];
 
         const parseVal = (v: string): string | number => {
@@ -1371,7 +1384,7 @@ export function useSequencerState() {
         };
 
         const nextPatterns = t.patterns.map(p => {
-          if (p.id === patternId) {
+          if (p.id === patternId || String(p.id) === String(patternId)) {
             const copySteps = [...p.activeSteps];
             const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
             const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
@@ -1389,7 +1402,8 @@ export function useSequencerState() {
               });
             } else {
               const currentVal = Array.isArray(val) ? val[0] : val;
-              copySteps[stepIdx] = parseVal(currentVal);
+              const newVal = parseVal(currentVal);
+              copySteps[stepIdx] = newVal;
               if (lyrics && lyrics[0] !== undefined) {
                 arrLyrics[stepIdx] = lyrics[0];
               }

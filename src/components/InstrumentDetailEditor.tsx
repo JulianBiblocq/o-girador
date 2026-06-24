@@ -904,11 +904,13 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     if (onStepTouchStart) {
       if (e.type === 'touchstart') {
         onStepTouchStart(e, patternId, stepIdx, inst.id, currentVal, (newVal) => {
+          console.log("2️⃣ CALLBACK TACTILE : Valeur reçue de la boîte :", newVal);
           onStepValueChange(patternId, stepIdx, newVal);
         });
       } else {
         if ('button' in e && e.button !== 0) return;
         onStepTouchStart(e, patternId, stepIdx, inst.id, currentVal, (newVal) => {
+          console.log("2️⃣ CALLBACK TACTILE : Valeur reçue de la boîte :", newVal);
           onStepValueChange(patternId, stepIdx, newVal);
         });
       }
@@ -1894,6 +1896,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                     }}
                                     onChange={(e) => onStepValueChange(ptn.id, i, e.target.value)}
                                     onKeyDown={(e) => {
+
                                       if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
                                       
                                       const isCtrlOrMeta = e.ctrlKey || e.metaKey;
@@ -1917,7 +1920,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                         }
                                         return;
                                       }
-                                      if (e.key === 'Delete' || e.key === 'Backspace') {
+                                      if (e.key === 'Delete' || e.key === 'Backspace' || e.key === ' ') {
                                         e.preventDefault();
                                         if (selectedStepIndices.length > 1) {
                                           onStepValueChange(ptn.id, selectedStepIndices, '0');
@@ -1932,10 +1935,23 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                         return;
                                       }
                                       
-                                      if (selectedStepIndices.length > 1 && e.key.length === 1 && /^[a-zA-Z0-9]$/.test(e.key)) {
+                                      if (e.key.length === 1 && /^[a-zA-Z0-9]$/.test(e.key)) {
                                         e.preventDefault();
-                                        onStepValueChange(ptn.id, selectedStepIndices, e.key);
-                                        setSelectedStepIndices([]);
+                                        if (selectedStepIndices.length > 1) {
+                                          onStepValueChange(ptn.id, selectedStepIndices, e.key);
+                                          setSelectedStepIndices([]);
+                                        } else {
+                                          onStepValueChange(ptn.id, i, e.key);
+                                          // Also trigger next step navigation if needed
+                                          const inputEl = e.currentTarget as HTMLInputElement;
+                                          if (inputEl.parentElement?.nextElementSibling) {
+                                            const nextInput = inputEl.parentElement.nextElementSibling.querySelector('input');
+                                            if (nextInput) {
+                                              nextInput.focus();
+                                              nextInput.select();
+                                            }
+                                          }
+                                        }
                                         return;
                                       }
 
@@ -2153,7 +2169,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                               const inputs = cardGrid ? Array.from(cardGrid.querySelectorAll('input')) : [];
                                               const indexInGrid = inputs.indexOf(inputEl);
 
-                                              if (e.key === 'Delete' || e.key === 'Backspace') {
+                                              if (e.key === 'Delete' || e.key === 'Backspace' || e.key === ' ') {
                                                 e.preventDefault();
                                                 onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, '0');
                                                 if (e.key === 'Backspace' && indexInGrid > 0) {
@@ -2759,7 +2775,6 @@ export const InstrumentDetailEditor = React.memo(InstrumentDetailEditorComponent
 
   const keys = Object.keys(prevProps) as Array<keyof InstrumentDetailEditorProps>;
   for (const key of keys) {
-    if (typeof prevProps[key] === 'function') continue;
     if (key === 'track') continue;
     if (key === 'currentStepIndex' || key === 'currentMeasure') continue;
 

@@ -1,10 +1,10 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCTvRPj2p3zdIfEjftXoSvRJ43Uy0EfPMY",
   authDomain: "o-girador-7828c.firebaseapp.com",
   projectId: "o-girador-7828c",
   storageBucket: "o-girador-7828c.firebasestorage.app",
@@ -13,8 +13,8 @@ const firebaseConfig = {
   measurementId: "G-PZJKCF2271"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase safely for HMR
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 // Initialize Firebase Authentication and get a reference to the service
 export const auth = getAuth(app);
