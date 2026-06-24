@@ -45,6 +45,7 @@ export class AudioEngine {
   private activeBarulhoNodes = new Map<string, AudioBufferSourceNode>(); // Maps instrumentId -> active looping BufferSource
   private activeBarulhoGains = new Map<string, GainNode>(); // Maps instrumentId -> GainNode of active Barulho
   private scheduledHits = new Set<AudioBufferSourceNode>();
+  private gainNodePools = new Map<string, GainNode[]>(); // Maps instrumentId -> pooled GainNodes connected to channel
 
   // O(1) lookup cache for instrument configurations (built once in constructor)
   private readonly configMap: Map<string, InstrumentAudioConfig>;
@@ -316,9 +317,57 @@ export class AudioEngine {
 
   /**
    * Register output destination / channel for an instrument ID
+   * and initialize its dedicated GainNode pool.
    */
   public setInstrumentChannel(instrumentId: string, channel: any): void {
     this.instrumentChannels.set(instrumentId, channel);
+    
+    if (!this.gainNodePools.has(instrumentId)) {
+      const pool: GainNode[] = [];
+      for (let i = 0; i < 15; i++) {
+        const gainNode = this.audioContext.createGain();
+        gainNode.gain.value = 0;
+        Tone.connect(gainNode, channel);
+        pool.push(gainNode);
+      }
+      this.gainNodePools.set(instrumentId, pool);
+    }
+  }
+
+  /**
+   * Retire et retourne un nœud disponible du pool. En crée un nouveau si la piscine est vide.
+   */
+  private getGainNode(instrumentId: string): GainNode {
+    const pool = this.gainNodePools.get(instrumentId);
+    if (pool && pool.length > 0) {
+      return pool.pop()!;
+    }
+    // Fallback dynamique
+    const gainNode = this.audioContext.createGain();
+    gainNode.gain.value = 0;
+    const channel = this.instrumentChannels.get(instrumentId);
+    if (channel) {
+      Tone.connect(gainNode, channel);
+    } else {
+      Tone.connect(gainNode, Tone.Destination);
+    }
+    return gainNode;
+  }
+
+  /**
+   * Nettoie strictement le nœud de volume et le rend à la piscine.
+   */
+  private releaseGainNode(instrumentId: string, gainNode: GainNode): void {
+    const currentTime = this.audioContext.currentTime;
+    try {
+      gainNode.gain.cancelScheduledValues(currentTime);
+      gainNode.gain.setValueAtTime(0, currentTime);
+    } catch (_) {}
+    
+    const pool = this.gainNodePools.get(instrumentId);
+    if (pool) {
+      pool.push(gainNode);
+    }
   }
 
   /**
@@ -443,18 +492,12 @@ export class AudioEngine {
     source.buffer = buffer.get() as AudioBuffer;
     source.playbackRate.value = calculatedPitch;
 
-    const gainNode = this.audioContext.createGain();
-    gainNode.gain.value = velocity;
+    // 5. Utiliser un GainNode de la piscine
+    const gainNode = this.getGainNode(instrumentId);
+    gainNode.gain.cancelScheduledValues(time);
+    gainNode.gain.setValueAtTime(velocity, time);
 
     source.connect(gainNode);
-
-    // 5. Connect to the mapped channel (or fallback to Master Destination)
-    const channel = this.instrumentChannels.get(instrumentId);
-    if (channel) {
-      Tone.connect(gainNode, channel);
-    } else {
-      Tone.connect(gainNode, Tone.Destination);
-    }
 
 
     // 6. Handle play duration and looping
@@ -478,7 +521,7 @@ export class AudioEngine {
       source.onended = () => {
         this.scheduledHits.delete(source);
         try { source.disconnect(); } catch (_) {}
-        try { gainNode.disconnect(); } catch (_) {}
+        this.releaseGainNode(instrumentId, gainNode);
       };
     }
 
@@ -505,7 +548,7 @@ export class AudioEngine {
         
         // Schedule disconnect after fade out
         setTimeout(() => {
-          try { activeGain.disconnect(); } catch (_) {}
+          this.releaseGainNode(instrumentId, activeGain);
         }, fadeTime * 1000 + 50);
       } catch (_) {
         // Source might have been stopped already
