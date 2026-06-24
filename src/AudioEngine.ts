@@ -378,6 +378,24 @@ export class AudioEngine {
     velocity: number,
     decayMultiplier: number
   ): void {
+    // If it's a Barulho stroke and already looping, just adjust volume and continue seamlessly
+    if (stroke.isBarulho && this.activeBarulhoNodes.has(instrumentId)) {
+      const activeGain = this.activeBarulhoGains.get(instrumentId);
+      if (activeGain) {
+        try {
+          activeGain.gain.cancelScheduledValues(time);
+          activeGain.gain.setValueAtTime(activeGain.gain.value, time);
+          activeGain.gain.linearRampToValueAtTime(velocity, time + 0.1);
+        } catch (_) {}
+      }
+      return;
+    }
+
+    // If it's NOT a barulho, choke any existing looping barulho for this instrument
+    if (!stroke.isBarulho) {
+      this.stopBarulho(instrumentId, time);
+    }
+
     // 1. Round-Robin Index Selection
     const rrKey = `${instrumentId}_${stroke.symbol}`;
     const numFiles = stroke.files.length;
@@ -438,8 +456,6 @@ export class AudioEngine {
       Tone.connect(gainNode, Tone.Destination);
     }
 
-    // Choke any existing looping barulho for this instrument
-    this.stopBarulho(instrumentId, time);
 
     // 6. Handle play duration and looping
     if (stroke.isBarulho) {
