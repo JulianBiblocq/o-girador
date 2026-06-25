@@ -862,6 +862,17 @@ export function useSequencerState() {
     setMeasureVols(prev => prev.filter((_, idx) => idx !== measureIdx));
     setMeasureVolTransitions(prev => prev.filter((_, idx) => idx !== measureIdx));
     setMeasureSignals(prev => prev.filter((_, idx) => idx !== measureIdx));
+    setSongSections((prev: SongSection[]) => prev
+      .filter((s: SongSection) => !(s.startMeasure === measureIdx && s.endMeasure === measureIdx))
+      .map((s: SongSection) => {
+        if (s.startMeasure > measureIdx) {
+          return { ...s, startMeasure: s.startMeasure - 1, endMeasure: s.endMeasure - 1 };
+        } else if (s.endMeasure >= measureIdx) {
+          return { ...s, endMeasure: s.endMeasure - 1 };
+        }
+        return s;
+      })
+    );
     setTracks(prev => prev.map(t => ({
       ...t,
       patterns: t.patterns.map(p => ({
@@ -908,6 +919,14 @@ export function useSequencerState() {
       arr.splice(measureIdx, 0, null);
       return arr;
     });
+    setSongSections((prev: SongSection[]) => prev.map((s: SongSection) => {
+      if (s.startMeasure >= measureIdx) {
+        return { ...s, startMeasure: s.startMeasure + 1, endMeasure: s.endMeasure + 1 };
+      } else if (s.endMeasure >= measureIdx) {
+        return { ...s, endMeasure: s.endMeasure + 1 };
+      }
+      return s;
+    }));
     setTracks(prev => prev.map(t => ({
       ...t,
       patterns: t.patterns.map(p => {

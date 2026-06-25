@@ -484,6 +484,16 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
         measureVols: state.measureVols.filter((_, idx) => idx !== measureIdx),
         measureVolTransitions: state.measureVolTransitions.filter((_, idx) => idx !== measureIdx),
         measureSignals: state.measureSignals.filter((_, idx) => idx !== measureIdx),
+        songSections: state.songSections
+          .filter(s => !(s.startMeasure === measureIdx && s.endMeasure === measureIdx))
+          .map(s => {
+            if (s.startMeasure > measureIdx) {
+              return { ...s, startMeasure: s.startMeasure - 1, endMeasure: s.endMeasure - 1 };
+            } else if (s.endMeasure >= measureIdx) {
+              return { ...s, endMeasure: s.endMeasure - 1 };
+            }
+            return s;
+          }),
         tracks: state.tracks.map(t => ({
           ...t,
           patterns: t.patterns.map(p => ({
@@ -517,6 +527,14 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
         measureVols: spliceArray(state.measureVols, refVol),
         measureVolTransitions: spliceArray(state.measureVolTransitions, 'immediate'),
         measureSignals: spliceArray(state.measureSignals, null),
+        songSections: state.songSections.map(s => {
+          if (s.startMeasure >= measureIdx) {
+            return { ...s, startMeasure: s.startMeasure + 1, endMeasure: s.endMeasure + 1 };
+          } else if (s.endMeasure >= measureIdx) {
+            return { ...s, endMeasure: s.endMeasure + 1 };
+          }
+          return s;
+        }),
         tracks: state.tracks.map(t => ({
           ...t,
           patterns: t.patterns.map(p => ({
