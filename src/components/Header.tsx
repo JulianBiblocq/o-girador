@@ -12,6 +12,7 @@ import {
   Download,
   Upload
 } from 'lucide-react';
+import { AudioFader } from './AudioFader';
 import { Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { GoogleLoginButton } from './GoogleLoginButton';
@@ -381,12 +382,14 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 {/* Master Volume */}
                 <div className="flex flex-col gap-1 mt-1">
                   <span className="text-[9px] font-bold text-[var(--cordel-text)]/60 uppercase tracking-wider">Volume Général</span>
-                  <input
+                  <AudioFader
                     type="range"
                     min="-40"
                     max="6"
+                    step="0.5"
+                    audioTarget="masterVolume"
                     value={masterVol}
-                    onChange={(e) => onMasterVolChange(parseFloat(e.target.value))}
+                    onChange={(val) => onMasterVolChange(val)}
                     className="w-full h-2 bg-[var(--cordel-text)] border border-[var(--cordel-border)] rounded-none outline-none cursor-pointer"
                     style={{ accentColor: 'var(--cordel-text)' }}
                   />

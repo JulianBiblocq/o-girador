@@ -17,6 +17,7 @@ import {
   SortableContext,
   horizontalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import { AudioFader } from './AudioFader';
 import { Pattern } from '../types';
 import { VerticalTrackMixer } from './VerticalTrackMixer';
 import { InstrumentDetailEditor } from './InstrumentDetailEditor';
@@ -441,14 +442,15 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Volume</span>
                 <div className="h-[145px] flex justify-center items-center relative w-12">
                   <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
-                  <input
+                  <AudioFader
                     type="range"
                     min="0"
                     max="100"
                     step="1"
                     orient="vertical"
+                    audioTarget="metroVolume"
                     value={metroVolume}
-                    onChange={(e) => setMetroVolume(parseFloat(e.target.value))}
+                    onChange={(val) => setMetroVolume(val)}
                     className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
                   />
                 </div>
@@ -488,13 +490,14 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     <span>Grave / Low</span>
                     <span>{masterEQ.low > 0 ? '+' : ''}{masterEQ.low} dB</span>
                   </div>
-                  <input
+                  <AudioFader
                     type="range"
                     min="-12"
                     max="12"
                     step="0.5"
+                    audioTarget="eqLow"
                     value={masterEQ.low}
-                    onChange={(e) => onMasterEQChange({ ...masterEQ, low: parseFloat(e.target.value) })}
+                    onChange={(val) => onMasterEQChange({ ...masterEQ, low: val })}
                     className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
                   />
                 </div>
@@ -505,13 +508,14 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     <span>Médio / Mid</span>
                     <span>{masterEQ.mid > 0 ? '+' : ''}{masterEQ.mid} dB</span>
                   </div>
-                  <input
+                  <AudioFader
                     type="range"
                     min="-12"
                     max="12"
                     step="0.5"
+                    audioTarget="eqMid"
                     value={masterEQ.mid}
-                    onChange={(e) => onMasterEQChange({ ...masterEQ, mid: parseFloat(e.target.value) })}
+                    onChange={(val) => onMasterEQChange({ ...masterEQ, mid: val })}
                     className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
                   />
                 </div>
@@ -522,13 +526,14 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     <span>Agudo / High</span>
                     <span>{masterEQ.high > 0 ? '+' : ''}{masterEQ.high} dB</span>
                   </div>
-                  <input
+                  <AudioFader
                     type="range"
                     min="-12"
                     max="12"
                     step="0.5"
+                    audioTarget="eqHigh"
                     value={masterEQ.high}
-                    onChange={(e) => onMasterEQChange({ ...masterEQ, high: parseFloat(e.target.value) })}
+                    onChange={(val) => onMasterEQChange({ ...masterEQ, high: val })}
                     className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
                   />
                 </div>
@@ -546,13 +551,14 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     <span>Limiar / Threshold</span>
                     <span>{masterCompressor.threshold} dB</span>
                   </div>
-                  <input
+                  <AudioFader
                     type="range"
                     min="-60"
                     max="0"
                     step="1"
+                    audioTarget="compThreshold"
                     value={masterCompressor.threshold}
-                    onChange={(e) => onMasterCompressorChange({ ...masterCompressor, threshold: parseFloat(e.target.value) })}
+                    onChange={(val) => onMasterCompressorChange({ ...masterCompressor, threshold: val })}
                     className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
                   />
                 </div>
@@ -563,13 +569,14 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     <span>Ratio</span>
                     <span>{masterCompressor.ratio}:1</span>
                   </div>
-                  <input
+                  <AudioFader
                     type="range"
                     min="1"
                     max="20"
                     step="0.5"
+                    audioTarget="compRatio"
                     value={masterCompressor.ratio}
-                    onChange={(e) => onMasterCompressorChange({ ...masterCompressor, ratio: parseFloat(e.target.value) })}
+                    onChange={(val) => onMasterCompressorChange({ ...masterCompressor, ratio: val })}
                     className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
                   />
                 </div>
@@ -599,14 +606,15 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Volume</span>
                 <div className="h-[145px] flex justify-center items-center relative w-12">
                   <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
-                  <input
+                  <AudioFader
                     type="range"
                     min="-40"
                     max="6"
                     step="0.5"
                     orient="vertical"
+                    audioTarget="masterVolume"
                     value={masterVol}
-                    onChange={(e) => onMasterVolChange(parseFloat(e.target.value))}
+                    onChange={(val) => onMasterVolChange(val)}
                     className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
                   />
                 </div>
@@ -644,7 +652,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           isMobile={isMobile}
           lang={lang}
           isLeftHanded={isLeftHanded}
-          track={editingTrack}
+          trackId={editingTrack.id}
           onClose={() => setEditingTrackId(null)}
           onNavigatePrev={() => {
             const idx = tracks.findIndex(t => t.id === editingTrackId);

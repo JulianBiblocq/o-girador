@@ -349,7 +349,7 @@ const MixerComponent: React.FC<MixerProps> = ({
           isMobile={window.innerWidth <= 768}
           lang={lang}
           isLeftHanded={isLeftHanded}
-          track={useSequencerStore.getState().tracks.find(t => t.id === editingTrackId)!}
+          trackId={editingTrackId}
           onClose={() => setEditingTrackId(null)}
           onNavigatePrev={() => {
             const idx = tracks.findIndex(t => t.id === editingTrackId);

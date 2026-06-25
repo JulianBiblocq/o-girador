@@ -21,6 +21,9 @@ import { TrackGroup, Pattern, RhythmSignal, CloudPattern, CatalogVisibility, Lan
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchCloudPatterns, savePatternToCloud, deleteCloudPattern, renameCloudPattern } from '../cloudPatterns';
+import { AudioEngine } from '../AudioEngine';
+import { CompactPatternRenderer } from './CompactPatternRenderer';
+import { AudioFader } from './AudioFader';
 import { useSequencer } from '../contexts/SequencerContext';
 
 const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
@@ -1062,12 +1065,14 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           {/* Volume slider */}
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold uppercase opacity-70">Vol</span>
-            <input
+            <AudioFader
               type="range"
               min="0"
               max="100"
+              audioTarget="trackVolume"
+              trackId={track.id}
               value={track.volumeVal}
-              onChange={(e) => onVolumeChange(parseInt(e.target.value))}
+              onChange={(val) => onVolumeChange(val)}
               className="w-24 h-2 bg-[#1a1a1a] border border-[#f4ecd8] rounded-none outline-none cursor-pointer accent-[#f4ecd8]"
             />
             <span className="text-[11px] font-bold w-7 text-right">{track.volumeVal}</span>
@@ -2754,19 +2759,23 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 };
 
 export const InstrumentDetailEditor = React.memo(InstrumentDetailEditorComponent, (prevProps, nextProps) => {
-  const prevStepsSig = prevProps.track.patterns.map(p => {
+  const storeState = useSequencerStore.getState();
+  const prevTrack = storeState.tracks.find(t => t.id === prevProps.trackId);
+  const nextTrack = storeState.tracks.find(t => t.id === nextProps.trackId);
+
+  const prevStepsSig = prevTrack?.patterns.map(p => {
     const prevStep = (prevProps.isPlaying && prevProps.currentStepIndex >= 0)
       ? Math.floor((prevProps.currentStepIndex / prevProps.maxTicks) * p.steps)
       : -1;
     return `${p.id}:${prevStep}`;
-  }).join(',');
+  }).join(',') || '';
 
-  const nextStepsSig = nextProps.track.patterns.map(p => {
+  const nextStepsSig = nextTrack?.patterns.map(p => {
     const nextStep = (nextProps.isPlaying && nextProps.currentStepIndex >= 0)
       ? Math.floor((nextProps.currentStepIndex / nextProps.maxTicks) * p.steps)
       : -1;
     return `${p.id}:${nextStep}`;
-  }).join(',');
+  }).join(',') || '';
 
   if (prevStepsSig !== nextStepsSig) {
     return false;

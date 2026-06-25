@@ -9,6 +9,7 @@ import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSy
 import { PanKnob } from './PanKnob';
 import { getNextStepValue } from './InstrumentDetailEditor';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
+import { AudioFader } from './AudioFader';
 
 const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -603,13 +604,15 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
           <div className="h-[145px] flex justify-center items-center relative w-12">
             {/* Fader Slot */}
             <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
-            <input
+            <AudioFader
               type="range"
               min="0"
               max="100"
               orient="vertical"
+              audioTarget="trackVolume"
+              trackId={track.id}
               value={track.volumeVal}
-              onChange={(e) => onVolumeChange(parseInt(e.target.value))}
+              onChange={(val) => onVolumeChange(val)}
               className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
             />
           </div>
@@ -622,13 +625,15 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
           <div className="h-[145px] flex justify-center items-center relative w-12">
             {/* Fader Slot */}
             <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
-            <input
+            <AudioFader
               type="range"
               min="0"
               max="100"
               orient="vertical"
+              audioTarget="trackReverb"
+              trackId={track.id}
               value={track.reverbVal || 0}
-              onChange={(e) => onReverbChange(parseInt(e.target.value))}
+              onChange={(val) => onReverbChange(val)}
               className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
             />
           </div>

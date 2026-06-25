@@ -57,7 +57,8 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 export default function App() {
-  const CURRENT_VERSION = "3.0.1"; // Matches version.json
+  const CURRENT_VERSION = "3.1.0"; // Matches version.json
+  const HAS_SEEN_UPDATE_KEY = `has_seen_update_${CURRENT_VERSION}`;
 
   // Consume contexts
   const sequencer = useSequencer();

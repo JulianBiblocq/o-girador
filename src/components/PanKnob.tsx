@@ -1,15 +1,40 @@
-import React from 'react';
+import React, { useState, useEffect, startTransition } from 'react';
 import { Language } from '../types';
+import { channels } from '../hooks/useAudioSync';
 
 interface PanKnobProps {
+  trackId?: number; // Optional if used for something else, but needed for audio sync
   value: number; // -100 to 100
   onChange: (val: number) => void;
   label?: string;
 }
 
-export const PanKnob: React.FC<PanKnobProps> = ({ value, onChange, label = "Pan" }) => {
+export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, label = "Pan" }) => {
+  const [localVal, setLocalVal] = useState(value);
+
+  useEffect(() => {
+    setLocalVal(value);
+  }, [value]);
+
+  const handleDrag = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value);
+    setLocalVal(val);
+    if (trackId !== undefined && channels[trackId]) {
+      // Direct Tone.js smoothing without hitting the global store
+      channels[trackId].pan.rampTo(val / 100, 0.05);
+    }
+  };
+
+  const handleCommit = () => {
+    if (localVal !== value) {
+      startTransition(() => {
+        onChange(localVal);
+      });
+    }
+  };
+
   // Map value (-100 to 100) to rotation angle in degrees (-135 to 135)
-  const angle = value * 1.35;
+  const angle = localVal * 1.35;
 
   return (
     <div className="flex flex-col items-center gap-0.5 select-none shrink-0">
@@ -37,10 +62,12 @@ export const PanKnob: React.FC<PanKnobProps> = ({ value, onChange, label = "Pan"
           type="range"
           min="-100"
           max="100"
-          value={value}
-          onChange={(e) => onChange(parseInt(e.target.value))}
+          value={localVal}
+          onChange={handleDrag}
+          onMouseUp={handleCommit}
+          onTouchEnd={handleCommit}
           className="absolute inset-0 opacity-0 cursor-ew-resize w-full h-full"
-          title={`Pan: ${value === 0 ? 'C' : value > 0 ? 'R' + value : 'L' + Math.abs(value)}`}
+          title={`Pan: ${localVal === 0 ? 'C' : localVal > 0 ? 'R' + localVal : 'L' + Math.abs(localVal)}`}
         />
       </div>
       <div className="flex justify-between w-full px-1 text-[8px] font-bold opacity-60">

@@ -505,7 +505,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
 
       const spliceArray = <T>(arr: T[], insertVal: T): T[] => {
         const next = [...arr];
-        next.splice(measureIdx + 1, 0, insertVal);
+        next.splice(measureIdx, 0, insertVal);
         return next;
       };
 

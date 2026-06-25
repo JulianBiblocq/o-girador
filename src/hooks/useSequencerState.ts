@@ -51,8 +51,10 @@ export function useSequencerState() {
     _setLang(newLang);
     localStorage.setItem('o_girador_lang', newLang);
   }, []);
-  const [copiedPattern, setCopiedPattern] = useState<Pattern | null>(null);
-  const [copiedSection, setCopiedSection] = useState<any>(null);
+  const copiedPattern = useSequencerStore(state => state.copiedPattern);
+  const copiedSection = useSequencerStore(state => state.copiedSection);
+  const setCopiedPattern = (useSequencerStore as any)(state => state.setCopiedPattern) as any;
+  const setCopiedSection = (useSequencerStore as any)(state => state.setCopiedSection) as any;
 
   const [activeAoVivoTrackId, setActiveAoVivoTrackId] = useState<number | null>(null);
 
@@ -878,39 +880,39 @@ export function useSequencerState() {
 
     setMeasureTimeSigs(prev => {
       const arr = [...prev];
-      arr.splice(measureIdx + 1, 0, refSig);
+      arr.splice(measureIdx, 0, refSig);
       return arr;
     });
     setMeasureBpms(prev => {
       const arr = [...prev];
-      arr.splice(measureIdx + 1, 0, refBpm);
+      arr.splice(measureIdx, 0, refBpm);
       return arr;
     });
     setMeasureBpmTransitions(prev => {
       const arr = [...prev];
-      arr.splice(measureIdx + 1, 0, 'immediate');
+      arr.splice(measureIdx, 0, 'immediate');
       return arr;
     });
     setMeasureVols(prev => {
       const arr = [...prev];
-      arr.splice(measureIdx + 1, 0, refVol);
+      arr.splice(measureIdx, 0, refVol);
       return arr;
     });
     setMeasureVolTransitions(prev => {
       const arr = [...prev];
-      arr.splice(measureIdx + 1, 0, 'immediate');
+      arr.splice(measureIdx, 0, 'immediate');
       return arr;
     });
     setMeasureSignals(prev => {
       const arr = [...prev];
-      arr.splice(measureIdx + 1, 0, null);
+      arr.splice(measureIdx, 0, null);
       return arr;
     });
     setTracks(prev => prev.map(t => ({
       ...t,
       patterns: t.patterns.map(p => {
         const arr = [...p.measureAssignments];
-        arr.splice(measureIdx + 1, 0, false);
+        arr.splice(measureIdx, 0, false);
         return { ...p, measureAssignments: arr };
       })
     })));
@@ -940,8 +942,6 @@ export function useSequencerState() {
     setIsLoopRegionActive(false);
   };
 
-  const copiedPatternRef = useRef<Pattern | null>(null);
-
   const handleCopyPattern = (pattern: Pattern) => {
     if (typeof window !== 'undefined') {
       (window as any).__oGiradorRelativeClipboard = null;
@@ -949,11 +949,10 @@ export function useSequencerState() {
     }
     const clone = JSON.parse(JSON.stringify(pattern));
     setCopiedPattern(clone);
-    copiedPatternRef.current = clone;
   };
 
   const handlePastePattern = (trackId: number, targetPatternId?: number) => {
-    const patternToPaste = copiedPatternRef.current;
+    const patternToPaste = useSequencerStore.getState().copiedPattern;
     if (!patternToPaste) return;
     pushUndoState();
     setTracks(prev => prev.map(t => {
@@ -1128,10 +1127,11 @@ export function useSequencerState() {
   };
 
   const handlePasteSongSection = (destStartMeasure: number) => {
-    if (!copiedSection) return;
+    const storeCopiedSection = useSequencerStore.getState().copiedSection;
+    if (!storeCopiedSection) return;
     pushUndoState();
 
-    const len = copiedSection.length;
+    const len = storeCopiedSection.length;
     const end = destStartMeasure + len - 1;
 
     if (end >= totalMeasuresRef.current) {
@@ -1139,7 +1139,7 @@ export function useSequencerState() {
     }
 
     setTracks(prev => prev.map(t => {
-      const copiedArr = copiedSection.assignments[t.id];
+      const copiedArr = storeCopiedSection.assignments[t.id];
       if (!copiedArr) return t;
 
       const nextPatterns = t.patterns.map(p => {
@@ -1155,7 +1155,7 @@ export function useSequencerState() {
       return { ...t, patterns: nextPatterns };
     }));
 
-    handleCreateSongSection(copiedSection.name, destStartMeasure, end, copiedSection.color, copiedSection.repeatCount, copiedSection.level);
+    handleCreateSongSection(storeCopiedSection.name, destStartMeasure, end, storeCopiedSection.color, storeCopiedSection.repeatCount, storeCopiedSection.level);
   };
 
   const handleStepValueSelectAndToggle = (
