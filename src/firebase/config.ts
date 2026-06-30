@@ -4,18 +4,23 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-if (!apiKey) {
-  // 🛡️ FIX (Audit): Warns if API key is missing to allow offline mode
-  console.warn("VITE_FIREBASE_API_KEY is missing from environment variables. Running in offline mode.");
+const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
+const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
+const messagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
+const appId = import.meta.env.VITE_FIREBASE_APP_ID;
+
+if (!apiKey || !authDomain || !projectId || !storageBucket || !messagingSenderId || !appId) {
+  throw new Error("🔥 ERREUR CRITIQUE: Configuration Firebase manquante. Vérifiez vos variables d'environnement VITE_FIREBASE_*");
 }
 
 const firebaseConfig = {
-  apiKey: apiKey || "offline-api-key",
-  authDomain: "o-girador-7828c.firebaseapp.com",
-  projectId: "o-girador-7828c",
-  storageBucket: "o-girador-7828c.firebasestorage.app",
-  messagingSenderId: "488703864701",
-  appId: "1:488703864701:web:50b8cbcd1ca4038e15e614",
+  apiKey,
+  authDomain,
+  projectId,
+  storageBucket,
+  messagingSenderId,
+  appId,
   measurementId: "G-PZJKCF2271"
 };
 

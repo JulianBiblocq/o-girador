@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
     <!-- Primary SEO -->
-    <title>O Girador - Séquenceur de Maracatu de Baque Virado | Sequenciador</title>
-    <meta name="description" content="Séquenceur interactif et boîte à rythmes gratuit pour le Maracatu de Baque Virado (Recife). Créez et écoutez vos rythmes (alfaia, caixa, gonguê, agbê). O Girador é um sequenciador interativo de ritmos." />
+    <title>O Girador | Séquenceur dédié au Maracatu de Baque Virado</title>
+    <meta name="description" content="Découvrez O Girador, l'application et séquenceur dédié au Maracatu de Baque Virado. Samples haute qualidade, balanço, humanisation et partage d'arrangements." />
     <meta name="keywords" content="maracatu, baque virado, séquenceur, boîte à rythmes, sequenciador, ritmo, alfaia, caixa, gonguê, agbê, mineiro, percussão, percussion brésilienne, recife, pernambuco, nação, bloco, toada, drum machine, o-girador, roda de maracatu" />
     <meta name="author" content="Julian Biblocq" />
     <meta name="robots" content="index, follow" />
@@ -142,8 +142,8 @@
       
       .lp-o-container {
         position: relative;
-        width: clamp(150px, 25vw, 300px);
-        height: clamp(150px, 25vw, 300px);
+        width: clamp(130px, 20vw, 250px);
+        height: clamp(130px, 20vw, 250px);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -166,7 +166,7 @@
         width: 65%;
         height: 65%;
         font-family: 'Cactus', sans-serif;
-        font-size: clamp(1rem, 2.5vw, 1.8rem);
+        font-size: clamp(0.9rem, 2vw, 1.5rem);
         color: #1a1a1a;
         cursor: pointer;
         display: flex;
@@ -186,7 +186,7 @@
 
       .lp-title {
         font-family: 'Cactus', sans-serif;
-        font-size: clamp(5rem, 15vw, 15rem);
+        font-size: clamp(4rem, 12vw, 12rem);
         line-height: 1;
         margin: 0;
         color: #1a1a1a;
@@ -201,22 +201,29 @@
         align-items: end;
         position: relative;
         z-index: 2;
-        margin-top: -10vh; /* Remonte le footer pour se rapprocher de O Girador */
+        margin-top: -10vh;
       }
 
       .lp-text-container {
         display: flex;
         flex-direction: column;
-        gap: clamp(1rem, 3vh, 2rem);
+        gap: clamp(1rem, 2vh, 1.5rem);
         margin-left: clamp(1rem, 4vw, 6rem);
-        margin-bottom: clamp(2rem, 10vh, 5rem);
+        margin-bottom: clamp(1rem, 3vh, 2rem);
       }
 
       .lp-text {
-        max-width: 700px;
-        font-size: clamp(0.9rem, 1.4vw, 1.25rem);
-        line-height: 1.5;
+        max-width: 750px;
+        font-size: clamp(0.75rem, 1vw, 0.95rem);
+        line-height: 1.4;
         color: #1a1a1a;
+      }
+      .lp-text p {
+        margin-top: 0;
+        margin-bottom: 0.75rem;
+      }
+      .lp-text p:last-child {
+        margin-bottom: 0;
       }
 
       /* Mestre Message Box - Styled as Cordel Woodcut */
@@ -353,13 +360,13 @@
 
       @media (max-width: 1024px) {
         .lp-center { flex-direction: column; text-align: center; gap: 1rem; padding-left: 0; }
-        .lp-footer { grid-template-columns: 1fr; gap: 2rem; justify-items: center; margin-top: 0; }
+        .lp-footer { grid-template-columns: 1fr; gap: 2rem; justify-items: center; margin-top: 2rem; }
         .lp-text-container { margin-left: 0; margin-bottom: 0; text-align: center; align-items: center; }
         .lp-text { text-align: center; margin-left: 0; }
         .lp-mestre-message { transform: none; width: 90%; max-width: 400px; margin-bottom: 0; margin-top: 1rem; }
         .lp-mestre-message:hover { transform: none; }
         .lp-bandeira { width: 100%; margin: 0 auto; max-width: 300px; transform: none; }
-        .lp-title { font-size: 4rem; }
+        .lp-title { font-size: 3.5rem; }
       }
     </style>
   </head>

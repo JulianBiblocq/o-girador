@@ -142,7 +142,8 @@ export interface Preset {
   masterEQ?: { low: number; mid: number; high: number };
   masterCompressor?: { threshold: number; ratio: number };
   masterVol?: number;
-  reverbType?: 'room' | 'studio' | 'hall';
+  masterReverbVol?: number;
+  reverbDecay?: number;
   isSwingOn?: boolean;
   loopStartMeasure?: number;
   loopEndMeasure?: number;

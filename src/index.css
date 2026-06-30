@@ -508,8 +508,207 @@ input[type="range"]:not(.vertical-fader) {
   80% { transform: translate(1px, -1px) rotate(1deg); }
   100% { transform: translate(0, 0) rotate(0deg); }
 }
+
+/* === PRINT STYLE FOR TABLATURE === */
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  
+  body * {
+    visibility: hidden;
+  }
+
+  #print-tablature-area, #print-tablature-area * {
+    visibility: visible;
+  }
+
+  #print-tablature-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background-color: white !important;
+    color: black !important;
+    border: none !important;
+    padding: 10px !important;
+    margin: 0 !important;
+  }
+
+  .tab-inst-name {
+    width: 70px !important;
+    max-width: 70px !important;
+    font-size: 8px !important;
+    padding-right: 2px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .tab-system-table {
+    font-size: 8px !important;
+    width: 100% !important;
+    table-layout: auto !important;
+  }
+
+  .tab-barline {
+    font-size: 8px !important;
+    padding-left: 1px !important;
+    padding-right: 1px !important;
+    width: 6px !important;
+  }
+
+  .tab-step-cell {
+    font-size: 8px !important;
+    padding-left: 1px !important;
+    padding-right: 1px !important;
+    white-space: nowrap !important;
+  }
+}
+
+/* Disable touch scroll actions and text selection on step grids and touch selector to guarantee smooth touch gestures */
+.step-boxes,
+.step-boxes * {
+  touch-action: pan-y !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* Restore user-select for text inputs so iOS Safari keyboard can focus them */
+.step-boxes input[type="text"] {
+  -webkit-user-select: auto !important;
+  user-select: auto !important;
+}
+
+#touch-stroke-selector-bubble,
+#touch-stroke-selector-bubble * {
+  touch-action: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+/* ══════════════ SMART ZOOM / MACRO MODE ══════════════ */
+
+/* Hide detailed controls in Macro mode */
+.timeline-sequencer-container[data-zoom="macro"] .ruler-detailed {
+  display: none !important;
+}
+
+/* Toggle cells detailed vs macro content */
+.timeline-sequencer-container:not([data-zoom="macro"]) .cell-macro {
+  display: none !important;
+}
+.timeline-sequencer-container[data-zoom="macro"] .cell-detailed {
+  display: none !important;
+}
+
+/* Center ruler measure content in Macro mode */
+.timeline-sequencer-container[data-zoom="macro"] .ruler-measure-header {
+  justify-content: center !important;
+  height: 100%;
+  padding-bottom: 2px;
+}
+
+/* Stylize continuous pattern block */
+.macro-pattern-block {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 1px 3px rgba(0,0,0,0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.macro-pattern-block::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 25%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.08), transparent);
+  pointer-events: none;
+}
+
+/* Hover effects for macro blocks */
+.macro-pattern-block:hover {
+  filter: brightness(1.15);
+  border-color: var(--cordel-border) !important;
+}
+
+/* Highlight section borders inside macro track cells */
+.timeline-sequencer-container[data-zoom="macro"] .cell-section-start {
+  border-left: 2px solid var(--section-color) !important;
+}
+.timeline-sequencer-container[data-zoom="macro"] .cell-section-end {
+  border-right: 2px solid var(--section-color) !important;
+}
+.timeline-sequencer-container[data-zoom="macro"] .cell-section-tint {
+  position: relative;
+}
+.timeline-sequencer-container[data-zoom="macro"] .cell-section-tint::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--section-color);
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* ══════════════ PANNING & DRAGGING CURSORS ══════════════ */
+.panning-dragging {
+  cursor: grabbing !important;
+}
+
+/* ══════════════ TOUCH SCREEN OPTIMIZATIONS ══════════════ */
+/* Prevent native context menu / download-share callouts on images and sliders */
+img,
+.vertical-fader,
+input[type="range"] {
+  -webkit-touch-callout: none !important;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Prevent decorative images from capturing touch events to avoid dragging conflicts */
+.track-mixer img,
+.vertical-track-mixer img,
+.console-mixer img,
+#top-bar img {
+  pointer-events: none !important;
+}
+
+/* Pour les faders verticaux, on bloque le scroll vertical mais on autorise le pan horizontal (nécessaire sur Webkit vertical-lr) */
+.vertical-fader {
+  touch-action: pan-x !important;
+}
+
+/* Pour les faders normaux (horizontaux), on bloque le scroll horizontal */
+input[type="range"]:not(.vertical-fader) {
+  touch-action: pan-y !important;
+}
+
+@keyframes roda-shake {
+  0% { transform: translate(1px, 1px) rotate(0deg); }
+  20% { transform: translate(-2px, -2px) rotate(-1deg); }
+  40% { transform: translate(-3px, 0px) rotate(1deg); }
+  60% { transform: translate(3px, 2px) rotate(0deg); }
+  80% { transform: translate(1px, -1px) rotate(1deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
 .shake-active {
   animation: roda-shake 0.3s ease-in-out;
 }
 
-
+/* --- ECO MODE OVERRIDES --- */
+body.eco-mode #center-afficheur {
+  filter: none !important;
+  box-shadow: none !important;
+}

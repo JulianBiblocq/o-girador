@@ -64,7 +64,7 @@ export const Home: React.FC<HomeProps> = ({ onEnter, lang }) => {
           </button>
 
           {/* Jeux (Varal) */}
-          {hasAccess('eleve') && (
+          {hasAccess('admin') && (
             <button
               onClick={() => handleEnter('varal')}
               className="bg-[#2980b9] text-[#1a1a1a] cordel-border flex flex-col items-center justify-center py-6 px-4 cursor-pointer hover:-translate-y-1 transition-transform"
@@ -87,7 +87,7 @@ export const Home: React.FC<HomeProps> = ({ onEnter, lang }) => {
             >
               <span className="text-3xl mb-2">👑</span>
               <span className="font-cactus font-bold text-xl uppercase tracking-wider">
-                {isFr ? 'Studio du mestre' : 'Studio do mestre'}
+                {isFr ? 'La parole du mestre' : 'A palavra do mestre'}
               </span>
               <span className="text-xs font-bold opacity-80 mt-1 text-center">
                 {isFr ? 'Arrangements avancés' : 'Arranjos avançados'}

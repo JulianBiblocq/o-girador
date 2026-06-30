@@ -74,8 +74,30 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
     onEnter();
   };
 
-  const frText = "Le Maracatu de Baque Virado, puissante percussion brésilienne originaire de Recife (Pernambouc), s'apprend au cœur de la roda par la transmission orale des Nações. Aucune machine ne remplacera l'enseignement des mestres. O Girador a été pensé avec humilité pour s'y ajouter : c'est un carnet de notes sonore gratuit, un séquenceur interactif et une boîte à rythmes en ligne pour créer, expérimenter vos baques et entrevoir les polyrythmies secrètes entre les alfaias, la caixa, le tarol, le gonguê, l'agbê, le mineiro et les toadas, en attendant le prochain enseignement vivant.";
-  const ptText = "O Maracatu de Baque Virado, poderosa percussão brasileira originária do Recife (Pernambuco), aprende-se no coração da roda pela transmissão oral das Nações. Nenhuma máquina substituirá os ensinamentos dos mestres. O Girador foi pensado com humildade para se somar a isso: é um caderno sonoro gratuito, um sequenciador interativo e uma bateria eletrônica online para criar, experimentar seus baques e vislumbrar as polirritmias secretas entre as alfaias, a caixa, o tarol, o gonguê, o agbê, o mineiro e as toadas, aguardando o próximo ensinamento vivo.";
+  const frText = (
+    <>
+      <p><strong>O Girador : Le séquenceur dédié au Maracatu de Baque Virado</strong><br/>
+      Le maracatu de baque virado est une musique traditionnelle forte d'histoire, souvent empreinte d'une grande spiritualité et un symbole de résistance puissant. Cette tradition est transmise par voie orale dans son entièreté par les mestres depuis son origine.</p>
+
+      <p>L'application O Girador ne veut en aucun cas se substituer à la transmission des mestres. Elle a pour seule vocation d'être un outil pédagogique et ludique de compréhension du rythme et de l'entrelacement des percussions et des voix.</p>
+
+      <p>Composez, sculptez le son et partagez vos arrangements :</p>
+
+      <p>
+        <strong>Composition et arrangements :</strong> l'application est conçue pour composer et écouter vos arrangements de maracatu de baque virado avec l'Alfaia, le Gonguê, la Caixa, le Tarol, le Mineiro, l'Agbê, le Timbal et les voix !!!<br/><br/>
+        <strong>Les samples :</strong> Profitez d'une banque de sons avec de vrais samples et la possibilité de sculpter le son de chaque pas du séquenceur avec précision.<br/><br/>
+        <strong>Le "Balanço" :</strong> L'application intègre un groove axé maracatu que vous pouvez modifier, couplé à une humanisation pour se rapprocher de la pulsation organique du maracatu.
+      </p>
+
+      <p>Utiliser sur un ordinateur ou un appareil mobile récent vous permettra de profiter des meilleures conditions d'utilisation.</p>
+
+      <p>Profitez bien de cette application en attendant la prochaine vivência !</p>
+    </>
+  );
+
+  const ptText = (
+    <p>O Maracatu de Baque Virado, poderosa percussão brasileira originária do Recife (Pernambuco), aprende-se no coração da roda pela transmissão oral das Nações. Nenhuma máquina substituirá os ensinamentos dos mestres. O Girador foi pensado com humildade para se somar a isso: é um caderno sonoro gratuito, um sequenciador interativo e uma bateria eletrônica online para criar, experimentar seus baques e vislumbrar as polirritmias secretas entre as alfaias, a caixa, o tarol, o gonguê, o agbê, o mineiro e as toadas, aguardando o próximo ensinamento vivo.</p>
+  );
 
   return (
     <div id="landing-page">
@@ -113,7 +135,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
         {(mestreMessage || hasAccess('mestre')) && (
           <div className="lp-mestre-message">
             <div className="lp-message-header">
-              <span className="lp-message-title">Studio do mestre / Studio du mestre</span>
+              <span className="lp-message-title">A palavra do mestre / La parole du mestre</span>
               {hasAccess('mestre') && !isEditingMsg && (
                 <button onClick={() => { setEditMsgContent(mestreMessage || ''); setIsEditingMsg(true); }} className="lp-edit-btn" title="Modifier le message">
                   <Edit2 size={14} />

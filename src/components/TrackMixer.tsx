@@ -38,7 +38,6 @@ interface TrackMixerProps {
   onVoiceNoteChange: (patternId: number, stepIdx: number, val: string) => void;
   onVoiceNoteBlur: (patternId: number, stepIdx: number, val: string) => void;
   isPlaying: boolean;
-  currentStepIndex: number;
   maxTicks: number;
   timeSig: string;
   totalMeasures: number;
@@ -93,7 +92,6 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   onVoiceNoteChange,
   onVoiceNoteBlur,
   isPlaying,
-  currentStepIndex,
   maxTicks,
   timeSig,
   totalMeasures,
@@ -245,9 +243,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     return () => document.removeEventListener('mousedown', clickOutside);
   }, []);
 
-  const currentStep = (isPlaying && currentStepIndex >= 0)
-    ? Math.floor((currentStepIndex / maxTicks) * activePattern.steps)
-    : -1;
+  // Visual current step logic is handled purely by the DOM bypass in handleTick
+  const currentStep = -1;
 
   useEffect(() => {
     setHasClipboard(!!getGlobalClipboard());

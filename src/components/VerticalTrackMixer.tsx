@@ -44,7 +44,7 @@ interface VerticalTrackMixerProps {
   onVoiceNoteChange: (patternId: number, stepIdx: number, val: string) => void;
   onVoiceNoteBlur: (patternId: number, stepIdx: number, val: string) => void;
   isPlaying: boolean;
-  currentStepIndex: number;
+  
   maxTicks: number;
   timeSig: string;
   totalMeasures: number;
@@ -93,7 +93,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
   onVoiceNoteChange,
   onVoiceNoteBlur,
   isPlaying,
-  currentStepIndex,
+  
   maxTicks,
   timeSig,
   totalMeasures,
@@ -142,9 +142,12 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
     return track.selectedPatternId;
   })();
 
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const activePattern = track.patterns.find(p => p.id === liveActivePatternId) || track.patterns[0];
 
   useEffect(() => {
+    let activeElements: HTMLElement[] = [];
     const handleTick = (e: Event) => {
       const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
       const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
@@ -210,9 +213,38 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
           }
         }
       }
+
+      const isEco = (window as any).oGiradorEcoMode;
+      if (isEco) return;
+
+      const currentActiveIndex = activeElements.length > 0 ? Number(activeElements[0].getAttribute('data-v-step')) : -1;
+      if (targetStep === currentActiveIndex) {
+        return;
+      }
+
+      activeElements.forEach(el => {
+        el.classList.remove('border-[#8b2a1a]');
+        el.classList.add('border-[var(--cordel-border)]');
+      });
+      activeElements = [];
+
+      if (containerRef.current) {
+        const newEl = containerRef.current.querySelector(`[data-v-step="${targetStep}"]`) as HTMLElement;
+        if (newEl) {
+          newEl.classList.remove('border-[var(--cordel-border)]');
+          newEl.classList.add('border-[#8b2a1a]');
+          activeElements.push(newEl);
+        }
+      }
     };
     window.addEventListener('o-girador-tick', handleTick);
-    return () => window.removeEventListener('o-girador-tick', handleTick);
+    return () => {
+      window.removeEventListener('o-girador-tick', handleTick);
+      activeElements.forEach(el => {
+        el.classList.remove('border-[#8b2a1a]');
+        el.classList.add('border-[var(--cordel-border)]');
+      });
+    };
   }, [track, soloPatternPlayId]);
 
   // Synchronize the visually active pattern selection index in parent state during playback
@@ -284,9 +316,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
     return () => document.removeEventListener('mousedown', clickOutside);
   }, []);
 
-  const currentStep = (isPlaying && currentStepIndex >= 0)
-    ? Math.floor((currentStepIndex / maxTicks) * activePattern.steps)
-    : -1;
+  const currentStep = -1;
 
   const handleVoiceNav = (el: HTMLInputElement, key: string, type: 'syl' | 'note') => {
     if (key === 'Tab') return;
@@ -463,7 +493,6 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
                         title={lang === 'fr' ? 'Double-cliquez pour renommer' : 'Double clique para renomear'}
                       >
                         {ptn.name ? ptn.name : `${lang === 'fr' ? 'Motif' : 'Padrão'} ${idx + 1}`}
-                        <span className="font-sans font-normal opacity-70 text-[10px]"> ({ptn.steps} pas)</span>
                       </span>
                     )}
 
@@ -505,9 +534,6 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
                       </div>
                     )}
                   </div>
-                  <span className="text-[10px] text-[var(--cordel-text)]/70 pl-6 leading-tight">
-                    M: {assignedText}
-                  </span>
                 </div>
                   )}
                 </SortablePatternWrapper>
@@ -526,7 +552,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
             {(() => {
               const activePlayingSteps = activeVariationsRef?.current[track.id] || activePattern.activeSteps;
               return inst.type === 'voice' ? (
-              <div className="grid grid-cols-4 gap-1.5 w-full step-boxes">
+              <div ref={containerRef} className="grid grid-cols-4 gap-1.5 w-full step-boxes">
                 {Array.from({ length: activePattern.steps }).map((_, i) => {
                   const state = activePlayingSteps[i];
                   const isActive = state !== 0;
@@ -538,7 +564,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
                   const typeStyle = isActive ? { backgroundColor: isPux ? inst.colors['P'] : inst.colors['C'], color: '#1a1a1a' } : {};
 
                   return (
-                    <div key={i} className={`v-card flex flex-col bg-[var(--cordel-bg)] cordel-border-sm overflow-hidden ${currentStep === i ? 'border-[#8b2a1a]' : 'border-[var(--cordel-border)]'}`}>
+                    <div key={i} className={`v-card flex flex-col bg-[var(--cordel-bg)] cordel-border-sm overflow-hidden border-[var(--cordel-border)]`} data-v-step={i}>
                       <div onClick={() => onVoiceTypeToggle(activePattern.id, i)} className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`} style={typeStyle}>{typeText}</div>
                       <input type="text" value={syl} onChange={(e) => onVoiceSylChange(activePattern.id, i, e.target.value)} placeholder="-" className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-b border-[var(--cordel-border)]/30 text-[var(--cordel-text)] outline-none" onKeyDown={(e) => { if (e.key === 'Tab') { e.preventDefault(); handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'syl'); } else if (['ArrowRight','ArrowLeft','Enter'].includes(e.key)) handleVoiceNav(e.target as HTMLInputElement, e.key, 'syl'); }} />
                       <input type="text" value={note} onChange={(e) => onVoiceNoteChange(activePattern.id, i, e.target.value)} onBlur={(e) => onVoiceNoteBlur(activePattern.id, i, e.target.value)} placeholder="C4" className="v-note w-full text-center text-[10px] py-1 bg-transparent text-[var(--cordel-text)] uppercase outline-none" onKeyDown={(e) => { if (e.key === 'Tab') { e.preventDefault(); handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note'); } else if (['ArrowRight','ArrowLeft','Enter'].includes(e.key)) handleVoiceNav(e.target as HTMLInputElement, e.key, 'note'); }} />

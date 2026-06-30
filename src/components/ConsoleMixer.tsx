@@ -108,17 +108,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const setTracks = useSequencerStore(state => state.setTracks);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
 
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-
-  useEffect(() => {
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number }>;
-      setCurrentStepIndex(customEvent.detail.step);
-    };
-    window.addEventListener('o-girador-tick', handleTick);
-    return () => window.removeEventListener('o-girador-tick', handleTick);
-  }, []);
-
   const {
     isPlaying,
     maxTicksRef,
@@ -129,7 +118,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     activeKeyboardInstrumentId,
     setActiveKeyboardInstrumentId,
     handleTimeSigChange,
-    masterVol, setMasterVol, masterEQ, setMasterEQ, masterCompressor, setMasterCompressor, reverbType, setReverbType,
+    masterVol, setMasterVol, masterEQ, setMasterEQ, masterCompressor, setMasterCompressor, reverbDecay, setReverbDecay, masterReverbVol, setMasterReverbVol,
     metroVolume, setMetroVolume, metroSound, setMetroSound, isMetroOn, setIsMetroOn, isSwingOn
   } = audio;
 
@@ -370,7 +359,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             onVoiceNoteChange={(pid, sIdx, val) => onVoiceNoteChange(track.id, pid, sIdx, val)}
             onVoiceNoteBlur={(pid, sIdx, val) => onVoiceNoteBlur(track.id, pid, sIdx, val)}
             isPlaying={isPlaying}
-            currentStepIndex={currentStepIndex}
             maxTicks={maxTicks}
             timeSig={timeSig}
             totalMeasures={totalMeasures}
@@ -584,18 +572,36 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
               {/* REVERB */}
               <div className="flex flex-col gap-1.5 border-t border-[var(--cordel-border)]/20 pt-2">
-                <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
-                  ⛪ Reverb
-                </span>
-                <select
-                  value={reverbType}
-                  onChange={(e) => setReverbType(e.target.value as any)}
-                  className="bg-[#1a1a1a]/10 border border-[var(--cordel-border)]/20 text-[var(--cordel-text)] font-bold text-[10px] uppercase outline-none cursor-pointer w-full p-1"
-                >
-                  <option value="room" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">Sala (Room)</option>
-                  <option value="studio" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">Estúdio (Studio)</option>
-                  <option value="hall" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">Catedral (Hall)</option>
-                </select>
+                <div className="flex justify-between items-center w-full">
+                  <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
+                    ⛪ Reverb
+                  </span>
+                  <span className="text-[8px] font-bold opacity-60">Decay: {reverbDecay.toFixed(1)}s</span>
+                </div>
+                <AudioFader
+                  type="range"
+                  min="0.5"
+                  max="5"
+                  step="0.1"
+                  value={reverbDecay}
+                  onChange={(val) => setReverbDecay(val)}
+                  className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer mb-1"
+                />
+                
+                <div className="flex justify-between items-center w-full">
+                  <span className="text-[8px] font-bold opacity-60">Vol</span>
+                  <span className="text-[8px] font-bold opacity-60">{masterReverbVol > -40 ? `${masterReverbVol > 0 ? '+' : ''}${masterReverbVol.toFixed(1)} dB` : '-∞ dB'}</span>
+                </div>
+                <AudioFader
+                  type="range"
+                  min="-40"
+                  max="6"
+                  step="0.5"
+                  audioTarget="masterReverbVol"
+                  value={masterReverbVol}
+                  onChange={(val) => setMasterReverbVol(val)}
+                  className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
+                />
               </div>
             </div>
 
@@ -697,7 +703,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           onStepMicrotimingChange={(pid, sIdx, val) => onStepMicrotimingChange(editingTrack.id, pid, sIdx, val)}
           isSwingOn={isSwingOn}
           isPlaying={isPlaying}
-          currentStepIndex={currentStepIndex}
           currentMeasure={useSequencerStore.getState().currentMeasure}
           maxTicks={maxTicks}
           totalMeasures={totalMeasures}

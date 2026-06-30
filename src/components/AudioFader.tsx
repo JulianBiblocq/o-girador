@@ -1,11 +1,11 @@
 import React, { useState, useEffect, startTransition } from 'react';
 import * as Tone from 'tone';
-import { channels, reverbSends, masterVolumeNode, masterEQNode, masterCompressorNode, metroChannel } from '../hooks/useAudioSync';
+import { channels, reverbSends, masterVolumeNode, masterEQNode, masterCompressorNode, metroChannel, masterReverbVolumeNode } from '../hooks/useAudioSync';
 
 interface AudioFaderProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   value: number;
   onChange: (val: number) => void;
-  audioTarget?: 'trackVolume' | 'trackPan' | 'trackReverb' | 'masterVolume' | 'metroVolume' | 'eqLow' | 'eqMid' | 'eqHigh' | 'compThreshold' | 'compRatio';
+  audioTarget?: 'trackVolume' | 'trackPan' | 'trackReverb' | 'masterVolume' | 'metroVolume' | 'eqLow' | 'eqMid' | 'eqHigh' | 'compThreshold' | 'compRatio' | 'masterReverbVol';
   trackId?: number;
 }
 
@@ -46,6 +46,8 @@ export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTa
       masterCompressorNode.threshold.rampTo(val, 0.05);
     } else if (audioTarget === 'compRatio' && masterCompressorNode) {
       masterCompressorNode.ratio.rampTo(val, 0.05);
+    } else if (audioTarget === 'masterReverbVol' && masterReverbVolumeNode) {
+      masterReverbVolumeNode.gain.rampTo(Tone.dbToGain(val === -40 ? -Infinity : val), 0.05);
     }
   };
 

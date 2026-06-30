@@ -123,7 +123,7 @@ export default function App() {
   // Security route protection
   useEffect(() => {
     // 🛡️ FIX (Audit): Protect 'mestre' and 'varal' views from anonymous visitors
-    if (['quiz', 'dictee', 'inspecteur', 'rythmelive', 'mestre', 'varal'].includes(viewMode) && !hasAccess('eleve')) {
+    if (['quiz', 'dictee', 'inspecteur', 'rythmelive', 'mestre', 'varal'].includes(viewMode) && !hasAccess('admin')) {
       setViewMode('roda');
     }
     if (viewMode === 'studio' && !hasAccess('mestre')) {

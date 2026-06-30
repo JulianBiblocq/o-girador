@@ -8,3 +8,4 @@ coverage/
 # Ignore public/Mixdown only in local build scenarios, but track it for GitHub Pages deployment:
 # /public/Mixdown/
 
+.scripts_dev/

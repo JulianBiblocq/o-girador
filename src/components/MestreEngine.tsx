@@ -30,9 +30,9 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
   }, [validationResult, onSuccess]);
   
   // Timer progress states
-  const [strokeDashoffset, setStrokeDashoffset] = useState<number>(0);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
   const [isRoundStarted, setIsRoundStarted] = useState<boolean>(false);
+  const circleRef = useRef<SVGCircleElement>(null);
   
   // Refs to avoid stale closures in Tone.js thread
   const selectedOptionRef = useRef<string | null>(null);
@@ -126,12 +126,16 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
       
       // Circumference of radius 32 is ~201 (2 * Math.PI * 32)
       // offset 0 = full circle, offset 201 = empty circle
-      setStrokeDashoffset(201 * progress);
+      if (circleRef.current) {
+        circleRef.current.style.strokeDashoffset = String(201 * progress);
+      }
 
       if (progress < 1) {
         animationFrameIdRef.current = requestAnimationFrame(updateProgress);
       } else {
-        setStrokeDashoffset(201);
+        if (circleRef.current) {
+          circleRef.current.style.strokeDashoffset = '201';
+        }
       }
     };
     
@@ -149,7 +153,9 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
     setSelectedOption(null);
     setValidationResult(null);
     setRhythmState('base');
-    setStrokeDashoffset(0);
+    if (circleRef.current) {
+      circleRef.current.style.strokeDashoffset = '0';
+    }
     
     if (roundIdx < mestreRounds.length - 1) {
       setRoundIdx(roundIdx + 1);
@@ -247,6 +253,7 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
                 />
                 {/* Foreground animated sand circle */}
                 <circle
+                  ref={circleRef}
                   cx="40"
                   cy="40"
                   r="32"
@@ -254,9 +261,10 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
                   stroke={validationResult === 'success' ? '#16a34a' : validationResult === 'failure' ? 'var(--cordel-wood)' : 'var(--cordel-border)'}
                   strokeWidth="3.5"
                   strokeDasharray="201"
-                  strokeDashoffset={strokeDashoffset}
+                  strokeDashoffset={0}
                   transform="rotate(-90 40 40)"
                   strokeLinecap="square"
+                  style={{ willChange: 'stroke-dashoffset' }}
                 />
               </svg>
 

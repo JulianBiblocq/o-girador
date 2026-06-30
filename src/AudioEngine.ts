@@ -20,9 +20,9 @@ export class AudioEngine {
   private audioContext: AudioContext;
   private isPlaying: boolean = false;
   
-  // Timing variables
-  private readonly LOOKAHEAD_INTERVAL = 10.0; // ms
-  private readonly SCHEDULE_AHEAD_TIME = 0.200; // seconds
+  // Timing variables (adaptive to device capabilities)
+  private readonly LOOKAHEAD_INTERVAL: number; // ms
+  private readonly SCHEDULE_AHEAD_TIME: number; // seconds
   private nextTickTime: number = 0.0;
   
   // Math Anchors for Drift Elimination
@@ -64,6 +64,16 @@ export class AudioEngine {
     this.onTick = onTick;
     this.getTickDuration = getTickDuration;
 
+    // Adapt scheduling parameters to device capabilities
+    // Mobile/tablet CPUs need more headroom to avoid buffer underruns
+    const isMobile = 'ontouchstart' in globalThis || navigator.maxTouchPoints > 0;
+    const hwLatency = (audioContext.baseLatency || 0) + ((audioContext as any).outputLatency || 0);
+    
+    this.LOOKAHEAD_INTERVAL = isMobile ? 25.0 : 10.0;
+    this.SCHEDULE_AHEAD_TIME = isMobile
+      ? Math.max(0.600, hwLatency + 0.300) 
+      : 0.500; // 500ms buffer to survive massive React measure-boundary renders
+
     // Pre-build O(1) config lookup map (avoids Array.find() on every note played)
     this.configMap = new Map(instrumentAudioConfigs.map(c => [c.id, c]));
 
@@ -95,8 +105,8 @@ export class AudioEngine {
       const blob = new Blob([workerCode], { type: 'application/javascript' });
       const workerUrl = URL.createObjectURL(blob);
       this.worker = new Worker(workerUrl);
-      URL.revokeObjectURL(workerUrl); // Libérer immédiatement la Blob URL — le Worker est déjà chargé
-
+      // We purposefully DO NOT revoke the URL to prevent any race condition on slow devices.
+      
       this.worker.onmessage = () => {
         if (this.isPlaying) {
           this.scheduler();
@@ -452,13 +462,11 @@ export class AudioEngine {
 
     if (numFiles > 1) {
       const lastIdx = this.lastPlayedIndices.has(rrKey) ? this.lastPlayedIndices.get(rrKey)! : -1;
-      const availableIndices: number[] = [];
-      for (let i = 0; i < numFiles; i++) {
-        if (i !== lastIdx) {
-          availableIndices.push(i);
-        }
-      }
-      chosenIdx = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+      // Zero-allocation round-robin: pick random index from [0, numFiles-1] excluding lastIdx
+      const availableCount = numFiles - (lastIdx >= 0 ? 1 : 0);
+      let rawIdx = Math.floor(Math.random() * availableCount);
+      if (lastIdx >= 0 && rawIdx >= lastIdx) rawIdx++;
+      chosenIdx = rawIdx;
       this.lastPlayedIndices.set(rrKey, chosenIdx);
     } else {
       this.lastPlayedIndices.set(rrKey, 0);
@@ -545,13 +553,17 @@ export class AudioEngine {
         activeGain.gain.setValueAtTime(activeGain.gain.value, time);
         activeGain.gain.linearRampToValueAtTime(0, time + fadeTime);
         activeNode.stop(time + fadeTime);
-        // 🛡️ FIX (Audit): Explicitly disconnect node to allow garbage collection
-        try { activeNode.disconnect(); } catch (_) {}
         
-        // Schedule disconnect after fade out
+        // Wait until the scheduled time PLUS the fadeTime has actually passed in real time
+        // before disconnecting and releasing the node to the pool.
+        // time is in Web Audio context time, which is SCHEDULE_AHEAD_TIME in the future.
+        const timeUntilStop = (time + fadeTime) - this.audioContext.currentTime;
+        const delayMs = Math.max(0, timeUntilStop) * 1000 + 50;
+
         setTimeout(() => {
+          try { activeNode.disconnect(); } catch (_) {}
           this.releaseGainNode(instrumentId, activeGain);
-        }, fadeTime * 1000 + 50);
+        }, delayMs);
       } catch (_) {
         // Source might have been stopped already
       }

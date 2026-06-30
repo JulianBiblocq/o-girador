@@ -103,17 +103,6 @@ const MixerComponent: React.FC<MixerProps> = ({
   const setTracks = useSequencerStore(state => state.setTracks);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
 
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-
-  useEffect(() => {
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number }>;
-      setCurrentStepIndex(customEvent.detail.step);
-    };
-    window.addEventListener('o-girador-tick', handleTick);
-    return () => window.removeEventListener('o-girador-tick', handleTick);
-  }, []);
-
   const {
     isPlaying,
     maxTicksRef,
@@ -319,7 +308,6 @@ const MixerComponent: React.FC<MixerProps> = ({
                   onVoiceNoteChange={(patternId, stepIdx, val) => onVoiceNoteChange(track.id, patternId, stepIdx, val)}
                   onVoiceNoteBlur={(patternId, stepIdx, val) => onVoiceNoteBlur(track.id, patternId, stepIdx, val)}
                   isPlaying={isPlaying}
-                  currentStepIndex={currentStepIndex}
                   maxTicks={maxTicks}
                   timeSig={timeSig}
                   totalMeasures={totalMeasures}
@@ -396,7 +384,6 @@ const MixerComponent: React.FC<MixerProps> = ({
           onMuteToggle={() => onMuteToggle(editingTrackId)}
           onSoloToggle={() => onSoloToggle(editingTrackId)}
           isPlaying={isPlaying}
-          currentStepIndex={currentStepIndex}
           currentMeasure={useSequencerStore.getState().currentMeasure}
           maxTicks={maxTicks}
           totalMeasures={totalMeasures}

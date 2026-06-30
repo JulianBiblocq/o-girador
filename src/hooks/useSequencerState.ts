@@ -59,6 +59,21 @@ export function useSequencerState() {
 
   const [activeAoVivoTrackId, setActiveAoVivoTrackId] = useState<number | null>(null);
 
+  // Sync local states to the store for autosave and global access
+  useEffect(() => {
+    useSequencerStore.setState({
+      bpm,
+      timeSig,
+      measureBpms,
+      measureBpmTransitions,
+      measureVols,
+      measureVolTransitions,
+      isLooping,
+      letras,
+      metadata,
+    });
+  }, [bpm, timeSig, measureBpms, measureBpmTransitions, measureVols, measureVolTransitions, isLooping, letras, metadata]);
+
   useEffect(() => {
     if (userProfile && userProfile.isLeftHanded !== undefined) {
       _setIsLeftHanded(userProfile.isLeftHanded);

@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Règle par défaut pour toutes les collections
+    match /{document=**} {
+      // Lecture publique : tout le monde peut lire
+      allow read: if true;
+      
+      // Création : l'utilisateur doit être connecté et s'assigner comme propriétaire
+      allow create: if request.auth != null 
+                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.authorId || request.auth.uid == request.resource.data.uid);
+                    
+      // Modification/Suppression : l'utilisateur doit être le propriétaire existant du document
+      allow update, delete: if request.auth != null 
+                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.uid);
+    }
+  }
+}

@@ -500,6 +500,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     bgCanvas.width = 1200;
     bgCanvas.height = 1200;
     const bgCtx = bgCanvas.getContext('2d');
+    let currentCanvasSize = 1200;
     let isBgCached = false;
     let lastTimeSig = '';
     let lastTicks = -1;
@@ -555,8 +556,21 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
 
     let lastDrawTime = performance.now();
 
-    const drawLoop = (time: number) => {
-      const isEco = (window as any).oGiradorEcoMode;
+    const drawLoop = () => {
+      const time = performance.now();
+      const isEco = !!(window as any).oGiradorEcoMode;
+      const targetSize = isEco ? 600 : 1200;
+      
+      if (currentCanvasSize !== targetSize) {
+        if (canvas) {
+          canvas.width = targetSize;
+          canvas.height = targetSize;
+        }
+        bgCanvas.width = targetSize;
+        bgCanvas.height = targetSize;
+        currentCanvasSize = targetSize;
+        isBgCached = false;
+      }
       
       if (isEco) {
         // Throttle to roughly 30fps to drastically save GPU on old tablets
@@ -622,7 +636,12 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       const markers = getMarkers(localTimeSig, localTicks);
       const ticksPerBeat = localTicks / markers.length;
 
-      ctx.clearRect(0, 0, 1200, 1200);
+      ctx.clearRect(0, 0, currentCanvasSize, currentCanvasSize);
+      
+      ctx.save();
+      if (isEco) {
+        ctx.scale(0.5, 0.5);
+      }
 
       if (lastTimeSig !== localTimeSig || lastTicks !== localTicks) {
         isBgCached = false;
@@ -631,7 +650,11 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       }
 
       if (!isBgCached && bgCtx) {
-        bgCtx.clearRect(0, 0, 1200, 1200);
+        bgCtx.clearRect(0, 0, currentCanvasSize, currentCanvasSize);
+        bgCtx.save();
+        if (isEco) {
+          bgCtx.scale(0.5, 0.5);
+        }
 
         // 1. Ropes (Cordas) - drawn with black ink style
         const numCords = 16;
@@ -766,10 +789,21 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
         }
         bgCtx.restore();
 
+        if (isEco) {
+          bgCtx.restore(); // Restore bgCtx scale
+        }
         isBgCached = true;
       }
 
+      // Temporarily restore ctx so we can draw bgCanvas at 1:1 scale
+      ctx.restore();
       ctx.drawImage(bgCanvas, 0, 0);
+      
+      // Re-apply ctx scale for the rest of the dynamic drawing
+      ctx.save();
+      if (isEco) {
+        ctx.scale(0.5, 0.5);
+      }
 
       // Metronome Flash (if active)
       if (localMetroOn && flashAlpha > 0 && !isEco) {
@@ -1041,7 +1075,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
           }
 
           // Name overlay on step 0
-          if (i === 0) {
+          if (i === 0 && !(window as any).oGiradorEcoMode) {
             ctx.save();
             ctx.globalAlpha = 1.0;
             ctx.fillStyle = themeText;
@@ -1070,6 +1104,9 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
         ctx.restore();
       });
 
+      // Restore the ctx scale applied after drawImage
+      ctx.restore();
+      
       animId = requestAnimationFrame(drawLoop);
     };
 

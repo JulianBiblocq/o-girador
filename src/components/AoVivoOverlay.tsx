@@ -433,9 +433,8 @@ export const AoVivoOverlay: React.FC = () => {
 
   const lastVuStepRef = useRef<number>(-1);
 
-  if (isEco) return null;
-
   useEffect(() => {
+    if (isEco) return;
     if (activeAoVivoTrackId === null) return;
     const activeTrack = tracks.find(t => t.id === activeAoVivoTrackId);
     if (!activeTrack) return;
@@ -465,6 +464,7 @@ export const AoVivoOverlay: React.FC = () => {
           const val = activePlayingSteps[targetStep];
           const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
           if (isHit) {
+            if ((window as any).oGiradorEcoMode) return;
             setHitEvent({ stroke: String(val), time: Date.now() });
           }
         }
@@ -475,6 +475,7 @@ export const AoVivoOverlay: React.FC = () => {
     return () => window.removeEventListener('o-girador-tick', handleTick);
   }, [activeAoVivoTrackId, tracks]);
 
+  if (isEco) return null;
   if (activeAoVivoTrackId === null) return null;
 
   const activeTrack = tracks.find(t => t.id === activeAoVivoTrackId);

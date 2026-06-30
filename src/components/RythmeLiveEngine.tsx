@@ -60,8 +60,11 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
   // Game state
   const [gameStatus, setGameStatus] = useState<'idle' | 'countdown' | 'playing' | 'finished'>('idle');
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
-  const [progress, setProgress] = useState<number>(0);
   const [hitDetails, setHitDetails] = useState<(HitDetail | null)[]>([]);
+
+  // Refs for GPU Zero Re-render animation
+  const playheadRef = useRef<HTMLDivElement>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setHitDetails(new Array(currentPattern.targetSteps.length).fill(null));
@@ -133,7 +136,9 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
     cleanUpAudio();
     setGameStatus('countdown');
     setCountdownValue(4);
-    setProgress(0);
+    if (playheadRef.current) {
+      playheadRef.current.style.transform = 'translate3d(0px, 0, 0)';
+    }
     setHitDetails(new Array(currentPattern.targetSteps.length).fill(null));
     setFlashState(null);
     lastHitTimeRef.current = 0;
@@ -202,7 +207,10 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
       const elapsed = Tone.Transport.seconds - playStartTimeRef.current;
       const currentProgress = Math.min(1, Math.max(0, elapsed / totalDuration));
       
-      setProgress(currentProgress);
+      if (playheadRef.current && timelineRef.current) {
+        const width = timelineRef.current.clientWidth;
+        playheadRef.current.style.transform = `translate3d(${currentProgress * width}px, 0, 0)`;
+      }
 
       if (currentProgress < 1) {
         animationFrameIdRef.current = requestAnimationFrame(updatePlayhead);
@@ -511,7 +519,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
               <span>{lang === 'fr' ? 'Mesure 2' : 'Compasso 2'}</span>
             </div>
             
-            <div className="relative w-full h-10 bg-[var(--cordel-text)]/5 border-3 border-[var(--cordel-border)] rounded-sm overflow-hidden flex items-center">
+            <div ref={timelineRef} className="relative w-full h-10 bg-[var(--cordel-text)]/5 border-3 border-[var(--cordel-border)] rounded-sm overflow-hidden flex items-center">
               {/* Beats dividers */}
               {Array.from({ length: 8 }).map((_, beatIdx) => (
                 <div
@@ -560,8 +568,9 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
 
               {/* Playhead */}
               <div
-                className="absolute top-0 bottom-0 w-1 bg-[var(--cordel-wood)] z-20 shadow-[0_0_8px_var(--cordel-wood)] pointer-events-none"
-                style={{ left: `${progress * 100}%` }}
+                ref={playheadRef}
+                className="absolute top-0 bottom-0 left-0 w-1 bg-[var(--cordel-wood)] z-20 shadow-[0_0_8px_var(--cordel-wood)] pointer-events-none"
+                style={{ willChange: 'transform' }}
               />
             </div>
           </div>

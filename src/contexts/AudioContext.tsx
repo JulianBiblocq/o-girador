@@ -17,7 +17,10 @@ import { migrateCirclesToTracks } from '../migration';
 // Web Audio recording variables
 let wavRecordingBuffersL: Float32Array[] = [];
 let wavRecordingBuffersR: Float32Array[] = [];
-let scriptProcessorNode: ScriptProcessorNode | null = null;
+let recorderNode: AudioWorkletNode | null = null;
+let isolatedRecordingContext: AudioContext | null = null;
+let streamDestination: any = null;
+let streamSource: MediaStreamAudioSourceNode | null = null;
 
 export type AudioContextType = ReturnType<typeof useAudioSync> & {
   masterVol: number;
@@ -26,8 +29,10 @@ export type AudioContextType = ReturnType<typeof useAudioSync> & {
   setMasterEQ: React.Dispatch<React.SetStateAction<{ low: number; mid: number; high: number }>>;
   masterCompressor: { threshold: number; ratio: number };
   setMasterCompressor: React.Dispatch<React.SetStateAction<{ threshold: number; ratio: number }>>;
-  reverbType: 'room' | 'studio' | 'hall';
-  setReverbType: React.Dispatch<React.SetStateAction<'room' | 'studio' | 'hall'>>;
+  reverbDecay: number;
+  setReverbDecay: React.Dispatch<React.SetStateAction<number>>;
+  masterReverbVol: number;
+  setMasterReverbVol: React.Dispatch<React.SetStateAction<number>>;
   activeKeyboardInstrumentId: string | null;
   setActiveKeyboardInstrumentId: React.Dispatch<React.SetStateAction<string | null>>;
   
@@ -155,8 +160,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [masterVol, setMasterVol] = useState<number>(-10);
   const [masterEQ, setMasterEQ] = useState<{ low: number; mid: number; high: number }>({ low: 0, mid: 0, high: 0 });
   const [masterCompressor, setMasterCompressor] = useState<{ threshold: number; ratio: number }>({ threshold: -20, ratio: 4 });
-  const [reverbType, setReverbType] = useState<'room' | 'studio' | 'hall'>(() => {
-    return (localStorage.getItem('oGirador_reverb_type') as any) || 'room';
+  const [reverbDecay, setReverbDecay] = useState<number>(() => {
+    const saved = localStorage.getItem('oGirador_reverb_decay');
+    return saved ? parseFloat(saved) : 2.5;
+  });
+  const [masterReverbVol, setMasterReverbVol] = useState<number>(() => {
+    const saved = localStorage.getItem('oGirador_master_reverb_vol');
+    return saved ? parseFloat(saved) : 0;
   });
   const [activeKeyboardInstrumentId, setActiveKeyboardInstrumentId] = useState<string | null>(null);
 
@@ -164,6 +174,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
+
+  useEffect(() => {
+    localStorage.setItem('oGirador_reverb_decay', reverbDecay.toString());
+  }, [reverbDecay]);
+
+  useEffect(() => {
+    localStorage.setItem('oGirador_master_reverb_vol', masterReverbVol.toString());
+  }, [masterReverbVol]);
 
   const t = (key: string) => {
     return (i18n[sequencer.lang] as any)[key] || key;
@@ -226,7 +244,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     masterVol,
     masterEQ,
     masterCompressor,
-    reverbType
+    masterReverbVol,
+    reverbDecay
   });
 
   // Dynamic layout radial positioning offsets
@@ -411,11 +430,17 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (p.masterVol !== undefined) {
         setMasterVol(p.masterVol);
       }
+      if (p.masterReverbVol !== undefined) {
+        setMasterReverbVol(p.masterReverbVol);
+      }
 
-      if (p.reverbType) {
-        setReverbType(p.reverbType);
-      } else {
-        setReverbType('room');
+      if (p.reverbDecay !== undefined) {
+        setReverbDecay(p.reverbDecay);
+      } else if ((p as any).reverbType) {
+        const oldType = (p as any).reverbType;
+        if (oldType === 'hall') setReverbDecay(4.5);
+        else if (oldType === 'studio') setReverbDecay(2.5);
+        else setReverbDecay(1.5);
       }
 
       audioSync.setIsSwingOn(true);
@@ -427,9 +452,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       sequencer.measureBpmTransitionsRef.current = loadedBpmTransitions;
       sequencer.measureVolsRef.current = loadedVols;
       sequencer.measureVolTransitionsRef.current = loadedVolTransitions;
-
-      // La compilation asynchrone est désormais automatiquement déclenchée par le changement 
-      // de références (useSequencerStore.getState().setTracks) via le useEffect du useAudioSync hook.
 
       sequencer.measureCountRef.current = 0;
       audioSync.setCurrentMeasure(0);
@@ -566,7 +588,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       masterEQ,
       masterCompressor,
       masterVol,
-      reverbType,
+      masterReverbVol,
+      reverbDecay,
       isSwingOn: audioSync.isSwingOn,
       loopStartMeasure: storeState.loopStartMeasure,
       loopEndMeasure: storeState.loopEndMeasure,
@@ -652,7 +675,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       measureSignals: sequencer.measureSignals,
       masterEQ,
       masterCompressor,
-      masterVol
+      masterVol,
+      masterReverbVol,
+      reverbDecay
     };
   };
 
@@ -681,193 +706,100 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Recording
   const handleAudioRecordingToggle = async () => {
-    const isNativeAudioContextInstance = (obj: any): boolean => {
-      if (!obj) return false;
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const BaseAudioCtx = (window as any).BaseAudioContext;
-      if (AudioCtx && obj instanceof AudioCtx) return true;
-      if (BaseAudioCtx && obj instanceof BaseAudioCtx) return true;
-      const name = obj.constructor?.name;
-      return name === 'AudioContext' || name === 'webkitAudioContext' || name === 'BaseAudioContext';
-    };
+    if (!isRecording) {
+      wavRecordingBuffersL = [];
+      wavRecordingBuffersR = [];
 
-    const isNativeCtx = (ctx: any) => ctx && typeof ctx.createScriptProcessor === 'function';
-
-    const findNativeAudioContext = (obj: any, visited: Set<any> = new Set()): any => {
-      if (!obj || typeof obj !== 'object') return null;
-      if (visited.has(obj)) return null;
-      visited.add(obj);
-      if (isNativeAudioContextInstance(obj) && isNativeCtx(obj)) return obj;
-      if (obj.nodeType || obj.$$typeof) return null;
-      const directProps = ['_nativeContext', '_nativeAudioContext', 'rawContext', 'context', '_context'];
-      for (const prop of directProps) {
-        try {
-          const val = obj[prop];
-          if (val && typeof val === 'object') {
-            const found = findNativeAudioContext(val, visited);
-            if (found) return found;
-          }
-        } catch (e) {}
-      }
-      for (const key of Object.keys(obj)) {
-        try {
-          const val = obj[key];
-          if (val && typeof val === 'object') {
-            const found = findNativeAudioContext(val, visited);
-            if (found) return found;
-          }
-        } catch (e) {}
-      }
       try {
-        const proto = Object.getPrototypeOf(obj);
-        if (proto) {
-          const found = findNativeAudioContext(proto, visited);
-          if (found) return found;
-        }
-      } catch (e) {}
-      return null;
-    };
-
-    const findNativeAudioNode = (obj: any, visited: Set<any> = new Set()): any => {
-      if (!obj || typeof obj !== 'object') return null;
-      if (visited.has(obj)) return null;
-      visited.add(obj);
-      const isNativeAudioNodeInstance = (val: any): boolean => {
-        if (!val) return false;
-        const AudioNodeClass = window.AudioNode;
-        if (AudioNodeClass && val instanceof AudioNodeClass) return true;
-        const name = val.constructor?.name;
-        return typeof name === 'string' && (
-          name === 'GainNode' ||
-          name === 'AudioNode' ||
-          name === 'AudioDestinationNode' ||
-          name === 'ChannelMergerNode' ||
-          name.endsWith('Node')
-        );
-      };
-      if (isNativeAudioNodeInstance(obj)) return obj;
-      if (obj.nodeType || obj.$$typeof) return null;
-      const directProps = ['_nativeAudioNode', 'output', 'input', '_gainNode'];
-      for (const prop of directProps) {
+        await Tone.start();
+        
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        isolatedRecordingContext = new AudioContextClass({ latencyHint: 'playback' });
+        
+        const workletUrl = import.meta.env.BASE_URL + 'recorder-worklet.js';
+        
         try {
-          const val = obj[prop];
-          if (val && typeof val === 'object') {
-            const found = findNativeAudioNode(val, visited);
-            if (found) return found;
-          }
-        } catch (e) {}
-      }
-      for (const key of Object.keys(obj)) {
+          await isolatedRecordingContext.audioWorklet.addModule(workletUrl);
+        } catch (e) {
+          console.error("Échec 1: addModule sur contexte isolé", e);
+          throw e;
+        }
+        
         try {
-          const val = obj[key];
-          if (val && typeof val === 'object') {
-            const found = findNativeAudioNode(val, visited);
-            if (found) return found;
-          }
-        } catch (e) {}
-      }
-      try {
-        const proto = Object.getPrototypeOf(obj);
-        if (proto) {
-          const found = findNativeAudioNode(proto, visited);
-          if (found) return found;
+          recorderNode = new AudioWorkletNode(isolatedRecordingContext, 'recorder-worklet', {
+            numberOfInputs: 1,
+            numberOfOutputs: 1
+          });
+        } catch (e) {
+          console.error("Échec 2: new AudioWorkletNode", e);
+          throw e;
         }
-      } catch (e) {}
-      return null;
-    };
-
-    let audioContext: any = null;
-    try {
-      await Tone.start();
-      if (masterVolumeNode) {
-        audioContext = findNativeAudioContext(masterVolumeNode);
-      }
-      if (!audioContext && Tone.context) {
-        audioContext = findNativeAudioContext(Tone.context);
-      }
-      if (!audioContext && typeof Tone.getContext === 'function') {
-        audioContext = findNativeAudioContext(Tone.getContext());
-      }
-      if (!audioContext) {
-        throw new Error("L'AudioContext de l'application n'a pas pu être résolu.");
-      }
-
-      if (!isRecording) {
-        wavRecordingBuffersL = [];
-        wavRecordingBuffersR = [];
-        const configs = [
-          { size: 4096, in: 2, out: 2 },
-          { size: 4096, in: 1, out: 1 },
-          { size: 8192, in: 2, out: 2 },
-          { size: 8192, in: 1, out: 1 },
-          { size: 2048, in: 2, out: 2 },
-          { size: 2048, in: 1, out: 1 }
-        ];
-
-        let createdNode = null;
-        let lastError = null;
-        for (const config of configs) {
-          try {
-            createdNode = audioContext.createScriptProcessor(config.size, config.in, config.out);
-            if (createdNode) break;
-          } catch (e) {
-            lastError = e;
+        
+        recorderNode.port.onmessage = (e: MessageEvent) => {
+          if (e.data && e.data.left && e.data.right) {
+            wavRecordingBuffersL.push(e.data.left);
+            wavRecordingBuffersR.push(e.data.right);
           }
-        }
-
-        if (!createdNode) throw lastError || new Error("Failed to create ScriptProcessorNode");
-        scriptProcessorNode = createdNode;
-
-        scriptProcessorNode.onaudioprocess = (e) => {
-          const left = e.inputBuffer.getChannelData(0);
-          const right = e.inputBuffer.numberOfChannels > 1 ? e.inputBuffer.getChannelData(1) : left;
-          wavRecordingBuffersL.push(new Float32Array(left));
-          wavRecordingBuffersR.push(new Float32Array(right));
         };
 
         if (masterVolumeNode) {
-          const nativeNode = findNativeAudioNode(masterVolumeNode);
-          if (nativeNode && typeof nativeNode.connect === 'function') {
-            nativeNode.connect(scriptProcessorNode);
-          } else {
-            masterVolumeNode.connect(scriptProcessorNode);
+          try {
+            streamDestination = Tone.context.createMediaStreamDestination();
+            masterVolumeNode.connect(streamDestination);
+            
+            streamSource = isolatedRecordingContext.createMediaStreamSource(streamDestination.stream);
+            
+            streamSource.connect(recorderNode as unknown as AudioNode);
+          } catch (e) {
+            console.error("Échec 3: connexion MediaStream master -> recorder", e);
+            throw e;
           }
         }
-        scriptProcessorNode.connect(audioContext.destination);
+        
+        try {
+          recorderNode.connect(isolatedRecordingContext.destination);
+        } catch (e) {
+          console.error("Échec 4: connexion recorder -> destination", e);
+          throw e;
+        }
+        
         setIsRecording(true);
-      } else {
-        const sampleRate = audioContext.sampleRate;
-        if (scriptProcessorNode) {
-          try {
-            scriptProcessorNode.disconnect();
-            if (masterVolumeNode) {
-              const nativeNode = findNativeAudioNode(masterVolumeNode);
-              if (nativeNode && typeof nativeNode.disconnect === 'function') {
-                try {
-                  nativeNode.disconnect(scriptProcessorNode);
-                } catch (e) {
-                  nativeNode.disconnect();
-                }
-              } else {
-                masterVolumeNode.disconnect(scriptProcessorNode);
-              }
-            }
-          } catch (e) {}
-          scriptProcessorNode = null;
-        }
-        setIsRecording(false);
-
-        if (wavRecordingBuffersL.length > 0) {
-          const wavBlob = bufferToWav(wavRecordingBuffersL, wavRecordingBuffersR, sampleRate);
-          const url = URL.createObjectURL(wavBlob);
-          const downloadLink = document.createElement('a');
-          downloadLink.download = 'O Girador_Export.wav';
-          downloadLink.href = url;
-          downloadLink.click();
-        }
+      } catch (error) {
+        console.error("Échec de la séquence Worklet :", error);
       }
-    } catch (err) {
-      console.error("Erreur avec l'enregistrement WAV:", err);
+    } else {
+      const exportSampleRate = isolatedRecordingContext ? isolatedRecordingContext.sampleRate : 44100;
+      
+      if (recorderNode) {
+        try { recorderNode.disconnect(); } catch(e) {}
+        recorderNode = null;
+      }
+      if (masterVolumeNode && streamDestination) {
+        try { masterVolumeNode.disconnect(streamDestination); } catch(e) {}
+      }
+      if (streamSource) {
+        try { streamSource.disconnect(); } catch(e) {}
+        streamSource = null;
+      }
+      if (isolatedRecordingContext) {
+        try { isolatedRecordingContext.close(); } catch(e) {}
+        isolatedRecordingContext = null;
+      }
+      streamDestination = null;
+      
+      setIsRecording(false);
+
+      if (wavRecordingBuffersL.length > 0) {
+        const wavBlob = bufferToWav(wavRecordingBuffersL, wavRecordingBuffersR, exportSampleRate);
+        const url = URL.createObjectURL(wavBlob);
+        const downloadLink = document.createElement('a');
+        downloadLink.download = 'O Girador_Export.wav';
+        downloadLink.href = url;
+        downloadLink.click();
+        
+        wavRecordingBuffersL = [];
+        wavRecordingBuffersR = [];
+      }
     }
   };
 
@@ -879,8 +811,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setMasterEQ,
     masterCompressor,
     setMasterCompressor,
-    reverbType,
-    setReverbType,
+    reverbDecay,
+    setReverbDecay,
+    masterReverbVol,
+    setMasterReverbVol,
     activeKeyboardInstrumentId,
     setActiveKeyboardInstrumentId,
     isRecording,
@@ -903,7 +837,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     masterVol,
     masterEQ,
     masterCompressor,
-    reverbType,
+    reverbDecay,
+    masterReverbVol,
     activeKeyboardInstrumentId,
     isRecording,
     recordingSeconds,
