@@ -54,6 +54,7 @@ interface CircleSequencerProps {
   rhythmSignals?: { id: string; name: string; image: string }[];
   mestreSignals?: CloudRhythmSignal[];
   songSections?: SongSection[];
+  songMarkers?: SongMarker[];
   circleId?: number;
   measureIndex?: number;
   trackId?: number;
@@ -80,6 +81,8 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
   const measureSignals = props.measureSignals !== undefined ? props.measureSignals : (sequencer.measureSignals || []);
   const songSectionsFromStore = useSequencerStore(state => state.songSections);
   const songSections = props.songSections !== undefined ? props.songSections : (songSectionsFromStore || []);
+  const songMarkersFromStore = useSequencerStore(state => state.songMarkers);
+  const songMarkers = props.songMarkers !== undefined ? props.songMarkers : (songMarkersFromStore || []);
 
   const isPlaying = props.isPlaying !== undefined ? props.isPlaying : audio.isPlaying;
   const currentStepRef = useRef<number>(-1);
@@ -282,7 +285,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     const live = livePlaybackRef.current;
     const measureIdx = isPlaying && live.step >= 0 ? live.measure : currentMeasure;
     updateOverlay(measureIdx);
-  }, [currentMeasure, isPlaying, measureSignals, rhythmSignals, mestreSignals, songSections, useSequencerStore.getState().songMarkers]);
+  }, [currentMeasure, isPlaying, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers]);
 
   useEffect(() => {
     let timerId: any = null;
@@ -374,9 +377,9 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       mestreSignals,
       songSections,
       isLeftHanded,
-      songMarkers: useSequencerStore.getState().songMarkers
+      songMarkers
     };
-  }, [tracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, useSequencerStore.getState().songMarkers, isLeftHanded]);
+  }, [tracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded]);
 
   // Handle click on canvas
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
