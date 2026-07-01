@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-const CACHE_NAME = 'o-girador-cache-v2.5';
+const CACHE_NAME = 'o-girador-cache-v2.6';
 
 // Core static files to cache immediately on SW install
 const STATIC_ASSETS = [
@@ -26,6 +26,10 @@ const AUDIO_ASSETS = [
   './Mixdown/Agbe A 1.ogg',
   './Mixdown/Agbe A 2.ogg',
   './Mixdown/Agbe B.ogg',
+  './Mixdown/Agbe f 1.ogg',
+  './Mixdown/Agbe f 2.ogg',
+  './Mixdown/Agbe f 3.ogg',
+  './Mixdown/Agbe f 4.ogg',
   './Mixdown/agbe faible e1.ogg',
   './Mixdown/agbe faible e2.ogg',
   './Mixdown/agbe faible e3.ogg',

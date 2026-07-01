@@ -64,10 +64,10 @@ export const instrumentAudioConfigs: InstrumentAudioConfig[] = [
         symbol: 'd', // Faible Droite
         keys: ['d'],
         files: [
-          "Mixdown/agbe faible e1.ogg",
-          "Mixdown/agbe faible e2.ogg",
-          "Mixdown/agbe faible e3.ogg",
-          "Mixdown/agbe faible e4.ogg"
+          "Mixdown/Agbe f 1.ogg",
+          "Mixdown/Agbe f 2.ogg",
+          "Mixdown/Agbe f 3.ogg",
+          "Mixdown/Agbe f 4.ogg"
         ],
         caseSensitive: true
       },

@@ -322,6 +322,13 @@ export interface StructureSlice {
   setBpm: (bpm: number) => void;
   setTimeSig: (sig: TimeSignature) => void;
   setMeasureSignals: (updater: (string | null)[] | ((prev: (string | null)[]) => (string | null)[])) => void;
+  setMeasureBpms: (updater: number[] | ((prev: number[]) => number[])) => void;
+  setMeasureTimeSigs: (updater: TimeSignature[] | ((prev: TimeSignature[]) => TimeSignature[])) => void;
+  setMeasureBpmTransitions: (updater: ('immediate' | 'ramp')[] | ((prev: ('immediate' | 'ramp')[]) => ('immediate' | 'ramp')[])) => void;
+  setMeasureVols: (updater: number[] | ((prev: number[]) => number[])) => void;
+  setMeasureVolTransitions: (updater: ('immediate' | 'ramp')[] | ((prev: ('immediate' | 'ramp')[]) => ('immediate' | 'ramp')[])) => void;
+  setSongSections: (updater: SongSection[] | ((prev: SongSection[]) => SongSection[])) => void;
+  setSongMarkers: (updater: SongMarker[] | ((prev: SongMarker[]) => SongMarker[])) => void;
   handleTotalMeasuresChange: (val: number) => void;
   handleMeasureTimeSigChange: (measureIdx: number, val: TimeSignature) => void;
   handleMeasureBpmChange: (measureIdx: number, val: number) => void;
@@ -331,7 +338,6 @@ export interface StructureSlice {
   handleCreateSongSection: (name: string, start: number, end: number, color?: string, repeatCount?: number, level?: number) => void;
   handleUpdateSongSection: (id: string, name: string, start: number, end: number, color?: string, level?: number) => void;
   handleUpdateSectionRepeat: (id: string, count: number) => void;
-  handleDeleteSongSection: (id: string) => void;
   handleDeleteSongSection: (id: string) => void;
   handleCreateSongMarker: (name: string, measure: number, color?: string) => void;
   handleUpdateSongMarker: (id: string, name: string, measure: number, color?: string) => void;
@@ -362,6 +368,11 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
   setMeasureSignals: (updater) => set((state) => ({
     measureSignals: typeof updater === 'function' ? updater(state.measureSignals) : updater
   })),
+  setMeasureBpms: (updater) => set((state) => ({ measureBpms: typeof updater === 'function' ? updater(state.measureBpms) : updater })),
+  setMeasureBpmTransitions: (updater) => set((state) => ({ measureBpmTransitions: typeof updater === 'function' ? updater(state.measureBpmTransitions) : updater })),
+  setMeasureVols: (updater) => set((state) => ({ measureVols: typeof updater === 'function' ? updater(state.measureVols) : updater })),
+  setMeasureVolTransitions: (updater) => set((state) => ({ measureVolTransitions: typeof updater === 'function' ? updater(state.measureVolTransitions) : updater })),
+  setSongMarkers: (updater) => set((state) => ({ songMarkers: typeof updater === 'function' ? updater(state.songMarkers) : updater })),
 
   handleTotalMeasuresChange: (val) => {
     get().pushUndoState();
