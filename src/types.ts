@@ -145,6 +145,7 @@ export interface Preset {
   measureVols?: number[];
   measureVolTransitions?: ('immediate' | 'ramp')[];
   songSections?: SongSection[];
+  songMarkers?: SongMarker[];
   measureSignals?: (string | null)[]; // signal id par mesure
   masterEQ?: { low: number; mid: number; high: number };
   masterCompressor?: { threshold: number; ratio: number };

@@ -409,6 +409,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         sequencer.setSongSections([]);
       }
 
+      if (p.songMarkers && Array.isArray(p.songMarkers)) {
+        sequencer.setSongMarkers(p.songMarkers);
+      } else {
+        sequencer.setSongMarkers([]);
+      }
+
       if (p.measureSignals && Array.isArray(p.measureSignals)) {
         sequencer.setMeasureSignals(p.measureSignals);
       } else {
@@ -590,6 +596,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       measureVols: sequencer.measureVols,
       measureVolTransitions: sequencer.measureVolTransitions,
       songSections: storeState.songSections,
+      songMarkers: storeState.songMarkers,
       measureSignals: sequencer.measureSignals,
       masterEQ,
       masterCompressor,
