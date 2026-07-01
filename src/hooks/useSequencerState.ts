@@ -31,6 +31,7 @@ export function useSequencerState() {
   const setSongSections = (useSequencerStore as any)(state => state.setSongSections) as any;
   const measureSignals = useSequencerStore(state => state.measureSignals);
   const setMeasureSignals = (useSequencerStore as any)(state => state.setMeasureSignals) as any;
+  const setSongMarkers = (useSequencerStore as any)(state => state.setSongMarkers) as any;
 
   const setLoopStartMeasure = (useSequencerStore as any)(state => state.setLoopStartMeasure) as any;
   const setLoopEndMeasure = (useSequencerStore as any)(state => state.setLoopEndMeasure) as any;
@@ -122,6 +123,7 @@ export function useSequencerState() {
   const measureVolsRef = useRef<number[]>([]);
   const measureVolTransitionsRef = useRef<('immediate' | 'ramp')[]>([]);
   const songSectionsRef = useRef<SongSection[]>([]);
+  const songMarkersRef = useRef<SongMarker[]>([]);
   const measureSignalsRef = useRef<(string | null)[]>([]);
 
   const loopStartRef = useRef<number | null>(null);
@@ -141,6 +143,7 @@ export function useSequencerState() {
       totalMeasuresRef.current = state.totalMeasures;
       measureTimeSigsRef.current = state.measureTimeSigs;
       songSectionsRef.current = state.songSections;
+      songMarkersRef.current = state.songMarkers;
       loopStartRef.current = state.loopStartMeasure;
       loopEndRef.current = state.loopEndMeasure;
       isLoopRegionActiveRef.current = state.isLoopRegionActive;
@@ -150,6 +153,7 @@ export function useSequencerState() {
     totalMeasuresRef.current = state.totalMeasures;
     measureTimeSigsRef.current = state.measureTimeSigs;
     songSectionsRef.current = state.songSections;
+    songMarkersRef.current = state.songMarkers;
     loopStartRef.current = state.loopStartMeasure;
     loopEndRef.current = state.loopEndMeasure;
     isLoopRegionActiveRef.current = state.isLoopRegionActive;
@@ -1884,6 +1888,7 @@ export function useSequencerState() {
     measureVols, setMeasureVols, measureVolsRef,
     measureVolTransitions, setMeasureVolTransitions, measureVolTransitionsRef,
     setSongSections, songSectionsRef,
+    setSongMarkers, songMarkersRef,
     measureSignals, setMeasureSignals, measureSignalsRef,
     setLoopStartMeasure, loopStartRef,
     setLoopEndMeasure, loopEndRef,
