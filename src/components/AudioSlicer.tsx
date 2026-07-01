@@ -4,7 +4,12 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import * as Tone from 'tone';
+import type * as ToneType from 'tone';
+import { loadTone, getTone } from '@/src/ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 import { Scissors, X, Plus, Minus } from 'lucide-react';
 
 interface AudioSlicerProps {
@@ -181,7 +186,7 @@ export const AudioSlicer: React.FC<AudioSlicerProps> = ({
       }
 
       // Slice the audio buffer mathematically
-      const audioCtx = Tone.getContext().rawContext as AudioContext;
+      const audioCtx = safeGetTone()?.getContext().rawContext as AudioContext;
       const slicedBuffer = audioCtx.createBuffer(numChannels, sliceLength, sampleRate);
 
       for (let channel = 0; channel < numChannels; channel++) {

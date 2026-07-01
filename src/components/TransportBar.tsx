@@ -24,8 +24,6 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
     recordingSeconds = 0,
     isMetroOn,
     setIsMetroOn,
-    isSwingOn,
-    setIsSwingOn,
     handleTogglePlay,
     handleStop,
     handleAudioRecordingToggle,

@@ -13,7 +13,8 @@
  *  - Barulho Loop: Loops barulho sounds on keydown and stops them on keyup.
  */
 
-import * as Tone from 'tone';
+import type * as ToneType from 'tone';
+import { getTone } from './ToneLoader';
 import { instrumentAudioConfigs, StrokeMapping, InstrumentAudioConfig } from './data/audioConfig';
 
 export class AudioEngine {
@@ -39,7 +40,7 @@ export class AudioEngine {
   private getTickDuration: () => number;
 
   // Sampler State & Buffers
-  private bufferPool = new Map<string, Tone.ToneAudioBuffer>(); // Maps absolute path -> ToneAudioBuffer (Sample Pooling)
+  private bufferPool = new Map<string, ToneType.ToneAudioBuffer>(); // Maps absolute path -> ToneAudioBuffer (Sample Pooling)
   private lastPlayedIndices = new Map<string, number>(); // Maps "instrumentId_strokeSymbol" -> last played index (Round-Robin)
   private instrumentChannels = new Map<string, any>(); // Maps instrumentId -> Tone.Channel
   private activeBarulhoNodes = new Map<string, AudioBufferSourceNode>(); // Maps instrumentId -> active looping BufferSource
@@ -217,6 +218,7 @@ export class AudioEngine {
    */
   private async loadPath(path: string): Promise<void> {
     if (this.bufferPool.has(path)) return;
+    const Tone = getTone();
     try {
       let fetchPath = path;
       if (path.includes('Mixdown/') || path.includes('mixdown/')) {
@@ -331,6 +333,7 @@ export class AudioEngine {
    */
   public setInstrumentChannel(instrumentId: string, channel: any): void {
     this.instrumentChannels.set(instrumentId, channel);
+    const Tone = getTone();
     
     if (!this.gainNodePools.has(instrumentId)) {
       const pool: GainNode[] = [];
@@ -348,6 +351,7 @@ export class AudioEngine {
    * Retire et retourne un nœud disponible du pool. En crée un nouveau si la piscine est vide.
    */
   private getGainNode(instrumentId: string): GainNode {
+    const Tone = getTone();
     const pool = this.gainNodePools.get(instrumentId);
     if (pool && pool.length > 0) {
       return pool.pop()!;
@@ -437,6 +441,7 @@ export class AudioEngine {
     velocity: number,
     decayMultiplier: number
   ): void {
+    const Tone = getTone();
     // If it's a Barulho stroke and already looping, just adjust volume and continue seamlessly
     if (stroke.isBarulho && this.activeBarulhoNodes.has(instrumentId)) {
       const activeGain = this.activeBarulhoGains.get(instrumentId);

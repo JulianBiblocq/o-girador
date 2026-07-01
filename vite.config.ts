@@ -6,9 +6,10 @@ import {defineConfig} from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 
-export default defineConfig(({ command }) => {
+export default defineConfig(({ command, mode }) => {
+  const isPreview = mode === 'production' && command === 'serve';
   return {
-    base: command === 'build' ? '/o-girador/' : '/',
+    base: command === 'build' || isPreview ? '/o-girador/' : '/',
     build: {
       rollupOptions: {
         output: {

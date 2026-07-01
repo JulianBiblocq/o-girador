@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import * as Tone from 'tone';
+import type * as ToneType from 'tone';
+import { loadTone, getTone } from '@/src/ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 import { Play, Square, Check, X, RotateCcw, ArrowRight, HelpCircle } from 'lucide-react';
 import { audioEngine } from '../hooks/useAudioSync';
 import { instrumentsConfig } from '../data';
@@ -31,7 +36,7 @@ export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSucc
   // Audio state
   const [isPlaying, setIsPlaying] = useState(false);
   const scheduledEventIdsRef = useRef<number[]>([]);
-  const clickSynthRef = useRef<Tone.Synth | null>(null);
+  const clickSynthRef = useRef<ToneType.Synth | null>(null);
 
   // Focus and keyboard for 16 mode
   const [activeSlotIdx, setActiveSlotIdx] = useState<number | null>(null);
@@ -100,7 +105,7 @@ export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSucc
 
   const cleanUpAudio = () => {
     scheduledEventIdsRef.current.forEach((id) => {
-      try { Tone.Transport.clear(id); } catch (_) {}
+      try { safeGetTone()?.Transport.clear(id); } catch (_) {}
     });
     scheduledEventIdsRef.current = [];
 
@@ -109,7 +114,7 @@ export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSucc
       clickSynthRef.current = null;
     }
 
-    try { Tone.Transport.stop(); } catch (_) {}
+    try { safeGetTone()?.Transport.stop(); } catch (_) {}
     setIsPlaying(false);
   };
 
@@ -123,30 +128,31 @@ export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSucc
     setValidationResult(null);
     setBlockValidations([]);
 
-    if (Tone.context.state !== 'running') {
-      await Tone.start();
+    if (safeGetTone()?.context.state !== 'running') {
+      await loadTone();
+    await getTone().start();
     }
 
-    clickSynthRef.current = new Tone.Synth({
+    clickSynthRef.current = new (getTone().Synth)({
       oscillator: { type: 'sine' },
       envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.05 },
       volume: -6
     }).toDestination();
 
-    Tone.Transport.bpm.value = bpm;
+    if (safeGetTone()) safeGetTone()!.Transport.bpm.value = bpm;
     
-    if (Tone.Transport.state !== 'started') {
-      Tone.Transport.start();
+    if (safeGetTone()?.Transport.state !== 'started') {
+      safeGetTone()?.Transport.start();
     }
 
-    const t0 = Tone.Transport.seconds + 0.1;
+    const t0 = safeGetTone()?.Transport.seconds + 0.1;
     const beatDuration = 60 / bpm;
     const stepDuration = beatDuration / 4;
 
     // 1. Countdown
     for (let i = 0; i < 4; i++) {
       const clickTime = t0 + i * beatDuration;
-      const id = Tone.Transport.schedule((time) => {
+      const id = safeGetTone()?.Transport.schedule((time) => {
         if (clickSynthRef.current) {
           clickSynthRef.current.triggerAttackRelease(i === 3 ? "A5" : "E5", "16n", time);
         }
@@ -174,7 +180,7 @@ export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSucc
           const vol = volumes[i] ?? 80;
           const volMultiplier = vol / 100;
           
-          const id = Tone.Transport.schedule((time) => {
+          const id = safeGetTone()?.Transport.schedule((time) => {
             if (audioEngine) {
               audioEngine.playNote(inst.id, stroke, time, volMultiplier, 1.0);
             }
@@ -185,8 +191,8 @@ export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSucc
     });
 
     // 3. Stop
-    const endId = Tone.Transport.schedule((time) => {
-      Tone.Draw.schedule(() => {
+    const endId = safeGetTone()?.Transport.schedule((time) => {
+      safeGetTone()?.Draw.schedule(() => {
         setIsPlaying(false);
         cleanUpAudio();
       }, time);

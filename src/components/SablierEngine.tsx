@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import * as Tone from 'tone';
+import type * as ToneType from 'tone';
+import { loadTone, getTone } from '@/src/ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 import { Play, Square, Clock, Award, ArrowLeft, Check, X, AlertTriangle } from 'lucide-react';
 import { audioEngine } from '../hooks/useAudioSync';
 import { useAuth } from '../contexts/AuthContext';
@@ -90,39 +95,39 @@ export const SablierEngine: React.FC<SablierEngineProps> = ({
           const sixteenth = (i % 16) % 4;
           const timeStr = `${m}:${beat}:${sixteenth}`;
           
-          Tone.Transport.schedule((time) => {
+          safeGetTone()?.Transport.schedule((time) => {
             audioEngine.playNote(instName, step, time, 1.0, 1.0);
           }, timeStr);
         }
       }
     });
 
-    Tone.Transport.bpm.value = bpm;
+    if (safeGetTone()) safeGetTone()!.Transport.bpm.value = bpm;
     if (isLoop) {
-      Tone.Transport.setLoopPoints(loopStart, loopEnd);
-      Tone.Transport.loop = true;
+      safeGetTone()?.Transport.setLoopPoints(loopStart, loopEnd);
+      if (safeGetTone()) safeGetTone()!.Transport.loop = true;
     } else {
-      Tone.Transport.loop = false;
+      if (safeGetTone()) safeGetTone()!.Transport.loop = false;
     }
   };
 
   const playBaseLoop = () => {
-    Tone.Transport.cancel();
-    Tone.Transport.stop();
+    safeGetTone()?.Transport.cancel();
+    safeGetTone()?.Transport.stop();
     
     scheduleSequence(seqFond, "0:0:0", true, "0:0:0", `${measures}:0:0`);
     
-    if (Tone.context.state !== 'running') {
-      Tone.context.resume();
+    if (safeGetTone()?.context.state !== 'running') {
+      safeGetTone()?.context.resume();
     }
     
     // Play for 1 loop (measures), then start sablier
-    Tone.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
+    safeGetTone()?.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
     setGameState('playing_base');
 
     const durationMs = (measures * 4 * 60 * 1000) / bpm;
     setTimeout(() => {
-      if (Tone.Transport.state === 'started') {
+      if (safeGetTone()?.Transport.state === 'started') {
         startSablier();
       }
     }, durationMs);
@@ -167,36 +172,36 @@ export const SablierEngine: React.FC<SablierEngineProps> = ({
   const playTargetSequence = () => {
     // We want to seamlessly transition to seqCible at the end of the current measure/loop.
     // To make it simple, we stop Transport, schedule seqCible, and play it.
-    Tone.Transport.cancel();
-    Tone.Transport.stop();
+    safeGetTone()?.Transport.cancel();
+    safeGetTone()?.Transport.stop();
     
     scheduleSequence(seqCible, "0:0:0", false, "0:0:0", "0:0:0");
-    Tone.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
+    safeGetTone()?.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
     
     const durationMs = (measures * 4 * 60 * 1000) / bpm;
     setTimeout(() => {
-      Tone.Transport.stop();
+      safeGetTone()?.Transport.stop();
       onSuccess?.();
     }, durationMs + 500);
   };
 
   const handleFailure = async () => {
     setGameState('failure');
-    Tone.Transport.cancel();
-    Tone.Transport.stop();
+    safeGetTone()?.Transport.cancel();
+    safeGetTone()?.Transport.stop();
 
     try {
       const res = await fetch('/presets/fatras.json');
       const fatras = await res.json();
       
       scheduleSequence(fatras.tracks, "0:0:0", false, "0:0:0", "0:0:0");
-      Tone.Transport.bpm.value = fatras.bpm || 150;
-      Tone.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
+      if (safeGetTone()) safeGetTone()!.Transport.bpm.value = fatras.bpm || 150;
+      safeGetTone()?.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
       
       const meas = fatras.totalMeasures || 1;
       const durMs = (meas * 4 * 60 * 1000) / fatras.bpm;
       setTimeout(() => {
-        Tone.Transport.stop();
+        safeGetTone()?.Transport.stop();
         setGameState('idle'); // allow restart?
       }, durMs + 500);
     } catch (e) {
@@ -207,8 +212,8 @@ export const SablierEngine: React.FC<SablierEngineProps> = ({
 
   const playSoloOption = (option: any) => {
     if (isSoloPlaying === option.id) {
-      Tone.Transport.stop();
-      Tone.Transport.cancel();
+      safeGetTone()?.Transport.stop();
+      safeGetTone()?.Transport.cancel();
       setIsSoloPlaying(null);
       // Resume base if we are in active state? No, pre-listening is only available when idle?
       // Actually, user should be able to pre-listen BEFORE clicking play.
@@ -216,8 +221,8 @@ export const SablierEngine: React.FC<SablierEngineProps> = ({
     }
 
     // Stop current
-    Tone.Transport.stop();
-    Tone.Transport.cancel();
+    safeGetTone()?.Transport.stop();
+    safeGetTone()?.Transport.cancel();
     
     if (gameState === 'playing_base' || gameState === 'sablier_active') {
        // Cannot pre-listen while game is active
@@ -226,13 +231,13 @@ export const SablierEngine: React.FC<SablierEngineProps> = ({
     }
 
     scheduleSequence([option.track], "0:0:0", false, "0:0:0", "0:0:0");
-    Tone.Transport.bpm.value = bpm;
-    Tone.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
+    if (safeGetTone()) safeGetTone()!.Transport.bpm.value = bpm;
+    safeGetTone()?.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
     setIsSoloPlaying(option.id);
 
     const durationMs = (measures * 4 * 60 * 1000) / bpm;
     setTimeout(() => {
-      Tone.Transport.stop();
+      safeGetTone()?.Transport.stop();
       setIsSoloPlaying(null);
     }, durationMs);
   };
@@ -240,8 +245,8 @@ export const SablierEngine: React.FC<SablierEngineProps> = ({
   useEffect(() => {
     return () => {
       if (sablierTimerRef.current) clearInterval(sablierTimerRef.current);
-      Tone.Transport.stop();
-      Tone.Transport.cancel();
+      safeGetTone()?.Transport.stop();
+      safeGetTone()?.Transport.cancel();
     };
   }, []);
 

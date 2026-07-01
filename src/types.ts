@@ -114,6 +114,13 @@ export interface RhythmSignal {
   image: string; // base64 JPEG
 }
 
+export type SwingMode = 'maracatu' | 'custom' | 'off';
+
+export interface GlobalSwing {
+  mode: SwingMode;
+  customOffsets: [number, number, number, number]; // e.g. [0, 8, -29, -58]
+}
+
 export interface PresetMetadata {
   toada: string;
   nacao: string;
@@ -144,7 +151,8 @@ export interface Preset {
   masterVol?: number;
   masterReverbVol?: number;
   reverbDecay?: number;
-  isSwingOn?: boolean;
+  isSwingOn?: boolean; // Keep for backward compatibility
+  globalSwing?: GlobalSwing;
   loopStartMeasure?: number;
   loopEndMeasure?: number;
   isLoopRegionActive?: boolean;

@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import * as Tone from 'tone';
+import type * as ToneType from 'tone';
+import { loadTone, getTone } from '@/src/ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 import { Play, Square, ShieldAlert, Award, ArrowLeft, Check, X, ArrowRight } from 'lucide-react';
 import { audioEngine } from '../hooks/useAudioSync';
 
@@ -92,7 +97,7 @@ export const InspecteurEngine: React.FC<InspecteurEngineProps> = ({
             const sixteenth = i % 4;
             const timeStr = `${m}:${beat}:${sixteenth}`;
             
-            Tone.Transport.schedule((time) => {
+            safeGetTone()?.Transport.schedule((time) => {
               audioEngine.playNote(instName, step, time, 1.0, 1.0);
             }, timeStr);
           }
@@ -102,8 +107,8 @@ export const InspecteurEngine: React.FC<InspecteurEngineProps> = ({
   };
 
   const playInvestigation = () => {
-    Tone.Transport.cancel();
-    Tone.Transport.stop();
+    safeGetTone()?.Transport.cancel();
+    safeGetTone()?.Transport.stop();
     
     // Mix perfect and sabotaged
     const mixedTracks = perfectAudio.map((track: any) => {
@@ -116,48 +121,48 @@ export const InspecteurEngine: React.FC<InspecteurEngineProps> = ({
     
     scheduleTracks(mixedTracks);
     
-    Tone.Transport.bpm.value = bpm;
-    Tone.Transport.setLoopPoints(`${loopStart}:0:0`, `${loopEnd + 1}:0:0`);
-    Tone.Transport.loop = true;
+    if (safeGetTone()) safeGetTone()!.Transport.bpm.value = bpm;
+    safeGetTone()?.Transport.setLoopPoints(`${loopStart}:0:0`, `${loopEnd + 1}:0:0`);
+    if (safeGetTone()) safeGetTone()!.Transport.loop = true;
     
     // Resume context if suspended
-    if (Tone.context.state !== 'running') {
-      Tone.context.resume();
+    if (safeGetTone()?.context.state !== 'running') {
+      safeGetTone()?.context.resume();
     }
     
-    Tone.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, `${loopStart}:0:0`);
+    safeGetTone()?.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, `${loopStart}:0:0`);
     setIsPlaying(true);
   };
 
   const playResolution = () => {
-    Tone.Transport.cancel();
-    Tone.Transport.stop();
+    safeGetTone()?.Transport.cancel();
+    safeGetTone()?.Transport.stop();
     
     scheduleTracks(perfectAudio);
     
-    Tone.Transport.bpm.value = bpm;
-    Tone.Transport.loop = false;
+    if (safeGetTone()) safeGetTone()!.Transport.bpm.value = bpm;
+    if (safeGetTone()) safeGetTone()!.Transport.loop = false;
     
-    if (Tone.context.state !== 'running') {
-      Tone.context.resume();
+    if (safeGetTone()?.context.state !== 'running') {
+      safeGetTone()?.context.resume();
     }
     
-    Tone.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
+    safeGetTone()?.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
     setIsPlaying(true);
     setIsResolving(true);
     
     // Wait until total measures finish
     const durationSec = (totalMeasures * 4 * 60) / bpm;
     setTimeout(() => {
-      Tone.Transport.stop();
+      safeGetTone()?.Transport.stop();
       setIsPlaying(false);
       onSuccess?.();
     }, durationSec * 1000 + 500);
   };
 
   const playFatras = async () => {
-    Tone.Transport.cancel();
-    Tone.Transport.stop();
+    safeGetTone()?.Transport.cancel();
+    safeGetTone()?.Transport.stop();
     
     try {
       const res = await fetch('/presets/fatras.json');
@@ -165,20 +170,20 @@ export const InspecteurEngine: React.FC<InspecteurEngineProps> = ({
       
       scheduleTracks(fatras.tracks);
       
-      Tone.Transport.bpm.value = fatras.bpm || 150;
-      Tone.Transport.loop = false;
+      if (safeGetTone()) safeGetTone()!.Transport.bpm.value = fatras.bpm || 150;
+      if (safeGetTone()) safeGetTone()!.Transport.loop = false;
       
-      if (Tone.context.state !== 'running') {
-        Tone.context.resume();
+      if (safeGetTone()?.context.state !== 'running') {
+        safeGetTone()?.context.resume();
       }
       
-      Tone.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
+      safeGetTone()?.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
       setIsPlaying(true);
       
       const measures = fatras.totalMeasures || 1;
-      const durationSec = (measures * 4 * 60) / Tone.Transport.bpm.value;
+      const durationSec = (measures * 4 * 60) / safeGetTone()?.Transport.bpm.value;
       setTimeout(() => {
-        Tone.Transport.stop();
+        safeGetTone()?.Transport.stop();
         setIsPlaying(false);
       }, durationSec * 1000 + 500);
     } catch (err) {
@@ -190,7 +195,7 @@ export const InspecteurEngine: React.FC<InspecteurEngineProps> = ({
 
   const togglePlayback = () => {
     if (isPlaying) {
-      Tone.Transport.pause();
+      safeGetTone()?.Transport.pause();
       setIsPlaying(false);
     } else {
       playInvestigation();
@@ -198,15 +203,15 @@ export const InspecteurEngine: React.FC<InspecteurEngineProps> = ({
   };
 
   const stopPlayback = () => {
-    Tone.Transport.stop();
+    safeGetTone()?.Transport.stop();
     setIsPlaying(false);
   };
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      Tone.Transport.stop();
-      Tone.Transport.cancel();
+      safeGetTone()?.Transport.stop();
+      safeGetTone()?.Transport.cancel();
       setIsPlaying(false);
     };
   }, []);

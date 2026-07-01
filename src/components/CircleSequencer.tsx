@@ -4,7 +4,12 @@
  */
 
 import React, { useRef, useEffect, useState } from 'react';
-import * as Tone from 'tone';
+import type * as ToneType from 'tone';
+import { loadTone, getTone } from '@/src/ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 import { TrackGroup, Language, HitTrigger, TimeSignature, SongSection, CloudRhythmSignal } from '../types';
 import { instrumentsConfig, getMarkers, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol, i18n } from '../data';
 import { getNextStepValue } from './InstrumentDetailEditor';

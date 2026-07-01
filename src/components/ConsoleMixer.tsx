@@ -119,7 +119,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     setActiveKeyboardInstrumentId,
     handleTimeSigChange,
     masterVol, setMasterVol, masterEQ, setMasterEQ, masterCompressor, setMasterCompressor, reverbDecay, setReverbDecay, masterReverbVol, setMasterReverbVol,
-    metroVolume, setMetroVolume, metroSound, setMetroSound, isMetroOn, setIsMetroOn, isSwingOn
+    metroVolume, setMetroVolume, metroSound, setMetroSound, isMetroOn, setIsMetroOn, globalSwing
   } = audio;
 
 
@@ -701,7 +701,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           onStepVolumeChange={(pid, sIdx, val) => onStepVolumeChange(editingTrack.id, pid, sIdx, val)}
           onStepDecayChange={(pid, sIdx, val) => onStepDecayChange(editingTrack.id, pid, sIdx, val)}
           onStepMicrotimingChange={(pid, sIdx, val) => onStepMicrotimingChange(editingTrack.id, pid, sIdx, val)}
-          isSwingOn={isSwingOn}
+          globalSwing={globalSwing}
           isPlaying={isPlaying}
           currentMeasure={useSequencerStore.getState().currentMeasure}
           maxTicks={maxTicks}

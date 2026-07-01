@@ -11,6 +11,7 @@ import { TrackGroup, TimeSignature, HitTrigger, SongSection } from '../types';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { ScheduledNote } from '../workers/audioCompiler.worker';
+import { loadTone } from '../ToneLoader';
 
 // Module scope audio engines and nodes to avoid duplicate instantiations on React re-renders
 export let metroChannel: Tone.Channel | null = null;
@@ -362,7 +363,7 @@ export function useAudioSync({
   const [metroSound, setMetroSound] = useState<'synth' | 'clave' | 'cowbell'>('synth');
   const sectionIterationRef = useRef<number>(1);
   const lastPlayedPatternRef = useRef<Record<number, number>>({});
-  const [isSwingOn, setIsSwingOn] = useState<boolean>(true);
+  const [globalSwing, setGlobalSwing] = useState<GlobalSwing>({ mode: 'maracatu', customOffsets: [0, 8, -29, -58] });
   const [soloPatternPlayId, setSoloPatternPlayId] = useState<number | null>(null);
   const [soloPatternVariationId, setSoloPatternVariationId] = useState<string | null>(null);
 
@@ -371,7 +372,7 @@ export function useAudioSync({
   const isMetroOnRef = useRef<boolean>(false);
   const metroVolumeRef = useRef<number>(80);
   const metroSoundRef = useRef<string>('synth');
-  const isSwingOnRef = useRef<boolean>(true);
+  const globalSwingRef = useRef<GlobalSwing>({ mode: 'maracatu', customOffsets: [0, 8, -29, -58] });
   const soloPatternPlayIdRef = useRef<number | null>(null);
   const soloPatternVariationIdRef = useRef<string | null>(null);
 
@@ -394,7 +395,7 @@ export function useAudioSync({
 
   useEffect(() => {
     isMetroOnRef.current = isMetroOn;
-    isSwingOnRef.current = isSwingOn;
+    globalSwingRef.current = globalSwing;
     metroVolumeRef.current = metroVolume;
     metroSoundRef.current = metroSound;
     if (metroChannel) {
@@ -403,7 +404,7 @@ export function useAudioSync({
       metroChannel.volume.value = db;
       metroChannel.mute = !isMetroOn;
     }
-  }, [isMetroOn, isSwingOn, metroVolume, metroSound]);
+  }, [isMetroOn, globalSwing, metroVolume, metroSound]);
 
   useEffect(() => {
     soloPatternPlayIdRef.current = soloPatternPlayId;
@@ -610,10 +611,11 @@ export function useAudioSync({
   useEffect(() => {
     const initAudio = async () => {
       try {
+        await loadTone();
         if (bMetroClickRef.current) return; // already initialized
 
       if (!masterVolumeNode) {
-        if (!Tone.context || Tone.context.state !== 'running') {
+        if (!Tone.context) {
           Tone.setContext(new Tone.Context({ latencyHint: 'playback' }));
         }
 
@@ -940,22 +942,30 @@ export function useAudioSync({
           // Parse trigger of step events
           let swingOffset = 0;
           let swingJitter = 0;
-          if (isSwingOnRef.current) {
+          const globalMode = globalSwingRef.current.mode;
+          
+          if (globalMode !== 'off') {
             const stepDurationSec = tick96nSec * 6; // one 16th note
             const posInBeat = ((stepIdx / (currentTicks / 4)) % 1) * 4;
             const posInGroup = Math.round(posInBeat) % 4;
-            const swingIntensity = 1.0;
+            
             swingJitter = (nextRandom() * 0.06 - 0.03) * stepDurationSec;
 
-            if (posInGroup === 0) {
-              swingOffset = swingJitter;
-            } else if (posInGroup === 1) {
-              swingOffset = (0.04 * swingIntensity * stepDurationSec) + swingJitter;
-            } else if (posInGroup === 2) {
-              const minimalJitter = (nextRandom() * 0.02 - 0.01) * stepDurationSec;
-              swingOffset = (-0.144 * swingIntensity * stepDurationSec) + minimalJitter;
-            } else if (posInGroup === 3) {
-              swingOffset = (-0.292 * swingIntensity * stepDurationSec) + swingJitter;
+            if (globalMode === 'maracatu') {
+              if (posInGroup === 0) {
+                swingOffset = swingJitter;
+              } else if (posInGroup === 1) {
+                swingOffset = (0.04 * stepDurationSec) + swingJitter;
+              } else if (posInGroup === 2) {
+                const minimalJitter = (nextRandom() * 0.02 - 0.01) * stepDurationSec;
+                swingOffset = (-0.144 * stepDurationSec) + minimalJitter;
+              } else if (posInGroup === 3) {
+                swingOffset = (-0.292 * stepDurationSec) + swingJitter;
+              }
+            } else if (globalMode === 'custom') {
+              // Custom offset is defined in percentages from -100 to 100, where 100 is half a step duration
+              const customOffsetPct = globalSwingRef.current.customOffsets[posInGroup] || 0;
+              swingOffset = (customOffsetPct / 100) * stepDurationSec * 0.5 + swingJitter;
             }
           }
           const swingTime = time + swingOffset;
@@ -967,7 +977,7 @@ export function useAudioSync({
             for (const note of scheduledNotes) {
               try {
                 let vel = 1.0;
-                if (isSwingOnRef.current) {
+                if (globalMode !== 'off') {
                   if (note.isTuplet) {
                     vel = note.isStrong
                       ? 0.8 + (nextRandom() * 0.1 - 0.05)
@@ -1176,7 +1186,13 @@ export function useAudioSync({
   const handleTogglePlay = async () => {
     if (import.meta.env.DEV) {
     }
-    await Tone.start();
+    if (Tone.context && Tone.context.state !== 'running') {
+      try {
+        await Tone.context.resume();
+      } catch (e) {
+        console.warn("AudioContext resume failed:", e);
+      }
+    }
     if (soloPatternPlayIdRef.current !== null) {
       setSoloPatternPlayId(null);
     }
@@ -1273,7 +1289,13 @@ export function useAudioSync({
   };
 
   const handleStartSoloPattern = async (patternId: number, variationId?: string) => {
-    await Tone.start();
+    if (Tone.context && Tone.context.state !== 'running') {
+      try {
+        await Tone.context.resume();
+      } catch (e) {
+        console.warn("AudioContext resume failed:", e);
+      }
+    }
     if (isRecordingVocal) {
       stopVocalRecording();
     }
@@ -1407,12 +1429,12 @@ export function useAudioSync({
     isCompiling,
     isMetroOn,
     setIsMetroOn,
+    globalSwing,
+    setGlobalSwing,
     metroVolume,
     setMetroVolume,
     metroSound,
     setMetroSound,
-    isSwingOn,
-    setIsSwingOn,
     soloPatternPlayId,
     setSoloPatternPlayId,
     soloPatternVariationId,
@@ -1430,7 +1452,7 @@ export function useAudioSync({
     measureCountRef,
     maxTicksRef,
     isMetroOnRef,
-    isSwingOnRef,
+    globalSwingRef,
     soloPatternPlayIdRef,
     soloPatternVariationIdRef,
     hitTriggersRef,

@@ -1,5 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import * as Tone from 'tone';
+import type * as ToneType from 'tone';
+import { loadTone, getTone } from '@/src/ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 import { ASSETS_BASE_URL } from '../data';
 import { audioEngine } from '../hooks/useAudioSync';
 import { GoogleLoginButton } from './GoogleLoginButton';
@@ -15,8 +20,9 @@ export const Home: React.FC<HomeProps> = ({ onEnter, lang }) => {
 
   const handleEnter = async (mode: string) => {
     // Unlock Audio Context (Autoplay Policy)
-    if (Tone.context.state !== 'running') {
-      await Tone.start();
+    if (safeGetTone()?.context.state !== 'running') {
+      await loadTone();
+    await getTone().start();
     }
     onEnter(mode);
   };

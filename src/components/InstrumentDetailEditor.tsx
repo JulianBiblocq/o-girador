@@ -17,7 +17,7 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { TrackGroup, Pattern, RhythmSignal, CloudPattern, CatalogVisibility, Language } from '../types';
+import { TrackGroup, Pattern, RhythmSignal, CloudPattern, CatalogVisibility, Language, GlobalSwing } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchCloudPatterns, savePatternToCloud, deleteCloudPattern, renameCloudPattern } from '../cloudPatterns';
@@ -78,7 +78,7 @@ interface InstrumentDetailEditorProps {
   onVariationStepVolumeChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: number) => void;
   onVariationStepDecayChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: number) => void;
   onVariationStepMicrotimingChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: number) => void;
-  isSwingOn: boolean;
+  globalSwing: GlobalSwing;
   isPlaying: boolean;
   currentStepIndex: number;
   currentMeasure: number;
@@ -356,7 +356,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   onStepVolumeChange,
   onStepDecayChange,
   onStepMicrotimingChange,
-  isSwingOn,
+  globalSwing,
   isPlaying,
   currentStepIndex,
   currentMeasure,
@@ -955,7 +955,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   /* Compute global swing offset for a step index */
   const getStepSwingPercent = (stepIdx: number, steps: number, beatResolutions?: number[]) => {
-    if (!isSwingOn) return 0;
+    if (globalSwing.mode === 'off') return 0;
     
     let posInGroup = 0;
     if (beatResolutions && beatResolutions.length > 0) {
@@ -973,6 +973,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       posInGroup = Math.round(posInBeat) % 4;
     }
 
+    if (globalSwing.mode === 'custom') {
+      return globalSwing.customOffsets[posInGroup] || 0;
+    }
+
+    // Default 'maracatu' mode
     if (posInGroup === 0) return 0;
     if (posInGroup === 1) return 8;
     if (posInGroup === 2) return -29;
@@ -1988,7 +1993,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                       clipPath: isSextuplet 
                                         ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
                                         : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
-                                      border: isSextuplet || isTriplet ? 'none' : colorStyle.border,
+                                      borderStyle: isSextuplet || isTriplet ? 'none' : undefined,
                                       borderRadius: isSextuplet || isTriplet ? '0' : undefined
                                     }}
                                   />

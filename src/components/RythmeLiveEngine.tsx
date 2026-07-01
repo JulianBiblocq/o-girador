@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import * as Tone from 'tone';
+import type * as ToneType from 'tone';
+import { loadTone, getTone } from '@/src/ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 import { Play, RotateCcw, ArrowRight, Check, X, Award, Activity, ShieldAlert } from 'lucide-react';
 import { rhythmLivePattern, RhythmLivePattern } from '../data/rythmeLiveData';
 import { ASSETS_BASE_URL } from '../data';
@@ -77,12 +82,12 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
     key: number;
   } | null>(null);
 
-  // Refs for low-latency handlers and Tone.js callbacks
+  // Refs for low-latency handlers and safeGetTone()?.js callbacks
   const gameStatusRef = useRef(gameStatus);
   const playStartTimeRef = useRef<number>(0);
   const hitDetailsRef = useRef<(HitDetail | null)[]>([]);
   const scheduledEventIdsRef = useRef<number[]>([]);
-  const clickSynthRef = useRef<Tone.Synth | null>(null);
+  const clickSynthRef = useRef<ToneType.Synth | null>(null);
   const animationFrameIdRef = useRef<number | null>(null);
   const lastHitTimeRef = useRef<number>(0);
 
@@ -112,7 +117,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
     // 2. Clear all scheduled Tone Transport events
     scheduledEventIdsRef.current.forEach((id) => {
       try {
-        Tone.Transport.clear(id);
+        safeGetTone()?.Transport.clear(id);
       } catch (_) {}
     });
     scheduledEventIdsRef.current = [];
@@ -127,7 +132,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
 
     // 4. Stop Transport
     try {
-      Tone.Transport.stop();
+      safeGetTone()?.Transport.stop();
     } catch (_) {}
   };
 
@@ -144,37 +149,38 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
     lastHitTimeRef.current = 0;
 
     // Start Audio Context if suspended
-    if (Tone.context.state !== 'running') {
-      await Tone.start();
+    if (safeGetTone()?.context.state !== 'running') {
+      await loadTone();
+    await getTone().start();
     }
 
     // Create click synth for the countdown
-    clickSynthRef.current = new Tone.Synth({
+    clickSynthRef.current = new (getTone().Synth)({
       oscillator: { type: 'sine' },
       envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.05 },
       volume: -6
     }).toDestination();
 
     // Set Transport BPM to target
-    Tone.Transport.bpm.value = currentPattern.bpm;
+    if (safeGetTone()) safeGetTone()!.Transport.bpm.value = currentPattern.bpm;
     
     // Make sure Transport is playing
-    if (Tone.Transport.state !== 'started') {
-      Tone.Transport.start();
+    if (safeGetTone()?.Transport.state !== 'started') {
+      safeGetTone()?.Transport.start();
     }
 
-    const t0 = Tone.Transport.seconds + 0.1; // 100ms padding
+    const t0 = safeGetTone()?.Transport.seconds + 0.1; // 100ms padding
     const beatDuration = 60 / currentPattern.bpm;
 
     // 1. Schedule the 4 countdown beats
     for (let i = 0; i < 4; i++) {
       const clickTime = t0 + i * beatDuration;
-      const eventId = Tone.Transport.schedule((time) => {
+      const eventId = safeGetTone()?.Transport.schedule((time) => {
         if (clickSynthRef.current) {
           // Play higher beep on last countdown beat
           clickSynthRef.current.triggerAttackRelease(i === 3 ? "A5" : "E5", "16n", time);
         }
-        Tone.Draw.schedule(() => {
+        safeGetTone()?.Draw.schedule(() => {
           setCountdownValue(4 - i);
         }, time);
       }, clickTime);
@@ -185,12 +191,12 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
     const playStartTime = t0 + 4 * beatDuration;
     playStartTimeRef.current = playStartTime;
 
-    const playStartEventId = Tone.Transport.schedule((time) => {
+    const playStartEventId = safeGetTone()?.Transport.schedule((time) => {
       if (clickSynthRef.current) {
         // High beep signifying start
         clickSynthRef.current.triggerAttackRelease("E6", "16n", time);
       }
-      Tone.Draw.schedule(() => {
+      safeGetTone()?.Draw.schedule(() => {
         setCountdownValue(null);
         setGameStatus('playing');
       }, time);
@@ -204,7 +210,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
     const updatePlayhead = () => {
       if (gameStatusRef.current !== 'playing') return;
       
-      const elapsed = Tone.Transport.seconds - playStartTimeRef.current;
+      const elapsed = safeGetTone()?.Transport.seconds - playStartTimeRef.current;
       const currentProgress = Math.min(1, Math.max(0, elapsed / totalDuration));
       
       if (playheadRef.current && timelineRef.current) {
@@ -218,16 +224,16 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
     };
 
     // Trigger animation loop slightly before playStartTime to ensure smooth transition
-    const animationTriggerEventId = Tone.Transport.schedule((time) => {
-      Tone.Draw.schedule(() => {
+    const animationTriggerEventId = safeGetTone()?.Transport.schedule((time) => {
+      safeGetTone()?.Draw.schedule(() => {
         animationFrameIdRef.current = requestAnimationFrame(updatePlayhead);
       }, time);
     }, playStartTime - 0.05);
     scheduledEventIdsRef.current.push(animationTriggerEventId);
 
     // 4. Schedule Game End and evaluation
-    const playEndEventId = Tone.Transport.schedule((time) => {
-      Tone.Draw.schedule(() => {
+    const playEndEventId = safeGetTone()?.Transport.schedule((time) => {
+      safeGetTone()?.Draw.schedule(() => {
         // Complete remaining missed notes
         const currentDetails = [...hitDetailsRef.current];
         const finalDetails = currentDetails.map((detail) => {
@@ -308,7 +314,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
     
     if (gameStatusRef.current !== 'playing') return;
 
-    const now = Tone.Transport.seconds;
+    const now = safeGetTone()?.Transport.seconds;
     const elapsed = now - playStartTimeRef.current;
 
     // Debounce to prevent multiple fires within 40ms (keyboard repeat/multi-touch issues)

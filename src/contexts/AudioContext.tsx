@@ -5,7 +5,7 @@
 
 import { useSequencerStore } from '../stores/useSequencerStore';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import * as Tone from 'tone';
+import { loadTone } from '../ToneLoader';
 import { useAudioSync, audioEngine, masterVolumeNode } from '../hooks/useAudioSync';
 import { useSequencer } from './SequencerContext';
 import { getVocalRecording, saveVocalRecording } from '../db';
@@ -443,7 +443,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         else setReverbDecay(1.5);
       }
 
-      audioSync.setIsSwingOn(true);
+      if (p.globalSwing) {
+        audioSync.setGlobalSwing(p.globalSwing);
+      } else if (p.isSwingOn !== undefined) {
+        audioSync.setGlobalSwing(p.isSwingOn ? { mode: 'maracatu', customOffsets: [0, 8, -29, -58] } : { mode: 'off', customOffsets: [0, 8, -29, -58] });
+      } else {
+        audioSync.setGlobalSwing({ mode: 'maracatu', customOffsets: [0, 8, -29, -58] });
+      }
 
       // Sync refs
       sequencer.totalMeasuresRef.current = loadedMeasures;
@@ -590,7 +596,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       masterVol,
       masterReverbVol,
       reverbDecay,
-      isSwingOn: audioSync.isSwingOn,
+      isSwingOn: audioSync.globalSwing.mode !== 'off', // Keep for backwards compatibility
+      globalSwing: audioSync.globalSwing,
       loopStartMeasure: storeState.loopStartMeasure,
       loopEndMeasure: storeState.loopEndMeasure,
       isLoopRegionActive: storeState.isLoopRegionActive,
@@ -711,7 +718,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       wavRecordingBuffersR = [];
 
       try {
-        await Tone.start();
+        const Tone = await loadTone();
+        if (Tone.context && Tone.context.state !== 'running') {
+          try {
+            await Tone.context.resume();
+          } catch (e) {
+            console.warn("AudioContext resume failed:", e);
+          }
+        }
         
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
         isolatedRecordingContext = new AudioContextClass({ latencyHint: 'playback' });

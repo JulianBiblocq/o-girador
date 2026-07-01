@@ -5,7 +5,12 @@
 
 import { useSequencerStore } from '../stores/useSequencerStore';
 import React, { useState, useRef, useEffect } from 'react';
-import * as Tone from 'tone';
+import type * as ToneType from 'tone';
+import { loadTone, getTone } from '@/src/ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from '../db';
 import { TrackGroup, Pattern } from '../types';
 import { instrumentsConfig } from '../data';
@@ -64,7 +69,7 @@ export function useVocalRecorder({
   const [isVocalGuideEnabled, setIsVocalGuideEnabled] = useState<boolean>(true);
   const isVocalGuideEnabledRef = useRef<boolean>(true);
 
-  // Sync state with refs for Tone.js loop safety
+  // Sync state with refs for safeGetTone()?.js loop safety
   useEffect(() => {
     recordingVocalPatternIdRef.current = recordingVocalPatternId;
   }, [recordingVocalPatternId]);
@@ -129,7 +134,7 @@ export function useVocalRecorder({
       const blob = await getVocalRecording(patternId);
       if (blob) {
         const arrayBuffer = await blob.arrayBuffer();
-        const audioBuffer = await Tone.getContext().rawContext.decodeAudioData(arrayBuffer);
+        const audioBuffer = await safeGetTone()?.getContext().rawContext.decodeAudioData(arrayBuffer);
         
         if (vocalPlayersRef.current[patternId]) {
           try {
@@ -137,7 +142,7 @@ export function useVocalRecorder({
           } catch (_) {}
         }
         
-        const player = new Tone.GrainPlayer(audioBuffer);
+        const player = new (getTone().GrainPlayer)(audioBuffer);
         player.grainSize = 0.09;
         player.overlap = 0.04;
         const channel = channels['voice'];
@@ -248,7 +253,7 @@ export function useVocalRecorder({
   const getSystemDefaultLatencyMs = () => {
     let latencySec = 0.08;
     try {
-      const rawCtx = Tone.context.rawContext as any;
+      const rawCtx = safeGetTone()?.context.rawContext as any;
       if (rawCtx) {
         if (typeof rawCtx.outputLatency === 'number') {
           latencySec += rawCtx.outputLatency;
@@ -402,16 +407,17 @@ export function useVocalRecorder({
       setRecordingVocalPatternId(patternId);
       setIsRecordingVocal(true);
       
-      await Tone.start();
+      await loadTone();
+    await getTone().start();
       
       vocalRecordArmTimeoutRef.current = setTimeout(() => {
         if (!isPlayingRef.current) {
           measureCountRef.current = measureIdx;
           currentStepIndexRef.current = -1;
-          Tone.Transport.seconds = 0;
+          if (safeGetTone()) safeGetTone()!.Transport.seconds = 0;
           lastPlayedSignalIdRef.current = null;
-          if (Tone.Transport.state !== 'started') {
-            Tone.Transport.start();
+          if (safeGetTone()?.Transport.state !== 'started') {
+            safeGetTone()?.Transport.start();
           }
           audioEngine?.start();
           setIsPlaying(true);
@@ -542,7 +548,7 @@ export function useVocalRecorder({
     selectedAudioDeviceId,
     isVocalGuideEnabled,
     setIsVocalGuideEnabled,
-    // Refs needed for Tone.js scheduling loop
+    // Refs needed for safeGetTone()?.js scheduling loop
     recordingVocalPatternIdRef,
     vocalRecordingStateRef,
     vocalMediaRecorderRef,

@@ -3,7 +3,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase/config';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { GoogleLoginButton } from './GoogleLoginButton';
-import * as Tone from 'tone';
+import type * as ToneType from 'tone';
+import { loadTone, getTone } from '@/src/ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 import { Edit2, Check, X } from 'lucide-react';
 
 interface LandingPageProps {
@@ -68,8 +73,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
   };
 
   const handleEnter = async () => {
-    if (Tone.context.state !== 'running') {
-      await Tone.start();
+    if (safeGetTone()?.context.state !== 'running') {
+      await loadTone();
+    await getTone().start();
     }
     onEnter();
   };

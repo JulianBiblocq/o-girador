@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import * as Tone from 'tone';
+import type * as ToneType from 'tone';
+import { loadTone, getTone } from '@/src/ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 import { Play, Square, RotateCcw, ArrowRight, HelpCircle, Check, X, Hourglass } from 'lucide-react';
 import { MestreRound, mestreRounds } from '../data/mestreData';
 
@@ -34,7 +39,7 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
   const [isRoundStarted, setIsRoundStarted] = useState<boolean>(false);
   const circleRef = useRef<SVGCircleElement>(null);
   
-  // Refs to avoid stale closures in Tone.js thread
+  // Refs to avoid stale closures in safeGetTone()?.js thread
   const selectedOptionRef = useRef<string | null>(null);
   const correctAnswerRef = useRef<string>('');
   const scheduledEventIdRef = useRef<number | null>(null);
@@ -71,7 +76,7 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
     }
     if (scheduledEventIdRef.current !== null) {
       try {
-        Tone.Transport.clear(scheduledEventIdRef.current);
+        safeGetTone()?.Transport.clear(scheduledEventIdRef.current);
       } catch (e) {}
       scheduledEventIdRef.current = null;
     }
@@ -87,22 +92,22 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
     setIsTimerRunning(true);
     
     // Make sure Transport is started
-    if (Tone.Transport.state !== 'started') {
-      Tone.Transport.start();
+    if (safeGetTone()?.Transport.state !== 'started') {
+      safeGetTone()?.Transport.start();
     }
 
     // 2. Schedule validation in 2 measures (exactly +2m)
-    const duration = Tone.Time("2m").toSeconds();
+    const duration = safeGetTone()?.Time("2m").toSeconds();
     timerDurationRef.current = duration;
-    timerStartTimeRef.current = Tone.Transport.seconds;
+    timerStartTimeRef.current = safeGetTone()?.Transport.seconds;
     playbackActiveRef.current = true;
 
-    const eventId = Tone.Transport.schedule((time) => {
+    const eventId = safeGetTone()?.Transport.schedule((time) => {
       const answer = selectedOptionRef.current;
       const correct = correctAnswerRef.current;
       
-      // Use Tone.Draw to safely update React state synchronized with audio render frame
-      Tone.Draw.schedule(() => {
+      // Use safeGetTone()?.Draw to safely update React state synchronized with audio render frame
+      safeGetTone()?.Draw.schedule(() => {
         if (answer === correct) {
           setValidationResult('success');
           setRhythmState('variation');
@@ -121,7 +126,7 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
     const updateProgress = () => {
       if (!playbackActiveRef.current) return;
       
-      const elapsed = Tone.Transport.seconds - timerStartTimeRef.current;
+      const elapsed = safeGetTone()?.Transport.seconds - timerStartTimeRef.current;
       const progress = Math.min(1, Math.max(0, elapsed / duration));
       
       // Circumference of radius 32 is ~201 (2 * Math.PI * 32)

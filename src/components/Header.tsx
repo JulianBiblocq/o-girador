@@ -13,6 +13,7 @@ import {
   Upload
 } from 'lucide-react';
 import { AudioFader } from './AudioFader';
+import { GlobalSwingModal } from './GlobalSwingModal';
 import { Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { GoogleLoginButton } from './GoogleLoginButton';
@@ -89,8 +90,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
     handleShare: onShare,
     handleSaveToLocal: onSaveToLocal,
     handleLoadLocalPreset: onLoadLocalPreset,
-    isSwingOn,
-    setIsSwingOn,
+    globalSwing,
+    setGlobalSwing,
     masterVol,
     setMasterVol,
     handleTimeSigChange: onTimeSigChange,
@@ -103,7 +104,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const canUndo = tracksHistory.length > 0;
   const onRedo = handleRedo;
   const canRedo = tracksRedoHistory.length > 0;
-  const onSwingToggle = () => setIsSwingOn(!isSwingOn);
+  const [isSwingModalOpen, setIsSwingModalOpen] = useState(false);
   const onMasterVolChange = setMasterVol;
   const onTotalMeasuresChange = setTotalMeasures;
 
@@ -169,7 +170,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       if (projectDropRef.current && !projectDropRef.current.contains(e.target as Node)) {
         setProjectDropOpen(false);
       }
-      if (jogoDropRef.current && !jogoDropRef.current.contains(e.target as Node)) {
+      if (jogoDropOpen && jogoDropRef.current && !jogoDropRef.current.contains(e.target as Node)) {
         setJogoDropOpen(false);
       }
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target as Node)) {
@@ -178,7 +179,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [jogoDropOpen]);
 
   if (isMobile) {
     return (
@@ -230,13 +231,13 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   </button>
                 </div>
                 <button 
-                  onClick={() => { setIsSwingOn(!isSwingOn); setMobileMenuOpen(false); }} 
-                  className={`px-2 py-1.5 cordel-border-sm text-xs font-bold font-cactus cursor-pointer flex justify-between items-center w-full mt-1 ${isSwingOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'}`}
+                  onClick={() => { setIsSwingModalOpen(true); setMobileMenuOpen(false); }} 
+                  className={`px-2 py-1.5 cordel-border-sm text-xs font-bold font-cactus cursor-pointer flex justify-between items-center w-full mt-1 ${globalSwing.mode !== 'off' ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'}`}
                 >
                   <div className="flex items-center gap-1">
                     <span className="text-[14px] leading-none">〰️</span> {lang === 'pt' ? 'Balanço' : 'Swing'}
                   </div>
-                  <span>{isSwingOn ? 'ON' : 'OFF'}</span>
+                  <span>{globalSwing.mode === 'off' ? 'OFF' : globalSwing.mode === 'maracatu' ? 'ON' : 'CUST'}</span>
                 </button>
               </div>
               
@@ -620,13 +621,13 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   </button>
                 </div>
                 <button 
-                  onClick={() => { setIsSwingOn(!isSwingOn); setProjectDropOpen(false); }} 
-                  className={`px-2 py-1.5 cordel-border-sm text-xs font-bold font-cactus cursor-pointer flex justify-between items-center w-full mt-1 ${isSwingOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'}`}
+                  onClick={() => { setIsSwingModalOpen(true); setProjectDropOpen(false); }} 
+                  className={`px-2 py-1.5 cordel-border-sm text-xs font-bold font-cactus cursor-pointer flex justify-between items-center w-full mt-1 ${globalSwing.mode !== 'off' ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'}`}
                 >
                   <div className="flex items-center gap-1">
                     <span className="text-[14px] leading-none">〰️</span> {lang === 'pt' ? 'Balanço' : 'Swing'}
                   </div>
-                  <span>{isSwingOn ? 'ON' : 'OFF'}</span>
+                  <span>{globalSwing.mode === 'off' ? 'OFF' : globalSwing.mode === 'maracatu' ? 'ON' : 'CUST'}</span>
                 </button>
               </div>
               
@@ -879,6 +880,16 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           {lang === 'pt' ? 'FR' : 'PT'}
         </button>
       </div>
+
+      {/* Global Swing Modal */}
+      {isSwingModalOpen && (
+        <GlobalSwingModal
+          globalSwing={globalSwing}
+          setGlobalSwing={setGlobalSwing}
+          onClose={() => setIsSwingModalOpen(false)}
+          lang={lang}
+        />
+      )}
     </div>
   );
 };

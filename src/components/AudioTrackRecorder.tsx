@@ -5,7 +5,12 @@
 
 import React, { useState } from 'react';
 import { Mic, Square, Play, Trash2, Info, Scissors } from 'lucide-react';
-import * as Tone from 'tone';
+import type * as ToneType from 'tone';
+import { loadTone, getTone } from '@/src/ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 import { useAudioTrackRecorder, RecorderStatus } from '../hooks/useAudioTrackRecorder';
 import { AudioSlicer } from './AudioSlicer';
 
@@ -111,7 +116,7 @@ export const AudioTrackRecorder: React.FC<AudioTrackRecorderProps> = ({
     if (!recordedBlob) return;
     try {
       const arrayBuffer = await recordedBlob.arrayBuffer();
-      const audioCtx = Tone.getContext().rawContext as AudioContext;
+      const audioCtx = safeGetTone()?.getContext().rawContext as AudioContext;
       const decoded = await audioCtx.decodeAudioData(arrayBuffer);
       setEditingBuffer(decoded);
     } catch (err) {

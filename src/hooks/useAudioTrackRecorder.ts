@@ -4,7 +4,12 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import * as Tone from 'tone';
+import type * as ToneType from 'tone';
+import { loadTone, getTone } from '@/src/ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from '../db';
 
 export interface UseAudioTrackRecorderOptions {
@@ -35,7 +40,7 @@ export function useAudioTrackRecorder({
   const armingTimeoutRef = useRef<any>(null);
   const countdownIntervalRef = useRef<any>(null);
   const elapsedIntervalRef = useRef<any>(null);
-  const playerRef = useRef<Tone.GrainPlayer | Tone.Player | null>(null);
+  const playerRef = useRef<ToneType.GrainPlayer | ToneType.Player | null>(null);
 
   // Dynamic durations based on current BPM
   const armingDurationSeconds = 1.0;
@@ -185,8 +190,8 @@ export function useAudioTrackRecorder({
               onStartSequencer();
             } else {
               try {
-                if (Tone.Transport.state !== 'started') {
-                  Tone.Transport.start();
+                if (safeGetTone()?.Transport.state !== 'started') {
+                  safeGetTone()?.Transport.start();
                 }
               } catch (_) {}
             }
@@ -234,14 +239,15 @@ export function useAudioTrackRecorder({
     setElapsedSeconds(0);
 
     try {
-      await Tone.start();
+      await loadTone();
+    await getTone().start();
 
       // Decode recorded buffer
       const arrayBuffer = await recordedBlob.arrayBuffer();
-      const audioBuffer = await Tone.getContext().rawContext.decodeAudioData(arrayBuffer);
+      const audioBuffer = await safeGetTone()?.getContext().rawContext.decodeAudioData(arrayBuffer);
 
       // Create player
-      const player = new Tone.GrainPlayer(audioBuffer);
+      const player = new (getTone().GrainPlayer)(audioBuffer);
       player.grainSize = 0.09;
       player.overlap = 0.04;
       player.toDestination();
@@ -267,7 +273,7 @@ export function useAudioTrackRecorder({
         }
       }, 1000);
 
-      player.start(Tone.now(), offsetSec);
+      player.start(safeGetTone()?.now(), offsetSec);
     } catch (err: any) {
       console.error("Error during track playback:", err);
       setError("Erreur de lecture : " + err.message);

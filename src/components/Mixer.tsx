@@ -79,6 +79,12 @@ const MixerComponent: React.FC<MixerProps> = ({
     handleVoiceNoteBlur: onVoiceNoteBlur,
     handleReorderPatternsDnd: onReorderPatternsDnd,
     handleDeletePatternVariation: onDeletePatternVariation,
+    handleTrackStepVolumeChange: onStepVolumeChange,
+    handleTrackStepDecayChange: onStepDecayChange,
+    handleTrackStepMicrotimingChange: onStepMicrotimingChange,
+    handleVariationStepVolumeChange: onVariationStepVolumeChange,
+    handleVariationStepDecayChange: onVariationStepDecayChange,
+    handleVariationStepMicrotimingChange: onVariationStepMicrotimingChange,
     isRecordingVocal = false,
     recordingVocalPatternId = null,
     recordedPatternIds = [],
@@ -378,11 +384,18 @@ const MixerComponent: React.FC<MixerProps> = ({
           onTogglePatternVariationFirstTimeOnly={(pid, vid, val) => onTogglePatternVariationFirstTimeOnly && onTogglePatternVariationFirstTimeOnly(editingTrackId, pid, vid, val)}
           onVariationStepValueChange={(pid, vid, sIdx, val) => onVariationStepValueChange && onVariationStepValueChange(editingTrackId, pid, vid, sIdx, val)}
           onDeletePatternVariation={(pid, vid) => onDeletePatternVariation && onDeletePatternVariation(editingTrackId, pid, vid)}
+          onStepVolumeChange={(pid, sIdx, val) => onStepVolumeChange && onStepVolumeChange(editingTrackId, pid, sIdx, val)}
+          onStepDecayChange={(pid, sIdx, val) => onStepDecayChange && onStepDecayChange(editingTrackId, pid, sIdx, val)}
+          onStepMicrotimingChange={(pid, sIdx, val) => onStepMicrotimingChange && onStepMicrotimingChange(editingTrackId, pid, sIdx, val)}
+          onVariationStepVolumeChange={(pid, vid, sIdx, val) => onVariationStepVolumeChange && onVariationStepVolumeChange(editingTrackId, pid, vid, sIdx, val)}
+          onVariationStepDecayChange={(pid, vid, sIdx, val) => onVariationStepDecayChange && onVariationStepDecayChange(editingTrackId, pid, vid, sIdx, val)}
+          onVariationStepMicrotimingChange={(pid, vid, sIdx, val) => onVariationStepMicrotimingChange && onVariationStepMicrotimingChange(editingTrackId, pid, vid, sIdx, val)}
           onSelectPattern={(pid) => onTrackSelectPattern(editingTrackId, pid)}
           onPatternAssign={(pid, mIdx, val) => onPatternAssign(editingTrackId, pid, mIdx, val)}
           onVolumeChange={(val) => onVolumeChange(editingTrackId, val)}
           onMuteToggle={() => onMuteToggle(editingTrackId)}
           onSoloToggle={() => onSoloToggle(editingTrackId)}
+          globalSwing={audio.globalSwing}
           isPlaying={isPlaying}
           currentMeasure={useSequencerStore.getState().currentMeasure}
           maxTicks={maxTicks}
