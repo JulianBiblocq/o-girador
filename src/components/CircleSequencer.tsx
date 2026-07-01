@@ -10,7 +10,7 @@ import { loadTone, getTone } from '@/src/ToneLoader';
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
 }
-import { TrackGroup, Language, HitTrigger, TimeSignature, SongSection, CloudRhythmSignal } from '../types';
+import { TrackGroup, Language, HitTrigger, TimeSignature, SongSection, SongMarker, CloudRhythmSignal } from '../types';
 import { instrumentsConfig, getMarkers, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol, i18n } from '../data';
 import { getNextStepValue } from './InstrumentDetailEditor';
 import { useGameData } from '../contexts/GameDataContext';
@@ -114,12 +114,10 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
   const t = (key: string) => (i18n[lang] as any)[key] || key;
   const langPromptVoiceText = props.langPromptVoiceText !== undefined ? props.langPromptVoiceText : t('promptVoice');
 
-  if (!tracks) return null;
-
   // Compute activePatternIdByTrack
   const activePatternIdByTrack = props.activePatternIdByTrack !== undefined ? props.activePatternIdByTrack : (() => {
     const result: { [trackId: number]: number | null } = {};
-    tracks.forEach(track => {
+    (tracks || []).forEach(track => {
       if (soloPatternPlayId !== null && soloPatternPlayId !== undefined) {
         const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
         result[track.id] = hasSoloPattern ? soloPatternPlayId : null;
@@ -133,12 +131,13 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
 
   const activeCircleIdByInst = props.activeCircleIdByInst !== undefined ? props.activeCircleIdByInst : (() => {
     const result: { [instIdx: number]: number | null } = {};
-    tracks.forEach(track => {
+    (tracks || []).forEach(track => {
       const pId = activePatternIdByTrack[track.id];
       result[track.instrumentIdx] = pId;
     });
     return result;
   })();
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const measureDisplayRef = useRef<HTMLSpanElement>(null);
   const centerOverlayRef = useRef<HTMLDivElement>(null);
@@ -151,6 +150,8 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     ratio: 0,
   });
 
+  if (!tracks) return null;
+
   const updateOverlay = (measureIdx: number) => {
     const container = centerOverlayRef.current;
     if (!container) return;
@@ -159,7 +160,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       measureSignals: currentMeasureSignals,
       rhythmSignals: currentRhythmSignals,
       mestreSignals: currentMestreSignals,
-      songSections: currentSongSections,
+      songMarkers: currentSongMarkers,
     } = stateRef.current;
 
     // 1. Resolve active signal (visible only on the measure it's set)
@@ -175,13 +176,13 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       }
     }
 
-    // 2. Resolve active section (last crossed section)
-    let activeSec: SongSection | null = null;
-    if (currentSongSections && currentSongSections.length > 0) {
-      for (const section of currentSongSections) {
-        if (section.startMeasure <= measureIdx) {
-          if (!activeSec || section.startMeasure > activeSec.startMeasure) {
-            activeSec = section;
+    // 2. Resolve active marker (last crossed marker)
+    let activeMarker: SongMarker | null = null;
+    if (currentSongMarkers && currentSongMarkers.length > 0) {
+      for (const marker of currentSongMarkers) {
+        if (marker.measure <= measureIdx) {
+          if (!activeMarker || marker.measure > activeMarker.measure) {
+            activeMarker = marker;
           }
         }
       }
@@ -217,20 +218,20 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
         }
       }
       container.style.opacity = '0.85';
-    } else if (activeSec) {
+    } else if (activeMarker) {
       if (imgEl) imgEl.style.display = 'none';
       if (tintEl) tintEl.style.display = 'none';
       if (afficheurEl) {
-        afficheurEl.style.backgroundColor = activeSec.color || '#f19066';
+        afficheurEl.style.backgroundColor = activeMarker.color || '#f19066';
       }
 
       if (textEl) {
-        textEl.innerText = activeSec.name;
+        textEl.innerText = activeMarker.name;
         textEl.style.color = '#1a1a1a';
         textEl.style.textShadow = 'none';
         
         // Font size adaptation based on length
-        const len = activeSec.name.length;
+        const len = activeMarker.name.length;
         if (len <= 6) {
           textEl.style.fontSize = 'clamp(9px, 1.8vw, 16px)';
         } else if (len <= 12) {
@@ -281,7 +282,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     const live = livePlaybackRef.current;
     const measureIdx = isPlaying && live.step >= 0 ? live.measure : currentMeasure;
     updateOverlay(measureIdx);
-  }, [currentMeasure, isPlaying, measureSignals, rhythmSignals, mestreSignals, songSections]);
+  }, [currentMeasure, isPlaying, measureSignals, rhythmSignals, mestreSignals, songSections, useSequencerStore.getState().songMarkers]);
 
   useEffect(() => {
     let timerId: any = null;
@@ -373,8 +374,9 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       mestreSignals,
       songSections,
       isLeftHanded,
+      songMarkers: useSequencerStore.getState().songMarkers
     };
-  }, [tracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, isLeftHanded]);
+  }, [tracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, useSequencerStore.getState().songMarkers, isLeftHanded]);
 
   // Handle click on canvas
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {

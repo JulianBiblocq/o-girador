@@ -175,6 +175,13 @@ export interface SongSection {
   level?: number;       // 0 pour base, 1 pour super-section, etc.
 }
 
+export interface SongMarker {
+  id: string;
+  name: string;
+  measure: number; // 0-based index
+  color?: string;
+}
+
 export interface SavedSectionTrack {
   instrumentIdx: number;
   isMute: boolean;

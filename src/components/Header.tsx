@@ -531,7 +531,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           </button>
 
           {/* STUDIO DO MESTRE (Mobile) */}
-          {hasAccess('mestre') && (
+          {hasAccess('admin') && (
             <button
               onClick={() => onViewModeToggle('studio')}
               className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
@@ -806,7 +806,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         </button>
 
         {/* STUDIO DO MESTRE (Standalone Desktop) */}
-        {hasAccess('mestre') && (
+        {hasAccess('admin') && (
           <button
             onClick={() => onViewModeToggle('studio')}
             className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${

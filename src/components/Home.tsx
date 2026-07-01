@@ -86,7 +86,7 @@ export const Home: React.FC<HomeProps> = ({ onEnter, lang }) => {
           )}
 
           {/* Studio */}
-          {hasAccess('mestre') && (
+          {hasAccess('admin') && (
             <button
               onClick={() => handleEnter('studio')}
               className="bg-[#8e44ad] text-[#1a1a1a] cordel-border flex flex-col items-center justify-center py-6 px-4 cursor-pointer hover:-translate-y-1 transition-transform"

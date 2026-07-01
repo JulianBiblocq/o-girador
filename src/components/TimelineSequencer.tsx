@@ -62,6 +62,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const measureVols = useSequencerStore(state => state.measureVols);
   const measureVolTransitions = useSequencerStore(state => state.measureVolTransitions);
   const songSections = useSequencerStore(state => state.songSections);
+  const songMarkers = useSequencerStore(state => state.songMarkers);
   const copiedSection = useSequencerStore(state => state.copiedSection);
   const loopStartMeasure = useSequencerStore(state => state.loopStartMeasure);
   const loopEndMeasure = useSequencerStore(state => state.loopEndMeasure);
@@ -86,6 +87,9 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     handleUpdateSongSection: onUpdateSection,
     handleUpdateSectionRepeat: onUpdateSectionRepeat,
     handleDeleteSongSection: onDeleteSection,
+    handleCreateSongMarker: onCreateMarker,
+    handleUpdateSongMarker: onUpdateMarker,
+    handleDeleteSongMarker: onDeleteMarker,
     handleCopySongSection: onCopySection,
     handlePasteSongSection: onPasteSection,
     handleSetLoopStart: onSetLoopStart,
@@ -216,6 +220,14 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const [sectionFormEnd, setSectionFormEnd] = React.useState<number | string>(4);
   const [sectionFormColor, setSectionFormColor] = React.useState<string>('#f19066');
   const [sectionFormLevel, setSectionFormLevel] = React.useState<number>(0);
+  
+  // Marker modal state
+  const [markerModalOpen, setMarkerModalOpen] = React.useState<boolean>(false);
+  const [editingMarker, setEditingMarker] = React.useState<SongMarker | null>(null);
+  const [markerFormName, setMarkerFormName] = React.useState<string>('');
+  const [markerFormMeasure, setMarkerFormMeasure] = React.useState<number | string>(1);
+  const [markerFormColor, setMarkerFormColor] = React.useState<string>('#f19066');
+
   const [hoveredPasteMeasure, setHoveredPasteMeasure] = React.useState<number | null>(null);
   const [signalDropdownOpen, setSignalDropdownOpen] = React.useState<number | null>(null);
 
@@ -668,16 +680,14 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     let measureIdx = Math.floor(clickX / MEASURE_W);
     measureIdx = Math.max(0, Math.min(totalMeasures - 1, measureIdx));
     
-    setEditingSection(null);
-    setSectionFormName(lang === 'fr' ? 'Partie A' : 'Parte A');
-    setSectionFormStart(measureIdx + 1);
-    setSectionFormEnd(Math.min(measureIdx + 4, totalMeasures));
-    setSectionFormColor('#f19066');
-    setSectionFormLevel(0);
-    setSectionModalOpen(true);
+    setEditingMarker(null);
+    setMarkerFormName(lang === 'fr' ? 'Repère' : 'Marcador');
+    setMarkerFormMeasure(measureIdx + 1);
+    setMarkerFormColor('#f19066');
+    setMarkerModalOpen(true);
   };
 
-  const handleMarkerPointerDown = (e: React.PointerEvent<HTMLDivElement>, section: SongSection) => {
+  const handleMarkerPointerDown = (e: React.PointerEvent<HTMLDivElement>, marker: SongMarker) => {
     if (toolMode === 'hand' || isSpacePressed) return;
     if (e.button !== 0) return;
     const el = e.currentTarget;
@@ -687,8 +697,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     el.setAttribute('data-has-moved', 'false');
     
     const startX = e.clientX;
-    const startMeasure = section.startMeasure;
-    const duration = section.endMeasure - section.startMeasure;
+    const startMeasure = marker.measure;
     
     const handlePointerMove = (moveEv: PointerEvent) => {
       const dx = moveEv.clientX - startX;
@@ -698,7 +707,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       
       const proposedStart = startMeasure + (dx / MEASURE_W);
       
-      let snappedStart = section.startMeasure;
+      let snappedStart = marker.measure;
       if (snapMode === 'measure') {
         snappedStart = Math.round(proposedStart);
       } else if (snapMode === 'beat') {
@@ -707,7 +716,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         snappedStart = proposedStart;
       }
       
-      snappedStart = Math.max(0, Math.min(totalMeasures - 1 - duration, snappedStart));
+      snappedStart = Math.max(0, Math.min(totalMeasures - 1, snappedStart));
       const currentLeft = snappedStart * MEASURE_W;
       
       el.style.left = `${currentLeft}px`;
@@ -726,14 +735,13 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
       setSnapGuideX(null);
       
-      const finalLeft = parseFloat(el.style.left) || (section.startMeasure * MEASURE_W);
-      const finalStart = Math.max(0, Math.min(totalMeasures - 1 - duration, Math.round(finalLeft / MEASURE_W)));
-      const finalEnd = finalStart + duration;
+      const finalLeft = parseFloat(el.style.left) || (marker.measure * MEASURE_W);
+      const finalStart = Math.max(0, Math.min(totalMeasures - 1, Math.round(finalLeft / MEASURE_W)));
       
-      if (finalStart !== section.startMeasure) {
-        onUpdateSection(section.id, section.name, finalStart, finalEnd, section.color);
+      if (finalStart !== marker.measure) {
+        onUpdateMarker(marker.id, marker.name, finalStart, marker.color);
       } else {
-        el.style.left = `${section.startMeasure * MEASURE_W}px`;
+        el.style.left = `${marker.measure * MEASURE_W}px`;
       }
     };
     
@@ -954,43 +962,41 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
               className="flex-grow relative h-full cursor-copy"
               onDoubleClick={handleMarkerRulerDblClick}
             >
-              {songSections.length === 0 && (
+              {songMarkers.length === 0 && (
                 <div className="absolute inset-0 flex items-center pl-4 text-[8px] text-[var(--cordel-text)]/20 italic pointer-events-none">
-                  {lang === 'fr' ? 'Double-cliquez ici pour ajouter un repère de section' : 'Double-clique aqui para adicionar um marcador'}
+                  {lang === 'fr' ? 'Double-cliquez ici pour ajouter un repère' : 'Double-clique aqui para adicionar um marcador'}
                 </div>
               )}
 
               {/* Render Section Markers */}
-              {songSections.map((section) => {
-                const posX = section.startMeasure * MEASURE_W;
+              {songMarkers.map((marker) => {
+                const posX = marker.measure * MEASURE_W;
                 return (
                   <div
-                    key={`marker-${section.id}`}
+                    key={`marker-${marker.id}`}
                     className={`absolute top-1 h-[18px] px-2 rounded-full text-[9px] font-bold text-white flex items-center gap-1 shadow-sm cursor-grab select-none hover:brightness-110 active:cursor-grabbing transform -translate-x-1/2 border border-black/10 z-40 ${
                       isPanningActive ? 'pointer-events-none' : ''
                     }`}
                     style={{
                       left: `${posX}px`,
-                      backgroundColor: section.color || '#f19066',
+                      backgroundColor: marker.color || '#f19066',
                     }}
-                    onPointerDown={(e) => handleMarkerPointerDown(e, section)}
+                    onPointerDown={(e) => handleMarkerPointerDown(e, marker)}
                     onClick={(e) => {
                       if ((e.currentTarget as HTMLElement).dataset.hasMoved === 'true') return;
                       e.stopPropagation();
-                      setEditingSection(section);
-                      setSectionFormName(section.name);
-                      setSectionFormStart(section.startMeasure + 1);
-                      setSectionFormEnd(section.endMeasure + 1);
-                      setSectionFormColor(section.color || '#f19066');
-                      setSectionFormLevel(section.level || 0);
-                      setSectionModalOpen(true);
+                      setEditingMarker(marker);
+                      setMarkerFormName(marker.name);
+                      setMarkerFormMeasure(marker.measure + 1);
+                      setMarkerFormColor(marker.color || '#f19066');
+                      setMarkerModalOpen(true);
                     }}
                   >
-                    <span>📍 {section.name}</span>
+                    <span>📍 {marker.name}</span>
                     <span 
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDeleteSection(section.id);
+                        onDeleteMarker(marker.id);
                       }}
                       className="opacity-70 hover:opacity-100 cursor-pointer ml-1 text-[11px]"
                       title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
@@ -1737,6 +1743,97 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                     onCreateSection(sectionFormName, startVal - 1, endVal - 1, sectionFormColor, 1, sectionFormLevel);
                   }
                   setSectionModalOpen(false);
+                }}
+                className="px-4 py-1.5 bg-[var(--cordel-wood)] text-[#f4ecd8] border border-[var(--cordel-border)] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
+              >
+                {lang === 'fr' ? 'Valider' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════ MARKER FORM MODAL ══════════ */}
+      {markerModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-[460px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-5 cordel-border-sm cordel-shadow flex flex-col gap-4">
+            <h3 className="font-cactus text-xl font-bold uppercase border-b border-[var(--cordel-border)] pb-2 text-[var(--cordel-text)]">
+              {editingMarker 
+                ? (lang === 'fr' ? 'Modifier le Repère' : 'Editar Marcador')
+                : (lang === 'fr' ? 'Créer un Repère' : 'Criar Marcador')}
+            </h3>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">{lang === 'fr' ? 'Nom du repère' : 'Nome do marcador'}</label>
+              <input
+                type="text"
+                value={markerFormName}
+                onChange={(e) => setMarkerFormName(e.target.value)}
+                placeholder="Ex: Introduction / Solo"
+                className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-3 py-1.5 text-sm font-bold outline-none rounded-none focus:bg-[var(--cordel-border)]/10 text-[var(--cordel-text)]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">{lang === 'fr' ? 'Mesure' : 'Compasso'}</label>
+              <input
+                type="number"
+                min={1}
+                max={totalMeasures}
+                value={markerFormMeasure}
+                onChange={(e) => setMarkerFormMeasure(e.target.value)}
+                onBlur={() => {
+                  let val = parseInt(String(markerFormMeasure)) || 1;
+                  val = Math.max(1, Math.min(totalMeasures, val));
+                  setMarkerFormMeasure(val);
+                }}
+                className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-2 py-1.5 text-sm font-bold outline-none rounded-none text-center text-[var(--cordel-text)]"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">{lang === 'fr' ? 'Couleur' : 'Cor'}</label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {[
+                  { value: '#e08283', label: 'Rouge' },
+                  { value: '#f19066', label: 'Orange' },
+                  { value: '#f5cd79', label: 'Jaune' },
+                  { value: '#55efc4', label: 'Vert d\'eau' },
+                  { value: '#74b9ff', label: 'Bleu pastel' },
+                  { value: '#a29bfe', label: 'Violet doux' },
+                  { value: '#eaddcf', label: 'Cordel beige' }
+                ].map((colorOpt) => (
+                  <button
+                    key={colorOpt.value}
+                    onClick={() => setMarkerFormColor(colorOpt.value)}
+                    className={`w-7 h-7 rounded-full cursor-pointer cordel-border-sm transition-transform ${
+                      markerFormColor === colorOpt.value ? 'scale-115 ring-2 ring-[var(--cordel-text)]' : 'opacity-85'
+                    }`}
+                    style={{ backgroundColor: colorOpt.value }}
+                    title={colorOpt.label}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2.5 mt-2 border-t border-[var(--cordel-border)]/30 pt-3">
+              <button
+                onClick={() => setMarkerModalOpen(false)}
+                className="px-3 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
+              >
+                {lang === 'fr' ? 'Annuler' : 'Cancelar'}
+              </button>
+               <button
+                onClick={() => {
+                  if (!markerFormName.trim()) return;
+                  let val = parseInt(String(markerFormMeasure)) || 1;
+                  val = Math.max(1, Math.min(totalMeasures, val));
+                  if (editingMarker) {
+                    onUpdateMarker(editingMarker.id, markerFormName, val - 1, markerFormColor);
+                  } else {
+                    onCreateMarker(markerFormName, val - 1, markerFormColor);
+                  }
+                  setMarkerModalOpen(false);
                 }}
                 className="px-4 py-1.5 bg-[var(--cordel-wood)] text-[#f4ecd8] border border-[var(--cordel-border)] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
               >

@@ -126,7 +126,7 @@ export default function App() {
     if (['quiz', 'dictee', 'inspecteur', 'rythmelive', 'mestre', 'varal'].includes(viewMode) && !hasAccess('admin')) {
       setViewMode('roda');
     }
-    if (viewMode === 'studio' && !hasAccess('mestre')) {
+    if (viewMode === 'studio' && !hasAccess('admin')) {
       setViewMode('roda');
     }
     if (viewMode === 'admin' && !hasAccess('admin')) {
@@ -163,9 +163,9 @@ export default function App() {
     
     let targetMestreId = null;
     if (isMestreAdmin) {
-      targetMestreId = userProfile.mestreId || userProfile.uid;
+      targetMestreId = userProfile?.mestreId || userProfile?.uid;
     } else if (isEleve) {
-      targetMestreId = userProfile.mestreId;
+      targetMestreId = userProfile?.mestreId;
     }
 
     if (targetMestreId) {

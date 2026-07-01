@@ -56,6 +56,9 @@ export function useSequencerState() {
   const copiedSection = useSequencerStore(state => state.copiedSection);
   const setCopiedPattern = (useSequencerStore as any)(state => state.setCopiedPattern) as any;
   const setCopiedSection = (useSequencerStore as any)(state => state.setCopiedSection) as any;
+  const handleCreateSongMarker = useSequencerStore(state => state.handleCreateSongMarker);
+  const handleUpdateSongMarker = useSequencerStore(state => state.handleUpdateSongMarker);
+  const handleDeleteSongMarker = useSequencerStore(state => state.handleDeleteSongMarker);
 
   const [activeAoVivoTrackId, setActiveAoVivoTrackId] = useState<number | null>(null);
 
@@ -1105,7 +1108,7 @@ export function useSequencerState() {
 
   const handleCreateSongSection = (name: string, start: number, end: number, color?: string, repeatCount?: number, level?: number) => {
     const newSection: SongSection = {
-      id: Date.now().toString(),
+      id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9),
       name,
       startMeasure: start,
       endMeasure: end,
@@ -1151,12 +1154,26 @@ export function useSequencerState() {
       assignments[t.id] = arr;
     });
 
+    const songSections = useSequencerStore.getState().songSections;
+    const subSections = songSections.filter(s => 
+      s.id !== section.id && 
+      (s.level || 0) < (section.level || 0) &&
+      s.startMeasure >= section.startMeasure &&
+      s.endMeasure <= section.endMeasure
+    ).map(s => ({
+      ...s,
+      startMeasure: s.startMeasure - section.startMeasure,
+      endMeasure: s.endMeasure - section.startMeasure
+    }));
+
     const data = {
       length,
       name: section.name,
       color: section.color || '#27ae60',
       repeatCount: section.repeatCount || 1,
+      level: section.level || 0,
       assignments,
+      subSections,
     };
     setCopiedSection(data);
   };
@@ -1191,6 +1208,19 @@ export function useSequencerState() {
     }));
 
     handleCreateSongSection(storeCopiedSection.name, destStartMeasure, end, storeCopiedSection.color, storeCopiedSection.repeatCount, storeCopiedSection.level);
+
+    if (storeCopiedSection.subSections && storeCopiedSection.subSections.length > 0) {
+      storeCopiedSection.subSections.forEach((sub: any) => {
+        handleCreateSongSection(
+          sub.name, 
+          destStartMeasure + sub.startMeasure, 
+          destStartMeasure + sub.endMeasure, 
+          sub.color, 
+          sub.repeatCount, 
+          sub.level
+        );
+      });
+    }
   };
 
   const handleStepValueSelectAndToggle = (
@@ -1913,6 +1943,9 @@ export function useSequencerState() {
     handleUpdateSongSection,
     handleUpdateSectionRepeat,
     handleDeleteSongSection,
+    handleCreateSongMarker,
+    handleUpdateSongMarker,
+    handleDeleteSongMarker,
     handleCopySongSection,
     handlePasteSongSection,
     copiedSection,

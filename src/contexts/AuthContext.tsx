@@ -162,8 +162,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error signing in with Google', error);
+      alert(`Erreur de connexion Google: ${error?.message || error}`);
     }
   };
 
@@ -176,8 +177,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const hasAccess = (requiredRole: UserRole): boolean => {
-    if (!userProfile) return requiredRole === 'visiteur';
-    return roleLevels[userProfile.role] >= roleLevels[requiredRole];
+    if (requiredRole === 'admin') {
+      return userProfile?.role === 'admin';
+    }
+    return true; // TEMPORAIRE: Désactivation des autres restrictions
   };
 
   const updateUserPreference = async (key: 'isDarkMode' | 'isLeftHanded', value: boolean) => {

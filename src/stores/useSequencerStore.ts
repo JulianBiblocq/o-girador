@@ -316,6 +316,7 @@ export interface StructureSlice {
   measureVolTransitions: ('immediate' | 'ramp')[];
   measureSignals: (string | null)[];
   songSections: SongSection[];
+  songMarkers: SongMarker[];
   
   setTotalMeasures: (val: number | ((prev: number) => number)) => void;
   setBpm: (bpm: number) => void;
@@ -331,6 +332,10 @@ export interface StructureSlice {
   handleUpdateSongSection: (id: string, name: string, start: number, end: number, color?: string, level?: number) => void;
   handleUpdateSectionRepeat: (id: string, count: number) => void;
   handleDeleteSongSection: (id: string) => void;
+  handleDeleteSongSection: (id: string) => void;
+  handleCreateSongMarker: (name: string, measure: number, color?: string) => void;
+  handleUpdateSongMarker: (id: string, name: string, measure: number, color?: string) => void;
+  handleDeleteSongMarker: (id: string) => void;
   handleDeleteMeasure: (measureIdx: number) => void;
   handleInsertMeasure: (measureIdx: number) => void;
 }
@@ -348,6 +353,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
   measureVolTransitions: Array(8).fill('immediate'),
   measureSignals: Array(8).fill(null),
   songSections: [],
+  songMarkers: [],
 
   setBpm: (bpm) => set({ bpm }),
   setTimeSig: (sig) => set({ timeSig: sig }),
@@ -472,6 +478,30 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
     }));
   },
 
+  handleCreateSongMarker: (name, measure, color) => set(state => {
+    const newMarker: SongMarker = {
+      id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9),
+      name,
+      measure,
+      color: color || '#f19066',
+    };
+    const next = [...state.songMarkers, newMarker];
+    next.sort((a, b) => a.measure - b.measure);
+    return { songMarkers: next };
+  }),
+
+  handleUpdateSongMarker: (id, name, measure, color) => set(state => {
+    const next = state.songMarkers.map(m => 
+      m.id === id ? { ...m, name, measure, color: color || m.color } : m
+    );
+    next.sort((a, b) => a.measure - b.measure);
+    return { songMarkers: next };
+  }),
+
+  handleDeleteSongMarker: (id) => set(state => ({
+    songMarkers: state.songMarkers.filter(m => m.id !== id)
+  })),
+
   handleDeleteMeasure: (measureIdx) => {
     get().pushUndoState();
     set((state) => {
@@ -494,6 +524,12 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
             }
             return s;
           }),
+        songMarkers: state.songMarkers.filter(m => m.measure !== measureIdx).map(m => {
+          if (m.measure > measureIdx) {
+            return { ...m, measure: m.measure - 1 };
+          }
+          return m;
+        }),
         tracks: state.tracks.map(t => ({
           ...t,
           patterns: t.patterns.map(p => ({
@@ -534,6 +570,12 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
             return { ...s, endMeasure: s.endMeasure + 1 };
           }
           return s;
+        }),
+        songMarkers: state.songMarkers.map(m => {
+          if (m.measure >= measureIdx) {
+            return { ...m, measure: m.measure + 1 };
+          }
+          return m;
         }),
         tracks: state.tracks.map(t => ({
           ...t,
@@ -615,7 +657,7 @@ const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackSlice> =
 // ---------------------------------------------------------
 // 4. HISTORY SLICE
 // ---------------------------------------------------------
-export type StructureSnapshot = Pick<StructureSlice, 'measureTimeSigs' | 'measureBpms' | 'measureBpmTransitions' | 'measureVols' | 'measureVolTransitions' | 'songSections'>;
+export type StructureSnapshot = Pick<StructureSlice, 'measureTimeSigs' | 'measureBpms' | 'measureBpmTransitions' | 'measureVols' | 'measureVolTransitions' | 'songSections' | 'songMarkers'>;
 
 export interface HistorySlice {
   tracksHistory: TrackGroup[][];
@@ -651,6 +693,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         measureVols: [...prev.measureVols],
         measureVolTransitions: [...prev.measureVolTransitions],
         songSections: JSON.parse(JSON.stringify(prev.songSections)),
+        songMarkers: prev.songMarkers ? JSON.parse(JSON.stringify(prev.songMarkers)) : [],
       };
       
       const nextStructureHistory = [...prev.songStructureHistory, clonedStructure];
@@ -678,6 +721,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         measureVols: [...prev.measureVols],
         measureVolTransitions: [...prev.measureVolTransitions],
         songSections: JSON.parse(JSON.stringify(prev.songSections)),
+        songMarkers: prev.songMarkers ? JSON.parse(JSON.stringify(prev.songMarkers)) : [],
       };
 
       const nextTracksHistory = [...prev.tracksHistory];
@@ -702,6 +746,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         if (previousStructureState.measureVols) updates.measureVols = previousStructureState.measureVols;
         if (previousStructureState.measureVolTransitions) updates.measureVolTransitions = previousStructureState.measureVolTransitions;
         if (previousStructureState.songSections) updates.songSections = previousStructureState.songSections;
+        if (previousStructureState.songMarkers) updates.songMarkers = previousStructureState.songMarkers;
       }
 
       return updates;
@@ -721,6 +766,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         measureVols: [...prev.measureVols],
         measureVolTransitions: [...prev.measureVolTransitions],
         songSections: JSON.parse(JSON.stringify(prev.songSections)),
+        songMarkers: prev.songMarkers ? JSON.parse(JSON.stringify(prev.songMarkers)) : [],
       };
 
       const nextTracksRedoHistory = [...prev.tracksRedoHistory];
@@ -745,6 +791,7 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
         if (nextStructureState.measureVols) updates.measureVols = nextStructureState.measureVols;
         if (nextStructureState.measureVolTransitions) updates.measureVolTransitions = nextStructureState.measureVolTransitions;
         if (nextStructureState.songSections) updates.songSections = nextStructureState.songSections;
+        if (nextStructureState.songMarkers) updates.songMarkers = nextStructureState.songMarkers;
       }
 
       return updates;
@@ -798,12 +845,23 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
       assignments[t.id] = arr;
     });
 
+    const childSections = state.songSections.filter(s => 
+      s.id !== section.id && 
+      s.startMeasure >= section.startMeasure && 
+      s.endMeasure <= section.endMeasure
+    ).map(s => ({
+      ...s,
+      relativeStart: s.startMeasure - section.startMeasure,
+      relativeEnd: s.endMeasure - section.startMeasure
+    }));
+
     const data = {
       length,
       name: section.name,
       color: section.color || '#27ae60',
       repeatCount: section.repeatCount || 1,
       assignments,
+      childSections
     };
     set({ copiedSection: data });
   },
@@ -840,6 +898,22 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
         });
         return { ...t, patterns: nextPatterns };
       });
+      
+      if (copied.childSections) {
+        let newSongSections = prev.songSections ? [...prev.songSections] : [];
+        copied.childSections.forEach((child: any) => {
+          newSongSections.push({
+            id: Date.now() + Math.random().toString(36).substr(2, 9),
+            name: child.name,
+            startMeasure: destStartMeasure + child.relativeStart,
+            endMeasure: destStartMeasure + child.relativeEnd,
+            color: child.color,
+            repeatCount: child.repeatCount,
+            level: child.level
+          });
+        });
+        updates.songSections = newSongSections;
+      }
 
       return updates;
     });
