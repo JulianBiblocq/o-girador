@@ -2,7 +2,7 @@
   "bpm": 86,
   "timeSig": "4/4",
   "version": 3,
-  "totalMeasures": 16,
+  "totalMeasures": 13,
   "tracks": [
     {
       "id": 1781526732393,
@@ -79,10 +79,7 @@
             false,
             false,
             false,
-            false,
-            true,
-            true,
-            true
+            false
           ],
           "volumes": [
             80,
@@ -208,9 +205,6 @@
             false,
             false,
             true,
-            false,
-            false,
-            false,
             false,
             false,
             false
@@ -342,10 +336,7 @@
             false,
             true,
             false,
-            true,
-            false,
-            false,
-            false
+            true
           ],
           "volumes": [
             92,
@@ -473,9 +464,6 @@
             false,
             false,
             true,
-            false,
-            false,
-            false,
             false
           ],
           "volumes": [
@@ -601,9 +589,6 @@
             false,
             false,
             true,
-            false,
-            false,
-            false,
             false,
             false,
             false,
@@ -762,9 +747,6 @@
             false,
             false,
             false,
-            false,
-            false,
-            false,
             false
           ],
           "volumes": [
@@ -827,7 +809,7 @@
       "isSolo": false,
       "isHidden": false,
       "volumeVal": 83,
-      "selectedPatternId": 1781526731766,
+      "selectedPatternId": 1781529146116,
       "reverbVal": 9,
       "panVal": 0,
       "radius": 180
@@ -907,9 +889,6 @@
             false,
             false,
             false,
-            false,
-            true,
-            true,
             false
           ],
           "volumes": [
@@ -1036,9 +1015,6 @@
             false,
             false,
             true,
-            false,
-            false,
-            false,
             false,
             false,
             false
@@ -1170,10 +1146,7 @@
             false,
             true,
             false,
-            true,
-            false,
-            false,
-            false
+            true
           ],
           "volumes": [
             92,
@@ -1301,9 +1274,6 @@
             false,
             false,
             true,
-            false,
-            false,
-            false,
             false
           ],
           "volumes": [
@@ -1429,9 +1399,6 @@
             false,
             false,
             true,
-            false,
-            false,
-            false,
             false,
             false,
             false,
@@ -1590,9 +1557,6 @@
             false,
             false,
             false,
-            false,
-            false,
-            false,
             false
           ],
           "volumes": [
@@ -1655,10 +1619,10 @@
       "isSolo": false,
       "isHidden": false,
       "volumeVal": 66,
-      "selectedPatternId": 1781532533271,
+      "selectedPatternId": 1781904563324,
       "reverbVal": 8,
       "panVal": -100,
-      "radius": 232.5
+      "radius": 225
     },
     {
       "id": 1781526736154,
@@ -1735,10 +1699,7 @@
             false,
             false,
             false,
-            false,
-            true,
-            true,
-            true
+            false
           ],
           "volumes": [
             80,
@@ -1864,9 +1825,6 @@
             false,
             false,
             true,
-            false,
-            false,
-            false,
             false,
             false,
             false
@@ -1998,10 +1956,7 @@
             false,
             true,
             false,
-            true,
-            false,
-            false,
-            false
+            true
           ],
           "volumes": [
             92,
@@ -2129,9 +2084,6 @@
             false,
             false,
             true,
-            false,
-            false,
-            false,
             false
           ],
           "volumes": [
@@ -2257,9 +2209,6 @@
             false,
             false,
             true,
-            false,
-            false,
-            false,
             false,
             false,
             false,
@@ -2392,9 +2341,6 @@
             false,
             false,
             false,
-            false,
-            false,
-            false,
             false
           ],
           "volumes": [
@@ -2457,10 +2403,10 @@
       "isSolo": false,
       "isHidden": false,
       "volumeVal": 84,
-      "selectedPatternId": 1781526736501,
+      "selectedPatternId": 1781531756538,
       "reverbVal": 9,
       "panVal": 100,
-      "radius": 285
+      "radius": 270
     },
     {
       "id": 1781526737819,
@@ -2537,10 +2483,7 @@
             false,
             false,
             false,
-            false,
-            true,
-            true,
-            true
+            false
           ],
           "volumes": [
             80,
@@ -2668,9 +2611,6 @@
             true,
             false,
             true,
-            false,
-            false,
-            false,
             false
           ],
           "volumes": [
@@ -2799,10 +2739,7 @@
             false,
             true,
             false,
-            true,
-            false,
-            false,
-            false
+            true
           ],
           "volumes": [
             90,
@@ -2926,9 +2863,6 @@
             false,
             false,
             true,
-            false,
-            false,
-            false,
             false,
             false,
             false,
@@ -3061,9 +2995,6 @@
             false,
             false,
             false,
-            false,
-            false,
-            false,
             false
           ],
           "volumes": [
@@ -3117,7 +3048,7 @@
             0,
             0,
             0,
-            0,
+            -21,
             0
           ]
         }
@@ -3126,10 +3057,10 @@
       "isSolo": false,
       "isHidden": false,
       "volumeVal": 49,
-      "selectedPatternId": 1781526738380,
+      "selectedPatternId": 1781529153340,
       "reverbVal": 11,
       "panVal": -71,
-      "radius": 337.5
+      "radius": 315
     },
     {
       "id": 1781526739926,
@@ -3206,10 +3137,7 @@
             false,
             false,
             false,
-            false,
-            true,
-            true,
-            true
+            false
           ],
           "volumes": [
             80,
@@ -3337,9 +3265,6 @@
             true,
             false,
             true,
-            false,
-            false,
-            false,
             false
           ],
           "volumes": [
@@ -3468,10 +3393,7 @@
             false,
             true,
             false,
-            true,
-            false,
-            false,
-            false
+            true
           ],
           "volumes": [
             80,
@@ -3595,9 +3517,6 @@
             false,
             false,
             true,
-            false,
-            false,
-            false,
             false,
             false,
             false,
@@ -3730,9 +3649,6 @@
             false,
             false,
             false,
-            false,
-            false,
-            false,
             false
           ],
           "volumes": [
@@ -3786,7 +3702,7 @@
             0,
             0,
             0,
-            0,
+            -21,
             0
           ]
         }
@@ -3795,10 +3711,10 @@
       "isSolo": false,
       "isHidden": false,
       "volumeVal": 67,
-      "selectedPatternId": 1781526739455,
+      "selectedPatternId": 1781529155648,
       "reverbVal": 10,
       "panVal": 71,
-      "radius": 390
+      "radius": 360
     },
     {
       "id": 1781526742338,
@@ -3875,10 +3791,7 @@
             false,
             false,
             false,
-            false,
-            true,
-            true,
-            true
+            false
           ],
           "volumes": [
             100,
@@ -4006,10 +3919,7 @@
             true,
             true,
             true,
-            true,
-            false,
-            false,
-            false
+            true
           ],
           "volumes": [
             100,
@@ -4137,9 +4047,6 @@
             false,
             false,
             false,
-            false,
-            false,
-            false,
             false
           ],
           "volumes": [
@@ -4202,10 +4109,10 @@
       "isSolo": false,
       "isHidden": false,
       "volumeVal": 74,
-      "selectedPatternId": 1781526741833,
+      "selectedPatternId": 1781529161281,
       "reverbVal": 15,
       "panVal": 21,
-      "radius": 442.5
+      "radius": 405
     },
     {
       "id": 1781526744007,
@@ -4219,18 +4126,18 @@
             "E",
             0,
             "d",
-            "E",
+            "e",
             "D",
             0,
-            "E",
+            "e",
             "d",
             "E",
             0,
             "d",
-            "E",
+            "e",
             "D",
             0,
-            "E",
+            "e",
             "d"
           ],
           "lyrics": [
@@ -4282,27 +4189,24 @@
             true,
             true,
             true,
-            true,
-            true,
-            true,
             true
           ],
           "volumes": [
             88,
             80,
             80,
-            50,
             80,
             80,
-            50,
+            80,
+            80,
             80,
             86,
             80,
             80,
-            50,
             80,
             80,
-            50,
+            80,
+            80,
             80
           ],
           "decays": [
@@ -4349,18 +4253,18 @@
                 "V",
                 0,
                 "d",
-                "E",
+                "e",
                 "D",
                 0,
-                "E",
+                "e",
                 "d",
                 "E",
                 0,
                 "d",
-                "E",
+                "e",
                 "D",
                 0,
-                "E",
+                "e",
                 "d"
               ],
               "probability": 30,
@@ -4381,7 +4285,8 @@
                 80,
                 80,
                 80
-              ]
+              ],
+              "playFirstTimeOnly": true
             }
           ]
         },
@@ -4456,9 +4361,6 @@
             false,
             false,
             false,
-            false,
-            false,
-            false,
             false
           ],
           "volumes": [
@@ -4524,11 +4426,11 @@
       "selectedPatternId": 1781526744171,
       "reverbVal": 11,
       "panVal": -21,
-      "radius": 495
+      "radius": 450
     },
     {
       "id": 1782906244672,
-      "instrumentIdx": 8,
+      "instrumentIdx": 10,
       "patterns": [
         {
           "id": 1782906243808,
@@ -4601,10 +4503,7 @@
             false,
             false,
             false,
-            true,
-            false,
-            false,
-            false
+            true
           ],
           "volumes": [
             80,
@@ -4732,9 +4631,6 @@
             false,
             false,
             false,
-            false,
-            false,
-            false,
             false
           ],
           "volumes": [
@@ -4799,6 +4695,276 @@
       "volumeVal": 66,
       "selectedPatternId": 1782906243808,
       "reverbVal": 17,
+      "panVal": 0,
+      "radius": 495
+    },
+    {
+      "id": 1782927190524,
+      "instrumentIdx": 8,
+      "patterns": [
+        {
+          "id": 1782927190091,
+          "name": "Padrão 1",
+          "steps": 16,
+          "activeSteps": [
+            "W",
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            "w",
+            0,
+            0,
+            0,
+            "w",
+            0,
+            0
+          ],
+          "lyrics": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "notes": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "measureAssignments": [
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true
+          ],
+          "volumes": [
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80
+          ],
+          "decays": [
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "microtimings": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": 1782927208560,
+          "name": "Padrão 2",
+          "steps": 16,
+          "activeSteps": [
+            "w",
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "lyrics": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "notes": [
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            ""
+          ],
+          "measureAssignments": [
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "volumes": [
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80,
+            80
+          ],
+          "decays": [
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100,
+            100
+          ],
+          "microtimings": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "isMute": false,
+      "isSolo": false,
+      "isHidden": false,
+      "volumeVal": 100,
+      "selectedPatternId": 1782927190091,
+      "reverbVal": 0,
       "panVal": 0
     }
   ],
@@ -4835,15 +5001,9 @@
     "4/4",
     "4/4",
     "4/4",
-    "4/4",
-    "4/4",
-    "4/4",
     "4/4"
   ],
   "measureBpms": [
-    98,
-    98,
-    98,
     98,
     98,
     98,
@@ -4871,9 +5031,6 @@
     "immediate",
     "immediate",
     "immediate",
-    "immediate",
-    "immediate",
-    "immediate",
     "immediate"
   ],
   "measureVols": [
@@ -4889,15 +5046,9 @@
     100,
     100,
     100,
-    100,
-    100,
-    100,
     100
   ],
   "measureVolTransitions": [
-    "immediate",
-    "immediate",
-    "immediate",
     "immediate",
     "immediate",
     "immediate",
@@ -4974,39 +5125,26 @@
       "color": "#f19066",
       "repeatCount": 1,
       "level": 0
+    }
+  ],
+  "songMarkers": [
+    {
+      "id": "1782927114966-cbiv9fd",
+      "name": "Luanda",
+      "measure": 0,
+      "color": "#74b9ff"
     },
     {
-      "id": "1782907496884",
-      "name": "Luanda total",
-      "startMeasure": 13,
-      "endMeasure": 15,
-      "color": "#74b9ff",
-      "repeatCount": 1,
-      "level": 1
-    },
-    {
-      "id": "1782907525090",
-      "name": "Luanda base",
-      "startMeasure": 13,
-      "endMeasure": 13,
-      "color": "#74b9ff",
-      "repeatCount": 2,
-      "level": 0
-    },
-    {
-      "id": "1782907562446",
-      "name": "Luanda final",
-      "startMeasure": 14,
-      "endMeasure": 15,
-      "color": "#74b9ff",
-      "repeatCount": 1,
-      "level": 0
+      "id": "1782927132146-ineswfy",
+      "name": "Convenção 2",
+      "measure": 3,
+      "color": "#e08283"
     }
   ],
   "measureSignals": [
     null,
-    "mqk5ohmwbgwz",
-    "mqk5ohmwbgwz",
+    "mqrw2la7ra2c",
+    "mqrw2la7ra2c",
     null,
     null,
     null,
@@ -5016,23 +5154,20 @@
     null,
     null,
     null,
-    "mqk5o9twk6rj",
-    null,
-    null,
-    null
+    "mqrzw56jppw6"
   ],
   "masterEQ": {
     "low": 0,
     "mid": 0,
-    "high": 1
+    "high": 0
   },
   "masterCompressor": {
-    "threshold": -13,
-    "ratio": 3.5
+    "threshold": -20,
+    "ratio": 4
   },
-  "masterVol": 6,
-  "masterReverbVol": 1,
-  "reverbDecay": 1.9,
+  "masterVol": -10,
+  "masterReverbVol": 0,
+  "reverbDecay": 2.5,
   "isSwingOn": true,
   "globalSwing": {
     "mode": "maracatu",
