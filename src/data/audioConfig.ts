@@ -554,8 +554,7 @@ function getAlfaiaStrokes(): StrokeMapping[] {
       keys: ['C', 'c'],
       files: [
         "Mixdown/Alfaia meiao C 1.ogg",
-        "Mixdown/Alfaia meiao C 2.ogg",
-        "Mixdown/Alfaia meiao C 3.ogg"
+        "Mixdown/Alfaia meiao C 2.ogg"
       ],
       caseSensitive: false
     },
