@@ -887,8 +887,8 @@ export function useAudioSync({
                 const velocity = flatArray[ptr + 2];
                 const microtimingPct = flatArray[ptr + 3];
 
-                // Decode packedData: trackIdx (3 bits), circleStepIdx (5 bits), strokeCharCode (7 bits), decayPct (7 bits), isTuplet (1 bit)
-                const trackIdx = (packedData >> 20) & 0x07;
+                // Decode packedData: trackIdx (4 bits), circleStepIdx (5 bits), strokeCharCode (7 bits), decayPct (7 bits), isTuplet (1 bit)
+                const trackIdx = (packedData >> 20) & 0x0F;
                 const circleStepIdx = (packedData >> 15) & 0x1F;
                 const strokeCharCode = (packedData >> 8) & 0x7F;
                 const decayPct = (packedData >> 1) & 0x7F;
