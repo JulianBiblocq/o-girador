@@ -231,10 +231,15 @@ export class AudioEngine {
 
     // Clock Drift Recovery
     if (this.nextTickTime < currentTime) {
-      const tickDuration = this.getTickDuration();
-      const missedTicks = Math.ceil((currentTime - this.nextTickTime) / tickDuration);
-      this.nextTickTime += missedTicks * tickDuration;
-      this.anchorTickCount += missedTicks;
+      const drift = currentTime - this.nextTickTime;
+      if (drift > 1.0) {
+        // En cas de longue suspension (veille/arrière-plan), on réinitialise l'horloge
+        this.nextTickTime = currentTime;
+        this.anchorTime = currentTime;
+        this.anchorTickCount = 0;
+      }
+      // En cas de micro-lag (< 1.0s), on laisse la boucle while rattraper naturellement
+      // les ticks pour préserver l'alignement du step index.
     }
 
     // Schedule events in advance
