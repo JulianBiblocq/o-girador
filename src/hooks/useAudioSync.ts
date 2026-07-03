@@ -640,6 +640,7 @@ export function useAudioSync({
       audioEngine = new AudioEngine(
         rawCtx,
         (time) => {
+          const isDocHidden = typeof document !== 'undefined' && document.hidden;
           if (import.meta.env.DEV) {
           }
           let currentTicks = maxTicksRef.current;
@@ -732,33 +733,35 @@ export function useAudioSync({
           const visualDelay = rawCtx.outputLatency || 0.050; // Fallback to 50ms if not supported
           const drawTime = time + visualDelay;
 
-          Tone.Draw.schedule(() => {
-            // ECO MODE: We used to bypass the visual dispatch here, but we now allow the needle to animate
-            // while saving CPU strictly on DSP effects (Reverb, Compressor).
+          if (!isDocHidden) {
+            Tone.Draw.schedule(() => {
+              // ECO MODE: We used to bypass the visual dispatch here, but we now allow the needle to animate
+              // while saving CPU strictly on DSP effects (Reverb, Compressor).
 
-            window.dispatchEvent(new CustomEvent('o-girador-tick', {
-              detail: {
-                step: _stepForUI,
-                measure: _measureForUI,
-                maxTicks: _currentTicks,
-                ratio: ratioVal,
-                visualStep16: Math.floor(ratioVal * 16),
-                visualStep12: Math.floor(ratioVal * 12),
-                time: time
+              window.dispatchEvent(new CustomEvent('o-girador-tick', {
+                detail: {
+                  step: _stepForUI,
+                  measure: _measureForUI,
+                  maxTicks: _currentTicks,
+                  ratio: ratioVal,
+                  visualStep16: Math.floor(ratioVal * 16),
+                  visualStep12: Math.floor(ratioVal * 12),
+                  time: time
+                }
+              }));
+
+              // Delay the heavy React render until *after* the playhead frame has been painted
+              if (_stepForUI === 0) {
+                requestAnimationFrame(() => {
+                  setTimeout(() => {
+                    React.startTransition(() => {
+                      setCurrentMeasure(_measureForUI);
+                    });
+                  }, 0);
+                });
               }
-            }));
-
-            // Delay the heavy React render until *after* the playhead frame has been painted
-            if (_stepForUI === 0) {
-              requestAnimationFrame(() => {
-                setTimeout(() => {
-                  React.startTransition(() => {
-                    setCurrentMeasure(_measureForUI);
-                  });
-                }, 0);
-              });
-            }
-          }, drawTime);
+            }, drawTime);
+          }
 
           // Pré-calculer la durée d'un 96n une seule fois par tick
           const rawBpm = measureBpmsRef.current[currentMeasureIdx];
@@ -930,9 +933,11 @@ export function useAudioSync({
                       audioEngine?.playNote(inst.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
 
                       // Visual hit trigger
-                      Tone.Draw.schedule(() => {
-                        hitTriggersRef.current.push({ trackId: liveTrack.id, stepIndex: circleStepIdx, state: strokeCharCode });
-                      }, triggerTime);
+                      if (!isDocHidden) {
+                        Tone.Draw.schedule(() => {
+                          hitTriggersRef.current.push({ trackId: liveTrack.id, stepIndex: circleStepIdx, state: strokeCharCode });
+                        }, triggerTime);
+                      }
                     }
                   }
                 }
@@ -1036,9 +1041,11 @@ export function useAudioSync({
                       synth.triggerAttackRelease(noteVal, '8n', triggerTime, trackVolLinear);
                     }
 
-                    Tone.Draw.schedule(() => {
-                      hitTriggersRef.current.push({ trackId: track.id, stepIndex: cellIdx, state });
-                    }, triggerTime);
+                    if (!isDocHidden) {
+                      Tone.Draw.schedule(() => {
+                        hitTriggersRef.current.push({ trackId: track.id, stepIndex: cellIdx, state });
+                      }, triggerTime);
+                    }
                   }
                 }
               }
