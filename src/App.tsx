@@ -465,18 +465,17 @@ export default function App() {
         loadedFromHash = loaded;
         let restoredFromLocalStorage = false;
 
-        // Try to load autosave from localStorage
+        // Try to load autosave from IndexedDB
         if (!loadedFromHash) {
           try {
-            // Support both key variants for backwards compatibility
-            const savedStateStr = localStorage.getItem('o_girador_autosave') || localStorage.getItem('o-girador-autosave');
-            if (savedStateStr) {
-              const savedState = JSON.parse(savedStateStr);
+            const { getAutosave } = await import('./db');
+            const savedState = await getAutosave();
+            if (savedState) {
               await audio.applyPreset(savedState);
               restoredFromLocalStorage = true;
             }
           } catch (err) {
-            console.error('[O Girador] Failed to restore autosave from localStorage:', err);
+            console.error('[O Girador] Failed to restore autosave from IndexedDB:', err);
           }
         }
 
@@ -600,7 +599,7 @@ export default function App() {
     
     let timeoutId: NodeJS.Timeout;
 
-    const performSave = () => {
+    const performSave = async () => {
       const state = useSequencerStore.getState();
       const tracksCopy = state.tracks.map((t: any) => ({
         ...t,
@@ -638,11 +637,11 @@ export default function App() {
         globalSwing: audioRef.current.globalSwing,
       };
       try {
-        localStorage.setItem('o_girador_autosave', JSON.stringify(dataToSave));
-        localStorage.removeItem('o-girador-autosave');
+        const { saveAutosave } = await import('./db');
+        await saveAutosave(dataToSave);
         setIsSavedIndicatorVisible(true);
       } catch (err) {
-        console.error('Failed to autosave state to localStorage:', err);
+        console.error('Failed to autosave state to IndexedDB:', err);
       }
     };
 
