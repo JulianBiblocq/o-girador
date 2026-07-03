@@ -41,7 +41,7 @@ export class AudioEngine {
   private lastTickDuration: number = 0.0;
 
   // Timer handlers
-  private worker: Worker | null = null;
+  private clockNode: AudioWorkletNode | null = null;
   private fallbackTimerId: number | null = null;
 
   // Callbacks
@@ -89,7 +89,15 @@ export class AudioEngine {
     // Pre-build O(1) config lookup map (avoids Array.find() on every note played)
     this.configMap = new Map(instrumentAudioConfigs.map(c => [c.id, c]));
 
-    this.initWorker();
+    if (typeof this.audioContext.audioWorklet === 'undefined') {
+      console.warn("AudioEngine: AudioWorklet not supported. Falling back to setInterval timer.");
+      this.initFallbackTimer();
+    } else {
+      this.initClockWorklet().catch(err => {
+        console.error("AudioEngine: Error initializing clock worklet:", err);
+        this.initFallbackTimer();
+      });
+    }
   }
 
   private updateSchedulingParameters(): void {
@@ -103,52 +111,47 @@ export class AudioEngine {
 
     this.LOOKAHEAD_INTERVAL = isDesktopActive ? 15.0 : 25.0;
 
-    // Dynamically update interval of worker or fallback timer if currently playing
-    if (this.isPlaying) {
-      if (this.worker) {
-        this.worker.postMessage({ action: 'start', interval: this.LOOKAHEAD_INTERVAL });
-      } else if (this.fallbackTimerId !== null) {
-        window.clearInterval(this.fallbackTimerId);
-        this.fallbackTimerId = window.setInterval(() => this.scheduler(), this.LOOKAHEAD_INTERVAL);
-      }
+    // Dynamically update interval of fallback timer if active and playing
+    if (this.isPlaying && !this.clockNode && this.fallbackTimerId !== null) {
+      window.clearInterval(this.fallbackTimerId);
+      this.fallbackTimerId = window.setInterval(() => {
+        if (this.isPlaying) {
+          this.scheduler();
+        }
+      }, this.LOOKAHEAD_INTERVAL);
     }
   }
 
-  private initWorker(): void {
-    if (typeof window === 'undefined' || typeof Worker === 'undefined') return;
-
-    const workerCode = `
-      let timerId = null;
-      self.onmessage = function(e) {
-        if (e.data.action === 'start') {
-          if (timerId) clearInterval(timerId);
-          const interval = e.data.interval || 10;
-          timerId = setInterval(function() {
-            postMessage('tick');
-          }, interval);
-        } else if (e.data.action === 'stop') {
-          if (timerId) {
-            clearInterval(timerId);
-            timerId = null;
-          }
-        }
-      };
-    `;
-
+  private async initClockWorklet(): Promise<void> {
     try {
-      const blob = new Blob([workerCode], { type: 'application/javascript' });
-      const workerUrl = URL.createObjectURL(blob);
-      this.worker = new Worker(workerUrl);
-      // We purposefully DO NOT revoke the URL to prevent any race condition on slow devices.
+      // @ts-ignore
+      const baseUrl = import.meta.env.BASE_URL || '/';
+      const cleanBase = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
+      const workletUrl = `${cleanBase}clock.worklet.js`;
+
+      await this.audioContext.audioWorklet.addModule(workletUrl);
       
-      this.worker.onmessage = () => {
+      this.clockNode = new AudioWorkletNode(this.audioContext, 'clock-processor');
+      this.clockNode.port.onmessage = () => {
         if (this.isPlaying) {
           this.scheduler();
         }
       };
+      this.clockNode.connect(this.audioContext.destination);
     } catch (err) {
-      console.warn("AudioEngine: Web Worker creation blocked. Falling back to main-thread timers.", err);
-      this.worker = null;
+      console.warn("AudioEngine: Failed to initialize clock AudioWorklet. Falling back to setInterval clock.", err);
+      this.initFallbackTimer();
+    }
+  }
+
+  private initFallbackTimer(): void {
+    if (this.clockNode) return;
+    if (this.fallbackTimerId === null) {
+      this.fallbackTimerId = window.setInterval(() => {
+        if (this.isPlaying) {
+          this.scheduler();
+        }
+      }, this.LOOKAHEAD_INTERVAL);
     }
   }
 
@@ -158,19 +161,13 @@ export class AudioEngine {
   public start(): void {
     if (this.isPlaying) return;
 
-    this.isPlaying = true;
-    
     // Initialize timing markers
     this.nextTickTime = this.audioContext.currentTime;
     this.anchorTime = this.nextTickTime;
     this.anchorTickCount = 0;
     this.lastTickDuration = this.getTickDuration();
 
-    if (this.worker) {
-      this.worker.postMessage({ action: 'start', interval: this.LOOKAHEAD_INTERVAL });
-    } else {
-      this.fallbackTimerId = window.setInterval(() => this.scheduler(), this.LOOKAHEAD_INTERVAL);
-    }
+    this.isPlaying = true;
   }
 
   /**
@@ -180,15 +177,6 @@ export class AudioEngine {
     if (!this.isPlaying) return;
 
     this.isPlaying = false;
-
-    if (this.worker) {
-      this.worker.postMessage({ action: 'stop' });
-    }
-    
-    if (this.fallbackTimerId !== null) {
-      window.clearInterval(this.fallbackTimerId);
-      this.fallbackTimerId = null;
-    }
 
     this.scheduledHits.forEach((source) => {
       try {
@@ -732,9 +720,11 @@ export class AudioEngine {
       document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     }
     
-    if (this.worker) {
-      this.worker.terminate();
-      this.worker = null;
+    if (this.clockNode) {
+      try {
+        this.clockNode.disconnect();
+      } catch (_) {}
+      this.clockNode = null;
     }
     
     if (this.fallbackTimerId) {
