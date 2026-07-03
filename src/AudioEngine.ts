@@ -97,11 +97,9 @@ export class AudioEngine {
     const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
     const isDesktopActive = !isMobile && !isHidden;
 
-    const hwLatency = (this.audioContext.baseLatency || 0) + ((this.audioContext as any).outputLatency || 0);
+    const hwLatency = (this.audioContext.baseLatency || 0.05) + ((this.audioContext as any).outputLatency || 0.05);
 
-    this.SCHEDULE_AHEAD_TIME = isDesktopActive
-      ? 0.150
-      : (isMobile ? Math.max(0.600, hwLatency + 0.300) : 0.500);
+    this.SCHEDULE_AHEAD_TIME = Math.max(0.150, hwLatency + 0.050);
 
     this.LOOKAHEAD_INTERVAL = isDesktopActive ? 15.0 : 25.0;
 
@@ -233,9 +231,10 @@ export class AudioEngine {
 
     // Clock Drift Recovery
     if (this.nextTickTime < currentTime) {
-      this.nextTickTime = currentTime;
-      this.anchorTime = currentTime;
-      this.anchorTickCount = 0;
+      const tickDuration = this.getTickDuration();
+      const missedTicks = Math.ceil((currentTime - this.nextTickTime) / tickDuration);
+      this.nextTickTime += missedTicks * tickDuration;
+      this.anchorTickCount += missedTicks;
     }
 
     // Schedule events in advance
