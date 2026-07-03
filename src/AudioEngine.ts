@@ -76,9 +76,13 @@ export class AudioEngine {
     onTick: (time: number) => void,
     getTickDuration: () => number
   ) {
-    this.audioContext = audioContext;
+    // Unpack native BaseAudioContext if a Tone.js Context wrapper was passed
+    const rawContext = (audioContext as any).rawContext || audioContext;
+    this.audioContext = rawContext;
     this.onTick = onTick;
     this.getTickDuration = getTickDuration;
+
+    console.log("DEBUG: AudioEngine Constructor: audioContext =", audioContext, "typeof:", typeof audioContext, "unpacked rawContext:", rawContext);
 
     this.updateSchedulingParameters();
 
