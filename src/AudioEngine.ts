@@ -28,6 +28,7 @@ interface ActiveVoice {
 export class AudioEngine {
   private audioContext: AudioContext;
   private isPlaying: boolean = false;
+  private readonly MAX_POOL_SIZE: number = 40;
   
   // Timing variables (adaptive to device capabilities)
   public LOOKAHEAD_INTERVAL: number = 25.0; // ms
@@ -193,6 +194,7 @@ export class AudioEngine {
 
     this.scheduledHits.forEach((source) => {
       try {
+        source.onended = null;
         source.stop();
         source.disconnect();
       } catch (_) {}
@@ -380,6 +382,7 @@ export class AudioEngine {
       const pool: GainNode[] = [];
       for (let i = 0; i < 15; i++) {
         const gainNode = this.audioContext.createGain();
+        (gainNode as any)._isReleased = true;
         gainNode.gain.value = 0;
         Tone.connect(gainNode, channel);
         pool.push(gainNode);
@@ -409,17 +412,17 @@ export class AudioEngine {
     }
   }
 
-  /**
-   * Retire et retourne un nœud disponible du pool. En crée un nouveau si la piscine est vide.
-   */
   private getGainNode(instrumentId: string): GainNode {
     const Tone = getTone();
     const pool = this.gainNodePools.get(instrumentId);
     if (pool && pool.length > 0) {
-      return pool.pop()!;
+      const gainNode = pool.pop()!;
+      (gainNode as any)._isReleased = false;
+      return gainNode;
     }
     // Fallback dynamique
     const gainNode = this.audioContext.createGain();
+    (gainNode as any)._isReleased = false;
     gainNode.gain.value = 0;
     const channel = this.instrumentChannels.get(instrumentId);
     if (channel) {
@@ -434,6 +437,9 @@ export class AudioEngine {
    * Nettoie strictement le nœud de volume et le rend à la piscine.
    */
   private releaseGainNode(instrumentId: string, gainNode: GainNode): void {
+    if ((gainNode as any)._isReleased) return;
+    (gainNode as any)._isReleased = true;
+
     const currentTime = this.audioContext.currentTime;
     try {
       gainNode.gain.cancelScheduledValues(currentTime);
@@ -441,7 +447,7 @@ export class AudioEngine {
     } catch (_) {}
     
     const pool = this.gainNodePools.get(instrumentId);
-    if (pool) {
+    if (pool && pool.length < this.MAX_POOL_SIZE) {
       pool.push(gainNode);
     }
   }
@@ -675,7 +681,17 @@ export class AudioEngine {
         const fadeTime = 0.015; // 15ms fade out to avoid clicks
         activeGain.gain.setValueAtTime(activeGain.gain.value, time);
         activeGain.gain.linearRampToValueAtTime(0, time + fadeTime);
+        
+        activeNode.onended = null;
         activeNode.stop(time + fadeTime);
+        
+        const nodeToDisconnect = activeNode;
+        const gainToRelease = activeGain;
+        setTimeout(() => {
+          try { nodeToDisconnect.disconnect(); } catch (_) {}
+          this.releaseGainNode(instrumentId, gainToRelease);
+          this.activeGainNodes.delete(nodeToDisconnect);
+        }, (fadeTime * 1000) + 50);
       } catch (_) {
         // Fallback cleanup if node is already stopped/dead
         try { activeNode.disconnect(); } catch (_) {}
