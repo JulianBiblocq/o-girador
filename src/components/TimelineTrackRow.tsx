@@ -54,7 +54,10 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
       className={`flex border-b border-[var(--cordel-border)]/20 h-12 transition-opacity duration-150 ${
         !canPlay ? 'opacity-50' : ''
       }`}
-      style={{ width: `${HEADER_W + totalContentW}px` }}
+      style={{ 
+        width: `${HEADER_W + totalContentW}px`,
+        contain: 'strict',
+      }}
     >
       {/* ── Sticky track header ── */}
       <div

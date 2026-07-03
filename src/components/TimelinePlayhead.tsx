@@ -20,7 +20,7 @@ const TimelinePlayheadComponent: React.FC = () => {
   
   const layoutCache = useRef({ 
     vw: 0, 
-    lastScrollX: -1 
+    lastScrollX: 0 
   });
 
   const lastExactXRef = useRef<number>(-1);
@@ -43,7 +43,7 @@ const TimelinePlayheadComponent: React.FC = () => {
       if (scrollEl) {
         scrollEl.scrollLeft = 0;
       }
-      layoutCache.current.lastScrollX = -1;
+      layoutCache.current.lastScrollX = 0;
     }
   }, [audio.isPlaying, HEADER_W]);
 
@@ -52,6 +52,7 @@ const TimelinePlayheadComponent: React.FC = () => {
     if (!scrollEl) return;
 
     layoutCache.current.vw = scrollEl.clientWidth - HEADER_W;
+    layoutCache.current.lastScrollX = scrollEl.scrollLeft;
     
     const resizeObserver = new ResizeObserver((entries) => {
       if (entries[0]) {
@@ -59,6 +60,12 @@ const TimelinePlayheadComponent: React.FC = () => {
       }
     });
     resizeObserver.observe(scrollEl);
+
+    // Écouteur de scroll passif pour mettre à jour lastScrollX en cache (0 layout thrashing)
+    const handleScroll = () => {
+      layoutCache.current.lastScrollX = scrollEl.scrollLeft;
+    };
+    scrollEl.addEventListener('scroll', handleScroll, { passive: true });
 
     const handleTick = (e: Event) => {
       const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
@@ -117,6 +124,7 @@ const TimelinePlayheadComponent: React.FC = () => {
     return () => {
       window.removeEventListener('o-girador-tick', handleTick);
       resizeObserver.disconnect();
+      scrollEl.removeEventListener('scroll', handleScroll);
     };
   }, [MEASURE_W, HEADER_W, bpm, measureTimeSigs]);
 
@@ -146,7 +154,7 @@ const TimelinePlayheadComponent: React.FC = () => {
           // --- AUTO-SCROLL (Pagination douce) ---
           const { vw, lastScrollX } = layoutCache.current;
           if (vw > 0 && scrollEl) {
-            const currentScroll = lastScrollX !== -1 ? lastScrollX : scrollEl.scrollLeft;
+            const currentScroll = lastScrollX; // Zéro lecture synchrone de scrollEl.scrollLeft !
             const playheadScreenX = currentX - currentScroll;
 
             // Tourne la page uniquement quand on arrive à 95% de l'écran visible

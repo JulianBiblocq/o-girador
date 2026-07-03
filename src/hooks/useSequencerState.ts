@@ -61,7 +61,8 @@ export function useSequencerState() {
   const handleUpdateSongMarker = useSequencerStore(state => state.handleUpdateSongMarker);
   const handleDeleteSongMarker = useSequencerStore(state => state.handleDeleteSongMarker);
 
-  const [activeAoVivoTrackId, setActiveAoVivoTrackId] = useState<number | null>(null);
+  const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
+  const setActiveAoVivoTrackId = useSequencerStore(state => state.setActiveAoVivoTrackId);
 
   // Sync local states to the store for autosave and global access
   useEffect(() => {
