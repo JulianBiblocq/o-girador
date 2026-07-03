@@ -64,6 +64,31 @@ export class AudioEngine {
   // O(1) lookup cache for instrument configurations (built once in constructor)
   private readonly configMap: Map<string, InstrumentAudioConfig>;
 
+  // Pre-allocated object pools to avoid runtime dynamic allocations in the hot path
+  private gainNodeMappingPool: { instrumentId: string; gainNode: GainNode | null }[] = [];
+  private gainNodeMappingPoolIndex = 0;
+  private activeVoicePool: ActiveVoice[] = [];
+  private activeVoicePoolIndex = 0;
+
+  private getGainNodeMapping(instrumentId: string, gainNode: GainNode): { instrumentId: string; gainNode: GainNode } {
+    const obj = this.gainNodeMappingPool[this.gainNodeMappingPoolIndex];
+    this.gainNodeMappingPoolIndex = (this.gainNodeMappingPoolIndex + 1) % 512;
+    obj.instrumentId = instrumentId;
+    obj.gainNode = gainNode;
+    return obj as { instrumentId: string; gainNode: GainNode };
+  }
+
+  private getActiveVoice(source: AudioBufferSourceNode, gainNode: GainNode, time: number, velocity: number, instrumentId: string): ActiveVoice {
+    const obj = this.activeVoicePool[this.activeVoicePoolIndex];
+    this.activeVoicePoolIndex = (this.activeVoicePoolIndex + 1) % 512;
+    obj.source = source;
+    obj.gainNode = gainNode;
+    obj.time = time;
+    obj.velocity = velocity;
+    obj.instrumentId = instrumentId;
+    return obj;
+  }
+
   private handleVisibilityChange = () => {
     this.updateSchedulingParameters();
   };
@@ -90,6 +115,18 @@ export class AudioEngine {
 
     // Pre-build O(1) config lookup map (avoids Array.find() on every note played)
     this.configMap = new Map(instrumentAudioConfigs.map(c => [c.id, c]));
+
+    // Pre-populate object pools to avoid runtime dynamic allocations in the hot path
+    for (let i = 0; i < 512; i++) {
+      this.gainNodeMappingPool.push({ instrumentId: '', gainNode: null });
+      this.activeVoicePool.push({
+        source: null as any,
+        gainNode: null as any,
+        time: 0,
+        velocity: 0,
+        instrumentId: ''
+      });
+    }
 
     const nativeContext =
       (audioContext as any)._nativeContext ||
@@ -202,9 +239,11 @@ export class AudioEngine {
     this.scheduledHits.clear();
 
     // Release any active gain nodes to prevent leaks on stop
-    this.activeGainNodes.forEach(({ instrumentId, gainNode }) => {
-      this.releaseGainNode(instrumentId, gainNode);
-    });
+    for (const [_, mapping] of this.activeGainNodes) {
+      this.releaseGainNode(mapping.instrumentId, mapping.gainNode);
+      mapping.gainNode = null as any;
+      mapping.instrumentId = '';
+    }
     this.activeGainNodes.clear();
     this.instrumentVoices.clear();
   }
@@ -593,6 +632,9 @@ export class AudioEngine {
           } catch (e) {
             try { oldestVoice.source.stop(); } catch (_) {}
           }
+          oldestVoice.source = null as any;
+          oldestVoice.gainNode = null as any;
+          oldestVoice.instrumentId = '';
         }
       }
       this.instrumentVoices.set(instrumentId, voices);
@@ -632,16 +674,25 @@ export class AudioEngine {
       source.start(time);
       this.activeBarulhoNodes.set(instrumentId, source);
       this.activeBarulhoGains.set(instrumentId, gainNode);
-      this.activeGainNodes.set(source, { instrumentId, gainNode });
+      this.activeGainNodes.set(source, this.getGainNodeMapping(instrumentId, gainNode));
 
       source.onended = () => {
         try { source.disconnect(); } catch (_) {}
         this.releaseGainNode(instrumentId, gainNode);
+        const mapping = this.activeGainNodes.get(source);
+        if (mapping) {
+          mapping.gainNode = null as any;
+          mapping.instrumentId = '';
+        }
         this.activeGainNodes.delete(source);
         const currentVoices = this.instrumentVoices.get(instrumentId);
         if (currentVoices) {
           for (let i = 0; i < currentVoices.length; i++) {
             if (currentVoices[i].source === source) {
+              const voice = currentVoices[i];
+              voice.source = null as any;
+              voice.gainNode = null as any;
+              voice.instrumentId = '';
               currentVoices.splice(i, 1);
               break;
             }
@@ -651,12 +702,12 @@ export class AudioEngine {
 
       if (isEco) {
         const voices = this.instrumentVoices.get(instrumentId) || [];
-        voices.push({ source, gainNode, time, velocity, instrumentId });
+        voices.push(this.getActiveVoice(source, gainNode, time, velocity, instrumentId));
         this.instrumentVoices.set(instrumentId, voices);
       }
     } else {
       this.scheduledHits.add(source);
-      this.activeGainNodes.set(source, { instrumentId, gainNode });
+      this.activeGainNodes.set(source, this.getGainNodeMapping(instrumentId, gainNode));
       const duration = buffer.duration * decayMultiplier;
       if (decayMultiplier < 1.0) {
         const fadeTime = Math.min(0.015, duration / 2);
@@ -671,11 +722,20 @@ export class AudioEngine {
         this.scheduledHits.delete(source);
         try { source.disconnect(); } catch (_) {}
         this.releaseGainNode(instrumentId, gainNode);
+        const mapping = this.activeGainNodes.get(source);
+        if (mapping) {
+          mapping.gainNode = null as any;
+          mapping.instrumentId = '';
+        }
         this.activeGainNodes.delete(source);
         const currentVoices = this.instrumentVoices.get(instrumentId);
         if (currentVoices) {
           for (let i = 0; i < currentVoices.length; i++) {
             if (currentVoices[i].source === source) {
+              const voice = currentVoices[i];
+              voice.source = null as any;
+              voice.gainNode = null as any;
+              voice.instrumentId = '';
               currentVoices.splice(i, 1);
               break;
             }
@@ -685,7 +745,7 @@ export class AudioEngine {
 
       if (isEco) {
         const voices = this.instrumentVoices.get(instrumentId) || [];
-        voices.push({ source, gainNode, time, velocity, instrumentId });
+        voices.push(this.getActiveVoice(source, gainNode, time, velocity, instrumentId));
         this.instrumentVoices.set(instrumentId, voices);
       }
     }
@@ -710,6 +770,10 @@ export class AudioEngine {
       if (currentVoices) {
         for (let i = 0; i < currentVoices.length; i++) {
           if (currentVoices[i].source === activeNode) {
+            const voice = currentVoices[i];
+            voice.source = null as any;
+            voice.gainNode = null as any;
+            voice.instrumentId = '';
             currentVoices.splice(i, 1);
             break;
           }
@@ -728,12 +792,22 @@ export class AudioEngine {
         setTimeout(() => {
           try { nodeToDisconnect.disconnect(); } catch (_) {}
           this.releaseGainNode(instrumentId, gainToRelease);
+          const mapping = this.activeGainNodes.get(nodeToDisconnect);
+          if (mapping) {
+            mapping.gainNode = null as any;
+            mapping.instrumentId = '';
+          }
           this.activeGainNodes.delete(nodeToDisconnect);
         }, (fadeTime * 1000) + 50);
       } catch (_) {
         // Fallback cleanup if node is already stopped/dead
         try { activeNode.disconnect(); } catch (_) {}
         this.releaseGainNode(instrumentId, activeGain);
+        const mapping = this.activeGainNodes.get(activeNode);
+        if (mapping) {
+          mapping.gainNode = null as any;
+          mapping.instrumentId = '';
+        }
         this.activeGainNodes.delete(activeNode);
       }
       this.activeBarulhoNodes.delete(instrumentId);
@@ -785,6 +859,10 @@ export class AudioEngine {
     this.activeBarulhoNodes.clear();
     this.activeBarulhoGains.clear();
     this.scheduledHits.clear();
+    for (const [_, mapping] of this.activeGainNodes) {
+      mapping.gainNode = null as any;
+      mapping.instrumentId = '';
+    }
     this.activeGainNodes.clear();
     this.gainNodePools.clear();
     this.instrumentVoices.clear();

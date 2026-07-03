@@ -169,6 +169,15 @@ export function useAudioSync({
   const bMetroClickRef = useRef<Tone.Synth | null>(null);
   const metroClaveClickRef = useRef<Tone.MembraneSynth | null>(null);
   const metroCowbellClickRef = useRef<Tone.MetalSynth | null>(null);
+  const tickEventDetailRef = useRef({
+    step: 0,
+    measure: 0,
+    maxTicks: 96,
+    ratio: 0,
+    visualStep16: 0,
+    visualStep12: 0,
+    time: 0
+  });
 
   useEffect(() => {
     return () => {
@@ -675,7 +684,16 @@ export function useAudioSync({
               const currentMeasureIdx = measureCountRef.current;
               const effectiveLoopEnd = (isLoopRegionActiveRef.current && loopEndRef.current !== null) ? loopEndRef.current : (totalMeasuresRef.current - 1);
 
-              const activeSection = songSectionsRef.current?.find(s => currentMeasureIdx === s.endMeasure);
+              let activeSection = null;
+              const sections = songSectionsRef.current;
+              if (sections) {
+                for (let i = 0; i < sections.length; i++) {
+                  if (sections[i].endMeasure === currentMeasureIdx) {
+                    activeSection = sections[i];
+                    break;
+                  }
+                }
+              }
 
               if (currentMeasureIdx === effectiveLoopEnd) {
                 // Global boundary logic wins
@@ -738,16 +756,17 @@ export function useAudioSync({
               // ECO MODE: We used to bypass the visual dispatch here, but we now allow the needle to animate
               // while saving CPU strictly on DSP effects (Reverb, Compressor).
 
+              const detail = tickEventDetailRef.current;
+              detail.step = _stepForUI;
+              detail.measure = _measureForUI;
+              detail.maxTicks = _currentTicks;
+              detail.ratio = ratioVal;
+              detail.visualStep16 = Math.floor(ratioVal * 16);
+              detail.visualStep12 = Math.floor(ratioVal * 12);
+              detail.time = time;
+
               window.dispatchEvent(new CustomEvent('o-girador-tick', {
-                detail: {
-                  step: _stepForUI,
-                  measure: _measureForUI,
-                  maxTicks: _currentTicks,
-                  ratio: ratioVal,
-                  visualStep16: Math.floor(ratioVal * 16),
-                  visualStep12: Math.floor(ratioVal * 12),
-                  time: time
-                }
+                detail
               }));
 
               // Delay the heavy React render until *after* the playhead frame has been painted
@@ -923,7 +942,15 @@ export function useAudioSync({
                         }
                       }
 
-                      const activePattern = liveTrack.patterns.find(p => p.measureAssignments[currentMeasureIdx]);
+                      let activePattern = null;
+                      const patterns = liveTrack.patterns;
+                      const numPatterns = patterns.length;
+                      for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+                        if (patterns[pIdx].measureAssignments[currentMeasureIdx]) {
+                          activePattern = patterns[pIdx];
+                          break;
+                        }
+                      }
                       const stepCount = activePattern ? activePattern.steps : 16;
                       const stepDurSec = tick96nSec * (currentTicks / stepCount);
                       const microOffset = (microtimingPct / 100) * stepDurSec * 0.5;
@@ -950,13 +977,26 @@ export function useAudioSync({
 
 
           // Vocal recordings logic
-          tracksRef.current.forEach((track) => {
-            const currentMeasureLocal = measureCountRef.current % totalMeasuresRef.current;
+          const tracks = tracksRef.current;
+          const numTracks = tracks.length;
+          const currentMeasureLocal = measureCountRef.current % totalMeasuresRef.current;
+
+          for (let trackIdx = 0; trackIdx < numTracks; trackIdx++) {
+            const track = tracks[trackIdx];
             const inst = instrumentsConfig[track.instrumentIdx];
-            if (!inst || inst.type !== 'voice') return;
+            if (!inst || inst.type !== 'voice') continue;
 
             if (recordingVocalPatternIdRef.current !== null) {
-              const hasPatternBeingRecorded = track.patterns.some((p: any) => p.id === recordingVocalPatternIdRef.current);
+              let hasPatternBeingRecorded = false;
+              const patterns = track.patterns;
+              const numPatterns = patterns.length;
+              for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+                if (patterns[pIdx].id === recordingVocalPatternIdRef.current) {
+                  hasPatternBeingRecorded = true;
+                  break;
+                }
+              }
+
               if (hasPatternBeingRecorded) {
                 if (stepIdx === 0 && vocalRecordingStateRef.current === 'waiting') {
                   vocalRecordingStateRef.current = 'recording';
@@ -979,20 +1019,39 @@ export function useAudioSync({
             }
 
             // Playback of vocal patterns
-            const activePattern = track.patterns.find((p: any) => p.measureAssignments[currentMeasureLocal]);
-            if (!activePattern) return;
+            let activePattern = null;
+            const patterns = track.patterns;
+            const numPatterns = patterns.length;
+            for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+              if (patterns[pIdx].measureAssignments[currentMeasureLocal]) {
+                activePattern = patterns[pIdx];
+                break;
+              }
+            }
+            if (!activePattern) continue;
 
             const isSoloPlayActive = soloPatternPlayIdRef.current !== null;
             let canPlay = false;
 
             if (isSoloPlayActive) {
-              canPlay = track.patterns.some((p: any) => p.id === soloPatternPlayIdRef.current);
+              for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+                if (patterns[pIdx].id === soloPatternPlayIdRef.current) {
+                  canPlay = true;
+                  break;
+                }
+              }
             } else {
-              const hasSolo = tracksRef.current.some((t: any) => t.isSolo);
+              let hasSolo = false;
+              for (let tIdx = 0; tIdx < numTracks; tIdx++) {
+                if (tracks[tIdx].isSolo) {
+                  hasSolo = true;
+                  break;
+                }
+              }
               canPlay = hasSolo ? track.isSolo : !track.isMute;
             }
 
-            if (!canPlay) return;
+            if (!canPlay) continue;
 
             if (activePattern.vocalMode === 'micro') {
               const player = vocalPlayersRef.current[activePattern.id];
@@ -1010,7 +1069,7 @@ export function useAudioSync({
                 const delaySec = (activePattern.vocalLatency ?? 0) / 1000;
                 const triggerTime = time + delaySec;
 
-                const liveTrack = tracksRef.current.find(t => t.id === track.id);
+                const liveTrack = tracks[trackIdx];
                 const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
 
                 if (stepIdx === 0 && trackVolPct > 0) {
@@ -1034,7 +1093,7 @@ export function useAudioSync({
                     const symbol = String(state);
                     const noteVal = symbol === 'D' ? 'A3' : symbol === 'E' ? 'E3' : 'C3';
                     const triggerTime = swingTime;
-                    const liveTrack = tracksRef.current.find(t => t.id === track.id);
+                    const liveTrack = tracks[trackIdx];
                     const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
                     if (trackVolPct > 0) {
                       const trackVolLinear = Math.pow(trackVolPct / 100, 2);
@@ -1050,7 +1109,7 @@ export function useAudioSync({
                 }
               }
             }
-          });
+          }
         },
         () => {
           const currentMeasureIdx = measureCountRef.current % (totalMeasuresRef.current || 1);
@@ -1177,16 +1236,16 @@ export function useAudioSync({
       const pausedMaxTicks = maxTicksRef.current;
       const ratioVal = pausedMaxTicks > 0 ? (pausedStep >= 0 ? pausedStep : 0) / pausedMaxTicks : 0;
 
-      window.dispatchEvent(new CustomEvent('o-girador-tick', {
-        detail: {
-          step: pausedStep,
-          measure: pausedMeasure,
-          maxTicks: pausedMaxTicks,
-          ratio: ratioVal,
-          visualStep16: Math.floor(ratioVal * 16),
-          visualStep12: Math.floor(ratioVal * 12)
-        }
-      }));
+      const detail = tickEventDetailRef.current;
+      detail.step = pausedStep;
+      detail.measure = pausedMeasure;
+      detail.maxTicks = pausedMaxTicks;
+      detail.ratio = ratioVal;
+      detail.visualStep16 = Math.floor(ratioVal * 16);
+      detail.visualStep12 = Math.floor(ratioVal * 12);
+      detail.time = Tone.context.currentTime;
+
+      window.dispatchEvent(new CustomEvent('o-girador-tick', { detail }));
     }
   };
 
@@ -1222,9 +1281,16 @@ export function useAudioSync({
     setCurrentMeasure(0);
     Tone.Transport.seconds = 0;
     lastPlayedSignalIdRef.current = null;
-    window.dispatchEvent(new CustomEvent('o-girador-tick', {
-      detail: { step: -1, measure: 0, maxTicks: 16 }
-    }));
+    const detail = tickEventDetailRef.current;
+    detail.step = -1;
+    detail.measure = 0;
+    detail.maxTicks = 16;
+    detail.ratio = 0;
+    detail.visualStep16 = 0;
+    detail.visualStep12 = 0;
+    detail.time = 0;
+
+    window.dispatchEvent(new CustomEvent('o-girador-tick', { detail }));
   };
 
   const handleStartSoloPattern = async (patternId: number, variationId?: string) => {
