@@ -1,12 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import type * as ToneType from 'tone';
-import { loadTone, getTone } from '@/src/ToneLoader';
-
-function safeGetTone() {
-  try { return getTone(); } catch { return null; }
-}
-import { Play, Square, RotateCcw, ArrowRight, HelpCircle, Check, X, Hourglass } from 'lucide-react';
-import { MestreRound, mestreRounds } from '../data/mestreData';
+import React, { useRef } from 'react';
+import { Play, Square, RotateCcw, ArrowRight, HelpCircle, Check, X } from 'lucide-react';
+import { useMestreGame } from '../hooks/useMestreGame';
 
 interface MestreEngineProps {
   lang: 'fr' | 'pt';
@@ -23,151 +17,19 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
   setRhythmState,
   onSuccess
 }) => {
-  // Round management
-  const [roundIdx, setRoundIdx] = useState<number>(0);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [validationResult, setValidationResult] = useState<'success' | 'failure' | null>(null);
-
-  useEffect(() => {
-    if (validationResult === 'success') {
-      onSuccess?.();
-    }
-  }, [validationResult, onSuccess]);
-  
-  // Timer progress states
-  const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
-  const [isRoundStarted, setIsRoundStarted] = useState<boolean>(false);
   const circleRef = useRef<SVGCircleElement>(null);
-  
-  // Refs to avoid stale closures in safeGetTone()?.js thread
-  const selectedOptionRef = useRef<string | null>(null);
-  const correctAnswerRef = useRef<string>('');
-  const scheduledEventIdRef = useRef<number | null>(null);
-  const animationFrameIdRef = useRef<number | null>(null);
-  const timerStartTimeRef = useRef<number>(0);
-  const timerDurationRef = useRef<number>(0);
-  const playbackActiveRef = useRef<boolean>(false);
 
-  const activeRound = mestreRounds[roundIdx];
-
-  // Keep refs updated
-  useEffect(() => {
-    if (activeRound) {
-      correctAnswerRef.current = activeRound.correctAnswer[lang];
-    }
-  }, [activeRound, lang]);
-
-  useEffect(() => {
-    selectedOptionRef.current = selectedOption;
-  }, [selectedOption]);
-
-  // Clean up on unmount or view change
-  useEffect(() => {
-    return () => {
-      cleanUpTimer();
-    };
-  }, []);
-
-  const cleanUpTimer = () => {
-    playbackActiveRef.current = false;
-    if (animationFrameIdRef.current !== null) {
-      cancelAnimationFrame(animationFrameIdRef.current);
-      animationFrameIdRef.current = null;
-    }
-    if (scheduledEventIdRef.current !== null) {
-      try {
-        safeGetTone()?.Transport.clear(scheduledEventIdRef.current);
-      } catch (e) {}
-      scheduledEventIdRef.current = null;
-    }
-  };
-
-  const startRound = () => {
-    // 1. Reset state
-    cleanUpTimer();
-    setSelectedOption(null);
-    setValidationResult(null);
-    setRhythmState('base');
-    setIsRoundStarted(true);
-    setIsTimerRunning(true);
-    
-    // Make sure Transport is started
-    if (safeGetTone()?.Transport.state !== 'started') {
-      safeGetTone()?.Transport.start();
-    }
-
-    // 2. Schedule validation in 2 measures (exactly +2m)
-    const duration = safeGetTone()?.Time("2m").toSeconds();
-    timerDurationRef.current = duration;
-    timerStartTimeRef.current = safeGetTone()?.Transport.seconds;
-    playbackActiveRef.current = true;
-
-    const eventId = safeGetTone()?.Transport.schedule((time) => {
-      const answer = selectedOptionRef.current;
-      const correct = correctAnswerRef.current;
-      
-      // Use safeGetTone()?.Draw to safely update React state synchronized with audio render frame
-      safeGetTone()?.Draw.schedule(() => {
-        if (answer === correct) {
-          setValidationResult('success');
-          setRhythmState('variation');
-        } else {
-          setValidationResult('failure');
-          setRhythmState('rufo');
-        }
-        setIsTimerRunning(false);
-      }, time);
-
-    }, `+2m`);
-    
-    scheduledEventIdRef.current = eventId;
-
-    // 3. Start progress animation loop
-    const updateProgress = () => {
-      if (!playbackActiveRef.current) return;
-      
-      const elapsed = safeGetTone()?.Transport.seconds - timerStartTimeRef.current;
-      const progress = Math.min(1, Math.max(0, elapsed / duration));
-      
-      // Circumference of radius 32 is ~201 (2 * Math.PI * 32)
-      // offset 0 = full circle, offset 201 = empty circle
-      if (circleRef.current) {
-        circleRef.current.style.strokeDashoffset = String(201 * progress);
-      }
-
-      if (progress < 1) {
-        animationFrameIdRef.current = requestAnimationFrame(updateProgress);
-      } else {
-        if (circleRef.current) {
-          circleRef.current.style.strokeDashoffset = '201';
-        }
-      }
-    };
-    
-    animationFrameIdRef.current = requestAnimationFrame(updateProgress);
-  };
-
-  const handleOptionSelect = (option: string) => {
-    if (validationResult !== null || !isTimerRunning) return; // Round already validated
-    setSelectedOption(option);
-  };
-
-  const handleNextRound = () => {
-    cleanUpTimer();
-    setIsRoundStarted(false);
-    setSelectedOption(null);
-    setValidationResult(null);
-    setRhythmState('base');
-    if (circleRef.current) {
-      circleRef.current.style.strokeDashoffset = '0';
-    }
-    
-    if (roundIdx < mestreRounds.length - 1) {
-      setRoundIdx(roundIdx + 1);
-    } else {
-      setRoundIdx(0); // Loop back to level 1
-    }
-  };
+  const {
+    roundIdx,
+    selectedOption,
+    validationResult,
+    isTimerRunning,
+    isRoundStarted,
+    activeRound,
+    startRound,
+    handleOptionSelect,
+    handleNextRound,
+  } = useMestreGame({ lang, onSuccess, setRhythmState, circleRef });
 
   const t = {
     fr: {
@@ -204,7 +66,6 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
 
   return (
     <div className="w-full max-w-xl mx-auto p-4 flex flex-col gap-6 cordel-bg select-none my-4">
-      {/* Header */}
       <div className="flex items-center justify-between border-b-4 border-[var(--cordel-border)] pb-3">
         <div className="flex flex-col">
           <h2 className="font-cactus text-xl uppercase tracking-wide text-[var(--cordel-text)] font-bold">
@@ -220,7 +81,6 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
         </button>
       </div>
 
-      {/* Level Info Instructions */}
       {!isRoundStarted && (
         <div className="p-4 border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] text-center flex flex-col items-center gap-4 cordel-border">
           <p className="text-xs text-[var(--cordel-text)]/80 leading-relaxed font-cactus">
@@ -237,16 +97,13 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
 
       {isRoundStarted && (
         <>
-          {/* Central Sign Area (Woodcut Frame with Hourglass Visual) */}
           <div className="flex flex-col items-center gap-2">
             <span className="text-[9px] uppercase tracking-widest text-[var(--cordel-text)]/60 font-bold">
               {t.hourglassLabel}
             </span>
 
             <div className="w-48 h-48 border-4 border-[var(--cordel-border)] bg-[var(--cordel-bg)] flex items-center justify-center relative shadow-[6px_6px_0_var(--cordel-border)] rounded-sm">
-              {/* Animated Circle Sablier (Hourglass) */}
               <svg className="w-40 h-40 absolute" viewBox="0 0 80 80">
-                {/* Background Track circle */}
                 <circle
                   cx="40"
                   cy="40"
@@ -256,7 +113,6 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
                   strokeWidth="1.5"
                   strokeOpacity="0.15"
                 />
-                {/* Foreground animated sand circle */}
                 <circle
                   ref={circleRef}
                   cx="40"
@@ -273,7 +129,6 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
                 />
               </svg>
 
-              {/* Central Sign Icon / Symbol */}
               <div className="flex flex-col items-center justify-center z-10">
                 <span className="text-6xl filter drop-shadow-[2px_2px_0_var(--cordel-bg)] animate-pulse">
                   {activeRound.signSymbol}
@@ -283,7 +138,6 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
                 </span>
               </div>
 
-              {/* "VOTED" Carimbo Stamp Overlay */}
               {selectedOption && validationResult === null && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none select-none z-20">
                   <div className="border-3 border-dashed border-[var(--cordel-wood)] text-[var(--cordel-wood)] font-cactus font-black text-xs px-3 py-1.5 uppercase tracking-widest rotate-[-12deg] bg-[var(--cordel-bg)]/90 shadow-md">
@@ -293,7 +147,6 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
                 </div>
               )}
 
-              {/* Solved Success Stamp */}
               {validationResult === 'success' && (
                 <div className="absolute inset-0 flex items-center justify-center bg-green-600/10 pointer-events-none select-none z-20">
                   <div className="border-4 border-dashed border-green-600 text-green-600 font-cactus font-black text-base px-4 py-2 uppercase tracking-widest rotate-[-15deg] bg-[var(--cordel-bg)] shadow-xl animate-bounce">
@@ -302,7 +155,6 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
                 </div>
               )}
 
-              {/* Solved Failure Stamp */}
               {validationResult === 'failure' && (
                 <div className="absolute inset-0 flex items-center justify-center bg-red-600/10 pointer-events-none select-none z-20">
                   <div className="border-4 border-dashed border-[var(--cordel-wood)] text-[var(--cordel-wood)] font-cactus font-black text-sm px-3 py-1.5 uppercase tracking-widest rotate-[10deg] bg-[var(--cordel-bg)] shadow-xl">
@@ -313,7 +165,6 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
             </div>
           </div>
 
-          {/* 3 Choice Buttons */}
           <div className="flex flex-col gap-3 mt-4">
             {activeRound.options[lang].map((option, idx) => {
               const isSelected = selectedOption === option;
@@ -338,7 +189,6 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
             })}
           </div>
 
-          {/* Validation Result Notifications */}
           {validationResult === 'success' && (
             <div className="p-4 border-3 border-green-600 bg-green-500/10 text-green-700 text-center flex flex-col items-center justify-center relative rotate-[-1deg] mt-2">
               <div className="flex items-center gap-2 z-10">
@@ -351,7 +201,7 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
           )}
 
           {validationResult === 'failure' && (
-            <div className="p-4 border-3 border-[var(--cordel-wood)] bg-[var(--cordel-wood)]/10 text-[var(--cordel-wood)] text-center flex flex-col items-center justify-center relative rotate-[1deg] mt-2">
+            <div className="p-4 border-3 border-react border-[var(--cordel-wood)] bg-[var(--cordel-wood)]/10 text-[var(--cordel-wood)] text-center flex flex-col items-center justify-center relative rotate-[1deg] mt-2">
               <div className="flex items-center gap-2 z-10">
                 <X className="w-5 h-5 text-[var(--cordel-wood)] shrink-0" />
                 <span className="font-cactus font-bold text-xs font-cactus">
@@ -361,7 +211,6 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
             </div>
           )}
 
-          {/* Next Round Controller Button */}
           {validationResult !== null && (
             <button
               onClick={handleNextRound}

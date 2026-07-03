@@ -46,6 +46,8 @@ import { SaveSectionModal, LoadSectionModal } from './components/CloudSectionMod
 import { PresetMetadata, Pattern, SongSection, TimeSignature, CloudRhythmSignal } from './types';
 import { exportTablatureFile, printTablature, printLegendOnly } from './utils/exportTablature';
 import { fetchMestreSignals } from './cloudSignals';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCloudPresets } from './hooks/queries/useCloudPresets';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -97,7 +99,16 @@ export default function App() {
   });
   const [localPresets, setLocalPresets] = useState<string[]>([]);
   const [presetFiles, setPresetFiles] = useState<string[]>([]);
-  const [cloudPresets, setCloudPresets] = useState<{ id: string; name: string }[]>([]);
+  const queryClient = useQueryClient();
+  const { data: cloudPresetsData } = useCloudPresets({
+    userUid: userProfile?.uid || null,
+    userRole: userProfile?.role || 'visiteur',
+    mestreId: userProfile?.mestreId || null
+  });
+
+  const cloudPresets = useMemo(() => {
+    return (cloudPresetsData || []).map(p => ({ id: p.id, name: p.name }));
+  }, [cloudPresetsData]);
 
   // Dialog System from Context
   const {
@@ -483,18 +494,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audio.isLoading]);
 
-  // Load Cloud Presets
-  useEffect(() => {
-    import('./cloudLibrary').then(({ fetchCloudPresets }) => {
-      fetchCloudPresets(
-        userProfile?.uid || null,
-        userProfile?.role || 'visiteur',
-        userProfile?.mestreId || null
-      ).then(presets => {
-        setCloudPresets(presets.map(p => ({ id: p.id, name: p.name })));
-      });
-    });
-  }, [userProfile?.uid, userProfile?.role, userProfile?.mestreId]);
+
 
 
   // PWA File Handler: handle files opened via the OS file handler (launchQueue API)
@@ -903,14 +903,11 @@ export default function App() {
           }
         }
 
-        const { savePresetToCloud, fetchCloudPresets } = await import('./cloudLibrary');
+        const { savePresetToCloud } = await import('./cloudLibrary');
         try {
           await savePresetToCloud(name, presetData, userProfile.uid, visibility, targetUserId);
           await alertAsync(isPt ? '✅ Salvo na nuvem!' : '✅ Sauvegardé dans le cloud !');
-          // Reload cloud presets
-          fetchCloudPresets(userProfile.uid, userProfile.role, userProfile.mestreId).then(presets => {
-            setCloudPresets(presets.map(p => ({ id: p.id, name: p.name })));
-          });
+          queryClient.invalidateQueries({ queryKey: ['cloudPresets'] });
         } catch (err) {
           console.error(err);
           await alertAsync('Error saving to cloud');

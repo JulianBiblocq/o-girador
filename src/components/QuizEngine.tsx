@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Play, Square, RotateCcw, Award, CheckCircle, XCircle, ArrowRight, ArrowLeft } from 'lucide-react';
-import { QuizQuestion, quizQuestions } from '../data/quizQuestions';
+import React from 'react';
+import { Play, Square, RotateCcw, Award, ArrowRight, ArrowLeft } from 'lucide-react';
+import { useQuizGame } from '../hooks/useQuizGame';
 
 interface QuizEngineProps {
   lang: 'fr' | 'pt';
@@ -10,150 +10,25 @@ interface QuizEngineProps {
 }
 
 export const QuizEngine: React.FC<QuizEngineProps> = ({ lang, onExit, onSuccess, exerciseData }) => {
-  // Lists of questions
-  const [currentQuestions, setCurrentQuestions] = useState<QuizQuestion[]>(() => {
-    if (exerciseData && exerciseData.questions) {
-      return exerciseData.questions;
-    }
-    return quizQuestions;
-  });
-  const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
-  const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
+  const {
+    currentQuestions,
+    currentIndex,
+    selectedOption,
+    userAnswers,
+    isFinished,
+    isPlayingAudio,
+    activeQuestion,
+    playAudio,
+    stopAudio,
+    handleOptionSelect,
+    handleNext,
+    handleBack,
+    getScore,
+    getFailedQuestions,
+    handleRetryErrors,
+    handleRestartAll,
+  } = useQuizGame({ lang, onSuccess, exerciseData });
 
-  const [isFinished, setIsFinished] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (isFinished) {
-      const score = currentQuestions.reduce((acc, q) => {
-        return acc + (userAnswers[q.id] === q.correctAnswer[lang] ? 1 : 0);
-      }, 0);
-      if (score === currentQuestions.length) {
-        onSuccess?.();
-      }
-    }
-  }, [isFinished, userAnswers, currentQuestions, lang, onSuccess]);
-  
-  // Audio state
-  const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Clean up audio on unmount or index change
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    // Stop audio whenever question changes
-    stopAudio();
-    setSelectedOption(userAnswers[currentQuestions[currentIndex]?.id] || null);
-  }, [currentIndex, currentQuestions]);
-
-  const playAudio = (url: string) => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-    
-    // Ensure base URL prefix is present
-    const baseUrl = (import.meta as any).env.BASE_URL || '/';
-    const fullUrl = `${baseUrl}${url}`.replace(/\/+/g, '/'); // remove double slashes
-    
-    const audio = new Audio(fullUrl);
-    audioRef.current = audio;
-    setIsPlayingAudio(true);
-    
-    audio.play().catch((err) => {
-      console.warn("Audio playback blocked or failed:", err);
-      setIsPlayingAudio(false);
-    });
-
-    audio.onended = () => {
-      setIsPlayingAudio(false);
-    };
-  };
-
-  const stopAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      setIsPlayingAudio(false);
-    }
-  };
-
-  const activeQuestion = currentQuestions[currentIndex];
-
-  const handleOptionSelect = (option: string) => {
-    setSelectedOption(option);
-  };
-
-  const handleNext = () => {
-    if (!selectedOption || !activeQuestion) return;
-
-    // Save answer
-    setUserAnswers((prev) => ({
-      ...prev,
-      [activeQuestion.id]: selectedOption,
-    }));
-
-    if (currentIndex < currentQuestions.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setSelectedOption(null);
-    } else {
-      setIsFinished(true);
-    }
-  };
-
-  const handleBack = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
-
-  // Score Calculation
-  const getScore = () => {
-    let score = 0;
-    currentQuestions.forEach((q) => {
-      const answer = userAnswers[q.id];
-      const correct = q.correctAnswer[lang];
-      if (answer === correct) {
-        score++;
-      }
-    });
-    return score;
-  };
-
-  const getFailedQuestions = () => {
-    return currentQuestions.filter((q) => {
-      const answer = userAnswers[q.id];
-      const correct = q.correctAnswer[lang];
-      return answer !== correct;
-    });
-  };
-
-  const handleRetryErrors = () => {
-    const failed = getFailedQuestions();
-    if (failed.length > 0) {
-      setCurrentQuestions(failed);
-      setCurrentIndex(0);
-      setSelectedOption(null);
-      setUserAnswers({});
-      setIsFinished(false);
-    }
-  };
-
-  const handleRestartAll = () => {
-    setCurrentQuestions(quizQuestions);
-    setCurrentIndex(0);
-    setSelectedOption(null);
-    setUserAnswers({});
-    setIsFinished(false);
-  };
-
-  // Translations dictionary inside component for simple clean design
   const t = {
     fr: {
       quizTitle: "Testez votre oreille & vos yeux",
@@ -197,11 +72,10 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({ lang, onExit, onSuccess,
       correctAnswer: "Resposta correta:",
       allCorrect: "Parabéns! Nenhuma falha no seu maracatu!",
       someErrors: "Muito bem! Mais um pouco de treino para acertar o baque.",
-      noErrorsToRetry: "Todas as respostas estão corretas! Você pode recomeçar o quiz completo.",
+      noErrorsToRetry: "Todas as respostas estão corretas! Você pode recomeçar o quiz complet.",
     }
   }[lang];
 
-  // Render Finished/Bilan Screen
   if (isFinished) {
     const score = getScore();
     const total = currentQuestions.length;
@@ -209,14 +83,12 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({ lang, onExit, onSuccess,
     
     return (
       <div className="w-full max-w-2xl mx-auto p-4 flex flex-col gap-6 cordel-bg select-none my-4">
-        {/* Banner header style cordel */}
         <div className="text-center py-4 border-b-4 border-[var(--cordel-border)]">
           <h2 className="font-cactus text-3xl uppercase tracking-wider text-[var(--cordel-text)] font-extrabold flex items-center justify-center gap-2">
             <Award className="w-8 h-8 text-[var(--cordel-wood)]" /> {t.results}
           </h2>
         </div>
 
-        {/* Score display */}
         <div className="flex flex-col items-center justify-center p-6 border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] cordel-border">
           <span className="text-xs uppercase font-bold tracking-widest text-[var(--cordel-text)]/70">{t.score}</span>
           <span className="font-cactus text-6xl font-black text-[var(--cordel-wood)] my-2">
@@ -227,7 +99,6 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({ lang, onExit, onSuccess,
           </p>
         </div>
 
-        {/* Answers detailed list */}
         <div className="flex flex-col gap-4 max-h-[350px] overflow-y-auto pr-1">
           {currentQuestions.map((q, idx) => {
             const userAnswer = userAnswers[q.id];
@@ -241,7 +112,6 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({ lang, onExit, onSuccess,
                   isCorrect ? 'border-green-600/50' : 'border-[var(--cordel-wood)]/50'
                 }`}
               >
-                {/* Visual stamp on the right */}
                 <div className={`absolute top-2 right-2 md:relative md:top-0 md:right-0 px-2 py-0.5 text-[10px] font-bold uppercase border-2 rounded pointer-events-none rotate-[-4deg] ${
                   isCorrect 
                     ? 'border-green-600 text-green-600 bg-green-50/10' 
@@ -266,7 +136,6 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({ lang, onExit, onSuccess,
                   </div>
                 </div>
 
-                {/* Optional mini-play button for auditif review */}
                 {q.type === 'audio' && (
                   <button 
                     onClick={() => playAudio(q.mediaUrl)}
@@ -281,7 +150,6 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({ lang, onExit, onSuccess,
           })}
         </div>
 
-        {/* Action Buttons */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 border-t-2 border-[var(--cordel-border)]">
           {failed.length > 0 ? (
             <button
@@ -314,10 +182,8 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({ lang, onExit, onSuccess,
     );
   }
 
-  // Render Active Question Screen
   return (
     <div className="w-full max-w-xl mx-auto p-4 flex flex-col gap-6 cordel-bg select-none my-4">
-      {/* Quiz Progress Header */}
       <div className="flex items-center justify-between border-b-4 border-[var(--cordel-border)] pb-3">
         <h2 className="font-cactus text-lg uppercase tracking-wide text-[var(--cordel-text)] font-bold">
           📖 {t.quizTitle}
@@ -327,13 +193,11 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({ lang, onExit, onSuccess,
         </span>
       </div>
 
-      {/* Main Question Display Box */}
       <div className="flex flex-col items-center justify-center p-6 border-3 border-[var(--cordel-border)] bg-[var(--cordel-bg)] cordel-border min-h-[180px] relative">
         <p className="text-center font-cactus text-base font-bold text-[var(--cordel-text)] mb-6 max-w-md">
           {activeQuestion.questionText[lang]}
         </p>
 
-        {/* Question Content (Audio Player or Image Illustration) */}
         {activeQuestion.type === 'audio' ? (
           <div className="flex flex-col items-center gap-2">
             <button
@@ -368,7 +232,6 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({ lang, onExit, onSuccess,
         )}
       </div>
 
-      {/* Choice Options Grid (Style Xilogravura / stamp inked) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {activeQuestion.options[lang].map((option, idx) => {
           const isSelected = selectedOption === option;
@@ -390,7 +253,6 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({ lang, onExit, onSuccess,
                 <span>{option}</span>
               </div>
 
-              {/* Inked Stamp Overlay Badge */}
               {isSelected && (
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none select-none z-0 rotate-[-12deg] opacity-20 border-2 border-dashed border-white text-white rounded px-2 py-0.5 text-[10px] font-mono tracking-widest uppercase">
                   {lang === 'fr' ? 'SÉLEC' : 'SELEC'}
@@ -401,7 +263,6 @@ export const QuizEngine: React.FC<QuizEngineProps> = ({ lang, onExit, onSuccess,
         })}
       </div>
 
-      {/* Bottom Navigation Buttons */}
       <div className="flex items-center justify-between border-t-2 border-[var(--cordel-border)] pt-4 mt-2">
         <button
           onClick={handleBack}

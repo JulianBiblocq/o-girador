@@ -23,8 +23,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { fetchCloudPatterns, savePatternToCloud, deleteCloudPattern, renameCloudPattern } from '../cloudPatterns';
 import { AudioEngine } from '../AudioEngine';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
+import { useGameData } from '../contexts/GameDataContext';
 import { AudioFader } from './AudioFader';
 import { useSequencer } from '../contexts/SequencerContext';
+import { MelodicNoteSelector } from './MelodicNoteSelector';
 
 const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -117,6 +119,8 @@ interface InstrumentDetailEditorProps {
   soloPatternVariationId?: string | null;
   onPlaySoloPattern?: (patternId: number, variationId?: string) => void;
   onStopSoloPattern?: () => void;
+  runAutoCalibration?: () => Promise<number>;
+  vocalCalibrationLatencyMs?: number;
 }
 
 /* ── Stroke legend definitions ─────────────────────────────── */
@@ -391,7 +395,10 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   onStopSoloPattern,
   onNavigatePrev,
   onNavigateNext,
+  runAutoCalibration,
+  vocalCalibrationLatencyMs
 }) => {
+  const { alertAsync } = useGameData();
   const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
   const inst = track ? instrumentsConfig[track.instrumentIdx] : { id: '', name: '', type: 'percussion', iconImg: '', colors: { text: '' }, mixerBg: '' };
@@ -400,6 +407,29 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
   const [liveMeasure, setLiveMeasure] = useState<number>(currentMeasure);
+  const [isCalibrating, setIsCalibrating] = useState<boolean>(false);
+  const [noteSelectorTarget, setNoteSelectorTarget] = useState<{ patternId: number; stepIdx: number; note: string; element: HTMLElement } | null>(null);
+
+  const handleAutoCalibrate = async () => {
+    if (!runAutoCalibration) return;
+    setIsCalibrating(true);
+    try {
+      const latency = await runAutoCalibration();
+      await alertAsync(
+        lang === 'fr' 
+          ? `✅ Calibration réussie ! Latence matérielle mesurée et compensée à ${latency} ms.` 
+          : `✅ Calibração bem-sucedida! Latência de hardware medida e compensada em ${latency} ms.`
+      );
+    } catch (err: any) {
+      await alertAsync(
+        lang === 'fr'
+          ? `❌ Échec de la calibration : ${err.message || err}`
+          : `❌ Falha na calibração: ${err.message || err}`
+      );
+    } finally {
+      setIsCalibrating(false);
+    }
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1447,6 +1477,16 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                   ? "Décale le début de la voix vers la gauche (plus tôt) pour compenser le retard du micro, du smartphone ou du Bluetooth."
                                   : "Desloca o início da voz para a esquerda (mais cedo) para compensar o atraso do microfone, celular ou Bluetooth."}
                               </span>
+                              
+                              <button
+                                onClick={handleAutoCalibrate}
+                                disabled={isCalibrating}
+                                className="mt-2 self-start px-2.5 py-1 text-[9px] font-bold uppercase cordel-border-sm bg-[#8b2a1a] text-[#fdfaf2] hover:opacity-95 disabled:opacity-50 cursor-pointer transition-opacity"
+                              >
+                                {isCalibrating 
+                                  ? (lang === 'fr' ? '⏳ Calibration...' : '⏳ Calibrando...') 
+                                  : (lang === 'fr' ? '⏱️ Auto-calibrer la latence' : '⏱️ Auto-calibrar latência')}
+                              </button>
                             </div>
                           )}
 
@@ -1564,10 +1604,10 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               const isPux = state === 'P';
                               const syl = ptn.lyrics?.[i] || '';
                               const note = ptn.notes?.[i] || '';
-                              const typeText = isActive ? (isPux ? 'PUX' : 'CORO') : '---';
-                              const typeClass = isActive ? '' : 'bg-transparent text-[#666]';
+                              const typeText = isActive ? (isPux ? '🗣️ Pux' : '👥 Coro') : '---';
+                              const typeClass = isActive ? 'text-white' : 'bg-transparent text-[#666]';
                               const typeStyle = isActive
-                                ? { backgroundColor: isPux ? inst.colors['P'] : inst.colors['C'], color: '#1a1a1a' }
+                                ? { backgroundColor: isPux ? '#8b2a1a' : '#2980b9', color: '#ffffff' }
                                 : {};
 
                               const isCurrentStep = currentStep === i;
@@ -1579,10 +1619,16 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               const totalShift = Math.max(-100, Math.min(100, manualMicro + swingOffset));
                               const shiftPx = (totalShift / 100) * 8; // Max 8px shift
 
+                              const isLinked = syl && !syl.endsWith(' ') && i < ptn.steps - 1 && (ptn.lyrics?.[i + 1] || '').trim() !== '';
+
                               return (
                                 <div key={i} className="relative" style={{ width: '56px' }}>
                                   {/* Axis vertical centerline (0%) behind steps */}
                                   <div className="absolute top-[20px] bottom-[10px] left-1/2 w-0 border-l border-dashed border-[#1a1a1a]/30 -translate-x-1/2 pointer-events-none z-0" />
+                                  
+                                  {isLinked && (
+                                    <div className="absolute top-[48px] -right-[12px] w-[14px] h-[3px] bg-[#8b2a1a]/60 z-20 pointer-events-none rounded-sm" />
+                                  )}
                                   
                                   <div
                                     className={`v-card flex flex-col bg-[#f4ecd8] cordel-border-sm overflow-hidden z-10 relative transition-all duration-100 ${
@@ -1665,11 +1711,17 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                       onChange={(e) => onVoiceNoteChange(ptn.id, i, e.target.value)}
                                       onBlur={(e) => onVoiceNoteBlur(ptn.id, i, e.target.value)}
                                       placeholder="C4"
-                                      className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase outline-none"
-                                      onFocus={() => {
+                                      className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase outline-none cursor-pointer hover:bg-black/5"
+                                      onFocus={(e) => {
                                         if (!isMultiSelectActive) {
                                           setSelectedStepIdx(i);
                                           setSelectedPatternId(ptn.id);
+                                          setNoteSelectorTarget({ patternId: ptn.id, stepIdx: i, note, element: e.currentTarget });
+                                        }
+                                      }}
+                                      onClick={(e) => {
+                                        if (!isMultiSelectActive) {
+                                          setNoteSelectorTarget({ patternId: ptn.id, stepIdx: i, note, element: e.currentTarget });
                                         }
                                       }}
                                       onKeyDown={(e) => {
@@ -1709,6 +1761,67 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             })}
                           </div>
                         ));
+                      })()}
+                      
+                      {/* Live Karaoke Preview */}
+                      {(() => {
+                        const karaokeWords = [];
+                        let currentWord = [];
+                        
+                        for (let idx = 0; idx < ptn.steps; idx++) {
+                          const active = ptn.activeSteps[idx] !== 0;
+                          const syl = ptn.lyrics?.[idx] || '';
+                          if (active && syl) {
+                            currentWord.push({ text: syl, index: idx });
+                            if (syl.endsWith(' ') || idx === ptn.steps - 1) {
+                              karaokeWords.push([...currentWord]);
+                              currentWord = [];
+                            }
+                          }
+                        }
+                        if (currentWord.length > 0) {
+                          karaokeWords.push(currentWord);
+                        }
+
+                        return (
+                          <div className="mt-3 p-3 bg-[#ece4d0] border border-[#1a1a1a]/25 cordel-border-sm flex flex-col gap-1 w-full text-[#1a1a1a]">
+                            <span className="text-[10px] font-bold uppercase opacity-65 tracking-wider">
+                              📖 {lang === 'fr' ? 'Paroles (Karaoké en direct)' : 'Letras (Karaokê ao vivo)'}
+                            </span>
+                            <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm font-bold font-cactus leading-relaxed">
+                              {karaokeWords.length === 0 ? (
+                                <span className="italic text-[#666]">
+                                  {lang === 'fr' ? 'Saisissez des syllabes dans la grille...' : 'Digite sílabas na grade...'}
+                                </span>
+                              ) : (
+                                karaokeWords.map((word, wIdx) => {
+                                  const isWordActive = word.some(item => item.index === currentStep && isPlaying);
+                                  
+                                  return (
+                                    <span 
+                                      key={wIdx} 
+                                      className={`transition-colors duration-150 ${
+                                        isWordActive ? 'text-[#8b2a1a] scale-105 transform origin-left' : 'opacity-85'
+                                      }`}
+                                    >
+                                      {word.map((item, sIdx) => {
+                                        const isStepActive = item.index === currentStep && isPlaying;
+                                        return (
+                                          <span 
+                                            key={sIdx} 
+                                            className={isStepActive ? 'underline decoration-2' : ''}
+                                          >
+                                            {item.text}
+                                          </span>
+                                        );
+                                      })}
+                                    </span>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        );
                       })()}
                     </div>
                   ) : (
@@ -2758,6 +2871,35 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           {toastMessage}
         </div>
       )}
+
+      {/* Global Fixed Note Popover Selector */}
+      {noteSelectorTarget && (() => {
+        const rect = noteSelectorTarget.element.getBoundingClientRect();
+        const popoverStyle = {
+          position: 'fixed' as const,
+          top: `${rect.bottom + 5}px`,
+          left: `${Math.min(window.innerWidth - 250, Math.max(10, rect.left - 90))}px`,
+          zIndex: 10000,
+        };
+        
+        return (
+          <div style={popoverStyle}>
+            <MelodicNoteSelector
+              currentValue={noteSelectorTarget.note}
+              onSelect={(selectedNote) => {
+                onVoiceNoteChange(noteSelectorTarget.patternId, noteSelectorTarget.stepIdx, selectedNote);
+                onVoiceNoteBlur(noteSelectorTarget.patternId, noteSelectorTarget.stepIdx, selectedNote);
+                setNoteSelectorTarget({
+                  ...noteSelectorTarget,
+                  note: selectedNote
+                });
+              }}
+              onClose={() => setNoteSelectorTarget(null)}
+              lang={lang === 'pt' ? 'pt' : 'fr'}
+            />
+          </div>
+        );
+      })()}
     </div>,
     document.body
   );

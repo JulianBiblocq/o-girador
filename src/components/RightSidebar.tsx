@@ -40,13 +40,12 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   const tracks = useSequencerStore(state => state.tracks);
   const { userProfile } = useAuth();
   const [isUploadingSignal, setIsUploadingSignal] = React.useState(false);
-  const lastTickTime = React.useRef<number>(0);
+  const [currentStepIndex, setCurrentStepIndex] = React.useState<number>(-1);
   React.useEffect(() => {
     const handleTick = (e: Event) => {
-      const now = performance.now();
-      if (now - lastTickTime.current > 100) {
-        lastTickTime.current = now;
-      }
+      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number }>;
+      const { step } = customEvent.detail;
+      setCurrentStepIndex(step);
     };
     window.addEventListener('o-girador-tick', handleTick);
     return () => window.removeEventListener('o-girador-tick', handleTick);
@@ -85,7 +84,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   };
 
   const currentPlayState = isPlaying ? {
-    stepIndex: -1,
+    stepIndex: currentStepIndex,
     maxTicks: getMaxTicks(timeSig),
     activePatternIdByInst: (() => {
       const result: { [instIdx: number]: number | null } = {};
@@ -426,10 +425,21 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                 <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
               </summary>
               <div className="p-2 border-t border-[var(--cordel-border)]/20 text-[10px] text-[var(--cordel-text)] leading-relaxed">
-                <p>• <b>Double-clic</b> (ou appui long) sur un temps pour y insérer une frappe forte.</p>
-                <p>• <b>Clic simple</b> pour insérer une frappe faible.</p>
-                <p>• <b>Molette souris</b> (ou glisser haut/bas) sur une cellule pour changer la frappe/nuance.</p>
-                <p>• <b>Ctrl + Clic</b> (ou long press) sur l'entête d'une ligne pour muter l'instrument.</p>
+                {lang === 'fr' ? (
+                  <>
+                    <p>• <b>Double-clic</b> (ou appui long) sur un temps pour y insérer une frappe forte.</p>
+                    <p>• <b>Clic simple</b> pour insérer une frappe faible.</p>
+                    <p>• <b>Molette souris</b> (ou glisser haut/bas) sur une cellule pour changer la frappe/nuance.</p>
+                    <p>• <b>Ctrl + Clic</b> (ou long press) sur l'entête d'une ligne pour muter l'instrument.</p>
+                  </>
+                ) : (
+                  <>
+                    <p>• <b>Duplo clique</b> (ou pressionar longo) em um tempo para inserir uma batida forte.</p>
+                    <p>• <b>Clique simples</b> para inserir uma batida fraca.</p>
+                    <p>• <b>Roda do mouse</b> (ou deslizar para cima/baixo) em uma célula para mudar a batida/nuance.</p>
+                    <p>• <b>Ctrl + Clique</b> (ou pressionar longo) no cabeçalho de uma linha para mutar o instrumento.</p>
+                  </>
+                )}
               </div>
             </details>
 
@@ -540,7 +550,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#d946ef] text-[#f4ecd8]">F / f</span>
-                  <span>{t('legendCaixaFla')} (Caixa: F / f, Tarol: F / f en bleu)</span>
+                  <span>{t('legendCaixaFla')} {lang === 'fr' ? '(Caixa : F / f, Tarol : F / f en bleu)' : '(Caixa: F / f, Tarol: F / f em azul)'}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#7e7b8c] text-[#f4ecd8]">X / x</span>
@@ -552,7 +562,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4a044e] text-[#f4ecd8]">B / b</span>
-                  <span>Barulho / Tremer (Caixa: Violet foncé, Tarol: Bleu)</span>
+                  <span>{lang === 'fr' ? 'Barulho / Tremer (Caixa : Violet foncé, Tarol : Bleu)' : 'Barulho / Ruído (Caixa: Violeta escuro, Tarol: Azul)'}</span>
                 </div>
               </div>
             </details>

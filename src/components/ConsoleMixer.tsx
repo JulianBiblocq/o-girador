@@ -102,6 +102,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     setIsVocalGuideEnabled: onVocalGuideToggle,
     handleVocalBpmSyncToggle: onVocalBpmSyncToggle,
     activeVariationsRef,
+    runAutoCalibration,
+    vocalCalibrationLatencyMs,
   } = sequencer;
 
   const tracks = useSequencerStore(state => state.tracks);
@@ -727,6 +729,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           onVocalGuideToggle={onVocalGuideToggle}
           onVocalBpmSyncToggle={onVocalBpmSyncToggle}
           onPatternNameChange={(pid, name) => onPatternNameChange && onPatternNameChange(editingTrack.id, pid, name)}
+          runAutoCalibration={runAutoCalibration}
+          vocalCalibrationLatencyMs={vocalCalibrationLatencyMs}
         />
       )}
     </div>

@@ -25,5 +25,11 @@
     "types": [
       "vite/client"
     ]
-  }
+  },
+  "exclude": [
+    "index-live.js",
+    "index-live-lines.js",
+    "node_modules",
+    "dist"
+  ]
 }

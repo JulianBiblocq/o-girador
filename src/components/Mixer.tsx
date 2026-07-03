@@ -103,6 +103,8 @@ const MixerComponent: React.FC<MixerProps> = ({
     activeAoVivoTrackId,
     setActiveAoVivoTrackId,
     activeVariationsRef,
+    runAutoCalibration,
+    vocalCalibrationLatencyMs,
   } = sequencer;
 
   const tracks = useSequencerStore(state => state.tracks);
@@ -420,6 +422,8 @@ const MixerComponent: React.FC<MixerProps> = ({
           onVocalGuideToggle={onVocalGuideToggle}
           onVocalBpmSyncToggle={onVocalBpmSyncToggle}
           onPatternNameChange={(pid, name) => onPatternNameChange && onPatternNameChange(editingTrackId, pid, name)}
+          runAutoCalibration={runAutoCalibration}
+          vocalCalibrationLatencyMs={vocalCalibrationLatencyMs}
         />
       )}
     </div>

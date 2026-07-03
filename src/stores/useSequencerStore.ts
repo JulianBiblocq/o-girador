@@ -1,6 +1,6 @@
 import { create, StateCreator } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
-import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language } from '../types';
+import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker } from '../types';
 
 // Nous aurons besoin d'instrumentsConfig pour extraire les paroles
 import { instrumentsConfig } from '../data';
@@ -935,19 +935,18 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
   }
 });
 
-// ---------------------------------------------------------
-// 6. PROJECT SETTINGS SLICE
-// ---------------------------------------------------------
 export interface ProjectSettingsSlice {
   letras: string;
   metadata: PresetMetadata;
   isLeftHanded: boolean;
   lang: Language;
+  vocalCalibrationLatencyMs: number;
 
   setLetras: (letras: string) => void;
   setMetadata: (metadata: PresetMetadata) => void;
   setIsLeftHanded: (val: boolean) => void;
   setLang: (lang: Language) => void;
+  setVocalCalibrationLatencyMs: (val: number) => void;
   handleExtractLyrics: () => void;
 }
 
@@ -956,11 +955,16 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   metadata: { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] },
   isLeftHanded: false, 
   lang: 'pt',
+  vocalCalibrationLatencyMs: parseInt(localStorage.getItem('oGirador_vocal_calibration_latency') || '0', 10),
 
   setLetras: (letras) => set({ letras }),
   setMetadata: (metadata) => set({ metadata }),
   setIsLeftHanded: (val) => set({ isLeftHanded: val }),
   setLang: (lang) => set({ lang }),
+  setVocalCalibrationLatencyMs: (val) => {
+    localStorage.setItem('oGirador_vocal_calibration_latency', String(val));
+    set({ vocalCalibrationLatencyMs: val });
+  },
   
   handleExtractLyrics: () => {
     const state = get();

@@ -7,7 +7,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import * as Tone from 'tone';
 import { AudioEngine } from '../AudioEngine';
 import { InputManager } from '../InputManager';
-import { TrackGroup, TimeSignature, HitTrigger, SongSection } from '../types';
+import { TrackGroup, TimeSignature, HitTrigger, SongSection, GlobalSwing } from '../types';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { ScheduledNote } from '../workers/audioCompiler.worker';
@@ -1387,8 +1387,6 @@ export function useAudioSync({
 
   // Synchronize track volume, panning, reverb levels, and mute/solo dynamically when React state changes
   useEffect(() => {
-    if (Object.keys(channels).length === 0) return;
-
     const unsub = useSequencerStore.subscribe((state, prevState) => {
       if (state.tracks !== prevState.tracks) {
         const tracks = state.tracks;

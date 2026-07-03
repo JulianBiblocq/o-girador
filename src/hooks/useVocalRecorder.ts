@@ -49,6 +49,9 @@ export function useVocalRecorder({
 }: UseVocalRecorderProps) {
   const tracks = useSequencerStore(state => state.tracks);
   const setTracks = useSequencerStore(state => state.setTracks);
+  const vocalCalibrationLatencyMs = useSequencerStore(state => state.vocalCalibrationLatencyMs);
+  const setVocalCalibrationLatencyMs = useSequencerStore(state => state.setVocalCalibrationLatencyMs);
+  const lang = useSequencerStore(state => state.lang);
   const recordingDurationMeasuresRef = useRef<number>(1);
   const recordedMeasuresCountRef = useRef<number>(0);
   const vocalRecordArmTimeoutRef = useRef<any>(null);
@@ -251,6 +254,10 @@ export function useVocalRecorder({
   };
 
   const getSystemDefaultLatencyMs = () => {
+    if (vocalCalibrationLatencyMs && vocalCalibrationLatencyMs > 0) {
+      return vocalCalibrationLatencyMs;
+    }
+    
     let latencySec = 0.08;
     try {
       const rawCtx = safeGetTone()?.context.rawContext as any;
@@ -266,6 +273,106 @@ export function useVocalRecorder({
       console.warn("Failed to retrieve raw AudioContext latency values:", e);
     }
     return Math.round(latencySec * 1000);
+  };
+
+  const runAutoCalibration = async (): Promise<number> => {
+    await loadTone();
+    const tone = getTone();
+    const audioCtx = tone.context.rawContext as AudioContext;
+
+    // Load AudioWorklet module dynamically
+    const baseUrl = import.meta.env.BASE_URL || '/';
+    const workletUrl = baseUrl.endsWith('/') ? baseUrl + 'calibration.worklet.js' : baseUrl + '/calibration.worklet.js';
+    
+    try {
+      await audioCtx.audioWorklet.addModule(workletUrl);
+    } catch (e) {
+      console.warn("AudioWorklet module might already be added or failed to load:", e);
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: selectedAudioDeviceId ? { exact: selectedAudioDeviceId } : undefined,
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
+    });
+
+    const sourceNode = audioCtx.createMediaStreamSource(stream);
+    
+    // Instantiate the AudioWorkletNode
+    const workletNode = new AudioWorkletNode(audioCtx, 'calibration-processor');
+
+    const calibrationResultPromise = new Promise<number>((resolve, reject) => {
+      workletNode.port.onmessage = (e) => {
+        if (e.data.status === 'success') {
+          resolve(e.data.latencyMs);
+        } else if (e.data.status === 'error') {
+          const code = e.data.code;
+          if (code === 'LOW_SIGNAL') {
+            reject(new Error(
+              lang === 'fr'
+                ? "Signal de retour trop faible. Veuillez activer vos haut-parleurs et placer votre micro à proximité."
+                : "Sinal de retorno muito baixo. Por favor, ative seus alto-falantes e posicione o microfone próximo."
+            ));
+          } else {
+            reject(new Error(
+              lang === 'fr'
+                ? "Impossible de détecter l'impulsion."
+                : "Não foi possível detectar o impulso."
+            ));
+          }
+        }
+      };
+    });
+
+    // Schedule ping play time
+    const playTime = audioCtx.currentTime + 0.1;
+
+    // Init the processor
+    workletNode.port.postMessage({
+      action: 'init',
+      sampleRate: audioCtx.sampleRate,
+      durationSec: 1.5,
+      pingContextTime: playTime
+    });
+
+    sourceNode.connect(workletNode);
+    workletNode.connect(audioCtx.destination); // Forcing graph processing
+
+    // Emit calibration ping
+    const pingOsc = audioCtx.createOscillator();
+    const pingGain = audioCtx.createGain();
+
+    pingOsc.type = 'sine';
+    pingOsc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+
+    pingGain.gain.setValueAtTime(0, playTime);
+    pingGain.gain.linearRampToValueAtTime(1.0, playTime + 0.002);
+    pingGain.gain.exponentialRampToValueAtTime(0.001, playTime + 0.012);
+
+    pingOsc.connect(pingGain);
+    pingGain.connect(audioCtx.destination);
+
+    pingOsc.start(playTime);
+    pingOsc.stop(playTime + 0.015);
+
+    try {
+      const latencyMs = await calibrationResultPromise;
+      setVocalCalibrationLatencyMs(latencyMs);
+      return latencyMs;
+    } finally {
+      // Strict cleanup to free memory and audio resources
+      try {
+        sourceNode.disconnect();
+        workletNode.disconnect();
+        workletNode.port.close();
+      } catch (e) {
+        console.warn("Error cleaning up AudioWorkletNode:", e);
+      }
+      stream.getTracks().forEach(t => t.stop());
+    }
   };
 
   const cleanupVocalNodes = () => {
@@ -568,6 +675,8 @@ export function useVocalRecorder({
     handleVocalBpmSyncToggle,
     handleDeleteVocalRecording,
     getSystemDefaultLatencyMs,
-    loadVocalRecording
+    loadVocalRecording,
+    runAutoCalibration,
+    vocalCalibrationLatencyMs
   };
 }

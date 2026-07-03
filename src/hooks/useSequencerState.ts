@@ -10,7 +10,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { arrayMove } from '@dnd-kit/sortable';
-import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language } from '../types';
+import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker } from '../types';
 import { instrumentsConfig, getMarkers, getVisualStrokeSymbol } from '../data';
 import { audioEngine } from './useAudioSync';
 import { useAuth } from '../contexts/AuthContext';

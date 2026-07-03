@@ -5,6 +5,7 @@ import {SequencerProvider} from './contexts/SequencerContext.tsx';
 import {AudioProvider} from './contexts/AudioContext.tsx';
 import App from './App.tsx';
 import { AuthProvider } from './contexts/AuthContext.tsx';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './index.css';
 
 export function isValidGoogleClientId(id: string | undefined | null): boolean {
@@ -35,14 +36,26 @@ if (inviteCode) {
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5, // 5 minutes cache
+    },
+  },
+});
+
 createRoot(document.getElementById('root')!).render(
-  <AuthProvider>
-    <GameDataProvider>
-      <SequencerProvider>
-        <AudioProvider>
-          <App />
-        </AudioProvider>
-      </SequencerProvider>
-    </GameDataProvider>
-  </AuthProvider>
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <GameDataProvider>
+        <SequencerProvider>
+          <AudioProvider>
+            <App />
+          </AudioProvider>
+        </SequencerProvider>
+      </GameDataProvider>
+    </AuthProvider>
+  </QueryClientProvider>
 );

@@ -22,8 +22,8 @@ export class AudioEngine {
   private isPlaying: boolean = false;
   
   // Timing variables (adaptive to device capabilities)
-  private readonly LOOKAHEAD_INTERVAL: number; // ms
-  private readonly SCHEDULE_AHEAD_TIME: number; // seconds
+  public LOOKAHEAD_INTERVAL: number = 25.0; // ms
+  public SCHEDULE_AHEAD_TIME: number = 0.500; // seconds
   private nextTickTime: number = 0.0;
   
   // Math Anchors for Drift Elimination
@@ -46,10 +46,15 @@ export class AudioEngine {
   private activeBarulhoNodes = new Map<string, AudioBufferSourceNode>(); // Maps instrumentId -> active looping BufferSource
   private activeBarulhoGains = new Map<string, GainNode>(); // Maps instrumentId -> GainNode of active Barulho
   private scheduledHits = new Set<AudioBufferSourceNode>();
+  private activeGainNodes = new Map<AudioBufferSourceNode, { instrumentId: string; gainNode: GainNode }>(); // Precise tracking to avoid leaks
   private gainNodePools = new Map<string, GainNode[]>(); // Maps instrumentId -> pooled GainNodes connected to channel
 
   // O(1) lookup cache for instrument configurations (built once in constructor)
   private readonly configMap: Map<string, InstrumentAudioConfig>;
+
+  private handleVisibilityChange = () => {
+    this.updateSchedulingParameters();
+  };
 
   /**
    * @param {AudioContext} audioContext - Native AudioContext to drive the clock and play samples
@@ -65,20 +70,40 @@ export class AudioEngine {
     this.onTick = onTick;
     this.getTickDuration = getTickDuration;
 
-    // Adapt scheduling parameters to device capabilities
-    // Mobile/tablet CPUs need more headroom to avoid buffer underruns
-    const isMobile = 'ontouchstart' in globalThis || navigator.maxTouchPoints > 0;
-    const hwLatency = (audioContext.baseLatency || 0) + ((audioContext as any).outputLatency || 0);
-    
-    this.LOOKAHEAD_INTERVAL = isMobile ? 25.0 : 10.0;
-    this.SCHEDULE_AHEAD_TIME = isMobile
-      ? Math.max(0.600, hwLatency + 0.300) 
-      : 0.500; // 500ms buffer to survive massive React measure-boundary renders
+    this.updateSchedulingParameters();
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    }
 
     // Pre-build O(1) config lookup map (avoids Array.find() on every note played)
     this.configMap = new Map(instrumentAudioConfigs.map(c => [c.id, c]));
 
     this.initWorker();
+  }
+
+  private updateSchedulingParameters(): void {
+    const isMobile = 'ontouchstart' in globalThis || navigator.maxTouchPoints > 0;
+    const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    const isDesktopActive = !isMobile && !isHidden;
+
+    const hwLatency = (this.audioContext.baseLatency || 0) + ((this.audioContext as any).outputLatency || 0);
+
+    this.SCHEDULE_AHEAD_TIME = isDesktopActive
+      ? 0.150
+      : (isMobile ? Math.max(0.600, hwLatency + 0.300) : 0.500);
+
+    this.LOOKAHEAD_INTERVAL = isDesktopActive ? 15.0 : 25.0;
+
+    // Dynamically update interval of worker or fallback timer if currently playing
+    if (this.isPlaying) {
+      if (this.worker) {
+        this.worker.postMessage({ action: 'start', interval: this.LOOKAHEAD_INTERVAL });
+      } else if (this.fallbackTimerId !== null) {
+        window.clearInterval(this.fallbackTimerId);
+        this.fallbackTimerId = window.setInterval(() => this.scheduler(), this.LOOKAHEAD_INTERVAL);
+      }
+    }
   }
 
   private initWorker(): void {
@@ -164,6 +189,12 @@ export class AudioEngine {
       } catch (_) {}
     });
     this.scheduledHits.clear();
+
+    // Release any active gain nodes to prevent leaks on stop
+    this.activeGainNodes.forEach(({ instrumentId, gainNode }) => {
+      this.releaseGainNode(instrumentId, gainNode);
+    });
+    this.activeGainNodes.clear();
   }
 
   /**
@@ -519,8 +550,16 @@ export class AudioEngine {
       source.start(time);
       this.activeBarulhoNodes.set(instrumentId, source);
       this.activeBarulhoGains.set(instrumentId, gainNode);
+      this.activeGainNodes.set(source, { instrumentId, gainNode });
+
+      source.onended = () => {
+        try { source.disconnect(); } catch (_) {}
+        this.releaseGainNode(instrumentId, gainNode);
+        this.activeGainNodes.delete(source);
+      };
     } else {
       this.scheduledHits.add(source);
+      this.activeGainNodes.set(source, { instrumentId, gainNode });
       const duration = buffer.duration * decayMultiplier;
       if (decayMultiplier < 1.0) {
         const fadeTime = Math.min(0.015, duration / 2);
@@ -535,6 +574,7 @@ export class AudioEngine {
         this.scheduledHits.delete(source);
         try { source.disconnect(); } catch (_) {}
         this.releaseGainNode(instrumentId, gainNode);
+        this.activeGainNodes.delete(source);
       };
     }
 
@@ -558,19 +598,11 @@ export class AudioEngine {
         activeGain.gain.setValueAtTime(activeGain.gain.value, time);
         activeGain.gain.linearRampToValueAtTime(0, time + fadeTime);
         activeNode.stop(time + fadeTime);
-        
-        // Wait until the scheduled time PLUS the fadeTime has actually passed in real time
-        // before disconnecting and releasing the node to the pool.
-        // time is in Web Audio context time, which is SCHEDULE_AHEAD_TIME in the future.
-        const timeUntilStop = (time + fadeTime) - this.audioContext.currentTime;
-        const delayMs = Math.max(0, timeUntilStop) * 1000 + 50;
-
-        setTimeout(() => {
-          try { activeNode.disconnect(); } catch (_) {}
-          this.releaseGainNode(instrumentId, activeGain);
-        }, delayMs);
       } catch (_) {
-        // Source might have been stopped already
+        // Fallback cleanup if node is already stopped/dead
+        try { activeNode.disconnect(); } catch (_) {}
+        this.releaseGainNode(instrumentId, activeGain);
+        this.activeGainNodes.delete(activeNode);
       }
       this.activeBarulhoNodes.delete(instrumentId);
       this.activeBarulhoGains.delete(instrumentId);
@@ -592,6 +624,10 @@ export class AudioEngine {
    */
   public dispose(): void {
     this.stopAllBarulho();
+
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    }
     
     if (this.worker) {
       this.worker.terminate();
@@ -615,6 +651,7 @@ export class AudioEngine {
     this.activeBarulhoNodes.clear();
     this.activeBarulhoGains.clear();
     this.scheduledHits.clear();
+    this.activeGainNodes.clear();
     this.gainNodePools.clear();
   }
 }

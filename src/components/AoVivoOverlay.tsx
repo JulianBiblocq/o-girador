@@ -418,12 +418,13 @@ const RimHalo = ({ show, hitTime, target, yOffset = 0 }: { show: boolean, hitTim
 };
 
 export const AoVivoOverlay: React.FC = () => {
-  const { activeAoVivoTrackId, isLeftHanded, activeVariationsRef } = useSequencer();
+  const { activeAoVivoTrackId, isLeftHanded, activeVariationsRef, lang } = useSequencer();
   const tracks = useSequencerStore(state => state.tracks);
   const [hitEvent, setHitEvent] = useState<HitEvent | null>(null);
   const target = useRodaTarget();
   const { width } = useWindowSize();
   const [isEco, setIsEco] = useState<boolean>(() => !!(window as any).oGiradorEcoMode);
+  const [playbackPosition, setPlaybackPosition] = useState<{ step: number; measure: number }>({ step: -1, measure: -1 });
 
   useEffect(() => {
     const handleEcoChange = () => setIsEco(!!(window as any).oGiradorEcoMode);
@@ -446,16 +447,19 @@ export const AoVivoOverlay: React.FC = () => {
       if (step < 0) {
         lastVuStepRef.current = -1;
         setHitEvent(null);
+        setPlaybackPosition({ step: -1, measure: -1 });
         return;
       }
 
       const currentLivePattern = activeTrack.patterns.find(p => p.measureAssignments[measure]);
       if (!currentLivePattern) {
         lastVuStepRef.current = -1;
+        setPlaybackPosition({ step: -1, measure: -1 });
         return;
       }
 
       const targetStep = Math.floor(ratio * currentLivePattern.steps);
+      setPlaybackPosition({ step: targetStep, measure });
 
       if (targetStep !== lastVuStepRef.current) {
         lastVuStepRef.current = targetStep;
@@ -682,6 +686,79 @@ export const AoVivoOverlay: React.FC = () => {
           <StickWrapper xOffset={offset} target={hitTarget}>
             <GongueStick animClass={animCenter} hitTime={time} />
           </StickWrapper>
+        );
+      }
+
+      case 'voice': {
+        const currentLivePattern = activeTrack.patterns.find(p => p.measureAssignments[playbackPosition.measure]);
+        if (!currentLivePattern) return null;
+
+        const karaokeWords: { text: string; index: number }[][] = [];
+        let currentWord: { text: string; index: number }[] = [];
+
+        for (let idx = 0; idx < currentLivePattern.steps; idx++) {
+          const active = currentLivePattern.activeSteps[idx] !== 0;
+          const syl = currentLivePattern.lyrics?.[idx] || '';
+          if (active && syl) {
+            currentWord.push({ text: syl, index: idx });
+            if (syl.endsWith(' ') || idx === currentLivePattern.steps - 1) {
+              karaokeWords.push([...currentWord]);
+              currentWord = [];
+            }
+          }
+        }
+        if (currentWord.length > 0) {
+          karaokeWords.push(currentWord);
+        }
+
+        return (
+          <div 
+            className="absolute z-50 pointer-events-none flex flex-col items-center justify-center w-full max-w-2xl px-6 text-center"
+            style={{
+              left: `${target.x}px`,
+              top: `${target.y}px`,
+              transform: 'translate(-50%, -50%)',
+            }}
+          >
+            <div className="bg-[#ece4d0]/80 backdrop-blur-[2px] text-[#1a1a1a] border-4 border-[#1a1a1a] shadow-[8px_8px_0_#1a1a1a] p-6 w-full flex flex-col gap-2 font-sans select-none cordel-border">
+              <div className="text-lg opacity-60 mb-0.5">
+                🎙️
+              </div>
+              <div className="flex flex-wrap justify-center gap-x-3 gap-y-1.5 text-2xl font-black font-cactus uppercase">
+                {karaokeWords.length === 0 ? (
+                  <span className="italic opacity-55 text-lg">
+                    {lang === 'fr' ? 'Paroles vides' : 'Sem letras'}
+                  </span>
+                ) : (
+                  karaokeWords.map((word, wIdx) => {
+                    const isWordActive = word.some(item => item.index === playbackPosition.step);
+                    return (
+                      <span
+                        key={wIdx}
+                        className={`transition-all duration-100 ${
+                          isWordActive 
+                            ? 'text-[#8b2a1a] scale-110 transform' 
+                            : 'opacity-40'
+                        }`}
+                      >
+                        {word.map((item, sIdx) => {
+                          const isStepActive = item.index === playbackPosition.step;
+                          return (
+                            <span 
+                              key={sIdx} 
+                              className={isStepActive ? 'underline decoration-4 underline-offset-4' : ''}
+                            >
+                              {item.text}
+                            </span>
+                          );
+                        })}
+                      </span>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
         );
       }
 

@@ -11,7 +11,7 @@ import { loadTone, getTone } from '@/src/ToneLoader';
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
 }
-import { TrackGroup, Language, TimeSignature, SongSection, PresetMetadata, RhythmSignal, CloudRhythmSignal } from '../types';
+import { TrackGroup, Language, TimeSignature, SongSection, PresetMetadata, RhythmSignal, CloudRhythmSignal, SongMarker } from '../types';
 import { ASSETS_BASE_URL, instrumentsConfig, getMaxTicks, getMarkers, isDarkText, getVisualStrokeSymbol } from '../data';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
 import { TimelineTrackRow } from './TimelineTrackRow';
