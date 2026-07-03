@@ -77,7 +77,11 @@ export class AudioEngine {
     getTickDuration: () => number
   ) {
     // Unpack native BaseAudioContext if a Tone.js Context wrapper was passed
-    const rawContext = (audioContext as any).rawContext || audioContext;
+    const rawContext =
+      (audioContext as any)._nativeContext ||
+      (audioContext as any).rawContext ||
+      (audioContext as any)._context ||
+      audioContext;
     this.audioContext = rawContext;
     this.onTick = onTick;
     this.getTickDuration = getTickDuration;
