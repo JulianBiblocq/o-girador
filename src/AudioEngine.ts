@@ -76,17 +76,9 @@ export class AudioEngine {
     onTick: (time: number) => void,
     getTickDuration: () => number
   ) {
-    // Unpack native BaseAudioContext if a Tone.js Context wrapper was passed
-    const rawContext =
-      (audioContext as any)._nativeContext ||
-      (audioContext as any).rawContext ||
-      (audioContext as any)._context ||
-      audioContext;
-    this.audioContext = rawContext;
+    this.audioContext = audioContext;
     this.onTick = onTick;
     this.getTickDuration = getTickDuration;
-
-    console.log("DEBUG: AudioEngine Constructor: audioContext =", audioContext, "typeof:", typeof audioContext, "unpacked rawContext:", rawContext);
 
     this.updateSchedulingParameters();
 
@@ -97,7 +89,13 @@ export class AudioEngine {
     // Pre-build O(1) config lookup map (avoids Array.find() on every note played)
     this.configMap = new Map(instrumentAudioConfigs.map(c => [c.id, c]));
 
-    if (typeof this.audioContext.audioWorklet === 'undefined') {
+    const nativeContext =
+      (audioContext as any)._nativeContext ||
+      (audioContext as any).rawContext ||
+      (audioContext as any)._context ||
+      audioContext;
+
+    if (typeof nativeContext.audioWorklet === 'undefined') {
       console.warn("AudioEngine: AudioWorklet not supported. Falling back to setInterval timer.");
       this.initFallbackTimer();
     } else {
@@ -137,15 +135,21 @@ export class AudioEngine {
       const cleanBase = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
       const workletUrl = `${cleanBase}clock.worklet.js`;
 
-      await this.audioContext.audioWorklet.addModule(workletUrl);
+      const nativeContext =
+        (this.audioContext as any)._nativeContext ||
+        (this.audioContext as any).rawContext ||
+        (this.audioContext as any)._context ||
+        this.audioContext;
+
+      await nativeContext.audioWorklet.addModule(workletUrl);
       
-      this.clockNode = new AudioWorkletNode(this.audioContext, 'clock-processor');
+      this.clockNode = new AudioWorkletNode(nativeContext, 'clock-processor');
       this.clockNode.port.onmessage = () => {
         if (this.isPlaying) {
           this.scheduler();
         }
       };
-      this.clockNode.connect(this.audioContext.destination);
+      this.clockNode.connect(nativeContext.destination);
     } catch (err) {
       console.warn("AudioEngine: Failed to initialize clock AudioWorklet. Falling back to setInterval clock.", err);
       this.initFallbackTimer();
