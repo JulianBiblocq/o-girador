@@ -561,11 +561,16 @@ export class AudioEngine {
       while (voices.length >= limit) {
         const oldestVoice = voices.shift();
         if (oldestVoice) {
-          const fadeOutTime = 0.010; // 10ms fade out to avoid clicks
+          const fadeOutTime = 0.01; // 10ms fade out
           try {
-            oldestVoice.gainNode.gain.cancelScheduledValues(time);
-            oldestVoice.gainNode.gain.setValueAtTime(oldestVoice.velocity, time);
-            oldestVoice.gainNode.gain.linearRampToValueAtTime(0, time + fadeOutTime);
+            const gainParam = oldestVoice.gainNode.gain;
+            if (typeof gainParam.cancelAndHoldAtTime === 'function') {
+              gainParam.cancelAndHoldAtTime(time);
+            } else {
+              gainParam.cancelScheduledValues(time);
+              gainParam.setValueAtTime(gainParam.value, time);
+            }
+            gainParam.setTargetAtTime(0, time, fadeOutTime / 3);
             oldestVoice.source.stop(time + fadeOutTime);
           } catch (e) {
             try { oldestVoice.source.stop(); } catch (_) {}
