@@ -360,12 +360,12 @@ export function useAudioSync({
           const velocity = flatArray[i+2];
 
           // Decode packed data
-          const trackId = (packedData >> 19) & 0x0F;
+          const trackIdx = (packedData >> 19) & 0x0F;
           const circleStepIdx = (packedData >> 14) & 0x1F;
           const strokeCharCode = (packedData >> 7) & 0x7F;
           const decayPct = packedData & 0x7F;
 
-          const liveTrack = tracksRef.current.find(t => t.id === trackId);
+          const liveTrack = tracksRef.current[trackIdx];
           if (!liveTrack) continue;
 
           const inst = instrumentsConfig[liveTrack.instrumentIdx];
@@ -383,7 +383,7 @@ export function useAudioSync({
 
           // Visual hit trigger
           Tone.Draw.schedule(() => {
-            hitTriggersRef.current.push({ trackId, stepIndex: circleStepIdx, state: strokeCharCode });
+            hitTriggersRef.current.push({ trackId: liveTrack.id, stepIndex: circleStepIdx, state: strokeCharCode });
           }, triggerTime);
         }
       } else {

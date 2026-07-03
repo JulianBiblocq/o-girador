@@ -55,7 +55,7 @@ function buildFlatMeasureSchedule(
   const hasSolo = tracks.some((t: any) => t.isSolo);
   const isSoloPlayActive = soloPatternPlayId !== null;
 
-  tracks.forEach((track: any) => {
+  tracks.forEach((track: any, trackIdx: number) => {
     const inst = instConfig[track.instrumentIdx];
     if (!inst || inst.type === 'voice') return;
 
@@ -222,7 +222,7 @@ function buildFlatMeasureSchedule(
       const instIdx = instrumentIds.indexOf(inst.id);
       const strokeCharCode = targetKey.charCodeAt(0);
       const decayPct = Math.round(stepDecayMultiplier * 100);
-      const packedData = (track.id << 19) | (step << 14) | (strokeCharCode << 7) | decayPct;
+      const packedData = (trackIdx << 19) | (step << 14) | (strokeCharCode << 7) | decayPct;
 
       notesList.push(triggerTime, packedData, vel);
     }
