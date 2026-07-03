@@ -107,6 +107,7 @@ const MixerComponent: React.FC<MixerProps> = ({
     vocalCalibrationLatencyMs,
   } = sequencer;
 
+  const trackIdsNumbers = useSequencerStore(useShallow(state => state.tracks.map(t => t.id)));
   const tracks = useSequencerStore(state => state.tracks);
   const setTracks = useSequencerStore(state => state.setTracks);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
@@ -126,6 +127,9 @@ const MixerComponent: React.FC<MixerProps> = ({
 
   const [isTracksCollapsed, setIsTracksCollapsed] = React.useState(true);
   const [editingTrackId, setEditingTrackId] = React.useState<number | null>(null);
+  const onOpenDetailEditor = React.useCallback((id: number) => {
+    setEditingTrackId(id);
+  }, []);
   const [addDropOpen, setAddDropOpen] = useState(false);
   const addDropRef = useRef<HTMLDivElement>(null);
 
@@ -286,53 +290,15 @@ const MixerComponent: React.FC<MixerProps> = ({
         <div id="tracks-mixer-container" className="flex flex-col gap-3">
           <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
             <SortableContext items={trackIds} strategy={verticalListSortingStrategy}>
-              {tracks.map((track, idx) => (
+              {trackIdsNumbers.map((trackId, idx) => (
                 <TrackMixer
-                  key={track.id}
-                  lang={lang}
-                  isLeftHanded={isLeftHanded}
-                  trackId={track.id}
+                  key={trackId}
+                  trackId={trackId}
                   index={idx}
-                  totalTracks={tracks.length}
-                  meter={meters && instrumentsConfig[track.instrumentIdx] ? meters[instrumentsConfig[track.instrumentIdx].id] : undefined}
-                  soloPatternPlayId={soloPatternPlayId}
-                  onInstrumentChange={(val) => onInstrumentChange(track.id, val)}
-                  onMuteToggle={() => onMuteToggle(track.id)}
-                  onSoloToggle={() => onSoloToggle(track.id)}
-                  onHideToggle={() => onHideToggle(track.id)}
-                  onDelete={() => onDelete(track.id)}
-                  onPatternNameChange={(patternId, name) => onPatternNameChange && onPatternNameChange(track.id, patternId, name)}
-                  onAddPatternVariation={(patternId) => onAddPatternVariation && onAddPatternVariation(track.id, patternId)}
-                  onUpdatePatternVariationProbability={(patternId, varId, prob) => onUpdatePatternVariationProbability && onUpdatePatternVariationProbability(track.id, patternId, varId, prob)}
-                  onTogglePatternVariationFirstTimeOnly={(patternId, varId, val) => onTogglePatternVariationFirstTimeOnly && onTogglePatternVariationFirstTimeOnly(track.id, patternId, varId, val)}
-                  onVariationStepValueChange={(patternId, varId, stepIdx, val) => onVariationStepValueChange && onVariationStepValueChange(track.id, patternId, varId, stepIdx, val)}
-                  onVolumeChange={(val) => onVolumeChange(track.id, val)}
-                  onPanChange={(val) => onPanChange(track.id, val)}
-                  onStepsChange={(patternId, steps) => onStepsChange(track.id, patternId, steps)}
-                  onStepValueChange={(patternId, stepIdx, val, lyrics, notes) => onStepValueChange(track.id, patternId, stepIdx, val, lyrics, notes)}
-                  onStepKeyDown={(patternId, stepIdx, key, cVal, el) => onStepKeyDown(track.id, patternId, stepIdx, key, cVal, el)}
-                  onVoiceTypeToggle={(patternId, stepIdx) => onVoiceTypeToggle(track.id, patternId, stepIdx)}
-                  onVoiceSylChange={(patternId, stepIdx, val) => onVoiceSylChange(track.id, patternId, stepIdx, val)}
-                  onVoiceNoteChange={(patternId, stepIdx, val) => onVoiceNoteChange(track.id, patternId, stepIdx, val)}
-                  onVoiceNoteBlur={(patternId, stepIdx, val) => onVoiceNoteBlur(track.id, patternId, stepIdx, val)}
-                  isPlaying={isPlaying}
-                  maxTicks={maxTicks}
-                  timeSig={timeSig}
-                  totalMeasures={totalMeasures}
-                  onSelectPattern={(patternId) => onTrackSelectPattern(track.id, patternId)}
-                  onPatternAssign={(patternId, measureIdx, val) => onPatternAssign(track.id, patternId, measureIdx, val)}
-                  onAddPattern={() => onAddPattern(track.id)}
-                  onDeletePattern={(patternId) => onDeletePattern(track.id, patternId)}
-                  onOpenDetailEditor={() => setEditingTrackId(track.id)}
-                  onStepTouchStart={onStepTouchStart}
-                  onCopyPattern={handleCopyPattern}
-                  onPastePattern={(pId) => handlePastePattern(track.id, pId)}
-                  onLoadLibraryPattern={onLoadLibraryPattern ? (pId, lib) => onLoadLibraryPattern(track.id, pId, lib) : undefined}
-                  canPaste={!!copiedPattern}
-                  onReorderPatternsDnd={(oldIdx, newIdx) => onReorderPatternsDnd && onReorderPatternsDnd(track.id, oldIdx, newIdx)}
+                  totalTracks={trackIdsNumbers.length}
                   isCollapsed={isTracksCollapsed}
-                  activeAoVivoTrackId={activeAoVivoTrackId}
-                  setActiveAoVivoTrackId={setActiveAoVivoTrackId}
+                  onOpenDetailEditor={onOpenDetailEditor}
+                  onStepTouchStart={onStepTouchStart}
                 />
               ))}
             </SortableContext>
