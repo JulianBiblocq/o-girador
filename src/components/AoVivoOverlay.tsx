@@ -71,10 +71,26 @@ const style = `
   .pov-anim-hit-strong { animation: pov-hit-strong 0.35s cubic-bezier(0.1, 2.0, 0.3, 1); }
   .pov-anim-hit-micro { animation: pov-hit-micro 0.35s cubic-bezier(0.1, 2.0, 0.3, 1); }
   .pov-anim-hit-weak { animation: pov-hit-weak 0.35s cubic-bezier(0.1, 2.0, 0.3, 1); }
+
+  /* Easing et keyframes à faible rebond pour l'Alfaia */
+  .pov-anim-alfaia-hit { animation: pov-hit 0.35s cubic-bezier(0.15, 1.15, 0.3, 1); }
+  .pov-anim-alfaia-hit-strong { animation: pov-hit-strong 0.35s cubic-bezier(0.15, 1.15, 0.3, 1); }
+  .pov-anim-alfaia-hit-micro { animation: pov-hit-micro 0.35s cubic-bezier(0.15, 1.15, 0.3, 1); }
+  .pov-anim-alfaia-hit-weak { animation: pov-hit-weak 0.35s cubic-bezier(0.15, 1.15, 0.3, 1); }
   
-  /* Easing doux et long pour le Gonguê pour donner l'impression de revenir lentement */
-  .pov-anim-gongue-hit-strong { animation: pov-hit-strong 0.5s cubic-bezier(0.1, 0.9, 0.2, 1); }
-  .pov-anim-gongue-hit-micro { animation: pov-hit-micro 0.5s cubic-bezier(0.1, 0.9, 0.2, 1); }
+  /* Easing et keyframes à amplitude minimale (sans rebond) pour le Gonguê */
+  @keyframes pov-gongue-hit-strong {
+    0% { transform: translateY(0px) rotateX(0deg); }
+    30% { transform: translateY(-40px) rotateX(8deg); }
+    100% { transform: translateY(0px) rotateX(0deg); }
+  }
+  @keyframes pov-gongue-hit-micro {
+    0% { transform: translateY(0px) rotateX(0deg); }
+    30% { transform: translateY(-15px) rotateX(3deg); }
+    100% { transform: translateY(0px) rotateX(0deg); }
+  }
+  .pov-anim-gongue-hit-strong { animation: pov-gongue-hit-strong 0.3s cubic-bezier(0.1, 0.9, 0.2, 1); }
+  .pov-anim-gongue-hit-micro { animation: pov-gongue-hit-micro 0.3s cubic-bezier(0.1, 0.9, 0.2, 1); }
   
   .pov-anim-cross-left { animation: pov-cross-left 0.4s cubic-bezier(0.1, 2.0, 0.3, 1); }
   .pov-anim-cross-right { animation: pov-cross-right 0.4s cubic-bezier(0.1, 2.0, 0.3, 1); }
@@ -322,7 +338,7 @@ const AgbeNet = ({ animClass, hitTime, target }: { animClass: string, hitTime: n
   const animBottom = animClass.includes('ventre') ? animClass : '';
 
   return (
-    <div key={hitTime} className="absolute w-[240px] h-[240px] min-[400px]:w-[500px] min-[400px]:h-[500px] sm:w-[800px] sm:h-[800px] pointer-events-none z-10" style={{ left: target.x, top: target.y, transform: 'translate(-50%, -50%)' }}>
+    <div key={hitTime} className="absolute w-[240px] h-[240px] min-[400px]:w-[500px] min-[400px]:h-[500px] sm:w-[800px] sm:h-[800px] pointer-events-none z-10" style={{ left: target.x, top: target.y - 30, transform: 'translate(-50%, -50%)' }}>
       <svg viewBox="0 0 1000 1000" className={`w-full h-full drop-shadow-[0_20px_40px_rgba(0,0,0,0.8)] opacity-90 ${isShake ? animClass : ''}`}>
         
         {isShake && renderNet()}
@@ -517,16 +533,16 @@ export const AoVivoOverlay: React.FC = () => {
       case 'repique': {
         if (!isVibrate) {
           if (stroke === 'D') {
-            animDominant = 'pov-anim-hit-strong';
+            animDominant = 'pov-anim-alfaia-hit-strong';
           } else if (stroke === 'd') {
-            animDominant = 'pov-anim-hit';
+            animDominant = 'pov-anim-alfaia-hit';
           } else if (stroke === 'E') {
-            animWeak = 'pov-anim-hit-strong';
+            animWeak = 'pov-anim-alfaia-hit-strong';
           } else if (stroke === 'e') {
-            animWeak = 'pov-anim-hit';
+            animWeak = 'pov-anim-alfaia-hit';
           } else if (stroke === 'i' || stroke === 'I') {
             // Bacalhau : la main faible frappe d'un coup sec
-            animWeak = 'pov-anim-hit-weak';
+            animWeak = 'pov-anim-alfaia-hit-weak';
           } else if (stroke === 'x' || stroke === 'X') {
             animLeft = 'pov-anim-out-left';
             animRight = 'pov-anim-out-right';
@@ -538,8 +554,8 @@ export const AoVivoOverlay: React.FC = () => {
             animHalo = true;
             animHaloOffsetY = -150; // Le croisement se fait 150px plus haut
           } else if (stroke) {
-            animDominant = 'pov-anim-hit';
-            animWeak = 'pov-anim-hit';
+            animDominant = 'pov-anim-alfaia-hit';
+            animWeak = 'pov-anim-alfaia-hit';
           }
         }
         
@@ -677,10 +693,14 @@ export const AoVivoOverlay: React.FC = () => {
           }
         }
 
+        // Alternance de position d'impact pour distinguer les coups consécutifs sur une même note
+        const isAlternated = time % 2 === 0;
+        const alternateX = isAlternated ? -25 : 25;
+
         // Toujours une seule baguette, jouée par la main dominante
         const offset = isLeftHanded ? -handSpread : handSpread;
-        // On décale légèrement la frappe sur le côté de la Roda (du côté de la main qui tient la baguette)
-        hitTarget.x = target.x + (offset * 0.4);
+        // On décale légèrement la frappe sur le côté de la Roda (du côté de la main qui tient la baguette) + alternance
+        hitTarget.x = target.x + (offset * 0.4) + alternateX;
 
         return (
           <StickWrapper xOffset={offset} target={hitTarget}>
