@@ -28,6 +28,7 @@ export let masterVolumeNode: Tone.Gain | null = null;
 export let masterMeterNode: Tone.Meter | null = null;
 export let masterEQNode: Tone.EQ3 | null = null;
 export let masterCompressorNode: Tone.Compressor | null = null;
+export let masterSoftClipperNode: WaveShaperNode | null = null;
 
 // Performance caches and pools
 const RANDOM_POOL_SIZE = 1000;
@@ -424,14 +425,23 @@ export function useAudioSync({
     }
   }, [activeKeyboardInstrumentId]);
 
-  // Sync Master Volume node
+  // Sync Master Volume node (with automatic Gain Staging reduction in Eco Mode)
   useEffect(() => {
-    if (masterVolumeNode) {
-      masterVolumeNode.gain.setValueAtTime(
-        Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol),
-        Tone.context.currentTime
-      );
-    }
+    const applyVolume = () => {
+      if (masterVolumeNode) {
+        const isEco = (window as any).oGiradorEcoMode;
+        const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
+        const multiplier = isEco ? Tone.dbToGain(-8) : 1.0;
+        masterVolumeNode.gain.setValueAtTime(
+          baseGain * multiplier,
+          Tone.context.currentTime
+        );
+      }
+    };
+
+    applyVolume();
+    window.addEventListener('eco-mode-changed', applyVolume);
+    return () => window.removeEventListener('eco-mode-changed', applyVolume);
   }, [masterVol]);
 
   // Sync Master EQ
@@ -643,7 +653,21 @@ export function useAudioSync({
         // Add a Limiter at -2dB to prevent digital clipping when many instruments hit simultaneously
         const masterLimiterNode = new Tone.Limiter(-2);
         masterHighpassNode.connect(masterLimiterNode);
-        masterLimiterNode.toDestination();
+
+        // Native 0% CPU Soft Clipper (WaveShaperNode using tanh curve)
+        const rawCtx = Tone.context.rawContext;
+        masterSoftClipperNode = rawCtx.createWaveShaper();
+        const clipperCurve = new Float32Array(256);
+        for (let i = 0; i < 256; i++) {
+          const x = (i * 2) / 256 - 1;
+          clipperCurve[i] = Math.tanh(x);
+        }
+        masterSoftClipperNode.curve = clipperCurve;
+        masterSoftClipperNode.oversample = 'none';
+
+        // Connect chain: masterLimiterNode -> masterSoftClipperNode -> Tone.Destination
+        masterLimiterNode.connect(masterSoftClipperNode);
+        masterSoftClipperNode.connect(Tone.Destination.input as unknown as AudioNode);
         
         masterVolumeNode.gain.value = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
         masterMeterNode = new Tone.Meter();
