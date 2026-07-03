@@ -25,6 +25,8 @@ interface ActiveVoice {
   instrumentId: string;
 }
 
+const HUMANIZED_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
+
 export class AudioEngine {
   private audioContext: AudioContext;
   private isPlaying: boolean = false;
@@ -50,7 +52,7 @@ export class AudioEngine {
 
   // Sampler State & Buffers
   private bufferPool = new Map<string, ToneType.ToneAudioBuffer>(); // Maps absolute path -> ToneAudioBuffer (Sample Pooling)
-  private lastPlayedIndices = new Map<string, number>(); // Maps "instrumentId_strokeSymbol" -> last played index (Round-Robin)
+  private lastPlayedIndices = new Map<string, Map<string, number>>(); // Maps instrumentId -> strokeSymbol -> last played index (Round-Robin)
   private instrumentChannels = new Map<string, any>(); // Maps instrumentId -> Tone.Channel
   private activeBarulhoNodes = new Map<string, AudioBufferSourceNode>(); // Maps instrumentId -> active looping BufferSource
   private activeBarulhoGains = new Map<string, GainNode>(); // Maps instrumentId -> GainNode of active Barulho
@@ -540,20 +542,25 @@ export class AudioEngine {
     }
 
     // 1. Round-Robin Index Selection
-    const rrKey = `${instrumentId}_${stroke.symbol}`;
     const numFiles = stroke.files.length;
     let chosenIdx = 0;
 
+    let instMap = this.lastPlayedIndices.get(instrumentId);
+    if (!instMap) {
+      instMap = new Map<string, number>();
+      this.lastPlayedIndices.set(instrumentId, instMap);
+    }
+
     if (numFiles > 1) {
-      const lastIdx = this.lastPlayedIndices.has(rrKey) ? this.lastPlayedIndices.get(rrKey)! : -1;
+      const lastIdx = instMap.has(stroke.symbol) ? instMap.get(stroke.symbol)! : -1;
       // Zero-allocation round-robin: pick random index from [0, numFiles-1] excluding lastIdx
       const availableCount = numFiles - (lastIdx >= 0 ? 1 : 0);
       let rawIdx = Math.floor(Math.random() * availableCount);
       if (lastIdx >= 0 && rawIdx >= lastIdx) rawIdx++;
       chosenIdx = rawIdx;
-      this.lastPlayedIndices.set(rrKey, chosenIdx);
+      instMap.set(stroke.symbol, chosenIdx);
     } else {
-      this.lastPlayedIndices.set(rrKey, 0);
+      instMap.set(stroke.symbol, 0);
     }
 
     const filePath = stroke.files[chosenIdx];
@@ -597,7 +604,7 @@ export class AudioEngine {
     // Organically vary the playback rate unless it is a Barulho or Gonguê
     let microPitch = 1.0;
     if (!stroke.isBarulho && instrumentId !== 'gongue') {
-      if (['marcante', 'meiao', 'repique'].includes(instrumentId)) {
+      if (HUMANIZED_INSTRUMENTS.has(instrumentId)) {
         microPitch = 0.993 + Math.random() * 0.014; // Subtle +/- 0.7% variation
       } else {
         microPitch = 0.98 + Math.random() * 0.04; // Normal +/- 2% variation
@@ -633,7 +640,12 @@ export class AudioEngine {
         this.activeGainNodes.delete(source);
         const currentVoices = this.instrumentVoices.get(instrumentId);
         if (currentVoices) {
-          this.instrumentVoices.set(instrumentId, currentVoices.filter(v => v.source !== source));
+          for (let i = 0; i < currentVoices.length; i++) {
+            if (currentVoices[i].source === source) {
+              currentVoices.splice(i, 1);
+              break;
+            }
+          }
         }
       };
 
@@ -662,7 +674,12 @@ export class AudioEngine {
         this.activeGainNodes.delete(source);
         const currentVoices = this.instrumentVoices.get(instrumentId);
         if (currentVoices) {
-          this.instrumentVoices.set(instrumentId, currentVoices.filter(v => v.source !== source));
+          for (let i = 0; i < currentVoices.length; i++) {
+            if (currentVoices[i].source === source) {
+              currentVoices.splice(i, 1);
+              break;
+            }
+          }
         }
       };
 
@@ -691,7 +708,12 @@ export class AudioEngine {
       // Synchronously remove from instrumentVoices to prevent redundant voice stealing checks
       const currentVoices = this.instrumentVoices.get(instrumentId);
       if (currentVoices) {
-        this.instrumentVoices.set(instrumentId, currentVoices.filter(v => v.source !== activeNode));
+        for (let i = 0; i < currentVoices.length; i++) {
+          if (currentVoices[i].source === activeNode) {
+            currentVoices.splice(i, 1);
+            break;
+          }
+        }
       }
       try {
         const fadeTime = 0.015; // 15ms fade out to avoid clicks
