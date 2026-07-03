@@ -43,6 +43,10 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   const [currentStepIndex, setCurrentStepIndex] = React.useState<number>(-1);
   React.useEffect(() => {
     const handleTick = (e: Event) => {
+      if ((window as any).oGiradorEcoMode) {
+        setCurrentStepIndex(-1);
+        return;
+      }
       const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number }>;
       const { step } = customEvent.detail;
       setCurrentStepIndex(step);
