@@ -10,8 +10,14 @@ import { InputManager } from '../InputManager';
 import { TrackGroup, TimeSignature, HitTrigger, SongSection, GlobalSwing } from '../types';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
-import { ScheduledNote } from '../workers/audioCompiler.worker';
 import { loadTone } from '../ToneLoader';
+
+interface ScheduledNote {
+  time: number;
+  instrumentId: string;
+  velocity: number;
+  decayMultiplier?: number;
+}
 
 // Module scope audio engines and nodes to avoid duplicate instantiations on React re-renders
 export let metroChannel: Tone.Channel | null = null;
@@ -48,6 +54,15 @@ function getCachedMarkers(timeSig: string, ticks: number): number[] {
     markersCache.set(key, getMarkers(timeSig as any, ticks));
   }
   return markersCache.get(key)!;
+}
+
+function getMeasureStartTick(mIdx: number, measureTimeSigs: string[]): number {
+  let ticks = 0;
+  for (let i = 0; i < mIdx; i++) {
+    const timeSig = measureTimeSigs[i] || '4/4';
+    ticks += getMaxTicks(timeSig as TimeSignature);
+  }
+  return ticks;
 }
 
 
@@ -196,6 +211,13 @@ export function useAudioSync({
   const engineTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   // We still keep tickScheduleRef for rendering static partition / export / pre-compilation
   const tickScheduleRef = useRef<Map<number, Map<number, ScheduledNote[]>>>(new Map());
+
+  // FLAT SONG SCHEDULE REFERENCES
+  const flatCompiledScheduleRef = useRef<Float32Array | null>(null);
+  const absoluteTickCountRef = useRef<number>(0);
+  const flatArrayPointerRef = useRef<number>(0);
+  const lastAbsoluteTickRef = useRef<number>(-1);
+  const currentMeasureStartTickRef = useRef<number>(0);
   
 
 
@@ -351,50 +373,9 @@ export function useAudioSync({
         return;
       }
 
-      if (e.data.action === 'compileMeasure') {
-        const flatArray = e.data.data;
-        const len = flatArray.length;
-        for (let i = 0; i < len; i += 3) {
-          const triggerTime = flatArray[i];
-          const packedData = flatArray[i+1];
-          const velocity = flatArray[i+2];
-
-          // Decode packed data
-          const trackIdx = (packedData >> 19) & 0x0F;
-          const circleStepIdx = (packedData >> 14) & 0x1F;
-          const strokeCharCode = (packedData >> 7) & 0x7F;
-          const decayPct = packedData & 0x7F;
-
-          const liveTrack = tracksRef.current[trackIdx];
-          if (!liveTrack) continue;
-
-          const inst = instrumentsConfig[liveTrack.instrumentIdx];
-          if (!inst) continue;
-
-          const trackVolPct = liveTrack.volumeVal ?? 100;
-          if (trackVolPct > 0) {
-            const trackVolLinear = Math.pow(trackVolPct / 100, 2);
-            const finalVel = velocity * trackVolLinear;
-            const strokeSymbol = String.fromCharCode(strokeCharCode);
-            const decayMultiplier = decayPct / 100;
-
-            audioEngine?.playNote(inst.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
-          }
-
-          // Visual hit trigger
-          Tone.Draw.schedule(() => {
-            hitTriggersRef.current.push({ trackId: liveTrack.id, stepIndex: circleStepIdx, state: strokeCharCode });
-          }, triggerTime);
-        }
-      } else {
+      if (e.data.action === 'compileSong') {
         setIsCompiling(false);
-        const serialized = e.data.data;
-        const newSchedule = new Map<number, Map<number, ScheduledNote[]>>();
-        for (const [mIdx, measureEntries] of serialized) {
-          const mMap = new Map<number, ScheduledNote[]>(measureEntries);
-          newSchedule.set(mIdx, mMap);
-        }
-        tickScheduleRef.current = newSchedule;
+        flatCompiledScheduleRef.current = e.data.data;
       }
     };
 
@@ -676,6 +657,11 @@ export function useAudioSync({
             const firstTimeSig = measureTimeSigsRef.current[firstMeasureIdx] || '4/4';
             currentTicks = getMaxTicks(firstTimeSig);
             maxTicksRef.current = currentTicks;
+
+            flatArrayPointerRef.current = 0;
+            absoluteTickCountRef.current = getMeasureStartTick(firstMeasureIdx, measureTimeSigsRef.current);
+            currentMeasureStartTickRef.current = absoluteTickCountRef.current;
+            lastAbsoluteTickRef.current = -1;
           } else if (stepIdx === currentTicks - 1) {
             nextStepIdx = 0;
             if (soloPatternPlayIdRef.current !== null) {
@@ -728,22 +714,7 @@ export function useAudioSync({
             const sigId = measureSignalsRef.current[prevMeasureIdx] || null;
             lastPlayedSignalIdRef.current = sigId;
 
-            const timeSig = measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
-            const rawBpm = measureBpmsRef.current[currentMeasureIdx];
-            const targetBpm = isNaN(rawBpm) || rawBpm <= 0 ? 100 : rawBpm;
-
-            compilerWorkerRef.current?.postMessage({
-              action: 'compileMeasure',
-              tracks: tracksRef.current,
-              measureIdx: currentMeasureIdx,
-              timeSig,
-              instConfig: instrumentsConfig,
-              soloPatternPlayId: soloPatternPlayIdRef.current,
-              soloPatternVariationId: soloPatternVariationIdRef.current,
-              bpm: targetBpm,
-              globalSwing: globalSwingRef.current,
-              measureStartTime: time
-            });
+            currentMeasureStartTickRef.current = getMeasureStartTick(currentMeasureIdx, measureTimeSigsRef.current);
           }
 
           const _stepForUI = isNaN(stepIdx) ? 0 : stepIdx;
@@ -888,6 +859,83 @@ export function useAudioSync({
             }
           }
           const swingTime = time + swingOffset;
+
+          // Percussive notes playback (flat compiled schedule)
+          const currentAbsoluteTick = currentMeasureStartTickRef.current + stepIdx;
+          const flatArray = flatCompiledScheduleRef.current;
+          if (flatArray) {
+            const len = flatArray.length;
+            let ptr = flatArrayPointerRef.current;
+
+            // Reset pointer if currentAbsoluteTick decreased or jumped significantly
+            if (currentAbsoluteTick < lastAbsoluteTickRef.current || currentAbsoluteTick - lastAbsoluteTickRef.current > 5) {
+              ptr = 0;
+              while (ptr < len && flatArray[ptr] < currentAbsoluteTick) {
+                ptr += 4;
+              }
+            }
+            lastAbsoluteTickRef.current = currentAbsoluteTick;
+
+            while (ptr < len) {
+              const noteTick = flatArray[ptr];
+              if (noteTick > currentAbsoluteTick) {
+                break;
+              }
+
+              if (noteTick === currentAbsoluteTick) {
+                const packedData = flatArray[ptr + 1];
+                const velocity = flatArray[ptr + 2];
+                const microtimingPct = flatArray[ptr + 3];
+
+                // Decode packedData: trackIdx (3 bits), circleStepIdx (5 bits), strokeCharCode (7 bits), decayPct (7 bits), isTuplet (1 bit)
+                const trackIdx = (packedData >> 20) & 0x07;
+                const circleStepIdx = (packedData >> 15) & 0x1F;
+                const strokeCharCode = (packedData >> 8) & 0x7F;
+                const decayPct = (packedData >> 1) & 0x7F;
+                const isTuplet = (packedData & 1) === 1;
+
+                const liveTrack = tracksRef.current[trackIdx];
+                if (liveTrack) {
+                  const inst = instrumentsConfig[liveTrack.instrumentIdx];
+                  if (inst) {
+                    const trackVolPct = liveTrack.volumeVal ?? 100;
+                    if (trackVolPct > 0) {
+                      const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                      const finalVel = velocity * trackVolLinear;
+                      const strokeSymbol = String.fromCharCode(strokeCharCode);
+                      const decayMultiplier = decayPct / 100;
+
+                      // Calculate real-time swing and microtiming offsets
+                      let noteSwingOffset = 0;
+                      if (globalMode !== 'off') {
+                        if (isTuplet) {
+                          noteSwingOffset = swingJitter;
+                        } else {
+                          noteSwingOffset = swingOffset;
+                        }
+                      }
+
+                      const activePattern = liveTrack.patterns.find(p => p.measureAssignments[currentMeasureIdx]);
+                      const stepCount = activePattern ? activePattern.steps : 16;
+                      const stepDurSec = tick96nSec * (currentTicks / stepCount);
+                      const microOffset = (microtimingPct / 100) * stepDurSec * 0.5;
+
+                      const triggerTime = time + noteSwingOffset + microOffset;
+
+                      audioEngine?.playNote(inst.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
+
+                      // Visual hit trigger
+                      Tone.Draw.schedule(() => {
+                        hitTriggersRef.current.push({ trackId: liveTrack.id, stepIndex: circleStepIdx, state: strokeCharCode });
+                      }, triggerTime);
+                    }
+                  }
+                }
+              }
+              ptr += 4;
+            }
+            flatArrayPointerRef.current = ptr;
+          }
 
 
 
