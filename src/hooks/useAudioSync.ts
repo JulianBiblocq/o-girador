@@ -36,6 +36,96 @@ export let masterEQNode: Tone.EQ3 | null = null;
 export let masterCompressorNode: Tone.Compressor | null = null;
 export let masterSoftClipperNode: Tone.WaveShaper | null = null;
 
+export const activeNativeOscillators = new Set<OscillatorNode>();
+
+export const playNativeMetroClick = (time: number, isAccent: boolean, soundType: string, volume: number) => {
+  const rawCtx = Tone.getContext().rawContext as AudioContext;
+  const osc = rawCtx.createOscillator();
+  const clickGain = rawCtx.createGain();
+  osc.connect(clickGain);
+  
+  if (metroChannel && metroChannel.input) {
+    clickGain.connect(metroChannel.input as any);
+  } else if (masterVolumeNode) {
+    clickGain.connect(masterVolumeNode as any);
+  } else {
+    clickGain.connect(rawCtx.destination);
+  }
+
+  const freq = isAccent ? 880 : 440;
+  const volumeMultiplier = isAccent ? 1.0 : 0.6;
+  const finalVol = volume * volumeMultiplier;
+
+  clickGain.gain.setValueAtTime(0.0001, time);
+  clickGain.gain.exponentialRampToValueAtTime(finalVol, time + 0.002);
+
+  if (soundType === 'clave') {
+    osc.type = 'sine';
+    const targetFreq = isAccent ? 1200 : 800;
+    osc.frequency.setValueAtTime(targetFreq * 2, time);
+    osc.frequency.exponentialRampToValueAtTime(targetFreq, time + 0.01);
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.08);
+    osc.start(time);
+    osc.stop(time + 0.09);
+  } else if (soundType === 'cowbell') {
+    osc.type = 'triangle';
+    osc.frequency.value = isAccent ? 587.33 : 440;
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
+    osc.start(time);
+    osc.stop(time + 0.07);
+  } else {
+    osc.type = 'square';
+    osc.frequency.value = freq;
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.04);
+    osc.start(time);
+    osc.stop(time + 0.05);
+  }
+
+  activeNativeOscillators.add(osc);
+  osc.onended = () => {
+    activeNativeOscillators.delete(osc);
+    try {
+      osc.disconnect();
+      clickGain.disconnect();
+    } catch (_) {}
+  };
+};
+
+export const playNativeVoiceSynth = (freq: number, time: number, duration: number, volume: number, channelNode: any) => {
+  const rawCtx = Tone.getContext().rawContext as AudioContext;
+  const osc = rawCtx.createOscillator();
+  const voiceGain = rawCtx.createGain();
+  osc.connect(voiceGain);
+
+  if (channelNode && channelNode.input) {
+    voiceGain.connect(channelNode.input);
+  } else if (masterVolumeNode) {
+    voiceGain.connect(masterVolumeNode as any);
+  } else {
+    voiceGain.connect(rawCtx.destination);
+  }
+
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(freq, time);
+
+  const attack = 0.05;
+  voiceGain.gain.setValueAtTime(0.0001, time);
+  voiceGain.gain.exponentialRampToValueAtTime(volume * 0.3, time + attack);
+  voiceGain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+
+  osc.start(time);
+  osc.stop(time + duration);
+
+  activeNativeOscillators.add(osc);
+  osc.onended = () => {
+    activeNativeOscillators.delete(osc);
+    try {
+      osc.disconnect();
+      voiceGain.disconnect();
+    } catch (_) {}
+  };
+};
+
 // Performance caches and pools
 const RANDOM_POOL_SIZE = 1000;
 const randomPool = Array.from({ length: RANDOM_POOL_SIZE }, () => Math.random());
@@ -166,9 +256,6 @@ export function useAudioSync({
   reverbDecay
 }: UseAudioSyncProps) {
   // 🛡️ FIX (Audit): Rapatrie instanciation à l'intérieur du hook React via des useRef
-  const bMetroClickRef = useRef<Tone.Synth | null>(null);
-  const metroClaveClickRef = useRef<Tone.MembraneSynth | null>(null);
-  const metroCowbellClickRef = useRef<Tone.MetalSynth | null>(null);
   const tickEventDetailRef = useRef({
     step: 0,
     measure: 0,
@@ -178,17 +265,6 @@ export function useAudioSync({
     visualStep12: 0,
     time: 0
   });
-
-  useEffect(() => {
-    return () => {
-      // 🛡️ FIX (Audit): Cleanup orphan synths to prevent memory leaks
-      try {
-        if (bMetroClickRef.current) { bMetroClickRef.current.dispose(); bMetroClickRef.current = null; }
-        if (metroClaveClickRef.current) { metroClaveClickRef.current.dispose(); metroClaveClickRef.current = null; }
-        if (metroCowbellClickRef.current) { metroCowbellClickRef.current.dispose(); metroCowbellClickRef.current = null; }
-      } catch (_) {}
-    };
-  }, []);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -559,26 +635,7 @@ export function useAudioSync({
       metroChannel = new Tone.Channel({ volume: Tone.gainToDb(metroVolumeRef.current / 100) }).connect(masterVolumeNode);
       metroChannel.mute = !isMetroOnRef.current;
 
-      bMetroClickRef.current = new Tone.Synth({
-        oscillator: { type: 'square' },
-        envelope: { attack: 0.001, decay: 0.05, sustain: 0.0, release: 0.01 },
-      }).connect(metroChannel);
-
-      metroClaveClickRef.current = new Tone.MembraneSynth({
-        pitchDecay: 0.008,
-        octaves: 2,
-        oscillator: { type: 'sine' },
-        envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.01 }
-      }).connect(metroChannel);
-
-      metroCowbellClickRef.current = new Tone.MetalSynth({
-        envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
-        harmonicity: 5.1,
-        modulationIndex: 32,
-        resonance: 4000,
-        octaves: 1.5
-      }).connect(metroChannel);
-      metroCowbellClickRef.current.frequency.value = 200;
+      // Native oscillators used instead of Tone.Synth objects to reduce CPU overhead
 
       if (!masterReverbVolumeNode) {
         masterReverbVolumeNode = new Tone.Gain(Tone.dbToGain(masterReverbVol === -40 ? -Infinity : masterReverbVol)).connect(masterVolumeNode);
@@ -603,17 +660,7 @@ export function useAudioSync({
           reverbSends[inst.id].connect(reverbNode!);
         }
 
-        if (inst.type === 'voice') {
-          if (!voiceSynths[inst.id]) {
-            voiceSynths[inst.id] = new Tone.AMSynth({
-              harmonicity: 1,
-              oscillator: { type: 'sine' },
-              modulation: { type: 'sine' },
-              envelope: { attack: 0.05, decay: 0.2 },
-              volume: -10,
-            }).connect(channels[inst.id]);
-          }
-        }
+        // Native voice oscillators used instead of Tone.AMSynth to reduce CPU overhead
       });
 
       // Synchronize track volume, panning, reverb levels, and mute/solo initially once nodes exist
@@ -843,15 +890,8 @@ export function useAudioSync({
           if (isMetroOnRef.current && markers.includes(stepIdx)) {
             const metroVolLinear = Math.pow(Math.max(0, metroVolumeRef.current / 100), 2);
             if (metroVolLinear > 0) {
-              if (metroSoundRef.current === 'clave') {
-                const noteVal = stepIdx === 0 ? 'A5' : 'E5';
-                metroClaveClickRef.current?.triggerAttackRelease(noteVal, '32n', time, metroVolLinear);
-              } else if (metroSoundRef.current === 'cowbell') {
-                metroCowbellClickRef.current?.triggerAttackRelease('32n', time, (stepIdx === 0 ? 1 : 0.6) * metroVolLinear);
-              } else {
-                const noteVal = stepIdx === 0 ? 'A5' : 'E5';
-                bMetroClickRef.current?.triggerAttackRelease(noteVal, '32n', time, metroVolLinear);
-              }
+              const isAccent = (stepIdx === 0);
+              playNativeMetroClick(time, isAccent, metroSoundRef.current, metroVolLinear);
             }
           }
 
@@ -1077,8 +1117,8 @@ export function useAudioSync({
                   player.playbackRate = playbackRate;
                   player.start(triggerTime, 0, measureDurationSec);
 
-                  if (isVocalGuideEnabledRef.current && bMetroClickRef.current) {
-                    bMetroClickRef.current.triggerAttackRelease('C6', '16n', triggerTime);
+                  if (isVocalGuideEnabledRef.current) {
+                    playNativeMetroClick(triggerTime, true, 'synth', 0.5);
                   }
                 }
               }
@@ -1088,23 +1128,22 @@ export function useAudioSync({
                 const cellIdx = Math.floor(stepIdx / (currentTicks / stepCount));
                 const state = activePattern.activeSteps[cellIdx];
                 if (state && state !== 0) {
-                  const synth = voiceSynths[inst.id];
-                  if (synth) {
-                    const symbol = String(state);
-                    const noteVal = symbol === 'D' ? 'A3' : symbol === 'E' ? 'E3' : 'C3';
-                    const triggerTime = swingTime;
-                    const liveTrack = tracks[trackIdx];
-                    const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
-                    if (trackVolPct > 0) {
-                      const trackVolLinear = Math.pow(trackVolPct / 100, 2);
-                      synth.triggerAttackRelease(noteVal, '8n', triggerTime, trackVolLinear);
-                    }
+                  const symbol = String(state);
+                  const noteVal = symbol === 'D' ? 'A3' : symbol === 'E' ? 'E3' : 'C3';
+                  const triggerTime = swingTime;
+                  const liveTrack = tracks[trackIdx];
+                  const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
+                  if (trackVolPct > 0) {
+                    const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                    const noteFreq = noteVal === 'A3' ? 220.00 : noteVal === 'E3' ? 329.63 : 130.81;
+                    const noteDuration = 12 * tick96nSec;
+                    playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[inst.id]);
+                  }
 
-                    if (!isDocHidden) {
-                      Tone.Draw.schedule(() => {
-                        hitTriggersRef.current.push({ trackId: track.id, stepIndex: cellIdx, state });
-                      }, triggerTime);
-                    }
+                  if (!isDocHidden) {
+                    Tone.Draw.schedule(() => {
+                      hitTriggersRef.current.push({ trackId: track.id, stepIndex: cellIdx, state });
+                    }, triggerTime);
                   }
                 }
               }
@@ -1149,6 +1188,10 @@ export function useAudioSync({
         audioEngine = null;
       }
       inputManager = null;
+      activeNativeOscillators.forEach((osc) => {
+        try { osc.stop(); osc.disconnect(); } catch (_) {}
+      });
+      activeNativeOscillators.clear();
     };
   }, []);
 
@@ -1214,13 +1257,10 @@ export function useAudioSync({
         stopVocalRecording();
       }
       audioEngine?.stopAllBarulho();
-      instrumentsConfig.forEach((inst) => {
-        if (voiceSynths[inst.id]) {
-          try {
-            voiceSynths[inst.id].triggerRelease();
-          } catch (_) {}
-        }
+      activeNativeOscillators.forEach((osc) => {
+        try { osc.stop(); osc.disconnect(); } catch (_) {}
       });
+      activeNativeOscillators.clear();
 
       (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
         try {
@@ -1262,13 +1302,10 @@ export function useAudioSync({
       stopVocalRecording();
     }
     audioEngine?.stopAllBarulho();
-    instrumentsConfig.forEach((inst) => {
-      if (voiceSynths[inst.id]) {
-        try {
-          voiceSynths[inst.id].triggerRelease();
-        } catch (_) {}
-      }
+    activeNativeOscillators.forEach((osc) => {
+      try { osc.stop(); osc.disconnect(); } catch (_) {}
     });
+    activeNativeOscillators.clear();
 
     (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
       try {
@@ -1307,13 +1344,10 @@ export function useAudioSync({
     audioEngine?.stop();
     Tone.Transport.stop();
     audioEngine?.stopAllBarulho();
-    instrumentsConfig.forEach((inst) => {
-      if (voiceSynths[inst.id]) {
-        try {
-          voiceSynths[inst.id].triggerRelease();
-        } catch (_) {}
-      }
+    activeNativeOscillators.forEach((osc) => {
+      try { osc.stop(); osc.disconnect(); } catch (_) {}
     });
+    activeNativeOscillators.clear();
 
     (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
       try {
