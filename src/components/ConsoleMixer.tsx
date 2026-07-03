@@ -160,12 +160,10 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           if (dbTextRef.current) {
             dbTextRef.current.innerText = clampedDb <= -79 ? '-∞ dB' : `${Math.round(clampedDb)} dB`;
           }
-
           // Mise à jour de la jauge (Transformation en pourcentage où -80dB = 0% et 0dB = ~93%)
           if (vuMeterRef.current) {
             const percentage = Math.max(0, Math.min(100, ((clampedDb + 80) / 86) * 100));
-            vuMeterRef.current.style.height = `${percentage}%`;
-            vuMeterRef.current.style.width = '100%';
+            vuMeterRef.current.style.transform = `scaleY(${percentage / 100})`;
           }
         } catch (e) {
           console.error("Error reading master meter value:", e);
@@ -175,7 +173,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           dbTextRef.current.innerText = 'NO MTR';
         }
         if (vuMeterRef.current) {
-          vuMeterRef.current.style.height = '0%';
+          vuMeterRef.current.style.transform = 'scaleY(0)';
         }
       }
       animationFrameId = requestAnimationFrame(updateMasterMeter);
@@ -186,7 +184,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
       if (vuMeterRef.current) {
-        vuMeterRef.current.style.height = '0%';
+        vuMeterRef.current.style.transform = 'scaleY(0)';
       }
     };
   }, []);
@@ -640,7 +638,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     ref={vuMeterRef}
                     id="meter-bar-master"
                     className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#2ecc71] w-full"
-                    style={{ height: '0%' }}
+                    style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom' }}
                   />
                 </div>
                 <div ref={dbTextRef} className="text-[8px] font-mono font-bold text-[var(--cordel-text)]/60 h-[15px] flex items-center justify-center">--</div>

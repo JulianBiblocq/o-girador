@@ -430,8 +430,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         });
         activeElements = [];
         if (vuMeterRef.current) {
-          vuMeterRef.current.style.transition = 'none';
-          vuMeterRef.current.style.width = '0%';
+          vuMeterRef.current.getAnimations().forEach(anim => anim.cancel());
+          vuMeterRef.current.style.transform = 'scaleX(0)';
         }
         return;
       }
@@ -477,14 +477,14 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
           const val = currentLivePattern.activeSteps[targetStep];
           const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
           if (isHit && vuMeterRef.current) {
-            vuMeterRef.current.style.transition = 'none';
-            vuMeterRef.current.style.width = `${track.volumeVal ?? 100}%`;
-            void vuMeterRef.current.offsetHeight; // force reflow
-            requestAnimationFrame(() => {
-              if (vuMeterRef.current) {
-                vuMeterRef.current.style.transition = 'width 1.5s ease-out';
-                vuMeterRef.current.style.width = '0%';
-              }
+            const peakScale = (track.volumeVal ?? 100) / 100;
+            vuMeterRef.current.animate([
+              { transform: `scaleX(${peakScale})` },
+              { transform: 'scaleX(0)' }
+            ], {
+              duration: 1500,
+              easing: 'ease-out',
+              fill: 'forwards'
             });
           }
         }

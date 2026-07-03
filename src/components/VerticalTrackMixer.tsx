@@ -163,8 +163,8 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
         }
         lastVuStepRef.current = -1;
         if (vuMeterRef.current) {
-          vuMeterRef.current.style.transition = 'none';
-          vuMeterRef.current.style.height = '0%';
+          vuMeterRef.current.getAnimations().forEach(anim => anim.cancel());
+          vuMeterRef.current.style.transform = 'scaleY(0)';
         }
         return;
       }
@@ -189,8 +189,8 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
       if (!currentLivePattern) {
         lastVuStepRef.current = -1;
         if (vuMeterRef.current) {
-          vuMeterRef.current.style.transition = 'none';
-          vuMeterRef.current.style.height = '0%';
+          vuMeterRef.current.getAnimations().forEach(anim => anim.cancel());
+          vuMeterRef.current.style.transform = 'scaleY(0)';
         }
         return;
       }
@@ -205,14 +205,14 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
           const val = currentLivePattern.activeSteps[targetStep];
           const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
           if (isHit && vuMeterRef.current) {
-            vuMeterRef.current.style.transition = 'none';
-            vuMeterRef.current.style.height = `${track.volumeVal ?? 100}%`;
-            void vuMeterRef.current.offsetHeight; // force reflow
-            requestAnimationFrame(() => {
-              if (vuMeterRef.current) {
-                vuMeterRef.current.style.transition = 'height 1.5s ease-out';
-                vuMeterRef.current.style.height = '0%';
-              }
+            const peakScale = (track.volumeVal ?? 100) / 100;
+            vuMeterRef.current.animate([
+              { transform: `scaleY(${peakScale})` },
+              { transform: 'scaleY(0)' }
+            ], {
+              duration: 1500,
+              easing: 'ease-out',
+              fill: 'forwards'
             });
           }
         }
@@ -680,7 +680,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
               ref={vuMeterRef}
               id={`meter-bar-${track.id}`}
               className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--cordel-border)] w-full"
-              style={{ height: '0%', transition: 'height 0.7s ease-out' }}
+              style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
             />
           </div>
           <div className="h-[15px]" />
