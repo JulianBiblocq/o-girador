@@ -17,6 +17,14 @@ import type * as ToneType from 'tone';
 import { getTone } from './ToneLoader';
 import { instrumentAudioConfigs, StrokeMapping, InstrumentAudioConfig } from './data/audioConfig';
 
+interface ActiveVoice {
+  source: AudioBufferSourceNode;
+  gainNode: GainNode;
+  time: number;
+  velocity: number;
+  instrumentId: string;
+}
+
 export class AudioEngine {
   private audioContext: AudioContext;
   private isPlaying: boolean = false;
@@ -48,6 +56,7 @@ export class AudioEngine {
   private scheduledHits = new Set<AudioBufferSourceNode>();
   private activeGainNodes = new Map<AudioBufferSourceNode, { instrumentId: string; gainNode: GainNode }>(); // Precise tracking to avoid leaks
   private gainNodePools = new Map<string, GainNode[]>(); // Maps instrumentId -> pooled GainNodes connected to channel
+  private instrumentVoices = new Map<string, ActiveVoice[]>(); // Track active/scheduled voices for eco mode polyphony limits
 
   // O(1) lookup cache for instrument configurations (built once in constructor)
   private readonly configMap: Map<string, InstrumentAudioConfig>;
@@ -195,6 +204,7 @@ export class AudioEngine {
       this.releaseGainNode(instrumentId, gainNode);
     });
     this.activeGainNodes.clear();
+    this.instrumentVoices.clear();
   }
 
   /**
@@ -379,6 +389,27 @@ export class AudioEngine {
   }
 
   /**
+   * Retourne la limite de polyphonie d'un instrument en mode éco.
+   */
+  private getPolyphonyLimit(instrumentId: string): number {
+    switch (instrumentId) {
+      case 'caixa':
+      case 'tarol':
+      case 'agbe':
+      case 'mineiro':
+      case 'apito':
+        return 1;
+      case 'marcante':
+      case 'meiao':
+      case 'repique':
+      case 'gongue':
+        return 2;
+      default:
+        return 2;
+    }
+  }
+
+  /**
    * Retire et retourne un nœud disponible du pool. En crée un nouveau si la piscine est vide.
    */
   private getGainNode(instrumentId: string): GainNode {
@@ -516,6 +547,28 @@ export class AudioEngine {
       return;
     }
 
+    // Voice Stealing (Choke Groups) in Eco Mode
+    const isEco = typeof window !== 'undefined' && !!(window as any).oGiradorEcoMode;
+    if (isEco) {
+      const limit = this.getPolyphonyLimit(instrumentId);
+      const voices = this.instrumentVoices.get(instrumentId) || [];
+      while (voices.length >= limit) {
+        const oldestVoice = voices.shift();
+        if (oldestVoice) {
+          const fadeOutTime = 0.010; // 10ms fade out to avoid clicks
+          try {
+            oldestVoice.gainNode.gain.cancelScheduledValues(time);
+            oldestVoice.gainNode.gain.setValueAtTime(oldestVoice.velocity, time);
+            oldestVoice.gainNode.gain.linearRampToValueAtTime(0, time + fadeOutTime);
+            oldestVoice.source.stop(time + fadeOutTime);
+          } catch (e) {
+            try { oldestVoice.source.stop(); } catch (_) {}
+          }
+        }
+      }
+      this.instrumentVoices.set(instrumentId, voices);
+    }
+
     // 3. Pitch Calculations (Macro & Micro/Humanization)
     let macroPitch = config.macroPitch !== undefined ? config.macroPitch : 1.0;
     
@@ -556,7 +609,17 @@ export class AudioEngine {
         try { source.disconnect(); } catch (_) {}
         this.releaseGainNode(instrumentId, gainNode);
         this.activeGainNodes.delete(source);
+        const currentVoices = this.instrumentVoices.get(instrumentId);
+        if (currentVoices) {
+          this.instrumentVoices.set(instrumentId, currentVoices.filter(v => v.source !== source));
+        }
       };
+
+      if (isEco) {
+        const voices = this.instrumentVoices.get(instrumentId) || [];
+        voices.push({ source, gainNode, time, velocity, instrumentId });
+        this.instrumentVoices.set(instrumentId, voices);
+      }
     } else {
       this.scheduledHits.add(source);
       this.activeGainNodes.set(source, { instrumentId, gainNode });
@@ -575,7 +638,17 @@ export class AudioEngine {
         try { source.disconnect(); } catch (_) {}
         this.releaseGainNode(instrumentId, gainNode);
         this.activeGainNodes.delete(source);
+        const currentVoices = this.instrumentVoices.get(instrumentId);
+        if (currentVoices) {
+          this.instrumentVoices.set(instrumentId, currentVoices.filter(v => v.source !== source));
+        }
       };
+
+      if (isEco) {
+        const voices = this.instrumentVoices.get(instrumentId) || [];
+        voices.push({ source, gainNode, time, velocity, instrumentId });
+        this.instrumentVoices.set(instrumentId, voices);
+      }
     }
 
     if (instrumentId === 'apito') {
@@ -593,6 +666,11 @@ export class AudioEngine {
     const activeGain = this.activeBarulhoGains.get(instrumentId);
     
     if (activeNode && activeGain) {
+      // Synchronously remove from instrumentVoices to prevent redundant voice stealing checks
+      const currentVoices = this.instrumentVoices.get(instrumentId);
+      if (currentVoices) {
+        this.instrumentVoices.set(instrumentId, currentVoices.filter(v => v.source !== activeNode));
+      }
       try {
         const fadeTime = 0.015; // 15ms fade out to avoid clicks
         activeGain.gain.setValueAtTime(activeGain.gain.value, time);
@@ -653,5 +731,6 @@ export class AudioEngine {
     this.scheduledHits.clear();
     this.activeGainNodes.clear();
     this.gainNodePools.clear();
+    this.instrumentVoices.clear();
   }
 }
