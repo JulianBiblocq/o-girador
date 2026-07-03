@@ -35,6 +35,25 @@ export function useDicteeGame({ onSuccess, exerciseData }: UseDicteeGameProps) {
   const scheduledEventIdsRef = useRef<number[]>([]);
   const clickSynthRef = useRef<ToneType.Synth | null>(null);
 
+  const isMountedRef = useRef(true);
+  const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const activeSlotIdxRef = useRef<number | null>(null);
+  const placedBlocksRef = useRef<(Block | null)[]>([]);
+  const targetAudioConfigRef = useRef<any>(null);
+  const blocksCountRef = useRef<number>(4);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      cleanUpAudio();
+      if (validationTimeoutRef.current) {
+        clearTimeout(validationTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const targetTrackId = exerciseData?.instrument_cible || '';
   const blocksCount = exerciseData?.nombre_de_blocs || 4;
   const bpm = exerciseData?.bpm || 83;
@@ -47,6 +66,22 @@ export function useDicteeGame({ onSuccess, exerciseData }: UseDicteeGameProps) {
   const targetInstIdx = targetTrack?.instrumentIdx ?? -1;
   const targetInstrument = targetInstIdx !== -1 ? instrumentsConfig[targetInstIdx] : null;
   const targetAudioConfig = targetInstrument ? instrumentAudioConfigs.find(c => c.id === targetInstrument.id) : null;
+
+  useEffect(() => {
+    activeSlotIdxRef.current = activeSlotIdx;
+  }, [activeSlotIdx]);
+
+  useEffect(() => {
+    placedBlocksRef.current = placedBlocks;
+  }, [placedBlocks]);
+
+  useEffect(() => {
+    targetAudioConfigRef.current = targetAudioConfig;
+  }, [targetAudioConfig]);
+
+  useEffect(() => {
+    blocksCountRef.current = blocksCount;
+  }, [blocksCount]);
 
   useEffect(() => {
     if (!targetTrack) return;
@@ -104,7 +139,6 @@ export function useDicteeGame({ onSuccess, exerciseData }: UseDicteeGameProps) {
       clickSynthRef.current = null;
     }
 
-    try { safeGetTone()?.Transport.stop(); } catch (_) {}
     setIsPlaying(false);
   };
 
@@ -237,43 +271,45 @@ export function useDicteeGame({ onSuccess, exerciseData }: UseDicteeGameProps) {
   };
 
   useEffect(() => {
-    if (blocksCount !== 16) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (activeSlotIdx === null) return;
-      if (!targetAudioConfig) return;
+      if (blocksCountRef.current !== 16) return;
+      if (activeSlotIdxRef.current === null) return;
+      if (!targetAudioConfigRef.current) return;
 
       const key = e.key.toLowerCase();
+      const currentIdx = activeSlotIdxRef.current;
+
       if (key === 'backspace' || key === 'delete') {
-        const nextPlaced = [...placedBlocks];
-        nextPlaced[activeSlotIdx] = null;
+        const nextPlaced = [...placedBlocksRef.current];
+        nextPlaced[currentIdx] = null;
         setPlacedBlocks(nextPlaced);
         setActiveSlotIdx(prev => prev! > 0 ? prev! - 1 : prev);
         return;
       }
 
-      const targetStroke = targetAudioConfig.strokes.find((s: any) => 
+      const targetStroke = targetAudioConfigRef.current.strokes.find((s: any) => 
         s.keys.map((k: string) => k.toLowerCase()).includes(key)
       );
 
       if (targetStroke) {
         const strokeSymbol = targetStroke.symbol;
-        const nextPlaced = [...placedBlocks];
-        nextPlaced[activeSlotIdx] = {
-          id: `block_16_${activeSlotIdx}`,
+        const nextPlaced = [...placedBlocksRef.current];
+        nextPlaced[currentIdx] = {
+          id: `block_16_${currentIdx}`,
           label: strokeSymbol,
           strokes: [strokeSymbol],
-          originalIndex: activeSlotIdx
+          originalIndex: currentIdx
         };
         setPlacedBlocks(nextPlaced);
         
-        if (activeSlotIdx < 15) {
-          setActiveSlotIdx(activeSlotIdx + 1);
+        if (currentIdx < 15) {
+          setActiveSlotIdx(currentIdx + 1);
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeSlotIdx, placedBlocks, blocksCount, targetInstrument, targetAudioConfig]);
+  }, []);
 
   const handleValidate = () => {
     if (isAnimatingValidation) return;
@@ -287,6 +323,7 @@ export function useDicteeGame({ onSuccess, exerciseData }: UseDicteeGameProps) {
     let hasError = false;
 
     const animateBlock = (idx: number) => {
+      if (!isMountedRef.current) return;
       if (idx >= blocksCount) {
         setIsAnimatingValidation(false);
         setValidationResult(!hasError ? 'success' : 'failure');
@@ -310,7 +347,11 @@ export function useDicteeGame({ onSuccess, exerciseData }: UseDicteeGameProps) {
         return next;
       });
       
-      setTimeout(() => animateBlock(idx + 1), 300);
+      validationTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) {
+          animateBlock(idx + 1);
+        }
+      }, 300);
     };
 
     animateBlock(0);

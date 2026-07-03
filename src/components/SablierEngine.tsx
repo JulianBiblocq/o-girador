@@ -54,8 +54,8 @@ export const SablierEngine: React.FC<SablierEngineProps> = ({
             {/* Background Animation for Sablier */}
             {gameState === 'sablier_active' && (
               <div 
-                className="absolute bottom-0 left-0 right-0 bg-red-500/20 transition-all duration-1000 ease-linear"
-                style={{ height: `${(timeLeft / 2) * 100}%` }}
+                className="absolute bottom-0 left-0 right-0 bg-red-500/20 transition-all duration-1000 ease-linear h-full"
+                style={{ transform: `scaleY(${timeLeft / 2})`, transformOrigin: 'bottom' }}
               />
             )}
 

@@ -293,14 +293,19 @@ export class AudioEngine {
       } catch (decodeErr) {
         console.warn(`AudioEngine: Safari/iOS fallback triggered for ${path}. Attempting .m4a`);
         const fallbackPath = encodedFetchPath.replace(/\.ogg$/, '.m4a');
-        response = await fetch(fallbackPath);
-        if (!response.ok) {
-          throw new Error(`Fallback HTTP error! status: ${response.status}`);
+        try {
+          response = await fetch(fallbackPath);
+          if (!response.ok) {
+            console.warn(`AudioEngine: Fallback .m4a not found or failed to load for ${path} (status: ${response.status})`);
+            return;
+          }
+          arrayBuffer = await response.arrayBuffer();
+          const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+          const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
+          this.bufferPool.set(path, toneBuffer);
+        } catch (fallbackErr) {
+          console.warn(`AudioEngine: Failed to load fallback .m4a for ${path}:`, fallbackErr);
         }
-        arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-        const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
-        this.bufferPool.set(path, toneBuffer);
       }
     } catch (err) {
       console.error(`AudioEngine: Failed to load sample: ${path}`, err);

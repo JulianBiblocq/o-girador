@@ -13,14 +13,8 @@ export function useCloudPresets({ userUid, userRole, mestreId }: UseCloudPresets
     queryKey: ['cloudPresets', userUid, userRole, mestreId],
     queryFn: async () => {
       if (!userUid) return [];
-      try {
-        return await fetchCloudPresets(userUid, userRole, mestreId);
-      } catch (err) {
-        console.warn("Failed to fetch cloud presets, falling back to offline mode", err);
-        return [];
-      }
+      return await fetchCloudPresets(userUid, userRole, mestreId);
     },
     enabled: !!userUid,
-    initialData: [],
   });
 }

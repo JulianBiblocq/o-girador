@@ -12,6 +12,8 @@ interface RythmeLiveEngineProps {
 export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit, onSuccess, exerciseData }) => {
   const playheadRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const feedbackOverlayRef = useRef<HTMLDivElement>(null);
+  const tapZoneRef = useRef<HTMLDivElement>(null);
 
   const {
     currentExerciseIndex,
@@ -21,12 +23,19 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
     gameStatus,
     countdownValue,
     hitDetails,
-    flashState,
     startGame,
     handleUserHit,
     getScoreSummary,
     restartGame
-  } = useRythmeLiveGame({ lang, onSuccess, exerciseData, playheadRef, timelineRef });
+  } = useRythmeLiveGame({
+    lang,
+    onSuccess,
+    exerciseData,
+    playheadRef,
+    timelineRef,
+    feedbackOverlayRef,
+    tapZoneRef
+  });
 
   const { perfects, mediums, misses, finalScore } = getScoreSummary();
 
@@ -249,6 +258,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
                 return (
                   <div
                     key={idx}
+                    data-note-idx={idx}
                     className={`absolute w-6 h-6 -ml-3 rounded-full border-2 flex items-center justify-center font-mono text-[9px] font-black z-10 shadow-sm transition-all duration-100 ${markerBg} ${markerText} ${markerBorder}`}
                     style={{ left: `${stepPos}%` }}
                   >
@@ -266,13 +276,10 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
           </div>
 
           <div
+            ref={tapZoneRef}
             onTouchStart={handleTap}
             onMouseDown={handleTap}
-            className={`w-full h-48 border-4 border-[var(--cordel-border)] flex flex-col items-center justify-center relative cursor-pointer active:translate-y-0.5 select-none transition-colors duration-100 shadow-[6px_6px_0_var(--cordel-border)] rounded-sm ${
-              flashState?.type === 'perfect' 
-                ? 'bg-green-700/20' 
-                : 'bg-yellow-600/20' 
-            }`}
+            className="w-full h-48 border-4 border-[var(--cordel-border)] flex flex-col items-center justify-center relative cursor-pointer active:translate-y-0.5 select-none transition-colors duration-100 shadow-[6px_6px_0_var(--cordel-border)] rounded-sm"
           >
             <div className="absolute inset-1 border border-dashed border-[var(--cordel-border)]/40 pointer-events-none" />
 
@@ -286,20 +293,10 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
               </span>
             </div>
 
-            {flashState && (
-              <div
-                key={flashState.key}
-                className={`absolute z-30 font-cactus font-black text-lg px-4 py-2 border-3 border-dashed uppercase rotate-[-8deg] pointer-events-none animate-bounce bg-[var(--cordel-bg)]/95 shadow-md ${
-                  flashState.type === 'perfect'
-                    ? 'text-green-600 border-green-600'
-                    : flashState.type === 'medium'
-                    ? 'text-yellow-600 border-yellow-600'
-                    : 'text-[var(--cordel-wood)] border-[var(--cordel-wood)]'
-                }`}
-              >
-                {flashState.message}
-              </div>
-            )}
+            <div
+              ref={feedbackOverlayRef}
+              className="absolute z-30 font-cactus font-black text-lg px-4 py-2 border-3 border-dashed uppercase rotate-[-8deg] pointer-events-none bg-[var(--cordel-bg)]/95 shadow-md opacity-0 hidden"
+            />
           </div>
         </div>
       )}

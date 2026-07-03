@@ -43,6 +43,52 @@ export function useSablierGame({ lang, onSuccess, exerciseData }: UseSablierGame
   const [isSoloPlaying, setIsSoloPlaying] = useState<number | null>(null);
 
   const sablierTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
+  const timeoutRefs = useRef<Set<NodeJS.Timeout>>(new Set());
+  const fatrasPresetRef = useRef<any>(null);
+
+  const safeSetTimeout = useCallback((cb: () => void, delay: number) => {
+    const timer = setTimeout(() => {
+      timeoutRefs.current.delete(timer);
+      if (isMountedRef.current) {
+        cb();
+      }
+    }, delay);
+    timeoutRefs.current.add(timer);
+    return timer;
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    // Préchargement asynchrone du preset fatras pour handleFailure
+    fetch('/presets/fatras.json')
+      .then(res => res.json())
+      .then(data => {
+        if (isMountedRef.current) {
+          fatrasPresetRef.current = data;
+        }
+      })
+      .catch(err => {
+        console.error("Erreur lors du préchargement du preset fatras:", err);
+      });
+
+    return () => {
+      isMountedRef.current = false;
+      if (sablierTimerRef.current) clearInterval(sablierTimerRef.current);
+      
+      timeoutRefs.current.forEach(timer => clearTimeout(timer));
+      timeoutRefs.current.clear();
+
+      const tone = safeGetTone();
+      if (tone) {
+        try {
+          tone.Transport.stop();
+          tone.Transport.cancel();
+        } catch (_) {}
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const tCible = seqCible.find((t: any) => getInstrumentNameFromIdx(t.instrumentIdx) === targetInstrument);
@@ -107,11 +153,12 @@ export function useSablierGame({ lang, onSuccess, exerciseData }: UseSablierGame
       tone.context.resume();
     }
     
+    if (!isMountedRef.current) return;
     tone.Transport.start(`+${audioEngine?.['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
     setGameState('playing_base');
 
     const durationMs = (measures * 4 * 60 * 1000) / bpm;
-    setTimeout(() => {
+    safeSetTimeout(() => {
       if (tone.Transport.state === 'started') {
         startSablier();
       }
@@ -119,6 +166,7 @@ export function useSablierGame({ lang, onSuccess, exerciseData }: UseSablierGame
   };
 
   const startSablier = () => {
+    if (!isMountedRef.current) return;
     setGameState('sablier_active');
     let timeLeftLocal = 2;
     setTimeLeft(timeLeftLocal);
@@ -126,11 +174,15 @@ export function useSablierGame({ lang, onSuccess, exerciseData }: UseSablierGame
     const measureDurationMs = (4 * 60 * 1000) / bpm;
     
     sablierTimerRef.current = setInterval(() => {
+      if (!isMountedRef.current) {
+        if (sablierTimerRef.current) clearInterval(sablierTimerRef.current);
+        return;
+      }
       timeLeftLocal -= 1;
       setTimeLeft(timeLeftLocal);
       
       if (timeLeftLocal <= 0) {
-        clearInterval(sablierTimerRef.current as NodeJS.Timeout);
+        if (sablierTimerRef.current) clearInterval(sablierTimerRef.current);
         handleFailure();
       }
     }, measureDurationMs);
@@ -144,7 +196,7 @@ export function useSablierGame({ lang, onSuccess, exerciseData }: UseSablierGame
     }
 
     if (optionType === 'cible') {
-      setGameState('success');
+      if (isMountedRef.current) setGameState('success');
       playTargetSequence();
     } else {
       handleFailure();
@@ -159,16 +211,21 @@ export function useSablierGame({ lang, onSuccess, exerciseData }: UseSablierGame
     tone.Transport.stop();
     
     scheduleSequence(seqCible, "0:0:0", false, "0:0:0", "0:0:0");
+    
+    if (!isMountedRef.current) return;
     tone.Transport.start(`+${audioEngine?.['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
     
     const durationMs = (measures * 4 * 60 * 1000) / bpm;
-    setTimeout(() => {
-      tone.Transport.stop();
-      onSuccess?.();
+    safeSetTimeout(() => {
+      if (isMountedRef.current) {
+        tone.Transport.stop();
+        onSuccess?.();
+      }
     }, durationMs + 500);
   };
 
   const handleFailure = async () => {
+    if (!isMountedRef.current) return;
     setGameState('failure');
     await loadTone();
     const tone = getTone();
@@ -177,22 +234,28 @@ export function useSablierGame({ lang, onSuccess, exerciseData }: UseSablierGame
     tone.Transport.stop();
 
     try {
-      const res = await fetch('/presets/fatras.json');
-      const fatras = await res.json();
-      
-      scheduleSequence(fatras.tracks, "0:0:0", false, "0:0:0", "0:0:0");
-      tone.Transport.bpm.value = fatras.bpm || 150;
-      tone.Transport.start(`+${audioEngine?.['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
-      
-      const meas = fatras.totalMeasures || 1;
-      const durMs = (meas * 4 * 60 * 1000) / fatras.bpm;
-      setTimeout(() => {
-        tone.Transport.stop();
-        setGameState('idle');
-      }, durMs + 500);
+      const fatras = fatrasPresetRef.current;
+      if (fatras) {
+        scheduleSequence(fatras.tracks, "0:0:0", false, "0:0:0", "0:0:0");
+        tone.Transport.bpm.value = fatras.bpm || 150;
+        
+        if (!isMountedRef.current) return;
+        tone.Transport.start(`+${audioEngine?.['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
+        
+        const meas = fatras.totalMeasures || 1;
+        const durMs = (meas * 4 * 60 * 1000) / fatras.bpm;
+        safeSetTimeout(() => {
+          if (isMountedRef.current) {
+            tone.Transport.stop();
+            setGameState('idle');
+          }
+        }, durMs + 500);
+      } else {
+        if (isMountedRef.current) setGameState('idle');
+      }
     } catch (e) {
       console.error(e);
-      setGameState('idle');
+      if (isMountedRef.current) setGameState('idle');
     }
   };
 
@@ -203,7 +266,7 @@ export function useSablierGame({ lang, onSuccess, exerciseData }: UseSablierGame
     if (isSoloPlaying === option.id) {
       tone.Transport.stop();
       tone.Transport.cancel();
-      setIsSoloPlaying(null);
+      if (isMountedRef.current) setIsSoloPlaying(null);
       return;
     }
 
@@ -211,32 +274,23 @@ export function useSablierGame({ lang, onSuccess, exerciseData }: UseSablierGame
     tone.Transport.cancel();
     
     if (gameState === 'playing_base' || gameState === 'sablier_active') {
-       alert(lang === 'fr' ? "Impossible pendant le jeu !" : "Não é possível durante o jogo!");
+       alert(lang === 'fr' ? "Impossible pendant le jeu !" : "Não é possível durante o jeu!");
        return;
     }
 
     scheduleSequence([option.track], "0:0:0", false, "0:0:0", "0:0:0");
     tone.Transport.bpm.value = bpm;
+    
+    if (!isMountedRef.current) return;
     tone.Transport.start(`+${audioEngine?.['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
     setIsSoloPlaying(option.id);
 
     const durationMs = (measures * 4 * 60 * 1000) / bpm;
-    setTimeout(() => {
+    safeSetTimeout(() => {
       tone.Transport.stop();
-      setIsSoloPlaying(null);
+      if (isMountedRef.current) setIsSoloPlaying(null);
     }, durationMs);
   };
-
-  useEffect(() => {
-    return () => {
-      if (sablierTimerRef.current) clearInterval(sablierTimerRef.current);
-      const tone = safeGetTone();
-      if (tone) {
-        tone.Transport.stop();
-        tone.Transport.cancel();
-      }
-    };
-  }, []);
 
   return {
     gameState,
