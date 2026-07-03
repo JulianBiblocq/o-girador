@@ -1120,7 +1120,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       animId = requestAnimationFrame(drawLoop);
     };
 
-    drawLoop(performance.now());
+    drawLoop();
 
     return () => {
       cancelAnimationFrame(animId);

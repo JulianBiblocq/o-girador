@@ -1181,7 +1181,7 @@ export const TrackMixer = React.memo(TrackMixerComponent, (prevProps, nextProps)
   const keys = Object.keys(prevProps) as Array<keyof TrackMixerProps>;
   for (const key of keys) {
     if (key === 'trackId') continue;
-    if (key === 'currentStepIndex') continue;
+    if ((key as string) === 'currentStepIndex') continue;
 
     if (prevProps[key] !== nextProps[key]) {
       return false;
