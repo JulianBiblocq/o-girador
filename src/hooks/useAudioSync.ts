@@ -214,6 +214,7 @@ export function useAudioSync({
 
   // FLAT SONG SCHEDULE REFERENCES
   const flatCompiledScheduleRef = useRef<Float32Array | null>(null);
+  const lastCompiledScheduleRef = useRef<Float32Array | null>(null);
   const absoluteTickCountRef = useRef<number>(0);
   const flatArrayPointerRef = useRef<number>(0);
   const lastAbsoluteTickRef = useRef<number>(-1);
@@ -446,9 +447,12 @@ export function useAudioSync({
           
           // Background sync audio buffers only when tracks actually change
           if (audioEngine) {
-            const activeIndexes = new Set<number>();
-            state.tracks.forEach((t: any) => activeIndexes.add(t.instrumentIdx));
-            audioEngine.syncActiveInstrumentsMemory(Array.from(activeIndexes))
+            const activeIds = new Set<string>();
+            state.tracks.forEach((t: any) => {
+              const inst = instrumentsConfig[t.instrumentIdx];
+              if (inst) activeIds.add(inst.id);
+            });
+            audioEngine.syncActiveInstrumentsMemory(Array.from(activeIds))
               .catch(e => console.warn("Background load samples failed:", e));
           }
         }
@@ -867,12 +871,13 @@ export function useAudioSync({
             const len = flatArray.length;
             let ptr = flatArrayPointerRef.current;
 
-            // Reset pointer if currentAbsoluteTick decreased or jumped significantly
-            if (currentAbsoluteTick < lastAbsoluteTickRef.current || currentAbsoluteTick - lastAbsoluteTickRef.current > 5) {
+            // Reset pointer if compiled schedule changed, or currentAbsoluteTick decreased or jumped significantly
+            if (flatArray !== lastCompiledScheduleRef.current || currentAbsoluteTick < lastAbsoluteTickRef.current || currentAbsoluteTick - lastAbsoluteTickRef.current > 5) {
               ptr = 0;
               while (ptr < len && flatArray[ptr] < currentAbsoluteTick) {
                 ptr += 4;
               }
+              lastCompiledScheduleRef.current = flatArray;
             }
             lastAbsoluteTickRef.current = currentAbsoluteTick;
 
@@ -1091,17 +1096,18 @@ export function useAudioSync({
         const tracks = state.tracks;
         if (tracks.length === 0) return;
 
-        const hasSolo = tracks.some(t => t.isSolo);
-        const activeIndexes = new Set<number>();
+        const activeIds = new Set<string>();
         
         tracks.forEach(t => {
-          const isMuted = t.isMute || (hasSolo && !t.isSolo);
-          if (!isMuted && !t.isHidden) {
-            activeIndexes.add(t.instrumentIdx);
+          // Keep active track instruments loaded in RAM even if muted or bypassed by solo,
+          // so that they trigger instantly when unmuted/unsoloed.
+          if (!t.isHidden) {
+            const inst = instrumentsConfig[t.instrumentIdx];
+            if (inst) activeIds.add(inst.id);
           }
         });
 
-        audioEngine.syncActiveInstrumentsMemory(Array.from(activeIndexes))
+        audioEngine.syncActiveInstrumentsMemory(Array.from(activeIds))
           .catch(e => console.warn("Dynamic RAM sync failed:", e));
       }
     });

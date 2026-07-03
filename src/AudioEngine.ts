@@ -323,12 +323,13 @@ export class AudioEngine {
    * Dynamically unloads unused instrument buffers to save RAM.
    * Useful for mobile devices where holding all samples in memory can cause crashes.
    */
-  public async syncActiveInstrumentsMemory(activeIndexes: number[]): Promise<void> {
+  public async syncActiveInstrumentsMemory(activeIds: string[]): Promise<void> {
     const requiredPaths = new Set<string>();
 
-    for (const index of activeIndexes) {
-      if (instrumentAudioConfigs[index]) {
-        for (const stroke of instrumentAudioConfigs[index].strokes) {
+    for (const id of activeIds) {
+      const config = this.configMap.get(id);
+      if (config) {
+        for (const stroke of config.strokes) {
           for (const file of stroke.files) {
             requiredPaths.add(file);
           }
@@ -362,10 +363,11 @@ export class AudioEngine {
     }
   }
 
-  public async loadInstrumentSamples(instrumentIndex: number): Promise<void> {
+  public async loadInstrumentSamples(instrumentId: string): Promise<void> {
     const pathsArray: string[] = [];
-    if (instrumentAudioConfigs[instrumentIndex]) {
-      for (const stroke of instrumentAudioConfigs[instrumentIndex].strokes) {
+    const config = this.configMap.get(instrumentId);
+    if (config) {
+      for (const stroke of config.strokes) {
         for (const file of stroke.files) {
           pathsArray.push(file);
         }

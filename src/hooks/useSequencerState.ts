@@ -293,20 +293,20 @@ export function useSequencerState() {
 
     const stateToSave = customTracksState ? customTracksState : tracksRef.current;
     setTracksHistory(prev => {
-      const cloned = JSON.parse(JSON.stringify(stateToSave));
-      const next = [...prev, cloned];
+      // Partage structurel : sauvegarde de la référence immuable directement
+      const next = [...prev, stateToSave];
       if (next.length > 10) return next.slice(-10);
       return next;
     });
 
     setSongStructureHistory(prev => {
       const cloned = {
-        measureTimeSigs: [...measureTimeSigsRef.current],
-        measureBpms: [...measureBpmsRef.current],
-        measureBpmTransitions: [...measureBpmTransitionsRef.current],
-        measureVols: [...measureVolsRef.current],
-        measureVolTransitions: [...measureVolTransitionsRef.current],
-        songSections: JSON.parse(JSON.stringify(songSectionsRef.current))
+        measureTimeSigs: measureTimeSigsRef.current,
+        measureBpms: measureBpmsRef.current,
+        measureBpmTransitions: measureBpmTransitionsRef.current,
+        measureVols: measureVolsRef.current,
+        measureVolTransitions: measureVolTransitionsRef.current,
+        songSections: songSectionsRef.current
       };
       const next = [...prev, cloned];
       if (next.length > 10) return next.slice(-10);
@@ -317,18 +317,18 @@ export function useSequencerState() {
   const handleUndo = () => {
     if (tracksHistoryRef.current.length === 0) return;
 
-    const currentTracksCloned = JSON.parse(JSON.stringify(tracksRef.current));
-    setTracksRedoHistory(prev => [...prev, currentTracksCloned]);
+    const currentTracks = tracksRef.current;
+    setTracksRedoHistory(prev => [...prev, currentTracks]);
 
-    const currentStructureCloned = {
-      measureTimeSigs: [...measureTimeSigsRef.current],
-      measureBpms: [...measureBpmsRef.current],
-      measureBpmTransitions: [...measureBpmTransitionsRef.current],
-      measureVols: [...measureVolsRef.current],
-      measureVolTransitions: [...measureVolTransitionsRef.current],
-      songSections: JSON.parse(JSON.stringify(songSectionsRef.current))
+    const currentStructure = {
+      measureTimeSigs: measureTimeSigsRef.current,
+      measureBpms: measureBpmsRef.current,
+      measureBpmTransitions: measureBpmTransitionsRef.current,
+      measureVols: measureVolsRef.current,
+      measureVolTransitions: measureVolTransitionsRef.current,
+      songSections: songSectionsRef.current
     };
-    setSongStructureRedoHistory(prev => [...prev, currentStructureCloned]);
+    setSongStructureRedoHistory(prev => [...prev, currentStructure]);
 
     setTracksHistory(prev => {
       const nextHistory = [...prev];
@@ -359,18 +359,18 @@ export function useSequencerState() {
   const handleRedo = () => {
     if (tracksRedoHistoryRef.current.length === 0) return;
 
-    const currentTracksCloned = JSON.parse(JSON.stringify(tracksRef.current));
-    setTracksHistory(prev => [...prev, currentTracksCloned]);
+    const currentTracks = tracksRef.current;
+    setTracksHistory(prev => [...prev, currentTracks]);
 
-    const currentStructureCloned = {
-      measureTimeSigs: [...measureTimeSigsRef.current],
-      measureBpms: [...measureBpmsRef.current],
-      measureBpmTransitions: [...measureBpmTransitionsRef.current],
-      measureVols: [...measureVolsRef.current],
-      measureVolTransitions: [...measureVolTransitionsRef.current],
-      songSections: JSON.parse(JSON.stringify(songSectionsRef.current))
+    const currentStructure = {
+      measureTimeSigs: measureTimeSigsRef.current,
+      measureBpms: measureBpmsRef.current,
+      measureBpmTransitions: measureBpmTransitionsRef.current,
+      measureVols: measureVolsRef.current,
+      measureVolTransitions: measureVolTransitionsRef.current,
+      songSections: songSectionsRef.current
     };
-    setSongStructureHistory(prev => [...prev, currentStructureCloned]);
+    setSongStructureHistory(prev => [...prev, currentStructure]);
 
     setTracksRedoHistory(prev => {
       const nextHistory = [...prev];
@@ -1700,8 +1700,10 @@ export function useSequencerState() {
 
   const handleAddTrackInstrument = (instIdx: number, currentMeasure: number = 0) => {
     pushUndoState();
-    audioEngine.loadInstrumentSamples(instIdx).catch(console.error);
     const inst = instrumentsConfig[instIdx];
+    if (inst) {
+      audioEngine.loadInstrumentSamples(inst.id).catch(console.error);
+    }
     const newTrack: TrackGroup = {
       id: Date.now() + Math.floor(Math.random() * 1000),
       instrumentIdx: instIdx,
