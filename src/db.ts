@@ -55,10 +55,11 @@ export async function saveVocalRecording(patternId: number, audioBlob: Blob): Pr
       audioBlob,
       updatedAt: Date.now(),
     };
-    const request = store.put(data);
+    store.put(data);
 
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error || new Error('Failed to save vocal recording'));
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error('Failed to save vocal recording'));
+    transaction.onabort = () => reject(new Error('Save transaction aborted'));
   });
 }
 
@@ -85,10 +86,11 @@ export async function deleteVocalRecording(patternId: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.delete(patternId);
+    store.delete(patternId);
 
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error || new Error('Failed to delete vocal recording'));
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error('Failed to delete vocal recording'));
+    transaction.onabort = () => reject(new Error('Delete transaction aborted'));
   });
 }
 
@@ -97,9 +99,10 @@ export async function clearAllRecordings(): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.clear();
+    store.clear();
 
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error || new Error('Failed to clear vocal recordings'));
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error('Failed to clear vocal recordings'));
+    transaction.onabort = () => reject(new Error('Clear transaction aborted'));
   });
 }
