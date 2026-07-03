@@ -28,7 +28,7 @@ export let masterVolumeNode: Tone.Gain | null = null;
 export let masterMeterNode: Tone.Meter | null = null;
 export let masterEQNode: Tone.EQ3 | null = null;
 export let masterCompressorNode: Tone.Compressor | null = null;
-export let masterSoftClipperNode: WaveShaperNode | null = null;
+export let masterSoftClipperNode: Tone.WaveShaper | null = null;
 
 // Performance caches and pools
 const RANDOM_POOL_SIZE = 1000;
@@ -676,20 +676,26 @@ export function useAudioSync({
         const masterLimiterNode = new Tone.Limiter(-2);
         masterHighpassNode.connect(masterLimiterNode);
 
-        // Native 0% CPU Soft Clipper (WaveShaperNode using tanh curve)
-        const rawCtx = Tone.context.rawContext;
-        masterSoftClipperNode = rawCtx.createWaveShaper();
-        const clipperCurve = new Float32Array(256);
-        for (let i = 0; i < 256; i++) {
-          const x = (i * 2) / 256 - 1;
-          clipperCurve[i] = Math.tanh(x);
+        // Tone.js 0% CPU Soft Clipper (Tone.WaveShaper using cubic curve with 4x oversampling)
+        masterSoftClipperNode = new Tone.WaveShaper();
+        const curveSize = 8192;
+        const clipperCurve = new Float32Array(curveSize);
+        for (let i = 0; i < curveSize; i++) {
+          const x = (2 * i) / (curveSize - 1) - 1;
+          let y = (3 * x - Math.pow(x, 3)) / 2;
+          if (x <= -1) {
+            y = -1.0;
+          } else if (x >= 1) {
+            y = 1.0;
+          }
+          clipperCurve[i] = y;
         }
         masterSoftClipperNode.curve = clipperCurve;
-        masterSoftClipperNode.oversample = 'none';
+        masterSoftClipperNode.oversample = '4x';
 
         // Connect chain: masterLimiterNode -> masterSoftClipperNode -> Tone.Destination
         masterLimiterNode.connect(masterSoftClipperNode);
-        masterSoftClipperNode.connect(Tone.Destination.input as unknown as AudioNode);
+        masterSoftClipperNode.connect(Tone.Destination);
         
         const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
         const multiplier = isEco ? Tone.dbToGain(-8) : 1.0;
