@@ -307,6 +307,18 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     }
   };
 
+  const trackRef = useRef(track);
+  trackRef.current = track;
+
+  const soloPatternPlayIdRef = useRef(soloPatternPlayId);
+  soloPatternPlayIdRef.current = soloPatternPlayId;
+
+  const activateElementRef = useRef(activateElement);
+  activateElementRef.current = activateElement;
+
+  const deactivateElementRef = useRef(deactivateElement);
+  deactivateElementRef.current = deactivateElement;
+
   // Event-based VU meters do not need a requestAnimationFrame loop, they are animated directly in handleTick
 
   const t = (key: string) => (i18n[lang] as any)[key] || key;
@@ -426,7 +438,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         lastRatioRef.current = -1;
         lastVuStepRef.current = -1;
         activeElements.forEach(el => {
-          deactivateElement(el);
+          deactivateElementRef.current(el);
         });
         activeElements = [];
         if (vuMeterRef.current) {
@@ -445,13 +457,16 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
       // Resolve the live active pattern dynamically inside the tick listener to avoid stale closure issues
       const getLivePatternForMeasure = (m: number) => {
-        if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
-          const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
+        const currentTrack = trackRef.current;
+        if (!currentTrack) return null;
+        const currentSoloPatternPlayId = soloPatternPlayIdRef.current;
+        if (currentSoloPatternPlayId !== undefined && currentSoloPatternPlayId !== null) {
+          const hasSoloPattern = currentTrack.patterns.some(p => p.id === currentSoloPatternPlayId);
           if (hasSoloPattern) {
-            return track.patterns.find(p => p.id === soloPatternPlayId);
+            return currentTrack.patterns.find(p => p.id === currentSoloPatternPlayId);
           }
         }
-        return track.patterns.find(p => p.measureAssignments[m]);
+        return currentTrack.patterns.find(p => p.measureAssignments[m]);
       };
 
       const currentLivePattern = getLivePatternForMeasure(measure);
@@ -459,7 +474,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       if (!currentLivePattern) {
         // Deactivate old active elements and keep VU meter at 0%
         activeElements.forEach(el => {
-          deactivateElement(el);
+          deactivateElementRef.current(el);
         });
         activeElements = [];
         lastVuStepRef.current = -1;
@@ -473,11 +488,12 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       // Edge trigger VU fader width update on step transitions
       if (targetStep !== lastVuStepRef.current) {
         lastVuStepRef.current = targetStep;
-        if (!track.isMute && !isEco) {
+        const currentTrack = trackRef.current;
+        if (currentTrack && !currentTrack.isMute && !isEco) {
           const val = currentLivePattern.activeSteps[targetStep];
           const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
           if (isHit && vuMeterRef.current) {
-            const peakScale = (track.volumeVal ?? 100) / 100;
+            const peakScale = (currentTrack.volumeVal ?? 100) / 100;
             vuMeterRef.current.animate([
               { transform: `scaleX(${peakScale})` },
               { transform: 'scaleX(0)' }
@@ -498,7 +514,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
       // Deactivate old active elements
       activeElements.forEach(el => {
-        deactivateElement(el);
+        deactivateElementRef.current(el);
       });
       activeElements = [];
 
@@ -509,7 +525,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
       activeStepElements.forEach(el => {
         const htmlEl = el as HTMLElement;
-        activateElement(htmlEl);
+        activateElementRef.current(htmlEl);
         activeElements.push(htmlEl);
       });
     };
@@ -518,10 +534,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     return () => {
       window.removeEventListener('o-girador-tick', handleTick);
       activeElements.forEach(el => {
-        deactivateElement(el);
+        deactivateElementRef.current(el);
       });
     };
-  }, [track, soloPatternPlayId]);
+  }, []);
 
   // Post-render highlight to prevent visual flicker during pattern transitions
   useEffect(() => {
