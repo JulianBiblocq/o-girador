@@ -489,6 +489,26 @@ export function useAudioSync({
     // from regenerating (and abruptly cutting its tail) when the user adjusts a track fader!
   }, [reverbDecay, masterReverbVol]);
 
+  // Sync Reverb Sends in response to Eco Mode changes
+  useEffect(() => {
+    const applyEcoReverbSends = () => {
+      const isEco = (window as any).oGiradorEcoMode;
+      const tracks = useSequencerStore.getState().tracks;
+      
+      tracks.forEach((t) => {
+        const inst = instrumentsConfig[t.instrumentIdx];
+        if (inst && reverbSends[inst.id]) {
+          const reverb = (t.reverbVal || 0) / 100;
+          reverbSends[inst.id].gain.value = isEco ? 0 : reverb;
+        }
+      });
+    };
+
+    applyEcoReverbSends();
+    window.addEventListener('eco-mode-changed', applyEcoReverbSends);
+    return () => window.removeEventListener('eco-mode-changed', applyEcoReverbSends);
+  }, []);
+
   // Sync Transport BPM
   useEffect(() => {
     Tone.Transport.bpm.value = bpm;
@@ -624,6 +644,8 @@ export function useAudioSync({
         await loadTone();
         if (bMetroClickRef.current) return; // already initialized
 
+        const isEco = (window as any).oGiradorEcoMode;
+
       if (!masterVolumeNode) {
         if (!Tone.context) {
           Tone.setContext(new Tone.Context({ latencyHint: 'playback' }));
@@ -635,8 +657,8 @@ export function useAudioSync({
           high: masterEQ.high
         });
         masterCompressorNode = new Tone.Compressor({
-          threshold: -12, // Changed from -24 to prevent heavy pumping on percussion
-          ratio: 2,       // Gentle glue compression instead of hard squashing
+          threshold: isEco ? 0 : -12, // Changed from -24 to prevent heavy pumping on percussion
+          ratio: isEco ? 1 : 2,       // Gentle glue compression instead of hard squashing
           attack: 0.015,  // Faster attack to catch peaks
           release: 0.15   // Faster release to avoid swelling the reverb tail on the next beat
         });
@@ -669,7 +691,9 @@ export function useAudioSync({
         masterLimiterNode.connect(masterSoftClipperNode);
         masterSoftClipperNode.connect(Tone.Destination.input as unknown as AudioNode);
         
-        masterVolumeNode.gain.value = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
+        const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
+        const multiplier = isEco ? Tone.dbToGain(-8) : 1.0;
+        masterVolumeNode.gain.value = baseGain * multiplier;
         masterMeterNode = new Tone.Meter();
         (window as any).masterMeterNode = masterMeterNode;
         Tone.Destination.connect(masterMeterNode);
@@ -749,7 +773,7 @@ export function useAudioSync({
             channels[inst.id].mute = t.isMute || (initialHasSolo && !t.isSolo);
           }
           if (reverbSends[inst.id]) {
-            reverbSends[inst.id].gain.value = (t.reverbVal || 0) / 100;
+            reverbSends[inst.id].gain.value = isEco ? 0 : (t.reverbVal || 0) / 100;
           }
         }
       });
