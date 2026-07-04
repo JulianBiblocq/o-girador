@@ -265,6 +265,7 @@ export function useAudioSync({
     visualStep12: 0,
     time: 0
   });
+  const isAudioInitializedRef = useRef(false);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -568,7 +569,8 @@ export function useAudioSync({
     const initAudio = async () => {
       try {
         await loadTone();
-        if (bMetroClickRef.current) return; // already initialized
+        if (isAudioInitializedRef.current) return; // already initialized
+        isAudioInitializedRef.current = true;
 
         const isEco = (window as any).oGiradorEcoMode;
 
@@ -1192,6 +1194,7 @@ export function useAudioSync({
         try { osc.stop(); osc.disconnect(); } catch (_) {}
       });
       activeNativeOscillators.clear();
+      isAudioInitializedRef.current = false;
     };
   }, []);
 
