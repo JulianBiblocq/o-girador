@@ -614,7 +614,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
       <div className="relative z-10 p-4 pt-4 flex justify-between items-end h-[200px] gap-2">
         {/* Buttons Column */}
         <div className="flex flex-col gap-2 justify-end h-full pb-1">
-          <PanKnob value={track.panVal || 0} onChange={onPanChange} label="Pan" />
+          <PanKnob trackId={track.id} value={track.panVal || 0} onChange={onPanChange} label="Pan" />
           <div className="h-1" />
           <button 
             onClick={(e) => { e.stopPropagation(); onMuteToggle(); }} 

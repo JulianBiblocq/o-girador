@@ -461,8 +461,9 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     };
   }, [tracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded]);
 
-  // Handle click on canvas
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Handle click on canvas via Pointer Events (no touch latency)
+  const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -1276,10 +1277,11 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
           ref={canvasRef}
           width={1200}
           height={1200}
-          onClick={handleCanvasClick}
+          onPointerDown={handleCanvasPointerDown}
           className="max-w-full max-h-full aspect-square cursor-pointer block select-none"
+          style={{ touchAction: 'none' }}
           role="application"
-          aria-label={lang === 'pt' ? 'Roda de maracatu — sequenciador circular' : 'Roda de maracatu — séquenceur circulaire'}
+          aria-label={lang === 'pt' ? 'Roda de maracatu — sequenciador circular' : 'Roda de maracatu — sequenciador circular'}
         />
         {/* Center overlay — displays signal or structural marker */}
         <div

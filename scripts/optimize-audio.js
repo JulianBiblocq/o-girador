@@ -34,11 +34,19 @@ async function optimizeFile(filePath) {
   const ext = path.extname(filePath);
   const tempPath = path.join(path.dirname(filePath), 'temp_' + Math.random().toString(36).substring(2, 9) + ext);
   
+  // Règle de performance RAM : forcer le Mono (1 canal) et diminuer la fréquence d'échantillonnage.
+  // Les percussions étant mono, cela divise par deux l'empreinte mémoire vive dans le Web Audio cache.
+  // Pour les basses (Alfaia/Surdo), 22.05 kHz suffit largement (gain de 75% RAM/CPU).
+  // Pour le reste, 32 kHz permet de garder la brillance des aigus sans saturer le main thread au décodage.
+  const fileNameOrPath = filePath.toLowerCase();
+  const isBassInstrument = fileNameOrPath.includes('alfaia') || fileNameOrPath.includes('surdo');
+  const targetFrequency = isBassInstrument ? 22050 : 32000;
+  
   return new Promise((resolve, reject) => {
     ffmpeg(filePath)
-      .audioFrequency(44100)
-      .audioChannels(2) // Standard stereo
-      .audioBitrate('96k') // optimized bitrate for ogg
+      .audioFrequency(targetFrequency)
+      .audioChannels(1) // Force mono (1 canal)
+      .audioBitrate('64k') // Bitrate mono optimisé pour format OGG
       .output(tempPath)
       .on('end', () => {
         try {

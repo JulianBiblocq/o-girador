@@ -1,9 +1,10 @@
-import React, { useState, useEffect, startTransition } from 'react';
-import { Language } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
 import { channels } from '../hooks/useAudioSync';
+import { useSequencerStore } from '../stores/useSequencerStore';
+import { instrumentsConfig } from '../data';
 
 interface PanKnobProps {
-  trackId?: number; // Optional if used for something else, but needed for audio sync
+  trackId?: number; // Needed for audio sync
   value: number; // -100 to 100
   onChange: (val: number) => void;
   label?: string;
@@ -11,26 +12,72 @@ interface PanKnobProps {
 
 export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, label = "Pan" }) => {
   const [localVal, setLocalVal] = useState(value);
+  const throttleTimeoutRef = useRef<any>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const isDraggingRef = useRef(false);
 
   useEffect(() => {
-    setLocalVal(value);
+    // Si l'utilisateur est en train de glisser sous son doigt,
+    // on ignore les mises à jour descendantes de Zustand pour éviter le saut visuel.
+    if (!isDraggingRef.current) {
+      setLocalVal(value);
+    }
   }, [value]);
 
-  const handleDrag = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseInt(e.target.value);
-    setLocalVal(val);
-    if (trackId !== undefined && channels[trackId]) {
-      // Direct Tone.js smoothing without hitting the global store
-      channels[trackId].pan.rampTo(val / 100, 0.05);
+  useEffect(() => {
+    return () => {
+      if (throttleTimeoutRef.current) {
+        clearTimeout(throttleTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Écrit dans Zustand au maximum toutes les 60ms pour protéger l'Event Loop
+  const throttledUpdate = (val: number) => {
+    if (!throttleTimeoutRef.current) {
+      throttleTimeoutRef.current = setTimeout(() => {
+        throttleTimeoutRef.current = null;
+        React.startTransition(() => {
+          onChangeRef.current(val);
+        });
+      }, 60);
     }
   };
 
-  const handleCommit = () => {
-    if (localVal !== value) {
-      startTransition(() => {
-        onChange(localVal);
-      });
+  const handleDrag = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseInt(e.target.value, 10);
+    setLocalVal(val);
+
+    if (trackId !== undefined) {
+      const track = useSequencerStore.getState().tracks.find(t => t.id === trackId);
+      if (track) {
+        const inst = instrumentsConfig[track.instrumentIdx];
+        if (inst && channels[inst.id]) {
+          // Règle 1 : Mutation Audio Directe immédiate (Direct-to-WebAudio) avec 0.05s de lissage
+          channels[inst.id].pan.rampTo(val / 100, 0.05);
+        }
+      }
     }
+
+    throttledUpdate(val);
+  };
+
+  // Commit final pour s'assurer que la valeur est synchronisée dans Zustand
+  const handleCommit = (e: React.SyntheticEvent) => {
+    const val = parseInt((e.target as HTMLInputElement).value, 10);
+    isDraggingRef.current = false;
+    if (throttleTimeoutRef.current) {
+      clearTimeout(throttleTimeoutRef.current);
+      throttleTimeoutRef.current = null;
+    }
+    React.startTransition(() => {
+      onChangeRef.current(val);
+    });
+  };
+
+  const handlePointerDown = () => {
+    isDraggingRef.current = true;
   };
 
   // Map value (-100 to 100) to rotation angle in degrees (-135 to 135)
@@ -64,8 +111,10 @@ export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, labe
           max="100"
           value={localVal}
           onChange={handleDrag}
-          onMouseUp={handleCommit}
-          onTouchEnd={handleCommit}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handleCommit}
+          onKeyUp={handleCommit}
+          onBlur={handleCommit}
           className="absolute inset-0 opacity-0 cursor-ew-resize w-full h-full"
           title={`Pan: ${localVal === 0 ? 'C' : localVal > 0 ? 'R' + localVal : 'L' + Math.abs(localVal)}`}
         />
