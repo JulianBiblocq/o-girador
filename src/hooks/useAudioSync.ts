@@ -44,10 +44,10 @@ export const playNativeMetroClick = (time: number, isAccent: boolean, soundType:
   const clickGain = rawCtx.createGain();
   osc.connect(clickGain);
   
-  if (metroChannel && metroChannel.input) {
-    clickGain.connect(metroChannel.input as any);
+  if (metroChannel) {
+    Tone.connect(clickGain, metroChannel as any);
   } else if (masterVolumeNode) {
-    clickGain.connect(masterVolumeNode as any);
+    Tone.connect(clickGain, masterVolumeNode as any);
   } else {
     clickGain.connect(rawCtx.destination);
   }
@@ -97,10 +97,10 @@ export const playNativeVoiceSynth = (freq: number, time: number, duration: numbe
   const voiceGain = rawCtx.createGain();
   osc.connect(voiceGain);
 
-  if (channelNode && channelNode.input) {
-    voiceGain.connect(channelNode.input);
+  if (channelNode) {
+    Tone.connect(voiceGain, channelNode);
   } else if (masterVolumeNode) {
-    voiceGain.connect(masterVolumeNode as any);
+    Tone.connect(voiceGain, masterVolumeNode as any);
   } else {
     voiceGain.connect(rawCtx.destination);
   }
