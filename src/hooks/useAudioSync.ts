@@ -7,11 +7,17 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import * as Tone from 'tone';
 import { AudioEngine } from '../AudioEngine';
 import { InputManager } from '../InputManager';
-import { TrackGroup, TimeSignature, HitTrigger, SongSection } from '../types';
+import { TrackGroup, TimeSignature, HitTrigger, SongSection, GlobalSwing } from '../types';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
-import { ScheduledNote } from '../workers/audioCompiler.worker';
 import { loadTone } from '../ToneLoader';
+
+interface ScheduledNote {
+  time: number;
+  instrumentId: string;
+  velocity: number;
+  decayMultiplier?: number;
+}
 
 // Module scope audio engines and nodes to avoid duplicate instantiations on React re-renders
 export let metroChannel: Tone.Channel | null = null;
@@ -28,6 +34,97 @@ export let masterVolumeNode: Tone.Gain | null = null;
 export let masterMeterNode: Tone.Meter | null = null;
 export let masterEQNode: Tone.EQ3 | null = null;
 export let masterCompressorNode: Tone.Compressor | null = null;
+export let masterSoftClipperNode: Tone.WaveShaper | null = null;
+
+export const activeNativeOscillators = new Set<OscillatorNode>();
+
+export const playNativeMetroClick = (time: number, isAccent: boolean, soundType: string, volume: number) => {
+  const rawCtx = Tone.getContext().rawContext as AudioContext;
+  const osc = rawCtx.createOscillator();
+  const clickGain = rawCtx.createGain();
+  osc.connect(clickGain);
+  
+  if (metroChannel) {
+    Tone.connect(clickGain, metroChannel as any);
+  } else if (masterVolumeNode) {
+    Tone.connect(clickGain, masterVolumeNode as any);
+  } else {
+    clickGain.connect(rawCtx.destination);
+  }
+
+  const freq = isAccent ? 880 : 440;
+  const volumeMultiplier = isAccent ? 1.0 : 0.6;
+  const finalVol = volume * volumeMultiplier;
+
+  clickGain.gain.setValueAtTime(0.0001, time);
+  clickGain.gain.exponentialRampToValueAtTime(finalVol, time + 0.002);
+
+  if (soundType === 'clave') {
+    osc.type = 'sine';
+    const targetFreq = isAccent ? 1200 : 800;
+    osc.frequency.setValueAtTime(targetFreq * 2, time);
+    osc.frequency.exponentialRampToValueAtTime(targetFreq, time + 0.01);
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.08);
+    osc.start(time);
+    osc.stop(time + 0.09);
+  } else if (soundType === 'cowbell') {
+    osc.type = 'triangle';
+    osc.frequency.value = isAccent ? 587.33 : 440;
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
+    osc.start(time);
+    osc.stop(time + 0.07);
+  } else {
+    osc.type = 'square';
+    osc.frequency.value = freq;
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.04);
+    osc.start(time);
+    osc.stop(time + 0.05);
+  }
+
+  activeNativeOscillators.add(osc);
+  osc.onended = () => {
+    activeNativeOscillators.delete(osc);
+    try {
+      osc.disconnect();
+      clickGain.disconnect();
+    } catch (_) {}
+  };
+};
+
+export const playNativeVoiceSynth = (freq: number, time: number, duration: number, volume: number, channelNode: any) => {
+  const rawCtx = Tone.getContext().rawContext as AudioContext;
+  const osc = rawCtx.createOscillator();
+  const voiceGain = rawCtx.createGain();
+  osc.connect(voiceGain);
+
+  if (channelNode) {
+    Tone.connect(voiceGain, channelNode);
+  } else if (masterVolumeNode) {
+    Tone.connect(voiceGain, masterVolumeNode as any);
+  } else {
+    voiceGain.connect(rawCtx.destination);
+  }
+
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(freq, time);
+
+  const attack = 0.05;
+  voiceGain.gain.setValueAtTime(0.0001, time);
+  voiceGain.gain.exponentialRampToValueAtTime(volume * 0.3, time + attack);
+  voiceGain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+
+  osc.start(time);
+  osc.stop(time + duration);
+
+  activeNativeOscillators.add(osc);
+  osc.onended = () => {
+    activeNativeOscillators.delete(osc);
+    try {
+      osc.disconnect();
+      voiceGain.disconnect();
+    } catch (_) {}
+  };
+};
 
 // Performance caches and pools
 const RANDOM_POOL_SIZE = 1000;
@@ -49,194 +146,18 @@ function getCachedMarkers(timeSig: string, ticks: number): number[] {
   return markersCache.get(key)!;
 }
 
-
-
-// Zero-allocation Object Pools
-const MAX_TICKS = 96;
-const pooledMeasureSchedule: ScheduledNote[][] = Array.from({ length: MAX_TICKS }, () => []);
-const sharedNotePool: ScheduledNote[] = [];
-let notePoolIdx = 0;
-
-const sharedStepTickMap = new Float32Array(128);
-
-function buildDynamicMeasureSchedule(
-  tracks: any[],
-  measureIdx: number,
-  timeSig: string,
-  instConfig: any[],
-  soloPatternPlayId: number | null,
-  soloPatternVariationId: string | null,
-  activeVariationsRef: React.MutableRefObject<Record<number, (string | number)[]>>,
-  lastPlayedPatternRef: React.MutableRefObject<Record<number, number>>
-): ScheduledNote[][] {
-  for (let i = 0; i < MAX_TICKS; i++) {
-    pooledMeasureSchedule[i].length = 0;
+function getMeasureStartTick(mIdx: number, measureTimeSigs: string[]): number {
+  let ticks = 0;
+  for (let i = 0; i < mIdx; i++) {
+    const timeSig = measureTimeSigs[i] || '4/4';
+    ticks += getMaxTicks(timeSig as TimeSignature);
   }
-  notePoolIdx = 0;
-
-  const hasSolo = tracks.some((t: any) => t.isSolo);
-  const isSoloPlayActive = soloPatternPlayId !== null;
-
-  const parts = timeSig.split('/');
-  const beats = parseInt(parts[0], 10);
-  const beatUnit = parseInt(parts[1], 10);
-  const maxTicks = beats * (96 / beatUnit);
-
-  tracks.forEach((track: any) => {
-    const inst = instConfig[track.instrumentIdx];
-    if (!inst || inst.type === 'voice') return;
-
-    let activePattern: any = null;
-    let canPlay = false;
-
-    if (isSoloPlayActive) {
-      const isTargetSoloTrack = track.patterns.some((p: any) => p.id === soloPatternPlayId);
-      if (isTargetSoloTrack) {
-        activePattern = track.patterns.find((p: any) => p.id === soloPatternPlayId);
-        canPlay = true;
-      }
-    } else {
-      activePattern = track.patterns.find((p: any) => p.measureAssignments[measureIdx]);
-      canPlay = hasSolo ? track.isSolo : !track.isMute;
-    }
-
-    if (!activePattern || !canPlay) return;
-
-    let stepsToPlay = activePattern.activeSteps;
-    let effectiveVolumes = activePattern.volumes;
-    let effectiveDecays = activePattern.decays;
-    let effectiveMicrotimings = activePattern.microtimings;
-
-    const isFirstTime = lastPlayedPatternRef.current[track.id] !== activePattern.id;
-    lastPlayedPatternRef.current[track.id] = activePattern.id;
-
-    if (isSoloPlayActive && soloPatternVariationId === 'base') {
-      // Base phrase only, NO variations
-    } else if (isSoloPlayActive && soloPatternVariationId && soloPatternVariationId !== 'ensemble' && soloPatternVariationId !== 'base') {
-      // Force play specific variation when soloing
-      const matchedVariation = activePattern.variations?.find((v: any) => v.id === soloPatternVariationId);
-      if (matchedVariation) {
-        stepsToPlay = matchedVariation.steps;
-        if (matchedVariation.volumes) effectiveVolumes = matchedVariation.volumes;
-        if (matchedVariation.decays) effectiveDecays = matchedVariation.decays;
-        if (matchedVariation.microtimings) effectiveMicrotimings = matchedVariation.microtimings;
-      }
-    } else if (
-      (!isSoloPlayActive && activePattern.measureAllowVariations?.[measureIdx]) ||
-      (isSoloPlayActive && soloPatternVariationId === 'ensemble')
-    ) {
-      if (activePattern.variations && activePattern.variations.length > 0) {
-        let matchedVariation = null;
-
-        if (isFirstTime) {
-          matchedVariation = activePattern.variations.find((v: any) => v.playFirstTimeOnly);
-        }
-
-        if (!matchedVariation) {
-          const validVariations = activePattern.variations.filter((v: any) => !v.playFirstTimeOnly);
-          if (validVariations.length > 0) {
-            const rand = nextRandom() * 100;
-            let sum = 0;
-            for (const variation of validVariations) {
-              if (rand >= sum && rand < sum + variation.probability) {
-                matchedVariation = variation;
-                break;
-              }
-              sum += variation.probability;
-            }
-          }
-        }
-
-        if (matchedVariation) {
-          stepsToPlay = matchedVariation.steps;
-          if (matchedVariation.volumes) effectiveVolumes = matchedVariation.volumes;
-          if (matchedVariation.decays) effectiveDecays = matchedVariation.decays;
-          if (matchedVariation.microtimings) effectiveMicrotimings = matchedVariation.microtimings;
-        }
-      }
-    }
-
-    // Save the chosen steps so the UI can render them
-    activeVariationsRef.current[track.id] = stepsToPlay;
-
-    const stepCount = activePattern.steps;
-
-    // --- PPQN ELASTIC TUPLET MATH ---
-    const ticksPerBeat = maxTicks / beats; // exactly 96 / beatUnit
-    const resArray = activePattern.beatResolutions;
-    
-    let accumulatedTicks = 0;
-    let stepTickCount = 0;
-    
-    for (let b = 0; b < beats; b++) {
-      const res = resArray ? resArray[b] : (stepCount / beats);
-      const ticksPerStep = ticksPerBeat / res;
-      for (let r = 0; r < res; r++) {
-        sharedStepTickMap[stepTickCount++] = Math.round(accumulatedTicks + r * ticksPerStep);
-      }
-      accumulatedTicks += ticksPerBeat;
-    }
-
-    for (let step = 0; step < stepCount; step++) {
-      const state = stepsToPlay[step];
-      if (!state || state === 0 || state === '0') continue;
-
-      const tickIdx = sharedStepTickMap[step] !== undefined ? sharedStepTickMap[step] : Math.floor((step * maxTicks) / stepCount);
-
-      let targetKey: string | null = typeof state === 'string' ? state : String(state);
-      let isStrong = false;
-
-      if (inst.type === 'gongue') {
-        if (state === 'G' || state === 'A') { isStrong = true; }
-      } else if (inst.id === 'caixa') {
-        if (['D', 'E', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
-      } else if (inst.id === 'marcante' || inst.id === 'meiao' || inst.id === 'repique') {
-        if (['D', 'E', 'X', 'I', 'C'].includes(state)) { isStrong = true; }
-      } else if (inst.id === 'tarol') {
-        if (['D', 'E', 'R', 'r', 'X', 'F', 'C'].includes(state)) { isStrong = true; }
-      } else if (inst.id === 'agbe') {
-        if (['D', 'E', 'S'].includes(state)) { isStrong = true; }
-      } else {
-        if (['D', 'E', 'P', 'T'].includes(state as string)) { isStrong = true; }
-      }
-
-      if (!targetKey) continue;
-
-      const baseVol = effectiveVolumes?.[step] ?? 80;
-      // Humanization : la variation est proportionnelle au volume (+/- 15% du volume actuel)
-      const volVariation = (Math.random() * 2 - 1) * (baseVol * 0.15);
-      let finalVol = baseVol + volVariation;
-      finalVol = Math.max(0, Math.min(100, finalVol)); // Clamp entre 0 et 100
-
-      const stepVolMultiplier = finalVol / 100;
-      const stepDecayMultiplier = (effectiveDecays?.[step] ?? 100) / 100;
-      const microtimingPct = effectiveMicrotimings?.[step] ?? 0;
-
-      if (tickIdx < MAX_TICKS) {
-        if (notePoolIdx >= sharedNotePool.length) {
-          sharedNotePool.push({ instId: '', playerKey: '', baseGain: 1.0, stepVolMultiplier: 1.0, stepDecayMultiplier: 1.0, isStrong: false, microtimingPct: 0, stepsPerMeasure: 16, trackId: -1, circleStepIdx: 0, state: 0, isTuplet: false });
-        }
-        const pooledNote = sharedNotePool[notePoolIdx++];
-        pooledNote.instId = inst.id;
-        pooledNote.playerKey = targetKey;
-        pooledNote.baseGain = 1.0;
-        pooledNote.stepVolMultiplier = stepVolMultiplier;
-        pooledNote.stepDecayMultiplier = stepDecayMultiplier;
-        pooledNote.isStrong = isStrong;
-        pooledNote.microtimingPct = microtimingPct;
-        pooledNote.stepsPerMeasure = stepCount;
-        pooledNote.trackId = track.id;
-        pooledNote.circleStepIdx = step;
-        pooledNote.state = state;
-        pooledNote.isTuplet = false;
-
-        pooledMeasureSchedule[tickIdx].push(pooledNote);
-      }
-    }
-  });
-
-  return pooledMeasureSchedule;
+  return ticks;
 }
+
+
+
+const instrumentIds = ['caixa', 'tarol', 'marcante', 'meiao', 'repique', 'gongue', 'agbe', 'apito'];
 
 interface UseAudioSyncProps {
   tracksRef: React.MutableRefObject<TrackGroup[]>;
@@ -335,20 +256,16 @@ export function useAudioSync({
   reverbDecay
 }: UseAudioSyncProps) {
   // 🛡️ FIX (Audit): Rapatrie instanciation à l'intérieur du hook React via des useRef
-  const bMetroClickRef = useRef<Tone.Synth | null>(null);
-  const metroClaveClickRef = useRef<Tone.MembraneSynth | null>(null);
-  const metroCowbellClickRef = useRef<Tone.MetalSynth | null>(null);
-
-  useEffect(() => {
-    return () => {
-      // 🛡️ FIX (Audit): Cleanup orphan synths to prevent memory leaks
-      try {
-        if (bMetroClickRef.current) { bMetroClickRef.current.dispose(); bMetroClickRef.current = null; }
-        if (metroClaveClickRef.current) { metroClaveClickRef.current.dispose(); metroClaveClickRef.current = null; }
-        if (metroCowbellClickRef.current) { metroCowbellClickRef.current.dispose(); metroCowbellClickRef.current = null; }
-      } catch (_) {}
-    };
-  }, []);
+  const tickEventDetailRef = useRef({
+    step: 0,
+    measure: 0,
+    maxTicks: 96,
+    ratio: 0,
+    visualStep16: 0,
+    visualStep12: 0,
+    time: 0
+  });
+  const isAudioInitializedRef = useRef(false);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -380,9 +297,16 @@ export function useAudioSync({
   const engineTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   // We still keep tickScheduleRef for rendering static partition / export / pre-compilation
   const tickScheduleRef = useRef<Map<number, Map<number, ScheduledNote[]>>>(new Map());
+
+  // FLAT SONG SCHEDULE REFERENCES
+  const flatCompiledScheduleRef = useRef<Float32Array | null>(null);
+  const lastCompiledScheduleRef = useRef<Float32Array | null>(null);
+  const absoluteTickCountRef = useRef<number>(0);
+  const flatArrayPointerRef = useRef<number>(0);
+  const lastAbsoluteTickRef = useRef<number>(-1);
+  const currentMeasureStartTickRef = useRef<number>(0);
   
-  // Dynamic schedule for the currently playing measure
-  const currentDynamicScheduleRef = useRef<ScheduledNote[][] | null>(null);
+
 
   // Local values sync
   useEffect(() => {
@@ -424,14 +348,23 @@ export function useAudioSync({
     }
   }, [activeKeyboardInstrumentId]);
 
-  // Sync Master Volume node
+  // Sync Master Volume node (with automatic Gain Staging reduction in Eco Mode)
   useEffect(() => {
-    if (masterVolumeNode) {
-      masterVolumeNode.gain.setValueAtTime(
-        Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol),
-        Tone.context.currentTime
-      );
-    }
+    const applyVolume = () => {
+      if (masterVolumeNode) {
+        const isEco = (window as any).oGiradorEcoMode;
+        const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
+        const multiplier = isEco ? Tone.dbToGain(-8) : 1.0;
+        masterVolumeNode.gain.setValueAtTime(
+          baseGain * multiplier,
+          Tone.context.currentTime
+        );
+      }
+    };
+
+    applyVolume();
+    window.addEventListener('eco-mode-changed', applyVolume);
+    return () => window.removeEventListener('eco-mode-changed', applyVolume);
   }, [masterVol]);
 
   // Sync Master EQ
@@ -479,6 +412,26 @@ export function useAudioSync({
     // from regenerating (and abruptly cutting its tail) when the user adjusts a track fader!
   }, [reverbDecay, masterReverbVol]);
 
+  // Sync Reverb Sends in response to Eco Mode changes
+  useEffect(() => {
+    const applyEcoReverbSends = () => {
+      const isEco = (window as any).oGiradorEcoMode;
+      const tracks = useSequencerStore.getState().tracks;
+      
+      tracks.forEach((t) => {
+        const inst = instrumentsConfig[t.instrumentIdx];
+        if (inst && reverbSends[inst.id]) {
+          const reverb = (t.reverbVal || 0) / 100;
+          reverbSends[inst.id].gain.value = isEco ? 0 : reverb;
+        }
+      });
+    };
+
+    applyEcoReverbSends();
+    window.addEventListener('eco-mode-changed', applyEcoReverbSends);
+    return () => window.removeEventListener('eco-mode-changed', applyEcoReverbSends);
+  }, []);
+
   // Sync Transport BPM
   useEffect(() => {
     Tone.Transport.bpm.value = bpm;
@@ -495,10 +448,25 @@ export function useAudioSync({
 
   // Instancier le Web Worker de compilation une seule fois au montage du composant
   useEffect(() => {
-    compilerWorkerRef.current = new Worker(
+    const worker = new Worker(
       new URL('../workers/audioCompiler.worker.ts', import.meta.url),
       { type: 'module' }
     );
+
+    worker.onmessage = (e) => {
+      if (!e.data.success) {
+        console.error("❌ Worker compilation failed:", e.data.error);
+        setIsCompiling(false);
+        return;
+      }
+
+      if (e.data.action === 'compileSong') {
+        setIsCompiling(false);
+        flatCompiledScheduleRef.current = e.data.data;
+      }
+    };
+
+    compilerWorkerRef.current = worker;
 
     return () => {
       if (compilerWorkerRef.current) {
@@ -522,22 +490,8 @@ export function useAudioSync({
 
       setIsCompiling(true);
 
-      worker.onmessage = (e) => {
-        setIsCompiling(false);
-        if (e.data.success) {
-          const serialized = e.data.data;
-          const newSchedule = new Map<number, Map<number, ScheduledNote[]>>();
-          for (const [mIdx, measureEntries] of serialized) {
-            const mMap = new Map<number, ScheduledNote[]>(measureEntries);
-            newSchedule.set(mIdx, mMap);
-          }
-          tickScheduleRef.current = newSchedule;
-        } else {
-          console.error("❌ Worker compilation failed:", e.data.error);
-        }
-      };
-
       worker.postMessage({
+        action: 'compileSong',
         tracks: stateTracks,
         totalMeasures: totalM,
         measureTimeSigs: mTimeSigs,
@@ -579,9 +533,12 @@ export function useAudioSync({
           
           // Background sync audio buffers only when tracks actually change
           if (audioEngine) {
-            const activeIndexes = new Set<number>();
-            state.tracks.forEach((t: any) => activeIndexes.add(t.instrumentIdx));
-            audioEngine.syncActiveInstrumentsMemory(Array.from(activeIndexes))
+            const activeIds = new Set<string>();
+            state.tracks.forEach((t: any) => {
+              const inst = instrumentsConfig[t.instrumentIdx];
+              if (inst) activeIds.add(inst.id);
+            });
+            audioEngine.syncActiveInstrumentsMemory(Array.from(activeIds))
               .catch(e => console.warn("Background load samples failed:", e));
           }
         }
@@ -612,7 +569,10 @@ export function useAudioSync({
     const initAudio = async () => {
       try {
         await loadTone();
-        if (bMetroClickRef.current) return; // already initialized
+        if (isAudioInitializedRef.current) return; // already initialized
+        isAudioInitializedRef.current = true;
+
+        const isEco = (window as any).oGiradorEcoMode;
 
       if (!masterVolumeNode) {
         if (!Tone.context) {
@@ -625,8 +585,8 @@ export function useAudioSync({
           high: masterEQ.high
         });
         masterCompressorNode = new Tone.Compressor({
-          threshold: -12, // Changed from -24 to prevent heavy pumping on percussion
-          ratio: 2,       // Gentle glue compression instead of hard squashing
+          threshold: isEco ? 0 : -12, // Changed from -24 to prevent heavy pumping on percussion
+          ratio: isEco ? 1 : 2,       // Gentle glue compression instead of hard squashing
           attack: 0.015,  // Faster attack to catch peaks
           release: 0.15   // Faster release to avoid swelling the reverb tail on the next beat
         });
@@ -643,9 +603,31 @@ export function useAudioSync({
         // Add a Limiter at -2dB to prevent digital clipping when many instruments hit simultaneously
         const masterLimiterNode = new Tone.Limiter(-2);
         masterHighpassNode.connect(masterLimiterNode);
-        masterLimiterNode.toDestination();
+
+        // Tone.js 0% CPU Soft Clipper (Tone.WaveShaper using cubic curve with 4x oversampling)
+        masterSoftClipperNode = new Tone.WaveShaper();
+        const curveSize = 8192;
+        const clipperCurve = new Float32Array(curveSize);
+        for (let i = 0; i < curveSize; i++) {
+          const x = (2 * i) / (curveSize - 1) - 1;
+          let y = (3 * x - Math.pow(x, 3)) / 2;
+          if (x <= -1) {
+            y = -1.0;
+          } else if (x >= 1) {
+            y = 1.0;
+          }
+          clipperCurve[i] = y;
+        }
+        masterSoftClipperNode.curve = clipperCurve;
+        masterSoftClipperNode.oversample = '4x';
+
+        // Connect chain: masterLimiterNode -> masterSoftClipperNode -> Tone.Destination
+        masterLimiterNode.connect(masterSoftClipperNode);
+        masterSoftClipperNode.connect(Tone.Destination);
         
-        masterVolumeNode.gain.value = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
+        const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
+        const multiplier = isEco ? Tone.dbToGain(-8) : 1.0;
+        masterVolumeNode.gain.value = baseGain * multiplier;
         masterMeterNode = new Tone.Meter();
         (window as any).masterMeterNode = masterMeterNode;
         Tone.Destination.connect(masterMeterNode);
@@ -655,26 +637,7 @@ export function useAudioSync({
       metroChannel = new Tone.Channel({ volume: Tone.gainToDb(metroVolumeRef.current / 100) }).connect(masterVolumeNode);
       metroChannel.mute = !isMetroOnRef.current;
 
-      bMetroClickRef.current = new Tone.Synth({
-        oscillator: { type: 'square' },
-        envelope: { attack: 0.001, decay: 0.05, sustain: 0.0, release: 0.01 },
-      }).connect(metroChannel);
-
-      metroClaveClickRef.current = new Tone.MembraneSynth({
-        pitchDecay: 0.008,
-        octaves: 2,
-        oscillator: { type: 'sine' },
-        envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.01 }
-      }).connect(metroChannel);
-
-      metroCowbellClickRef.current = new Tone.MetalSynth({
-        envelope: { attack: 0.001, decay: 0.1, release: 0.01 },
-        harmonicity: 5.1,
-        modulationIndex: 32,
-        resonance: 4000,
-        octaves: 1.5
-      }).connect(metroChannel);
-      metroCowbellClickRef.current.frequency.value = 200;
+      // Native oscillators used instead of Tone.Synth objects to reduce CPU overhead
 
       if (!masterReverbVolumeNode) {
         masterReverbVolumeNode = new Tone.Gain(Tone.dbToGain(masterReverbVol === -40 ? -Infinity : masterReverbVol)).connect(masterVolumeNode);
@@ -699,17 +662,7 @@ export function useAudioSync({
           reverbSends[inst.id].connect(reverbNode!);
         }
 
-        if (inst.type === 'voice') {
-          if (!voiceSynths[inst.id]) {
-            voiceSynths[inst.id] = new Tone.AMSynth({
-              harmonicity: 1,
-              oscillator: { type: 'sine' },
-              modulation: { type: 'sine' },
-              envelope: { attack: 0.05, decay: 0.2 },
-              volume: -10,
-            }).connect(channels[inst.id]);
-          }
-        }
+        // Native voice oscillators used instead of Tone.AMSynth to reduce CPU overhead
       });
 
       // Synchronize track volume, panning, reverb levels, and mute/solo initially once nodes exist
@@ -725,7 +678,7 @@ export function useAudioSync({
             channels[inst.id].mute = t.isMute || (initialHasSolo && !t.isSolo);
           }
           if (reverbSends[inst.id]) {
-            reverbSends[inst.id].gain.value = (t.reverbVal || 0) / 100;
+            reverbSends[inst.id].gain.value = isEco ? 0 : (t.reverbVal || 0) / 100;
           }
         }
       });
@@ -745,6 +698,7 @@ export function useAudioSync({
       audioEngine = new AudioEngine(
         rawCtx,
         (time) => {
+          const isDocHidden = typeof document !== 'undefined' && document.hidden;
           if (import.meta.env.DEV) {
           }
           let currentTicks = maxTicksRef.current;
@@ -766,6 +720,11 @@ export function useAudioSync({
             const firstTimeSig = measureTimeSigsRef.current[firstMeasureIdx] || '4/4';
             currentTicks = getMaxTicks(firstTimeSig);
             maxTicksRef.current = currentTicks;
+
+            flatArrayPointerRef.current = 0;
+            absoluteTickCountRef.current = getMeasureStartTick(firstMeasureIdx, measureTimeSigsRef.current);
+            currentMeasureStartTickRef.current = absoluteTickCountRef.current;
+            lastAbsoluteTickRef.current = -1;
           } else if (stepIdx === currentTicks - 1) {
             nextStepIdx = 0;
             if (soloPatternPlayIdRef.current !== null) {
@@ -774,7 +733,16 @@ export function useAudioSync({
               const currentMeasureIdx = measureCountRef.current;
               const effectiveLoopEnd = (isLoopRegionActiveRef.current && loopEndRef.current !== null) ? loopEndRef.current : (totalMeasuresRef.current - 1);
 
-              const activeSection = songSectionsRef.current?.find(s => currentMeasureIdx === s.endMeasure);
+              let activeSection = null;
+              const sections = songSectionsRef.current;
+              if (sections) {
+                for (let i = 0; i < sections.length; i++) {
+                  if (sections[i].endMeasure === currentMeasureIdx) {
+                    activeSection = sections[i];
+                    break;
+                  }
+                }
+              }
 
               if (currentMeasureIdx === effectiveLoopEnd) {
                 // Global boundary logic wins
@@ -818,18 +786,7 @@ export function useAudioSync({
             const sigId = measureSignalsRef.current[prevMeasureIdx] || null;
             lastPlayedSignalIdRef.current = sigId;
 
-            // Dynamically evaluate variations and build schedule for this measure
-            const timeSig = measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
-            currentDynamicScheduleRef.current = buildDynamicMeasureSchedule(
-              tracksRef.current,
-              currentMeasureIdx,
-              timeSig,
-              instrumentsConfig,
-              soloPatternPlayIdRef.current,
-              soloPatternVariationIdRef.current,
-              activeVariationsRef,
-              lastPlayedPatternRef
-            );
+            currentMeasureStartTickRef.current = getMeasureStartTick(currentMeasureIdx, measureTimeSigsRef.current);
           }
 
           const _stepForUI = isNaN(stepIdx) ? 0 : stepIdx;
@@ -843,33 +800,36 @@ export function useAudioSync({
           const visualDelay = rawCtx.outputLatency || 0.050; // Fallback to 50ms if not supported
           const drawTime = time + visualDelay;
 
-          Tone.Draw.schedule(() => {
-            // ECO MODE: We used to bypass the visual dispatch here, but we now allow the needle to animate
-            // while saving CPU strictly on DSP effects (Reverb, Compressor).
+          if (!isDocHidden) {
+            Tone.Draw.schedule(() => {
+              // ECO MODE: We used to bypass the visual dispatch here, but we now allow the needle to animate
+              // while saving CPU strictly on DSP effects (Reverb, Compressor).
 
-            window.dispatchEvent(new CustomEvent('o-girador-tick', {
-              detail: {
-                step: _stepForUI,
-                measure: _measureForUI,
-                maxTicks: _currentTicks,
-                ratio: ratioVal,
-                visualStep16: Math.floor(ratioVal * 16),
-                visualStep12: Math.floor(ratioVal * 12),
-                time: time
+              const detail = tickEventDetailRef.current;
+              detail.step = _stepForUI;
+              detail.measure = _measureForUI;
+              detail.maxTicks = _currentTicks;
+              detail.ratio = ratioVal;
+              detail.visualStep16 = Math.floor(ratioVal * 16);
+              detail.visualStep12 = Math.floor(ratioVal * 12);
+              detail.time = time;
+
+              window.dispatchEvent(new CustomEvent('o-girador-tick', {
+                detail
+              }));
+
+              // Delay the heavy React render until *after* the playhead frame has been painted
+              if (_stepForUI === 0) {
+                requestAnimationFrame(() => {
+                  setTimeout(() => {
+                    React.startTransition(() => {
+                      setCurrentMeasure(_measureForUI);
+                    });
+                  }, 0);
+                });
               }
-            }));
-
-            // Delay the heavy React render until *after* the playhead frame has been painted
-            if (_stepForUI === 0) {
-              requestAnimationFrame(() => {
-                setTimeout(() => {
-                  React.startTransition(() => {
-                    setCurrentMeasure(_measureForUI);
-                  });
-                }, 0);
-              });
-            }
-          }, drawTime);
+            }, drawTime);
+          }
 
           // Pré-calculer la durée d'un 96n une seule fois par tick
           const rawBpm = measureBpmsRef.current[currentMeasureIdx];
@@ -932,15 +892,8 @@ export function useAudioSync({
           if (isMetroOnRef.current && markers.includes(stepIdx)) {
             const metroVolLinear = Math.pow(Math.max(0, metroVolumeRef.current / 100), 2);
             if (metroVolLinear > 0) {
-              if (metroSoundRef.current === 'clave') {
-                const noteVal = stepIdx === 0 ? 'A5' : 'E5';
-                metroClaveClickRef.current?.triggerAttackRelease(noteVal, '32n', time, metroVolLinear);
-              } else if (metroSoundRef.current === 'cowbell') {
-                metroCowbellClickRef.current?.triggerAttackRelease('32n', time, (stepIdx === 0 ? 1 : 0.6) * metroVolLinear);
-              } else {
-                const noteVal = stepIdx === 0 ? 'A5' : 'E5';
-                bMetroClickRef.current?.triggerAttackRelease(noteVal, '32n', time, metroVolLinear);
-              }
+              const isAccent = (stepIdx === 0);
+              playNativeMetroClick(time, isAccent, metroSoundRef.current, metroVolLinear);
             }
           }
 
@@ -975,57 +928,117 @@ export function useAudioSync({
           }
           const swingTime = time + swingOffset;
 
-          // Play non-voice scheduled notes from DYNAMIC schedule
-          const scheduledNotes = currentDynamicScheduleRef.current?.[stepIdx];
+          // Percussive notes playback (flat compiled schedule)
+          const currentAbsoluteTick = currentMeasureStartTickRef.current + stepIdx;
+          const flatArray = flatCompiledScheduleRef.current;
+          if (flatArray) {
+            const len = flatArray.length;
+            let ptr = flatArrayPointerRef.current;
 
-          if (scheduledNotes) {
-            for (const note of scheduledNotes) {
-              try {
-                let vel = 1.0;
-                if (globalMode !== 'off') {
-                  if (note.isTuplet) {
-                    vel = note.isStrong
-                      ? 0.8 + (nextRandom() * 0.1 - 0.05)
-                      : 0.5 + (nextRandom() * 0.1 - 0.05);
-                  } else {
-                    vel = note.isStrong
-                      ? 0.8 + (nextRandom() * 0.2 - 0.1)
-                      : 0.4 + (nextRandom() * 0.24 - 0.12);
-                  }
-                }
-                vel *= note.stepVolMultiplier;
-
-                const stepDurSec = tick96nSec * (currentTicks / note.stepsPerMeasure);
-                const microOffset = (note.microtimingPct / 100) * stepDurSec * 0.5;
-                const triggerTime = time + (note.isTuplet ? swingJitter : swingOffset) + microOffset;
-
-                const liveTrack = tracksRef.current.find(t => t.id === note.trackId);
-                const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
-                
-                if (trackVolPct > 0) {
-                  const trackVolLinear = Math.pow(trackVolPct / 100, 2);
-                  const finalVel = note.baseGain * vel * trackVolLinear;
-
-                  if (import.meta.env.DEV) {
-                  }
-                  audioEngine?.playNote(note.instId, note.playerKey, triggerTime, finalVel, note.stepDecayMultiplier);
-                }
-
-                Tone.Draw.schedule(() => {
-                  hitTriggersRef.current.push({ trackId: note.trackId, stepIndex: note.circleStepIdx, state: note.state });
-                }, triggerTime);
-              } catch (_) {}
+            // Reset pointer if compiled schedule changed, or currentAbsoluteTick decreased or jumped significantly
+            if (flatArray !== lastCompiledScheduleRef.current || currentAbsoluteTick < lastAbsoluteTickRef.current || currentAbsoluteTick - lastAbsoluteTickRef.current > 5) {
+              ptr = 0;
+              while (ptr < len && flatArray[ptr] < currentAbsoluteTick) {
+                ptr += 4;
+              }
+              lastCompiledScheduleRef.current = flatArray;
             }
+            lastAbsoluteTickRef.current = currentAbsoluteTick;
+
+            while (ptr < len) {
+              const noteTick = flatArray[ptr];
+              if (noteTick > currentAbsoluteTick) {
+                break;
+              }
+
+              if (noteTick === currentAbsoluteTick) {
+                const packedData = flatArray[ptr + 1];
+                const velocity = flatArray[ptr + 2];
+                const microtimingPct = flatArray[ptr + 3];
+
+                // Decode packedData: trackIdx (4 bits), circleStepIdx (5 bits), strokeCharCode (7 bits), decayPct (7 bits), isTuplet (1 bit)
+                const trackIdx = (packedData >> 20) & 0x0F;
+                const circleStepIdx = (packedData >> 15) & 0x1F;
+                const strokeCharCode = (packedData >> 8) & 0x7F;
+                const decayPct = (packedData >> 1) & 0x7F;
+                const isTuplet = (packedData & 1) === 1;
+
+                const liveTrack = tracksRef.current[trackIdx];
+                if (liveTrack) {
+                  const inst = instrumentsConfig[liveTrack.instrumentIdx];
+                  if (inst) {
+                    const trackVolPct = liveTrack.volumeVal ?? 100;
+                    if (trackVolPct > 0) {
+                      const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                      const finalVel = velocity * trackVolLinear;
+                      const strokeSymbol = String.fromCharCode(strokeCharCode);
+                      const decayMultiplier = decayPct / 100;
+
+                      // Calculate real-time swing and microtiming offsets
+                      let noteSwingOffset = 0;
+                      if (globalMode !== 'off') {
+                        if (isTuplet) {
+                          noteSwingOffset = swingJitter;
+                        } else {
+                          noteSwingOffset = swingOffset;
+                        }
+                      }
+
+                      let activePattern = null;
+                      const patterns = liveTrack.patterns;
+                      const numPatterns = patterns.length;
+                      for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+                        if (patterns[pIdx].measureAssignments[currentMeasureIdx]) {
+                          activePattern = patterns[pIdx];
+                          break;
+                        }
+                      }
+                      const stepCount = activePattern ? activePattern.steps : 16;
+                      const stepDurSec = tick96nSec * (currentTicks / stepCount);
+                      const microOffset = (microtimingPct / 100) * stepDurSec * 0.5;
+
+                      const triggerTime = time + noteSwingOffset + microOffset;
+
+                      audioEngine?.playNote(inst.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
+
+                      // Visual hit trigger
+                      if (!isDocHidden) {
+                        Tone.Draw.schedule(() => {
+                          hitTriggersRef.current.push({ trackId: liveTrack.id, stepIndex: circleStepIdx, state: strokeCharCode });
+                        }, triggerTime);
+                      }
+                    }
+                  }
+                }
+              }
+              ptr += 4;
+            }
+            flatArrayPointerRef.current = ptr;
           }
 
+
+
           // Vocal recordings logic
-          tracksRef.current.forEach((track) => {
-            const currentMeasureLocal = measureCountRef.current % totalMeasuresRef.current;
+          const tracks = tracksRef.current;
+          const numTracks = tracks.length;
+          const currentMeasureLocal = measureCountRef.current % totalMeasuresRef.current;
+
+          for (let trackIdx = 0; trackIdx < numTracks; trackIdx++) {
+            const track = tracks[trackIdx];
             const inst = instrumentsConfig[track.instrumentIdx];
-            if (!inst || inst.type !== 'voice') return;
+            if (!inst || inst.type !== 'voice') continue;
 
             if (recordingVocalPatternIdRef.current !== null) {
-              const hasPatternBeingRecorded = track.patterns.some((p: any) => p.id === recordingVocalPatternIdRef.current);
+              let hasPatternBeingRecorded = false;
+              const patterns = track.patterns;
+              const numPatterns = patterns.length;
+              for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+                if (patterns[pIdx].id === recordingVocalPatternIdRef.current) {
+                  hasPatternBeingRecorded = true;
+                  break;
+                }
+              }
+
               if (hasPatternBeingRecorded) {
                 if (stepIdx === 0 && vocalRecordingStateRef.current === 'waiting') {
                   vocalRecordingStateRef.current = 'recording';
@@ -1048,20 +1061,39 @@ export function useAudioSync({
             }
 
             // Playback of vocal patterns
-            const activePattern = track.patterns.find((p: any) => p.measureAssignments[currentMeasureLocal]);
-            if (!activePattern) return;
+            let activePattern = null;
+            const patterns = track.patterns;
+            const numPatterns = patterns.length;
+            for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+              if (patterns[pIdx].measureAssignments[currentMeasureLocal]) {
+                activePattern = patterns[pIdx];
+                break;
+              }
+            }
+            if (!activePattern) continue;
 
             const isSoloPlayActive = soloPatternPlayIdRef.current !== null;
             let canPlay = false;
 
             if (isSoloPlayActive) {
-              canPlay = track.patterns.some((p: any) => p.id === soloPatternPlayIdRef.current);
+              for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+                if (patterns[pIdx].id === soloPatternPlayIdRef.current) {
+                  canPlay = true;
+                  break;
+                }
+              }
             } else {
-              const hasSolo = tracksRef.current.some((t: any) => t.isSolo);
+              let hasSolo = false;
+              for (let tIdx = 0; tIdx < numTracks; tIdx++) {
+                if (tracks[tIdx].isSolo) {
+                  hasSolo = true;
+                  break;
+                }
+              }
               canPlay = hasSolo ? track.isSolo : !track.isMute;
             }
 
-            if (!canPlay) return;
+            if (!canPlay) continue;
 
             if (activePattern.vocalMode === 'micro') {
               const player = vocalPlayersRef.current[activePattern.id];
@@ -1079,7 +1111,7 @@ export function useAudioSync({
                 const delaySec = (activePattern.vocalLatency ?? 0) / 1000;
                 const triggerTime = time + delaySec;
 
-                const liveTrack = tracksRef.current.find(t => t.id === track.id);
+                const liveTrack = tracks[trackIdx];
                 const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
 
                 if (stepIdx === 0 && trackVolPct > 0) {
@@ -1087,8 +1119,8 @@ export function useAudioSync({
                   player.playbackRate = playbackRate;
                   player.start(triggerTime, 0, measureDurationSec);
 
-                  if (isVocalGuideEnabledRef.current && bMetroClickRef.current) {
-                    bMetroClickRef.current.triggerAttackRelease('C6', '16n', triggerTime);
+                  if (isVocalGuideEnabledRef.current) {
+                    playNativeMetroClick(triggerTime, true, 'synth', 0.5);
                   }
                 }
               }
@@ -1098,18 +1130,19 @@ export function useAudioSync({
                 const cellIdx = Math.floor(stepIdx / (currentTicks / stepCount));
                 const state = activePattern.activeSteps[cellIdx];
                 if (state && state !== 0) {
-                  const synth = voiceSynths[inst.id];
-                  if (synth) {
-                    const symbol = String(state);
-                    const noteVal = symbol === 'D' ? 'A3' : symbol === 'E' ? 'E3' : 'C3';
-                    const triggerTime = swingTime;
-                    const liveTrack = tracksRef.current.find(t => t.id === track.id);
-                    const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
-                    if (trackVolPct > 0) {
-                      const trackVolLinear = Math.pow(trackVolPct / 100, 2);
-                      synth.triggerAttackRelease(noteVal, '8n', triggerTime, trackVolLinear);
-                    }
+                  const symbol = String(state);
+                  const noteVal = symbol === 'D' ? 'A3' : symbol === 'E' ? 'E3' : 'C3';
+                  const triggerTime = swingTime;
+                  const liveTrack = tracks[trackIdx];
+                  const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
+                  if (trackVolPct > 0) {
+                    const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                    const noteFreq = noteVal === 'A3' ? 220.00 : noteVal === 'E3' ? 329.63 : 130.81;
+                    const noteDuration = 12 * tick96nSec;
+                    playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[inst.id]);
+                  }
 
+                  if (!isDocHidden) {
                     Tone.Draw.schedule(() => {
                       hitTriggersRef.current.push({ trackId: track.id, stepIndex: cellIdx, state });
                     }, triggerTime);
@@ -1117,7 +1150,7 @@ export function useAudioSync({
                 }
               }
             }
-          });
+          }
         },
         () => {
           const currentMeasureIdx = measureCountRef.current % (totalMeasuresRef.current || 1);
@@ -1157,6 +1190,11 @@ export function useAudioSync({
         audioEngine = null;
       }
       inputManager = null;
+      activeNativeOscillators.forEach((osc) => {
+        try { osc.stop(); osc.disconnect(); } catch (_) {}
+      });
+      activeNativeOscillators.clear();
+      isAudioInitializedRef.current = false;
     };
   }, []);
 
@@ -1170,17 +1208,18 @@ export function useAudioSync({
         const tracks = state.tracks;
         if (tracks.length === 0) return;
 
-        const hasSolo = tracks.some(t => t.isSolo);
-        const activeIndexes = new Set<number>();
+        const activeIds = new Set<string>();
         
         tracks.forEach(t => {
-          const isMuted = t.isMute || (hasSolo && !t.isSolo);
-          if (!isMuted && !t.isHidden) {
-            activeIndexes.add(t.instrumentIdx);
+          // Keep active track instruments loaded in RAM even if muted or bypassed by solo,
+          // so that they trigger instantly when unmuted/unsoloed.
+          if (!t.isHidden) {
+            const inst = instrumentsConfig[t.instrumentIdx];
+            if (inst) activeIds.add(inst.id);
           }
         });
 
-        audioEngine.syncActiveInstrumentsMemory(Array.from(activeIndexes))
+        audioEngine.syncActiveInstrumentsMemory(Array.from(activeIds))
           .catch(e => console.warn("Dynamic RAM sync failed:", e));
       }
     });
@@ -1221,13 +1260,10 @@ export function useAudioSync({
         stopVocalRecording();
       }
       audioEngine?.stopAllBarulho();
-      instrumentsConfig.forEach((inst) => {
-        if (voiceSynths[inst.id]) {
-          try {
-            voiceSynths[inst.id].triggerRelease();
-          } catch (_) {}
-        }
+      activeNativeOscillators.forEach((osc) => {
+        try { osc.stop(); osc.disconnect(); } catch (_) {}
       });
+      activeNativeOscillators.clear();
 
       (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
         try {
@@ -1243,16 +1279,16 @@ export function useAudioSync({
       const pausedMaxTicks = maxTicksRef.current;
       const ratioVal = pausedMaxTicks > 0 ? (pausedStep >= 0 ? pausedStep : 0) / pausedMaxTicks : 0;
 
-      window.dispatchEvent(new CustomEvent('o-girador-tick', {
-        detail: {
-          step: pausedStep,
-          measure: pausedMeasure,
-          maxTicks: pausedMaxTicks,
-          ratio: ratioVal,
-          visualStep16: Math.floor(ratioVal * 16),
-          visualStep12: Math.floor(ratioVal * 12)
-        }
-      }));
+      const detail = tickEventDetailRef.current;
+      detail.step = pausedStep;
+      detail.measure = pausedMeasure;
+      detail.maxTicks = pausedMaxTicks;
+      detail.ratio = ratioVal;
+      detail.visualStep16 = Math.floor(ratioVal * 16);
+      detail.visualStep12 = Math.floor(ratioVal * 12);
+      detail.time = Tone.context.currentTime;
+
+      window.dispatchEvent(new CustomEvent('o-girador-tick', { detail }));
     }
   };
 
@@ -1269,13 +1305,10 @@ export function useAudioSync({
       stopVocalRecording();
     }
     audioEngine?.stopAllBarulho();
-    instrumentsConfig.forEach((inst) => {
-      if (voiceSynths[inst.id]) {
-        try {
-          voiceSynths[inst.id].triggerRelease();
-        } catch (_) {}
-      }
+    activeNativeOscillators.forEach((osc) => {
+      try { osc.stop(); osc.disconnect(); } catch (_) {}
     });
+    activeNativeOscillators.clear();
 
     (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
       try {
@@ -1288,9 +1321,16 @@ export function useAudioSync({
     setCurrentMeasure(0);
     Tone.Transport.seconds = 0;
     lastPlayedSignalIdRef.current = null;
-    window.dispatchEvent(new CustomEvent('o-girador-tick', {
-      detail: { step: -1, measure: 0, maxTicks: 16 }
-    }));
+    const detail = tickEventDetailRef.current;
+    detail.step = -1;
+    detail.measure = 0;
+    detail.maxTicks = 16;
+    detail.ratio = 0;
+    detail.visualStep16 = 0;
+    detail.visualStep12 = 0;
+    detail.time = 0;
+
+    window.dispatchEvent(new CustomEvent('o-girador-tick', { detail }));
   };
 
   const handleStartSoloPattern = async (patternId: number, variationId?: string) => {
@@ -1307,13 +1347,10 @@ export function useAudioSync({
     audioEngine?.stop();
     Tone.Transport.stop();
     audioEngine?.stopAllBarulho();
-    instrumentsConfig.forEach((inst) => {
-      if (voiceSynths[inst.id]) {
-        try {
-          voiceSynths[inst.id].triggerRelease();
-        } catch (_) {}
-      }
+    activeNativeOscillators.forEach((osc) => {
+      try { osc.stop(); osc.disconnect(); } catch (_) {}
     });
+    activeNativeOscillators.clear();
 
     (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
       try {
@@ -1387,8 +1424,6 @@ export function useAudioSync({
 
   // Synchronize track volume, panning, reverb levels, and mute/solo dynamically when React state changes
   useEffect(() => {
-    if (Object.keys(channels).length === 0) return;
-
     const unsub = useSequencerStore.subscribe((state, prevState) => {
       if (state.tracks !== prevState.tracks) {
         const tracks = state.tracks;

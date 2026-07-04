@@ -675,6 +675,15 @@
       document.getElementById('btn-pt').className = lang === 'pt' ? 'active' : '';
       document.getElementById('btn-fr').className = lang === 'fr' ? 'active' : '';
     }
+
+    // Auto-detect language on load
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryLang = urlParams.get('lang');
+      const savedLang = localStorage.getItem('o_girador_lang');
+      const lang = queryLang || savedLang || 'pt';
+      setLang(lang === 'fr' ? 'fr' : 'pt');
+    });
   </script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 import { create, StateCreator } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
-import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language } from '../types';
+import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker } from '../types';
 
 // Nous aurons besoin d'instrumentsConfig pour extraire les paroles
 import { instrumentsConfig } from '../data';
@@ -693,21 +693,21 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
     const tracksToSave = customTracksState ? customTracksState : state.tracks;
     
     set((prev) => {
-      const clonedTracks = JSON.parse(JSON.stringify(tracksToSave));
-      const nextTracksHistory = [...prev.tracksHistory, clonedTracks];
+      // Partage structurel : Stockage de la référence immuable directement
+      const nextTracksHistory = [...prev.tracksHistory, tracksToSave];
       if (nextTracksHistory.length > 10) nextTracksHistory.shift();
 
-      const clonedStructure: StructureSnapshot = {
-        measureTimeSigs: [...prev.measureTimeSigs],
-        measureBpms: [...prev.measureBpms],
-        measureBpmTransitions: [...prev.measureBpmTransitions],
-        measureVols: [...prev.measureVols],
-        measureVolTransitions: [...prev.measureVolTransitions],
-        songSections: JSON.parse(JSON.stringify(prev.songSections)),
-        songMarkers: prev.songMarkers ? JSON.parse(JSON.stringify(prev.songMarkers)) : [],
+      const snapStructure: StructureSnapshot = {
+        measureTimeSigs: prev.measureTimeSigs,
+        measureBpms: prev.measureBpms,
+        measureBpmTransitions: prev.measureBpmTransitions,
+        measureVols: prev.measureVols,
+        measureVolTransitions: prev.measureVolTransitions,
+        songSections: prev.songSections,
+        songMarkers: prev.songMarkers || [],
       };
       
-      const nextStructureHistory = [...prev.songStructureHistory, clonedStructure];
+      const nextStructureHistory = [...prev.songStructureHistory, snapStructure];
       if (nextStructureHistory.length > 10) nextStructureHistory.shift();
 
       return {
@@ -724,15 +724,15 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
     if (state.tracksHistory.length === 0) return;
 
     set((prev) => {
-      const currentTracksCloned = JSON.parse(JSON.stringify(prev.tracks));
-      const currentStructureCloned: StructureSnapshot = {
-        measureTimeSigs: [...prev.measureTimeSigs],
-        measureBpms: [...prev.measureBpms],
-        measureBpmTransitions: [...prev.measureBpmTransitions],
-        measureVols: [...prev.measureVols],
-        measureVolTransitions: [...prev.measureVolTransitions],
-        songSections: JSON.parse(JSON.stringify(prev.songSections)),
-        songMarkers: prev.songMarkers ? JSON.parse(JSON.stringify(prev.songMarkers)) : [],
+      const currentTracks = prev.tracks;
+      const currentStructure: StructureSnapshot = {
+        measureTimeSigs: prev.measureTimeSigs,
+        measureBpms: prev.measureBpms,
+        measureBpmTransitions: prev.measureBpmTransitions,
+        measureVols: prev.measureVols,
+        measureVolTransitions: prev.measureVolTransitions,
+        songSections: prev.songSections,
+        songMarkers: prev.songMarkers || [],
       };
 
       const nextTracksHistory = [...prev.tracksHistory];
@@ -742,8 +742,8 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
       const previousStructureState = nextStructureHistory.pop();
 
       const updates: Partial<SequencerStore> = {
-        tracksRedoHistory: [...prev.tracksRedoHistory, currentTracksCloned],
-        songStructureRedoHistory: [...prev.songStructureRedoHistory, currentStructureCloned],
+        tracksRedoHistory: [...prev.tracksRedoHistory, currentTracks],
+        songStructureRedoHistory: [...prev.songStructureRedoHistory, currentStructure],
         tracksHistory: nextTracksHistory,
         songStructureHistory: nextStructureHistory,
       };
@@ -769,15 +769,15 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
     if (state.tracksRedoHistory.length === 0) return;
 
     set((prev) => {
-      const currentTracksCloned = JSON.parse(JSON.stringify(prev.tracks));
-      const currentStructureCloned: StructureSnapshot = {
-        measureTimeSigs: [...prev.measureTimeSigs],
-        measureBpms: [...prev.measureBpms],
-        measureBpmTransitions: [...prev.measureBpmTransitions],
-        measureVols: [...prev.measureVols],
-        measureVolTransitions: [...prev.measureVolTransitions],
-        songSections: JSON.parse(JSON.stringify(prev.songSections)),
-        songMarkers: prev.songMarkers ? JSON.parse(JSON.stringify(prev.songMarkers)) : [],
+      const currentTracks = prev.tracks;
+      const currentStructure: StructureSnapshot = {
+        measureTimeSigs: prev.measureTimeSigs,
+        measureBpms: prev.measureBpms,
+        measureBpmTransitions: prev.measureBpmTransitions,
+        measureVols: prev.measureVols,
+        measureVolTransitions: prev.measureVolTransitions,
+        songSections: prev.songSections,
+        songMarkers: prev.songMarkers || [],
       };
 
       const nextTracksRedoHistory = [...prev.tracksRedoHistory];
@@ -787,8 +787,8 @@ const createHistorySlice: StateCreator<SequencerStore, [], [], HistorySlice> = (
       const nextStructureState = nextStructureRedoHistory.pop();
 
       const updates: Partial<SequencerStore> = {
-        tracksHistory: [...prev.tracksHistory, currentTracksCloned],
-        songStructureHistory: [...prev.songStructureHistory, currentStructureCloned],
+        tracksHistory: [...prev.tracksHistory, currentTracks],
+        songStructureHistory: [...prev.songStructureHistory, currentStructure],
         tracksRedoHistory: nextTracksRedoHistory,
         songStructureRedoHistory: nextStructureRedoHistory,
       };
@@ -935,19 +935,18 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
   }
 });
 
-// ---------------------------------------------------------
-// 6. PROJECT SETTINGS SLICE
-// ---------------------------------------------------------
 export interface ProjectSettingsSlice {
   letras: string;
   metadata: PresetMetadata;
   isLeftHanded: boolean;
   lang: Language;
+  vocalCalibrationLatencyMs: number;
 
   setLetras: (letras: string) => void;
   setMetadata: (metadata: PresetMetadata) => void;
   setIsLeftHanded: (val: boolean) => void;
   setLang: (lang: Language) => void;
+  setVocalCalibrationLatencyMs: (val: number) => void;
   handleExtractLyrics: () => void;
 }
 
@@ -956,11 +955,16 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   metadata: { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] },
   isLeftHanded: false, 
   lang: 'pt',
+  vocalCalibrationLatencyMs: parseInt(localStorage.getItem('oGirador_vocal_calibration_latency') || '0', 10),
 
   setLetras: (letras) => set({ letras }),
   setMetadata: (metadata) => set({ metadata }),
   setIsLeftHanded: (val) => set({ isLeftHanded: val }),
   setLang: (lang) => set({ lang }),
+  setVocalCalibrationLatencyMs: (val) => {
+    localStorage.setItem('oGirador_vocal_calibration_latency', String(val));
+    set({ vocalCalibrationLatencyMs: val });
+  },
   
   handleExtractLyrics: () => {
     const state = get();

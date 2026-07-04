@@ -3,9 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { Preset } from './types';
+
 const DB_NAME = 'O GiradorDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'vocalRecordings';
+const LIB_STORE_NAME = 'personalLibrary';
+const AUTOSAVE_STORE_NAME = 'autosave';
+
+export interface LocalLibrary {
+  [name: string]: Preset;
+}
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -39,6 +47,12 @@ function getDB(): Promise<IDBDatabase> {
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME, { keyPath: 'patternId' });
         }
+        if (!db.objectStoreNames.contains(LIB_STORE_NAME)) {
+          db.createObjectStore(LIB_STORE_NAME, { keyPath: 'name' });
+        }
+        if (!db.objectStoreNames.contains(AUTOSAVE_STORE_NAME)) {
+          db.createObjectStore(AUTOSAVE_STORE_NAME, { keyPath: 'id' });
+        }
       };
     });
   }
@@ -55,10 +69,11 @@ export async function saveVocalRecording(patternId: number, audioBlob: Blob): Pr
       audioBlob,
       updatedAt: Date.now(),
     };
-    const request = store.put(data);
+    store.put(data);
 
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error || new Error('Failed to save vocal recording'));
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error('Failed to save vocal recording'));
+    transaction.onabort = () => reject(new Error('Save transaction aborted'));
   });
 }
 
@@ -85,10 +100,11 @@ export async function deleteVocalRecording(patternId: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.delete(patternId);
+    store.delete(patternId);
 
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error || new Error('Failed to delete vocal recording'));
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error('Failed to delete vocal recording'));
+    transaction.onabort = () => reject(new Error('Delete transaction aborted'));
   });
 }
 
@@ -97,9 +113,144 @@ export async function clearAllRecordings(): Promise<void> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readwrite');
     const store = transaction.objectStore(STORE_NAME);
-    const request = store.clear();
+    store.clear();
 
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error || new Error('Failed to clear vocal recordings'));
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error('Failed to clear vocal recordings'));
+    transaction.onabort = () => reject(new Error('Clear transaction aborted'));
+  });
+}
+
+export async function saveAutosave(data: any): Promise<void> {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(AUTOSAVE_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(AUTOSAVE_STORE_NAME);
+    const record = {
+      id: 'current',
+      data,
+      updatedAt: Date.now()
+    };
+    store.put(record);
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error('Failed to save autosave'));
+    transaction.onabort = () => reject(new Error('Autosave transaction aborted'));
+  });
+}
+
+export async function getAutosave(): Promise<any | null> {
+  const db = await getDB();
+  
+  // 1. Get from IndexedDB
+  const dbAutosave = await new Promise<any | null>((resolve, reject) => {
+    const transaction = db.transaction(AUTOSAVE_STORE_NAME, 'readonly');
+    const store = transaction.objectStore(AUTOSAVE_STORE_NAME);
+    const request = store.get('current');
+    request.onsuccess = () => {
+      if (request.result) resolve(request.result.data);
+      else resolve(null);
+    };
+    request.onerror = () => reject(request.error || new Error('Failed to get autosave'));
+  });
+
+  // 2. If empty, check localStorage for migration
+  if (!dbAutosave) {
+    try {
+      const raw = localStorage.getItem('o_girador_autosave') || localStorage.getItem('o-girador-autosave');
+      if (raw) {
+        const data = JSON.parse(raw);
+        await saveAutosave(data);
+        localStorage.removeItem('o_girador_autosave');
+        localStorage.removeItem('o-girador-autosave');
+        return data;
+      }
+    } catch (e) {
+      console.warn('Failed to migrate autosave from localStorage:', e);
+    }
+  }
+
+  return dbAutosave;
+}
+
+export async function clearAutosave(): Promise<void> {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(AUTOSAVE_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(AUTOSAVE_STORE_NAME);
+    store.delete('current');
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error('Failed to clear autosave'));
+    transaction.onabort = () => reject(new Error('Clear autosave transaction aborted'));
+  });
+}
+
+export async function getLocalLibrary(): Promise<LocalLibrary> {
+  const db = await getDB();
+
+  // 1. Get from IndexedDB
+  const dbLibrary = await new Promise<LocalLibrary>((resolve, reject) => {
+    const transaction = db.transaction(LIB_STORE_NAME, 'readonly');
+    const store = transaction.objectStore(LIB_STORE_NAME);
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const results = request.result || [];
+      const library: LocalLibrary = {};
+      results.forEach((item: any) => {
+        library[item.name] = item;
+      });
+      resolve(library);
+    };
+    request.onerror = () => reject(request.error || new Error('Failed to get local library'));
+  });
+
+  // 2. If empty, check localStorage for migration
+  if (Object.keys(dbLibrary).length === 0) {
+    try {
+      const raw = localStorage.getItem('oGirador_personal_library');
+      if (raw) {
+        const localLib = JSON.parse(raw);
+        for (const name of Object.keys(localLib)) {
+          await savePresetToLibrary(name, localLib[name]);
+          dbLibrary[name] = localLib[name];
+        }
+        localStorage.removeItem('oGirador_personal_library');
+      }
+    } catch (e) {
+      console.warn('Failed to migrate library from localStorage:', e);
+    }
+  }
+
+  return dbLibrary;
+}
+
+export async function savePresetToLibrary(name: string, preset: Preset): Promise<void> {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(LIB_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(LIB_STORE_NAME);
+    const data = {
+      ...preset,
+      name,
+    };
+    store.put(data);
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error('Failed to save preset to library'));
+    transaction.onabort = () => reject(new Error('Save preset transaction aborted'));
+  });
+}
+
+export async function deletePresetFromLibrary(name: string): Promise<void> {
+  const db = await getDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction(LIB_STORE_NAME, 'readwrite');
+    const store = transaction.objectStore(LIB_STORE_NAME);
+    store.delete(name);
+
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error || new Error('Failed to delete preset'));
+    transaction.onabort = () => reject(new Error('Delete preset transaction aborted'));
   });
 }

@@ -5,7 +5,6 @@
 
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import * as Tone from 'tone';
 import { useSequencer } from './contexts/SequencerContext';
 import { useAudio } from './contexts/AudioContext';
 import { useAuth } from './contexts/AuthContext';
@@ -39,13 +38,16 @@ const RythmeLiveEngine = lazy(() => import('./components/RythmeLiveEngine').then
 const VaralCordel = lazy(() => import('./components/VaralCordel').then(m => ({ default: m.VaralCordel })));
 const MestreStudio = lazy(() => import('./components/MestreStudio').then(m => ({ default: m.MestreStudio })));
 const AoVivoOverlay = lazy(() => import('./components/AoVivoOverlay').then(m => ({ default: m.AoVivoOverlay })));
+const SaveSectionModal = lazy(() => import('./components/CloudSectionModals').then(m => ({ default: m.SaveSectionModal })));
+const LoadSectionModal = lazy(() => import('./components/CloudSectionModals').then(m => ({ default: m.LoadSectionModal })));
 import { Home } from './components/Home';
 import { LandingPage } from './components/LandingPage';
 import { AdminPanel } from './components/AdminPanel';
-import { SaveSectionModal, LoadSectionModal } from './components/CloudSectionModals';
 import { PresetMetadata, Pattern, SongSection, TimeSignature, CloudRhythmSignal } from './types';
 import { exportTablatureFile, printTablature, printLegendOnly } from './utils/exportTablature';
 import { fetchMestreSignals } from './cloudSignals';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCloudPresets } from './hooks/queries/useCloudPresets';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -96,8 +98,18 @@ export default function App() {
     return true; // default to true
   });
   const [localPresets, setLocalPresets] = useState<string[]>([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [presetFiles, setPresetFiles] = useState<string[]>([]);
-  const [cloudPresets, setCloudPresets] = useState<{ id: string; name: string }[]>([]);
+  const queryClient = useQueryClient();
+  const { data: cloudPresetsData } = useCloudPresets({
+    userUid: userProfile?.uid || null,
+    userRole: userProfile?.role || 'visiteur',
+    mestreId: userProfile?.mestreId || null
+  });
+
+  const cloudPresets = useMemo(() => {
+    return (cloudPresetsData || []).map(p => ({ id: p.id, name: p.name }));
+  }, [cloudPresetsData]);
 
   // Dialog System from Context
   const {
@@ -454,18 +466,17 @@ export default function App() {
         loadedFromHash = loaded;
         let restoredFromLocalStorage = false;
 
-        // Try to load autosave from localStorage
+        // Try to load autosave from IndexedDB
         if (!loadedFromHash) {
           try {
-            // Support both key variants for backwards compatibility
-            const savedStateStr = localStorage.getItem('o_girador_autosave') || localStorage.getItem('o-girador-autosave');
-            if (savedStateStr) {
-              const savedState = JSON.parse(savedStateStr);
+            const { getAutosave } = await import('./db');
+            const savedState = await getAutosave();
+            if (savedState) {
               await audio.applyPreset(savedState);
               restoredFromLocalStorage = true;
             }
           } catch (err) {
-            console.error('[O Girador] Failed to restore autosave from localStorage:', err);
+            console.error('[O Girador] Failed to restore autosave from IndexedDB:', err);
           }
         }
 
@@ -483,18 +494,7 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audio.isLoading]);
 
-  // Load Cloud Presets
-  useEffect(() => {
-    import('./cloudLibrary').then(({ fetchCloudPresets }) => {
-      fetchCloudPresets(
-        userProfile?.uid || null,
-        userProfile?.role || 'visiteur',
-        userProfile?.mestreId || null
-      ).then(presets => {
-        setCloudPresets(presets.map(p => ({ id: p.id, name: p.name })));
-      });
-    });
-  }, [userProfile?.uid, userProfile?.role, userProfile?.mestreId]);
+
 
 
   // PWA File Handler: handle files opened via the OS file handler (launchQueue API)
@@ -600,7 +600,7 @@ export default function App() {
     
     let timeoutId: NodeJS.Timeout;
 
-    const performSave = () => {
+    const performSave = async () => {
       const state = useSequencerStore.getState();
       const tracksCopy = state.tracks.map((t: any) => ({
         ...t,
@@ -638,11 +638,11 @@ export default function App() {
         globalSwing: audioRef.current.globalSwing,
       };
       try {
-        localStorage.setItem('o_girador_autosave', JSON.stringify(dataToSave));
-        localStorage.removeItem('o-girador-autosave');
+        const { saveAutosave } = await import('./db');
+        await saveAutosave(dataToSave);
         setIsSavedIndicatorVisible(true);
       } catch (err) {
-        console.error('Failed to autosave state to localStorage:', err);
+        console.error('Failed to autosave state to IndexedDB:', err);
       }
     };
 
@@ -903,17 +903,22 @@ export default function App() {
           }
         }
 
-        const { savePresetToCloud, fetchCloudPresets } = await import('./cloudLibrary');
+        const { savePresetToCloud } = await import('./cloudLibrary');
         try {
           await savePresetToCloud(name, presetData, userProfile.uid, visibility, targetUserId);
           await alertAsync(isPt ? '✅ Salvo na nuvem!' : '✅ Sauvegardé dans le cloud !');
-          // Reload cloud presets
-          fetchCloudPresets(userProfile.uid, userProfile.role, userProfile.mestreId).then(presets => {
-            setCloudPresets(presets.map(p => ({ id: p.id, name: p.name })));
-          });
+          queryClient.invalidateQueries({ queryKey: ['cloudPresets'] });
         } catch (err) {
           console.error(err);
-          await alertAsync('Error saving to cloud');
+          if (!navigator.onLine) {
+            const msg = isPt
+              ? 'Salvo localmente, sincronização pendente'
+              : 'Sauvegardé localement, synchronisation en attente';
+            setToastMessage(msg);
+            setTimeout(() => setToastMessage(null), 4000);
+          } else {
+            await alertAsync('Error saving to cloud');
+          }
         }
         return;
       }
@@ -1353,20 +1358,29 @@ export default function App() {
       )}
       
       {/* Cloud Section Modals */}
-      {sectionToSave && (
-        <SaveSectionModal
-          section={sectionToSave}
-          onClose={() => setSectionToSave(null)}
-        />
-      )}
-      {loadSectionInsertMeasure !== null && (
-        <LoadSectionModal
-          insertAtMeasure={loadSectionInsertMeasure}
-          onClose={() => setLoadSectionInsertMeasure(null)}
-        />
-      )}
+      <Suspense fallback={null}>
+        {sectionToSave && (
+          <SaveSectionModal
+            section={sectionToSave}
+            onClose={() => setSectionToSave(null)}
+          />
+        )}
+        {loadSectionInsertMeasure !== null && (
+          <LoadSectionModal
+            insertAtMeasure={loadSectionInsertMeasure}
+            onClose={() => setLoadSectionInsertMeasure(null)}
+          />
+        )}
+      </Suspense>
 
       {viewMode === 'roda' && (!isMobile || mobileTab === 'roda') && <AoVivoOverlay />}
+
+      {/* Toast non-bloquant pour la synchronisation hors ligne */}
+      {toastMessage && (
+        <div className="fixed bottom-8 right-8 bg-[#8b2a1a] text-[#f4ecd8] font-cactus font-bold text-lg px-6 py-3 rounded-sm shadow-[4px_4px_0px_rgba(0,0,0,1)] z-[100] animate-bounce">
+          {toastMessage}
+        </div>
+      )}
     </div>
       )}
     </>

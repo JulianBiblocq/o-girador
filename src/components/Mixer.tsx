@@ -103,9 +103,15 @@ const MixerComponent: React.FC<MixerProps> = ({
     activeAoVivoTrackId,
     setActiveAoVivoTrackId,
     activeVariationsRef,
+    runAutoCalibration,
+    vocalCalibrationLatencyMs,
   } = sequencer;
 
-  const tracks = useSequencerStore(state => state.tracks);
+  const [isTracksCollapsed, setIsTracksCollapsed] = React.useState(true);
+  const [editingTrackId, setEditingTrackId] = React.useState<number | null>(null);
+
+  const trackIdsNumbers = useSequencerStore(useShallow(state => state.tracks.map(t => t.id)));
+  const isEditingTrackValid = useSequencerStore(state => state.tracks.some(t => t.id === editingTrackId));
   const setTracks = useSequencerStore(state => state.setTracks);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
 
@@ -121,9 +127,9 @@ const MixerComponent: React.FC<MixerProps> = ({
 
   const maxTicks = maxTicksRef.current;
   const t = (key: string) => (i18n[lang] as any)[key] || key;
-
-  const [isTracksCollapsed, setIsTracksCollapsed] = React.useState(true);
-  const [editingTrackId, setEditingTrackId] = React.useState<number | null>(null);
+  const onOpenDetailEditor = React.useCallback((id: number) => {
+    setEditingTrackId(id);
+  }, []);
   const [addDropOpen, setAddDropOpen] = useState(false);
   const addDropRef = useRef<HTMLDivElement>(null);
 
@@ -166,14 +172,15 @@ const MixerComponent: React.FC<MixerProps> = ({
       } else if (activeId.startsWith('track-') && overId.startsWith('track-')) {
         const activeTrackId = parseInt(activeId.replace('track-', ''), 10);
         const overTrackId = parseInt(overId.replace('track-', ''), 10);
-        const oldIndex = tracks.findIndex(t => t.id === activeTrackId);
-        const newIndex = tracks.findIndex(t => t.id === overTrackId);
+        const tracksList = useSequencerStore.getState().tracks;
+        const oldIndex = tracksList.findIndex(t => t.id === activeTrackId);
+        const newIndex = tracksList.findIndex(t => t.id === overTrackId);
         handleReorderTracksDnd(oldIndex, newIndex);
       }
     }
   };
 
-  const trackIds = useMemo(() => tracks.map(t => `track-${t.id}`), [tracks]);
+  const trackIds = useMemo(() => trackIdsNumbers.map(id => `track-${id}`), [trackIdsNumbers]);
 
   const onTrackSelectPattern = (trackId: number, patternId: number) => {
     setTracks(prev => prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
@@ -284,53 +291,15 @@ const MixerComponent: React.FC<MixerProps> = ({
         <div id="tracks-mixer-container" className="flex flex-col gap-3">
           <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
             <SortableContext items={trackIds} strategy={verticalListSortingStrategy}>
-              {tracks.map((track, idx) => (
+              {trackIdsNumbers.map((trackId, idx) => (
                 <TrackMixer
-                  key={track.id}
-                  lang={lang}
-                  isLeftHanded={isLeftHanded}
-                  trackId={track.id}
+                  key={trackId}
+                  trackId={trackId}
                   index={idx}
-                  totalTracks={tracks.length}
-                  meter={meters && instrumentsConfig[track.instrumentIdx] ? meters[instrumentsConfig[track.instrumentIdx].id] : undefined}
-                  soloPatternPlayId={soloPatternPlayId}
-                  onInstrumentChange={(val) => onInstrumentChange(track.id, val)}
-                  onMuteToggle={() => onMuteToggle(track.id)}
-                  onSoloToggle={() => onSoloToggle(track.id)}
-                  onHideToggle={() => onHideToggle(track.id)}
-                  onDelete={() => onDelete(track.id)}
-                  onPatternNameChange={(patternId, name) => onPatternNameChange && onPatternNameChange(track.id, patternId, name)}
-                  onAddPatternVariation={(patternId) => onAddPatternVariation && onAddPatternVariation(track.id, patternId)}
-                  onUpdatePatternVariationProbability={(patternId, varId, prob) => onUpdatePatternVariationProbability && onUpdatePatternVariationProbability(track.id, patternId, varId, prob)}
-                  onTogglePatternVariationFirstTimeOnly={(patternId, varId, val) => onTogglePatternVariationFirstTimeOnly && onTogglePatternVariationFirstTimeOnly(track.id, patternId, varId, val)}
-                  onVariationStepValueChange={(patternId, varId, stepIdx, val) => onVariationStepValueChange && onVariationStepValueChange(track.id, patternId, varId, stepIdx, val)}
-                  onVolumeChange={(val) => onVolumeChange(track.id, val)}
-                  onPanChange={(val) => onPanChange(track.id, val)}
-                  onStepsChange={(patternId, steps) => onStepsChange(track.id, patternId, steps)}
-                  onStepValueChange={(patternId, stepIdx, val, lyrics, notes) => onStepValueChange(track.id, patternId, stepIdx, val, lyrics, notes)}
-                  onStepKeyDown={(patternId, stepIdx, key, cVal, el) => onStepKeyDown(track.id, patternId, stepIdx, key, cVal, el)}
-                  onVoiceTypeToggle={(patternId, stepIdx) => onVoiceTypeToggle(track.id, patternId, stepIdx)}
-                  onVoiceSylChange={(patternId, stepIdx, val) => onVoiceSylChange(track.id, patternId, stepIdx, val)}
-                  onVoiceNoteChange={(patternId, stepIdx, val) => onVoiceNoteChange(track.id, patternId, stepIdx, val)}
-                  onVoiceNoteBlur={(patternId, stepIdx, val) => onVoiceNoteBlur(track.id, patternId, stepIdx, val)}
-                  isPlaying={isPlaying}
-                  maxTicks={maxTicks}
-                  timeSig={timeSig}
-                  totalMeasures={totalMeasures}
-                  onSelectPattern={(patternId) => onTrackSelectPattern(track.id, patternId)}
-                  onPatternAssign={(patternId, measureIdx, val) => onPatternAssign(track.id, patternId, measureIdx, val)}
-                  onAddPattern={() => onAddPattern(track.id)}
-                  onDeletePattern={(patternId) => onDeletePattern(track.id, patternId)}
-                  onOpenDetailEditor={() => setEditingTrackId(track.id)}
-                  onStepTouchStart={onStepTouchStart}
-                  onCopyPattern={handleCopyPattern}
-                  onPastePattern={(pId) => handlePastePattern(track.id, pId)}
-                  onLoadLibraryPattern={onLoadLibraryPattern ? (pId, lib) => onLoadLibraryPattern(track.id, pId, lib) : undefined}
-                  canPaste={!!copiedPattern}
-                  onReorderPatternsDnd={(oldIdx, newIdx) => onReorderPatternsDnd && onReorderPatternsDnd(track.id, oldIdx, newIdx)}
+                  totalTracks={trackIdsNumbers.length}
                   isCollapsed={isTracksCollapsed}
-                  activeAoVivoTrackId={activeAoVivoTrackId}
-                  setActiveAoVivoTrackId={setActiveAoVivoTrackId}
+                  onOpenDetailEditor={onOpenDetailEditor}
+                  onStepTouchStart={onStepTouchStart}
                 />
               ))}
             </SortableContext>
@@ -338,7 +307,7 @@ const MixerComponent: React.FC<MixerProps> = ({
         </div>
       </div>
 
-      {editingTrackId !== null && tracks.find(t => t.id === editingTrackId) && (
+      {editingTrackId !== null && isEditingTrackValid && (
         <InstrumentDetailEditor
           isMobile={window.innerWidth <= 768}
           lang={lang}
@@ -346,19 +315,22 @@ const MixerComponent: React.FC<MixerProps> = ({
           trackId={editingTrackId}
           onClose={() => setEditingTrackId(null)}
           onNavigatePrev={() => {
-            const idx = tracks.findIndex(t => t.id === editingTrackId);
-            if (idx > 0) setEditingTrackId(tracks[idx - 1].id);
+            const tracksList = useSequencerStore.getState().tracks;
+            const idx = tracksList.findIndex(t => t.id === editingTrackId);
+            if (idx > 0) setEditingTrackId(tracksList[idx - 1].id);
           }}
           onNavigateNext={() => {
-            const idx = tracks.findIndex(t => t.id === editingTrackId);
-            if (idx >= 0 && idx < tracks.length - 1) setEditingTrackId(tracks[idx + 1].id);
+            const tracksList = useSequencerStore.getState().tracks;
+            const idx = tracksList.findIndex(t => t.id === editingTrackId);
+            if (idx >= 0 && idx < tracksList.length - 1) setEditingTrackId(tracksList[idx + 1].id);
           }}
           onKeyDown={(e) => {
-            const idx = tracks.findIndex(t => t.id === editingTrackId);
+            const tracksList = useSequencerStore.getState().tracks;
+            const idx = tracksList.findIndex(t => t.id === editingTrackId);
             if (e.key === 'ArrowDown') {
-              if (idx >= 0 && idx < tracks.length - 1) setEditingTrackId(tracks[idx + 1].id);
+              if (idx >= 0 && idx < tracksList.length - 1) setEditingTrackId(tracksList[idx + 1].id);
             } else if (e.key === 'ArrowUp') {
-              if (idx > 0) setEditingTrackId(tracks[idx - 1].id);
+              if (idx > 0) setEditingTrackId(tracksList[idx - 1].id);
             }
           }}
           soloPatternPlayId={soloPatternPlayId}
@@ -420,6 +392,8 @@ const MixerComponent: React.FC<MixerProps> = ({
           onVocalGuideToggle={onVocalGuideToggle}
           onVocalBpmSyncToggle={onVocalBpmSyncToggle}
           onPatternNameChange={(pid, name) => onPatternNameChange && onPatternNameChange(editingTrackId, pid, name)}
+          runAutoCalibration={runAutoCalibration}
+          vocalCalibrationLatencyMs={vocalCalibrationLatencyMs}
         />
       )}
     </div>

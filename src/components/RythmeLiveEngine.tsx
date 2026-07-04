@@ -1,13 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import type * as ToneType from 'tone';
-import { loadTone, getTone } from '@/src/ToneLoader';
-
-function safeGetTone() {
-  try { return getTone(); } catch { return null; }
-}
-import { Play, RotateCcw, ArrowRight, Check, X, Award, Activity, ShieldAlert } from 'lucide-react';
-import { rhythmLivePattern, RhythmLivePattern } from '../data/rythmeLiveData';
-import { ASSETS_BASE_URL } from '../data';
+import React, { useRef, useEffect } from 'react';
+import { Play, RotateCcw, ArrowRight, Check, Award, Activity, ShieldAlert } from 'lucide-react';
+import { useRythmeLiveGame } from '../hooks/useRythmeLiveGame';
 
 interface RythmeLiveEngineProps {
   lang: 'fr' | 'pt';
@@ -16,322 +9,46 @@ interface RythmeLiveEngineProps {
   exerciseData?: any;
 }
 
-interface HitDetail {
-  hitTime: number; // in seconds relative to play start
-  diff: number; // difference in seconds (hitTime - targetTime)
-  rating: 'perfect' | 'medium' | 'miss';
-}
-
 export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit, onSuccess, exerciseData }) => {
-  const exercisesList = React.useMemo(() => {
-    if (!exerciseData) return [rhythmLivePattern];
-    if (exerciseData.exercises && Array.isArray(exerciseData.exercises)) {
-      return exerciseData.exercises.map((ex: any) => {
-        let targetSteps: number[] = [];
-        if (ex.partition_cible && ex.partition_cible.length > 0) {
-           ex.partition_cible.forEach((t: any) => {
-             // For RythmeLive, we find the active steps.
-             t.activeSteps.forEach((val: number, idx: number) => {
-                if (val > 0) targetSteps.push(idx);
-             });
-           });
-        }
-        
-        const baseSteps = Array.from(new Set(targetSteps)).sort((a,b)=>a-b);
-        const fullTargetSteps: number[] = [];
-        const measures = ex.boucles_requises || 2;
-        for (let m = 0; m < measures; m++) {
-           baseSteps.forEach(s => fullTargetSteps.push(m * 16 + s));
-        }
-
-        return {
-          id: ex.id,
-          name: { fr: 'Exercice Rythme Live', pt: 'Exercício Ritmo Ao Vivo' },
-          targetInstrument: ex.instrument_eleve || 'caixa',
-          bpm: ex.bpm || 83,
-          totalMeasures: measures,
-          stepsPerMeasure: 16,
-          targetSteps: fullTargetSteps,
-          toleranceMs: ex.tolerance_ms || 80
-        };
-      });
-    }
-    return [rhythmLivePattern];
-  }, [exerciseData]);
-
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
-  const currentPattern = exercisesList[currentExerciseIndex];
-
-  // Game state
-  const [gameStatus, setGameStatus] = useState<'idle' | 'countdown' | 'playing' | 'finished'>('idle');
-  const [countdownValue, setCountdownValue] = useState<number | null>(null);
-  const [hitDetails, setHitDetails] = useState<(HitDetail | null)[]>([]);
-
-  // Refs for GPU Zero Re-render animation
   const playheadRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
+  const feedbackOverlayRef = useRef<HTMLDivElement>(null);
+  const tapZoneRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    setHitDetails(new Array(currentPattern.targetSteps.length).fill(null));
-  }, [currentPattern]);
-  
-  // Real-time flash feedback
-  const [flashState, setFlashState] = useState<{
-    type: 'perfect' | 'medium' | 'miss';
-    message: string;
-    key: number;
-  } | null>(null);
+  const {
+    currentExerciseIndex,
+    setCurrentExerciseIndex,
+    currentPattern,
+    exercisesList,
+    gameStatus,
+    countdownValue,
+    hitDetails,
+    startGame,
+    handleUserHit,
+    getScoreSummary,
+    restartGame
+  } = useRythmeLiveGame({
+    lang,
+    onSuccess,
+    exerciseData,
+    playheadRef,
+    timelineRef,
+    feedbackOverlayRef,
+    tapZoneRef
+  });
 
-  // Refs for low-latency handlers and safeGetTone()?.js callbacks
-  const gameStatusRef = useRef(gameStatus);
-  const playStartTimeRef = useRef<number>(0);
-  const hitDetailsRef = useRef<(HitDetail | null)[]>([]);
-  const scheduledEventIdsRef = useRef<number[]>([]);
-  const clickSynthRef = useRef<ToneType.Synth | null>(null);
-  const animationFrameIdRef = useRef<number | null>(null);
-  const lastHitTimeRef = useRef<number>(0);
+  const { perfects, mediums, misses, finalScore } = getScoreSummary();
 
-  // Keep refs synchronized with state
-  useEffect(() => {
-    gameStatusRef.current = gameStatus;
-  }, [gameStatus]);
-
-  useEffect(() => {
-    hitDetailsRef.current = hitDetails;
-  }, [hitDetails]);
-
-  // Clean up on unmount
-  useEffect(() => {
-    return () => {
-      cleanUpAudio();
-    };
-  }, []);
-
-  const cleanUpAudio = () => {
-    // 1. Cancel requestAnimationFrame
-    if (animationFrameIdRef.current !== null) {
-      cancelAnimationFrame(animationFrameIdRef.current);
-      animationFrameIdRef.current = null;
-    }
-
-    // 2. Clear all scheduled Tone Transport events
-    scheduledEventIdsRef.current.forEach((id) => {
-      try {
-        safeGetTone()?.Transport.clear(id);
-      } catch (_) {}
-    });
-    scheduledEventIdsRef.current = [];
-
-    // 3. Dispose local synth
-    if (clickSynthRef.current) {
-      try {
-        clickSynthRef.current.dispose();
-      } catch (_) {}
-      clickSynthRef.current = null;
-    }
-
-    // 4. Stop Transport
-    try {
-      safeGetTone()?.Transport.stop();
-    } catch (_) {}
+  const handleTap = (e?: React.SyntheticEvent | KeyboardEvent) => {
+    if (e) e.preventDefault();
+    handleUserHit();
   };
 
-  const startGame = async () => {
-    // Reset state
-    cleanUpAudio();
-    setGameStatus('countdown');
-    setCountdownValue(4);
-    if (playheadRef.current) {
-      playheadRef.current.style.transform = 'translate3d(0px, 0, 0)';
-    }
-    setHitDetails(new Array(currentPattern.targetSteps.length).fill(null));
-    setFlashState(null);
-    lastHitTimeRef.current = 0;
-
-    // Start Audio Context if suspended
-    if (safeGetTone()?.context.state !== 'running') {
-      await loadTone();
-    await getTone().start();
-    }
-
-    // Create click synth for the countdown
-    clickSynthRef.current = new (getTone().Synth)({
-      oscillator: { type: 'sine' },
-      envelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.05 },
-      volume: -6
-    }).toDestination();
-
-    // Set Transport BPM to target
-    if (safeGetTone()) safeGetTone()!.Transport.bpm.value = currentPattern.bpm;
-    
-    // Make sure Transport is playing
-    if (safeGetTone()?.Transport.state !== 'started') {
-      safeGetTone()?.Transport.start();
-    }
-
-    const t0 = safeGetTone()?.Transport.seconds + 0.1; // 100ms padding
-    const beatDuration = 60 / currentPattern.bpm;
-
-    // 1. Schedule the 4 countdown beats
-    for (let i = 0; i < 4; i++) {
-      const clickTime = t0 + i * beatDuration;
-      const eventId = safeGetTone()?.Transport.schedule((time) => {
-        if (clickSynthRef.current) {
-          // Play higher beep on last countdown beat
-          clickSynthRef.current.triggerAttackRelease(i === 3 ? "A5" : "E5", "16n", time);
-        }
-        safeGetTone()?.Draw.schedule(() => {
-          setCountdownValue(4 - i);
-        }, time);
-      }, clickTime);
-      scheduledEventIdsRef.current.push(eventId);
-    }
-
-    // 2. Schedule Start of Play Phase
-    const playStartTime = t0 + 4 * beatDuration;
-    playStartTimeRef.current = playStartTime;
-
-    const playStartEventId = safeGetTone()?.Transport.schedule((time) => {
-      if (clickSynthRef.current) {
-        // High beep signifying start
-        clickSynthRef.current.triggerAttackRelease("E6", "16n", time);
-      }
-      safeGetTone()?.Draw.schedule(() => {
-        setCountdownValue(null);
-        setGameStatus('playing');
-      }, time);
-    }, playStartTime);
-    scheduledEventIdsRef.current.push(playStartEventId);
-
-    // 3. Start progress animation loop
-    const totalDuration = currentPattern.totalMeasures * 4 * beatDuration;
-    const playEndTime = playStartTime + totalDuration;
-
-    const updatePlayhead = () => {
-      if (gameStatusRef.current !== 'playing') return;
-      
-      const elapsed = safeGetTone()?.Transport.seconds - playStartTimeRef.current;
-      const currentProgress = Math.min(1, Math.max(0, elapsed / totalDuration));
-      
-      if (playheadRef.current && timelineRef.current) {
-        const width = timelineRef.current.clientWidth;
-        playheadRef.current.style.transform = `translate3d(${currentProgress * width}px, 0, 0)`;
-      }
-
-      if (currentProgress < 1) {
-        animationFrameIdRef.current = requestAnimationFrame(updatePlayhead);
-      }
-    };
-
-    // Trigger animation loop slightly before playStartTime to ensure smooth transition
-    const animationTriggerEventId = safeGetTone()?.Transport.schedule((time) => {
-      safeGetTone()?.Draw.schedule(() => {
-        animationFrameIdRef.current = requestAnimationFrame(updatePlayhead);
-      }, time);
-    }, playStartTime - 0.05);
-    scheduledEventIdsRef.current.push(animationTriggerEventId);
-
-    // 4. Schedule Game End and evaluation
-    const playEndEventId = safeGetTone()?.Transport.schedule((time) => {
-      safeGetTone()?.Draw.schedule(() => {
-        // Complete remaining missed notes
-        const currentDetails = [...hitDetailsRef.current];
-        const finalDetails = currentDetails.map((detail) => {
-          if (detail === null) {
-            return { hitTime: -1, diff: -1, rating: 'miss' as const };
-          }
-          return detail;
-        });
-        setHitDetails(finalDetails);
-        setGameStatus('finished');
-        cleanUpAudio();
-      }, time);
-    }, playEndTime);
-    scheduledEventIdsRef.current.push(playEndEventId);
-  };
-
-  const handleUserHit = (elapsed: number) => {
-    const beatDuration = 60 / currentPattern.bpm;
-    const stepDuration = beatDuration / (currentPattern.stepsPerMeasure / 4);
-    const targets = currentPattern.targetSteps.map((step: number) => step * stepDuration);
-
-    let closestIdx = -1;
-    let minDiff = Infinity;
-
-    // Find the closest target step that hasn't been hit yet
-    for (let i = 0; i < targets.length; i++) {
-      if (hitDetailsRef.current[i] !== null) continue; // Skip already matched notes
-      const diff = Math.abs(targets[i] - elapsed);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closestIdx = i;
-      }
-    }
-
-    // Matching window: must be within 150ms of any target step
-    const matchWindow = 0.150;
-    if (closestIdx !== -1 && minDiff <= matchWindow) {
-      const diff = elapsed - targets[closestIdx]; // Negative = early, Positive = late
-      let rating: 'perfect' | 'medium' | 'miss' = 'miss';
-      let message = '';
-
-      if (minDiff <= 0.030) {
-        rating = 'perfect';
-        message = lang === 'fr' ? 'PARFAIT !' : 'PERFEITO !';
-      } else if (minDiff <= 0.080) {
-        rating = 'medium';
-        message = lang === 'fr' ? 'MOYEN' : 'MÉDIO';
-      } else {
-        rating = 'miss';
-        message = lang === 'fr' ? 'HORS TEMPS' : 'FORA DE COMPASSO';
-      }
-
-      // Record hit detail
-      const updatedDetails = [...hitDetailsRef.current];
-      updatedDetails[closestIdx] = { hitTime: elapsed, diff, rating };
-      setHitDetails(updatedDetails);
-
-      // Trigger visual flash
-      setFlashState({
-        type: rating,
-        message: `${message} (${diff > 0 ? '+' : ''}${Math.round(diff * 1000)}ms)`,
-        key: Math.random()
-      });
-    } else {
-      // Hit is completely off-beat
-      setFlashState({
-        type: 'miss',
-        message: lang === 'fr' ? 'HORS TEMPS' : 'FORA DE COMPASSO',
-        key: Math.random()
-      });
-    }
-  };
-
-  const triggerHit = (e?: React.SyntheticEvent | KeyboardEvent) => {
-    if (e) {
-      e.preventDefault();
-    }
-    
-    if (gameStatusRef.current !== 'playing') return;
-
-    const now = safeGetTone()?.Transport.seconds;
-    const elapsed = now - playStartTimeRef.current;
-
-    // Debounce to prevent multiple fires within 40ms (keyboard repeat/multi-touch issues)
-    if (now - lastHitTimeRef.current < 0.040) {
-      return;
-    }
-    lastHitTimeRef.current = now;
-
-    handleUserHit(elapsed);
-  };
-
-  // Keyboard Space listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.key === ' ') {
         e.preventDefault();
-        triggerHit(e);
+        handleTap(e);
       }
     };
 
@@ -344,26 +61,12 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
     };
   }, [gameStatus]);
 
-  // Calculations for results screen
-  const perfectCount = hitDetails.filter((d) => d?.rating === 'perfect').length;
-  const mediumCount = hitDetails.filter((d) => d?.rating === 'medium').length;
-  const missCount = hitDetails.filter((d) => d?.rating === 'miss' || d === null).length;
+  const scorePercent = finalScore;
+  const perfectCount = perfects;
+  const mediumCount = mediums;
+  const missCount = misses;
   const totalNotes = currentPattern.targetSteps.length;
-  
-  // Score: Perfect = 100% points, Medium = 50% points, Miss = 0%
-  const scorePercent = totalNotes > 0 
-    ? Math.max(0, Math.round(((perfectCount * 1.0 + mediumCount * 0.5) / totalNotes) * 100))
-    : 0;
 
-  useEffect(() => {
-    if (gameStatus === 'finished') {
-      if (scorePercent >= 90) {
-        onSuccess?.();
-      }
-    }
-  }, [gameStatus, scorePercent, onSuccess]);
-
-  // Grade badge translation
   const getBadge = () => {
     if (scorePercent >= 90) return { title: lang === 'fr' ? 'Mestre de Bateria' : 'Mestre de Bateria', desc: lang === 'fr' ? 'Rythme impeccable, digne des plus grands maîtres !' : 'Ritmo impecável, digno dos maiores mestres !', color: 'text-green-600 border-green-600 bg-green-500/10' };
     if (scorePercent >= 70) return { title: lang === 'fr' ? 'Batuqueiro Expérimenté' : 'Batuqueiro Experiente', desc: lang === 'fr' ? 'Superbe cadence, vous portez le cortège avec force !' : 'Superba cadência, você carrega o cortejo com força !', color: 'text-yellow-600 border-yellow-600 bg-yellow-500/10' };
@@ -373,7 +76,6 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
 
   const badge = getBadge();
 
-  // Translations
   const t = {
     fr: {
       title: "Rythme Live",
@@ -404,7 +106,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
       instLine1: "1. Ouça a contagem sonora estrita (4 tempos) para se situar.",
       instLine2: "2. No sinal de início, toque o padrão rítmico da Caixa (Colcheias).",
       instLine3: "3. Pressione ESPAÇO (teclado) ou toque na área de toque gigante (celular).",
-      instLine4: "⚠️ Nenhum som será tocado ao tocar para evitar atrasos no Bluetooth.",
+      instLine4: "⚠️ Nenhum som será tocado au tocar para evitar atrasos no Bluetooth.",
       tempoLabel: "BPM recomendado :",
       startBtn: "Iniciar o teste",
       tapZoneLabel: "TOQUE AQUI !",
@@ -423,7 +125,6 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
 
   return (
     <div className="w-full max-w-xl mx-auto p-4 flex flex-col gap-6 cordel-bg select-none my-4">
-      {/* Header */}
       <div className="flex items-center justify-between border-b-4 border-[var(--cordel-border)] pb-3">
         <div className="flex flex-col">
           <h2 className="font-cactus text-xl uppercase tracking-wide text-[var(--cordel-text)] font-bold">
@@ -439,7 +140,6 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
         </button>
       </div>
 
-      {/* Instruction screen */}
       {gameStatus === 'idle' && (
         <div className="flex flex-col gap-4 p-4 border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] cordel-border">
           <h3 className="font-cactus text-sm font-bold uppercase tracking-wider text-[var(--cordel-text)] border-b-2 border-dashed border-[var(--cordel-border)] pb-1 flex items-center gap-1.5">
@@ -455,7 +155,6 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
             </li>
           </ul>
 
-          {/* Pattern Visualiser (Woodcut steps grid) */}
           <div className="flex flex-col gap-1 mt-2">
             <span className="text-[9px] uppercase tracking-wider font-bold text-[var(--cordel-text)]/60">
               {lang === 'fr' ? 'Partition cible (Caixa)' : 'Partitura alvo (Caixa)'}
@@ -501,7 +200,6 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
         </div>
       )}
 
-      {/* Countdown overlay screen */}
       {gameStatus === 'countdown' && (
         <div className="flex flex-col items-center justify-center p-8 border-4 border-[var(--cordel-border)] bg-[var(--cordel-bg)] shadow-[6px_6px_0_var(--cordel-border)] text-center relative h-64">
           <span className="text-xs uppercase tracking-widest text-[var(--cordel-text)]/50 font-bold mb-4">
@@ -515,10 +213,8 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
         </div>
       )}
 
-      {/* Playing Game Screen */}
       {gameStatus === 'playing' && (
         <div className="flex flex-col gap-4">
-          {/* Scrollable / animated playhead timeline */}
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between text-[9px] uppercase tracking-wider text-[var(--cordel-text)]/70 font-bold">
               <span>{lang === 'fr' ? 'Mesure 1' : 'Compasso 1'}</span>
@@ -526,7 +222,6 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
             </div>
             
             <div ref={timelineRef} className="relative w-full h-10 bg-[var(--cordel-text)]/5 border-3 border-[var(--cordel-border)] rounded-sm overflow-hidden flex items-center">
-              {/* Beats dividers */}
               {Array.from({ length: 8 }).map((_, beatIdx) => (
                 <div
                   key={beatIdx}
@@ -535,7 +230,6 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
                 />
               ))}
 
-              {/* Target steps markers */}
               {currentPattern.targetSteps.map((stepIdx: number, idx: number) => {
                 const totalTimelineSteps = currentPattern.totalMeasures * 16;
                 const stepPos = (stepIdx / totalTimelineSteps) * 100;
@@ -564,6 +258,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
                 return (
                   <div
                     key={idx}
+                    data-note-idx={idx}
                     className={`absolute w-6 h-6 -ml-3 rounded-full border-2 flex items-center justify-center font-mono text-[9px] font-black z-10 shadow-sm transition-all duration-100 ${markerBg} ${markerText} ${markerBorder}`}
                     style={{ left: `${stepPos}%` }}
                   >
@@ -572,7 +267,6 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
                 );
               })}
 
-              {/* Playhead */}
               <div
                 ref={playheadRef}
                 className="absolute top-0 bottom-0 left-0 w-1 bg-[var(--cordel-wood)] z-20 shadow-[0_0_8px_var(--cordel-wood)] pointer-events-none"
@@ -581,21 +275,12 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
             </div>
           </div>
 
-          {/* Interactive Tap Area (Low-Latency Input Zone) */}
           <div
-            onTouchStart={triggerHit}
-            onMouseDown={triggerHit}
-            className={`w-full h-48 border-4 border-[var(--cordel-border)] flex flex-col items-center justify-center relative cursor-pointer active:translate-y-0.5 select-none transition-colors duration-100 shadow-[6px_6px_0_var(--cordel-border)] rounded-sm ${
-              flashState?.type === 'perfect' 
-                ? 'bg-green-700/20' 
-                : flashState?.type === 'medium' 
-                ? 'bg-yellow-600/20' 
-                : flashState?.type === 'miss' 
-                ? 'bg-[var(--cordel-wood)]/20' 
-                : 'bg-[var(--cordel-bg)]'
-            }`}
+            ref={tapZoneRef}
+            onTouchStart={handleTap}
+            onMouseDown={handleTap}
+            className="w-full h-48 border-4 border-[var(--cordel-border)] flex flex-col items-center justify-center relative cursor-pointer active:translate-y-0.5 select-none transition-colors duration-100 shadow-[6px_6px_0_var(--cordel-border)] rounded-sm"
           >
-            {/* Visual hatch / woodcut border elements inside tap zone */}
             <div className="absolute inset-1 border border-dashed border-[var(--cordel-border)]/40 pointer-events-none" />
 
             <div className="flex flex-col items-center justify-center z-10 pointer-events-none">
@@ -608,29 +293,16 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
               </span>
             </div>
 
-            {/* Float-up real-time rating feedback stamp */}
-            {flashState && (
-              <div
-                key={flashState.key}
-                className={`absolute z-30 font-cactus font-black text-lg px-4 py-2 border-3 border-dashed uppercase rotate-[-8deg] pointer-events-none animate-bounce bg-[var(--cordel-bg)]/95 shadow-md ${
-                  flashState.type === 'perfect'
-                    ? 'text-green-600 border-green-600'
-                    : flashState.type === 'medium'
-                    ? 'text-yellow-600 border-yellow-600'
-                    : 'text-[var(--cordel-wood)] border-[var(--cordel-wood)]'
-                }`}
-              >
-                {flashState.message}
-              </div>
-            )}
+            <div
+              ref={feedbackOverlayRef}
+              className="absolute z-30 font-cactus font-black text-lg px-4 py-2 border-3 border-dashed uppercase rotate-[-8deg] pointer-events-none bg-[var(--cordel-bg)]/95 shadow-md opacity-0 hidden"
+            />
           </div>
         </div>
       )}
 
-      {/* Bilan / Results Screen */}
       {gameStatus === 'finished' && (
         <div className="flex flex-col gap-5 p-4 border-3 border-[var(--cordel-border)] bg-[var(--cordel-bg)] cordel-border shadow-[6px_6px_0_var(--cordel-border)]">
-          {/* Header Bilan */}
           <div className="text-center border-b-2 border-dashed border-[var(--cordel-border)] pb-3">
             <h3 className="font-cactus text-base font-black uppercase tracking-wider text-[var(--cordel-text)] flex items-center justify-center gap-2">
               🏆 {t.resultsTitle}
@@ -640,9 +312,7 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
             </span>
           </div>
 
-          {/* Score Circle & Badge stamp */}
           <div className="flex flex-col md:flex-row items-center justify-center gap-6 py-2">
-            {/* Score Ring */}
             <div className="relative w-28 h-28 flex items-center justify-center border-4 border-[var(--cordel-border)] bg-[var(--cordel-text)]/5 rounded-sm">
               <div className="flex flex-col items-center">
                 <span className="text-3xl font-black font-cactus">{scorePercent}%</span>
@@ -652,7 +322,6 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
               </div>
             </div>
 
-            {/* Badge Stamp Card */}
             <div className={`flex-1 p-3 border-2 border-dashed flex flex-col gap-1.5 ${badge.color}`}>
               <div className="flex items-center gap-1.5">
                 <Award className="w-5 h-5 shrink-0" />
@@ -667,7 +336,6 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
             </div>
           </div>
 
-          {/* Counts statistics breakdown */}
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="p-2 border border-green-600/30 bg-green-500/5 text-green-600">
               <span className="block text-lg font-black font-cactus">{perfectCount}</span>
@@ -683,7 +351,6 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
             </div>
           </div>
 
-          {/* Hits timeline visual detail */}
           <div className="flex flex-col gap-1">
             <span className="text-[9px] uppercase tracking-wider font-bold text-[var(--cordel-text)]/60 flex items-center gap-1">
               <Activity className="w-3 h-3" />
@@ -726,16 +393,13 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
             </div>
           </div>
 
-          {/* Action buttons */}
           <div className="flex flex-col gap-3 mt-1">
             <div className="flex gap-3">
               <button
-                onClick={() => {
-                  setGameStatus('idle');
-                }}
+                onClick={restartGame}
                 className="flex-1 py-3 bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus font-bold text-sm uppercase cordel-border flex items-center justify-center gap-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors active:translate-y-0.5"
               >
-                <RotateCcw className="w-4 h-4" /> {t.btnRetry}
+                <RotateCcw className="w-4 h-4" /> {(t as any).restartBtn || 'Recommencer'}
               </button>
               
               {scorePercent >= 70 && (
@@ -743,11 +407,11 @@ export const RythmeLiveEngine: React.FC<RythmeLiveEngineProps> = ({ lang, onExit
                   <button
                     onClick={() => {
                       setCurrentExerciseIndex(prev => prev + 1);
-                      setGameStatus('idle');
+                      restartGame();
                     }}
                     className="flex-1 py-3 bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-cactus font-bold text-sm uppercase cordel-border flex items-center justify-center gap-2 hover:opacity-95 active:translate-y-0.5 transition-colors shadow-md"
                   >
-                    {t.btnNext} <ArrowRight className="w-4 h-4" />
+                    {(t as any).btnNext || 'Suivant'} <ArrowRight className="w-4 h-4" />
                   </button>
                 ) : (
                   <button

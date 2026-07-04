@@ -371,6 +371,21 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                   }
                 })()
               );
+            } else if (ptn.vocalAudioUrl) {
+              const patternId = ptn.id;
+              const url = ptn.vocalAudioUrl;
+              promises.push(
+                (async () => {
+                  try {
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+                    const blob = await response.blob();
+                    await saveVocalRecording(patternId, blob);
+                  } catch (err) {
+                    console.error(`Failed to download and save vocal recording from ${url}:`, err);
+                  }
+                })()
+              );
             }
           });
         }

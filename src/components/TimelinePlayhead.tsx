@@ -1,45 +1,58 @@
 import React, { useEffect, useRef, useContext } from 'react';
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
 import { useAudio } from '../contexts/AudioContext';
+import { audioEngine } from '../hooks/useAudioSync';
+import { useSequencerStore } from '../stores/useSequencerStore';
 
 const TimelinePlayheadComponent: React.FC = () => {
   const uiContext = useContext(TimelineUIContext);
   const audio = useAudio();
   const playheadRef = useRef<HTMLDivElement>(null);
   
-  // État du moteur d'extrapolation
-  const engineState = useRef({ 
-    lastX: 0,
-    lastTime: 0,
-    velocity: 0, // Pixels par milliseconde
-    isStopped: true,
+  const bpm = useSequencerStore(state => state.bpm);
+  const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
+
+  const anchorRef = useRef({ 
+    exactX: 0,
+    time: 0, // AudioContext time
+    speed: 0, // Pixels per second
   });
   
   const layoutCache = useRef({ 
     vw: 0, 
-    lastScrollX: -1 
+    lastScrollX: 0 
   });
+
+  const lastExactXRef = useRef<number>(-1);
 
   const MEASURE_W = uiContext ? uiContext.MEASURE_W : 0;
   const HEADER_W = uiContext ? uiContext.HEADER_W : 0;
 
-  // Réinitialiser la vélocité et l'extrapolateur quand on met en pause ou qu'on arrête la lecture
+  // Réinitialiser la position de la tête de lecture quand on arrête ou met en pause
   useEffect(() => {
     if (!audio.isPlaying) {
-      engineState.current.isStopped = true;
-      engineState.current.velocity = 0;
+      anchorRef.current = { exactX: 0, time: 0, speed: 0 };
+      lastExactXRef.current = -1;
       const el = playheadRef.current;
       if (el) {
         el.style.transition = 'none';
+        el.style.transform = `translate3d(${HEADER_W}px, 0, 0)`;
+        el.style.display = 'none';
       }
+      const scrollEl = document.getElementById('timeline-scroll-container');
+      if (scrollEl) {
+        scrollEl.scrollLeft = 0;
+      }
+      layoutCache.current.lastScrollX = 0;
     }
-  }, [audio.isPlaying]);
+  }, [audio.isPlaying, HEADER_W]);
 
   useEffect(() => {
     const scrollEl = document.getElementById('timeline-scroll-container');
     if (!scrollEl) return;
 
     layoutCache.current.vw = scrollEl.clientWidth - HEADER_W;
+    layoutCache.current.lastScrollX = scrollEl.scrollLeft;
     
     const resizeObserver = new ResizeObserver((entries) => {
       if (entries[0]) {
@@ -48,18 +61,23 @@ const TimelinePlayheadComponent: React.FC = () => {
     });
     resizeObserver.observe(scrollEl);
 
+    // Écouteur de scroll passif pour mettre à jour lastScrollX en cache (0 layout thrashing)
+    const handleScroll = () => {
+      layoutCache.current.lastScrollX = scrollEl.scrollLeft;
+    };
+    scrollEl.addEventListener('scroll', handleScroll, { passive: true });
+
     const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number }>;
-      const { step, measure, ratio = step / customEvent.detail.maxTicks } = customEvent.detail;
+      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
+      const { step, measure, maxTicks, ratio = step / maxTicks, time = 0 } = customEvent.detail;
       const el = playheadRef.current;
       
       if (!el) return;
 
-      const now = performance.now();
-
       // --- 1. GESTION DE L'ARRÊT ---
       if (step < 0) {
-        engineState.current.isStopped = true;
+        anchorRef.current = { exactX: 0, time: 0, speed: 0 };
+        lastExactXRef.current = -1;
         el.style.transition = 'none';
         el.style.display = 'none';
         if (scrollEl) scrollEl.scrollLeft = 0;
@@ -67,87 +85,37 @@ const TimelinePlayheadComponent: React.FC = () => {
         return;
       }
 
-      if (el.style.display !== 'block') el.style.display = 'block';
+      if (el.style.display !== 'block') {
+        el.style.display = 'block';
+      }
 
       // Position mathématique absolue
       const exactX = measure * MEASURE_W + ratio * MEASURE_W;
-      const dx = exactX - engineState.current.lastX;
+      
+      // Calculer la vitesse en pixels par seconde de l'AudioContext
+      const timeSigOfMeasure = measureTimeSigs[measure] || '4/4';
+      const beats = parseInt(timeSigOfMeasure.split('/')[0], 10) || 4;
+      const speed = (MEASURE_W / beats) * (bpm / 60);
 
-      // --- 2. DÉTECTION DE RUPTURE (Lecture initiale, Loop, ou Seek manuel) ---
-      // Si on recule, ou si on fait un bond anormalement grand (> 50% d'une mesure)
-      if (engineState.current.isStopped || dx < 0 || Math.abs(dx) > MEASURE_W * 0.5) {
-        engineState.current.isStopped = false;
-        engineState.current.velocity = 0;
-        engineState.current.lastX = exactX;
-        engineState.current.lastTime = now;
+      anchorRef.current = {
+        exactX,
+        time,
+        speed
+      };
 
-        // Snap immédiat sans transition
-        el.style.transition = 'none';
-        el.style.transform = `translate3d(${HEADER_W + exactX}px, 0, 0)`;
-        
-        // Sécurité : force le reflow CSS pour garantir l'application immédiate du saut
-        void el.offsetWidth;
-        
-        // Ajustement forcé du scroll en cas de saut (ex: retour au début de la boucle)
+      // Détection de rupture (Loop, Seek ou saut au début de la boucle) pour le scroll immédiat
+      const dx = exactX - lastExactXRef.current;
+      const isRupture = lastExactXRef.current === -1 || dx < 0 || Math.abs(dx) > MEASURE_W * 0.5;
+
+      if (isRupture) {
+        lastExactXRef.current = exactX;
         if (layoutCache.current.vw > 0 && scrollEl) {
            const targetScroll = Math.max(0, exactX - layoutCache.current.vw * 0.1);
            scrollEl.scrollLeft = targetScroll;
            layoutCache.current.lastScrollX = targetScroll;
         }
-        return;
-      }
-
-      // --- 3. CALCUL DE LA VÉLOCITÉ ---
-      const dt = now - engineState.current.lastTime;
-      
-      // On ignore les calculs si dt est trop petit (< 20ms) pour éviter les pics de vélocité
-      // quand plusieurs ticks sont "rattrapés" dans la même frame (très fréquent sur le step 0/1).
-      if (dt >= 20) {
-        if (dt < 2000) {
-          const currentVel = dx / dt;
-          // Sécurité supplémentaire : ignorer les vélocités absurdes (> 10 px/ms)
-          if (currentVel > 0 && currentVel < 10) {
-            engineState.current.velocity = engineState.current.velocity === 0 
-              ? currentVel 
-              : engineState.current.velocity * 0.7 + currentVel * 0.3;
-          }
-        } else {
-          // Si dt est trop grand (ex: onglet inactif), on réinitialise la vélocité
-          engineState.current.velocity = 0;
-        }
-        
-        engineState.current.lastX = exactX;
-        engineState.current.lastTime = now;
-      }
-
-      // --- 4. DEAD RECKONING (Extrapolation 100% GPU) ---
-      if (engineState.current.velocity > 0) {
-        // On demande au CSS de viser une position dans le futur.
-        // lookAheadMs doit être supérieur au temps entre deux ticks (dt) pour que 
-        // la transition ne s'arrête jamais avant le prochain tick.
-        const lookAheadMs = Math.max(150, dt > 0 ? dt * 1.5 : 200);
-        const predictedX = exactX + (engineState.current.velocity * lookAheadMs);
-
-        el.style.transition = `transform ${lookAheadMs}ms linear`;
-        el.style.transform = `translate3d(${HEADER_W + predictedX}px, 0, 0)`;
       } else {
-        // Fallback si on n'a pas encore de vélocité
-        el.style.transition = 'none';
-        el.style.transform = `translate3d(${HEADER_W + exactX}px, 0, 0)`;
-      }
-
-      // --- 5. AUTO-SCROLL (Pagination douce) ---
-      const { vw, lastScrollX } = layoutCache.current;
-      if (vw > 0 && scrollEl) {
-        const currentScroll = lastScrollX !== -1 ? lastScrollX : scrollEl.scrollLeft;
-        const playheadScreenX = exactX - currentScroll;
-
-        // Tourne la page uniquement quand on arrive à 95% de l'écran visible
-        if (playheadScreenX > vw * 0.95) {
-          const nextScroll = currentScroll + (vw * 0.90);
-          scrollEl.scrollLeft = nextScroll;
-          layoutCache.current.lastScrollX = nextScroll;
-        } 
+        lastExactXRef.current = exactX;
       }
     };
 
@@ -156,8 +124,65 @@ const TimelinePlayheadComponent: React.FC = () => {
     return () => {
       window.removeEventListener('o-girador-tick', handleTick);
       resizeObserver.disconnect();
+      scrollEl.removeEventListener('scroll', handleScroll);
     };
-  }, [MEASURE_W, HEADER_W]);
+  }, [MEASURE_W, HEADER_W, bpm, measureTimeSigs]);
+
+  // Boucle requestAnimationFrame continue pour une mise à jour ultra fluide et découplée
+  useEffect(() => {
+    if (!audio.isPlaying) return;
+
+    let rafId: number;
+    const scrollEl = document.getElementById('timeline-scroll-container');
+
+    const updatePlayheadPosition = () => {
+      const isEco = (window as any).oGiradorEcoMode;
+      const anchor = anchorRef.current;
+      
+      if (audioEngine && anchor.time > 0 && anchor.speed > 0) {
+        const ctxTime = audioEngine.getCurrentTime();
+        const elapsedCtx = ctxTime - anchor.time;
+
+        // Extrapoler la position de la tête de lecture à partir du dernier tick
+        if (elapsedCtx >= 0 && elapsedCtx < 2.0) {
+          const currentX = anchor.exactX + elapsedCtx * anchor.speed;
+          
+          if (playheadRef.current) {
+            playheadRef.current.style.transform = `translate3d(${HEADER_W + currentX}px, 0, 0)`;
+          }
+
+          // --- AUTO-SCROLL (Pagination douce) ---
+          const { vw, lastScrollX } = layoutCache.current;
+          if (vw > 0 && scrollEl) {
+            const currentScroll = lastScrollX; // Zéro lecture synchrone de scrollEl.scrollLeft !
+            const playheadScreenX = currentX - currentScroll;
+
+            // Tourne la page uniquement quand on arrive à 95% de l'écran visible
+            if (playheadScreenX > vw * 0.95) {
+              const nextScroll = currentScroll + (vw * 0.90);
+              scrollEl.scrollLeft = nextScroll;
+              layoutCache.current.lastScrollX = nextScroll;
+            }
+          }
+        }
+      }
+
+      // Throttling en mode éco : brider à ~30 FPS pour préserver le processeur
+      if (isEco) {
+        setTimeout(() => {
+          rafId = requestAnimationFrame(updatePlayheadPosition);
+        }, 33);
+      } else {
+        rafId = requestAnimationFrame(updatePlayheadPosition);
+      }
+    };
+
+    rafId = requestAnimationFrame(updatePlayheadPosition);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+    };
+  }, [audio.isPlaying, HEADER_W]);
 
   if (!uiContext) return null;
 

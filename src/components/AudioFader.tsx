@@ -1,11 +1,13 @@
-import React, { useState, useEffect, startTransition } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type * as ToneType from 'tone';
 import { loadTone, getTone } from '@/src/ToneLoader';
+import { channels, reverbSends, masterVolumeNode, masterEQNode, masterCompressorNode, metroChannel, masterReverbVolumeNode } from '../hooks/useAudioSync';
+import { useSequencerStore } from '../stores/useSequencerStore';
+import { instrumentsConfig } from '../data';
 
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
 }
-import { channels, reverbSends, masterVolumeNode, masterEQNode, masterCompressorNode, metroChannel, masterReverbVolumeNode } from '../hooks/useAudioSync';
 
 interface AudioFaderProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   value: number;
@@ -16,26 +18,64 @@ interface AudioFaderProps extends Omit<React.InputHTMLAttributes<HTMLInputElemen
 
 export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTarget, trackId, ...props }) => {
   const [localVal, setLocalVal] = useState(value);
+  const throttleTimeoutRef = useRef<any>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const isDraggingRef = useRef(false);
 
   useEffect(() => {
-    setLocalVal(value);
+    // Si l'utilisateur est en train de glisser sous son doigt,
+    // on ignore les mises à jour descendantes de Zustand pour éviter le saut visuel.
+    if (!isDraggingRef.current) {
+      setLocalVal(value);
+    }
   }, [value]);
+
+  useEffect(() => {
+    return () => {
+      if (throttleTimeoutRef.current) {
+        clearTimeout(throttleTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Écrit dans Zustand au maximum toutes les 60ms pour protéger l'Event Loop
+  const throttledUpdate = (val: number) => {
+    if (!throttleTimeoutRef.current) {
+      throttleTimeoutRef.current = setTimeout(() => {
+        throttleTimeoutRef.current = null;
+        React.startTransition(() => {
+          onChangeRef.current(val);
+        });
+      }, 60);
+    }
+  };
 
   const handleDrag = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
     setLocalVal(val);
 
-    // Direct safeGetTone()?.js smoothing without hitting the global store
-    if (audioTarget === 'trackVolume' && trackId !== undefined && channels[trackId]) {
+    let instId: string | null = null;
+    if (trackId !== undefined) {
+      const track = useSequencerStore.getState().tracks.find(t => t.id === trackId);
+      if (track) {
+        const inst = instrumentsConfig[track.instrumentIdx];
+        if (inst) {
+          instId = inst.id;
+        }
+      }
+    }
+
+    // Règle 1 : Mutation Audio Directe immédiate (Direct-to-WebAudio) avec 0.05s de lissage
+    if (audioTarget === 'trackVolume' && instId && channels[instId]) {
       const gain = Math.max(0.00001, val / 100);
       const db = val === 0 ? -Infinity : safeGetTone()!.gainToDb(gain);
-      channels[trackId].volume.rampTo(db, 0.05);
-    } else if (audioTarget === 'trackPan' && trackId !== undefined && channels[trackId]) {
-      channels[trackId].pan.rampTo(val / 100, 0.05);
-    } else if (audioTarget === 'trackReverb' && trackId !== undefined && reverbSends[trackId]) {
+      channels[instId].volume.rampTo(db, 0.05);
+    } else if (audioTarget === 'trackPan' && instId && channels[instId]) {
+      channels[instId].pan.rampTo(val / 100, 0.05);
+    } else if (audioTarget === 'trackReverb' && instId && reverbSends[instId]) {
       const gain = Math.max(0.00001, val / 100);
-      // reverbSends is a safeGetTone()?.Gain node that we send audio to, its value is 0-1
-      reverbSends[trackId].gain.rampTo(val === 0 ? 0 : safeGetTone()!.dbToGain(safeGetTone()?.gainToDb(gain)), 0.05);
+      reverbSends[instId].gain.rampTo(val === 0 ? 0 : safeGetTone()!.dbToGain(safeGetTone()!.gainToDb(gain)), 0.05);
     } else if (audioTarget === 'masterVolume' && masterVolumeNode) {
       masterVolumeNode.gain.rampTo(safeGetTone()?.dbToGain(val === -40 ? -Infinity : val), 0.05);
     } else if (audioTarget === 'metroVolume' && metroChannel) {
@@ -54,14 +94,25 @@ export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTa
     } else if (audioTarget === 'masterReverbVol' && masterReverbVolumeNode) {
       masterReverbVolumeNode.gain.rampTo(safeGetTone()?.dbToGain(val === -40 ? -Infinity : val), 0.05);
     }
+
+    throttledUpdate(val);
   };
 
-  const handleCommit = () => {
-    if (localVal !== value) {
-      startTransition(() => {
-        onChange(localVal);
-      });
+  // Commit final pour s'assurer que la valeur est synchronisée dans Zustand
+  const handleCommit = (e: React.SyntheticEvent) => {
+    const val = parseFloat((e.target as HTMLInputElement).value);
+    isDraggingRef.current = false;
+    if (throttleTimeoutRef.current) {
+      clearTimeout(throttleTimeoutRef.current);
+      throttleTimeoutRef.current = null;
     }
+    React.startTransition(() => {
+      onChangeRef.current(val);
+    });
+  };
+
+  const handlePointerDown = () => {
+    isDraggingRef.current = true;
   };
 
   return (
@@ -69,8 +120,10 @@ export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTa
       type="range"
       value={localVal}
       onChange={handleDrag}
-      onMouseUp={handleCommit}
-      onTouchEnd={handleCommit}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handleCommit}
+      onKeyUp={handleCommit}
+      onBlur={handleCommit}
       {...props}
     />
   );

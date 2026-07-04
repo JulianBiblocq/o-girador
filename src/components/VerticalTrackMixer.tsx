@@ -163,8 +163,8 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
         }
         lastVuStepRef.current = -1;
         if (vuMeterRef.current) {
-          vuMeterRef.current.style.transition = 'none';
-          vuMeterRef.current.style.height = '0%';
+          vuMeterRef.current.getAnimations().forEach(anim => anim.cancel());
+          vuMeterRef.current.style.transform = 'scaleY(0)';
         }
         return;
       }
@@ -189,8 +189,8 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
       if (!currentLivePattern) {
         lastVuStepRef.current = -1;
         if (vuMeterRef.current) {
-          vuMeterRef.current.style.transition = 'none';
-          vuMeterRef.current.style.height = '0%';
+          vuMeterRef.current.getAnimations().forEach(anim => anim.cancel());
+          vuMeterRef.current.style.transform = 'scaleY(0)';
         }
         return;
       }
@@ -205,14 +205,14 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
           const val = currentLivePattern.activeSteps[targetStep];
           const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
           if (isHit && vuMeterRef.current) {
-            vuMeterRef.current.style.transition = 'none';
-            vuMeterRef.current.style.height = `${track.volumeVal ?? 100}%`;
-            void vuMeterRef.current.offsetHeight; // force reflow
-            requestAnimationFrame(() => {
-              if (vuMeterRef.current) {
-                vuMeterRef.current.style.transition = 'height 1.5s ease-out';
-                vuMeterRef.current.style.height = '0%';
-              }
+            const peakScale = (track.volumeVal ?? 100) / 100;
+            vuMeterRef.current.animate([
+              { transform: `scaleY(${peakScale})` },
+              { transform: 'scaleY(0)' }
+            ], {
+              duration: 1500,
+              easing: 'ease-out',
+              fill: 'forwards'
             });
           }
         }
@@ -614,7 +614,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
       <div className="relative z-10 p-4 pt-4 flex justify-between items-end h-[200px] gap-2">
         {/* Buttons Column */}
         <div className="flex flex-col gap-2 justify-end h-full pb-1">
-          <PanKnob value={track.panVal || 0} onChange={onPanChange} label="Pan" />
+          <PanKnob trackId={track.id} value={track.panVal || 0} onChange={onPanChange} label="Pan" />
           <div className="h-1" />
           <button 
             onClick={(e) => { e.stopPropagation(); onMuteToggle(); }} 
@@ -680,7 +680,7 @@ const VerticalTrackMixerComponent: React.FC<VerticalTrackMixerProps> = ({
               ref={vuMeterRef}
               id={`meter-bar-${track.id}`}
               className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--cordel-border)] w-full"
-              style={{ height: '0%', transition: 'height 0.7s ease-out' }}
+              style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
             />
           </div>
           <div className="h-[15px]" />
@@ -700,7 +700,7 @@ export const VerticalTrackMixer = React.memo(VerticalTrackMixerComponent, (prevP
   for (const key of keys) {
     if (typeof prevProps[key] === 'function') continue;
     if (key === 'trackId') continue;
-    if (key === 'currentStepIndex') continue;
+    if ((key as string) === 'currentStepIndex') continue;
 
     if (prevProps[key] !== nextProps[key]) {
       return false;

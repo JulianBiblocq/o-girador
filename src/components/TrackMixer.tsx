@@ -13,7 +13,9 @@ import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSy
 import { getNextStepValue } from './InstrumentDetailEditor';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
 import { useSequencerStore } from '../stores/useSequencerStore';
-
+import { useSequencer } from '../contexts/SequencerContext';
+import { useAudio } from '../contexts/AudioContext';
+import { meters } from '../hooks/useAudioSync';
 
 const getGlobalClipboard = () => {
   if (typeof window !== 'undefined') {
@@ -23,40 +25,10 @@ const getGlobalClipboard = () => {
 };
 
 interface TrackMixerProps {
-  lang: Language;
-  isLeftHanded?: boolean;
   trackId: number;
   index: number;
   totalTracks: number;
-  onInstrumentChange: (instIdx: number) => void;
-  onMuteToggle: () => void;
-  onSoloToggle: () => void;
-  onHideToggle: () => void;
-  onDelete: () => void;
-  onVolumeChange: (val: number) => void;
-  onPanChange: (val: number) => void;
-  onStepsChange: (patternId: number, steps: number) => void;
-  onStepValueChange: (patternId: number, stepIdx: number | number[], val: string | string[], lyrics?: string[], notes?: string[]) => void;
-  onStepKeyDown: (patternId: number, stepIdx: number, key: string, currentVal: string, targetEl: HTMLInputElement) => void;
-  onVoiceTypeToggle: (patternId: number, stepIdx: number) => void;
-  onVoiceSylChange: (patternId: number, stepIdx: number, val: string) => void;
-  onVoiceNoteChange: (patternId: number, stepIdx: number, val: string) => void;
-  onVoiceNoteBlur: (patternId: number, stepIdx: number, val: string) => void;
-  isPlaying: boolean;
-  maxTicks: number;
-  timeSig: string;
-  totalMeasures: number;
-  onSelectPattern: (patternId: number) => void;
-  onPatternAssign: (patternId: number, measureIdx: number, val: boolean) => void;
-  onAddPattern: () => void;
-  onDeletePattern: (patternId: number) => void;
-  onOpenDetailEditor?: () => void;
-  onPatternNameChange?: (patternId: number, name: string) => void;
-  onAddPatternVariation?: (patternId: number) => void;
-  onUpdatePatternVariationProbability?: (patternId: number, variationId: string, probability: number) => void;
-  onTogglePatternVariationFirstTimeOnly?: (patternId: number, variationId: string, val: boolean) => void;
-  onVariationStepValueChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: string | string[]) => void;
-  onReorderPatterns?: (patternId: number, direction: 'up' | 'down') => void;
+  onOpenDetailEditor: (trackId: number) => void;
   onStepTouchStart?: (
     e: React.MouseEvent | React.TouchEvent,
     patternId: number,
@@ -65,65 +37,185 @@ interface TrackMixerProps {
     currentVal: string | number,
     onSelect: (val: string) => void
   ) => void;
-    onCopyPattern?: (pattern: Pattern) => void;
-  onPastePattern?: (patternId: number) => void;
-  canPaste?: boolean;
-  meter?: any;
-  soloPatternPlayId?: number | null;
   isCollapsed?: boolean;
-  activeAoVivoTrackId: number | null;
-  setActiveAoVivoTrackId: (id: number | null) => void;
-  activeVariationsRef?: React.MutableRefObject<Record<number, (string | number)[]>>;
 }
 
+
 const TrackMixerComponent: React.FC<TrackMixerProps> = ({
-  lang,
-  isLeftHanded = false,
   trackId,
   index,
   totalTracks,
-  onInstrumentChange,
-  onMuteToggle,
-  onSoloToggle,
-  onHideToggle,
-  onDelete,
-  onVolumeChange,
-  onPanChange,
-  onStepsChange,
-  onStepValueChange,
-  onStepKeyDown,
-  onVoiceTypeToggle,
-  onVoiceSylChange,
-  onVoiceNoteChange,
-  onVoiceNoteBlur,
-  isPlaying,
-  maxTicks,
-  timeSig,
-  totalMeasures,
-  onSelectPattern,
-  onPatternAssign,
-  onAddPattern,
-  onDeletePattern,
   onOpenDetailEditor,
-  onPatternNameChange,
-  onAddPatternVariation,
-  onUpdatePatternVariationProbability,
-  onTogglePatternVariationFirstTimeOnly,
-  onVariationStepValueChange,
-  onReorderPatterns,
   onStepTouchStart,
-  onCopyPattern,
-  onPastePattern,
-  canPaste,
-  meter,
-  soloPatternPlayId,
   isCollapsed = false,
-  activeAoVivoTrackId,
-  setActiveAoVivoTrackId,
-  activeVariationsRef,
 }) => {
+  const sequencer = useSequencer();
+  const audio = useAudio();
+
+  const lang = useSequencerStore(state => state.lang);
+  const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
+  const totalMeasures = useSequencerStore(state => state.totalMeasures);
+  const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
+  const setActiveAoVivoTrackId = useSequencerStore(state => state.setActiveAoVivoTrackId);
   const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
+
+  const { isPlaying, maxTicksRef, soloPatternPlayId } = audio;
+  const maxTicks = maxTicksRef.current;
+  const { activeVariationsRef, copiedPattern, handleCopyPattern, handlePastePattern, timeSig } = sequencer;
+
+  const canPaste = !!copiedPattern;
+  const inst = track ? instrumentsConfig[track.instrumentIdx] : null;
+  const meter = meters && inst ? meters[inst.id] : undefined;
+
+  // Local Actions mapped directly to Zustand and Context
+  const onInstrumentChange = (instIdx: number) => {
+    useSequencerStore.getState().handleTrackInstrumentIdxChange(trackId, instIdx);
+  };
+  const onMuteToggle = () => {
+    useSequencerStore.getState().handleTrackMuteToggle(trackId);
+  };
+  const onSoloToggle = () => {
+    useSequencerStore.getState().handleTrackSoloToggle(trackId);
+  };
+  const onHideToggle = () => {
+    useSequencerStore.getState().handleTrackHideToggle(trackId);
+  };
+  const onDelete = () => {
+    useSequencerStore.getState().handleTrackDelete(trackId);
+  };
+  const onVolumeChange = (val: number) => {
+    useSequencerStore.getState().handleTrackVolumeChange(trackId, val);
+  };
+  const onPanChange = (val: number) => {
+    useSequencerStore.getState().handleTrackPanChange(trackId, val);
+  };
+  const onStepsChange = (patternId: number, steps: number) => {
+    useSequencerStore.getState().handleTrackStepsChange(trackId, patternId, steps);
+  };
+  const onStepValueChange = (patternId: number, stepIdx: number | number[], val: string | string[], lyrics?: string[], notes?: string[]) => {
+    sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, val, lyrics, notes);
+  };
+  const onStepKeyDown = (patternId: number, stepIdx: number, key: string, currentVal: string, targetEl: HTMLInputElement) => {
+    sequencer.handleTrackStepKeyDown(trackId, patternId, stepIdx, key, currentVal, targetEl);
+  };
+  const onVoiceTypeToggle = (patternId: number, stepIdx: number) => {
+    sequencer.handleVoiceTypeToggle(trackId, patternId, stepIdx);
+  };
+  const onVoiceSylChange = (patternId: number, stepIdx: number, val: string) => {
+    sequencer.handleVoiceSylChange(trackId, patternId, stepIdx, val);
+  };
+  const onVoiceNoteChange = (patternId: number, stepIdx: number, val: string) => {
+    sequencer.handleVoiceNoteChange(trackId, patternId, stepIdx, val);
+  };
+  const onVoiceNoteBlur = (patternId: number, stepIdx: number, val: string) => {
+    sequencer.handleVoiceNoteBlur(trackId, patternId, stepIdx, val);
+  };
+  const onPatternNameChange = (patternId: number, name: string) => {
+    sequencer.handlePatternNameChange(trackId, patternId, name);
+  };
+  const onAddPatternVariation = (patternId: number) => {
+    sequencer.handleAddPatternVariation && sequencer.handleAddPatternVariation(trackId, patternId);
+  };
+  const onUpdatePatternVariationProbability = (patternId: number, variationId: string, probability: number) => {
+    sequencer.handleUpdatePatternVariationProbability && sequencer.handleUpdatePatternVariationProbability(trackId, patternId, variationId, probability);
+  };
+  const onTogglePatternVariationFirstTimeOnly = (patternId: number, variationId: string, val: boolean) => {
+    sequencer.handleTogglePatternVariationFirstTimeOnly && sequencer.handleTogglePatternVariationFirstTimeOnly(trackId, patternId, variationId, val);
+  };
+  const onVariationStepValueChange = (patternId: number, variationId: string, stepIdx: number | number[], val: string | string[]) => {
+    sequencer.handleVariationStepValueChange && sequencer.handleVariationStepValueChange(trackId, patternId, variationId, stepIdx, val);
+  };
+  const onDeletePatternVariation = (patternId: number, variationId: string) => {
+    sequencer.handleDeletePatternVariation && sequencer.handleDeletePatternVariation(trackId, patternId, variationId);
+  };
+  const onStepVolumeChange = (patternId: number, stepIdx: number | number[], val: number) => {
+    useSequencerStore.getState().handleTrackStepVolumeChange(trackId, patternId, stepIdx, val);
+  };
+  const onStepDecayChange = (patternId: number, stepIdx: number | number[], val: number) => {
+    sequencer.handleTrackStepDecayChange && sequencer.handleTrackStepDecayChange(trackId, patternId, stepIdx, val);
+  };
+  const onStepMicrotimingChange = (patternId: number, stepIdx: number | number[], val: number) => {
+    sequencer.handleTrackStepMicrotimingChange && sequencer.handleTrackStepMicrotimingChange(trackId, patternId, stepIdx, val);
+  };
+  const onVariationStepVolumeChange = (patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
+    sequencer.handleVariationStepVolumeChange && sequencer.handleVariationStepVolumeChange(trackId, patternId, variationId, stepIdx, val);
+  };
+  const onVariationStepDecayChange = (patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
+    sequencer.handleVariationStepDecayChange && sequencer.handleVariationStepDecayChange(trackId, patternId, variationId, stepIdx, val);
+  };
+  const onVariationStepMicrotimingChange = (patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
+    sequencer.handleVariationStepMicrotimingChange && sequencer.handleVariationStepMicrotimingChange(trackId, patternId, variationId, stepIdx, val);
+  };
+  const onSelectPattern = (patternId: number) => {
+    useSequencerStore.getState().setTracks(prev => prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
+  };
+  const onPatternAssign = (patternId: number, measureIdx: number, val: boolean) => {
+    sequencer.pushUndoState();
+    useSequencerStore.getState().setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const assign = [...p.measureAssignments];
+            assign[measureIdx] = val;
+            return { ...p, measureAssignments: assign };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+  const onAddPattern = () => {
+    sequencer.pushUndoState();
+    useSequencerStore.getState().setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const p = t.patterns[0];
+        const newPattern: Pattern = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          name: `Padrão ${t.patterns.length + 1}`,
+          steps: p.steps,
+          activeSteps: Array(p.steps).fill(0),
+          lyrics: Array(p.steps).fill(''),
+          notes: Array(p.steps).fill(''),
+          measureAssignments: Array(totalMeasures).fill(false),
+          volumes: Array(p.steps).fill(80),
+          decays: Array(p.steps).fill(100),
+          microtimings: Array(p.steps).fill(0),
+          variations: [],
+        };
+        return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
+      }
+      return t;
+    }));
+  };
+  const onDeletePattern = (patternId: number) => {
+    sequencer.pushUndoState();
+    useSequencerStore.getState().setTracks(prev => prev.map(t => {
+      if (t.id === trackId && t.patterns.length > 1) {
+        const nextPatterns = t.patterns.filter(p => p.id !== patternId);
+        const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;
+        return { ...t, patterns: nextPatterns, selectedPatternId: nextSelected };
+      }
+      return t;
+    }));
+  };
+  const onCopyPattern = (pat?: Pattern) => {
+    const target = pat || activePattern;
+    if (target) {
+      sequencer.handleCopyPattern && sequencer.handleCopyPattern(target);
+    }
+  };
+  const onPastePattern = (patternId: number) => {
+    sequencer.handlePastePattern(trackId, patternId);
+  };
+  const onReorderPatternsDnd = (oldIdx: number, newIdx: number) => {
+    sequencer.handleReorderPatternsDnd && sequencer.handleReorderPatternsDnd(trackId, oldIdx, newIdx);
+  };
+  const onOpenDetailEditorClick = () => {
+    onOpenDetailEditor(trackId);
+  };
   const [instDropdownOpen, setInstDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -215,9 +307,20 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     }
   };
 
+  const trackRef = useRef(track);
+  trackRef.current = track;
+
+  const soloPatternPlayIdRef = useRef(soloPatternPlayId);
+  soloPatternPlayIdRef.current = soloPatternPlayId;
+
+  const activateElementRef = useRef(activateElement);
+  activateElementRef.current = activateElement;
+
+  const deactivateElementRef = useRef(deactivateElement);
+  deactivateElementRef.current = deactivateElement;
+
   // Event-based VU meters do not need a requestAnimationFrame loop, they are animated directly in handleTick
 
-  const inst = track ? instrumentsConfig[track.instrumentIdx] : null;
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -335,12 +438,12 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         lastRatioRef.current = -1;
         lastVuStepRef.current = -1;
         activeElements.forEach(el => {
-          deactivateElement(el);
+          deactivateElementRef.current(el);
         });
         activeElements = [];
         if (vuMeterRef.current) {
-          vuMeterRef.current.style.transition = 'none';
-          vuMeterRef.current.style.width = '0%';
+          vuMeterRef.current.getAnimations().forEach(anim => anim.cancel());
+          vuMeterRef.current.style.transform = 'scaleX(0)';
         }
         return;
       }
@@ -354,13 +457,16 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
       // Resolve the live active pattern dynamically inside the tick listener to avoid stale closure issues
       const getLivePatternForMeasure = (m: number) => {
-        if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
-          const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
+        const currentTrack = trackRef.current;
+        if (!currentTrack) return null;
+        const currentSoloPatternPlayId = soloPatternPlayIdRef.current;
+        if (currentSoloPatternPlayId !== undefined && currentSoloPatternPlayId !== null) {
+          const hasSoloPattern = currentTrack.patterns.some(p => p.id === currentSoloPatternPlayId);
           if (hasSoloPattern) {
-            return track.patterns.find(p => p.id === soloPatternPlayId);
+            return currentTrack.patterns.find(p => p.id === currentSoloPatternPlayId);
           }
         }
-        return track.patterns.find(p => p.measureAssignments[m]);
+        return currentTrack.patterns.find(p => p.measureAssignments[m]);
       };
 
       const currentLivePattern = getLivePatternForMeasure(measure);
@@ -368,7 +474,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       if (!currentLivePattern) {
         // Deactivate old active elements and keep VU meter at 0%
         activeElements.forEach(el => {
-          deactivateElement(el);
+          deactivateElementRef.current(el);
         });
         activeElements = [];
         lastVuStepRef.current = -1;
@@ -382,18 +488,19 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       // Edge trigger VU fader width update on step transitions
       if (targetStep !== lastVuStepRef.current) {
         lastVuStepRef.current = targetStep;
-        if (!track.isMute && !isEco) {
+        const currentTrack = trackRef.current;
+        if (currentTrack && !currentTrack.isMute && !isEco) {
           const val = currentLivePattern.activeSteps[targetStep];
           const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
           if (isHit && vuMeterRef.current) {
-            vuMeterRef.current.style.transition = 'none';
-            vuMeterRef.current.style.width = `${track.volumeVal ?? 100}%`;
-            void vuMeterRef.current.offsetHeight; // force reflow
-            requestAnimationFrame(() => {
-              if (vuMeterRef.current) {
-                vuMeterRef.current.style.transition = 'width 1.5s ease-out';
-                vuMeterRef.current.style.width = '0%';
-              }
+            const peakScale = (currentTrack.volumeVal ?? 100) / 100;
+            vuMeterRef.current.animate([
+              { transform: `scaleX(${peakScale})` },
+              { transform: 'scaleX(0)' }
+            ], {
+              duration: 1500,
+              easing: 'ease-out',
+              fill: 'forwards'
             });
           }
         }
@@ -407,7 +514,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
       // Deactivate old active elements
       activeElements.forEach(el => {
-        deactivateElement(el);
+        deactivateElementRef.current(el);
       });
       activeElements = [];
 
@@ -418,7 +525,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
       activeStepElements.forEach(el => {
         const htmlEl = el as HTMLElement;
-        activateElement(htmlEl);
+        activateElementRef.current(htmlEl);
         activeElements.push(htmlEl);
       });
     };
@@ -427,10 +534,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     return () => {
       window.removeEventListener('o-girador-tick', handleTick);
       activeElements.forEach(el => {
-        deactivateElement(el);
+        deactivateElementRef.current(el);
       });
     };
-  }, [track, soloPatternPlayId]);
+  }, []);
 
   // Post-render highlight to prevent visual flicker during pattern transitions
   useEffect(() => {
@@ -698,7 +805,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
             {onOpenDetailEditor && (
               <button
-                onClick={onOpenDetailEditor}
+                onClick={onOpenDetailEditorClick}
                 className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
                 title={lang === 'pt' ? 'Editor detalhado' : 'Éditeur détaillé'}
               >
@@ -745,13 +852,13 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
         <div className="flex gap-1.5">
           <button 
-            onClick={(e) => { e.stopPropagation(); onMuteToggle(track.id); }} 
+            onClick={(e) => { e.stopPropagation(); onMuteToggle(); }} 
             className={`w-6 h-6 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
               (track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
             }`}
           >M</button>
           <button 
-            onClick={(e) => { e.stopPropagation(); onSoloToggle(track.id); }} 
+            onClick={(e) => { e.stopPropagation(); onSoloToggle(); }} 
             className={`w-6 h-6 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
               track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
             }`}
@@ -760,17 +867,21 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
           {inst.id !== 'apito' && (
             <button
               onClick={toggleAoVivo}
-              className={`w-6 h-6 cordel-border-sm cordel-button text-[9px] font-bold cursor-pointer transition-all flex items-center justify-center ${
+              className={`w-6 h-6 cordel-border-sm cordel-button font-bold cursor-pointer transition-all flex items-center justify-center ${
                 isAoVivo ? 'bg-[#27ae60] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
               }`}
-              title="Ao Vivo (Live POV)"
+              title={inst.id === 'voice' ? (lang === 'fr' ? 'Karaoké (Live)' : 'Karaokê (Ao Vivo)') : "Ao Vivo (Live POV)"}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
-                <path d="M11 22 L5 6" />
-                <circle cx="4" cy="3" r="2.5" fill="currentColor" />
-                <path d="M13 22 L19 6" />
-                <circle cx="20" cy="3" r="2.5" fill="currentColor" />
-              </svg>
+              {inst.id === 'voice' ? (
+                <span className="text-xs leading-none">🎤</span>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                  <path d="M11 22 L5 6" />
+                  <circle cx="4" cy="3" r="2.5" fill="currentColor" />
+                  <path d="M13 22 L19 6" />
+                  <circle cx="20" cy="3" r="2.5" fill="currentColor" />
+                </svg>
+              )}
             </button>
           )}
 
@@ -1176,8 +1287,9 @@ export const TrackMixer = React.memo(TrackMixerComponent, (prevProps, nextProps)
 
   const keys = Object.keys(prevProps) as Array<keyof TrackMixerProps>;
   for (const key of keys) {
+    if (typeof prevProps[key] === 'function') continue;
     if (key === 'trackId') continue;
-    if (key === 'currentStepIndex') continue;
+    if ((key as string) === 'currentStepIndex') continue;
 
     if (prevProps[key] !== nextProps[key]) {
       return false;

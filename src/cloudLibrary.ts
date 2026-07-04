@@ -1,5 +1,7 @@
-import { db } from './firebase/config';
+import { db, storage } from './firebase/config';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc , query, limit, where, orderBy, or } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getVocalRecording } from './db';
 import { CloudPreset, Preset, CatalogVisibility } from './types';
 import LZString from 'lz-string';
 
@@ -15,7 +17,27 @@ export async function savePresetToCloud(
   visibility: CatalogVisibility,
   targetUserId?: string
 ): Promise<string> {
-  const dataString = LZString.compressToBase64(JSON.stringify(presetData));
+  // Deep copy presetData to avoid modifying active app state
+  const presetToSave = JSON.parse(JSON.stringify(presetData));
+
+  // Upload local vocal recordings to Firebase Storage and add URLs to preset
+  for (const track of presetToSave.tracks || []) {
+    for (const pattern of track.patterns || []) {
+      try {
+        const blob = await getVocalRecording(pattern.id);
+        if (blob) {
+          const storageRef = ref(storage, `vocalRecordings/${pattern.id}.ogg`);
+          await uploadBytes(storageRef, blob);
+          const downloadUrl = await getDownloadURL(storageRef);
+          pattern.vocalAudioUrl = downloadUrl;
+        }
+      } catch (e) {
+        console.error(`Failed to upload vocal recording for pattern ${pattern.id} to storage:`, e);
+      }
+    }
+  }
+
+  const dataString = LZString.compressToBase64(JSON.stringify(presetToSave));
   
   const docRef = await addDoc(collection(db, CLOUD_PRESETS_COLLECTION), {
     name,

@@ -17,13 +17,24 @@ import type * as ToneType from 'tone';
 import { getTone } from './ToneLoader';
 import { instrumentAudioConfigs, StrokeMapping, InstrumentAudioConfig } from './data/audioConfig';
 
+interface ActiveVoice {
+  source: AudioBufferSourceNode;
+  gainNode: GainNode;
+  time: number;
+  velocity: number;
+  instrumentId: string;
+}
+
+const HUMANIZED_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
+
 export class AudioEngine {
   private audioContext: AudioContext;
   private isPlaying: boolean = false;
+  private readonly MAX_POOL_SIZE: number = 40;
   
   // Timing variables (adaptive to device capabilities)
-  private readonly LOOKAHEAD_INTERVAL: number; // ms
-  private readonly SCHEDULE_AHEAD_TIME: number; // seconds
+  public LOOKAHEAD_INTERVAL: number = 25.0; // ms
+  public SCHEDULE_AHEAD_TIME: number = 0.500; // seconds
   private nextTickTime: number = 0.0;
   
   // Math Anchors for Drift Elimination
@@ -32,7 +43,7 @@ export class AudioEngine {
   private lastTickDuration: number = 0.0;
 
   // Timer handlers
-  private worker: Worker | null = null;
+  private clockNode: AudioWorkletNode | null = null;
   private fallbackTimerId: number | null = null;
 
   // Callbacks
@@ -41,15 +52,100 @@ export class AudioEngine {
 
   // Sampler State & Buffers
   private bufferPool = new Map<string, ToneType.ToneAudioBuffer>(); // Maps absolute path -> ToneAudioBuffer (Sample Pooling)
-  private lastPlayedIndices = new Map<string, number>(); // Maps "instrumentId_strokeSymbol" -> last played index (Round-Robin)
+  private lastPlayedIndices = new Map<string, Map<string, number>>(); // Maps instrumentId -> strokeSymbol -> last played index (Round-Robin)
   private instrumentChannels = new Map<string, any>(); // Maps instrumentId -> Tone.Channel
   private activeBarulhoNodes = new Map<string, AudioBufferSourceNode>(); // Maps instrumentId -> active looping BufferSource
   private activeBarulhoGains = new Map<string, GainNode>(); // Maps instrumentId -> GainNode of active Barulho
   private scheduledHits = new Set<AudioBufferSourceNode>();
+  private activeGainNodes = new Map<AudioBufferSourceNode, { instrumentId: string; gainNode: GainNode; expectedEnd: number }>(); // Precise tracking to avoid leaks
   private gainNodePools = new Map<string, GainNode[]>(); // Maps instrumentId -> pooled GainNodes connected to channel
+  private instrumentVoices = new Map<string, ActiveVoice[]>(); // Track active/scheduled voices for eco mode polyphony limits
 
   // O(1) lookup cache for instrument configurations (built once in constructor)
   private readonly configMap: Map<string, InstrumentAudioConfig>;
+
+  // Pre-allocated object pools to avoid runtime dynamic allocations in the hot path
+  private gainNodeMappingPool: { instrumentId: string; gainNode: GainNode | null; expectedEnd: number }[] = [];
+  private gainNodeMappingPoolIndex = 0;
+  private activeVoicePool: ActiveVoice[] = [];
+  private activeVoicePoolIndex = 0;
+
+  private getGainNodeMapping(instrumentId: string, gainNode: GainNode, expectedEnd: number): { instrumentId: string; gainNode: GainNode; expectedEnd: number } {
+    const obj = this.gainNodeMappingPool[this.gainNodeMappingPoolIndex];
+    this.gainNodeMappingPoolIndex = (this.gainNodeMappingPoolIndex + 1) % 512;
+    obj.instrumentId = instrumentId;
+    obj.gainNode = gainNode;
+    obj.expectedEnd = expectedEnd;
+    return obj as { instrumentId: string; gainNode: GainNode; expectedEnd: number };
+  }
+
+  private getActiveVoice(source: AudioBufferSourceNode, gainNode: GainNode, time: number, velocity: number, instrumentId: string): ActiveVoice {
+    const obj = this.activeVoicePool[this.activeVoicePoolIndex];
+    this.activeVoicePoolIndex = (this.activeVoicePoolIndex + 1) % 512;
+    obj.source = source;
+    obj.gainNode = gainNode;
+    obj.time = time;
+    obj.velocity = velocity;
+    obj.instrumentId = instrumentId;
+    return obj;
+  }
+
+  private handleVisibilityChange = () => {
+    this.updateSchedulingParameters();
+    
+    if (typeof document !== 'undefined' && !document.hidden) {
+      const now = this.audioContext.currentTime;
+      const deadNodes: AudioBufferSourceNode[] = [];
+      
+      for (const [source, mapping] of this.activeGainNodes) {
+        if (now > mapping.expectedEnd + 1.0) {
+          deadNodes.push(source);
+        }
+      }
+      
+      const len = deadNodes.length;
+      for (let i = 0; i < len; i++) {
+        const source = deadNodes[i];
+        const mapping = this.activeGainNodes.get(source);
+        if (mapping) {
+          try { source.disconnect(); } catch (_) {}
+          
+          const instrumentId = mapping.instrumentId;
+          const gainNode = mapping.gainNode;
+          
+          if (gainNode) {
+            this.releaseGainNode(instrumentId, gainNode);
+            mapping.gainNode = null as any;
+          }
+          mapping.instrumentId = '';
+          
+          this.scheduledHits.delete(source);
+          this.activeGainNodes.delete(source);
+          
+          if (instrumentId) {
+            if (this.activeBarulhoNodes.get(instrumentId) === source) {
+              this.activeBarulhoNodes.delete(instrumentId);
+              this.activeBarulhoGains.delete(instrumentId);
+            }
+            
+            const currentVoices = this.instrumentVoices.get(instrumentId);
+            if (currentVoices) {
+              for (let vIdx = 0; vIdx < currentVoices.length; vIdx++) {
+                if (currentVoices[vIdx].source === source) {
+                  const voice = currentVoices[vIdx];
+                  voice.source = null as any;
+                  voice.gainNode = null as any;
+                  voice.instrumentId = '';
+                  currentVoices.splice(vIdx, 1);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  };
 
   /**
    * @param {AudioContext} audioContext - Native AudioContext to drive the clock and play samples
@@ -65,57 +161,102 @@ export class AudioEngine {
     this.onTick = onTick;
     this.getTickDuration = getTickDuration;
 
-    // Adapt scheduling parameters to device capabilities
-    // Mobile/tablet CPUs need more headroom to avoid buffer underruns
-    const isMobile = 'ontouchstart' in globalThis || navigator.maxTouchPoints > 0;
-    const hwLatency = (audioContext.baseLatency || 0) + ((audioContext as any).outputLatency || 0);
-    
-    this.LOOKAHEAD_INTERVAL = isMobile ? 25.0 : 10.0;
-    this.SCHEDULE_AHEAD_TIME = isMobile
-      ? Math.max(0.600, hwLatency + 0.300) 
-      : 0.500; // 500ms buffer to survive massive React measure-boundary renders
+    this.updateSchedulingParameters();
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    }
 
     // Pre-build O(1) config lookup map (avoids Array.find() on every note played)
     this.configMap = new Map(instrumentAudioConfigs.map(c => [c.id, c]));
 
-    this.initWorker();
+    // Pre-populate object pools to avoid runtime dynamic allocations in the hot path
+    for (let i = 0; i < 512; i++) {
+      this.gainNodeMappingPool.push({ instrumentId: '', gainNode: null, expectedEnd: 0 });
+      this.activeVoicePool.push({
+        source: null as any,
+        gainNode: null as any,
+        time: 0,
+        velocity: 0,
+        instrumentId: ''
+      });
+    }
+
+    const nativeContext =
+      (audioContext as any)._nativeContext ||
+      (audioContext as any).rawContext ||
+      (audioContext as any)._context ||
+      audioContext;
+
+    if (typeof nativeContext.audioWorklet === 'undefined') {
+      console.warn("AudioEngine: AudioWorklet not supported. Falling back to setInterval timer.");
+      this.initFallbackTimer();
+    } else {
+      this.initClockWorklet().catch(err => {
+        console.error("AudioEngine: Error initializing clock worklet:", err);
+        this.initFallbackTimer();
+      });
+    }
   }
 
-  private initWorker(): void {
-    if (typeof window === 'undefined' || typeof Worker === 'undefined') return;
+  private updateSchedulingParameters(): void {
+    const isMobile = 'ontouchstart' in globalThis || navigator.maxTouchPoints > 0;
+    const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    const isDesktopActive = !isMobile && !isHidden;
 
-    const workerCode = `
-      let timerId = null;
-      self.onmessage = function(e) {
-        if (e.data.action === 'start') {
-          if (timerId) clearInterval(timerId);
-          const interval = e.data.interval || 10;
-          timerId = setInterval(function() {
-            postMessage('tick');
-          }, interval);
-        } else if (e.data.action === 'stop') {
-          if (timerId) {
-            clearInterval(timerId);
-            timerId = null;
-          }
+    const hwLatency = (this.audioContext.baseLatency || 0.05) + ((this.audioContext as any).outputLatency || 0.05);
+
+    this.SCHEDULE_AHEAD_TIME = Math.max(0.150, hwLatency + 0.050);
+
+    this.LOOKAHEAD_INTERVAL = isDesktopActive ? 15.0 : 25.0;
+
+    // Dynamically update interval of fallback timer if active and playing
+    if (this.isPlaying && !this.clockNode && this.fallbackTimerId !== null) {
+      window.clearInterval(this.fallbackTimerId);
+      this.fallbackTimerId = window.setInterval(() => {
+        if (this.isPlaying) {
+          this.scheduler();
         }
-      };
-    `;
+      }, this.LOOKAHEAD_INTERVAL);
+    }
+  }
 
+  private async initClockWorklet(): Promise<void> {
     try {
-      const blob = new Blob([workerCode], { type: 'application/javascript' });
-      const workerUrl = URL.createObjectURL(blob);
-      this.worker = new Worker(workerUrl);
-      // We purposefully DO NOT revoke the URL to prevent any race condition on slow devices.
+      // @ts-ignore
+      const baseUrl = import.meta.env.BASE_URL || '/';
+      const cleanBase = baseUrl.endsWith('/') ? baseUrl : baseUrl + '/';
+      const workletUrl = `${cleanBase}clock.worklet.js`;
+
+      const nativeContext =
+        (this.audioContext as any)._nativeContext ||
+        (this.audioContext as any).rawContext ||
+        (this.audioContext as any)._context ||
+        this.audioContext;
+
+      await nativeContext.audioWorklet.addModule(workletUrl);
       
-      this.worker.onmessage = () => {
+      this.clockNode = new AudioWorkletNode(nativeContext, 'clock-processor');
+      this.clockNode.port.onmessage = () => {
         if (this.isPlaying) {
           this.scheduler();
         }
       };
+      this.clockNode.connect(nativeContext.destination);
     } catch (err) {
-      console.warn("AudioEngine: Web Worker creation blocked. Falling back to main-thread timers.", err);
-      this.worker = null;
+      console.warn("AudioEngine: Failed to initialize clock AudioWorklet. Falling back to setInterval clock.", err);
+      this.initFallbackTimer();
+    }
+  }
+
+  private initFallbackTimer(): void {
+    if (this.clockNode) return;
+    if (this.fallbackTimerId === null) {
+      this.fallbackTimerId = window.setInterval(() => {
+        if (this.isPlaying) {
+          this.scheduler();
+        }
+      }, this.LOOKAHEAD_INTERVAL);
     }
   }
 
@@ -125,19 +266,13 @@ export class AudioEngine {
   public start(): void {
     if (this.isPlaying) return;
 
-    this.isPlaying = true;
-    
     // Initialize timing markers
     this.nextTickTime = this.audioContext.currentTime;
     this.anchorTime = this.nextTickTime;
     this.anchorTickCount = 0;
     this.lastTickDuration = this.getTickDuration();
 
-    if (this.worker) {
-      this.worker.postMessage({ action: 'start', interval: this.LOOKAHEAD_INTERVAL });
-    } else {
-      this.fallbackTimerId = window.setInterval(() => this.scheduler(), this.LOOKAHEAD_INTERVAL);
-    }
+    this.isPlaying = true;
   }
 
   /**
@@ -148,22 +283,23 @@ export class AudioEngine {
 
     this.isPlaying = false;
 
-    if (this.worker) {
-      this.worker.postMessage({ action: 'stop' });
-    }
-    
-    if (this.fallbackTimerId !== null) {
-      window.clearInterval(this.fallbackTimerId);
-      this.fallbackTimerId = null;
-    }
-
     this.scheduledHits.forEach((source) => {
       try {
+        source.onended = null;
         source.stop();
         source.disconnect();
       } catch (_) {}
     });
     this.scheduledHits.clear();
+
+    // Release any active gain nodes to prevent leaks on stop
+    for (const [_, mapping] of this.activeGainNodes) {
+      this.releaseGainNode(mapping.instrumentId, mapping.gainNode);
+      mapping.gainNode = null as any;
+      mapping.instrumentId = '';
+    }
+    this.activeGainNodes.clear();
+    this.instrumentVoices.clear();
   }
 
   /**
@@ -190,9 +326,15 @@ export class AudioEngine {
 
     // Clock Drift Recovery
     if (this.nextTickTime < currentTime) {
-      this.nextTickTime = currentTime;
-      this.anchorTime = currentTime;
-      this.anchorTickCount = 0;
+      const drift = currentTime - this.nextTickTime;
+      if (drift > 1.0) {
+        // En cas de longue suspension (veille/arrière-plan), on réinitialise l'horloge
+        this.nextTickTime = currentTime;
+        this.anchorTime = currentTime;
+        this.anchorTickCount = 0;
+      }
+      // En cas de micro-lag (< 1.0s), on laisse la boucle while rattraper naturellement
+      // les ticks pour préserver l'alignement du step index.
     }
 
     // Schedule events in advance
@@ -246,14 +388,19 @@ export class AudioEngine {
       } catch (decodeErr) {
         console.warn(`AudioEngine: Safari/iOS fallback triggered for ${path}. Attempting .m4a`);
         const fallbackPath = encodedFetchPath.replace(/\.ogg$/, '.m4a');
-        response = await fetch(fallbackPath);
-        if (!response.ok) {
-          throw new Error(`Fallback HTTP error! status: ${response.status}`);
+        try {
+          response = await fetch(fallbackPath);
+          if (!response.ok) {
+            console.warn(`AudioEngine: Fallback .m4a not found or failed to load for ${path} (status: ${response.status})`);
+            return;
+          }
+          arrayBuffer = await response.arrayBuffer();
+          const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+          const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
+          this.bufferPool.set(path, toneBuffer);
+        } catch (fallbackErr) {
+          console.warn(`AudioEngine: Failed to load fallback .m4a for ${path}:`, fallbackErr);
         }
-        arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-        const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
-        this.bufferPool.set(path, toneBuffer);
       }
     } catch (err) {
       console.error(`AudioEngine: Failed to load sample: ${path}`, err);
@@ -276,12 +423,13 @@ export class AudioEngine {
    * Dynamically unloads unused instrument buffers to save RAM.
    * Useful for mobile devices where holding all samples in memory can cause crashes.
    */
-  public async syncActiveInstrumentsMemory(activeIndexes: number[]): Promise<void> {
+  public async syncActiveInstrumentsMemory(activeIds: string[]): Promise<void> {
     const requiredPaths = new Set<string>();
 
-    for (const index of activeIndexes) {
-      if (instrumentAudioConfigs[index]) {
-        for (const stroke of instrumentAudioConfigs[index].strokes) {
+    for (const id of activeIds) {
+      const config = this.configMap.get(id);
+      if (config) {
+        for (const stroke of config.strokes) {
           for (const file of stroke.files) {
             requiredPaths.add(file);
           }
@@ -315,10 +463,11 @@ export class AudioEngine {
     }
   }
 
-  public async loadInstrumentSamples(instrumentIndex: number): Promise<void> {
+  public async loadInstrumentSamples(instrumentId: string): Promise<void> {
     const pathsArray: string[] = [];
-    if (instrumentAudioConfigs[instrumentIndex]) {
-      for (const stroke of instrumentAudioConfigs[instrumentIndex].strokes) {
+    const config = this.configMap.get(instrumentId);
+    if (config) {
+      for (const stroke of config.strokes) {
         for (const file of stroke.files) {
           pathsArray.push(file);
         }
@@ -339,6 +488,7 @@ export class AudioEngine {
       const pool: GainNode[] = [];
       for (let i = 0; i < 15; i++) {
         const gainNode = this.audioContext.createGain();
+        (gainNode as any)._isReleased = true;
         gainNode.gain.value = 0;
         Tone.connect(gainNode, channel);
         pool.push(gainNode);
@@ -348,16 +498,37 @@ export class AudioEngine {
   }
 
   /**
-   * Retire et retourne un nœud disponible du pool. En crée un nouveau si la piscine est vide.
+   * Retourne la limite de polyphonie d'un instrument en mode éco.
    */
+  private getPolyphonyLimit(instrumentId: string): number {
+    switch (instrumentId) {
+      case 'caixa':
+      case 'tarol':
+      case 'agbe':
+      case 'mineiro':
+      case 'apito':
+        return 1;
+      case 'marcante':
+      case 'meiao':
+      case 'repique':
+      case 'gongue':
+        return 2;
+      default:
+        return 2;
+    }
+  }
+
   private getGainNode(instrumentId: string): GainNode {
     const Tone = getTone();
     const pool = this.gainNodePools.get(instrumentId);
     if (pool && pool.length > 0) {
-      return pool.pop()!;
+      const gainNode = pool.pop()!;
+      (gainNode as any)._isReleased = false;
+      return gainNode;
     }
     // Fallback dynamique
     const gainNode = this.audioContext.createGain();
+    (gainNode as any)._isReleased = false;
     gainNode.gain.value = 0;
     const channel = this.instrumentChannels.get(instrumentId);
     if (channel) {
@@ -372,6 +543,9 @@ export class AudioEngine {
    * Nettoie strictement le nœud de volume et le rend à la piscine.
    */
   private releaseGainNode(instrumentId: string, gainNode: GainNode): void {
+    if ((gainNode as any)._isReleased) return;
+    (gainNode as any)._isReleased = true;
+
     const currentTime = this.audioContext.currentTime;
     try {
       gainNode.gain.cancelScheduledValues(currentTime);
@@ -379,7 +553,7 @@ export class AudioEngine {
     } catch (_) {}
     
     const pool = this.gainNodePools.get(instrumentId);
-    if (pool) {
+    if (pool && pool.length < this.MAX_POOL_SIZE) {
       pool.push(gainNode);
     }
   }
@@ -461,20 +635,25 @@ export class AudioEngine {
     }
 
     // 1. Round-Robin Index Selection
-    const rrKey = `${instrumentId}_${stroke.symbol}`;
     const numFiles = stroke.files.length;
     let chosenIdx = 0;
 
+    let instMap = this.lastPlayedIndices.get(instrumentId);
+    if (!instMap) {
+      instMap = new Map<string, number>();
+      this.lastPlayedIndices.set(instrumentId, instMap);
+    }
+
     if (numFiles > 1) {
-      const lastIdx = this.lastPlayedIndices.has(rrKey) ? this.lastPlayedIndices.get(rrKey)! : -1;
+      const lastIdx = instMap.has(stroke.symbol) ? instMap.get(stroke.symbol)! : -1;
       // Zero-allocation round-robin: pick random index from [0, numFiles-1] excluding lastIdx
       const availableCount = numFiles - (lastIdx >= 0 ? 1 : 0);
       let rawIdx = Math.floor(Math.random() * availableCount);
       if (lastIdx >= 0 && rawIdx >= lastIdx) rawIdx++;
       chosenIdx = rawIdx;
-      this.lastPlayedIndices.set(rrKey, chosenIdx);
+      instMap.set(stroke.symbol, chosenIdx);
     } else {
-      this.lastPlayedIndices.set(rrKey, 0);
+      instMap.set(stroke.symbol, 0);
     }
 
     const filePath = stroke.files[chosenIdx];
@@ -485,13 +664,43 @@ export class AudioEngine {
       return;
     }
 
+    // Voice Stealing (Choke Groups) in Eco Mode
+    const isEco = typeof window !== 'undefined' && !!(window as any).oGiradorEcoMode;
+    if (isEco) {
+      const limit = this.getPolyphonyLimit(instrumentId);
+      const voices = this.instrumentVoices.get(instrumentId) || [];
+      while (voices.length >= limit) {
+        const oldestVoice = voices.shift();
+        if (oldestVoice) {
+          const fadeOutTime = 0.01; // 10ms fade out
+          try {
+            const gainParam = oldestVoice.gainNode.gain;
+            if (typeof gainParam.cancelAndHoldAtTime === 'function') {
+              gainParam.cancelAndHoldAtTime(time);
+            } else {
+              gainParam.cancelScheduledValues(time);
+              gainParam.setValueAtTime(gainParam.value, time);
+            }
+            gainParam.setTargetAtTime(0, time, fadeOutTime / 3);
+            oldestVoice.source.stop(time + fadeOutTime);
+          } catch (e) {
+            try { oldestVoice.source.stop(); } catch (_) {}
+          }
+          oldestVoice.source = null as any;
+          oldestVoice.gainNode = null as any;
+          oldestVoice.instrumentId = '';
+        }
+      }
+      this.instrumentVoices.set(instrumentId, voices);
+    }
+
     // 3. Pitch Calculations (Macro & Micro/Humanization)
     let macroPitch = config.macroPitch !== undefined ? config.macroPitch : 1.0;
     
     // Organically vary the playback rate unless it is a Barulho or Gonguê
     let microPitch = 1.0;
     if (!stroke.isBarulho && instrumentId !== 'gongue') {
-      if (['marcante', 'meiao', 'repique'].includes(instrumentId)) {
+      if (HUMANIZED_INSTRUMENTS.has(instrumentId)) {
         microPitch = 0.993 + Math.random() * 0.014; // Subtle +/- 0.7% variation
       } else {
         microPitch = 0.98 + Math.random() * 0.04; // Normal +/- 2% variation
@@ -519,9 +728,42 @@ export class AudioEngine {
       source.start(time);
       this.activeBarulhoNodes.set(instrumentId, source);
       this.activeBarulhoGains.set(instrumentId, gainNode);
+      this.activeGainNodes.set(source, this.getGainNodeMapping(instrumentId, gainNode, Infinity));
+
+      source.onended = () => {
+        try { source.disconnect(); } catch (_) {}
+        this.releaseGainNode(instrumentId, gainNode);
+        const mapping = this.activeGainNodes.get(source);
+        if (mapping) {
+          mapping.gainNode = null as any;
+          mapping.instrumentId = '';
+        }
+        this.activeGainNodes.delete(source);
+        const currentVoices = this.instrumentVoices.get(instrumentId);
+        if (currentVoices) {
+          for (let i = 0; i < currentVoices.length; i++) {
+            if (currentVoices[i].source === source) {
+              const voice = currentVoices[i];
+              voice.source = null as any;
+              voice.gainNode = null as any;
+              voice.instrumentId = '';
+              currentVoices.splice(i, 1);
+              break;
+            }
+          }
+        }
+      };
+
+      if (isEco) {
+        const voices = this.instrumentVoices.get(instrumentId) || [];
+        voices.push(this.getActiveVoice(source, gainNode, time, velocity, instrumentId));
+        this.instrumentVoices.set(instrumentId, voices);
+      }
     } else {
       this.scheduledHits.add(source);
       const duration = buffer.duration * decayMultiplier;
+      const expectedEnd = time + (decayMultiplier < 1.0 ? duration : buffer.duration);
+      this.activeGainNodes.set(source, this.getGainNodeMapping(instrumentId, gainNode, expectedEnd));
       if (decayMultiplier < 1.0) {
         const fadeTime = Math.min(0.015, duration / 2);
         gainNode.gain.setValueAtTime(velocity, time + duration - fadeTime);
@@ -535,7 +777,32 @@ export class AudioEngine {
         this.scheduledHits.delete(source);
         try { source.disconnect(); } catch (_) {}
         this.releaseGainNode(instrumentId, gainNode);
+        const mapping = this.activeGainNodes.get(source);
+        if (mapping) {
+          mapping.gainNode = null as any;
+          mapping.instrumentId = '';
+        }
+        this.activeGainNodes.delete(source);
+        const currentVoices = this.instrumentVoices.get(instrumentId);
+        if (currentVoices) {
+          for (let i = 0; i < currentVoices.length; i++) {
+            if (currentVoices[i].source === source) {
+              const voice = currentVoices[i];
+              voice.source = null as any;
+              voice.gainNode = null as any;
+              voice.instrumentId = '';
+              currentVoices.splice(i, 1);
+              break;
+            }
+          }
+        }
       };
+
+      if (isEco) {
+        const voices = this.instrumentVoices.get(instrumentId) || [];
+        voices.push(this.getActiveVoice(source, gainNode, time, velocity, instrumentId));
+        this.instrumentVoices.set(instrumentId, voices);
+      }
     }
 
     if (instrumentId === 'apito') {
@@ -553,24 +820,36 @@ export class AudioEngine {
     const activeGain = this.activeBarulhoGains.get(instrumentId);
     
     if (activeNode && activeGain) {
+      // Synchronously remove from instrumentVoices to prevent redundant voice stealing checks
+      const currentVoices = this.instrumentVoices.get(instrumentId);
+      if (currentVoices) {
+        for (let i = 0; i < currentVoices.length; i++) {
+          if (currentVoices[i].source === activeNode) {
+            const voice = currentVoices[i];
+            voice.source = null as any;
+            voice.gainNode = null as any;
+            voice.instrumentId = '';
+            currentVoices.splice(i, 1);
+            break;
+          }
+        }
+      }
       try {
         const fadeTime = 0.015; // 15ms fade out to avoid clicks
         activeGain.gain.setValueAtTime(activeGain.gain.value, time);
         activeGain.gain.linearRampToValueAtTime(0, time + fadeTime);
-        activeNode.stop(time + fadeTime);
         
-        // Wait until the scheduled time PLUS the fadeTime has actually passed in real time
-        // before disconnecting and releasing the node to the pool.
-        // time is in Web Audio context time, which is SCHEDULE_AHEAD_TIME in the future.
-        const timeUntilStop = (time + fadeTime) - this.audioContext.currentTime;
-        const delayMs = Math.max(0, timeUntilStop) * 1000 + 50;
-
-        setTimeout(() => {
-          try { activeNode.disconnect(); } catch (_) {}
-          this.releaseGainNode(instrumentId, activeGain);
-        }, delayMs);
+        activeNode.stop(time + fadeTime);
       } catch (_) {
-        // Source might have been stopped already
+        // Fallback cleanup if node is already stopped/dead
+        try { activeNode.disconnect(); } catch (_) {}
+        this.releaseGainNode(instrumentId, activeGain);
+        const mapping = this.activeGainNodes.get(activeNode);
+        if (mapping) {
+          mapping.gainNode = null as any;
+          mapping.instrumentId = '';
+        }
+        this.activeGainNodes.delete(activeNode);
       }
       this.activeBarulhoNodes.delete(instrumentId);
       this.activeBarulhoGains.delete(instrumentId);
@@ -592,10 +871,16 @@ export class AudioEngine {
    */
   public dispose(): void {
     this.stopAllBarulho();
+
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    }
     
-    if (this.worker) {
-      this.worker.terminate();
-      this.worker = null;
+    if (this.clockNode) {
+      try {
+        this.clockNode.disconnect();
+      } catch (_) {}
+      this.clockNode = null;
     }
     
     if (this.fallbackTimerId) {
@@ -615,6 +900,12 @@ export class AudioEngine {
     this.activeBarulhoNodes.clear();
     this.activeBarulhoGains.clear();
     this.scheduledHits.clear();
+    for (const [_, mapping] of this.activeGainNodes) {
+      mapping.gainNode = null as any;
+      mapping.instrumentId = '';
+    }
+    this.activeGainNodes.clear();
     this.gainNodePools.clear();
+    this.instrumentVoices.clear();
   }
 }

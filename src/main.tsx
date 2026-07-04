@@ -5,6 +5,9 @@ import {SequencerProvider} from './contexts/SequencerContext.tsx';
 import {AudioProvider} from './contexts/AudioContext.tsx';
 import App from './App.tsx';
 import { AuthProvider } from './contexts/AuthContext.tsx';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { indexedDBPersister } from './queryPersister';
 import './index.css';
 
 export function isValidGoogleClientId(id: string | undefined | null): boolean {
@@ -35,14 +38,27 @@ if (inviteCode) {
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5, // 5 minutes cache
+      gcTime: 1000 * 60 * 60 * 24, // 24 hours cache retention
+    },
+  },
+});
+
 createRoot(document.getElementById('root')!).render(
-  <AuthProvider>
-    <GameDataProvider>
-      <SequencerProvider>
-        <AudioProvider>
-          <App />
-        </AudioProvider>
-      </SequencerProvider>
-    </GameDataProvider>
-  </AuthProvider>
+  <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: indexedDBPersister }}>
+    <AuthProvider>
+      <GameDataProvider>
+        <SequencerProvider>
+          <AudioProvider>
+            <App />
+          </AudioProvider>
+        </SequencerProvider>
+      </GameDataProvider>
+    </AuthProvider>
+  </PersistQueryClientProvider>
 );

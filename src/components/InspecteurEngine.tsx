@@ -1,12 +1,6 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import type * as ToneType from 'tone';
-import { loadTone, getTone } from '@/src/ToneLoader';
-
-function safeGetTone() {
-  try { return getTone(); } catch { return null; }
-}
-import { Play, Square, ShieldAlert, Award, ArrowLeft, Check, X, ArrowRight } from 'lucide-react';
-import { audioEngine } from '../hooks/useAudioSync';
+import React from 'react';
+import { Play, Square, ShieldAlert, Check, X, ArrowLeft } from 'lucide-react';
+import { useInspecteurGame } from '../hooks/useInspecteurGame';
 
 interface InspecteurEngineProps {
   lang: 'fr' | 'pt';
@@ -28,218 +22,27 @@ const suspects: Suspect[] = [
   { id: 'agbe', name: { fr: 'Agbê la Perlée', pt: 'Agbê a Perlada' }, icon: 'icones/agbe.svg' }
 ];
 
-const getInstrumentNameFromIdx = (idx: number) => {
-  if (idx === 0) return 'alfaia';
-  if (idx === 3) return 'caixa';
-  if (idx === 5) return 'gongue';
-  if (idx === 6) return 'agbe';
-  return 'caixa'; // fallback
-};
-
 export const InspecteurEngine: React.FC<InspecteurEngineProps> = ({
   lang,
   onExit,
   onSuccess,
   exerciseData
 }) => {
-  // Parse Data
-  const perfectAudio = exerciseData?.partition_parfaite || [];
-  const sabotagedAudio = exerciseData?.piste_sabotee || [];
-  const guiltyInstStr = exerciseData?.instrument_coupable || 'caixa';
-  const loopStart = exerciseData?.loop_start || 0;
-  const loopEnd = exerciseData?.loop_end || 0;
-  const bpm = exerciseData?.bpm || 83;
-  const totalMeasures = perfectAudio.length > 0 ? Math.max(...perfectAudio.map((t: any) => t.patterns?.length || 1)) : 1;
-
-  // Game State
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [selectedSuspect, setSelectedSuspect] = useState<string | null>(null);
-  const [selectedMeasures, setSelectedMeasures] = useState<number[]>([]);
-  const [validationResult, setValidationResult] = useState<'success' | 'failure' | null>(null);
-  const [isResolving, setIsResolving] = useState(false);
-
-  // Compute actual guilty measures
-  const actualGuiltyMeasures = useMemo(() => {
-    const guiltyMeasures: number[] = [];
-    const perfTrack = perfectAudio.find((t: any) => getInstrumentNameFromIdx(t.instrumentIdx) === guiltyInstStr);
-    const sabTrack = sabotagedAudio.find((t: any) => getInstrumentNameFromIdx(t.instrumentIdx) === guiltyInstStr);
-    if (!perfTrack || !sabTrack) return [];
-    
-    for (let m = loopStart; m <= loopEnd; m++) {
-      let isDifferent = false;
-      for (let i = 0; i < 16; i++) {
-        const p = perfTrack.patterns[m]?.activeSteps?.[i];
-        const s = sabTrack.patterns[m]?.activeSteps?.[i];
-        const pNorm = (p === 0 || p === "0") ? null : p;
-        const sNorm = (s === 0 || s === "0") ? null : s;
-        if (pNorm !== sNorm) {
-          isDifferent = true;
-          break;
-        }
-      }
-      if (isDifferent) guiltyMeasures.push(m);
-    }
-    return guiltyMeasures;
-  }, [perfectAudio, sabotagedAudio, guiltyInstStr, loopStart, loopEnd]);
-
-  const scheduleTracks = (tracks: any[]) => {
-    tracks.forEach(track => {
-      if (track.isMute) return;
-      const patterns = track.patterns || [];
-      const instName = getInstrumentNameFromIdx(track.instrumentIdx);
-      
-      patterns.forEach((pattern: any, m: number) => {
-        const steps = pattern.activeSteps || [];
-        for (let i = 0; i < steps.length; i++) {
-          const step = steps[i];
-          if (step !== 0 && step !== '0' && step !== null) {
-            const beat = Math.floor(i / 4);
-            const sixteenth = i % 4;
-            const timeStr = `${m}:${beat}:${sixteenth}`;
-            
-            safeGetTone()?.Transport.schedule((time) => {
-              audioEngine.playNote(instName, step, time, 1.0, 1.0);
-            }, timeStr);
-          }
-        }
-      });
-    });
-  };
-
-  const playInvestigation = () => {
-    safeGetTone()?.Transport.cancel();
-    safeGetTone()?.Transport.stop();
-    
-    // Mix perfect and sabotaged
-    const mixedTracks = perfectAudio.map((track: any) => {
-      if (getInstrumentNameFromIdx(track.instrumentIdx) === guiltyInstStr) {
-        const sabTrack = sabotagedAudio.find((t: any) => getInstrumentNameFromIdx(t.instrumentIdx) === guiltyInstStr);
-        return sabTrack || track;
-      }
-      return track;
-    });
-    
-    scheduleTracks(mixedTracks);
-    
-    if (safeGetTone()) safeGetTone()!.Transport.bpm.value = bpm;
-    safeGetTone()?.Transport.setLoopPoints(`${loopStart}:0:0`, `${loopEnd + 1}:0:0`);
-    if (safeGetTone()) safeGetTone()!.Transport.loop = true;
-    
-    // Resume context if suspended
-    if (safeGetTone()?.context.state !== 'running') {
-      safeGetTone()?.context.resume();
-    }
-    
-    safeGetTone()?.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, `${loopStart}:0:0`);
-    setIsPlaying(true);
-  };
-
-  const playResolution = () => {
-    safeGetTone()?.Transport.cancel();
-    safeGetTone()?.Transport.stop();
-    
-    scheduleTracks(perfectAudio);
-    
-    if (safeGetTone()) safeGetTone()!.Transport.bpm.value = bpm;
-    if (safeGetTone()) safeGetTone()!.Transport.loop = false;
-    
-    if (safeGetTone()?.context.state !== 'running') {
-      safeGetTone()?.context.resume();
-    }
-    
-    safeGetTone()?.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
-    setIsPlaying(true);
-    setIsResolving(true);
-    
-    // Wait until total measures finish
-    const durationSec = (totalMeasures * 4 * 60) / bpm;
-    setTimeout(() => {
-      safeGetTone()?.Transport.stop();
-      setIsPlaying(false);
-      onSuccess?.();
-    }, durationSec * 1000 + 500);
-  };
-
-  const playFatras = async () => {
-    safeGetTone()?.Transport.cancel();
-    safeGetTone()?.Transport.stop();
-    
-    try {
-      const res = await fetch('/presets/fatras.json');
-      const fatras = await res.json();
-      
-      scheduleTracks(fatras.tracks);
-      
-      if (safeGetTone()) safeGetTone()!.Transport.bpm.value = fatras.bpm || 150;
-      if (safeGetTone()) safeGetTone()!.Transport.loop = false;
-      
-      if (safeGetTone()?.context.state !== 'running') {
-        safeGetTone()?.context.resume();
-      }
-      
-      safeGetTone()?.Transport.start(`+${audioEngine['SCHEDULE_AHEAD_TIME'] || 0.1}`, "0:0:0");
-      setIsPlaying(true);
-      
-      const measures = fatras.totalMeasures || 1;
-      const durationSec = (measures * 4 * 60) / safeGetTone()?.Transport.bpm.value;
-      setTimeout(() => {
-        safeGetTone()?.Transport.stop();
-        setIsPlaying(false);
-      }, durationSec * 1000 + 500);
-    } catch (err) {
-      console.error("Fatras error:", err);
-      // Fallback
-      setIsPlaying(false);
-    }
-  };
-
-  const togglePlayback = () => {
-    if (isPlaying) {
-      safeGetTone()?.Transport.pause();
-      setIsPlaying(false);
-    } else {
-      playInvestigation();
-    }
-  };
-
-  const stopPlayback = () => {
-    safeGetTone()?.Transport.stop();
-    setIsPlaying(false);
-  };
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      safeGetTone()?.Transport.stop();
-      safeGetTone()?.Transport.cancel();
-      setIsPlaying(false);
-    };
-  }, []);
-
-  const handleValidate = () => {
-    if (validationResult === 'success') return; // Already won
-
-    const isInstCorrect = selectedSuspect === guiltyInstStr;
-    const isMeasuresCorrect = 
-      selectedMeasures.length === actualGuiltyMeasures.length &&
-      selectedMeasures.every(m => actualGuiltyMeasures.includes(m));
-
-    if (isInstCorrect && isMeasuresCorrect) {
-       setValidationResult('success');
-       playResolution();
-    } else {
-       setValidationResult('failure');
-       playFatras();
-    }
-  };
-
-  const toggleMeasure = (m: number) => {
-    if (selectedMeasures.includes(m)) {
-      setSelectedMeasures(selectedMeasures.filter(x => x !== m));
-    } else {
-      setSelectedMeasures([...selectedMeasures, m]);
-    }
-  };
+  const {
+    isPlaying,
+    selectedSuspect,
+    selectedMeasures,
+    validationResult,
+    isResolving,
+    loopStart,
+    loopEnd,
+    guiltyInstStr,
+    setSelectedSuspect,
+    setValidationResult,
+    togglePlayback,
+    handleValidate,
+    toggleMeasure,
+  } = useInspecteurGame({ onSuccess, exerciseData });
 
   return (
     <div className="w-full h-full overflow-y-auto cordel-bg select-none font-sans flex flex-col p-4 custom-scrollbar">
@@ -261,7 +64,6 @@ export const InspecteurEngine: React.FC<InspecteurEngineProps> = ({
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6 h-full max-w-6xl mx-auto w-full">
-        
         {/* Left Column: Player & Context */}
         <div className="w-full lg:w-1/3 flex flex-col gap-4">
           <div className="border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] p-6 cordel-border flex flex-col items-center justify-center gap-4 text-center">
@@ -382,7 +184,6 @@ export const InspecteurEngine: React.FC<InspecteurEngineProps> = ({
 
           </div>
         </div>
-
       </div>
     </div>
   );

@@ -21,6 +21,12 @@ export default defineConfig(({ command, mode }) => {
             if (id.includes('node_modules/tone')) {
               return 'tone';
             }
+            if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+              return 'react';
+            }
+            if (id.includes('node_modules/@dnd-kit')) {
+              return 'dnd-kit';
+            }
           }
         }
       }
@@ -56,8 +62,24 @@ export default defineConfig(({ command, mode }) => {
           ]
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,wav,mp3,ogg,json,woff2,otf}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,wav,mp3,ogg,m4a,json,woff2,otf}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/firebasestorage\.googleapis\.com/,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'firebase-storage-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            }
+          ]
         }
       }),
 

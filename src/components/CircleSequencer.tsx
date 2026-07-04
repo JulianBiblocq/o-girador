@@ -144,6 +144,23 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const measureDisplayRef = useRef<HTMLSpanElement>(null);
   const centerOverlayRef = useRef<HTMLDivElement>(null);
+  const centerAfficheurRef = useRef<HTMLDivElement>(null);
+  const centerOverlayImgRef = useRef<HTMLImageElement>(null);
+  const centerOverlayTintRef = useRef<HTMLDivElement>(null);
+  const centerOverlayTextRef = useRef<HTMLSpanElement>(null);
+
+  const lastOverlayTextRef = useRef<string>('');
+  const lastOverlayStateRef = useRef({
+    opacity: '',
+    bgColor: '',
+    imgDisplay: '',
+    imgSrc: '',
+    tintDisplay: '',
+    color: '',
+    textShadow: '',
+    fontSize: '',
+  });
+
   const [isCenterShaking, setIsCenterShaking] = useState(false);
 
   const livePlaybackRef = useRef({
@@ -191,68 +208,131 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       }
     }
 
-    const afficheurEl = container.querySelector('#center-afficheur') as HTMLDivElement;
-    const imgEl = container.querySelector('#center-overlay-img') as HTMLImageElement;
-    const tintEl = container.querySelector('#center-overlay-tint') as HTMLDivElement;
-    const textEl = container.querySelector('#center-overlay-text') as HTMLSpanElement;
+    const afficheurEl = centerAfficheurRef.current;
+    const imgEl = centerOverlayImgRef.current;
+    const tintEl = centerOverlayTintRef.current;
+    const textEl = centerOverlayTextRef.current;
+
+    if (!afficheurEl || !imgEl || !tintEl || !textEl) return;
+
+    const cache = lastOverlayStateRef.current;
 
     if (activeSig) {
-      if (imgEl) {
+      if (cache.imgSrc !== activeSig.image) {
         imgEl.src = activeSig.image;
         imgEl.alt = activeSig.name;
+        cache.imgSrc = activeSig.image;
+      }
+      if (cache.imgDisplay !== 'block') {
         imgEl.style.display = 'block';
+        cache.imgDisplay = 'block';
       }
-      if (tintEl) tintEl.style.display = 'block';
-      if (afficheurEl) afficheurEl.style.backgroundColor = 'transparent';
+      if (cache.tintDisplay !== 'block') {
+        tintEl.style.display = 'block';
+        cache.tintDisplay = 'block';
+      }
+      if (cache.bgColor !== 'transparent') {
+        afficheurEl.style.backgroundColor = 'transparent';
+        cache.bgColor = 'transparent';
+      }
 
-      if (textEl) {
+      if (lastOverlayTextRef.current !== activeSig.name) {
         textEl.innerText = activeSig.name;
-        textEl.style.color = '#ffffff';
-        textEl.style.textShadow = '0 1px 3px rgba(0,0,0,0.9)';
-        
-        // Font size adaptation based on length
-        const len = activeSig.name.length;
-        if (len <= 6) {
-          textEl.style.fontSize = 'clamp(9px, 1.8vw, 16px)';
-        } else if (len <= 12) {
-          textEl.style.fontSize = 'clamp(8px, 1.4vw, 12px)';
-        } else {
-          textEl.style.fontSize = 'clamp(7px, 1.1vw, 9px)';
-        }
+        lastOverlayTextRef.current = activeSig.name;
       }
-      container.style.opacity = '0.85';
-    } else if (activeMarker) {
-      if (imgEl) imgEl.style.display = 'none';
-      if (tintEl) tintEl.style.display = 'none';
-      if (afficheurEl) {
-        afficheurEl.style.backgroundColor = activeMarker.color || '#f19066';
+      if (cache.color !== '#ffffff') {
+        textEl.style.color = '#ffffff';
+        cache.color = '#ffffff';
+      }
+      if (cache.textShadow !== '0 1px 3px rgba(0,0,0,0.9)') {
+        textEl.style.textShadow = '0 1px 3px rgba(0,0,0,0.9)';
+        cache.textShadow = '0 1px 3px rgba(0,0,0,0.9)';
       }
 
-      if (textEl) {
+      // Font size adaptation based on length (using CSS variables for clean updates)
+      const len = activeSig.name.length;
+      let sizeVal = 'clamp(7px, 1.1vw, 9px)';
+      if (len <= 6) sizeVal = 'clamp(9px, 1.8vw, 16px)';
+      else if (len <= 12) sizeVal = 'clamp(8px, 1.4vw, 12px)';
+
+      if (cache.fontSize !== sizeVal) {
+        textEl.style.setProperty('--dynamic-font-size', sizeVal);
+        cache.fontSize = sizeVal;
+      }
+
+      if (cache.opacity !== '0.85') {
+        container.style.opacity = '0.85';
+        cache.opacity = '0.85';
+      }
+    } else if (activeMarker) {
+      if (cache.imgDisplay !== 'none') {
+        imgEl.style.display = 'none';
+        cache.imgDisplay = 'none';
+      }
+      if (cache.tintDisplay !== 'none') {
+        tintEl.style.display = 'none';
+        cache.tintDisplay = 'none';
+      }
+      
+      const targetBgColor = activeMarker.color || '#f19066';
+      if (cache.bgColor !== targetBgColor) {
+        afficheurEl.style.backgroundColor = targetBgColor;
+        cache.bgColor = targetBgColor;
+      }
+
+      if (lastOverlayTextRef.current !== activeMarker.name) {
         textEl.innerText = activeMarker.name;
+        lastOverlayTextRef.current = activeMarker.name;
+      }
+      if (cache.color !== '#1a1a1a') {
         textEl.style.color = '#1a1a1a';
-        textEl.style.textShadow = 'none';
-        
-        // Font size adaptation based on length
-        const len = activeMarker.name.length;
-        if (len <= 6) {
-          textEl.style.fontSize = 'clamp(9px, 1.8vw, 16px)';
-        } else if (len <= 12) {
-          textEl.style.fontSize = 'clamp(8px, 1.4vw, 12px)';
-        } else {
-          textEl.style.fontSize = 'clamp(7px, 1.1vw, 9px)';
-        }
+        cache.color = '#1a1a1a';
       }
-      container.style.opacity = '0.85';
+      if (cache.textShadow !== 'none') {
+        textEl.style.textShadow = 'none';
+        cache.textShadow = 'none';
+      }
+
+      // Font size adaptation based on length (using CSS variables for clean updates)
+      const len = activeMarker.name.length;
+      let sizeVal = 'clamp(7px, 1.1vw, 9px)';
+      if (len <= 6) sizeVal = 'clamp(9px, 1.8vw, 16px)';
+      else if (len <= 12) sizeVal = 'clamp(8px, 1.4vw, 12px)';
+
+      if (cache.fontSize !== sizeVal) {
+        textEl.style.setProperty('--dynamic-font-size', sizeVal);
+        cache.fontSize = sizeVal;
+      }
+
+      if (cache.opacity !== '0.85') {
+        container.style.opacity = '0.85';
+        cache.opacity = '0.85';
+      }
     } else {
-      if (imgEl) imgEl.style.display = 'none';
-      if (tintEl) tintEl.style.display = 'none';
-      if (textEl) {
-        textEl.innerText = '';
-        textEl.style.textShadow = 'none';
+      if (cache.imgDisplay !== 'none') {
+        imgEl.style.display = 'none';
+        cache.imgDisplay = 'none';
       }
-      if (afficheurEl) afficheurEl.style.backgroundColor = 'transparent';
-      container.style.opacity = '0';
+      if (cache.tintDisplay !== 'none') {
+        tintEl.style.display = 'none';
+        cache.tintDisplay = 'none';
+      }
+      if (lastOverlayTextRef.current !== '') {
+        textEl.innerText = '';
+        lastOverlayTextRef.current = '';
+      }
+      if (cache.textShadow !== 'none') {
+        textEl.style.textShadow = 'none';
+        cache.textShadow = 'none';
+      }
+      if (cache.bgColor !== 'transparent') {
+        afficheurEl.style.backgroundColor = 'transparent';
+        cache.bgColor = 'transparent';
+      }
+      if (cache.opacity !== '0') {
+        container.style.opacity = '0';
+        cache.opacity = '0';
+      }
     }
   };
 
@@ -381,8 +461,9 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     };
   }, [tracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded]);
 
-  // Handle click on canvas
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Handle click on canvas via Pointer Events (no touch latency)
+  const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -1120,7 +1201,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       animId = requestAnimationFrame(drawLoop);
     };
 
-    drawLoop(performance.now());
+    drawLoop();
 
     return () => {
       cancelAnimationFrame(animId);
@@ -1196,10 +1277,11 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
           ref={canvasRef}
           width={1200}
           height={1200}
-          onClick={handleCanvasClick}
+          onPointerDown={handleCanvasPointerDown}
           className="max-w-full max-h-full aspect-square cursor-pointer block select-none"
+          style={{ touchAction: 'none' }}
           role="application"
-          aria-label={lang === 'pt' ? 'Roda de maracatu — sequenciador circular' : 'Roda de maracatu — séquenceur circulaire'}
+          aria-label={lang === 'pt' ? 'Roda de maracatu — sequenciador circular' : 'Roda de maracatu — sequenciador circular'}
         />
         {/* Center overlay — displays signal or structural marker */}
         <div
@@ -1213,12 +1295,14 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
           {/* Afficheur rond */}
           <div
             id="center-afficheur"
+            ref={centerAfficheurRef}
             className={`w-[20%] aspect-square rounded-full border-4 border-[var(--cordel-border)] shadow-2xl relative overflow-hidden flex items-center justify-center text-center p-1.5 md:p-2.5 select-none ${isCenterShaking ? 'shake-active' : ''}`}
-            style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))' }}
+            style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}
           >
             {/* Background image for signal */}
             <img
               id="center-overlay-img"
+              ref={centerOverlayImgRef}
               alt=""
               className="absolute inset-0 w-full h-full object-cover"
               style={{ display: 'none' }}
@@ -1226,14 +1310,19 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
             {/* Dark tint overlay for signal readability */}
             <div
               id="center-overlay-tint"
+              ref={centerOverlayTintRef}
               className="absolute inset-0 bg-black/30"
               style={{ display: 'none' }}
             />
             {/* Text layer in the center */}
             <span
               id="center-overlay-text"
+              ref={centerOverlayTextRef}
               className="relative z-10 font-cactus font-bold uppercase tracking-wide select-none break-words w-full"
-              style={{ textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}
+              style={{ 
+                textShadow: '0 2px 4px rgba(0,0,0,0.8)',
+                fontSize: 'var(--dynamic-font-size, clamp(9px, 1.8vw, 16px))'
+              }}
             />
           </div>
         </div>
