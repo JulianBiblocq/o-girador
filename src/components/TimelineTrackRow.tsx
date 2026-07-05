@@ -173,7 +173,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
                   </span>
                   <span className="text-[7px] opacity-50 absolute right-1 top-1/2 -translate-y-1/2">▼</span>
                   
-                  {/* Invisible native select overlaid on top */}
+                  {/* Invisible native select overlaid on top with styled options */}
                   <select
                     value={activePattern ? String(activePattern.id) : 'silence'}
                     onChange={e => {
@@ -184,14 +184,14 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
                         mIdx,
                       );
                     }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
                     title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
                   >
-                    <option value="silence">
+                    <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
                       {lang === 'fr' ? '— Silence' : '— Silêncio'}
                     </option>
                     {track.patterns.map((p, pidx) => (
-                      <option key={p.id} value={String(p.id)}>
+                      <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
                         {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
                       </option>
                     ))}
