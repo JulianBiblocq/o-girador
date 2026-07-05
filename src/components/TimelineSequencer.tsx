@@ -284,8 +284,12 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       const initialY = e.clientY;
       const initialWidth = measureWidthRef.current;
       
-      const onPointerMove = (moveEvent: PointerEvent) => {
-        const deltaY = moveEvent.clientY - initialY;
+      let rafId: number | null = null;
+      let latestClientY = e.clientY;
+      let latestClientX = e.clientX;
+
+      const performRulerDrag = (clientX: number, clientY: number) => {
+        const deltaY = clientY - initialY;
         // Si le mouvement est principalement vertical, on zoome
         if (Math.abs(deltaY) > 5) {
           const newWidth = initialWidth + deltaY * 2;
@@ -293,10 +297,26 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           onMeasureWidthChange(clamped);
         }
         // Scrubbing horizontal
-        handleRulerClickOrDrag(moveEvent.clientX);
+        handleRulerClickOrDrag(clientX);
+      };
+
+      const onPointerMove = (moveEvent: PointerEvent) => {
+        latestClientX = moveEvent.clientX;
+        latestClientY = moveEvent.clientY;
+        if (rafId === null) {
+          rafId = requestAnimationFrame(() => {
+            rafId = null;
+            performRulerDrag(latestClientX, latestClientY);
+          });
+        }
       };
       
       const onPointerUp = () => {
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
+        performRulerDrag(latestClientX, latestClientY); // Ensure final values are applied
         isScrubbing.current = false;
         if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
         document.body.style.cursor = 'default';

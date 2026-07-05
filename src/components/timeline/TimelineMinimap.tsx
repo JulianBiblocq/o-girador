@@ -155,8 +155,11 @@ export const TimelineMinimap: React.FC<TimelineMinimapProps> = ({
     const M = minimapContainerRef.current.clientWidth;
     const V = scrollRef.current.clientWidth;
     
-    const onPointerMove = (moveEv: PointerEvent) => {
-      const deltaX = moveEv.clientX - initialX;
+    let rafId: number | null = null;
+    let latestClientX = initialX;
+
+    const performZoom = (clientX: number) => {
+      const deltaX = clientX - initialX;
       const targetS = Math.max(16, initialS + deltaX);
       
       const newW = ((M * V) / targetS - HEADER_W) / totalMeasures;
@@ -167,8 +170,23 @@ export const TimelineMinimap: React.FC<TimelineMinimapProps> = ({
       
       onMeasureWidthChange(clampedW);
     };
+
+    const onPointerMove = (moveEv: PointerEvent) => {
+      latestClientX = moveEv.clientX;
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          performZoom(latestClientX);
+        });
+      }
+    };
     
     const onPointerUp = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      performZoom(latestClientX); // Ensure final value is applied
       if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
       document.body.style.cursor = 'default';
     };
@@ -194,8 +212,11 @@ export const TimelineMinimap: React.FC<TimelineMinimapProps> = ({
     const M = minimapContainerRef.current.clientWidth;
     const V = scrollRef.current.clientWidth;
     
-    const onPointerMove = (moveEv: PointerEvent) => {
-      const deltaX = moveEv.clientX - initialX;
+    let rafId: number | null = null;
+    let latestClientX = initialX;
+
+    const performZoom = (clientX: number) => {
+      const deltaX = clientX - initialX;
       const targetS = Math.max(16, initialS - deltaX);
       const targetL = initialL + deltaX;
       
@@ -207,8 +228,23 @@ export const TimelineMinimap: React.FC<TimelineMinimapProps> = ({
       
       onMeasureWidthChange(clampedW);
     };
+
+    const onPointerMove = (moveEv: PointerEvent) => {
+      latestClientX = moveEv.clientX;
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          performZoom(latestClientX);
+        });
+      }
+    };
     
     const onPointerUp = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      performZoom(latestClientX); // Ensure final value is applied
       if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
       document.body.style.cursor = 'default';
     };
