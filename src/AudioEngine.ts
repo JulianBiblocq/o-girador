@@ -501,21 +501,32 @@ export class AudioEngine {
    * Retourne la limite de polyphonie d'un instrument en mode éco.
    */
   private getPolyphonyLimit(instrumentId: string): number {
-    switch (instrumentId) {
-      case 'caixa':
-      case 'tarol':
-      case 'timbal':
-      case 'agbe':
-      case 'mineiro':
-      case 'apito':
-        return 1;
-      case 'marcante':
-      case 'meiao':
-      case 'repique':
-      case 'gongue':
-        return 2;
-      default:
-        return 2;
+    const isEco = typeof window !== 'undefined' && !!(window as any).oGiradorEcoMode;
+    if (isEco) {
+      switch (instrumentId) {
+        case 'caixa':
+        case 'tarol':
+        case 'timbal':
+        case 'agbe':
+        case 'mineiro':
+        case 'apito':
+          return 1;
+        default:
+          return 2;
+      }
+    } else {
+      switch (instrumentId) {
+        case 'agbe':
+        case 'mineiro':
+          return 3; // Capped to 3 to prevent high-frequency overlap/phasing build-up
+        case 'caixa':
+        case 'tarol':
+        case 'timbal':
+        case 'apito':
+          return 4;
+        default:
+          return 6;
+      }
     }
   }
 
@@ -665,35 +676,28 @@ export class AudioEngine {
       return;
     }
 
-    // Voice Stealing (Choke Groups) in Eco Mode
-    const isEco = typeof window !== 'undefined' && !!(window as any).oGiradorEcoMode;
-    if (isEco) {
-      const limit = this.getPolyphonyLimit(instrumentId);
-      const voices = this.instrumentVoices.get(instrumentId) || [];
-      while (voices.length >= limit) {
-        const oldestVoice = voices.shift();
-        if (oldestVoice) {
-          const fadeOutTime = 0.01; // 10ms fade out
-          try {
-            const gainParam = oldestVoice.gainNode.gain;
-            if (typeof gainParam.cancelAndHoldAtTime === 'function') {
-              gainParam.cancelAndHoldAtTime(time);
-            } else {
-              gainParam.cancelScheduledValues(time);
-              gainParam.setValueAtTime(gainParam.value, time);
-            }
-            gainParam.setTargetAtTime(0, time, fadeOutTime / 3);
-            oldestVoice.source.stop(time + fadeOutTime);
-          } catch (e) {
-            try { oldestVoice.source.stop(); } catch (_) {}
-          }
-          oldestVoice.source = null as any;
-          oldestVoice.gainNode = null as any;
-          oldestVoice.instrumentId = '';
+    // Voice Stealing (Choke Groups) - Always active for precise polyphony capping
+    const limit = this.getPolyphonyLimit(instrumentId);
+    const voices = this.instrumentVoices.get(instrumentId) || [];
+    while (voices.length >= limit) {
+      const oldestVoice = voices.shift();
+      if (oldestVoice) {
+        const fadeOutTime = 0.012; // 12ms fade out
+        try {
+          const gainParam = oldestVoice.gainNode.gain;
+          gainParam.cancelScheduledValues(time);
+          gainParam.setValueAtTime(oldestVoice.velocity, time);
+          gainParam.linearRampToValueAtTime(0, time + fadeOutTime);
+          oldestVoice.source.stop(time + fadeOutTime);
+        } catch (e) {
+          try { oldestVoice.source.stop(time); } catch (_) {}
         }
+        oldestVoice.source = null as any;
+        oldestVoice.gainNode = null as any;
+        oldestVoice.instrumentId = '';
       }
-      this.instrumentVoices.set(instrumentId, voices);
     }
+    this.instrumentVoices.set(instrumentId, voices);
 
     // 3. Pitch Calculations (Macro & Micro/Humanization)
     let macroPitch = config.macroPitch !== undefined ? config.macroPitch : 1.0;
@@ -762,14 +766,24 @@ export class AudioEngine {
       }
     } else {
       this.scheduledHits.add(source);
-      const duration = buffer.duration * decayMultiplier;
-      const expectedEnd = time + (decayMultiplier < 1.0 ? duration : buffer.duration);
+      
+      const originalBufferDuration = buffer.duration;
+      // In Web Audio API, source.start(time, offset, duration) expects duration in buffer timeline seconds.
+      const bufferPlayDuration = originalBufferDuration * decayMultiplier;
+      // The real-world time duration is bufferPlayDuration / calculatedPitch.
+      const realWorldDuration = bufferPlayDuration / calculatedPitch;
+      const expectedEnd = time + realWorldDuration;
+      
       this.activeGainNodes.set(source, this.getGainNodeMapping(instrumentId, gainNode, expectedEnd));
+
+      // Apply linear fade-out to prevent clicks/aliasing transients at the end of playback
+      const fadeTime = Math.min(0.015, realWorldDuration / 2);
+      gainNode.gain.setValueAtTime(velocity, time);
+      gainNode.gain.setValueAtTime(velocity, time + realWorldDuration - fadeTime);
+      gainNode.gain.linearRampToValueAtTime(0, time + realWorldDuration);
+
       if (decayMultiplier < 1.0) {
-        const fadeTime = Math.min(0.015, duration / 2);
-        gainNode.gain.setValueAtTime(velocity, time + duration - fadeTime);
-        gainNode.gain.linearRampToValueAtTime(0, time + duration);
-        source.start(time, 0, duration);
+        source.start(time, 0, bufferPlayDuration);
       } else {
         source.start(time);
       }
@@ -799,11 +813,10 @@ export class AudioEngine {
         }
       };
 
-      if (isEco) {
-        const voices = this.instrumentVoices.get(instrumentId) || [];
-        voices.push(this.getActiveVoice(source, gainNode, time, velocity, instrumentId));
-        this.instrumentVoices.set(instrumentId, voices);
-      }
+      // Track active voice for voice stealing
+      const voices = this.instrumentVoices.get(instrumentId) || [];
+      voices.push(this.getActiveVoice(source, gainNode, time, velocity, instrumentId));
+      this.instrumentVoices.set(instrumentId, voices);
     }
 
     if (instrumentId === 'apito') {
