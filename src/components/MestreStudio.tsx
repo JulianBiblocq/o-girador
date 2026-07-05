@@ -40,6 +40,7 @@ import LZString from 'lz-string';
 import { getLocalLibrary } from '../library';
 import { QuizTab, QuizQuestionStudio } from './mestre-studio/QuizTab';
 import { DicteeTab } from './mestre-studio/DicteeTab';
+import { InspecteurTab } from './mestre-studio/InspecteurTab';
 
 let sharedAudioCtx: AudioContext | null = null;
 const getSharedAudioCtx = () => {
@@ -1908,204 +1909,35 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
 
         {/* 4. CORDE 3: L'INSPECTEUR */}
         {activeTab === 'inspecteur' && (
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col md:flex-row gap-6 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>📂 Charger un exercice pour le modifier (.json)</span>
-                <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'inspecteur')} className="text-[10px] cursor-pointer" />
-              </label>
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>🎵 Charger la partition parfaite depuis un Preset</span>
-                <select 
-                  onChange={(e) => {
-                    handleLoadPresetToGame(e.target.value, 'inspecteur');
-                    e.target.value = '';
-                  }} 
-                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded focus:outline-none text-xs font-bold"
-                >
-                  <option value="">Sélectionner un preset...</option>
-                  {presetFiles.map(p => <option key={p} value={p}>Catalogue: {p.replace('.json', '')}</option>)}
-                  {localPresets.map(p => <option key={p} value={p}>Local: {p}</option>)}
-                </select>
-              </label>
-            </div>
-            <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
-              <span className="font-cactus text-lg font-black text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1">
-                Paramètres de l'Enquête
-              </span>
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Corde Cible</label>
-                  <select
-                    value={inspecteurCordeCible}
-                    onChange={(e) => setInspecteurCordeCible(Number(e.target.value))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    <option value={1}>Corde 1</option>
-                    <option value={2}>Corde 2</option>
-                    <option value={3}>Corde 3</option>
-                    <option value={4}>Corde 4</option>
-                    <option value={5}>Corde 5</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Titre du Folheto</label>
-                  <input
-                    type="text"
-                    value={inspecteurTitle}
-                    onChange={(e) => setInspecteurTitle(e.target.value)}
-                    placeholder="Ex: Le Voleur de Caixa"
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Description / Indice</label>
-                  <input
-                    type="text"
-                    value={inspecteurDescription}
-                    onChange={(e) => setInspecteurDescription(e.target.value)}
-                    placeholder="Ex: Un intrus s'est glissé dans la caisse claire..."
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Instrument Coupable</label>
-                  <select
-                    value={inspecteurGuiltyInstrument}
-                    onChange={(e) => setInspecteurGuiltyInstrument(e.target.value as any)}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full uppercase"
-                  >
-                    <option value="caixa">Caixa (Caisse claire)</option>
-                    <option value="alfaia">Alfaia (Tambour)</option>
-                    <option value="gongue">Gonguê (Cloche)</option>
-                    <option value="agbe">Agbê (Chéquéré)</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Total Mesures</label>
-                  <select
-                    value={inspecteurTotalMeasures}
-                    onChange={(e) => setInspecteurTotalMeasures(Number(e.target.value))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Début Boucle</label>
-                  <select
-                    value={inspecteurLoopStart}
-                    onChange={(e) => setInspecteurLoopStart(Number(e.target.value))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    {Array.from({ length: inspecteurTotalMeasures }).map((_, i) => <option key={i} value={i + 1}>Mesure {i + 1}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Fin Boucle</label>
-                  <select
-                    value={inspecteurLoopEnd}
-                    onChange={(e) => setInspecteurLoopEnd(Number(e.target.value))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    {Array.from({ length: inspecteurTotalMeasures }).map((_, i) => <option key={i} value={i + 1}>Mesure {i + 1}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Tempo (BPM)</label>
-                  <input
-                    type="number"
-                    value={inspecteurBpm}
-                    onChange={(e) => setInspecteurBpm(Number(e.target.value) || 83)}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Pagination */}
-            {inspecteurTotalMeasures > 1 && (
-              <div className="flex justify-center items-center gap-4 py-2 bg-[var(--cordel-bg)] border-y border-dashed border-[var(--cordel-border)]/30 mt-4 mb-2">
-                <button
-                  onClick={() => setInspecteurCurrentMeasure(prev => Math.max(0, prev - 1))}
-                  disabled={inspecteurCurrentMeasure === 0}
-                  className="px-3 py-1 bg-[var(--cordel-border)] text-white rounded disabled:opacity-30 hover:bg-[var(--cordel-wood)] transition-colors"
-                >
-                  &lt;
-                </button>
-                <span className="font-cactus font-bold text-lg text-[var(--cordel-wood)]">Mesure {inspecteurCurrentMeasure + 1} / {inspecteurTotalMeasures}</span>
-                <button
-                  onClick={() => setInspecteurCurrentMeasure(prev => Math.min(inspecteurTotalMeasures - 1, prev + 1))}
-                  disabled={inspecteurCurrentMeasure === inspecteurTotalMeasures - 1}
-                  className="px-3 py-1 bg-[var(--cordel-border)] text-white rounded disabled:opacity-30 hover:bg-[var(--cordel-wood)] transition-colors"
-                >
-                  &gt;
-                </button>
-              </div>
-            )}
-
-            {/* Double Circle Sequencer layouts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Sequencer 1: Partition Parfaite */}
-              <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-2 items-center">
-                <span className="font-cactus text-sm font-bold text-green-700 uppercase">
-                  😇 1. Partition Parfaite (Toute la Roda)
-                </span>
-                <div className="w-full max-w-[460px] py-2 flex items-center justify-center">
-                  <CircleSequencer
-                    lang={lang}
-                    tracks={inspecteurPerfectTracks}
-                    isPlaying={studioPlaying}
-
-                    currentMeasure={inspecteurCurrentMeasure}
-                    maxTicks={16}
-                    timeSig="4/4"
-                    totalMeasures={inspecteurTotalMeasures}
-                    onTogglePlay={() => setStudioPlaying(!studioPlaying)}
-                    onStepChange={(trId, ptId, stIdx, nSt, lyr, nt) => {
-                      handleStepChangeGeneric(inspecteurPerfectTracks, setInspecteurPerfectTracks, trId, ptId, stIdx, nSt, lyr, nt);
-                    }}
-                    langPromptVoiceText=""
-                    activePatternIdByTrack={getActivePatternMap(inspecteurPerfectTracks)}
-                    bpm={inspecteurBpm}
-                    measureBpms={[inspecteurBpm]}
-                    measureVols={[80]}
-                    isMobile={true}
-                  />
-                </div>
-              </div>
-
-              {/* Sequencer 2: Piste Sabotée (Only Guilty Instrument) */}
-              <div className="border-2 border-red-500/80 p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-2 items-center relative shadow-[0_0_8px_rgba(239,68,68,0.2)]">
-                <span className="font-cactus text-sm font-bold text-red-600 uppercase">
-                  😈 2. Piste Sabotée (Uniquement le coupable)
-                </span>
-                <div className="w-full max-w-[460px] py-2 flex items-center justify-center">
-                  <CircleSequencer
-                    lang={lang}
-                    tracks={inspecteurSabotagedTracks}
-                    isPlaying={studioPlaying}
-
-                    currentMeasure={inspecteurCurrentMeasure}
-                    maxTicks={16}
-                    timeSig="4/4"
-                    totalMeasures={inspecteurTotalMeasures}
-                    onTogglePlay={() => setStudioPlaying(!studioPlaying)}
-                    onStepChange={(trId, ptId, stIdx, nSt, lyr, nt) => {
-                      handleStepChangeGeneric(inspecteurSabotagedTracks, setInspecteurSabotagedTracks, trId, ptId, stIdx, nSt, lyr, nt);
-                    }}
-                    langPromptVoiceText=""
-                    activePatternIdByTrack={getActivePatternMap(inspecteurSabotagedTracks)}
-                    bpm={inspecteurBpm}
-                    measureBpms={[inspecteurBpm]}
-                    measureVols={[80]}
-                    isMobile={true}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          <InspecteurTab
+            lang={lang}
+            inspecteurCordeCible={inspecteurCordeCible}
+            setInspecteurCordeCible={setInspecteurCordeCible}
+            inspecteurTitle={inspecteurTitle}
+            setInspecteurTitle={setInspecteurTitle}
+            inspecteurDescription={inspecteurDescription}
+            setInspecteurDescription={setInspecteurDescription}
+            inspecteurGuiltyInstrument={inspecteurGuiltyInstrument}
+            setInspecteurGuiltyInstrument={setInspecteurGuiltyInstrument}
+            inspecteurTotalMeasures={inspecteurTotalMeasures}
+            setInspecteurTotalMeasures={setInspecteurTotalMeasures}
+            inspecteurBpm={inspecteurBpm}
+            setInspecteurBpm={setInspecteurBpm}
+            inspecteurCurrentMeasure={inspecteurCurrentMeasure}
+            setInspecteurCurrentMeasure={setInspecteurCurrentMeasure}
+            inspecteurPerfectTracks={inspecteurPerfectTracks}
+            setInspecteurPerfectTracks={setInspecteurPerfectTracks}
+            inspecteurSabotagedTracks={inspecteurSabotagedTracks}
+            setInspecteurSabotagedTracks={setInspecteurSabotagedTracks}
+            presetFiles={presetFiles}
+            localPresets={localPresets}
+            handleLoadPresetToGame={handleLoadPresetToGame}
+            handleLoadDraft={handleLoadDraft}
+            studioPlaying={studioPlaying}
+            setStudioPlaying={setStudioPlaying}
+            handleStepChangeGeneric={handleStepChangeGeneric}
+            getActivePatternMap={getActivePatternMap}
+          />
         )}
 
         {/* 5. CORDE 4: SABLIER DU MESTRE */}
