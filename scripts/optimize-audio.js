@@ -40,7 +40,8 @@ async function optimizeFile(filePath) {
   // Pour le reste, 32 kHz permet de garder la brillance des aigus sans saturer le main thread au décodage.
   const fileNameOrPath = filePath.toLowerCase();
   const isBassInstrument = fileNameOrPath.includes('alfaia') || fileNameOrPath.includes('surdo');
-  const targetFrequency = isBassInstrument ? 22050 : 32000;
+  const isAgbe = fileNameOrPath.includes('agbe');
+  const targetFrequency = isBassInstrument ? 22050 : (isAgbe ? 44100 : 32000);
   
   return new Promise((resolve, reject) => {
     ffmpeg(filePath)

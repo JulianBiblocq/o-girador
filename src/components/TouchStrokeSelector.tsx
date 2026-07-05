@@ -33,6 +33,26 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
     return isPt ? 'Silêncio' : 'Silence';
   }
 
+  if (instId === 'timbal') {
+    switch (stroke) {
+      case 'G': return isPt ? 'Baixo (Forte - Mão Forte)' : 'Basse (Fort - Main Forte)';
+      case 'g': return isPt ? 'Baixo (Fraca - Mão Fraca)' : 'Basse (Faible - Main Faible)';
+      case 'A': return isPt ? 'Aberto (Forte - Mão Forte)' : 'Ouvert (Fort - Main Forte)';
+      case 'a': return isPt ? 'Aberto (Fraca - Mão Fraca)' : 'Ouvert (Faible - Main Faible)';
+      case 'S': return isPt ? 'Slap (Forte - Mão Forte)' : 'Claqué (Fort - Main Forte)';
+      case 's': return isPt ? 'Slap (Fraca - Mão Fraca)' : 'Claqué (Faible - Main Faible)';
+      case 'D': return isPt ? 'Dedilhado (Forte - Mão Forte)' : 'Fantôme (Fort - Main Forte)';
+      case 'd': return isPt ? 'Dedilhado (Fraca - Mão Fraca)' : 'Fantôme (Faible - Main Faible)';
+      case 'P': return isPt ? 'Preso (Forte - Mão Forte)' : 'Fermé (Fort - Main Forte)';
+      case 'p': return isPt ? 'Preso (Fraca - Mão Fraca)' : 'Fermé (Faible - Main Faible)';
+      case 'F': return isPt ? 'Fla aberto' : 'Fla ouvert';
+      case 'V': return isPt ? 'Fla slap' : 'Fla claqué';
+      case 'C': return isPt ? 'Clap (mãos)' : 'Clap (mains)';
+      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
+      default: return stroke;
+    }
+  }
+
   if (instId === 'caixa' || instId === 'tarol') {
     switch (stroke) {
       case 'D': return isPt ? 'Mão Direita (Forte)' : 'Main Droite (Fort)';

@@ -142,7 +142,7 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
                   <div key={stepIdx} id={cellId} className={`${wrapperClasses} ${isSelected ? 'shadow-[0_0_8px_#f1c40f]' : ''}`} style={wrapperStyle}>
                     <input
                       type="text"
-                      maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
+                      maxLength={['caixa', 'tarol', 'timbal'].includes(inst.id) ? 2 : 1}
                       value={displayVal}
                       readOnly={readOnly}
                       className={`w-full h-full text-center text-[9px] font-bold outline-none m-0 p-0 transition-all ${

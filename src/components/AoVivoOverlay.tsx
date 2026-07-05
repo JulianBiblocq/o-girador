@@ -90,6 +90,41 @@ const KEYFRAMES_RUFADA = [
   { transform: 'translateY(0px) rotateZ(0deg)' }
 ];
 
+const KEYFRAMES_TIMBAL_G = [
+  { transform: 'translateY(0px) rotateX(0deg)', easing: 'ease-out' },
+  { transform: 'translateY(100px) rotateX(20deg)', offset: 0.25, easing: 'ease-in' }, // wind-up
+  { transform: 'translateY(-240px) rotateX(-5deg)', offset: 0.4, easing: 'ease-out' }, // sharp strike (palm in center)
+  { transform: 'translateY(-40px) rotateX(5deg)', offset: 0.6, easing: 'ease-in-out' }, // quick recoil
+  { transform: 'translateY(0px) rotateX(0deg)' }
+];
+const KEYFRAMES_TIMBAL_A = [
+  { transform: 'translateY(0px) rotateX(0deg)', easing: 'ease-out' },
+  { transform: 'translateY(80px) rotateX(15deg)', offset: 0.25, easing: 'ease-in' }, // wind-up
+  { transform: 'translateY(-130px) rotateX(-2deg)', offset: 0.4, easing: 'ease-out' }, // sharp strike (wrist on rim)
+  { transform: 'translateY(-20px) rotateX(2deg)', offset: 0.6, easing: 'ease-in-out' }, // quick recoil
+  { transform: 'translateY(0px) rotateX(0deg)' }
+];
+const KEYFRAMES_TIMBAL_S = [
+  { transform: 'translateY(0px) rotateX(0deg)', easing: 'ease-out' },
+  { transform: 'translateY(160px) rotateX(18deg)', offset: 0.25, easing: 'ease-in' }, // wind-up
+  { transform: 'translateY(70px) rotateX(-3deg)', offset: 0.4, easing: 'ease-out' }, // sharp strike (knuckles on rim)
+  { transform: 'translateY(100px) rotateX(2deg)', offset: 0.6, easing: 'ease-in-out' }, // quick recoil
+  { transform: 'translateY(0px) rotateX(0deg)' }
+];
+const KEYFRAMES_TIMBAL_D = [
+  { transform: 'translateY(0px) rotateX(0deg)', easing: 'ease-out' },
+  { transform: 'translateY(30px) rotateX(5deg)', offset: 0.25, easing: 'ease-in' },
+  { transform: 'translateY(-40px) rotateX(-1deg)', offset: 0.4, easing: 'ease-out' },
+  { transform: 'translateY(0px) rotateX(0deg)' }
+];
+const KEYFRAMES_TIMBAL_P = [
+  { transform: 'translateY(0px) rotateX(0deg)', easing: 'ease-out' },
+  { transform: 'translateY(80px) rotateX(15deg)', offset: 0.25, easing: 'ease-in' },
+  { transform: 'translateY(-130px) rotateX(5deg)', offset: 0.4, easing: 'ease-out' },
+  { transform: 'translateY(-130px) rotateX(5deg)', offset: 0.75, easing: 'ease-in-out' },
+  { transform: 'translateY(0px) rotateX(0deg)' }
+];
+
 const KEYFRAMES_MINEIRO_PUSH_STRONG = [
   { transform: 'translate(0, 0) scale(1)' },
   { transform: 'translate(0, -50px) scale(0.6)', offset: 0.3 },
@@ -201,6 +236,47 @@ const DrumStick = React.forwardRef<SVGSVGElement, { style?: React.CSSProperties 
 ));
 DrumStick.displayName = 'DrumStick';
 
+const TimbalHandLeft = React.forwardRef<SVGSVGElement, { style?: React.CSSProperties }>((props, ref) => (
+  <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.5)] origin-bottom" style={props.style} viewBox="0 0 200 800" preserveAspectRatio="xMidYMin meet">
+    {/* Arm & Palm (Unified modern flat silhouette) */}
+    <path d="M 140 800 L 125 300 C 135 240 150 200 150 180 C 150 120 120 110 100 110 C 80 110 50 120 50 180 C 50 200 65 240 75 300 Z" fill="#d6a26d" />
+    
+    {/* Fingers */}
+    {/* Thumb (pointing inward) */}
+    <path d="M 130 200 C 165 190 175 155 155 130 C 145 120 130 140 115 160 Z" fill="#d6a26d" />
+    {/* Index finger */}
+    <path d="M 140 120 C 145 40 125 40 125 120 Z" fill="#d6a26d" />
+    {/* Middle finger */}
+    <path d="M 120 110 C 125 20 105 20 105 110 Z" fill="#d6a26d" />
+    {/* Ring finger */}
+    <path d="M 100 110 C 105 30 85 30 85 110 Z" fill="#d6a26d" />
+    {/* Little finger */}
+    <path d="M 80 120 C 85 50 65 50 65 120 Z" fill="#d6a26d" />
+  </svg>
+));
+TimbalHandLeft.displayName = 'TimbalHandLeft';
+
+const TimbalHandRight = React.forwardRef<SVGSVGElement, { style?: React.CSSProperties }>((props, ref) => (
+  <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.5)] origin-bottom" style={props.style} viewBox="0 0 200 800" preserveAspectRatio="xMidYMin meet">
+    {/* Arm & Palm (Unified modern flat silhouette) */}
+    <path d="M 60 800 L 75 300 C 65 240 50 200 50 180 C 50 120 80 110 100 110 C 120 110 150 120 150 180 C 150 200 135 240 125 300 Z" fill="#d6a26d" />
+    
+    {/* Fingers */}
+    {/* Thumb (pointing inward) */}
+    <path d="M 70 200 C 35 190 25 155 45 130 C 55 120 70 140 85 160 Z" fill="#d6a26d" />
+    {/* Index finger */}
+    <path d="M 60 120 C 55 40 75 40 75 120 Z" fill="#d6a26d" />
+    {/* Middle finger */}
+    <path d="M 80 110 C 75 20 95 20 95 110 Z" fill="#d6a26d" />
+    {/* Ring finger */}
+    <path d="M 100 110 C 95 30 115 30 115 110 Z" fill="#d6a26d" />
+    {/* Little finger */}
+    <path d="M 120 120 C 115 50 135 50 135 120 Z" fill="#d6a26d" />
+  </svg>
+));
+TimbalHandRight.displayName = 'TimbalHandRight';
+TimbalHandRight.displayName = 'TimbalHandRight';
+
 const GongueStick = React.forwardRef<SVGSVGElement, { style?: React.CSSProperties }>((props, ref) => (
   <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.5)] origin-bottom" style={props.style} viewBox="0 0 100 800" preserveAspectRatio="xMidYMin meet">
     <rect x="30" y="0" width="40" height="800" fill="#F8F9FA" rx="4" />
@@ -289,8 +365,12 @@ export const AoVivoOverlay: React.FC = () => {
       // Apply wrapper dimensions directly to DOM elements
       const handSpread = Math.min(width * 0.45, 550);
 
+      const activeTrack = tracks.find(t => t.id === activeAoVivoTrackId);
+      const isTimbal = activeTrack && activeTrack.instrumentIdx !== undefined && instrumentsConfig[activeTrack.instrumentIdx]?.id === 'timbal';
+      const xOffset = isTimbal ? 30 : 160;
+
       if (leftWrapperRef.current) {
-        const leftX = targetX - 160;
+        const leftX = targetX - xOffset;
         const leftY = targetY;
         const originLeftX = width / 2 - handSpread;
         const originLeftY = height + 350;
@@ -305,7 +385,7 @@ export const AoVivoOverlay: React.FC = () => {
       }
 
       if (rightWrapperRef.current) {
-        const rightX = targetX + 160;
+        const rightX = targetX + xOffset;
         const rightY = targetY;
         const originRightX = width / 2 + handSpread;
         const originRightY = height + 350;
@@ -595,6 +675,89 @@ export const AoVivoOverlay: React.FC = () => {
               }
             }
 
+            // --- 2.5 Timbal ---
+            else if (inst.id === 'timbal') {
+              let keyframesLeft: Keyframe[] = KEYFRAMES_TIMBAL_A;
+              let keyframesRight: Keyframe[] = KEYFRAMES_TIMBAL_A;
+              let triggerLeft = false;
+              let triggerRight = false;
+              let animHalo = false;
+              let animHaloOffsetY = 0;
+
+              if (isVibrate) {
+                keyframesLeft = KEYFRAMES_SHAKE;
+                keyframesRight = KEYFRAMES_SHAKE;
+                triggerLeft = true;
+                triggerRight = true;
+              } else {
+                const isForte = ['G', 'A', 'S', 'D', 'P'].includes(stroke);
+                const isFaible = ['g', 'a', 's', 'd', 'p'].includes(stroke);
+
+                let selectedKeyframes = KEYFRAMES_TIMBAL_A;
+                if (stroke === 'G' || stroke === 'g') {
+                  selectedKeyframes = KEYFRAMES_TIMBAL_G;
+                } else if (stroke === 'A' || stroke === 'a') {
+                  selectedKeyframes = KEYFRAMES_TIMBAL_A;
+                } else if (stroke === 'S' || stroke === 's') {
+                  selectedKeyframes = KEYFRAMES_TIMBAL_S;
+                } else if (stroke === 'D' || stroke === 'd') {
+                  selectedKeyframes = KEYFRAMES_TIMBAL_D;
+                } else if (stroke === 'P' || stroke === 'p') {
+                  selectedKeyframes = KEYFRAMES_TIMBAL_P;
+                }
+
+                if (isForte) {
+                  if (isLeftHanded) { keyframesLeft = selectedKeyframes; triggerLeft = true; }
+                  else { keyframesRight = selectedKeyframes; triggerRight = true; }
+                } else if (isFaible) {
+                  if (isLeftHanded) { keyframesRight = selectedKeyframes; triggerRight = true; }
+                  else { keyframesLeft = selectedKeyframes; triggerLeft = true; }
+                } else if (stroke === 'F' || stroke === 'f') {
+                  keyframesLeft = KEYFRAMES_TIMBAL_A;
+                  keyframesRight = KEYFRAMES_TIMBAL_A;
+                  triggerLeft = true;
+                  triggerRight = true;
+                  animHalo = true;
+                  animHaloOffsetY = -80;
+                } else if (stroke === 'V' || stroke === 'v') {
+                  keyframesLeft = KEYFRAMES_TIMBAL_S;
+                  keyframesRight = KEYFRAMES_TIMBAL_S;
+                  triggerLeft = true;
+                  triggerRight = true;
+                  animHalo = true;
+                  animHaloOffsetY = -50;
+                } else if (stroke === 'C' || stroke === 'c') {
+                  keyframesLeft = KEYFRAMES_CROSS_LEFT;
+                  keyframesRight = KEYFRAMES_CROSS_RIGHT;
+                  triggerLeft = true;
+                  triggerRight = true;
+                  animHalo = true;
+                  animHaloOffsetY = -100;
+                }
+              }
+
+              if (triggerLeft && leftStickRef.current) {
+                leftStickRef.current.animate(keyframesLeft, {
+                  duration: isVibrate ? 100 : 350,
+                  iterations: isVibrate ? Infinity : 1,
+                  easing: isVibrate ? 'linear' : undefined
+                });
+              }
+              if (triggerRight && rightStickRef.current) {
+                rightStickRef.current.animate(keyframesRight, {
+                  duration: isVibrate ? 100 : 350,
+                  iterations: isVibrate ? Infinity : 1,
+                  easing: isVibrate ? 'linear' : undefined
+                });
+              }
+              if (animHalo && haloRef.current) {
+                const { targetX, targetY } = geometryRef.current;
+                haloRef.current.style.left = `${targetX}px`;
+                haloRef.current.style.top = `${targetY + animHaloOffsetY}px`;
+                haloRef.current.animate(KEYFRAMES_HALO, { duration: 400, easing: 'ease-out' });
+              }
+            }
+
             // --- 3. Mineiro ---
             else if (inst.id === 'mineiro') {
               let keyframes = KEYFRAMES_MINEIRO_PUSH_WEAK;
@@ -821,6 +984,29 @@ export const AoVivoOverlay: React.FC = () => {
             </div>
             <div ref={rightWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center' }}>
               <DrumStick ref={rightStickRef} style={{ height: '100%', width: '100%' }} />
+            </div>
+          </>
+        );
+      }
+
+      case 'timbal': {
+        return (
+          <>
+            <div 
+              ref={haloRef} 
+              className="absolute pointer-events-none opacity-0"
+              style={{
+                transform: 'translate(-50%, -50%) scale(0.6)',
+                zIndex: 5
+              }}
+            >
+              <div className="w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] rounded-full border-[8px] border-[#f4ecd8] shadow-[0_0_80px_rgba(255,255,255,1)]" />
+            </div>
+            <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '600px', transformOrigin: 'bottom center' }}>
+              <TimbalHandLeft ref={leftStickRef} style={{ height: '100%', width: '100%' }} />
+            </div>
+            <div ref={rightWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '600px', transformOrigin: 'bottom center' }}>
+              <TimbalHandRight ref={rightStickRef} style={{ height: '100%', width: '100%' }} />
             </div>
           </>
         );

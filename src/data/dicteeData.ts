@@ -69,7 +69,7 @@ export const dicteeLevels: DicteeLevel[] = [
   {
     id: 2,
     title: {
-      fr: 'Groove de Base',
+      fr: 'Baque de Base',
       pt: 'Baque Básico'
     },
     description: {

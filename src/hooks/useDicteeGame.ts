@@ -54,13 +54,38 @@ export function useDicteeGame({ onSuccess, exerciseData }: UseDicteeGameProps) {
     };
   }, []);
 
-  const targetTrackId = exerciseData?.instrument_cible || '';
-  const blocksCount = exerciseData?.nombre_de_blocs || 4;
-  const bpm = exerciseData?.bpm || 83;
-  const sequenceAudio: TrackGroup[] = exerciseData?.sequence_audio || [];
+  const effectiveExerciseData = useMemo(() => {
+    if (exerciseData && exerciseData.sequence_audio && exerciseData.sequence_audio.length > 0) {
+      return exerciseData;
+    }
+    return {
+      id: 'default_dictee_ex',
+      module: 'dictee',
+      folheto_titre: 'Dialogue de Gonguê',
+      bpm: 83,
+      nombre_de_blocs: 4,
+      instrument_cible: 'gongue',
+      sequence_audio: [
+        {
+          id: 'gongue',
+          instrumentIdx: 5,
+          patterns: [{
+            activeSteps: [1, 2, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            lyrics: ['TUM', 'TI', 'TUM', 'TI', '', '', '', '', '', '', '', '', '', '', '', ''],
+            notes: ['G', 'A', 'G', 'A', '', '', '', '', '', '', '', '', '', '', '', '']
+          }]
+        }
+      ]
+    };
+  }, [exerciseData]);
+
+  const targetTrackId = effectiveExerciseData?.instrument_cible || '';
+  const blocksCount = effectiveExerciseData?.nombre_de_blocs || 4;
+  const bpm = effectiveExerciseData?.bpm || 83;
+  const sequenceAudio: TrackGroup[] = effectiveExerciseData?.sequence_audio || [];
 
   const targetTrack = useMemo(() => {
-    return sequenceAudio.find(t => t.id === targetTrackId);
+    return sequenceAudio.find(t => t.id === targetTrackId || t.instrumentIdx === 5);
   }, [sequenceAudio, targetTrackId]);
 
   const targetInstIdx = targetTrack?.instrumentIdx ?? -1;

@@ -12,14 +12,36 @@ interface UseMestreGameProps {
   onSuccess?: () => void;
   setRhythmState: (state: 'base' | 'variation' | 'rufo') => void;
   circleRef: React.RefObject<SVGCircleElement | null>;
+  exerciseData?: any;
 }
 
 export function useMestreGame({
   lang,
   onSuccess,
   setRhythmState,
-  circleRef
+  circleRef,
+  exerciseData
 }: UseMestreGameProps) {
+  const [rounds, setRounds] = useState<any[]>(() => {
+    if (exerciseData) {
+      return [
+        {
+          id: 1,
+          signSymbol: '⏳',
+          signName: { fr: exerciseData.folheto_titre || 'Défi Sablier', pt: exerciseData.folheto_titre || 'Desafio Ampulheta' },
+          options: {
+            fr: ['Relever le défi', 'Ignorer'],
+            pt: ['Aceitar o desafio', 'Ignorar']
+          },
+          correctAnswer: {
+            fr: 'Relever le défi',
+            pt: 'Aceitar o desafio'
+          }
+        }
+      ];
+    }
+    return mestreRounds;
+  });
   const [roundIdx, setRoundIdx] = useState<number>(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<'success' | 'failure' | null>(null);
@@ -34,7 +56,30 @@ export function useMestreGame({
   const timerDurationRef = useRef<number>(0);
   const playbackActiveRef = useRef<boolean>(false);
 
-  const activeRound = mestreRounds[roundIdx];
+  const activeRound = rounds[roundIdx];
+
+  useEffect(() => {
+    if (exerciseData) {
+      setRounds([
+        {
+          id: 1,
+          signSymbol: '⏳',
+          signName: { fr: exerciseData.folheto_titre || 'Défi Sablier', pt: exerciseData.folheto_titre || 'Desafio Ampulheta' },
+          options: {
+            fr: ['Relever le défi', 'Ignorer'],
+            pt: ['Aceitar o desafio', 'Ignorar']
+          },
+          correctAnswer: {
+            fr: 'Relever le défi',
+            pt: 'Aceitar o desafio'
+          }
+        }
+      ]);
+    } else {
+      setRounds(mestreRounds);
+    }
+    setRoundIdx(0);
+  }, [exerciseData]);
 
   useEffect(() => {
     if (validationResult === 'success') {
@@ -148,7 +193,7 @@ export function useMestreGame({
       circleRef.current.style.strokeDashoffset = '0';
     }
     
-    if (roundIdx < mestreRounds.length - 1) {
+    if (roundIdx < rounds.length - 1) {
       setRoundIdx(roundIdx + 1);
     } else {
       setRoundIdx(0);

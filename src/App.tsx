@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
+import { useGameData } from './contexts/GameDataContext';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from './contexts/SequencerContext';
 import { useAudio } from './contexts/AudioContext';
@@ -66,6 +67,8 @@ export default function App() {
   const sequencer = useSequencer();
   const audio = useAudio();
   const { hasAccess, userProfile, updateUserPreference } = useAuth();
+  const { completeExercise } = useGameData();
+  const [activeVaralExercise, setActiveVaralExercise] = useState<any>(null);
 
   // Local Layout / UI States
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -131,6 +134,13 @@ export default function App() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
+
+  // Dynamically update document title based on language, keeping "O Girador" untranslated
+  useEffect(() => {
+    document.title = sequencer.lang === 'fr'
+      ? 'O Girador | Séquenceur dédié au Maracatu de Baque Virado'
+      : 'O Girador | Sequenciador dedicado ao Maracatu de Baque Virado';
+  }, [sequencer.lang]);
 
   // Security route protection
   useEffect(() => {
@@ -410,6 +420,25 @@ export default function App() {
       setViewMode('varal');
       return [...prev, id];
     });
+  };
+
+  const handleGameSuccess = (moduleName: string) => {
+    const normalizedName = moduleName === 'rythme_live' ? 'rythmelive' : (moduleName === 'sablier_mestre' ? 'mestre' : moduleName);
+    unlockBooklet(`folheto_${normalizedName}`);
+    if (activeVaralExercise) {
+      completeExercise(activeVaralExercise.id);
+      setViewMode('varal');
+      setActiveVaralExercise(null);
+    }
+  };
+
+  const handleGameExit = () => {
+    if (activeVaralExercise) {
+      setViewMode('varal');
+      setActiveVaralExercise(null);
+    } else {
+      setViewMode('roda');
+    }
   };
 
   const hasLoadedInitialPreset = useRef(false);
@@ -1054,16 +1083,18 @@ export default function App() {
         {viewMode === 'quiz' && (
           <QuizEngine
             lang={sequencer.lang}
-            onExit={() => setViewMode('roda')}
-            onSuccess={() => unlockBooklet('folheto_quiz')}
+            onExit={handleGameExit}
+            onSuccess={() => handleGameSuccess('quiz')}
+            exerciseData={activeVaralExercise}
           />
         )}
 
         {viewMode === 'dictee' && (
           <DicteeEngine
             lang={sequencer.lang}
-            onExit={() => setViewMode('roda')}
-            onSuccess={() => unlockBooklet('folheto_dictee')}
+            onExit={handleGameExit}
+            onSuccess={() => handleGameSuccess('dictee')}
+            exerciseData={activeVaralExercise}
           />
         )}
 
@@ -1072,10 +1103,9 @@ export default function App() {
           <Suspense fallback={<div>Chargement...</div>}>
             <InspecteurEngine
               lang={sequencer.lang}
-              onExit={() => setViewMode('roda')}
-              caixaParfaite={inspecteurCaixaParfaite}
-              caixaErreur={inspecteurCaixaErreur}
-              onSuccess={() => unlockBooklet('folheto_inspecteur')}
+              onExit={handleGameExit}
+              exerciseData={activeVaralExercise}
+              onSuccess={() => handleGameSuccess('inspecteur')}
             />
           </Suspense>
         )}
@@ -1083,18 +1113,20 @@ export default function App() {
         {viewMode === 'mestre' && (
           <MestreEngine
             lang={sequencer.lang}
-            onExit={() => setViewMode('roda')}
+            onExit={handleGameExit}
             rhythmState={mestreRhythmState}
             setRhythmState={setMestreRhythmState}
-            onSuccess={() => unlockBooklet('folheto_mestre')}
+            onSuccess={() => handleGameSuccess('sablier_mestre')}
+            exerciseData={activeVaralExercise}
           />
         )}
 
         {viewMode === 'rythmelive' && (
           <RythmeLiveEngine
             lang={sequencer.lang}
-            onExit={() => setViewMode('roda')}
-            onSuccess={() => unlockBooklet('folheto_rythmelive')}
+            onExit={handleGameExit}
+            onSuccess={() => handleGameSuccess('rythme_live')}
+            exerciseData={activeVaralExercise}
           />
         )}
 
@@ -1107,6 +1139,15 @@ export default function App() {
               unlockedFolhetos={unlockedFolhetos}
               justUnlockedBookletId={justUnlockedBookletId}
               onClearJustUnlocked={() => setJustUnlockedBookletId(null)}
+              onLaunchExercise={(ex, cordeIndex) => {
+                setActiveVaralExercise(ex);
+                setActiveCordeIndex(cordeIndex);
+                if (ex.module === 'quiz') setViewMode('quiz');
+                else if (ex.module === 'dictee') setViewMode('dictee');
+                else if (ex.module === 'inspecteur') setViewMode('inspecteur');
+                else if (ex.module === 'rythme_live') setViewMode('rythmelive');
+                else if (ex.module === 'sablier_mestre') setViewMode('mestre');
+              }}
             />
           </Suspense>
         )}

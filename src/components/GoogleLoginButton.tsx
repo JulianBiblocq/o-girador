@@ -163,6 +163,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
                   <option value="caixa">Caixa</option>
                   <option value="gongue">Gonguê</option>
                   <option value="agbe">Agbê</option>
+                  <option value="timbal">Timbal</option>
                 </select>
               </div>
             </div>

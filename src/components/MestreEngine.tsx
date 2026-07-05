@@ -8,6 +8,7 @@ interface MestreEngineProps {
   rhythmState: 'base' | 'variation' | 'rufo';
   setRhythmState: (state: 'base' | 'variation' | 'rufo') => void;
   onSuccess?: () => void;
+  exerciseData?: any;
 }
 
 export const MestreEngine: React.FC<MestreEngineProps> = ({
@@ -15,7 +16,8 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
   onExit,
   rhythmState,
   setRhythmState,
-  onSuccess
+  onSuccess,
+  exerciseData
 }) => {
   const circleRef = useRef<SVGCircleElement>(null);
 
@@ -29,7 +31,7 @@ export const MestreEngine: React.FC<MestreEngineProps> = ({
     startRound,
     handleOptionSelect,
     handleNextRound,
-  } = useMestreGame({ lang, onSuccess, setRhythmState, circleRef });
+  } = useMestreGame({ lang, onSuccess, setRhythmState, circleRef, exerciseData });
 
   const t = {
     fr: {

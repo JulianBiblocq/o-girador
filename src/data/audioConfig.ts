@@ -467,6 +467,162 @@ export const instrumentAudioConfigs: InstrumentAudioConfig[] = [
     ]
   },
   {
+    id: 'timbal',
+    name: 'Timbal',
+    uiOrder: ['G', 'g', 'A', 'a', 'S', 's', 'D', 'd', 'P', 'p', 'F', 'V', 'C', 'B'],
+    leftHandedSupport: true,
+    strokes: [
+      {
+        symbol: 'G', // Basse Forte (Main Forte)
+        keys: ['G'],
+        files: [
+          "Mixdown/Timbal G 1.ogg",
+          "Mixdown/Timbal G 2.ogg",
+          "Mixdown/Timbal G 3.ogg",
+          "Mixdown/Timbal G 4.ogg"
+        ],
+        caseSensitive: true
+      },
+      {
+        symbol: 'g', // Basse Faible (Main Faible)
+        keys: ['g'],
+        files: [
+          "Mixdown/Timbal G 1.ogg",
+          "Mixdown/Timbal G 2.ogg",
+          "Mixdown/Timbal G 3.ogg",
+          "Mixdown/Timbal G 4.ogg"
+        ],
+        caseSensitive: true
+      },
+      {
+        symbol: 'A', // Ouvert Forte (Main Forte)
+        keys: ['A'],
+        files: [
+          "Mixdown/Timbal A 1.ogg",
+          "Mixdown/Timbal A 2.ogg",
+          "Mixdown/Timbal A 3.ogg",
+          "Mixdown/Timbal A 4.ogg"
+        ],
+        caseSensitive: true
+      },
+      {
+        symbol: 'a', // Ouvert Faible (Main Faible)
+        keys: ['a'],
+        files: [
+          "Mixdown/Timbal A 1.ogg",
+          "Mixdown/Timbal A 2.ogg",
+          "Mixdown/Timbal A 3.ogg",
+          "Mixdown/Timbal A 4.ogg"
+        ],
+        caseSensitive: true
+      },
+      {
+        symbol: 'S', // Claqué Forte (Main Forte)
+        keys: ['S'],
+        files: [
+          "Mixdown/Timbal S 1.ogg",
+          "Mixdown/Timbal S 2.ogg",
+          "Mixdown/Timbal S 3.ogg",
+          "Mixdown/Timbal S 4.ogg"
+        ],
+        caseSensitive: true
+      },
+      {
+        symbol: 's', // Claqué Faible (Main Faible)
+        keys: ['s'],
+        files: [
+          "Mixdown/Timbal S 1.ogg",
+          "Mixdown/Timbal S 2.ogg",
+          "Mixdown/Timbal S 3.ogg",
+          "Mixdown/Timbal S 4.ogg"
+        ],
+        caseSensitive: true
+      },
+      {
+        symbol: 'D', // Fantôme Forte (Main Forte)
+        keys: ['D'],
+        files: [
+          "Mixdown/Timbal D 1.ogg",
+          "Mixdown/Timbal D 2.ogg",
+          "Mixdown/Timbal D 3.ogg",
+          "Mixdown/Timbal D 4.ogg"
+        ],
+        caseSensitive: true
+      },
+      {
+        symbol: 'd', // Fantôme Faible (Main Faible)
+        keys: ['d'],
+        files: [
+          "Mixdown/Timbal D 1.ogg",
+          "Mixdown/Timbal D 2.ogg",
+          "Mixdown/Timbal D 3.ogg",
+          "Mixdown/Timbal D 4.ogg"
+        ],
+        caseSensitive: true
+      },
+      {
+        symbol: 'P', // Fermé Forte (Main Forte)
+        keys: ['P'],
+        files: [
+          "Mixdown/Timbal P 1.ogg",
+          "Mixdown/Timbal P 2.ogg",
+          "Mixdown/Timbal P 3.ogg",
+          "Mixdown/Timbal P 4.ogg"
+        ],
+        caseSensitive: true
+      },
+      {
+        symbol: 'p', // Fermé Faible (Main Faible)
+        keys: ['p'],
+        files: [
+          "Mixdown/Timbal P 1.ogg",
+          "Mixdown/Timbal P 2.ogg",
+          "Mixdown/Timbal P 3.ogg",
+          "Mixdown/Timbal P 4.ogg"
+        ],
+        caseSensitive: true
+      },
+      {
+        symbol: 'F', // Fla ouvert (Deux mains)
+        keys: ['F', 'f'],
+        files: [
+          "Mixdown/Timbal F 1.ogg",
+          "Mixdown/Timbal F 2.ogg",
+          "Mixdown/Timbal F 3.ogg",
+          "Mixdown/Timbal F 4.ogg"
+        ],
+        caseSensitive: false
+      },
+      {
+        symbol: 'V', // Fla slap (Deux mains)
+        keys: ['V', 'v'],
+        files: [
+          "Mixdown/Timbal V 1.ogg",
+          "Mixdown/Timbal V 2.ogg",
+          "Mixdown/Timbal V 3.ogg",
+          "Mixdown/Timbal V 4.ogg"
+        ],
+        caseSensitive: false
+      },
+      {
+        symbol: 'C', // Clap (Deux mains)
+        keys: ['C', 'c'],
+        files: [
+          "Mixdown/Timbal C 1.ogg",
+          "Mixdown/Timbal C 2.ogg"
+        ],
+        caseSensitive: false
+      },
+      {
+        symbol: 'B', // Barulho (Fatras)
+        keys: ['B', 'b'],
+        files: ["Mixdown/Timbal B.ogg"],
+        caseSensitive: false,
+        isBarulho: true
+      }
+    ]
+  },
+  {
     id: 'apito',
     name: 'Apito',
     uiOrder: ['W', 'w'],

@@ -1452,6 +1452,15 @@ export function useSequencerState() {
               else if (['d', 'D', 'e', 'E', 'q', 'Q'].includes(cleanChar)) {
                 parsed = cleanChar;
               }
+            } else if (inst.id === 'timbal') {
+              const lowerChar = cleanChar.toLowerCase();
+              if (lowerChar === 'f') parsed = 'F';
+              else if (lowerChar === 'v') parsed = 'V';
+              else if (lowerChar === 'b') parsed = 'B';
+              else if (lowerChar === 'c') parsed = 'C';
+              else if (['g', 'G', 'a', 'A', 's', 'S', 'd', 'D', 'p', 'P'].includes(cleanChar)) {
+                parsed = cleanChar;
+              }
             } else if (inst.id === 'agbe') {
               const lowerChar = cleanChar.toLowerCase();
               if (lowerChar === 's') parsed = 'S';

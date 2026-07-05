@@ -89,6 +89,32 @@ export const instrumentsConfig: InstrumentConfig[] = [
     color: '#ea580c'
   },
   {
+    id: 'timbal',
+    iconImg: 'icones/timbal.svg',
+    name: 'Timbal',
+    type: 'hands',
+    mixerBg: '#302008',
+    path: 'Timbal',
+    colors: {
+      'g': '#78350f',
+      'G': '#92400e',
+      'a': '#b45309',
+      'A': '#d97706',
+      's': '#f59e0b',
+      'S': '#fbbf24',
+      'd': '#a89f91',
+      'D': '#7e7b8c',
+      'p': '#451a03',
+      'P': '#5c2205',
+      'F': '#ea580c',
+      'V': '#f97316',
+      'C': '#a89f91',
+      'B': '#291002',
+      text: '#f4ecd8'
+    },
+    color: '#d97706'
+  },
+  {
     id: 'apito',
     iconImg: 'icones/apito.svg',
     name: 'Apito',
@@ -147,8 +173,8 @@ export const i18n = {
     agbeG: "Esquerda (Forte / Fraco)",
     agbeD: "Direita (Forte / Fraco)",
     legendAgbeBarulho: "Barulho",
-    legendAgbeSaut: "Salto / Lançamento (saut)",
-    legendAgbeVolta: "Volta / Retorno (volta)",
+    legendAgbeSaut: "Salto / Lançamento",
+    legendAgbeVolta: "Volta / Retorno",
     mineiroLegend: "🌾 Mineiro",
     mineiroP: "Cima (Forte / Fraco)",
     mineiroT: "Baixo (Forte / Fraco)",
@@ -213,8 +239,8 @@ export const i18n = {
     alfaiaCaixa: "🥁 Alfaia & Caixa",
     mainDroite: "Main Droite",
     mainGauche: "Main Gauche",
-    legendCaixaRufadaD: "Roulement main droite (Rufada)",
-    legendCaixaRufadaG: "Roulement main gauche (Rufada)",
+    legendCaixaRufadaD: "Rufada (Roulement main droite)",
+    legendCaixaRufadaG: "Rufada (Roulement main gauche)",
     legendCaixaCerclage: "Coup sur le cerclage",
     legendCaixaFla: "Fla",
     legendCaixaBarulho: "Barulho",
@@ -234,8 +260,8 @@ export const i18n = {
     agbeG: "Gauche (Fort / Faible)",
     agbeD: "Droite (Fort / Faible)",
     legendAgbeBarulho: "Barulho",
-    legendAgbeSaut: "Saut / Lancer (saut)",
-    legendAgbeVolta: "Retour / Atterrissage (volta)",
+    legendAgbeSaut: "Salto (Lancer)",
+    legendAgbeVolta: "Volta (Retour)",
     mineiroLegend: "🌾 Mineiro",
     mineiroP: "Haut (Fort / Faible)",
     mineiroT: "Bas (Fort / Faible)",
@@ -470,6 +496,7 @@ export function isDarkText(instId: string, strokeVal: string): boolean {
   if (instId === 'gongue' && (strokeVal === 'A' || strokeVal === 'a')) return true;
   if (instId === 'agbe' && ['s', 'S', 'd', 'D', 'e', 'E', 'v', 'V'].includes(strokeVal)) return true;
   if (instId === 'caixa' && ['r', 'R'].includes(strokeVal)) return true;
+  if (instId === 'timbal' && ['s', 'S'].includes(strokeVal)) return true;
   if (instId === 'mineiro' && ['t', 'T', 'L'].includes(strokeVal)) return true;
   if (instId === 'tarol' && ['C', 'e', 'F'].includes(strokeVal)) return true;
   if (['marcante', 'meiao', 'repique'].includes(instId) && ['c', 'C'].includes(strokeVal)) return true;

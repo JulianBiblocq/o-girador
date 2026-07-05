@@ -135,7 +135,25 @@ interface StrokeDef {
 function getStrokesForInstrument(instId: string, instType: string, lang: string, isLeftHanded: boolean): StrokeDef[] {
   const isFr = lang === 'fr';
   let strokes: StrokeDef[] = [];
-  if (instId === 'caixa') {
+  if (instId === 'timbal') {
+    strokes = [
+      { symbol: 'G', label: isFr ? (isLeftHanded ? 'Main Gauche Forte (Basse)' : 'Main Droite Forte (Basse)') : (isLeftHanded ? 'Mão Esquerda Forte (Baixo)' : 'Mão Direita Forte (Baixo)'), shortcut: 'G', colorKey: 'G' },
+      { symbol: 'g', label: isFr ? (isLeftHanded ? 'Main Droite Faible (Basse)' : 'Main Gauche Faible (Basse)') : (isLeftHanded ? 'Mão Direita Fraca (Baixo)' : 'Mão Esquerda Fraca (Baixo)'), shortcut: 'g', colorKey: 'g' },
+      { symbol: 'A', label: isFr ? (isLeftHanded ? 'Main Gauche Forte (Ouvert)' : 'Main Droite Forte (Ouvert)') : (isLeftHanded ? 'Mão Esquerda Forte (Aberto)' : 'Mão Direita Forte (Aberto)'), shortcut: 'A', colorKey: 'A' },
+      { symbol: 'a', label: isFr ? (isLeftHanded ? 'Main Droite Faible (Ouvert)' : 'Main Gauche Faible (Ouvert)') : (isLeftHanded ? 'Mão Direita Fraca (Aberto)' : 'Mão Esquerda Fraca (Aberto)'), shortcut: 'a', colorKey: 'a' },
+      { symbol: 'S', label: isFr ? (isLeftHanded ? 'Main Gauche Forte (Claqué)' : 'Main Droite Forte (Claqué)') : (isLeftHanded ? 'Mão Esquerda Forte (Slap)' : 'Mão Direita Forte (Slap)'), shortcut: 'S', colorKey: 'S' },
+      { symbol: 's', label: isFr ? (isLeftHanded ? 'Main Droite Faible (Claqué)' : 'Main Gauche Faible (Claqué)') : (isLeftHanded ? 'Mão Direita Fraca (Slap)' : 'Mão Esquerda Fraca (Slap)'), shortcut: 's', colorKey: 's' },
+      { symbol: 'D', label: isFr ? (isLeftHanded ? 'Main Gauche Forte (Fantôme)' : 'Main Droite Forte (Fantôme)') : (isLeftHanded ? 'Mão Esquerda Forte (Dedilhado)' : 'Mão Direita Forte (Dedilhado)'), shortcut: 'D', colorKey: 'D' },
+      { symbol: 'd', label: isFr ? (isLeftHanded ? 'Main Droite Faible (Fantôme)' : 'Main Gauche Faible (Fantôme)') : (isLeftHanded ? 'Mão Direita Fraca (Dedilhado)' : 'Mão Esquerda Fraca (Dedilhado)'), shortcut: 'd', colorKey: 'd' },
+      { symbol: 'P', label: isFr ? (isLeftHanded ? 'Main Gauche Forte (Fermé)' : 'Main Droite Forte (Fermé)') : (isLeftHanded ? 'Mão Esquerda Forte (Preso)' : 'Mão Direita Forte (Preso)'), shortcut: 'P', colorKey: 'P' },
+      { symbol: 'p', label: isFr ? (isLeftHanded ? 'Main Droite Faible (Fermé)' : 'Main Gauche Faible (Fermé)') : (isLeftHanded ? 'Mão Direita Fraca (Preso)' : 'Mão Esquerda Fraca (Preso)'), shortcut: 'p', colorKey: 'p' },
+      { symbol: 'F', label: isFr ? 'Fla ouvert' : 'Fla aberto', shortcut: 'F', colorKey: 'F' },
+      { symbol: 'V', label: isFr ? 'Fla claqué' : 'Fla slap', shortcut: 'V', colorKey: 'V' },
+      { symbol: 'C', label: isFr ? 'Clap (mains)' : 'Clap (mãos)', shortcut: 'C', colorKey: 'C' },
+      { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
+    ];
+  }
+  else if (instId === 'caixa') {
     strokes = [
       { symbol: 'D', label: isFr ? 'Main Droite Forte' : 'Mão Direita Forte', shortcut: 'D', colorKey: 'D' },
       { symbol: 'E', label: isFr ? 'Main Gauche Forte' : 'Mão Esquerda Forte', shortcut: 'E', colorKey: 'E' },
@@ -278,6 +296,23 @@ export function getNextStepValue(instId: string, instType: string, currentVal: s
     if (norm === 'a') return 'A';
     if (norm === 'A') return 'X';
     if (norm === 'X') return 'B';
+    return 0;
+  }
+  if (instId === 'timbal') {
+    if (norm === 0 || norm === '0' || !norm) return 'g';
+    if (norm === 'g') return 'G';
+    if (norm === 'G') return 'a';
+    if (norm === 'a') return 'A';
+    if (norm === 'A') return 's';
+    if (norm === 's') return 'S';
+    if (norm === 'S') return 'd';
+    if (norm === 'd') return 'D';
+    if (norm === 'D') return 'p';
+    if (norm === 'p') return 'P';
+    if (norm === 'P') return 'F';
+    if (norm === 'F') return 'V';
+    if (norm === 'V') return 'C';
+    if (norm === 'C') return 'B';
     return 0;
   }
   if (instId === 'caixa') {
@@ -1920,7 +1955,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                   <div className="text-[8px] text-[#999] font-bold mb-0.5 z-10 relative">{i + 1}</div>
                                   <input
                                     type="text"
-                                    maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
+                                    maxLength={['caixa', 'tarol', 'timbal'].includes(inst.id) ? 2 : 1}
                                     value={displayVal}
                                     readOnly={isMultiSelectActive}
                                     inputMode={isTouchDevice ? 'none' : undefined}
@@ -2243,7 +2278,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                           <div className="text-[8px] text-[#999] font-bold mb-0.5 z-10 relative">{i + 1}</div>
                                           <input
                                             type="text"
-                                            maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
+                                            maxLength={['caixa', 'tarol', 'timbal'].includes(inst.id) ? 2 : 1}
                                             value={displayVal}
                                             readOnly={false}
                                             inputMode={isTouchDevice ? 'none' : undefined}

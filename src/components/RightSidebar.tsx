@@ -571,6 +571,55 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
               </div>
             </details>
 
+            {/* Timbal */}
+            <details className="group bg-[var(--cordel-bg)] cordel-border-sm mb-1">
+              <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">
+                <span className="flex items-center text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
+                  <img src="icones/timbal.svg" alt="" className="w-4 h-4 mr-1.5 inline-block opacity-80" />
+                  Timbal
+                </span>
+                <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
+              </summary>
+              <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#92400e] text-[#f4ecd8]">G / g</span>
+                  <span>{lang === 'fr' ? 'Basse (baixo) - Main forte / faible' : 'Basse / Baixo - Mão forte / fraca'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#d97706] text-[#f4ecd8]">A / a</span>
+                  <span>{lang === 'fr' ? 'Ouvert (aberto) - Main forte / faible' : 'Aberto - Mão forte / fraca'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fbbf24] text-[#1a1a1a]">S / s</span>
+                  <span>{lang === 'fr' ? 'Claqué (slap) - Main forte / faible' : 'Claqué / Slap - Mão forte / fraca'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#7e7b8c] text-[#f4ecd8]">D / d</span>
+                  <span>{lang === 'fr' ? 'Fantôme (dedilhado) - Main forte / faible' : 'Fantasma / Dedilhado - Mão forte / fraca'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#5c2205] text-[#f4ecd8]">P / p</span>
+                  <span>{lang === 'fr' ? 'Fermé (preso) - Main forte / faible' : 'Abafado / Preso - Mão forte / fraca'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#ea580c] text-[#f4ecd8]">F / f</span>
+                  <span>{lang === 'fr' ? 'Fla ouvert (aberto)' : 'Fla aberto'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#f97316] text-[#f4ecd8]">V / v</span>
+                  <span>{lang === 'fr' ? 'Fla claqué (slap)' : 'Fla slap'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a89f91] text-[#1a1a1a]">C / c</span>
+                  <span>{lang === 'fr' ? 'Clap (mains) - Deux mains l\'une contre l\'autre' : 'Clap (mãos) - Duas mãos uma contra a outra'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#291002] text-[#f4ecd8]">B / b</span>
+                  <span>{lang === 'fr' ? 'Barulho (fatras)' : 'Barulho / Ruído'}</span>
+                </div>
+              </div>
+            </details>
+
             {/* Gongue */}
             <details className="group bg-[var(--cordel-bg)] cordel-border-sm mb-1">
               <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Play, 
   Square, 
@@ -22,9 +22,22 @@ const CircleSequencer = React.lazy(() => import('./CircleSequencer').then(m => (
 import { TrackGroup, Language } from '../types';
 import { useGameData } from '../contexts/GameDataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { saveExerciseToCloud, saveProgressionToCloud, GameType, CloudExercise, fetchAllMestreExercises } from '../cloudExercises';
+import { 
+  saveExerciseToCloud, 
+  saveProgressionToCloud, 
+  saveOrUpdateProgressionToCloud,
+  fetchMestreProgressions,
+  deleteProgressionFromCloud,
+  GameType, 
+  CloudExercise, 
+  CloudProgression,
+  fetchAllMestreExercises 
+} from '../cloudExercises';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 import { instrumentsConfig } from '../data';
 import LZString from 'lz-string';
+import { getLocalLibrary } from '../library';
 
 let sharedAudioCtx: AudioContext | null = null;
 const getSharedAudioCtx = () => {
@@ -59,6 +72,7 @@ export interface CordeRewardStudio {
 
 interface CordeConfig {
   requiredCount: number;
+  gameType?: 'quiz' | 'dictee' | 'inspecteur' | 'sablier_mestre' | 'rythme_live' | 'random';
   games: GameSlot[];
   reward: CordeRewardStudio;
   oeuvreToniBraga: string; // Base64 (legacy fallback)
@@ -86,12 +100,41 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   presetFiles = [],
   localPresets = []
 }) => {
-  // 7 Specialized Tabs
-  type TabType = 'varal' | 'quiz' | 'dictee' | 'inspecteur' | 'sablier' | 'rythmelive' | 'valise';
+  // 6 Specialized Tabs
+  type TabType = 'varal' | 'quiz' | 'dictee' | 'inspecteur' | 'sablier' | 'rythmelive';
   const [activeTab, setActiveTab] = useState<TabType>('varal');
   const [showCopyModal, setShowCopyModal] = useState(false);
   const { userProfile } = useAuth();
   const mestreUid = userProfile?.uid || 'local';
+
+  // Multi-Varal State
+  const [cloudProgressionsList, setCloudProgressionsList] = useState<CloudProgression[]>([]);
+  const [activeProgressionIds, setActiveProgressionIds] = useState<string[]>([]);
+  const [varalName, setVaralName] = useState('Mon Varal');
+  const [editingVaralId, setEditingVaralId] = useState<string | null>(null);
+
+  const loadProgressions = useCallback(() => {
+    if (mestreUid && mestreUid !== 'local') {
+      fetchMestreProgressions(mestreUid).then((res: any) => {
+        setCloudProgressionsList(res.progressions);
+        
+        const varalDocRef = doc(db, 'varals', `mestre_${mestreUid}`);
+        getDoc(varalDocRef).then(snap => {
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data.activeVarals && Array.isArray(data.activeVarals)) {
+              const activeIds = data.activeVarals.map((v: any) => v.id).filter(Boolean);
+              setActiveProgressionIds(activeIds);
+            }
+          }
+        });
+      }).catch((err: any) => console.error("Failed to fetch progressions:", err));
+    }
+  }, [mestreUid]);
+
+  useEffect(() => {
+    loadProgressions();
+  }, [loadProgressions]);
 
   useEffect(() => {
     return () => {
@@ -233,11 +276,11 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
 
   // 1. Config Varal State
   const [varalCordes, setVaralCordes] = useState<CordeConfig[]>([
-    { requiredCount: 3, games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
-    { requiredCount: 2, games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
-    { requiredCount: 1, games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
-    { requiredCount: 1, games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
-    { requiredCount: 1, games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+    { requiredCount: 3, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+    { requiredCount: 2, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+    { requiredCount: 1, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+    { requiredCount: 1, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+    { requiredCount: 1, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
   ]);
   
   const [diplomaText, setDiplomaText] = useState('');
@@ -644,24 +687,27 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   const handleLoadPresetToGame = async (presetName: string, moduleName: string) => {
     if (!presetName) return;
     try {
-      let dataStr: string | null = null;
+      let presetData: any = null;
       if (presetName.endsWith('.json')) {
         const response = await fetch(`/presets/${presetName}`);
         if (response.ok) {
-          dataStr = await response.text();
+          const dataStr = await response.text();
+          presetData = JSON.parse(dataStr);
         }
       } else {
-        dataStr = localStorage.getItem(`o-girador-preset-${presetName}`);
+        const library = await getLocalLibrary();
+        presetData = library[presetName];
       }
 
-      if (!dataStr) {
+      if (!presetData) {
         alert('Impossible de charger le preset.');
         return;
       }
 
-      const presetData = JSON.parse(dataStr);
       const loadedTracks = presetData.tracks || [];
-      const bpm = presetData.measureBpms ? presetData.measureBpms[0] : 83;
+      const bpm = presetData.measureBpms && presetData.measureBpms.length > 0
+        ? presetData.measureBpms[0]
+        : (presetData.bpm || 83);
 
       if (moduleName === 'inspecteur') {
         setInspecteurBpm(bpm);
@@ -678,6 +724,10 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
       } else if (moduleName === 'rythme_live') {
         setRythmeLiveBpm(bpm);
         setRythmeLivePlaybackTracks(loadedTracks);
+      } else if (moduleName === 'sablier_mestre') {
+        setSablierBpm(bpm);
+        setSablierSeqFond(loadedTracks);
+        setSablierSeqFondName(presetName);
       }
     } catch (err) {
       console.error('Error loading preset:', err);
@@ -777,6 +827,102 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
     }
   };
 
+  const handleSaveVaralToCloud = async () => {
+    if (!varalName.trim()) {
+      alert(lang === 'fr' ? "Veuillez entrer un nom pour le Varal." : "Por favor, insira um nome para o Varal.");
+      return;
+    }
+    setIsSavingCloud(true);
+    try {
+      const exportData = getExportDataForCurrentTab('varal');
+      if (!exportData) throw new Error("No data");
+
+      const savedId = await saveOrUpdateProgressionToCloud(editingVaralId, varalName, exportData, mestreUid);
+      setEditingVaralId(savedId);
+      alert(lang === 'fr' ? "Varal sauvegardé avec succès dans le Cloud !" : "Varal salvo com sucesso no Cloud !");
+      
+      // Update local list
+      fetchMestreProgressions(mestreUid).then((res: any) => {
+        setCloudProgressionsList(res.progressions);
+        // If it was already active, update the active config in Firestore
+        if (activeProgressionIds.includes(savedId)) {
+          const updatedList = res.progressions;
+          updateActiveVaralsInFirestore(activeProgressionIds, updatedList);
+        }
+      });
+    } catch (err: any) {
+      if (err.message === 'NAME_EXISTS') {
+        alert(lang === 'fr' ? "Un Varal avec ce nom existe déjà." : "Um Varal com este nome já existe.");
+      } else {
+        alert(lang === 'fr' ? "Erreur de sauvegarde." : "Erro ao salvar.");
+      }
+    } finally {
+      setIsSavingCloud(false);
+    }
+  };
+
+  const handleDeleteVaral = async (id: string) => {
+    if (!window.confirm(lang === 'fr' ? "Voulez-vous vraiment supprimer ce Varal ?" : "Deseja realmente excluir este Varal ?")) return;
+    try {
+      await deleteProgressionFromCloud(id);
+      if (editingVaralId === id) {
+        setEditingVaralId(null);
+        setVaralName('Mon Varal');
+      }
+      const nextActiveIds = activeProgressionIds.filter(activeId => activeId !== id);
+      setActiveProgressionIds(nextActiveIds);
+      await updateActiveVaralsInFirestore(nextActiveIds, cloudProgressionsList.filter(p => p.id !== id));
+      
+      alert(lang === 'fr' ? "Varal supprimé." : "Varal excluído.");
+      loadProgressions();
+    } catch(e) {
+      alert("Erreur de suppression");
+    }
+  };
+
+  const handleToggleVaralActive = async (progId: string) => {
+    let nextActiveIds = [...activeProgressionIds];
+    if (nextActiveIds.includes(progId)) {
+      nextActiveIds = nextActiveIds.filter(id => id !== progId);
+    } else {
+      nextActiveIds.push(progId);
+    }
+    setActiveProgressionIds(nextActiveIds);
+    await updateActiveVaralsInFirestore(nextActiveIds, cloudProgressionsList);
+  };
+
+  const updateActiveVaralsInFirestore = async (newActiveIds: string[], updatedProgressions: CloudProgression[]) => {
+    try {
+      if (mestreUid === 'local') return;
+      const docRef = doc(db, 'varals', `mestre_${mestreUid}`);
+      
+      const activeConfigs = newActiveIds.map(id => {
+        const prog = updatedProgressions.find(p => p.id === id);
+        if (!prog) return null;
+        try {
+          const decompressed = LZString.decompressFromBase64(prog.data);
+          if (decompressed) {
+            const parsed = JSON.parse(decompressed);
+            return {
+              id: prog.id,
+              name: prog.name,
+              ...parsed
+            };
+          }
+        } catch(e) { console.error("Error parsing progression for activation:", e); }
+        return null;
+      }).filter(Boolean);
+      
+      await setDoc(docRef, {
+        activeVarals: activeConfigs,
+        lastUpdatedAt: Date.now()
+      }, { merge: true });
+      
+    } catch (err) {
+      console.error("Failed to update active varals in Firestore:", err);
+    }
+  };
+
   // --- RENDER ---QUESTION EDITING HELPERS ---
 
   const handleLoadDraft = (e: React.ChangeEvent<HTMLInputElement>, moduleName: string) => {
@@ -802,6 +948,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
               if (loadedCorde) {
                 return {
                   requiredCount: loadedCorde.requiredCount || 1,
+                  gameType: loadedCorde.gameType || 'random',
                   games: loadedCorde.games || [],
                   reward: loadedCorde.reward || { text: '', type: 'none', url: '', base64: '' },
                   oeuvreToniBraga: loadedCorde.oeuvreToniBraga || '',
@@ -1001,14 +1148,18 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
     if (tab === 'varal') {
       exportData = {
         module: 'varal_config',
+        id: editingVaralId || uniqueId,
+        name: varalName,
         diplomaText,
         diplomaSignature,
         cordes: varalCordes.slice(0, varalActiveCordesCount).map((c, idx) => ({
           cordeIndex: idx + 1,
           requiredCount: Number(c.requiredCount) || 1,
-          games: c.games.map(g => {
-            if (g.source === 'local' && g.localExerciseData) return g.localExerciseData;
-            if (g.source === 'cloud' && g.cloudExerciseId) {
+          gameType: c.gameType || 'random',
+          games: Array.from({ length: Number(c.requiredCount) || 1 }).map((_, slotIdx) => {
+            const g = c.games[slotIdx];
+            if (g && g.source === 'local' && g.localExerciseData) return g.localExerciseData;
+            if (g && g.source === 'cloud' && g.cloudExerciseId) {
               const ce = cloudExercisesList.find(x => x.id === g.cloudExerciseId);
               if (ce) {
                 try {
@@ -1017,7 +1168,13 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
                 } catch(e) { console.error("Failed to parse cloud data", e); }
               }
             }
-            return { module: 'random', _dummy: true }; // Fallback
+            const targetMod = c.gameType && c.gameType !== 'random' ? c.gameType : 'quiz';
+            return {
+              id: `random_${idx + 1}_${slotIdx + 1}_${Math.random().toString(36).substring(2, 9)}`,
+              module: targetMod,
+              folheto_titre: `Défi Aléatoire ${idx + 1}.${slotIdx + 1}`,
+              isRandom: true
+            };
           }),
           reward: c.reward,
           oeuvreToniBraga: c.oeuvreToniBraga,
@@ -1185,12 +1342,11 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
       <div className="flex flex-wrap gap-2 border-b-2 border-[var(--cordel-border)] pb-2 justify-center lg:justify-start">
         {[
           { id: 'varal', label: '1. Config Varal', icon: <Settings className="w-4 h-4" /> },
-          { id: 'quiz', label: '2. Corde 1 - Quiz', icon: <Sparkles className="w-4 h-4" /> },
-          { id: 'dictee', label: '3. Corde 2 - Dictée', icon: <Music className="w-4 h-4" /> },
-          { id: 'inspecteur', label: "4. Corde 3 - L'Inspecteur", icon: <Sliders className="w-4 h-4" /> },
-          { id: 'sablier', label: '5. Corde 4 - Sablier', icon: <HelpCircle className="w-4 h-4" /> },
-          { id: 'rythmelive', label: '6. Corde 5 - Live', icon: <Award className="w-4 h-4" /> },
-          { id: 'valise', label: '📥 La Valise', icon: <Download className="w-4 h-4" /> },
+          { id: 'quiz', label: '2. Quiz', icon: <Sparkles className="w-4 h-4" /> },
+          { id: 'dictee', label: '3. Dictée de blocs', icon: <Music className="w-4 h-4" /> },
+          { id: 'inspecteur', label: "4. L'Inspecteur", icon: <Sliders className="w-4 h-4" /> },
+          { id: 'sablier', label: '5. Sablier du Mestre', icon: <HelpCircle className="w-4 h-4" /> },
+          { id: 'rythmelive', label: '6. Rythme Live', icon: <Award className="w-4 h-4" /> },
         ].map((t) => (
           <button
             key={t.id}
@@ -1247,11 +1403,141 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         {/* 1. CONFIG VARAL */}
         {activeTab === 'varal' && (
           <div className="flex flex-col gap-6">
+            {/* Multi-Varal Management Dashboard */}
+            <div className="border-4 border-[var(--cordel-border)] bg-[var(--cordel-bg)] p-4 shadow-[4px_4px_0_var(--cordel-border)] flex flex-col gap-3">
+              <span className="font-cactus text-lg font-black text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1 flex justify-between items-center">
+                <span>🪢 {lang === 'fr' ? 'Mes Varals Cloud' : 'Meus Varais Cloud'}</span>
+                <button
+                  onClick={() => {
+                    setEditingVaralId(null);
+                    setVaralName('Nouveau Varal');
+                    setVaralCordes([
+                      { requiredCount: 3, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+                      { requiredCount: 2, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+                      { requiredCount: 1, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+                      { requiredCount: 1, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+                      { requiredCount: 1, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+                    ]);
+                    setVaralActiveCordesCount(3);
+                  }}
+                  className="px-2.5 py-1 bg-green-600 text-white text-[10px] font-bold uppercase rounded cursor-pointer hover:bg-green-700 transition"
+                >
+                  + {lang === 'fr' ? 'Nouveau' : 'Novo'}
+                </button>
+              </span>
+              {cloudProgressionsList.length === 0 ? (
+                <p className="text-xs italic text-[var(--cordel-text)]/50 py-2 text-center">
+                  {lang === 'fr' ? "Aucun Varal enregistré. Créez-en un à l'aide du formulaire ci-dessous." : 'Nenhum Varal registrado.'}
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
+                  {cloudProgressionsList.map((prog) => {
+                    const isActive = activeProgressionIds.includes(prog.id);
+                    let ropesCount = 0;
+                    try {
+                      const decompressed = LZString.decompressFromBase64(prog.data);
+                      if (decompressed) {
+                         const parsed = JSON.parse(decompressed);
+                         ropesCount = parsed.cordes?.length || 0;
+                      }
+                    } catch(e) {}
+
+                    return (
+                      <div key={prog.id} className="flex items-center justify-between bg-black/5 p-3 border border-[var(--cordel-border)]/15 rounded-sm">
+                        <div className="flex flex-col text-left">
+                          <span className="text-sm font-black text-[var(--cordel-text)] flex items-center gap-2">
+                            {prog.name}
+                            {editingVaralId === prog.id && (
+                              <span className="text-[9px] uppercase font-bold bg-[var(--cordel-wood)] text-white px-1.5 py-0.5 rounded">
+                                {lang === 'fr' ? 'Édition' : 'Edição'}
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-[10px] font-bold text-[var(--cordel-text)]/60">
+                            🪢 {ropesCount} {ropesCount > 1 ? (lang === 'fr' ? 'cordes' : 'cordas') : (lang === 'fr' ? 'corde' : 'corda')}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => handleToggleVaralActive(prog.id)}
+                            className={`px-2.5 py-1 text-[10px] font-black uppercase rounded cursor-pointer transition ${
+                              isActive 
+                                ? 'bg-green-600 text-white' 
+                                : 'bg-gray-300 text-gray-700 hover:bg-gray-400'
+                            }`}
+                          >
+                            {isActive ? (lang === 'fr' ? 'Actif' : 'Ativo') : (lang === 'fr' ? 'Inactif' : 'Inativo')}
+                          </button>
+                          
+                          <button
+                            onClick={() => {
+                              setEditingVaralId(prog.id);
+                              setVaralName(prog.name);
+                              try {
+                                const decompressed = LZString.decompressFromBase64(prog.data);
+                                if (decompressed) {
+                                  const json = JSON.parse(decompressed);
+                                  if (json.diplomaText) setDiplomaText(json.diplomaText);
+                                  if (json.diplomaSignature) setDiplomaSignature(json.diplomaSignature);
+                                  if (json.cordes && Array.isArray(json.cordes)) {
+                                    setVaralActiveCordesCount(Math.min(5, Math.max(1, json.cordes.length)));
+                                    setVaralCordes(prev => prev.map((c, idx) => {
+                                      const loadedCorde = json.cordes[idx];
+                                      if (loadedCorde) {
+                                        return {
+                                          requiredCount: loadedCorde.requiredCount || 1,
+                                          gameType: loadedCorde.gameType || 'random',
+                                          games: loadedCorde.games || [],
+                                          reward: loadedCorde.reward || { text: '', type: 'none', url: '', base64: '' },
+                                          oeuvreToniBraga: loadedCorde.oeuvreToniBraga || '',
+                                          rewardData: loadedCorde.rewardData || ''
+                                        };
+                                      }
+                                      return c;
+                                    }));
+                                  }
+                                }
+                              } catch (err) {
+                                console.error("Failed to load progression for editing", err);
+                              }
+                            }}
+                            className="px-2 py-1 bg-[var(--cordel-wood)] text-white text-[10px] font-black uppercase rounded cursor-pointer hover:opacity-90"
+                          >
+                            {lang === 'fr' ? 'Éditer' : 'Editar'}
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteVaral(prog.id)}
+                            className="p-1 text-red-600 hover:bg-red-100 rounded cursor-pointer transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             <div className="flex flex-col md:flex-row gap-6 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
               <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>📂 Charger une configuration Varal (.json)</span>
+                <span>📂 Charger un brouillon local Varal (.json)</span>
                 <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'varal_config')} className="text-[10px] cursor-pointer" />
               </label>
+
+              <div className="flex flex-col gap-1 flex-1">
+                <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">
+                  {lang === 'fr' ? 'Nom du Varal' : 'Nome do Varal'}
+                </label>
+                <input
+                  type="text"
+                  value={varalName}
+                  onChange={(e) => setVaralName(e.target.value)}
+                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
+                  placeholder="Ex: Varal Débutant"
+                />
+              </div>
               
               <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
                 <span>🔗 Nombre de cordes actives</span>
@@ -1286,29 +1572,54 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
                         {idx === 0 ? 'Débutant' : idx === 1 ? 'Initié' : idx === 2 ? "Confirmé" : idx === 3 ? 'Expert' : 'Mestre'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs font-black uppercase text-[var(--cordel-text)]/70">Nb. de jeux</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={10}
-                        required
-                        value={varalCordes[idx].requiredCount}
-                        onChange={(e) => {
-                          const val = Math.max(1, Math.min(10, Number(e.target.value) || 1));
-                          setVaralCordes(prev => prev.map((c, cIdx) => {
-                            if (cIdx !== idx) return c;
-                            const newGames = [...c.games];
-                            if (val > newGames.length) {
-                              for(let i=newGames.length; i<val; i++) newGames.push({ id: `slot_${Date.now()}_${i}`, source: 'empty' });
-                            } else {
-                              newGames.splice(val);
-                            }
-                            return { ...c, requiredCount: val, games: newGames };
-                          }));
-                        }}
-                        className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] p-1 rounded font-black text-center w-16"
-                      />
+
+                    <div className="flex flex-wrap items-center gap-4 mt-2 md:mt-0">
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-black uppercase text-[var(--cordel-text)]/70">Type de jeu</label>
+                        <select
+                          value={varalCordes[idx].gameType || 'random'}
+                          onChange={(e) => {
+                            const val = e.target.value as any;
+                            setVaralCordes(prev => prev.map((c, cIdx) => {
+                              if (cIdx !== idx) return c;
+                              return { ...c, gameType: val };
+                            }));
+                          }}
+                          className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded focus:outline-none text-xs font-bold"
+                        >
+                          <option value="random">Tous mélangés (Auto)</option>
+                          <option value="quiz">Quiz uniquement</option>
+                          <option value="dictee">Dictée uniquement</option>
+                          <option value="inspecteur">Inspecteur uniquement</option>
+                          <option value="sablier_mestre">Sablier uniquement</option>
+                          <option value="rythme_live">Rythme Live uniquement</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs font-black uppercase text-[var(--cordel-text)]/70">Nb. de jeux</label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={10}
+                          required
+                          value={varalCordes[idx].requiredCount}
+                          onChange={(e) => {
+                            const val = Math.max(1, Math.min(10, Number(e.target.value) || 1));
+                            setVaralCordes(prev => prev.map((c, cIdx) => {
+                              if (cIdx !== idx) return c;
+                              const newGames = [...c.games];
+                              if (val > newGames.length) {
+                                for(let i=newGames.length; i<val; i++) newGames.push({ id: `slot_${Date.now()}_${i}`, source: 'empty' });
+                              } else {
+                                newGames.splice(val);
+                              }
+                              return { ...c, requiredCount: val, games: newGames };
+                            }));
+                          }}
+                          className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] p-1 rounded font-black text-center w-16"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -1360,9 +1671,18 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
                               className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 text-xs font-bold rounded flex-1"
                             >
                               <option value="">-- Choisir un exercice --</option>
-                              {cloudExercisesList.map(ex => (
-                                <option key={ex.id} value={ex.id}>{ex.name} ({ex.gameType})</option>
-                              ))}
+                              {cloudExercisesList
+                                .filter(ex => {
+                                  const ropeType = varalCordes[idx].gameType || 'random';
+                                  if (ropeType === 'random') return true;
+                                  const exMod = ex.module;
+                                  const normalizedRopeType = ropeType === 'sablier_mestre' ? 'sablier' : (ropeType === 'rythme_live' ? 'rythmelive' : ropeType);
+                                  return exMod === normalizedRopeType;
+                                })
+                                .map(ex => (
+                                  <option key={ex.id} value={ex.id}>[{ex.module.toUpperCase()}] {ex.name}</option>
+                                ))
+                              }
                             </select>
                           )}
 
@@ -2479,135 +2799,48 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
             </div>
           </div>
         )}
-
-        {/* 7. LA VALISE */}
-        {activeTab === 'valise' && (
-          <div className="flex flex-col gap-6 max-w-2xl mx-auto">
-            <p className="text-sm italic text-[var(--cordel-text)]/70 text-center">
-              {lang === 'fr'
-                ? "La Valise du Mestre : importez les fichiers JSON d'exercices et de configuration du Varal pour mettre à jour l'application hors-ligne."
-                : "A Mala do Mestre: importe os arquivos JSON de exercícios e configuração do Varal para atualizar o aplicativo offline."}
-            </p>
-
-            {/* Upload Area */}
-            <div className="border-4 border-dashed border-[var(--cordel-border)]/45 p-8 text-center flex flex-col items-center gap-4 bg-[var(--cordel-bg)]/20 hover:border-[var(--cordel-wood)] transition-colors rounded-sm cursor-pointer relative">
-              <input
-                type="file"
-                accept=".json"
-                multiple
-                onChange={handleImportFiles}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-              />
-              <Download className="w-12 h-12 text-[var(--cordel-wood)] animate-bounce" />
-              <span className="font-cactus font-bold text-sm">
-                {lang === 'fr' ? 'Sélecteur de fichiers .json (Multiples acceptés)' : 'Seletor de arquivos .json (Múltiplos aceitos)'}
-              </span>
-              <span className="text-[10px] text-[var(--cordel-text)]/50">
-                {lang === 'fr' ? 'Cliquez ou glissez-déposez vos fichiers JSON générés par le Studio ici.' : 'Clique ou arraste e solte seus arquivos JSON gerados pelo Estúdio aqui.'}
-              </span>
-            </div>
-
-            {/* Messages Log */}
-            {importMessages.length > 0 && (
-              <div className="border-2 border-[var(--cordel-border)] p-3 bg-black/10 flex flex-col gap-1 text-[11px] font-semibold text-left">
-                {importMessages.map((msg, mIdx) => (
-                  <div key={mIdx} className={msg.startsWith('Erreur') ? 'text-red-500' : 'text-green-500'}>
-                    {msg}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* List of Custom Exercises */}
-            <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
-              <div className="flex items-center justify-between border-b border-dashed border-[var(--cordel-border)]/30 pb-2">
-                <span className="font-cactus text-base font-bold text-[var(--cordel-wood)]">
-                  {lang === 'fr' ? `Exercices chargés en mémoire (${customExercises.length})` : `Exercícios na memória (${customExercises.length})`}
-                </span>
-                {customExercises.length > 0 && (
-                  <button
-                    onClick={clearAllData}
-                    className="px-3 py-1 bg-[var(--cordel-wood)] text-[var(--cordel-bg)] font-bold text-[10px] uppercase border border-[var(--cordel-border)] rounded cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cordel-button"
-                  >
-                    {lang === 'fr' ? 'Vider la mémoire' : 'Zerar memória'}
-                  </button>
-                )}
-              </div>
-
-              {customExercises.length === 0 ? (
-                <p className="text-xs italic text-[var(--cordel-text)]/50 text-center py-4">
-                  {lang === 'fr' ? 'Aucun exercice personnalisé importé.' : 'Nenhum exercício personalizado importado.'}
-                </p>
-              ) : (
-                <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
-                  {customExercises.map((ex) => (
-                    <div key={ex.id} className="flex items-center justify-between bg-[var(--cordel-bg)]/30 p-2.5 border border-[var(--cordel-border)]/15 rounded-sm">
-                      <div className="flex flex-col text-left">
-                        <span className="text-xs font-bold text-[var(--cordel-text)]">
-                          {ex.folheto_titre || `Exercice ${ex.module}`}
-                        </span>
-                        <div className="flex gap-2 items-center">
-                          <span className="text-[9px] uppercase font-bold text-gray-500">
-                            {lang === 'fr' ? `Module : ${ex.module}` : `Módulo: ${ex.module}`}
-                          </span>
-                          <span className="text-[9px] uppercase font-bold text-[var(--cordel-wood)]">
-                            (Corde {ex.corde_cible || '?'})
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => removeExercise(ex.id)}
-                        className="p-1 text-[var(--cordel-wood)] hover:bg-[var(--cordel-wood)] hover:text-white rounded cursor-pointer transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
       </div>
 
-      {activeTab !== 'valise' && (
+        {/* Sticky action bar */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-[var(--cordel-bg)] border-t-4 border-[var(--cordel-border)] shadow-[0_-8px_16px_rgba(0,0,0,0.2)] flex justify-center z-[100]">
           <div className="flex gap-4 max-w-xl w-full flex-wrap sm:flex-nowrap">
-            <button
-              onClick={() => setCloudSaveModalOpen(true)}
-              className="px-4 py-3.5 bg-blue-600 text-white border-2 border-blue-800 text-base font-black tracking-widest uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:bg-blue-500 transition-colors flex-1"
-            >
-              <Cloud className="w-5 h-5" />
-              Cloud
-            </button>
-
-            {activeTab === 'varal' && (
-              <button
-                onClick={() => {
-                  const exportData = getExportDataForCurrentTab('varal');
-                  if (exportData) {
-                    loadVaralConfig(exportData);
-                    alert(lang === 'fr' ? 'Varal mis en place avec succès !' : 'Varal ativado com sucesso !');
-                  }
-                }}
-                className="px-4 py-3.5 bg-green-600 text-white border-2 border-green-800 text-base font-black tracking-widest uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:bg-green-500 transition-colors flex-1"
-              >
-                <Play className="w-5 h-5" />
-                {lang === 'fr' ? 'Activer' : 'Ativar'}
-              </button>
+            {activeTab === 'varal' ? (
+              <>
+                <button
+                  onClick={handleSaveVaralToCloud}
+                  className="px-4 py-3.5 bg-blue-600 text-white border-2 border-blue-800 text-base font-black tracking-widest uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:bg-blue-500 transition-colors flex-1"
+                >
+                  <Cloud className="w-5 h-5" />
+                  {lang === 'fr' ? 'Sauvegarder dans le Cloud' : 'Salvar no Cloud'}
+                </button>
+                <button
+                  onClick={handleGenerateExercise}
+                  className="px-4 py-3.5 cordel-wood cordel-button text-base font-black tracking-widest uppercase flex items-center gap-2 cursor-pointer shadow-lg flex-1 justify-center transition-transform hover:scale-[1.02]"
+                >
+                  <Download className="w-5 h-5" />
+                  JSON
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setCloudSaveModalOpen(true)}
+                  className="px-4 py-3.5 bg-blue-600 text-white border-2 border-blue-800 text-base font-black tracking-widest uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:bg-blue-500 transition-colors flex-1"
+                >
+                  <Cloud className="w-5 h-5" />
+                  {lang === 'fr' ? 'Sauvegarder dans le Cloud' : 'Salvar no Cloud'}
+                </button>
+                <button
+                  onClick={handleGenerateExercise}
+                  className="px-4 py-3.5 cordel-wood cordel-button text-base font-black tracking-widest uppercase flex items-center gap-2 cursor-pointer shadow-lg flex-1 justify-center transition-transform hover:scale-[1.02]"
+                >
+                  <Download className="w-5 h-5" />
+                  JSON
+                </button>
+              </>
             )}
-            
-            <button
-              onClick={handleGenerateExercise}
-              className="px-4 py-3.5 cordel-wood cordel-button text-base font-black tracking-widest uppercase flex items-center gap-2 cursor-pointer shadow-lg flex-2 justify-center transition-transform hover:scale-[1.02]"
-            >
-              <Download className="w-5 h-5" />
-              {lang === 'fr' ? (activeTab === 'varal' ? 'Générer (JSON)' : 'Générer l\'exercice (JSON)') : (activeTab === 'varal' ? 'Gerar (JSON)' : 'Gerar exercício')}
-            </button>
           </div>
         </div>
-      )}
 
       {/* Cloud Save Modal */}
       {cloudSaveModalOpen && (

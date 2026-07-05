@@ -504,6 +504,7 @@ export class AudioEngine {
     switch (instrumentId) {
       case 'caixa':
       case 'tarol':
+      case 'timbal':
       case 'agbe':
       case 'mineiro':
       case 'apito':

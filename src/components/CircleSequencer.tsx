@@ -17,6 +17,7 @@ import { useGameData } from '../contexts/GameDataContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
+import { getExpandedMeasures } from '../utils/measureHelpers';
 
 interface CircleSequencerProps {
   lang?: Language;
@@ -162,6 +163,13 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
   });
 
   const [isCenterShaking, setIsCenterShaking] = useState(false);
+  const [pendingTargetMeasure, setPendingTargetMeasure] = useState<number | null>(null);
+  const pendingTargetMeasureRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    setPendingTargetMeasure(null);
+    pendingTargetMeasureRef.current = null;
+  }, [currentMeasure]);
 
   const livePlaybackRef = useRef({
     step: -1,
@@ -338,8 +346,8 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
 
   useEffect(() => {
     const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
-      const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number; iteration?: number }>;
+      const { step, measure, maxTicks, ratio = step / maxTicks, iteration = 1 } = customEvent.detail;
       
       livePlaybackRef.current = {
         step,
@@ -349,17 +357,38 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       };
 
       if (measureDisplayRef.current) {
-        measureDisplayRef.current.innerText = `${measure + 1} / ${totalMeasures}`;
+        const measureToDisplay = pendingTargetMeasureRef.current !== null ? pendingTargetMeasureRef.current : measure;
+        const iterationToUse = pendingTargetMeasureRef.current !== null ? 1 : iteration;
+
+        const expanded = getExpandedMeasures(totalMeasures, songSections);
+        const activeRepIndex = expanded.findIndex(item => item.baseMeasure === measureToDisplay && item.iteration === iterationToUse);
+        const displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : measureToDisplay + 1;
+        const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
+        measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
       }
 
       updateOverlay(measure);
     };
 
+    const handleMeasureQueued = (e: Event) => {
+      const customEvent = e as CustomEvent<{ measure: number; iteration?: number }>;
+      const { measure, iteration = 1 } = customEvent.detail;
+      if (measureDisplayRef.current) {
+        const expanded = getExpandedMeasures(totalMeasures, songSections);
+        const activeRepIndex = expanded.findIndex(item => item.baseMeasure === measure && item.iteration === iteration);
+        const displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : measure + 1;
+        const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
+        measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
+      }
+    };
+
     window.addEventListener('o-girador-tick', handleTick);
+    window.addEventListener('o-girador-measure-queued', handleMeasureQueued);
     return () => {
       window.removeEventListener('o-girador-tick', handleTick);
+      window.removeEventListener('o-girador-measure-queued', handleMeasureQueued);
     };
-  }, [totalMeasures]);
+  }, [totalMeasures, songSections]);
 
   useEffect(() => {
     const live = livePlaybackRef.current;
@@ -1212,6 +1241,12 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
   const activeBpm = measureBpms[currentMeasure] || bpm;
   const activeVol = measureVols[currentMeasure] !== undefined ? measureVols[currentMeasure] : 100;
 
+  const expanded = getExpandedMeasures(totalMeasures, songSections);
+  const activeMeasureForDisplay = pendingTargetMeasure !== null ? pendingTargetMeasure : currentMeasure;
+  const activeRepIndex = expanded.findIndex(item => item.baseMeasure === activeMeasureForDisplay);
+  const displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : activeMeasureForDisplay + 1;
+  const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
+
   return (
     <div
       id="circle-sequencer-panel"
@@ -1230,7 +1265,10 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              const prev = (currentMeasure - 1 + totalMeasures) % totalMeasures;
+              const activeMeasureForNavigation = pendingTargetMeasure !== null ? pendingTargetMeasure : currentMeasure;
+              const prev = (activeMeasureForNavigation - 1 + totalMeasures) % totalMeasures;
+              setPendingTargetMeasure(prev);
+              pendingTargetMeasureRef.current = prev;
               onNavigateMeasure?.(prev);
             }}
             className="w-6 h-6 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors rounded-sm active:scale-95"
@@ -1240,12 +1278,15 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
             &lt;
           </button>
           <span ref={measureDisplayRef} className="text-sm md:text-base font-cactus font-bold leading-none select-none flex-grow text-center">
-            {currentMeasure + 1} / {totalMeasures}
+            {displayMeasure} / {displayTotal}
           </span>
           <button
             onClick={(e) => {
               e.stopPropagation();
-              const next = (currentMeasure + 1) % totalMeasures;
+              const activeMeasureForNavigation = pendingTargetMeasure !== null ? pendingTargetMeasure : currentMeasure;
+              const next = (activeMeasureForNavigation + 1) % totalMeasures;
+              setPendingTargetMeasure(next);
+              pendingTargetMeasureRef.current = next;
               onNavigateMeasure?.(next);
             }}
             className="w-6 h-6 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors rounded-sm active:scale-95"

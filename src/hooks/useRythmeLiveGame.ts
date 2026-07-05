@@ -35,37 +35,46 @@ export function useRythmeLiveGame({
 }: UseRythmeLiveGameProps) {
   const exercisesList = useMemo(() => {
     if (!exerciseData) return [rhythmLivePattern];
+    
+    let rawList: any[] = [];
     if (exerciseData.exercises && Array.isArray(exerciseData.exercises)) {
-      return exerciseData.exercises.map((ex: any) => {
-        let targetSteps: number[] = [];
-        if (ex.partition_cible && ex.partition_cible.length > 0) {
-           ex.partition_cible.forEach((t: any) => {
+      rawList = exerciseData.exercises;
+    } else if (exerciseData.partition_cible) {
+      rawList = [exerciseData];
+    } else {
+      return [rhythmLivePattern];
+    }
+
+    return rawList.map((ex: any) => {
+      let targetSteps: number[] = [];
+      if (ex.partition_cible && ex.partition_cible.length > 0) {
+         ex.partition_cible.forEach((t: any) => {
+           if (t.activeSteps && Array.isArray(t.activeSteps)) {
              t.activeSteps.forEach((val: number, idx: number) => {
                 if (val > 0) targetSteps.push(idx);
              });
-           });
-        }
-        
-        const baseSteps = Array.from(new Set(targetSteps)).sort((a,b)=>a-b);
-        const fullTargetSteps: number[] = [];
-        const measures = ex.boucles_requises || 2;
-        for (let m = 0; m < measures; m++) {
-           baseSteps.forEach(s => fullTargetSteps.push(m * 16 + s));
-        }
+           }
+         });
+      }
+      
+      const baseSteps = Array.from(new Set(targetSteps)).sort((a,b)=>a-b);
+      const fullTargetSteps: number[] = [];
+      const measures = ex.boucles_requises || 2;
+      for (let m = 0; m < measures; m++) {
+         baseSteps.forEach(s => fullTargetSteps.push(m * 16 + s));
+      }
 
-        return {
-          id: ex.id,
-          name: { fr: 'Exercice Rythme Live', pt: 'Exercício Ritmo Ao Vivo' },
-          targetInstrument: ex.instrument_eleve || 'caixa',
-          bpm: ex.bpm || 83,
-          totalMeasures: measures,
-          stepsPerMeasure: 16,
-          targetSteps: fullTargetSteps,
-          toleranceMs: ex.tolerance_ms || 80
-        };
-      });
-    }
-    return [rhythmLivePattern];
+      return {
+        id: ex.id || `rythme_live_ex_${Date.now()}`,
+        name: { fr: ex.folheto_titre || 'Exercice Rythme Live', pt: ex.folheto_titre || 'Exercício Ritmo Ao Vivo' },
+        targetInstrument: ex.instrument_eleve || 'caixa',
+        bpm: ex.bpm || 83,
+        totalMeasures: measures,
+        stepsPerMeasure: 16,
+        targetSteps: fullTargetSteps,
+        toleranceMs: ex.tolerance_ms || 80
+      };
+    });
   }, [exerciseData]);
 
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
