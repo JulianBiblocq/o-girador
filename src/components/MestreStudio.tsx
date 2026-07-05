@@ -41,6 +41,7 @@ import { getLocalLibrary } from '../library';
 import { QuizTab, QuizQuestionStudio } from './mestre-studio/QuizTab';
 import { DicteeTab } from './mestre-studio/DicteeTab';
 import { InspecteurTab } from './mestre-studio/InspecteurTab';
+import { SablierTab } from './mestre-studio/SablierTab';
 
 let sharedAudioCtx: AudioContext | null = null;
 const getSharedAudioCtx = () => {
@@ -1942,207 +1943,33 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
 
         {/* 5. CORDE 4: SABLIER DU MESTRE */}
         {activeTab === 'sablier' && (
-          <div className="flex flex-col gap-6 max-w-3xl mx-auto">
-            <div className="flex flex-col md:flex-row gap-6 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>📂 Charger un exercice pour le modifier (.json)</span>
-                <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'sablier_mestre')} className="text-[10px] cursor-pointer" />
-              </label>
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>🎵 Charger la Roda depuis un Preset</span>
-                <select 
-                  onChange={(e) => {
-                    handleLoadPresetToGame(e.target.value, 'sablier_mestre');
-                    e.target.value = '';
-                  }} 
-                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded focus:outline-none text-xs font-bold"
-                >
-                  <option value="">Sélectionner un preset...</option>
-                  {presetFiles.map(p => <option key={p} value={p}>Catalogue: {p.replace('.json', '')}</option>)}
-                  {localPresets.map(p => <option key={p} value={p}>Local: {p}</option>)}
-                </select>
-              </label>
-            </div>
-            <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
-              <span className="font-cactus text-lg font-black text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1">
-                Configuration du Sablier
-              </span>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Corde Cible</label>
-                  <select
-                    value={sablierCordeCible}
-                    onChange={(e) => setSablierCordeCible(Number(e.target.value))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    <option value={1}>Corde 1</option>
-                    <option value={2}>Corde 2</option>
-                    <option value={3}>Corde 3</option>
-                    <option value={4}>Corde 4</option>
-                    <option value={5}>Corde 5</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Titre du Folheto</label>
-                  <input
-                    type="text"
-                    value={sablierTitle}
-                    onChange={(e) => setSablierTitle(e.target.value)}
-                    placeholder="Ex: Le Sablier du Mestre"
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Durée du Sablier (Mesures)</label>
-                  <select
-                    value={sablierMeasures}
-                    onChange={(e) => setSablierMeasures(Number(e.target.value) as 1 | 2)}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    <option value={1}>1 Mesure</option>
-                    <option value={2}>2 Mesures (Standard)</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Tempo BPM</label>
-                  <input
-                    type="number"
-                    value={sablierBpm}
-                    min={50}
-                    max={200}
-                    onChange={(e) => setSablierBpm(Math.max(50, Math.min(200, Number(e.target.value) || 83)))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Mestre Sign/Image selection */}
-            <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-              <div className="md:col-span-2 flex flex-col gap-3">
-                <span className="font-cactus text-base font-bold text-[var(--cordel-wood)]">
-                  Signe Gestuel du Mestre (Image)
-                </span>
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-1.5 font-bold text-xs uppercase cursor-pointer">
-                    <input
-                      type="radio"
-                      checked={sablierHandImageType === 'url'}
-                      onChange={() => setSablierHandImageType('url')}
-                      className="accent-[var(--cordel-wood)]"
-                    />
-                    URL de l'image
-                  </label>
-                  <label className="flex items-center gap-1.5 font-bold text-xs uppercase cursor-pointer">
-                    <input
-                      type="radio"
-                      checked={sablierHandImageType === 'upload'}
-                      onChange={() => setSablierHandImageType('upload')}
-                      className="accent-[var(--cordel-wood)]"
-                    />
-                    Upload Fichier
-                  </label>
-                </div>
-                {sablierHandImageType === 'url' ? (
-                  <input
-                    type="text"
-                    value={sablierHandImageUrl}
-                    onChange={(e) => setSablierHandImageUrl(e.target.value)}
-                    placeholder="https://exemple.com/signe.jpg"
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded text-xs focus:outline-none w-full"
-                  />
-                ) : (
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleSablierImageUpload}
-                    className="text-xs font-bold text-[var(--cordel-text)] cursor-pointer"
-                  />
-                )}
-              </div>
-              <div className="flex flex-col items-center justify-center border-2 border-[var(--cordel-border)] p-2 bg-white text-black min-h-[100px] rounded">
-                <span className="text-[8px] font-bold uppercase text-gray-400 mb-1">Aperçu Xilo</span>
-                {(sablierHandImageType === 'url' ? sablierHandImageUrl : sablierHandImageFile) ? (
-                  <img
-                    src={sablierHandImageType === 'url' ? sablierHandImageUrl : sablierHandImageFile}
-                    alt="mestre sign preview"
-                    style={{ filter: 'contrast(300%) grayscale(100%)' }}
-                    className="max-h-[70px] object-contain border border-black p-0.5"
-                  />
-                ) : (
-                  <span className="text-[9px] text-gray-300">Aucun signe</span>
-                )}
-              </div>
-            </div>
-
-            {/* Séquences de Jeu */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-              <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-2 relative">
-                <span className="font-cactus text-sm font-bold text-gray-700 uppercase">
-                  👈 Séquence Gauche (Fond)
-                </span>
-                <p className="text-[10px] text-[var(--cordel-text)]/70">Chargez le JSON contenant la base musicale (ex: Roda basique).</p>
-                <div className="flex flex-col gap-2 mt-2">
-                   <label className="text-xs font-bold bg-[var(--cordel-wood)] text-white px-3 py-2 text-center rounded cursor-pointer hover:bg-opacity-80 transition-colors">
-                     Importer JSON Gauche
-                     <input type="file" accept=".json" className="hidden" onChange={(e) => handleLoadSablierSequence(e, 'fond')} />
-                   </label>
-                   {sablierSeqFondName && <span className="text-[10px] font-bold text-green-700 text-center">✓ {sablierSeqFondName} chargé</span>}
-                </div>
-              </div>
-
-              <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-2 relative">
-                <span className="font-cactus text-sm font-bold text-green-700 uppercase">
-                  👉 Séquence Droite (Cible)
-                </span>
-                <p className="text-[10px] text-[var(--cordel-text)]/70">Chargez le JSON contenant la bonne réponse (ex: Virada).</p>
-                <div className="flex flex-col gap-2 mt-2">
-                   <label className="text-xs font-bold bg-green-700 text-white px-3 py-2 text-center rounded cursor-pointer hover:bg-opacity-80 transition-colors">
-                     Importer JSON Droite
-                     <input type="file" accept=".json" className="hidden" onChange={(e) => handleLoadSablierSequence(e, 'cible')} />
-                   </label>
-                   {sablierSeqCibleName && <span className="text-[10px] font-bold text-green-700 text-center">✓ {sablierSeqCibleName} chargé</span>}
-                </div>
-              </div>
-            </div>
-
-            {/* Séquences Pièges */}
-            <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4 mt-2">
-              <span className="font-cactus text-base font-bold text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1">
-                Séquences Pièges (Erreurs)
-              </span>
-              <p className="text-[10px] text-[var(--cordel-text)]/70">Chargez les 3 JSON contenant les mauvaises réponses qui s'afficheront à l'élève pour le piéger.</p>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                <div className="flex flex-col gap-2 p-3 border border-red-900/20 bg-red-900/5 rounded">
-                   <span className="text-xs font-bold text-red-800 uppercase text-center">Piège 1</span>
-                   <label className="text-[10px] font-bold bg-red-800 text-white px-2 py-1.5 text-center rounded cursor-pointer hover:bg-opacity-80 transition-colors">
-                     Importer JSON
-                     <input type="file" accept=".json" className="hidden" onChange={(e) => handleLoadSablierSequence(e, 'piege1')} />
-                   </label>
-                   {sablierSeqPiege1Name && <span className="text-[10px] font-bold text-red-800 text-center">✓ {sablierSeqPiege1Name}</span>}
-                </div>
-                
-                <div className="flex flex-col gap-2 p-3 border border-red-900/20 bg-red-900/5 rounded">
-                   <span className="text-xs font-bold text-red-800 uppercase text-center">Piège 2</span>
-                   <label className="text-[10px] font-bold bg-red-800 text-white px-2 py-1.5 text-center rounded cursor-pointer hover:bg-opacity-80 transition-colors">
-                     Importer JSON
-                     <input type="file" accept=".json" className="hidden" onChange={(e) => handleLoadSablierSequence(e, 'piege2')} />
-                   </label>
-                   {sablierSeqPiege2Name && <span className="text-[10px] font-bold text-red-800 text-center">✓ {sablierSeqPiege2Name}</span>}
-                </div>
-
-                <div className="flex flex-col gap-2 p-3 border border-red-900/20 bg-red-900/5 rounded">
-                   <span className="text-xs font-bold text-red-800 uppercase text-center">Piège 3</span>
-                   <label className="text-[10px] font-bold bg-red-800 text-white px-2 py-1.5 text-center rounded cursor-pointer hover:bg-opacity-80 transition-colors">
-                     Importer JSON
-                     <input type="file" accept=".json" className="hidden" onChange={(e) => handleLoadSablierSequence(e, 'piege3')} />
-                   </label>
-                   {sablierSeqPiege3Name && <span className="text-[10px] font-bold text-red-800 text-center">✓ {sablierSeqPiege3Name}</span>}
-                </div>
-              </div>
-            </div>
-          </div>
+          <SablierTab
+            lang={lang}
+            sablierCordeCible={sablierCordeCible}
+            setSablierCordeCible={setSablierCordeCible}
+            sablierTitle={sablierTitle}
+            setSablierTitle={setSablierTitle}
+            sablierMeasures={sablierMeasures}
+            setSablierMeasures={setSablierMeasures}
+            sablierBpm={sablierBpm}
+            setSablierBpm={setSablierBpm}
+            sablierSeqFondName={sablierSeqFondName}
+            sablierSeqCibleName={sablierSeqCibleName}
+            sablierSeqPiege1Name={sablierSeqPiege1Name}
+            sablierSeqPiege2Name={sablierSeqPiege2Name}
+            sablierSeqPiege3Name={sablierSeqPiege3Name}
+            sablierHandImageType={sablierHandImageType}
+            setSablierHandImageType={setSablierHandImageType}
+            sablierHandImageUrl={sablierHandImageUrl}
+            setSablierHandImageUrl={setSablierHandImageUrl}
+            sablierHandImageFile={sablierHandImageFile}
+            handleSablierImageUpload={handleSablierImageUpload}
+            handleLoadSablierSequence={handleLoadSablierSequence}
+            handleLoadDraft={handleLoadDraft}
+            handleLoadPresetToGame={handleLoadPresetToGame}
+            presetFiles={presetFiles}
+            localPresets={localPresets}
+          />
         )}
 
         {/* 6. CORDE 5: RYTHME LIVE */}
