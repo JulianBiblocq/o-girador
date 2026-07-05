@@ -24,6 +24,9 @@ import { useAudio } from '../contexts/AudioContext';
 import { useAuth } from '../contexts/AuthContext';
 import { SubscriptionModal } from './SubscriptionModal';
 import { TimelineMinimap } from './timeline/TimelineMinimap';
+import { SongSectionModal } from './timeline/SongSectionModal';
+import { SongMarkerModal } from './timeline/SongMarkerModal';
+import { RhythmSignalsRow } from './timeline/RhythmSignalsRow';
 
 interface TimelineSequencerProps {
   isMobile: boolean;
@@ -212,18 +215,11 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   // Song Section modals state
   const [sectionModalOpen, setSectionModalOpen] = React.useState<boolean>(false);
   const [editingSection, setEditingSection] = React.useState<SongSection | null>(null);
-  const [sectionFormName, setSectionFormName] = React.useState<string>('');
-  const [sectionFormStart, setSectionFormStart] = React.useState<number | string>(1);
-  const [sectionFormEnd, setSectionFormEnd] = React.useState<number | string>(4);
-  const [sectionFormColor, setSectionFormColor] = React.useState<string>('#f19066');
-  const [sectionFormLevel, setSectionFormLevel] = React.useState<number>(0);
   
   // Marker modal state
   const [markerModalOpen, setMarkerModalOpen] = React.useState<boolean>(false);
   const [editingMarker, setEditingMarker] = React.useState<SongMarker | null>(null);
-  const [markerFormName, setMarkerFormName] = React.useState<string>('');
-  const [markerFormMeasure, setMarkerFormMeasure] = React.useState<number | string>(1);
-  const [markerFormColor, setMarkerFormColor] = React.useState<string>('#f19066');
+  const [defaultMarkerMeasure, setDefaultMarkerMeasure] = React.useState<number>(1);
 
   const [hoveredPasteMeasure, setHoveredPasteMeasure] = React.useState<number | null>(null);
   const [signalDropdownOpen, setSignalDropdownOpen] = React.useState<number | null>(null);
@@ -509,9 +505,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     measureIdx = Math.max(0, Math.min(totalMeasures - 1, measureIdx));
     
     setEditingMarker(null);
-    setMarkerFormName(lang === 'fr' ? 'Repère' : 'Marcador');
-    setMarkerFormMeasure(measureIdx + 1);
-    setMarkerFormColor('#f19066');
+    setDefaultMarkerMeasure(measureIdx + 1);
     setMarkerModalOpen(true);
   };
 
@@ -745,9 +739,6 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       if ((e.currentTarget as HTMLElement).dataset.hasMoved === 'true') return;
                       e.stopPropagation();
                       setEditingMarker(marker);
-                      setMarkerFormName(marker.name);
-                      setMarkerFormMeasure(marker.measure + 1);
-                      setMarkerFormColor(marker.color || '#f19066');
                       setMarkerModalOpen(true);
                     }}
                   >
@@ -799,11 +790,6 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
               <button
                 onClick={() => {
                   setEditingSection(null);
-                  setSectionFormName(lang === 'fr' ? 'Partie A' : 'Parte A');
-                  setSectionFormStart(1);
-                  setSectionFormEnd(Math.min(4, totalMeasures));
-                  setSectionFormColor('#f19066');
-                  setSectionFormLevel(0);
                   setSectionModalOpen(true);
                 }}
                 className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] px-1 py-0.5 rounded cordel-border-sm hover:opacity-80 transition-opacity cursor-pointer flex items-center justify-center gap-0.5"
@@ -883,11 +869,6 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                         onClick={(e) => {
                           e.stopPropagation();
                           setEditingSection(section);
-                          setSectionFormName(section.name);
-                          setSectionFormStart(section.startMeasure + 1);
-                          setSectionFormEnd(section.endMeasure + 1);
-                          setSectionFormColor(section.color || '#f19066');
-                          setSectionFormLevel(section.level || 0);
                           setSectionModalOpen(true);
                         }}
                         className="bg-white/80 hover:bg-white text-black text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer"
@@ -1209,118 +1190,12 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           </div>
 
           {/* ══════════ SIGNAUX DU RYTHME ROW ══════════ */}
-          {rhythmSignals.length > 0 && (
-            <div
-              className="flex border-b border-[var(--cordel-border)]/20 h-8"
-              style={{ width: `${HEADER_W + totalContentW + 150}px` }}
-            >
-              {/* Sticky header */}
-              <div
-                className={`sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center py-1 gap-1 ${
-                  isMobile ? 'px-1' : 'px-2'
-                }`}
-                style={{ width: HEADER_W, minWidth: HEADER_W }}
-              >
-                <span className="text-base">🙌</span>
-                {!isMobile && (
-                  <span className="font-cactus text-[10px] font-bold uppercase tracking-wider text-[var(--cordel-text)]">
-                    {lang === 'fr' ? 'Signaux' : 'Sinais'}
-                  </span>
-                )}
-              </div>
-
-              {/* Measure signal cells */}
-              {Array.from({ length: totalMeasures }).map((_, mIdx) => {
-                const sigId = measureSignals[mIdx] ?? null;
-                const activeSig = rhythmSignals.find(s => s.id === sigId) || null;
-                const isSectionStart = mIdx % 4 === 0;
-                const isCurrentMeasure = false;
-
-                return (
-                  <div
-                    key={mIdx}
-                    className={`relative border-r border-[var(--cordel-border)]/20 flex items-center justify-center ${
-                      isCurrentMeasure ? 'bg-[var(--cordel-border)]/10' : ''
-                    }`}
-                    style={{ width: MEASURE_W, minWidth: MEASURE_W }}
-                  >
-                    {activeSig ? (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSignalDropdownOpen(signalDropdownOpen === mIdx ? null : mIdx);
-                        }}
-                        className="flex items-center gap-1 px-1.5 py-0.5 bg-[var(--cordel-border)]/20 hover:bg-[var(--cordel-border)]/40 transition-colors rounded text-[9px] font-bold text-[var(--cordel-text)] max-w-full"
-                        title={activeSig.name}
-                      >
-                        {activeSig.image ? (
-                          <img src={activeSig.image} alt={activeSig.name} className="w-6 h-6 object-contain flex-shrink-0" />
-                        ) : (
-                          <span className="text-[12px] flex-shrink-0 leading-none">📢</span>
-                        )}
-                        <span className="ruler-detailed truncate max-w-[70px]">{activeSig.name}</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSignalDropdownOpen(signalDropdownOpen === mIdx ? null : mIdx);
-                        }}
-                        className="w-6 h-6 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)]/40 border border-dashed border-[var(--cordel-border)]/30 rounded text-[10px] font-bold hover:bg-[var(--cordel-border)]/20 hover:text-[var(--cordel-text)] transition-colors cursor-pointer"
-                        title={lang === 'fr' ? 'Assigner un signal' : 'Atribuir um sinal'}
-                      >
-                        +
-                      </button>
-                    )}
-
-                    {/* Dropdown de sélection */}
-                    {signalDropdownOpen === mIdx && (
-                      <div
-                        className="absolute top-full left-0 z-50 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] cordel-shadow min-w-[140px] flex flex-col py-1"
-                        style={{ marginTop: 2 }}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        {/* Aucun signal */}
-                        <button
-                          onClick={() => {
-                            onMeasureSignalChange?.(mIdx, null);
-                            setSignalDropdownOpen(null);
-                          }}
-                          className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] hover:bg-[var(--cordel-border)]/20 cursor-pointer text-left"
-                        >
-                          <span className="text-xs opacity-50">✕</span>
-                          <span className="opacity-70">{lang === 'fr' ? 'Aucun' : 'Nenhum'}</span>
-                        </button>
-                        <div className="border-t border-[var(--cordel-border)]/20 my-0.5" />
-                        {rhythmSignals.map(sig => (
-                          <button
-                            key={sig.id}
-                            onClick={() => {
-                              onMeasureSignalChange?.(mIdx, sig.id);
-                              setSignalDropdownOpen(null);
-                            }}
-                            className={`flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] hover:bg-[var(--cordel-border)]/20 cursor-pointer text-left ${
-                              sigId === sig.id ? 'bg-[var(--cordel-border)]/30' : ''
-                            }`}
-                          >
-                            {sig.image ? (
-                              <img src={sig.image} alt={sig.name} className="w-6 h-6 object-contain flex-shrink-0" />
-                            ) : (
-                              <span className="text-[12px] w-6 h-6 flex items-center justify-center bg-black/10 rounded flex-shrink-0 leading-none">📢</span>
-                            )}
-                            <span className="truncate">{sig.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* Spacer */}
-              <div style={{ width: 150, minWidth: 150 }} />
-            </div>
-          )}
+          <RhythmSignalsRow
+            totalMeasures={totalMeasures}
+            rhythmSignals={rhythmSignals}
+            measureSignals={measureSignals}
+            onMeasureSignalChange={onMeasureSignalChange}
+          />
 
           {/* ══════════ TRACK ROWS ══════════ */}
           {tracks.map(track => (
