@@ -10,7 +10,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TrackGroup, Language, Pattern } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
-import { getNextStepValue } from './InstrumentDetailEditor';
+import { getNextStepValue } from '../utils/instrumentStrokes';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencer } from '../contexts/SequencerContext';

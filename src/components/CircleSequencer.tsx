@@ -12,7 +12,7 @@ function safeGetTone() {
 }
 import { TrackGroup, Language, HitTrigger, TimeSignature, SongSection, SongMarker, CloudRhythmSignal } from '../types';
 import { instrumentsConfig, getMarkers, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol, i18n } from '../data';
-import { getNextStepValue } from './InstrumentDetailEditor';
+import { getNextStepValue } from '../utils/instrumentStrokes';
 import { useGameData } from '../contexts/GameDataContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencer } from '../contexts/SequencerContext';

@@ -12,7 +12,7 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { TrackGroup, Language } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
 import { PanKnob } from './PanKnob';
-import { getNextStepValue } from './InstrumentDetailEditor';
+import { getNextStepValue } from '../utils/instrumentStrokes';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
 import { AudioFader } from './AudioFader';
 

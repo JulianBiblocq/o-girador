@@ -6,7 +6,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { instrumentsConfig, isDarkText, getVisualStrokeSymbol } from '../data';
 import { Language } from '../types';
-import { getNextStepValue } from './InstrumentDetailEditor';
+import { getNextStepValue } from '../utils/instrumentStrokes';
 import { useSequencer } from '../contexts/SequencerContext';
 
 export interface TouchSelectorState {
