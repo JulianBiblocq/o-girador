@@ -81,9 +81,8 @@ export function initMasterEffectsChain(
   }
   masterSoftClipperNode.curve = clipperCurve;
   masterSoftClipperNode.oversample = '4x';
-
-  masterLimiterNode.connect(masterSoftClipperNode);
-  masterSoftClipperNode.connect(Tone.Destination);
+  // Connect masterLimiterNode directly to Tone.Destination to prevent master intermodulation/harmonic distortion
+  masterLimiterNode.connect(Tone.Destination);
   
   const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
   const multiplier = isEco ? Tone.dbToGain(-8) : 1.0;
