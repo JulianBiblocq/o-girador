@@ -43,10 +43,10 @@ export const RhythmSignalsRow: React.FC<RhythmSignalsRowProps> = ({
     >
       {/* Sticky header */}
       <div
-        className={`sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center py-1 gap-1 ${
+        className={`timeline-sticky-header sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center py-1 gap-1 ${
           isMobile ? 'px-1' : 'px-2'
         }`}
-        style={{ width: HEADER_W, minWidth: HEADER_W }}
+        style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
       >
         <span className="text-base">🙌</span>
         {!isMobile && (

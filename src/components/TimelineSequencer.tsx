@@ -288,16 +288,66 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       let latestClientY = e.clientY;
       let latestClientX = e.clientX;
 
-      const performRulerDrag = (clientX: number, clientY: number) => {
+      const performRulerDrag = (clientX: number, clientY: number, isFinal: boolean = false) => {
         const deltaY = clientY - initialY;
+        let clamped = initialWidth;
         // Si le mouvement est principalement vertical, on zoome
         if (Math.abs(deltaY) > 5) {
           const newWidth = initialWidth + deltaY * 2;
-          const clamped = Math.max(120, Math.min(960, newWidth));
-          onMeasureWidthChange(clamped);
+          clamped = Math.max(120, Math.min(960, newWidth));
+          
+          if (isFinal) {
+            // 1. Nettoyer les transformations GPU temporaires
+            const scrollGrid = document.querySelector('.timeline-scroll-grid') as HTMLElement;
+            if (scrollGrid) scrollGrid.style.transform = '';
+            const stickyHeaders = document.querySelectorAll('.timeline-sticky-header') as NodeListOf<HTMLElement>;
+            stickyHeaders.forEach(h => h.style.transform = '');
+            
+            // 2. Persister le scrollLeft final centré
+            const S = clamped / initialWidth;
+            if (scrollRef.current) {
+              const rect = scrollRef.current.getBoundingClientRect();
+              const mouseX = clientX - rect.left - HEADER_W;
+              const scrollLeftInit = scrollRef.current.scrollLeft;
+              const mouseXGrid = mouseX + scrollLeftInit;
+              const newScrollLeft = mouseXGrid * S - mouseX;
+              pendingScrollLeftRef.current = newScrollLeft;
+            }
+            
+            // 3. Persister le zoom final
+            onMeasureWidthChange(clamped);
+          } else {
+            const S = clamped / initialWidth;
+            
+            // Calcul du scrollLeft pour zoomer centré sous le curseur de la règle
+            let newScrollLeft = 0;
+            if (scrollRef.current) {
+              const rect = scrollRef.current.getBoundingClientRect();
+              const mouseX = clientX - rect.left - HEADER_W;
+              const scrollLeftInit = scrollRef.current.scrollLeft;
+              const mouseXGrid = mouseX + scrollLeftInit;
+              newScrollLeft = mouseXGrid * S - mouseX;
+            }
+            
+            const tx = HEADER_W * (1 - S) - newScrollLeft;
+            
+            // 1. Appliquer la transformation parent
+            const scrollGrid = document.querySelector('.timeline-scroll-grid') as HTMLElement;
+            if (scrollGrid) {
+              scrollGrid.style.transform = `translateX(${tx}px) scaleX(${S})`;
+            }
+
+            // 2. Compensation des en-têtes collants
+            const stickyHeaders = document.querySelectorAll('.timeline-sticky-header') as NodeListOf<HTMLElement>;
+            stickyHeaders.forEach(h => {
+              h.style.transform = `translateX(${-tx / S}px) scaleX(${1 / S})`;
+            });
+          }
         }
         // Scrubbing horizontal
-        handleRulerClickOrDrag(clientX);
+        if (isFinal || Math.abs(deltaY) <= 5) {
+          handleRulerClickOrDrag(clientX);
+        }
       };
 
       const onPointerMove = (moveEvent: PointerEvent) => {
@@ -306,7 +356,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         if (rafId === null) {
           rafId = requestAnimationFrame(() => {
             rafId = null;
-            performRulerDrag(latestClientX, latestClientY);
+            performRulerDrag(latestClientX, latestClientY, false);
           });
         }
       };
@@ -316,7 +366,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           cancelAnimationFrame(rafId);
           rafId = null;
         }
-        performRulerDrag(latestClientX, latestClientY); // Ensure final values are applied
+        performRulerDrag(latestClientX, latestClientY, true); // Ensure final values are applied
         isScrubbing.current = false;
         if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
         document.body.style.cursor = 'default';
@@ -713,7 +763,10 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           We use a single wrapper with explicit width so the ruler row and
           every track row share the same coordinate space.
         */}
-        <div style={{ width: `${HEADER_W + totalContentW + 150}px`, minHeight: '100%' }} className="relative">
+        <div 
+          className="relative timeline-scroll-grid" 
+          style={{ width: `${HEADER_W + totalContentW + 150}px`, minHeight: '100%', transformOrigin: '0 0' }}
+        >
 
           {/* ══════════ MARKER RULER ROW (📍 NEW) ══════════ */}
           <div
@@ -722,10 +775,10 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           >
             {/* Sticky Label */}
             <div
-              className={`sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between font-cactus text-[9px] font-bold uppercase shrink-0 text-[var(--cordel-text)]/40 ${
+              className={`timeline-sticky-header sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between font-cactus text-[9px] font-bold uppercase shrink-0 text-[var(--cordel-text)]/40 ${
                 isMobile ? 'px-1.5' : 'px-3'
               }`}
-              style={{ width: HEADER_W, minWidth: HEADER_W }}
+              style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
             >
               <span>{isMobile ? 'Rep.' : (lang === 'fr' ? 'Repères' : 'Marcadores')}</span>
             </div>
@@ -972,10 +1025,10 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           >
              {/* Sticky corner */}
              <div
-               className={`sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center font-cactus text-sm font-bold uppercase ${
+               className={`timeline-sticky-header sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center font-cactus text-sm font-bold uppercase ${
                  isMobile ? 'px-1.5' : 'px-3'
                }`}
-               style={{ width: HEADER_W, minWidth: HEADER_W }}
+               style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
              >
                <span>{isMobile ? 'Inst.' : (lang === 'fr' ? 'Instruments' : 'Instrumentos')}</span>
              </div>

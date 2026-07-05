@@ -61,10 +61,10 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
     >
       {/* ── Sticky track header ── */}
       <div
-        className={`sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] ${
+        className={`timeline-sticky-header sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] ${
           isMobile ? 'px-1' : 'px-3'
         }`}
-        style={{ width: HEADER_W, minWidth: HEADER_W }}
+        style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
       >
         <div className={`flex items-center min-w-0 flex-grow ${isMobile ? 'gap-0.5' : 'gap-2'}`}>
           {isMobile ? (
