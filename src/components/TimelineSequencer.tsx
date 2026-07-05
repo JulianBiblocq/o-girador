@@ -303,19 +303,21 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             const stickyHeaders = document.querySelectorAll('.timeline-sticky-header') as NodeListOf<HTMLElement>;
             stickyHeaders.forEach(h => h.style.transform = '');
             
-            // 2. Persister le scrollLeft final centré
-            const S = clamped / initialWidth;
-            if (scrollRef.current) {
-              const rect = scrollRef.current.getBoundingClientRect();
-              const mouseX = clientX - rect.left - HEADER_W;
-              const scrollLeftInit = scrollRef.current.scrollLeft;
-              const mouseXGrid = mouseX + scrollLeftInit;
-              const newScrollLeft = mouseXGrid * S - mouseX;
-              pendingScrollLeftRef.current = newScrollLeft;
-            }
-            
-            // 3. Persister le zoom final
-            onMeasureWidthChange(clamped);
+            // 2. Laisser le thread principal respirer 10ms puis mettre à jour l'état de façon concurrente
+            setTimeout(() => {
+              React.startTransition(() => {
+                const S = clamped / initialWidth;
+                if (scrollRef.current) {
+                  const rect = scrollRef.current.getBoundingClientRect();
+                  const mouseX = clientX - rect.left - HEADER_W;
+                  const scrollLeftInit = scrollRef.current.scrollLeft;
+                  const mouseXGrid = mouseX + scrollLeftInit;
+                  const newScrollLeft = mouseXGrid * S - mouseX;
+                  pendingScrollLeftRef.current = newScrollLeft;
+                }
+                onMeasureWidthChange(clamped);
+              });
+            }, 10);
           } else {
             const S = clamped / initialWidth;
             

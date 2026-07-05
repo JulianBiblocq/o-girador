@@ -172,12 +172,14 @@ export const TimelineMinimap: React.FC<TimelineMinimapProps> = ({
         const stickyHeaders = document.querySelectorAll('.timeline-sticky-header') as NodeListOf<HTMLElement>;
         stickyHeaders.forEach(h => h.style.transform = '');
         
-        // 2. Persister le scrollLeft final
-        const newC = HEADER_W + totalMeasures * clampedW;
-        pendingScrollLeftRef.current = (initialL / M) * newC;
-        
-        // 3. Persister le zoom final
-        onMeasureWidthChange(clampedW);
+        // 2. Laisser le thread principal respirer 10ms puis mettre à jour l'état de façon concurrente
+        setTimeout(() => {
+          React.startTransition(() => {
+            const newC = HEADER_W + totalMeasures * clampedW;
+            pendingScrollLeftRef.current = (initialL / M) * newC;
+            onMeasureWidthChange(clampedW);
+          });
+        }, 10);
       } else {
         const S = clampedW / measureWidth;
         const newC = HEADER_W + totalMeasures * clampedW;
@@ -264,12 +266,14 @@ export const TimelineMinimap: React.FC<TimelineMinimapProps> = ({
         const stickyHeaders = document.querySelectorAll('.timeline-sticky-header') as NodeListOf<HTMLElement>;
         stickyHeaders.forEach(h => h.style.transform = '');
         
-        // 2. Persister le scrollLeft final
-        const newC = HEADER_W + totalMeasures * clampedW;
-        pendingScrollLeftRef.current = (targetL / M) * newC;
-        
-        // 3. Persister le zoom final
-        onMeasureWidthChange(clampedW);
+        // 2. Laisser le thread principal respirer 10ms puis mettre à jour l'état de façon concurrente
+        setTimeout(() => {
+          React.startTransition(() => {
+            const newC = HEADER_W + totalMeasures * clampedW;
+            pendingScrollLeftRef.current = (targetL / M) * newC;
+            onMeasureWidthChange(clampedW);
+          });
+        }, 10);
       } else {
         const S = clampedW / measureWidth;
         const newC = HEADER_W + totalMeasures * clampedW;
