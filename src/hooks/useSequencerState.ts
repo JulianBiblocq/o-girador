@@ -15,6 +15,7 @@ import { instrumentsConfig, getMarkers, getVisualStrokeSymbol } from '../data';
 import { audioEngine } from './useAudioSync';
 import { useAuth } from '../contexts/AuthContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerHistory } from './useSequencerHistory';
 
 export function useSequencerState() {
   const { userProfile, updateUserPreference } = useAuth();
@@ -94,27 +95,6 @@ export function useSequencerState() {
     }
   };
 
-  // History states
-  const [tracksHistory, setTracksHistory] = useState<TrackGroup[][]>([]);
-  const [tracksRedoHistory, setTracksRedoHistory] = useState<TrackGroup[][]>([]);
-  
-  const [songStructureHistory, setSongStructureHistory] = useState<{
-    measureTimeSigs: TimeSignature[];
-    measureBpms: number[];
-    measureBpmTransitions: ('immediate' | 'ramp')[];
-    measureVols: number[];
-    measureVolTransitions: ('immediate' | 'ramp')[];
-    songSections?: SongSection[];
-  }[]>([]);
-  const [songStructureRedoHistory, setSongStructureRedoHistory] = useState<{
-    measureTimeSigs: TimeSignature[];
-    measureBpms: number[];
-    measureBpmTransitions: ('immediate' | 'ramp')[];
-    measureVols: number[];
-    measureVolTransitions: ('immediate' | 'ramp')[];
-    songSections?: SongSection[];
-  }[]>([]);
-
   // Refs for audio scheduler and safe access
   const tracksRef = useRef<TrackGroup[]>([]);
   const totalMeasuresRef = useRef<number>(8);
@@ -132,10 +112,32 @@ export function useSequencerState() {
   const isLoopRegionActiveRef = useRef<boolean>(true);
   const isLoopingRef = useRef<boolean>(true);
 
-  const tracksHistoryRef = useRef<TrackGroup[][]>([]);
-  const tracksRedoHistoryRef = useRef<TrackGroup[][]>([]);
-  const songStructureHistoryRef = useRef<any[]>([]);
-  const songStructureRedoHistoryRef = useRef<any[]>([]);
+  // Instantiation of the history hook
+  const {
+    tracksHistory,
+    tracksRedoHistory,
+    pushUndoState,
+    handleUndo,
+    handleRedo,
+    clearHistory,
+  } = useSequencerHistory({
+    tracksRef,
+    measureTimeSigsRef,
+    measureBpmsRef,
+    measureBpmTransitionsRef,
+    measureVolsRef,
+    measureVolTransitionsRef,
+    songSectionsRef,
+    songMarkersRef,
+    setTracks,
+    setMeasureTimeSigs,
+    setSongSections,
+    setSongMarkers,
+    setMeasureBpms,
+    setMeasureBpmTransitions,
+    setMeasureVols,
+    setMeasureVolTransitions,
+  });
 
   // Keep refs in sync
   useEffect(() => {
@@ -165,10 +167,6 @@ export function useSequencerState() {
     measureVolTransitionsRef.current = measureVolTransitions;
     measureSignalsRef.current = measureSignals;
     isLoopingRef.current = isLooping;
-    tracksHistoryRef.current = tracksHistory;
-    tracksRedoHistoryRef.current = tracksRedoHistory;
-    songStructureHistoryRef.current = songStructureHistory;
-    songStructureRedoHistoryRef.current = songStructureRedoHistory;
     return unsub;
   }, [
     measureBpms,
@@ -178,9 +176,7 @@ export function useSequencerState() {
     measureSignals,
     isLooping,
     activeVariationsRef,
-    tracksRef,
-    songStructureHistory,
-    songStructureRedoHistory
+    tracksRef
   ]);
 
   // Adjust measure arrays length when totalMeasures changes
@@ -287,124 +283,7 @@ export function useSequencerState() {
   }, []);
 
 
-  const pushUndoState = (customTracksState?: TrackGroup[]) => {
-    console.trace("🕵️ QUI A APPELÉ pushUndoState ?");
-    setTracksRedoHistory([]);
-    setSongStructureRedoHistory([]);
 
-    const stateToSave = customTracksState ? customTracksState : tracksRef.current;
-    setTracksHistory(prev => {
-      // Partage structurel : sauvegarde de la référence immuable directement
-      const next = [...prev, stateToSave];
-      if (next.length > 10) return next.slice(-10);
-      return next;
-    });
-
-    setSongStructureHistory(prev => {
-      const cloned = {
-        measureTimeSigs: measureTimeSigsRef.current,
-        measureBpms: measureBpmsRef.current,
-        measureBpmTransitions: measureBpmTransitionsRef.current,
-        measureVols: measureVolsRef.current,
-        measureVolTransitions: measureVolTransitionsRef.current,
-        songSections: songSectionsRef.current
-      };
-      const next = [...prev, cloned];
-      if (next.length > 10) return next.slice(-10);
-      return next;
-    });
-  };
-
-  const handleUndo = () => {
-    if (tracksHistoryRef.current.length === 0) return;
-
-    const currentTracks = tracksRef.current;
-    setTracksRedoHistory(prev => [...prev, currentTracks]);
-
-    const currentStructure = {
-      measureTimeSigs: measureTimeSigsRef.current,
-      measureBpms: measureBpmsRef.current,
-      measureBpmTransitions: measureBpmTransitionsRef.current,
-      measureVols: measureVolsRef.current,
-      measureVolTransitions: measureVolTransitionsRef.current,
-      songSections: songSectionsRef.current
-    };
-    setSongStructureRedoHistory(prev => [...prev, currentStructure]);
-
-    setTracksHistory(prev => {
-      const nextHistory = [...prev];
-      const previousState = nextHistory.pop();
-      if (previousState) {
-        setTracks(previousState);
-      }
-      return nextHistory;
-    });
-
-    if (songStructureHistoryRef.current.length > 0) {
-      setSongStructureHistory(prev => {
-        const nextHistory = [...prev];
-        const previousState = nextHistory.pop();
-        if (previousState) {
-          setMeasureTimeSigs(previousState.measureTimeSigs);
-          setMeasureBpms(previousState.measureBpms);
-          setMeasureBpmTransitions(previousState.measureBpmTransitions);
-          if (previousState.measureVols) setMeasureVols(previousState.measureVols);
-          if (previousState.measureVolTransitions) setMeasureVolTransitions(previousState.measureVolTransitions);
-          if (previousState.songSections) setSongSections(previousState.songSections);
-        }
-        return nextHistory;
-      });
-    }
-  };
-
-  const handleRedo = () => {
-    if (tracksRedoHistoryRef.current.length === 0) return;
-
-    const currentTracks = tracksRef.current;
-    setTracksHistory(prev => [...prev, currentTracks]);
-
-    const currentStructure = {
-      measureTimeSigs: measureTimeSigsRef.current,
-      measureBpms: measureBpmsRef.current,
-      measureBpmTransitions: measureBpmTransitionsRef.current,
-      measureVols: measureVolsRef.current,
-      measureVolTransitions: measureVolTransitionsRef.current,
-      songSections: songSectionsRef.current
-    };
-    setSongStructureHistory(prev => [...prev, currentStructure]);
-
-    setTracksRedoHistory(prev => {
-      const nextHistory = [...prev];
-      const nextState = nextHistory.pop();
-      if (nextState) {
-        setTracks(nextState);
-      }
-      return nextHistory;
-    });
-
-    if (songStructureRedoHistoryRef.current.length > 0) {
-      setSongStructureRedoHistory(prev => {
-        const nextHistory = [...prev];
-        const nextState = nextHistory.pop();
-        if (nextState) {
-          setMeasureTimeSigs(nextState.measureTimeSigs);
-          setMeasureBpms(nextState.measureBpms);
-          setMeasureBpmTransitions(nextState.measureBpmTransitions);
-          if (nextState.measureVols) setMeasureVols(nextState.measureVols);
-          if (nextState.measureVolTransitions) setMeasureVolTransitions(nextState.measureVolTransitions);
-          if (nextState.songSections) setSongSections(nextState.songSections);
-        }
-        return nextHistory;
-      });
-    }
-  };
-
-  const clearHistory = () => {
-    setTracksHistory([]);
-    setTracksRedoHistory([]);
-    setSongStructureHistory([]);
-    setSongStructureRedoHistory([]);
-  };
 
   // Dynamic layout radial positioning offsets
   const applyRadii = (list: TrackGroup[]): TrackGroup[] => {
