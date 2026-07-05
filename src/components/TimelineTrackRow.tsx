@@ -158,16 +158,24 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
             {!isMacro && (
               <div className="cell-detailed w-full h-full relative">
               {/* Pattern selector */}
-              {editingMeasureIdx === mIdx ? (
+              <div 
+                className={`absolute top-1 left-1 z-20 flex items-center gap-1 ${isPanningActive ? 'pointer-events-none opacity-65' : ''}`}
+                onClick={e => e.stopPropagation()}
+                onMouseDown={e => e.stopPropagation()}
+                onTouchStart={e => e.stopPropagation()}
+              >
+                {/* Visual Badge containing the label and a tiny dropdown arrow */}
                 <div
-                  className={`absolute top-1 left-1 z-20 ${isPanningActive ? 'pointer-events-none opacity-65' : ''}`}
-                  onClick={e => e.stopPropagation()}
-                  onMouseDown={e => e.stopPropagation()}
-                  onTouchStart={e => e.stopPropagation()}
+                  className="flex items-center gap-1 bg-[var(--cordel-bg)]/80 hover:bg-[var(--cordel-bg)]/95 border border-[var(--cordel-border)]/20 hover:border-[var(--cordel-border)]/50 rounded px-1.5 py-px shadow-sm max-w-[125px] relative h-[20px]"
                 >
+                  <span className="text-[10px] font-cactus font-bold tracking-wider uppercase truncate leading-tight select-none pr-2.5">
+                    {activePattern ? (activePattern.name || `${lang === 'fr' ? 'Motif' : 'Padrão'}`) : (lang === 'fr' ? 'Silence' : 'Silêncio')}
+                  </span>
+                  <span className="text-[7px] opacity-50 absolute right-1 top-1/2 -translate-y-1/2">▼</span>
+                  
+                  {/* Invisible native select overlaid on top */}
                   <select
                     value={activePattern ? String(activePattern.id) : 'silence'}
-                    autoFocus
                     onChange={e => {
                       const v = e.target.value;
                       onPatternAssignForMeasure(
@@ -175,11 +183,9 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
                         v === 'silence' ? null : Number(v),
                         mIdx,
                       );
-                      setEditingMeasureIdx(null);
                     }}
-                    onBlur={() => setEditingMeasureIdx(null)}
-                    className="bg-[var(--cordel-bg)]/95 text-[var(--cordel-text)] text-[10px] font-cactus font-bold border border-[var(--cordel-border)]/50 rounded px-1 py-px outline-none cursor-pointer tracking-wider uppercase max-w-[125px] leading-tight"
-                    style={{ fontSize: '10px', height: '22px' }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
                   >
                     <option value="silence">
                       {lang === 'fr' ? '— Silence' : '— Silêncio'}
@@ -190,52 +196,35 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
                       </option>
                     ))}
                   </select>
-                  
-                  {/* Dice Toggle for Variations */}
-                  {activePattern && inst.type !== 'voice' && inst.id !== 'apito' && (activePattern.variations?.length || 0) > 0 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const isAllowed = activePattern.measureAllowVariations?.[mIdx] || false;
-                        onPatternVariationToggleForMeasure(track.id, activePattern.id, mIdx, !isAllowed);
-                      }}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      className={`ml-1 px-1 py-0.5 rounded text-[10px] border transition-colors ${
-                        activePattern.measureAllowVariations?.[mIdx] 
-                          ? 'bg-[#f1c40f] text-black border-yellow-600 shadow-[0_0_4px_rgba(241,196,15,0.6)]' 
-                          : 'bg-[#2a2a2a] text-white/90 border-black/50 hover:bg-[#3a3a3a] shadow-sm'
-                      }`}
-                      title={
-                        activePattern.measureAllowVariations?.[mIdx] 
-                          ? (lang === 'fr' ? 'Mode Improvisation activé' : 'Modo Improvisação ativado')
-                          : (lang === 'fr' ? 'Mode Strict (sans variation)' : 'Modo Estrito (sem variação)')
-                      }
-                    >
-                      🎲
-                    </button>
-                  )}
                 </div>
-              ) : (
-                <div
-                  className="absolute top-1 left-1 z-20 flex items-center gap-1 cursor-pointer bg-[var(--cordel-bg)]/80 hover:bg-[var(--cordel-bg)]/95 border border-[var(--cordel-border)]/20 hover:border-[var(--cordel-border)]/50 rounded px-1.5 py-px shadow-sm max-w-[125px]"
-                  onClick={e => {
-                    e.stopPropagation();
-                    setEditingMeasureIdx(mIdx);
-                  }}
-                >
-                  <span className="text-[10px] font-cactus font-bold tracking-wider uppercase truncate leading-tight select-none">
-                    {activePattern ? (activePattern.name || `${lang === 'fr' ? 'Motif' : 'Padrão'}`) : (lang === 'fr' ? 'Silence' : 'Silêncio')}
-                  </span>
-                  {activePattern && inst.type !== 'voice' && inst.id !== 'apito' && (activePattern.variations?.length || 0) > 0 && (
-                    <span className={`text-[9px] ${activePattern.measureAllowVariations?.[mIdx] ? 'text-yellow-600' : 'text-[var(--cordel-text)]/40'}`}>
-                      🎲
-                    </span>
-                  )}
-                </div>
-              )}
+
+                {/* Dice Toggle for Variations */}
+                {activePattern && inst.type !== 'voice' && inst.id !== 'apito' && (activePattern.variations?.length || 0) > 0 && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const isAllowed = activePattern.measureAllowVariations?.[mIdx] || false;
+                      onPatternVariationToggleForMeasure(track.id, activePattern.id, mIdx, !isAllowed);
+                    }}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    className={`px-1 py-px rounded text-[10px] border transition-colors flex items-center justify-center h-[20px] ${
+                      activePattern.measureAllowVariations?.[mIdx] 
+                        ? 'bg-[#f1c40f] text-black border-yellow-600 shadow-[0_0_4px_rgba(241,196,15,0.6)]' 
+                        : 'bg-[#2a2a2a] text-white/90 border-black/50 hover:bg-[#3a3a3a]'
+                    }`}
+                    title={
+                      activePattern.measureAllowVariations?.[mIdx] 
+                        ? (lang === 'fr' ? 'Mode Improvisation activé' : 'Modo Improvisação ativado')
+                        : (lang === 'fr' ? 'Mode Strict (sans variation)' : 'Modo Estrito (sem variação)')
+                    }
+                  >
+                    🎲
+                  </button>
+                )}
+              </div>
 
               {activePattern && activePattern.vocalMode === 'micro' && (
                 <div className="absolute bottom-1.5 right-1.5 bg-[#27ae60] text-white border border-black/20 font-sans font-bold text-[8px] px-1 py-px rounded-sm z-20 pointer-events-none select-none flex items-center gap-0.5 shadow-sm">
