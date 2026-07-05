@@ -40,7 +40,18 @@ export function initMasterEffectsChain(
   if (masterVolumeNode) return; // Déjà initialisé
 
   if (!Tone.context) {
-    Tone.setContext(new Tone.Context({ latencyHint: 'playback' }));
+    let rawCtx: AudioContext;
+    try {
+      rawCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
+        latencyHint: 'playback',
+        sampleRate: 44100
+      });
+    } catch (_) {
+      rawCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
+        latencyHint: 'playback'
+      });
+    }
+    Tone.setContext(new Tone.Context(rawCtx));
   }
 
   masterEQNode = new Tone.EQ3({

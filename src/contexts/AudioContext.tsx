@@ -779,7 +779,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        isolatedRecordingContext = new AudioContextClass({ latencyHint: 'playback' });
+        try {
+          isolatedRecordingContext = new AudioContextClass({ latencyHint: 'playback', sampleRate: 44100 });
+        } catch (_) {
+          isolatedRecordingContext = new AudioContextClass({ latencyHint: 'playback' });
+        }
         
         const workletUrl = import.meta.env.BASE_URL + 'recorder-worklet.js';
         
