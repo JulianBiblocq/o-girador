@@ -20,21 +20,39 @@ interface ScheduledNote {
 }
 
 // Module scope audio engines and nodes to avoid duplicate instantiations on React re-renders
-export let metroChannel: Tone.Channel | null = null;
-export const channels: { [id: string]: Tone.Channel } = {};
-export const meters: { [id: string]: Tone.Meter } = {};
+import {
+  masterVolumeNode,
+  masterEQNode,
+  masterCompressorNode,
+  masterSoftClipperNode,
+  masterMeterNode,
+  masterReverbVolumeNode,
+  reverbNode,
+  metroChannel,
+  channels,
+  meters,
+  reverbSends,
+  initMasterEffectsChain,
+  initInstrumentNodes
+} from '../audio/effectsChain';
+
+export {
+  masterVolumeNode,
+  masterEQNode,
+  masterCompressorNode,
+  masterSoftClipperNode,
+  masterMeterNode,
+  masterReverbVolumeNode,
+  reverbNode,
+  metroChannel,
+  channels,
+  meters,
+  reverbSends
+};
+
 export const voiceSynths: { [id: string]: any } = {};
 export let audioEngine: AudioEngine | null = null;
 export let inputManager: InputManager | null = null;
-
-export let masterReverbVolumeNode: Tone.Gain | null = null;
-export let reverbNode: Tone.Reverb | null = null;
-export const reverbSends: { [id: string]: Tone.Gain } = {};
-export let masterVolumeNode: Tone.Gain | null = null;
-export let masterMeterNode: Tone.Meter | null = null;
-export let masterEQNode: Tone.EQ3 | null = null;
-export let masterCompressorNode: Tone.Compressor | null = null;
-export let masterSoftClipperNode: Tone.WaveShaper | null = null;
 
 export const activeNativeOscillators = new Set<OscillatorNode>();
 
@@ -576,96 +594,16 @@ export function useAudioSync({
 
         const isEco = (window as any).oGiradorEcoMode;
 
-      if (!masterVolumeNode) {
-        if (!Tone.context) {
-          Tone.setContext(new Tone.Context({ latencyHint: 'playback' }));
-        }
+        initMasterEffectsChain(
+          masterVol,
+          masterEQ,
+          isEco,
+          masterReverbVol,
+          metroVolumeRef.current,
+          isMetroOnRef.current
+        );
 
-        masterEQNode = new Tone.EQ3({
-          low: masterEQ.low,
-          mid: masterEQ.mid,
-          high: masterEQ.high
-        });
-        masterCompressorNode = new Tone.Compressor({
-          threshold: isEco ? 0 : -12, // Changed from -24 to prevent heavy pumping on percussion
-          ratio: isEco ? 1 : 2,       // Gentle glue compression instead of hard squashing
-          attack: 0.015,  // Faster attack to catch peaks
-          release: 0.15   // Faster release to avoid swelling the reverb tail on the next beat
-        });
-
-        masterVolumeNode = new Tone.Gain(1.0);
-        masterVolumeNode.connect(masterEQNode);
-        masterEQNode.connect(masterCompressorNode);
-        
-        // Add a highpass filter at 55Hz to remove mud and sub-bass that tablets/phones can't reproduce
-        // This prevents inaudible low frequencies from triggering the Limiter and causing stutter/pumping
-        const masterHighpassNode = new Tone.Filter(55, 'highpass');
-        masterCompressorNode.connect(masterHighpassNode);
-
-        // Add a Limiter at -2dB to prevent digital clipping when many instruments hit simultaneously
-        const masterLimiterNode = new Tone.Limiter(-2);
-        masterHighpassNode.connect(masterLimiterNode);
-
-        // Tone.js 0% CPU Soft Clipper (Tone.WaveShaper using cubic curve with 4x oversampling)
-        masterSoftClipperNode = new Tone.WaveShaper();
-        const curveSize = 8192;
-        const clipperCurve = new Float32Array(curveSize);
-        for (let i = 0; i < curveSize; i++) {
-          const x = (2 * i) / (curveSize - 1) - 1;
-          let y = (3 * x - Math.pow(x, 3)) / 2;
-          if (x <= -1) {
-            y = -1.0;
-          } else if (x >= 1) {
-            y = 1.0;
-          }
-          clipperCurve[i] = y;
-        }
-        masterSoftClipperNode.curve = clipperCurve;
-        masterSoftClipperNode.oversample = '4x';
-
-        // Connect chain: masterLimiterNode -> masterSoftClipperNode -> Tone.Destination
-        masterLimiterNode.connect(masterSoftClipperNode);
-        masterSoftClipperNode.connect(Tone.Destination);
-        
-        const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
-        const multiplier = isEco ? Tone.dbToGain(-8) : 1.0;
-        masterVolumeNode.gain.value = baseGain * multiplier;
-        masterMeterNode = new Tone.Meter();
-        (window as any).masterMeterNode = masterMeterNode;
-        Tone.Destination.connect(masterMeterNode);
-      }
-
-
-      metroChannel = new Tone.Channel({ volume: Tone.gainToDb(metroVolumeRef.current / 100) }).connect(masterVolumeNode);
-      metroChannel.mute = !isMetroOnRef.current;
-
-      // Native oscillators used instead of Tone.Synth objects to reduce CPU overhead
-
-      if (!masterReverbVolumeNode) {
-        masterReverbVolumeNode = new Tone.Gain(Tone.dbToGain(masterReverbVol === -40 ? -Infinity : masterReverbVol)).connect(masterVolumeNode);
-      }
-
-      if (!reverbNode) {
-        reverbNode = new Tone.Reverb({ decay: 2.5, preDelay: 0.02, wet: 1 }).connect(masterReverbVolumeNode);
-      }
-
-      instrumentsConfig.forEach((inst) => {
-        if (!channels[inst.id]) {
-          channels[inst.id] = new Tone.Channel({ volume: 0 }).connect(masterVolumeNode!);
-        }
-        if (!meters[inst.id]) {
-          meters[inst.id] = new Tone.Meter();
-          channels[inst.id].connect(meters[inst.id]);
-        }
-
-        if (!reverbSends[inst.id]) {
-          reverbSends[inst.id] = new Tone.Gain(0);
-          channels[inst.id].connect(reverbSends[inst.id]);
-          reverbSends[inst.id].connect(reverbNode!);
-        }
-
-        // Native voice oscillators used instead of Tone.AMSynth to reduce CPU overhead
-      });
+        initInstrumentNodes();
 
       // Synchronize track volume, panning, reverb levels, and mute/solo initially once nodes exist
       const initialHasSolo = tracksRef.current.some((t: any) => t.isSolo);
