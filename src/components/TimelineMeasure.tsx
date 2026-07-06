@@ -98,6 +98,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
       style={{ 
         width: currentMeasureW, 
         minWidth: currentMeasureW,
+        contain: 'layout paint style',
         ...({ '--section-color': sectionColor } as React.CSSProperties)
       }}
       onClick={handleCellClick}
