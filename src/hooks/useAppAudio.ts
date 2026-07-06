@@ -24,11 +24,27 @@ export function useAppAudio() {
   const lastNotesSignatureRef = useRef<string>('');
   const lastTracksRef = useRef<any[]>([]);
   const audioRef = useRef<any>(audio);
+  const workerRef = useRef<Worker | null>(null);
 
   // Sync audio ref with the latest audio context object
   useEffect(() => {
     audioRef.current = audio;
   }, [audio]);
+
+  // Initialize worker
+  useEffect(() => {
+    workerRef.current = new Worker(new URL('../workers/dbWorker.ts', import.meta.url), { type: 'module' });
+
+    workerRef.current.onmessage = (e) => {
+      if (e.data?.type === 'SAVE_SUCCESS') {
+        setIsSavedIndicatorVisible(true);
+      }
+    };
+
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, []);
 
   // Load Preset catalog and decode initial composition from URL query/hash or local storage.
   useEffect(() => {
@@ -126,7 +142,7 @@ export function useAppAudio() {
     
     let timeoutId: NodeJS.Timeout;
 
-    const performSave = async () => {
+    const performSave = () => {
       const state = useSequencerStore.getState();
       const tracksCopy = state.tracks.map((t: any) => ({
         ...t,
@@ -163,13 +179,8 @@ export function useAppAudio() {
         reverbDecay: audioRef.current.reverbDecay,
         globalSwing: audioRef.current.globalSwing,
       };
-      try {
-        const { saveAutosave } = await import('../db');
-        await saveAutosave(dataToSave);
-        setIsSavedIndicatorVisible(true);
-      } catch (err) {
-        console.error('Failed to autosave state to IndexedDB:', err);
-      }
+
+      workerRef.current?.postMessage({ type: 'SAVE_AUTOSAVE', payload: dataToSave });
     };
 
     const getNotesSignature = (tracksList: any[]) => {
