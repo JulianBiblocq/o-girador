@@ -11,6 +11,7 @@ interface RhythmSignalsRowProps {
   rhythmSignals: any[];
   measureSignals: (string | null)[];
   onMeasureSignalChange: (mIdx: number, sigId: string | null) => void;
+  visibleRange: { start: number; end: number };
 }
 
 const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
@@ -18,6 +19,7 @@ const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
   rhythmSignals,
   measureSignals,
   onMeasureSignalChange,
+  visibleRange = { start: 0, end: 8 },
 }) => {
   const uiContext = useContext(TimelineUIContext);
   if (!uiContext) {
@@ -32,7 +34,6 @@ const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
     lang,
     signalDropdownOpen,
     setSignalDropdownOpen,
-    visibleRange,
   } = uiContext;
 
   if (rhythmSignals.length === 0) return null;
@@ -40,7 +41,7 @@ const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
   return (
     <div
       className="flex border-b border-[var(--cordel-border)]/20 h-8 relative"
-      style={{ width: `${HEADER_W + totalContentW + 150}px` }}
+      style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px` }}
     >
       {/* Sticky header */}
       <div
@@ -170,4 +171,10 @@ const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
   );
 };
 
-export const RhythmSignalsRow = React.memo(RhythmSignalsRowComponent);
+export const RhythmSignalsRow = React.memo(RhythmSignalsRowComponent, (prev, next) => {
+  return prev.totalMeasures === next.totalMeasures &&
+         prev.rhythmSignals === next.rhythmSignals &&
+         prev.measureSignals === next.measureSignals &&
+         prev.visibleRange.start === next.visibleRange.start &&
+         prev.visibleRange.end === next.visibleRange.end;
+});

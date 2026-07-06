@@ -2,20 +2,26 @@ import React, { useContext } from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
-import { CompactPatternRenderer } from './CompactPatternRenderer';
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
-import { TimelineStep } from './TimelineStep';
+import { TimelineMeasure } from './TimelineMeasure';
+import { useSequencer } from '../contexts/SequencerContext';
+import { getNextStepValue } from '../utils/instrumentStrokes';
 
 interface TimelineTrackRowProps {
   trackId: number;
+  visibleRange: { start: number; end: number };
+  currentMeasureW: number;
 }
 
-const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId }) => {
+const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ 
+  trackId, 
+  visibleRange = { start: 0, end: 8 },
+  currentMeasureW
+}) => {
   const uiContext = useContext(TimelineUIContext);
   
   if (!uiContext) return null;
   const { 
-    MEASURE_W, 
     HEADER_W, 
     totalContentW, 
     isMobile, 
@@ -23,7 +29,6 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
     isMinZoom, 
     isPanningActive, 
     lang, 
-    visibleRange 
   } = uiContext;
 
   // Granular primitive selectors to avoid any reference instability or infinite loops
@@ -55,7 +60,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
     })));
   });
 
-  // Re-generate the track object for rendering purposes
+  // Re-generate the track object for rendering purposes (isolated from step updates)
   const trackData = React.useMemo(() => {
     if (isMacro) {
       return fullTrack;
@@ -93,6 +98,40 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
   const isMutedBySolo = hasSolo && !trackData.isSolo;
   const canPlay = trackData.isSolo || (!trackData.isMute && !isMutedBySolo);
 
+  const sequencer = useSequencer();
+
+  const handleGridPointerDown = (e: React.PointerEvent) => {
+    if (isPanningActive) return;
+    const stepEl = (e.target as HTMLElement).closest('.timeline-step') as HTMLElement;
+    if (!stepEl) return;
+    
+    e.stopPropagation();
+    
+    const { trackId: tIdStr, patternId: pIdStr, step: stepStr, val } = stepEl.dataset;
+    if (!tIdStr || !pIdStr || stepStr === undefined) return;
+    
+    const tId = Number(tIdStr);
+    const pId = Number(pIdStr);
+    const sIdx = Number(stepStr);
+    
+    const nextVal = getNextStepValue(inst.id, inst.type, val || '');
+    sequencer.handleTrackStepValueChange(tId, pId, sIdx, String(nextVal));
+  };
+
+  const handleMeasureClick = (mIdx: number, steps: number, clickX: number) => {
+    const ratio = Math.max(0, Math.min(1, clickX / currentMeasureW));
+    const stepIdx = Math.floor(ratio * steps);
+    window.dispatchEvent(
+      new CustomEvent('o-girador-timeline-nav', {
+        detail: { mIdx, sIdx: stepIdx }
+      })
+    );
+  };
+
+  const leftSpacerWidth = Math.max(0, visibleRange.start) * currentMeasureW;
+  const rightSpacerCount = Math.max(0, totalMeasures - 1 - visibleRange.end);
+  const rightSpacerWidth = rightSpacerCount * currentMeasureW;
+
   return (
     <div
       className={`flex border-b border-[var(--cordel-border)]/20 h-12 transition-opacity duration-150 relative ${
@@ -100,12 +139,13 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
       }`}
       style={{ 
         width: `${HEADER_W + totalContentW}px`,
-        contain: 'strict',
+        minWidth: `${HEADER_W + totalContentW}px`,
+        // Suppression du contain: 'strict' pour corriger définitivement le bug d'affichage (Culling) après C2
       }}
     >
       {/* ── Sticky track header ── */}
       <div
-        className={`timeline-sticky-header sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] ${
+        className={`timeline-sticky-header sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] shrink-0 ${
           isMobile ? 'px-1' : 'px-3'
         }`}
         style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
@@ -153,15 +193,16 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
 
       {/* Left spacer column */}
       {visibleRange.start > 0 && (
-        <div style={{ width: `${visibleRange.start * MEASURE_W}px`, minWidth: `${visibleRange.start * MEASURE_W}px` }} className="shrink-0" />
+        <div style={{ width: `${leftSpacerWidth}px`, minWidth: `${leftSpacerWidth}px` }} className="shrink-0" />
       )}
 
-      {/* ── Measure cells ── */}
+      {/* ── Measure cells (Isolés dans TimelineMeasure.tsx pour éviter le render thrashing) ── */}
       {Array.from({ length: totalMeasures })
         .map((_, mIdx) => ({ mIdx }))
         .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
         .map(({ mIdx }) => {
           const activePattern = trackData.patterns.find(p => p.measureAssignments[mIdx]);
+          const patternIdx = activePattern ? trackData.patterns.findIndex(p => p.id === activePattern.id) : -1;
           const steps = activePattern ? activePattern.steps : 16;
 
           // Find if there is a section covering this measure
@@ -170,226 +211,60 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
           const isSectionEnd = measureSection && mIdx === measureSection.endMeasure;
           const sectionColor = measureSection?.color || '';
 
+          const isInLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
+          const loopStatus = loopStartMeasure !== null && loopEndMeasure !== null
+            ? (isInLoop ? (isLoopRegionActive ? 'inside-active' as const : 'none' as const) : (isLoopRegionActive ? 'outside-active' as const : 'none' as const))
+            : 'none' as const;
+
           return (
-            <div
+            <TimelineMeasure
               key={mIdx}
-              className={`h-full cursor-pointer border-r shrink-0 ${
-                (mIdx + 1) % 4 === 0
-                  ? 'border-r-2 border-r-blue-500/40 dark:border-r-blue-400/40 shadow-[1px_0_0_0_rgba(59,130,246,0.15)]'
-                  : 'border-r-[var(--cordel-border)]/20'
-              } ${
-                loopStartMeasure !== null && loopEndMeasure !== null
-                  ? (mIdx >= loopStartMeasure && mIdx <= loopEndMeasure ? (isLoopRegionActive ? 'bg-blue-600/[0.03]' : '') : (isLoopRegionActive ? 'bg-black/10 dark:bg-black/30 opacity-70' : ''))
-                  : ''
-              } ${
-                measureSection ? 'cell-section-tint' : ''
-              } ${
-                isSectionStart ? 'cell-section-start' : ''
-              } ${
-                isSectionEnd ? 'cell-section-end' : ''
-              }`}
-              style={{ 
-                width: MEASURE_W, 
-                minWidth: MEASURE_W,
-                ...({ '--section-color': sectionColor } as React.CSSProperties)
-              }}
-              onClick={(e) => {
-                if (isPanningActive) return; // Prevent navigations when panning
-                const rect = e.currentTarget.getBoundingClientRect();
-                const clickX = e.clientX - rect.left;
-                const ratio = Math.max(0, Math.min(1, clickX / MEASURE_W));
-                const stepIdx = Math.floor(ratio * steps);
-                window.dispatchEvent(
-                  new CustomEvent('o-girador-timeline-nav', {
-                    detail: { mIdx, sIdx: stepIdx }
-                  })
-                );
-              }}
-            >
-              {/* Cell content (Detailed View) */}
-              {!isMacro && (
-                <div className="cell-detailed w-full h-full relative">
-                  {/* Pattern selector */}
-                  <div 
-                    className={`absolute top-1 left-1 z-20 flex items-center gap-1 ${isPanningActive ? 'pointer-events-none opacity-65' : ''}`}
-                    onClick={e => e.stopPropagation()}
-                    onMouseDown={e => e.stopPropagation()}
-                    onTouchStart={e => e.stopPropagation()}
-                  >
-                    {/* Visual Badge containing the label and a tiny dropdown arrow */}
-                    <div
-                      className="flex items-center gap-1 bg-[var(--cordel-bg)]/80 hover:bg-[var(--cordel-bg)]/95 border border-[var(--cordel-border)]/20 hover:border-[var(--cordel-border)]/50 rounded px-1.5 py-px shadow-sm max-w-[125px] relative h-[20px]"
-                    >
-                      <span className="text-[10px] font-cactus font-bold tracking-wider uppercase truncate leading-tight select-none pr-2.5">
-                        {activePattern ? (activePattern.name || `${lang === 'fr' ? 'Motif' : 'Padrão'}`) : (lang === 'fr' ? 'Silence' : 'Silêncio')}
-                      </span>
-                      <span className="text-[7px] opacity-50 absolute right-1 top-1/2 -translate-y-1/2">▼</span>
-                      
-                      {/* Invisible native select overlaid on top with styled options */}
-                      <select
-                        value={activePattern ? String(activePattern.id) : 'silence'}
-                        onChange={e => {
-                          const v = e.target.value;
-                          onPatternAssignForMeasure(
-                            trackData.id,
-                            v === 'silence' ? null : Number(v),
-                            mIdx,
-                          );
-                        }}
-                        className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
-                        title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
-                      >
-                        <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
-                          {lang === 'fr' ? '— Silence' : '— Silêncio'}
-                        </option>
-                        {trackData.patterns.map((p, pidx) => (
-                          <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
-                            {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Dice Toggle for Variations */}
-                    {activePattern && inst.type !== 'voice' && inst.id !== 'apito' && (activePattern.variationsCount || 0) > 0 && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const isAllowed = activePattern.measureAllowVariations?.[mIdx] || false;
-                          onPatternVariationToggleForMeasure(trackData.id, activePattern.id, mIdx, !isAllowed);
-                        }}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        className={`px-1 py-px rounded text-[10px] border transition-colors flex items-center justify-center h-[20px] ${
-                          activePattern.measureAllowVariations?.[mIdx] 
-                            ? 'bg-[#f1c40f] text-black border-yellow-600 shadow-[0_0_4px_rgba(241,196,15,0.6)]' 
-                            : 'bg-[#2a2a2a] text-white/90 border-black/50 hover:bg-[#3a3a3a]'
-                        }`}
-                        title={
-                          activePattern.measureAllowVariations?.[mIdx] 
-                            ? (lang === 'fr' ? 'Mode Improvisation activé' : 'Modo Improvisação ativado')
-                            : (lang === 'fr' ? 'Mode Strict (sans variation)' : 'Modo Estrito (sem variação)')
-                        }
-                      >
-                        🎲
-                      </button>
-                    )}
-                  </div>
-
-                  {activePattern && activePattern.vocalMode === 'micro' && (
-                    <div className="absolute bottom-1.5 right-1.5 bg-[#27ae60] text-white border border-black/20 font-sans font-bold text-[8px] px-1 py-px rounded-sm z-20 pointer-events-none select-none flex items-center gap-0.5 shadow-sm">
-                      🎙️ MIC
-                    </div>
-                  )}
-
-                  {!activePattern ? (
-                    /* Silence hatching */
-                    <div
-                      className="w-full h-full opacity-15"
-                      style={{
-                        backgroundImage:
-                          'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
-                        backgroundSize: '10px 10px',
-                      }}
-                    />
-                  ) : (
-                    /* Steps grid (Delegated to TimelineStep for high performance) */
-                    <div className="flex h-full w-full">
-                      {Array.from({ length: steps }).map((_, sIdx) => (
-                        <TimelineStep
-                          key={sIdx}
-                          trackId={trackData.id}
-                          patternId={activePattern.id}
-                          measureIdx={mIdx}
-                          stepIdx={sIdx}
-                          stepsCount={steps}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Cell content (Macro View) */}
-              {isMacro && (
-                <div className="cell-macro w-full h-full p-1">
-                  {!activePattern ? (
-                    /* Faded silence hatched block */
-                    <div
-                      className="w-full h-full opacity-[0.05] border border-dashed border-[var(--cordel-border)]/30 rounded"
-                      style={{
-                        backgroundImage:
-                          'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
-                        backgroundSize: '8px 8px',
-                      }}
-                    />
-                  ) : (
-                    /* Merged continuous visual block */
-                    <div
-                      className={`macro-pattern-block w-full h-full flex ${
-                        isMinZoom ? 'flex-row justify-center items-center p-1' : 'flex-col justify-between p-1.5'
-                      } border rounded-sm transition-all`}
-                      style={{
-                        backgroundColor: `${inst.mixerBg}cc`, // semi-transparent instrument background
-                        borderColor: `${inst.colors['D'] || inst.colors['E'] || 'var(--cordel-border)'}40`,
-                        borderLeftWidth: '3px',
-                        borderLeftColor: inst.colors['D'] || inst.colors['E'] || 'var(--cordel-border)',
-                      }}
-                      title={`${activePattern.name || (lang === 'fr' ? 'Motif' : 'Padrão')} (${inst.name})`}
-                    >
-                      {/* Pattern Name */}
-                      {!isMinZoom && (
-                        <span className="font-cactus text-[9px] font-bold truncate tracking-wider uppercase text-[var(--cordel-text)] leading-none">
-                          {activePattern.vocalMode === 'micro' ? '🎙️ ' : ''}
-                          {activePattern.name || `${lang === 'fr' ? 'Motif' : 'Padrão'}`}
-                        </span>
-                      )}
-
-                      {/* Mini-beats density dots or Compact geometric shapes */}
-                      <div className={`flex items-center opacity-90 overflow-hidden w-full h-full pb-0.5`}>
-                        {isMinZoom ? (
-                          <div className="flex flex-wrap gap-[2px] justify-center w-full">
-                            {activePattern.activeSteps?.map((val: string | number, sIdx: number) => {
-                              const isActive = val !== 0 && val !== '';
-                              if (!isActive) return null;
-                              const bg = inst.colors[val as string] || '#111';
-                              return (
-                                <span
-                                  key={sIdx}
-                                  className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                                  style={{ backgroundColor: bg }}
-                                  title={String(val)}
-                                />
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <CompactPatternRenderer
-                            pattern={activePattern}
-                            inst={inst}
-                            isLeftHanded={false}
-                            isEditable={false}
-                            isFluid={true}
-                            className="h-full"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+              mIdx={mIdx}
+              trackId={trackData.id}
+              trackIdx={trackIndex}
+              instrumentIdx={trackData.instrumentIdx}
+              currentMeasureW={currentMeasureW}
+              patternId={activePattern ? activePattern.id : -1}
+              patternIdx={patternIdx}
+              steps={steps}
+              beatResolutions={activePattern?.beatResolutions}
+              sectionColor={sectionColor}
+              isSectionStart={isSectionStart}
+              isSectionEnd={isSectionEnd}
+              loopStatus={loopStatus}
+              isPanningActive={isPanningActive}
+              instId={inst.id}
+              instType={inst.type}
+              lang={lang}
+              activePatternName={activePattern ? activePattern.name : null}
+              patternsList={trackData.patterns}
+              signalDropdownOpen={uiContext.signalDropdownOpen}
+              onPatternAssignForMeasure={onPatternAssignForMeasure}
+              onPatternVariationToggleForMeasure={onPatternVariationToggleForMeasure}
+              measureAllowVariations={activePattern?.measureAllowVariations?.[mIdx] || false}
+              variationsCount={activePattern?.variationsCount || 0}
+              isMacro={isMacro}
+              isMinZoom={isMinZoom}
+              instColors={inst.colors}
+              instMixerBg={inst.mixerBg}
+              activePatternActiveSteps={activePattern?.activeSteps}
+              onGridPointerDown={handleGridPointerDown}
+              onMeasureClick={handleMeasureClick}
+            />
           );
         })}
 
       {/* Right spacer column */}
-      {visibleRange.end < totalMeasures - 1 && (
-        <div style={{ width: `${(totalMeasures - 1 - visibleRange.end) * MEASURE_W}px`, minWidth: `${(totalMeasures - 1 - visibleRange.end) * MEASURE_W}px` }} className="shrink-0" />
+      {rightSpacerCount > 0 && (
+        <div style={{ width: `${rightSpacerWidth}px`, minWidth: `${rightSpacerWidth}px` }} className="shrink-0" />
       )}
     </div>
   );
 };
 
-export const TimelineTrackRow = React.memo(TimelineTrackRowComponent);
+export const TimelineTrackRow = React.memo(TimelineTrackRowComponent, (prev, next) => {
+  return prev.trackId === next.trackId &&
+         prev.currentMeasureW === next.currentMeasureW &&
+         prev.visibleRange.start === next.visibleRange.start &&
+         prev.visibleRange.end === next.visibleRange.end;
+});

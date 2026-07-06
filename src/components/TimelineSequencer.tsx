@@ -37,6 +37,7 @@ interface TimelineSequencerProps {
   mestreSignals?: CloudRhythmSignal[];
   onSaveCloudSection?: (section: SongSection) => void;
   onLoadCloudSection?: (insertAtMeasure: number) => void;
+  visible?: boolean;
 }
 
 const HEADER_W = 180;
@@ -54,6 +55,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   mestreSignals = [],
   onSaveCloudSection,
   onLoadCloudSection,
+  visible = true,
 }) => {
   const sequencer = useSequencer();
   const { hasAccess } = useAuth();
@@ -141,16 +143,27 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     let viewportWidth = typeof window !== 'undefined' ? window.innerWidth - HEADER_W : 1200;
     
     if (el) {
+      // 🛡️ Performance / CPU impact check: Clamping scrollLeft programmatically 
+      // avoids layout shifts, double-commit loops and layout thrashing (Reflow/Paint)
+      const maxScrollLeft = Math.max(0, totalMeasures * currentMeasureW - (el.clientWidth - HEADER_W));
+      if (el.scrollLeft > maxScrollLeft) {
+        el.scrollLeft = maxScrollLeft;
+      }
       scrollLeft = el.scrollLeft;
       viewportWidth = el.clientWidth - HEADER_W;
     }
     
     const buffer = 2; // 2 measures buffer on each side
-    const start = Math.max(0, Math.floor(scrollLeft / currentMeasureW) - buffer);
+    let start = Math.max(0, Math.floor(scrollLeft / currentMeasureW) - buffer);
     const end = Math.min(
       totalMeasures - 1,
       Math.ceil((scrollLeft + viewportWidth) / currentMeasureW) + buffer
     );
+    
+    // Safety check: ensure start never exceeds end if layout is in transition
+    if (start > end) {
+      start = Math.max(0, end - buffer);
+    }
 
     setVisibleRange(prev => {
       if (prev.start === start && prev.end === end) return prev;
@@ -178,7 +191,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       el.removeEventListener('scroll', handleScroll);
       resizeObserver.disconnect();
     };
-  }, [updateVisibleRange]);
+  }, [updateVisibleRange, scrollRef.current, visible]);
 
   useEffect(() => {
     updateVisibleRange();
@@ -253,52 +266,102 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     };
   }, [onMeasureWidthChange]);
 
+  // Cache O(1) pour stocker les références DOM sans provoquer de re-rendu
+  const sequencerCache = useRef({
+    lastMeasure: null as number | null,
+    stepsCount: 16,
+    stepElementsMap: new Map<number, HTMLElement[]>(),
+    activeElements: [] as HTMLElement[]
+  });
+
   // high-frequency DOM manipulation for playback highlighting (Zero Render Thrashing)
   useEffect(() => {
-    let activeElements: HTMLElement[] = [];
+    if (!visible) {
+      sequencerCache.current.activeElements.forEach(el => {
+        el.classList.remove('live-playhead-highlight');
+      });
+      sequencerCache.current.activeElements = [];
+      return;
+    }
 
     const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number }>;
+      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
       const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+      
+      const cache = sequencerCache.current;
 
       const isEco = (window as any).oGiradorEcoMode;
       if (isEco) return;
 
-      // 1. Clean up old highlights
-      activeElements.forEach(el => {
+      if (step < 0) {
+        cache.lastMeasure = null;
+        cache.stepElementsMap.clear();
+        cache.activeElements.forEach((el) => {
+          el.classList.remove('live-playhead-highlight');
+        });
+        cache.activeElements = [];
+        return;
+      }
+
+      // 1. MISE EN CACHE (Exécutée UNIQUEMENT lors d'un changement de mesure)
+      if (measure !== cache.lastMeasure) {
+        cache.lastMeasure = measure;
+        cache.stepElementsMap.clear();
+        cache.stepsCount = 16;
+
+        if (containerRef.current) {
+          const cells = containerRef.current.querySelectorAll<HTMLElement>(
+            `.timeline-step[data-measure="${measure}"]`
+          );
+
+          cells.forEach((el) => {
+            const stepAttr = el.getAttribute('data-step');
+            const stepsAttr = el.getAttribute('data-steps');
+            
+            if (stepAttr !== null) {
+              const stepIdx = parseInt(stepAttr, 10);
+              if (!cache.stepElementsMap.has(stepIdx)) {
+                cache.stepElementsMap.set(stepIdx, []);
+              }
+              cache.stepElementsMap.get(stepIdx)!.push(el);
+            }
+            if (stepsAttr !== null) {
+              cache.stepsCount = parseInt(stepsAttr, 10);
+            }
+          });
+        }
+      }
+
+      // 2. NETTOYAGE CIBLÉ DE L'ANCIENNE FRAME (0 requête DOM synchrone)
+      cache.activeElements.forEach((el) => {
         el.classList.remove('live-playhead-highlight');
       });
-      activeElements = [];
+      cache.activeElements = []; 
 
-      if (step < 0) return;
-
-      // 2. Query and highlight active step cells in the current measure
-      if (containerRef.current) {
-        const stepEls = containerRef.current.querySelectorAll(
-          `.timeline-step[data-measure="${measure}"]`
-        );
-        stepEls.forEach(el => {
-          const htmlEl = el as HTMLElement;
-          const stepsAttr = Number(htmlEl.getAttribute('data-steps') || '16');
-          const stepIdxAttr = Number(htmlEl.getAttribute('data-step') || '0');
-          const activeStepIdx = Math.floor(ratio * stepsAttr);
-          
-          if (stepIdxAttr === activeStepIdx) {
-            htmlEl.classList.add('live-playhead-highlight');
-            activeElements.push(htmlEl);
-          }
+      // 3. APPLICATION DU NOUVEAU SURLIGNAGE VIA CACHE O(1)
+      const activeStepIdx = Math.floor(ratio * cache.stepsCount);
+      const elementsToHighlight = cache.stepElementsMap.get(activeStepIdx);
+      if (elementsToHighlight) {
+        elementsToHighlight.forEach((el) => {
+          el.classList.add('live-playhead-highlight');
+          cache.activeElements.push(el); // Sauvegarde pour nettoyage au tick suivant
         });
       }
     };
 
     window.addEventListener('o-girador-tick', handleTick);
+
     return () => {
       window.removeEventListener('o-girador-tick', handleTick);
-      activeElements.forEach(el => {
+      // Nettoyage de sécurité au démontage
+      sequencerCache.current.activeElements.forEach((el) => {
         el.classList.remove('live-playhead-highlight');
       });
+      sequencerCache.current.activeElements = [];
+      sequencerCache.current.lastMeasure = null;
+      sequencerCache.current.stepElementsMap.clear();
     };
-  }, []);
+  }, [visible]);
 
   // Navigation & Snapping States
   const [toolMode] = React.useState<'cursor' | 'hand'>('cursor');
@@ -795,12 +858,22 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     userSelect: 'none',
   } as React.CSSProperties;
 
-  if (!trackIds) return null;
-
   const contextValue = React.useMemo(() => ({
     MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang,
-    signalDropdownOpen, setSignalDropdownOpen, visibleRange
-  }), [MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang, signalDropdownOpen, visibleRange]);
+    signalDropdownOpen, setSignalDropdownOpen
+  }), [MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang, signalDropdownOpen]);
+
+  if (!trackIds) return null;
+
+  if (!visible) {
+    return (
+      <div
+        ref={containerRef}
+        style={{ display: 'none' }}
+        className="timeline-sequencer-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden sequencer-bg text-[var(--cordel-text)] select-none"
+      />
+    );
+  }
 
   return (
     <TimelineUIContext.Provider value={contextValue}>
@@ -808,7 +881,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       ref={containerRef}
       data-zoom={isMacro ? 'macro' : 'normal'}
       data-mobile={isMobile ? 'true' : 'false'}
-      style={{ ...zoomStyles, touchAction: 'pan-x pan-y' }}
+      style={{ ...zoomStyles, touchAction: 'pan-x pan-y', display: 'flex' }}
       className="timeline-sequencer-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden sequencer-bg text-[var(--cordel-text)] select-none"
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -838,13 +911,13 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         */}
         <div 
           className="relative timeline-scroll-grid" 
-          style={{ width: `${HEADER_W + totalContentW + 150}px`, minHeight: '100%', transformOrigin: '0 0' }}
+          style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px`, minHeight: '100%', transformOrigin: '0 0' }}
         >
 
           {/* ══════════ MARKER RULER ROW (📍 NEW) ══════════ */}
           <div
             className="flex h-7 border-b border-[var(--cordel-border)]/15 bg-[var(--cordel-bg)]/50 relative select-none"
-            style={{ width: `${HEADER_W + totalContentW + 150}px` }}
+            style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px` }}
           >
             {/* Sticky Label */}
             <div
@@ -910,6 +983,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             className="flex border-b border-[var(--cordel-border)]/30 bg-[var(--cordel-bg)]/80 relative"
             style={{ 
               width: `${HEADER_W + totalContentW + 150}px`, 
+              minWidth: `${HEADER_W + totalContentW + 150}px`,
               height: `${40 + (Math.max(0, ...songSections.map(s => s.level || 0)) * 34)}px` 
             }}
           >
@@ -1092,7 +1166,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           {/* ══════════ RULER ROW ══════════ */}
           <div
             className="flex min-h-16 h-auto border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-ns-resize select-none relative"
-            style={{ width: `${HEADER_W + totalContentW + 150}px` }}
+            style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px` }}
             onPointerDown={handleRulerPointerDown}
             onTouchStart={handleRulerTouchStart}
           >
@@ -1169,13 +1243,39 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                           className={`px-1 py-px rounded font-extrabold text-[10px] cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors border ${loopEndMeasure === mIdx ? 'bg-blue-600 text-white border-blue-600' : 'bg-transparent text-[var(--cordel-text)] border-[var(--cordel-border)]/30'}`}
                         > ] </button>
                       </div>
+
+                      {/* Measure Insertion / Deletion */}
+                      <div className="ruler-detailed flex gap-0.5 border-l border-[var(--cordel-border)]/20 pl-1.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onInsertMeasure && onInsertMeasure(mIdx);
+                          }}
+                          className="w-4 h-4 flex items-center justify-center rounded bg-emerald-600/10 text-emerald-700 hover:bg-emerald-700 hover:text-white border border-emerald-600/30 transition-colors font-bold text-[9px] cursor-pointer"
+                          title={lang === 'fr' ? 'Insérer une mesure avant' : 'Inserir compasso antes'}
+                        >
+                          ➕
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(lang === 'fr' ? `Supprimer la mesure ${mIdx + 1} ?` : `Excluir o compasso ${mIdx + 1} ?`)) {
+                              onDeleteMeasure && onDeleteMeasure(mIdx);
+                            }
+                          }}
+                          className="w-4 h-4 flex items-center justify-center rounded bg-rose-600/10 text-rose-700 hover:bg-rose-700 hover:text-white border border-rose-600/30 transition-colors font-bold text-[9px] cursor-pointer"
+                          title={lang === 'fr' ? 'Supprimer la mesure' : 'Excluir compasso'}
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </span>
 
                     {/* Time Signature */}
                     <div className="ruler-detailed flex items-center gap-1">
                       <select
                         value={mTimeSig}
-                        onChange={e => onMeasureTimeSigChange(mIdx, e.target.value)}
+                        onChange={e => onMeasureTimeSigChange(mIdx, e.target.value as TimeSignature)}
                         className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] text-[8px] font-bold rounded cordel-border-sm px-0.5 py-px outline-none cursor-pointer"
                         title={lang === 'fr' ? 'Signature rythmique' : 'Assinatura de tempo'}
                       >
@@ -1294,14 +1394,15 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             rhythmSignals={rhythmSignals}
             measureSignals={measureSignals}
             onMeasureSignalChange={onMeasureSignalChange}
+            visibleRange={visibleRange}
           />
 
           {/* ══════════ TRACK ROWS ══════════ */}
           {trackIds.map(trackId => (
-            <TimelineTrackRow key={trackId} trackId={trackId} />
+            <TimelineTrackRow key={trackId} trackId={trackId} visibleRange={visibleRange} currentMeasureW={MEASURE_W} />
           ))}
           {/* ══════════ PLAYHEAD (Bypass React via Ref) ══════════ */}
-          <TimelinePlayhead />
+          <TimelinePlayhead visible={visible} />
 
           {/* ══════════ SNAP GUIDE (📍 NEW) ══════════ */}
           {snapGuideX !== null && (
@@ -1365,5 +1466,6 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 }, (prev, next) => {
   return prev.isMobile === next.isMobile && 
          prev.measureWidth === next.measureWidth && 
-         prev.mestreSignals === next.mestreSignals;
+         prev.mestreSignals === next.mestreSignals &&
+         prev.visible === next.visible;
 });

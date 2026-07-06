@@ -87,7 +87,7 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
       el.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', updateMinimapViewport);
     };
-  }, [scrollRef, updateMinimapViewport]);
+  }, [scrollRef.current, updateMinimapViewport]);
 
   // Handle updates to measureWidth/totalMeasures to redraw minimap slider correctly
   useEffect(() => {
