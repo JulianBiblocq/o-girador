@@ -3,31 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { useGameData } from './contexts/GameDataContext';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from './contexts/SequencerContext';
 import { useAudio } from './contexts/AudioContext';
 import { useAuth } from './contexts/AuthContext';
-import LZString from 'lz-string';
-import {
-  audioEngine,
-  inputManager,
-  channels,
-  meters,
-  masterVolumeNode,
-  reverbSends,
-  masterMeterNode,
-} from './hooks/useAudioSync';
-import { i18n, ASSETS_BASE_URL, instrumentsConfig, getMaxTicks } from './data';
-import { getLocalLibrary, deletePresetFromLibrary } from './library';
+import { i18n, instrumentsConfig } from './data';
 import { Header } from './components/Header';
 import { TransportBar } from './components/TransportBar';
 import { Mixer } from './components/Mixer';
 import { RightSidebar } from './components/RightSidebar';
 import { useSequencerStore } from './stores/useSequencerStore';
-import { InstrumentDetailEditor } from './components/InstrumentDetailEditor';
 import { TouchStrokeSelector } from './components/TouchStrokeSelector';
+
 const ConsoleMixer = lazy(() => import('./components/ConsoleMixer').then(m => ({ default: m.ConsoleMixer })));
 const CircleSequencer = lazy(() => import('./components/CircleSequencer').then(m => ({ default: m.CircleSequencer })));
 const TimelineSequencer = lazy(() => import('./components/TimelineSequencer').then(m => ({ default: m.TimelineSequencer })));
@@ -42,26 +31,25 @@ const AoVivoOverlay = lazy(() => import('./components/AoVivoOverlay').then(m => 
 const SaveSectionModal = lazy(() => import('./components/CloudSectionModals').then(m => ({ default: m.SaveSectionModal })));
 const LoadSectionModal = lazy(() => import('./components/CloudSectionModals').then(m => ({ default: m.LoadSectionModal })));
 import { Home } from './components/Home';
-import { LandingPage } from './components/LandingPage';
-import { AdminPanel } from './components/AdminPanel';
-import { PresetMetadata, Pattern, SongSection, TimeSignature, CloudRhythmSignal } from './types';
+const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
+const AdminPanel = lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
+
+import { Pattern, SongSection, TimeSignature, CloudRhythmSignal } from './types';
 import { exportTablatureFile, printTablature, printLegendOnly } from './utils/exportTablature';
 import { fetchMestreSignals } from './cloudSignals';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCloudPresets } from './hooks/queries/useCloudPresets';
 
-interface BeforeInstallPromptEvent extends Event {
-  readonly platforms: string[];
-  readonly userChoice: Promise<{
-    outcome: 'accepted' | 'dismissed';
-    platform: string;
-  }>;
-  prompt(): Promise<void>;
-}
+// Import our new extracted custom hooks
+import { useAppUpdate, CURRENT_VERSION } from './hooks/useAppUpdate';
+import { useAppAudio } from './hooks/useAppAudio';
+import { useGlobalKeyboardShortcuts } from './hooks/useGlobalKeyboardShortcuts';
 
 export default function App() {
-  const CURRENT_VERSION = "3.1.2"; // Matches version.json
-  const HAS_SEEN_UPDATE_KEY = `has_seen_update_${CURRENT_VERSION}`;
+  // 1. Core hook extraction setup
+  const { deferredPrompt, handleInstallClick } = useAppUpdate();
+  const { presetFiles, localPresets, isSavedIndicatorVisible, refreshLocalPresets } = useAppAudio();
+  useGlobalKeyboardShortcuts();
 
   // Consume contexts
   const sequencer = useSequencer();
@@ -100,9 +88,8 @@ export default function App() {
     if (mediaDark.matches) return true;
     return true; // default to true
   });
-  const [localPresets, setLocalPresets] = useState<string[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [presetFiles, setPresetFiles] = useState<string[]>([]);
+
   const queryClient = useQueryClient();
   const { data: cloudPresetsData } = useCloudPresets({
     userUid: userProfile?.uid || null,
@@ -123,18 +110,6 @@ export default function App() {
     promptAsync,
   } = sequencer;
 
-  // A2HS install prompt
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
-
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-  }, []);
-
   // Dynamically update document title based on language, keeping "O Girador" untranslated
   useEffect(() => {
     document.title = sequencer.lang === 'fr'
@@ -142,12 +117,8 @@ export default function App() {
       : 'O Girador | Sequenciador dedicado ao Maracatu de Baque Virado';
   }, [sequencer.lang]);
 
-  // Security route protection
+  // Security access gate controls: redirect to Roda if roles change and active view requires admin privileges
   useEffect(() => {
-    // 🛡️ FIX (Audit): Protect 'mestre' and 'varal' views from anonymous visitors
-    if (['quiz', 'dictee', 'inspecteur', 'rythmelive', 'mestre', 'varal'].includes(viewMode) && !hasAccess('admin')) {
-      setViewMode('roda');
-    }
     if (viewMode === 'studio' && !hasAccess('admin')) {
       setViewMode('roda');
     }
@@ -204,163 +175,6 @@ export default function App() {
     refreshMestreSignals();
   }, [userProfile?.uid, userProfile?.mestreId, userProfile?.role]);
 
-  const handleInstallClick = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const choiceResult = await deferredPrompt.userChoice;
-      if (choiceResult.outcome === 'accepted') {
-      }
-      setDeferredPrompt(null);
-    }
-  };
-
-  // SW Update Handler
-  const handleAppUpdate = async (reg: ServiceWorkerRegistration) => {
-    const shouldUpdate = await confirmAsync(
-      sequencer.lang === 'fr' 
-        ? "Une nouvelle version de O Girador est disponible. Recharger pour mettre à jour ?"
-        : "Uma nova versão do O Girador está disponível. Recarregar para atualizar ?"
-    );
-    if (shouldUpdate) {
-      let refreshing = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!refreshing) {
-          refreshing = true;
-          window.location.reload();
-        }
-      });
-      try {
-        if ('caches' in window) {
-          const keys = await caches.keys();
-          for (const key of keys) {
-            if (key.includes('workbox') || key.includes('o-girador')) {
-              await caches.delete(key);
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Error clearing caches:', err);
-      }
-      if (reg && reg.waiting) {
-        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-      } else {
-        try {
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          for (const registration of registrations) {
-            await registration.unregister();
-          }
-        } catch (err) {
-          console.warn('Error unregistering service workers:', err);
-        }
-        window.location.reload();
-      }
-    }
-  };
-
-  useEffect(() => {
-    const handleSWUpdateEvent = (e: Event) => {
-      const customEvent = e as CustomEvent<ServiceWorkerRegistration>;
-      handleAppUpdate(customEvent.detail);
-    };
-    window.addEventListener('sw-update-available', handleSWUpdateEvent);
-    return () => window.removeEventListener('sw-update-available', handleSWUpdateEvent);
-  }, [sequencer.lang]);
-
-  // Check remote version
-  useEffect(() => {
-    const checkVersion = async () => {
-      if (!navigator.onLine) return;
-      try {
-        const response = await fetch(
-          `${window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/'}version.json?t=${Date.now()}`
-        );
-        if (response.ok) {
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            const data = await response.json();
-            if (data && typeof data === 'object' && 'version' in data) {
-              const latestVersion = String(data.version);
-              if (latestVersion && latestVersion !== "undefined" && latestVersion !== CURRENT_VERSION) {
-                const shouldUpdate = await confirmAsync(
-                  sequencer.lang === 'fr' 
-                    ? "Une nouvelle version de O Girador est disponible. Recharger pour mettre à jour ?"
-                    : "Uma nova versão do O Girador está disponível. Recarregar para atualizar ?"
-                );
-                if (shouldUpdate) {
-                  let refreshing = false;
-                  navigator.serviceWorker.addEventListener('controllerchange', () => {
-                    if (!refreshing) {
-                      refreshing = true;
-                      window.location.reload();
-                    }
-                  });
-                  try {
-                    if ('caches' in window) {
-                      const keys = await caches.keys();
-                      for (const key of keys) {
-                        if (key.includes('workbox') || key.includes('o-girador')) {
-                          await caches.delete(key);
-                        }
-                      }
-                    }
-                  } catch (err) {}
-                  try {
-                    const registrations = await navigator.serviceWorker.getRegistrations();
-                    for (const registration of registrations) {
-                      await registration.unregister();
-                    }
-                  } catch (err) {}
-                  window.location.reload();
-                }
-              }
-            }
-          }
-        }
-      } catch (err) {}
-    };
-    const timer = setTimeout(checkVersion, 3000);
-    return () => clearTimeout(timer);
-  }, [sequencer.lang]);
-  // Global Keyboard Shortcuts
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Security: Do not trigger if typing in an input or textarea
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        (e.target as HTMLElement).isContentEditable
-      ) {
-        return;
-      }
-
-      const isModifier = e.ctrlKey || e.metaKey;
-      if (!isModifier) return;
-
-      const key = e.key.toLowerCase();
-      
-      switch (key) {
-        case 'z':
-          e.preventDefault();
-          if (e.shiftKey) {
-            sequencer.handleRedo && sequencer.handleRedo();
-          } else {
-            sequencer.handleUndo && sequencer.handleUndo();
-          }
-          break;
-        case 'a':
-        case 'x':
-        case 'c':
-        case 'v':
-          e.preventDefault();
-          window.dispatchEvent(new CustomEvent('grid-shortcut', { detail: { key } }));
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [sequencer]);
-
   // Context menu prevention on UI elements
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => {
@@ -396,10 +210,6 @@ export default function App() {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [viewMode, activeRightPanel]);
-
-  useEffect(() => {
-
-  }, []);
 
   // Sync theme
   useEffect(() => {
@@ -440,302 +250,6 @@ export default function App() {
       setViewMode('roda');
     }
   };
-
-  const hasLoadedInitialPreset = useRef(false);
-
-  // Load Preset catalog and decode initial composition from URL query/hash or local storage.
-  // We wait for isLoading to become false (samples ready) before restoring any preset,
-  // to avoid stale closure and race condition issues with applyPreset.
-  useEffect(() => {
-    // Only trigger once, and only after the audio engine has finished loading samples
-    if (audio.isLoading) return;
-    if (hasLoadedInitialPreset.current) return;
-    hasLoadedInitialPreset.current = true;
-
-      const hash = window.location.hash;
-      let loadedFromHash = false;
-
-      const tryLoadQueryOrHash = async () => {
-        // 1. Try URL query parameter '?ogirador='
-        try {
-          const urlParams = new URLSearchParams(window.location.search);
-          const baqueParam = urlParams.get('baque');
-          if (baqueParam) {
-            const decompressed = LZString.decompressFromEncodedURIComponent(baqueParam);
-            if (decompressed) {
-              const preset = JSON.parse(decompressed);
-              await audio.applyPreset(preset);
-              // Clean URL immediately to keep address bar clean
-              window.history.replaceState({}, document.title, window.location.pathname);
-              return true;
-            }
-          }
-        } catch (err) {
-          console.warn('[O Girador] Failed to decode URL query param (?ogirador=):', err);
-        }
-
-        // 2. Try URL Hash '#...base64...'
-        if (hash && hash.length > 1) {
-          try {
-            const b64 = hash.substring(1);
-            const decodedStr = decodeURIComponent(escape(window.atob(b64)));
-            const preset = JSON.parse(decodedStr);
-            await audio.applyPreset(preset);
-            // Clean URL immediately to keep address bar clean
-            window.history.replaceState({}, document.title, window.location.pathname);
-            return true;
-          } catch (err) {
-            console.warn('[O Girador] Failed to decode URL hash:', err);
-          }
-        }
-        return false;
-      };
-
-      tryLoadQueryOrHash().then(async (loaded) => {
-        loadedFromHash = loaded;
-        let restoredFromLocalStorage = false;
-
-        // Try to load autosave from IndexedDB
-        if (!loadedFromHash) {
-          try {
-            const { getAutosave } = await import('./db');
-            const savedState = await getAutosave();
-            if (savedState) {
-              await audio.applyPreset(savedState);
-              restoredFromLocalStorage = true;
-            }
-          } catch (err) {
-            console.error('[O Girador] Failed to restore autosave from IndexedDB:', err);
-          }
-        }
-
-        fetch(`${ASSETS_BASE_URL}presets/catalog.json`)
-          .then((res) => res.json())
-          .then((files: string[]) => {
-            setPresetFiles(files);
-            if (files.length > 0 && !loadedFromHash && !restoredFromLocalStorage) {
-              audio.setActivePresetName(files[0]);
-              audio.loadFallbackPreset(files[0]);
-            }
-          })
-          .catch((err) => console.error('Could not load catalog.json:', err));
-      });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audio.isLoading]);
-
-
-
-
-  // PWA File Handler: handle files opened via the OS file handler (launchQueue API)
-  useEffect(() => {
-    if ('launchQueue' in window) {
-      (window as any).launchQueue.setConsumer(async (launchParams: any) => {
-        if (!launchParams.files || launchParams.files.length === 0) return;
-        try {
-          const fileHandle = launchParams.files[0];
-          const file: File = await fileHandle.getFile();
-          if (!file.name.endsWith('.json')) return;
-          const text = await file.text();
-          const data = JSON.parse(text);
-          await audio.applyPreset(data);
-        } catch (err) {
-          console.error('Failed to load file from launchQueue:', err);
-        }
-      });
-    }
-  }, [audio.applyPreset]);
-
-  const refreshLocalPresets = async () => {
-    try {
-      const library = await getLocalLibrary();
-      setLocalPresets(Object.keys(library));
-    } catch (err) {
-      console.error("Failed to load local presets:", err);
-    }
-  };
-
-  useEffect(() => {
-    refreshLocalPresets();
-  }, []);
-
-  // InputManager Keyboard Listeners
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (inputManager) inputManager.handleKeyDown(e);
-    };
-    const handleGlobalKeyUp = (e: KeyboardEvent) => {
-      if (inputManager) inputManager.handleKeyUp(e);
-    };
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    window.addEventListener('keyup', handleGlobalKeyUp);
-    return () => {
-      window.removeEventListener('keydown', handleGlobalKeyDown);
-      window.removeEventListener('keyup', handleGlobalKeyUp);
-    };
-  }, []);
-
-  // Keyboard Shortcuts (Spacebar & Undo/Redo)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const activeTag = document.activeElement?.tagName || '';
-      const activeId = document.activeElement?.id || '';
-
-      // Ignore global shortcuts if user is typing in an input or textarea
-      if (
-        activeTag === 'INPUT' ||
-        activeTag === 'SELECT' ||
-        activeTag === 'TEXTAREA' ||
-        activeId === 'letras-textarea'
-      ) {
-        return;
-      }
-
-      if (e.code === 'Space') {
-        e.preventDefault();
-        audio.handleTogglePlay();
-      }
-
-      const isUndoKey = (e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey;
-      const isRedoKey = 
-        ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) ||
-        ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey));
-      
-      if (isUndoKey) {
-        e.preventDefault();
-        sequencer.handleUndo();
-      } else if (isRedoKey) {
-        e.preventDefault();
-        sequencer.handleRedo();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [audio.handleTogglePlay, sequencer.handleUndo, sequencer.handleRedo]);
-
-  // Autosave
-  const [isSavedIndicatorVisible, setIsSavedIndicatorVisible] = useState<boolean>(false);
-  const lastNotesSignatureRef = useRef<string>('');
-  const lastTracksRef = useRef<any[]>([]);
-  const audioRef = useRef<any>(audio);
-
-  // Sync audio ref with the latest audio context object
-  useEffect(() => {
-    audioRef.current = audio;
-  }, [audio]);
-  
-  // Autosave to localStorage using Zustand subscription
-  useEffect(() => {
-    if (audio.isLoading) return;
-    
-    let timeoutId: NodeJS.Timeout;
-
-    const performSave = async () => {
-      const state = useSequencerStore.getState();
-      const tracksCopy = state.tracks.map((t: any) => ({
-        ...t,
-        patterns: t.patterns.map((p: any) => {
-          const { vocalAudioData, ...safePattern } = p;
-          return safePattern;
-        })
-      }));
-
-      const dataToSave = {
-        version: 3,
-        tracks: tracksCopy,
-        bpm: state.bpm,
-        timeSig: state.timeSig,
-        totalMeasures: state.totalMeasures,
-        measureTimeSigs: state.measureTimeSigs,
-        measureBpms: state.measureBpms,
-        measureBpmTransitions: state.measureBpmTransitions,
-        measureVols: state.measureVols,
-        measureVolTransitions: state.measureVolTransitions,
-        songSections: state.songSections,
-        songMarkers: state.songMarkers,
-        measureSignals: state.measureSignals,
-        loopStartMeasure: state.loopStartMeasure,
-        loopEndMeasure: state.loopEndMeasure,
-        isLoopRegionActive: state.isLoopRegionActive,
-        isLooping: state.isLooping,
-        letras: state.letras,
-        metadata: state.metadata,
-        masterEQ: audioRef.current.masterEQ,
-        masterCompressor: audioRef.current.masterCompressor,
-        masterVol: audioRef.current.masterVol,
-        masterReverbVol: audioRef.current.masterReverbVol,
-        reverbDecay: audioRef.current.reverbDecay,
-        globalSwing: audioRef.current.globalSwing,
-      };
-      try {
-        const { saveAutosave } = await import('./db');
-        await saveAutosave(dataToSave);
-        setIsSavedIndicatorVisible(true);
-      } catch (err) {
-        console.error('Failed to autosave state to IndexedDB:', err);
-      }
-    };
-
-    const getNotesSignature = (tracksList: any[]) => {
-      return JSON.stringify(
-        tracksList.map((t) => ({
-          id: t.id,
-          patterns: t.patterns.map((p) => ({
-            id: p.id,
-            steps: p.steps,
-            activeSteps: p.activeSteps,
-            volumes: p.volumes,
-          })),
-        }))
-      );
-    };
-
-    // Initialize refs on mount/load
-    const currentTracks = useSequencerStore.getState().tracks;
-    lastTracksRef.current = currentTracks;
-    if (!lastNotesSignatureRef.current) {
-      lastNotesSignatureRef.current = getNotesSignature(currentTracks);
-    }
-
-    const unsub = useSequencerStore.subscribe((state) => {
-      // Early-out if tracks reference did not change (e.g. currentMeasure changed)
-      if (state.tracks === lastTracksRef.current) return;
-      lastTracksRef.current = state.tracks;
-
-      const currentSig = getNotesSignature(state.tracks);
-      if (currentSig !== lastNotesSignatureRef.current) {
-        lastNotesSignatureRef.current = currentSig;
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(performSave, 1500);
-      }
-    });
-
-    return () => {
-      clearTimeout(timeoutId);
-      unsub();
-    };
-  }, [audio.isLoading]);
-
-  useEffect(() => {
-    if (isSavedIndicatorVisible) {
-      const timer = setTimeout(() => setIsSavedIndicatorVisible(false), 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [isSavedIndicatorVisible]);
-
-  // Default Instrument selection for keyboard play
-  useEffect(() => {
-    if (tracks.length > 0 && !audio.activeKeyboardInstrumentId) {
-      const firstNonVoice = tracks.find(t => {
-        const conf = instrumentsConfig[t.instrumentIdx];
-        return conf && conf.type !== 'voice';
-      });
-      if (firstNonVoice) {
-        audio.setActiveKeyboardInstrumentId(instrumentsConfig[firstNonVoice.instrumentIdx].id);
-      } else {
-        audio.setActiveKeyboardInstrumentId(instrumentsConfig[tracks[0].instrumentIdx].id);
-      }
-    }
-  }, [tracks, audio.activeKeyboardInstrumentId]);
 
   // Touch selector Bubble states
   const [touchSelector, setTouchSelector] = useState<any | null>(null);
@@ -923,7 +437,7 @@ export default function App() {
             visibility = 'admin_global';
           } else {
             const specificTarget = await promptAsync(
-              isPt ? 'Digite o UID de um visitante/Mestre alvo (ou deixe vazio para você mesmo):' : 'Entrez l\'UID du visiteur privilégié ou du Mestre (laissez vide pour vous-même) :'
+              isPt ? 'Digite o UID de um visitante/Mestre alvo (ou deixe vazio pour você mesmo):' : 'Entrez l\'UID du visiteur privilégié ou du Mestre (laissez vide pour vous-même) :'
             );
             if (specificTarget && specificTarget.trim() !== '') {
               visibility = 'specific_user';
@@ -958,7 +472,6 @@ export default function App() {
   const handleAddTrackInstrument = (instIdx: number) => sequencer.handleAddTrackInstrument(instIdx, useSequencerStore.getState().currentMeasure);
 
   const handleExportTablature = React.useCallback(() => {
-    // By default, select all non-excluded tracks (apito, voice are excluded anyway, but we can check them or just check all)
     const tracks = useSequencerStore.getState().tracks;
     const validTrackIds = tracks
       .filter(t => instrumentsConfig[t.instrumentIdx]?.id !== 'apito' && instrumentsConfig[t.instrumentIdx]?.id !== 'voice')
@@ -971,8 +484,6 @@ export default function App() {
   
   const executeExport = (wantsPrint: boolean) => {
     setShowExportMenu(false);
-    
-    // Filter tracks based on selection
     const tracksToExport = useSequencerStore.getState().tracks.filter(t => selectedExportTracks.has(t.id));
     
     if (wantsPrint) {
@@ -990,7 +501,9 @@ export default function App() {
   return (
     <>
       {viewMode === 'landing' ? (
-        <LandingPage onEnter={() => setViewMode('roda')} lang={sequencer.lang} />
+        <Suspense fallback={<div className="min-h-screen bg-[var(--cordel-bg)] flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
+          <LandingPage onEnter={() => setViewMode('roda')} lang={sequencer.lang} />
+        </Suspense>
       ) : viewMode === 'home' ? (
         <Home onEnter={(mode) => setViewMode(mode as any)} lang={sequencer.lang} />
       ) : (
@@ -1099,7 +612,6 @@ export default function App() {
         )}
 
         {viewMode === 'inspecteur' && (
-          // 🛡️ FIX (Audit): Wrap lazy component in Suspense
           <Suspense fallback={<div>Chargement...</div>}>
             <InspecteurEngine
               lang={sequencer.lang}
@@ -1131,7 +643,6 @@ export default function App() {
         )}
 
         {viewMode === 'varal' && (
-          // 🛡️ FIX (Audit): Wrap lazy component in Suspense
           <Suspense fallback={<div>Chargement...</div>}>
             <VaralCordel
               lang={sequencer.lang}
@@ -1167,7 +678,9 @@ export default function App() {
 
         {viewMode === 'admin' && (
           <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">
-            <AdminPanel />
+            <Suspense fallback={<div className="flex-1 flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
+              <AdminPanel />
+            </Suspense>
           </div>
         )}
 
@@ -1178,8 +691,6 @@ export default function App() {
             onTogglePanel={(p) => {
               if (isMobile) {
                 setActiveRightPanel(activeRightPanel === 'letras' ? 'legend' : 'letras');
-              } else {
-                // On PC, the right panel handles its own tabs now, but we'll leave this empty just in case.
               }
             }}
             isMobile={isMobile}

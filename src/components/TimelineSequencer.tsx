@@ -1154,7 +1154,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       <span className="text-[8px] opacity-75">bpm</span>
                       
                       <button
-                        onClick={() => onMeasureBpmTransitionChange(mIdx, mTransition === 'immediate' ? 'ramp' : 'immediate')}
+                        onClick={() => onMeasureTransitionChange(mIdx, mTransition === 'immediate' ? 'ramp' : 'immediate')}
                         className={`px-1 py-px text-[9px] font-extrabold border rounded transition-colors cursor-pointer flex items-center justify-center`}
                         style={{ height: '18px', minWidth: '18px' }}
                       >
