@@ -42,6 +42,20 @@ export class AudioEngine {
   private anchorTickCount: number = 0;
   private lastTickDuration: number = 0.0;
 
+  // Diffusion index (UI)
+  public currentStep: number = 0;
+  public currentMeasure: number = 0;
+
+  // Internal scheduling indexes
+  public schedulingStep: number = 0;
+  public schedulingMeasure: number = 0;
+
+  // Math Anchors for Measure Hard Sync
+  private anchorNoteTime: number = 0.0;
+  private anchorStep: number = 0;
+  private lastSchedulingMeasure: number = -1;
+  private mustReanchor: boolean = false;
+
   // Timer handlers
   private clockNode: AudioWorkletNode | null = null;
   private fallbackTimerId: number | null = null;
@@ -49,6 +63,7 @@ export class AudioEngine {
   // Callbacks
   private onTick: (time: number) => void;
   private getTickDuration: () => number;
+  private getTicksPerMeasure: (measureIdx: number) => number;
 
   // Sampler State & Buffers
   private bufferPool = new Map<string, ToneType.ToneAudioBuffer>(); // Maps absolute path -> ToneAudioBuffer (Sample Pooling)
@@ -151,15 +166,18 @@ export class AudioEngine {
    * @param {AudioContext} audioContext - Native AudioContext to drive the clock and play samples
    * @param {Function} onTick - Callback fired when a tick is reached: (time: number) => void
    * @param {Function} getTickDuration - Callback returning the duration of a single tick in seconds
+   * @param {Function} [getTicksPerMeasure] - Callback returning ticks count per measure
    */
   constructor(
     audioContext: AudioContext,
     onTick: (time: number) => void,
-    getTickDuration: () => number
+    getTickDuration: () => number,
+    getTicksPerMeasure?: (measureIdx: number) => number
   ) {
     this.audioContext = audioContext;
     this.onTick = onTick;
     this.getTickDuration = getTickDuration;
+    this.getTicksPerMeasure = getTicksPerMeasure || (() => 96);
 
     this.updateSchedulingParameters();
 
@@ -268,9 +286,14 @@ export class AudioEngine {
 
     // Initialize timing markers
     this.nextTickTime = this.audioContext.currentTime;
-    this.anchorTime = this.nextTickTime;
-    this.anchorTickCount = 0;
-    this.lastTickDuration = this.getTickDuration();
+    
+    // Hard Sync initialization
+    this.schedulingStep = this.currentStep;
+    this.schedulingMeasure = this.currentMeasure;
+    this.anchorNoteTime = this.nextTickTime;
+    this.anchorStep = this.schedulingStep;
+    this.lastSchedulingMeasure = -1; // Force re-anchor on first tick
+    this.mustReanchor = false;
 
     this.isPlaying = true;
   }
@@ -323,34 +346,32 @@ export class AudioEngine {
     if (!this.isPlaying) return;
 
     const currentTime = this.audioContext.currentTime;
+    const lookaheadWindow = 0.025; // 25ms de fenêtre minimale
+    const safetyMargin = 0.010;    // 10ms de marge de sécurité
 
-    // Clock Drift Recovery
-    if (this.nextTickTime < currentTime) {
-      const drift = currentTime - this.nextTickTime;
-      if (drift > 1.0) {
-        // En cas de longue suspension (veille/arrière-plan), on réinitialise l'horloge
-        this.nextTickTime = currentTime;
-        this.anchorTime = currentTime;
-        this.anchorTickCount = 0;
-      }
-      // En cas de micro-lag (< 1.0s), on laisse la boucle while rattraper naturellement
-      // les ticks pour préserver l'alignement du step index.
+    // Resynchronisation matérielle de sécurité (lag massif / changement de rythme)
+    if (this.nextTickTime < currentTime + lookaheadWindow) {
+      this.nextTickTime = currentTime + lookaheadWindow + safetyMargin;
+      this.mustReanchor = true;
     }
 
     // Schedule events in advance
     while (this.nextTickTime < currentTime + this.SCHEDULE_AHEAD_TIME) {
+      // 1. Exécution du callback de planification (qui met à jour schedulingStep/Measure de façon synchrone)
       this.onTick(this.nextTickTime);
 
       const tickDuration = this.getTickDuration();
 
-      if (Math.abs(tickDuration - this.lastTickDuration) > 1e-6) {
-        this.anchorTime = this.nextTickTime;
-        this.anchorTickCount = 0;
-        this.lastTickDuration = tickDuration;
+      // 2. Détection du début de mesure (Hard Sync) ou re-ancrage forcé de sécurité
+      if (this.schedulingStep === 0 || this.schedulingMeasure !== this.lastSchedulingMeasure || this.mustReanchor) {
+        this.anchorNoteTime = this.nextTickTime;
+        this.anchorStep = this.schedulingStep;
+        this.lastSchedulingMeasure = this.schedulingMeasure;
+        this.mustReanchor = false; // Drapeau consommé
       }
 
-      this.anchorTickCount++;
-      this.nextTickTime = this.anchorTime + (this.anchorTickCount * tickDuration);
+      // 3. Calcul absolu du pas suivant sans accumulation (parfaitement aligné)
+      this.nextTickTime = this.anchorNoteTime + ((this.schedulingStep + 1 - this.anchorStep) * tickDuration);
     }
   }
 

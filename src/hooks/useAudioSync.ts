@@ -621,6 +621,11 @@ export function useAudioSync({
 
           const currentMeasureIdx = measureCountRef.current;
 
+          if (audioEngine) {
+            audioEngine.schedulingStep = stepIdx;
+            audioEngine.schedulingMeasure = currentMeasureIdx;
+          }
+
           if (stepIdx === 0) {
             const prevMeasureIdx = (currentMeasureIdx - 1 + (totalMeasuresRef.current || 1)) % (totalMeasuresRef.current || 1);
             const sigId = measureSignalsRef.current[prevMeasureIdx] || null;
@@ -644,6 +649,11 @@ export function useAudioSync({
             Tone.Draw.schedule(() => {
               // ECO MODE: We used to bypass the visual dispatch here, but we now allow the needle to animate
               // while saving CPU strictly on DSP effects (Reverb, Compressor).
+
+              if (audioEngine) {
+                audioEngine.currentStep = _stepForUI;
+                audioEngine.currentMeasure = _measureForUI;
+              }
 
               const detail = tickEventDetailRef.current;
               detail.step = _stepForUI;
@@ -1004,6 +1014,10 @@ export function useAudioSync({
           const rawBpm = measureBpmsRef.current[currentMeasureIdx];
           const targetBpm = isNaN(rawBpm) || rawBpm <= 0 ? 100 : rawBpm;
           return 2.5 / targetBpm;
+        },
+        (measureIdx) => {
+          const timeSig = measureTimeSigsRef.current[measureIdx % (totalMeasuresRef.current || 1)] || '4/4';
+          return getMaxTicks(timeSig);
         }
       );
 

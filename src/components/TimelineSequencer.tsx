@@ -292,7 +292,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       
       const cache = sequencerCache.current;
 
-      const isEco = (window as any).oGiradorEcoMode;
+      const isEco = (window as any).oGiradorEcoMode || (window as any).oGiradorVisualEcoMode;
       if (isEco) return;
 
       if (step < 0) {
