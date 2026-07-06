@@ -1,7 +1,8 @@
 import React from 'react';
 import { Trash2, Award, Image as ImageIcon } from 'lucide-react';
 import LZString from 'lz-string';
-import { CordeConfig, GameSlot, Language } from '../../types';
+import { Language } from '../../types';
+import { CordeConfig, GameSlot } from '../MestreStudio.types';
 import { CloudExercise, CloudProgression } from '../../cloudExercises';
 
 interface VaralTabProps {

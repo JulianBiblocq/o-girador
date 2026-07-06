@@ -19,7 +19,29 @@ import {
   Cloud
 } from 'lucide-react';
 const CircleSequencer = React.lazy(() => import('./CircleSequencer').then(m => ({ default: m.CircleSequencer })));
+const CloudSaveModal = React.lazy(() => import('./mestre-studio/modals/CloudSaveModal').then(m => ({ default: m.CloudSaveModal })));
+const CopyModal = React.lazy(() => import('./mestre-studio/modals/CopyModal').then(m => ({ default: m.CopyModal })));
 import { TrackGroup, Language } from '../types';
+import {
+  MestreStudioProps,
+  GameSlot,
+  CordeRewardStudio,
+  CordeConfig,
+  TabType,
+  MIN_RADIUS,
+  MAX_RADIUS,
+  MIDDLE_RADIUS,
+  DEFAULT_BPM,
+  DEFAULT_INSTRUMENTS
+} from './MestreStudio.types';
+import {
+  createInitialTracks,
+  createInitialSingleTrack,
+  getInstrumentIdxFromName,
+  getActivePatternMap,
+  updateStepGeneric
+} from './MestreStudio.utils';
+import { RhythmGridHighlighter } from './mestre-studio/RhythmGridHighlighter';
 import { useGameData } from '../contexts/GameDataContext';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -52,38 +74,6 @@ const getSharedAudioCtx = () => {
   }
   return sharedAudioCtx;
 };
-interface MestreStudioProps {
-  lang: Language;
-  onExit: () => void;
-  presetFiles?: string[];
-  localPresets?: string[];
-}
-
-// 1. Config Varal Types
-export interface GameSlot {
-  id: string; // unique ID for React keys
-  source: 'cloud' | 'local' | 'empty';
-  cloudExerciseId?: string;
-  cloudExerciseName?: string;
-  localExerciseData?: any;
-  localExerciseName?: string;
-}
-
-export interface CordeRewardStudio {
-  text: string;
-  type: 'image' | 'video' | 'pdf' | 'json' | 'none';
-  url: string;
-  base64: string;
-}
-
-export interface CordeConfig {
-  requiredCount: number;
-  gameType?: 'quiz' | 'dictee' | 'inspecteur' | 'sablier_mestre' | 'rythme_live' | 'random';
-  games: GameSlot[];
-  reward: CordeRewardStudio;
-  oeuvreToniBraga: string; // Base64 (legacy fallback)
-  rewardData: string; // legacy fallback
-}
 
 export const MestreStudio: React.FC<MestreStudioProps> = ({ 
   lang, 
@@ -92,7 +82,6 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   localPresets = []
 }) => {
   // 6 Specialized Tabs
-  type TabType = 'varal' | 'quiz' | 'dictee' | 'inspecteur' | 'sablier' | 'rythmelive';
   const [activeTab, setActiveTab] = useState<TabType>('varal');
   const [showCopyModal, setShowCopyModal] = useState(false);
   const { userProfile } = useAuth();
@@ -138,10 +127,6 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
 
   // Cloud States
   const [cloudSaveModalOpen, setCloudSaveModalOpen] = useState(false);
-  const [cloudSaveName, setCloudSaveName] = useState('');
-  const [cloudSaveError, setCloudSaveError] = useState('');
-  const [isSavingCloud, setIsSavingCloud] = useState(false);
-  const [cloudSaveSuccess, setCloudSaveSuccess] = useState('');
 
   // Consume GameData Context
   const { loadVaralConfig, addExercise, removeExercise, clearAllData, customExercises } = useGameData();
@@ -176,91 +161,6 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
       };
       reader.readAsText(file);
     });
-  };
-
-  // Helper for generating initial tracks (Alfaia, Caixa, Gongue, Agbe)
-  function createInitialTracks(prefix = 'track'): TrackGroup[] {
-    const instruments = [
-      { idx: 0, name: 'Alfaia' },
-      { idx: 3, name: 'Caixa' },
-      { idx: 5, name: 'Gonguê' },
-      { idx: 6, name: 'Agbê' },
-    ];
-    const initial = instruments.map((inst, index) => {
-      const patternId = Date.now() + index * 100 + Math.floor(Math.random() * 50);
-      return {
-        id: index + 1,
-        instrumentIdx: inst.idx,
-        isMute: false,
-        isSolo: false,
-        isHidden: false,
-        volumeVal: 80,
-        selectedPatternId: patternId,
-        radius: 0,
-        reverbVal: 0,
-        panVal: 0,
-        patterns: [
-          {
-            id: patternId,
-            name: `${prefix}_${inst.name}`,
-            steps: 16,
-            activeSteps: Array(16).fill(0),
-            lyrics: Array(16).fill(''),
-            notes: Array(16).fill(''),
-            measureAssignments: [true],
-          }
-        ]
-      };
-    });
-
-    // Compute radii
-    const minRadius = 180;
-    const maxRadius = 495;
-    const gap = (maxRadius - minRadius) / (initial.length - 1);
-    initial.forEach((t, idx) => {
-      t.radius = minRadius + idx * gap;
-    });
-
-    return initial;
-  }
-
-  // Helper for generating single track (used for target/sabotaged tracks)
-  function createInitialSingleTrack(instIdx: number, label: string): TrackGroup[] {
-    const patternId = Date.now() + Math.floor(Math.random() * 1000);
-    return [
-      {
-        id: 1,
-        instrumentIdx: instIdx,
-        isMute: false,
-        isSolo: false,
-        isHidden: false,
-        volumeVal: 80,
-        selectedPatternId: patternId,
-        radius: 337, // middle radius (180 + 495) / 2
-        reverbVal: 0,
-        panVal: 0,
-        patterns: [
-          {
-            id: patternId,
-            name: label,
-            steps: 16,
-            activeSteps: Array(16).fill(0),
-            lyrics: Array(16).fill(''),
-            notes: Array(16).fill(''),
-            measureAssignments: [true],
-          }
-        ]
-      }
-    ];
-  }
-
-  // Instrument helpers
-  const getInstrumentIdxFromName = (name: string): number => {
-    if (name === 'alfaia') return 0;
-    if (name === 'caixa') return 3;
-    if (name === 'gongue') return 5;
-    if (name === 'agbe') return 6;
-    return 3;
   };
 
   // --- STATE DECLARATIONS ---
@@ -313,7 +213,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   const [rythmeLiveRewardVideoUrl, setRythmeLiveRewardVideoUrl] = useState('');
   const [rythmeLiveCordeCible, setRythmeLiveCordeCible] = useState<number>(0);
   const [rythmeLiveTotalMeasures, setRythmeLiveTotalMeasures] = useState<number>(1);
-  const [dicteeBpm, setDicteeBpm] = useState(83);
+  const [dicteeBpm, setDicteeBpm] = useState(DEFAULT_BPM);
   const [dicteeBlocksCount, setDicteeBlocksCount] = useState<4 | 8 | 16>(4);
   const [dicteeTotalMeasures, setDicteeTotalMeasures] = useState<number>(1);
   const [dicteeTracks, setDicteeTracks] = useState<TrackGroup[]>(() => createInitialTracks('dictee'));
@@ -325,7 +225,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   // 4. L'Inspecteur State
   const [inspecteurTitle, setInspecteurTitle] = useState('');
   const [inspecteurDescription, setInspecteurDescription] = useState('');
-  const [inspecteurBpm, setInspecteurBpm] = useState(83);
+  const [inspecteurBpm, setInspecteurBpm] = useState(DEFAULT_BPM);
   const [inspecteurGuiltyInstrument, setInspecteurGuiltyInstrument] = useState<'alfaia' | 'caixa' | 'gongue' | 'agbe'>('caixa');
   const [inspecteurTotalMeasures, setInspecteurTotalMeasures] = useState<number>(1);
   const [inspecteurCordeCible, setInspecteurCordeCible] = useState<number>(0);
@@ -393,7 +293,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   // 5. Sablier du Mestre State
   const [sablierTitle, setSablierTitle] = useState('');
   const [sablierRewardVideoUrl, setSablierRewardVideoUrl] = useState('');
-  const [sablierBpm, setSablierBpm] = useState(83);
+  const [sablierBpm, setSablierBpm] = useState(DEFAULT_BPM);
   const [sablierCordeCible, setSablierCordeCible] = useState<number>(0);
   const [sablierMeasures, setSablierMeasures] = useState<1 | 2>(2);
   const [sablierTotalMeasures, setSablierTotalMeasures] = useState<number>(1);
@@ -419,7 +319,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   // 6. Rythme Live State
   const [rythmeLiveTitle, setRythmeLiveTitle] = useState('');
   const [rythmeLiveRewardSignatory, setRythmeLiveRewardSignatory] = useState('');
-  const [rythmeLiveBpm, setRythmeLiveBpm] = useState(83);
+  const [rythmeLiveBpm, setRythmeLiveBpm] = useState(DEFAULT_BPM);
   const [rythmeLiveLoopsRequired, setRythmeLiveLoopsRequired] = useState(2);
   const [rythmeLiveToleranceMs, setRythmeLiveToleranceMs] = useState<30 | 80>(80);
   const [rythmeLiveStudentInstrument, setRythmeLiveStudentInstrument] = useState<'alfaia' | 'caixa' | 'gongue' | 'agbe'>('caixa');
@@ -439,35 +339,10 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
     ...sablierSeqPiege3
   ], [dicteeTracks, inspecteurPerfectTracks, inspecteurSabotagedTracks, rythmeLivePlaybackTracks, rythmeLiveTargetTracks, sablierSeqFond, sablierSeqCible, sablierSeqPiege1, sablierSeqPiege2, sablierSeqPiege3]);
 
-  useEffect(() => {
-    let previousTick: number | null = null;
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number }>;
-      const { step } = customEvent.detail;
-      
-      if (previousTick !== null) {
-        const prevH = document.getElementsByClassName('step-active-highlight');
-        while (prevH.length > 0) prevH[0].classList.remove('step-active-highlight', 'border-[#8b2a1a]');
-        const prevV = document.getElementsByClassName('step-active-highlight-v');
-        while (prevV.length > 0) prevV[0].classList.remove('step-active-highlight-v', 'border-[#8b2a1a]');
-      }
-      
-      if (step >= 0) {
-        allStudioTracks.forEach(t => {
-          t.patterns.forEach(ptn => {
-            let el = document.getElementById(`step-cell-${t.id}-${ptn.id}-${step}`);
-            if (el) el.classList.add('step-active-highlight', 'border-[#8b2a1a]');
-            el = document.getElementById(`step-cell-v-${t.id}-${ptn.id}-${step}`);
-            if (el) el.classList.add('step-active-highlight-v', 'border-[#8b2a1a]');
-          });
-        });
-      }
-      
-      previousTick = step;
-    };
-    window.addEventListener('o-girador-tick', handleTick);
-    return () => window.removeEventListener('o-girador-tick', handleTick);
-  }, [allStudioTracks]);
+  const trackPatternIds = useMemo(() => 
+    allStudioTracks.flatMap(t => t.patterns.map(p => ({ trackId: t.id, patternId: p.id }))),
+    [allStudioTracks]
+  );
 
 
   // Sync rythme live target track type with selected student instrument
@@ -494,7 +369,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
     if (activeTab === 'inspecteur') return inspecteurBpm;
     if (activeTab === 'sablier') return sablierBpm;
     if (activeTab === 'rythmelive') return rythmeLiveBpm;
-    return 83;
+    return DEFAULT_BPM;
   }, [activeTab, dicteeBpm, inspecteurBpm, sablierBpm, rythmeLiveBpm]);
 
   // Determine active tracks list for play synth triggers
@@ -584,14 +459,6 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
 
   // --- SEQUENCER PROP HELPERS ---
 
-  const getActivePatternMap = (list: TrackGroup[]) => {
-    const map: Record<number, number | null> = {};
-    list.forEach(t => {
-      map[t.id] = t.selectedPatternId;
-    });
-    return map;
-  };
-
   const handleStepChangeGeneric = (
     list: TrackGroup[],
     setList: React.Dispatch<React.SetStateAction<TrackGroup[]>>,
@@ -602,29 +469,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
     lyric?: string,
     note?: string
   ) => {
-    setList(prev => prev.map(t => {
-      if (t.id === trackId) {
-        return {
-          ...t,
-          patterns: t.patterns.map(p => {
-            if (p.id === patternId) {
-              const activeSteps = [...p.activeSteps];
-              activeSteps[stepIdx] = newState;
-
-              const lyrics = [...(p.lyrics || Array(p.steps).fill(''))];
-              if (lyric !== undefined) lyrics[stepIdx] = lyric;
-
-              const notes = [...(p.notes || Array(p.steps).fill(''))];
-              if (note !== undefined) notes[stepIdx] = note;
-
-              return { ...p, activeSteps, lyrics, notes };
-            }
-            return p;
-          })
-        };
-      }
-      return t;
-    }));
+    setList(prev => updateStepGeneric(prev, trackId, patternId, stepIdx, newState, lyric, note));
   };
 
   // --- UPLOAD HELPERS ---
@@ -698,7 +543,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
       const loadedTracks = presetData.tracks || [];
       const bpm = presetData.measureBpms && presetData.measureBpms.length > 0
         ? presetData.measureBpms[0]
-        : (presetData.bpm || 83);
+        : (presetData.bpm || DEFAULT_BPM);
 
       if (moduleName === 'inspecteur') {
         setInspecteurBpm(bpm);
@@ -781,40 +626,14 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
     e.target.value = '';
   };
 
-  const handleSaveToCloudSubmit = async () => {
-    if (!cloudSaveName.trim()) {
-      setCloudSaveError(lang === 'fr' ? "Veuillez entrer un nom." : "Por favor, insira um nome.");
-      return;
-    }
-    
-    setIsSavingCloud(true);
-    setCloudSaveError('');
-    setCloudSaveSuccess('');
-    
-    try {
-      const exportData = getExportDataForCurrentTab(activeTab);
-      if (!exportData) throw new Error("No data");
+  const handleSaveToCloudSubmit = async (name: string) => {
+    const exportData = getExportDataForCurrentTab(activeTab);
+    if (!exportData) throw new Error("No data");
 
-      if (activeTab === 'varal') {
-        await saveProgressionToCloud(cloudSaveName, exportData, mestreUid);
-      } else {
-        await saveExerciseToCloud(cloudSaveName, activeTab as GameType, exportData, mestreUid);
-      }
-      
-      setCloudSaveSuccess(lang === 'fr' ? "Sauvegardé avec succès !" : "Salvo com sucesso !");
-      setTimeout(() => {
-        setCloudSaveModalOpen(false);
-        setCloudSaveName('');
-        setCloudSaveSuccess('');
-      }, 1500);
-    } catch (err: any) {
-      if (err.message === 'NAME_EXISTS') {
-        setCloudSaveError(lang === 'fr' ? "Un élément avec ce nom existe déjà." : "Um item com este nome já existe.");
-      } else {
-        setCloudSaveError(lang === 'fr' ? "Erreur de sauvegarde." : "Erro ao salvar.");
-      }
-    } finally {
-      setIsSavingCloud(false);
+    if (activeTab === 'varal') {
+      await saveProgressionToCloud(name, exportData, mestreUid);
+    } else {
+      await saveExerciseToCloud(name, activeTab as GameType, exportData, mestreUid);
     }
   };
 
@@ -823,7 +642,6 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
       alert(lang === 'fr' ? "Veuillez entrer un nom pour le Varal." : "Por favor, insira um nome para o Varal.");
       return;
     }
-    setIsSavingCloud(true);
     try {
       const exportData = getExportDataForCurrentTab('varal');
       if (!exportData) throw new Error("No data");
@@ -847,8 +665,6 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
       } else {
         alert(lang === 'fr' ? "Erreur de sauvegarde." : "Erro ao salvar.");
       }
-    } finally {
-      setIsSavingCloud(false);
     }
   };
 
@@ -973,7 +789,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         } else if (moduleName === 'dictee') {
           setDicteeTitle(json.folheto_titre || '');
           setDicteeRewardVideoUrl(json.recompense_video_url || '');
-          setDicteeBpm(json.bpm || 83);
+          setDicteeBpm(json.bpm || DEFAULT_BPM);
           if (json.nombre_de_blocs) setDicteeBlocksCount(json.nombre_de_blocs as 4 | 8);
           if (json.blocs_a_ordonner) {
             setDicteeBlockTags(Array.from({length: 8}).map((_, i) => json.blocs_a_ordonner[i]?.label || ''));
@@ -996,7 +812,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         } else if (moduleName === 'inspecteur') {
           setInspecteurTitle(json.folheto_titre || '');
           setInspecteurDescription(json.description || '');
-          setInspecteurBpm(json.bpm || 83);
+          setInspecteurBpm(json.bpm || DEFAULT_BPM);
           setInspecteurGuiltyInstrument(json.instrument_coupable || 'caixa');
           if (json.partition_parfaite && Array.isArray(json.partition_parfaite)) {
              setInspecteurPerfectTracks(prev => prev.map(t => {
@@ -1023,7 +839,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         } else if (moduleName === 'sablier_mestre') {
           setSablierTitle(json.folheto_titre || '');
           setSablierRewardVideoUrl(json.recompense_video_url || '');
-          setSablierBpm(json.bpm || 83);
+          setSablierBpm(json.bpm || DEFAULT_BPM);
           setSablierMeasures(json.nombre_de_mesures as 1 | 2 || 2);
           if (json.image_main) {
             if (json.image_main.startsWith('data:')) {
@@ -1042,7 +858,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         } else if (moduleName === 'rythme_live') {
           setRythmeLiveTitle(json.folheto_titre || '');
           setRythmeLiveRewardSignatory(json.recompense_diplome_signataire || '');
-          setRythmeLiveBpm(json.bpm || 83);
+          setRythmeLiveBpm(json.bpm || DEFAULT_BPM);
           setRythmeLiveLoopsRequired(json.boucles_requises || 2);
           setRythmeLiveToleranceMs(json.tolerance_ms as 30 | 80 || 80);
           setRythmeLiveStudentInstrument(json.instrument_eleve || 'caixa');
@@ -1206,7 +1022,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         module: 'dictee',
         folheto_titre: dicteeTitle,
         recompense_video_url: dicteeRewardVideoUrl,
-        bpm: Number(dicteeBpm) || 83,
+        bpm: Number(dicteeBpm) || DEFAULT_BPM,
         nombre_de_blocs: Number(dicteeBlocksCount) || 4,
         instrument_cible: dicteeTargetInstrumentId,
         sequence_audio: dicteeTracks.map(t => ({
@@ -1226,7 +1042,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         module: 'inspecteur',
         folheto_titre: inspecteurTitle,
         description: inspecteurDescription,
-        bpm: Number(inspecteurBpm) || 83,
+        bpm: Number(inspecteurBpm) || DEFAULT_BPM,
         loop_start: Math.max(0, inspecteurLoopStart - 1),
         loop_end: Math.max(0, inspecteurLoopEnd - 1),
         instrument_coupable: inspecteurGuiltyInstrument,
@@ -1248,7 +1064,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         id: uniqueId,
         module: 'sablier_mestre',
         folheto_titre: sablierTitle,
-        bpm: Number(sablierBpm) || 83,
+        bpm: Number(sablierBpm) || DEFAULT_BPM,
         nombre_de_mesures: Number(sablierMeasures) || 1,
         image_main: sablierHandImageType === 'upload' ? sablierHandImageFile : sablierHandImageUrl,
         sequence_fond: sablierSeqFond.map(exportTrack),
@@ -1263,7 +1079,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         module: 'rythme_live',
         folheto_titre: rythmeLiveTitle,
         recompense_diplome_signataire: rythmeLiveRewardSignatory,
-        bpm: Number(rythmeLiveBpm) || 83,
+        bpm: Number(rythmeLiveBpm) || DEFAULT_BPM,
         boucles_requises: Number(rythmeLiveLoopsRequired) || 2,
         tolerance_ms: Number(rythmeLiveToleranceMs) || 80,
         instrument_eleve: rythmeLiveStudentInstrument,
@@ -1302,11 +1118,6 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
     } catch (err) {
       // console.warn("Auto-download blocked, showing modal instead", err);
     }
-  };
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(copiedJsonText);
-    alert(lang === 'fr' ? 'Copié dans le presse-papier !' : 'Copiado para a área de transferência !');
   };
 
   return (
@@ -1365,7 +1176,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
               min={50}
               max={200}
               onChange={(e) => {
-                const val = Math.max(50, Math.min(200, Number(e.target.value) || 83));
+                const val = Math.max(50, Math.min(200, Number(e.target.value) || DEFAULT_BPM));
                 if (activeTab === 'dictee') setDicteeBpm(val);
                 if (activeTab === 'inspecteur') setInspecteurBpm(val);
                 if (activeTab === 'rythmelive') setRythmeLiveBpm(val);
@@ -1604,82 +1415,28 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
               </>
             )}
           </div>
-        </div>
-
       {/* Cloud Save Modal */}
-      {cloudSaveModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999]">
-          <div className="bg-[var(--cordel-bg)] border-4 border-[var(--cordel-border)] shadow-[8px_8px_0_var(--cordel-border)] w-full max-w-md p-6 relative flex flex-col gap-4">
-            <button onClick={() => setCloudSaveModalOpen(false)} className="absolute top-2 right-2 text-[var(--cordel-text)]/50 hover:text-[var(--cordel-text)]"><Trash2 className="w-5 h-5"/></button>
-            <h3 className="font-cactus text-2xl font-black text-[var(--cordel-wood)] text-center uppercase">
-              {lang === 'fr' ? 'Enregistrer sur le Cloud' : 'Salvar na Nuvem'}
-            </h3>
-            
-            <p className="text-sm text-center text-[var(--cordel-text)]/80 mb-4 font-bold">
-              {activeTab === 'varal' ? (lang === 'fr' ? 'Nommez cette progression (ex: "Débutant 2026")' : 'Nomeie esta progressão (ex: "Iniciante 2026")') : (lang === 'fr' ? 'Nommez cet exercice (ex: "Quiz Difficile")' : 'Nomeie este exercício (ex: "Quiz Difícil")')}
-            </p>
-
-            <input
-              type="text"
-              placeholder={lang === 'fr' ? 'Nom...' : 'Nome...'}
-              value={cloudSaveName}
-              onChange={(e) => setCloudSaveName(e.target.value)}
-              className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] p-3 rounded font-bold text-lg text-[var(--cordel-text)]"
-            />
-
-            {cloudSaveError && <p className="text-red-600 text-sm font-bold text-center">{cloudSaveError}</p>}
-            {cloudSaveSuccess && <p className="text-green-600 text-sm font-bold text-center">{cloudSaveSuccess}</p>}
-
-            <button
-              onClick={handleSaveToCloudSubmit}
-              disabled={isSavingCloud}
-              className="w-full bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-black uppercase tracking-widest py-3 mt-2 flex justify-center items-center gap-2 hover:bg-[var(--cordel-wood)] transition-colors disabled:opacity-50"
-            >
-              {isSavingCloud ? <Square className="w-4 h-4 animate-spin"/> : <Cloud className="w-5 h-5" />}
-              {lang === 'fr' ? 'Valider' : 'Confirmar'}
-            </button>
-          </div>
-        </div>
-      )}
+      <React.Suspense fallback={null}>
+        <CloudSaveModal
+          isOpen={cloudSaveModalOpen}
+          onClose={() => setCloudSaveModalOpen(false)}
+          lang={lang}
+          activeTab={activeTab}
+          onSave={handleSaveToCloudSubmit}
+        />
+      </React.Suspense>
 
       {/* Copy Modal */}
-      {showCopyModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999]">
-          <div className="bg-[var(--cordel-bg)] border-4 border-[var(--cordel-border)] shadow-[8px_8px_0_var(--cordel-border)] w-full max-w-2xl p-6 relative flex flex-col gap-4">
-            <h3 className="font-cactus text-2xl font-black text-[var(--cordel-wood)]">
-              {lang === 'fr' ? 'Exercice JSON Généré !' : 'Exercício JSON Gerado !'}
-            </h3>
-            
-            <p className="text-xs text-[var(--cordel-text)]/70">
-              {lang === 'fr'
-                ? 'Le téléchargement a été lancé automatiquement. Si ce n\'est pas le cas, copiez le contenu ci-dessous :'
-                : 'O download foi iniciado automaticamente. Caso não tenha começado, copie o conteúdo abaixo:'}
-            </p>
-
-            <textarea
-              readOnly
-              value={copiedJsonText}
-              className="bg-black/35 text-green-400 font-mono text-[10px] p-3 border-2 border-[var(--cordel-border)]/50 rounded h-64 resize-none overflow-y-auto"
-            />
-
-            <div className="flex gap-2 justify-end mt-2">
-              <button
-                onClick={copyToClipboard}
-                className="flex items-center gap-1.5 px-4 py-2 border-2 border-[var(--cordel-border)] bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-xs uppercase cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors cordel-button"
-              >
-                <Clipboard className="w-4 h-4" />
-                {lang === 'fr' ? 'Copier' : 'Copiar'}
-              </button>
-              <button
-                onClick={() => setShowCopyModal(false)}
-                className="px-4 py-2 border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-bold text-xs uppercase cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cordel-button"
-              >
-                {lang === 'fr' ? 'Fermer' : 'Fechar'}
-              </button>
-            </div>
-          </div>
+      <React.Suspense fallback={null}>
+        <CopyModal
+          isOpen={showCopyModal}
+          onClose={() => setShowCopyModal(false)}
+          lang={lang}
+          copiedJsonText={copiedJsonText}
+        />
+      </React.Suspense>
+      <RhythmGridHighlighter trackPatternIds={trackPatternIds} />
         </div>
-      )}
       </div>
     </div>
   );
