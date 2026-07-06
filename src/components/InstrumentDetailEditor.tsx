@@ -1,6 +1,11 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import { useSequencerStore } from '../stores/useSequencerStore';
-import React, { useCallback, useState, useRef, useEffect, useMemo } from 'react';
-import { StrokeDef, getStrokesForInstrument, getNextStepValue, STEP_OPTIONS } from '../utils/instrumentStrokes';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { getStrokesForInstrument, STEP_OPTIONS } from '../utils/instrumentStrokes';
 import { createPortal } from 'react-dom';
 import { Play, Square, GripVertical } from 'lucide-react';
 import {
@@ -15,33 +20,26 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
-  useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { TrackGroup, Pattern, RhythmSignal, CloudPattern, CatalogVisibility, Language, GlobalSwing } from '../types';
-import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
+import { useSortable } from '@dnd-kit/sortable';
+import { Pattern, RhythmSignal, CloudPattern, CatalogVisibility, Language, GlobalSwing } from '../types';
+import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText } from '../data';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchCloudPatterns, savePatternToCloud, deleteCloudPattern, renameCloudPattern } from '../cloudPatterns';
-import { AudioEngine } from '../AudioEngine';
-import { CompactPatternRenderer } from './CompactPatternRenderer';
+import { fetchCloudPatterns, savePatternToCloud, deleteCloudPattern } from '../cloudPatterns';
 import { useGameData } from '../contexts/GameDataContext';
 import { AudioFader } from './AudioFader';
 import { useSequencer } from '../contexts/SequencerContext';
 import { MelodicNoteSelector } from './MelodicNoteSelector';
 import { VocalRecordingSection } from './instrument-editor/VocalRecordingSection';
 import { PatternVariationsEditor } from './instrument-editor/PatternVariationsEditor';
+import { InstrumentEffects } from './InstrumentEffects';
+import { InstrumentPatternGrid } from './InstrumentPatternGrid';
 
 const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
   const style = { ...propStyle, transform: CSS.Transform.toString(transform), transition };
   return children({ setNodeRef, style, attributes, listeners });
-};
-
-const getGlobalClipboard = () => {
-  if (typeof window !== 'undefined') {
-    return (window as any).__oGiradorRelativeClipboard || null;
-  }
-  return null;
 };
 
 interface InstrumentDetailEditorProps {
@@ -126,17 +124,11 @@ interface InstrumentDetailEditorProps {
   vocalCalibrationLatencyMs?: number;
 }
 
-/* ── Stroke legend and step configurations are imported from src/utils/instrumentStrokes.ts ── */
-
 const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = ({
   lang,
   trackId,
   onClose,
-  onStepValueChange,
-  onStepKeyDown,
   onStepsChange,
-  onVoiceTypeToggle,
-  onVoiceSylChange,
   onVoiceNoteChange,
   onVoiceNoteBlur,
   onAddPattern,
@@ -147,23 +139,13 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   onUpdatePatternVariationProbability,
   onTogglePatternVariationFirstTimeOnly,
   onVariationStepValueChange,
-  onVariationStepVolumeChange,
-  onVariationStepDecayChange,
-  onVariationStepMicrotimingChange,
   onDeletePatternVariation,
   onPatternAssign,
   onVolumeChange,
   onMuteToggle,
   onSoloToggle,
-  onStepVolumeChange,
-  onStepDecayChange,
-  onStepMicrotimingChange,
-  globalSwing,
   isPlaying,
-  currentStepIndex,
   currentMeasure,
-  maxTicks,
-  totalMeasures,
   isMobile,
   onStepTouchStart,
   onCopyPattern,
@@ -194,14 +176,14 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   onNavigatePrev,
   onNavigateNext,
   runAutoCalibration,
-  vocalCalibrationLatencyMs
 }) => {
   const { alertAsync } = useGameData();
   const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
-  const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
+  const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
   const inst = track ? instrumentsConfig[track.instrumentIdx] : { id: '', name: '', type: 'percussion', iconImg: '', colors: { text: '' }, mixerBg: '' };
+  
   if (!track) return null;
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
   const [liveMeasure, setLiveMeasure] = useState<number>(currentMeasure);
@@ -252,7 +234,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const patternIds = useMemo(() => track.patterns.map(p => p.id), [track.patterns]);
 
   // --- Pattern Cloud Logic ---
-  const { currentUser, userProfile } = useAuth();
+  const { userProfile } = useAuth();
   const [cloudPatterns, setCloudPatterns] = useState<CloudPattern[]>([]);
   const [isSavingPattern, setIsSavingPattern] = useState(false);
   const [isLoadingPatterns, setIsLoadingPatterns] = useState(false);
@@ -301,7 +283,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
       await savePatternToCloud(savedPattern, userProfile.uid, savePatternVisibility, userProfile.mestreId || undefined);
       
-      // Refresh local list
       const updatedPatterns = await fetchCloudPatterns(userProfile.uid, userProfile.role, userProfile.mestreId || null);
       setCloudPatterns(updatedPatterns);
 
@@ -347,7 +328,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     };
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleTick = (e: Event) => {
       const customEvent = e as CustomEvent;
       if (customEvent.detail) {
@@ -361,7 +342,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     };
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isPlaying) {
       setLiveMeasure(currentMeasure);
     }
@@ -373,97 +354,18 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     }
     setEditingPatternId(null);
   };
+
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
-
-
-  const { handlePatternBeatResolutionChange } = useSequencer();
   const [selectedStepIdx, setSelectedStepIdx] = useState<number | null>(null);
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
   const [selectedStepIndices, setSelectedStepIndices] = useState<number[]>([]);
-  const [selectedPatternId, setSelectedPatternId] = useState<number>(track.patterns[0]?.id);
+  const [selectedPatternId, setSelectedPatternId] = useState<number>(track.patterns[0]?.id || 0);
   const [isTupletEditMode, setIsTupletEditMode] = useState(false);
-  const [isDragSelecting, setIsDragSelecting] = useState(false);
-  const [dragStartIdx, setDragStartIdx] = useState<number | null>(null);
+  const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState<boolean>(false);
 
-  const isMouseDownRef = React.useRef(false);
-  const paintValueRef = React.useRef<string | number>(0);
-
-  const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
-  const [hasClipboard, setHasClipboard] = useState(false);
-
-  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
-  const isSelectingRef = useRef(false);
-  const hasDraggedRef = useRef(false);
-  const initialTouchIndexRef = useRef<number | null>(null);
-  const wasSelectedRef = useRef(false);
-
-  React.useEffect(() => {
-    setHasClipboard(!!getGlobalClipboard());
-    const handleChanged = () => {
-      setHasClipboard(!!getGlobalClipboard());
-    };
-    window.addEventListener('oGiradorClipboardChanged', handleChanged);
-    return () => window.removeEventListener('oGiradorClipboardChanged', handleChanged);
-  }, []);
-
-  React.useEffect(() => {
-    const handleGlobalMouseUp = (e: MouseEvent) => {
-      if (isMultiSelectActive && isSelectingRef.current) {
-        isSelectingRef.current = false;
-        if (!hasDraggedRef.current && initialTouchIndexRef.current !== null) {
-          const tappedIdx = initialTouchIndexRef.current;
-          
-          if (e.ctrlKey || e.metaKey || e.shiftKey) {
-            // Only toggle off if it was already selected before mousedown (handled via wasSelectedRef)
-            if (wasSelectedRef.current) {
-              setSelectedStepIndices(prev => prev.filter(idx => idx !== tappedIdx));
-            }
-          }
-        }
-      }
-      isMouseDownRef.current = false;
-      setIsDragSelecting(false);
-      setDragStartIdx(null);
-    };
-    window.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, [isMultiSelectActive, selectedStepIndices, selectedPatternId, track.patterns, inst.id, onStepTouchStart, onStepValueChange]);
-
-  React.useEffect(() => {
-    if (!isMultiSelectActive || selectedStepIndices.length === 0 || !selectedPatternId) return;
-
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if (
-        document.activeElement &&
-        (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') &&
-        !(document.activeElement as HTMLInputElement).readOnly
-      ) {
-        return;
-      }
-
-      const key = e.key;
-
-      if (key === 'Delete' || key === 'Backspace' || key === '0') {
-        e.preventDefault();
-        onStepValueChange(selectedPatternId, selectedStepIndices, '0');
-        setSelectedStepIndices([]);
-        return;
-      }
-
-      if (key.length === 1 && /^[a-zA-Z0-9]$/.test(key)) {
-        e.preventDefault();
-        onStepValueChange(selectedPatternId, selectedStepIndices, key);
-        setSelectedStepIndices([]);
-      }
-    };
-
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isMultiSelectActive, selectedStepIndices, selectedPatternId, onStepValueChange]);
-
-  React.useEffect(() => {
+  useEffect(() => {
     setSelectedPatternId(track.selectedPatternId);
     setSelectedStepIndices([]);
     setSelectedStepIdx(null);
@@ -472,326 +374,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   }, [track.id, track.selectedPatternId]);
 
   const strokes = getStrokesForInstrument(inst.id, inst.type, lang, isLeftHanded);
-  const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
-  const handleStepTouchStartMulti = (e: React.TouchEvent, index: number) => {
-    if (!isMultiSelectActive) return;
-    const touch = e.touches[0];
-    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
-    isSelectingRef.current = true;
-    hasDraggedRef.current = false;
-    initialTouchIndexRef.current = index;
-  };
-
-  const handleGridTouchMove = (e: React.TouchEvent, ptn: any) => {
-    if (!isMultiSelectActive || !isSelectingRef.current || !touchStartPos.current) return;
-
-    const touch = e.touches[0];
-    const dx = touch.clientX - touchStartPos.current.x;
-    const dy = touch.clientY - touchStartPos.current.y;
-
-    if (Math.abs(dx) > Math.abs(dy)) {
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-      if (Math.abs(dx) > 10) {
-        hasDraggedRef.current = true;
-      }
-
-      const element = document.elementFromPoint(touch.clientX, touch.clientY);
-      if (element) {
-        const stepInput = element.closest('[data-track-id][data-step-index]');
-        if (stepInput) {
-          const trackIdAttr = stepInput.getAttribute('data-track-id');
-          const stepIdxAttr = stepInput.getAttribute('data-step-index');
-
-          if (trackIdAttr === String(track.id) && stepIdxAttr !== null) {
-            const stepIdx = parseInt(stepIdxAttr, 10);
-            setSelectedStepIndices(prev => {
-              if (prev.includes(stepIdx)) return prev;
-              return [...prev, stepIdx];
-            });
-          }
-        }
-      }
-    }
-  };
-
-  const handleGridTouchEnd = (e: React.TouchEvent, ptn: any) => {
-    if (!isMultiSelectActive || !isSelectingRef.current) return;
-    isSelectingRef.current = false;
-
-    if (!hasDraggedRef.current && initialTouchIndexRef.current !== null) {
-      const tappedIdx = initialTouchIndexRef.current;
-      if (selectedStepIndices.includes(tappedIdx) && selectedStepIndices.length > 0) {
-        const stepVal = ptn.activeSteps[tappedIdx];
-        if (onStepTouchStart) {
-          onStepTouchStart(e, ptn.id, tappedIdx, inst.id, stepVal, (newVal) => {
-            onStepValueChange(ptn.id, selectedStepIndices, newVal);
-            setSelectedStepIndices([]);
-          });
-        }
-      } else {
-        setSelectedStepIndices(prev => {
-          if (prev.includes(tappedIdx)) {
-            return prev.filter(idx => idx !== tappedIdx);
-          } else {
-            return [...prev, tappedIdx];
-          }
-        });
-      }
-    }
-
-    touchStartPos.current = null;
-    initialTouchIndexRef.current = null;
-  };
-
-  const handleStepMouseDownMulti = (e: React.MouseEvent, index: number) => {
-    if (!isMultiSelectActive) return;
-    if (e.button !== 0) return;
-    isSelectingRef.current = true;
-    hasDraggedRef.current = false;
-    initialTouchIndexRef.current = index;
-
-    const wasSel = selectedStepIndices.includes(index);
-    wasSelectedRef.current = wasSel;
-
-    if (e.ctrlKey || e.metaKey || e.shiftKey) {
-      if (!wasSel) {
-        setSelectedStepIndices(prev => [...prev, index]);
-      }
-    } else {
-      setSelectedStepIndices([index]);
-    }
-  };
-
-  const handleStepMouseEnterMulti = (index: number) => {
-    if (!isMultiSelectActive || !isSelectingRef.current) return;
-    hasDraggedRef.current = true;
-    setSelectedStepIndices(prev => {
-      if (prev.includes(index)) return prev;
-      return [...prev, index];
-    });
-  };
-
-  const handleCopyRelative = (ptn: any) => {
-    if (selectedStepIndices.length === 0) return;
-    const sorted = [...selectedStepIndices].sort((a, b) => a - b);
-    const baseIdx = sorted[0];
-    const copiedSteps = sorted.map(idx => ({
-      offset: idx - baseIdx,
-      val: ptn.activeSteps[idx],
-      lyric: ptn.lyrics?.[idx] || '',
-      note: ptn.notes?.[idx] || '',
-    }));
-    if (typeof window !== 'undefined') {
-      (window as any).__oGiradorRelativeClipboard = { steps: copiedSteps };
-      window.dispatchEvent(new CustomEvent('oGiradorClipboardChanged'));
-    }
-  };
-
-  const handlePasteRelative = (ptn: any, targetIdx: number) => {
-    const globalClipboard = getGlobalClipboard();
-    if (!globalClipboard) return;
-    const destIndices: number[] = [];
-    const destValues: string[] = [];
-    const destLyrics: string[] = [];
-    const destNotes: string[] = [];
-
-    globalClipboard.steps.forEach((item: any) => {
-      const destIdx = targetIdx + item.offset;
-      if (destIdx >= 0 && destIdx < ptn.steps) {
-        destIndices.push(destIdx);
-        destValues.push(String(item.val));
-        destLyrics.push(item.lyric || '');
-        destNotes.push(item.note || '');
-      }
-    });
-
-    if (destIndices.length > 0) {
-      onStepValueChange(ptn.id, destIndices, destValues, destLyrics, destNotes);
-      setSelectedStepIndices([]);
-    }
-  };
-
-  React.useEffect(() => {
-    const handleGridShortcut = (e: Event) => {
-      const customEvent = e as CustomEvent<{ key: string }>;
-      const { key } = customEvent.detail;
-      const activePtn = track.patterns.find(p => p.id === selectedPatternId) || track.patterns[0];
-      if (!activePtn) return;
-
-      if (key === 'a') {
-        setIsMultiSelectActive(true);
-        setSelectedStepIndices(Array.from({ length: activePtn.steps }, (_, i) => i));
-      } else if (key === 'c') {
-        if (selectedStepIndices.length > 0) {
-          handleCopyRelative(activePtn);
-        } else {
-          onCopyPattern && onCopyPattern(activePtn);
-        }
-      } else if (key === 'x') {
-        if (selectedStepIndices.length > 0) {
-          handleCopyRelative(activePtn);
-          onStepValueChange(activePtn.id, selectedStepIndices, '0');
-          setSelectedStepIndices([]);
-        } else {
-          onCopyPattern && onCopyPattern(activePtn);
-          const allIndices = Array.from({ length: activePtn.steps }, (_, i) => i);
-          onStepValueChange(activePtn.id, allIndices, '0');
-        }
-      } else if (key === 'v') {
-        if (getGlobalClipboard()) {
-          const targetIdx = (isMultiSelectActive && selectedStepIndices.length > 0) ? selectedStepIndices[0] : (selectedStepIdx !== null ? selectedStepIdx : 0);
-          handlePasteRelative(activePtn, targetIdx);
-        } else {
-          if (canPaste && onPastePattern) {
-            onPastePattern(activePtn.id);
-          }
-        }
-      }
-    };
-
-    window.addEventListener('grid-shortcut', handleGridShortcut);
-    return () => window.removeEventListener('grid-shortcut', handleGridShortcut);
-  }, [track.patterns, selectedPatternId, isMultiSelectActive, selectedStepIndices, selectedStepIdx, onCopyPattern, onPastePattern, canPaste, onStepValueChange]);
-
-
-  const renderSelectionToolbar = (ptn: any) => {
-    return (
-      <div className="flex justify-between items-center bg-[#f4ecd8] border-b border-[#1a1a1a]/20 pb-1.5 mb-2 text-[10px] font-bold w-full select-none">
-        <span className="text-[#666] uppercase tracking-wider">
-          {lang === 'fr' ? 'Multi-sélection' : 'Multi-selection'}
-        </span>
-        <div className="flex gap-1.5 items-center">
-          {selectedStepIndices.length > 0 && (
-            <>
-              <button
-                onClick={() => handleCopyRelative(ptn)}
-                className="px-1.5 py-0.5 bg-[#8b2a1a] text-[#f4ecd8] rounded border border-[#1a1a1a] text-[8px] cursor-pointer font-bold hover:bg-[#a63d2d] transition-colors"
-              >
-                {lang === 'fr' ? 'Copier' : 'Copy'} ({selectedStepIndices.length})
-              </button>
-              <button
-                onClick={() => setSelectedStepIndices([])}
-                className="px-1.5 py-0.5 bg-[#8b2a1a] text-[#f4ecd8] rounded border border-[#1a1a1a] text-[8px] cursor-pointer font-bold hover:bg-[#a63d2d] transition-colors"
-              >
-                {lang === 'fr' ? 'Annuler' : 'Cancel'}
-              </button>
-            </>
-          )}
-          {hasClipboard && selectedStepIndices.length === 1 && (
-            <button
-              onClick={() => handlePasteRelative(ptn, selectedStepIndices[0])}
-              className="px-1.5 py-0.5 bg-[#1e824c] text-white rounded border border-[#1a1a1a] text-[8px] cursor-pointer font-bold hover:bg-[#27ae60] transition-colors"
-            >
-              {lang === 'fr' ? 'Coller' : 'Paste'}
-            </button>
-          )}
-          <button
-            onClick={() => {
-              setIsMultiSelectActive(!isMultiSelectActive);
-              setSelectedStepIndices([]);
-            }}
-            className={`px-1.5 py-0.5 rounded border border-[#1a1a1a] text-[9px] cursor-pointer font-bold ${
-              isMultiSelectActive ? 'bg-blue-600 text-white' : 'bg-transparent text-[#1a1a1a]'
-            }`}
-          >
-            {isMultiSelectActive 
-              ? (lang === 'fr' ? 'Mode Normal' : 'Normal Mode') 
-              : (lang === 'fr' ? 'Multi-sél. Off' : 'Multi-sel. Off')}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  const handleStart = (e: React.MouseEvent | React.TouchEvent, patternId: number, stepIdx: number, currentVal: string | number) => {
-    if ('shiftKey' in e && e.shiftKey) return;
-    if (onStepTouchStart) {
-      if (e.type === 'touchstart') {
-        onStepTouchStart(e, patternId, stepIdx, inst.id, currentVal, (newVal) => {
-          console.log("2️⃣ CALLBACK TACTILE : Valeur reçue de la boîte :", newVal);
-          onStepValueChange(patternId, stepIdx, newVal);
-        });
-      } else {
-        if ('button' in e && e.button !== 0) return;
-        onStepTouchStart(e, patternId, stepIdx, inst.id, currentVal, (newVal) => {
-          console.log("2️⃣ CALLBACK TACTILE : Valeur reçue de la boîte :", newVal);
-          onStepValueChange(patternId, stepIdx, newVal);
-        });
-      }
-    }
-  };
-
-  /* Voice input navigation helper */
-  const handleVoiceNav = useCallback((el: HTMLInputElement, key: string, type: 'syl' | 'note') => {
-    if (key === 'Tab') return;
-    const parentContainer = el.closest('.step-boxes');
-    if (!parentContainer) return;
-    const cards = Array.from(parentContainer.querySelectorAll('.v-card'));
-    const currentCard = el.closest('.v-card');
-    if (!currentCard) return;
-    const idx = cards.indexOf(currentCard);
-
-    if ((key === 'ArrowRight' || key === 'Enter') && idx < cards.length - 1) {
-      const nextCard = cards[idx + 1] as HTMLElement;
-      const input = nextCard.querySelector(type === 'syl' ? '.v-syl' : '.v-note') as HTMLInputElement;
-      input?.focus();
-      input?.select();
-    } else if (key === 'ArrowLeft' && idx > 0) {
-      const prevCard = cards[idx - 1] as HTMLElement;
-      const input = prevCard.querySelector(type === 'syl' ? '.v-syl' : '.v-note') as HTMLInputElement;
-      input?.focus();
-      input?.select();
-    }
-  }, []);
-
-  /* Compute current playing step for a given pattern */
-  const getCurrentStep = (patternSteps: number) => {
-    if (!isPlaying || currentStepIndex < 0) return -1;
-    return Math.floor((currentStepIndex / maxTicks) * patternSteps);
-  };
-
-  /* Compute global swing offset for a step index */
-  const getStepSwingPercent = (stepIdx: number, steps: number, beatResolutions?: number[]) => {
-    if (globalSwing.mode === 'off') return 0;
-    
-    let posInGroup = 0;
-    if (beatResolutions && beatResolutions.length > 0) {
-      let accumulated = 0;
-      for (const res of beatResolutions) {
-        if (stepIdx >= accumulated && stepIdx < accumulated + res) {
-          if (res === 3 || res === 6) return 0;
-          posInGroup = stepIdx - accumulated;
-          break;
-        }
-        accumulated += res;
-      }
-    } else {
-      const posInBeat = ((stepIdx / (steps / 4)) % 1) * 4;
-      posInGroup = Math.round(posInBeat) % 4;
-    }
-
-    if (globalSwing.mode === 'custom') {
-      return globalSwing.customOffsets[posInGroup] || 0;
-    }
-
-    // Default 'maracatu' mode
-    if (posInGroup === 0) return 0;
-    if (posInGroup === 1) return 8;
-    if (posInGroup === 2) return -29;
-    if (posInGroup === 3) return -58;
-    return 0;
-  };
-
-  /* Gongue display value mapping */
-  const getDisplayVal = (val: string | number): string => {
-    if (val === 0 || val === '0') return '';
-    return String(val);
-  };
-
-  /* Secure backdrop clicks by validating where mousedown started */
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       setMouseDownOnBackdrop(true);
@@ -807,8 +390,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     setMouseDownOnBackdrop(false);
   };
 
-  /* Close on Escape */
-  React.useEffect(() => {
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -832,13 +414,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           boxShadow: '8px 8px 0px 0px #1a1a1a',
         }}
       >
-
         {/* ═══════════════════ HEADER BAR ═══════════════════ */}
         <div
           className="flex items-center gap-3 px-5 py-3 border-b-[3px] border-[#1a1a1a] shrink-0"
           style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
         >
-          {/* Instrument icon + name */}
           <img
             src={`${ASSETS_BASE_URL}${inst.iconImg}`}
             alt={inst.name}
@@ -907,7 +487,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             S
           </button>
 
-
           {/* Close */}
           <button
             onClick={onClose}
@@ -917,1067 +496,347 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           </button>
         </div>
 
-        {/* ═══════════════════ BODY: Content + Legend sidebar ═══════════════════ */}
+        {/* ═══════════════════ BODY ═══════════════════ */}
         <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
-
-          {/* ─── Main scrollable content ─── */}
+          
+          {/* Main scrollable editor panel */}
           <div className="flex-1 md:overflow-y-auto p-3 md:p-5 flex flex-col gap-6" style={{ minWidth: 0, WebkitOverflowScrolling: 'touch' }}>
             <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
               <SortableContext items={patternIds} strategy={verticalListSortingStrategy}>
+                {track.patterns.map((ptn, ptnIdx) => {
+                  const isSelected = track.selectedPatternId === ptn.id;
+                  const livePattern = track.patterns.find(p => p.measureAssignments[liveMeasure]) || track.patterns[0];
+                  const isCurrentPlaying = isPlaying && ptn.id === livePattern.id;
 
-            {track.patterns.map((ptn, ptnIdx) => {
-              const isSelected = track.selectedPatternId === ptn.id;
-              const currentStep = getCurrentStep(ptn.steps);
-              const livePattern = track.patterns.find(p => p.measureAssignments[liveMeasure]) || track.patterns[0];
-              const isCurrentPlaying = isPlaying && ptn.id === livePattern.id;
-
-              return (
-                <SortablePatternWrapper key={ptn.id} id={ptn.id}>
-                  {({ setNodeRef, style, attributes, listeners }: any) => (
-                <div
-                  ref={setNodeRef}
-                  className={`cordel-border-sm p-4 flex flex-col gap-3 transition-colors ${
-                    isSelected ? 'bg-[#f4ecd8]' : 'bg-[#ece4d0]'
-                  }`}
-                  style={{
-                    ...style,
-                    boxShadow: isCurrentPlaying ? '4px 4px 0px 0px #8b2a1a' : (isSelected ? '4px 4px 0px 0px #1a1a1a' : '2px 2px 0px 0px #bbb'),
-                    borderColor: isCurrentPlaying ? '#8b2a1a' : (isSelected ? '#1a1a1a' : '#999'),
-                    borderWidth: isCurrentPlaying ? '3px' : '2px',
-                  }}
-                >
-                  {/* Pattern header */}
-                  <div className="flex items-center gap-3 border-b-[2px] border-[#1a1a1a] pb-2">
-                    <input
-                      type="radio"
-                      checked={isSelected}
-                      onChange={() => onSelectPattern(ptn.id)}
-                      className="w-4 h-4 accent-[#1a1a1a] cursor-pointer"
-                    />
-                    {editingPatternId === ptn.id ? (
-                      <input
-                        type="text"
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        onBlur={() => handleSave(ptn.id)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleSave(ptn.id);
-                          if (e.key === 'Escape') setEditingPatternId(null);
-                        }}
-                        className="font-cactus font-bold text-sm bg-transparent border-b border-[#1a1a1a] outline-none text-[#1a1a1a] px-1 py-0.5"
-                        autoFocus
-                        onFocus={(e) => e.target.select()}
-                      />
-                    ) : (
-                      <span
-                        className={`font-cactus font-bold cursor-pointer select-none ${
-                          isSelected ? 'text-[#1a1a1a] text-base' : 'text-[#666] text-sm'
-                        }`}
-                        onClick={() => onSelectPattern(ptn.id)}
-                        onDoubleClick={() => {
-                          setEditingPatternId(ptn.id);
-                          setEditName(ptn.name || '');
-                        }}
-                        title={lang === 'fr' ? 'Double-cliquez pour renommer' : 'Double clique para renomear'}
-                      >
-                        {ptn.name ? ptn.name : `${lang === 'fr' ? 'Motif' : 'Padrão'} ${ptnIdx + 1}`}
-                      </span>
-                    )}
-
-                    {editingPatternId !== ptn.id && isMobile && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingPatternId(ptn.id);
-                          setEditName(ptn.name || '');
-                        }}
-                        className="text-xs opacity-60 hover:opacity-100 p-1 cursor-pointer flex items-center justify-center"
-                        title={lang === 'fr' ? 'Renommer' : 'Renomear'}
-                      >
-                        ✏️
-                      </button>
-                    )}
-
-                    {isCurrentPlaying && (
-                      <span className="bg-[#8b2a1a] text-[#f4ecd8] text-[9px] uppercase px-1.5 py-0.5 cordel-border-sm font-bold flex items-center gap-1 animate-pulse select-none">
-                        ▶ {lang === 'fr' ? 'Actif' : 'Ativo'}
-                      </span>
-                    )}
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble') {
-                          onStopSoloPattern && onStopSoloPattern();
-                        } else {
-                          onPlaySoloPattern && onPlaySoloPattern(ptn.id, 'ensemble');
-                        }
-                      }}
-                      className={`p-1 rounded-sm transition-colors ml-2 ${
-                        soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble'
-                          ? 'bg-[#8b2a1a] text-[#f4ecd8]'
-                          : 'text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
-                      }`}
-                      title={soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble' ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar leitura') : (lang === 'fr' ? 'Écouter ce motif complet en solo (Base + Variations)' : 'Ouvir este padrão completo em solo')}
-                    >
-                      {soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                    </button>
-
-                      <button
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => {
-                          setSaveModalPatternId(ptn.id);
-                          setSavePatternName(ptn.name || '');
-                          setSavePatternFolder(existingFolders[0] || 'Général');
-                        }}
-                        className="p-1 rounded-sm transition-colors ml-4 text-[#1a1a1a] hover:bg-[#1a1a1a]/10"
-                        title={lang === 'fr' ? 'Sauvegarder la phrase dans le catalogue' : 'Salvar o padrão no catálogo'}
-                      >
-                        💾
-                      </button>
-
-                      <button
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={() => {
-                          setLoadModalPatternId(ptn.id);
-                        }}
-                        className="p-1 rounded-sm transition-colors ml-1 text-[#1a1a1a] hover:bg-[#1a1a1a]/10"
-                        title={lang === 'fr' ? 'Ouvrir le catalogue' : 'Abrir o catálogo'}
-                      >
-                        📂
-                      </button>
-
-                      {/* Copy/Paste buttons */}
-                      <div className="flex gap-1 ml-4">
-                        <button
-                          onClick={() => onCopyPattern && onCopyPattern(ptn)}
-                          className="px-1.5 py-0.5 bg-[#eaddcf] text-[#1a1a1a] text-[10px] font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
-                          title={lang === 'fr' ? 'Copier le motif' : 'Copiar o padrão'}
+                  return (
+                    <SortablePatternWrapper key={ptn.id} id={ptn.id}>
+                      {({ setNodeRef, style, attributes, listeners }: any) => (
+                        <div
+                          ref={setNodeRef}
+                          className={`cordel-border-sm p-4 flex flex-col gap-3 transition-colors ${
+                            isSelected ? 'bg-[#f4ecd8]' : 'bg-[#ece4d0]'
+                          }`}
+                          style={{
+                            ...style,
+                            boxShadow: isCurrentPlaying ? '4px 4px 0px 0px #8b2a1a' : (isSelected ? '4px 4px 0px 0px #1a1a1a' : '2px 2px 0px 0px #bbb'),
+                            borderColor: isCurrentPlaying ? '#8b2a1a' : (isSelected ? '#1a1a1a' : '#999'),
+                            borderWidth: isCurrentPlaying ? '3px' : '2px',
+                          }}
                         >
-                          📋 {lang === 'fr' ? 'Copier' : 'Copiar'}
-                        </button>
-                      <button
-                        onClick={() => onPastePattern && onPastePattern(ptn.id)}
-                        disabled={!canPaste}
-                        className={`px-1.5 py-0.5 text-[10px] font-bold cordel-border-sm cursor-pointer ${
-                          canPaste 
-                            ? 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]' 
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                        }`}
-                        title={lang === 'fr' ? 'Coller le motif copié' : 'Colar o padrão copiado'}
-                      >
-                        📥 {lang === 'fr' ? 'Coller' : 'Colar'}
-                      </button>
-                    </div>
+                          {/* Pattern Header */}
+                          <div className="flex items-center gap-3 border-b-[2px] border-[#1a1a1a] pb-2">
+                            <input
+                              type="radio"
+                              checked={isSelected}
+                              onChange={() => onSelectPattern(ptn.id)}
+                              className="w-4 h-4 accent-[#1a1a1a] cursor-pointer"
+                            />
+                            {editingPatternId === ptn.id ? (
+                              <input
+                                type="text"
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                onBlur={() => handleSave(ptn.id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSave(ptn.id);
+                                  if (e.key === 'Escape') setEditingPatternId(null);
+                                }}
+                                className="font-cactus font-bold text-sm bg-transparent border-b border-[#1a1a1a] outline-none text-[#1a1a1a] px-1 py-0.5"
+                                autoFocus
+                                onFocus={(e) => e.target.select()}
+                              />
+                            ) : (
+                              <span
+                                className={`font-cactus font-bold cursor-pointer select-none ${
+                                  isSelected ? 'text-[#1a1a1a] text-base' : 'text-[#666] text-sm'
+                                }`}
+                                onClick={() => onSelectPattern(ptn.id)}
+                                onDoubleClick={() => {
+                                  setEditingPatternId(ptn.id);
+                                  setEditName(ptn.name || '');
+                                }}
+                                title={lang === 'fr' ? 'Double-cliquez pour renommer' : 'Double clique para renomear'}
+                              >
+                                {ptn.name ? ptn.name : `${lang === 'fr' ? 'Motif' : 'Padrão'} ${ptnIdx + 1}`}
+                              </span>
+                            )}
 
-                    {/* Reorder handle */}
-                    {onReorderPatternsDnd && (
-                      <div
-                        {...attributes}
-                        {...listeners}
-                        className="ml-2 flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[#1a1a1a]/60 hover:text-[#1a1a1a] transition-colors touch-none"
-                        title="Drag to reorder patterns"
-                      >
-                        <GripVertical size={16} />
-                      </div>
-                    )}
+                            {editingPatternId !== ptn.id && isMobile && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingPatternId(ptn.id);
+                                  setEditName(ptn.name || '');
+                                }}
+                                className="text-xs opacity-60 hover:opacity-100 p-1 cursor-pointer flex items-center justify-center"
+                                title={lang === 'fr' ? 'Renommer' : 'Renomear'}
+                              >
+                                ✏️
+                              </button>
+                            )}
 
-                    {/* Steps selector */}
-                    <div className="flex items-center gap-1.5 ml-auto">
-                      <span className="text-[11px] font-bold uppercase">{t('stepsNum')}</span>
-                      <select
-                        value={ptn.steps}
-                        onChange={(e) => onStepsChange(ptn.id, parseInt(e.target.value))}
-                        className="bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm px-2 py-0.5 text-xs font-bold cursor-pointer outline-none font-cactus"
-                      >
-                        {STEP_OPTIONS.map((n) => (
-                          <option key={n} value={n}>{n}</option>
-                        ))}
-                      </select>
-                    </div>
+                            {isCurrentPlaying && (
+                              <span className="bg-[#8b2a1a] text-[#f4ecd8] text-[9px] uppercase px-1.5 py-0.5 cordel-border-sm font-bold flex items-center gap-1 animate-pulse select-none">
+                                ▶ {lang === 'fr' ? 'Actif' : 'Ativo'}
+                              </span>
+                            )}
 
-                    {/* Delete pattern */}
-                    {track.patterns.length > 1 && (
-                      <button
-                        onClick={() => onDeletePattern(ptn.id)}
-                        className="text-[#8b2a1a] font-bold text-xs px-2 py-1 cordel-border-sm cordel-button hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer"
-                      >
-                        ✕ {lang === 'fr' ? 'Suppr.' : 'Excluir'}
-                      </button>
-                    )}
-                  </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble') {
+                                  onStopSoloPattern && onStopSoloPattern();
+                                } else {
+                                  onPlaySoloPattern && onPlaySoloPattern(ptn.id, 'ensemble');
+                                }
+                              }}
+                              className={`p-1 rounded-sm transition-colors ml-2 ${
+                                soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble'
+                                  ? 'bg-[#8b2a1a] text-[#f4ecd8]'
+                                  : 'text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+                              }`}
+                              title={soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble' ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar leitura') : (lang === 'fr' ? 'Écouter ce motif complet en solo (Base + Variations)' : 'Ouvir este padrão completo em solo')}
+                            >
+                              {soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                            </button>
 
-                  {/* Vocal recording controls (only for voice instruments) */}
-                  <VocalRecordingSection
-                    lang={lang}
-                    ptn={ptn}
-                    inst={inst}
-                    selectedAudioDeviceId={selectedAudioDeviceId}
-                    audioDevices={audioDevices}
-                    isVocalGuideEnabled={isVocalGuideEnabled}
-                    recordedPatternIds={recordedPatternIds}
-                    isCalibrating={isCalibrating}
-                    onVocalModeChange={onVocalModeChange}
-                    onAudioDeviceChange={onAudioDeviceChange}
-                    onVocalGuideToggle={onVocalGuideToggle}
-                    onImportVocalFile={onImportVocalFile}
-                    onDeleteVocalRecording={onDeleteVocalRecording}
-                    onVocalLatencyChange={onVocalLatencyChange}
-                    onVocalBpmSyncToggle={onVocalBpmSyncToggle}
-                    onAutoCalibrate={handleAutoCalibrate}
-                  />
+                            <button
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={() => {
+                                setSaveModalPatternId(ptn.id);
+                                setSavePatternName(ptn.name || '');
+                                setSavePatternFolder(existingFolders[0] || 'Général');
+                              }}
+                              className="p-1 rounded-sm transition-colors ml-4 text-[#1a1a1a] hover:bg-[#1a1a1a]/10"
+                              title={lang === 'fr' ? 'Sauvegarder la phrase dans le catalogue' : 'Salvar o padrão no catálogo'}
+                            >
+                              💾
+                            </button>
 
-                  {/* Step grid */}
-                  {ptn.id === selectedPatternId && isTouchDevice && renderSelectionToolbar(ptn)}
-                  {(() => {
-                    const totalVarProb = (ptn.variations || [])
-                      .filter(v => !v.playFirstTimeOnly)
-                      .reduce((acc, v) => acc + v.probability, 0);
-                    const baseProb = Math.max(0, 100 - totalVarProb);
-                    return (
-                      <div className="text-xs font-bold text-[#666] mb-2 flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-3">
-                          <span>{lang === 'fr' ? 'Probabilité de base (Base Track) :' : 'Probabilidade base (Pista Base) :'} {baseProb}%</span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (soloPatternPlayId === ptn.id && soloPatternVariationId === 'base') {
-                                onStopSoloPattern && onStopSoloPattern();
-                              } else {
-                                onPlaySoloPattern && onPlaySoloPattern(ptn.id, 'base');
-                              }
-                            }}
-                            className={`p-1 rounded-sm transition-colors ${
-                              soloPatternPlayId === ptn.id && soloPatternVariationId === 'base'
-                                ? 'bg-[#8b2a1a] text-[#f4ecd8]'
-                                : 'text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
-                            }`}
-                            title={soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar leitura') : (lang === 'fr' ? 'Écouter ce motif de base en solo (sans variations)' : 'Ouvir este padrão base em solo (sem variações)')}
-                          >
-                            {soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={() => setIsTupletEditMode(!isTupletEditMode)}
-                            className={`px-2 py-1 text-[10px] rounded-sm transition-colors border ${
-                              isTupletEditMode
-                                ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a]'
-                                : 'bg-transparent text-[#1a1a1a] border-[#1a1a1a]/20 hover:bg-[#1a1a1a]/5'
-                            }`}
-                            title={lang === 'fr' ? 'Éditer les divisions (Triolet, Sextolet...)' : 'Editar divisões (Tercina, Sextina...)'}
-                          >
-                            {lang === 'fr' ? '⚙️ Divisions (Triolets...)' : '⚙️ Divisões (Tercinas...)'}
-                          </button>
-                          {(ptn.variations?.length || 0) > 0 && totalVarProb > 100 && (
-                            <span className="text-[#8b2a1a] text-[10px]">⚠️ {lang === 'fr' ? 'Somme > 100%' : 'Soma > 100%'}</span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                  {inst.type === 'voice' ? (
-                    /* ──── Voice step grid ──── */
-                    <div
-                      className="step-boxes flex flex-wrap gap-y-4 gap-x-6"
-                      id={`detail-voice-${track.id}-${ptn.id}`}
-                      onTouchMove={(e) => handleGridTouchMove(e, ptn)}
-                      onTouchEnd={(e) => handleGridTouchEnd(e, ptn)}
-                    >
-                      {(() => {
-                        const groups = [];
-                        let accumulated = 0;
-                        const defaultBeats = 4;
-                        const beatRes = ptn.beatResolutions || Array(Math.ceil(ptn.steps / defaultBeats)).fill(defaultBeats);
-                        for (let b = 0; b < beatRes.length; b++) {
-                          const res = beatRes[b];
-                          const group = [];
-                          for (let i = 0; i < res; i++) {
-                            if (accumulated + i < ptn.steps) {
-                              group.push(accumulated + i);
-                            }
-                          }
-                          if (group.length > 0) groups.push(group);
-                          accumulated += res;
-                        }
-                        return groups.map((group, groupIdx) => (
-                          <div key={groupIdx} className="flex gap-4 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
-                            {group.map((i) => {
-                              const state = ptn.activeSteps[i];
-                              const isActive = state !== 0;
-                              const isPux = state === 'P';
-                              const syl = ptn.lyrics?.[i] || '';
-                              const note = ptn.notes?.[i] || '';
-                              const typeText = isActive ? (isPux ? '🗣️ Pux' : '👥 Coro') : '---';
-                              const typeClass = isActive ? 'text-white' : 'bg-transparent text-[#666]';
-                              const typeStyle = isActive
-                                ? { backgroundColor: isPux ? '#8b2a1a' : '#2980b9', color: '#ffffff' }
-                                : {};
+                            <button
+                              onPointerDown={(e) => e.stopPropagation()}
+                              onClick={() => {
+                                setLoadModalPatternId(ptn.id);
+                              }}
+                              className="p-1 rounded-sm transition-colors ml-1 text-[#1a1a1a] hover:bg-[#1a1a1a]/10"
+                              title={lang === 'fr' ? 'Ouvrir le catalogue' : 'Abrir o catálogo'}
+                            >
+                              📂
+                            </button>
 
-                              const isCurrentStep = currentStep === i;
-                              const isSelected = ptn.id === selectedPatternId && selectedStepIndices.includes(i);
-
-                              // Calculate total micro-timing shift (manual + global swing)
-                              const manualMicro = ptn.microtimings?.[i] ?? 0;
-                              const swingOffset = getStepSwingPercent(i, ptn.steps, ptn.beatResolutions);
-                              const totalShift = Math.max(-100, Math.min(100, manualMicro + swingOffset));
-                              const shiftPx = (totalShift / 100) * 8; // Max 8px shift
-
-                              const isLinked = syl && !syl.endsWith(' ') && i < ptn.steps - 1 && (ptn.lyrics?.[i + 1] || '').trim() !== '';
-
-                              return (
-                                <div key={i} className="relative" style={{ width: '56px' }}>
-                                  {/* Axis vertical centerline (0%) behind steps */}
-                                  <div className="absolute top-[20px] bottom-[10px] left-1/2 w-0 border-l border-dashed border-[#1a1a1a]/30 -translate-x-1/2 pointer-events-none z-0" />
-                                  
-                                  {isLinked && (
-                                    <div className="absolute top-[48px] -right-[12px] w-[14px] h-[3px] bg-[#8b2a1a]/60 z-20 pointer-events-none rounded-sm" />
-                                  )}
-                                  
-                                  <div
-                                    className={`v-card flex flex-col bg-[#f4ecd8] cordel-border-sm overflow-hidden z-10 relative transition-all duration-100 ${
-                                      isCurrentStep 
-                                        ? 'border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.5)]' 
-                                        : isSelected
-                                          ? 'border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f]'
-                                          : 'border-[#1a1a1a]'
-                                    }`}
-                                    style={{
-                                      width: '56px',
-                                      transform: `translateX(${shiftPx}px)`,
-                                    }}
-                                    data-track-id={track.id}
-                                    data-step-index={i}
-                                    data-step-type="voice"
-                                    onTouchStart={(e) => {
-                                      if (isMultiSelectActive) {
-                                        handleStepTouchStartMulti(e, i);
-                                      }
-                                    }}
-                                    onMouseDown={(e) => {
-                                      if (isMultiSelectActive) {
-                                        handleStepMouseDownMulti(e, i);
-                                      }
-                                    }}
-                                    onMouseEnter={() => {
-                                      if (isMultiSelectActive) {
-                                        handleStepMouseEnterMulti(i);
-                                      }
-                                    }}
-                                  >
-                                    {/* Step number */}
-                                    <div className="text-[8px] text-[#999] text-center font-bold bg-[#ece4d0] leading-tight py-0.5">
-                                      {i + 1}
-                                    </div>
-
-                                    {/* PUX / CORO toggle */}
-                                    <div
-                                      onClick={() => {
-                                        if (!isMultiSelectActive) {
-                                          onVoiceTypeToggle(ptn.id, i);
-                                        }
-                                      }}
-                                      className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`}
-                                      style={typeStyle}
-                                    >
-                                      {typeText}
-                                    </div>
-
-                                    {/* Syllable input */}
-                                    <input
-                                      type="text"
-                                      value={syl}
-                                      readOnly={isMultiSelectActive}
-                                      onChange={(e) => onVoiceSylChange(ptn.id, i, e.target.value)}
-                                      placeholder="-"
-                                      className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-[#1a1a1a] outline-none"
-                                      onFocus={() => {
-                                        if (!isMultiSelectActive) {
-                                          setSelectedStepIdx(i);
-                                          setSelectedPatternId(ptn.id);
-                                        }
-                                      }}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Tab') {
-                                          e.preventDefault();
-                                          handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'syl');
-                                        } else if (['ArrowRight', 'ArrowLeft', 'Enter'].includes(e.key)) {
-                                          handleVoiceNav(e.target as HTMLInputElement, e.key, 'syl');
-                                        }
-                                      }}
-                                    />
-
-                                    {/* Note input */}
-                                    <input
-                                      type="text"
-                                      value={note}
-                                      readOnly={isMultiSelectActive}
-                                      onChange={(e) => onVoiceNoteChange(ptn.id, i, e.target.value)}
-                                      onBlur={(e) => onVoiceNoteBlur(ptn.id, i, e.target.value)}
-                                      placeholder="C4"
-                                      className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase outline-none cursor-pointer hover:bg-black/5"
-                                      onFocus={(e) => {
-                                        if (!isMultiSelectActive) {
-                                          setSelectedStepIdx(i);
-                                          setSelectedPatternId(ptn.id);
-                                          setNoteSelectorTarget({ patternId: ptn.id, stepIdx: i, note, element: e.currentTarget });
-                                        }
-                                      }}
-                                      onClick={(e) => {
-                                        if (!isMultiSelectActive) {
-                                          setNoteSelectorTarget({ patternId: ptn.id, stepIdx: i, note, element: e.currentTarget });
-                                        }
-                                      }}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Tab') {
-                                          e.preventDefault();
-                                          handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
-                                        } else if (['ArrowRight', 'ArrowLeft', 'Enter'].includes(e.key)) {
-                                          handleVoiceNav(e.target as HTMLInputElement, e.key, 'note');
-                                        }
-                                      }}
-                                    />
-                                    {/* Sculpting micro-bars */}
-                                    <div className="w-full flex flex-col gap-[2px] p-[2px] bg-[#ece4d0] border-t border-[#1a1a1a]/20 shrink-0">
-                                      <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-                                        <div className="h-[2px] bg-green-600 rounded-none transition-all" style={{ width: `${ptn.volumes?.[i] ?? 100}%` }} />
-                                      </div>
-                                      <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-                                        <div className="h-[2px] bg-amber-500 rounded-none transition-all" style={{ width: `${ptn.decays?.[i] ?? 100}%` }} />
-                                      </div>
-                                      <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
-                                        <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
-                                        {totalShift !== 0 && (
-                                          <div
-                                            className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
-                                            style={{
-                                              left: totalShift > 0 ? '50%' : 'auto',
-                                              right: totalShift < 0 ? '50%' : 'auto',
-                                              width: `${Math.min(50, Math.abs(totalShift) / 2)}%`
-                                            }}
-                                          />
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ));
-                      })()}
-                      
-                      {/* Live Karaoke Preview */}
-                      {(() => {
-                        const karaokeWords = [];
-                        let currentWord = [];
-                        
-                        for (let idx = 0; idx < ptn.steps; idx++) {
-                          const active = ptn.activeSteps[idx] !== 0;
-                          const syl = ptn.lyrics?.[idx] || '';
-                          if (active && syl) {
-                            currentWord.push({ text: syl, index: idx });
-                            if (syl.endsWith(' ') || idx === ptn.steps - 1) {
-                              karaokeWords.push([...currentWord]);
-                              currentWord = [];
-                            }
-                          }
-                        }
-                        if (currentWord.length > 0) {
-                          karaokeWords.push(currentWord);
-                        }
-
-                        return (
-                          <div className="mt-3 p-3 bg-[#ece4d0] border border-[#1a1a1a]/25 cordel-border-sm flex flex-col gap-1 w-full text-[#1a1a1a]">
-                            <span className="text-[10px] font-bold uppercase opacity-65 tracking-wider">
-                              📖 {lang === 'fr' ? 'Paroles (Karaoké en direct)' : 'Letras (Karaokê ao vivo)'}
-                            </span>
-                            <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm font-bold font-cactus leading-relaxed">
-                              {karaokeWords.length === 0 ? (
-                                <span className="italic text-[#666]">
-                                  {lang === 'fr' ? 'Saisissez des syllabes dans la grille...' : 'Digite sílabas na grade...'}
-                                </span>
-                              ) : (
-                                karaokeWords.map((word, wIdx) => {
-                                  const isWordActive = word.some(item => item.index === currentStep && isPlaying);
-                                  
-                                  return (
-                                    <span 
-                                      key={wIdx} 
-                                      className={`transition-colors duration-150 ${
-                                        isWordActive ? 'text-[#8b2a1a] scale-105 transform origin-left' : 'opacity-85'
-                                      }`}
-                                    >
-                                      {word.map((item, sIdx) => {
-                                        const isStepActive = item.index === currentStep && isPlaying;
-                                        return (
-                                          <span 
-                                            key={sIdx} 
-                                            className={isStepActive ? 'underline decoration-2' : ''}
-                                          >
-                                            {item.text}
-                                          </span>
-                                        );
-                                      })}
-                                    </span>
-                                  );
-                                })
-                              )}
+                            {/* Copy/Paste buttons */}
+                            <div className="flex gap-1 ml-4">
+                              <button
+                                onClick={() => onCopyPattern && onCopyPattern(ptn)}
+                                className="px-1.5 py-0.5 bg-[#eaddcf] text-[#1a1a1a] text-[10px] font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
+                                title={lang === 'fr' ? 'Copier le motif' : 'Copiar o padrão'}
+                              >
+                                📋 {lang === 'fr' ? 'Copier' : 'Copiar'}
+                              </button>
+                              <button
+                                onClick={() => onPastePattern && onPastePattern(ptn.id)}
+                                disabled={!canPaste}
+                                className={`px-1.5 py-0.5 text-[10px] font-bold cordel-border-sm cursor-pointer ${
+                                  canPaste 
+                                    ? 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]' 
+                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
+                                }`}
+                                title={lang === 'fr' ? 'Coller le motif copié' : 'Colar o padrão copiado'}
+                              >
+                                📥 {lang === 'fr' ? 'Coller' : 'Colar'}
+                              </button>
                             </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  ) : (
-                    /* ──── Instrument step grid ──── */
-                    <div
-                      className="step-boxes flex flex-wrap gap-y-4 gap-x-6"
-                      id={`detail-steps-${track.id}-${ptn.id}`}
-                      onTouchMove={(e) => handleGridTouchMove(e, ptn)}
-                      onTouchEnd={(e) => handleGridTouchEnd(e, ptn)}
-                    >
-                      {(() => {
-                        const groups = [];
-                        let accumulated = 0;
-                        const defaultBeats = 4;
-                        const beatRes = ptn.beatResolutions || Array(Math.ceil(ptn.steps / defaultBeats)).fill(defaultBeats);
-                        for (let b = 0; b < beatRes.length; b++) {
-                          const res = beatRes[b];
-                          const group = [];
-                          for (let i = 0; i < res; i++) {
-                            if (accumulated + i < ptn.steps) {
-                              group.push(accumulated + i);
-                            }
-                          }
-                          if (group.length > 0) groups.push(group);
-                          accumulated += res;
-                        }
-                        return groups.map((group, groupIdx) => {
-                          const isTriplet = group.length === 3;
-                          const isSextuplet = group.length === 6;
-                          
-                          return (
-                          <div key={groupIdx} className="flex flex-col gap-1 shrink-0">
-                            {isTupletEditMode && (
-                              <div className="flex justify-center mb-1">
-                                <select 
-                                  value={group.length}
-                                  onChange={(e) => handlePatternBeatResolutionChange(ptn.id, groupIdx, parseInt(e.target.value))}
-                                  className="text-[10px] bg-[#ece4d0] border border-[#1a1a1a]/20 rounded-sm outline-none px-1 py-0.5 font-bold cursor-pointer hover:bg-[#ece4d0]/80 transition-colors"
-                                >
-                                  <option value="3">3 (Triolet)</option>
-                                  <option value="4">4 (D.Croches)</option>
-                                  <option value="6">6 (Sextolet)</option>
-                                </select>
+
+                            {/* Reorder handle */}
+                            {onReorderPatternsDnd && (
+                              <div
+                                {...attributes}
+                                {...listeners}
+                                className="ml-2 flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[#1a1a1a]/60 hover:text-[#1a1a1a] transition-colors touch-none"
+                                title="Drag to reorder patterns"
+                              >
+                                <GripVertical size={16} />
                               </div>
                             )}
-                            <div className={`p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm relative ${isSextuplet ? 'h-[72px]' : isTriplet ? 'flex justify-between' : 'flex gap-4'}`} style={{ width: '204px' }}>
-                            {group.map((i, indexInGroup) => {
-                              const val = ptn.activeSteps[i];
-                              const displayVal = getDisplayVal(val);
-                              const isActive = val !== 0 && val !== '';
-                              const isCurrentStep = currentStep === i;
 
-                              const isSelected = ptn.id === selectedPatternId && selectedStepIndices.includes(i);
-                              const isSingleSelected = selectedStepIdx === i;
+                            {/* Steps selector */}
+                            <div className="flex items-center gap-1.5 ml-auto">
+                              <span className="text-[11px] font-bold uppercase">{t('stepsNum')}</span>
+                              <select
+                                value={ptn.steps}
+                                onChange={(e) => onStepsChange(ptn.id, parseInt(e.target.value))}
+                                className="bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm px-2 py-0.5 text-xs font-bold cursor-pointer outline-none font-cactus"
+                              >
+                                {STEP_OPTIONS.map((n) => (
+                                  <option key={n} value={n}>{n}</option>
+                                ))}
+                              </select>
+                            </div>
 
-                              let colorStyle: React.CSSProperties = {};
-                              if (isActive) {
-                                const bgColor = inst.colors[val as string] || '#111';
-                                let txtColor = inst.colors.text || '#f4ecd8';
-                                if (isDarkText(inst.id, val as string)) {
-                                  txtColor = '#1a1a1a';
-                                }
-                                colorStyle = {
-                                  backgroundColor: bgColor,
-                                  borderColor: (isSelected || isSingleSelected) ? undefined : bgColor,
-                                  color: txtColor,
-                                };
-                              }
+                            {/* Delete pattern */}
+                            {track.patterns.length > 1 && (
+                              <button
+                                onClick={() => onDeletePattern(ptn.id)}
+                                className="text-[#8b2a1a] font-bold text-xs px-2 py-1 cordel-border-sm cordel-button hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer"
+                              >
+                                ✕ {lang === 'fr' ? 'Suppr.' : 'Excluir'}
+                              </button>
+                            )}
+                          </div>
 
-                              // Calculate total micro-timing shift (manual + global swing)
-                              const manualMicro = ptn.microtimings?.[i] ?? 0;
-                              const swingOffset = getStepSwingPercent(i, ptn.steps, ptn.beatResolutions);
-                              const totalShift = Math.max(-100, Math.min(100, manualMicro + swingOffset));
-                              const shiftPx = (totalShift / 100) * 8; // Max 8px shift
+                          {/* Vocal recording controls (only for voice instruments) */}
+                          <VocalRecordingSection
+                            lang={lang}
+                            ptn={ptn}
+                            inst={inst}
+                            selectedAudioDeviceId={selectedAudioDeviceId}
+                            audioDevices={audioDevices}
+                            isVocalGuideEnabled={isVocalGuideEnabled}
+                            recordedPatternIds={recordedPatternIds}
+                            isCalibrating={isCalibrating}
+                            onVocalModeChange={onVocalModeChange}
+                            onAudioDeviceChange={onAudioDeviceChange}
+                            onVocalGuideToggle={onVocalGuideToggle}
+                            onImportVocalFile={onImportVocalFile}
+                            onDeleteVocalRecording={onDeleteVocalRecording}
+                            onVocalLatencyChange={onVocalLatencyChange}
+                            onVocalBpmSyncToggle={onVocalBpmSyncToggle}
+                            onAutoCalibrate={handleAutoCalibrate}
+                          />
 
-                              const isMultiSelected = ptn.id === selectedPatternId && selectedStepIndices.includes(i) && selectedStepIndices.length > 1;
-
-                              let wrapperClasses = "relative flex flex-col items-center";
-                              let wrapperStyle: React.CSSProperties = { width: '36px' };
-                              
-                              if (isSextuplet) {
-                                wrapperClasses = "absolute flex flex-col items-center justify-center top-1.5 z-10 hover:z-20";
-                                wrapperStyle = { 
-                                  width: '54.8px', 
-                                  left: `${6 + indexInGroup * 27.4}px`
-                                };
-                              } else if (isTriplet) {
-                                wrapperStyle = { width: '48px' };
-                              }
-
-                              return (
-                                <div key={i} className={wrapperClasses} style={wrapperStyle}>
-                                  {/* Axis vertical centerline (0%) behind steps */}
-                                  <div className="absolute top-[12px] bottom-[15px] left-1/2 w-0 border-l border-dashed border-[#1a1a1a]/30 -translate-x-1/2 pointer-events-none z-0" />
-
-                                  <div className="text-[8px] text-[#999] font-bold mb-0.5 z-10 relative">{i + 1}</div>
-                                  <input
-                                    type="text"
-                                    maxLength={['caixa', 'tarol', 'timbal'].includes(inst.id) ? 2 : 1}
-                                    value={displayVal}
-                                    readOnly={isMultiSelectActive}
-                                    inputMode={isTouchDevice ? 'none' : undefined}
-                                    onClick={(e) => e.stopPropagation()}
-                                    onFocus={(e) => {
-                                      if (!isTouchDevice) {
-                                        e.target.select();
-                                      }
-                                      setSelectedPatternId(ptn.id);
-                                    }}
-                                    onMouseDown={(e) => {
-                                      e.stopPropagation();
-                                      if (e.button !== 0) return;
-                                      setSelectedPatternId(ptn.id);
-                                      setSelectedVariationId(null);
-
-                                      if (isMultiSelectActive) {
-                                        handleStepMouseDownMulti(e, i);
-                                        return;
-                                      }
-
-                                      // 1. Alt Key Paint Editing
-                                      if (e.altKey) {
-                                        isMouseDownRef.current = true;
-                                        const nextVal = getNextStepValue(inst.id, inst.type, val);
-                                        paintValueRef.current = nextVal;
-                                        onStepValueChange(ptn.id, i, String(nextVal));
-                                        return;
-                                      }
-
-                                      // 2. Shift + Clic (Selection Range)
-                                      if (e.shiftKey) {
-                                        e.preventDefault();
-                                        if (selectedStepIdx !== null) {
-                                          const start = Math.min(selectedStepIdx, i);
-                                          const end = Math.max(selectedStepIdx, i);
-                                          const rangeIndices = Array.from({ length: end - start + 1 }, (_, k) => start + k);
-                                          setSelectedStepIndices(rangeIndices);
-                                        } else {
-                                          setSelectedStepIdx(i);
-                                          setSelectedStepIndices([i]);
-                                        }
-                                        return;
-                                      }
-
-                                      // 3. Ctrl/Cmd + Clic (Toggle individual step selection)
-                                      if (e.ctrlKey || e.metaKey) {
-                                        e.preventDefault();
-                                        setSelectedStepIndices(prev => {
-                                          if (prev.includes(i)) {
-                                            const next = prev.filter(idx => idx !== i);
-                                            if (next.length > 0) {
-                                              setSelectedStepIdx(next[next.length - 1]);
-                                            } else {
-                                              setSelectedStepIdx(null);
-                                            }
-                                            return next;
+                          {/* Interactive Step Grid */}
+                          {ptn.id === selectedPatternId && (
+                            <>
+                              {/* Resolution header & Tuplet edit tools */}
+                              {(() => {
+                                const totalVarProb = (ptn.variations || [])
+                                  .filter(v => !v.playFirstTimeOnly)
+                                  .reduce((acc, v) => acc + v.probability, 0);
+                                const baseProb = Math.max(0, 100 - totalVarProb);
+                                return (
+                                  <div className="text-xs font-bold text-[#666] mb-2 flex items-center justify-between flex-wrap gap-2">
+                                    <div className="flex items-center gap-3">
+                                      <span>{lang === 'fr' ? 'Probabilité de base (Base Track) :' : 'Probabilidade base (Pista Base) :'} {baseProb}%</span>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (soloPatternPlayId === ptn.id && soloPatternVariationId === 'base') {
+                                            onStopSoloPattern && onStopSoloPattern();
                                           } else {
-                                            setSelectedStepIdx(i);
-                                            return [...prev, i];
+                                            onPlaySoloPattern && onPlaySoloPattern(ptn.id, 'base');
                                           }
-                                        });
-                                        return;
-                                      }
-
-                                      // 4. Normal click -> Start Drag selection
-                                      setIsDragSelecting(true);
-                                      setDragStartIdx(i);
-                                      setSelectedStepIdx(i);
-                                      setSelectedStepIndices([i]);
-                                      handleStart(e, ptn.id, i, val);
-                                    }}
-                                    onMouseEnter={() => {
-                                      if (isMultiSelectActive) {
-                                        handleStepMouseEnterMulti(i);
-                                      } else {
-                                        if (isMouseDownRef.current) {
-                                          onStepValueChange(ptn.id, i, String(paintValueRef.current));
-                                        }
-                                        if (isDragSelecting && dragStartIdx !== null) {
-                                          const start = Math.min(dragStartIdx, i);
-                                          const end = Math.max(dragStartIdx, i);
-                                          const rangeIndices = Array.from({ length: end - start + 1 }, (_, k) => start + k);
-                                          setSelectedStepIndices(rangeIndices);
-                                          setSelectedStepIdx(i);
-                                        }
-                                      }
-                                    }}
-                                    onTouchStart={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedPatternId(ptn.id);
-                                      setSelectedVariationId(null);
-                                      if (isMultiSelectActive) {
-                                        handleStepTouchStartMulti(e, i);
-                                      } else {
-                                        setSelectedStepIdx(i);
-                                        setSelectedStepIndices([i]);
-                                        handleStart(e, ptn.id, i, val);
-                                      }
-                                    }}
-                                    onChange={(e) => onStepValueChange(ptn.id, i, e.target.value)}
-                                    onKeyDown={(e) => {
-
-                                      if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
-                                      
-                                      const isCtrlOrMeta = e.ctrlKey || e.metaKey;
-                                      if (isCtrlOrMeta && e.key.toLowerCase() === 'c') {
-                                        e.preventDefault();
-                                        if (selectedStepIndices.length > 0) {
-                                          handleCopyRelative(ptn);
-                                        } else {
-                                          onCopyPattern && onCopyPattern(ptn);
-                                        }
-                                        return;
-                                      }
-                                      if (isCtrlOrMeta && e.key.toLowerCase() === 'v') {
-                                        e.preventDefault();
-                                        if (hasClipboard) {
-                                          handlePasteRelative(ptn, i);
-                                        } else {
-                                          if (canPaste && onPastePattern) {
-                                            onPastePattern(ptn.id);
-                                          }
-                                        }
-                                        return;
-                                      }
-                                      if (e.key === 'Delete' || e.key === 'Backspace' || e.key === ' ') {
-                                        e.preventDefault();
-                                        if (selectedStepIndices.length > 1) {
-                                          onStepValueChange(ptn.id, selectedStepIndices, '0');
-                                          setSelectedStepIndices([]);
-                                        } else {
-                                          onStepValueChange(ptn.id, i, '0');
-                                          if (e.key === 'Backspace') {
-                                            const inputEl = e.currentTarget as HTMLInputElement;
-                                            onStepKeyDown(ptn.id, i, e.key, '', inputEl);
-                                          }
-                                        }
-                                        return;
-                                      }
-                                      
-                                      if (e.key.length === 1 && /^[a-zA-Z0-9]$/.test(e.key)) {
-                                        e.preventDefault();
-                                        if (selectedStepIndices.length > 1) {
-                                          onStepValueChange(ptn.id, selectedStepIndices, e.key);
-                                          setSelectedStepIndices([]);
-                                        } else {
-                                          onStepValueChange(ptn.id, i, e.key);
-                                          // Also trigger next step navigation if needed
-                                          const inputEl = e.currentTarget as HTMLInputElement;
-                                          if (inputEl.parentElement?.nextElementSibling) {
-                                            const nextInput = inputEl.parentElement.nextElementSibling.querySelector('input');
-                                            if (nextInput) {
-                                              nextInput.focus();
-                                              nextInput.select();
-                                            }
-                                          }
-                                        }
-                                        return;
-                                      }
-
-                                      const inputEl = e.currentTarget as HTMLInputElement;
-                                      onStepKeyDown(ptn.id, i, e.key, inputEl.value, inputEl);
-                                    }}
-                                    className={`text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${
-                                      isCurrentStep
-                                        ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#8b2a1a] scale-110 shadow-[0_0_8px_rgba(139,42,26,0.6)]'
-                                        : val === 0
-                                          ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
-                                          : ''
-                                    } ${
-                                      isMultiSelected
-                                        ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                                        : (ptn.id === selectedPatternId && selectedStepIdx === i)
-                                          ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                                          : 'outline-none'
-                                    }`}
-                                    style={{
-                                      ...colorStyle,
-                                      width: isSextuplet || isTriplet ? '100%' : '36px',
-                                      height: isSextuplet || isTriplet ? '48px' : '36px',
-                                      transform: `translateX(${shiftPx}px)`,
-                                      clipPath: isSextuplet 
-                                        ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
-                                        : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
-                                      borderStyle: isSextuplet || isTriplet ? 'none' : undefined,
-                                      borderRadius: isSextuplet || isTriplet ? '0' : undefined
-                                    }}
-                                  />
-                                  {/* Sculpting micro-bars */}
-                                  <div className="w-full flex flex-col gap-[2px] mt-1 z-10 relative">
-                                    {/* Volume bar (Green) */}
-                                    <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-                                      <div className="h-full bg-green-600 transition-all" style={{ width: `${ptn.volumes?.[i] ?? 100}%` }} />
+                                        }}
+                                        className={`p-1 rounded-sm transition-colors ${
+                                          soloPatternPlayId === ptn.id && soloPatternVariationId === 'base'
+                                            ? 'bg-[#8b2a1a] text-[#f4ecd8]'
+                                            : 'text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+                                        }`}
+                                        title={soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar leitura') : (lang === 'fr' ? 'Écouter ce motif de base en solo (sans variations)' : 'Ouvir este padrão base em solo')}
+                                      >
+                                        {soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                                      </button>
                                     </div>
-                                    {/* Decay bar (Amber) */}
-                                    <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-                                      <div className="h-full bg-amber-500 transition-all" style={{ width: `${ptn.decays?.[i] ?? 100}%` }} />
-                                    </div>
-                                    {/* Micro-timing bar (Blue bi-directional) */}
-                                    <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
-                                      <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
-                                      {totalShift !== 0 && (
-                                        <div
-                                          className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
-                                          style={{
-                                            left: totalShift > 0 ? '50%' : 'auto',
-                                            right: totalShift < 0 ? '50%' : 'auto',
-                                            width: `${Math.min(50, Math.abs(totalShift) / 2)}%`
-                                          }}
-                                        />
+                                    <div className="flex items-center gap-3">
+                                      <button
+                                        onClick={() => setIsTupletEditMode(!isTupletEditMode)}
+                                        className={`px-2 py-1 text-[10px] rounded-sm transition-colors border ${
+                                          isTupletEditMode
+                                            ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a]'
+                                            : 'bg-transparent text-[#1a1a1a] border-[#1a1a1a]/20 hover:bg-[#1a1a1a]/5'
+                                        }`}
+                                        title={lang === 'fr' ? 'Éditer les divisions (Triolet, Sextolet...)' : 'Editar divisões (Tercina, Sextina...)'}
+                                      >
+                                        {lang === 'fr' ? '⚙️ Divisions (Triolets...)' : '⚙️ Divisões (Tercinas...)'}
+                                      </button>
+                                      {(ptn.variations?.length || 0) > 0 && totalVarProb > 100 && (
+                                        <span className="text-[#8b2a1a] text-[10px]">⚠️ {lang === 'fr' ? 'Somme > 100%' : 'Soma > 100%'}</span>
                                       )}
                                     </div>
                                   </div>
-                                </div>
-                              );
-                            })}
-                            </div>
-                          </div>
-                          );
-                        });
-                      })()}
-                    </div>
-                  )}
+                                );
+                              })()}
 
-                  {/* Variations */}
-                  <PatternVariationsEditor
-                    lang={lang}
-                    ptn={ptn}
-                    inst={inst}
-                    soloPatternPlayId={soloPatternPlayId}
-                    soloPatternVariationId={soloPatternVariationId}
-                    isTouchDevice={isTouchDevice}
-                    isMultiSelectActive={isMultiSelectActive}
-                    selectedStepIdx={selectedStepIdx}
-                    selectedVariationId={selectedVariationId}
-                    selectedStepIndices={selectedStepIndices}
-                    onStopSoloPattern={onStopSoloPattern}
-                    onPlaySoloPattern={onPlaySoloPattern}
-                    onTogglePatternVariationFirstTimeOnly={onTogglePatternVariationFirstTimeOnly}
-                    onUpdatePatternVariationProbability={onUpdatePatternVariationProbability}
-                    onDeletePatternVariation={onDeletePatternVariation}
-                    onVariationStepValueChange={onVariationStepValueChange}
-                    onStepTouchStart={onStepTouchStart}
-                    setSelectedPatternId={setSelectedPatternId}
-                    setSelectedStepIdx={setSelectedStepIdx}
-                    setSelectedVariationId={setSelectedVariationId}
-                    setSelectedStepIndices={setSelectedStepIndices}
-                    handleStepMouseDownMulti={handleStepMouseDownMulti}
-                    getStepSwingPercent={getStepSwingPercent}
-                    onAddPatternVariation={onAddPatternVariation}
-                  />
+                              <InstrumentPatternGrid
+                                trackId={track.id}
+                                pattern={ptn}
+                                instrument={inst}
+                                selectedStepIdx={selectedStepIdx}
+                                selectedStepIndices={selectedStepIndices}
+                                selectedVariationId={selectedVariationId}
+                                isTupletEditMode={isTupletEditMode}
+                                isMultiSelectActive={isMultiSelectActive}
+                                noteSelectorTarget={noteSelectorTarget}
+                                setNoteSelectorTarget={setNoteSelectorTarget}
+                                setSelectedPatternId={setSelectedPatternId}
+                                setSelectedStepIdx={setSelectedStepIdx}
+                                setSelectedVariationId={setSelectedVariationId}
+                                setSelectedStepIndices={setSelectedStepIndices}
+                                setIsMultiSelectActive={setIsMultiSelectActive}
+                                onStepTouchStart={onStepTouchStart}
+                                onCopyPattern={onCopyPattern}
+                                onPastePattern={onPastePattern}
+                                canPaste={canPaste}
+                              />
+                            </>
+                          )}
 
-                  {/* Step Sculptor Panel for this pattern */}
-                  {selectedPatternId === ptn.id && selectedStepIdx !== null && (
-                    <div className="bg-[#ece4d0] cordel-border-sm p-3 mt-3 flex flex-col gap-2 shrink-0">
-                      <div className="flex items-center justify-between text-xs border-b border-[#1a1a1a]/20 pb-1.5 text-[#1a1a1a]">
-                        <span className="font-bold">
-                          🎛️ {lang === 'fr' ? 'Sculpteur' : 'Escultor'} — {
-                            selectedStepIndices.length > 1
-                              ? (lang === 'fr' ? `${selectedStepIndices.length} pas sélectionnés` : `${selectedStepIndices.length} passos selecionados`)
-                              : (lang === 'fr' ? `Pas ${selectedStepIdx + 1}` : `Passo ${selectedStepIdx + 1}`)
-                          }
-                          {(() => {
-                            const activeVarObj = selectedVariationId ? ptn.variations?.find(v => v.id === selectedVariationId) : null;
-                            if (activeVarObj) {
-                              return ` (Var: ${activeVarObj.name})`;
-                            }
-                            return '';
-                          })()}
-                          {selectedStepIndices.length <= 1 && (() => {
-                            const activeVarObj = selectedVariationId ? ptn.variations?.find(v => v.id === selectedVariationId) : null;
-                            const effectiveSteps = activeVarObj ? activeVarObj.steps : ptn.activeSteps;
-                            const stepVal = effectiveSteps[selectedStepIdx];
-                            return ` (${stepVal === 0 ? (lang === 'fr' ? 'Silence' : 'Silêncio') : `${lang === 'fr' ? 'Coup' : 'Golpe'}: ${stepVal}`})`;
-                          })()}
-                        </span>
-                        <button 
-                          onClick={() => {
-                            const targets = selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx];
-                            if (selectedVariationId && onVariationStepVolumeChange && onVariationStepDecayChange && onVariationStepMicrotimingChange) {
-                              onVariationStepVolumeChange(ptn.id, selectedVariationId, targets, 80);
-                              onVariationStepDecayChange(ptn.id, selectedVariationId, targets, 100);
-                              onVariationStepMicrotimingChange(ptn.id, selectedVariationId, targets, 0);
-                            } else {
-                              onStepVolumeChange(ptn.id, targets, 80);
-                              onStepDecayChange(ptn.id, targets, 100);
-                              onStepMicrotimingChange(ptn.id, targets, 0);
-                            }
-                          }}
-                          className="text-[#8b2a1a] font-bold text-[10px] uppercase hover:underline cursor-pointer"
-                        >
-                          {lang === 'fr' ? 'Réinitialiser' : 'Resetar'}
-                        </button>
-                      </div>
+                          {/* Variations */}
+                          <PatternVariationsEditor
+                            lang={lang}
+                            ptn={ptn}
+                            inst={inst}
+                            soloPatternPlayId={soloPatternPlayId}
+                            soloPatternVariationId={soloPatternVariationId}
+                            isTouchDevice={isTouchDevice}
+                            isMultiSelectActive={isMultiSelectActive}
+                            selectedStepIdx={selectedStepIdx}
+                            selectedVariationId={selectedVariationId}
+                            selectedStepIndices={selectedStepIndices}
+                            onStopSoloPattern={onStopSoloPattern}
+                            onPlaySoloPattern={onPlaySoloPattern}
+                            onTogglePatternVariationFirstTimeOnly={onTogglePatternVariationFirstTimeOnly}
+                            onUpdatePatternVariationProbability={onUpdatePatternVariationProbability}
+                            onDeletePatternVariation={onDeletePatternVariation}
+                            onVariationStepValueChange={onVariationStepValueChange}
+                            onStepTouchStart={onStepTouchStart}
+                            setSelectedPatternId={setSelectedPatternId}
+                            setSelectedStepIdx={setSelectedStepIdx}
+                            setSelectedVariationId={setSelectedVariationId}
+                            setSelectedStepIndices={setSelectedStepIndices}
+                            handleStepMouseDownMulti={() => {}}
+                            getStepSwingPercent={() => 0}
+                            onAddPatternVariation={onAddPatternVariation}
+                          />
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[#1a1a1a]">
-                        {/* Volume slider */}
-                        <div className="flex flex-col gap-0.5">
-                          {(() => {
-                            const activeVarObj = selectedVariationId ? ptn.variations?.find(v => v.id === selectedVariationId) : null;
-                            const effectiveVolumes = activeVarObj ? activeVarObj.volumes : ptn.volumes;
-                            const currVol = effectiveVolumes?.[selectedStepIdx] ?? 80;
-                            return (
-                              <>
-                                <div className="flex justify-between text-[10px] font-bold">
-                                  <span>🔊 Volume</span>
-                                  <span>{currVol}%</span>
-                                </div>
-                                <input 
-                                  type="range"
-                                  min="0"
-                                  max="100"
-                                  value={currVol}
-                                  onChange={(e) => {
-                                    const val = parseInt(e.target.value);
-                                    const targets = selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx];
-                                    if (selectedVariationId && onVariationStepVolumeChange) {
-                                      onVariationStepVolumeChange(ptn.id, selectedVariationId, targets, val);
-                                    } else {
-                                      onStepVolumeChange(ptn.id, targets, val);
-                                    }
-                                  }}
-                                  className="w-full accent-green-600 cursor-pointer h-2 bg-[#1a1a1a]/10"
-                                />
-                              </>
-                            );
-                          })()}
+                          {/* Step Sculptor Panel for this pattern */}
+                          {selectedPatternId === ptn.id && selectedStepIdx !== null && (
+                            <InstrumentEffects
+                              trackId={track.id}
+                              pattern={ptn}
+                              selectedStepIdx={selectedStepIdx}
+                              selectedStepIndices={selectedStepIndices}
+                              selectedVariationId={selectedVariationId}
+                            />
+                          )}
                         </div>
-
-                        {/* Decay slider */}
-                        <div className="flex flex-col gap-0.5">
-                          {(() => {
-                            const activeVarObj = selectedVariationId ? ptn.variations?.find(v => v.id === selectedVariationId) : null;
-                            const effectiveDecays = activeVarObj ? activeVarObj.decays : ptn.decays;
-                            const currDecay = effectiveDecays?.[selectedStepIdx] ?? 100;
-                            return (
-                              <>
-                                <div className="flex justify-between text-[10px] font-bold">
-                                  <span>⏳ {lang === 'fr' ? 'Résonance' : 'Ressonância'} (Decay)</span>
-                                  <span>{currDecay}%</span>
-                                </div>
-                                <input 
-                                  type="range"
-                                  min="10"
-                                  max="100"
-                                  value={currDecay}
-                                  onChange={(e) => {
-                                    const val = parseInt(e.target.value);
-                                    const targets = selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx];
-                                    if (selectedVariationId && onVariationStepDecayChange) {
-                                      onVariationStepDecayChange(ptn.id, selectedVariationId, targets, val);
-                                    } else {
-                                      onStepDecayChange(ptn.id, targets, val);
-                                    }
-                                  }}
-                                  className="w-full accent-amber-500 cursor-pointer h-2 bg-[#1a1a1a]/10"
-                                />
-                              </>
-                            );
-                          })()}
-                        </div>
-
-                        {/* Micro-timing slider */}
-                        <div className="flex flex-col gap-0.5">
-                          {(() => {
-                            const activeVarObj = selectedVariationId ? ptn.variations?.find(v => v.id === selectedVariationId) : null;
-                            const effectiveMicros = activeVarObj ? activeVarObj.microtimings : ptn.microtimings;
-                            const manualVal = effectiveMicros?.[selectedStepIdx] ?? 0;
-                            const swingOffset = getStepSwingPercent(selectedStepIdx, ptn.steps, ptn.beatResolutions);
-                            const totalVal = manualVal + swingOffset;
-                            const clampedTotalVal = Math.max(-100, Math.min(100, totalVal));
-
-                            return (
-                              <>
-                                <div className="flex justify-between text-[10px] font-bold">
-                                  <span>⏱️ Micro-timing ({lang === 'fr' ? 'Décalage' : 'Desvio'})</span>
-                                  <span>
-                                    {totalVal > 0 ? `+${totalVal}` : totalVal}%
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2 relative h-6">
-                                  <span className="text-[8px] font-bold opacity-60 shrink-0">-100%</span>
-                                  <div className="flex-grow h-2 relative flex items-center">
-                                    {/* Background track with a center notch */}
-                                    <div className="absolute inset-x-0 h-1 bg-[#1a1a1a]/15 rounded" />
-                                    <div className="absolute left-1/2 -translate-x-1/2 w-[2px] h-3 bg-[#1a1a1a]/40 z-10" />
-                                    
-                                    {/* Bi-directional Blue track representing offset from center */}
-                                    {totalVal !== 0 && (() => {
-                                      const widthPercent = Math.min(50, Math.abs(totalVal) / 2); // half-width is 50%, range is 100
-                                      return (
-                                        <div
-                                          className="absolute h-1 bg-[#2980b9]"
-                                          style={{
-                                            left: totalVal > 0 ? '50%' : 'auto',
-                                            right: totalVal < 0 ? '50%' : 'auto',
-                                            width: `${widthPercent}%`
-                                          }}
-                                        />
-                                      );
-                                    })()}
-
-                                    <input
-                                      type="range"
-                                      min="-100"
-                                      max="100"
-                                      value={clampedTotalVal}
-                                      onChange={(e) => {
-                                        const newTotal = parseInt(e.target.value);
-                                        const newManual = newTotal - swingOffset;
-                                        const clampedManual = Math.max(-100, Math.min(100, newManual));
-                                        const targets = selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx];
-                                        if (selectedVariationId && onVariationStepMicrotimingChange) {
-                                          onVariationStepMicrotimingChange(ptn.id, selectedVariationId, targets, clampedManual);
-                                        } else {
-                                          onStepMicrotimingChange(ptn.id, targets, clampedManual);
-                                        }
-                                      }}
-                                      className="absolute inset-x-0 w-full h-4 opacity-100 cursor-pointer slider-transparent-track"
-                                    />
-                                  </div>
-                                  <span className="text-[8px] font-bold opacity-60 shrink-0">+50%</span>
-                                </div>
-                              </>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-              </div>
-                  )}
-                </SortablePatternWrapper>
-              );
-            })}
+                      )}
+                    </SortablePatternWrapper>
+                  );
+                })}
               </SortableContext>
             </DndContext>
 
-          {/* Add pattern button */}
-          <button
-            onClick={onAddPattern}
-            className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors"
-          >
-            + {lang === 'fr' ? 'Ajouter un motif' : 'Adicionar padrão'}
-          </button>
-        </div>
+            {/* Add pattern button */}
+            <button
+              onClick={onAddPattern}
+              className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors"
+            >
+              + {lang === 'fr' ? 'Ajouter un motif' : 'Adicionar padrão'}
+            </button>
+          </div>
 
           {/* ─── Right sidebar: Stroke legend ─── */}
-          <div
-            className="border-t-[3px] md:border-t-0 md:border-l-[3px] border-[#1a1a1a] bg-[#ece4d0] p-4 shrink-0 flex flex-col gap-4 w-full md:w-[240px] md:overflow-y-auto"
-          >
-            {/* Legend title */}
+          <div className="border-t-[3px] md:border-t-0 md:border-l-[3px] border-[#1a1a1a] bg-[#ece4d0] p-4 shrink-0 flex flex-col gap-4 w-full md:w-[240px] md:overflow-y-auto">
             <div className="border-b-[2px] border-[#1a1a1a] pb-2">
               <h3 className="font-cactus font-bold text-sm uppercase tracking-wide">
                 {t('legend')}
@@ -2037,7 +896,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
                 return (
                   <div key={sIdx} className="flex items-center gap-2.5">
-                    {/* Color swatch with symbol */}
                     <div
                       className="flex items-center justify-center cordel-border-sm font-bold text-xs shrink-0"
                       style={{
@@ -2051,7 +909,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                       {stroke.symbol.length <= 2 ? stroke.symbol : stroke.symbol.charAt(0)}
                     </div>
 
-                    {/* Label + shortcut */}
                     <div className="flex flex-col min-w-0">
                       <span className="text-[11px] font-bold text-[#1a1a1a] leading-tight">{stroke.label}</span>
                       <span className="text-[9px] text-[#666] leading-tight">
@@ -2129,17 +986,18 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                   {lang === 'fr' ? 'Charger' : 'Carregar'}
                                 </button>
                                 <button
-                                    onClick={async () => {
-                                      if (confirm(lang === 'fr' ? 'Supprimer définitivement cette phrase du catalogue ?' : 'Excluir permanentemente este padrão do catálogo?')) {
-                                        try {
-                                          await deleteCloudPattern(libPtn.id);
-                                          setCloudPatterns(prev => prev.filter(p => p.id !== libPtn.id));
-                                        } catch (err) {
-                                          console.error(err);
-                                          alert(lang === 'fr' ? 'Erreur lors de la suppression.' : 'Erro ao excluir.');
-                                        }
+                                  onClick={async () => {
+                                    if (confirm(lang === 'fr' ? 'Supprimer définitivement cette phrase du catalogue ?' : 'Excluir permanentemente este padrão do catálogo?')) {
+                                      try {
+                                        const pId = libPtn.id;
+                                        await deleteCloudPattern(pId);
+                                        setCloudPatterns(prev => prev.filter(p => p.id !== pId));
+                                      } catch (err) {
+                                        console.error(err);
+                                        alert(lang === 'fr' ? 'Erreur lors de la suppression.' : 'Erro ao excluir.');
                                       }
-                                    }}
+                                    }
+                                  }}
                                   className="p-1 hover:bg-[#1a1a1a]/10 rounded transition-colors text-xl"
                                   title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
                                 >
@@ -2301,7 +1159,6 @@ export const InstrumentDetailEditor = React.memo(InstrumentDetailEditorComponent
     return false;
   }
 
-  // CORRECTION FADERS : Forcer la mise à jour si le parent a muté les volumes/décays
   if (prevProps.trackId !== nextProps.trackId) {
     return false;
   }
