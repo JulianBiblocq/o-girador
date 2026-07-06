@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import React, { useRef, useEffect, useState, useMemo, lazy, Suspense } from 'react';
 import {
   DndContext,
   PointerSensor,
@@ -19,8 +19,8 @@ import {
 } from '@dnd-kit/sortable';
 import { AudioFader } from './AudioFader';
 import { Pattern } from '../types';
-import { VerticalTrackMixer } from './VerticalTrackMixer';
-import { InstrumentDetailEditor } from './InstrumentDetailEditor';
+import { MixerChannel } from './MixerChannel';
+const InstrumentDetailEditor = lazy(() => import('./InstrumentDetailEditor').then(m => ({ default: m.InstrumentDetailEditor })));
 import { i18n, instrumentsConfig } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
@@ -106,7 +106,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     vocalCalibrationLatencyMs,
   } = sequencer;
 
-  const tracks = useSequencerStore(state => state.tracks);
+  const trackIds = useSequencerStore(useShallow(state => state.tracks.map(t => t.id)));
   const setTracks = useSequencerStore(state => state.setTracks);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
 
@@ -124,7 +124,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     metroVolume, setMetroVolume, metroSound, setMetroSound, isMetroOn, setIsMetroOn, globalSwing
   } = audio;
 
-
   const maxTicks = maxTicksRef.current;
   const onActiveInstrumentChange = setActiveKeyboardInstrumentId;
   const onMasterVolChange = setMasterVol;
@@ -133,34 +132,33 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
   const vuMeterRef = useRef<HTMLDivElement>(null);
   const dbTextRef = useRef<HTMLDivElement>(null);
+  const isPlayingRef = useRef(false);
 
   useEffect(() => {
     let animationFrameId: number;
+    let idleTimerId: ReturnType<typeof setTimeout> | null = null;
+
+    // Sync isPlayingRef with the value from audio context
+    isPlayingRef.current = isPlaying;
 
     const updateMasterMeter = () => {
-      const currentMeter = (window as any).masterMeterNode || masterMeterNode;
-      
-      if (currentMeter) {
-        try {
-          const valRaw = currentMeter.getValue();
-          let db = -80;
-          if (typeof valRaw === 'number') {
-            db = valRaw;
-          } else if (Array.isArray(valRaw)) {
-            db = valRaw.length > 0 ? Math.max(...valRaw) : -80;
-          } else if (valRaw instanceof Float32Array || (valRaw && typeof (valRaw as any).length === 'number')) {
-            const arr = Array.from(valRaw as any) as number[];
-            db = arr.length > 0 ? Math.max(...arr) : -80;
-          }
+      if (!isPlayingRef.current) {
+        if (vuMeterRef.current) vuMeterRef.current.style.transform = 'scaleY(0)';
+        if (dbTextRef.current) dbTextRef.current.innerText = '— dB';
+        idleTimerId = setTimeout(() => {
+          animationFrameId = requestAnimationFrame(updateMasterMeter);
+        }, 250);
+        return;
+      }
 
-          // Borner la valeur entre -80dB (silence) et +6dB (clip)
+      if (masterMeterNode) {
+        try {
+          const db = masterMeterNode.getValue() as number;
           const clampedDb = Math.max(-80, Math.min(6, db));
 
-          // Mise à jour du texte
           if (dbTextRef.current) {
             dbTextRef.current.innerText = clampedDb <= -79 ? '-∞ dB' : `${Math.round(clampedDb)} dB`;
           }
-          // Mise à jour de la jauge (Transformation en pourcentage où -80dB = 0% et 0dB = ~93%)
           if (vuMeterRef.current) {
             const percentage = Math.max(0, Math.min(100, ((clampedDb + 80) / 86) * 100));
             vuMeterRef.current.style.transform = `scaleY(${percentage / 100})`;
@@ -183,27 +181,28 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
     return () => {
       cancelAnimationFrame(animationFrameId);
+      if (idleTimerId) clearTimeout(idleTimerId);
       if (vuMeterRef.current) {
         vuMeterRef.current.style.transform = 'scaleY(0)';
       }
     };
-  }, []);
+  }, [isPlaying]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
 
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
-  const editingTrack = tracks.find(t => t.id === editingTrackId);
+  const editingTrackInstIdx = useSequencerStore(state => state.tracks.find(t => t.id === editingTrackId)?.instrumentIdx);
 
   useEffect(() => {
-    if (editingTrack) {
-      const inst = instrumentsConfig[editingTrack.instrumentIdx];
+    if (editingTrackInstIdx !== undefined) {
+      const inst = instrumentsConfig[editingTrackInstIdx];
       if (inst && inst.type !== 'voice' && onActiveInstrumentChange) {
         onActiveInstrumentChange(inst.id);
       }
     }
-  }, [editingTrack, onActiveInstrumentChange]);
+  }, [editingTrackInstIdx, onActiveInstrumentChange]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -216,7 +215,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           if (target.scrollHeight > target.clientHeight) {
             const overflowY = window.getComputedStyle(target).overflowY;
             if (overflowY === 'auto' || overflowY === 'scroll') {
-              // Found a vertically scrollable container, don't intercept
               return;
             }
           }
@@ -318,68 +316,38 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       } else if (activeId.startsWith('track-') && overId.startsWith('track-')) {
         const activeTrackId = parseInt(activeId.replace('track-', ''), 10);
         const overTrackId = parseInt(overId.replace('track-', ''), 10);
-        const oldIndex = tracks.findIndex(t => t.id === activeTrackId);
-        const newIndex = tracks.findIndex(t => t.id === overTrackId);
+        const oldIndex = trackIds.indexOf(activeTrackId);
+        const newIndex = trackIds.indexOf(overTrackId);
         handleReorderTracksDnd(oldIndex, newIndex);
       }
     }
   };
 
-  const trackIds = useMemo(() => tracks.map(t => t.id), [tracks]);
-
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
       <div ref={scrollRef} className="flex-grow flex overflow-x-auto p-4 gap-4 custom-scrollbar">
         <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
-          <SortableContext items={trackIds} strategy={horizontalListSortingStrategy}>
-            {tracks.map((track, idx) => (
-          <VerticalTrackMixer
-            key={track.id}
-            lang={lang}
-            isLeftHanded={isLeftHanded}
-            trackId={track.id}
-            index={idx}
-            totalTracks={tracks.length}
-            meter={meters && instrumentsConfig[track.instrumentIdx] ? meters[instrumentsConfig[track.instrumentIdx].id] : undefined}
-            soloPatternPlayId={soloPatternPlayId}
-            activeVariationsRef={activeVariationsRef}
-            onInstrumentChange={(i) => onInstrumentChange(track.id, i)}
-            onMuteToggle={() => onMuteToggle(track.id)}
-            onSoloToggle={() => onSoloToggle(track.id)}
-            onHideToggle={() => onHideToggle(track.id)}
-            onDelete={() => onDelete(track.id)}
-            onVolumeChange={(val) => onVolumeChange(track.id, val)}
-            onReverbChange={(val) => onReverbChange(track.id, val)}
-            onPanChange={(val) => onPanChange(track.id, val)}
-            onStepsChange={(pid, steps) => onStepsChange(track.id, pid, steps)}
-            onStepValueChange={(pid, sIdx, val, lyrics, notes) => onStepValueChange(track.id, pid, sIdx, val, lyrics, notes)}
-            onStepKeyDown={(pid, sIdx, k, cVal, el) => onStepKeyDown(track.id, pid, sIdx, k, cVal, el)}
-            onVoiceTypeToggle={(pid, sIdx) => onVoiceTypeToggle(track.id, pid, sIdx)}
-            onVoiceSylChange={(pid, sIdx, val) => onVoiceSylChange(track.id, pid, sIdx, val)}
-            onVoiceNoteChange={(pid, sIdx, val) => onVoiceNoteChange(track.id, pid, sIdx, val)}
-            onVoiceNoteBlur={(pid, sIdx, val) => onVoiceNoteBlur(track.id, pid, sIdx, val)}
-            isPlaying={isPlaying}
-            maxTicks={maxTicks}
-            timeSig={timeSig}
-            totalMeasures={totalMeasures}
-            onSelectPattern={(pid) => onTrackSelectPattern(track.id, pid)}
-            onPatternAssign={(pid, mIdx, val) => onPatternAssign(track.id, pid, mIdx, val)}
-            onAddPattern={() => onAddPattern(track.id)}
-            onDeletePattern={(pid) => onDeletePattern(track.id, pid)}
-            onOpenDetailEditor={() => setEditingTrackId(track.id)}
-            onStepTouchStart={onStepTouchStart}
-            onCopyPattern={handleCopyPattern}
-            onPastePattern={(pId) => handlePastePattern(track.id, pId)}
-            onLoadLibraryPattern={(targetPtnId, libPattern) => handleLoadLibraryPattern(track.id, targetPtnId, libPattern)}
-            canPaste={!!copiedPattern}
-            onPatternNameChange={(pid, name) => onPatternNameChange && onPatternNameChange(track.id, pid, name)}
-            onReorderPatternsDnd={(oldIdx, newIdx) => onReorderPatternsDnd && onReorderPatternsDnd(track.id, oldIdx, newIdx)}
-          />
-        ))}
+          <SortableContext items={trackIds.map(id => `track-${id}`)} strategy={horizontalListSortingStrategy}>
+            {trackIds.map((trackId, index) => {
+              const track = useSequencerStore.getState().tracks.find(t => t.id === trackId);
+              if (!track) return null;
+              return (
+                <MixerChannel
+                  key={track.id}
+                  track={track}
+                  index={index}
+                  onOpenDetailEditor={() => setEditingTrackId(track.id)}
+                  onStepTouchStart={onStepTouchStart}
+                  onCopyPattern={handleCopyPattern}
+                  onPastePattern={(pId) => handlePastePattern(track.id, pId)}
+                  canPaste={!!copiedPattern}
+                />
+              );
+            })}
           </SortableContext>
         </DndContext>
 
-        {tracks.length > 0 && (
+        {trackIds.length > 0 && (
           <div 
             className="flex flex-col bg-[var(--cordel-bg)] cordel-border w-[160px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-colors"
             style={{
@@ -450,286 +418,259 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           </div>
         )}
 
-        {tracks.length > 0 && (
-          <div 
-            className="flex flex-col bg-[var(--cordel-bg)] cordel-border w-[160px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-colors"
-            style={{
-              '--fader-thumb-bg': '#8b2a1a',
-              '--fader-thumb-border': 'var(--cordel-border)',
-            } as React.CSSProperties}
-          >
-            {/* Header / Title */}
-            <div className="relative p-3 pb-1 flex justify-center items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
-              <span className="font-cactus font-bold text-sm tracking-wider">👑 MASTER</span>
+        {/* Master Console Strip */}
+        <div 
+          className="flex flex-col bg-[var(--cordel-bg)] cordel-border w-[240px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-colors"
+          style={{
+            zIndex: 1,
+            '--fader-thumb-bg': '#8b2a1a',
+            '--fader-thumb-border': 'var(--cordel-border)',
+          } as React.CSSProperties}
+        >
+          {/* Header / Title */}
+          <div className="relative p-3 pb-1 flex justify-center items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
+            <div className="flex items-center gap-1.5">
+              <span className="font-cactus font-bold text-sm tracking-wider">🔥 MASTER</span>
+            </div>
+          </div>
+
+          {/* Middle Section (EQ & Compressor Controls) */}
+          <div className="relative z-10 flex-1 p-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar border-b-[3px] border-[var(--cordel-border)] bg-[#1a1a1a]/5">
+            
+            {/* EQ Section */}
+            <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/20 pb-2">
+              <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
+                🎛️ ÉGALISEUR 3-BANDES
+              </span>
+              <div className="flex flex-col gap-1 mt-1 font-cactus font-bold text-[10px]">
+                <div className="flex justify-between items-center">
+                  <span>AIGUS</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="range"
+                      min="-12"
+                      max="12"
+                      step="0.5"
+                      value={masterEQ.high}
+                      onChange={(e) => onMasterEQChange({ ...masterEQ, high: parseFloat(e.target.value) })}
+                      className="w-20 accent-[#8b2a1a] cursor-pointer"
+                    />
+                    <span className="w-8 text-right">{masterEQ.high > 0 ? `+${masterEQ.high}` : masterEQ.high} dB</span>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span>MÉDIUMS</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="range"
+                      min="-12"
+                      max="12"
+                      step="0.5"
+                      value={masterEQ.mid}
+                      onChange={(e) => onMasterEQChange({ ...masterEQ, mid: parseFloat(e.target.value) })}
+                      className="w-20 accent-[#8b2a1a] cursor-pointer"
+                    />
+                    <span className="w-8 text-right">{masterEQ.mid > 0 ? `+${masterEQ.mid}` : masterEQ.mid} dB</span>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span>GRAVES</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="range"
+                      min="-12"
+                      max="12"
+                      step="0.5"
+                      value={masterEQ.low}
+                      onChange={(e) => onMasterEQChange({ ...masterEQ, low: parseFloat(e.target.value) })}
+                      className="w-20 accent-[#8b2a1a] cursor-pointer"
+                    />
+                    <span className="w-8 text-right">{masterEQ.low > 0 ? `+${masterEQ.low}` : masterEQ.low} dB</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Middle Section (EQ & Compressor Controls) */}
-            <div className="relative z-10 flex-1 p-3 flex flex-col gap-3.5 overflow-y-auto custom-scrollbar border-b-[3px] border-[var(--cordel-border)] bg-[#1a1a1a]/5">
-              
-              {/* EQ 3-BANDES */}
-              <div className="flex flex-col gap-1.5 border-b border-[var(--cordel-border)]/20 pb-2">
-                <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
-                  🎛️ EQ 3-Bandes
-                </span>
-                
-                {/* Low Gain */}
-                <div className="flex flex-col gap-0.5">
-                  <div className="flex justify-between text-[8px] font-bold opacity-60">
-                    <span>Grave / Low</span>
-                    <span>{masterEQ.low > 0 ? '+' : ''}{masterEQ.low} dB</span>
+            {/* Compressor Section */}
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
+                🌀 COMPRESSEUR
+              </span>
+              <div className="flex flex-col gap-1 mt-1 font-cactus font-bold text-[10px]">
+                <div className="flex justify-between items-center">
+                  <span>SEUIL (THRESH)</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="range"
+                      min="-60"
+                      max="0"
+                      step="1"
+                      value={masterCompressor.threshold}
+                      onChange={(e) => onMasterCompressorChange({ ...masterCompressor, threshold: parseFloat(e.target.value) })}
+                      className="w-16 accent-[#8b2a1a] cursor-pointer"
+                    />
+                    <span className="w-10 text-right">{masterCompressor.threshold} dB</span>
                   </div>
-                  <AudioFader
-                    type="range"
-                    min="-12"
-                    max="12"
-                    step="0.5"
-                    audioTarget="eqLow"
-                    value={masterEQ.low}
-                    onChange={(val) => onMasterEQChange({ ...masterEQ, low: val })}
-                    className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
-                  />
                 </div>
 
-                {/* Mid Gain */}
-                <div className="flex flex-col gap-0.5">
-                  <div className="flex justify-between text-[8px] font-bold opacity-60">
-                    <span>Médio / Mid</span>
-                    <span>{masterEQ.mid > 0 ? '+' : ''}{masterEQ.mid} dB</span>
+                <div className="flex justify-between items-center">
+                  <span>RATIO</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="range"
+                      min="1"
+                      max="12"
+                      step="0.1"
+                      value={masterCompressor.ratio}
+                      onChange={(e) => onMasterCompressorChange({ ...masterCompressor, ratio: parseFloat(e.target.value) })}
+                      className="w-16 accent-[#8b2a1a] cursor-pointer"
+                    />
+                    <span className="w-10 text-right">{masterCompressor.ratio.toFixed(1)}:1</span>
                   </div>
-                  <AudioFader
-                    type="range"
-                    min="-12"
-                    max="12"
-                    step="0.5"
-                    audioTarget="eqMid"
-                    value={masterEQ.mid}
-                    onChange={(val) => onMasterEQChange({ ...masterEQ, mid: val })}
-                    className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
-                  />
-                </div>
-
-                {/* High Gain */}
-                <div className="flex flex-col gap-0.5">
-                  <div className="flex justify-between text-[8px] font-bold opacity-60">
-                    <span>Agudo / High</span>
-                    <span>{masterEQ.high > 0 ? '+' : ''}{masterEQ.high} dB</span>
-                  </div>
-                  <AudioFader
-                    type="range"
-                    min="-12"
-                    max="12"
-                    step="0.5"
-                    audioTarget="eqHigh"
-                    value={masterEQ.high}
-                    onChange={(val) => onMasterEQChange({ ...masterEQ, high: val })}
-                    className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
-                  />
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* COMPRESSEUR */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
-                  🌀 Compressor
-                </span>
-
-                {/* Threshold */}
-                <div className="flex flex-col gap-0.5">
-                  <div className="flex justify-between text-[8px] font-bold opacity-60">
-                    <span>Limiar / Threshold</span>
-                    <span>{masterCompressor.threshold} dB</span>
-                  </div>
-                  <AudioFader
-                    type="range"
-                    min="-60"
-                    max="0"
-                    step="1"
-                    audioTarget="compThreshold"
-                    value={masterCompressor.threshold}
-                    onChange={(val) => onMasterCompressorChange({ ...masterCompressor, threshold: val })}
-                    className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
-                  />
-                </div>
-
-                {/* Ratio */}
-                <div className="flex flex-col gap-0.5">
-                  <div className="flex justify-between text-[8px] font-bold opacity-60">
-                    <span>Ratio</span>
-                    <span>{masterCompressor.ratio}:1</span>
-                  </div>
-                  <AudioFader
-                    type="range"
-                    min="1"
-                    max="20"
-                    step="0.5"
-                    audioTarget="compRatio"
-                    value={masterCompressor.ratio}
-                    onChange={(val) => onMasterCompressorChange({ ...masterCompressor, ratio: val })}
-                    className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
-                  />
-                </div>
-              </div>
-
-              {/* REVERB */}
-              <div className="flex flex-col gap-1.5 border-t border-[var(--cordel-border)]/20 pt-2">
-                <div className="flex justify-between items-center w-full">
-                  <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
-                    ⛪ Reverb
-                  </span>
-                  <span className="text-[8px] font-bold opacity-60">Decay: {reverbDecay.toFixed(1)}s</span>
-                </div>
+          {/* Bottom Fader (Master Fader & Master Reverb Fader & Master LED Meter) */}
+          <div className="relative z-10 p-4 pt-4 flex justify-between items-end h-[200px] gap-2">
+            
+            {/* Reverb Fader Column */}
+            <div className="flex flex-col items-center gap-1.5 h-full">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Reverb</span>
+              <div className="h-[145px] flex justify-center items-center relative w-12">
+                <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
                 <AudioFader
                   type="range"
-                  min="0.5"
-                  max="5"
-                  step="0.1"
-                  value={reverbDecay}
-                  onChange={(val) => setReverbDecay(val)}
-                  className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer mb-1"
-                />
-                
-                <div className="flex justify-between items-center w-full">
-                  <span className="text-[8px] font-bold opacity-60">Vol</span>
-                  <span className="text-[8px] font-bold opacity-60">{masterReverbVol > -40 ? `${masterReverbVol > 0 ? '+' : ''}${masterReverbVol.toFixed(1)} dB` : '-∞ dB'}</span>
-                </div>
-                <AudioFader
-                  type="range"
-                  min="-40"
-                  max="6"
-                  step="0.5"
+                  min="0"
+                  max="100"
+                  orient="vertical"
                   audioTarget="masterReverbVol"
                   value={masterReverbVol}
                   onChange={(val) => setMasterReverbVol(val)}
-                  className="w-full accent-green-700 h-1 bg-[#1a1a1a]/10 cursor-pointer"
+                  className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
                 />
-                
               </div>
+              <span className="text-[10px] font-bold text-[var(--cordel-text)]">{masterReverbVol}%</span>
             </div>
 
-            {/* Fader & VU Meter Section */}
-            <div className="relative z-10 p-4 pt-4 flex justify-around items-end h-[200px] gap-2">
-              {/* Volume Master Fader */}
-              <div className="flex flex-col items-center gap-1.5 h-full">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Volume</span>
-                <div className="h-[145px] flex justify-center items-center relative w-12">
-                  <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
-                  <AudioFader
-                    type="range"
-                    min="-40"
-                    max="6"
-                    step="0.5"
-                    orient="vertical"
-                    audioTarget="masterVolume"
-                    value={masterVol}
-                    onChange={(val) => onMasterVolChange(val)}
-                    className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
-                  />
-                </div>
-                <span className="text-[10px] font-bold text-[var(--cordel-text)] text-center leading-none">
-                  {masterVol === -40 ? 'Mute' : `${masterVol > 0 ? '+' : ''}${masterVol} dB`}
-                </span>
+            {/* Master Fader Column */}
+            <div className="flex flex-col items-center gap-1.5 h-full">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Volume</span>
+              <div className="h-[145px] flex justify-center items-center relative w-12">
+                <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
+                <AudioFader
+                  type="range"
+                  min="0"
+                  max="100"
+                  orient="vertical"
+                  audioTarget="masterVolume"
+                  value={masterVol}
+                  onChange={(val) => onMasterVolChange(val)}
+                  className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
+                />
               </div>
+              <span className="text-[10px] font-bold text-[var(--cordel-text)]">{masterVol}%</span>
+            </div>
 
-              {/* Master VU Meter */}
-              <div className="flex flex-col items-center gap-1.5 h-full">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
-                <div className="w-3.5 h-[145px] bg-[var(--cordel-bg)] cordel-border-sm relative overflow-hidden">
-                  <div
-                    ref={vuMeterRef}
-                    id="meter-bar-master"
-                    className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#2ecc71] w-full"
-                    style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom' }}
-                  />
-                </div>
-                <div ref={dbTextRef} className="text-[8px] font-mono font-bold text-[var(--cordel-text)]/60 h-[15px] flex items-center justify-center">--</div>
+            {/* Master LED Meter */}
+            <div className="flex flex-col items-center gap-1.5 h-full">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
+              <div className="w-3.5 h-[145px] bg-[var(--cordel-bg)] cordel-border relative overflow-hidden">
+                <div
+                  ref={vuMeterRef}
+                  id="master-meter-bar"
+                  className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#8b2a1a] w-full"
+                  style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
+                />
+              </div>
+              <div ref={dbTextRef} className="text-[9px] font-bold text-[var(--cordel-text)] text-center leading-none mt-1 h-[14px]">
+                — dB
               </div>
             </div>
           </div>
-        )}
-
-        {tracks.length === 0 && (
-          <div className="m-auto text-[var(--cordel-text)] font-cactus font-bold text-2xl">
-            Ajoutez un instrument pour commencer...
-          </div>
-        )}
+        </div>
       </div>
 
-      {editingTrack && (
-        <InstrumentDetailEditor
-          isMobile={isMobile}
-          lang={lang}
-          isLeftHanded={isLeftHanded}
-          trackId={editingTrack.id}
-          onClose={() => setEditingTrackId(null)}
-          onNavigatePrev={() => {
-            const idx = tracks.findIndex(t => t.id === editingTrackId);
-            if (idx > 0) setEditingTrackId(tracks[idx - 1].id);
-            else if (tracks.length > 0) setEditingTrackId(tracks[tracks.length - 1].id);
-          }}
-          onNavigateNext={() => {
-            const idx = tracks.findIndex(t => t.id === editingTrackId);
-            if (idx >= 0 && idx < tracks.length - 1) setEditingTrackId(tracks[idx + 1].id);
-            else if (tracks.length > 0) setEditingTrackId(tracks[0].id);
-          }}
-          soloPatternPlayId={soloPatternPlayId}
-          soloPatternVariationId={soloPatternVariationId}
-          onStepTouchStart={onStepTouchStart}
-          onPlaySoloPattern={handleStartSoloPattern}
-          onStopSoloPattern={handleStopSoloPattern}
-          onStepValueChange={(pid, sIdx, val, lyrics, notes) => onStepValueChange(editingTrack.id, pid, sIdx, val, lyrics, notes)}
-          onStepKeyDown={(pid, sIdx, k, cVal, el) => onStepKeyDown(editingTrack.id, pid, sIdx, k, cVal, el)}
-          onStepsChange={(pid, steps) => onStepsChange(editingTrack.id, pid, steps)}
-          onVoiceTypeToggle={(pid, sIdx) => onVoiceTypeToggle(editingTrack.id, pid, sIdx)}
-          onVoiceSylChange={(pid, sIdx, val) => onVoiceSylChange(editingTrack.id, pid, sIdx, val)}
-          onVoiceNoteChange={(pid, sIdx, val) => onVoiceNoteChange(editingTrack.id, pid, sIdx, val)}
-          onVoiceNoteBlur={(pid, sIdx, val) => onVoiceNoteBlur(editingTrack.id, pid, sIdx, val)}
-          onAddPattern={() => onAddPattern(editingTrack.id)}
-          onDeletePattern={(pid) => onDeletePattern(editingTrack.id, pid)}
-          onReorderPatternsDnd={(oldIdx, newIdx) => onReorderPatternsDnd && onReorderPatternsDnd(editingTrack.id, oldIdx, newIdx)}
-          onAddPatternVariation={(pid) => onAddPatternVariation && onAddPatternVariation(editingTrack.id, pid)}
-          onUpdatePatternVariationProbability={(pid, vid, prob) => onUpdatePatternVariationProbability && onUpdatePatternVariationProbability(editingTrack.id, pid, vid, prob)}
-          onTogglePatternVariationFirstTimeOnly={(pid, vid, val) => onTogglePatternVariationFirstTimeOnly && onTogglePatternVariationFirstTimeOnly(editingTrack.id, pid, vid, val)}
-          onVariationStepValueChange={(pid, vid, sIdx, val) => onVariationStepValueChange && onVariationStepValueChange(editingTrack.id, pid, vid, sIdx, val)}
-          onVariationStepVolumeChange={(pid, vid, sIdx, val) => onVariationStepVolumeChange && onVariationStepVolumeChange(editingTrack.id, pid, vid, sIdx, val)}
-          onVariationStepDecayChange={(pid, vid, sIdx, val) => onVariationStepDecayChange && onVariationStepDecayChange(editingTrack.id, pid, vid, sIdx, val)}
-          onVariationStepMicrotimingChange={(pid, vid, sIdx, val) => onVariationStepMicrotimingChange && onVariationStepMicrotimingChange(editingTrack.id, pid, vid, sIdx, val)}
-          onDeletePatternVariation={(pid, vid) => onDeletePatternVariation && onDeletePatternVariation(editingTrack.id, pid, vid)}
-          onSelectPattern={(pid) => onTrackSelectPattern(editingTrack.id, pid)}
-          onPatternAssign={(pid, mIdx, val) => onPatternAssign(editingTrack.id, pid, mIdx, val)}
-          onVolumeChange={(val) => onVolumeChange(editingTrack.id, val)}
-          onMuteToggle={() => onMuteToggle(editingTrack.id)}
-          onSoloToggle={() => onSoloToggle(editingTrack.id)}
-          onStepVolumeChange={(pid, sIdx, val) => onStepVolumeChange(editingTrack.id, pid, sIdx, val)}
-          onStepDecayChange={(pid, sIdx, val) => onStepDecayChange(editingTrack.id, pid, sIdx, val)}
-          onStepMicrotimingChange={(pid, sIdx, val) => onStepMicrotimingChange(editingTrack.id, pid, sIdx, val)}
-          globalSwing={globalSwing}
-          isPlaying={isPlaying}
-          currentMeasure={useSequencerStore.getState().currentMeasure}
-          maxTicks={maxTicks}
-          totalMeasures={totalMeasures}
-          onCopyPattern={handleCopyPattern}
-          onPastePattern={(pId) => handlePastePattern(editingTrack.id, pId)}
-          onLoadLibraryPattern={(targetPtnId, libPattern) => handleLoadLibraryPattern(editingTrack.id, targetPtnId, libPattern)}
-          canPaste={!!copiedPattern}
-          isRecordingVocal={isRecordingVocal}
-          recordingVocalPatternId={recordingVocalPatternId}
-          recordedPatternIds={recordedPatternIds}
-          onStartVocalRecording={onStartVocalRecording}
-          onStopVocalRecording={onStopVocalRecording}
-          onVocalModeChange={onVocalModeChange}
-          onDeleteVocalRecording={onDeleteVocalRecording}
-          onVocalLatencyChange={onVocalLatencyChange}
-          audioDevices={audioDevices}
-          selectedAudioDeviceId={selectedAudioDeviceId}
-          onAudioDeviceChange={onAudioDeviceChange}
-          onImportVocalFile={onImportVocalFile}
-          isVocalGuideEnabled={isVocalGuideEnabled}
-          onVocalGuideToggle={onVocalGuideToggle}
-          onVocalBpmSyncToggle={onVocalBpmSyncToggle}
-          onPatternNameChange={(pid, name) => onPatternNameChange && onPatternNameChange(editingTrack.id, pid, name)}
-          runAutoCalibration={runAutoCalibration}
-          vocalCalibrationLatencyMs={vocalCalibrationLatencyMs}
-        />
+      {editingTrackId !== null && (
+        <Suspense fallback={null}>
+          <InstrumentDetailEditor
+            isMobile={isMobile}
+            lang={lang}
+            isLeftHanded={isLeftHanded}
+            trackId={editingTrackId}
+            onClose={() => setEditingTrackId(null)}
+            onNavigatePrev={() => {
+              const idx = trackIds.indexOf(editingTrackId);
+              if (idx > 0) setEditingTrackId(trackIds[idx - 1]);
+              else if (trackIds.length > 0) setEditingTrackId(trackIds[trackIds.length - 1]);
+            }}
+            onNavigateNext={() => {
+              const idx = trackIds.indexOf(editingTrackId);
+              if (idx >= 0 && idx < trackIds.length - 1) setEditingTrackId(trackIds[idx + 1]);
+              else if (trackIds.length > 0) setEditingTrackId(trackIds[0]);
+            }}
+            soloPatternPlayId={soloPatternPlayId}
+            soloPatternVariationId={soloPatternVariationId}
+            onStepTouchStart={onStepTouchStart}
+            onPlaySoloPattern={handleStartSoloPattern}
+            onStopSoloPattern={handleStopSoloPattern}
+            onStepValueChange={(pid, sIdx, val, lyrics, notes) => onStepValueChange(editingTrackId, pid, sIdx, val, lyrics, notes)}
+            onStepKeyDown={(pid, sIdx, k, cVal, el) => onStepKeyDown(editingTrackId, pid, sIdx, k, cVal, el)}
+            onStepsChange={(pid, steps) => onStepsChange(editingTrackId, pid, steps)}
+            onVoiceTypeToggle={(pid, sIdx) => onVoiceTypeToggle(editingTrackId, pid, sIdx)}
+            onVoiceSylChange={(pid, sIdx, val) => onVoiceSylChange(editingTrackId, pid, sIdx, val)}
+            onVoiceNoteChange={(pid, sIdx, val) => onVoiceNoteChange(editingTrackId, pid, sIdx, val)}
+            onVoiceNoteBlur={(pid, sIdx, val) => onVoiceNoteBlur(editingTrackId, pid, sIdx, val)}
+            onAddPattern={() => onAddPattern(editingTrackId)}
+            onDeletePattern={(pid) => onDeletePattern(editingTrackId, pid)}
+            onReorderPatternsDnd={(oldIdx, newIdx) => onReorderPatternsDnd && onReorderPatternsDnd(editingTrackId, oldIdx, newIdx)}
+            onAddPatternVariation={(pid) => onAddPatternVariation && onAddPatternVariation(editingTrackId, pid)}
+            onUpdatePatternVariationProbability={(pid, vid, prob) => onUpdatePatternVariationProbability && onUpdatePatternVariationProbability(editingTrackId, pid, vid, prob)}
+            onTogglePatternVariationFirstTimeOnly={(pid, vid, val) => onTogglePatternVariationFirstTimeOnly && onTogglePatternVariationFirstTimeOnly(editingTrackId, pid, vid, val)}
+            onVariationStepValueChange={(pid, vid, sIdx, val) => onVariationStepValueChange && onVariationStepValueChange(editingTrackId, pid, vid, sIdx, val)}
+            onVariationStepVolumeChange={(pid, vid, sIdx, val) => onVariationStepVolumeChange && onVariationStepVolumeChange(editingTrackId, pid, vid, sIdx, val)}
+            onVariationStepDecayChange={(pid, vid, sIdx, val) => onVariationStepDecayChange && onVariationStepDecayChange(editingTrackId, pid, vid, sIdx, val)}
+            onVariationStepMicrotimingChange={(pid, vid, sIdx, val) => onVariationStepMicrotimingChange && onVariationStepMicrotimingChange(editingTrackId, pid, vid, sIdx, val)}
+            onDeletePatternVariation={(pid, vid) => onDeletePatternVariation && onDeletePatternVariation(editingTrackId, pid, vid)}
+            onSelectPattern={(pid) => onTrackSelectPattern(editingTrackId, pid)}
+            onPatternAssign={(pid, mIdx, val) => onPatternAssign(editingTrackId, pid, mIdx, val)}
+            onVolumeChange={(val) => onVolumeChange(editingTrackId, val)}
+            onMuteToggle={() => onMuteToggle(editingTrackId)}
+            onSoloToggle={() => onSoloToggle(editingTrackId)}
+            onStepVolumeChange={(pid, sIdx, val) => onStepVolumeChange(editingTrackId, pid, sIdx, val)}
+            onStepDecayChange={(pid, sIdx, val) => onStepDecayChange(editingTrackId, pid, sIdx, val)}
+            onStepMicrotimingChange={(pid, sIdx, val) => onStepMicrotimingChange(editingTrackId, pid, sIdx, val)}
+            globalSwing={globalSwing}
+            isPlaying={isPlaying}
+            currentMeasure={useSequencerStore.getState().currentMeasure}
+            maxTicks={maxTicks}
+            totalMeasures={totalMeasures}
+            onCopyPattern={handleCopyPattern}
+            onPastePattern={(pId) => handlePastePattern(editingTrackId, pId)}
+            onLoadLibraryPattern={(targetPtnId, libPattern) => handleLoadLibraryPattern(editingTrackId, targetPtnId, libPattern)}
+            canPaste={!!copiedPattern}
+            isRecordingVocal={isRecordingVocal}
+            recordingVocalPatternId={recordingVocalPatternId}
+            recordedPatternIds={recordedPatternIds}
+            onStartVocalRecording={onStartVocalRecording}
+            onStopVocalRecording={onStopVocalRecording}
+            onVocalModeChange={onVocalModeChange}
+            onDeleteVocalRecording={onDeleteVocalRecording}
+            onVocalLatencyChange={onVocalLatencyChange}
+            audioDevices={audioDevices}
+            selectedAudioDeviceId={selectedAudioDeviceId}
+            onAudioDeviceChange={onAudioDeviceChange}
+            onImportVocalFile={onImportVocalFile}
+            isVocalGuideEnabled={isVocalGuideEnabled}
+            onVocalGuideToggle={onVocalGuideToggle}
+            onVocalBpmSyncToggle={onVocalBpmSyncToggle}
+            onPatternNameChange={(pid, name) => onPatternNameChange && onPatternNameChange(editingTrackId, pid, name)}
+            vocalCalibrationLatencyMs={vocalCalibrationLatencyMs}
+          />
+        </Suspense>
       )}
     </div>
   );
