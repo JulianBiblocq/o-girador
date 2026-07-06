@@ -38,6 +38,7 @@ interface TrackMixerProps {
     onSelect: (val: string) => void
   ) => void;
   isCollapsed?: boolean;
+  visible?: boolean;
 }
 
 
@@ -48,6 +49,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   onOpenDetailEditor,
   onStepTouchStart,
   isCollapsed = false,
+  visible = true,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -423,6 +425,14 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
   // Listen to CustomEvent 'o-girador-tick' to highlight step cells dynamically (Bypass React)
   useEffect(() => {
+    if (!visible) {
+      if (lastMeasureRef.current !== -1) {
+        lastMeasureRef.current = -1;
+        setLiveMeasure(-1);
+      }
+      return;
+    }
+
     let activeElements: HTMLElement[] = [];
 
     const handleTick = (e: Event) => {
@@ -537,7 +547,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         deactivateElementRef.current(el);
       });
     };
-  }, []);
+  }, [visible]);
 
   // Post-render highlight to prevent visual flicker during pattern transitions
   useEffect(() => {

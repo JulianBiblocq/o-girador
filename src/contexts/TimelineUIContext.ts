@@ -12,7 +12,6 @@ export interface TimelineUIContextType {
   lang: Language;
   signalDropdownOpen: number | null;
   setSignalDropdownOpen: (val: number | null) => void;
-  visibleRange: { start: number; end: number };
 }
 
 export const TimelineUIContext = React.createContext<TimelineUIContextType | null>(null);

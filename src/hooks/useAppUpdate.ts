@@ -75,7 +75,7 @@ export function useAppUpdate() {
           }
         }
       } catch (err) {
-        console.warn('Error clearing caches:', err);
+        // console.warn('Error clearing caches:', err);
       }
       if (reg && reg.waiting) {
         reg.waiting.postMessage({ type: 'SKIP_WAITING' });
@@ -86,7 +86,7 @@ export function useAppUpdate() {
             await registration.unregister();
           }
         } catch (err) {
-          console.warn('Error unregistering service workers:', err);
+          // console.warn('Error unregistering service workers:', err);
         }
         window.location.reload();
       }
@@ -113,7 +113,7 @@ export function useAppUpdate() {
         }
       }
     } catch (err) {
-      console.warn('Error clearing caches:', err);
+      // console.warn('Error clearing caches:', err);
     }
     if (reg && reg.waiting) {
       reg.waiting.postMessage({ type: 'SKIP_WAITING' });
@@ -124,7 +124,7 @@ export function useAppUpdate() {
           await registration.unregister();
         }
       } catch (err) {
-        console.warn('Error unregistering service workers:', err);
+        // console.warn('Error unregistering service workers:', err);
       }
       window.location.reload();
     }

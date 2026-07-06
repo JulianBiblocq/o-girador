@@ -27,7 +27,7 @@ const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const hasGoogleClientId = isValidGoogleClientId(googleClientId);
 
 if (!hasGoogleClientId) {
-  console.warn("La sauvegarde Cloud (Google Auth/Drive) est désactivée faute de clé client ID valide (VITE_GOOGLE_CLIENT_ID). L'application fonctionne en mode Offline-First.");
+  // console.warn("La sauvegarde Cloud (Google Auth/Drive) est désactivée faute de clé client ID valide (VITE_GOOGLE_CLIENT_ID). L'application fonctionne en mode Offline-First.");
 }
 // Capture invite code from URL if present
 const urlParams = new URLSearchParams(window.location.search);

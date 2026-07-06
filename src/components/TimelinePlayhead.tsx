@@ -4,7 +4,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { audioEngine } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 
-const TimelinePlayheadComponent: React.FC = () => {
+const TimelinePlayheadComponent: React.FC<{ visible?: boolean }> = ({ visible = true }) => {
   const uiContext = useContext(TimelineUIContext);
   const audio = useAudio();
   const playheadRef = useRef<HTMLDivElement>(null);
@@ -63,6 +63,8 @@ const TimelinePlayheadComponent: React.FC = () => {
   }, [audio.isPlaying, HEADER_W]);
 
   useEffect(() => {
+    if (!visible) return;
+
     const scrollEl = document.getElementById('timeline-scroll-container');
     if (!scrollEl) return;
 
@@ -143,11 +145,11 @@ const TimelinePlayheadComponent: React.FC = () => {
       resizeObserver.disconnect();
       scrollEl.removeEventListener('scroll', handleScroll);
     };
-  }, [HEADER_W]);
+  }, [HEADER_W, visible]);
 
   // Boucle requestAnimationFrame continue pour une mise à jour ultra fluide et découplée
   useEffect(() => {
-    if (!audio.isPlaying) return;
+    if (!audio.isPlaying || !visible) return;
 
     let rafId: number;
     const scrollEl = document.getElementById('timeline-scroll-container');
@@ -158,10 +160,10 @@ const TimelinePlayheadComponent: React.FC = () => {
       
       if (audioEngine && anchor.time > 0 && anchor.speed > 0) {
         const ctxTime = audioEngine.getCurrentTime();
-        const elapsedCtx = ctxTime - anchor.time;
+        const elapsedCtx = Math.max(0, ctxTime - anchor.time);
 
         // Extrapoler la position de la tête de lecture à partir du dernier tick
-        if (elapsedCtx >= 0 && elapsedCtx < 2.0) {
+        if (elapsedCtx < 2.0) {
           const currentX = anchor.exactX + elapsedCtx * anchor.speed;
           
           if (playheadRef.current) {
@@ -199,7 +201,7 @@ const TimelinePlayheadComponent: React.FC = () => {
     return () => {
       cancelAnimationFrame(rafId);
     };
-  }, [audio.isPlaying, HEADER_W]);
+  }, [audio.isPlaying, HEADER_W, visible]);
 
   if (!uiContext) return null;
 

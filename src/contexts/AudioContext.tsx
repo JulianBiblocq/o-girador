@@ -774,7 +774,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           try {
             await Tone.context.resume();
           } catch (e) {
-            console.warn("AudioContext resume failed:", e);
+            // console.warn("AudioContext resume failed:", e);
           }
         }
         

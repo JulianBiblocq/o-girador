@@ -84,28 +84,36 @@ export function useSequencerHistory({
   };
 
   const pushUndoState = (customTracksState?: TrackGroup[]) => {
-    console.trace("🕵️ QUI A APPELÉ pushUndoState ?");
+    // 1. Snapshot SYNCHRONE (Vital : il faut capturer l'état *maintenant*)
     const stateToSave = customTracksState ? customTracksState : tracksRef.current;
-    
-    const nextTracksHistory = [...tracksHistoryRef.current, stateToSave].slice(-10);
-    setTracksHistory(nextTracksHistory);
-    setTracksRedoHistory([]);
-
     const clonedStructure: StructureSnapshot = {
-      measureTimeSigs: measureTimeSigsRef.current,
-      measureBpms: measureBpmsRef.current,
-      measureBpmTransitions: measureBpmTransitionsRef.current,
-      measureVols: measureVolsRef.current,
-      measureVolTransitions: measureVolTransitionsRef.current,
-      songSections: songSectionsRef.current,
-      songMarkers: songMarkersRef.current,
+      measureTimeSigs: [...measureTimeSigsRef.current],
+      measureBpms: [...measureBpmsRef.current],
+      measureBpmTransitions: [...measureBpmTransitionsRef.current],
+      measureVols: [...measureVolsRef.current],
+      measureVolTransitions: [...measureVolTransitionsRef.current],
+      songSections: [...songSectionsRef.current],
+      songMarkers: [...(songMarkersRef.current || [])],
     };
     
-    const nextStructureHistory = [...songStructureHistoryRef.current, clonedStructure].slice(-10);
-    setSongStructureHistory(nextStructureHistory);
-    setSongStructureRedoHistory([]);
+    // 2. Mise à jour DIFFÉRÉE (On libère le thread immédiatement)
+    const deferredSave = () => {
+      const nextTracksHistory = [...tracksHistoryRef.current, stateToSave].slice(-10);
+      setTracksHistory(nextTracksHistory);
+      setTracksRedoHistory([]);
 
-    syncStoreHistory(nextTracksHistory, []);
+      const nextStructureHistory = [...songStructureHistoryRef.current, clonedStructure].slice(-10);
+      setSongStructureHistory(nextStructureHistory);
+      setSongStructureRedoHistory([]);
+
+      syncStoreHistory(nextTracksHistory, []);
+    };
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(deferredSave);
+    } else {
+      setTimeout(deferredSave, 0);
+    }
   };
 
   const handleUndo = () => {

@@ -69,7 +69,7 @@ export function useAppAudio() {
           }
         }
       } catch (err) {
-        console.warn('[O Girador] Failed to decode URL query param (?ogirador=):', err);
+        // console.warn('[O Girador] Failed to decode URL query param (?ogirador=):', err);
       }
 
       if (hash && hash.length > 1) {
@@ -81,7 +81,7 @@ export function useAppAudio() {
           window.history.replaceState({}, document.title, window.location.pathname);
           return true;
         } catch (err) {
-          console.warn('[O Girador] Failed to decode URL hash:', err);
+          // console.warn('[O Girador] Failed to decode URL hash:', err);
         }
       }
       return false;

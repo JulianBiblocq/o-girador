@@ -50,6 +50,7 @@ interface MixerProps {
   onCopyPattern?: (pattern: Pattern) => void;
   onPastePattern?: (trackId: number) => void;
   onLoadLibraryPattern?: (trackId: number, targetPatternId: number, libPattern: any) => void;
+  visible?: boolean;
 }
 
 const MixerComponent: React.FC<MixerProps> = ({
@@ -57,6 +58,7 @@ const MixerComponent: React.FC<MixerProps> = ({
   onCopyPattern,
   onPastePattern,
   onLoadLibraryPattern,
+  visible = true,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -313,6 +315,7 @@ const MixerComponent: React.FC<MixerProps> = ({
                   isCollapsed={isTracksCollapsed}
                   onOpenDetailEditor={onOpenDetailEditor}
                   onStepTouchStart={onStepTouchStart}
+                  visible={visible}
                 />
               ))}
             </SortableContext>
@@ -353,7 +356,7 @@ const MixerComponent: React.FC<MixerProps> = ({
           onPlaySoloPattern={handleStartSoloPattern}
           onStopSoloPattern={handleStopSoloPattern}
           onStepValueChange={(pid, sIdx, val, lyrics, notes) => {
-            console.log("3️⃣ MIXER : Ordre reçu, transmission à Zustand. Track:", editingTrackId);
+            // console.log("3️⃣ MIXER : Ordre reçu, transmission à Zustand. Track:", editingTrackId);
             onStepValueChange(editingTrackId, pid, sIdx, val, lyrics, notes);
           }}
           onStepKeyDown={(pid, sIdx, k, cVal, el) => onStepKeyDown(editingTrackId, pid, sIdx, k, cVal, el)}

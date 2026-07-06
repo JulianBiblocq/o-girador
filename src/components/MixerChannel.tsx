@@ -38,6 +38,7 @@ interface MixerChannelProps {
   onCopyPattern?: (pattern: Pattern) => void;
   onPastePattern?: (patternId: number) => void;
   canPaste?: boolean;
+  visible?: boolean;
 }
 
 const MixerChannelComponent: React.FC<MixerChannelProps> = ({
@@ -48,6 +49,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   onCopyPattern,
   onPastePattern,
   canPaste,
+  visible = true,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -80,6 +82,14 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   }, [track]);
 
   useEffect(() => {
+    if (!visible) {
+      if (lastMeasureRef.current !== -1) {
+        lastMeasureRef.current = -1;
+        setLiveMeasure(-1);
+      }
+      return;
+    }
+
     let activeElements: HTMLElement[] = [];
     const handleTick = (e: Event) => {
       const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
@@ -183,7 +193,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         el.classList.add('border-[var(--cordel-border)]');
       });
     };
-  }, []);
+  }, [visible]);
 
   useEffect(() => {
     if (isPlaying && liveMeasure >= 0) {

@@ -699,46 +699,38 @@ export function useSequencerState() {
 
   const handleMeasureTimeSigChange = (measureIdx: number, val: TimeSignature) => {
     pushUndoState();
-    setMeasureTimeSigs((prev: any) => {
-      const arr = [...prev];
-      arr[measureIdx] = val;
-      measureTimeSigsRef.current = arr;
-      useSequencerStore.setState({ measureTimeSigs: arr });
-      return arr;
-    });
+    const arr = [...measureTimeSigsRef.current];
+    arr[measureIdx] = val;
+    setMeasureTimeSigs(arr);
+    measureTimeSigsRef.current = arr;
+    useSequencerStore.setState({ measureTimeSigs: arr });
   };
 
   const handleMeasureBpmChange = (measureIdx: number, val: number) => {
     pushUndoState();
-    setMeasureBpms(prev => {
-      const arr = [...prev];
-      arr[measureIdx] = val;
-      measureBpmsRef.current = arr;
-      useSequencerStore.setState({ measureBpms: arr });
-      return arr;
-    });
+    const arr = [...measureBpmsRef.current];
+    arr[measureIdx] = val;
+    setMeasureBpms(arr);
+    measureBpmsRef.current = arr;
+    useSequencerStore.setState({ measureBpms: arr });
   };
 
   const handleMeasureTransitionChange = (measureIdx: number, val: 'immediate' | 'ramp') => {
     pushUndoState();
-    setMeasureBpmTransitions(prev => {
-      const arr = [...prev];
-      arr[measureIdx] = val;
-      measureBpmTransitionsRef.current = arr;
-      useSequencerStore.setState({ measureBpmTransitions: arr });
-      return arr;
-    });
+    const arr = [...measureBpmTransitionsRef.current];
+    arr[measureIdx] = val;
+    setMeasureBpmTransitions(arr);
+    measureBpmTransitionsRef.current = arr;
+    useSequencerStore.setState({ measureBpmTransitions: arr });
   };
 
   const handleMeasureVolChange = (measureIdx: number, val: number) => {
     pushUndoState();
-    setMeasureVols(prev => {
-      const arr = [...prev];
-      arr[measureIdx] = val;
-      measureVolsRef.current = arr;
-      useSequencerStore.setState({ measureVols: arr });
-      return arr;
-    });
+    const arr = [...measureVolsRef.current];
+    arr[measureIdx] = val;
+    setMeasureVols(arr);
+    measureVolsRef.current = arr;
+    useSequencerStore.setState({ measureVols: arr });
   };
 
   const handleMeasureVolTransitionChange = (measureIdx: number, val: 'immediate' | 'ramp') => {

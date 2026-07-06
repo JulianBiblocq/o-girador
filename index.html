@@ -421,7 +421,7 @@
             let unregistered = false;
             const promises = registrations.map(registration =>
               registration.unregister().then(() => {
-                console.log('Service Worker unregistered on localhost');
+                // console.log('Service Worker unregistered on localhost');
                 unregistered = true;
               })
             );
@@ -451,11 +451,11 @@
             const base = window.location.pathname.startsWith('/o-girador') ? '/o-girador/' : '/';
             navigator.serviceWorker.register(base + 'sw.js')
               .then(reg => {
-                console.log('Service Worker registered:', reg.scope);
+                // console.log('Service Worker registered:', reg.scope);
                 
                 // If there's already a waiting worker on load, prompt the user
                 if (reg.waiting) {
-                  console.log('Service Worker waiting on load; prompting refresh.');
+                  // console.log('Service Worker waiting on load; prompting refresh.');
                   setTimeout(() => {
                     window.dispatchEvent(new CustomEvent('sw-update-available', { detail: reg }));
                   }, 1000);
@@ -469,7 +469,7 @@
                       if (installingWorker.state === 'installed') {
                         if (navigator.serviceWorker.controller) {
                           // A new service worker has been installed and is ready to activate
-                          console.log('New content is available; prompting refresh.');
+                          // console.log('New content is available; prompting refresh.');
                           window.dispatchEvent(new CustomEvent('sw-update-available', { detail: reg }));
                         }
                       }

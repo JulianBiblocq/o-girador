@@ -1300,7 +1300,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.warn("Auto-download blocked, showing modal instead", err);
+      // console.warn("Auto-download blocked, showing modal instead", err);
     }
   };
 

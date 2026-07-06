@@ -166,7 +166,7 @@ export async function getAutosave(): Promise<any | null> {
         return data;
       }
     } catch (e) {
-      console.warn('Failed to migrate autosave from localStorage:', e);
+      // console.warn('Failed to migrate autosave from localStorage:', e);
     }
   }
 
@@ -218,7 +218,7 @@ export async function getLocalLibrary(): Promise<LocalLibrary> {
         localStorage.removeItem('oGirador_personal_library');
       }
     } catch (e) {
-      console.warn('Failed to migrate library from localStorage:', e);
+      // console.warn('Failed to migrate library from localStorage:', e);
     }
   }
 

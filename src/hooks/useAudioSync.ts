@@ -483,7 +483,7 @@ export function useAudioSync({
               if (inst) activeIds.add(inst.id);
             });
             audioEngine.syncActiveInstrumentsMemory(Array.from(activeIds))
-              .catch(e => console.warn("Background load samples failed:", e));
+              .catch(e => { /* console.warn("Background load samples failed:", e); */ });
           }
         }
       }
@@ -1043,7 +1043,7 @@ export function useAudioSync({
         if (audioEngine) {
           const isMobileDevice = window.innerWidth <= 768 || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
           if (!isMobileDevice) {
-            audioEngine.loadAllSamples().catch(e => console.warn("Background load samples failed:", e));
+            audioEngine.loadAllSamples().catch(e => { /* console.warn("Background load samples failed:", e); */ });
           }
         }
         // ALWAYS unblock the UI.
@@ -1086,7 +1086,7 @@ export function useAudioSync({
         });
 
         audioEngine.syncActiveInstrumentsMemory(Array.from(activeIds))
-          .catch(e => console.warn("Dynamic RAM sync failed:", e));
+          .catch(e => { /* console.warn("Dynamic RAM sync failed:", e); */ });
       }
     });
 
@@ -1100,7 +1100,7 @@ export function useAudioSync({
       try {
         await Tone.context.resume();
       } catch (e) {
-        console.warn("AudioContext resume failed:", e);
+        // console.warn("AudioContext resume failed:", e);
       }
     }
     if (soloPatternPlayIdRef.current !== null) {
@@ -1201,7 +1201,7 @@ export function useAudioSync({
       try {
         await Tone.context.resume();
       } catch (e) {
-        console.warn("AudioContext resume failed:", e);
+        // console.warn("AudioContext resume failed:", e);
       }
     }
     if (isRecordingVocal) {

@@ -1,10 +1,10 @@
 let toneInstance: typeof import('tone') | null = null;
 
 export const loadTone = async () => {
-  console.log("🚀 loadTone() called!");
-  console.trace("Trace for loadTone:");
+//   console.log("🚀 loadTone() called!");
+//   console.trace("Trace for loadTone:");
   if (!toneInstance) {
-    console.log("⏳ Downloading Tone.js chunk...");
+//     console.log("⏳ Downloading Tone.js chunk...");
     // Vite will automatically split this into a separate chunk
     toneInstance = await import('tone');
   }

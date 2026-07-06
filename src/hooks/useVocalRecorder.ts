@@ -89,7 +89,7 @@ export function useVocalRecorder({
           try {
             player.dispose();
           } catch (e) {
-            console.warn("Error disposing vocal player on unmount:", e);
+            // console.warn("Error disposing vocal player on unmount:", e);
           }
         }
       });
@@ -107,7 +107,7 @@ export function useVocalRecorder({
         setSelectedAudioDeviceId(defaultDev.deviceId);
       }
     } catch (err) {
-      console.warn("Failed to enumerate audio devices:", err);
+      // console.warn("Failed to enumerate audio devices:", err);
     }
   };
 
@@ -270,7 +270,7 @@ export function useVocalRecorder({
         }
       }
     } catch (e) {
-      console.warn("Failed to retrieve raw AudioContext latency values:", e);
+      // console.warn("Failed to retrieve raw AudioContext latency values:", e);
     }
     return Math.round(latencySec * 1000);
   };
@@ -287,7 +287,7 @@ export function useVocalRecorder({
     try {
       await audioCtx.audioWorklet.addModule(workletUrl);
     } catch (e) {
-      console.warn("AudioWorklet module might already be added or failed to load:", e);
+      // console.warn("AudioWorklet module might already be added or failed to load:", e);
     }
 
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -369,7 +369,7 @@ export function useVocalRecorder({
         workletNode.disconnect();
         workletNode.port.close();
       } catch (e) {
-        console.warn("Error cleaning up AudioWorkletNode:", e);
+        // console.warn("Error cleaning up AudioWorkletNode:", e);
       }
       stream.getTracks().forEach(t => t.stop());
     }

@@ -41,6 +41,7 @@ const getCachedTrack = (id: number, isHidden: boolean, isSolo: boolean, isMute: 
 
 interface ConsoleMixerProps {
   isMobile: boolean;
+  visible?: boolean;
   onStepTouchStart?: (
     e: React.MouseEvent | React.TouchEvent,
     patternId: number,
@@ -53,6 +54,7 @@ interface ConsoleMixerProps {
 
 const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   isMobile,
+  visible = true,
   onStepTouchStart,
 }) => {
   const sequencer = useSequencer();
@@ -148,6 +150,12 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const isPlayingRef = useRef(false);
 
   useEffect(() => {
+    if (!visible) {
+      if (vuMeterRef.current) vuMeterRef.current.style.transform = 'scaleY(0)';
+      if (dbTextRef.current) dbTextRef.current.innerText = '— dB';
+      return;
+    }
+
     let animationFrameId: number;
     let idleTimerId: ReturnType<typeof setTimeout> | null = null;
 
@@ -199,7 +207,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         vuMeterRef.current.style.transform = 'scaleY(0)';
       }
     };
-  }, [isPlaying]);
+  }, [isPlaying, visible]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
@@ -337,7 +345,10 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full overflow-hidden">
+    <div 
+      className="flex-1 flex flex-col h-full overflow-hidden"
+      style={{ display: visible ? 'flex' : 'none' }}
+    >
       <div ref={scrollRef} className="flex-grow flex overflow-x-auto p-4 gap-4 custom-scrollbar">
         <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
           <SortableContext items={trackIds.map(id => `track-${id}`)} strategy={horizontalListSortingStrategy}>
@@ -352,6 +363,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   onCopyPattern={handleCopyPattern}
                   onPastePattern={(pId) => handlePastePattern(trackId, pId)}
                   canPaste={!!copiedPattern}
+                  visible={visible}
                 />
               );
             })}
