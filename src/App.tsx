@@ -16,6 +16,7 @@ import { Mixer } from './components/Mixer';
 import { RightSidebar } from './components/RightSidebar';
 import { useSequencerStore } from './stores/useSequencerStore';
 import { TouchStrokeSelector } from './components/TouchStrokeSelector';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const ConsoleMixer = lazy(() => import('./components/ConsoleMixer').then(m => ({ default: m.ConsoleMixer })));
 const CircleSequencer = lazy(() => import('./components/CircleSequencer').then(m => ({ default: m.CircleSequencer })));
@@ -57,6 +58,23 @@ export default function App() {
   const { hasAccess, userProfile, updateUserPreference } = useAuth();
   const { completeExercise } = useGameData();
   const [activeVaralExercise, setActiveVaralExercise] = useState<any>(null);
+
+  const renderFallback = (componentNameFr: string, componentNamePt: string) => (reset: () => void) => {
+    const isPt = sequencer.lang === 'pt';
+    return (
+      <div className="p-4 bg-red-900/20 border border-red-500 rounded text-red-400 font-cactus text-sm m-2">
+        {isPt 
+          ? `Ocorreu um erro no componente ${componentNamePt}.` 
+          : `Une erreur est survenue dans le composant ${componentNameFr}.`}
+        <button 
+          className="block mt-2 underline cursor-pointer hover:text-red-300 transition-colors"
+          onClick={reset}
+        >
+          {isPt ? 'Tentar novamente' : 'Réessayer'}
+        </button>
+      </div>
+    );
+  };
 
   // Local Layout / UI States
   const [isRecording, setIsRecording] = useState<boolean>(false);
@@ -554,151 +572,177 @@ export default function App() {
           <>
             {/* Left column tracks mixers */}
             {(!isMobile || mobileTab === 'mixer') && (
-              <Mixer
-                onStepTouchStart={handleStepTouchStart}
-                onCopyPattern={handleCopyPattern}
-                onPastePattern={handlePastePattern}
-                onLoadLibraryPattern={handleLoadLibraryPattern}
-                canPaste={!!sequencer.copiedPattern}
-              />
+              <ErrorBoundary fallback={renderFallback('Mixeur', 'Mixador')}>
+                <Mixer
+                  onStepTouchStart={handleStepTouchStart}
+                  onCopyPattern={handleCopyPattern}
+                  onPastePattern={handlePastePattern}
+                  onLoadLibraryPattern={handleLoadLibraryPattern}
+                  canPaste={!!sequencer.copiedPattern}
+                />
+              </ErrorBoundary>
             )}
 
             {/* Center circle visual canvas engine */}
             {(!isMobile || mobileTab === 'roda') && (
-              <CircleSequencer
-                isMobile={isMobile}
-                mestreSignals={filteredMestreSignals}
-                onStepTouchStart={handleStepTouchStart}
-              />
+              <ErrorBoundary fallback={renderFallback('Séquenceur Circulaire', 'Sequenciador Circular')}>
+                <CircleSequencer
+                  isMobile={isMobile}
+                  mestreSignals={filteredMestreSignals}
+                  onStepTouchStart={handleStepTouchStart}
+                />
+              </ErrorBoundary>
             )}
           </>
         )}
         {viewMode === 'console' && (
           <div className="flex-1 min-w-0 flex flex-col h-full overflow-x-auto overflow-y-hidden custom-scrollbar">
-            <ConsoleMixer
-              isMobile={isMobile}
-              onStepTouchStart={handleStepTouchStart}
-            />
+            <ErrorBoundary fallback={renderFallback('Mixeur Console', 'Mesa de Som')}>
+              <ConsoleMixer
+                isMobile={isMobile}
+                onStepTouchStart={handleStepTouchStart}
+              />
+            </ErrorBoundary>
           </div>
         )}
         {viewMode === 'timeline' && (
-          <TimelineSequencer
-            isMobile={isMobile}
-            measureWidth={measureWidth}
-            onMeasureWidthChange={setMeasureWidth}
-            onExportTablature={handleExportTablature}
-            onSaveCloudSection={setSectionToSave}
-            onLoadCloudSection={setLoadSectionInsertMeasure}
-            mestreSignals={filteredMestreSignals}
-          />
+          <ErrorBoundary fallback={renderFallback('Linha do Tempo / Timeline', 'Linha do Tempo')}>
+            <TimelineSequencer
+              isMobile={isMobile}
+              measureWidth={measureWidth}
+              onMeasureWidthChange={setMeasureWidth}
+              onExportTablature={handleExportTablature}
+              onSaveCloudSection={setSectionToSave}
+              onLoadCloudSection={setLoadSectionInsertMeasure}
+              mestreSignals={filteredMestreSignals}
+            />
+          </ErrorBoundary>
         )}
 
         {viewMode === 'quiz' && (
-          <QuizEngine
-            lang={sequencer.lang}
-            onExit={handleGameExit}
-            onSuccess={() => handleGameSuccess('quiz')}
-            exerciseData={activeVaralExercise}
-          />
+          <ErrorBoundary fallback={renderFallback('Quiz', 'Questionário')}>
+            <QuizEngine
+              lang={sequencer.lang}
+              onExit={handleGameExit}
+              onSuccess={() => handleGameSuccess('quiz')}
+              exerciseData={activeVaralExercise}
+            />
+          </ErrorBoundary>
         )}
 
         {viewMode === 'dictee' && (
-          <DicteeEngine
-            lang={sequencer.lang}
-            onExit={handleGameExit}
-            onSuccess={() => handleGameSuccess('dictee')}
-            exerciseData={activeVaralExercise}
-          />
+          <ErrorBoundary fallback={renderFallback('Dictée Rythmique', 'Ditado Rítmico')}>
+            <DicteeEngine
+              lang={sequencer.lang}
+              onExit={handleGameExit}
+              onSuccess={() => handleGameSuccess('dictee')}
+              exerciseData={activeVaralExercise}
+            />
+          </ErrorBoundary>
         )}
 
         {viewMode === 'inspecteur' && (
-          <Suspense fallback={<div>Chargement...</div>}>
-            <InspecteurEngine
-              lang={sequencer.lang}
-              onExit={handleGameExit}
-              exerciseData={activeVaralExercise}
-              onSuccess={() => handleGameSuccess('inspecteur')}
-            />
-          </Suspense>
+          <ErrorBoundary fallback={renderFallback('Inspecteur', 'Inspetor')}>
+            <Suspense fallback={<div>Chargement...</div>}>
+              <InspecteurEngine
+                lang={sequencer.lang}
+                onExit={handleGameExit}
+                exerciseData={activeVaralExercise}
+                onSuccess={() => handleGameSuccess('inspecteur')}
+              />
+            </Suspense>
+          </ErrorBoundary>
         )}
 
         {viewMode === 'mestre' && (
-          <MestreEngine
-            lang={sequencer.lang}
-            onExit={handleGameExit}
-            rhythmState={mestreRhythmState}
-            setRhythmState={setMestreRhythmState}
-            onSuccess={() => handleGameSuccess('sablier_mestre')}
-            exerciseData={activeVaralExercise}
-          />
+          <ErrorBoundary fallback={renderFallback('Mestre', 'Mestre')}>
+            <MestreEngine
+              lang={sequencer.lang}
+              onExit={handleGameExit}
+              rhythmState={mestreRhythmState}
+              setRhythmState={setMestreRhythmState}
+              onSuccess={() => handleGameSuccess('sablier_mestre')}
+              exerciseData={activeVaralExercise}
+            />
+          </ErrorBoundary>
         )}
 
         {viewMode === 'rythmelive' && (
-          <RythmeLiveEngine
-            lang={sequencer.lang}
-            onExit={handleGameExit}
-            onSuccess={() => handleGameSuccess('rythme_live')}
-            exerciseData={activeVaralExercise}
-          />
+          <ErrorBoundary fallback={renderFallback('Rythme Live', 'Ritmo Live')}>
+            <RythmeLiveEngine
+              lang={sequencer.lang}
+              onExit={handleGameExit}
+              onSuccess={() => handleGameSuccess('rythme_live')}
+              exerciseData={activeVaralExercise}
+            />
+          </ErrorBoundary>
         )}
 
         {viewMode === 'varal' && (
-          <Suspense fallback={<div>Chargement...</div>}>
-            <VaralCordel
-              lang={sequencer.lang}
-              onExit={() => setViewMode('roda')}
-              unlockedFolhetos={unlockedFolhetos}
-              justUnlockedBookletId={justUnlockedBookletId}
-              onClearJustUnlocked={() => setJustUnlockedBookletId(null)}
-              onLaunchExercise={(ex, cordeIndex) => {
-                setActiveVaralExercise(ex);
-                setActiveCordeIndex(cordeIndex);
-                if (ex.module === 'quiz') setViewMode('quiz');
-                else if (ex.module === 'dictee') setViewMode('dictee');
-                else if (ex.module === 'inspecteur') setViewMode('inspecteur');
-                else if (ex.module === 'rythme_live') setViewMode('rythmelive');
-                else if (ex.module === 'sablier_mestre') setViewMode('mestre');
-              }}
-            />
-          </Suspense>
+          <ErrorBoundary fallback={renderFallback('Varal de Cordel', 'Varal de Cordel')}>
+            <Suspense fallback={<div>Chargement...</div>}>
+              <VaralCordel
+                lang={sequencer.lang}
+                onExit={() => setViewMode('roda')}
+                unlockedFolhetos={unlockedFolhetos}
+                justUnlockedBookletId={justUnlockedBookletId}
+                onClearJustUnlocked={() => setJustUnlockedBookletId(null)}
+                onLaunchExercise={(ex, cordeIndex) => {
+                  setActiveVaralExercise(ex);
+                  setActiveCordeIndex(cordeIndex);
+                  if (ex.module === 'quiz') setViewMode('quiz');
+                  else if (ex.module === 'dictee') setViewMode('dictee');
+                  else if (ex.module === 'inspecteur') setViewMode('inspecteur');
+                  else if (ex.module === 'rythme_live') setViewMode('rythmelive');
+                  else if (ex.module === 'sablier_mestre') setViewMode('mestre');
+                }}
+              />
+            </Suspense>
+          </ErrorBoundary>
         )}
 
         {viewMode === 'studio' && (
-          <Suspense fallback={<div className="flex-1 flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
-            <div className="flex-1 w-full h-full overflow-hidden flex flex-col relative z-20">
-              <MestreStudio
-                lang={sequencer.lang}
-                onExit={() => setViewMode('roda')}
-                presetFiles={presetFiles}
-                localPresets={localPresets}
-              />
-            </div>
-          </Suspense>
+          <ErrorBoundary fallback={renderFallback('Studio Mestre', 'Estúdio Mestre')}>
+            <Suspense fallback={<div className="flex-1 flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
+              <div className="flex-1 w-full h-full overflow-hidden flex flex-col relative z-20">
+                <MestreStudio
+                  lang={sequencer.lang}
+                  onExit={() => setViewMode('roda')}
+                  presetFiles={presetFiles}
+                  localPresets={localPresets}
+                />
+              </div>
+            </Suspense>
+          </ErrorBoundary>
         )}
 
         {viewMode === 'admin' && (
           <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">
-            <Suspense fallback={<div className="flex-1 flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
-              <AdminPanel />
-            </Suspense>
+            <ErrorBoundary fallback={renderFallback('Panneau Admin', 'Painel de Administração')}>
+              <Suspense fallback={<div className="flex-1 flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
+                <AdminPanel />
+              </Suspense>
+            </ErrorBoundary>
           </div>
         )}
 
         {/* Right drawer sidebar context panel */}
         {viewMode === 'roda' && (!isMobile || mobileTab === 'toada') && (
-          <RightSidebar
-            activePanel={isMobile ? (activeRightPanel || 'letras') : 'info'}
-            onTogglePanel={(p) => {
-              if (isMobile) {
-                setActiveRightPanel(activeRightPanel === 'letras' ? 'legend' : 'letras');
-              }
-            }}
-            isMobile={isMobile}
-            mestreSignals={filteredMestreSignals}
-            refreshMestreSignals={refreshMestreSignals}
-            hideGlobalSignals={hideGlobalSignals}
-            onToggleHideGlobalSignals={() => setHideGlobalSignals(!hideGlobalSignals)}
-          />
+          <ErrorBoundary fallback={renderFallback('Panneau Latéral', 'Painel Lateral')}>
+            <RightSidebar
+              activePanel={isMobile ? (activeRightPanel || 'letras') : 'info'}
+              onTogglePanel={(p) => {
+                if (isMobile) {
+                  setActiveRightPanel(activeRightPanel === 'letras' ? 'legend' : 'letras');
+                }
+              }}
+              isMobile={isMobile}
+              mestreSignals={filteredMestreSignals}
+              refreshMestreSignals={refreshMestreSignals}
+              hideGlobalSignals={hideGlobalSignals}
+              onToggleHideGlobalSignals={() => setHideGlobalSignals(!hideGlobalSignals)}
+            />
+          </ErrorBoundary>
         )}
       </div>
 
@@ -925,7 +969,11 @@ export default function App() {
         )}
       </Suspense>
 
-      {viewMode === 'roda' && (!isMobile || mobileTab === 'roda') && <AoVivoOverlay />}
+      {viewMode === 'roda' && (!isMobile || mobileTab === 'roda') && (
+        <ErrorBoundary fallback={null}>
+          <AoVivoOverlay />
+        </ErrorBoundary>
+      )}
 
       {/* Toast non-bloquant pour la synchronisation hors ligne */}
       {toastMessage && (

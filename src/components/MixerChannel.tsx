@@ -109,12 +109,12 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       const getLivePatternForMeasure = (m: number) => {
         const soloPatternPlayId = soloPatternPlayIdRef?.current;
         if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
-          const hasSoloPattern = currentTrack.patterns.some(p => p.id === soloPatternPlayId);
+          const hasSoloPattern = currentTrack?.patterns?.some(p => p.id === soloPatternPlayId);
           if (hasSoloPattern) {
-            return currentTrack.patterns.find(p => p.id === soloPatternPlayId);
+            return currentTrack?.patterns?.find(p => p.id === soloPatternPlayId);
           }
         }
-        return currentTrack.patterns.find(p => p.measureAssignments[m]);
+        return currentTrack?.patterns?.find(p => p?.measureAssignments?.[m]);
       };
 
       const currentLivePattern = getLivePatternForMeasure(measure);
@@ -135,7 +135,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       if (targetStep !== lastVuStepRef.current) {
         lastVuStepRef.current = targetStep;
         if (!currentTrack.isMute) {
-          const val = currentLivePattern.activeSteps[targetStep];
+          const val = currentLivePattern.activeSteps?.[targetStep];
           const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
           if (isHit && vuMeterRef.current) {
             const peakScale = (currentTrack.volumeVal ?? 100) / 100;
@@ -193,12 +193,12 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       const soloPatternPlayId = soloPatternPlayIdRef?.current;
       const livePattern = (() => {
         if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
-          const hasSoloPattern = currentTrack.patterns.some(p => p.id === soloPatternPlayId);
+          const hasSoloPattern = currentTrack?.patterns?.some(p => p.id === soloPatternPlayId);
           if (hasSoloPattern) {
-            return currentTrack.patterns.find(p => p.id === soloPatternPlayId) || currentTrack.patterns[0];
+            return currentTrack?.patterns?.find(p => p.id === soloPatternPlayId) || currentTrack?.patterns?.[0];
           }
         }
-        return currentTrack.patterns.find(p => p.measureAssignments[liveMeasure]) || currentTrack.patterns[0];
+        return currentTrack?.patterns?.find(p => p?.measureAssignments?.[liveMeasure]) || currentTrack?.patterns?.[0];
       })();
 
       if (livePattern && livePattern.id !== currentTrack.selectedPatternId) {
@@ -242,21 +242,24 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     transition,
   } = useSortable({ id: `track-${trackId}` });
 
+  // Guard Clauses for store states
   if (!track) return null;
+
+  const inst = instrumentsConfig[track.instrumentIdx];
+  if (!inst) return null;
 
   const handleSave = (patternId: number) => {
     onPatternNameChange(patternId, editName);
     setEditingPatternId(null);
   };
 
-  const inst = instrumentsConfig[track.instrumentIdx];
   const t = (key: string) => (i18n[lang] as any)[key] || key;
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
   const handleStart = (e: React.MouseEvent | React.TouchEvent, stepIdx: number, currentVal: string | number) => {
     if ('shiftKey' in e && e.shiftKey) return;
     const visualVal = getVisualStrokeSymbol(currentVal, isLeftHanded, inst.id);
-    if (onStepTouchStart) {
+    if (onStepTouchStart && activePattern) {
       onStepTouchStart(e, activePattern.id, stepIdx, inst.id, visualVal, (newVal) => {
         onStepValueChange(activePattern.id, stepIdx, newVal);
       });
@@ -298,6 +301,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const onDelete = () => {
     useSequencerStore.getState().handleTrackDelete(trackId);
   };
+
   const onVolumeChange = (val: number) => {
     useSequencerStore.getState().handleTrackVolumeChange(trackId, val);
   };
@@ -333,21 +337,22 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     sequencer.pushUndoState();
     useSequencerStore.getState().setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
-        const p = t.patterns[0];
+        const p = t.patterns?.[0];
+        const stepsCount = p?.steps ?? 16;
         const newPattern: Pattern = {
           id: Date.now() + Math.floor(Math.random() * 1000),
-          name: `Padrão ${t.patterns.length + 1}`,
-          steps: p.steps,
-          activeSteps: Array(p.steps).fill(0),
-          lyrics: Array(p.steps).fill(''),
-          notes: Array(p.steps).fill(''),
+          name: `Padrão ${(t.patterns?.length ?? 0) + 1}`,
+          steps: stepsCount,
+          activeSteps: Array(stepsCount).fill(0),
+          lyrics: Array(stepsCount).fill(''),
+          notes: Array(stepsCount).fill(''),
           measureAssignments: Array(totalMeasures).fill(false),
-          volumes: Array(p.steps).fill(80),
-          decays: Array(p.steps).fill(100),
-          microtimings: Array(p.steps).fill(0),
+          volumes: Array(stepsCount).fill(80),
+          decays: Array(stepsCount).fill(100),
+          microtimings: Array(stepsCount).fill(0),
           variations: [],
         };
-        return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
+        return { ...t, patterns: [...(t.patterns || []), newPattern], selectedPatternId: newPattern.id };
       }
       return t;
     }));
@@ -355,9 +360,9 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const onDeletePattern = (patternId: number) => {
     sequencer.pushUndoState();
     useSequencerStore.getState().setTracks(prev => prev.map(t => {
-      if (t.id === trackId && t.patterns.length > 1) {
+      if (t.id === trackId && t.patterns && t.patterns.length > 1) {
         const nextPatterns = t.patterns.filter(p => p.id !== patternId);
-        const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;
+        const nextSelected = t.selectedPatternId === patternId ? (nextPatterns[0]?.id ?? t.selectedPatternId) : t.selectedPatternId;
         return { ...t, patterns: nextPatterns, selectedPatternId: nextSelected };
       }
       return t;
@@ -379,16 +384,19 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     const soloPatternPlayId = soloPatternPlayIdRef?.current;
     if (liveMeasure >= 0) {
       if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
-        const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
+        const hasSoloPattern = track?.patterns?.some(p => p.id === soloPatternPlayId);
         if (hasSoloPattern) return soloPatternPlayId;
       }
-      const assignedPattern = track.patterns.find(p => p.measureAssignments[liveMeasure]);
-      return assignedPattern ? assignedPattern.id : track.selectedPatternId;
+      const assignedPattern = track?.patterns?.find(p => p?.measureAssignments?.[liveMeasure]);
+      return assignedPattern ? assignedPattern.id : track?.selectedPatternId;
     }
-    return track.selectedPatternId;
+    return track?.selectedPatternId;
   })();
 
-  const activePattern = track.patterns.find(p => p.id === liveActivePatternId) || track.patterns[0];
+  const activePattern = track?.patterns?.find(p => p.id === liveActivePatternId) || track?.patterns?.[0];
+
+  // Guard activePattern
+  if (!activePattern) return null;
 
   const currentStep = -1;
 
@@ -486,8 +494,8 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           </div>
           
           <div className="flex flex-col gap-2">
-            <SortableContext items={track.patterns.map(p => `pattern-${p.id}`)} strategy={verticalListSortingStrategy}>
-              {track.patterns.map((ptn, idx) => {
+            <SortableContext items={track?.patterns?.map(p => `pattern-${p.id}`) || []} strategy={verticalListSortingStrategy}>
+              {track?.patterns?.map((ptn, idx) => {
                 const isEditing = editingPatternId === ptn.id;
 
                 return (
@@ -504,8 +512,8 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                               onChange={(e) => setEditName(e.target.value)}
                               onBlur={() => handleSave(ptn.id)}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSave(ptn.id);
-                                if (e.key === 'Escape') setEditingPatternId(null);
+                                  if (e.key === 'Enter') handleSave(ptn.id);
+                                  if (e.key === 'Escape') setEditingPatternId(null);
                               }}
                               className="font-cactus font-bold text-xs bg-transparent border-b border-[var(--cordel-border)] outline-none text-[var(--cordel-text)] px-1 py-0.5 flex-1 min-w-0"
                               autoFocus
@@ -545,7 +553,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
 
                           {!isEditing && (
                             <div className="flex items-center gap-1 ml-auto flex-shrink-0">
-                              {track.patterns.length > 1 && (
+                              {(track?.patterns?.length ?? 0) > 1 && (
                                 <div
                                   {...patternAttributes}
                                   {...patternListeners}
@@ -555,7 +563,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                                   <GripVertical size={14} />
                                 </div>
                               )}
-                              {track.patterns.length > 1 && (
+                              {(track?.patterns?.length ?? 0) > 1 && (
                                 <button 
                                   onClick={() => onDeletePattern(ptn.id)} 
                                   className="text-[#8b2a1a] text-xs px-1 font-bold hover:underline cursor-pointer"
@@ -567,8 +575,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                             </div>
                           )}
                         </div>
-
-
                       </div>
                     )}
                   </SortablePatternWrapper>
@@ -587,7 +593,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           
           <div className="flex gap-2 items-start w-full">
             {(() => {
-              const activePlayingSteps = activePattern.activeSteps;
+              const activePlayingSteps = activePattern.activeSteps || [];
               return inst.type === 'voice' ? (
                 <div ref={containerRef} className="grid grid-cols-4 gap-1.5 w-full step-boxes">
                   {Array.from({ length: activePattern.steps }).map((_, i) => {
@@ -598,7 +604,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                     const note = activePattern.notes?.[i] || '';
                     const typeText = isActive ? (isPux ? 'PUX' : 'CORO') : '---';
                     const typeClass = isActive ? '' : 'bg-transparent text-[var(--cordel-text)]/40';
-                    const typeStyle = isActive ? { backgroundColor: isPux ? inst.colors['P'] : inst.colors['C'], color: '#1a1a1a' } : {};
+                    const typeStyle = isActive ? { backgroundColor: isPux ? inst.colors?.['P'] : inst.colors?.['C'], color: '#1a1a1a' } : {};
 
                     return (
                       <div key={i} className={`v-card flex flex-col bg-[var(--cordel-bg)] cordel-border-sm overflow-hidden border-[var(--cordel-border)]`} data-v-step={i}>

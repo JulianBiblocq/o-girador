@@ -29,25 +29,37 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
   const uiContext = useContext(TimelineUIContext);
   const sequencer = useSequencer();
 
+  // Guard: check if the track and pattern exist in the store
+  const exists = useSequencerStore(
+    state => {
+      const track = state.tracks.find(t => t.id === trackId);
+      const pattern = track?.patterns?.find(p => p.id === patternId);
+      return !!track && !!pattern;
+    }
+  );
+
   // Zustand "ID-Only" selector to retrieve only local properties for this specific step
   const localData = useSequencerStore(
     useShallow(state => {
+      if (!exists) return null;
       const track = state.tracks.find(t => t.id === trackId);
-      const pattern = track?.patterns.find(p => p.id === patternId);
+      const pattern = track?.patterns?.find(p => p.id === patternId);
       if (!track || !pattern) return null;
 
       return {
-        val: pattern.activeSteps[stepIdx] ?? 0,
-        lyric: pattern.lyrics?.[stepIdx] ?? '',
-        note: pattern.notes?.[stepIdx] ?? '',
+        val: pattern?.activeSteps?.[stepIdx] ?? 0,
+        lyric: pattern?.lyrics?.[stepIdx] ?? '',
+        note: pattern?.notes?.[stepIdx] ?? '',
         instrumentIdx: track.instrumentIdx,
         timeSigStr: state.measureTimeSigs[measureIdx] || '4/4',
-        beatResolutions: pattern.beatResolutions,
+        beatResolutions: pattern?.beatResolutions,
       };
     })
   );
 
-  if (!uiContext || !localData) return null;
+  // Apply guard clause early returns
+  if (!exists || !uiContext || !localData) return null;
+
   const { MEASURE_W, isPanningActive } = uiContext;
   const { val, lyric, note, instrumentIdx, timeSigStr, beatResolutions } = localData;
 
@@ -78,8 +90,8 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
   };
 
   if (isActive) {
-    const bg = inst.colors[val as string] || '#111';
-    let fg = inst.colors.text || '#f4ecd8';
+    const bg = inst.colors?.[val as string] || '#111';
+    let fg = inst.colors?.text || '#f4ecd8';
     if (isDarkText(inst.id, String(val))) {
       fg = '#1a1a1a';
     }

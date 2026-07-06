@@ -106,7 +106,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
   /* Compute global swing offset for a step index */
   const getStepSwingPercent = (stepIdx: number, steps: number, beatResolutions?: number[]) => {
-    if (globalSwing.mode === 'off') return 0;
+    if (globalSwing?.mode === 'off') return 0;
 
     let posInGroup = 0;
     if (beatResolutions && beatResolutions.length > 0) {
@@ -124,8 +124,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       posInGroup = Math.round(posInBeat) % 4;
     }
 
-    if (globalSwing.mode === 'custom') {
-      return globalSwing.customOffsets[posInGroup] || 0;
+    if (globalSwing?.mode === 'custom') {
+      return globalSwing?.customOffsets?.[posInGroup] || 0;
     }
 
     // Default 'maracatu' mode
@@ -168,12 +168,12 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
       const isCurrentPlaying = (() => {
         if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
-          const hasSoloPattern = trackObj.patterns.some(p => p.id === soloPatternPlayId);
+          const hasSoloPattern = trackObj?.patterns?.some(p => p.id === soloPatternPlayId);
           if (hasSoloPattern) {
-            return pattern.id === soloPatternPlayId;
+            return pattern?.id === soloPatternPlayId;
           }
         }
-        return pattern.measureAssignments[measure] === true;
+        return pattern?.measureAssignments?.[measure] === true;
       })();
 
       // 1. Clean up old highlights if we aren't playing this pattern or step is negative
@@ -195,7 +195,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       }
 
       // 2. Step Cell Highlight
-      const targetStep = Math.floor(ratio * pattern.steps);
+      const targetStep = Math.floor(ratio * (pattern?.steps ?? 16));
       const targetEl = gridRef.current.querySelector(`[data-step-index="${targetStep}"]`) as HTMLElement;
 
       if (targetEl !== lastActiveEl) {
@@ -209,7 +209,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       }
 
       // 3. Vocal Karaoke word highlighting
-      if (instrument.type === 'voice') {
+      if (instrument?.type === 'voice') {
         const wordSpans = gridRef.current.querySelectorAll('[data-word-steps]');
         let activeWordSpan: HTMLElement | null = null;
         let activeSylSpan: HTMLElement | null = null;
@@ -270,7 +270,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         lastActiveSylEl.classList.remove('underline', 'decoration-2');
       }
     };
-  }, [trackId, pattern.id, pattern.steps, instrument.type]);
+  }, [trackId, pattern?.id, pattern?.steps, instrument?.type]);
 
   // Window global listeners for Drag / Touch select releasing
   useEffect(() => {
@@ -310,9 +310,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       if (key === 'Delete' || key === 'Backspace' || key === '0') {
         e.preventDefault();
         if (selectedVariationId) {
-          handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, selectedStepIndices, '0');
+          handleVariationStepValueChange(trackId, pattern?.id, selectedVariationId, selectedStepIndices, '0');
         } else {
-          handleTrackStepValueChange(trackId, pattern.id, selectedStepIndices, '0');
+          handleTrackStepValueChange(trackId, pattern?.id, selectedStepIndices, '0');
         }
         setSelectedStepIndices([]);
         return;
@@ -321,9 +321,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       if (key.length === 1 && /^[a-zA-Z0-9]$/.test(key)) {
         e.preventDefault();
         if (selectedVariationId) {
-          handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, selectedStepIndices, key);
+          handleVariationStepValueChange(trackId, pattern?.id, selectedVariationId, selectedStepIndices, key);
         } else {
-          handleTrackStepValueChange(trackId, pattern.id, selectedStepIndices, key);
+          handleTrackStepValueChange(trackId, pattern?.id, selectedStepIndices, key);
         }
         setSelectedStepIndices([]);
       }
@@ -331,7 +331,62 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isMultiSelectActive, selectedStepIndices, pattern.id, selectedVariationId, trackId, handleTrackStepValueChange, handleVariationStepValueChange, setSelectedStepIndices]);
+  }, [isMultiSelectActive, selectedStepIndices, pattern?.id, selectedVariationId, trackId, handleTrackStepValueChange, handleVariationStepValueChange, setSelectedStepIndices]);
+
+  // Keyboard and Copy/Paste listeners specifically related to pattern actions
+  useEffect(() => {
+    const handleGridShortcut = (e: Event) => {
+      const customEvent = e as CustomEvent<{ key: string }>;
+      const { key } = customEvent.detail;
+      const activePtn = pattern;
+      if (!activePtn) return;
+
+      if (key === 'a') {
+        setIsMultiSelectActive(true);
+        setSelectedStepIndices(Array.from({ length: activePtn.steps }, (_, i) => i));
+      } else if (key === 'c') {
+        if (selectedStepIndices.length > 0) {
+          handleCopyRelative(activePtn);
+        } else {
+          onCopyPattern && onCopyPattern(activePtn);
+        }
+      } else if (key === 'x') {
+        if (selectedStepIndices.length > 0) {
+          handleCopyRelative(activePtn);
+          if (selectedVariationId) {
+            handleVariationStepValueChange(trackId, activePtn.id, selectedVariationId, selectedStepIndices, '0');
+          } else {
+            handleTrackStepValueChange(trackId, activePtn.id, selectedStepIndices, '0');
+          }
+          setSelectedStepIndices([]);
+        } else {
+          onCopyPattern && onCopyPattern(activePtn);
+          const allIndices = Array.from({ length: activePtn.steps }, (_, i) => i);
+          if (selectedVariationId) {
+            handleVariationStepValueChange(trackId, activePtn.id, selectedVariationId, allIndices, '0');
+          } else {
+            handleTrackStepValueChange(trackId, activePtn.id, allIndices, '0');
+          }
+        }
+      } else if (key === 'v') {
+        if (getGlobalClipboard()) {
+          const targetIdx = (isMultiSelectActive && selectedStepIndices.length > 0) ? selectedStepIndices[0] : (selectedStepIdx !== null ? selectedStepIdx : 0);
+          handlePasteRelative(activePtn, targetIdx);
+        } else {
+          if (canPaste && onPastePattern) {
+            onPastePattern(activePtn.id);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('grid-shortcut', handleGridShortcut);
+    return () => window.removeEventListener('grid-shortcut', handleGridShortcut);
+  }, [pattern, selectedVariationId, isMultiSelectActive, selectedStepIndices, selectedStepIdx, onCopyPattern, onPastePattern, canPaste, trackId]);
+
+  // Guard Clauses for store state and props
+  const trackExists = useSequencerStore(state => state.tracks.some(t => t.id === trackId));
+  if (!trackExists || !pattern || !instrument) return null;
 
   const handleStepTouchStartMulti = (e: React.TouchEvent, index: number) => {
     if (!isMultiSelectActive) return;
@@ -383,7 +438,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     if (!hasDraggedRef.current && initialTouchIndexRef.current !== null) {
       const tappedIdx = initialTouchIndexRef.current;
       if (selectedStepIndices.includes(tappedIdx) && selectedStepIndices.length > 0) {
-        const stepVal = pattern.activeSteps[tappedIdx];
+        const stepVal = pattern?.activeSteps?.[tappedIdx];
         if (onStepTouchStart) {
           onStepTouchStart(e, pattern.id, tappedIdx, instrument.id, stepVal, (newVal) => {
             if (selectedVariationId) {
@@ -443,9 +498,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     const baseIdx = sorted[0];
     const copiedSteps = sorted.map(idx => ({
       offset: idx - baseIdx,
-      val: ptn.activeSteps[idx],
-      lyric: ptn.lyrics?.[idx] || '',
-      note: ptn.notes?.[idx] || '',
+      val: ptn?.activeSteps?.[idx] ?? 0,
+      lyric: ptn?.lyrics?.[idx] || '',
+      note: ptn?.notes?.[idx] || '',
     }));
     if (typeof window !== 'undefined') {
       (window as any).__oGiradorRelativeClipboard = { steps: copiedSteps };
@@ -480,57 +535,6 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       setSelectedStepIndices([]);
     }
   };
-
-  // Keyboard and Copy/Paste listeners specifically related to pattern actions
-  useEffect(() => {
-    const handleGridShortcut = (e: Event) => {
-      const customEvent = e as CustomEvent<{ key: string }>;
-      const { key } = customEvent.detail;
-      const activePtn = pattern;
-      if (!activePtn) return;
-
-      if (key === 'a') {
-        setIsMultiSelectActive(true);
-        setSelectedStepIndices(Array.from({ length: activePtn.steps }, (_, i) => i));
-      } else if (key === 'c') {
-        if (selectedStepIndices.length > 0) {
-          handleCopyRelative(activePtn);
-        } else {
-          onCopyPattern && onCopyPattern(activePtn);
-        }
-      } else if (key === 'x') {
-        if (selectedStepIndices.length > 0) {
-          handleCopyRelative(activePtn);
-          if (selectedVariationId) {
-            handleVariationStepValueChange(trackId, activePtn.id, selectedVariationId, selectedStepIndices, '0');
-          } else {
-            handleTrackStepValueChange(trackId, activePtn.id, selectedStepIndices, '0');
-          }
-          setSelectedStepIndices([]);
-        } else {
-          onCopyPattern && onCopyPattern(activePtn);
-          const allIndices = Array.from({ length: activePtn.steps }, (_, i) => i);
-          if (selectedVariationId) {
-            handleVariationStepValueChange(trackId, activePtn.id, selectedVariationId, allIndices, '0');
-          } else {
-            handleTrackStepValueChange(trackId, activePtn.id, allIndices, '0');
-          }
-        }
-      } else if (key === 'v') {
-        if (getGlobalClipboard()) {
-          const targetIdx = (isMultiSelectActive && selectedStepIndices.length > 0) ? selectedStepIndices[0] : (selectedStepIdx !== null ? selectedStepIdx : 0);
-          handlePasteRelative(activePtn, targetIdx);
-        } else {
-          if (canPaste && onPastePattern) {
-            onPastePattern(activePtn.id);
-          }
-        }
-      }
-    };
-
-    window.addEventListener('grid-shortcut', handleGridShortcut);
-    return () => window.removeEventListener('grid-shortcut', handleGridShortcut);
-  }, [pattern, selectedVariationId, isMultiSelectActive, selectedStepIndices, selectedStepIdx, onCopyPattern, onPastePattern, canPaste, trackId]);
 
   const handleStart = (e: React.MouseEvent | React.TouchEvent, stepIdx: number, currentVal: string | number) => {
     if ('shiftKey' in e && e.shiftKey) return;
@@ -655,12 +659,12 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
             const groups = [];
             let accumulated = 0;
             const defaultBeats = 4;
-            const beatRes = pattern.beatResolutions || Array(Math.ceil(pattern.steps / defaultBeats)).fill(defaultBeats);
+            const beatRes = pattern?.beatResolutions || Array(Math.ceil((pattern?.steps ?? 16) / defaultBeats)).fill(defaultBeats);
             for (let b = 0; b < beatRes.length; b++) {
               const res = beatRes[b];
               const group = [];
               for (let i = 0; i < res; i++) {
-                if (accumulated + i < pattern.steps) {
+                if (accumulated + i < (pattern?.steps ?? 16)) {
                   group.push(accumulated + i);
                 }
               }
@@ -670,11 +674,11 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
             return groups.map((group, groupIdx) => (
               <div key={groupIdx} className="flex gap-4 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
                 {group.map((i) => {
-                  const state = pattern.activeSteps[i];
+                  const state = pattern?.activeSteps?.[i];
                   const isActive = state !== 0;
                   const isPux = state === 'P';
-                  const syl = pattern.lyrics?.[i] || '';
-                  const note = pattern.notes?.[i] || '';
+                  const syl = pattern?.lyrics?.[i] || '';
+                  const note = pattern?.notes?.[i] || '';
                   const typeText = isActive ? (isPux ? '🗣️ Pux' : '👥 Coro') : '---';
                   const typeClass = isActive ? 'text-white' : 'bg-transparent text-[#666]';
                   const typeStyle = isActive
@@ -684,12 +688,12 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                   const isSelected = selectedStepIndices.includes(i);
 
                   // Calculate total micro-timing shift (manual + global swing)
-                  const manualMicro = pattern.microtimings?.[i] ?? 0;
-                  const swingOffset = getStepSwingPercent(i, pattern.steps, pattern.beatResolutions);
+                  const manualMicro = pattern?.microtimings?.[i] ?? 0;
+                  const swingOffset = getStepSwingPercent(i, pattern?.steps ?? 16, pattern?.beatResolutions);
                   const totalShift = Math.max(-100, Math.min(100, manualMicro + swingOffset));
                   const shiftPx = (totalShift / 100) * 8; // Max 8px shift
 
-                  const isLinked = syl && !syl.endsWith(' ') && i < pattern.steps - 1 && (pattern.lyrics?.[i + 1] || '').trim() !== '';
+                  const isLinked = syl && !syl.endsWith(' ') && i < (pattern?.steps ?? 16) - 1 && (pattern?.lyrics?.[i + 1] || '').trim() !== '';
 
                   return (
                     <div key={i} className="relative" style={{ width: '56px' }}>
@@ -836,12 +840,12 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
             const karaokeWords = [];
             let currentWord = [];
             
-            for (let idx = 0; idx < pattern.steps; idx++) {
-              const active = pattern.activeSteps[idx] !== 0;
-              const syl = pattern.lyrics?.[idx] || '';
+            for (let idx = 0; idx < (pattern?.steps ?? 16); idx++) {
+              const active = pattern?.activeSteps?.[idx] !== 0;
+              const syl = pattern?.lyrics?.[idx] || '';
               if (active && syl) {
                 currentWord.push({ text: syl, index: idx });
-                if (syl.endsWith(' ') || idx === pattern.steps - 1) {
+                if (syl.endsWith(' ') || idx === (pattern?.steps ?? 16) - 1) {
                   karaokeWords.push([...currentWord]);
                   currentWord = [];
                 }
@@ -900,12 +904,12 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
             const groups = [];
             let accumulated = 0;
             const defaultBeats = 4;
-            const beatRes = pattern.beatResolutions || Array(Math.ceil(pattern.steps / defaultBeats)).fill(defaultBeats);
+            const beatRes = pattern?.beatResolutions || Array(Math.ceil((pattern?.steps ?? 16) / defaultBeats)).fill(defaultBeats);
             for (let b = 0; b < beatRes.length; b++) {
               const res = beatRes[b];
               const group = [];
               for (let i = 0; i < res; i++) {
-                if (accumulated + i < pattern.steps) {
+                if (accumulated + i < (pattern?.steps ?? 16)) {
                   group.push(accumulated + i);
                 }
               }
@@ -933,7 +937,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                   )}
                   <div className={`p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm relative ${isSextuplet ? 'h-[72px]' : isTriplet ? 'flex justify-between' : 'flex gap-4'}`} style={{ width: '204px' }}>
                     {group.map((i, indexInGroup) => {
-                      const val = pattern.activeSteps[i];
+                      const val = pattern?.activeSteps?.[i];
                       const displayVal = getDisplayVal(val);
                       const isActive = val !== 0 && val !== '';
 
@@ -942,9 +946,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
                       let colorStyle: React.CSSProperties = {};
                       if (isActive) {
-                        const bgColor = instrument.colors[val as string] || '#111';
-                        let txtColor = instrument.colors.text || '#f4ecd8';
-                        if (isDarkText(instrument.id, val as string)) {
+                        const bgColor = instrument?.colors?.[val as string] || '#111';
+                        let txtColor = instrument?.colors?.text || '#f4ecd8';
+                        if (isDarkText(instrument?.id, val as string)) {
                           txtColor = '#1a1a1a';
                         }
                         colorStyle = {
@@ -955,8 +959,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       }
 
                       // Calculate total micro-timing shift (manual + global swing)
-                      const manualMicro = pattern.microtimings?.[i] ?? 0;
-                      const swingOffset = getStepSwingPercent(i, pattern.steps, pattern.beatResolutions);
+                      const manualMicro = pattern?.microtimings?.[i] ?? 0;
+                      const swingOffset = getStepSwingPercent(i, pattern?.steps ?? 16, pattern?.beatResolutions);
                       const totalShift = Math.max(-100, Math.min(100, manualMicro + swingOffset));
                       const shiftPx = (totalShift / 100) * 8; // Max 8px shift
 
@@ -983,7 +987,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                           <div className="text-[8px] text-[#999] font-bold mb-0.5 z-10 relative">{i + 1}</div>
                           <input
                             type="text"
-                            maxLength={['caixa', 'tarol', 'timbal'].includes(instrument.id) ? 2 : 1}
+                            maxLength={['caixa', 'tarol', 'timbal'].includes(instrument?.id) ? 2 : 1}
                             value={displayVal}
                             readOnly={isMultiSelectActive}
                             inputMode={isTouchDevice ? 'none' : undefined}
@@ -1008,7 +1012,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                               // 1. Alt Key Paint Editing
                               if (e.altKey) {
                                 isMouseDownRef.current = true;
-                                const nextVal = getNextStepValue(instrument.id, instrument.type, val);
+                                const nextVal = getNextStepValue(instrument?.id, instrument?.type, val);
                                 paintValueRef.current = nextVal;
                                 if (selectedVariationId) {
                                   handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, i, String(nextVal));
@@ -1035,7 +1039,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                               setSelectedStepIdx(i);
                               setSelectedStepIndices([i]);
                               isMouseDownRef.current = true;
-                              const nextVal = getNextStepValue(instrument.id, instrument.type, val);
+                              const nextVal = getNextStepValue(instrument?.id, instrument?.type, val);
                               paintValueRef.current = nextVal;
                               if (selectedVariationId) {
                                 handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, i, String(nextVal));
@@ -1181,11 +1185,11 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                           <div className="w-full flex flex-col gap-[2px] mt-1 z-10 relative">
                             {/* Volume bar (Green) */}
                             <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-                              <div className="h-full bg-green-600 transition-all" style={{ width: `${pattern.volumes?.[i] ?? 100}%` }} />
+                              <div className="h-full bg-green-600 transition-all" style={{ width: `${pattern?.volumes?.[i] ?? 100}%` }} />
                             </div>
                             {/* Decay bar (Amber) */}
                             <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-                              <div className="h-full bg-amber-500 transition-all" style={{ width: `${pattern.decays?.[i] ?? 100}%` }} />
+                              <div className="h-full bg-amber-500 transition-all" style={{ width: `${pattern?.decays?.[i] ?? 100}%` }} />
                             </div>
                             {/* Micro-timing bar (Blue bi-directional) */}
                             <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
