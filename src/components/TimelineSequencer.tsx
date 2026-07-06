@@ -61,18 +61,18 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
   // 🛡️ FIX (Audit): Direct Zustand selectors to avoid massive cascade re-renders
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
-  const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
-  const measureBpms = useSequencerStore(state => state.measureBpms);
-  const measureBpmTransitions = useSequencerStore(state => state.measureBpmTransitions);
-  const measureVols = useSequencerStore(state => state.measureVols);
-  const measureVolTransitions = useSequencerStore(state => state.measureVolTransitions);
-  const songSections = useSequencerStore(state => state.songSections);
-  const songMarkers = useSequencerStore(state => state.songMarkers);
+  const measureTimeSigs = useSequencerStore(useShallow(state => state.measureTimeSigs));
+  const measureBpms = useSequencerStore(useShallow(state => state.measureBpms));
+  const measureBpmTransitions = useSequencerStore(useShallow(state => state.measureBpmTransitions));
+  const measureVols = useSequencerStore(useShallow(state => state.measureVols));
+  const measureVolTransitions = useSequencerStore(useShallow(state => state.measureVolTransitions));
+  const songSections = useSequencerStore(useShallow(state => state.songSections));
+  const songMarkers = useSequencerStore(useShallow(state => state.songMarkers));
   const copiedSection = useSequencerStore(state => state.copiedSection);
   const loopStartMeasure = useSequencerStore(state => state.loopStartMeasure);
   const loopEndMeasure = useSequencerStore(state => state.loopEndMeasure);
   const isLoopRegionActive = useSequencerStore(state => state.isLoopRegionActive);
-  const measureSignals = useSequencerStore(state => state.measureSignals) || [];
+  const measureSignals = useSequencerStore(useShallow(state => state.measureSignals || []));
 
   const {
     lang,
@@ -252,6 +252,53 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       el.removeEventListener('touchcancel', handleTouchEnd);
     };
   }, [onMeasureWidthChange]);
+
+  // high-frequency DOM manipulation for playback highlighting (Zero Render Thrashing)
+  useEffect(() => {
+    let activeElements: HTMLElement[] = [];
+
+    const handleTick = (e: Event) => {
+      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number }>;
+      const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+
+      const isEco = (window as any).oGiradorEcoMode;
+      if (isEco) return;
+
+      // 1. Clean up old highlights
+      activeElements.forEach(el => {
+        el.classList.remove('live-playhead-highlight');
+      });
+      activeElements = [];
+
+      if (step < 0) return;
+
+      // 2. Query and highlight active step cells in the current measure
+      if (containerRef.current) {
+        const stepEls = containerRef.current.querySelectorAll(
+          `.timeline-step[data-measure="${measure}"]`
+        );
+        stepEls.forEach(el => {
+          const htmlEl = el as HTMLElement;
+          const stepsAttr = Number(htmlEl.getAttribute('data-steps') || '16');
+          const stepIdxAttr = Number(htmlEl.getAttribute('data-step') || '0');
+          const activeStepIdx = Math.floor(ratio * stepsAttr);
+          
+          if (stepIdxAttr === activeStepIdx) {
+            htmlEl.classList.add('live-playhead-highlight');
+            activeElements.push(htmlEl);
+          }
+        });
+      }
+    };
+
+    window.addEventListener('o-girador-tick', handleTick);
+    return () => {
+      window.removeEventListener('o-girador-tick', handleTick);
+      activeElements.forEach(el => {
+        el.classList.remove('live-playhead-highlight');
+      });
+    };
+  }, []);
 
   // Navigation & Snapping States
   const [toolMode] = React.useState<'cursor' | 'hand'>('cursor');
