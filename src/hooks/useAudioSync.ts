@@ -687,7 +687,12 @@ export function useAudioSync({
                 detail
               }));
 
-              // Delay the heavy React render until *after* the playhead frame has been painted
+              // OPTIMISATION : Ne pas mettre à jour le store Zustand de la mesure pendant la lecture.
+              // Les composants critiques (Playhead, CircleSequencer) se mettent déjà à jour en temps réel
+              // via les événements DOM natifs 'o-girador-tick'. Éviter cette mise à jour de store durant la lecture
+              // élimine les rendus React lourds au début de chaque mesure, libérant le Main Thread
+              // et évitant les sautes de son ou saccades. La synchronisation React se fait lors de la pause/arrêt/seek.
+              /*
               if (_stepForUI === 0) {
                 requestAnimationFrame(() => {
                   setTimeout(() => {
@@ -697,6 +702,7 @@ export function useAudioSync({
                   }, 0);
                 });
               }
+              */
             }, drawTime);
           }
 

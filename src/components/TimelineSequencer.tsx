@@ -165,9 +165,11 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       start = Math.max(0, end - buffer);
     }
 
-    setVisibleRange(prev => {
-      if (prev.start === start && prev.end === end) return prev;
-      return { start, end };
+    React.startTransition(() => {
+      setVisibleRange(prev => {
+        if (prev.start === start && prev.end === end) return prev;
+        return { start, end };
+      });
     });
   }, [totalMeasures, HEADER_W]);
 
