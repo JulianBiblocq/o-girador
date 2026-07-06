@@ -396,15 +396,21 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     };
 
     // Run initial highlight
-    highlightActivePattern(currentMeasure);
+    highlightActivePattern(currentMeasure || 0);
+
+    let lastMeasure = currentMeasure !== undefined ? currentMeasure : -1;
 
     const handleTick = (e: Event) => {
       const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number }>;
       if (customEvent.detail) {
         const { measure, step } = customEvent.detail;
         if (step < 0) {
-          highlightActivePattern(-1);
-        } else {
+          if (lastMeasure !== -1) {
+            lastMeasure = -1;
+            highlightActivePattern(-1);
+          }
+        } else if (measure !== lastMeasure) {
+          lastMeasure = measure;
           highlightActivePattern(measure);
         }
       }

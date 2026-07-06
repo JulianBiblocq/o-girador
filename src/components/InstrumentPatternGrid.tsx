@@ -150,6 +150,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
   // Listen to CustomEvent 'o-girador-tick' to highlight cells dynamically (Bypass React)
   useEffect(() => {
+    if (instrument?.type !== 'voice') return;
+
     let lastActiveWordEl: HTMLElement | null = null;
     let lastActiveSylEl: HTMLElement | null = null;
 
