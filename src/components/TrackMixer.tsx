@@ -15,7 +15,6 @@ import { CompactPatternRenderer } from './CompactPatternRenderer';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
-import { VUMeter } from './VUMeter';
 
 const getGlobalClipboard = () => {
   if (typeof window !== 'undefined') {
@@ -827,13 +826,6 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               </div>
             )}
           </div>
-          
-          <VUMeter
-            instrumentId={inst.id}
-            isPlaying={isPlaying}
-            orientation="horizontal"
-            className="w-14 h-3 bg-black/10 cordel-border-sm self-center hidden sm:flex ml-2"
-          />
         </div>
 
         <div className="flex gap-1.5">

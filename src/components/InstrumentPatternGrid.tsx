@@ -150,7 +150,6 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
   // Listen to CustomEvent 'o-girador-tick' to highlight cells dynamically (Bypass React)
   useEffect(() => {
-    let lastActiveEl: HTMLElement | null = null;
     let lastActiveWordEl: HTMLElement | null = null;
     let lastActiveSylEl: HTMLElement | null = null;
 
@@ -178,10 +177,6 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
       // 1. Clean up old highlights if we aren't playing this pattern or step is negative
       if (!isCurrentPlaying || step < 0) {
-        if (lastActiveEl) {
-          lastActiveEl.classList.remove('live-playhead-highlight');
-          lastActiveEl = null;
-        }
         if (lastActiveWordEl) {
           lastActiveWordEl.classList.remove('text-[#8b2a1a]', 'scale-105', 'transform', 'origin-left');
           lastActiveWordEl.classList.add('opacity-85');
@@ -194,22 +189,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         return;
       }
 
-      // 2. Step Cell Highlight
-      const targetStep = Math.floor(ratio * (pattern?.steps ?? 16));
-      const targetEl = gridRef.current.querySelector(`[data-step-index="${targetStep}"]`) as HTMLElement;
-
-      if (targetEl !== lastActiveEl) {
-        if (lastActiveEl) {
-          lastActiveEl.classList.remove('live-playhead-highlight');
-        }
-        if (targetEl) {
-          targetEl.classList.add('live-playhead-highlight');
-          lastActiveEl = targetEl;
-        }
-      }
-
       // 3. Vocal Karaoke word highlighting
       if (instrument?.type === 'voice') {
+        const targetStep = Math.floor(ratio * (pattern?.steps ?? 16));
         const wordSpans = gridRef.current.querySelectorAll('[data-word-steps]');
         let activeWordSpan: HTMLElement | null = null;
         let activeSylSpan: HTMLElement | null = null;
@@ -259,9 +241,6 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     window.addEventListener('o-girador-tick', handleTick);
     return () => {
       window.removeEventListener('o-girador-tick', handleTick);
-      if (lastActiveEl) {
-        lastActiveEl.classList.remove('live-playhead-highlight');
-      }
       if (lastActiveWordEl) {
         lastActiveWordEl.classList.remove('text-[#8b2a1a]', 'scale-105', 'transform', 'origin-left');
         lastActiveWordEl.classList.add('opacity-85');
