@@ -68,6 +68,7 @@ interface InstrumentDetailEditorProps {
   onUpdatePatternVariationProbability?: (patternId: number, variationId: string, probability: number) => void;
   onNavigatePrev?: () => void;
   onNavigateNext?: () => void;
+  onKeyDown?: (e: any) => void;
   onTogglePatternVariationFirstTimeOnly?: (patternId: number, variationId: string, val: boolean) => void;
   onVariationStepValueChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: string | string[]) => void;
   onDeletePatternVariation?: (patternId: number, variationId: string) => void;
@@ -82,11 +83,11 @@ interface InstrumentDetailEditorProps {
   onVariationStepDecayChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: number) => void;
   onVariationStepMicrotimingChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: number) => void;
   globalSwing: GlobalSwing;
-  isPlaying: boolean;
-  currentStepIndex: number;
-  currentMeasure: number;
-  maxTicks: number;
-  totalMeasures: number;
+  isPlaying?: boolean;
+  currentStepIndex?: number;
+  currentMeasure?: number;
+  maxTicks?: number;
+  totalMeasures?: number;
   isMobile: boolean;
   onStepTouchStart?: (
     e: React.MouseEvent | React.TouchEvent,
@@ -175,6 +176,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   onStopSoloPattern,
   onNavigatePrev,
   onNavigateNext,
+  onKeyDown,
   runAutoCalibration,
 }) => {
   const { alertAsync } = useGameData();
@@ -186,9 +188,18 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
-  const [liveMeasure, setLiveMeasure] = useState<number>(currentMeasure);
   const [isCalibrating, setIsCalibrating] = useState<boolean>(false);
   const [noteSelectorTarget, setNoteSelectorTarget] = useState<{ patternId: number; stepIdx: number; note: string; element: HTMLElement } | null>(null);
+
+  const isPlayingRef = useRef(isPlaying);
+  const soloPatternPlayIdRef = useRef(soloPatternPlayId);
+  const trackRef = useRef(track);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const lastActivePatternIdRef = useRef<number | null>(null);
+
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => { soloPatternPlayIdRef.current = soloPatternPlayId; }, [soloPatternPlayId]);
+  useEffect(() => { trackRef.current = track; }, [track]);
 
   const handleAutoCalibrate = async () => {
     if (!runAutoCalibration) return;
@@ -329,24 +340,93 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   }, []);
 
   useEffect(() => {
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      if (customEvent.detail) {
-        const { measure } = customEvent.detail;
-        setLiveMeasure((prev) => (prev !== measure ? measure : prev));
+    let lastActiveId = lastActivePatternIdRef.current;
+
+    const highlightActivePattern = (measure: number) => {
+      const currentTrack = trackRef.current;
+      if (!currentTrack) return;
+
+      const isPlay = isPlayingRef.current;
+      const soloPatternId = soloPatternPlayIdRef.current;
+
+      let activeId: number | null = null;
+      if (isPlay) {
+        if (soloPatternId !== undefined && soloPatternId !== null) {
+          const hasSoloPattern = currentTrack.patterns.some(p => p.id === soloPatternId);
+          if (hasSoloPattern) {
+            activeId = soloPatternId;
+          }
+        }
+        if (activeId === null) {
+          const activePattern = currentTrack.patterns.find(p => p.measureAssignments[measure]);
+          activeId = activePattern ? activePattern.id : currentTrack.patterns[0]?.id;
+        }
+      }
+
+      if (activeId !== lastActiveId) {
+        // Clear old highlight
+        if (lastActiveId !== null && containerRef.current) {
+          const oldCard = containerRef.current.querySelector(`[data-pattern-card="${lastActiveId}"]`) as HTMLElement;
+          if (oldCard) {
+            oldCard.style.boxShadow = oldCard.getAttribute('data-selected') === 'true' ? '4px 4px 0px 0px #1a1a1a' : '2px 2px 0px 0px #bbb';
+            oldCard.style.borderColor = oldCard.getAttribute('data-selected') === 'true' ? '#1a1a1a' : '#999';
+          }
+          const oldBadge = containerRef.current.querySelector(`[data-active-badge="${lastActiveId}"]`) as HTMLElement;
+          if (oldBadge) {
+            oldBadge.classList.add('hidden');
+          }
+        }
+
+        // Apply new highlight
+        if (activeId !== null && containerRef.current) {
+          const newCard = containerRef.current.querySelector(`[data-pattern-card="${activeId}"]`) as HTMLElement;
+          if (newCard) {
+            newCard.style.boxShadow = '4px 4px 0px 0px #8b2a1a';
+            newCard.style.borderColor = '#8b2a1a';
+          }
+          const newBadge = containerRef.current.querySelector(`[data-active-badge="${activeId}"]`) as HTMLElement;
+          if (newBadge) {
+            newBadge.classList.remove('hidden');
+          }
+        }
+
+        lastActiveId = activeId;
+        lastActivePatternIdRef.current = activeId;
       }
     };
+
+    // Run initial highlight
+    highlightActivePattern(currentMeasure);
+
+    const handleTick = (e: Event) => {
+      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number }>;
+      if (customEvent.detail) {
+        const { measure, step } = customEvent.detail;
+        if (step < 0) {
+          highlightActivePattern(-1);
+        } else {
+          highlightActivePattern(measure);
+        }
+      }
+    };
+
     window.addEventListener('o-girador-tick', handleTick);
     return () => {
       window.removeEventListener('o-girador-tick', handleTick);
+      // Clean up highlights on unmount
+      if (lastActiveId !== null && containerRef.current) {
+        const card = containerRef.current.querySelector(`[data-pattern-card="${lastActiveId}"]`) as HTMLElement;
+        if (card) {
+          card.style.boxShadow = card.getAttribute('data-selected') === 'true' ? '4px 4px 0px 0px #1a1a1a' : '2px 2px 0px 0px #bbb';
+          card.style.borderColor = card.getAttribute('data-selected') === 'true' ? '#1a1a1a' : '#999';
+        }
+        const badge = containerRef.current.querySelector(`[data-active-badge="${lastActiveId}"]`) as HTMLElement;
+        if (badge) {
+          badge.classList.add('hidden');
+        }
+      }
     };
-  }, []);
-
-  useEffect(() => {
-    if (!isPlaying) {
-      setLiveMeasure(currentMeasure);
-    }
-  }, [isPlaying, currentMeasure]);
+  }, [track.id, isPlaying, currentMeasure]);
 
   const handleSave = (patternId: number) => {
     if (onPatternNameChange) {
@@ -393,10 +473,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
+      if (onKeyDown) onKeyDown(e);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onClose, onKeyDown]);
 
   return createPortal(
     <div
@@ -500,27 +581,27 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
           
           {/* Main scrollable editor panel */}
-          <div className="flex-1 md:overflow-y-auto p-3 md:p-5 flex flex-col gap-6" style={{ minWidth: 0, WebkitOverflowScrolling: 'touch' }}>
+          <div ref={containerRef} className="flex-1 md:overflow-y-auto p-3 md:p-5 flex flex-col gap-6" style={{ minWidth: 0, WebkitOverflowScrolling: 'touch' }}>
             <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
               <SortableContext items={patternIds} strategy={verticalListSortingStrategy}>
                 {track.patterns.map((ptn, ptnIdx) => {
                   const isSelected = track.selectedPatternId === ptn.id;
-                  const livePattern = track.patterns.find(p => p.measureAssignments[liveMeasure]) || track.patterns[0];
-                  const isCurrentPlaying = isPlaying && ptn.id === livePattern.id;
 
                   return (
                     <SortablePatternWrapper key={ptn.id} id={ptn.id}>
                       {({ setNodeRef, style, attributes, listeners }: any) => (
                         <div
                           ref={setNodeRef}
+                          data-pattern-card={ptn.id}
+                          data-selected={isSelected}
                           className={`cordel-border-sm p-4 flex flex-col gap-3 transition-colors ${
                             isSelected ? 'bg-[#f4ecd8]' : 'bg-[#ece4d0]'
                           }`}
                           style={{
                             ...style,
-                            boxShadow: isCurrentPlaying ? '4px 4px 0px 0px #8b2a1a' : (isSelected ? '4px 4px 0px 0px #1a1a1a' : '2px 2px 0px 0px #bbb'),
-                            borderColor: isCurrentPlaying ? '#8b2a1a' : (isSelected ? '#1a1a1a' : '#999'),
-                            borderWidth: isCurrentPlaying ? '3px' : '2px',
+                            boxShadow: isSelected ? '4px 4px 0px 0px #1a1a1a' : '2px 2px 0px 0px #bbb',
+                            borderColor: isSelected ? '#1a1a1a' : '#999',
+                            borderWidth: '2px',
                           }}
                         >
                           {/* Pattern Header */}
@@ -575,11 +656,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               </button>
                             )}
 
-                            {isCurrentPlaying && (
-                              <span className="bg-[#8b2a1a] text-[#f4ecd8] text-[9px] uppercase px-1.5 py-0.5 cordel-border-sm font-bold flex items-center gap-1 animate-pulse select-none">
-                                ▶ {lang === 'fr' ? 'Actif' : 'Ativo'}
-                              </span>
-                            )}
+                            <span
+                              data-active-badge={ptn.id}
+                              className="bg-[#8b2a1a] text-[#f4ecd8] text-[9px] uppercase px-1.5 py-0.5 cordel-border-sm font-bold flex items-center gap-1 animate-pulse select-none hidden"
+                            >
+                              ▶ {lang === 'fr' ? 'Actif' : 'Ativo'}
+                            </span>
 
                             <button
                               onClick={(e) => {
@@ -1133,28 +1215,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 };
 
 export const InstrumentDetailEditor = React.memo(InstrumentDetailEditorComponent, (prevProps, nextProps) => {
-  const storeState = useSequencerStore.getState();
-  const prevTrack = storeState.tracks.find(t => t.id === prevProps.trackId);
-  const nextTrack = storeState.tracks.find(t => t.id === nextProps.trackId);
-
-  const prevStepsSig = prevTrack?.patterns.map(p => {
-    const prevStep = (prevProps.isPlaying && prevProps.currentStepIndex >= 0)
-      ? Math.floor((prevProps.currentStepIndex / prevProps.maxTicks) * p.steps)
-      : -1;
-    return `${p.id}:${prevStep}`;
-  }).join(',') || '';
-
-  const nextStepsSig = nextTrack?.patterns.map(p => {
-    const nextStep = (nextProps.isPlaying && nextProps.currentStepIndex >= 0)
-      ? Math.floor((nextProps.currentStepIndex / nextProps.maxTicks) * p.steps)
-      : -1;
-    return `${p.id}:${nextStep}`;
-  }).join(',') || '';
-
-  if (prevStepsSig !== nextStepsSig) {
-    return false;
-  }
-
   if (prevProps.trackId !== nextProps.trackId) {
     return false;
   }
