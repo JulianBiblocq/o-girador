@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef, useCallback, useContext } from 'react';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useShallow } from 'zustand/react/shallow';
 import { instrumentsConfig } from '../../data';
 import { TimelineUIContext } from '../../contexts/TimelineUIContext';
 
@@ -35,7 +36,14 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
   }
 
   const { lang, HEADER_W, MEASURE_W } = uiContext;
-  const tracks = useSequencerStore(state => state.tracks);
+  const tracks = useSequencerStore(useShallow(state => state.tracks.map(t => ({
+    id: t.id,
+    instrumentIdx: t.instrumentIdx,
+    patterns: t.patterns.map(p => ({
+      id: p.id,
+      measureAssignments: p.measureAssignments
+    }))
+  }))));
 
   const minimapContainerRef = useRef<HTMLDivElement>(null);
   const minimapSliderRef = useRef<HTMLDivElement>(null);

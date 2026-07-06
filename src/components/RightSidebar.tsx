@@ -10,6 +10,7 @@ import { i18n, instrumentsConfig, getMaxTicks } from '../data';
 import { AudioTrackRecorder } from './AudioTrackRecorder';
 // import { parseCordelFormatting } from '../utils/cordelFormatter';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,6 +26,7 @@ interface RightSidebarProps {
   refreshMestreSignals?: () => void;
   hideGlobalSignals?: boolean;
   onToggleHideGlobalSignals?: () => void;
+  visible?: boolean;
 }
 
 const RightSidebarComponent: React.FC<RightSidebarProps> = ({
@@ -35,25 +37,47 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   refreshMestreSignals,
   hideGlobalSignals,
   onToggleHideGlobalSignals,
+  visible = true,
 }) => {
   const sequencer = useSequencer();
-  const tracks = useSequencerStore(state => state.tracks);
+  const tracks = useSequencerStore(useShallow(state => {
+    if (!visible) return [];
+    return state.tracks.map(t => {
+      const isVoice = instrumentsConfig[t.instrumentIdx]?.type === 'voice';
+      return {
+        id: t.id,
+        instrumentIdx: t.instrumentIdx,
+        isMute: t.isMute,
+        isSolo: t.isSolo,
+        selectedPatternId: t.selectedPatternId,
+        patterns: t.patterns.map(p => ({
+          id: p.id,
+          name: p.name,
+          steps: p.steps,
+          measureAssignments: p.measureAssignments,
+          activeSteps: isVoice ? p.activeSteps : null,
+          lyrics: isVoice ? p.lyrics : null,
+        }))
+      };
+    });
+  }));
   const { userProfile } = useAuth();
   const [isUploadingSignal, setIsUploadingSignal] = React.useState(false);
   const [currentStepIndex, setCurrentStepIndex] = React.useState<number>(-1);
   React.useEffect(() => {
+    if (!visible) return;
+
     const handleTick = (e: Event) => {
       if ((window as any).oGiradorEcoMode) {
         setCurrentStepIndex(-1);
         return;
       }
       const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number }>;
-      const { step } = customEvent.detail;
-      setCurrentStepIndex(step);
+      setCurrentStepIndex(customEvent.detail.step);
     };
     window.addEventListener('o-girador-tick', handleTick);
     return () => window.removeEventListener('o-girador-tick', handleTick);
-  }, []);
+  }, [visible]);
   const audio = useAudio();
 
   const {
@@ -74,7 +98,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
     handleTogglePlay: onTogglePlay,
   } = audio;
 
-  const currentMeasure = useSequencerStore(state => state.currentMeasure);
+  const currentMeasure = useSequencerStore(state => visible ? state.currentMeasure : 0);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
 
   const beatsPerMeasure = parseInt(timeSig.split('/')[0]) || 4;
@@ -383,6 +407,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
     <>
       <div
         id="right-sidebar-panel"
+        style={{ display: visible ? 'flex' : 'none' }}
         className="w-[340px] min-w-[340px] bg-[var(--cordel-bg)] cordel-bg border-l-[3px] border-[var(--cordel-border)] flex flex-col h-full transition-all duration-300 relative z-10 text-[var(--cordel-text)]"
       >
         <div className="flex flex-col p-5 h-full overflow-hidden">
