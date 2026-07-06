@@ -29,6 +29,8 @@ interface RightSidebarProps {
   visible?: boolean;
 }
 
+const EMPTY_ARRAY: any[] = [];
+
 const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   activePanel,
   onTogglePanel,
@@ -41,7 +43,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
 }) => {
   const sequencer = useSequencer();
   const tracks = useSequencerStore(useShallow(state => {
-    if (!visible) return [];
+    if (!visible) return EMPTY_ARRAY;
     return state.tracks.map(t => {
       const isVoice = instrumentsConfig[t.instrumentIdx]?.type === 'voice';
       return {

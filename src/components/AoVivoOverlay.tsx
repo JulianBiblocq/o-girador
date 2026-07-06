@@ -300,10 +300,12 @@ const MineiroStick = React.forwardRef<SVGSVGElement, { style?: React.CSSProperti
 ));
 MineiroStick.displayName = 'MineiroStick';
 
+const EMPTY_ARRAY: any[] = [];
+
 export const AoVivoOverlay: React.FC = () => {
   const { activeAoVivoTrackId, isLeftHanded, activeVariationsRef, lang } = useSequencer();
   const tracks = useSequencerStore(useShallow(state => {
-    if (activeAoVivoTrackId === null) return [];
+    if (activeAoVivoTrackId === null) return EMPTY_ARRAY;
     return state.tracks.filter(t => t.id === activeAoVivoTrackId);
   }));
 

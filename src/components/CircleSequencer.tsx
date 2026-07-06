@@ -62,6 +62,8 @@ interface CircleSequencerProps {
   trackId?: number;
 }
 
+const EMPTY_ARRAY: any[] = [];
+
 export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
   const { visible = true } = props;
   const sequencer = useSequencer();
@@ -75,7 +77,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
   const lang = props.lang !== undefined ? props.lang : sequencer.lang;
   const isLeftHanded = props.isLeftHanded !== undefined ? props.isLeftHanded : sequencer.isLeftHanded;
   const tracksFromStore = useSequencerStore(state => {
-    if (!props.visible) return null;
+    if (!props.visible) return EMPTY_ARRAY;
     return state.tracks;
   });
   const tracks = props.tracks !== undefined ? props.tracks : tracksFromStore;
