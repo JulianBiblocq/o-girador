@@ -43,7 +43,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t }) => {
       <details className="group bg-[var(--cordel-bg)] cordel-border-sm mb-1">
         <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">
           <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
-            💾 {t('wavExportTitle')}
+            {t('wavExportTitle')}
           </span>
           <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
         </summary>
@@ -56,7 +56,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t }) => {
       <details className="group bg-[var(--cordel-bg)] cordel-border-sm mb-1">
         <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">
           <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
-            📱 {t('pwaOfflineTitle')}
+            {t('pwaOfflineTitle')}
           </span>
           <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
         </summary>
@@ -328,7 +328,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t }) => {
       <details className="group bg-[var(--cordel-bg)] cordel-border-sm mb-1">
         <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">
           <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
-            💬 {t('feedbackTitle')}
+            {t('feedbackTitle')}
           </span>
           <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
         </summary>
