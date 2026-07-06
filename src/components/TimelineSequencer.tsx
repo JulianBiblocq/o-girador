@@ -865,23 +865,13 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
   if (!trackIds) return null;
 
-  if (!visible) {
-    return (
-      <div
-        ref={containerRef}
-        style={{ display: 'none' }}
-        className="timeline-sequencer-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden sequencer-bg text-[var(--cordel-text)] select-none"
-      />
-    );
-  }
-
   return (
     <TimelineUIContext.Provider value={contextValue}>
     <div
       ref={containerRef}
       data-zoom={isMacro ? 'macro' : 'normal'}
       data-mobile={isMobile ? 'true' : 'false'}
-      style={{ ...zoomStyles, touchAction: 'pan-x pan-y', display: 'flex' }}
+      style={{ ...zoomStyles, touchAction: 'pan-x pan-y', display: visible ? 'flex' : 'none' }}
       className="timeline-sequencer-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden sequencer-bg text-[var(--cordel-text)] select-none"
       onContextMenu={(e) => e.preventDefault()}
     >
