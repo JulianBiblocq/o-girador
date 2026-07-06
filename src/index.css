@@ -725,3 +725,25 @@ body.eco-mode #center-afficheur {
   filter: none !important;
   box-shadow: none !important;
 }
+
+/* --- iOS Safari Auto-Zoom Prevention --- */
+/* 🛡️ FIX (Audit P2): Prevent iOS Safari from zooming in on input focus
+   when font-size is < 16px. Uses @supports for iOS-only targeting. */
+@supports (-webkit-touch-callout: none) {
+  /* Step grid inputs (pattern cells) — keep visual size but prevent zoom */
+  .step-boxes input[type="text"],
+  .v-card input[type="text"] {
+    font-size: 16px !important;
+    /* Scale down visually to preserve the compact layout */
+    transform: scale(0.625);
+    transform-origin: center center;
+    width: 160% !important;
+    height: 160% !important;
+    margin: -30% !important;
+  }
+
+  /* Number inputs (steps count, BPM, etc.) */
+  input[type="number"] {
+    font-size: 16px !important;
+  }
+}

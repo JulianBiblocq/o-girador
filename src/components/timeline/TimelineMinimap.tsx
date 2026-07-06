@@ -12,18 +12,22 @@ interface TimelineMinimapProps {
   scrollRef: React.RefObject<HTMLDivElement | null>;
   pendingScrollLeftRef: React.MutableRefObject<number | null>;
   totalMeasures: number;
-  tracks: any[];
+
   measureWidth: number;
   onMeasureWidthChange: (width: number) => void;
+  onZoomStart?: () => void;
+  onZoomEnd?: () => void;
 }
 
-export const TimelineMinimap: React.FC<TimelineMinimapProps> = ({
+const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
   scrollRef,
   pendingScrollLeftRef,
   totalMeasures,
-  tracks,
+
   measureWidth,
   onMeasureWidthChange,
+  onZoomStart,
+  onZoomEnd,
 }) => {
   const uiContext = useContext(TimelineUIContext);
   if (!uiContext) {
@@ -31,6 +35,7 @@ export const TimelineMinimap: React.FC<TimelineMinimapProps> = ({
   }
 
   const { lang, HEADER_W, MEASURE_W } = uiContext;
+  const tracks = useSequencerStore(state => state.tracks);
 
   const minimapContainerRef = useRef<HTMLDivElement>(null);
   const minimapSliderRef = useRef<HTMLDivElement>(null);
@@ -158,6 +163,8 @@ export const TimelineMinimap: React.FC<TimelineMinimapProps> = ({
     let rafId: number | null = null;
     let latestClientX = initialX;
 
+    onZoomStart?.();
+
     const performZoom = (clientX: number, isFinal: boolean = false) => {
       const deltaX = clientX - initialX;
       const targetS = Math.max(16, initialS + deltaX);
@@ -165,45 +172,23 @@ export const TimelineMinimap: React.FC<TimelineMinimapProps> = ({
       const newW = ((M * V) / targetS - HEADER_W) / totalMeasures;
       const clampedW = Math.max(120, Math.min(960, newW));
       
-      if (isFinal) {
-        // 1. Nettoyer les transformations GPU temporaires
-        const scrollGrid = document.querySelector('.timeline-scroll-grid') as HTMLElement;
-        if (scrollGrid) scrollGrid.style.transform = '';
-        const stickyHeaders = document.querySelectorAll('.timeline-sticky-header') as NodeListOf<HTMLElement>;
-        stickyHeaders.forEach(h => h.style.transform = '');
-        
-        // 2. Laisser le thread principal respirer 10ms puis mettre à jour l'état de façon concurrente
-        setTimeout(() => {
-          React.startTransition(() => {
-            const newC = HEADER_W + totalMeasures * clampedW;
-            pendingScrollLeftRef.current = (initialL / M) * newC;
-            onMeasureWidthChange(clampedW);
-          });
-        }, 10);
-      } else {
-        const S = clampedW / measureWidth;
+      React.startTransition(() => {
         const newC = HEADER_W + totalMeasures * clampedW;
         const newScrollLeft = (initialL / M) * newC;
-        
-        const tx = HEADER_W * (1 - S) - newScrollLeft;
-        
-        // 1. Appliquer la transformation parent
-        const scrollGrid = document.querySelector('.timeline-scroll-grid') as HTMLElement;
-        if (scrollGrid) {
-          scrollGrid.style.transform = `translateX(${tx}px) scaleX(${S})`;
+        pendingScrollLeftRef.current = newScrollLeft;
+        if (scrollRef.current) {
+          scrollRef.current.scrollLeft = newScrollLeft;
         }
-
-        // 2. Compensation des en-têtes collants
-        const stickyHeaders = document.querySelectorAll('.timeline-sticky-header') as NodeListOf<HTMLElement>;
-        stickyHeaders.forEach(h => {
-          h.style.transform = `translateX(${-tx / S}px) scaleX(${1 / S})`;
-        });
-
-        // 3. Mettre à jour le slider de la minimap
-        if (minimapSliderRef.current) {
-          minimapSliderRef.current.style.width = `${targetS}px`;
-          minimapSliderRef.current.style.left = `${initialL}px`;
+        onMeasureWidthChange(clampedW);
+        if (isFinal) {
+          onZoomEnd?.();
         }
+      });
+
+      // 3. Mettre à jour le slider de la minimap
+      if (minimapSliderRef.current) {
+        minimapSliderRef.current.style.width = `${targetS}px`;
+        minimapSliderRef.current.style.left = `${initialL}px`;
       }
     };
 
@@ -251,6 +236,8 @@ export const TimelineMinimap: React.FC<TimelineMinimapProps> = ({
     let rafId: number | null = null;
     let latestClientX = initialX;
 
+    onZoomStart?.();
+
     const performZoom = (clientX: number, isFinal: boolean = false) => {
       const deltaX = clientX - initialX;
       const targetS = Math.max(16, initialS - deltaX);
@@ -259,45 +246,23 @@ export const TimelineMinimap: React.FC<TimelineMinimapProps> = ({
       const newW = ((M * V) / targetS - HEADER_W) / totalMeasures;
       const clampedW = Math.max(120, Math.min(960, newW));
       
-      if (isFinal) {
-        // 1. Nettoyer les transformations GPU temporaires
-        const scrollGrid = document.querySelector('.timeline-scroll-grid') as HTMLElement;
-        if (scrollGrid) scrollGrid.style.transform = '';
-        const stickyHeaders = document.querySelectorAll('.timeline-sticky-header') as NodeListOf<HTMLElement>;
-        stickyHeaders.forEach(h => h.style.transform = '');
-        
-        // 2. Laisser le thread principal respirer 10ms puis mettre à jour l'état de façon concurrente
-        setTimeout(() => {
-          React.startTransition(() => {
-            const newC = HEADER_W + totalMeasures * clampedW;
-            pendingScrollLeftRef.current = (targetL / M) * newC;
-            onMeasureWidthChange(clampedW);
-          });
-        }, 10);
-      } else {
-        const S = clampedW / measureWidth;
+      React.startTransition(() => {
         const newC = HEADER_W + totalMeasures * clampedW;
         const newScrollLeft = (targetL / M) * newC;
-        
-        const tx = HEADER_W * (1 - S) - newScrollLeft;
-        
-        // 1. Appliquer la transformation parent
-        const scrollGrid = document.querySelector('.timeline-scroll-grid') as HTMLElement;
-        if (scrollGrid) {
-          scrollGrid.style.transform = `translateX(${tx}px) scaleX(${S})`;
+        pendingScrollLeftRef.current = newScrollLeft;
+        if (scrollRef.current) {
+          scrollRef.current.scrollLeft = newScrollLeft;
         }
-
-        // 2. Compensation des en-têtes collants
-        const stickyHeaders = document.querySelectorAll('.timeline-sticky-header') as NodeListOf<HTMLElement>;
-        stickyHeaders.forEach(h => {
-          h.style.transform = `translateX(${-tx / S}px) scaleX(${1 / S})`;
-        });
-
-        // 3. Mettre à jour le slider de la minimap
-        if (minimapSliderRef.current) {
-          minimapSliderRef.current.style.width = `${targetS}px`;
-          minimapSliderRef.current.style.left = `${targetL}px`;
+        onMeasureWidthChange(clampedW);
+        if (isFinal) {
+          onZoomEnd?.();
         }
+      });
+
+      // 3. Mettre à jour le slider de la minimap
+      if (minimapSliderRef.current) {
+        minimapSliderRef.current.style.width = `${targetS}px`;
+        minimapSliderRef.current.style.left = `${targetL}px`;
       }
     };
 
@@ -410,3 +375,5 @@ export const TimelineMinimap: React.FC<TimelineMinimapProps> = ({
     </div>
   );
 };
+
+export const TimelineMinimap = React.memo(TimelineMinimapComponent);

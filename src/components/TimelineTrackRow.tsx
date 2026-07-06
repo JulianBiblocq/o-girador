@@ -1,5 +1,6 @@
 import React, { useContext } from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useAudio } from '../contexts/AudioContext';
 import { instrumentsConfig, isDarkText, ASSETS_BASE_URL, getMaxTicks } from '../data';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
@@ -27,8 +28,8 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
   
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
-  const songSections = useSequencerStore(state => state.songSections);
-  const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
+  const songSections = useSequencerStore(useShallow(state => state.songSections));
+  const measureTimeSigs = useSequencerStore(useShallow(state => state.measureTimeSigs));
   const loopStartMeasure = useSequencerStore(state => state.loopStartMeasure);
   const loopEndMeasure = useSequencerStore(state => state.loopEndMeasure);
   const isLoopRegionActive = useSequencerStore(state => state.isLoopRegionActive);
@@ -40,7 +41,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
   const onPatternVariationToggleForMeasure = useSequencerStore(state => state.handleTimelinePatternVariationToggle);
 
   if (!uiContext) return null;
-  const { MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang } = uiContext;
+  const { MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang, visibleRange } = uiContext;
 
   if (!track) return null;
 
@@ -51,7 +52,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
 
   return (
     <div
-      className={`flex border-b border-[var(--cordel-border)]/20 h-12 transition-opacity duration-150 ${
+      className={`flex border-b border-[var(--cordel-border)]/20 h-12 transition-opacity duration-150 relative ${
         !canPlay ? 'opacity-50' : ''
       }`}
       style={{ 
@@ -107,40 +108,48 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
         </div>
       </div>
 
+      {/* Left spacer column */}
+      {visibleRange.start > 0 && (
+        <div style={{ width: `${visibleRange.start * MEASURE_W}px`, minWidth: `${visibleRange.start * MEASURE_W}px` }} className="shrink-0" />
+      )}
+
       {/* ── Measure cells ── */}
-      {Array.from({ length: totalMeasures }).map((_, mIdx) => {
-        const activePattern = track.patterns.find(p => p.measureAssignments[mIdx]);
-        const steps = activePattern ? activePattern.steps : 16;
+      {Array.from({ length: totalMeasures })
+        .map((_, mIdx) => ({ mIdx }))
+        .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
+        .map(({ mIdx }) => {
+          const activePattern = track.patterns.find(p => p.measureAssignments[mIdx]);
+          const steps = activePattern ? activePattern.steps : 16;
 
-        // Find if there is a section covering this measure
-        const measureSection = songSections.find(s => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
-        const isSectionStart = measureSection && mIdx === measureSection.startMeasure;
-        const isSectionEnd = measureSection && mIdx === measureSection.endMeasure;
-        const sectionColor = measureSection?.color || '';
+          // Find if there is a section covering this measure
+          const measureSection = songSections.find(s => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
+          const isSectionStart = measureSection && mIdx === measureSection.startMeasure;
+          const isSectionEnd = measureSection && mIdx === measureSection.endMeasure;
+          const sectionColor = measureSection?.color || '';
 
-        return (
-          <div
-            key={mIdx}
-            className={`h-full relative cursor-pointer border-r ${
-              (mIdx + 1) % 4 === 0
-                ? 'border-r-2 border-r-blue-500/40 dark:border-r-blue-400/40 shadow-[1px_0_0_0_rgba(59,130,246,0.15)]'
-                : 'border-r-[var(--cordel-border)]/20'
-            } ${
-              loopStartMeasure !== null && loopEndMeasure !== null
-                ? (mIdx >= loopStartMeasure && mIdx <= loopEndMeasure ? (isLoopRegionActive ? 'bg-blue-600/[0.03]' : '') : (isLoopRegionActive ? 'bg-black/10 dark:bg-black/30 opacity-70' : ''))
-                : ''
-            } ${
-              measureSection ? 'cell-section-tint' : ''
-            } ${
-              isSectionStart ? 'cell-section-start' : ''
-            } ${
-              isSectionEnd ? 'cell-section-end' : ''
-            }`}
-            style={{ 
-              width: MEASURE_W, 
-              minWidth: MEASURE_W,
-              ...({ '--section-color': sectionColor } as React.CSSProperties)
-            }}
+          return (
+            <div
+              key={mIdx}
+              className={`h-full cursor-pointer border-r shrink-0 ${
+                (mIdx + 1) % 4 === 0
+                  ? 'border-r-2 border-r-blue-500/40 dark:border-r-blue-400/40 shadow-[1px_0_0_0_rgba(59,130,246,0.15)]'
+                  : 'border-r-[var(--cordel-border)]/20'
+              } ${
+                loopStartMeasure !== null && loopEndMeasure !== null
+                  ? (mIdx >= loopStartMeasure && mIdx <= loopEndMeasure ? (isLoopRegionActive ? 'bg-blue-600/[0.03]' : '') : (isLoopRegionActive ? 'bg-black/10 dark:bg-black/30 opacity-70' : ''))
+                  : ''
+              } ${
+                measureSection ? 'cell-section-tint' : ''
+              } ${
+                isSectionStart ? 'cell-section-start' : ''
+              } ${
+                isSectionEnd ? 'cell-section-end' : ''
+              }`}
+              style={{ 
+                width: MEASURE_W, 
+                minWidth: MEASURE_W,
+                ...({ '--section-color': sectionColor } as React.CSSProperties)
+              }}
             onClick={(e) => {
               if (isPanningActive) return; // Prevent navigations when panning
               const rect = e.currentTarget.getBoundingClientRect();
@@ -384,6 +393,11 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
           </div>
         );
       })}
+
+      {/* Right spacer column */}
+      {visibleRange.end < totalMeasures - 1 && (
+        <div style={{ width: `${(totalMeasures - 1 - visibleRange.end) * MEASURE_W}px`, minWidth: `${(totalMeasures - 1 - visibleRange.end) * MEASURE_W}px` }} className="shrink-0" />
+      )}
     </div>
   );
 };

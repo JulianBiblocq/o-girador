@@ -28,6 +28,21 @@ const TimelinePlayheadComponent: React.FC = () => {
   const MEASURE_W = uiContext ? uiContext.MEASURE_W : 0;
   const HEADER_W = uiContext ? uiContext.HEADER_W : 0;
 
+  const bpmRef = useRef(bpm);
+  useEffect(() => {
+    bpmRef.current = bpm;
+  }, [bpm]);
+
+  const measureTimeSigsRef = useRef(measureTimeSigs);
+  useEffect(() => {
+    measureTimeSigsRef.current = measureTimeSigs;
+  }, [measureTimeSigs]);
+
+  const measureWRef = useRef(MEASURE_W);
+  useEffect(() => {
+    measureWRef.current = MEASURE_W;
+  }, [MEASURE_W]);
+
   // Réinitialiser la position de la tête de lecture quand on arrête ou met en pause
   useEffect(() => {
     if (!audio.isPlaying) {
@@ -89,13 +104,15 @@ const TimelinePlayheadComponent: React.FC = () => {
         el.style.display = 'block';
       }
 
+      const currentMEASURE_W = measureWRef.current;
+
       // Position mathématique absolue
-      const exactX = measure * MEASURE_W + ratio * MEASURE_W;
+      const exactX = measure * currentMEASURE_W + ratio * currentMEASURE_W;
       
       // Calculer la vitesse en pixels par seconde de l'AudioContext
-      const timeSigOfMeasure = measureTimeSigs[measure] || '4/4';
+      const timeSigOfMeasure = measureTimeSigsRef.current[measure] || '4/4';
       const beats = parseInt(timeSigOfMeasure.split('/')[0], 10) || 4;
-      const speed = (MEASURE_W / beats) * (bpm / 60);
+      const speed = (currentMEASURE_W / beats) * (bpmRef.current / 60);
 
       anchorRef.current = {
         exactX,
@@ -105,7 +122,7 @@ const TimelinePlayheadComponent: React.FC = () => {
 
       // Détection de rupture (Loop, Seek ou saut au début de la boucle) pour le scroll immédiat
       const dx = exactX - lastExactXRef.current;
-      const isRupture = lastExactXRef.current === -1 || dx < 0 || Math.abs(dx) > MEASURE_W * 0.5;
+      const isRupture = lastExactXRef.current === -1 || dx < 0 || Math.abs(dx) > currentMEASURE_W * 0.5;
 
       if (isRupture) {
         lastExactXRef.current = exactX;
@@ -126,7 +143,7 @@ const TimelinePlayheadComponent: React.FC = () => {
       resizeObserver.disconnect();
       scrollEl.removeEventListener('scroll', handleScroll);
     };
-  }, [MEASURE_W, HEADER_W, bpm, measureTimeSigs]);
+  }, [HEADER_W]);
 
   // Boucle requestAnimationFrame continue pour une mise à jour ultra fluide et découplée
   useEffect(() => {

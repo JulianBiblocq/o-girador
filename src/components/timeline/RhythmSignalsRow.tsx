@@ -13,7 +13,7 @@ interface RhythmSignalsRowProps {
   onMeasureSignalChange: (mIdx: number, sigId: string | null) => void;
 }
 
-export const RhythmSignalsRow: React.FC<RhythmSignalsRowProps> = ({
+const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
   totalMeasures,
   rhythmSignals,
   measureSignals,
@@ -32,13 +32,14 @@ export const RhythmSignalsRow: React.FC<RhythmSignalsRowProps> = ({
     lang,
     signalDropdownOpen,
     setSignalDropdownOpen,
+    visibleRange,
   } = uiContext;
 
   if (rhythmSignals.length === 0) return null;
 
   return (
     <div
-      className="flex border-b border-[var(--cordel-border)]/20 h-8"
+      className="flex border-b border-[var(--cordel-border)]/20 h-8 relative"
       style={{ width: `${HEADER_W + totalContentW + 150}px` }}
     >
       {/* Sticky header */}
@@ -56,20 +57,32 @@ export const RhythmSignalsRow: React.FC<RhythmSignalsRowProps> = ({
         )}
       </div>
 
-      {/* Measure signal cells */}
-      {Array.from({ length: totalMeasures }).map((_, mIdx) => {
-        const sigId = measureSignals[mIdx] ?? null;
-        const activeSig = rhythmSignals.find(s => s.id === sigId) || null;
-        const isCurrentMeasure = false;
+      {/* Left spacer column */}
+      {visibleRange.start > 0 && (
+        <div style={{ width: `${visibleRange.start * MEASURE_W}px`, minWidth: `${visibleRange.start * MEASURE_W}px` }} className="shrink-0" />
+      )}
 
-        return (
-          <div
-            key={mIdx}
-            className={`relative border-r border-[var(--cordel-border)]/20 flex items-center justify-center ${
-              isCurrentMeasure ? 'bg-[var(--cordel-border)]/10' : ''
-            }`}
-            style={{ width: MEASURE_W, minWidth: MEASURE_W }}
-          >
+      {/* Measure signal cells */}
+      {Array.from({ length: totalMeasures })
+        .map((_, mIdx) => ({ mIdx }))
+        .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
+        .map(({ mIdx }) => {
+          const sigId = measureSignals[mIdx] ?? null;
+          const activeSig = rhythmSignals.find(s => s.id === sigId) || null;
+          const isCurrentMeasure = false;
+
+          return (
+            <div
+              key={mIdx}
+              className={`border-r border-[var(--cordel-border)]/20 flex items-center justify-center shrink-0 ${
+                isCurrentMeasure ? 'bg-[var(--cordel-border)]/10' : ''
+              }`}
+              style={{
+                width: MEASURE_W,
+                minWidth: MEASURE_W,
+                height: '100%',
+              }}
+            >
             {activeSig ? (
               <button
                 onClick={(e) => {
@@ -143,8 +156,18 @@ export const RhythmSignalsRow: React.FC<RhythmSignalsRowProps> = ({
         );
       })}
 
+      {/* Right spacer column */}
+      {visibleRange.end < totalMeasures - 1 && (
+        <div style={{ width: `${(totalMeasures - 1 - visibleRange.end) * MEASURE_W}px`, minWidth: `${(totalMeasures - 1 - visibleRange.end) * MEASURE_W}px` }} className="shrink-0" />
+      )}
+
       {/* Spacer */}
-      <div style={{ width: 150, minWidth: 150 }} />
+      <div 
+        className="h-full shrink-0"
+        style={{ width: 150, minWidth: 150 }} 
+      />
     </div>
   );
 };
+
+export const RhythmSignalsRow = React.memo(RhythmSignalsRowComponent);

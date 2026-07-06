@@ -4,6 +4,7 @@
  */
 
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef } from 'react';
 import type * as ToneType from 'tone';
 import { loadTone, getTone } from '@/src/ToneLoader';
@@ -102,7 +103,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     handleDeleteMeasure: onDeleteMeasure,
     handleInsertMeasure: onInsertMeasure,
   } = sequencer;
-  const tracks = useSequencerStore(state => state.tracks);
+  const trackIds = useSequencerStore(useShallow(state => state.tracks.map(t => t.id)));
 
   const localRhythmSignals = metadata?.rhythmSignals || [];
   const rhythmSignals = [
@@ -123,8 +124,66 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
   const HEADER_W = isMobile ? 80 : (isMacro ? 150 : 180);
   const MEASURE_W = measureWidth;
-  const scrollRef = useRef<HTMLDivElement>(null);
-  
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  // --- Horizontal measures virtualization ---
+  const [visibleRange, setVisibleRange] = React.useState(() => {
+    const initialWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    const initialVisible = Math.ceil((initialWidth - HEADER_W) / MEASURE_W);
+    return { start: 0, end: Math.min(totalMeasures - 1, initialVisible + 2) };
+  });
+
+  const updateVisibleRange = React.useCallback(() => {
+    const el = scrollRef.current;
+    const currentMeasureW = measureWidthRef.current;
+    
+    let scrollLeft = 0;
+    let viewportWidth = typeof window !== 'undefined' ? window.innerWidth - HEADER_W : 1200;
+    
+    if (el) {
+      scrollLeft = el.scrollLeft;
+      viewportWidth = el.clientWidth - HEADER_W;
+    }
+    
+    const buffer = 2; // 2 measures buffer on each side
+    const start = Math.max(0, Math.floor(scrollLeft / currentMeasureW) - buffer);
+    const end = Math.min(
+      totalMeasures - 1,
+      Math.ceil((scrollLeft + viewportWidth) / currentMeasureW) + buffer
+    );
+
+    setVisibleRange(prev => {
+      if (prev.start === start && prev.end === end) return prev;
+      return { start, end };
+    });
+  }, [totalMeasures, HEADER_W]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const handleScroll = () => {
+      updateVisibleRange();
+    };
+
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    updateVisibleRange();
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateVisibleRange();
+    });
+    resizeObserver.observe(el);
+
+    return () => {
+      el.removeEventListener('scroll', handleScroll);
+      resizeObserver.disconnect();
+    };
+  }, [updateVisibleRange]);
+
+  useEffect(() => {
+    updateVisibleRange();
+  }, [measureWidth, totalMeasures, updateVisibleRange]);
+
   // 🛡️ FIX (Audit): Centralized AbortController for all drag/drop events
   const dragAbortControllerRef = useRef<AbortController | null>(null);
 
@@ -296,55 +355,19 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           const newWidth = initialWidth + deltaY * 2;
           clamped = Math.max(120, Math.min(960, newWidth));
           
-          if (isFinal) {
-            // 1. Nettoyer les transformations GPU temporaires
-            const scrollGrid = document.querySelector('.timeline-scroll-grid') as HTMLElement;
-            if (scrollGrid) scrollGrid.style.transform = '';
-            const stickyHeaders = document.querySelectorAll('.timeline-sticky-header') as NodeListOf<HTMLElement>;
-            stickyHeaders.forEach(h => h.style.transform = '');
-            
-            // 2. Laisser le thread principal respirer 10ms puis mettre à jour l'état de façon concurrente
-            setTimeout(() => {
-              React.startTransition(() => {
-                const S = clamped / initialWidth;
-                if (scrollRef.current) {
-                  const rect = scrollRef.current.getBoundingClientRect();
-                  const mouseX = clientX - rect.left - HEADER_W;
-                  const scrollLeftInit = scrollRef.current.scrollLeft;
-                  const mouseXGrid = mouseX + scrollLeftInit;
-                  const newScrollLeft = mouseXGrid * S - mouseX;
-                  pendingScrollLeftRef.current = newScrollLeft;
-                }
-                onMeasureWidthChange(clamped);
-              });
-            }, 10);
-          } else {
+          React.startTransition(() => {
             const S = clamped / initialWidth;
-            
-            // Calcul du scrollLeft pour zoomer centré sous le curseur de la règle
-            let newScrollLeft = 0;
             if (scrollRef.current) {
               const rect = scrollRef.current.getBoundingClientRect();
               const mouseX = clientX - rect.left - HEADER_W;
               const scrollLeftInit = scrollRef.current.scrollLeft;
               const mouseXGrid = mouseX + scrollLeftInit;
-              newScrollLeft = mouseXGrid * S - mouseX;
+              const newScrollLeft = mouseXGrid * S - mouseX;
+              pendingScrollLeft.current = newScrollLeft;
+              scrollRef.current.scrollLeft = newScrollLeft;
             }
-            
-            const tx = HEADER_W * (1 - S) - newScrollLeft;
-            
-            // 1. Appliquer la transformation parent
-            const scrollGrid = document.querySelector('.timeline-scroll-grid') as HTMLElement;
-            if (scrollGrid) {
-              scrollGrid.style.transform = `translateX(${tx}px) scaleX(${S})`;
-            }
-
-            // 2. Compensation des en-têtes collants
-            const stickyHeaders = document.querySelectorAll('.timeline-sticky-header') as NodeListOf<HTMLElement>;
-            stickyHeaders.forEach(h => {
-              h.style.transform = `translateX(${-tx / S}px) scaleX(${1 / S})`;
-            });
-          }
+            onMeasureWidthChange(clamped);
+          });
         }
         // Scrubbing horizontal
         if (isFinal || Math.abs(deltaY) <= 5) {
@@ -725,13 +748,15 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     userSelect: 'none',
   } as React.CSSProperties;
 
-  if (!tracks) return null;
+  if (!trackIds) return null;
+
+  const contextValue = React.useMemo(() => ({
+    MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang,
+    signalDropdownOpen, setSignalDropdownOpen, visibleRange
+  }), [MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang, signalDropdownOpen, visibleRange]);
 
   return (
-    <TimelineUIContext.Provider value={{
-      MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang,
-      signalDropdownOpen, setSignalDropdownOpen
-    }}>
+    <TimelineUIContext.Provider value={contextValue}>
     <div
       ref={containerRef}
       data-zoom={isMacro ? 'macro' : 'normal'}
@@ -745,7 +770,6 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         scrollRef={scrollRef}
         pendingScrollLeftRef={pendingScrollLeft}
         totalMeasures={totalMeasures}
-        tracks={tracks}
         measureWidth={measureWidth}
         onMeasureWidthChange={onMeasureWidthChange}
       />
@@ -967,8 +991,10 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
               })}
 
               {/* Paste buttons in the sections bar */}
-              {copiedSection && Array.from({ length: totalMeasures }).map((_, mIdx) => {
-                const startX = mIdx * MEASURE_W;
+              {copiedSection && Array.from({ length: totalMeasures })
+                .map((_, mIdx) => ({ mIdx }))
+                .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
+                .map(({ mIdx }) => {
                 return (
                   <button
                     key={`paste-sec-${mIdx}`}
@@ -978,9 +1004,9 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                     }}
                     onMouseEnter={() => setHoveredPasteMeasure(mIdx)}
                     onMouseLeave={() => setHoveredPasteMeasure(null)}
-                    className="absolute top-1 bottom-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-800 dark:text-emerald-300 font-sans font-bold text-[9px] px-2 rounded border border-dashed border-emerald-600 flex items-center justify-center gap-1 cursor-pointer z-30 transition-all hover:scale-105 shadow-[1px_1px_2px_rgba(0,0,0,0.1)]"
+                    className="absolute top-1 bottom-1 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-800 dark:text-emerald-300 font-sans font-bold text-[9px] px-2 rounded border border-dashed border-emerald-600 flex items-center justify-center gap-1 cursor-pointer z-30 transition-all hover:scale-105 shadow-[1px_1px_2px_rgba(0,0,0,0.15)]"
                     style={{
-                      left: `${startX + 4}px`,
+                      left: `${mIdx * MEASURE_W + 4}px`,
                       width: `${Math.min(100, MEASURE_W - 8)}px`,
                     }}
                     title={lang === 'fr' ? `Coller à la mesure ${mIdx + 1}` : `Colar no compasso ${mIdx + 1}`}
@@ -993,14 +1019,12 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
               {/* Ghost preview block */}
               {copiedSection && hoveredPasteMeasure !== null && (
                 (() => {
-                  const startX = hoveredPasteMeasure * MEASURE_W;
-                  const width = copiedSection.length * MEASURE_W;
                   return (
                     <div
                       className="absolute top-1 bottom-1 flex items-center justify-between px-3 text-xs font-bold rounded border border-dashed pointer-events-none opacity-50 z-20 animate-pulse"
                       style={{
-                        left: `${startX}px`,
-                        width: `${width - 8}px`,
+                        left: `${hoveredPasteMeasure * MEASURE_W}px`,
+                        width: `${copiedSection.length * MEASURE_W - 8}px`,
                         marginLeft: '4px',
                         backgroundColor: copiedSection.color || '#f19066',
                         color: '#1a1a1a',
@@ -1020,7 +1044,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
           {/* ══════════ RULER ROW ══════════ */}
           <div
-            className="flex min-h-16 h-auto border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-ns-resize select-none"
+            className="flex min-h-16 h-auto border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-ns-resize select-none relative"
             style={{ width: `${HEADER_W + totalContentW + 150}px` }}
             onPointerDown={handleRulerPointerDown}
             onTouchStart={handleRulerTouchStart}
@@ -1035,30 +1059,42 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                <span>{isMobile ? 'Inst.' : (lang === 'fr' ? 'Instruments' : 'Instrumentos')}</span>
              </div>
 
+            {/* Left spacer column */}
+            {visibleRange.start > 0 && (
+              <div style={{ width: `${visibleRange.start * MEASURE_W}px`, minWidth: `${visibleRange.start * MEASURE_W}px` }} className="shrink-0" />
+            )}
+
             {/* Measure labels */}
-            {Array.from({ length: totalMeasures }).map((_, mIdx) => {
-              const mTimeSig = measureTimeSigs[mIdx] || '4/4';
-              const mBpm = measureBpms[mIdx] || 100;
-              const mTransition = measureBpmTransitions[mIdx] || 'immediate';
-              const mVol = measureVols[mIdx] !== undefined ? measureVols[mIdx] : 100;
-              const mVolTransition = measureVolTransitions[mIdx] || 'immediate';
-              const localBeats = mTimeSig === '3/4' || mTimeSig === '6/8' ? 3 : mTimeSig === '2/4' ? 2 : mTimeSig === '12/8' ? 12 : 4;
+            {Array.from({ length: totalMeasures })
+              .map((_, mIdx) => ({ mIdx }))
+              .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
+              .map(({ mIdx }) => {
+                const mTimeSig = measureTimeSigs[mIdx] || '4/4';
+                const mBpm = measureBpms[mIdx] || 100;
+                const mTransition = measureBpmTransitions[mIdx] || 'immediate';
+                const mVol = measureVols[mIdx] !== undefined ? measureVols[mIdx] : 100;
+                const mVolTransition = measureVolTransitions[mIdx] || 'immediate';
+                const localBeats = mTimeSig === '3/4' || mTimeSig === '6/8' ? 3 : mTimeSig === '2/4' ? 2 : mTimeSig === '12/8' ? 12 : 4;
 
-              const isInLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
+                const isInLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
 
-              return (
-                <div
-                  key={mIdx}
-                  className={`flex flex-col justify-between px-2 py-1 text-[10px] font-bold relative transition-all border-r ${
-                    (mIdx + 1) % 4 === 0
-                      ? 'border-r-2 border-r-blue-500/50 dark:border-r-blue-400/50 shadow-[1px_0_0_0_rgba(59,130,246,0.1)]'
-                      : 'border-r-[var(--cordel-border)]/30'
-                  } ${
-                    loopStartMeasure !== null && loopEndMeasure !== null
-                      ? (isInLoop ? (isLoopRegionActive ? 'bg-blue-600/5 border-t-4 border-t-blue-600/80 dark:border-t-blue-500/80' : 'bg-gray-500/5 border-t-4 border-t-gray-500/80 dark:border-t-gray-400/80') : (isLoopRegionActive ? 'bg-black/10 dark:bg-black/30 opacity-70' : ''))
-                      : ''
-                  }`}
-                  style={{ width: MEASURE_W, minWidth: MEASURE_W }}
+                return (
+                  <div
+                    key={mIdx}
+                    className={`flex flex-col justify-between px-2 py-1 text-[10px] font-bold transition-all border-r shrink-0 ${
+                      (mIdx + 1) % 4 === 0
+                        ? 'border-r-2 border-r-blue-500/50 dark:border-r-blue-400/50 shadow-[1px_0_0_0_rgba(59,130,246,0.1)]'
+                        : 'border-r-[var(--cordel-border)]/30'
+                    } ${
+                      loopStartMeasure !== null && loopEndMeasure !== null
+                        ? (isInLoop ? (isLoopRegionActive ? 'bg-blue-600/5 border-t-4 border-t-blue-600/80 dark:border-t-blue-500/80' : 'bg-gray-500/5 border-t-4 border-t-gray-500/80 dark:border-t-gray-400/80') : (isLoopRegionActive ? 'bg-black/10 dark:bg-black/30 opacity-70' : ''))
+                        : ''
+                    }`}
+                    style={{
+                      width: MEASURE_W,
+                      minWidth: MEASURE_W,
+                      height: '100%',
+                    }}
                 >
                   {isInLoop && (
                     <div
@@ -1078,75 +1114,23 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       {/* Loop Delimiters */}
                       <div className="ruler-detailed flex gap-0.5 border-l border-[var(--cordel-border)]/20 pl-1.5">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSetLoopStart(mIdx);
-                          }}
-                          className={`px-1 py-px rounded font-extrabold text-[10px] cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors border ${
-                            loopStartMeasure === mIdx 
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-transparent text-[var(--cordel-text)] border-[var(--cordel-border)]/30'
-                          }`}
-                          title={lang === 'fr' ? 'Définir comme début de boucle' : 'Definir como início do loop'}
-                        >
-                          [
-                        </button>
+                          onClick={(e) => { e.stopPropagation(); onSetLoopStart(mIdx); }}
+                          className={`px-1 py-px rounded font-extrabold text-[10px] cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors border ${loopStartMeasure === mIdx ? 'bg-blue-600 text-white border-blue-600' : 'bg-transparent text-[var(--cordel-text)] border-[var(--cordel-border)]/30'}`}
+                        > [ </button>
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSetLoopEnd(mIdx);
-                          }}
-                          className={`px-1 py-px rounded font-extrabold text-[10px] cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors border ${
-                            loopEndMeasure === mIdx 
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : 'bg-transparent text-[var(--cordel-text)] border-[var(--cordel-border)]/30'
-                          }`}
-                          title={lang === 'fr' ? 'Définir comme fin de boucle' : 'Definir como fim do loop'}
-                        >
-                          ]
-                        </button>
+                          onClick={(e) => { e.stopPropagation(); onSetLoopEnd(mIdx); }}
+                          className={`px-1 py-px rounded font-extrabold text-[10px] cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors border ${loopEndMeasure === mIdx ? 'bg-blue-600 text-white border-blue-600' : 'bg-transparent text-[var(--cordel-text)] border-[var(--cordel-border)]/30'}`}
+                        > ] </button>
                       </div>
-
-                      {/* Measure Insertion / Deletion */}
-                      <div className="flex gap-0.5 ml-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onInsertMeasure && onInsertMeasure(mIdx);
-                          }}
-                          className="w-4 h-4 flex items-center justify-center rounded bg-emerald-600/10 text-emerald-700 hover:bg-emerald-700 hover:text-white border border-emerald-600/30 transition-colors font-bold text-[9px] cursor-pointer"
-                          title={lang === 'fr' ? 'Insérer une mesure avant' : 'Inserir compasso antes'}
-                        >
-                          ➕
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (window.confirm(lang === 'fr' ? `Supprimer la mesure ${mIdx + 1} ?` : `Excluir o compasso ${mIdx + 1} ?`)) {
-                              onDeleteMeasure && onDeleteMeasure(mIdx);
-                            }
-                          }}
-                          className="w-4 h-4 flex items-center justify-center rounded bg-rose-600/10 text-rose-700 hover:bg-rose-700 hover:text-white border border-rose-600/30 transition-colors font-bold text-[9px] cursor-pointer"
-                          title={lang === 'fr' ? 'Supprimer la mesure' : 'Excluir compasso'}
-                        >
-                          ✕
-                        </button>
-                      </div>
-
                     </span>
 
-                    <div 
-                      className="ruler-detailed flex items-center gap-1.5"
-                      onClick={e => e.stopPropagation()}
-                      onMouseDown={e => e.stopPropagation()}
-                      onTouchStart={e => e.stopPropagation()}
-                    >
-                      {/* Signature rythmique */}
+                    {/* Time Signature */}
+                    <div className="ruler-detailed flex items-center gap-1">
                       <select
                         value={mTimeSig}
-                        onChange={e => onMeasureTimeSigChange(mIdx, e.target.value as TimeSignature)}
-                        className="bg-[var(--cordel-bg)] text-[9px] font-cactus font-bold border border-[var(--cordel-border)]/50 rounded px-0.5 py-px outline-none cursor-pointer"
-                        style={{ height: '18px' }}
+                        onChange={e => onMeasureTimeSigChange(mIdx, e.target.value)}
+                        className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] text-[8px] font-bold rounded cordel-border-sm px-0.5 py-px outline-none cursor-pointer"
+                        title={lang === 'fr' ? 'Signature rythmique' : 'Assinatura de tempo'}
                       >
                         <option value="4/4">4/4</option>
                         <option value="3/4">3/4</option>
@@ -1154,64 +1138,52 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                         <option value="6/8">6/8</option>
                         <option value="12/8">12/8</option>
                       </select>
+                    </div>
 
-                      {/* BPM Input */}
-                      <div className="flex items-center gap-0.5">
-                        <span className="text-[8px] opacity-75">BPM:</span>
-                        <input
-                          type="number"
-                          min={40}
-                          max={240}
-                          value={mBpm}
-                          onChange={e => onMeasureBpmChange(mIdx, Math.round(Number(e.target.value)))}
-                          className="w-10 bg-[var(--cordel-bg)] text-[9px] font-bold border border-[var(--cordel-border)]/50 rounded px-0.5 py-px text-center outline-none"
-                          style={{ height: '18px' }}
-                        />
-                      </div>
-
-                      {/* Transition Toggle */}
+                    {/* Tempo (BPM) */}
+                    <div className="ruler-detailed flex items-center gap-1">
+                      <input
+                        type="number"
+                        min={40}
+                        max={240}
+                        value={mBpm}
+                        onChange={e => onMeasureBpmChange(mIdx, Math.max(40, Math.min(240, Math.round(Number(e.target.value)))))}
+                        className="w-10 bg-[var(--cordel-bg)] text-[9px] font-bold border border-[var(--cordel-border)]/50 rounded px-0.5 py-px text-center outline-none"
+                        style={{ height: '18px' }}
+                      />
+                      <span className="text-[8px] opacity-75">bpm</span>
+                      
                       <button
-                        onClick={() => onMeasureTransitionChange(mIdx, mTransition === 'immediate' ? 'ramp' : 'immediate')}
+                        onClick={() => onMeasureBpmTransitionChange(mIdx, mTransition === 'immediate' ? 'ramp' : 'immediate')}
                         className={`px-1 py-px text-[9px] font-extrabold border rounded transition-colors cursor-pointer flex items-center justify-center`}
                         style={{ height: '18px', minWidth: '18px' }}
-                        title={
-                          mTransition === 'ramp'
-                            ? (lang === 'fr' ? 'Transition progressive (Rampe)' : 'Transição progressiva (Rampa)')
-                            : (lang === 'fr' ? 'Transition immédiate' : 'Transição imediata')
-                        }
                       >
                         {mTransition === 'ramp' ? (
-                          <span className="text-amber-600 dark:text-amber-500 font-black">↗</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-black">↗</span>
                         ) : (
                           <span className="opacity-60">→</span>
                         )}
                       </button>
+                    </div>
 
-                      {/* Vol Input */}
-                      <div className="flex items-center gap-0.5 ml-1.5 border-l border-[var(--cordel-border)]/20 pl-1.5">
-                        <span className="text-[8px] opacity-75 font-cactus">VOL:</span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={mVol}
-                          onChange={e => onMeasureVolChange(mIdx, Math.max(0, Math.min(100, Math.round(Number(e.target.value)))))}
-                          className="w-10 bg-[var(--cordel-bg)] text-[9px] font-bold border border-[var(--cordel-border)]/50 rounded px-0.5 py-px text-center outline-none"
-                          style={{ height: '18px' }}
-                        />
-                        <span className="text-[8px] opacity-75">%</span>
-                      </div>
-
-                      {/* Vol Transition Toggle */}
+                    {/* Section Volume */}
+                    <div className="ruler-detailed flex items-center gap-1">
+                      <span className="text-[9px] opacity-75">🔊</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={mVol}
+                        onChange={e => onMeasureVolChange(mIdx, Math.max(0, Math.min(100, Math.round(Number(e.target.value)))))}
+                        className="w-10 bg-[var(--cordel-bg)] text-[9px] font-bold border border-[var(--cordel-border)]/50 rounded px-0.5 py-px text-center outline-none"
+                        style={{ height: '18px' }}
+                      />
+                      <span className="text-[8px] opacity-75">%</span>
+                      
                       <button
                         onClick={() => onMeasureVolTransitionChange(mIdx, mVolTransition === 'immediate' ? 'ramp' : 'immediate')}
                         className={`px-1 py-px text-[9px] font-extrabold border rounded transition-colors cursor-pointer flex items-center justify-center`}
                         style={{ height: '18px', minWidth: '18px' }}
-                        title={
-                          mVolTransition === 'ramp'
-                            ? (lang === 'fr' ? 'Transition progressive (Fade)' : 'Transição progressiva (Fade)')
-                            : (lang === 'fr' ? 'Transition immédiate' : 'Transição imediata')
-                        }
                       >
                         {mVolTransition === 'ramp' ? (
                           <span className="text-emerald-600 dark:text-emerald-400 font-black">↗</span>
@@ -1222,7 +1194,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                     </div>
                   </div>
 
-                  <div className="ruler-detailed flex w-full opacity-50 text-[8px] pb-0.5">
+                  <div className="flex w-full opacity-50 text-[8px] pb-0.5">
                     {Array.from({ length: localBeats }).map((_, b) => (
                       <span
                         key={b}
@@ -1237,9 +1209,14 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
               );
             })}
 
+            {/* Right spacer column */}
+            {visibleRange.end < totalMeasures - 1 && (
+              <div style={{ width: `${(totalMeasures - 1 - visibleRange.end) * MEASURE_W}px`, minWidth: `${(totalMeasures - 1 - visibleRange.end) * MEASURE_W}px` }} className="shrink-0" />
+            )}
+
             {/* Quick Add Measure Button */}
             <div
-              className="flex items-center justify-start px-4 z-40 bg-[var(--cordel-bg)] border-r border-[var(--cordel-border)]/30"
+              className="px-4 z-40 bg-[var(--cordel-bg)] border-r border-[var(--cordel-border)]/30 flex items-center justify-start h-full shrink-0"
               style={{ width: 150, minWidth: 150 }}
               onClick={(e) => e.stopPropagation()}
               onMouseDown={(e) => e.stopPropagation()}
@@ -1273,8 +1250,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           />
 
           {/* ══════════ TRACK ROWS ══════════ */}
-          {tracks.map(track => (
-            <TimelineTrackRow key={track.id} trackId={track.id} />
+          {trackIds.map(trackId => (
+            <TimelineTrackRow key={trackId} trackId={trackId} />
           ))}
           {/* ══════════ PLAYHEAD (Bypass React via Ref) ══════════ */}
           <TimelinePlayhead />
