@@ -196,6 +196,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const trackRef = useRef(track);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastActivePatternIdRef = useRef<number | null>(null);
+  const patternDOMRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const badgeDOMRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
 
   useEffect(() => {
     (window as any).oGiradorDetailEditorOpen = true;
@@ -372,26 +374,26 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
       if (activeId !== lastActiveId) {
         // Clear old highlight
-        if (lastActiveId !== null && containerRef.current) {
-          const oldCard = containerRef.current.querySelector(`[data-pattern-card="${lastActiveId}"]`) as HTMLElement;
+        if (lastActiveId !== null) {
+          const oldCard = patternDOMRefs.current.get(lastActiveId);
           if (oldCard) {
             oldCard.style.boxShadow = oldCard.getAttribute('data-selected') === 'true' ? '4px 4px 0px 0px #1a1a1a' : '2px 2px 0px 0px #bbb';
             oldCard.style.borderColor = oldCard.getAttribute('data-selected') === 'true' ? '#1a1a1a' : '#999';
           }
-          const oldBadge = containerRef.current.querySelector(`[data-active-badge="${lastActiveId}"]`) as HTMLElement;
+          const oldBadge = badgeDOMRefs.current.get(lastActiveId);
           if (oldBadge) {
             oldBadge.classList.add('hidden');
           }
         }
 
         // Apply new highlight
-        if (activeId !== null && containerRef.current) {
-          const newCard = containerRef.current.querySelector(`[data-pattern-card="${activeId}"]`) as HTMLElement;
+        if (activeId !== null) {
+          const newCard = patternDOMRefs.current.get(activeId);
           if (newCard) {
             newCard.style.boxShadow = '4px 4px 0px 0px #8b2a1a';
             newCard.style.borderColor = '#8b2a1a';
           }
-          const newBadge = containerRef.current.querySelector(`[data-active-badge="${activeId}"]`) as HTMLElement;
+          const newBadge = badgeDOMRefs.current.get(activeId);
           if (newBadge) {
             newBadge.classList.remove('hidden');
           }
@@ -427,13 +429,13 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     return () => {
       window.removeEventListener('o-girador-tick', handleTick);
       // Clean up highlights on unmount
-      if (lastActiveId !== null && containerRef.current) {
-        const card = containerRef.current.querySelector(`[data-pattern-card="${lastActiveId}"]`) as HTMLElement;
+      if (lastActiveId !== null) {
+        const card = patternDOMRefs.current.get(lastActiveId);
         if (card) {
           card.style.boxShadow = card.getAttribute('data-selected') === 'true' ? '4px 4px 0px 0px #1a1a1a' : '2px 2px 0px 0px #bbb';
           card.style.borderColor = card.getAttribute('data-selected') === 'true' ? '#1a1a1a' : '#999';
         }
-        const badge = containerRef.current.querySelector(`[data-active-badge="${lastActiveId}"]`) as HTMLElement;
+        const badge = badgeDOMRefs.current.get(lastActiveId);
         if (badge) {
           badge.classList.add('hidden');
         }
@@ -604,7 +606,14 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                     <SortablePatternWrapper key={ptn.id} id={ptn.id}>
                       {({ setNodeRef, style, attributes, listeners }: any) => (
                         <div
-                          ref={setNodeRef}
+                          ref={(el) => {
+                            setNodeRef(el);
+                            if (el) {
+                              patternDOMRefs.current.set(ptn.id, el);
+                            } else {
+                              patternDOMRefs.current.delete(ptn.id);
+                            }
+                          }}
                           data-pattern-card={ptn.id}
                           data-selected={isSelected}
                           className={`cordel-border-sm p-4 flex flex-col gap-3 transition-colors ${
@@ -670,6 +679,13 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             )}
 
                             <span
+                              ref={(el) => {
+                                if (el) {
+                                  badgeDOMRefs.current.set(ptn.id, el);
+                                } else {
+                                  badgeDOMRefs.current.delete(ptn.id);
+                                }
+                              }}
                               data-active-badge={ptn.id}
                               className="bg-[#8b2a1a] text-[#f4ecd8] text-[9px] uppercase px-1.5 py-0.5 cordel-border-sm font-bold flex items-center gap-1 animate-pulse select-none hidden"
                             >
