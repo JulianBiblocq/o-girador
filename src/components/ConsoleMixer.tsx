@@ -348,6 +348,163 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     }
   };
 
+  const memoizedOnClose = React.useCallback(() => setEditingTrackId(null), []);
+  const memoizedOnNavigatePrev = React.useCallback(() => {
+    const idx = trackIds.indexOf(editingTrackId);
+    if (idx > 0) setEditingTrackId(trackIds[idx - 1]);
+    else if (trackIds.length > 0) setEditingTrackId(trackIds[trackIds.length - 1]);
+  }, [editingTrackId, trackIds]);
+  const memoizedOnNavigateNext = React.useCallback(() => {
+    const idx = trackIds.indexOf(editingTrackId);
+    if (idx >= 0 && idx < trackIds.length - 1) setEditingTrackId(trackIds[idx + 1]);
+    else if (trackIds.length > 0) setEditingTrackId(trackIds[0]);
+  }, [editingTrackId, trackIds]);
+  const memoizedOnStepValueChange = React.useCallback((pid: number, sIdx: number | number[], val: string | string[], lyrics?: string[], notes?: string[]) => {
+    if (editingTrackId !== null) {
+      onStepValueChange(editingTrackId, pid, sIdx, val, lyrics, notes);
+    }
+  }, [editingTrackId, onStepValueChange]);
+  const memoizedOnStepKeyDown = React.useCallback((pid: number, sIdx: number, k: string, cVal: string, el: HTMLInputElement) => {
+    if (editingTrackId !== null) {
+      onStepKeyDown(editingTrackId, pid, sIdx, k, cVal, el);
+    }
+  }, [editingTrackId, onStepKeyDown]);
+  const memoizedOnStepsChange = React.useCallback((pid: number, steps: number) => {
+    if (editingTrackId !== null) {
+      onStepsChange(editingTrackId, pid, steps);
+    }
+  }, [editingTrackId, onStepsChange]);
+  const memoizedOnVoiceTypeToggle = React.useCallback((pid: number, sIdx: number) => {
+    if (editingTrackId !== null) {
+      onVoiceTypeToggle(editingTrackId, pid, sIdx);
+    }
+  }, [editingTrackId, onVoiceTypeToggle]);
+  const memoizedOnVoiceSylChange = React.useCallback((pid: number, sIdx: number, val: string) => {
+    if (editingTrackId !== null) {
+      onVoiceSylChange(editingTrackId, pid, sIdx, val);
+    }
+  }, [editingTrackId, onVoiceSylChange]);
+  const memoizedOnVoiceNoteChange = React.useCallback((pid: number, sIdx: number, val: string) => {
+    if (editingTrackId !== null) {
+      onVoiceNoteChange(editingTrackId, pid, sIdx, val);
+    }
+  }, [editingTrackId, onVoiceNoteChange]);
+  const memoizedOnVoiceNoteBlur = React.useCallback((pid: number, sIdx: number, val: string) => {
+    if (editingTrackId !== null) {
+      onVoiceNoteBlur(editingTrackId, pid, sIdx, val);
+    }
+  }, [editingTrackId, onVoiceNoteBlur]);
+  const memoizedOnAddPattern = React.useCallback(() => {
+    if (editingTrackId !== null) {
+      onAddPattern(editingTrackId);
+    }
+  }, [editingTrackId, onAddPattern]);
+  const memoizedOnDeletePattern = React.useCallback((pid: number) => {
+    if (editingTrackId !== null) {
+      onDeletePattern(editingTrackId, pid);
+    }
+  }, [editingTrackId, onDeletePattern]);
+  const memoizedOnReorderPatternsDnd = React.useCallback((oldIdx: number, newIdx: number) => {
+    if (editingTrackId !== null && onReorderPatternsDnd) {
+      onReorderPatternsDnd(editingTrackId, oldIdx, newIdx);
+    }
+  }, [editingTrackId, onReorderPatternsDnd]);
+  const memoizedOnAddPatternVariation = React.useCallback((pid: number) => {
+    if (editingTrackId !== null && onAddPatternVariation) {
+      onAddPatternVariation(editingTrackId, pid);
+    }
+  }, [editingTrackId, onAddPatternVariation]);
+  const memoizedOnUpdatePatternVariationProbability = React.useCallback((pid: number, vid: string, prob: number) => {
+    if (editingTrackId !== null && onUpdatePatternVariationProbability) {
+      onUpdatePatternVariationProbability(editingTrackId, pid, vid, prob);
+    }
+  }, [editingTrackId, onUpdatePatternVariationProbability]);
+  const memoizedOnTogglePatternVariationFirstTimeOnly = React.useCallback((pid: number, vid: string, val: boolean) => {
+    if (editingTrackId !== null && onTogglePatternVariationFirstTimeOnly) {
+      onTogglePatternVariationFirstTimeOnly(editingTrackId, pid, vid, val);
+    }
+  }, [editingTrackId, onTogglePatternVariationFirstTimeOnly]);
+  const memoizedOnVariationStepValueChange = React.useCallback((pid: number, vid: string, sIdx: number | number[], val: string | string[]) => {
+    if (editingTrackId !== null && onVariationStepValueChange) {
+      onVariationStepValueChange(editingTrackId, pid, vid, sIdx, val);
+    }
+  }, [editingTrackId, onVariationStepValueChange]);
+  const memoizedOnDeletePatternVariation = React.useCallback((pid: number, vid: string) => {
+    if (editingTrackId !== null && onDeletePatternVariation) {
+      onDeletePatternVariation(editingTrackId, pid, vid);
+    }
+  }, [editingTrackId, onDeletePatternVariation]);
+  const memoizedOnStepVolumeChange = React.useCallback((pid: number, sIdx: number | number[], val: number) => {
+    if (editingTrackId !== null && onStepVolumeChange) {
+      onStepVolumeChange(editingTrackId, pid, sIdx, val);
+    }
+  }, [editingTrackId, onStepVolumeChange]);
+  const memoizedOnStepDecayChange = React.useCallback((pid: number, sIdx: number | number[], val: number) => {
+    if (editingTrackId !== null && onStepDecayChange) {
+      onStepDecayChange(editingTrackId, pid, sIdx, val);
+    }
+  }, [editingTrackId, onStepDecayChange]);
+  const memoizedOnStepMicrotimingChange = React.useCallback((pid: number, sIdx: number | number[], val: number) => {
+    if (editingTrackId !== null && onStepMicrotimingChange) {
+      onStepMicrotimingChange(editingTrackId, pid, sIdx, val);
+    }
+  }, [editingTrackId, onStepMicrotimingChange]);
+  const memoizedOnVariationStepVolumeChange = React.useCallback((pid: number, vid: string, sIdx: number | number[], val: number) => {
+    if (editingTrackId !== null && onVariationStepVolumeChange) {
+      onVariationStepVolumeChange(editingTrackId, pid, vid, sIdx, val);
+    }
+  }, [editingTrackId, onVariationStepVolumeChange]);
+  const memoizedOnVariationStepDecayChange = React.useCallback((pid: number, vid: string, sIdx: number | number[], val: number) => {
+    if (editingTrackId !== null && onVariationStepDecayChange) {
+      onVariationStepDecayChange(editingTrackId, pid, vid, sIdx, val);
+    }
+  }, [editingTrackId, onVariationStepDecayChange]);
+  const memoizedOnVariationStepMicrotimingChange = React.useCallback((pid: number, vid: string, sIdx: number | number[], val: number) => {
+    if (editingTrackId !== null && onVariationStepMicrotimingChange) {
+      onVariationStepMicrotimingChange(editingTrackId, pid, vid, sIdx, val);
+    }
+  }, [editingTrackId, onVariationStepMicrotimingChange]);
+  const memoizedOnSelectPattern = React.useCallback((pid: number) => {
+    if (editingTrackId !== null) {
+      onTrackSelectPattern(editingTrackId, pid);
+    }
+  }, [editingTrackId]);
+  const memoizedOnPatternAssign = React.useCallback((pid: number, mIdx: number, val: boolean) => {
+    if (editingTrackId !== null) {
+      onPatternAssign(editingTrackId, pid, mIdx, val);
+    }
+  }, [editingTrackId]);
+  const memoizedOnVolumeChange = React.useCallback((val: number) => {
+    if (editingTrackId !== null) {
+      onVolumeChange(editingTrackId, val);
+    }
+  }, [editingTrackId, onVolumeChange]);
+  const memoizedOnMuteToggle = React.useCallback(() => {
+    if (editingTrackId !== null) {
+      onMuteToggle(editingTrackId);
+    }
+  }, [editingTrackId, onMuteToggle]);
+  const memoizedOnSoloToggle = React.useCallback(() => {
+    if (editingTrackId !== null) {
+      onSoloToggle(editingTrackId);
+    }
+  }, [editingTrackId, onSoloToggle]);
+  const memoizedOnPastePattern = React.useCallback((pId: number) => {
+    if (editingTrackId !== null) {
+      handlePastePattern(editingTrackId, pId);
+    }
+  }, [editingTrackId, handlePastePattern]);
+  const memoizedOnLoadLibraryPattern = React.useCallback((targetPtnId: number, libPattern: any) => {
+    if (editingTrackId !== null && handleLoadLibraryPattern) {
+      handleLoadLibraryPattern(editingTrackId, targetPtnId, libPattern);
+    }
+  }, [editingTrackId, handleLoadLibraryPattern]);
+  const memoizedOnPatternNameChange = React.useCallback((pid: number, name: string) => {
+    if (editingTrackId !== null && onPatternNameChange) {
+      onPatternNameChange(editingTrackId, pid, name);
+    }
+  }, [editingTrackId, onPatternNameChange]);
+
   return (
     <div 
       className="flex-1 flex flex-col h-full overflow-hidden"
@@ -628,56 +785,48 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             lang={lang}
             isLeftHanded={isLeftHanded}
             trackId={editingTrackId}
-            onClose={() => setEditingTrackId(null)}
-            onNavigatePrev={() => {
-              const idx = trackIds.indexOf(editingTrackId);
-              if (idx > 0) setEditingTrackId(trackIds[idx - 1]);
-              else if (trackIds.length > 0) setEditingTrackId(trackIds[trackIds.length - 1]);
-            }}
-            onNavigateNext={() => {
-              const idx = trackIds.indexOf(editingTrackId);
-              if (idx >= 0 && idx < trackIds.length - 1) setEditingTrackId(trackIds[idx + 1]);
-              else if (trackIds.length > 0) setEditingTrackId(trackIds[0]);
-            }}
+            onClose={memoizedOnClose}
+            onNavigatePrev={memoizedOnNavigatePrev}
+            onNavigateNext={memoizedOnNavigateNext}
             soloPatternPlayId={soloPatternPlayId}
             soloPatternVariationId={soloPatternVariationId}
             onStepTouchStart={onStepTouchStart}
             onPlaySoloPattern={handleStartSoloPattern}
             onStopSoloPattern={handleStopSoloPattern}
-            onStepValueChange={(pid, sIdx, val, lyrics, notes) => onStepValueChange(editingTrackId, pid, sIdx, val, lyrics, notes)}
-            onStepKeyDown={(pid, sIdx, k, cVal, el) => onStepKeyDown(editingTrackId, pid, sIdx, k, cVal, el)}
-            onStepsChange={(pid, steps) => onStepsChange(editingTrackId, pid, steps)}
-            onVoiceTypeToggle={(pid, sIdx) => onVoiceTypeToggle(editingTrackId, pid, sIdx)}
-            onVoiceSylChange={(pid, sIdx, val) => onVoiceSylChange(editingTrackId, pid, sIdx, val)}
-            onVoiceNoteChange={(pid, sIdx, val) => onVoiceNoteChange(editingTrackId, pid, sIdx, val)}
-            onVoiceNoteBlur={(pid, sIdx, val) => onVoiceNoteBlur(editingTrackId, pid, sIdx, val)}
-            onAddPattern={() => onAddPattern(editingTrackId)}
-            onDeletePattern={(pid) => onDeletePattern(editingTrackId, pid)}
-            onReorderPatternsDnd={(oldIdx, newIdx) => onReorderPatternsDnd && onReorderPatternsDnd(editingTrackId, oldIdx, newIdx)}
-            onAddPatternVariation={(pid) => onAddPatternVariation && onAddPatternVariation(editingTrackId, pid)}
-            onUpdatePatternVariationProbability={(pid, vid, prob) => onUpdatePatternVariationProbability && onUpdatePatternVariationProbability(editingTrackId, pid, vid, prob)}
-            onTogglePatternVariationFirstTimeOnly={(pid, vid, val) => onTogglePatternVariationFirstTimeOnly && onTogglePatternVariationFirstTimeOnly(editingTrackId, pid, vid, val)}
-            onVariationStepValueChange={(pid, vid, sIdx, val) => onVariationStepValueChange && onVariationStepValueChange(editingTrackId, pid, vid, sIdx, val)}
-            onVariationStepVolumeChange={(pid, vid, sIdx, val) => onVariationStepVolumeChange && onVariationStepVolumeChange(editingTrackId, pid, vid, sIdx, val)}
-            onVariationStepDecayChange={(pid, vid, sIdx, val) => onVariationStepDecayChange && onVariationStepDecayChange(editingTrackId, pid, vid, sIdx, val)}
-            onVariationStepMicrotimingChange={(pid, vid, sIdx, val) => onVariationStepMicrotimingChange && onVariationStepMicrotimingChange(editingTrackId, pid, vid, sIdx, val)}
-            onDeletePatternVariation={(pid, vid) => onDeletePatternVariation && onDeletePatternVariation(editingTrackId, pid, vid)}
-            onSelectPattern={(pid) => onTrackSelectPattern(editingTrackId, pid)}
-            onPatternAssign={(pid, mIdx, val) => onPatternAssign(editingTrackId, pid, mIdx, val)}
-            onVolumeChange={(val) => onVolumeChange(editingTrackId, val)}
-            onMuteToggle={() => onMuteToggle(editingTrackId)}
-            onSoloToggle={() => onSoloToggle(editingTrackId)}
-            onStepVolumeChange={(pid, sIdx, val) => onStepVolumeChange(editingTrackId, pid, sIdx, val)}
-            onStepDecayChange={(pid, sIdx, val) => onStepDecayChange(editingTrackId, pid, sIdx, val)}
-            onStepMicrotimingChange={(pid, sIdx, val) => onStepMicrotimingChange(editingTrackId, pid, sIdx, val)}
+            onStepValueChange={memoizedOnStepValueChange}
+            onStepKeyDown={memoizedOnStepKeyDown}
+            onStepsChange={memoizedOnStepsChange}
+            onVoiceTypeToggle={memoizedOnVoiceTypeToggle}
+            onVoiceSylChange={memoizedOnVoiceSylChange}
+            onVoiceNoteChange={memoizedOnVoiceNoteChange}
+            onVoiceNoteBlur={memoizedOnVoiceNoteBlur}
+            onAddPattern={memoizedOnAddPattern}
+            onDeletePattern={memoizedOnDeletePattern}
+            onReorderPatternsDnd={memoizedOnReorderPatternsDnd}
+            onAddPatternVariation={memoizedOnAddPatternVariation}
+            onUpdatePatternVariationProbability={memoizedOnUpdatePatternVariationProbability}
+            onTogglePatternVariationFirstTimeOnly={memoizedOnTogglePatternVariationFirstTimeOnly}
+            onVariationStepValueChange={memoizedOnVariationStepValueChange}
+            onVariationStepVolumeChange={memoizedOnVariationStepVolumeChange}
+            onVariationStepDecayChange={memoizedOnVariationStepDecayChange}
+            onVariationStepMicrotimingChange={memoizedOnVariationStepMicrotimingChange}
+            onDeletePatternVariation={memoizedOnDeletePatternVariation}
+            onSelectPattern={memoizedOnSelectPattern}
+            onPatternAssign={memoizedOnPatternAssign}
+            onVolumeChange={memoizedOnVolumeChange}
+            onMuteToggle={memoizedOnMuteToggle}
+            onSoloToggle={memoizedOnSoloToggle}
+            onStepVolumeChange={memoizedOnStepVolumeChange}
+            onStepDecayChange={memoizedOnStepDecayChange}
+            onStepMicrotimingChange={memoizedOnStepMicrotimingChange}
             globalSwing={globalSwing}
             isPlaying={isPlaying}
             currentMeasure={useSequencerStore.getState().currentMeasure}
             maxTicks={maxTicks}
             totalMeasures={totalMeasures}
             onCopyPattern={handleCopyPattern}
-            onPastePattern={(pId) => handlePastePattern(editingTrackId, pId)}
-            onLoadLibraryPattern={(targetPtnId, libPattern) => handleLoadLibraryPattern(editingTrackId, targetPtnId, libPattern)}
+            onPastePattern={memoizedOnPastePattern}
+            onLoadLibraryPattern={memoizedOnLoadLibraryPattern}
             canPaste={!!copiedPattern}
             isRecordingVocal={isRecordingVocal}
             recordingVocalPatternId={recordingVocalPatternId}
@@ -694,7 +843,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             isVocalGuideEnabled={isVocalGuideEnabled}
             onVocalGuideToggle={onVocalGuideToggle}
             onVocalBpmSyncToggle={onVocalBpmSyncToggle}
-            onPatternNameChange={(pid, name) => onPatternNameChange && onPatternNameChange(editingTrackId, pid, name)}
+            onPatternNameChange={memoizedOnPatternNameChange}
             vocalCalibrationLatencyMs={vocalCalibrationLatencyMs}
           />
         </Suspense>

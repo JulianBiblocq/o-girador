@@ -18,9 +18,11 @@ export function useGlobalKeyboardShortcuts() {
   // InputManager Keyboard Listeners
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((window as any).oGiradorDetailEditorOpen) return;
       if (inputManager) inputManager.handleKeyDown(e);
     };
     const handleGlobalKeyUp = (e: KeyboardEvent) => {
+      if ((window as any).oGiradorDetailEditorOpen) return;
       if (inputManager) inputManager.handleKeyUp(e);
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
@@ -34,6 +36,7 @@ export function useGlobalKeyboardShortcuts() {
   // Global modifiers: Undo, Redo, Copy, Paste, Cut, Select All
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((window as any).oGiradorDetailEditorOpen) return;
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -89,6 +92,8 @@ export function useGlobalKeyboardShortcuts() {
         e.preventDefault();
         handleTogglePlay();
       }
+
+      if ((window as any).oGiradorDetailEditorOpen) return;
 
       const isUndoKey = (e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && !e.shiftKey;
       const isRedoKey = 

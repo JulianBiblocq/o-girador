@@ -56,6 +56,134 @@ const getGlobalClipboard = () => {
   return null;
 };
 
+interface PercussionStepCellProps {
+  i: number;
+  val: string | number;
+  volume: number;
+  decay: number;
+  microtiming: number;
+  isSelected: boolean;
+  isMultiSelected: boolean;
+  isFocused: boolean;
+  shiftPx: number;
+  colorStyle: React.CSSProperties;
+  isMultiSelectActive: boolean;
+  isSextuplet: boolean;
+  isTriplet: boolean;
+  indexInGroup: number;
+  totalShift: number;
+  trackId: number;
+  
+  onMouseDown: (e: React.MouseEvent<HTMLInputElement>, index: number, value: string | number) => void;
+  onMouseEnter: (index: number) => void;
+  onTouchStart: (e: React.TouchEvent<HTMLInputElement>, index: number, value: string | number) => void;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>, index: number) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, index: number) => void;
+}
+
+const PercussionStepCell = React.memo(({
+  i,
+  val,
+  volume,
+  decay,
+  microtiming,
+  isSelected,
+  isMultiSelected,
+  isFocused,
+  shiftPx,
+  colorStyle,
+  isMultiSelectActive,
+  isSextuplet,
+  isTriplet,
+  indexInGroup,
+  totalShift,
+  trackId,
+  onMouseDown,
+  onMouseEnter,
+  onTouchStart,
+  onChange,
+  onKeyDown
+}: PercussionStepCellProps) => {
+  return (
+    <div key={i} className="flex flex-col items-center select-none" style={{ width: isSextuplet || isTriplet ? 'auto' : '36px', flex: isSextuplet || isTriplet ? '1' : 'none' }}>
+      <input
+        type="text"
+        value={val === 0 ? '' : val}
+        readOnly={isMultiSelectActive}
+        onMouseDown={(e) => onMouseDown(e, i, val)}
+        onMouseEnter={() => onMouseEnter(i)}
+        onTouchStart={(e) => onTouchStart(e, i, val)}
+        onChange={(e) => onChange(e, i)}
+        onKeyDown={(e) => onKeyDown(e, i)}
+        className={`text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${
+          val === 0
+            ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
+            : ''
+        } ${
+          isMultiSelected
+            ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+            : isFocused
+              ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+              : 'outline-none'
+        }`}
+        style={{
+          ...colorStyle,
+          width: isSextuplet || isTriplet ? '100%' : '36px',
+          height: isSextuplet || isTriplet ? '48px' : '36px',
+          transform: `translateX(${shiftPx}px)`,
+          clipPath: isSextuplet 
+            ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
+            : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
+          borderStyle: isSextuplet || isTriplet ? 'none' : undefined,
+          borderRadius: isSextuplet || isTriplet ? '0' : undefined
+        }}
+        data-track-id={trackId}
+        data-step-index={i}
+      />
+      {/* Sculpting micro-bars */}
+      <div className="w-full flex flex-col gap-[2px] mt-1 z-10 relative">
+        {/* Volume bar (Green) */}
+        <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+          <div className="h-full bg-green-600 transition-all" style={{ width: `${volume}%` }} />
+        </div>
+        {/* Decay bar (Amber) */}
+        <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+          <div className="h-full bg-amber-500 transition-all" style={{ width: `${decay}%` }} />
+        </div>
+        {/* Micro-timing bar (Blue bi-directional) */}
+        <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
+          <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
+          {totalShift !== 0 && (
+            <div
+              className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
+              style={{
+                left: totalShift > 0 ? '50%' : 'auto',
+                right: totalShift < 0 ? '50%' : 'auto',
+                width: `${Math.min(50, Math.abs(totalShift) / 2)}%`
+              }}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.val === nextProps.val &&
+    prevProps.volume === nextProps.volume &&
+    prevProps.decay === nextProps.decay &&
+    prevProps.microtiming === nextProps.microtiming &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.isMultiSelected === nextProps.isMultiSelected &&
+    prevProps.isFocused === nextProps.isFocused &&
+    prevProps.shiftPx === nextProps.shiftPx &&
+    prevProps.totalShift === nextProps.totalShift &&
+    prevProps.colorStyle.backgroundColor === nextProps.colorStyle.backgroundColor &&
+    prevProps.colorStyle.color === nextProps.colorStyle.color &&
+    prevProps.isMultiSelectActive === nextProps.isMultiSelectActive
+  );
+});
+
 const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   trackId,
   pattern,
@@ -966,39 +1094,43 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                           <div className="absolute top-[12px] bottom-[15px] left-1/2 w-0 border-l border-dashed border-[#1a1a1a]/30 -translate-x-1/2 pointer-events-none z-0" />
 
                           <div className="text-[8px] text-[#999] font-bold mb-0.5 z-10 relative">{i + 1}</div>
-                          <input
-                            type="text"
-                            maxLength={['caixa', 'tarol', 'timbal'].includes(instrument?.id) ? 2 : 1}
-                            value={displayVal}
-                            readOnly={isMultiSelectActive}
-                            inputMode={isTouchDevice ? 'none' : undefined}
-                            onClick={(e) => e.stopPropagation()}
-                            onFocus={(e) => {
-                              if (!isTouchDevice) {
-                                e.target.select();
-                              }
-                              setSelectedPatternId(pattern.id);
-                            }}
-                            onMouseDown={(e) => {
+                          <PercussionStepCell
+                            i={i}
+                            val={val}
+                            volume={pattern?.volumes?.[i] ?? 100}
+                            decay={pattern?.decays?.[i] ?? 100}
+                            microtiming={pattern?.microtimings?.[i] ?? 0}
+                            isSelected={selectedStepIndices.includes(i)}
+                            isMultiSelected={isMultiSelected}
+                            isFocused={selectedStepIdx === i}
+                            shiftPx={shiftPx}
+                            colorStyle={colorStyle}
+                            isMultiSelectActive={isMultiSelectActive}
+                            isSextuplet={isSextuplet}
+                            isTriplet={isTriplet}
+                            indexInGroup={indexInGroup}
+                            totalShift={totalShift}
+                            trackId={trackId}
+                            onMouseDown={(e, idx, value) => {
                               e.stopPropagation();
                               if (e.button !== 0) return;
                               setSelectedPatternId(pattern.id);
                               setSelectedVariationId(null);
 
                               if (isMultiSelectActive) {
-                                handleStepMouseDownMulti(e, i);
+                                handleStepMouseDownMulti(e, idx);
                                 return;
                               }
 
                               // 1. Alt Key Paint Editing
                               if (e.altKey) {
                                 isMouseDownRef.current = true;
-                                const nextVal = getNextStepValue(instrument?.id, instrument?.type, val);
+                                const nextVal = getNextStepValue(instrument?.id, instrument?.type, value);
                                 paintValueRef.current = nextVal;
                                 if (selectedVariationId) {
-                                  handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, i, String(nextVal));
+                                  handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, String(nextVal));
                                 } else {
-                                  handleTrackStepValueChange(trackId, pattern.id, i, String(nextVal));
+                                  handleTrackStepValueChange(trackId, pattern.id, idx, String(nextVal));
                                 }
                                 return;
                               }
@@ -1007,60 +1139,60 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                               if (e.shiftKey) {
                                 e.preventDefault();
                                 if (selectedStepIdx !== null) {
-                                  const start = Math.min(selectedStepIdx, i);
-                                  const end = Math.max(selectedStepIdx, i);
+                                  const start = Math.min(selectedStepIdx, idx);
+                                  const end = Math.max(selectedStepIdx, idx);
                                   const rangeIndices = Array.from({ length: end - start + 1 }, (_, k) => start + k);
                                   setSelectedStepIndices(rangeIndices);
-                                  setSelectedStepIdx(i);
+                                  setSelectedStepIdx(idx);
                                 }
                                 return;
                               }
 
                               // 3. Regular selection & painting
-                              setSelectedStepIdx(i);
-                              setSelectedStepIndices([i]);
+                              setSelectedStepIdx(idx);
+                              setSelectedStepIndices([idx]);
                               isMouseDownRef.current = true;
-                              const nextVal = getNextStepValue(instrument?.id, instrument?.type, val);
+                              const nextVal = getNextStepValue(instrument?.id, instrument?.type, value);
                               paintValueRef.current = nextVal;
                               if (selectedVariationId) {
-                                handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, i, String(nextVal));
+                                handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, String(nextVal));
                               } else {
-                                handleTrackStepValueChange(trackId, pattern.id, i, String(nextVal));
+                                handleTrackStepValueChange(trackId, pattern.id, idx, String(nextVal));
                               }
                             }}
-                            onMouseEnter={() => {
+                            onMouseEnter={(idx) => {
                               if (isMultiSelectActive) {
-                                handleStepMouseEnterMulti(i);
+                                handleStepMouseEnterMulti(idx);
                               } else {
                                 if (isMouseDownRef.current) {
                                   if (selectedVariationId) {
-                                    handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, i, String(paintValueRef.current));
+                                    handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, String(paintValueRef.current));
                                   } else {
-                                    handleTrackStepValueChange(trackId, pattern.id, i, String(paintValueRef.current));
+                                    handleTrackStepValueChange(trackId, pattern.id, idx, String(paintValueRef.current));
                                   }
                                 }
                               }
                             }}
-                            onTouchStart={(e) => {
+                            onTouchStart={(e, idx, value) => {
                               e.stopPropagation();
                               setSelectedPatternId(pattern.id);
                               setSelectedVariationId(null);
                               if (isMultiSelectActive) {
-                                handleStepTouchStartMulti(e, i);
+                                handleStepTouchStartMulti(e, idx);
                               } else {
-                                setSelectedStepIdx(i);
-                                setSelectedStepIndices([i]);
-                                handleStart(e, i, val);
+                                setSelectedStepIdx(idx);
+                                setSelectedStepIndices([idx]);
+                                handleStart(e, idx, value);
                               }
                             }}
-                            onChange={(e) => {
+                            onChange={(e, idx) => {
                               if (selectedVariationId) {
-                                handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, i, e.target.value);
+                                handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, e.target.value);
                               } else {
-                                handleTrackStepValueChange(trackId, pattern.id, i, e.target.value);
+                                handleTrackStepValueChange(trackId, pattern.id, idx, e.target.value);
                               }
                             }}
-                            onKeyDown={(e) => {
+                            onKeyDown={(e, idx) => {
                               if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
                               
                               const isCtrlOrMeta = e.ctrlKey || e.metaKey;
@@ -1076,7 +1208,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                               if (isCtrlOrMeta && e.key.toLowerCase() === 'v') {
                                 e.preventDefault();
                                 if (hasClipboard) {
-                                  handlePasteRelative(pattern, i);
+                                  handlePasteRelative(pattern, idx);
                                 } else {
                                   if (canPaste && onPastePattern) {
                                     onPastePattern(pattern.id);
@@ -1095,13 +1227,13 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                                   setSelectedStepIndices([]);
                                 } else {
                                   if (selectedVariationId) {
-                                    handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, i, '0');
+                                    handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, '0');
                                   } else {
-                                    handleTrackStepValueChange(trackId, pattern.id, i, '0');
+                                    handleTrackStepValueChange(trackId, pattern.id, idx, '0');
                                   }
                                   if (e.key === 'Backspace') {
                                     const inputEl = e.currentTarget as HTMLInputElement;
-                                    handleTrackStepKeyDown(trackId, pattern.id, i, e.key, '', inputEl);
+                                    handleTrackStepKeyDown(trackId, pattern.id, idx, e.key, '', inputEl);
                                   }
                                 }
                                 return;
@@ -1118,9 +1250,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                                   setSelectedStepIndices([]);
                                 } else {
                                   if (selectedVariationId) {
-                                    handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, i, e.key);
+                                    handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, e.key);
                                   } else {
-                                    handleTrackStepValueChange(trackId, pattern.id, i, e.key);
+                                    handleTrackStepValueChange(trackId, pattern.id, idx, e.key);
                                   }
                                   const inputEl = e.currentTarget as HTMLInputElement;
                                   if (inputEl.parentElement?.nextElementSibling) {
@@ -1135,58 +1267,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                               }
 
                               const inputEl = e.currentTarget as HTMLInputElement;
-                              handleTrackStepKeyDown(trackId, pattern.id, i, e.key, inputEl.value, inputEl);
+                              handleTrackStepKeyDown(trackId, pattern.id, idx, e.key, inputEl.value, inputEl);
                             }}
-                            className={`text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${
-                              val === 0
-                                ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
-                                : ''
-                            } ${
-                              isMultiSelected
-                                ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                                : (selectedStepIdx === i)
-                                  ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                                  : 'outline-none'
-                            }`}
-                            style={{
-                              ...colorStyle,
-                              width: isSextuplet || isTriplet ? '100%' : '36px',
-                              height: isSextuplet || isTriplet ? '48px' : '36px',
-                              transform: `translateX(${shiftPx}px)`,
-                              clipPath: isSextuplet 
-                                ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
-                                : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
-                              borderStyle: isSextuplet || isTriplet ? 'none' : undefined,
-                              borderRadius: isSextuplet || isTriplet ? '0' : undefined
-                            }}
-                            data-track-id={trackId}
-                            data-step-index={i}
                           />
-                          {/* Sculpting micro-bars */}
-                          <div className="w-full flex flex-col gap-[2px] mt-1 z-10 relative">
-                            {/* Volume bar (Green) */}
-                            <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-                              <div className="h-full bg-green-600 transition-all" style={{ width: `${pattern?.volumes?.[i] ?? 100}%` }} />
-                            </div>
-                            {/* Decay bar (Amber) */}
-                            <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-                              <div className="h-full bg-amber-500 transition-all" style={{ width: `${pattern?.decays?.[i] ?? 100}%` }} />
-                            </div>
-                            {/* Micro-timing bar (Blue bi-directional) */}
-                            <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
-                              <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
-                              {totalShift !== 0 && (
-                                <div
-                                  className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
-                                  style={{
-                                    left: totalShift > 0 ? '50%' : 'auto',
-                                    right: totalShift < 0 ? '50%' : 'auto',
-                                    width: `${Math.min(50, Math.abs(totalShift) / 2)}%`
-                                  }}
-                                />
-                              )}
-                            </div>
-                          </div>
                         </div>
                       );
                     })}

@@ -567,6 +567,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   // Keyboard listener for Spacebar panning shortcut
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if ((window as any).oGiradorDetailEditorOpen) return;
       if (e.code === 'Space') {
         const activeEl = document.activeElement;
         const isInput = activeEl && (

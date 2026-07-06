@@ -390,6 +390,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     if (!isMultiSelectActive || selectedStepIndices.length === 0) return;
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((window as any).oGiradorDetailEditorOpen) return;
       if (
         document.activeElement &&
         (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') &&
