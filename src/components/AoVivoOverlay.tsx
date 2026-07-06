@@ -1,4 +1,5 @@
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useState, useRef } from 'react';
 import { useSequencer } from '../contexts/SequencerContext';
 import { instrumentsConfig } from '../data';
@@ -301,7 +302,10 @@ MineiroStick.displayName = 'MineiroStick';
 
 export const AoVivoOverlay: React.FC = () => {
   const { activeAoVivoTrackId, isLeftHanded, activeVariationsRef, lang } = useSequencer();
-  const tracks = useSequencerStore(state => state.tracks);
+  const tracks = useSequencerStore(useShallow(state => {
+    if (activeAoVivoTrackId === null) return [];
+    return state.tracks.filter(t => t.id === activeAoVivoTrackId);
+  }));
 
   const [isEco, setIsEco] = useState<boolean>(() => !!(window as any).oGiradorEcoMode);
   

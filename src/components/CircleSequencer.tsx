@@ -20,6 +20,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 
 interface CircleSequencerProps {
+  visible?: boolean;
   lang?: Language;
   isLeftHanded?: boolean;
   tracks?: TrackGroup[];
@@ -62,6 +63,7 @@ interface CircleSequencerProps {
 }
 
 export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
+  const { visible = true } = props;
   const sequencer = useSequencer();
   const audio = useAudio();
 
@@ -72,7 +74,10 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
 
   const lang = props.lang !== undefined ? props.lang : sequencer.lang;
   const isLeftHanded = props.isLeftHanded !== undefined ? props.isLeftHanded : sequencer.isLeftHanded;
-  const tracksFromStore = useSequencerStore(state => state.tracks);
+  const tracksFromStore = useSequencerStore(state => {
+    if (!props.visible) return null;
+    return state.tracks;
+  });
   const tracks = props.tracks !== undefined ? props.tracks : tracksFromStore;
   const totalMeasuresFromStore = useSequencerStore(state => state.totalMeasures);
   const totalMeasures = props.totalMeasures !== undefined ? props.totalMeasures : totalMeasuresFromStore;
@@ -96,7 +101,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     window.addEventListener('o-girador-tick', handleTick);
     return () => window.removeEventListener('o-girador-tick', handleTick);
   }, []);
-  const globalCurrentMeasure = useSequencerStore(state => state.currentMeasure);
+  const globalCurrentMeasure = useSequencerStore(state => visible ? state.currentMeasure : 0);
   const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
   const currentMeasure = props.currentMeasure !== undefined ? props.currentMeasure : globalCurrentMeasure;
   const isMetroOn = props.isMetroOn !== undefined ? props.isMetroOn : audio.isMetroOn;
@@ -345,6 +350,8 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
   };
 
   useEffect(() => {
+    if (!visible) return;
+
     const handleTick = (e: Event) => {
       const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number; iteration?: number }>;
       const { step, measure, maxTicks, ratio = step / maxTicks, iteration = 1 } = customEvent.detail;
@@ -388,7 +395,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       window.removeEventListener('o-girador-tick', handleTick);
       window.removeEventListener('o-girador-measure-queued', handleMeasureQueued);
     };
-  }, [totalMeasures, songSections]);
+  }, [totalMeasures, songSections, visible]);
 
   useEffect(() => {
     const live = livePlaybackRef.current;
@@ -608,6 +615,19 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     });
   };
 
+  // 🛡️ FIX (Performance): control requestAnimationFrame lifecycle based on visibility
+  const visibleRef = useRef(visible);
+  const loopRunningRef = useRef(false);
+  const drawLoopRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    visibleRef.current = visible;
+    if (visible && !loopRunningRef.current) {
+      loopRunningRef.current = true;
+      drawLoopRef.current();
+    }
+  }, [visible]);
+
   // Canvas render animation loop
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -677,6 +697,10 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     let lastDrawTime = performance.now();
 
     const drawLoop = () => {
+      if (!visibleRef.current) {
+        loopRunningRef.current = false;
+        return;
+      }
       const time = performance.now();
       const isEco = !!(window as any).oGiradorEcoMode;
       const targetSize = isEco ? 600 : 1200;
@@ -1230,10 +1254,16 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       animId = requestAnimationFrame(drawLoop);
     };
 
-    drawLoop();
+    drawLoopRef.current = drawLoop;
+
+    if (visibleRef.current) {
+      loopRunningRef.current = true;
+      drawLoop();
+    }
 
     return () => {
       cancelAnimationFrame(animId);
+      loopRunningRef.current = false;
       observer.disconnect();
     };
   }, []);
@@ -1256,6 +1286,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
+        display: visible ? 'flex' : 'none',
       }}
     >
       {/* Dynamic Measure Information Widgets around the Roda */}
