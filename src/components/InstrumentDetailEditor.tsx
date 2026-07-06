@@ -197,6 +197,13 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const containerRef = useRef<HTMLDivElement>(null);
   const lastActivePatternIdRef = useRef<number | null>(null);
 
+  useEffect(() => {
+    (window as any).oGiradorDetailEditorOpen = true;
+    return () => {
+      (window as any).oGiradorDetailEditorOpen = false;
+    };
+  }, []);
+
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { soloPatternPlayIdRef.current = soloPatternPlayId; }, [soloPatternPlayId]);
   useEffect(() => { trackRef.current = track; }, [track]);

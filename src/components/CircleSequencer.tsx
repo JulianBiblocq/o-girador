@@ -699,6 +699,10 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     let lastDrawTime = performance.now();
 
     const drawLoop = () => {
+      if ((window as any).oGiradorDetailEditorOpen) {
+        animId = requestAnimationFrame(drawLoop);
+        return;
+      }
       if (!visibleRef.current) {
         loopRunningRef.current = false;
         return;

@@ -26,6 +26,10 @@ export const VUMeter: React.FC<VUMeterProps> = ({
     const meterNode = meters && instrumentId ? meters[instrumentId] : undefined;
 
     const updateMeter = () => {
+      if ((window as any).oGiradorDetailEditorOpen) {
+        animationFrameId = requestAnimationFrame(updateMeter);
+        return;
+      }
       // If eco-mode is globally activated, we suspend animation to save CPU
       const isEco = typeof window !== 'undefined' && (window as any).oGiradorEcoMode;
       if (isEco) {

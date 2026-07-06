@@ -163,6 +163,10 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     isPlayingRef.current = isPlaying;
 
     const updateMasterMeter = () => {
+      if ((window as any).oGiradorDetailEditorOpen) {
+        animationFrameId = requestAnimationFrame(updateMasterMeter);
+        return;
+      }
       if (!isPlayingRef.current) {
         if (vuMeterRef.current) vuMeterRef.current.style.transform = 'scaleY(0)';
         if (dbTextRef.current) dbTextRef.current.innerText = '— dB';

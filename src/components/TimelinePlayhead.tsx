@@ -183,6 +183,10 @@ const TimelinePlayheadComponent: React.FC<{ visible?: boolean }> = ({ visible = 
     const scrollEl = document.getElementById('timeline-scroll-container');
 
     const updatePlayheadPosition = () => {
+      if ((window as any).oGiradorDetailEditorOpen) {
+        rafId = requestAnimationFrame(updatePlayheadPosition);
+        return;
+      }
       const now = performance.now();
 
       // 1. Calcul du framerate glissant en O(1)
