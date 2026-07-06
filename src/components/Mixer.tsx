@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useMemo, useState, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useRef, useEffect, lazy, Suspense } from 'react';
 import {
   DndContext,
   PointerSensor,
@@ -18,7 +18,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { TrackMixer } from './TrackMixer';
-import { InstrumentDetailEditor } from './InstrumentDetailEditor';
+const InstrumentDetailEditor = lazy(() => import('./InstrumentDetailEditor').then(m => ({ default: m.InstrumentDetailEditor })));
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
@@ -26,6 +26,17 @@ import { meters } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { Pattern } from '../types';
+
+const trackListCache = new Map<string, { id: number; isHidden: boolean; isSolo: boolean; isMute: boolean }>();
+const getCachedTrack = (id: number, isHidden: boolean, isSolo: boolean, isMute: boolean) => {
+  const key = `${id}_${isHidden}_${isSolo}_${isMute}`;
+  let obj = trackListCache.get(key);
+  if (!obj) {
+    obj = { id, isHidden, isSolo, isMute };
+    trackListCache.set(key, obj);
+  }
+  return obj;
+};
 
 interface MixerProps {
   onStepTouchStart?: (
@@ -110,7 +121,9 @@ const MixerComponent: React.FC<MixerProps> = ({
   const [isTracksCollapsed, setIsTracksCollapsed] = React.useState(true);
   const [editingTrackId, setEditingTrackId] = React.useState<number | null>(null);
 
-  const trackIdsNumbers = useSequencerStore(useShallow(state => state.tracks.map(t => t.id)));
+  const trackList = useSequencerStore(useShallow(state => state.tracks.map(t => getCachedTrack(t.id, t.isHidden, t.isSolo, t.isMute))));
+  const trackIdsNumbers = trackList.map(t => t.id);
+
   const isEditingTrackValid = useSequencerStore(state => state.tracks.some(t => t.id === editingTrackId));
   const setTracks = useSequencerStore(state => state.setTracks);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
@@ -308,7 +321,8 @@ const MixerComponent: React.FC<MixerProps> = ({
       </div>
 
       {editingTrackId !== null && isEditingTrackValid && (
-        <InstrumentDetailEditor
+        <Suspense fallback={null}>
+          <InstrumentDetailEditor
           isMobile={window.innerWidth <= 768}
           lang={lang}
           isLeftHanded={isLeftHanded}
@@ -395,6 +409,7 @@ const MixerComponent: React.FC<MixerProps> = ({
           runAutoCalibration={runAutoCalibration}
           vocalCalibrationLatencyMs={vocalCalibrationLatencyMs}
         />
+        </Suspense>
       )}
     </div>
   );

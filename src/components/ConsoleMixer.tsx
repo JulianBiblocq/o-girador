@@ -28,6 +28,17 @@ import { meters, masterMeterNode } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 
+const trackListCache = new Map<string, { id: number; isHidden: boolean; isSolo: boolean; isMute: boolean }>();
+const getCachedTrack = (id: number, isHidden: boolean, isSolo: boolean, isMute: boolean) => {
+  const key = `${id}_${isHidden}_${isSolo}_${isMute}`;
+  let obj = trackListCache.get(key);
+  if (!obj) {
+    obj = { id, isHidden, isSolo, isMute };
+    trackListCache.set(key, obj);
+  }
+  return obj;
+};
+
 interface ConsoleMixerProps {
   isMobile: boolean;
   onStepTouchStart?: (
@@ -106,7 +117,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     vocalCalibrationLatencyMs,
   } = sequencer;
 
-  const trackIds = useSequencerStore(useShallow(state => state.tracks.map(t => t.id)));
+  const trackList = useSequencerStore(useShallow(state => state.tracks.map(t => getCachedTrack(t.id, t.isHidden, t.isSolo, t.isMute))));
+  const trackIds = trackList.map(t => t.id);
+  
   const setTracks = useSequencerStore(state => state.setTracks);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
 
@@ -329,17 +342,15 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
           <SortableContext items={trackIds.map(id => `track-${id}`)} strategy={horizontalListSortingStrategy}>
             {trackIds.map((trackId, index) => {
-              const track = useSequencerStore.getState().tracks.find(t => t.id === trackId);
-              if (!track) return null;
               return (
                 <MixerChannel
-                  key={track.id}
-                  track={track}
+                  key={trackId}
+                  trackId={trackId}
                   index={index}
-                  onOpenDetailEditor={() => setEditingTrackId(track.id)}
+                  onOpenDetailEditor={() => setEditingTrackId(trackId)}
                   onStepTouchStart={onStepTouchStart}
                   onCopyPattern={handleCopyPattern}
-                  onPastePattern={(pId) => handlePastePattern(track.id, pId)}
+                  onPastePattern={(pId) => handlePastePattern(trackId, pId)}
                   canPaste={!!copiedPattern}
                 />
               );

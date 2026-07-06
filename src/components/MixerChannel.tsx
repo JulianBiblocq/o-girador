@@ -24,7 +24,7 @@ const SortablePatternWrapper = ({ id, children, className, style: propStyle }: a
 };
 
 interface MixerChannelProps {
-  track: TrackGroup;
+  trackId: number;
   index: number;
   onOpenDetailEditor: () => void;
   onStepTouchStart?: (
@@ -41,7 +41,7 @@ interface MixerChannelProps {
 }
 
 const MixerChannelComponent: React.FC<MixerChannelProps> = ({
-  track,
+  trackId,
   index,
   onOpenDetailEditor,
   onStepTouchStart,
@@ -58,6 +58,8 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
   const setActiveAoVivoTrackId = useSequencerStore(state => state.setActiveAoVivoTrackId);
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
+
+  const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
 
   const { isPlaying, maxTicksRef, soloPatternPlayIdRef } = audio;
   const maxTicks = maxTicksRef.current;
@@ -78,124 +80,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   useEffect(() => {
     trackRef.current = track;
   }, [track]);
-
-  const liveActivePatternId = (() => {
-    const soloPatternPlayId = soloPatternPlayIdRef?.current;
-    if (liveMeasure >= 0) {
-      if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
-        const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
-        if (hasSoloPattern) return soloPatternPlayId;
-      }
-      const assignedPattern = track.patterns.find(p => p.measureAssignments[liveMeasure]);
-      return assignedPattern ? assignedPattern.id : track.selectedPatternId;
-    }
-    return track.selectedPatternId;
-  })();
-
-  const activePattern = track.patterns.find(p => p.id === liveActivePatternId) || track.patterns[0];
-
-  const onInstrumentChange = (instIdx: number) => {
-    useSequencerStore.getState().handleTrackInstrumentIdxChange(track.id, instIdx);
-  };
-  const onMuteToggle = () => {
-    useSequencerStore.getState().handleTrackMuteToggle(track.id);
-  };
-  const onSoloToggle = () => {
-    useSequencerStore.getState().handleTrackSoloToggle(track.id);
-  };
-  const onHideToggle = () => {
-    useSequencerStore.getState().handleTrackHideToggle(track.id);
-  };
-  const onDelete = () => {
-    useSequencerStore.getState().handleTrackDelete(track.id);
-  };
-  const onVolumeChange = (val: number) => {
-    useSequencerStore.getState().handleTrackVolumeChange(track.id, val);
-  };
-  const onPanChange = (val: number) => {
-    useSequencerStore.getState().handleTrackPanChange(track.id, val);
-  };
-  const onReverbChange = (val: number) => {
-    useSequencer().handleTrackReverbChange(track.id, val);
-  };
-  const onStepsChange = (patternId: number, steps: number) => {
-    useSequencer().handleTrackStepsChange(track.id, patternId, steps);
-  };
-  const onStepValueChange = (patternId: number, stepIdx: number | number[], val: string | string[], lyrics?: string[], notes?: string[]) => {
-    sequencer.handleTrackStepValueChange(track.id, patternId, stepIdx, val, lyrics, notes);
-  };
-  const onVoiceTypeToggle = (patternId: number, stepIdx: number) => {
-    sequencer.handleVoiceTypeToggle(track.id, patternId, stepIdx);
-  };
-  const onVoiceSylChange = (patternId: number, stepIdx: number, val: string) => {
-    sequencer.handleVoiceSylChange(track.id, patternId, stepIdx, val);
-  };
-  const onVoiceNoteChange = (patternId: number, stepIdx: number, val: string) => {
-    sequencer.handleVoiceNoteChange(track.id, patternId, stepIdx, val);
-  };
-  const onVoiceNoteBlur = (patternId: number, stepIdx: number, val: string) => {
-    sequencer.handleVoiceNoteBlur(track.id, patternId, stepIdx, val);
-  };
-  const onSelectPattern = (patternId: number) => {
-    useSequencerStore.getState().setTracks(prev => prev.map(t => t.id === track.id ? { ...t, selectedPatternId: patternId } : t));
-  };
-  const onPatternAssign = (patternId: number, measureIdx: number, val: boolean) => {
-    sequencer.pushUndoState();
-    useSequencerStore.getState().setTracks(prev => prev.map(t => {
-      if (t.id === track.id) {
-        const nextPatterns = t.patterns.map(p => {
-          if (p.id === patternId) {
-            const assign = [...p.measureAssignments];
-            assign[measureIdx] = val;
-            return { ...p, measureAssignments: assign };
-          }
-          return p;
-        });
-        return { ...t, patterns: nextPatterns };
-      }
-      return t;
-    }));
-  };
-  const onAddPattern = () => {
-    sequencer.pushUndoState();
-    useSequencerStore.getState().setTracks(prev => prev.map(t => {
-      if (t.id === track.id) {
-        const p = t.patterns[0];
-        const newPattern: Pattern = {
-          id: Date.now() + Math.floor(Math.random() * 1000),
-          name: `Padrão ${t.patterns.length + 1}`,
-          steps: p.steps,
-          activeSteps: Array(p.steps).fill(0),
-          lyrics: Array(p.steps).fill(''),
-          notes: Array(p.steps).fill(''),
-          measureAssignments: Array(totalMeasures).fill(false),
-          volumes: Array(p.steps).fill(80),
-          decays: Array(p.steps).fill(100),
-          microtimings: Array(p.steps).fill(0),
-          variations: [],
-        };
-        return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
-      }
-      return t;
-    }));
-  };
-  const onDeletePattern = (patternId: number) => {
-    sequencer.pushUndoState();
-    useSequencerStore.getState().setTracks(prev => prev.map(t => {
-      if (t.id === track.id && t.patterns.length > 1) {
-        const nextPatterns = t.patterns.filter(p => p.id !== patternId);
-        const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;
-        return { ...t, patterns: nextPatterns, selectedPatternId: nextSelected };
-      }
-      return t;
-    }));
-  };
-  const onReorderPatternsDnd = (oldIdx: number, newIdx: number) => {
-    sequencer.handleReorderPatternsDnd && sequencer.handleReorderPatternsDnd(track.id, oldIdx, newIdx);
-  };
-  const onPatternNameChange = (patternId: number, name: string) => {
-    sequencer.handlePatternNameChange(track.id, patternId, name);
-  };
 
   useEffect(() => {
     let activeElements: HTMLElement[] = [];
@@ -331,11 +215,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     }
   }, [isPlaying]);
 
-  const handleSave = (patternId: number) => {
-    onPatternNameChange(patternId, editName);
-    setEditingPatternId(null);
-  };
-
   const isMouseDownRef = useRef(false);
   const paintValueRef = useRef<string | number>(0);
 
@@ -346,6 +225,31 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     window.addEventListener('mouseup', handleGlobalMouseUp);
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
   }, []);
+
+  useEffect(() => {
+    function clickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setInstDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', clickOutside);
+    return () => document.removeEventListener('mousedown', clickOutside);
+  }, []);
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: `track-${trackId}` });
+
+  if (!track) return null;
+
+  const handleSave = (patternId: number) => {
+    onPatternNameChange(patternId, editName);
+    setEditingPatternId(null);
+  };
 
   const inst = instrumentsConfig[track.instrumentIdx];
   const t = (key: string) => (i18n[lang] as any)[key] || key;
@@ -360,16 +264,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       });
     }
   };
-
-  useEffect(() => {
-    function clickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setInstDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', clickOutside);
-    return () => document.removeEventListener('mousedown', clickOutside);
-  }, []);
 
   const handleVoiceNav = (el: HTMLInputElement, key: string, type: 'syl' | 'note') => {
     if (key === 'Tab') return;
@@ -393,30 +287,140 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     }
   };
 
-  const isAoVivo = activeAoVivoTrackId === track.id;
-  const toggleAoVivo = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isAoVivo) {
-      setActiveAoVivoTrackId(null);
-    } else {
-      setActiveAoVivoTrackId(track.id);
-    }
+  const onInstrumentChange = (instIdx: number) => {
+    useSequencerStore.getState().handleTrackInstrumentIdxChange(trackId, instIdx);
   };
-
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-  } = useSortable({ id: `track-${track.id}` });
+  const onMuteToggle = () => {
+    useSequencerStore.getState().handleTrackMuteToggle(trackId);
+  };
+  const onSoloToggle = () => {
+    useSequencerStore.getState().handleTrackSoloToggle(trackId);
+  };
+  const onHideToggle = () => {
+    useSequencerStore.getState().handleTrackHideToggle(trackId);
+  };
+  const onDelete = () => {
+    useSequencerStore.getState().handleTrackDelete(trackId);
+  };
+  const onVolumeChange = (val: number) => {
+    useSequencerStore.getState().handleTrackVolumeChange(trackId, val);
+  };
+  const onPanChange = (val: number) => {
+    useSequencerStore.getState().handleTrackPanChange(trackId, val);
+  };
+  const onReverbChange = (val: number) => {
+    useSequencer().handleTrackReverbChange(trackId, val);
+  };
+  const onStepsChange = (patternId: number, steps: number) => {
+    useSequencer().handleTrackStepsChange(trackId, patternId, steps);
+  };
+  const onStepValueChange = (patternId: number, stepIdx: number | number[], val: string | string[], lyrics?: string[], notes?: string[]) => {
+    sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, val, lyrics, notes);
+  };
+  const onVoiceTypeToggle = (patternId: number, stepIdx: number) => {
+    sequencer.handleVoiceTypeToggle(trackId, patternId, stepIdx);
+  };
+  const onVoiceSylChange = (patternId: number, stepIdx: number, val: string) => {
+    sequencer.handleVoiceSylChange(trackId, patternId, stepIdx, val);
+  };
+  const onVoiceNoteChange = (patternId: number, stepIdx: number, val: string) => {
+    sequencer.handleVoiceNoteChange(trackId, patternId, stepIdx, val);
+  };
+  const onVoiceNoteBlur = (patternId: number, stepIdx: number, val: string) => {
+    sequencer.handleVoiceNoteBlur(trackId, patternId, stepIdx, val);
+  };
+  const onSelectPattern = (patternId: number) => {
+    useSequencerStore.getState().setTracks(prev => prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
+  };
+  const onPatternAssign = (patternId: number, measureIdx: number, val: boolean) => {
+    sequencer.pushUndoState();
+    useSequencerStore.getState().setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const assign = [...p.measureAssignments];
+            assign[measureIdx] = val;
+            return { ...p, measureAssignments: assign };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+  const onAddPattern = () => {
+    sequencer.pushUndoState();
+    useSequencerStore.getState().setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const p = t.patterns[0];
+        const newPattern: Pattern = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          name: `Padrão ${t.patterns.length + 1}`,
+          steps: p.steps,
+          activeSteps: Array(p.steps).fill(0),
+          lyrics: Array(p.steps).fill(''),
+          notes: Array(p.steps).fill(''),
+          measureAssignments: Array(totalMeasures).fill(false),
+          volumes: Array(p.steps).fill(80),
+          decays: Array(p.steps).fill(100),
+          microtimings: Array(p.steps).fill(0),
+          variations: [],
+        };
+        return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
+      }
+      return t;
+    }));
+  };
+  const onDeletePattern = (patternId: number) => {
+    sequencer.pushUndoState();
+    useSequencerStore.getState().setTracks(prev => prev.map(t => {
+      if (t.id === trackId && t.patterns.length > 1) {
+        const nextPatterns = t.patterns.filter(p => p.id !== patternId);
+        const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;
+        return { ...t, patterns: nextPatterns, selectedPatternId: nextSelected };
+      }
+      return t;
+    }));
+  };
+  const onReorderPatternsDnd = (oldIdx: number, newIdx: number) => {
+    sequencer.handleReorderPatternsDnd && sequencer.handleReorderPatternsDnd(trackId, oldIdx, newIdx);
+  };
+  const onPatternNameChange = (patternId: number, name: string) => {
+    sequencer.handlePatternNameChange(trackId, patternId, name);
+  };
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
 
-  const isSelected = activeAoVivoTrackId === track.id;
+  const liveActivePatternId = (() => {
+    const soloPatternPlayId = soloPatternPlayIdRef?.current;
+    if (liveMeasure >= 0) {
+      if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
+        const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
+        if (hasSoloPattern) return soloPatternPlayId;
+      }
+      const assignedPattern = track.patterns.find(p => p.measureAssignments[liveMeasure]);
+      return assignedPattern ? assignedPattern.id : track.selectedPatternId;
+    }
+    return track.selectedPatternId;
+  })();
+
+  const activePattern = track.patterns.find(p => p.id === liveActivePatternId) || track.patterns[0];
+
+  const isAoVivo = activeAoVivoTrackId === trackId;
+  const toggleAoVivo = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isAoVivo) {
+      setActiveAoVivoTrackId(null);
+    } else {
+      setActiveAoVivoTrackId(trackId);
+    }
+  };
+
+  const isSelected = activeAoVivoTrackId === trackId;
   const currentStep = -1;
 
   return (
@@ -730,7 +734,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       <div className="relative z-10 p-4 pt-4 flex justify-between items-end h-[200px] gap-2">
         {/* Buttons Column */}
         <div className="flex flex-col gap-2 justify-end h-full pb-1">
-          <PanKnob trackId={track.id} value={track.panVal || 0} onChange={onPanChange} label="Pan" />
+          <PanKnob trackId={trackId} value={track.panVal || 0} onChange={onPanChange} label="Pan" />
           <div className="h-1" />
           <button 
             onClick={(e) => { e.stopPropagation(); onMuteToggle(); }} 
@@ -758,7 +762,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
               max="100"
               orient="vertical"
               audioTarget="trackVolume"
-              trackId={track.id}
+              trackId={trackId}
               value={track.volumeVal}
               onChange={(val) => onVolumeChange(val)}
               className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
@@ -779,7 +783,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
               max="100"
               orient="vertical"
               audioTarget="trackReverb"
-              trackId={track.id}
+              trackId={trackId}
               value={track.reverbVal || 0}
               onChange={(val) => onReverbChange(val)}
               className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
@@ -794,7 +798,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           <div className="w-3 h-[145px] bg-[var(--cordel-bg)] cordel-border-sm relative overflow-hidden">
             <div
               ref={vuMeterRef}
-              id={`meter-bar-${track.id}`}
+              id={`meter-bar-${trackId}`}
               className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--cordel-border)] w-full"
               style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
             />
@@ -806,53 +810,4 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   );
 };
 
-const arePatternsEqual = (p1: Pattern[], p2: Pattern[]) => {
-  if (p1.length !== p2.length) return false;
-  for (let i = 0; i < p1.length; i++) {
-    const a = p1[i];
-    const b = p2[i];
-    if (a.id !== b.id || a.steps !== b.steps || a.name !== b.name) return false;
-    
-    if (a.measureAssignments.length !== b.measureAssignments.length) return false;
-    for (let j = 0; j < a.measureAssignments.length; j++) {
-      if (a.measureAssignments[j] !== b.measureAssignments[j]) return false;
-    }
-
-    if (a.activeSteps.length !== b.activeSteps.length) return false;
-    for (let j = 0; j < a.activeSteps.length; j++) {
-      if (a.activeSteps[j] !== b.activeSteps[j]) return false;
-    }
-
-    const lyricsA = a.lyrics || [];
-    const lyricsB = b.lyrics || [];
-    if (lyricsA.length !== lyricsB.length) return false;
-    for (let j = 0; j < lyricsA.length; j++) {
-      if (lyricsA[j] !== lyricsB[j]) return false;
-    }
-
-    const notesA = a.notes || [];
-    const notesB = b.notes || [];
-    if (notesA.length !== notesB.length) return false;
-    for (let j = 0; j < notesA.length; j++) {
-      if (notesA[j] !== notesB[j]) return false;
-    }
-  }
-  return true;
-};
-
-const areEqualProps = (prev: MixerChannelProps, next: MixerChannelProps) => {
-  if (prev.index !== next.index) return false;
-  if (prev.track.id !== next.track.id) return false;
-  if (prev.track.volumeVal !== next.track.volumeVal) return false;
-  if (prev.track.panVal !== next.track.panVal) return false;
-  if (prev.track.reverbVal !== next.track.reverbVal) return false;
-  if (prev.track.isMute !== next.track.isMute) return false;
-  if (prev.track.isSolo !== next.track.isSolo) return false;
-  if (prev.track.isHidden !== next.track.isHidden) return false;
-  if (prev.track.selectedPatternId !== next.track.selectedPatternId) return false;
-  if (prev.track.instrumentIdx !== next.track.instrumentIdx) return false;
-  
-  return arePatternsEqual(prev.track.patterns, next.track.patterns);
-};
-
-export const MixerChannel = React.memo(MixerChannelComponent, areEqualProps);
+export const MixerChannel = React.memo(MixerChannelComponent);
