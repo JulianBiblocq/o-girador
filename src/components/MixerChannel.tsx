@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Eye, EyeOff, GripHorizontal, GripVertical } from 'lucide-react';
+import { GripHorizontal, GripVertical } from 'lucide-react';
 import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore } from '../stores/useSequencerStore';
@@ -55,8 +55,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const lang = useSequencerStore(state => state.lang);
   const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
-  const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
-  const setActiveAoVivoTrackId = useSequencerStore(state => state.setActiveAoVivoTrackId);
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
 
   const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
@@ -296,9 +294,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const onSoloToggle = () => {
     useSequencerStore.getState().handleTrackSoloToggle(trackId);
   };
-  const onHideToggle = () => {
-    useSequencerStore.getState().handleTrackHideToggle(trackId);
-  };
+
   const onDelete = () => {
     useSequencerStore.getState().handleTrackDelete(trackId);
   };
@@ -332,23 +328,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const onSelectPattern = (patternId: number) => {
     useSequencerStore.getState().setTracks(prev => prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
   };
-  const onPatternAssign = (patternId: number, measureIdx: number, val: boolean) => {
-    sequencer.pushUndoState();
-    useSequencerStore.getState().setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        const nextPatterns = t.patterns.map(p => {
-          if (p.id === patternId) {
-            const assign = [...p.measureAssignments];
-            assign[measureIdx] = val;
-            return { ...p, measureAssignments: assign };
-          }
-          return p;
-        });
-        return { ...t, patterns: nextPatterns };
-      }
-      return t;
-    }));
-  };
+
   const onAddPattern = () => {
     sequencer.pushUndoState();
     useSequencerStore.getState().setTracks(prev => prev.map(t => {
@@ -410,17 +390,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
 
   const activePattern = track.patterns.find(p => p.id === liveActivePatternId) || track.patterns[0];
 
-  const isAoVivo = activeAoVivoTrackId === trackId;
-  const toggleAoVivo = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (isAoVivo) {
-      setActiveAoVivoTrackId(null);
-    } else {
-      setActiveAoVivoTrackId(trackId);
-    }
-  };
-
-  const isSelected = activeAoVivoTrackId === trackId;
   const currentStep = -1;
 
   return (
@@ -429,10 +398,10 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       className={`flex flex-col bg-[var(--cordel-bg)] cordel-border w-[340px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-all duration-300 ${
         hasSolo ? (track.isSolo ? 'bg-[var(--cordel-border)]/5 shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-50') : 
         (track.isMute ? 'opacity-60 bg-black/5 dark:bg-white/5' : 'opacity-100')
-      } ${isSelected ? 'shadow-[0_0_15px_rgba(0,0,0,0.2)] z-10 bg-[var(--cordel-border)]/5' : ''}`}
+      }`}
       style={{
         ...style,
-        zIndex: instDropdownOpen ? 30 : (isSelected ? 10 : 1),
+        zIndex: instDropdownOpen ? 30 : 1,
         '--fader-thumb-bg': '#8b2a1a',
         '--fader-thumb-border': 'var(--cordel-border)',
       } as React.CSSProperties}
@@ -481,35 +450,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         </div>
 
         <div className="flex gap-1.5 items-center">
-          <button 
-            onClick={toggleAoVivo}
-            className={`w-7 h-7 cordel-border-sm cordel-button font-bold cursor-pointer transition-all flex items-center justify-center ${
-              isAoVivo ? 'bg-[#27ae60] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-            }`}
-            title={inst.id === 'voice' ? (lang === 'fr' ? 'Karaoké (Live)' : 'Karaokê (Ao Vivo)') : "Ao Vivo (Live POV)"}
-          >
-            {inst.id === 'voice' ? (
-              <span className="text-xs leading-none">🎤</span>
-            ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
-                <path d="M11 22 L5 6" />
-                <circle cx="4" cy="3" r="2.5" fill="currentColor" />
-                <path d="M13 22 L19 6" />
-                <circle cx="20" cy="3" r="2.5" fill="currentColor" />
-              </svg>
-            )}
-          </button>
-
-          <button
-            onClick={onHideToggle}
-            className={`w-7 h-7 cordel-border-sm cordel-button text-[10px] font-bold cursor-pointer transition-all flex items-center justify-center ${
-              track.isHidden ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-            }`}
-            title="Ocultar pista"
-          >
-            {track.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-          </button>
-
           <button onClick={onDelete} className="w-7 h-7 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8]">✕</button>
         </div>
       </div>
@@ -548,14 +488,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           <div className="flex flex-col gap-2">
             <SortableContext items={track.patterns.map(p => `pattern-${p.id}`)} strategy={verticalListSortingStrategy}>
               {track.patterns.map((ptn, idx) => {
-                const activeMeasures = ptn.measureAssignments
-                  .map((assigned, mIdx) => assigned ? mIdx + 1 : null)
-                  .filter(m => m !== null);
-                
-                const assignedText = activeMeasures.length > 0 
-                  ? activeMeasures.join(', ')
-                  : (lang === 'pt' ? 'Sem compasso' : 'Aucune mesure');
-
                 const isEditing = editingPatternId === ptn.id;
 
                 return (
@@ -636,28 +568,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                           )}
                         </div>
 
-                        {/* Measure assignment details */}
-                        <div className="text-[10px] text-[var(--cordel-text)]/60 font-bold ml-6 mb-1">
-                          {lang === 'pt' ? 'Compassos: ' : 'Mesures: '} {assignedText}
-                        </div>
-                        
-                        {/* Assign measure checkboxes */}
-                        <div className="flex flex-wrap gap-1.5 ml-6 pb-2">
-                          {Array.from({ length: totalMeasures }).map((_, mIdx) => {
-                            const isAssigned = ptn.measureAssignments[mIdx];
-                            return (
-                              <label key={mIdx} className="flex items-center gap-1 cursor-pointer text-[10px] font-bold select-none">
-                                <input 
-                                  type="checkbox" 
-                                  checked={isAssigned} 
-                                  onChange={(e) => onPatternAssign(ptn.id, mIdx, e.target.checked)}
-                                  className="w-3.5 h-3.5 accent-[#8b2a1a] cursor-pointer"
-                                />
-                                <span>{mIdx + 1}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
+
                       </div>
                     )}
                   </SortablePatternWrapper>

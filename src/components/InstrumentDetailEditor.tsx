@@ -705,80 +705,76 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                           />
 
                           {/* Interactive Step Grid */}
-                          {ptn.id === selectedPatternId && (
-                            <>
-                              {/* Resolution header & Tuplet edit tools */}
-                              {(() => {
-                                const totalVarProb = (ptn.variations || [])
-                                  .filter(v => !v.playFirstTimeOnly)
-                                  .reduce((acc, v) => acc + v.probability, 0);
-                                const baseProb = Math.max(0, 100 - totalVarProb);
-                                return (
-                                  <div className="text-xs font-bold text-[#666] mb-2 flex items-center justify-between flex-wrap gap-2">
-                                    <div className="flex items-center gap-3">
-                                      <span>{lang === 'fr' ? 'Probabilité de base (Base Track) :' : 'Probabilidade base (Pista Base) :'} {baseProb}%</span>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (soloPatternPlayId === ptn.id && soloPatternVariationId === 'base') {
-                                            onStopSoloPattern && onStopSoloPattern();
-                                          } else {
-                                            onPlaySoloPattern && onPlaySoloPattern(ptn.id, 'base');
-                                          }
-                                        }}
-                                        className={`p-1 rounded-sm transition-colors ${
-                                          soloPatternPlayId === ptn.id && soloPatternVariationId === 'base'
-                                            ? 'bg-[#8b2a1a] text-[#f4ecd8]'
-                                            : 'text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
-                                        }`}
-                                        title={soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar leitura') : (lang === 'fr' ? 'Écouter ce motif de base en solo (sans variations)' : 'Ouvir este padrão base em solo')}
-                                      >
-                                        {soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-                                      </button>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <button
-                                        onClick={() => setIsTupletEditMode(!isTupletEditMode)}
-                                        className={`px-2 py-1 text-[10px] rounded-sm transition-colors border ${
-                                          isTupletEditMode
-                                            ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a]'
-                                            : 'bg-transparent text-[#1a1a1a] border-[#1a1a1a]/20 hover:bg-[#1a1a1a]/5'
-                                        }`}
-                                        title={lang === 'fr' ? 'Éditer les divisions (Triolet, Sextolet...)' : 'Editar divisões (Tercina, Sextina...)'}
-                                      >
-                                        {lang === 'fr' ? '⚙️ Divisions (Triolets...)' : '⚙️ Divisões (Tercinas...)'}
-                                      </button>
-                                      {(ptn.variations?.length || 0) > 0 && totalVarProb > 100 && (
-                                        <span className="text-[#8b2a1a] text-[10px]">⚠️ {lang === 'fr' ? 'Somme > 100%' : 'Soma > 100%'}</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })()}
+                          {/* Resolution header & Tuplet edit tools */}
+                          {(() => {
+                            const totalVarProb = (ptn.variations || [])
+                              .filter(v => !v.playFirstTimeOnly)
+                              .reduce((acc, v) => acc + v.probability, 0);
+                            const baseProb = Math.max(0, 100 - totalVarProb);
+                            return (
+                              <div className="text-xs font-bold text-[#666] mb-2 flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-3">
+                                  <span>{lang === 'fr' ? 'Probabilité de base (Base Track) :' : 'Probabilidade base (Pista Base) :'} {baseProb}%</span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (soloPatternPlayId === ptn.id && soloPatternVariationId === 'base') {
+                                        onStopSoloPattern && onStopSoloPattern();
+                                      } else {
+                                        onPlaySoloPattern && onPlaySoloPattern(ptn.id, 'base');
+                                      }
+                                    }}
+                                    className={`p-1 rounded-sm transition-colors ${
+                                      soloPatternPlayId === ptn.id && soloPatternVariationId === 'base'
+                                        ? 'bg-[#8b2a1a] text-[#f4ecd8]'
+                                        : 'text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+                                    }`}
+                                    title={soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar lecture') : (lang === 'fr' ? 'Écouter ce motif de base en solo (sans variations)' : 'Ouvir este padrão base em solo')}
+                                  >
+                                    {soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    onClick={() => setIsTupletEditMode(!isTupletEditMode)}
+                                    className={`px-2 py-1 text-[10px] rounded-sm transition-colors border ${
+                                      isTupletEditMode
+                                        ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a]'
+                                        : 'bg-transparent text-[#1a1a1a] border-[#1a1a1a]/20 hover:bg-[#1a1a1a]/5'
+                                    }`}
+                                    title={lang === 'fr' ? 'Éditer les divisions (Triolet, Sextolet...)' : 'Editar divisões (Tercina, Sextina...)'}
+                                  >
+                                    {lang === 'fr' ? '⚙️ Divisions (Triolets...)' : '⚙️ Divisões (Tercinas...)'}
+                                  </button>
+                                  {(ptn.variations?.length || 0) > 0 && totalVarProb > 100 && (
+                                    <span className="text-[#8b2a1a] text-[10px]">⚠️ {lang === 'fr' ? 'Somme > 100%' : 'Soma > 100%'}</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
 
-                              <InstrumentPatternGrid
-                                trackId={track.id}
-                                pattern={ptn}
-                                instrument={inst}
-                                selectedStepIdx={selectedStepIdx}
-                                selectedStepIndices={selectedStepIndices}
-                                selectedVariationId={selectedVariationId}
-                                isTupletEditMode={isTupletEditMode}
-                                isMultiSelectActive={isMultiSelectActive}
-                                noteSelectorTarget={noteSelectorTarget}
-                                setNoteSelectorTarget={setNoteSelectorTarget}
-                                setSelectedPatternId={setSelectedPatternId}
-                                setSelectedStepIdx={setSelectedStepIdx}
-                                setSelectedVariationId={setSelectedVariationId}
-                                setSelectedStepIndices={setSelectedStepIndices}
-                                setIsMultiSelectActive={setIsMultiSelectActive}
-                                onStepTouchStart={onStepTouchStart}
-                                onCopyPattern={onCopyPattern}
-                                onPastePattern={onPastePattern}
-                                canPaste={canPaste}
-                              />
-                            </>
-                          )}
+                          <InstrumentPatternGrid
+                            trackId={track.id}
+                            pattern={ptn}
+                            instrument={inst}
+                            selectedStepIdx={selectedStepIdx}
+                            selectedStepIndices={selectedStepIndices}
+                            selectedVariationId={selectedVariationId}
+                            isTupletEditMode={isTupletEditMode}
+                            isMultiSelectActive={isMultiSelectActive}
+                            noteSelectorTarget={noteSelectorTarget}
+                            setNoteSelectorTarget={setNoteSelectorTarget}
+                            setSelectedPatternId={setSelectedPatternId}
+                            setSelectedStepIdx={setSelectedStepIdx}
+                            setSelectedVariationId={setSelectedVariationId}
+                            setSelectedStepIndices={setSelectedStepIndices}
+                            setIsMultiSelectActive={setIsMultiSelectActive}
+                            onStepTouchStart={onStepTouchStart}
+                            onCopyPattern={onCopyPattern}
+                            onPastePattern={onPastePattern}
+                            canPaste={canPaste}
+                          />
 
                           {/* Variations */}
                           <PatternVariationsEditor
