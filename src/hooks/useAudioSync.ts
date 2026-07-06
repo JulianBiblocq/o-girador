@@ -249,6 +249,7 @@ export function useAudioSync({
   const flatArrayPointerRef = useRef<number>(0);
   const lastAbsoluteTickRef = useRef<number>(-1);
   const currentMeasureStartTickRef = useRef<number>(0);
+  const lastActiveInstrumentIdsRef = useRef<string>('');
   
 
 
@@ -423,9 +424,6 @@ export function useAudioSync({
 
   // Recompile tick schedule when state changes (Async Worker)
   useEffect(() => {
-    let lastSignature = "";
-    let lastTotalMeasures = 0;
-    let lastMeasureTimeSigs: any = null;
     let lastSoloPatternPlayId = soloPatternPlayId;
 
     const compile = (stateTracks: any, totalM: number, mTimeSigs: any, soloId: number | null) => {
@@ -444,62 +442,36 @@ export function useAudioSync({
       });
     };
 
-    const getTracksSignature = (tracksList: any[]) => JSON.stringify(
-      tracksList.map(t => ({
-        id: t.id,
-        isMute: t.isMute,
-        isSolo: t.isSolo,
-        instrumentIdx: t.instrumentIdx,
-        patterns: t.patterns.map(p => {
-          const { vocalAudioData, ...safePattern } = p;
-          return safePattern;
-        })
-      }))
-    );
-
     // Initial compile
     const initialState = useSequencerStore.getState();
-    lastSignature = getTracksSignature(initialState.tracks);
-    lastTotalMeasures = initialState.totalMeasures;
-    lastMeasureTimeSigs = initialState.measureTimeSigs;
-
     compile(initialState.tracks, initialState.totalMeasures, initialState.measureTimeSigs, soloPatternPlayId);
 
-    // Subscribe to Zustand for store changes
+    // Initial Active Instruments Cache Population
+    const initialActiveIds = Array.from(new Set(initialState.tracks.map((t: any) => {
+      const inst = instrumentsConfig[t.instrumentIdx];
+      return inst ? inst.id : null;
+    }).filter(Boolean))).sort() as string[];
+    lastActiveInstrumentIdsRef.current = initialActiveIds.join(',');
+
+    // Subscribe to Zustand for store changes (using tracksVersion)
     const unsub = useSequencerStore.subscribe((state, prevState) => {
-      let changed = false;
-      
-      if (state.tracks !== prevState.tracks) {
-        const newSignature = getTracksSignature(state.tracks);
-        if (newSignature !== lastSignature) {
-          lastSignature = newSignature;
-          changed = true;
-          
-          // Background sync audio buffers only when tracks actually change
-          if (audioEngine) {
-            const activeIds = new Set<string>();
-            state.tracks.forEach((t: any) => {
-              const inst = instrumentsConfig[t.instrumentIdx];
-              if (inst) activeIds.add(inst.id);
-            });
-            audioEngine.syncActiveInstrumentsMemory(Array.from(activeIds))
-              .catch(e => { /* console.warn("Background load samples failed:", e); */ });
-          }
-        }
-      }
-      
-      if (state.totalMeasures !== prevState.totalMeasures) {
-        lastTotalMeasures = state.totalMeasures;
-        changed = true;
-      }
-      
-      if (state.measureTimeSigs !== prevState.measureTimeSigs) {
-        lastMeasureTimeSigs = state.measureTimeSigs;
-        changed = true;
-      }
-      
-      if (changed) {
+      if (state.tracksVersion !== prevState.tracksVersion) {
         compile(state.tracks, state.totalMeasures, state.measureTimeSigs, lastSoloPatternPlayId);
+      }
+      
+      if (audioEngine && state.tracks !== prevState.tracks) {
+        // Optimisation : Diff léger sur la liste des instruments pour éviter de recharger inutilement
+        const activeIds = Array.from(new Set(state.tracks.map((t: any) => {
+          const inst = instrumentsConfig[t.instrumentIdx];
+          return inst ? inst.id : null;
+        }).filter(Boolean))).sort() as string[];
+        
+        const activeIdsString = activeIds.join(',');
+        if (activeIdsString !== lastActiveInstrumentIdsRef.current) {
+          lastActiveInstrumentIdsRef.current = activeIdsString;
+          audioEngine.syncActiveInstrumentsMemory(activeIds)
+            .catch(e => {});
+        }
       }
     });
 

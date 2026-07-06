@@ -45,7 +45,7 @@ function buildFlatSongSchedule(
         }
       } else {
         activePattern = track.patterns.find((p: any) => p.measureAssignments[measureIdx]);
-        canPlay = hasSolo ? track.isSolo : !track.isMute;
+        canPlay = true;
       }
 
       if (!activePattern || !canPlay) return;

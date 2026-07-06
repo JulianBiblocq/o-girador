@@ -11,6 +11,7 @@ import { instrumentsConfig } from '../data';
 export interface TrackSlice {
   tracks: TrackGroup[];
   activeAoVivoTrackId: number | null;
+  tracksVersion: number;
   
   // Actions (Squelette pour l'instant)
   setTracks: (tracks: TrackGroup[] | ((prev: TrackGroup[]) => TrackGroup[])) => void;
@@ -50,7 +51,14 @@ const applyRadii = (list: TrackGroup[]): TrackGroup[] => {
 const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set, get) => ({
   tracks: [],
   activeAoVivoTrackId: null,
-  setTracks: (updater) => set(state => ({ tracks: typeof updater === 'function' ? (updater as any)(state.tracks) : updater })),
+  tracksVersion: 0,
+  setTracks: (updater) => set(state => {
+    const nextTracks = typeof updater === 'function' ? (updater as any)(state.tracks) : updater;
+    return {
+      tracks: nextTracks,
+      tracksVersion: state.tracksVersion + 1
+    };
+  }),
   setActiveAoVivoTrackId: (id) => set({ activeAoVivoTrackId: id }),
   
   handleReorderTracksDnd: (oldIndex, newIndex) => {
@@ -58,14 +66,18 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     get().pushUndoState();
     set((state) => {
       const newTracks = arrayMove(state.tracks, oldIndex, newIndex) as TrackGroup[];
-      return { tracks: applyRadii(newTracks) };
+      return { 
+        tracks: applyRadii(newTracks),
+        tracksVersion: state.tracksVersion + 1
+      };
     });
   },
 
   handleTrackInstrumentIdxChange: (id, targetInstIdx) => {
     get().pushUndoState();
     set((state) => ({
-      tracks: state.tracks.map((t) => t.id === id ? { ...t, instrumentIdx: targetInstIdx } : t)
+      tracks: state.tracks.map((t) => t.id === id ? { ...t, instrumentIdx: targetInstIdx } : t),
+      tracksVersion: state.tracksVersion + 1
     }));
   },
 
@@ -92,7 +104,10 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     get().pushUndoState();
     set((state) => {
       const remaining = state.tracks.filter((t) => t.id !== id);
-      return { tracks: applyRadii(remaining) };
+      return { 
+        tracks: applyRadii(remaining),
+        tracksVersion: state.tracksVersion + 1
+      };
     });
   },
 
@@ -129,7 +144,8 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           };
         }
         return t;
-      })
+      }),
+      tracksVersion: state.tracksVersion + 1
     }));
   },
 
@@ -151,7 +167,8 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           };
         }
         return t;
-      })
+      }),
+      tracksVersion: state.tracksVersion + 1
     }));
   },
 
@@ -196,7 +213,8 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           };
         }
         return t;
-      })
+      }),
+      tracksVersion: state.tracksVersion + 1
     }));
   },
 
@@ -222,7 +240,8 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           };
         }
         return t;
-      })
+      }),
+      tracksVersion: state.tracksVersion + 1
     }));
   },
 
@@ -296,7 +315,8 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
             return p;
           })
         };
-      })
+      }),
+      tracksVersion: state.tracksVersion + 1
     }));
   }
 });
@@ -352,7 +372,10 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
   timeSig: '4/4',
   measureTimeSigs: Array(8).fill('4/4'),
   setSongSections: (updater) => set(state => ({ songSections: typeof updater === 'function' ? (updater as any)(state.songSections) : updater })),
-  setMeasureTimeSigs: (updater) => set(state => ({ measureTimeSigs: typeof updater === 'function' ? (updater as any)(state.measureTimeSigs) : updater })),
+  setMeasureTimeSigs: (updater) => set(state => ({ 
+    measureTimeSigs: typeof updater === 'function' ? (updater as any)(state.measureTimeSigs) : updater,
+    tracksVersion: state.tracksVersion + 1
+  })),
   measureBpms: Array(8).fill(83),
   measureBpmTransitions: Array(8).fill('immediate'),
   measureVols: Array(8).fill(100),
@@ -363,7 +386,10 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
 
   setBpm: (bpm) => set({ bpm }),
   setTimeSig: (sig) => set({ timeSig: sig }),
-  setTotalMeasures: (updater) => set(state => ({ totalMeasures: typeof updater === 'function' ? updater(state.totalMeasures) : updater })),
+  setTotalMeasures: (updater) => set(state => ({ 
+    totalMeasures: typeof updater === 'function' ? updater(state.totalMeasures) : updater,
+    tracksVersion: state.tracksVersion + 1
+  })),
   
   setMeasureSignals: (updater) => set((state) => ({
     measureSignals: typeof updater === 'function' ? updater(state.measureSignals) : updater
@@ -400,7 +426,8 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
             measureAssignments: expandArray(p.measureAssignments || [], false),
             measureAllowVariations: p.measureAllowVariations ? expandArray(p.measureAllowVariations, false) : undefined
           }))
-        }))
+        })),
+        tracksVersion: state.tracksVersion + 1
       };
     });
   },
@@ -410,7 +437,10 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
     set((state) => {
       const arr = [...state.measureTimeSigs];
       arr[idx] = val;
-      return { measureTimeSigs: arr };
+      return { 
+        measureTimeSigs: arr,
+        tracksVersion: state.tracksVersion + 1
+      };
     });
   },
 
@@ -548,7 +578,8 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
             measureAssignments: p.measureAssignments.filter((_, idx) => idx !== measureIdx),
             measureAllowVariations: p.measureAllowVariations ? p.measureAllowVariations.filter((_, idx) => idx !== measureIdx) : undefined
           }))
-        }))
+        })),
+        tracksVersion: state.tracksVersion + 1
       };
     });
   },
@@ -595,10 +626,11 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
             measureAssignments: spliceArray(p.measureAssignments, false),
             measureAllowVariations: p.measureAllowVariations ? spliceArray(p.measureAllowVariations, false) : undefined
           }))
-        }))
+        })),
+        tracksVersion: state.tracksVersion + 1
       };
     });
-  }
+  },
 });
 
 // ---------------------------------------------------------
