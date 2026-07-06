@@ -42,27 +42,10 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   visible = true,
 }) => {
   const sequencer = useSequencer();
-  const tracks = useSequencerStore(useShallow(state => {
+  const tracks = useSequencerStore(state => {
     if (!visible) return EMPTY_ARRAY;
-    return state.tracks.map(t => {
-      const isVoice = instrumentsConfig[t.instrumentIdx]?.type === 'voice';
-      return {
-        id: t.id,
-        instrumentIdx: t.instrumentIdx,
-        isMute: t.isMute,
-        isSolo: t.isSolo,
-        selectedPatternId: t.selectedPatternId,
-        patterns: t.patterns.map(p => ({
-          id: p.id,
-          name: p.name,
-          steps: p.steps,
-          measureAssignments: p.measureAssignments,
-          activeSteps: isVoice ? p.activeSteps : null,
-          lyrics: isVoice ? p.lyrics : null,
-        }))
-      };
-    });
-  }));
+    return state.tracks;
+  });
   const { userProfile } = useAuth();
   const [isUploadingSignal, setIsUploadingSignal] = React.useState(false);
   const [currentStepIndex, setCurrentStepIndex] = React.useState<number>(-1);

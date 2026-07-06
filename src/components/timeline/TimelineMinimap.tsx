@@ -36,14 +36,7 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
   }
 
   const { lang, HEADER_W, MEASURE_W } = uiContext;
-  const tracks = useSequencerStore(useShallow(state => state.tracks.map(t => ({
-    id: t.id,
-    instrumentIdx: t.instrumentIdx,
-    patterns: t.patterns.map(p => ({
-      id: p.id,
-      measureAssignments: p.measureAssignments
-    }))
-  }))));
+  const tracks = useSequencerStore(state => state.tracks);
 
   const minimapContainerRef = useRef<HTMLDivElement>(null);
   const minimapSliderRef = useRef<HTMLDivElement>(null);
