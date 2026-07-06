@@ -15,7 +15,7 @@ import { CompactPatternRenderer } from './CompactPatternRenderer';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
-import { meters } from '../hooks/useAudioSync';
+import { VUMeter } from './VUMeter';
 
 const getGlobalClipboard = () => {
   if (typeof window !== 'undefined') {
@@ -68,7 +68,6 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
   const canPaste = !!copiedPattern;
   const inst = track ? instrumentsConfig[track.instrumentIdx] : null;
-  const meter = meters && inst ? meters[inst.id] : undefined;
 
   // Local Actions mapped directly to Zustand and Context
   const onInstrumentChange = (instIdx: number) => {
@@ -223,8 +222,6 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
   const isMouseDownRef = useRef(false);
   const paintValueRef = useRef<string | number>(0);
-
-  const vuMeterRef = useRef<HTMLDivElement>(null);
   
   // DOM Micro-optimization: Map to store references to step inputs to avoid document.querySelectorAll in ticks
   const cellRefs = useRef<Map<number, HTMLElement[]>>(new Map());
@@ -240,7 +237,6 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const [liveMeasure, setLiveMeasure] = useState<number>(-1);
   const lastMeasureRef = useRef<number>(-1);
   const lastRatioRef = useRef<number>(-1);
-  const lastVuStepRef = useRef<number>(-1);
 
   // Touch Multi-selection State & Refs
   const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
@@ -446,15 +442,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
           setLiveMeasure(-1);
         }
         lastRatioRef.current = -1;
-        lastVuStepRef.current = -1;
         activeElements.forEach(el => {
           deactivateElementRef.current(el);
         });
         activeElements = [];
-        if (vuMeterRef.current) {
-          vuMeterRef.current.getAnimations().forEach(anim => anim.cancel());
-          vuMeterRef.current.style.transform = 'scaleX(0)';
-        }
         return;
       }
 
@@ -487,34 +478,12 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
           deactivateElementRef.current(el);
         });
         activeElements = [];
-        lastVuStepRef.current = -1;
         return;
       }
 
       // Calculate track-specific step index using the ratio sent by the audio engine
       const stepsCount = currentLivePattern.steps;
       const targetStep = Math.floor(ratio * stepsCount);
-
-      // Edge trigger VU fader width update on step transitions
-      if (targetStep !== lastVuStepRef.current) {
-        lastVuStepRef.current = targetStep;
-        const currentTrack = trackRef.current;
-        if (currentTrack && !currentTrack.isMute && !isEco) {
-          const val = currentLivePattern.activeSteps[targetStep];
-          const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
-          if (isHit && vuMeterRef.current) {
-            const peakScale = (currentTrack.volumeVal ?? 100) / 100;
-            vuMeterRef.current.animate([
-              { transform: `scaleX(${peakScale})` },
-              { transform: 'scaleX(0)' }
-            ], {
-              duration: 1500,
-              easing: 'ease-out',
-              fill: 'forwards'
-            });
-          }
-        }
-      }
 
       // Check if target step has changed to avoid redundant DOM queries
       const currentActiveIndex = activeElements.length > 0 ? Number(activeElements[0].getAttribute('data-step-index')) : -1;
@@ -858,6 +827,13 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               </div>
             )}
           </div>
+          
+          <VUMeter
+            instrumentId={inst.id}
+            isPlaying={isPlaying}
+            orientation="horizontal"
+            className="w-14 h-3 bg-black/10 cordel-border-sm self-center hidden sm:flex ml-2"
+          />
         </div>
 
         <div className="flex gap-1.5">

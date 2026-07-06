@@ -16,6 +16,7 @@ import { CompactPatternRenderer } from './CompactPatternRenderer';
 import { AudioFader } from './AudioFader';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
+import { VUMeter } from './VUMeter';
 
 const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -69,11 +70,8 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
 
-  const vuMeterRef = useRef<HTMLDivElement>(null);
   const [liveMeasure, setLiveMeasure] = useState<number>(-1);
   const lastMeasureRef = useRef<number>(-1);
-  const lastVuStepRef = useRef<number>(-1);
-  const activeVuAnimRef = useRef<Animation | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const trackRef = useRef(track);
@@ -103,12 +101,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           lastMeasureRef.current = -1;
           setLiveMeasure(-1);
         }
-        lastVuStepRef.current = -1;
-        if (vuMeterRef.current) {
-          vuMeterRef.current.getAnimations().forEach(anim => anim.cancel());
-          vuMeterRef.current.style.transform = 'scaleY(0)';
-          activeVuAnimRef.current = null;
-        }
         return;
       }
       if (measure !== lastMeasureRef.current) {
@@ -130,37 +122,11 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       const currentLivePattern = getLivePatternForMeasure(measure);
 
       if (!currentLivePattern) {
-        lastVuStepRef.current = -1;
-        if (vuMeterRef.current) {
-          vuMeterRef.current.getAnimations().forEach(anim => anim.cancel());
-          vuMeterRef.current.style.transform = 'scaleY(0)';
-          activeVuAnimRef.current = null;
-        }
         return;
       }
 
       const stepsCount = currentLivePattern.steps;
       const targetStep = Math.floor(ratio * stepsCount);
-
-      if (targetStep !== lastVuStepRef.current) {
-        lastVuStepRef.current = targetStep;
-        if (!currentTrack.isMute) {
-          const val = currentLivePattern.activeSteps?.[targetStep];
-          const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
-          if (isHit && vuMeterRef.current) {
-            const peakScale = (currentTrack.volumeVal ?? 100) / 100;
-            activeVuAnimRef.current?.cancel();
-            activeVuAnimRef.current = vuMeterRef.current.animate([
-              { transform: `scaleY(${peakScale})` },
-              { transform: 'scaleY(0)' }
-            ], {
-              duration: 1500,
-              easing: 'ease-out',
-              fill: 'forwards'
-            });
-          }
-        }
-      }
 
       const isEco = (window as any).oGiradorEcoMode;
       if (isEco) return;
@@ -722,14 +688,12 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         {/* LED Meter */}
         <div className="flex flex-col items-center gap-1.5 h-full">
           <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
-          <div className="w-3 h-[145px] bg-[var(--cordel-bg)] cordel-border-sm relative overflow-hidden">
-            <div
-              ref={vuMeterRef}
-              id={`meter-bar-${trackId}`}
-              className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--cordel-border)] w-full"
-              style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
-            />
-          </div>
+          <VUMeter
+            instrumentId={inst.id}
+            isPlaying={isPlaying}
+            orientation="vertical"
+            className="w-3 h-[145px] bg-[var(--cordel-bg)] cordel-border-sm"
+          />
           <div className="h-[15px]" />
         </div>
       </div>
