@@ -250,7 +250,7 @@ body {
   writing-mode: vertical-lr;
   direction: rtl;
   width: 24px;
-  height: 180px;
+  height: 100%;
   outline: none;
   background: transparent;
 }
@@ -260,7 +260,7 @@ body {
   width: 32px;
   height: 20px;
   background: var(--fader-thumb-bg, var(--cordel-border));
-  border: 3px solid var(--fader-thumb-border, var(--cordel-bg));
+  border: 2.5px solid var(--fader-thumb-border, var(--cordel-bg));
   box-shadow: 0 2px 5px var(--cordel-shadow-color);
   cursor: pointer;
   border-radius: 0;
@@ -269,7 +269,7 @@ body {
   width: 32px;
   height: 20px;
   background: var(--fader-thumb-bg, var(--cordel-border));
-  border: 3px solid var(--fader-thumb-border, var(--cordel-bg));
+  border: 2.5px solid var(--fader-thumb-border, var(--cordel-bg));
   box-shadow: 0 2px 5px var(--cordel-shadow-color);
   cursor: pointer;
   border-radius: 0;

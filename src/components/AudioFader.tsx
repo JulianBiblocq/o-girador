@@ -58,27 +58,16 @@ export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTa
     }
     lastAudioUpdateTimeRef.current = now;
 
-    let instId: string | null = null;
-    if (trackId !== undefined) {
-      const track = useSequencerStore.getState().tracks.find(t => t.id === trackId);
-      if (track) {
-        const inst = instrumentsConfig[track.instrumentIdx];
-        if (inst) {
-          instId = inst.id;
-        }
-      }
-    }
-
     // Direct-to-WebAudio with 0.05s smoothing
-    if (audioTarget === 'trackVolume' && instId && channels[instId]) {
+    if (audioTarget === 'trackVolume' && trackId !== undefined && channels[trackId]) {
       const gain = Math.max(0.00001, val / 100);
       const db = val === 0 ? -Infinity : safeGetTone()!.gainToDb(gain);
-      channels[instId].volume.rampTo(db, 0.05);
-    } else if (audioTarget === 'trackPan' && instId && channels[instId]) {
-      channels[instId].pan.rampTo(val / 100, 0.05);
-    } else if (audioTarget === 'trackReverb' && instId && reverbSends[instId]) {
+      channels[trackId].volume.rampTo(db, 0.05);
+    } else if (audioTarget === 'trackPan' && trackId !== undefined && channels[trackId]) {
+      channels[trackId].pan.rampTo(val / 100, 0.05);
+    } else if (audioTarget === 'trackReverb' && trackId !== undefined && reverbSends[trackId]) {
       const gain = Math.max(0.00001, val / 100);
-      reverbSends[instId].gain.rampTo(val === 0 ? 0 : safeGetTone()!.dbToGain(safeGetTone()!.gainToDb(gain)), 0.05);
+      reverbSends[trackId].gain.rampTo(val === 0 ? 0 : safeGetTone()!.dbToGain(safeGetTone()!.gainToDb(gain)), 0.05);
     } else if (audioTarget === 'masterVolume' && masterVolumeNode) {
       masterVolumeNode.gain.rampTo(safeGetTone()?.dbToGain(val === -40 ? -Infinity : val), 0.05);
     } else if (audioTarget === 'metroVolume' && metroChannel) {

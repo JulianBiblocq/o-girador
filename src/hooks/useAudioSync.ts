@@ -8,7 +8,7 @@ import * as Tone from 'tone';
 import { AudioEngine } from '../AudioEngine';
 import { InputManager } from '../InputManager';
 import { TrackGroup, TimeSignature, HitTrigger, SongSection, GlobalSwing } from '../types';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencerStore';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { loadTone } from '../ToneLoader';
 
@@ -37,7 +37,9 @@ import {
   handleReverbEcoToggle,
   ensureReverbConnected,
   getDeferredReverbActivation,
-  setDeferredReverbActivation
+  setDeferredReverbActivation,
+  busChannels,
+  busMeters
 } from '../audio/effectsChain';
 
 export {
@@ -51,7 +53,9 @@ export {
   metroChannel,
   channels,
   meters,
-  reverbSends
+  reverbSends,
+  busChannels,
+  busMeters
 };
 
 export const voiceSynths: { [id: string]: any } = {};
@@ -551,19 +555,32 @@ export function useAudioSync({
         initInstrumentNodes();
 
       // Synchronize track volume, panning, reverb levels, and mute/solo initially once nodes exist
-      const initialHasSolo = tracksRef.current.some((t: any) => t.isSolo);
       tracksRef.current.forEach((t) => {
+        if (t.isBusFolder) return;
         const inst = instrumentsConfig[t.instrumentIdx];
         if (inst) {
-          if (channels[inst.id]) {
-            const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
-            const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
-            channels[inst.id].volume.value = db;
-            channels[inst.id].pan.value = (t.panVal || 0) / 100;
-            channels[inst.id].mute = t.isMute || (initialHasSolo && !t.isSolo);
+          if (!channels[t.id]) {
+            channels[t.id] = new Tone.Channel({ volume: 0 }).connect(masterVolumeNode!);
+            meters[t.id] = new Tone.Meter();
+            channels[t.id].connect(meters[t.id]);
+
+            reverbSends[t.id] = new Tone.Gain(0);
+            channels[t.id].connect(reverbSends[t.id]);
+            if (reverbNode) {
+              reverbSends[t.id].connect(reverbNode);
+            }
+
+            audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
           }
-          if (reverbSends[inst.id]) {
-            reverbSends[inst.id].gain.value = isEco ? 0 : (t.reverbVal || 0) / 100;
+
+          const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
+          const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
+          channels[t.id].volume.value = db;
+          channels[t.id].pan.value = (t.panVal || 0) / 100;
+          channels[t.id].mute = getEffectiveMuteState(tracksRef.current, t.id);
+          
+          if (reverbSends[t.id]) {
+            reverbSends[t.id].gain.value = isEco ? 0 : (t.reverbVal || 0) / 100;
           }
         }
       });
@@ -905,7 +922,7 @@ export function useAudioSync({
 
                       const triggerTime = time + noteSwingOffset + microOffset;
 
-                      audioEngine?.playNote(inst.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
+                      audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
 
                       // Visual hit trigger
                       if (!isDocHidden) {
@@ -1073,9 +1090,12 @@ export function useAudioSync({
       inputManager = new InputManager(audioEngine);
 
       // Connect channels to audioEngine
-      instrumentsConfig.forEach((inst) => {
-        if (inst.type !== 'voice' && channels[inst.id]) {
-          audioEngine?.setInstrumentChannel(inst.id, channels[inst.id]);
+      tracksRef.current.forEach((t) => {
+        if (!t.isBusFolder) {
+          const inst = instrumentsConfig[t.instrumentIdx];
+          if (inst && channels[t.id]) {
+            audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
+          }
         }
       });
       } catch (err) {
@@ -1335,6 +1355,7 @@ export function useAudioSync({
   }, []);
 
   const lastAppliedTracksParamsRef = useRef<Record<string, string>>({});
+  const lastAppliedBussesRef = useRef<Record<string, string | null>>({});
 
   // Synchronize track volume, panning, reverb levels, and mute/solo dynamically when React state changes
   useEffect(() => {
@@ -1343,34 +1364,112 @@ export function useAudioSync({
         const tracks = state.tracks;
         const hasSolo = tracks.some((t: any) => t.isSolo);
 
+        // 1. Initialiser et synchroniser les Bus d'abord
         tracks.forEach((t) => {
+          if (t.isBusFolder) {
+            // Créer la chaîne de nœuds stéréo-safe s'il n'existe pas encore
+            if (!busChannels[t.id]) {
+              const volNode = new Tone.Volume(0);
+              volNode.channelCount = 2;
+              volNode.channelCountMode = "explicit";
+
+              const panNode = new Tone.Panner(0);
+              panNode.channelCount = 2;
+              panNode.channelCountMode = "explicit";
+
+              volNode.connect(panNode);
+              panNode.connect(masterVolumeNode!);
+
+              busChannels[t.id] = { volume: volNode, panner: panNode };
+              
+              busMeters[t.id] = new Tone.Meter();
+              volNode.connect(busMeters[t.id]);
+            }
+
+            const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
+            const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
+            const pan = (t.panVal || 0) / 100;
+            const muteState = getEffectiveMuteState(tracks, t.id);
+
+            const paramHash = `bus_${db}_${pan}_${muteState}`;
+
+            if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
+              busChannels[t.id].volume.volume.value = db;
+              busChannels[t.id].panner.pan.value = pan;
+              busChannels[t.id].volume.mute = muteState;
+              lastAppliedTracksParamsRef.current[t.id] = paramHash;
+            }
+          }
+        });
+
+        // 2. Synchroniser les pistes normales et leur routage vers les Bus
+        tracks.forEach((t) => {
+          if (t.isBusFolder) return; // Déjà géré au-dessus
+
           const inst = instrumentsConfig[t.instrumentIdx];
-          if (!inst || !channels[inst.id]) return;
+          if (!inst) return;
+
+          // Création dynamique des canaux si inexistants pour cette piste
+          if (!channels[t.id]) {
+            channels[t.id] = new Tone.Channel({ volume: 0 }).connect(masterVolumeNode!);
+            meters[t.id] = new Tone.Meter();
+            channels[t.id].connect(meters[t.id]);
+
+            reverbSends[t.id] = new Tone.Gain(0);
+            channels[t.id].connect(reverbSends[t.id]);
+            if (reverbNode) {
+              reverbSends[t.id].connect(reverbNode);
+            }
+
+            audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
+          }
 
           const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
           const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
           const pan = (t.panVal || 0) / 100;
-          const muteState = t.isMute || (hasSolo && !t.isSolo);
           const reverb = (t.reverbVal || 0) / 100;
+          const muteState = getEffectiveMuteState(tracks, t.id);
 
           const paramHash = `${db}_${pan}_${muteState}_${reverb}`;
 
+          // A. Appliquer le volume, pan et mute
           if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
-            channels[inst.id].volume.value = db;
-            channels[inst.id].pan.value = pan;
-            channels[inst.id].mute = muteState;
+            channels[t.id].volume.value = db;
+            channels[t.id].pan.value = pan;
+            channels[t.id].mute = muteState;
 
-            if (reverbSends[inst.id]) {
+            if (reverbSends[t.id]) {
               const isEco = state.isEcoMode;
-              reverbSends[inst.id].gain.value = isEco ? 0 : reverb;
+              reverbSends[t.id].gain.value = isEco ? 0 : reverb;
             }
 
             lastAppliedTracksParamsRef.current[t.id] = paramHash;
           }
+
+          // B. Routage dynamique de bus
+          const currentBusId = t.busId || null;
+          if (lastAppliedBussesRef.current[t.id] !== currentBusId) {
+            channels[t.id].disconnect();
+            if (currentBusId && busChannels[currentBusId]) {
+              channels[t.id].connect(busChannels[currentBusId].volume);
+            } else {
+              channels[t.id].connect(masterVolumeNode!);
+            }
+            
+            // Reconnecter le send réverb et le VU-mètre (le disconnect() coupe toutes les connexions)
+            if (reverbSends[t.id]) {
+              channels[t.id].connect(reverbSends[t.id]);
+            }
+            if (meters[t.id]) {
+              channels[t.id].connect(meters[t.id]);
+            }
+
+            lastAppliedBussesRef.current[t.id] = currentBusId;
+          }
         });
       }
     });
-    
+
     return unsub;
   }, [channels]);
 

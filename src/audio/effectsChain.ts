@@ -26,9 +26,16 @@ export let masterReverbVolumeNode: Tone.Gain | null = null;
 export let reverbNode: Tone.Reverb | null = null;
 export let metroChannel: Tone.Channel | null = null;
 
-export const channels: { [id: string]: Tone.Channel } = {};
-export const meters: { [id: string]: Tone.Meter } = {};
-export const reverbSends: { [id: string]: Tone.Gain } = {};
+export const channels: { [trackId: number]: Tone.Channel } = {};
+export const meters: { [trackId: number]: Tone.Meter } = {};
+export const reverbSends: { [trackId: number]: Tone.Gain } = {};
+export const busChannels: {
+  [busId: string]: {
+    volume: Tone.Volume;
+    panner: Tone.Panner;
+  }
+} = {};
+export const busMeters: { [busId: string]: Tone.Meter } = {};
 
 export function initMasterEffectsChain(
   masterVol: number,
@@ -69,6 +76,8 @@ export function initMasterEffectsChain(
   });
 
   masterVolumeNode = new Tone.Gain(1.0);
+  masterVolumeNode.channelCount = 2;
+  masterVolumeNode.channelCountMode = "explicit";
   masterVolumeNode.connect(masterEQNode);
   masterEQNode.connect(masterCompressorNode);
   
@@ -94,6 +103,8 @@ export function initMasterEffectsChain(
   masterSoftClipperNode.curve = clipperCurve;
   masterSoftClipperNode.oversample = '4x';
   // Connect masterLimiterNode directly to Tone.Destination to prevent master intermodulation/harmonic distortion
+  Tone.Destination.channelCount = 2;
+  Tone.Destination.channelCountMode = "explicit";
   masterLimiterNode.connect(Tone.Destination);
   
   const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
@@ -118,24 +129,7 @@ export function initMasterEffectsChain(
 }
 
 export function initInstrumentNodes() {
-  if (!masterVolumeNode) return;
-
-  instrumentsConfig.forEach((inst) => {
-    if (!channels[inst.id]) {
-      channels[inst.id] = new Tone.Channel({ volume: 0 }).connect(masterVolumeNode!);
-    }
-    if (!meters[inst.id]) {
-      meters[inst.id] = new Tone.Meter();
-      channels[inst.id].connect(meters[inst.id]);
-    }
-    if (!reverbSends[inst.id]) {
-      reverbSends[inst.id] = new Tone.Gain(0);
-      channels[inst.id].connect(reverbSends[inst.id]);
-      if (reverbNode) {
-        reverbSends[inst.id].connect(reverbNode);
-      }
-    }
-  });
+  // Les nœuds sont instanciés dynamiquement par track.id dans useAudioSync.ts
 }
 
 let deferredReverbActivation = false;

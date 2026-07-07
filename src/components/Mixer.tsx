@@ -125,7 +125,7 @@ const MixerComponent: React.FC<MixerProps> = ({
 
   const [isTracksCollapsed, setIsTracksCollapsed] = React.useState(true);
 
-  const trackList = useSequencerStore(useShallow(state => state.tracks.filter(t => !t.linkedToTrackId).map(t => getCachedTrack(t.id, t.isHidden, t.isSolo, t.isMute))));
+  const trackList = useSequencerStore(useShallow(state => state.tracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder)).map(t => getCachedTrack(t.id, t.isHidden, t.isSolo, t.isMute))));
   const trackIdsNumbers = trackList.map(t => t.id);
 
   const isEditingTrackValid = useSequencerStore(state => state.tracks.some(t => t.id === editingTrackId));
@@ -189,10 +189,7 @@ const MixerComponent: React.FC<MixerProps> = ({
       } else if (activeId.startsWith('track-') && overId.startsWith('track-')) {
         const activeTrackId = parseInt(activeId.replace('track-', ''), 10);
         const overTrackId = parseInt(overId.replace('track-', ''), 10);
-        const tracksList = useSequencerStore.getState().tracks;
-        const oldIndex = tracksList.findIndex(t => t.id === activeTrackId);
-        const newIndex = tracksList.findIndex(t => t.id === overTrackId);
-        handleReorderTracksDnd(oldIndex, newIndex);
+        handleReorderTracksDnd(activeTrackId, overTrackId);
       }
     }
   };

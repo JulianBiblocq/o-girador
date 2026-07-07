@@ -9,9 +9,11 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { instrumentsConfig, ASSETS_BASE_URL, i18n } from '../data';
-import { getBusColor } from '../utils/colorHelpers';
+import { getBusColor, getContrastColor } from '../utils/colorHelpers';
+import { DragNumberBox } from './DragNumberBox';
+import { HorizontalPanFader } from './HorizontalPanFader';
 import { PanKnob } from './PanKnob';
-import { AudioFader } from './AudioFader';
+import { MixerVolumeFader } from './MixerVolumeFader';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { VUMeter } from './VUMeter';
@@ -34,6 +36,8 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   const sequencer = useSequencer();
   const audio = useAudio();
   const { isPlaying } = audio;
+
+  const [distoVal, setDistoVal] = useState(0);
 
   const lang = useSequencerStore(state => state.lang);
   const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
@@ -116,6 +120,8 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   });
 
   const faderColor = inst.color || '#555555';
+
+  const faderTextColor = getContrastColor(faderColor);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -357,77 +363,72 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
       </div>
 
       {/* Fader & Mute/Solo Section (Bottom) */}
-      <div className="relative z-10 p-3 pt-4 flex justify-between items-end h-[200px] gap-2">
-        {/* Column 1: Pan & Buttons Column */}
-        <div className="flex flex-col gap-2 justify-end h-full pb-1 items-center w-11 shrink-0">
-          <PanKnob trackId={trackId} value={track.panVal || 0} onChange={onPanChange} label="Pan" />
-          <div className="h-0.5" />
-          <button 
-            onClick={(e) => { e.stopPropagation(); onMuteToggle(); }} 
-            className={`w-8 h-8 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
-              (track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-            }`}
-          >M</button>
-          <button 
-            onClick={(e) => { e.stopPropagation(); onSoloToggle(); }} 
-            className={`w-8 h-8 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
-              track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-            }`}
-          >S</button>
-        </div>
+      <div className="relative z-10 p-3 pt-2.5 pb-1 flex flex-col h-[200px] justify-between gap-1.5 w-full">
+        {/* Ligne 1 (Panoramique) : HorizontalPanFader tout en haut */}
+        <HorizontalPanFader 
+          value={track.panVal || 0} 
+          onChange={onPanChange}
+          className="w-full shrink-0 h-4"
+        />
 
-        {/* Volume Fader Column */}
-        <div className="flex flex-col items-center gap-1.5 h-full">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Volume</span>
-          <div className="h-[145px] flex justify-center items-center relative w-10">
-            <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
-            <AudioFader
-              type="range"
-              min="0"
-              max="100"
-              orient="vertical"
-              audioTarget="trackVolume"
+        {/* Zone Inférieure (Mixage) : 3 colonnes horizontales regroupées au centre */}
+        <div className="flex justify-center items-center w-full flex-grow gap-5 pt-1.5">
+          {/* Colonne de gauche : Bouton Mute [M] au-dessus de Solo [S] */}
+          <div className="flex flex-col gap-2 justify-center items-center w-7 shrink-0">
+            <button 
+              onClick={(e) => { e.stopPropagation(); onMuteToggle(); }} 
+              className={`w-7 h-7 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${
+                (track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+              }`}
+            >M</button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onSoloToggle(); }} 
+              className={`w-7 h-7 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${
+                track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+              }`}
+            >S</button>
+          </div>
+
+          {/* Colonne centrale : Fader vertical de volume (Ghost Input à haute performance) */}
+          <div className="flex flex-col items-center w-10 shrink-0">
+            <MixerVolumeFader
               trackId={trackId}
               value={track.volumeVal}
-              onChange={(val) => onVolumeChange(val)}
-              className="vertical-fader touch-none z-10 h-[130px] w-6 cursor-pointer"
+              onChange={onVolumeChange}
+              faderColor={faderColor}
+              textColor={faderTextColor}
             />
           </div>
-          <span className="text-[10px] font-bold text-[var(--cordel-text)] fader-val-label">{track.volumeVal}</span>
-        </div>
 
-        {/* Reverb Fader Column */}
-        <div className="flex flex-col items-center gap-1.5 h-full">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Reverb</span>
-          <div className="h-[145px] flex justify-center items-center relative w-8">
-            <div className="absolute top-0 bottom-0 w-1 bg-[var(--cordel-border)] rounded-none pointer-events-none"></div>
-            <AudioFader
-              type="range"
-              min="0"
-              max="100"
-              orient="vertical"
-              audioTarget="trackReverb"
-              trackId={trackId}
-              value={track.reverbVal || 0}
-              onChange={(val) => onReverbChange(val)}
-              className="vertical-fader touch-none z-10 h-[130px] w-5 cursor-pointer"
-            />
+          {/* Colonne de droite : VU-mètre vertical élargi, sans label Meter */}
+          <div className="flex flex-col items-center w-7 shrink-0">
+            <div className="h-[115px] flex justify-center items-center relative w-7">
+              <VUMeter
+                trackId={trackId}
+                instrumentId={inst.id}
+                isPlaying={isPlaying && isActive}
+                isActive={isActive}
+                orientation="vertical"
+                className="w-3 h-[99px] bg-[var(--cordel-bg)] cordel-border-sm"
+              />
+            </div>
           </div>
-          <span className="text-[10px] font-bold text-[var(--cordel-text)] fader-val-label">{track.reverbVal || 0}</span>
         </div>
 
-        {/* LED Meter */}
-        <div className="flex flex-col items-center gap-1.5 h-full">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
-          <VUMeter
-            trackId={trackId}
-            instrumentId={inst.id}
-            isPlaying={isPlaying && isActive}
-            isActive={isActive}
-            orientation="vertical"
-            className="w-2.5 h-[145px] bg-[var(--cordel-bg)] cordel-border-sm"
+        {/* Ligne 3 (Effets) : Deux DragNumberBox côte à côte tout en bas */}
+        <div className="flex gap-2 w-full shrink-0">
+          <DragNumberBox 
+            label="Rev" 
+            value={track.reverbVal || 0} 
+            onChange={onReverbChange}
+            className="flex-1"
           />
-          <div className="h-[15px]" />
+          <DragNumberBox 
+            label="Dst" 
+            value={distoVal} 
+            onChange={setDistoVal}
+            className="flex-1"
+          />
         </div>
       </div>
     </div>

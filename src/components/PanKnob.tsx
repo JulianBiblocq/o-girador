@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { channels } from '../hooks/useAudioSync';
+import { channels, busChannels } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { instrumentsConfig } from '../data';
 
@@ -26,11 +26,8 @@ export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, labe
       const angle = val * 1.35;
       rotationGroupRef.current.setAttribute('transform', `rotate(${angle} 16 16)`);
     }
-    if (valueLabelRef.current) {
-      valueLabelRef.current.textContent = val === 0 ? 'C' : val > 0 ? `R${val}` : `L${Math.abs(val)}`;
-    }
     if (inputRef.current) {
-      inputRef.current.title = `Pan: ${val === 0 ? 'C' : val > 0 ? 'R' + val : 'L' + Math.abs(val)}`;
+      inputRef.current.title = `Pan: ${val === 0 ? 'Centro' : val > 0 ? 'D' + val : 'E' + Math.abs(val)}`;
     }
   };
 
@@ -53,9 +50,15 @@ export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, labe
     if (trackId !== undefined) {
       const track = useSequencerStore.getState().tracks.find(t => t.id === trackId);
       if (track) {
-        const inst = instrumentsConfig[track.instrumentIdx];
-        if (inst && channels[inst.id]) {
-          channels[inst.id].pan.rampTo(val / 100, 0.05);
+        const targetPan = val / 100;
+        if (track.isBusFolder) {
+          if (busChannels && busChannels[track.id]) {
+            busChannels[track.id].panner.pan.rampTo(targetPan, 0.05);
+          }
+        } else {
+          if (channels && channels[track.id]) {
+            channels[track.id].pan.rampTo(targetPan, 0.05);
+          }
         }
       }
     }
@@ -119,10 +122,9 @@ export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, labe
           className="absolute inset-0 opacity-0 cursor-ew-resize w-full h-full touch-none"
         />
       </div>
-      <div className="flex justify-between w-full px-1 text-[8px] font-bold opacity-60">
-        <span>L</span>
-        <span ref={valueLabelRef}>{value === 0 ? 'C' : value > 0 ? `R${value}` : `L${Math.abs(value)}`}</span>
-        <span>R</span>
+      <div className="flex justify-between w-full px-1.5 text-[8px] font-bold opacity-60">
+        <span>E</span>
+        <span>D</span>
       </div>
     </div>
   );

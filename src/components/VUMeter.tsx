@@ -1,9 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { meters } from '../hooks/useAudioSync';
+import { meters, busMeters } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 
 interface VUMeterProps {
-  instrumentId: string;
+  trackId?: number;
+  instrumentId?: string;
+  busId?: string;
   isPlaying: boolean;
   orientation?: 'horizontal' | 'vertical';
   className?: string;
@@ -11,7 +13,9 @@ interface VUMeterProps {
 }
 
 export const VUMeter: React.FC<VUMeterProps> = ({
+  trackId,
   instrumentId,
+  busId,
   isPlaying,
   orientation = 'vertical',
   className = '',
@@ -28,7 +32,7 @@ export const VUMeter: React.FC<VUMeterProps> = ({
     }
 
     let animationFrameId: number;
-    const meterNode = meters && instrumentId ? meters[instrumentId] : undefined;
+    const meterNode = busId && busMeters ? busMeters[busId] : (meters && trackId !== undefined ? meters[trackId] : undefined);
 
     const updateMeter = () => {
       if ((window as any).oGiradorDetailEditorOpen) {
@@ -71,7 +75,7 @@ export const VUMeter: React.FC<VUMeterProps> = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [instrumentId, orientation, isActive, isPlaying]);
+  }, [trackId, instrumentId, orientation, isActive, isPlaying]);
 
   return (
     <div className={`relative overflow-hidden ${className}`}>

@@ -41,3 +41,18 @@ export function getBusColor(busId: string, tracks: any[], instrumentsConfig: any
 
   return `#${rAvg}${gAvg}${bAvg}`;
 }
+
+export function getContrastColor(hexcolor: string): string {
+  if (!hexcolor || hexcolor === 'transparent') return '#1a1a1a';
+  const hex = hexcolor.replace('#', '');
+  if (hex.length === 6) {
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    if (!isNaN(r) && !isNaN(g) && !isNaN(b)) {
+      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+      return (yiq >= 128) ? '#1a1a1a' : '#f4ecd8';
+    }
+  }
+  return '#1a1a1a';
+}

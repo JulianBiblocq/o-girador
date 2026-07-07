@@ -110,7 +110,11 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const linkedSlavesTooltip = isMaster
     ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${inst.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
     : undefined;
-  const displayName = isMaster ? `🔗 ${getPluralName(inst.name)}` : inst.name;
+  const dbTrack = tracks.find(t => t.id === trackId);
+  const parentBus = dbTrack?.busId ? tracks.find(t => String(t.id) === String(dbTrack.busId)) : null;
+  const displayName = (parentBus && parentBus.customName)
+    ? parentBus.customName
+    : (isMaster ? `🔗 ${getPluralName(inst.name)}` : inst.name);
   
   const isMutedBySolo = hasSolo && !trackData.isSolo;
   const canPlay = trackData.isSolo || (!trackData.isMute && !isMutedBySolo);

@@ -21,6 +21,7 @@ import { AudioFader } from './AudioFader';
 import { Pattern } from '../types';
 import { MixerChannel } from './MixerChannel';
 import { MixerLinkedTrack } from './MixerLinkedTrack';
+import { MixerFolderBus } from './MixerFolderBus';
 import { i18n, instrumentsConfig } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
@@ -126,6 +127,17 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const trackList = useSequencerStore(useShallow(state => state.tracks.map(t => getCachedTrack(t.id, t.isHidden, t.isSolo, t.isMute))));
   const trackIds = trackList.map(t => t.id);
   const tracks = useSequencerStore(state => state.tracks);
+  const displayedTracks = useMemo(() => {
+    return tracks.filter(t => {
+      if (t.isHidden) return false;
+      if (t.busId) {
+        const parentBus = tracks.find(p => String(p.id) === String(t.busId));
+        if (parentBus && parentBus.isFolded) return false;
+      }
+      return true;
+    });
+  }, [tracks]);
+  const displayedTrackIds = useMemo(() => displayedTracks.map(t => `track-${t.id}`), [displayedTracks]);
   
   const setTracks = useSequencerStore(state => state.setTracks);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
@@ -347,9 +359,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       } else if (activeId.startsWith('track-') && overId.startsWith('track-')) {
         const activeTrackId = parseInt(activeId.replace('track-', ''), 10);
         const overTrackId = parseInt(overId.replace('track-', ''), 10);
-        const oldIndex = trackIds.indexOf(activeTrackId);
-        const newIndex = trackIds.indexOf(overTrackId);
-        handleReorderTracksDnd(oldIndex, newIndex);
+        handleReorderTracksDnd(activeTrackId, overTrackId);
       }
     }
   };
@@ -520,12 +530,58 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       className={`flex-1 flex flex-col h-full overflow-hidden transition-opacity duration-200 ${isPresetLoading ? 'pointer-events-none opacity-80' : ''}`}
       style={{ display: isActive ? 'flex' : 'none' }}
     >
-      <div ref={scrollRef} className="flex-grow flex overflow-x-auto p-4 gap-4 custom-scrollbar">
+      <div ref={scrollRef} className="flex-grow flex overflow-x-auto p-4 custom-scrollbar">
         <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
-          <SortableContext items={trackIds.map(id => `track-${id}`)} strategy={horizontalListSortingStrategy}>
-            {trackIds.map((trackId, index) => {
-              const track = tracks.find(t => t.id === trackId);
-              if (track?.linkedToTrackId) {
+          <SortableContext items={displayedTrackIds} strategy={horizontalListSortingStrategy}>
+            {displayedTracks.map((track, index) => {
+              const trackId = track.id;
+
+              const group = track.isBusFolder ? String(track.id) : (track.busId ? String(track.busId) : null);
+              const prevTrack = index > 0 ? displayedTracks[index - 1] : null;
+              const nextTrack = index < displayedTracks.length - 1 ? displayedTracks[index + 1] : null;
+
+              const prevGroup = prevTrack ? (prevTrack.isBusFolder ? String(prevTrack.id) : (prevTrack.busId ? String(prevTrack.busId) : null)) : null;
+              const nextGroup = nextTrack ? (nextTrack.isBusFolder ? String(nextTrack.id) : (nextTrack.busId ? String(nextTrack.busId) : null)) : null;
+
+              let busPosition: 'first' | 'middle' | 'last' | 'none' = 'none';
+              if (group) {
+                const hasPrev = group === prevGroup;
+                const hasNext = group === nextGroup;
+                if (!hasPrev && hasNext) busPosition = 'first';
+                else if (hasPrev && hasNext) busPosition = 'middle';
+                else if (hasPrev && !hasNext) busPosition = 'last';
+              }
+
+              if (track.isBusFolder) {
+                if (track.isLinkFolder) {
+                  return (
+                    <MixerChannel
+                      key={trackId}
+                      trackId={trackId}
+                      index={index}
+                      onOpenDetailEditor={onOpenDetailEditor}
+                      onCopyPattern={handleCopyPattern}
+                      onPastePattern={handlePastePattern}
+                      canPaste={copiedPattern !== null}
+                      isActive={isActive}
+                      busPosition={busPosition}
+                      isPlaying={isPlaying}
+                      isLeftHanded={isLeftHanded}
+                    />
+                  );
+                }
+                return (
+                  <MixerFolderBus
+                    key={trackId}
+                    trackId={trackId}
+                    index={index}
+                    isActive={isActive}
+                    busPosition={busPosition}
+                  />
+                );
+              }
+
+              if (track.linkedToTrackId) {
                 return (
                   <MixerLinkedTrack
                     key={trackId}
@@ -533,6 +589,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     index={index}
                     onOpenDetailEditor={onOpenDetailEditor}
                     isActive={isActive}
+                    busPosition={busPosition}
                   />
                 );
               }
@@ -547,6 +604,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   onPastePattern={handlePastePattern}
                   canPaste={!!copiedPattern}
                   isActive={isActive}
+                  busPosition={busPosition}
                 />
               );
             })}

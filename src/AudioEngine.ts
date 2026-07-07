@@ -17,6 +17,7 @@ import type * as ToneType from 'tone';
 import { getTone } from './ToneLoader';
 import { instrumentAudioConfigs, StrokeMapping, InstrumentAudioConfig } from './data/audioConfig';
 import { useSequencerStore } from './stores/useSequencerStore';
+import { instrumentsConfig } from './data';
 
 interface ActiveVoice {
   source: AudioBufferSourceNode;
@@ -70,7 +71,8 @@ export class AudioEngine {
   // Sampler State & Buffers
   private bufferPool = new Map<string, ToneType.ToneAudioBuffer>(); // Maps absolute path -> ToneAudioBuffer (Sample Pooling)
   private lastPlayedIndices = new Map<string, Map<string, number>>(); // Maps instrumentId -> strokeSymbol -> last played index (Round-Robin)
-  private instrumentChannels = new Map<string, any>(); // Maps instrumentId -> Tone.Channel
+  private instrumentChannels = new Map<number, any>(); // Maps trackId -> Tone.Channel
+  private defaultInstrumentChannels = new Map<string, any>(); // Maps instrumentId -> Tone.Channel
   private activeBarulhoNodes = new Map<string, AudioBufferSourceNode>(); // Maps instrumentId -> active looping BufferSource
   private activeBarulhoGains = new Map<string, GainNode>(); // Maps instrumentId -> GainNode of active Barulho
   private scheduledHits = new Set<AudioBufferSourceNode>();
@@ -503,9 +505,9 @@ export class AudioEngine {
    * Register output destination / channel for an instrument ID
    * and initialize its dedicated GainNode pool.
    */
-  public setInstrumentChannel(instrumentId: string, channel: any): void {
-    this.instrumentChannels.set(instrumentId, channel);
-    const Tone = getTone();
+  public setInstrumentChannel(trackId: number, instrumentId: string, channel: any): void {
+    this.instrumentChannels.set(trackId, channel);
+    this.defaultInstrumentChannels.set(instrumentId, channel);
     
     if (!this.gainNodePools.has(instrumentId)) {
       const pool: GainNode[] = [];
@@ -513,7 +515,6 @@ export class AudioEngine {
         const gainNode = this.audioContext.createGain();
         (gainNode as any)._isReleased = true;
         gainNode.gain.value = 0;
-        Tone.connect(gainNode, channel);
         pool.push(gainNode);
       }
       this.gainNodePools.set(instrumentId, pool);
@@ -553,29 +554,37 @@ export class AudioEngine {
     }
   }
 
-  private getGainNode(instrumentId: string): GainNode {
+  private getGainNode(trackId: number | null, instrumentId: string): GainNode {
     const Tone = getTone();
+    let gainNode: GainNode;
+
     const pool = this.gainNodePools.get(instrumentId);
     if (pool && pool.length > 0) {
-      const gainNode = pool.pop()!;
+      gainNode = pool.pop()!;
       (gainNode as any)._isReleased = false;
-      return gainNode;
+    } else {
+      // Fallback dynamique
+      gainNode = this.audioContext.createGain();
+      (gainNode as any)._isReleased = false;
+      gainNode.gain.value = 0;
     }
-    // Fallback dynamique
-    const gainNode = this.audioContext.createGain();
-    (gainNode as any)._isReleased = false;
-    gainNode.gain.value = 0;
-    const channel = this.instrumentChannels.get(instrumentId);
+
+    // Connexion dynamique au canal propre à la piste trackId ou par défaut à l'instrumentId
+    const channel = trackId !== null
+      ? this.instrumentChannels.get(trackId)
+      : this.defaultInstrumentChannels.get(instrumentId);
+      
     if (channel) {
       Tone.connect(gainNode, channel);
     } else {
       Tone.connect(gainNode, Tone.Destination);
     }
+
     return gainNode;
   }
 
   /**
-   * Nettoie strictement le nœud de volume et le rend à la piscine.
+   * Nettoie strictement le nœud de volume, le déconnecte et le rend à la piscine.
    */
   private releaseGainNode(instrumentId: string, gainNode: GainNode): void {
     if ((gainNode as any)._isReleased) return;
@@ -587,6 +596,11 @@ export class AudioEngine {
       gainNode.gain.setValueAtTime(0, currentTime);
     } catch (_) {}
     
+    // Déconnexion dynamique pour éviter les fuites stéréo et conflits
+    try {
+      gainNode.disconnect();
+    } catch (_) {}
+
     const pool = this.gainNodePools.get(instrumentId);
     if (pool && pool.length < this.MAX_POOL_SIZE) {
       pool.push(gainNode);
@@ -597,12 +611,24 @@ export class AudioEngine {
    * Plays a specific stroke for an instrument with velocity, decay, round-robin, and pitching.
    */
   public playNote(
-    instrumentId: string,
+    trackIdOrInstrumentId: number | string,
     strokeSymbol: string,
     time: number,
     velocity: number,
     decayMultiplier: number
   ): void {
+    let trackId: number | null = null;
+    let instrumentId = '';
+    
+    if (typeof trackIdOrInstrumentId === 'number') {
+      trackId = trackIdOrInstrumentId;
+      const track = useSequencerStore.getState().tracks.find(t => t.id === trackId);
+      if (!track) return;
+      instrumentId = instrumentsConfig[track.instrumentIdx].id;
+    } else {
+      instrumentId = trackIdOrInstrumentId;
+    }
+
     // 1. Find the configuration for this instrument — O(1) Map lookup instead of O(n) Array.find()
     const config = this.configMap.get(instrumentId);
     if (!config) {
@@ -632,17 +658,18 @@ export class AudioEngine {
         console.warn(`AudioEngine: No stroke mapped for symbol "${strokeSymbol}" (normalized: "${normSymbol}") on instrument "${instrumentId}"`);
         return;
       }
-      this.playStroke(instrumentId, config, fallbackStroke, time, velocity, decayMultiplier);
+      this.playStroke(trackId, instrumentId, config, fallbackStroke, time, velocity, decayMultiplier);
       return;
     }
 
-    this.playStroke(instrumentId, config, stroke, time, velocity, decayMultiplier);
+    this.playStroke(trackId, instrumentId, config, stroke, time, velocity, decayMultiplier);
   }
 
   /**
    * Helper to perform play and pitching of a specific stroke mapping
    */
   private playStroke(
+    trackId: number | null,
     instrumentId: string,
     config: InstrumentAudioConfig,
     stroke: StrokeMapping,
@@ -786,7 +813,7 @@ export class AudioEngine {
     source.playbackRate.value = calculatedPitch;
 
     // 5. Utiliser un GainNode de la piscine
-    const gainNode = this.getGainNode(instrumentId);
+    const gainNode = this.getGainNode(trackId, instrumentId);
     gainNode.gain.cancelScheduledValues(time);
     gainNode.gain.setValueAtTime(velocity, time);
 

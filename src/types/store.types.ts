@@ -71,6 +71,12 @@ export interface TrackGroup {
   reverbVal?: number;
   panVal?: number; // -100 to 100
   linkedToTrackId?: string;
+  busId?: string;
+  isBusFolder?: boolean;
+  isLinkFolder?: boolean;
+  isLinkMaster?: boolean;
+  isFolded?: boolean;
+  customName?: string;
 }
 
 export interface CatalogItem {
