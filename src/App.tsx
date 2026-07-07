@@ -60,13 +60,45 @@ export default function App() {
 
   // Consume contexts
   const sequencer = useSequencer();
+  const {
+    customDialog,
+    setCustomDialog,
+    alertAsync,
+    confirmAsync,
+    promptAsync,
+  } = sequencer;
   const audio = useAudio();
   const { hasAccess, userProfile, updateUserPreference } = useAuth();
   const { completeExercise } = useGameData();
   const [activeVaralExercise, setActiveVaralExercise] = useState<any>(null);
 
+  // Context and unstable state Refs to maximize callback stabilization
+  const sequencerRef = React.useRef(sequencer);
+  const audioRef = React.useRef(audio);
+  const userProfileRef = React.useRef(userProfile);
+  const updateUserPreferenceRef = React.useRef(updateUserPreference);
+  const contextHasAccessRef = React.useRef(hasAccess);
+  const activeVaralExerciseRef = React.useRef(activeVaralExercise);
+  const completeExerciseRef = React.useRef(completeExercise);
+  const alertAsyncRef = React.useRef(alertAsync);
+  const confirmAsyncRef = React.useRef(confirmAsync);
+  const promptAsyncRef = React.useRef(promptAsync);
+  const setCustomDialogRef = React.useRef(setCustomDialog);
+
+  React.useEffect(() => { sequencerRef.current = sequencer; }, [sequencer]);
+  React.useEffect(() => { audioRef.current = audio; }, [audio]);
+  React.useEffect(() => { userProfileRef.current = userProfile; }, [userProfile]);
+  React.useEffect(() => { updateUserPreferenceRef.current = updateUserPreference; }, [updateUserPreference]);
+  React.useEffect(() => { contextHasAccessRef.current = hasAccess; }, [hasAccess]);
+  React.useEffect(() => { activeVaralExerciseRef.current = activeVaralExercise; }, [activeVaralExercise]);
+  React.useEffect(() => { completeExerciseRef.current = completeExercise; }, [completeExercise]);
+  React.useEffect(() => { alertAsyncRef.current = alertAsync; }, [alertAsync]);
+  React.useEffect(() => { confirmAsyncRef.current = confirmAsync; }, [confirmAsync]);
+  React.useEffect(() => { promptAsyncRef.current = promptAsync; }, [promptAsync]);
+  React.useEffect(() => { setCustomDialogRef.current = setCustomDialog; }, [setCustomDialog]);
+
   const renderFallback = (componentNameFr: string, componentNamePt: string) => (reset: () => void) => {
-    const isPt = sequencer.lang === 'pt';
+    const isPt = sequencerRef.current.lang === 'pt';
     return (
       <div className="p-4 bg-red-900/20 border border-red-500 rounded text-red-400 font-cactus text-sm m-2">
         {isPt 
@@ -115,15 +147,15 @@ export default function App() {
       }
     };
 
-    if (isHeavyView && audio.isPlaying) {
-      audio.handleStop();
+    if (isHeavyView && audioRef.current.isPlaying) {
+      audioRef.current.handleStop();
       requestAnimationFrame(() => {
         applyViewChange();
       });
     } else {
       applyViewChange();
     }
-  }, [audio.isPlaying, audio.handleStop]);
+  }, []);
 
   const [unlockedFolhetos, setUnlockedFolhetos] = useState<string[]>(() => {
     try {
@@ -156,14 +188,7 @@ export default function App() {
     return (cloudPresetsData || []).map(p => ({ id: p.id, name: p.name }));
   }, [cloudPresetsData]);
 
-  // Dialog System from Context
-  const {
-    customDialog,
-    setCustomDialog,
-    alertAsync,
-    confirmAsync,
-    promptAsync,
-  } = sequencer;
+
 
   // Dynamically update document title based on language, keeping "O Girador" untranslated
   useEffect(() => {
@@ -189,13 +214,15 @@ export default function App() {
     }
   }, [userProfile?.isDarkMode]);
 
-  const toggleDarkMode = () => {
-    const newMode = !isDarkMode;
-    setIsDarkMode(newMode);
-    if (userProfile) {
-      updateUserPreference('isDarkMode', newMode);
-    }
-  };
+  const toggleDarkMode = React.useCallback(() => {
+    setIsDarkMode(prev => {
+      const newMode = !prev;
+      if (userProfileRef.current) {
+        updateUserPreferenceRef.current('isDarkMode', newMode);
+      }
+      return newMode;
+    });
+  }, []);
 
   const [mestreSignals, setMestreSignals] = useState<CloudRhythmSignal[]>([]);
   const [hideGlobalSignals, setHideGlobalSignals] = useState(false);
@@ -205,15 +232,16 @@ export default function App() {
     return mestreSignals.filter(s => s.mestreId !== 'global');
   }, [mestreSignals, hideGlobalSignals]);
 
-  const refreshMestreSignals = async () => {
-    const isMestreAdmin = userProfile?.role === 'mestre' || userProfile?.role === 'admin';
-    const isEleve = hasAccess('eleve');
+  const refreshMestreSignals = React.useCallback(async () => {
+    const profile = userProfileRef.current;
+    const isMestreAdmin = profile?.role === 'mestre' || profile?.role === 'admin';
+    const isEleve = contextHasAccessRef.current ? contextHasAccessRef.current('eleve') : false;
     
     let targetMestreId = null;
     if (isMestreAdmin) {
-      targetMestreId = userProfile?.mestreId || userProfile?.uid;
+      targetMestreId = profile?.mestreId || profile?.uid;
     } else if (isEleve) {
-      targetMestreId = userProfile?.mestreId;
+      targetMestreId = profile?.mestreId;
     }
 
     if (targetMestreId) {
@@ -224,11 +252,11 @@ export default function App() {
       const { signals } = await fetchMestreSignals('global');
       setMestreSignals(signals);
     }
-  };
+  }, []);
 
   useEffect(() => {
     refreshMestreSignals();
-  }, [userProfile?.uid, userProfile?.mestreId, userProfile?.role]);
+  }, [userProfile?.uid, userProfile?.mestreId, userProfile?.role, refreshMestreSignals]);
 
   // Context menu prevention on UI elements
   useEffect(() => {
@@ -278,33 +306,34 @@ export default function App() {
     localStorage.setItem('o-girador-unlocked-folhetos', JSON.stringify(unlockedFolhetos));
   }, [unlockedFolhetos]);
 
-  const unlockBooklet = (id: string) => {
+  const unlockBooklet = React.useCallback((id: string) => {
     setUnlockedFolhetos((prev) => {
       if (prev.includes(id)) return prev;
       setJustUnlockedBookletId(id);
       changeViewMode('varal');
       return [...prev, id];
     });
-  };
+  }, [changeViewMode]);
 
-  const handleGameSuccess = (moduleName: string) => {
+  const handleGameSuccess = React.useCallback((moduleName: string) => {
     const normalizedName = moduleName === 'rythme_live' ? 'rythmelive' : (moduleName === 'sablier_mestre' ? 'mestre' : moduleName);
     unlockBooklet(`folheto_${normalizedName}`);
+    const activeVaralExercise = activeVaralExerciseRef.current;
     if (activeVaralExercise) {
-      completeExercise(activeVaralExercise.id);
+      completeExerciseRef.current(activeVaralExercise.id);
       changeViewMode('varal');
       setActiveVaralExercise(null);
     }
-  };
+  }, [unlockBooklet, changeViewMode]);
 
-  const handleGameExit = () => {
-    if (activeVaralExercise) {
+  const handleGameExit = React.useCallback(() => {
+    if (activeVaralExerciseRef.current) {
       changeViewMode('varal');
       setActiveVaralExercise(null);
     } else {
       changeViewMode('roda');
     }
-  };
+  }, [changeViewMode]);
 
   // Touch selector Bubble states
   const [touchSelector, setTouchSelector] = useState<any | null>(null);
@@ -374,49 +403,49 @@ export default function App() {
     }
   };
 
-  const handleTrackInstrumentIdxChange = (id: number, targetInstIdx: number) => sequencer.handleTrackInstrumentIdxChange(id, targetInstIdx);
-  const handleTrackMuteToggle = (id: number) => sequencer.handleTrackMuteToggle(id);
-  const handleTrackSoloToggle = (id: number) => sequencer.handleTrackSoloToggle(id);
-  const handleTrackHideToggle = (id: number) => sequencer.handleTrackHideToggle(id);
-  const handleTrackDelete = (id: number) => sequencer.handleTrackDelete(id);
-  const handleTrackVolumeChange = (id: number, val: number) => sequencer.handleTrackVolumeChange(id, val);
-  const handleTrackReverbChange = (id: number, val: number) => sequencer.handleTrackReverbChange(id, val);
-  const handleTrackStepVolumeChange = (tId: number, pId: number, sIdx: number | number[], val: number) => sequencer.handleTrackStepVolumeChange(tId, pId, sIdx, val);
-  const handleTrackStepDecayChange = (tId: number, pId: number, sIdx: number | number[], val: number) => sequencer.handleTrackStepDecayChange(tId, pId, sIdx, val);
-  const handleTrackStepMicrotimingChange = (tId: number, pId: number, sIdx: number | number[], val: number) => sequencer.handleTrackStepMicrotimingChange(tId, pId, sIdx, val);
-  const handleResetTrackMicrotimings = (tId: number, pId: number) => sequencer.handleResetTrackMicrotimings(tId, pId);
-  const handleTrackPanChange = (id: number, val: number) => sequencer.handleTrackPanChange(id, val);
-  const handleTrackStepsChange = (tId: number, pId: number, s: number) => sequencer.handleTrackStepsChange(tId, pId, s);
-  const handleTimelinePatternAssign = (tId: number, pId: number | null, mIdx: number) => sequencer.handleTimelinePatternAssign(tId, pId, mIdx);
-  const handleMeasureTimeSigChange = (mIdx: number, val: TimeSignature) => sequencer.handleMeasureTimeSigChange(mIdx, val);
-  const handleMeasureBpmChange = (mIdx: number, val: number) => sequencer.handleMeasureBpmChange(mIdx, val);
-  const handleMeasureTransitionChange = (mIdx: number, val: 'immediate' | 'ramp') => sequencer.handleMeasureTransitionChange(mIdx, val);
-  const handleMeasureVolChange = (mIdx: number, val: number) => sequencer.handleMeasureVolChange(mIdx, val);
-  const handleMeasureVolTransitionChange = (mIdx: number, val: 'immediate' | 'ramp') => sequencer.handleMeasureVolTransitionChange(mIdx, val);
-  const handleTotalMeasuresChange = (val: number) => sequencer.handleTotalMeasuresChange(val);
-  const handleDeleteMeasure = (mIdx: number) => sequencer.handleDeleteMeasure(mIdx);
-  const handleInsertMeasure = (mIdx: number) => sequencer.handleInsertMeasure(mIdx);
-  const handleSetLoopStart = (mIdx: number) => sequencer.handleSetLoopStart(mIdx);
-  const handleSetLoopEnd = (mIdx: number) => sequencer.handleSetLoopEnd(mIdx);
-  const handleClearLoop = () => sequencer.handleClearLoop();
-  const handleCopyPattern = (ptn: Pattern) => sequencer.handleCopyPattern(ptn);
-  const handlePastePattern = (tId: number, pId?: number) => sequencer.handlePastePattern(tId, pId);
-  const handleLoadLibraryPattern = (tId: number, targetPtnId: number, libPattern: any) => sequencer.handleLoadLibraryPattern(tId, targetPtnId, libPattern);
-  const handleCreateSongSection = (name: string, start: number, end: number, color?: string, repeatCount?: number, level?: number) => sequencer.handleCreateSongSection(name, start, end, color, repeatCount, level);
-  const handleUpdateSongSection = (id: string, name: string, start: number, end: number, color?: string, level?: number) => sequencer.handleUpdateSongSection(id, name, start, end, color, level);
-  const handleDeleteSongSection = (id: string) => sequencer.handleDeleteSongSection(id);
-  const handleCopySongSection = (sec: SongSection) => sequencer.handleCopySongSection(sec);
-  const handlePasteSongSection = (dest: number) => sequencer.handlePasteSongSection(dest);
-  const handleStepValueSelectAndToggle = (tId: number, pId: number, sIdx: number, state: string | number, l?: string, n?: string) => sequencer.handleStepValueSelectAndToggle(tId, pId, sIdx, state, l, n);
-  const handleVoiceTypeToggle = (tId: number, pId: number, sIdx: number) => sequencer.handleVoiceTypeToggle(tId, pId, sIdx);
-  const handleVoiceSylChange = (tId: number, pId: number, sIdx: number, val: string) => sequencer.handleVoiceSylChange(tId, pId, sIdx, val);
-  const handleVoiceNoteChange = (tId: number, pId: number, sIdx: number, val: string) => sequencer.handleVoiceNoteChange(tId, pId, sIdx, val);
-  const handleVoiceNoteBlur = (tId: number, pId: number, sIdx: number, val: string) => sequencer.handleVoiceNoteBlur(tId, pId, sIdx, val);
-  const handleExtractLyrics = () => sequencer.handleExtractLyrics();
-  const handleTrackStepValueChange = (tId: number, pId: number, sIdx: number | number[], val: string | string[], l?: string[], n?: string[]) => sequencer.handleTrackStepValueChange(tId, pId, sIdx, val, l, n);
-  const handleTrackStepKeyDown = (tId: number, pId: number, sIdx: number, k: string, w: string, el: HTMLInputElement) => sequencer.handleTrackStepKeyDown(tId, pId, sIdx, k, w, el);
+  const handleTrackInstrumentIdxChange = React.useCallback((id: number, targetInstIdx: number) => sequencerRef.current.handleTrackInstrumentIdxChange(id, targetInstIdx), []);
+  const handleTrackMuteToggle = React.useCallback((id: number) => sequencerRef.current.handleTrackMuteToggle(id), []);
+  const handleTrackSoloToggle = React.useCallback((id: number) => sequencerRef.current.handleTrackSoloToggle(id), []);
+  const handleTrackHideToggle = React.useCallback((id: number) => sequencerRef.current.handleTrackHideToggle(id), []);
+  const handleTrackDelete = React.useCallback((id: number) => sequencerRef.current.handleTrackDelete(id), []);
+  const handleTrackVolumeChange = React.useCallback((id: number, val: number) => sequencerRef.current.handleTrackVolumeChange(id, val), []);
+  const handleTrackReverbChange = React.useCallback((id: number, val: number) => sequencerRef.current.handleTrackReverbChange(id, val), []);
+  const handleTrackStepVolumeChange = React.useCallback((tId: number, pId: number, sIdx: number | number[], val: number) => sequencerRef.current.handleTrackStepVolumeChange(tId, pId, sIdx, val), []);
+  const handleTrackStepDecayChange = React.useCallback((tId: number, pId: number, sIdx: number | number[], val: number) => sequencerRef.current.handleTrackStepDecayChange(tId, pId, sIdx, val), []);
+  const handleTrackStepMicrotimingChange = React.useCallback((tId: number, pId: number, sIdx: number | number[], val: number) => sequencerRef.current.handleTrackStepMicrotimingChange(tId, pId, sIdx, val), []);
+  const handleResetTrackMicrotimings = React.useCallback((tId: number, pId: number) => sequencerRef.current.handleResetTrackMicrotimings(tId, pId), []);
+  const handleTrackPanChange = React.useCallback((id: number, val: number) => sequencerRef.current.handleTrackPanChange(id, val), []);
+  const handleTrackStepsChange = React.useCallback((tId: number, pId: number, s: number) => sequencerRef.current.handleTrackStepsChange(tId, pId, s), []);
+  const handleTimelinePatternAssign = React.useCallback((tId: number, pId: number | null, mIdx: number) => sequencerRef.current.handleTimelinePatternAssign(tId, pId, mIdx), []);
+  const handleMeasureTimeSigChange = React.useCallback((mIdx: number, val: TimeSignature) => sequencerRef.current.handleMeasureTimeSigChange(mIdx, val), []);
+  const handleMeasureBpmChange = React.useCallback((mIdx: number, val: number) => sequencerRef.current.handleMeasureBpmChange(mIdx, val), []);
+  const handleMeasureTransitionChange = React.useCallback((mIdx: number, val: 'immediate' | 'ramp') => sequencerRef.current.handleMeasureTransitionChange(mIdx, val), []);
+  const handleMeasureVolChange = React.useCallback((mIdx: number, val: number) => sequencerRef.current.handleMeasureVolChange(mIdx, val), []);
+  const handleMeasureVolTransitionChange = React.useCallback((mIdx: number, val: 'immediate' | 'ramp') => sequencerRef.current.handleMeasureVolTransitionChange(mIdx, val), []);
+  const handleTotalMeasuresChange = React.useCallback((val: number) => sequencerRef.current.handleTotalMeasuresChange(val), []);
+  const handleDeleteMeasure = React.useCallback((mIdx: number) => sequencerRef.current.handleDeleteMeasure(mIdx), []);
+  const handleInsertMeasure = React.useCallback((mIdx: number) => sequencerRef.current.handleInsertMeasure(mIdx), []);
+  const handleSetLoopStart = React.useCallback((mIdx: number) => sequencerRef.current.handleSetLoopStart(mIdx), []);
+  const handleSetLoopEnd = React.useCallback((mIdx: number) => sequencerRef.current.handleSetLoopEnd(mIdx), []);
+  const handleClearLoop = React.useCallback(() => sequencerRef.current.handleClearLoop(), []);
+  const handleCopyPattern = React.useCallback((ptn: Pattern) => sequencerRef.current.handleCopyPattern(ptn), []);
+  const handlePastePattern = React.useCallback((tId: number, pId?: number) => sequencerRef.current.handlePastePattern(tId, pId), []);
+  const handleLoadLibraryPattern = React.useCallback((tId: number, targetPtnId: number, libPattern: any) => sequencerRef.current.handleLoadLibraryPattern(tId, targetPtnId, libPattern), []);
+  const handleCreateSongSection = React.useCallback((name: string, start: number, end: number, color?: string, repeatCount?: number, level?: number) => sequencerRef.current.handleCreateSongSection(name, start, end, color, repeatCount, level), []);
+  const handleUpdateSongSection = React.useCallback((id: string, name: string, start: number, end: number, color?: string, level?: number) => sequencerRef.current.handleUpdateSongSection(id, name, start, end, color, level), []);
+  const handleDeleteSongSection = React.useCallback((id: string) => sequencerRef.current.handleDeleteSongSection(id), []);
+  const handleCopySongSection = React.useCallback((sec: SongSection) => sequencerRef.current.handleCopySongSection(sec), []);
+  const handlePasteSongSection = React.useCallback((dest: number) => sequencerRef.current.handlePasteSongSection(dest), []);
+  const handleStepValueSelectAndToggle = React.useCallback((tId: number, pId: number, sIdx: number, state: string | number, l?: string, n?: string) => sequencerRef.current.handleStepValueSelectAndToggle(tId, pId, sIdx, state, l, n), []);
+  const handleVoiceTypeToggle = React.useCallback((tId: number, pId: number, sIdx: number) => sequencerRef.current.handleVoiceTypeToggle(tId, pId, sIdx), []);
+  const handleVoiceSylChange = React.useCallback((tId: number, pId: number, sIdx: number, val: string) => sequencerRef.current.handleVoiceSylChange(tId, pId, sIdx, val), []);
+  const handleVoiceNoteChange = React.useCallback((tId: number, pId: number, sIdx: number, val: string) => sequencerRef.current.handleVoiceNoteChange(tId, pId, sIdx, val), []);
+  const handleVoiceNoteBlur = React.useCallback((tId: number, pId: number, sIdx: number, val: string) => sequencerRef.current.handleVoiceNoteBlur(tId, pId, sIdx, val), []);
+  const handleExtractLyrics = React.useCallback(() => sequencerRef.current.handleExtractLyrics(), []);
+  const handleTrackStepValueChange = React.useCallback((tId: number, pId: number, sIdx: number | number[], val: string | string[], l?: string[], n?: string[]) => sequencerRef.current.handleTrackStepValueChange(tId, pId, sIdx, val, l, n), []);
+  const handleTrackStepKeyDown = React.useCallback((tId: number, pId: number, sIdx: number, k: string, w: string, el: HTMLInputElement) => sequencerRef.current.handleTrackStepKeyDown(tId, pId, sIdx, k, w, el), []);
 
-  const handleStepTouchStart = (
+  const handleStepTouchStart = React.useCallback((
     e: React.MouseEvent | React.TouchEvent,
     patternId: number,
     stepIdx: number,
@@ -455,25 +484,26 @@ export default function App() {
       isStickyDefault: e.type !== 'touchstart'
     });
     setHoveredStroke(String(currentVal));
-  };
+  }, []);
 
-  const handlePresetSelect = (val: string) => audio.handlePresetSelect(val);
-  const handleShare = () => audio.handleShare();
-  const handleSaveState = () => audio.handleSaveState();
-  const handleLoadState = (file: File) => audio.handleLoadState(file);
-  const handleSaveToLocal = async () => {
-    if (userProfile?.role === 'mestre' || userProfile?.role === 'admin') {
-      const isPt = sequencer.lang === 'pt';
-      const wantCloud = await confirmAsync(
+  const handlePresetSelect = React.useCallback((val: string) => audioRef.current.handlePresetSelect(val), []);
+  const handleShare = React.useCallback(() => audioRef.current.handleShare(), []);
+  const handleSaveState = React.useCallback(() => audioRef.current.handleSaveState(), []);
+  const handleLoadState = React.useCallback((file: File) => audioRef.current.handleLoadState(file), []);
+  const handleSaveToLocal = React.useCallback(async () => {
+    const profile = userProfileRef.current;
+    if (profile?.role === 'mestre' || profile?.role === 'admin') {
+      const isPt = sequencerRef.current.lang === 'pt';
+      const wantCloud = await confirmAsyncRef.current(
         isPt ? 'Onde você deseja salvar esta composição?' : 'Où souhaitez-vous sauvegarder cette composition ?',
         isPt ? '☁️ Nuvem (Catálogo)' : '☁️ Cloud (Catalogue)',
         isPt ? '💾 Local (Meu PC)' : '💾 Local (Mon PC)'
       );
       if (wantCloud) {
-        const presetData = audio.getCurrentPresetData();
+        const presetData = audioRef.current.getCurrentPresetData();
         let name = presetData.metadata?.toada?.trim() || '';
         if (!name) {
-          const inputName = await promptAsync(isPt ? 'Nome do ritmo:' : 'Nom du rythme :');
+          const inputName = await promptAsyncRef.current(isPt ? 'Nome do ritmo:' : 'Nom du rythme :');
           if (!inputName) return;
           name = inputName.trim();
           presetData.metadata = { ...presetData.metadata, toada: name } as any;
@@ -482,8 +512,8 @@ export default function App() {
         let visibility: 'admin_global' | 'mestre_group' | 'specific_user' = 'mestre_group';
         let targetUserId: string | undefined = undefined;
 
-        if (userProfile.role === 'admin') {
-          const makeGlobal = await confirmAsync(
+        if (profile.role === 'admin') {
+          const makeGlobal = await confirmAsyncRef.current(
             isPt ? 'Tornar global (visível para todos)?' : 'Rendre global (visible par tous) ?',
             isPt ? 'Sim (Global)' : 'Oui (Global)',
             isPt ? 'Não (Restrito)' : 'Non (Restreint)'
@@ -491,7 +521,7 @@ export default function App() {
           if (makeGlobal) {
             visibility = 'admin_global';
           } else {
-            const specificTarget = await promptAsync(
+            const specificTarget = await promptAsyncRef.current(
               isPt ? 'Digite o UID de um visitante/Mestre alvo (ou deixe vazio pour você mesmo):' : 'Entrez l\'UID du visiteur privilégié ou du Mestre (laissez vide pour vous-même) :'
             );
             if (specificTarget && specificTarget.trim() !== '') {
@@ -503,8 +533,8 @@ export default function App() {
 
         const { savePresetToCloud } = await import('./cloudLibrary');
         try {
-          await savePresetToCloud(name, presetData, userProfile.uid, visibility, targetUserId);
-          await alertAsync(isPt ? '✅ Salvo na nuvem!' : '✅ Sauvegardé dans le cloud !');
+          await savePresetToCloud(name, presetData, profile.uid, visibility, targetUserId);
+          await alertAsyncRef.current(isPt ? '✅ Salvo na nuvem!' : '✅ Sauvegardé dans le cloud !');
           queryClient.invalidateQueries({ queryKey: ['cloudPresets'] });
         } catch (err) {
           console.error(err);
@@ -515,16 +545,52 @@ export default function App() {
             setToastMessage(msg);
             setTimeout(() => setToastMessage(null), 4000);
           } else {
-            await alertAsync('Error saving to cloud');
+            await alertAsyncRef.current('Error saving to cloud');
           }
         }
         return;
       }
     }
-    audio.handleSaveToLocal();
-  };
-  const handleLoadLocalPreset = (name: string) => audio.handleLoadLocalPreset(name);
-  const handleAddTrackInstrument = (instIdx: number) => sequencer.handleAddTrackInstrument(instIdx, useSequencerStore.getState().currentMeasure);
+    audioRef.current.handleSaveToLocal();
+  }, [queryClient]);
+
+  const handleLoadLocalPreset = React.useCallback((name: string) => audioRef.current.handleLoadLocalPreset(name), []);
+  const handleAddTrackInstrument = React.useCallback((instIdx: number) => sequencerRef.current.handleAddTrackInstrument(instIdx, useSequencerStore.getState().currentMeasure), []);
+
+  const handleAdminClick = React.useCallback(() => changeViewMode('admin'), [changeViewMode]);
+  const handleToggleRightPanel = React.useCallback((p: 'legend' | 'letras' | 'info') => {
+    setActiveRightPanel(prev => prev === p ? null : p);
+  }, []);
+
+  const handleToggleSidebarPanel = React.useCallback(() => {
+    setActiveRightPanel(prev => prev === 'letras' ? 'legend' : 'letras');
+  }, []);
+
+  const handleToggleHideGlobalSignals = React.useCallback(() => {
+    setHideGlobalSignals(prev => !prev);
+  }, []);
+
+  const handleVaralExit = React.useCallback(() => changeViewMode('roda'), [changeViewMode]);
+  const handleClearJustUnlocked = React.useCallback(() => setJustUnlockedBookletId(null), []);
+  
+  const handleLaunchExercise = React.useCallback((ex: any, cordeIndex: number) => {
+    setActiveVaralExercise(ex);
+    setActiveCordeIndex(cordeIndex);
+    if (ex.module === 'quiz') changeViewMode('quiz');
+    else if (ex.module === 'dictee') changeViewMode('dictee');
+    else if (ex.module === 'inspecteur') changeViewMode('inspecteur');
+    else if (ex.module === 'rythme_live') changeViewMode('rythmelive');
+    else if (ex.module === 'sablier_mestre') changeViewMode('mestre');
+  }, [changeViewMode]);
+
+  const handleHomeEnter = React.useCallback((mode: string) => changeViewMode(mode as any), [changeViewMode]);
+  const handleLandingEnter = React.useCallback(() => changeViewMode('roda'), [changeViewMode]);
+
+  const handleQuizSuccess = React.useCallback(() => handleGameSuccess('quiz'), [handleGameSuccess]);
+  const handleDicteeSuccess = React.useCallback(() => handleGameSuccess('dictee'), [handleGameSuccess]);
+  const handleInspecteurSuccess = React.useCallback(() => handleGameSuccess('inspecteur'), [handleGameSuccess]);
+  const handleMestreSuccess = React.useCallback(() => handleGameSuccess('sablier_mestre'), [handleGameSuccess]);
+  const handleRythmeLiveSuccess = React.useCallback(() => handleGameSuccess('rythme_live'), [handleGameSuccess]);
 
   const handleExportTablature = React.useCallback(() => {
     const tracks = useSequencerStore.getState().tracks;
@@ -557,10 +623,10 @@ export default function App() {
     <>
       {viewMode === 'landing' ? (
         <Suspense fallback={<div className="min-h-screen bg-[var(--cordel-bg)] flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
-          <LandingPage onEnter={() => changeViewMode('roda')} lang={sequencer.lang} />
+          <LandingPage onEnter={handleLandingEnter} lang={sequencer.lang} />
         </Suspense>
       ) : viewMode === 'home' ? (
-        <Home onEnter={(mode) => changeViewMode(mode as any)} lang={sequencer.lang} />
+        <Home onEnter={handleHomeEnter} lang={sequencer.lang} />
       ) : (
         <div className="flex flex-col h-dvh text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
       {/* Visual buffer loader loading overlay */}
@@ -580,12 +646,12 @@ export default function App() {
         isDarkMode={isDarkMode}
         onToggleDarkMode={toggleDarkMode}
         onExportTablature={handleExportTablature}
-        onAdminClick={() => changeViewMode('admin')}
+        onAdminClick={handleAdminClick}
         presetFiles={presetFiles}
         localPresets={localPresets}
         cloudPresets={cloudPresets}
         activeRightPanel={activeRightPanel}
-        onToggleRightPanel={(p) => setActiveRightPanel(activeRightPanel === p ? null : p)}
+        onToggleRightPanel={handleToggleRightPanel}
         viewMode={viewMode as any}
         onViewModeToggle={changeViewMode}
         isMobile={isMobile}
@@ -631,16 +697,12 @@ export default function App() {
             <ErrorBoundary fallback={renderFallback('Panneau Latéral', 'Painel Lateral')}>
               <RightSidebar
                 activePanel={isMobile ? (activeRightPanel || 'letras') : 'info'}
-                onTogglePanel={(p) => {
-                  if (isMobile) {
-                    setActiveRightPanel(activeRightPanel === 'letras' ? 'legend' : 'letras');
-                  }
-                }}
+                onTogglePanel={handleToggleSidebarPanel}
                 isMobile={isMobile}
                 mestreSignals={filteredMestreSignals}
                 refreshMestreSignals={refreshMestreSignals}
                 hideGlobalSignals={hideGlobalSignals}
-                onToggleHideGlobalSignals={() => setHideGlobalSignals(!hideGlobalSignals)}
+                onToggleHideGlobalSignals={handleToggleHideGlobalSignals}
                 visible={viewMode === 'roda' && (!isMobile || mobileTab === 'toada')}
               />
             </ErrorBoundary>
@@ -686,7 +748,7 @@ export default function App() {
             <QuizEngine
               lang={sequencer.lang}
               onExit={handleGameExit}
-              onSuccess={() => handleGameSuccess('quiz')}
+              onSuccess={handleQuizSuccess}
               exerciseData={activeVaralExercise}
             />
           </ErrorBoundary>
@@ -697,7 +759,7 @@ export default function App() {
             <DicteeEngine
               lang={sequencer.lang}
               onExit={handleGameExit}
-              onSuccess={() => handleGameSuccess('dictee')}
+              onSuccess={handleDicteeSuccess}
               exerciseData={activeVaralExercise}
             />
           </ErrorBoundary>
@@ -710,7 +772,7 @@ export default function App() {
                 lang={sequencer.lang}
                 onExit={handleGameExit}
                 exerciseData={activeVaralExercise}
-                onSuccess={() => handleGameSuccess('inspecteur')}
+                onSuccess={handleInspecteurSuccess}
               />
             </Suspense>
           </ErrorBoundary>
@@ -723,7 +785,7 @@ export default function App() {
               onExit={handleGameExit}
               rhythmState={mestreRhythmState}
               setRhythmState={setMestreRhythmState}
-              onSuccess={() => handleGameSuccess('sablier_mestre')}
+              onSuccess={handleMestreSuccess}
               exerciseData={activeVaralExercise}
             />
           </ErrorBoundary>
@@ -734,7 +796,7 @@ export default function App() {
             <RythmeLiveEngine
               lang={sequencer.lang}
               onExit={handleGameExit}
-              onSuccess={() => handleGameSuccess('rythme_live')}
+              onSuccess={handleRythmeLiveSuccess}
               exerciseData={activeVaralExercise}
             />
           </ErrorBoundary>
@@ -745,19 +807,11 @@ export default function App() {
             <Suspense fallback={<div>Chargement...</div>}>
               <VaralCordel
                 lang={sequencer.lang}
-                onExit={() => changeViewMode('roda')}
+                onExit={handleVaralExit}
                 unlockedFolhetos={unlockedFolhetos}
                 justUnlockedBookletId={justUnlockedBookletId}
-                onClearJustUnlocked={() => setJustUnlockedBookletId(null)}
-                onLaunchExercise={(ex, cordeIndex) => {
-                  setActiveVaralExercise(ex);
-                  setActiveCordeIndex(cordeIndex);
-                  if (ex.module === 'quiz') changeViewMode('quiz');
-                  else if (ex.module === 'dictee') changeViewMode('dictee');
-                  else if (ex.module === 'inspecteur') changeViewMode('inspecteur');
-                  else if (ex.module === 'rythme_live') changeViewMode('rythmelive');
-                  else if (ex.module === 'sablier_mestre') changeViewMode('mestre');
-                }}
+                onClearJustUnlocked={handleClearJustUnlocked}
+                onLaunchExercise={handleLaunchExercise}
               />
             </Suspense>
           </ErrorBoundary>
@@ -773,7 +827,7 @@ export default function App() {
                 <MestreStudio
                   isActive={viewMode === 'studio'}
                   lang={sequencer.lang}
-                  onExit={() => changeViewMode('roda')}
+                  onExit={handleVaralExit}
                   presetFiles={presetFiles}
                   localPresets={localPresets}
                 />

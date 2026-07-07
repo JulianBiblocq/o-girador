@@ -866,4 +866,4 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   );
 };
 
-export const Header = HeaderComponent;
+export const Header = React.memo(HeaderComponent);

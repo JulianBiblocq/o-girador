@@ -133,7 +133,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
   return stroke;
 };
 
-export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
+const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
   selector,
   hoveredStroke,
   setHoveredStroke,
@@ -361,3 +361,6 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
     </div>
   );
 };
+
+export const TouchStrokeSelector = React.memo(TouchStrokeSelectorComponent);
+

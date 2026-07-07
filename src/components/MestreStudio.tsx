@@ -75,7 +75,7 @@ const getSharedAudioCtx = () => {
   return sharedAudioCtx;
 };
 
-export const MestreStudio: React.FC<MestreStudioProps> = ({ 
+const MestreStudioComponent: React.FC<MestreStudioProps> = ({ 
   lang, 
   onExit,
   presetFiles = [],
@@ -1444,3 +1444,6 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
     </div>
   );
 };
+
+export const MestreStudio = React.memo(MestreStudioComponent);
+

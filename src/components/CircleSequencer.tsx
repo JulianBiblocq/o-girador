@@ -64,7 +64,7 @@ interface CircleSequencerProps {
 
 const EMPTY_ARRAY: any[] = [];
 
-export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
+const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const { isActive = true } = props;
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -1412,3 +1412,6 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     </div>
   );
 };
+
+export const CircleSequencer = React.memo(CircleSequencerComponent);
+
