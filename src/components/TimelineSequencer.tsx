@@ -37,7 +37,7 @@ interface TimelineSequencerProps {
   mestreSignals?: CloudRhythmSignal[];
   onSaveCloudSection?: (section: SongSection) => void;
   onLoadCloudSection?: (insertAtMeasure: number) => void;
-  visible?: boolean;
+  isActive?: boolean;
 }
 
 const HEADER_W = 180;
@@ -55,7 +55,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   mestreSignals = [],
   onSaveCloudSection,
   onLoadCloudSection,
-  visible = true,
+  isActive = true,
 }) => {
   const sequencer = useSequencer();
   const { hasAccess } = useAuth();
@@ -193,7 +193,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       el.removeEventListener('scroll', handleScroll);
       resizeObserver.disconnect();
     };
-  }, [updateVisibleRange, scrollRef.current, visible]);
+  }, [updateVisibleRange, scrollRef.current, isActive]);
 
   useEffect(() => {
     updateVisibleRange();
@@ -278,7 +278,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
   // high-frequency DOM manipulation for playback highlighting (Zero Render Thrashing)
   useEffect(() => {
-    if (!visible) {
+    if (!isActive) {
       sequencerCache.current.activeElements.forEach(el => {
         el.classList.remove('live-playhead-highlight');
       });
@@ -292,7 +292,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       
       const cache = sequencerCache.current;
 
-      const isEco = (window as any).oGiradorEcoMode || (window as any).oGiradorVisualEcoMode;
+      const isEco = useSequencerStore.getState().isEcoMode || (window as any).oGiradorVisualEcoMode;
       if (isEco) return;
 
       if (step < 0) {
@@ -363,7 +363,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       sequencerCache.current.lastMeasure = null;
       sequencerCache.current.stepElementsMap.clear();
     };
-  }, [visible]);
+  }, [isActive]);
 
   // Navigation & Snapping States
   const [toolMode] = React.useState<'cursor' | 'hand'>('cursor');
@@ -874,7 +874,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       ref={containerRef}
       data-zoom={isMacro ? 'macro' : 'normal'}
       data-mobile={isMobile ? 'true' : 'false'}
-      style={{ ...zoomStyles, touchAction: 'pan-x pan-y', display: visible ? 'flex' : 'none' }}
+      style={{ ...zoomStyles, touchAction: 'pan-x pan-y', display: isActive ? 'flex' : 'none' }}
       className="timeline-sequencer-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden sequencer-bg text-[var(--cordel-text)] select-none"
       onContextMenu={(e) => e.preventDefault()}
     >
@@ -1395,7 +1395,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             <TimelineTrackRow key={trackId} trackId={trackId} visibleRange={visibleRange} currentMeasureW={MEASURE_W} />
           ))}
           {/* ══════════ PLAYHEAD (Bypass React via Ref) ══════════ */}
-          <TimelinePlayhead visible={visible} />
+          <TimelinePlayhead isActive={isActive} />
 
           {/* ══════════ SNAP GUIDE (📍 NEW) ══════════ */}
           {snapGuideX !== null && (
@@ -1460,5 +1460,5 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   return prev.isMobile === next.isMobile && 
          prev.measureWidth === next.measureWidth && 
          prev.mestreSignals === next.mestreSignals &&
-         prev.visible === next.visible;
+         prev.isActive === next.isActive;
 });

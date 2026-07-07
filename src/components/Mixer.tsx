@@ -50,7 +50,7 @@ interface MixerProps {
   onCopyPattern?: (pattern: Pattern) => void;
   onPastePattern?: (trackId: number) => void;
   onLoadLibraryPattern?: (trackId: number, targetPatternId: number, libPattern: any) => void;
-  visible?: boolean;
+  isActive?: boolean;
 }
 
 const MixerComponent: React.FC<MixerProps> = ({
@@ -58,7 +58,7 @@ const MixerComponent: React.FC<MixerProps> = ({
   onCopyPattern,
   onPastePattern,
   onLoadLibraryPattern,
-  visible = true,
+  isActive = true,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -481,7 +481,7 @@ const MixerComponent: React.FC<MixerProps> = ({
                   isCollapsed={isTracksCollapsed}
                   onOpenDetailEditor={onOpenDetailEditor}
                   onStepTouchStart={onStepTouchStart}
-                  visible={visible}
+                  isActive={isActive}
                 />
               ))}
             </SortableContext>

@@ -28,7 +28,11 @@ export class AudioEngine {
 
   constructor() {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    this.audioContext = new AudioContextClass();
+    try {
+      this.audioContext = new AudioContextClass({ latencyHint: 'playback', sampleRate: 44100 });
+    } catch (_) {
+      this.audioContext = new AudioContextClass();
+    }
     this.initWorkerClock();
   }
 

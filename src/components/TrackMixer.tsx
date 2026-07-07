@@ -37,7 +37,7 @@ interface TrackMixerProps {
     onSelect: (val: string) => void
   ) => void;
   isCollapsed?: boolean;
-  visible?: boolean;
+  isActive?: boolean;
 }
 
 
@@ -48,7 +48,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   onOpenDetailEditor,
   onStepTouchStart,
   isCollapsed = false,
-  visible = true,
+  isActive = true,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -250,7 +250,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const isAoVivo = track ? activeAoVivoTrackId === track.id : false;
   const toggleAoVivo = () => {
     if (!track) return;
-    if ((window as any).oGiradorEcoMode) {
+    if (useSequencerStore.getState().isEcoMode) {
       alert("Mode Éco activé : Les animations d'instruments (AoVivo) ont été désactivées pour préserver les performances de la tablette.");
       return;
     }
@@ -421,7 +421,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
   // Listen to CustomEvent 'o-girador-tick' to highlight step cells dynamically (Bypass React)
   useEffect(() => {
-    if (!visible) {
+    if (!isActive) {
       if (lastMeasureRef.current !== -1) {
         lastMeasureRef.current = -1;
         setLiveMeasure(-1);
@@ -434,7 +434,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     const handleTick = (e: Event) => {
       const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
       const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
-      const isEco = (window as any).oGiradorEcoMode;
+      const isEco = useSequencerStore.getState().isEcoMode;
       
       if (step < 0) {
         if (lastMeasureRef.current !== -1) {
@@ -516,7 +516,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         deactivateElementRef.current(el);
       });
     };
-  }, [visible]);
+  }, [isActive]);
 
   // Post-render highlight to prevent visual flicker during pattern transitions
   useEffect(() => {

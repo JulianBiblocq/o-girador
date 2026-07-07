@@ -5,6 +5,7 @@ export interface MestreStudioProps {
   onExit: () => void;
   presetFiles?: string[];
   localPresets?: string[];
+  isActive?: boolean;
 }
 
 // 1. Config Varal Types

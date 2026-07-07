@@ -39,7 +39,7 @@ interface MixerChannelProps {
   onCopyPattern?: (pattern: Pattern) => void;
   onPastePattern?: (patternId: number) => void;
   canPaste?: boolean;
-  visible?: boolean;
+  isActive?: boolean;
 }
 
 const MixerChannelComponent: React.FC<MixerChannelProps> = ({
@@ -50,7 +50,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   onCopyPattern,
   onPastePattern,
   canPaste,
-  visible = true,
+  isActive = true,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -80,7 +80,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   }, [track]);
 
   useEffect(() => {
-    if (!visible) {
+    if (!isActive) {
       if (lastMeasureRef.current !== -1) {
         lastMeasureRef.current = -1;
         setLiveMeasure(-1);
@@ -128,7 +128,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       const stepsCount = currentLivePattern.steps;
       const targetStep = Math.floor(ratio * stepsCount);
 
-      const isEco = (window as any).oGiradorEcoMode;
+      const isEco = useSequencerStore.getState().isEcoMode;
       if (isEco) return;
 
       const currentActiveIndex = activeElements.length > 0 ? Number(activeElements[0].getAttribute('data-v-step')) : -1;
@@ -159,7 +159,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         el.classList.add('border-[var(--cordel-border)]');
       });
     };
-  }, [visible]);
+  }, [isActive]);
 
   useEffect(() => {
     if (isPlaying && liveMeasure >= 0) {
@@ -285,10 +285,10 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     useSequencerStore.getState().handleTrackPanChange(trackId, val);
   };
   const onReverbChange = (val: number) => {
-    useSequencer().handleTrackReverbChange(trackId, val);
+    sequencer.handleTrackReverbChange(trackId, val);
   };
   const onStepsChange = (patternId: number, steps: number) => {
-    useSequencer().handleTrackStepsChange(trackId, patternId, steps);
+    sequencer.handleTrackStepsChange(trackId, patternId, steps);
   };
   const onStepValueChange = (patternId: number, stepIdx: number | number[], val: string | string[], lyrics?: string[], notes?: string[]) => {
     sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, val, lyrics, notes);
@@ -690,7 +690,8 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
           <VUMeter
             instrumentId={inst.id}
-            isPlaying={isPlaying}
+            isPlaying={isPlaying && isActive}
+            isActive={isActive}
             orientation="vertical"
             className="w-3 h-[145px] bg-[var(--cordel-bg)] cordel-border-sm"
           />

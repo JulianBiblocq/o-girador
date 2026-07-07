@@ -53,6 +53,11 @@ export default function App() {
   const { presetFiles, localPresets, isSavedIndicatorVisible, refreshLocalPresets } = useAppAudio();
   useGlobalKeyboardShortcuts();
 
+  const isEcoMode = useSequencerStore(state => state.isEcoMode);
+  useEffect(() => {
+    document.body.classList.toggle('eco-mode', isEcoMode);
+  }, [isEcoMode]);
+
   // Consume contexts
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -88,6 +93,38 @@ export default function App() {
     window.innerWidth < 1024 ? 'letras' : 'info'
   );
   const [viewMode, setViewMode] = useState<'landing' | 'home' | 'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio' | 'admin'>('landing');
+  const [hasVisitedStudio, setHasVisitedStudio] = useState(false);
+
+  useEffect(() => {
+    if (viewMode === 'studio') {
+      setHasVisitedStudio(true);
+    }
+  }, [viewMode]);
+
+  const changeViewMode = React.useCallback((targetView: typeof viewMode) => {
+    const isHeavyView = ['studio', 'quiz', 'dictee', 'inspecteur', 'mestre', 'rythmelive', 'admin'].includes(targetView);
+
+    const applyViewChange = () => {
+      setViewMode(targetView);
+      if (targetView === 'console' || targetView === 'timeline') {
+        setActiveRightPanel(null);
+      } else if (targetView === 'roda') {
+        if (window.innerWidth >= 1024) {
+          setActiveRightPanel('letras');
+        }
+      }
+    };
+
+    if (isHeavyView && audio.isPlaying) {
+      audio.handleStop();
+      requestAnimationFrame(() => {
+        applyViewChange();
+      });
+    } else {
+      applyViewChange();
+    }
+  }, [audio.isPlaying, audio.handleStop]);
+
   const [unlockedFolhetos, setUnlockedFolhetos] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem('o-girador-unlocked-folhetos');
@@ -245,7 +282,7 @@ export default function App() {
     setUnlockedFolhetos((prev) => {
       if (prev.includes(id)) return prev;
       setJustUnlockedBookletId(id);
-      setViewMode('varal');
+      changeViewMode('varal');
       return [...prev, id];
     });
   };
@@ -255,17 +292,17 @@ export default function App() {
     unlockBooklet(`folheto_${normalizedName}`);
     if (activeVaralExercise) {
       completeExercise(activeVaralExercise.id);
-      setViewMode('varal');
+      changeViewMode('varal');
       setActiveVaralExercise(null);
     }
   };
 
   const handleGameExit = () => {
     if (activeVaralExercise) {
-      setViewMode('varal');
+      changeViewMode('varal');
       setActiveVaralExercise(null);
     } else {
-      setViewMode('roda');
+      changeViewMode('roda');
     }
   };
 
@@ -520,10 +557,10 @@ export default function App() {
     <>
       {viewMode === 'landing' ? (
         <Suspense fallback={<div className="min-h-screen bg-[var(--cordel-bg)] flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
-          <LandingPage onEnter={() => setViewMode('roda')} lang={sequencer.lang} />
+          <LandingPage onEnter={() => changeViewMode('roda')} lang={sequencer.lang} />
         </Suspense>
       ) : viewMode === 'home' ? (
-        <Home onEnter={(mode) => setViewMode(mode as any)} lang={sequencer.lang} />
+        <Home onEnter={(mode) => changeViewMode(mode as any)} lang={sequencer.lang} />
       ) : (
         <div className="flex flex-col h-dvh text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
       {/* Visual buffer loader loading overlay */}
@@ -543,23 +580,14 @@ export default function App() {
         isDarkMode={isDarkMode}
         onToggleDarkMode={toggleDarkMode}
         onExportTablature={handleExportTablature}
-        onAdminClick={() => setViewMode('admin')}
+        onAdminClick={() => changeViewMode('admin')}
         presetFiles={presetFiles}
         localPresets={localPresets}
         cloudPresets={cloudPresets}
         activeRightPanel={activeRightPanel}
         onToggleRightPanel={(p) => setActiveRightPanel(activeRightPanel === p ? null : p)}
         viewMode={viewMode as any}
-        onViewModeToggle={(mode) => {
-          setViewMode(mode);
-          if (mode === 'console' || mode === 'timeline') {
-            setActiveRightPanel(null);
-          } else if (mode === 'roda') {
-            if (window.innerWidth >= 1024) {
-              setActiveRightPanel('letras');
-            }
-          }
-        }}
+        onViewModeToggle={changeViewMode}
         isMobile={isMobile}
         mobileTab={mobileTab}
         onMobileTabToggle={setMobileTab}
@@ -579,7 +607,7 @@ export default function App() {
                 onPastePattern={handlePastePattern}
                 onLoadLibraryPattern={handleLoadLibraryPattern}
                 canPaste={!!sequencer.copiedPattern}
-                visible={viewMode === 'roda' && (!isMobile || mobileTab === 'mixer')}
+                isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'mixer')}
               />
             </ErrorBoundary>
           </div>
@@ -587,12 +615,14 @@ export default function App() {
           {/* Center circle visual canvas engine */}
           <div style={{ display: (!isMobile || mobileTab === 'roda') ? 'contents' : 'none' }}>
             <ErrorBoundary fallback={renderFallback('Séquenceur Circulaire', 'Sequenciador Circular')}>
-              <CircleSequencer
-                isMobile={isMobile}
-                mestreSignals={filteredMestreSignals}
-                onStepTouchStart={handleStepTouchStart}
-                visible={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')}
-              />
+              <Suspense fallback={null}>
+                <CircleSequencer
+                  isMobile={isMobile}
+                  mestreSignals={filteredMestreSignals}
+                  onStepTouchStart={handleStepTouchStart}
+                  isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')}
+                />
+              </Suspense>
             </ErrorBoundary>
           </div>
 
@@ -623,27 +653,33 @@ export default function App() {
           style={{ display: viewMode === 'console' ? 'flex' : 'none' }}
         >
           <ErrorBoundary fallback={renderFallback('Mixeur Console', 'Mesa de Som')}>
-            <ConsoleMixer
-              isMobile={isMobile}
-              onStepTouchStart={handleStepTouchStart}
-              visible={viewMode === 'console'}
-            />
+            <Suspense fallback={null}>
+              <ConsoleMixer
+                isMobile={isMobile}
+                onStepTouchStart={handleStepTouchStart}
+                isActive={viewMode === 'console'}
+              />
+            </Suspense>
           </ErrorBoundary>
         </div>
 
         {/* TIMELINE VIEW */}
-        <ErrorBoundary fallback={renderFallback('Linha do Tempo / Timeline', 'Linha do Tempo')}>
-          <TimelineSequencer
-            isMobile={isMobile}
-            measureWidth={measureWidth}
-            onMeasureWidthChange={setMeasureWidth}
-            onExportTablature={handleExportTablature}
-            onSaveCloudSection={setSectionToSave}
-            onLoadCloudSection={setLoadSectionInsertMeasure}
-            mestreSignals={filteredMestreSignals}
-            visible={viewMode === 'timeline'}
-          />
-        </ErrorBoundary>
+        <div style={{ display: viewMode === 'timeline' ? 'flex' : 'none', flex: 1, minWidth: 0, flexDirection: 'column', height: '100%' }}>
+          <ErrorBoundary fallback={renderFallback('Linha do Tempo / Timeline', 'Linha do Tempo')}>
+            <Suspense fallback={null}>
+              <TimelineSequencer
+                isMobile={isMobile}
+                measureWidth={measureWidth}
+                onMeasureWidthChange={setMeasureWidth}
+                onExportTablature={handleExportTablature}
+                onSaveCloudSection={setSectionToSave}
+                onLoadCloudSection={setLoadSectionInsertMeasure}
+                mestreSignals={filteredMestreSignals}
+                isActive={viewMode === 'timeline'}
+              />
+            </Suspense>
+          </ErrorBoundary>
+        </div>
 
         {viewMode === 'quiz' && (
           <ErrorBoundary fallback={renderFallback('Quiz', 'Questionário')}>
@@ -709,37 +745,41 @@ export default function App() {
             <Suspense fallback={<div>Chargement...</div>}>
               <VaralCordel
                 lang={sequencer.lang}
-                onExit={() => setViewMode('roda')}
+                onExit={() => changeViewMode('roda')}
                 unlockedFolhetos={unlockedFolhetos}
                 justUnlockedBookletId={justUnlockedBookletId}
                 onClearJustUnlocked={() => setJustUnlockedBookletId(null)}
                 onLaunchExercise={(ex, cordeIndex) => {
                   setActiveVaralExercise(ex);
                   setActiveCordeIndex(cordeIndex);
-                  if (ex.module === 'quiz') setViewMode('quiz');
-                  else if (ex.module === 'dictee') setViewMode('dictee');
-                  else if (ex.module === 'inspecteur') setViewMode('inspecteur');
-                  else if (ex.module === 'rythme_live') setViewMode('rythmelive');
-                  else if (ex.module === 'sablier_mestre') setViewMode('mestre');
+                  if (ex.module === 'quiz') changeViewMode('quiz');
+                  else if (ex.module === 'dictee') changeViewMode('dictee');
+                  else if (ex.module === 'inspecteur') changeViewMode('inspecteur');
+                  else if (ex.module === 'rythme_live') changeViewMode('rythmelive');
+                  else if (ex.module === 'sablier_mestre') changeViewMode('mestre');
                 }}
               />
             </Suspense>
           </ErrorBoundary>
         )}
 
-        {viewMode === 'studio' && (
-          <ErrorBoundary fallback={renderFallback('Studio Mestre', 'Estúdio Mestre')}>
-            <Suspense fallback={<div className="flex-1 flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
-              <div className="flex-1 w-full h-full overflow-hidden flex flex-col relative z-20">
+        {hasVisitedStudio && (
+          <div 
+            className="flex-1 w-full h-full overflow-hidden flex flex-col relative z-20"
+            style={{ display: viewMode === 'studio' ? 'flex' : 'none' }}
+          >
+            <ErrorBoundary fallback={renderFallback('Studio Mestre', 'Estúdio Mestre')}>
+              <Suspense fallback={<div className="flex-1 flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
                 <MestreStudio
+                  isActive={viewMode === 'studio'}
                   lang={sequencer.lang}
-                  onExit={() => setViewMode('roda')}
+                  onExit={() => changeViewMode('roda')}
                   presetFiles={presetFiles}
                   localPresets={localPresets}
                 />
-              </div>
-            </Suspense>
-          </ErrorBoundary>
+              </Suspense>
+            </ErrorBoundary>
+          </div>
         )}
 
         {viewMode === 'admin' && (
@@ -756,7 +796,7 @@ export default function App() {
       {viewMode !== 'quiz' && viewMode !== 'dictee' && viewMode !== 'inspecteur' && viewMode !== 'mestre' && viewMode !== 'rythmelive' && viewMode !== 'varal' && viewMode !== 'studio' && viewMode !== 'admin' && (
         <TransportBar
           viewMode={viewMode as any}
-          onViewModeToggle={(mode) => setViewMode(mode)}
+          onViewModeToggle={changeViewMode}
           isMobile={isMobile}
           isDarkMode={isDarkMode}
           onToggleDarkMode={toggleDarkMode}

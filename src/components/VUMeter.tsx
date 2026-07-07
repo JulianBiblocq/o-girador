@@ -1,11 +1,13 @@
 import React, { useEffect, useRef } from 'react';
 import { meters } from '../hooks/useAudioSync';
+import { useSequencerStore } from '../stores/useSequencerStore';
 
 interface VUMeterProps {
   instrumentId: string;
   isPlaying: boolean;
   orientation?: 'horizontal' | 'vertical';
   className?: string;
+  isActive?: boolean;
 }
 
 export const VUMeter: React.FC<VUMeterProps> = ({
@@ -13,15 +15,18 @@ export const VUMeter: React.FC<VUMeterProps> = ({
   isPlaying,
   orientation = 'vertical',
   className = '',
+  isActive = true,
 }) => {
   const gaugeRef = useRef<HTMLDivElement>(null);
-  const isPlayingRef = useRef(isPlaying);
 
   useEffect(() => {
-    isPlayingRef.current = isPlaying;
-  }, [isPlaying]);
+    if (!isActive || !isPlaying) {
+      if (gaugeRef.current) {
+        gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
+      }
+      return;
+    }
 
-  useEffect(() => {
     let animationFrameId: number;
     const meterNode = meters && instrumentId ? meters[instrumentId] : undefined;
 
@@ -30,21 +35,11 @@ export const VUMeter: React.FC<VUMeterProps> = ({
         animationFrameId = requestAnimationFrame(updateMeter);
         return;
       }
-      // If eco-mode is globally activated, we suspend animation to save CPU
-      const isEco = typeof window !== 'undefined' && (window as any).oGiradorEcoMode;
+      const isEco = useSequencerStore.getState().isEcoMode;
       if (isEco) {
         if (gaugeRef.current) {
           gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
         }
-        animationFrameId = requestAnimationFrame(updateMeter);
-        return;
-      }
-
-      if (!isPlayingRef.current) {
-        if (gaugeRef.current) {
-          gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
-        }
-        // Keep running in low-frequency check or just yield to avoid continuous updates
         animationFrameId = requestAnimationFrame(updateMeter);
         return;
       }
@@ -76,7 +71,7 @@ export const VUMeter: React.FC<VUMeterProps> = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [instrumentId, orientation]);
+  }, [instrumentId, orientation, isActive, isPlaying]);
 
   return (
     <div className={`relative overflow-hidden ${className}`}>

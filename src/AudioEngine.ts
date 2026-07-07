@@ -16,6 +16,7 @@
 import type * as ToneType from 'tone';
 import { getTone } from './ToneLoader';
 import { instrumentAudioConfigs, StrokeMapping, InstrumentAudioConfig } from './data/audioConfig';
+import { useSequencerStore } from './stores/useSequencerStore';
 
 interface ActiveVoice {
   source: AudioBufferSourceNode;
@@ -26,6 +27,7 @@ interface ActiveVoice {
 }
 
 const HUMANIZED_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
+const ALFAIA_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
 
 export class AudioEngine {
   private audioContext: AudioContext;
@@ -522,7 +524,7 @@ export class AudioEngine {
    * Retourne la limite de polyphonie d'un instrument en mode éco.
    */
   private getPolyphonyLimit(instrumentId: string): number {
-    const isEco = typeof window !== 'undefined' && !!(window as any).oGiradorEcoMode;
+    const isEco = useSequencerStore.getState().isEcoMode;
     if (isEco) {
       switch (instrumentId) {
         case 'caixa':
@@ -698,27 +700,70 @@ export class AudioEngine {
     }
 
     // Voice Stealing (Choke Groups) - Always active for precise polyphony capping
-    const limit = this.getPolyphonyLimit(instrumentId);
-    const voices = this.instrumentVoices.get(instrumentId) || [];
-    while (voices.length >= limit) {
-      const oldestVoice = voices.shift();
-      if (oldestVoice) {
-        const fadeOutTime = 0.012; // 12ms fade out
-        try {
-          const gainParam = oldestVoice.gainNode.gain;
-          gainParam.cancelScheduledValues(time);
-          gainParam.setValueAtTime(oldestVoice.velocity, time);
-          gainParam.linearRampToValueAtTime(0, time + fadeOutTime);
-          oldestVoice.source.stop(time + fadeOutTime);
-        } catch (e) {
-          try { oldestVoice.source.stop(time); } catch (_) {}
+    const isAlfaia = ALFAIA_INSTRUMENTS.has(instrumentId);
+    if (isAlfaia) {
+      // 1. Gather all active voices for all Alfaias
+      let alfaiaVoices: ActiveVoice[] = [];
+      ALFAIA_INSTRUMENTS.forEach(id => {
+        const v = this.instrumentVoices.get(id) || [];
+        alfaiaVoices = alfaiaVoices.concat(v);
+      });
+
+      // 2. Sort by trigger time ascending (oldest first)
+      alfaiaVoices.sort((a, b) => a.time - b.time);
+
+      // 3. FIFO Voice Stealing for Alfaias (Combined Limit: 3)
+      while (alfaiaVoices.length >= 3) {
+        const oldestVoice = alfaiaVoices.shift();
+        if (oldestVoice) {
+          try {
+            const gainParam = oldestVoice.gainNode.gain;
+            gainParam.cancelScheduledValues(time);
+            gainParam.setValueAtTime(gainParam.value, time); // Anchoring current gain value to prevent clicks
+            gainParam.linearRampToValueAtTime(0, time + 0.010); // 10ms linear ramp to 0
+            oldestVoice.source.stop(time + 0.010);
+          } catch (e) {
+            try { oldestVoice.source.stop(time); } catch (_) {}
+          }
+
+          // Remove the stolen voice from its specific instrument's active voices list
+          const origVoices = this.instrumentVoices.get(oldestVoice.instrumentId);
+          if (origVoices) {
+            const idx = origVoices.findIndex(v => v.source === oldestVoice.source);
+            if (idx !== -1) {
+              origVoices.splice(idx, 1);
+            }
+          }
+
+          oldestVoice.source = null as any;
+          oldestVoice.gainNode = null as any;
+          oldestVoice.instrumentId = '';
         }
-        oldestVoice.source = null as any;
-        oldestVoice.gainNode = null as any;
-        oldestVoice.instrumentId = '';
       }
+    } else {
+      // Standard Voice Stealing for non-Alfaia instruments
+      const limit = this.getPolyphonyLimit(instrumentId);
+      const voices = this.instrumentVoices.get(instrumentId) || [];
+      while (voices.length >= limit) {
+        const oldestVoice = voices.shift();
+        if (oldestVoice) {
+          const fadeOutTime = 0.012; // 12ms fade out
+          try {
+            const gainParam = oldestVoice.gainNode.gain;
+            gainParam.cancelScheduledValues(time);
+            gainParam.setValueAtTime(gainParam.value, time); // Anchoring current gain value to prevent clicks
+            gainParam.linearRampToValueAtTime(0, time + fadeOutTime);
+            oldestVoice.source.stop(time + fadeOutTime);
+          } catch (e) {
+            try { oldestVoice.source.stop(time); } catch (_) {}
+          }
+          oldestVoice.source = null as any;
+          oldestVoice.gainNode = null as any;
+          oldestVoice.instrumentId = '';
+        }
+      }
+      this.instrumentVoices.set(instrumentId, voices);
     }
-    this.instrumentVoices.set(instrumentId, voices);
 
     // 3. Pitch Calculations (Macro & Micro/Humanization)
     let macroPitch = config.macroPitch !== undefined ? config.macroPitch : 1.0;

@@ -973,6 +973,7 @@ export interface ProjectSettingsSlice {
   isLeftHanded: boolean;
   lang: Language;
   vocalCalibrationLatencyMs: number;
+  isEcoMode: boolean;
 
   setLetras: (letras: string) => void;
   setMetadata: (metadata: PresetMetadata) => void;
@@ -980,7 +981,21 @@ export interface ProjectSettingsSlice {
   setLang: (lang: Language) => void;
   setVocalCalibrationLatencyMs: (val: number) => void;
   handleExtractLyrics: () => void;
+  toggleEcoMode: () => void;
 }
+
+const detectEcoMode = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const saved = localStorage.getItem('o-girador-eco-mode');
+  if (saved !== null) {
+    return saved === 'true';
+  }
+  const cores = navigator.hardwareConcurrency;
+  const isLowEndCPU = cores !== undefined && cores <= 4;
+  const userAgent = navigator.userAgent || '';
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+  return isLowEndCPU || isMobile;
+};
 
 const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSettingsSlice> = (set, get) => ({
   letras: '',
@@ -988,6 +1003,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   isLeftHanded: false, 
   lang: 'pt',
   vocalCalibrationLatencyMs: parseInt(localStorage.getItem('oGirador_vocal_calibration_latency') || '0', 10),
+  isEcoMode: detectEcoMode(),
 
   setLetras: (letras) => set({ letras }),
   setMetadata: (metadata) => set({ metadata }),
@@ -997,6 +1013,12 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
     localStorage.setItem('oGirador_vocal_calibration_latency', String(val));
     set({ vocalCalibrationLatencyMs: val });
   },
+  toggleEcoMode: () => set((state) => {
+    const next = !state.isEcoMode;
+    localStorage.setItem('o-girador-eco-mode', String(next));
+    return { isEcoMode: next };
+  }),
+
   
   handleExtractLyrics: () => {
     const state = get();

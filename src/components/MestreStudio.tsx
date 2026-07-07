@@ -79,7 +79,8 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   lang, 
   onExit,
   presetFiles = [],
-  localPresets = []
+  localPresets = [],
+  isActive = true
 }) => {
   // 6 Specialized Tabs
   const [activeTab, setActiveTab] = useState<TabType>('varal');
@@ -113,8 +114,10 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   }, [mestreUid]);
 
   useEffect(() => {
-    loadProgressions();
-  }, [loadProgressions]);
+    if (isActive) {
+      loadProgressions();
+    }
+  }, [loadProgressions, isActive]);
 
   useEffect(() => {
     return () => {
@@ -181,12 +184,12 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   const [varalActiveCordesCount, setVaralActiveCordesCount] = useState<number>(5);
 
   useEffect(() => {
-    if (mestreUid && mestreUid !== 'local') {
+    if (isActive && mestreUid && mestreUid !== 'local') {
       fetchAllMestreExercises(mestreUid).then(exercises => {
         setCloudExercisesList(exercises);
       }).catch(err => console.error("Failed to fetch mestre exercises:", err));
     }
-  }, [mestreUid]);
+  }, [mestreUid, isActive]);
 
   // 2. Quiz State
   const [quizTitle, setQuizTitle] = useState('');
@@ -357,11 +360,11 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   }, [rythmeLiveStudentInstrument]);
 
 
-  // Clean play loop when leaving page or tab changes
+  // Clean play loop when leaving page, tab changes or component goes inactive
   useEffect(() => {
     setStudioPlaying(false);
     setStudioStep(-1);
-  }, [activeTab]);
+  }, [activeTab, isActive]);
 
   // Determine current active BPM based on active tab
   const activeBpm = useMemo(() => {

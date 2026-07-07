@@ -109,36 +109,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const onTotalMeasuresChange = setTotalMeasures;
 
   // --- ECO MODE ---
-  const [ecoMode, setEcoMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem('o-girador-eco-mode');
-    if (saved !== null) {
-      return saved === 'true';
-    }
-    // Auto-détection (Smart Default) pour appareils modestes
-    const isTouch = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-    const ram = (navigator as any).deviceMemory || 8;
-    
-    // Si c'est un appareil tactile avec RAM <= 6Go, on active le mode éco d'office
-    if (isTouch && ram <= 6) {
-      return true;
-    }
-    
-    return false;
-  });
-
-  const toggleEcoMode = () => {
-    const newMode = !ecoMode;
-    setEcoMode(newMode);
-    localStorage.setItem('o-girador-eco-mode', String(newMode));
-    (window as any).oGiradorEcoMode = newMode;
-    window.dispatchEvent(new Event('eco-mode-changed'));
-  };
-
-  useEffect(() => {
-    (window as any).oGiradorEcoMode = ecoMode;
-    document.body.classList.toggle('eco-mode', ecoMode);
-    window.dispatchEvent(new Event('eco-mode-changed'));
-  }, [ecoMode]);
+  const ecoMode = useSequencerStore(state => state.isEcoMode);
+  const toggleEcoMode = useSequencerStore(state => state.toggleEcoMode);
   // ----------------
   const [addDropOpen, setAddDropOpen] = useState(false);
   const addDropRef = useRef<HTMLDivElement>(null);

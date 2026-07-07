@@ -4,7 +4,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { audioEngine } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 
-const TimelinePlayheadComponent: React.FC<{ visible?: boolean }> = ({ visible = true }) => {
+const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
   const uiContext = useContext(TimelineUIContext);
   const audio = useAudio();
   const playheadRef = useRef<HTMLDivElement>(null);
@@ -73,7 +73,7 @@ const TimelinePlayheadComponent: React.FC<{ visible?: boolean }> = ({ visible = 
   }, [audio.isPlaying, HEADER_W]);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!isActive) return;
 
     const scrollEl = document.getElementById('timeline-scroll-container');
     if (!scrollEl) return;
@@ -155,11 +155,11 @@ const TimelinePlayheadComponent: React.FC<{ visible?: boolean }> = ({ visible = 
       resizeObserver.disconnect();
       scrollEl.removeEventListener('scroll', handleScroll);
     };
-  }, [HEADER_W, visible]);
+  }, [HEADER_W, isActive]);
 
   // Boucle requestAnimationFrame continue pour une mise à jour ultra fluide et découplée
   useEffect(() => {
-    if (!audio.isPlaying || !visible) {
+    if (!audio.isPlaying || !isActive) {
       // Si le mode éco a été forcé par le playhead, on le désactive à l'arrêt
       if (forcedEcoModeRef.current) {
         (window as any).oGiradorVisualEcoMode = false;
@@ -241,7 +241,7 @@ const TimelinePlayheadComponent: React.FC<{ visible?: boolean }> = ({ visible = 
       }
       lastFrameTimeRef.current = now;
 
-      const isEco = (window as any).oGiradorEcoMode || (window as any).oGiradorVisualEcoMode;
+      const isEco = useSequencerStore.getState().isEcoMode || (window as any).oGiradorVisualEcoMode;
       const isManualEco = isEco && !forcedEcoModeRef.current;
       const anchor = anchorRef.current;
       
@@ -300,7 +300,7 @@ const TimelinePlayheadComponent: React.FC<{ visible?: boolean }> = ({ visible = 
     return () => {
       cancelAnimationFrame(rafId);
     };
-  }, [audio.isPlaying, HEADER_W, visible]);
+  }, [audio.isPlaying, HEADER_W, isActive]);
 
   if (!uiContext) return null;
 

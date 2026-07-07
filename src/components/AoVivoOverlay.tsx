@@ -309,7 +309,7 @@ export const AoVivoOverlay: React.FC = () => {
     return state.tracks.filter(t => t.id === activeAoVivoTrackId);
   }));
 
-  const [isEco, setIsEco] = useState<boolean>(() => !!(window as any).oGiradorEcoMode);
+  const isEco = useSequencerStore(state => state.isEcoMode);
   
   // Lower frequency React states (only update when the pattern structure changes at measure boundaries)
   const [currentPatternId, setCurrentPatternId] = useState<number | null>(null);
@@ -341,12 +341,6 @@ export const AoVivoOverlay: React.FC = () => {
   const currentPatternIdRef = useRef<number | null>(null);
   const currentMeasureIdxRef = useRef<number>(-1);
   const lastVuStepRef = useRef<number>(-1);
-
-  useEffect(() => {
-    const handleEcoChange = () => setIsEco(!!(window as any).oGiradorEcoMode);
-    window.addEventListener('eco-mode-changed', handleEcoChange);
-    return () => window.removeEventListener('eco-mode-changed', handleEcoChange);
-  }, []);
 
   // --- PASSIVE RESIZE OBSERVER (0 LAYOUT THRASHING) ---
   useEffect(() => {

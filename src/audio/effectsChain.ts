@@ -5,6 +5,7 @@
 
 import * as Tone from 'tone';
 import { instrumentsConfig } from '../data';
+import { useSequencerStore } from '../stores/useSequencerStore';
 
 /*
  * JUSTIFICATION DES CHOIX TECHNIQUES (Performance & Horloge Audio) :
@@ -109,11 +110,15 @@ export function initMasterEffectsChain(
 
   // Reverb nodes
   masterReverbVolumeNode = new Tone.Gain(Tone.dbToGain(masterReverbVol === -40 ? -Infinity : masterReverbVol)).connect(masterVolumeNode);
-  reverbNode = new Tone.Reverb({ decay: 2.5, preDelay: 0.02, wet: 1 }).connect(masterReverbVolumeNode);
+  if (!isEco) {
+    reverbNode = new Tone.Reverb({ decay: 2.5, preDelay: 0.02, wet: 1 }).connect(masterReverbVolumeNode);
+  } else {
+    reverbNode = null;
+  }
 }
 
 export function initInstrumentNodes() {
-  if (!masterVolumeNode || !reverbNode) return;
+  if (!masterVolumeNode) return;
 
   instrumentsConfig.forEach((inst) => {
     if (!channels[inst.id]) {
@@ -126,7 +131,95 @@ export function initInstrumentNodes() {
     if (!reverbSends[inst.id]) {
       reverbSends[inst.id] = new Tone.Gain(0);
       channels[inst.id].connect(reverbSends[inst.id]);
-      reverbSends[inst.id].connect(reverbNode!);
+      if (reverbNode) {
+        reverbSends[inst.id].connect(reverbNode);
+      }
     }
   });
 }
+
+let deferredReverbActivation = false;
+
+export function getDeferredReverbActivation(): boolean {
+  return deferredReverbActivation;
+}
+
+export function setDeferredReverbActivation(val: boolean) {
+  deferredReverbActivation = val;
+}
+
+export function ensureReverbConnected() {
+  if (!masterReverbVolumeNode) return;
+
+  if (!reverbNode) {
+    try {
+      const savedDecay = localStorage.getItem('oGirador_reverb_decay');
+      const decay = savedDecay ? parseFloat(savedDecay) : 2.5;
+      
+      reverbNode = new Tone.Reverb({ decay, preDelay: 0.02, wet: 1 }).connect(masterReverbVolumeNode);
+
+      // Reconnect all instrument sends to the new reverbNode
+      Object.entries(reverbSends).forEach(([id, sendNode]) => {
+        try {
+          sendNode.disconnect();
+          sendNode.connect(reverbNode!);
+        } catch (e) {
+          console.warn(`Error connecting reverb send for ${id}:`, e);
+        }
+      });
+    } catch (err) {
+      console.error("Failed to instantiate and connect Reverb:", err);
+    }
+  } else {
+    try {
+      reverbNode.disconnect();
+      reverbNode.connect(masterReverbVolumeNode);
+    } catch (e) {
+      console.warn("Error reconnecting reverbNode:", e);
+    }
+  }
+
+  // Restore the gain of masterReverbVolumeNode
+  const savedVol = localStorage.getItem('oGirador_master_reverb_vol');
+  const masterReverbVol = savedVol ? parseFloat(savedVol) : 0;
+  masterReverbVolumeNode.gain.value = Tone.dbToGain(masterReverbVol === -40 ? -Infinity : masterReverbVol);
+}
+
+export function handleReverbEcoToggle(isEco: boolean, isPlaying: boolean) {
+  if (isEco) {
+    // Turn Eco Mode ON: Deactivate Reverb
+    if (reverbNode) {
+      if (isPlaying) {
+        // Sécurité Anti-Clic : Rampe rapide de gain vers 0 en 10ms
+        if (masterReverbVolumeNode) {
+          masterReverbVolumeNode.gain.rampTo(0, 0.01); // 10ms = 0.01s
+        }
+        setTimeout(() => {
+          if (reverbNode) {
+            try {
+              reverbNode.disconnect();
+            } catch (e) {
+              console.warn("Error disconnecting reverbNode:", e);
+            }
+          }
+        }, 15);
+      } else {
+        try {
+          reverbNode.disconnect();
+        } catch (e) {
+          console.warn("Error disconnecting reverbNode:", e);
+        }
+      }
+    }
+  } else {
+    // Turn Eco Mode OFF: Activate Reverb
+    if (isPlaying) {
+      // Defer activation
+      deferredReverbActivation = true;
+    } else {
+      // Activate immediately
+      ensureReverbConnected();
+    }
+  }
+}
+

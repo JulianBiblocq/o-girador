@@ -53,7 +53,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
     if (!visible) return;
 
     const handleTick = (e: Event) => {
-      if ((window as any).oGiradorEcoMode) {
+      if (useSequencerStore.getState().isEcoMode) {
         setCurrentStepIndex(-1);
         return;
       }

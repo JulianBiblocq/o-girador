@@ -41,7 +41,7 @@ const getCachedTrack = (id: number, isHidden: boolean, isSolo: boolean, isMute: 
 
 interface ConsoleMixerProps {
   isMobile: boolean;
-  visible?: boolean;
+  isActive?: boolean;
   onStepTouchStart?: (
     e: React.MouseEvent | React.TouchEvent,
     patternId: number,
@@ -54,7 +54,7 @@ interface ConsoleMixerProps {
 
 const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   isMobile,
-  visible = true,
+  isActive = true,
   onStepTouchStart,
 }) => {
   const sequencer = useSequencer();
@@ -150,7 +150,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const isPlayingRef = useRef(false);
 
   useEffect(() => {
-    if (!visible) {
+    if (!isActive || !isPlaying) {
       if (vuMeterRef.current) vuMeterRef.current.style.transform = 'scaleY(0)';
       if (dbTextRef.current) dbTextRef.current.innerText = '— dB';
       return;
@@ -211,7 +211,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         vuMeterRef.current.style.transform = 'scaleY(0)';
       }
     };
-  }, [isPlaying, visible]);
+  }, [isPlaying, isActive]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
@@ -508,7 +508,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   return (
     <div 
       className="flex-1 flex flex-col h-full overflow-hidden"
-      style={{ display: visible ? 'flex' : 'none' }}
+      style={{ display: isActive ? 'flex' : 'none' }}
     >
       <div ref={scrollRef} className="flex-grow flex overflow-x-auto p-4 gap-4 custom-scrollbar">
         <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
@@ -524,7 +524,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   onCopyPattern={handleCopyPattern}
                   onPastePattern={(pId) => handlePastePattern(trackId, pId)}
                   canPaste={!!copiedPattern}
-                  visible={visible}
+                  isActive={isActive}
                 />
               );
             })}
@@ -716,6 +716,31 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Reverb Decay Section */}
+            <div className="flex flex-col gap-1 mt-2">
+              <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
+                🌊 RÉVERBÉRATION
+              </span>
+              <div className="flex flex-col gap-1 mt-1 font-cactus font-bold text-[10px]">
+                <div className="flex justify-between items-center">
+                  <span>DURÉE (DECAY)</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="range"
+                      min="0.5"
+                      max="10"
+                      step="0.1"
+                      value={reverbDecay}
+                      onChange={(e) => setReverbDecay(parseFloat(e.target.value))}
+                      className="w-16 accent-[#8b2a1a] cursor-pointer"
+                    />
+                    <span className="w-10 text-right">{reverbDecay.toFixed(1)} s</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </div>
 
           {/* Bottom Fader (Master Fader & Master Reverb Fader & Master LED Meter) */}
@@ -728,8 +753,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
                 <AudioFader
                   type="range"
-                  min="0"
-                  max="100"
+                  min="-40"
+                  max="6"
+                  step="0.5"
                   orient="vertical"
                   audioTarget="masterReverbVol"
                   value={masterReverbVol}
@@ -737,7 +763,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
                 />
               </div>
-              <span className="text-[10px] font-bold text-[var(--cordel-text)]">{masterReverbVol}%</span>
+              <span className="text-[10px] font-bold text-[var(--cordel-text)]">
+                {masterReverbVol === -40 ? 'Mute' : `${masterReverbVol > 0 ? '+' : ''}${masterReverbVol} dB`}
+              </span>
             </div>
 
             {/* Master Fader Column */}
@@ -747,8 +775,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
                 <AudioFader
                   type="range"
-                  min="0"
-                  max="100"
+                  min="-40"
+                  max="6"
+                  step="0.5"
                   orient="vertical"
                   audioTarget="masterVolume"
                   value={masterVol}
@@ -756,7 +785,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
                 />
               </div>
-              <span className="text-[10px] font-bold text-[var(--cordel-text)]">{masterVol}%</span>
+              <span className="text-[10px] font-bold text-[var(--cordel-text)]">
+                {masterVol === -40 ? 'Mute' : `${masterVol > 0 ? '+' : ''}${masterVol} dB`}
+              </span>
             </div>
 
             {/* Master LED Meter */}
