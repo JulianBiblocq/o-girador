@@ -218,7 +218,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     handleVariationStepValueChange,
   } = useSequencer();
 
-  const { isPlaying, globalSwing, soloPatternPlayIdRef } = useAudio();
+  const { globalSwing, soloPatternPlayIdRef } = useAudio();
 
   const gridRef = useRef<HTMLDivElement>(null);
   const [hasClipboard, setHasClipboard] = useState(false);

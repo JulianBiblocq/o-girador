@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import * as Tone from 'tone';
 import { AudioEngine } from '../AudioEngine';
 import { InputManager } from '../InputManager';
@@ -33,7 +33,11 @@ import {
   meters,
   reverbSends,
   initMasterEffectsChain,
-  initInstrumentNodes
+  initInstrumentNodes,
+  handleReverbEcoToggle,
+  ensureReverbConnected,
+  getDeferredReverbActivation,
+  setDeferredReverbActivation
 } from '../audio/effectsChain';
 
 export {
@@ -215,8 +219,36 @@ export function useAudioSync({
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
   const compilerWorkerRef = useRef<Worker | null>(null);
   const isRecordingRef = useRef(false);
-  const currentMeasure = useSequencerStore(state => state.currentMeasure);
-  const setCurrentMeasure = (useSequencerStore as any)(state => state.setCurrentMeasure) as any;
+  // Stable reference to the non-reactive store action to avoid Zustand state subscriptions
+  const setCurrentMeasure = useRef(useSequencerStore.getState().setCurrentMeasure).current;
+
+  // Refs to hold totalMeasures and measureTimeSigs to avoid hook dependency triggers
+  const totalMeasuresRefInternal = useRef(useSequencerStore.getState().totalMeasures);
+  const measureTimeSigsRefInternal = useRef(useSequencerStore.getState().measureTimeSigs);
+
+  // Background subscriber to keep refs in sync with store
+  useEffect(() => {
+    const unsub = useSequencerStore.subscribe((state) => {
+      totalMeasuresRefInternal.current = state.totalMeasures;
+      measureTimeSigsRefInternal.current = state.measureTimeSigs;
+    });
+    return unsub;
+  }, []);
+
+  // Refs for vocal recording states and callbacks to avoid re-rendering dependencies
+  const isRecordingVocalRef = useRef(isRecordingVocal);
+  const startVocalRecordingRef = useRef(startVocalRecording);
+  const stopVocalRecordingRef = useRef(stopVocalRecording);
+  const finishVocalRecordingRef = useRef(finishVocalRecording);
+  const loadVocalRecordingRef = useRef(loadVocalRecording);
+
+  useEffect(() => {
+    isRecordingVocalRef.current = isRecordingVocal;
+    startVocalRecordingRef.current = startVocalRecording;
+    stopVocalRecordingRef.current = stopVocalRecording;
+    finishVocalRecordingRef.current = finishVocalRecording;
+    loadVocalRecordingRef.current = loadVocalRecording;
+  }, [isRecordingVocal, startVocalRecording, stopVocalRecording, finishVocalRecording, loadVocalRecording]);
 
   const [isMetroOn, setIsMetroOn] = useState<boolean>(false);
   const [metroVolume, setMetroVolume] = useState<number>(80);
@@ -295,9 +327,8 @@ export function useAudioSync({
 
   // Sync Master Volume node (with automatic Gain Staging reduction in Eco Mode)
   useEffect(() => {
-    const applyVolume = () => {
+    const applyVolume = (isEco: boolean) => {
       if (masterVolumeNode) {
-        const isEco = (window as any).oGiradorEcoMode;
         const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
         const multiplier = isEco ? Tone.dbToGain(-8) : 1.0;
         masterVolumeNode.gain.setValueAtTime(
@@ -307,9 +338,13 @@ export function useAudioSync({
       }
     };
 
-    applyVolume();
-    window.addEventListener('eco-mode-changed', applyVolume);
-    return () => window.removeEventListener('eco-mode-changed', applyVolume);
+    applyVolume(useSequencerStore.getState().isEcoMode);
+
+    const unsubscribe = useSequencerStore.subscribe((state) => {
+      applyVolume(state.isEcoMode);
+    });
+
+    return () => unsubscribe();
   }, [masterVol]);
 
   // Sync Master EQ
@@ -323,17 +358,20 @@ export function useAudioSync({
 
   // Sync Master Compressor
   useEffect(() => {
-    const applyCompressor = () => {
+    const applyCompressor = (isEco: boolean) => {
       if (masterCompressorNode) {
-        const isEco = (window as any).oGiradorEcoMode;
         masterCompressorNode.threshold.value = isEco ? 0 : masterCompressor.threshold;
         masterCompressorNode.ratio.value = isEco ? 1 : masterCompressor.ratio;
       }
     };
     
-    applyCompressor();
-    window.addEventListener('eco-mode-changed', applyCompressor);
-    return () => window.removeEventListener('eco-mode-changed', applyCompressor);
+    applyCompressor(useSequencerStore.getState().isEcoMode);
+
+    const unsubscribe = useSequencerStore.subscribe((state) => {
+      applyCompressor(state.isEcoMode);
+    });
+
+    return () => unsubscribe();
   }, [masterCompressor]);
 
   // Sync Reverb parameters and Master Reverb Volume
@@ -357,12 +395,11 @@ export function useAudioSync({
     // from regenerating (and abruptly cutting its tail) when the user adjusts a track fader!
   }, [reverbDecay, masterReverbVol]);
 
-  // Sync Reverb Sends in response to Eco Mode changes
+  // Sync Reverb Sends and Reverb Connection in response to Eco Mode changes
   useEffect(() => {
-    const applyEcoReverbSends = () => {
-      const isEco = (window as any).oGiradorEcoMode;
-      const tracks = useSequencerStore.getState().tracks;
-      
+    const applyEcoReverbSendsAndToggle = (isEco: boolean, tracks: any[]) => {
+      handleReverbEcoToggle(isEco, isPlayingRef.current);
+
       tracks.forEach((t) => {
         const inst = instrumentsConfig[t.instrumentIdx];
         if (inst && reverbSends[inst.id]) {
@@ -372,9 +409,16 @@ export function useAudioSync({
       });
     };
 
-    applyEcoReverbSends();
-    window.addEventListener('eco-mode-changed', applyEcoReverbSends);
-    return () => window.removeEventListener('eco-mode-changed', applyEcoReverbSends);
+    applyEcoReverbSendsAndToggle(
+      useSequencerStore.getState().isEcoMode,
+      useSequencerStore.getState().tracks
+    );
+
+    const unsubscribe = useSequencerStore.subscribe((state) => {
+      applyEcoReverbSendsAndToggle(state.isEcoMode, state.tracks);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // Sync Transport BPM
@@ -382,12 +426,17 @@ export function useAudioSync({
     Tone.Transport.bpm.value = bpm;
   }, [bpm]);
 
-  // Reset Destination Volume to neutral when stopped
+  // Reset Destination Volume to neutral and process deferred reverb when stopped
   useEffect(() => {
     if (!isPlaying) {
       try {
         Tone.Destination.volume.setValueAtTime(0, Tone.context.currentTime);
       } catch (err) {}
+
+      if (getDeferredReverbActivation()) {
+        ensureReverbConnected();
+        setDeferredReverbActivation(false);
+      }
     }
   }, [isPlaying]);
 
@@ -488,7 +537,7 @@ export function useAudioSync({
         if (isAudioInitializedRef.current) return; // already initialized
         isAudioInitializedRef.current = true;
 
-        const isEco = (window as any).oGiradorEcoMode;
+        const isEco = useSequencerStore.getState().isEcoMode;
 
         initMasterEffectsChain(
           masterVol,
@@ -1085,7 +1134,7 @@ export function useAudioSync({
     return unsub;
   }, [audioEngine]);
 
-  const handleTogglePlay = async () => {
+  const handleTogglePlay = useCallback(async () => {
     if (import.meta.env.DEV) {
     }
     if (Tone.context && Tone.context.state !== 'running') {
@@ -1098,7 +1147,7 @@ export function useAudioSync({
     if (soloPatternPlayIdRef.current !== null) {
       setSoloPatternPlayId(null);
     }
-    if (!isPlaying) {
+    if (!isPlayingRef.current) {
       lastPlayedSignalIdRef.current = null;
       if (Tone.Transport.state !== 'started') {
         Tone.Transport.start();
@@ -1114,8 +1163,8 @@ export function useAudioSync({
       Tone.Draw.cancel();
       hitTriggersRef.current = [];
       Tone.Transport.pause();
-      if (isRecordingVocal) {
-        stopVocalRecording();
+      if (isRecordingVocalRef.current) {
+        stopVocalRecordingRef.current();
       }
       audioEngine?.stopAllBarulho();
       stopAllNativeOscillators();
@@ -1146,9 +1195,9 @@ export function useAudioSync({
 
       window.dispatchEvent(new CustomEvent('o-girador-tick', { detail }));
     }
-  };
+  }, [audioEngine, setIsPlaying, setSoloPatternPlayId, setCurrentMeasure]);
 
-  const handleStop = () => {
+  const handleStop = useCallback(() => {
     pendingMeasureRef.current = null;
     if (soloPatternPlayIdRef.current !== null) {
       setSoloPatternPlayId(null);
@@ -1158,8 +1207,8 @@ export function useAudioSync({
     hitTriggersRef.current = [];
     lastPlayedPatternRef.current = {};
     Tone.Transport.stop();
-    if (isRecordingVocal) {
-      stopVocalRecording();
+    if (isRecordingVocalRef.current) {
+      stopVocalRecordingRef.current();
     }
     audioEngine?.stopAllBarulho();
     stopAllNativeOscillators();
@@ -1186,9 +1235,9 @@ export function useAudioSync({
     detail.iteration = 1;
 
     window.dispatchEvent(new CustomEvent('o-girador-tick', { detail }));
-  };
+  }, [audioEngine, setIsPlaying, setSoloPatternPlayId, setCurrentMeasure]);
 
-  const handleStartSoloPattern = async (patternId: number, variationId?: string) => {
+  const handleStartSoloPattern = useCallback(async (patternId: number, variationId?: string) => {
     if (Tone.context && Tone.context.state !== 'running') {
       try {
         await Tone.context.resume();
@@ -1196,8 +1245,8 @@ export function useAudioSync({
         // console.warn("AudioContext resume failed:", e);
       }
     }
-    if (isRecordingVocal) {
-      stopVocalRecording();
+    if (isRecordingVocalRef.current) {
+      stopVocalRecordingRef.current();
     }
     audioEngine?.stop();
     Tone.Transport.stop();
@@ -1223,18 +1272,18 @@ export function useAudioSync({
     }
     audioEngine?.start();
     setIsPlaying(true);
-  };
+  }, [audioEngine, setSoloPatternPlayId, setSoloPatternVariationId, setCurrentMeasure, setIsPlaying]);
 
-  const handleStopSoloPattern = () => {
+  const handleStopSoloPattern = useCallback(() => {
     setSoloPatternPlayId(null);
     setSoloPatternVariationId(null);
     if (isPlayingRef.current) {
       handleStop();
     }
-  };
+  }, [setSoloPatternPlayId, setSoloPatternVariationId, handleStop]);
 
-  const handleTimelineNavigate = (measureIdx: number, stepIdxInMeasure: number, stepsInMeasure?: number) => {
-    const targetMeasure = measureIdx % totalMeasures;
+  const handleTimelineNavigate = useCallback((measureIdx: number, stepIdxInMeasure: number, stepsInMeasure?: number) => {
+    const targetMeasure = measureIdx % (totalMeasuresRefInternal.current || 1);
     if (isPlayingRef.current) {
       pendingMeasureRef.current = targetMeasure;
       window.dispatchEvent(new CustomEvent('o-girador-measure-queued', {
@@ -1246,7 +1295,7 @@ export function useAudioSync({
       return;
     }
 
-    const mSig = measureTimeSigs[measureIdx] || '4/4';
+    const mSig = measureTimeSigsRefInternal.current[measureIdx] || '4/4';
     const currentTicks = getMaxTicks(mSig);
     const steps = stepsInMeasure || (mSig === '6/8' || mSig === '12/8' ? 24 : 16);
     const tickIdx = Math.max(0, Math.min(currentTicks - 1, Math.floor((stepIdxInMeasure / steps) * currentTicks)));
@@ -1268,12 +1317,12 @@ export function useAudioSync({
         iteration: 1
       }
     }));
-  };
+  }, [setCurrentMeasure]);
 
   const navigateRef = useRef(handleTimelineNavigate);
   useEffect(() => {
     navigateRef.current = handleTimelineNavigate;
-  });
+  }, [handleTimelineNavigate]);
 
   useEffect(() => {
     const handleTimelineNav = (e: Event) => {
@@ -1312,7 +1361,7 @@ export function useAudioSync({
             channels[inst.id].mute = muteState;
 
             if (reverbSends[inst.id]) {
-              const isEco = (window as any).oGiradorEcoMode;
+              const isEco = state.isEcoMode;
               reverbSends[inst.id].gain.value = isEco ? 0 : reverb;
             }
 
@@ -1325,7 +1374,7 @@ export function useAudioSync({
     return unsub;
   }, [channels]);
 
-  return {
+  return useMemo(() => ({
     isPlaying,
     isLoading,
 
@@ -1364,5 +1413,20 @@ export function useAudioSync({
     engineTimeoutsRef,
     lastPlayedSignalIdRef,
     tickScheduleRef
-  };
+  }), [
+    isPlaying,
+    isLoading,
+    isCompiling,
+    isMetroOn,
+    metroVolume,
+    metroSound,
+    globalSwing,
+    soloPatternPlayId,
+    soloPatternVariationId,
+    handleTogglePlay,
+    handleStop,
+    handleStartSoloPattern,
+    handleStopSoloPattern,
+    handleTimelineNavigate
+  ]);
 }
