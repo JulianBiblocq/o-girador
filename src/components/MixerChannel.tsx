@@ -27,7 +27,7 @@ const SortablePatternWrapper = ({ id, children, className, style: propStyle }: a
 interface MixerChannelProps {
   trackId: number;
   index: number;
-  onOpenDetailEditor: () => void;
+  onOpenDetailEditor: (trackId: number) => void;
   onStepTouchStart?: (
     e: React.MouseEvent | React.TouchEvent,
     patternId: number,
@@ -37,7 +37,7 @@ interface MixerChannelProps {
     onSelect: (val: string) => void
   ) => void;
   onCopyPattern?: (pattern: Pattern) => void;
-  onPastePattern?: (patternId: number) => void;
+  onPastePattern?: (trackId: number, patternId: number) => void;
   canPaste?: boolean;
   isActive?: boolean;
 }
@@ -413,7 +413,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
             </div>
             
             <button
-              onClick={onOpenDetailEditor}
+              onClick={() => onOpenDetailEditor(trackId)}
               className="w-8 h-8 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors"
               title="Éditeur détaillé"
             >
@@ -454,7 +454,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                 📋 Copier
               </button>
               <button
-                onClick={() => onPastePattern && onPastePattern(activePattern.id)}
+                onClick={() => onPastePattern && onPastePattern(trackId, activePattern.id)}
                 disabled={!canPaste}
                 className={`px-1.5 py-0.5 text-[10px] font-bold cordel-border-sm cursor-pointer ${
                   canPaste 

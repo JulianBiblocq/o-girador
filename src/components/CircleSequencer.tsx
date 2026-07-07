@@ -15,6 +15,7 @@ import { instrumentsConfig, getMarkers, ASSETS_BASE_URL, isDarkText, getVisualSt
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { useGameData } from '../contexts/GameDataContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { getExpandedMeasures } from '../utils/measureHelpers';
@@ -76,10 +77,22 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
   const lang = props.lang !== undefined ? props.lang : sequencer.lang;
   const isLeftHanded = props.isLeftHanded !== undefined ? props.isLeftHanded : sequencer.isLeftHanded;
-  const tracksFromStore = useSequencerStore(state => {
+  const tracksFromStore = useSequencerStore(useShallow(state => {
     if (!isActive) return EMPTY_ARRAY;
-    return state.tracks;
-  });
+    return state.tracks.map(t => ({
+      id: t.id,
+      instrumentIdx: t.instrumentIdx,
+      isHidden: t.isHidden,
+      isMute: t.isMute,
+      isSolo: t.isSolo,
+      radius: t.radius,
+      patterns: t.patterns.map(p => ({
+        id: p.id,
+        steps: p.steps,
+        measureAssignments: p.measureAssignments
+      }))
+    }));
+  })) as any as TrackGroup[];
   const tracks = props.tracks !== undefined ? props.tracks : tracksFromStore;
   const totalMeasuresFromStore = useSequencerStore(state => state.totalMeasures);
   const totalMeasures = props.totalMeasures !== undefined ? props.totalMeasures : totalMeasuresFromStore;
@@ -499,6 +512,18 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       songMarkers
     };
   }, [tracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded]);
+
+  useEffect(() => {
+    // Keep raw tracks in stateRef up to date imperatively
+    stateRef.current.tracks = useSequencerStore.getState().tracks;
+    
+    const unsubscribe = useSequencerStore.subscribe(
+      (state) => {
+        stateRef.current.tracks = state.tracks;
+      }
+    );
+    return unsubscribe;
+  }, []);
 
   // Handle click on canvas via Pointer Events (no touch latency)
   const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {

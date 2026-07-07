@@ -505,6 +505,10 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     }
   }, [editingTrackId, onPatternNameChange]);
 
+  const onOpenDetailEditor = React.useCallback((trackId: number) => {
+    setEditingTrackId(trackId);
+  }, []);
+
   return (
     <div 
       className="flex-1 flex flex-col h-full overflow-hidden"
@@ -519,10 +523,10 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   key={trackId}
                   trackId={trackId}
                   index={index}
-                  onOpenDetailEditor={() => setEditingTrackId(trackId)}
+                  onOpenDetailEditor={onOpenDetailEditor}
                   onStepTouchStart={onStepTouchStart}
                   onCopyPattern={handleCopyPattern}
-                  onPastePattern={(pId) => handlePastePattern(trackId, pId)}
+                  onPastePattern={handlePastePattern}
                   canPaste={!!copiedPattern}
                   isActive={isActive}
                 />
