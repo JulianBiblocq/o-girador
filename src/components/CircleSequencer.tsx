@@ -19,6 +19,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { getExpandedMeasures } from '../utils/measureHelpers';
+import { getBusColor } from '../utils/colorHelpers';
 
 interface CircleSequencerProps {
   isActive?: boolean;
@@ -1175,6 +1176,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         }
         const isActiveState = hasAnyNotes;
 
+        const busColor = track.isLinkFolder ? getBusColor(String(track.id), tracks, instrumentsConfig) : null;
+
         ctx.save();
         ctx.globalAlpha = isActiveState ? 1.0 : 0.25;
 
@@ -1182,7 +1185,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         ctx.beginPath();
         const tRad = activeVisibleTracks.length === 1 ? (minRadius + maxRadius) / 2 : minRadius + visibleIdx * gap;
         ctx.arc(centerX, centerY, tRad, 0, Math.PI * 2);
-        ctx.strokeStyle = themeBorder;
+        ctx.strokeStyle = busColor || themeBorder;
         ctx.lineWidth = 1.5;
         ctx.setLineDash([5, 5]);
         if (!track.isSolo) {
@@ -1234,7 +1237,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               textSymbol = String(syl).endsWith('-') ? String(syl).slice(0, -1) : String(syl);
             } else {
               const stateStr = String(visualState);
-              fillColor = (inst.colors && inst.colors[visualState]) ? inst.colors[visualState] : '#fff';
+              fillColor = (track.isLinkFolder && busColor) 
+                ? busColor 
+                : ((inst.colors && inst.colors[visualState]) ? inst.colors[visualState] : '#fff');
               isAccent = (stateStr === stateStr.toUpperCase());
               radiusSize = (isAccent ? 15 : 12) * dynamicScale;
 
@@ -1275,7 +1280,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
           const isHit = state !== 0 && state !== '0' && state !== '';
           if (isHit) {
-            ctx.strokeStyle = (inst && inst.color) ? inst.color : themeBorder;
+            ctx.strokeStyle = (track.isLinkFolder && busColor) ? busColor : ((inst && inst.color) ? inst.color : themeBorder);
             ctx.lineWidth = 2.5;
           } else {
             ctx.strokeStyle = themeBorder;

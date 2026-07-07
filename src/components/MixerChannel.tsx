@@ -10,6 +10,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { Pattern, TrackGroup } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
+import { getBusColor } from '../utils/colorHelpers';
 import { PanKnob } from './PanKnob';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
@@ -41,6 +42,7 @@ interface MixerChannelProps {
   onPastePattern?: (trackId: number, patternId: number) => void;
   canPaste?: boolean;
   isActive?: boolean;
+  busPosition?: 'first' | 'middle' | 'last' | 'none';
 }
 
 const MixerChannelComponent: React.FC<MixerChannelProps> = ({
@@ -52,6 +54,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   onPastePattern,
   canPaste,
   isActive = true,
+  busPosition = 'none',
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -66,6 +69,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
 
   const currentInst = track ? instrumentsConfig[track.instrumentIdx] : null;
   const eligibleTracks = currentInst ? tracks.filter(t => {
+    if (t.isBusFolder) return false;
     if (t.id === trackId) return false;
     if (t.linkedToTrackId && String(t.linkedToTrackId) === String(trackId)) return false;
     
@@ -109,6 +113,13 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
+  const [isEditingName, setIsEditingName] = useState<boolean>(false);
+  const [nameVal, setNameVal] = useState<string>(track?.customName || '');
+  useEffect(() => {
+    if (track?.customName) {
+      setNameVal(track.customName);
+    }
+  }, [track?.customName]);
 
   const [liveMeasure, setLiveMeasure] = useState<number>(-1);
   const lastMeasureRef = useRef<number>(-1);
@@ -256,6 +267,13 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     }
   };
 
+  const handleRenameSubmit = () => {
+    if (nameVal.trim()) {
+      useSequencerStore.getState().setTracks(prev => prev.map(t => t.id === trackId ? { ...t, customName: nameVal.trim() } : t));
+    }
+    setIsEditingName(false);
+  };
+
   const onInstrumentChange = (instIdx: number) => {
     useSequencerStore.getState().handleTrackInstrumentIdxChange(trackId, instIdx);
   };
@@ -368,22 +386,70 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
 
   const currentStep = -1;
 
+  // Calcul du style de groupe
+  const groupStyle: React.CSSProperties = {
+    marginRight: (busPosition === 'none' || busPosition === 'last') ? '16px' : '0px'
+  };
+  if (busPosition !== 'none' && (track.busId || track.isLinkFolder)) {
+    const targetBusId = track.busId || String(track.id);
+    const busColor = getBusColor(targetBusId, tracks, instrumentsConfig);
+    const cleanHex = busColor.replace('#', '');
+    const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
+    const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
+    const b = parseInt(cleanHex.substring(4, 6), 16) || 26;
+    const bgAlpha = `rgba(${r}, ${g}, ${b}, 0.03)`;
+
+    groupStyle.backgroundColor = bgAlpha;
+    groupStyle.borderTop = `3px solid ${busColor}`;
+    groupStyle.borderBottom = `3px solid ${busColor}`;
+
+    if (busPosition === 'first') {
+      groupStyle.borderLeft = `3px solid ${busColor}`;
+      groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
+    } else if (busPosition === 'middle') {
+      groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
+      groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
+    } else if (busPosition === 'last') {
+      groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
+      groupStyle.borderRight = `3px solid ${busColor}`;
+    }
+  } else if (track.isLinkFolder && busPosition === 'none') {
+    const targetBusId = String(track.id);
+    const busColor = getBusColor(targetBusId, tracks, instrumentsConfig);
+    const cleanHex = busColor.replace('#', '');
+    const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
+    const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
+    const b = parseInt(cleanHex.substring(4, 6), 16) || 26;
+    const bgAlpha = `rgba(${r}, ${g}, ${b}, 0.05)`;
+
+    groupStyle.backgroundColor = bgAlpha;
+    groupStyle.borderTop = `3px double ${busColor}`;
+    groupStyle.borderBottom = `3px double ${busColor}`;
+    groupStyle.borderLeft = `3px double ${busColor}`;
+    groupStyle.borderRight = `3px double ${busColor}`;
+  }
+
+  const faderColor = track.isLinkFolder 
+    ? getBusColor(String(track.id), tracks, instrumentsConfig) 
+    : (inst.color || '#8b2a1a');
+
   return (
     <div 
       ref={setNodeRef}
-      className={`flex flex-col bg-[var(--cordel-bg)] cordel-border w-[210px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-all duration-300 ${
+      className={`flex flex-col bg-[var(--cordel-bg)] w-[210px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-all duration-300 ${
         hasSolo ? (track.isSolo ? 'bg-[var(--cordel-border)]/5 shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-50') : 
         (track.isMute ? 'opacity-60 bg-black/5 dark:bg-white/5' : 'opacity-100')
-      }`}
+      } ${busPosition === 'none' ? 'cordel-border' : ''}`}
       style={{
         ...style,
+        ...groupStyle,
         zIndex: instDropdownOpen ? 30 : 1,
-        '--fader-thumb-bg': '#8b2a1a',
+        '--fader-thumb-bg': faderColor,
         '--fader-thumb-border': 'var(--cordel-border)',
       } as React.CSSProperties}
     >
       <div 
-        className="relative p-2 pb-1.5 flex flex-col gap-1.5 border-b-[3px] border-[var(--cordel-border)]"
+        className="relative p-2 pb-1.5 flex flex-col gap-1.5 border-b-[3px] border-[var(--cordel-border)] h-[82px] shrink-0 flex flex-col justify-between"
         style={{ zIndex: instDropdownOpen ? 40 : 10 }}
       >
         {/* Ligne 1 : Outils */}
@@ -399,36 +465,73 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                 <GripHorizontal size={18} />
               </div>
             )}
-            <button
-              onClick={() => onOpenDetailEditor(trackId)}
-              className="w-7 h-7 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-xs"
-              title="Éditeur détaillé"
-            >
-              ✏️
-            </button>
+            {track?.isLinkFolder ? (
+              <button
+                onClick={() => setIsEditingName(!isEditingName)}
+                className="w-7 h-7 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-xs"
+                title={lang === 'fr' ? 'Renommer le groupe' : 'Renomear o grupo'}
+              >
+                ✏️
+              </button>
+            ) : (
+              <button
+                onClick={() => onOpenDetailEditor(trackId)}
+                className="w-7 h-7 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-xs"
+                title="Éditeur détaillé"
+              >
+                ✏️
+              </button>
+            )}
           </div>
           <button 
             onClick={onDelete} 
             className="w-7 h-7 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-xs"
-            title="Supprimer la piste"
+            title={track?.isLinkFolder ? (lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o grupo') : 'Supprimer la piste'}
           >
             ✕
           </button>
         </div>
 
-        {/* Ligne 2 : Sélection de l'instrument */}
+        {/* Ligne 2 : Sélection de l'instrument ou renommage de bus de liaison */}
         <div className="relative flex items-center w-full" ref={dropdownRef}>
-          <div 
-            onClick={() => setInstDropdownOpen(!instDropdownOpen)} 
-            className="flex items-center gap-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-2 py-1.5 cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors w-full justify-between"
-            title={linkedSlavesTooltip}
-          >
-            <div className="flex items-center gap-2 truncate">
-              <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-5 h-5 object-contain flex-shrink-0" />
-              <span className="font-cactus font-bold text-xs truncate">{index + 1}. {displayName}</span>
+          {track?.isLinkFolder ? (
+            isEditingName ? (
+              <input
+                type="text"
+                value={nameVal}
+                onChange={(e) => setNameVal(e.target.value)}
+                onBlur={handleRenameSubmit}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleRenameSubmit();
+                  if (e.key === 'Escape') setIsEditingName(false);
+                }}
+                className="font-cactus font-bold text-xs bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-2 py-1 flex-1 outline-none w-full"
+                autoFocus
+              />
+            ) : (
+              <div 
+                onClick={() => useSequencerStore.getState().handleToggleFoldBus(String(trackId))}
+                className="flex items-center gap-2 bg-[#eaddcf] text-[#1a1a1a] cordel-border-sm px-2 py-1.5 cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors w-full justify-between font-bold"
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <span>{track.isFolded ? '▶️' : '🔽'}</span>
+                  <span className="font-cactus text-xs truncate">📁 {index + 1}. {track.customName || 'Bus'}</span>
+                </div>
+              </div>
+            )
+          ) : (
+            <div 
+              onClick={() => setInstDropdownOpen(!instDropdownOpen)} 
+              className="flex items-center gap-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-2 py-1.5 cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors w-full justify-between"
+              title={linkedSlavesTooltip}
+            >
+              <div className="flex items-center gap-2 truncate">
+                <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-5 h-5 object-contain flex-shrink-0" />
+                <span className="font-cactus font-bold text-xs truncate">{index + 1}. {displayName}</span>
+              </div>
+              <span className="text-[8px] flex-shrink-0 opacity-60">▼</span>
             </div>
-            <span className="text-[8px] flex-shrink-0 opacity-60">▼</span>
-          </div>
+          )}
 
           {instDropdownOpen && (
             <div className="absolute top-9 left-0 right-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-shadow max-h-[300px] overflow-y-auto z-[99] w-full custom-scrollbar">
@@ -462,30 +565,97 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                   ✕ {lang === 'fr' ? 'Délier la piste' : 'Remover vínculo'}
                 </div>
               ) : (
-                eligibleTracks.length > 0 ? (
-                  eligibleTracks.map((tOpt) => {
-                    const tOptInst = instrumentsConfig[tOpt.instrumentIdx];
-                    const tOptIndex = tracks.findIndex(t => t.id === tOpt.id);
-                    const shortName = tOptInst.name.replace('Alfaia ', '');
-                    return (
-                      <div
-                        key={tOpt.id}
-                        onClick={() => {
-                          useSequencerStore.getState().handleLinkTrack(trackId, String(tOpt.id));
-                          setInstDropdownOpen(false);
-                        }}
-                        className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold truncate"
-                      >
-                        🔗 {shortName} ({tOptIndex + 1})
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="px-3 py-2 text-[10px] italic text-[var(--cordel-text)]/60">
-                    {lang === 'fr' ? 'Aucune piste compatible' : 'Nenhuma pista compatível'}
+                <>
+                  <div 
+                    onClick={() => {
+                      const isAlfaia = currentInst?.name.toLowerCase().includes('alfaia');
+                      const defaultName = isAlfaia ? 'ALFAIAS' : `${currentInst?.name.toUpperCase()}S`;
+                      const name = prompt(lang === 'fr' ? 'Nom du groupe de partition liée :' : 'Nome do grupo de partitura vinculada:', defaultName);
+                      if (name) {
+                        useSequencerStore.getState().handleCreateLinkGroup(trackId, name);
+                      }
+                      setInstDropdownOpen(false);
+                    }}
+                    className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold text-blue-600 dark:text-blue-400"
+                  >
+                    📁 {lang === 'fr' ? 'Créer groupe (Maître)' : 'Criar grupo (Mestre)'}
                   </div>
-                )
+                  {eligibleTracks.length > 0 ? (
+                    eligibleTracks.map((tOpt) => {
+                      const tOptInst = instrumentsConfig[tOpt.instrumentIdx];
+                      const tOptIndex = tracks.findIndex(t => t.id === tOpt.id);
+                      const shortName = tOptInst.name.replace('Alfaia ', '');
+                      return (
+                        <div
+                          key={tOpt.id}
+                          onClick={() => {
+                            useSequencerStore.getState().handleLinkTrack(trackId, String(tOpt.id));
+                            setInstDropdownOpen(false);
+                          }}
+                          className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold truncate"
+                        >
+                          🔗 {shortName} ({tOptIndex + 1})
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="px-3 py-2 text-[10px] italic text-[var(--cordel-text)]/60">
+                      {lang === 'fr' ? 'Aucune piste compatible' : 'Nenhuma pista compatível'}
+                    </div>
+                  )}
+                </>
               )}
+
+              {/* Section Audio Bussing */}
+              <div className="text-[10px] uppercase opacity-60 font-bold px-3 py-1 bg-[var(--cordel-text)]/5 border-t border-b border-[var(--cordel-border)]/20 mt-1">
+                📁 {lang === 'fr' ? 'Bus / Groupes' : 'Bus / Grupos'}
+              </div>
+
+              {/* Option 1: Créer un groupe avec cet instrument */}
+              <div
+                onClick={() => {
+                  const busName = window.prompt(lang === 'fr' ? 'Nom du groupe :' : 'Nome do grupo:', 'Alfaias');
+                  if (busName && busName.trim()) {
+                    useSequencerStore.getState().handleCreateBus(trackId, busName.trim());
+                  }
+                  setInstDropdownOpen(false);
+                }}
+                className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold text-green-700 dark:text-green-400"
+              >
+                📁 {lang === 'fr' ? 'Créer un groupe avec cet instrument' : 'Criar um grupo com este instrumento'}
+              </div>
+
+              {/* Option 2: Quitter le Bus s'il y est affecté */}
+              {track.busId && (
+                <div
+                  onClick={() => {
+                    useSequencerStore.getState().handleAssignToBus(trackId, null);
+                    setInstDropdownOpen(false);
+                  }}
+                  className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-xs font-bold text-[#8b2a1a]"
+                >
+                  ✕ {lang === 'fr' ? 'Quitter le Bus/Groupe' : 'Sair do Bus/Grupo'}
+                </div>
+              )}
+
+              {/* Option 3: Liste des Bus existants à rejoindre */}
+              {tracks.filter(t => t.isBusFolder && t.id !== trackId).map((bus) => {
+                const busIdx = tracks.findIndex(t => t.id === bus.id);
+                return (
+                  <div
+                    key={bus.id}
+                    onClick={() => {
+                      useSequencerStore.getState().handleAssignToBus(trackId, String(bus.id));
+                      setInstDropdownOpen(false);
+                    }}
+                    className={`px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold truncate ${
+                      String(track.busId) === String(bus.id) ? 'bg-[var(--cordel-text)]/10' : ''
+                    }`}
+                  >
+                    📁 {bus.customName || 'Bus'} ({busIdx + 1})
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -615,7 +785,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       </div>
 
       {/* Visual Only Timeline (Fixed above faders, no longer scrollable) */}
-      <div className="px-4 py-2 bg-[var(--cordel-bg)] border-b-[3px] border-[var(--cordel-border)] z-10 shrink-0">
+      <div className="h-[48px] px-4 py-2 bg-[var(--cordel-bg)] border-b-[3px] border-[var(--cordel-border)] z-10 shrink-0 flex items-center justify-center">
         <VisualOnlyTimeline
           trackId={trackId}
           steps={activePattern.steps}
@@ -692,6 +862,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         <div className="flex flex-col items-center gap-1.5 h-full">
           <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
           <VUMeter
+            trackId={trackId}
             instrumentId={inst.id}
             isPlaying={isPlaying && isActive}
             isActive={isActive}

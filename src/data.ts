@@ -83,10 +83,10 @@ export const instrumentsConfig: InstrumentConfig[] = [
     iconImg: 'icones/mineiro.svg',
     name: 'Mineiro',
     type: 'shake',
-    mixerBg: '#3a1a10',
+    mixerBg: '#192e1b',
     path: 'Mineiro',
-    colors: { 'p': '#ea580c', 'P': '#c2410c', 't': '#fdba74', 'T': '#f97316', 'L': '#f59e0b', 'B': '#78350f', text: '#f4ecd8' },
-    color: '#ea580c'
+    colors: { 'p': '#606c38', 'P': '#283618', 't': '#a3b18a', 'T': '#52796f', 'L': '#dad7cd', 'B': '#1b4332', text: '#f4ecd8' },
+    color: '#588157'
   },
   {
     id: 'timbal',

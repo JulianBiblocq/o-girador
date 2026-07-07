@@ -9,6 +9,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { instrumentsConfig, ASSETS_BASE_URL, i18n } from '../data';
+import { getBusColor } from '../utils/colorHelpers';
 import { PanKnob } from './PanKnob';
 import { AudioFader } from './AudioFader';
 import { useSequencer } from '../contexts/SequencerContext';
@@ -20,6 +21,7 @@ interface MixerLinkedTrackProps {
   index: number;
   onOpenDetailEditor: (trackId: number) => void;
   isActive?: boolean;
+  busPosition?: 'first' | 'middle' | 'last' | 'none';
 }
 
 const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
@@ -27,6 +29,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   index,
   onOpenDetailEditor,
   isActive = true,
+  busPosition = 'none',
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -91,6 +94,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
 
   // Calcul des pistes cibles de liaison éligibles (même nature)
   const eligibleTracks = tracks.filter(tOpt => {
+    if (tOpt.isBusFolder) return false;
     if (tOpt.id === trackId) return false;
     if (tOpt.linkedToTrackId && String(tOpt.linkedToTrackId) === String(trackId)) return false;
     
@@ -111,34 +115,70 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
     return false;
   });
 
+  const faderColor = inst.color || '#555555';
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     zIndex: instDropdownOpen ? 30 : 1,
-    '--fader-thumb-bg': '#555555',
+    '--fader-thumb-bg': faderColor,
     '--fader-thumb-border': 'var(--cordel-border)',
   } as React.CSSProperties;
+
+  // Calcul du style de groupe
+  const groupStyle: React.CSSProperties = {
+    marginRight: (busPosition === 'none' || busPosition === 'last') ? '16px' : '0px'
+  };
+  if (busPosition !== 'none' && track.busId) {
+    const busColor = getBusColor(String(track.busId), tracks, instrumentsConfig);
+    const cleanHex = busColor.replace('#', '');
+    const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
+    const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
+    const b = parseInt(cleanHex.substring(4, 6), 16) || 26;
+    const bgAlpha = `rgba(${r}, ${g}, ${b}, 0.03)`;
+
+    groupStyle.backgroundColor = bgAlpha;
+    groupStyle.borderTop = `3px solid ${busColor}`;
+    groupStyle.borderBottom = `3px solid ${busColor}`;
+
+    if (busPosition === 'first') {
+      groupStyle.borderLeft = `3px solid ${busColor}`;
+      groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
+    } else if (busPosition === 'middle') {
+      groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
+      groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
+    } else if (busPosition === 'last') {
+      groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
+      groupStyle.borderRight = `3px solid ${busColor}`;
+    }
+  }
 
   // Style hachuré Cordel / Xilogravura pour distinction forte
   const hatchedBgStyle = {
     background: `repeating-linear-gradient(
       45deg,
-      rgba(0, 0, 0, 0.03),
-      rgba(0, 0, 0, 0.03) 8px,
-      rgba(0, 0, 0, 0.08) 8px,
-      rgba(0, 0, 0, 0.08) 16px
+      rgba(0, 0, 0, 0.02),
+      rgba(0, 0, 0, 0.02) 8px,
+      rgba(0, 0, 0, 0.05) 8px,
+      rgba(0, 0, 0, 0.05) 16px
     )`,
-    border: '2px dashed var(--cordel-border)',
+    ...groupStyle,
+    borderTop: busPosition === 'none' ? '2px dashed var(--cordel-border)' : groupStyle.borderTop,
+    borderBottom: busPosition === 'none' ? '2px dashed var(--cordel-border)' : groupStyle.borderBottom,
+    borderLeft: busPosition === 'none' ? '2px dashed var(--cordel-border)' : groupStyle.borderLeft,
+    borderRight: busPosition === 'none' ? '2px dashed var(--cordel-border)' : groupStyle.borderRight,
   };
 
   return (
     <div 
       ref={setNodeRef} 
-      style={style}
-      className="flex flex-col bg-[var(--cordel-bg)] cordel-border w-[210px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-all duration-300 cordel-linked-track-container"
+      style={{ ...style, ...groupStyle }}
+      className={`flex flex-col bg-[var(--cordel-bg)] w-[210px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-all duration-300 cordel-linked-track-container ${
+        busPosition === 'none' ? 'cordel-border' : ''
+      }`}
     >
       <div 
-        className="relative p-2 pb-1.5 flex flex-col gap-1.5 border-b-[3px] border-[var(--cordel-border)]"
+        className="relative p-2 pb-1.5 flex flex-col gap-1.5 border-b-[3px] border-[var(--cordel-border)] h-[82px] shrink-0 flex flex-col justify-between"
         style={{ zIndex: instDropdownOpen ? 40 : 10 }}
       >
         {/* Ligne 1 : Outils */}
@@ -229,6 +269,57 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
                   </div>
                 );
               })}
+
+              {/* Section Audio Bussing */}
+              <div className="text-[10px] uppercase opacity-60 font-bold px-3 py-1 bg-[var(--cordel-text)]/5 border-t border-b border-[var(--cordel-border)]/20 mt-1">
+                📁 {lang === 'fr' ? 'Bus / Groupes' : 'Bus / Grupos'}
+              </div>
+
+              {/* Option 1: Créer un groupe avec cet instrument */}
+              <div
+                onClick={() => {
+                  const busName = window.prompt(lang === 'fr' ? 'Nom du groupe :' : 'Nome do grupo:', 'Alfaias');
+                  if (busName && busName.trim()) {
+                    useSequencerStore.getState().handleCreateBus(trackId, busName.trim());
+                  }
+                  setInstDropdownOpen(false);
+                }}
+                className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold text-green-700 dark:text-green-400"
+              >
+                📁 {lang === 'fr' ? 'Créer un groupe avec cet instrument' : 'Criar um grupo com este instrumento'}
+              </div>
+
+              {/* Option 2: Quitter le Bus s'il y est affecté */}
+              {track.busId && (
+                <div
+                  onClick={() => {
+                    useSequencerStore.getState().handleAssignToBus(trackId, null);
+                    setInstDropdownOpen(false);
+                  }}
+                  className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-xs font-bold text-[#8b2a1a]"
+                >
+                  ✕ {lang === 'fr' ? 'Quitter le Bus/Groupe' : 'Sair do Bus/Grupo'}
+                </div>
+              )}
+
+              {/* Option 3: Liste des Bus existants à rejoindre */}
+              {tracks.filter(t => t.isBusFolder && t.id !== trackId).map((bus) => {
+                const busIdx = tracks.findIndex(t => t.id === bus.id);
+                return (
+                  <div
+                    key={bus.id}
+                    onClick={() => {
+                      useSequencerStore.getState().handleAssignToBus(trackId, String(bus.id));
+                      setInstDropdownOpen(false);
+                    }}
+                    className={`px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold truncate ${
+                      String(track.busId) === String(bus.id) ? 'bg-[var(--cordel-text)]/10' : ''
+                    }`}
+                  >
+                    📁 {bus.customName || 'Bus'} ({busIdx + 1})
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -244,20 +335,24 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
             <Link size={18} className="animate-pulse" />
           </div>
           <span className="font-cactus font-bold text-[11px] uppercase tracking-wider text-[var(--cordel-text)]">
-            {lang === 'fr' ? 'Partition Liée' : 'Pauta Vinculada'}
+            {track.isLinkMaster 
+              ? (lang === 'fr' ? 'Instrument Maître' : 'Instrumento Mestre')
+              : (lang === 'fr' ? 'Instrument Esclave' : 'Instrumento Escravo')}
           </span>
           <span className="text-[9px] font-bold text-[var(--cordel-text)]/70 leading-snug">
-            {lang === 'fr' 
-              ? `Partagée avec ${masterName} (${masterIndex >= 0 ? masterIndex + 1 : '?'})`
-              : `Compartilhado com ${masterName} (${masterIndex >= 0 ? masterIndex + 1 : '?'})`}
+            {track.isLinkMaster 
+              ? (lang === 'fr' ? 'Contrôle la partition du groupe' : 'Controla a partitura do grupo')
+              : (lang === 'fr' 
+                  ? `Suit la partition du groupe (${masterName})` 
+                  : `Segue a partitura do grupo (${masterName})`)}
           </span>
         </div>
       </div>
 
       {/* Visual Only Timeline alternative / Barre de statut de liaison */}
-      <div className="px-3 py-1.5 bg-[var(--cordel-bg)] border-b-[3px] border-[var(--cordel-border)] shrink-0 flex items-center justify-center gap-1">
+      <div className="h-[48px] bg-[var(--cordel-bg)] border-b-[3px] border-[var(--cordel-border)] shrink-0 flex items-center justify-center gap-1">
         <span className="text-[8px] font-extrabold uppercase tracking-widest text-[var(--cordel-text)]/40 flex items-center gap-1">
-          🔒 SLAVE MODE
+          {track.isLinkMaster ? '👑 MESTRE' : '🔒 ESCRAVO'}
         </span>
       </div>
 
@@ -325,6 +420,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
         <div className="flex flex-col items-center gap-1.5 h-full">
           <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
           <VUMeter
+            trackId={trackId}
             instrumentId={inst.id}
             isPlaying={isPlaying && isActive}
             isActive={isActive}
