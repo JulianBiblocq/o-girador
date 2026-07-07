@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense, useTransition } from 'react';
 import { useGameData } from './contexts/GameDataContext';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from './contexts/SequencerContext';
@@ -35,6 +35,7 @@ const LoadSectionModal = lazy(() => import('./components/CloudSectionModals').th
 import { Home } from './components/Home';
 const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
 const AdminPanel = lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
+const InstrumentDetailEditor = lazy(() => import('./components/InstrumentDetailEditor').then(m => ({ default: m.InstrumentDetailEditor })));
 
 import { Pattern, SongSection, TimeSignature, CloudRhythmSignal } from './types';
 import { exportTablatureFile, printTablature, printLegendOnly } from './utils/exportTablature';
@@ -176,6 +177,27 @@ export default function App() {
     return true; // default to true
   });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
+  const isDetailView = editingTrackId !== null;
+  const [isDetailViewDeferred, setIsDetailViewDeferred] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (isDetailView) {
+      setIsDetailViewDeferred(true);
+    } else {
+      const id = setTimeout(() => {
+        setIsDetailViewDeferred(false);
+      }, 50);
+      return () => clearTimeout(id);
+    }
+  }, [isDetailView]);
+
+  const handleSetEditingTrackId = React.useCallback((id: number | null) => {
+    startTransition(() => {
+      setEditingTrackId(id);
+    });
+  }, []);
 
   const queryClient = useQueryClient();
   const { data: cloudPresetsData } = useCloudPresets({
@@ -674,6 +696,8 @@ export default function App() {
                 onLoadLibraryPattern={handleLoadLibraryPattern}
                 canPaste={!!sequencer.copiedPattern}
                 isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'mixer')}
+                editingTrackId={editingTrackId}
+                setEditingTrackId={handleSetEditingTrackId}
               />
             </ErrorBoundary>
           </div>
@@ -714,33 +738,39 @@ export default function App() {
           className="flex-1 min-w-0 flex flex-col h-full overflow-x-auto overflow-y-hidden custom-scrollbar"
           style={{ display: viewMode === 'console' ? 'flex' : 'none' }}
         >
-          <ErrorBoundary fallback={renderFallback('Mixeur Console', 'Mesa de Som')}>
-            <Suspense fallback={null}>
-              <ConsoleMixer
-                isMobile={isMobile}
-                onStepTouchStart={handleStepTouchStart}
-                isActive={viewMode === 'console'}
-              />
-            </Suspense>
-          </ErrorBoundary>
+          {!isDetailViewDeferred && (
+            <ErrorBoundary fallback={renderFallback('Mixeur Console', 'Mesa de Som')}>
+              <Suspense fallback={null}>
+                <ConsoleMixer
+                  isMobile={isMobile}
+                  onStepTouchStart={handleStepTouchStart}
+                  isActive={viewMode === 'console'}
+                  editingTrackId={editingTrackId}
+                  setEditingTrackId={handleSetEditingTrackId}
+                />
+              </Suspense>
+            </ErrorBoundary>
+          )}
         </div>
 
         {/* TIMELINE VIEW */}
         <div style={{ display: viewMode === 'timeline' ? 'flex' : 'none', flex: 1, minWidth: 0, flexDirection: 'column', height: '100%' }}>
-          <ErrorBoundary fallback={renderFallback('Linha do Tempo / Timeline', 'Linha do Tempo')}>
-            <Suspense fallback={null}>
-              <TimelineSequencer
-                isMobile={isMobile}
-                measureWidth={measureWidth}
-                onMeasureWidthChange={setMeasureWidth}
-                onExportTablature={handleExportTablature}
-                onSaveCloudSection={setSectionToSave}
-                onLoadCloudSection={setLoadSectionInsertMeasure}
-                mestreSignals={filteredMestreSignals}
-                isActive={viewMode === 'timeline'}
-              />
-            </Suspense>
-          </ErrorBoundary>
+          {!isDetailViewDeferred && (
+            <ErrorBoundary fallback={renderFallback('Linha do Tempo / Timeline', 'Linha do Tempo')}>
+              <Suspense fallback={null}>
+                <TimelineSequencer
+                  isMobile={isMobile}
+                  measureWidth={measureWidth}
+                  onMeasureWidthChange={setMeasureWidth}
+                  onExportTablature={handleExportTablature}
+                  onSaveCloudSection={setSectionToSave}
+                  onLoadCloudSection={setLoadSectionInsertMeasure}
+                  mestreSignals={filteredMestreSignals}
+                  isActive={viewMode === 'timeline'}
+                />
+              </Suspense>
+            </ErrorBoundary>
+          )}
         </div>
 
         {viewMode === 'quiz' && (
@@ -961,6 +991,78 @@ export default function App() {
           />
         )}
       </Suspense>
+
+      {/* Instrument Detail Editor Overlay (Root Level) */}
+      {editingTrackId !== null && (
+        <Suspense fallback={null}>
+          <InstrumentDetailEditor
+            lang={sequencer.lang}
+            isLeftHanded={sequencer.isLeftHanded}
+            trackId={editingTrackId}
+            onClose={() => handleSetEditingTrackId(null)}
+            onStepValueChange={sequencer.handleTrackStepValueChange}
+            onStepKeyDown={sequencer.handleTrackStepKeyDown}
+            onStepsChange={sequencer.handleTrackStepsChange}
+            onVoiceTypeToggle={sequencer.handleVoiceTypeToggle}
+            onVoiceSylChange={sequencer.handleVoiceSylChange}
+            onVoiceNoteChange={sequencer.handleVoiceNoteChange}
+            onVoiceNoteBlur={sequencer.handleVoiceNoteBlur}
+            onAddPattern={() => sequencer.handleTrackAddPattern && sequencer.handleTrackAddPattern(editingTrackId)}
+            onDeletePattern={(pid) => sequencer.handleTrackDeletePattern && sequencer.handleTrackDeletePattern(editingTrackId, pid)}
+            onSelectPattern={(pid) => sequencer.handleTrackSelectPattern && sequencer.handleTrackSelectPattern(editingTrackId, pid)}
+            onReorderPatternsDnd={(oldIdx, newIdx) => sequencer.handleReorderPatternsDnd && sequencer.handleReorderPatternsDnd(editingTrackId, oldIdx, newIdx)}
+            onAddPatternVariation={sequencer.handleAddPatternVariation}
+            onUpdatePatternVariationProbability={sequencer.handleUpdatePatternVariationProbability}
+            onTogglePatternVariationFirstTimeOnly={sequencer.handleTogglePatternVariationFirstTimeOnly}
+            onVariationStepValueChange={sequencer.handleVariationStepValueChange}
+            onDeletePatternVariation={sequencer.handleDeletePatternVariation}
+            onPatternAssign={(pid, mIdx, val) => sequencer.handlePatternAssign && sequencer.handlePatternAssign(editingTrackId, pid, mIdx, val)}
+            onVolumeChange={(val) => sequencer.handleTrackVolumeChange(editingTrackId, val)}
+            onMuteToggle={() => sequencer.handleTrackMuteToggle(editingTrackId)}
+            onSoloToggle={() => sequencer.handleTrackSoloToggle(editingTrackId)}
+            onStepVolumeChange={sequencer.handleTrackStepVolumeChange}
+            onStepDecayChange={sequencer.handleTrackStepDecayChange}
+            onStepMicrotimingChange={sequencer.handleTrackStepMicrotimingChange}
+            onVariationStepVolumeChange={sequencer.handleVariationStepVolumeChange}
+            onVariationStepDecayChange={sequencer.handleVariationStepDecayChange}
+            onVariationStepMicrotimingChange={sequencer.handleVariationStepMicrotimingChange}
+            globalSwing={audio.globalSwing}
+            isPlaying={audio.isPlaying}
+            currentStepIndex={audio.currentStepIndex}
+            currentMeasure={useSequencerStore.getState().currentMeasure}
+            maxTicks={audio.maxTicksRef.current}
+            totalMeasures={useSequencerStore.getState().totalMeasures}
+            isMobile={isMobile}
+            onStepTouchStart={handleStepTouchStart}
+            onCopyPattern={handleCopyPattern}
+            onPastePattern={(pid) => sequencer.handlePastePattern(editingTrackId, pid)}
+            onLoadLibraryPattern={(targetPtnId, libPattern) => sequencer.handleLoadLibraryPattern && sequencer.handleLoadLibraryPattern(editingTrackId, targetPtnId, libPattern)}
+            canPaste={!!sequencer.copiedPattern}
+            isRecordingVocal={sequencer.isRecordingVocal}
+            recordingVocalPatternId={sequencer.recordingVocalPatternId}
+            recordedPatternIds={sequencer.recordedPatternIds}
+            onStartVocalRecording={sequencer.startVocalRecording}
+            onStopVocalRecording={sequencer.stopVocalRecording}
+            onVocalModeChange={sequencer.handleVocalModeChange}
+            onDeleteVocalRecording={sequencer.handleDeleteVocalRecording}
+            onVocalLatencyChange={sequencer.handleVocalLatencyChange}
+            audioDevices={sequencer.audioDevices}
+            selectedAudioDeviceId={sequencer.selectedAudioDeviceId}
+            onAudioDeviceChange={sequencer.handleAudioDeviceChange}
+            onImportVocalFile={sequencer.handleImportVocalFile}
+            isVocalGuideEnabled={sequencer.isVocalGuideEnabled}
+            onVocalGuideToggle={sequencer.setIsVocalGuideEnabled}
+            onVocalBpmSyncToggle={sequencer.handleVocalBpmSyncToggle}
+            onPatternNameChange={(pid, name) => sequencer.handlePatternNameChange(editingTrackId, pid, name)}
+            soloPatternPlayId={audio.soloPatternPlayId}
+            soloPatternVariationId={audio.soloPatternVariationId}
+            onPlaySoloPattern={audio.handleStartSoloPattern}
+            onStopSoloPattern={audio.handleStopSoloPattern}
+            runAutoCalibration={audio.runAutoCalibration}
+            vocalCalibrationLatencyMs={audio.vocalCalibrationLatencyMs}
+          />
+        </Suspense>
+      )}
 
       {viewMode === 'roda' && (!isMobile || mobileTab === 'roda') && (
         <ErrorBoundary fallback={null}>

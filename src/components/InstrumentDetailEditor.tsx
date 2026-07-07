@@ -342,7 +342,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   useEffect(() => {
     return () => {
-      if (stopSoloRef.current) {
+      // Only stop playback on unmount if we were playing a solo pattern
+      if (soloPatternPlayIdRef.current !== null && stopSoloRef.current) {
         stopSoloRef.current();
       }
     };

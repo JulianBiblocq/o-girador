@@ -20,7 +20,6 @@ import {
 import { AudioFader } from './AudioFader';
 import { Pattern } from '../types';
 import { MixerChannel } from './MixerChannel';
-const InstrumentDetailEditor = lazy(() => import('./InstrumentDetailEditor').then(m => ({ default: m.InstrumentDetailEditor })));
 import { i18n, instrumentsConfig } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
@@ -50,12 +49,16 @@ interface ConsoleMixerProps {
     currentVal: string | number,
     onSelect: (val: string) => void
   ) => void;
+  editingTrackId: number | null;
+  setEditingTrackId: (id: number | null) => void;
 }
 
 const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   isMobile,
   isActive = true,
   onStepTouchStart,
+  editingTrackId,
+  setEditingTrackId,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -215,7 +218,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   }, [isPlaying, isActive]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
+  const isEditingTrackValid = useSequencerStore(state => state.tracks.some(t => t.id === editingTrackId));
 
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
@@ -819,77 +822,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           </div>
         </div>
       </div>
-
-      {editingTrackId !== null && (
-        <Suspense fallback={null}>
-          <InstrumentDetailEditor
-            isMobile={isMobile}
-            lang={lang}
-            isLeftHanded={isLeftHanded}
-            trackId={editingTrackId}
-            onClose={memoizedOnClose}
-            onNavigatePrev={memoizedOnNavigatePrev}
-            onNavigateNext={memoizedOnNavigateNext}
-            soloPatternPlayId={soloPatternPlayId}
-            soloPatternVariationId={soloPatternVariationId}
-            onStepTouchStart={onStepTouchStart}
-            onPlaySoloPattern={handleStartSoloPattern}
-            onStopSoloPattern={handleStopSoloPattern}
-            onStepValueChange={memoizedOnStepValueChange}
-            onStepKeyDown={memoizedOnStepKeyDown}
-            onStepsChange={memoizedOnStepsChange}
-            onVoiceTypeToggle={memoizedOnVoiceTypeToggle}
-            onVoiceSylChange={memoizedOnVoiceSylChange}
-            onVoiceNoteChange={memoizedOnVoiceNoteChange}
-            onVoiceNoteBlur={memoizedOnVoiceNoteBlur}
-            onAddPattern={memoizedOnAddPattern}
-            onDeletePattern={memoizedOnDeletePattern}
-            onReorderPatternsDnd={memoizedOnReorderPatternsDnd}
-            onAddPatternVariation={memoizedOnAddPatternVariation}
-            onUpdatePatternVariationProbability={memoizedOnUpdatePatternVariationProbability}
-            onTogglePatternVariationFirstTimeOnly={memoizedOnTogglePatternVariationFirstTimeOnly}
-            onVariationStepValueChange={memoizedOnVariationStepValueChange}
-            onVariationStepVolumeChange={memoizedOnVariationStepVolumeChange}
-            onVariationStepDecayChange={memoizedOnVariationStepDecayChange}
-            onVariationStepMicrotimingChange={memoizedOnVariationStepMicrotimingChange}
-            onDeletePatternVariation={memoizedOnDeletePatternVariation}
-            onSelectPattern={memoizedOnSelectPattern}
-            onPatternAssign={memoizedOnPatternAssign}
-            onVolumeChange={memoizedOnVolumeChange}
-            onMuteToggle={memoizedOnMuteToggle}
-            onSoloToggle={memoizedOnSoloToggle}
-            onStepVolumeChange={memoizedOnStepVolumeChange}
-            onStepDecayChange={memoizedOnStepDecayChange}
-            onStepMicrotimingChange={memoizedOnStepMicrotimingChange}
-            globalSwing={globalSwing}
-            isPlaying={isPlaying}
-            currentMeasure={useSequencerStore.getState().currentMeasure}
-            maxTicks={maxTicks}
-            totalMeasures={totalMeasures}
-            onCopyPattern={handleCopyPattern}
-            onPastePattern={memoizedOnPastePattern}
-            onLoadLibraryPattern={memoizedOnLoadLibraryPattern}
-            canPaste={!!copiedPattern}
-            isRecordingVocal={isRecordingVocal}
-            recordingVocalPatternId={recordingVocalPatternId}
-            recordedPatternIds={recordedPatternIds}
-            onStartVocalRecording={onStartVocalRecording}
-            onStopVocalRecording={onStopVocalRecording}
-            onVocalModeChange={onVocalModeChange}
-            onDeleteVocalRecording={onDeleteVocalRecording}
-            onVocalLatencyChange={onVocalLatencyChange}
-            audioDevices={audioDevices}
-            selectedAudioDeviceId={selectedAudioDeviceId}
-            onAudioDeviceChange={onAudioDeviceChange}
-            onImportVocalFile={onImportVocalFile}
-            isVocalGuideEnabled={isVocalGuideEnabled}
-            onVocalGuideToggle={onVocalGuideToggle}
-            onVocalBpmSyncToggle={onVocalBpmSyncToggle}
-            onPatternNameChange={memoizedOnPatternNameChange}
-            vocalCalibrationLatencyMs={vocalCalibrationLatencyMs}
-          />
-        </Suspense>
-      )}
     </div>
   );
 };

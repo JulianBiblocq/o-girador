@@ -180,9 +180,220 @@ const PercussionStepCell = React.memo(({
     prevProps.totalShift === nextProps.totalShift &&
     prevProps.colorStyle.backgroundColor === nextProps.colorStyle.backgroundColor &&
     prevProps.colorStyle.color === nextProps.colorStyle.color &&
-    prevProps.isMultiSelectActive === nextProps.isMultiSelectActive
+    prevProps.isMultiSelectActive === nextProps.isMultiSelectActive &&
+    prevProps.isSextuplet === nextProps.isSextuplet &&
+    prevProps.isTriplet === nextProps.isTriplet &&
+    prevProps.indexInGroup === nextProps.indexInGroup &&
+    prevProps.trackId === nextProps.trackId
   );
 });
+
+interface VoiceStepCellProps {
+  i: number;
+  steps: number;
+  trackId: number;
+  patternId: number;
+  state: string | number;
+  syl: string;
+  note: string;
+  isSelected: boolean;
+  isMultiSelectActive: boolean;
+  manualMicro: number;
+  totalShift: number;
+  shiftPx: number;
+  isLinked: boolean;
+  volume: number;
+  decay: number;
+  
+  onTouchStart: (e: React.TouchEvent<HTMLDivElement>, index: number) => void;
+  onMouseDown: (e: React.MouseEvent<HTMLDivElement>, index: number) => void;
+  onMouseEnter: (index: number) => void;
+  onVoiceTypeToggle: (trackId: number, patternId: number, index: number) => void;
+  onVoiceSylChange: (trackId: number, patternId: number, index: number, value: string) => void;
+  onVoiceNoteChange: (trackId: number, patternId: number, index: number, value: string) => void;
+  onVoiceNoteBlur: (trackId: number, patternId: number, index: number, value: string) => void;
+  onFocusStep: (index: number) => void;
+  onNoteSelectorTarget: (target: { patternId: number; stepIdx: number; note: string; element: HTMLInputElement }) => void;
+  onVoiceNav: (target: HTMLInputElement, key: string, field: 'syl' | 'note') => void;
+}
+
+const VoiceStepCellComponent = ({
+  i,
+  steps,
+  trackId,
+  patternId,
+  state,
+  syl,
+  note,
+  isSelected,
+  isMultiSelectActive,
+  manualMicro,
+  totalShift,
+  shiftPx,
+  isLinked,
+  volume,
+  decay,
+  onTouchStart,
+  onMouseDown,
+  onMouseEnter,
+  onVoiceTypeToggle,
+  onVoiceSylChange,
+  onVoiceNoteChange,
+  onVoiceNoteBlur,
+  onFocusStep,
+  onNoteSelectorTarget,
+  onVoiceNav
+}: VoiceStepCellProps) => {
+  const isActive = state !== 0;
+  const isPux = state === 'P';
+  const typeText = isActive ? (isPux ? '🗣️ Pux' : '👥 Coro') : '---';
+  const typeClass = isActive ? 'text-white' : 'bg-transparent text-[#666]';
+  const typeStyle = isActive
+    ? { backgroundColor: isPux ? '#8b2a1a' : '#2980b9', color: '#ffffff' }
+    : {};
+
+  return (
+    <div className="relative" style={{ width: '56px' }}>
+      {/* Axis vertical centerline (0%) behind steps */}
+      <div className="absolute top-[20px] bottom-[10px] left-1/2 w-0 border-l border-dashed border-[#1a1a1a]/30 -translate-x-1/2 pointer-events-none z-0" />
+      
+      {isLinked && (
+        <div className="absolute top-[48px] -right-[12px] w-[14px] h-[3px] bg-[#8b2a1a]/60 z-20 pointer-events-none rounded-sm" />
+      )}
+      
+      <div
+        className={`v-card flex flex-col bg-[#f4ecd8] cordel-border-sm overflow-hidden z-10 relative transition-all duration-100 ${
+          isSelected
+            ? 'border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f]'
+            : 'border-[#1a1a1a]'
+        }`}
+        style={{
+          width: '56px',
+          transform: `translateX(${shiftPx}px)`,
+        }}
+        data-track-id={trackId}
+        data-step-index={i}
+        data-step-type="voice"
+        onTouchStart={(e) => onTouchStart(e, i)}
+        onMouseDown={(e) => onMouseDown(e, i)}
+        onMouseEnter={() => onMouseEnter(i)}
+      >
+        {/* Step number */}
+        <div className="text-[8px] text-[#999] text-center font-bold bg-[#ece4d0] leading-tight py-0.5">
+          {i + 1}
+        </div>
+
+        {/* PUX / CORO toggle */}
+        <div
+          onClick={() => {
+            if (!isMultiSelectActive) {
+              onVoiceTypeToggle(trackId, patternId, i);
+            }
+          }}
+          className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`}
+          style={typeStyle}
+        >
+          {typeText}
+        </div>
+
+        {/* Syllable input */}
+        <input
+          type="text"
+          value={syl}
+          readOnly={isMultiSelectActive}
+          onChange={(e) => onVoiceSylChange(trackId, patternId, i, e.target.value)}
+          placeholder="-"
+          className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-[#1a1a1a] outline-none"
+          onFocus={() => {
+            if (!isMultiSelectActive) {
+              onFocusStep(i);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              onVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'syl');
+            } else if (['ArrowRight', 'ArrowLeft', 'Enter'].includes(e.key)) {
+              onVoiceNav(e.target as HTMLInputElement, e.key, 'syl');
+            }
+          }}
+        />
+
+        {/* Note input */}
+        <input
+          type="text"
+          value={note}
+          readOnly={isMultiSelectActive}
+          onChange={(e) => onVoiceNoteChange(trackId, patternId, i, e.target.value)}
+          onBlur={(e) => onVoiceNoteBlur(trackId, patternId, i, e.target.value)}
+          placeholder="C4"
+          className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase outline-none cursor-pointer hover:bg-black/5"
+          onFocus={(e) => {
+            if (!isMultiSelectActive) {
+              onFocusStep(i);
+              onNoteSelectorTarget({ patternId, stepIdx: i, note, element: e.currentTarget as any });
+            }
+          }}
+          onClick={(e) => {
+            if (!isMultiSelectActive) {
+              onNoteSelectorTarget({ patternId, stepIdx: i, note, element: e.currentTarget as any });
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              e.preventDefault();
+              onVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
+            } else if (['ArrowRight', 'ArrowLeft', 'Enter'].includes(e.key)) {
+              onVoiceNav(e.target as HTMLInputElement, e.key, 'note');
+            }
+          }}
+        />
+        {/* Sculpting micro-bars */}
+        <div className="w-full flex flex-col gap-[2px] p-[2px] bg-[#ece4d0] border-t border-[#1a1a1a]/20 shrink-0">
+          <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+            <div className="h-[2px] bg-green-600 rounded-none transition-all" style={{ width: `${volume}%` }} />
+          </div>
+          <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+            <div className="h-[2px] bg-amber-500 rounded-none transition-all" style={{ width: `${decay}%` }} />
+          </div>
+          <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
+            <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
+            {totalShift !== 0 && (
+              <div
+                className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
+                style={{
+                  left: totalShift > 0 ? '50%' : 'auto',
+                  right: totalShift < 0 ? '50%' : 'auto',
+                  width: `${Math.min(50, Math.abs(totalShift) / 2)}%`
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const areVoicePropsEqual = (prev: VoiceStepCellProps, next: VoiceStepCellProps) => {
+  return prev.i === next.i &&
+         prev.steps === next.steps &&
+         prev.trackId === next.trackId &&
+         prev.patternId === next.patternId &&
+         prev.state === next.state &&
+         prev.syl === next.syl &&
+         prev.note === next.note &&
+         prev.isSelected === next.isSelected &&
+         prev.isMultiSelectActive === next.isMultiSelectActive &&
+         prev.manualMicro === next.manualMicro &&
+         prev.totalShift === next.totalShift &&
+         prev.shiftPx === next.shiftPx &&
+         prev.isLinked === next.isLinked &&
+         prev.volume === next.volume &&
+         prev.decay === next.decay;
+};
+
+const VoiceStepCell = React.memo(VoiceStepCellComponent, areVoicePropsEqual);
 
 const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   trackId,
@@ -784,16 +995,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
               <div key={groupIdx} className="flex gap-4 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
                 {group.map((i) => {
                   const state = pattern?.activeSteps?.[i];
-                  const isActive = state !== 0;
-                  const isPux = state === 'P';
                   const syl = pattern?.lyrics?.[i] || '';
                   const note = pattern?.notes?.[i] || '';
-                  const typeText = isActive ? (isPux ? '🗣️ Pux' : '👥 Coro') : '---';
-                  const typeClass = isActive ? 'text-white' : 'bg-transparent text-[#666]';
-                  const typeStyle = isActive
-                    ? { backgroundColor: isPux ? '#8b2a1a' : '#2980b9', color: '#ffffff' }
-                    : {};
-
                   const isSelected = selectedStepIndices.includes(i);
 
                   // Calculate total micro-timing shift (manual + global swing)
@@ -805,139 +1008,49 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                   const isLinked = syl && !syl.endsWith(' ') && i < (pattern?.steps ?? 16) - 1 && (pattern?.lyrics?.[i + 1] || '').trim() !== '';
 
                   return (
-                    <div key={i} className="relative" style={{ width: '56px' }}>
-                      {/* Axis vertical centerline (0%) behind steps */}
-                      <div className="absolute top-[20px] bottom-[10px] left-1/2 w-0 border-l border-dashed border-[#1a1a1a]/30 -translate-x-1/2 pointer-events-none z-0" />
-                      
-                      {isLinked && (
-                        <div className="absolute top-[48px] -right-[12px] w-[14px] h-[3px] bg-[#8b2a1a]/60 z-20 pointer-events-none rounded-sm" />
-                      )}
-                      
-                      <div
-                        className={`v-card flex flex-col bg-[#f4ecd8] cordel-border-sm overflow-hidden z-10 relative transition-all duration-100 ${
-                          isSelected
-                            ? 'border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f]'
-                            : 'border-[#1a1a1a]'
-                        }`}
-                        style={{
-                          width: '56px',
-                          transform: `translateX(${shiftPx}px)`,
-                        }}
-                        data-track-id={trackId}
-                        data-step-index={i}
-                        data-step-type="voice"
-                        onTouchStart={(e) => {
-                          if (isMultiSelectActive) {
-                            handleStepTouchStartMulti(e, i);
-                          }
-                        }}
-                        onMouseDown={(e) => {
-                          if (isMultiSelectActive) {
-                            handleStepMouseDownMulti(e, i);
-                          }
-                        }}
-                        onMouseEnter={() => {
-                          if (isMultiSelectActive) {
-                            handleStepMouseEnterMulti(i);
-                          }
-                        }}
-                      >
-                        {/* Step number */}
-                        <div className="text-[8px] text-[#999] text-center font-bold bg-[#ece4d0] leading-tight py-0.5">
-                          {i + 1}
-                        </div>
-
-                        {/* PUX / CORO toggle */}
-                        <div
-                          onClick={() => {
-                            if (!isMultiSelectActive) {
-                              handleVoiceTypeToggle(trackId, pattern.id, i);
-                            }
-                          }}
-                          className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`}
-                          style={typeStyle}
-                        >
-                          {typeText}
-                        </div>
-
-                        {/* Syllable input */}
-                        <input
-                          type="text"
-                          value={syl}
-                          readOnly={isMultiSelectActive}
-                          onChange={(e) => handleVoiceSylChange(trackId, pattern.id, i, e.target.value)}
-                          placeholder="-"
-                          className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-[#1a1a1a] outline-none"
-                          onFocus={() => {
-                            if (!isMultiSelectActive) {
-                              setSelectedStepIdx(i);
-                              setSelectedPatternId(pattern.id);
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Tab') {
-                              e.preventDefault();
-                              handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'syl');
-                            } else if (['ArrowRight', 'ArrowLeft', 'Enter'].includes(e.key)) {
-                              handleVoiceNav(e.target as HTMLInputElement, e.key, 'syl');
-                            }
-                          }}
-                        />
-
-                        {/* Note input */}
-                        <input
-                          type="text"
-                          value={note}
-                          readOnly={isMultiSelectActive}
-                          onChange={(e) => handleVoiceNoteChange(trackId, pattern.id, i, e.target.value)}
-                          onBlur={(e) => handleVoiceNoteBlur(trackId, pattern.id, i, e.target.value)}
-                          placeholder="C4"
-                          className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase outline-none cursor-pointer hover:bg-black/5"
-                          onFocus={(e) => {
-                            if (!isMultiSelectActive) {
-                              setSelectedStepIdx(i);
-                              setSelectedPatternId(pattern.id);
-                              setNoteSelectorTarget({ patternId: pattern.id, stepIdx: i, note, element: e.currentTarget });
-                            }
-                          }}
-                          onClick={(e) => {
-                            if (!isMultiSelectActive) {
-                              setNoteSelectorTarget({ patternId: pattern.id, stepIdx: i, note, element: e.currentTarget });
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Tab') {
-                              e.preventDefault();
-                              handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
-                            } else if (['ArrowRight', 'ArrowLeft', 'Enter'].includes(e.key)) {
-                              handleVoiceNav(e.target as HTMLInputElement, e.key, 'note');
-                            }
-                          }}
-                        />
-                        {/* Sculpting micro-bars */}
-                        <div className="w-full flex flex-col gap-[2px] p-[2px] bg-[#ece4d0] border-t border-[#1a1a1a]/20 shrink-0">
-                          <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-                            <div className="h-[2px] bg-green-600 rounded-none transition-all" style={{ width: `${pattern.volumes?.[i] ?? 100}%` }} />
-                          </div>
-                          <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-                            <div className="h-[2px] bg-amber-500 rounded-none transition-all" style={{ width: `${pattern.decays?.[i] ?? 100}%` }} />
-                          </div>
-                          <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
-                            <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
-                            {totalShift !== 0 && (
-                              <div
-                                className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
-                                style={{
-                                  left: totalShift > 0 ? '50%' : 'auto',
-                                  right: totalShift < 0 ? '50%' : 'auto',
-                                  width: `${Math.min(50, Math.abs(totalShift) / 2)}%`
-                                }}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <VoiceStepCell
+                      key={i}
+                      i={i}
+                      steps={pattern?.steps ?? 16}
+                      trackId={trackId}
+                      patternId={pattern.id}
+                      state={state}
+                      syl={syl}
+                      note={note}
+                      isSelected={isSelected}
+                      isMultiSelectActive={isMultiSelectActive}
+                      manualMicro={manualMicro}
+                      totalShift={totalShift}
+                      shiftPx={shiftPx}
+                      isLinked={isLinked}
+                      volume={pattern.volumes?.[i] ?? 100}
+                      decay={pattern.decays?.[i] ?? 100}
+                      onTouchStart={(e) => {
+                        if (isMultiSelectActive) {
+                          handleStepTouchStartMulti(e as any, i);
+                        }
+                      }}
+                      onMouseDown={(e) => {
+                        if (isMultiSelectActive) {
+                          handleStepMouseDownMulti(e as any, i);
+                        }
+                      }}
+                      onMouseEnter={(idx) => {
+                        if (isMultiSelectActive) {
+                          handleStepMouseEnterMulti(idx);
+                        }
+                      }}
+                      onVoiceTypeToggle={handleVoiceTypeToggle}
+                      onVoiceSylChange={handleVoiceSylChange}
+                      onVoiceNoteChange={handleVoiceNoteChange}
+                      onVoiceNoteBlur={handleVoiceNoteBlur}
+                      onFocusStep={(idx) => {
+                        setSelectedStepIdx(idx);
+                        setSelectedPatternId(pattern.id);
+                      }}
+                      onNoteSelectorTarget={setNoteSelectorTarget}
+                      onVoiceNav={handleVoiceNav}
+                    />
                   );
                 })}
               </div>
