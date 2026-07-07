@@ -44,6 +44,7 @@ import {
 import { RhythmGridHighlighter } from './mestre-studio/RhythmGridHighlighter';
 import { useGameData } from '../contexts/GameDataContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useSequencerStore } from '../stores/useSequencerStore';
 import { 
   saveExerciseToCloud, 
   saveProgressionToCloud, 
@@ -216,13 +217,55 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
   const [rythmeLiveRewardVideoUrl, setRythmeLiveRewardVideoUrl] = useState('');
   const [rythmeLiveCordeCible, setRythmeLiveCordeCible] = useState<number>(0);
   const [rythmeLiveTotalMeasures, setRythmeLiveTotalMeasures] = useState<number>(1);
-  const [dicteeBpm, setDicteeBpm] = useState(DEFAULT_BPM);
+  const [dicteeBpm, setDicteeBpm] = useState(() => {
+    try {
+      const state = useSequencerStore.getState();
+      if (state && state.bpm) return state.bpm;
+    } catch (_) {}
+    return DEFAULT_BPM;
+  });
   const [dicteeBlocksCount, setDicteeBlocksCount] = useState<4 | 8 | 16>(4);
-  const [dicteeTotalMeasures, setDicteeTotalMeasures] = useState<number>(1);
-  const [dicteeTracks, setDicteeTracks] = useState<TrackGroup[]>(() => createInitialTracks('dictee'));
+  const [dicteeTotalMeasures, setDicteeTotalMeasures] = useState<number>(() => {
+    try {
+      const state = useSequencerStore.getState();
+      if (state && state.totalMeasures) return state.totalMeasures;
+    } catch (_) {}
+    return 1;
+  });
+  const [dicteeTracks, setDicteeTracks] = useState<TrackGroup[]>(() => {
+    try {
+      const state = useSequencerStore.getState();
+      if (state && state.tracks && state.tracks.length > 0) {
+        const cloned = JSON.parse(JSON.stringify(state.tracks));
+        return cloned.map((t: any) => {
+          const patterns = t.patterns || [];
+          return {
+            ...t,
+            patterns: patterns.map((p: any, idx: number) => {
+              const ma = Array(state.totalMeasures || 1).fill(false);
+              ma[idx] = true;
+              return {
+                ...p,
+                measureAssignments: ma
+              };
+            })
+          };
+        });
+      }
+    } catch (_) {}
+    return createInitialTracks('dictee');
+  });
   const [dicteeTargetInstrumentId, setDicteeTargetInstrumentId] = useState<string>('');
   const [dicteeCordeCible, setDicteeCordeCible] = useState<number>(0);
   const [dicteeMeasureIndex, setDicteeMeasureIndex] = useState<number>(0);
+  const [dicteeStartMeasure, setDicteeStartMeasure] = useState<number>(1);
+  const [dicteeEndMeasure, setDicteeEndMeasure] = useState<number>(() => {
+    try {
+      const state = useSequencerStore.getState();
+      if (state && state.totalMeasures) return Math.min(4, state.totalMeasures);
+    } catch (_) {}
+    return 4;
+  });
   const [dicteeBlockTags, setDicteeBlockTags] = useState<string[]>(Array(8).fill(''));
 
   // 4. L'Inspecteur State
@@ -254,7 +297,15 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
           measureAssignments: [true]
         });
       }
-      return { ...t, patterns: patterns.slice(0, dicteeTotalMeasures) };
+      const updatedPatterns = patterns.slice(0, dicteeTotalMeasures).map((pat, idx) => {
+        const ma = Array(dicteeTotalMeasures).fill(false);
+        ma[idx] = true;
+        return {
+          ...pat,
+          measureAssignments: ma
+        };
+      });
+      return { ...t, patterns: updatedPatterns };
     }));
   }, [dicteeTotalMeasures]);
 
@@ -559,7 +610,29 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
         }
       } else if (moduleName === 'dictee') {
         setDicteeBpm(bpm);
-        setDicteeTracks(loadedTracks);
+        const maxMeasures = loadedTracks.length > 0 ? (loadedTracks[0].patterns?.length || 1) : 1;
+        
+        // Sanitize loaded tracks to make sure each pattern is assigned to its index
+        const sanitizedTracks = loadedTracks.map((t: any) => {
+          const patterns = t.patterns || [];
+          return {
+            ...t,
+            patterns: patterns.map((p: any, idx: number) => {
+              const ma = Array(maxMeasures).fill(false);
+              ma[idx] = true;
+              return {
+                ...p,
+                measureAssignments: ma
+              };
+            })
+          };
+        });
+
+        setDicteeTotalMeasures(maxMeasures);
+        setDicteeStartMeasure(1);
+        setDicteeEndMeasure(Math.min(4, maxMeasures));
+        setDicteeMeasureIndex(0);
+        setDicteeTracks(sanitizedTracks);
       } else if (moduleName === 'rythme_live') {
         setRythmeLiveBpm(bpm);
         setRythmeLivePlaybackTracks(loadedTracks);
@@ -630,6 +703,16 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
   };
 
   const handleSaveToCloudSubmit = async (name: string) => {
+    if (activeTab === 'dictee') {
+      const source = dicteeMeasureIndex + 1;
+      if (source < dicteeStartMeasure || source > dicteeEndMeasure) {
+        const errorMsg = lang === 'fr'
+          ? `Erreur: La mesure source du pattern (compas ${source}) doit être comprise entre le compas de début (${dicteeStartMeasure}) et le compas de fin (${dicteeEndMeasure}).`
+          : `Erro: O compasso de origem do padrão (compasso ${source}) deve estar entre o compasso de início (${dicteeStartMeasure}) e o compasso de fim (${dicteeEndMeasure}).`;
+        alert(errorMsg);
+        throw new Error(errorMsg);
+      }
+    }
     const exportData = getExportDataForCurrentTab(activeTab);
     if (!exportData) throw new Error("No data");
 
@@ -793,20 +876,37 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
           setDicteeTitle(json.folheto_titre || '');
           setDicteeRewardVideoUrl(json.recompense_video_url || '');
           setDicteeBpm(json.bpm || DEFAULT_BPM);
-          if (json.nombre_de_blocs) setDicteeBlocksCount(json.nombre_de_blocs as 4 | 8);
-          if (json.blocs_a_ordonner) {
-            setDicteeBlockTags(Array.from({length: 8}).map((_, i) => json.blocs_a_ordonner[i]?.label || ''));
-          }
+          if (json.nombre_de_blocs) setDicteeBlocksCount(json.nombre_de_blocs as 4 | 8 | 16);
+          if (json.mesure_debut !== undefined) setDicteeStartMeasure(json.mesure_debut);
+          if (json.mesure_fin !== undefined) setDicteeEndMeasure(json.mesure_fin);
+          if (json.mesure_source !== undefined) setDicteeMeasureIndex(json.mesure_source - 1);
           if (json.sequence_audio && Array.isArray(json.sequence_audio)) {
+            const maxMeasures = json.sequence_audio.reduce((max: number, st: any) => {
+              const len = st.patterns?.length || 1;
+              return len > max ? len : max;
+            }, 1);
+            setDicteeTotalMeasures(maxMeasures);
+
             setDicteeTracks(prev => prev.map(t => {
                const saved = json.sequence_audio.find((st: any) => st.instrumentIdx === t.instrumentIdx);
                if (saved) {
-                 const savedActiveSteps = saved.patterns?.[0]?.activeSteps || saved.activeSteps || Array(16).fill(0);
-                 const savedLyrics = saved.patterns?.[0]?.lyrics || saved.lyrics || Array(16).fill('');
-                 const savedNotes = saved.patterns?.[0]?.notes || saved.notes || Array(16).fill('');
+                 const patterns = (saved.patterns || []).map((p: any) => ({
+                   activeSteps: p.activeSteps || Array(16).fill(0),
+                   lyrics: p.lyrics || Array(16).fill(''),
+                   notes: p.notes || Array(16).fill(''),
+                   volumes: p.volumes || Array(16).fill(80)
+                 }));
+                 while (patterns.length < maxMeasures) {
+                   patterns.push({
+                     activeSteps: Array(16).fill(0),
+                     lyrics: Array(16).fill(''),
+                     notes: Array(16).fill(''),
+                     volumes: Array(16).fill(80)
+                   });
+                 }
                  return {
                    ...t,
-                   patterns: [{ ...t.patterns[0], activeSteps: savedActiveSteps, lyrics: savedLyrics, notes: savedNotes }]
+                   patterns
                  };
                }
                return t;
@@ -1028,15 +1128,18 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
         bpm: Number(dicteeBpm) || DEFAULT_BPM,
         nombre_de_blocs: Number(dicteeBlocksCount) || 4,
         instrument_cible: dicteeTargetInstrumentId,
+        mesure_debut: dicteeStartMeasure,
+        mesure_fin: dicteeEndMeasure,
+        mesure_source: dicteeMeasureIndex + 1,
         sequence_audio: dicteeTracks.map(t => ({
           id: t.id,
           instrumentIdx: t.instrumentIdx,
-          patterns: [{
-            activeSteps: t.patterns[dicteeMeasureIndex]?.activeSteps || t.patterns[0]?.activeSteps,
-            lyrics: t.patterns[dicteeMeasureIndex]?.lyrics || t.patterns[0]?.lyrics,
-            notes: t.patterns[dicteeMeasureIndex]?.notes || t.patterns[0]?.notes,
-            volumes: t.patterns[dicteeMeasureIndex]?.volumes || t.patterns[0]?.volumes
-          }]
+          patterns: t.patterns.map(p => ({
+            activeSteps: p.activeSteps,
+            lyrics: p.lyrics,
+            notes: p.notes,
+            volumes: p.volumes
+          }))
         }))
       };
     } else if (tab === 'inspecteur') {
@@ -1101,6 +1204,16 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
   };
 
   const handleGenerateExercise = () => {
+    if (activeTab === 'dictee') {
+      const source = dicteeMeasureIndex + 1;
+      if (source < dicteeStartMeasure || source > dicteeEndMeasure) {
+        alert(lang === 'fr'
+          ? `Erreur: La mesure source du pattern (compas ${source}) doit être comprise entre le compas de début (${dicteeStartMeasure}) et le compas de fin (${dicteeEndMeasure}).`
+          : `Erro: O compasso de origem do padrão (compasso ${source}) deve estar entre o compasso de início (${dicteeStartMeasure}) e o compasso de fim (${dicteeEndMeasure}).`
+        );
+        return;
+      }
+    }
     const exportData = getExportDataForCurrentTab(activeTab);
     if (!exportData) return;
 
@@ -1169,25 +1282,24 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
       </div>
 
       {/* Playback controls (visible on tabs containing sequencers) */}
-      {(activeTab === 'dictee' || activeTab === 'inspecteur' || activeTab === 'rythmelive') && (
+      {(activeTab === 'inspecteur' || activeTab === 'rythmelive') && (
         <div className="flex items-center gap-4 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] p-3 cordel-border-sm w-full max-w-sm self-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-xs uppercase tracking-wider text-[var(--cordel-text)]/70">Tempo:</span>
-            <input
-              type="number"
-              value={activeBpm}
-              min={50}
-              max={200}
-              onChange={(e) => {
-                const val = Math.max(50, Math.min(200, Number(e.target.value) || DEFAULT_BPM));
-                if (activeTab === 'dictee') setDicteeBpm(val);
-                if (activeTab === 'inspecteur') setInspecteurBpm(val);
-                if (activeTab === 'rythmelive') setRythmeLiveBpm(val);
-              }}
-              className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded w-16 text-center font-bold text-sm focus:outline-none"
-            />
-            <span className="font-bold text-xs text-[var(--cordel-text)]/50">BPM</span>
-          </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-xs uppercase tracking-wider text-[var(--cordel-text)]/70">Tempo:</span>
+              <input
+                type="number"
+                value={activeBpm}
+                min={50}
+                max={200}
+                onChange={(e) => {
+                  const val = Math.max(50, Math.min(200, Number(e.target.value) || DEFAULT_BPM));
+                  if (activeTab === 'inspecteur') setInspecteurBpm(val);
+                  if (activeTab === 'rythmelive') setRythmeLiveBpm(val);
+                }}
+                className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded w-16 text-center font-bold text-sm focus:outline-none"
+              />
+              <span className="font-bold text-xs text-[var(--cordel-text)]/50">BPM</span>
+            </div>
 
           <button
             onClick={() => setStudioPlaying(!studioPlaying)}
@@ -1227,6 +1339,8 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
             handleDeleteVaral={handleDeleteVaral}
             cloudExercisesList={cloudExercisesList}
             handleLoadDraft={handleLoadDraft}
+            onSaveVaralToCloud={handleSaveVaralToCloud}
+            onGenerateLocal={handleGenerateExercise}
           />
         )}
 
@@ -1252,8 +1366,6 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
         {activeTab === 'dictee' && (
           <DicteeTab
             lang={lang}
-            dicteeCordeCible={dicteeCordeCible}
-            setDicteeCordeCible={setDicteeCordeCible}
             dicteeTitle={dicteeTitle}
             setDicteeTitle={setDicteeTitle}
             dicteeRewardVideoUrl={dicteeRewardVideoUrl}
@@ -1270,6 +1382,10 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
             setDicteeBlocksCount={setDicteeBlocksCount}
             dicteeMeasureIndex={dicteeMeasureIndex}
             setDicteeMeasureIndex={setDicteeMeasureIndex}
+            dicteeStartMeasure={dicteeStartMeasure}
+            setDicteeStartMeasure={setDicteeStartMeasure}
+            dicteeEndMeasure={dicteeEndMeasure}
+            setDicteeEndMeasure={setDicteeEndMeasure}
             presetFiles={presetFiles}
             localPresets={localPresets}
             handleLoadPresetToGame={handleLoadPresetToGame}

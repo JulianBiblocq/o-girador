@@ -211,7 +211,6 @@ export const InspecteurTab: React.FC<InspecteurTabProps> = ({
                 handleStepChangeGeneric(inspecteurPerfectTracks, setInspecteurPerfectTracks, trId, ptId, stIdx, nSt, lyr, nt);
               }}
               langPromptVoiceText=""
-              activePatternIdByTrack={getActivePatternMap(inspecteurPerfectTracks)}
               bpm={inspecteurBpm}
               measureBpms={[inspecteurBpm]}
               measureVols={[80]}
@@ -239,7 +238,6 @@ export const InspecteurTab: React.FC<InspecteurTabProps> = ({
                 handleStepChangeGeneric(inspecteurSabotagedTracks, setInspecteurSabotagedTracks, trId, ptId, stIdx, nSt, lyr, nt);
               }}
               langPromptVoiceText=""
-              activePatternIdByTrack={getActivePatternMap(inspecteurSabotagedTracks)}
               bpm={inspecteurBpm}
               measureBpms={[inspecteurBpm]}
               measureVols={[80]}

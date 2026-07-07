@@ -136,7 +136,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     setActiveKeyboardInstrumentId,
     handleTimeSigChange,
     masterVol, setMasterVol, masterEQ, setMasterEQ, masterCompressor, setMasterCompressor, reverbDecay, setReverbDecay, masterReverbVol, setMasterReverbVol,
-    metroVolume, setMetroVolume, metroSound, setMetroSound, isMetroOn, setIsMetroOn, globalSwing
+    metroVolume, setMetroVolume, metroSound, setMetroSound, isMetroOn, setIsMetroOn, globalSwing,
+    isPresetLoading
   } = audio;
 
   const maxTicks = maxTicksRef.current;
@@ -511,7 +512,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
   return (
     <div 
-      className="flex-1 flex flex-col h-full overflow-hidden"
+      className={`flex-1 flex flex-col h-full overflow-hidden transition-opacity duration-200 ${isPresetLoading ? 'pointer-events-none opacity-80' : ''}`}
       style={{ display: isActive ? 'flex' : 'none' }}
     >
       <div ref={scrollRef} className="flex-grow flex overflow-x-auto p-4 gap-4 custom-scrollbar">

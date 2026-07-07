@@ -194,7 +194,6 @@ export const RythmeLiveTab: React.FC<RythmeLiveTabProps> = ({
                 handleStepChangeGeneric(rythmeLivePlaybackTracks, setRythmeLivePlaybackTracks, trId, ptId, stIdx, nSt, lyr, nt);
               }}
               langPromptVoiceText=""
-              activePatternIdByTrack={getActivePatternMap(rythmeLivePlaybackTracks)}
               bpm={rythmeLiveBpm}
               measureBpms={[rythmeLiveBpm]}
               measureVols={[80]}
@@ -222,7 +221,6 @@ export const RythmeLiveTab: React.FC<RythmeLiveTabProps> = ({
                 handleStepChangeGeneric(rythmeLiveTargetTracks, setRythmeLiveTargetTracks, trId, ptId, stIdx, nSt, lyr, nt);
               }}
               langPromptVoiceText=""
-              activePatternIdByTrack={getActivePatternMap(rythmeLiveTargetTracks)}
               bpm={rythmeLiveBpm}
               measureBpms={[rythmeLiveBpm]}
               measureVols={[80]}

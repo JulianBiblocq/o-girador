@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, Award, Image as ImageIcon } from 'lucide-react';
+import { Trash2, Award, Image as ImageIcon, Cloud, Download } from 'lucide-react';
 import LZString from 'lz-string';
 import { Language } from '../../types';
 import { CordeConfig, GameSlot } from '../MestreStudio.types';
@@ -25,6 +25,8 @@ interface VaralTabProps {
   handleDeleteVaral: (id: string) => void;
   cloudExercisesList: CloudExercise[];
   handleLoadDraft: (e: React.ChangeEvent<HTMLInputElement>, type: string) => void;
+  onSaveVaralToCloud: () => void;
+  onGenerateLocal: () => void;
 }
 
 export const VaralTab: React.FC<VaralTabProps> = ({
@@ -47,6 +49,8 @@ export const VaralTab: React.FC<VaralTabProps> = ({
   handleDeleteVaral,
   cloudExercisesList,
   handleLoadDraft,
+  onSaveVaralToCloud,
+  onGenerateLocal,
 }) => {
   return (
     <div className="flex flex-col gap-6">
@@ -200,6 +204,37 @@ export const VaralTab: React.FC<VaralTabProps> = ({
             <option value={5}>5 Cordes</option>
           </select>
         </label>
+      </div>
+
+      {/* Action Bar for Saving and Publishing */}
+      <div className="border-4 border-[var(--cordel-wood)] bg-[var(--cordel-bg)] p-4 shadow-[4px_4px_0_var(--cordel-wood)] flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div className="flex flex-col gap-1 flex-grow w-full sm:w-auto">
+          <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/75">
+            {lang === 'fr' ? "Nom du Varal en cours d'édition" : 'Nome do Varal em edição'}
+          </label>
+          <input
+            type="text"
+            value={varalName}
+            onChange={(e) => setVaralName(e.target.value)}
+            className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded text-sm font-black w-full focus:outline-none focus:border-[var(--cordel-wood)]"
+          />
+        </div>
+        <div className="flex flex-wrap gap-3 w-full sm:w-auto shrink-0 justify-end mt-2 sm:mt-0">
+          <button
+            onClick={onSaveVaralToCloud}
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white border-2 border-blue-800 text-xs font-black tracking-wider uppercase flex items-center gap-1.5 cursor-pointer shadow-md rounded transition active:translate-y-0.5"
+          >
+            <Cloud className="w-4 h-4" />
+            {lang === 'fr' ? 'Sauvegarder dans le Cloud (Mettre à disposition)' : 'Salvar no Cloud (Publicar)'}
+          </button>
+          <button
+            onClick={onGenerateLocal}
+            className="px-4 py-2.5 bg-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/90 text-[var(--cordel-bg)] border-2 border-[var(--cordel-text)] text-xs font-black tracking-wider uppercase flex items-center gap-1.5 cursor-pointer shadow-md rounded transition active:translate-y-0.5"
+          >
+            <Download className="w-4 h-4" />
+            JSON
+          </button>
+        </div>
       </div>
 
       <p className="text-sm italic text-[var(--cordel-text)]/70 text-center">

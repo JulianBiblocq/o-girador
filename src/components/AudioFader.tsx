@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import type * as ToneType from 'tone';
 import { loadTone, getTone } from '@/src/ToneLoader';
 import { channels, reverbSends, masterVolumeNode, masterEQNode, masterCompressorNode, metroChannel, masterReverbVolumeNode, reverbNode } from '../hooks/useAudioSync';
@@ -17,22 +17,45 @@ interface AudioFaderProps extends Omit<React.InputHTMLAttributes<HTMLInputElemen
 }
 
 export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTarget, trackId, ...props }) => {
-  const [localVal, setLocalVal] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const isDraggingRef = useRef(false);
+  const lastAudioUpdateTimeRef = useRef(0);
+  const THROTTLE_MS = 25; // 40 Hz limit
 
-  useEffect(() => {
-    // Si l'utilisateur est en train de glisser sous son doigt,
-    // on ignore les mises à jour descendantes de Zustand pour éviter le saut visuel.
-    if (!isDraggingRef.current) {
-      setLocalVal(value);
+  const updateLabelText = (val: number) => {
+    const inputEl = inputRef.current;
+    if (!inputEl) return;
+    let label = inputEl.parentElement?.querySelector('.fader-val-label');
+    if (!label && inputEl.parentElement?.parentElement) {
+      label = inputEl.parentElement.parentElement.querySelector('.fader-val-label');
     }
-  }, [value]);
+    if (label) {
+      if (audioTarget === 'masterReverbVol' || audioTarget === 'masterVolume') {
+        label.textContent = val === -40 ? 'Mute' : `${val > 0 ? '+' : ''}${val} dB`;
+      } else if (audioTarget === 'trackVolume' || audioTarget === 'metroVolume') {
+        label.textContent = `${Math.round(val)}%`;
+      } else if (audioTarget === 'trackReverb') {
+        label.textContent = `${Math.round(val)}`;
+      } else if (audioTarget === 'eqLow' || audioTarget === 'eqMid' || audioTarget === 'eqHigh') {
+        label.textContent = `${val > 0 ? '+' : ''}${val} dB`;
+      } else if (audioTarget === 'compThreshold') {
+        label.textContent = `${val} dB`;
+      } else if (audioTarget === 'compRatio') {
+        label.textContent = `${val.toFixed(1)}:1`;
+      } else if (audioTarget === 'reverbDecay') {
+        label.textContent = `${val.toFixed(1)} s`;
+      }
+    }
+  };
 
-  const handleDrag = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    setLocalVal(val);
+  const updateAudio = (val: number, force = false) => {
+    const now = performance.now();
+    if (!force && now - lastAudioUpdateTimeRef.current < THROTTLE_MS) {
+      return;
+    }
+    lastAudioUpdateTimeRef.current = now;
 
     let instId: string | null = null;
     if (trackId !== undefined) {
@@ -45,7 +68,7 @@ export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTa
       }
     }
 
-    // Règle 1 : Mutation Audio Directe immédiate (Direct-to-WebAudio) avec 0.05s de lissage
+    // Direct-to-WebAudio with 0.05s smoothing
     if (audioTarget === 'trackVolume' && instId && channels[instId]) {
       const gain = Math.max(0.00001, val / 100);
       const db = val === 0 ? -Infinity : safeGetTone()!.gainToDb(gain);
@@ -61,15 +84,15 @@ export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTa
       const gain = Math.max(0.00001, val / 100);
       metroChannel.volume.rampTo(val === 0 ? -Infinity : safeGetTone()!.gainToDb(gain), 0.05);
     } else if (audioTarget === 'eqLow' && masterEQNode) {
-      masterEQNode.low.rampTo(val, 0.05);
+      masterEQNode.low.linearRampToValueAtTime(val, (safeGetTone()?.now() ?? 0) + 0.05);
     } else if (audioTarget === 'eqMid' && masterEQNode) {
-      masterEQNode.mid.rampTo(val, 0.05);
+      masterEQNode.mid.linearRampToValueAtTime(val, (safeGetTone()?.now() ?? 0) + 0.05);
     } else if (audioTarget === 'eqHigh' && masterEQNode) {
-      masterEQNode.high.rampTo(val, 0.05);
+      masterEQNode.high.linearRampToValueAtTime(val, (safeGetTone()?.now() ?? 0) + 0.05);
     } else if (audioTarget === 'compThreshold' && masterCompressorNode) {
-      masterCompressorNode.threshold.rampTo(val, 0.05);
+      masterCompressorNode.threshold.linearRampToValueAtTime(val, (safeGetTone()?.now() ?? 0) + 0.05);
     } else if (audioTarget === 'compRatio' && masterCompressorNode) {
-      masterCompressorNode.ratio.rampTo(val, 0.05);
+      masterCompressorNode.ratio.linearRampToValueAtTime(val, (safeGetTone()?.now() ?? 0) + 0.05);
     } else if (audioTarget === 'masterReverbVol' && masterReverbVolumeNode) {
       masterReverbVolumeNode.gain.rampTo(safeGetTone()?.dbToGain(val === -40 ? -Infinity : val), 0.05);
     } else if (audioTarget === 'reverbDecay' && reverbNode) {
@@ -79,35 +102,28 @@ export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTa
         console.warn("Error setting reverb decay:", err);
       }
     }
-
-    // Règle 1 (Bis) : Mutation directe du DOM (Vanilla JS) en dehors du cycle React pour le label
-    const container = e.target.closest('.flex-col') || e.target.parentElement;
-    if (container) {
-      const label = container.querySelector('.fader-val-label');
-      if (label) {
-        if (audioTarget === 'masterReverbVol' || audioTarget === 'masterVolume') {
-          label.textContent = val === -40 ? 'Mute' : `${val > 0 ? '+' : ''}${val} dB`;
-        } else if (audioTarget === 'trackVolume' || audioTarget === 'metroVolume') {
-          label.textContent = `${Math.round(val)}%`;
-        } else if (audioTarget === 'trackReverb') {
-          label.textContent = `${Math.round(val)}`;
-        } else if (audioTarget === 'eqLow' || audioTarget === 'eqMid' || audioTarget === 'eqHigh') {
-          label.textContent = `${val > 0 ? '+' : ''}${val} dB`;
-        } else if (audioTarget === 'compThreshold') {
-          label.textContent = `${val} dB`;
-        } else if (audioTarget === 'compRatio') {
-          label.textContent = `${val.toFixed(1)}:1`;
-        } else if (audioTarget === 'reverbDecay') {
-          label.textContent = `${val.toFixed(1)} s`;
-        }
-      }
-    }
   };
 
-  // Commit final pour s'assurer que la valeur est synchronisée dans Zustand à la fin du glissement
+  useEffect(() => {
+    if (!isDraggingRef.current) {
+      if (inputRef.current) {
+        inputRef.current.value = String(value);
+      }
+      updateLabelText(value);
+      updateAudio(value, true);
+    }
+  }, [value, audioTarget, trackId]);
+
+  const handleDrag = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    updateLabelText(val);
+    updateAudio(val, false);
+  };
+
   const handleCommit = (e: React.SyntheticEvent) => {
     const val = parseFloat((e.target as HTMLInputElement).value);
     isDraggingRef.current = false;
+    updateAudio(val, true);
     React.startTransition(() => {
       onChangeRef.current(val);
     });
@@ -117,16 +133,20 @@ export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTa
     isDraggingRef.current = true;
   };
 
+  const combinedClassName = `${props.className || ''} touch-none`.trim();
+
   return (
     <input
+      ref={inputRef}
       type="range"
-      value={localVal}
+      defaultValue={value}
       onChange={handleDrag}
       onPointerDown={handlePointerDown}
       onPointerUp={handleCommit}
       onKeyUp={handleCommit}
       onBlur={handleCommit}
       {...props}
+      className={combinedClassName}
     />
   );
 };

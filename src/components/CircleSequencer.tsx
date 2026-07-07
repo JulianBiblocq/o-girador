@@ -455,7 +455,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const getLiveActivePatternId = (track: TrackGroup): number | null => {
     const live = livePlaybackRef.current;
     const state = stateRef.current;
-    const measureIdx = (live && live.step >= 0) ? live.measure : currentMeasure;
+    const measureIdx = (live && live.step >= 0) ? live.measure : state.currentMeasure;
 
     const soloPlayId = state.soloPatternPlayId;
     if (soloPlayId !== undefined && soloPlayId !== null) {
@@ -531,6 +531,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   }, [tracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded]);
 
   useEffect(() => {
+    if (props.tracks !== undefined) return;
+    
     // Keep raw tracks in stateRef up to date imperatively
     stateRef.current.tracks = useSequencerStore.getState().tracks;
     
@@ -540,7 +542,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       }
     );
     return unsubscribe;
-  }, []);
+  }, [props.tracks]);
 
   // Handle click on canvas via Pointer Events (no touch latency)
   const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -1125,7 +1127,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         }
         if (!activePattern) return;
         
-        const activePlayingSteps = sequencer.activeVariationsRef?.current[track.id] || activePattern.activeSteps;
+         const activePlayingSteps = (props.tracks === undefined && sequencer.activeVariationsRef?.current)
+          ? (sequencer.activeVariationsRef.current[track.id] || activePattern.activeSteps)
+          : activePattern.activeSteps;
         let hasAnyNotes = false;
         for (let sIdx = 0; sIdx < activePlayingSteps.length; sIdx++) {
           if (activePlayingSteps[sIdx] !== 0) {

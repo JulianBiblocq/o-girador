@@ -6,8 +6,6 @@ const CircleSequencer = React.lazy(() => import('../CircleSequencer').then(m => 
 
 interface DicteeTabProps {
   lang: Language;
-  dicteeCordeCible: number;
-  setDicteeCordeCible: (val: number) => void;
   dicteeTitle: string;
   setDicteeTitle: (val: string) => void;
   dicteeRewardVideoUrl: string;
@@ -24,6 +22,10 @@ interface DicteeTabProps {
   setDicteeBlocksCount: (val: 4 | 8 | 16) => void;
   dicteeMeasureIndex: number;
   setDicteeMeasureIndex: React.Dispatch<React.SetStateAction<number>>;
+  dicteeStartMeasure: number;
+  setDicteeStartMeasure: (val: number) => void;
+  dicteeEndMeasure: number;
+  setDicteeEndMeasure: (val: number) => void;
   
   presetFiles: string[];
   localPresets: string[];
@@ -47,8 +49,6 @@ interface DicteeTabProps {
 
 export const DicteeTab: React.FC<DicteeTabProps> = ({
   lang,
-  dicteeCordeCible,
-  setDicteeCordeCible,
   dicteeTitle,
   setDicteeTitle,
   dicteeRewardVideoUrl,
@@ -65,6 +65,10 @@ export const DicteeTab: React.FC<DicteeTabProps> = ({
   setDicteeBlocksCount,
   dicteeMeasureIndex,
   setDicteeMeasureIndex,
+  dicteeStartMeasure,
+  setDicteeStartMeasure,
+  dicteeEndMeasure,
+  setDicteeEndMeasure,
   presetFiles,
   localPresets,
   handleLoadPresetToGame,
@@ -102,20 +106,6 @@ export const DicteeTab: React.FC<DicteeTabProps> = ({
         </span>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Corde Cible</label>
-            <select
-              value={dicteeCordeCible}
-              onChange={(e) => setDicteeCordeCible(Number(e.target.value))}
-              className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-            >
-              <option value={1}>Corde 1</option>
-              <option value={2}>Corde 2</option>
-              <option value={3}>Corde 3</option>
-              <option value={4}>Corde 4</option>
-              <option value={5}>Corde 5</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Titre du Folheto</label>
             <input
               type="text"
@@ -135,6 +125,15 @@ export const DicteeTab: React.FC<DicteeTabProps> = ({
               className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
             />
           </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Tempo (BPM)</label>
+            <input
+              type="number"
+              value={dicteeBpm}
+              onChange={(e) => setDicteeBpm(Number(e.target.value) || 83)}
+              className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
+            />
+          </div>
 
           <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Instrument Cible</label>
@@ -151,26 +150,6 @@ export const DicteeTab: React.FC<DicteeTabProps> = ({
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Total Mesures (Preset)</label>
-            <select
-              value={dicteeTotalMeasures}
-              onChange={(e) => setDicteeTotalMeasures(Number(e.target.value))}
-              className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-            >
-              {[1,2,3,4,8,16].map(n => <option key={n} value={n}>{n} Mesure{n > 1 ? 's' : ''}</option>)}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Tempo (BPM)</label>
-            <input
-              type="number"
-              value={dicteeBpm}
-              onChange={(e) => setDicteeBpm(Number(e.target.value) || 83)}
-              className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1">
             <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Découpage</label>
             <select
               value={dicteeBlocksCount}
@@ -182,35 +161,47 @@ export const DicteeTab: React.FC<DicteeTabProps> = ({
               <option value={16}>16 Pas Vides (Saisie Clavier)</option>
             </select>
           </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Début (Compasso)</label>
+            <select
+              value={dicteeStartMeasure}
+              onChange={(e) => setDicteeStartMeasure(Number(e.target.value))}
+              className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
+            >
+              {Array.from({ length: dicteeTotalMeasures }).map((_, i) => (
+                <option key={i} value={i + 1}>Compasso {i + 1}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Fin (Compasso)</label>
+            <select
+              value={dicteeEndMeasure}
+              onChange={(e) => setDicteeEndMeasure(Number(e.target.value))}
+              className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
+            >
+              {Array.from({ length: dicteeTotalMeasures }).map((_, i) => (
+                <option key={i} value={i + 1}>Compasso {i + 1}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
-
-      {/* Pagination for Dictée */}
-      {dicteeTotalMeasures > 1 && (
-        <div className="flex justify-center items-center gap-4 py-2 bg-[var(--cordel-bg)] border-y border-dashed border-[var(--cordel-border)]/30 mt-4 mb-2">
-          <button
-            onClick={() => setDicteeMeasureIndex(prev => Math.max(0, prev - 1))}
-            disabled={dicteeMeasureIndex === 0}
-            className="px-3 py-1 bg-[var(--cordel-border)] text-white rounded disabled:opacity-30 hover:bg-[var(--cordel-wood)] transition-colors"
-          >
-            &lt;
-          </button>
-          <span className="font-cactus font-bold text-lg text-[var(--cordel-wood)]">Mesure Cible : {dicteeMeasureIndex + 1} / {dicteeTotalMeasures}</span>
-          <button
-            onClick={() => setDicteeMeasureIndex(prev => Math.min(dicteeTotalMeasures - 1, prev + 1))}
-            disabled={dicteeMeasureIndex === dicteeTotalMeasures - 1}
-            className="px-3 py-1 bg-[var(--cordel-border)] text-white rounded disabled:opacity-30 hover:bg-[var(--cordel-wood)] transition-colors"
-          >
-            &gt;
-          </button>
-        </div>
-      )}
 
       {/* Roda Sequencer for Audio Target */}
       <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4 items-center mt-4">
         <span className="font-cactus text-base font-bold text-[var(--cordel-wood)] text-center">
-          Séquence Audio<br/><span className="text-sm font-normal">La mesure sélectionnée sera automatiquement découpée en blocs.</span>
+          Séquence Audio<br/><span className="text-sm font-normal font-sans">Déplacez-vous sur la Roda (via les boutons compas du séquenceur) pour choisir la mesure source prélevée pour le défi.</span>
         </span>
+        
+        {(dicteeMeasureIndex + 1 < dicteeStartMeasure || dicteeMeasureIndex + 1 > dicteeEndMeasure) && (
+          <div className="px-4 py-2.5 bg-[#8a2b2b]/15 border-2 border-[#8a2b2b] text-[#8a2b2b] font-bold text-xs uppercase tracking-wider rounded text-center max-w-[450px] animate-pulse">
+            ⚠️ {lang === 'fr' 
+              ? `Le compas source actuel (compas ${dicteeMeasureIndex + 1}) est en dehors de la plage du défi (compas ${dicteeStartMeasure} à ${dicteeEndMeasure}).`
+              : `O compasso de origem atual (compasso ${dicteeMeasureIndex + 1}) está fora da faixa do desafio (compasso ${dicteeStartMeasure} a ${dicteeEndMeasure}).`}
+          </div>
+        )}
         <div className="w-full max-w-[500px] py-4 bg-[var(--cordel-bg)]/25 rounded flex items-center justify-center">
           <CircleSequencer
             lang={lang}
@@ -221,11 +212,11 @@ export const DicteeTab: React.FC<DicteeTabProps> = ({
             timeSig="4/4"
             totalMeasures={dicteeTotalMeasures}
             onTogglePlay={() => setStudioPlaying(!studioPlaying)}
+            onNavigateMeasure={(measureIdx) => setDicteeMeasureIndex(measureIdx)}
             onStepChange={(trId, ptId, stIdx, nSt, lyr, nt) => {
               handleStepChangeGeneric(dicteeTracks, setDicteeTracks, trId, ptId, stIdx, nSt, lyr, nt);
             }}
             langPromptVoiceText=""
-            activePatternIdByTrack={getActivePatternMap(dicteeTracks)}
             bpm={dicteeBpm}
             measureBpms={[dicteeBpm]}
             measureVols={[80]}

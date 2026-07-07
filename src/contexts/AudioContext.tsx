@@ -55,6 +55,7 @@ export type AudioContextType = ReturnType<typeof useAudioSync> & {
   setActivePresetName: React.Dispatch<React.SetStateAction<string>>;
   handleTimeSigChange: (selectValue: TimeSignature) => Promise<void>;
   isCompiling: boolean;
+  isPresetLoading: boolean;
 };
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
@@ -171,6 +172,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeKeyboardInstrumentId, setActiveKeyboardInstrumentId] = useState<string | null>(null);
 
   const [activePresetName, setActivePresetName] = useState<string>('');
+  const [isPresetLoading, setIsPresetLoading] = useState<boolean>(false);
 
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
@@ -284,6 +286,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const applyPreset = useCallback(async (p: any) => {
+    setIsPresetLoading(true);
     try {
       sequencer.clearHistory();
       sequencer.setLetras(p.letras || '');
@@ -509,10 +512,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.error("Failed to apply preset:", err);
       audioSync.setIsLoading(false);
       throw err;
+    } finally {
+      setTimeout(() => {
+        setIsPresetLoading(false);
+      }, 300);
     }
   }, []);
 
   const loadFallbackPreset = useCallback(async (name: string) => {
+    setIsPresetLoading(true);
     let p;
     if (name.startsWith('cloud:')) {
       const id = name.replace('cloud:', '');
@@ -547,6 +555,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [applyPreset]);
 
   const handlePresetSelect = async (value: string) => {
+    setIsPresetLoading(true);
     setActivePresetName(value);
     await loadFallbackPreset(value);
   };
@@ -900,7 +909,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     handleLoadLocalPreset,
     activePresetName,
     setActivePresetName,
-    handleTimeSigChange
+    handleTimeSigChange,
+    isPresetLoading
   }), [
     audioSync,
     masterVol,
@@ -921,7 +931,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     handleSaveToLocal,
     getCurrentPresetData,
     handleLoadLocalPreset,
-    handleTimeSigChange
+    handleTimeSigChange,
+    isPresetLoading
   ]);
 
   return (
