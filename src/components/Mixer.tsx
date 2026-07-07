@@ -125,7 +125,7 @@ const MixerComponent: React.FC<MixerProps> = ({
 
   const [isTracksCollapsed, setIsTracksCollapsed] = React.useState(true);
 
-  const trackList = useSequencerStore(useShallow(state => state.tracks.map(t => getCachedTrack(t.id, t.isHidden, t.isSolo, t.isMute))));
+  const trackList = useSequencerStore(useShallow(state => state.tracks.filter(t => !t.linkedToTrackId).map(t => getCachedTrack(t.id, t.isHidden, t.isSolo, t.isMute))));
   const trackIdsNumbers = trackList.map(t => t.id);
 
   const isEditingTrackValid = useSequencerStore(state => state.tracks.some(t => t.id === editingTrackId));

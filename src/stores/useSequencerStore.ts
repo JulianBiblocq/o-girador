@@ -25,6 +25,7 @@ export interface TrackSlice {
   handleTrackVolumeChange: (id: number, val: number) => void;
   handleTrackReverbChange: (id: number, val: number) => void;
   handleTrackPanChange: (id: number, val: number) => void;
+  handleLinkTrack: (trackId: number, linkedToTrackId: string | null) => void;
   handleTimelinePatternAssign: (trackId: number, patternId: number | null, measureIdx: number) => void;
   handleTimelinePatternVariationToggle: (trackId: number, patternId: number, measureIdx: number, val: boolean) => void;
   handleTrackStepsChange: (trackId: number, patternId: number, targetSteps: number) => void;
@@ -126,6 +127,14 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   handleTrackPanChange: (id, val) => {
     set((state) => ({
       tracks: state.tracks.map((t) => t.id === id ? { ...t, panVal: val } : t)
+    }));
+  },
+
+  handleLinkTrack: (trackId, linkedToTrackId) => {
+    get().pushUndoState();
+    set((state) => ({
+      tracks: state.tracks.map((t) => t.id === trackId ? { ...t, linkedToTrackId } : t),
+      tracksVersion: state.tracksVersion + 1
     }));
   },
 

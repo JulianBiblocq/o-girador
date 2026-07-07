@@ -62,6 +62,45 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
 
   const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
+  const tracks = useSequencerStore(state => state.tracks);
+
+  const currentInst = track ? instrumentsConfig[track.instrumentIdx] : null;
+  const eligibleTracks = currentInst ? tracks.filter(t => {
+    if (t.id === trackId) return false;
+    if (t.linkedToTrackId && String(t.linkedToTrackId) === String(trackId)) return false;
+    
+    const optInst = instrumentsConfig[t.instrumentIdx];
+    if (!optInst) return false;
+    
+    if (currentInst.id === optInst.id) return true;
+    const isAlfaiaA = currentInst.path?.startsWith('Alfaia');
+    const isAlfaiaB = optInst.path?.startsWith('Alfaia');
+    if (isAlfaiaA && isAlfaiaB) return true;
+    const isCaixaA = currentInst.id === 'caixa' || currentInst.id === 'tarol';
+    const isCaixaB = optInst.id === 'caixa' || optInst.id === 'tarol';
+    if (isCaixaA && isCaixaB) return true;
+    const isShakeA = currentInst.type === 'shake';
+    const isShakeB = optInst.type === 'shake';
+    if (isShakeA && isShakeB) return true;
+    
+    return false;
+  }) : [];
+
+  const slaves = tracks.filter(t => String(t.linkedToTrackId) === String(trackId));
+  const isMaster = slaves.length > 0;
+  const getPluralName = (name: string) => {
+    if (name.includes('Alfaia')) return 'Alfaias';
+    if (name === 'Caixa') return 'Caixas';
+    if (name === 'Tarol') return 'Tarols';
+    if (name === 'Agbê') return 'Agbês';
+    if (name === 'Mineiro') return 'Mineiros';
+    if (name === 'Gonguê') return 'Gonguês';
+    return name + 's';
+  };
+  const linkedSlavesTooltip = isMaster 
+    ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${currentInst?.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
+    : undefined;
+  const displayName = currentInst ? (isMaster ? `🔗 ${getPluralName(currentInst.name)}` : currentInst.name) : 'Instrument';
 
   const { isPlaying, maxTicksRef, soloPatternPlayIdRef } = audio;
   const maxTicks = maxTicksRef.current;
@@ -382,16 +421,20 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           <div 
             onClick={() => setInstDropdownOpen(!instDropdownOpen)} 
             className="flex items-center gap-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-2 py-1.5 cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors w-full justify-between"
+            title={linkedSlavesTooltip}
           >
             <div className="flex items-center gap-2 truncate">
               <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-5 h-5 object-contain flex-shrink-0" />
-              <span className="font-cactus font-bold text-xs truncate">{index + 1}. {inst.name}</span>
+              <span className="font-cactus font-bold text-xs truncate">{index + 1}. {displayName}</span>
             </div>
             <span className="text-[8px] flex-shrink-0 opacity-60">▼</span>
           </div>
 
           {instDropdownOpen && (
-            <div className="absolute top-9 left-0 right-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-shadow max-h-[250px] overflow-y-auto z-[99] w-full">
+            <div className="absolute top-9 left-0 right-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-shadow max-h-[300px] overflow-y-auto z-[99] w-full custom-scrollbar">
+              <div className="text-[10px] uppercase opacity-60 font-bold px-3 py-1 bg-[var(--cordel-text)]/5 border-b border-[var(--cordel-border)]/20">
+                {lang === 'fr' ? 'Changer d\'instrument' : 'Mudar instrumento'}
+              </div>
               {instrumentsConfig.map((opt, oIdx) => (
                 <div 
                   key={oIdx} 
@@ -402,6 +445,47 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                   <span className="font-cactus">{opt.name}</span>
                 </div>
               ))}
+              
+              {/* Section Liaison */}
+              <div className="text-[10px] uppercase opacity-60 font-bold px-3 py-1 bg-[var(--cordel-text)]/5 border-t border-b border-[var(--cordel-border)]/20 mt-1">
+                🔗 {lang === 'fr' ? 'Liaison de partition' : 'Vínculo de partitura'}
+              </div>
+              
+              {track.linkedToTrackId ? (
+                <div 
+                  onClick={() => {
+                    useSequencerStore.getState().handleLinkTrack(trackId, null);
+                    setInstDropdownOpen(false);
+                  }}
+                  className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-xs font-bold text-[#8b2a1a]"
+                >
+                  ✕ {lang === 'fr' ? 'Délier la piste' : 'Remover vínculo'}
+                </div>
+              ) : (
+                eligibleTracks.length > 0 ? (
+                  eligibleTracks.map((tOpt) => {
+                    const tOptInst = instrumentsConfig[tOpt.instrumentIdx];
+                    const tOptIndex = tracks.findIndex(t => t.id === tOpt.id);
+                    const shortName = tOptInst.name.replace('Alfaia ', '');
+                    return (
+                      <div
+                        key={tOpt.id}
+                        onClick={() => {
+                          useSequencerStore.getState().handleLinkTrack(trackId, String(tOpt.id));
+                          setInstDropdownOpen(false);
+                        }}
+                        className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold truncate"
+                      >
+                        🔗 {shortName} ({tOptIndex + 1})
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="px-3 py-2 text-[10px] italic text-[var(--cordel-text)]/60">
+                    {lang === 'fr' ? 'Aucune piste compatible' : 'Nenhuma pista compatível'}
+                  </div>
+                )
+              )}
             </div>
           )}
         </div>

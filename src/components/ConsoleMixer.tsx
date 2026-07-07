@@ -20,6 +20,7 @@ import {
 import { AudioFader } from './AudioFader';
 import { Pattern } from '../types';
 import { MixerChannel } from './MixerChannel';
+import { MixerLinkedTrack } from './MixerLinkedTrack';
 import { i18n, instrumentsConfig } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
@@ -124,6 +125,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
   const trackList = useSequencerStore(useShallow(state => state.tracks.map(t => getCachedTrack(t.id, t.isHidden, t.isSolo, t.isMute))));
   const trackIds = trackList.map(t => t.id);
+  const tracks = useSequencerStore(state => state.tracks);
   
   const setTracks = useSequencerStore(state => state.setTracks);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
@@ -522,6 +524,18 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
           <SortableContext items={trackIds.map(id => `track-${id}`)} strategy={horizontalListSortingStrategy}>
             {trackIds.map((trackId, index) => {
+              const track = tracks.find(t => t.id === trackId);
+              if (track?.linkedToTrackId) {
+                return (
+                  <MixerLinkedTrack
+                    key={trackId}
+                    trackId={trackId}
+                    index={index}
+                    onOpenDetailEditor={onOpenDetailEditor}
+                    isActive={isActive}
+                  />
+                );
+              }
               return (
                 <MixerChannel
                   key={trackId}

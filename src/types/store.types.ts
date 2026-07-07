@@ -70,6 +70,7 @@ export interface TrackGroup {
   radius?: number; // visual radius in the roda
   reverbVal?: number;
   panVal?: number; // -100 to 100
+  linkedToTrackId?: string;
 }
 
 export interface CatalogItem {

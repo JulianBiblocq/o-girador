@@ -110,7 +110,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     if (!isActive) return EMPTY_ARRAY;
     return state.tracks;
   }, isTracksStructureEqual);
-  const tracks = props.tracks !== undefined ? props.tracks : tracksFromStore;
+  const tracks = (props.tracks !== undefined ? props.tracks : tracksFromStore).filter(t => !t.linkedToTrackId);
   const totalMeasuresFromStore = useSequencerStore(state => state.totalMeasures);
   const totalMeasures = props.totalMeasures !== undefined ? props.totalMeasures : totalMeasuresFromStore;
   const bpm = props.bpm !== undefined ? props.bpm : sequencer.bpm;
@@ -1278,7 +1278,17 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             ctx.fillStyle = themeText;
             ctx.font = 'bold 10px serif';
             ctx.textAlign = 'left';
-            let labelText = inst?.name || 'Instrument';
+            const isMaster = useSequencerStore.getState().tracks.some(t => String(t.linkedToTrackId) === String(track.id));
+            const getPluralName = (name: string) => {
+              if (name.includes('Alfaia')) return 'Alfaias';
+              if (name === 'Caixa') return 'Caixas';
+              if (name === 'Tarol') return 'Tarols';
+              if (name === 'Agbê') return 'Agbês';
+              if (name === 'Mineiro') return 'Mineiros';
+              if (name === 'Gonguê') return 'Gonguês';
+              return name + 's';
+            };
+            let labelText = isMaster && inst ? `🔗 ${getPluralName(inst.name)}` : (inst?.name || 'Instrument');
             if (instrumentTotals[instIdx] > 1) {
               labelText += ` ${instrumentIndexes[instIdx]}`;
             }

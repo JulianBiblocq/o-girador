@@ -59,6 +59,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
   const setActiveAoVivoTrackId = useSequencerStore(state => state.setActiveAoVivoTrackId);
   const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
+  const tracks = useSequencerStore(state => state.tracks);
+  const isMaster = useSequencerStore(state => state.tracks.some(t => String(t.linkedToTrackId) === String(trackId)));
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
 
   const { isPlaying, maxTicksRef, soloPatternPlayId } = audio;
@@ -67,6 +69,21 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
   const canPaste = !!copiedPattern;
   const inst = track ? instrumentsConfig[track.instrumentIdx] : null;
+
+  const slaves = tracks.filter(t => String(t.linkedToTrackId) === String(trackId));
+  const getPluralName = (name: string) => {
+    if (name.includes('Alfaia')) return 'Alfaias';
+    if (name === 'Caixa') return 'Caixas';
+    if (name === 'Tarol') return 'Tarols';
+    if (name === 'Agbê') return 'Agbês';
+    if (name === 'Mineiro') return 'Mineiros';
+    if (name === 'Gonguê') return 'Gonguês';
+    return name + 's';
+  };
+  const linkedSlavesTooltip = isMaster && inst
+    ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${inst.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
+    : undefined;
+  const displayName = inst ? (isMaster ? `🔗 ${getPluralName(inst.name)}` : inst.name) : 'Instrument';
 
   // Local Actions mapped directly to Zustand and Context
   const onInstrumentChange = (instIdx: number) => {
@@ -766,6 +783,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               onClick={() => setInstDropdownOpen(!instDropdownOpen)}
               className="flex items-center justify-between gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-[11px] cursor-pointer transition-colors w-[110px] sm:w-[120px]"
               style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
+              title={linkedSlavesTooltip}
             >
               <img
                 src={`${ASSETS_BASE_URL}${inst.iconImg}`}
@@ -776,8 +794,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                 }}
               />
               <span className="font-cactus font-bold text-center leading-[1.1] flex-1">
-                {index + 1}. {inst.name.split(' ')[0]}
-                {inst.name.indexOf(' ') !== -1 && <><br/>{inst.name.substring(inst.name.indexOf(' ') + 1)}</>}
+                {index + 1}. {displayName.split(' ')[0]}
+                {displayName.indexOf(' ') !== -1 && <><br/>{displayName.substring(displayName.indexOf(' ') + 1)}</>}
               </span>
               <span className="text-[8px] flex-shrink-0">▼</span>
             </button>

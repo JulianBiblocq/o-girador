@@ -35,6 +35,8 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const instrumentIdx = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.instrumentIdx ?? 0);
   const isMute = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.isMute ?? false);
   const isSolo = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.isSolo ?? false);
+  const isMaster = useSequencerStore(state => state.tracks.some(t => String(t.linkedToTrackId) === String(trackId)));
+  const tracks = useSequencerStore(state => state.tracks);
 
   // Subscribe to full track only in Macro mode (where compact preview must update on step changes)
   const fullTrack = useSequencerStore(state => {
@@ -94,6 +96,21 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
 
   const inst = instrumentsConfig[trackData.instrumentIdx];
   if (!inst) return null;
+
+  const slaves = tracks.filter(t => String(t.linkedToTrackId) === String(trackId));
+  const getPluralName = (name: string) => {
+    if (name.includes('Alfaia')) return 'Alfaias';
+    if (name === 'Caixa') return 'Caixas';
+    if (name === 'Tarol') return 'Tarols';
+    if (name === 'Agbê') return 'Agbês';
+    if (name === 'Mineiro') return 'Mineiros';
+    if (name === 'Gonguê') return 'Gonguês';
+    return name + 's';
+  };
+  const linkedSlavesTooltip = isMaster
+    ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${inst.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
+    : undefined;
+  const displayName = isMaster ? `🔗 ${getPluralName(inst.name)}` : inst.name;
   
   const isMutedBySolo = hasSolo && !trackData.isSolo;
   const canPlay = trackData.isSolo || (!trackData.isMute && !isMutedBySolo);
@@ -164,8 +181,11 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
             }`}
           />
           {!isMobile ? (
-            <span className="track-header-name font-cactus text-sm font-bold truncate text-[var(--cordel-text)] tracking-wider">
-              {inst.name}
+            <span 
+              className="track-header-name font-cactus text-sm font-bold truncate text-[var(--cordel-text)] tracking-wider"
+              title={linkedSlavesTooltip}
+            >
+              {displayName}
             </span>
           ) : null}
         </div>

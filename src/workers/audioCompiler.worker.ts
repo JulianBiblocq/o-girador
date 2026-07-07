@@ -34,17 +34,35 @@ function buildFlatSongSchedule(
       const inst = instConfig[track.instrumentIdx];
       if (!inst || inst.type === 'voice') return;
 
+      let sourceTrack = track;
+      if (track.linkedToTrackId) {
+        const master = tracks.find((t: any) => String(t.id) === String(track.linkedToTrackId));
+        if (master) {
+          sourceTrack = master;
+        }
+      }
+
       let activePattern: any = null;
       let canPlay = false;
 
       if (isSoloPlayActive) {
-        const isTargetSoloTrack = track.patterns.some((p: any) => p.id === soloPatternPlayId);
-        if (isTargetSoloTrack) {
-          activePattern = track.patterns.find((p: any) => p.id === soloPatternPlayId);
+        let patternIdx = track.patterns.findIndex((p: any) => p.id === soloPatternPlayId);
+        if (patternIdx === -1 && sourceTrack !== track) {
+          patternIdx = sourceTrack.patterns.findIndex((p: any) => p.id === soloPatternPlayId);
+        }
+        if (patternIdx !== -1) {
+          activePattern = sourceTrack.patterns[patternIdx] || sourceTrack.patterns[0];
           canPlay = true;
+        } else {
+          const hasSoloPattern = track.patterns.some((p: any) => p.id === soloPatternPlayId) || 
+                                 sourceTrack.patterns.some((p: any) => p.id === soloPatternPlayId);
+          if (hasSoloPattern) {
+            activePattern = sourceTrack.patterns.find((p: any) => p.id === soloPatternPlayId) || sourceTrack.patterns[0];
+            canPlay = true;
+          }
         }
       } else {
-        activePattern = track.patterns.find((p: any) => p.measureAssignments[measureIdx]);
+        activePattern = sourceTrack.patterns.find((p: any) => p.measureAssignments[measureIdx]);
         canPlay = true;
       }
 

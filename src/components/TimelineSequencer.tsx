@@ -106,7 +106,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     handleDeleteMeasure: onDeleteMeasure,
     handleInsertMeasure: onInsertMeasure,
   } = sequencer;
-  const trackIds = useSequencerStore(useShallow(state => state.tracks.map(t => t.id)));
+  const trackIds = useSequencerStore(useShallow(state => state.tracks.filter(t => !t.linkedToTrackId).map(t => t.id)));
 
   const localRhythmSignals = metadata?.rhythmSignals || [];
   const rhythmSignals = [
