@@ -65,6 +65,35 @@ interface CircleSequencerProps {
 
 const EMPTY_ARRAY: any[] = [];
 
+const isTracksStructureEqual = (prev: TrackGroup[], next: TrackGroup[]) => {
+  if (prev === next) return true;
+  if (!prev || !next) return false;
+  if (prev.length !== next.length) return false;
+  for (let i = 0; i < prev.length; i++) {
+    const p = prev[i];
+    const n = next[i];
+    if (p.id !== n.id ||
+        p.instrumentIdx !== n.instrumentIdx ||
+        p.isHidden !== n.isHidden ||
+        p.isMute !== n.isMute ||
+        p.isSolo !== n.isSolo ||
+        p.radius !== n.radius) {
+      return false;
+    }
+    if (p.patterns.length !== n.patterns.length) return false;
+    for (let j = 0; j < p.patterns.length; j++) {
+      const pp = p.patterns[j];
+      const np = n.patterns[j];
+      if (pp.id !== np.id || pp.steps !== np.steps) return false;
+      if (pp.measureAssignments.length !== np.measureAssignments.length) return false;
+      for (let m = 0; m < pp.measureAssignments.length; m++) {
+        if (pp.measureAssignments[m] !== np.measureAssignments[m]) return false;
+      }
+    }
+  }
+  return true;
+};
+
 const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const { isActive = true } = props;
   const sequencer = useSequencer();
@@ -77,22 +106,10 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
   const lang = props.lang !== undefined ? props.lang : sequencer.lang;
   const isLeftHanded = props.isLeftHanded !== undefined ? props.isLeftHanded : sequencer.isLeftHanded;
-  const tracksFromStore = useSequencerStore(useShallow(state => {
+  const tracksFromStore = useSequencerStore(state => {
     if (!isActive) return EMPTY_ARRAY;
-    return state.tracks.map(t => ({
-      id: t.id,
-      instrumentIdx: t.instrumentIdx,
-      isHidden: t.isHidden,
-      isMute: t.isMute,
-      isSolo: t.isSolo,
-      radius: t.radius,
-      patterns: t.patterns.map(p => ({
-        id: p.id,
-        steps: p.steps,
-        measureAssignments: p.measureAssignments
-      }))
-    }));
-  })) as any as TrackGroup[];
+    return state.tracks;
+  }, isTracksStructureEqual);
   const tracks = props.tracks !== undefined ? props.tracks : tracksFromStore;
   const totalMeasuresFromStore = useSequencerStore(state => state.totalMeasures);
   const totalMeasures = props.totalMeasures !== undefined ? props.totalMeasures : totalMeasuresFromStore;
