@@ -752,3 +752,51 @@ body.eco-mode #center-afficheur {
   will-change: transform, background-color, border-color;
   transform: translateZ(0);
 }
+
+/* Styles pour la timeline d'affichage rythmique pure (ConsoleMixer) */
+.visual-timeline-grid {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 22px;
+  user-select: none;
+  pointer-events: none;
+  background-color: rgba(26, 26, 26, 0.03);
+  padding: 4px 6px;
+  border: 1.5px solid var(--cordel-border, #1a1a1a);
+  box-shadow: 2px 2px 0px rgba(26, 26, 26, 0.15);
+}
+
+.visual-step-led {
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 14px;
+  background-color: rgba(26, 26, 26, 0.1);
+  border-radius: 1px;
+  transition: background-color 0.08s ease, transform 0.08s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.visual-step-led.has-hit {
+  border: 1.5px solid var(--cordel-border, #1a1a1a);
+}
+
+.visual-step-led.is-active {
+  background-color: var(--color-wood-red, #8b2a1a) !important;
+  transform: scale(1.2);
+  box-shadow: 0 0 6px var(--color-wood-red, #8b2a1a);
+}
+
+.visual-step-symbol {
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 1;
+  font-family: var(--font-cactus, monospace);
+  color: inherit;
+  pointer-events: none;
+  user-select: none;
+}

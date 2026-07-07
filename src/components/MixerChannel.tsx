@@ -13,6 +13,7 @@ import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSy
 import { PanKnob } from './PanKnob';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
+import { VisualOnlyTimeline } from './VisualOnlyTimeline';
 import { AudioFader } from './AudioFader';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
@@ -88,10 +89,9 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       return;
     }
 
-    let activeElements: HTMLElement[] = [];
     const handleTick = (e: Event) => {
       const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
-      const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+      const { step, measure } = customEvent.detail;
       
       const currentTrack = trackRef.current;
       if (!currentTrack) return;
@@ -107,57 +107,10 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         lastMeasureRef.current = measure;
         setLiveMeasure(prev => (prev !== measure ? measure : prev));
       }
-
-      const getLivePatternForMeasure = (m: number) => {
-        const soloPatternPlayId = soloPatternPlayIdRef?.current;
-        if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
-          const hasSoloPattern = currentTrack?.patterns?.some(p => p.id === soloPatternPlayId);
-          if (hasSoloPattern) {
-            return currentTrack?.patterns?.find(p => p.id === soloPatternPlayId);
-          }
-        }
-        return currentTrack?.patterns?.find(p => p?.measureAssignments?.[m]);
-      };
-
-      const currentLivePattern = getLivePatternForMeasure(measure);
-
-      if (!currentLivePattern) {
-        return;
-      }
-
-      const stepsCount = currentLivePattern.steps;
-      const targetStep = Math.floor(ratio * stepsCount);
-
-      const isEco = useSequencerStore.getState().isEcoMode;
-      if (isEco) return;
-
-      const currentActiveIndex = activeElements.length > 0 ? Number(activeElements[0].getAttribute('data-v-step')) : -1;
-      if (targetStep === currentActiveIndex) {
-        return;
-      }
-
-      activeElements.forEach(el => {
-        el.classList.remove('border-[#8b2a1a]');
-        el.classList.add('border-[var(--cordel-border)]');
-      });
-      activeElements = [];
-
-      if (containerRef.current) {
-        const newEl = containerRef.current.querySelector(`[data-v-step="${targetStep}"]`) as HTMLElement;
-        if (newEl) {
-          newEl.classList.remove('border-[var(--cordel-border)]');
-          newEl.classList.add('border-[#8b2a1a]');
-          activeElements.push(newEl);
-        }
-      }
     };
     window.addEventListener('o-girador-tick', handleTick);
     return () => {
       window.removeEventListener('o-girador-tick', handleTick);
-      activeElements.forEach(el => {
-        el.classList.remove('border-[#8b2a1a]');
-        el.classList.add('border-[var(--cordel-border)]');
-      });
     };
   }, [isActive]);
 
@@ -560,67 +513,18 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           </div>
         </div>
 
-        {/* Steps Editor */}
-        <div className="bg-[var(--cordel-bg)] p-2 cordel-border-sm flex flex-col gap-2">
-          <div className="flex justify-between items-center mb-1">
-            <span className="font-bold text-xs">{t('stepsNum')}</span>
-            <input type="number" min="2" max="32" value={activePattern.steps} onChange={(e) => onStepsChange(activePattern.id, parseInt(e.target.value) || 4)} className="w-12 bg-transparent border-b-2 border-[var(--cordel-border)] text-center font-bold font-cactus outline-none text-[var(--cordel-text)]" />
-          </div>
-          
-          <div className="flex gap-2 items-start w-full">
-            {(() => {
-              const activePlayingSteps = activePattern.activeSteps || [];
-              return inst.type === 'voice' ? (
-                <div ref={containerRef} className="grid grid-cols-4 gap-1.5 w-full step-boxes">
-                  {Array.from({ length: activePattern.steps }).map((_, i) => {
-                    const state = activePlayingSteps[i];
-                    const isActive = state !== 0;
-                    const isPux = state === 'P';
-                    const syl = activePattern.lyrics?.[i] || '';
-                    const note = activePattern.notes?.[i] || '';
-                    const typeText = isActive ? (isPux ? 'PUX' : 'CORO') : '---';
-                    const typeClass = isActive ? '' : 'bg-transparent text-[var(--cordel-text)]/40';
-                    const typeStyle = isActive ? { backgroundColor: isPux ? inst.colors?.['P'] : inst.colors?.['C'], color: '#1a1a1a' } : {};
+      </div>
 
-                    return (
-                      <div key={i} className={`v-card flex flex-col bg-[var(--cordel-bg)] cordel-border-sm overflow-hidden border-[var(--cordel-border)]`} data-v-step={i}>
-                        <div onClick={() => onVoiceTypeToggle(activePattern.id, i)} className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`} style={typeStyle}>{typeText}</div>
-                        <input type="text" value={syl} onChange={(e) => onVoiceSylChange(activePattern.id, i, e.target.value)} placeholder="-" className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-b border-[var(--cordel-border)]/30 text-[var(--cordel-text)] outline-none" onKeyDown={(e) => { if (e.key === 'Tab') { e.preventDefault(); handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'syl'); } else if (['ArrowRight','ArrowLeft','Enter'].includes(e.key)) handleVoiceNav(e.target as HTMLInputElement, e.key, 'syl'); }} />
-                        <input type="text" value={note} onChange={(e) => onVoiceNoteChange(activePattern.id, i, e.target.value)} onBlur={(e) => onVoiceNoteBlur(activePattern.id, i, e.target.value)} placeholder="C4" className="v-note w-full text-center text-[10px] py-1 bg-transparent text-[var(--cordel-text)] uppercase outline-none" onKeyDown={(e) => { if (e.key === 'Tab') { e.preventDefault(); handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note'); } else if (['ArrowRight','ArrowLeft','Enter'].includes(e.key)) handleVoiceNav(e.target as HTMLInputElement, e.key, 'note'); }} />
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <CompactPatternRenderer
-                  pattern={{...activePattern, activeSteps: activePlayingSteps}}
-                  inst={inst}
-                  isLeftHanded={isLeftHanded}
-                  isEditable={true}
-                  isFluid={true}
-                  className="w-full mb-2"
-                  currentStep={currentStep}
-                  onStepValueChange={(stepIdx, val) => onStepValueChange(activePattern.id, stepIdx, val)}
-                  onStepClick={(e, stepIdx, val) => {
-                    if (e.type === 'touchstart') {
-                      handleStart(e as React.TouchEvent, stepIdx, val);
-                    } else {
-                      handleStart(e as React.MouseEvent, stepIdx, val);
-                    }
-                  }}
-                  onStepShiftClick={(e, stepIdx, val) => {
-                    isMouseDownRef.current = true;
-                    const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
-                    const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
-                    const nextSemanticVal = getVisualStrokeSymbol(nextVisualVal, isLeftHanded, inst.id);
-                    paintValueRef.current = nextSemanticVal;
-                    onStepValueChange(activePattern.id, stepIdx, String(nextSemanticVal));
-                  }}
-                />
-              );
-            })()}
-          </div>
-        </div>
+      {/* Visual Only Timeline (Fixed above faders, no longer scrollable) */}
+      <div className="px-4 py-2 bg-[var(--cordel-bg)] border-b-[3px] border-[var(--cordel-border)] z-10 shrink-0">
+        <VisualOnlyTimeline
+          trackId={trackId}
+          steps={activePattern.steps}
+          activeSteps={activePattern.activeSteps || []}
+          instrumentIdx={track.instrumentIdx}
+          isPlaying={isPlaying}
+          isLeftHanded={isLeftHanded}
+        />
       </div>
 
       {/* Fader & Mute/Solo Section (Bottom) */}
