@@ -64,10 +64,13 @@ export const VisualOnlyTimeline: React.FC<VisualOnlyTimelineProps> = React.memo(
     };
   }, [isPlaying, steps]);
 
+  const cols = Math.ceil(steps / 2);
+
   return (
     <div 
       ref={containerRef}
       className="visual-timeline-grid"
+      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
     >
       {Array.from({ length: steps }).map((_, i) => {
         const stepVal = activeSteps[i];

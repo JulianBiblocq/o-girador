@@ -332,7 +332,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   return (
     <div 
       ref={setNodeRef}
-      className={`flex flex-col bg-[var(--cordel-bg)] cordel-border w-[340px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-all duration-300 ${
+      className={`flex flex-col bg-[var(--cordel-bg)] cordel-border w-[210px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-all duration-300 ${
         hasSolo ? (track.isSolo ? 'bg-[var(--cordel-border)]/5 shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-50') : 
         (track.isMute ? 'opacity-60 bg-black/5 dark:bg-white/5' : 'opacity-100')
       }`}
@@ -344,50 +344,66 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       } as React.CSSProperties}
     >
       <div 
-        className="relative p-3 pb-1 flex justify-between border-b-[3px] border-[var(--cordel-border)]"
+        className="relative p-2 pb-1.5 flex flex-col gap-1.5 border-b-[3px] border-[var(--cordel-border)]"
         style={{ zIndex: instDropdownOpen ? 40 : 10 }}
       >
-        <div className="flex gap-2 items-center">
-          {inst.id !== 'apito' && (
-            <div 
-              {...attributes}
-              {...listeners}
-              className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none"
-              title="Drag to reorder"
-            >
-              <GripHorizontal size={20} />
-            </div>
-          )}
-          
-          <div className="relative flex items-center gap-1.5" ref={dropdownRef}>
-            <div onClick={() => setInstDropdownOpen(!instDropdownOpen)} className="flex items-center gap-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-2 py-1 cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors">
-              <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-6 h-6 object-contain" />
-              <span className="font-cactus font-bold text-sm">{index + 1}. {inst.name}</span>
-            </div>
-            
+        {/* Ligne 1 : Outils */}
+        <div className="flex justify-between items-center w-full">
+          <div className="flex items-center gap-1.5">
+            {inst.id !== 'apito' && (
+              <div 
+                {...attributes}
+                {...listeners}
+                className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none"
+                title="Drag to reorder"
+              >
+                <GripHorizontal size={18} />
+              </div>
+            )}
             <button
               onClick={() => onOpenDetailEditor(trackId)}
-              className="w-8 h-8 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors"
+              className="w-7 h-7 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-xs"
               title="Éditeur détaillé"
             >
               ✏️
             </button>
-
-            {instDropdownOpen && (
-              <div className="absolute top-10 left-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-shadow min-w-[200px] max-h-[300px] overflow-y-auto z-[99]">
-                {instrumentsConfig.map((opt, oIdx) => (
-                  <div key={oIdx} onClick={() => { onInstrumentChange(oIdx); setInstDropdownOpen(false); }} className="flex items-center gap-3 px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]">
-                    <img src={`${ASSETS_BASE_URL}${opt.iconImg}`} alt={opt.name} className="w-6 h-6 object-contain" />
-                    <span className="font-cactus font-bold">{opt.name}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
+          <button 
+            onClick={onDelete} 
+            className="w-7 h-7 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-xs"
+            title="Supprimer la piste"
+          >
+            ✕
+          </button>
         </div>
 
-        <div className="flex gap-1.5 items-center">
-          <button onClick={onDelete} className="w-7 h-7 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8]">✕</button>
+        {/* Ligne 2 : Sélection de l'instrument */}
+        <div className="relative flex items-center w-full" ref={dropdownRef}>
+          <div 
+            onClick={() => setInstDropdownOpen(!instDropdownOpen)} 
+            className="flex items-center gap-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-2 py-1.5 cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors w-full justify-between"
+          >
+            <div className="flex items-center gap-2 truncate">
+              <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-5 h-5 object-contain flex-shrink-0" />
+              <span className="font-cactus font-bold text-xs truncate">{index + 1}. {inst.name}</span>
+            </div>
+            <span className="text-[8px] flex-shrink-0 opacity-60">▼</span>
+          </div>
+
+          {instDropdownOpen && (
+            <div className="absolute top-9 left-0 right-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-shadow max-h-[250px] overflow-y-auto z-[99] w-full">
+              {instrumentsConfig.map((opt, oIdx) => (
+                <div 
+                  key={oIdx} 
+                  onClick={() => { onInstrumentChange(oIdx); setInstDropdownOpen(false); }} 
+                  className="flex items-center gap-3 px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold"
+                >
+                  <img src={`${ASSETS_BASE_URL}${opt.iconImg}`} alt={opt.name} className="w-5 h-5 object-contain" />
+                  <span className="font-cactus">{opt.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -396,27 +412,26 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         
         {/* Padrões Grid */}
         <div className="bg-[var(--cordel-bg)] p-2 cordel-border-sm flex flex-col gap-2">
-          <div className="flex justify-between items-center border-b-2 border-[var(--cordel-border)] pb-1 mb-1">
-            <span className="font-cactus font-bold text-sm">Padrões</span>
+          <div className="flex justify-between items-center border-b-2 border-[var(--cordel-border)] pb-1 mb-1 sticky top-[-9px] bg-[var(--cordel-bg)] z-10 pt-2">
             <div className="flex gap-1">
               <button
                 onClick={() => onCopyPattern && onCopyPattern(activePattern)}
-                className="px-1.5 py-0.5 bg-[#eaddcf] text-[#1a1a1a] text-[10px] font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
+                className="w-6 h-6 flex items-center justify-center bg-[#eaddcf] text-[#1a1a1a] text-xs font-bold cordel-border-sm hover:bg-[#1a1a1a] hover:text-[#f4ecd8] cursor-pointer"
                 title="Copier le motif actif"
               >
-                📋 Copier
+                📋
               </button>
               <button
                 onClick={() => onPastePattern && onPastePattern(trackId, activePattern.id)}
                 disabled={!canPaste}
-                className={`px-1.5 py-0.5 text-[10px] font-bold cordel-border-sm cursor-pointer ${
+                className={`w-6 h-6 flex items-center justify-center text-xs font-bold cordel-border-sm cursor-pointer ${
                   canPaste 
                     ? 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]' 
                     : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
                 }`}
                 title="Coller le motif copié"
               >
-                📥 Coller
+                📥
               </button>
             </div>
             <button onClick={onAddPattern} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] px-2 py-0.5 cordel-border-sm cordel-button text-[10px] font-bold hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]">+ Padrão</button>
@@ -452,8 +467,8 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                             <span 
                               className={`font-cactus font-bold cursor-pointer flex-1 truncate select-none ${
                                 liveActivePatternId === ptn.id 
-                                  ? 'text-[var(--cordel-text)] text-sm' 
-                                  : 'text-[var(--cordel-text)]/60 text-xs'
+                                  ? 'text-[var(--cordel-text)] text-xs' 
+                                  : 'text-[var(--cordel-text)]/60 text-[10px]'
                               }`} 
                               onClick={() => onSelectPattern(ptn.id)}
                               onDoubleClick={() => {
@@ -528,20 +543,20 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       </div>
 
       {/* Fader & Mute/Solo Section (Bottom) */}
-      <div className="relative z-10 p-4 pt-4 flex justify-between items-end h-[200px] gap-2">
-        {/* Buttons Column */}
-        <div className="flex flex-col gap-2 justify-end h-full pb-1">
+      <div className="relative z-10 p-3 pt-4 flex justify-between items-end h-[200px] gap-2">
+        {/* Column 1: Pan & Buttons Column */}
+        <div className="flex flex-col gap-2 justify-end h-full pb-1 items-center w-11 shrink-0">
           <PanKnob trackId={trackId} value={track.panVal || 0} onChange={onPanChange} label="Pan" />
-          <div className="h-1" />
+          <div className="h-0.5" />
           <button 
             onClick={(e) => { e.stopPropagation(); onMuteToggle(); }} 
-            className={`w-9 h-9 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
+            className={`w-8 h-8 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
               (track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
             }`}
           >M</button>
           <button 
             onClick={(e) => { e.stopPropagation(); onSoloToggle(); }} 
-            className={`w-9 h-9 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
+            className={`w-8 h-8 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
               track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
             }`}
           >S</button>
@@ -550,7 +565,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         {/* Volume Fader Column */}
         <div className="flex flex-col items-center gap-1.5 h-full">
           <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Volume</span>
-          <div className="h-[145px] flex justify-center items-center relative w-12">
+          <div className="h-[145px] flex justify-center items-center relative w-10">
             {/* Fader Slot */}
             <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
             <AudioFader
@@ -562,7 +577,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
               trackId={trackId}
               value={track.volumeVal}
               onChange={(val) => onVolumeChange(val)}
-              className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
+              className="vertical-fader touch-none z-10 h-[130px] w-6 cursor-pointer"
             />
           </div>
           <span className="text-[10px] font-bold text-[var(--cordel-text)] fader-val-label">{track.volumeVal}</span>
@@ -571,9 +586,9 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         {/* Reverb Fader Column */}
         <div className="flex flex-col items-center gap-1.5 h-full">
           <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Reverb</span>
-          <div className="h-[145px] flex justify-center items-center relative w-12">
+          <div className="h-[145px] flex justify-center items-center relative w-8">
             {/* Fader Slot */}
-            <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
+            <div className="absolute top-0 bottom-0 w-1 bg-[var(--cordel-border)] rounded-none pointer-events-none"></div>
             <AudioFader
               type="range"
               min="0"
@@ -583,7 +598,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
               trackId={trackId}
               value={track.reverbVal || 0}
               onChange={(val) => onReverbChange(val)}
-              className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
+              className="vertical-fader touch-none z-10 h-[130px] w-4 cursor-pointer fader-reverb"
             />
           </div>
           <span className="text-[10px] font-bold text-[var(--cordel-text)] fader-val-label">{track.reverbVal || 0}</span>
@@ -597,7 +612,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
             isPlaying={isPlaying && isActive}
             isActive={isActive}
             orientation="vertical"
-            className="w-3 h-[145px] bg-[var(--cordel-bg)] cordel-border-sm"
+            className="w-2.5 h-[145px] bg-[var(--cordel-bg)] cordel-border-sm"
           />
           <div className="h-[15px]" />
         </div>

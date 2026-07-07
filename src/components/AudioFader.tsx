@@ -14,6 +14,7 @@ interface AudioFaderProps extends Omit<React.InputHTMLAttributes<HTMLInputElemen
   onChange: (val: number) => void;
   audioTarget?: 'trackVolume' | 'trackPan' | 'trackReverb' | 'masterVolume' | 'metroVolume' | 'eqLow' | 'eqMid' | 'eqHigh' | 'compThreshold' | 'compRatio' | 'masterReverbVol' | 'reverbDecay';
   trackId?: number;
+  orient?: string;
 }
 
 export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTarget, trackId, ...props }) => {

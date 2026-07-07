@@ -126,6 +126,26 @@ export default function App() {
     window.innerWidth < 1024 ? 'letras' : 'info'
   );
   const [viewMode, setViewMode] = useState<'landing' | 'home' | 'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio' | 'admin'>('landing');
+  const [renderedView, setRenderedView] = useState<typeof viewMode | null>('landing');
+  const [isFadingIn, setIsFadingIn] = useState(true);
+
+  useEffect(() => {
+    // 1. Demount active view and stop fadeIn animation instantly
+    setRenderedView(null);
+    setIsFadingIn(false);
+
+    // 2. Remount the target view after customized delay (yielding main thread)
+    // Timeline is heavier, so we yield longer (120ms), others get 80ms
+    const delay = viewMode === 'timeline' ? 120 : 80;
+
+    const timer = setTimeout(() => {
+      setRenderedView(viewMode);
+      setIsFadingIn(true);
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [viewMode]);
+
   const [hasVisitedStudio, setHasVisitedStudio] = useState(false);
 
   useEffect(() => {
@@ -685,7 +705,10 @@ export default function App() {
       {/* Main Workspace workspace containing expanding grids layouts */}
       <div id="main-workspace" className="flex flex-grow min-h-0 overflow-hidden relative w-full mobile-stack cordel-bg">
         {/* RODA VIEW */}
-        <div style={{ display: viewMode === 'roda' ? 'contents' : 'none' }}>
+        <div 
+          style={{ display: viewMode === 'roda' ? 'flex' : 'none' }}
+          className={`flex flex-1 min-h-0 min-w-0 w-full h-full mobile-stack ${isFadingIn && renderedView === 'roda' ? 'fade-in-view' : ''}`}
+        >
           {/* Left column tracks mixers */}
           <div style={{ display: (!isMobile || mobileTab === 'mixer') ? 'contents' : 'none' }}>
             <ErrorBoundary fallback={renderFallback('Mixeur', 'Mixador')}>
@@ -706,12 +729,14 @@ export default function App() {
           <div style={{ display: (!isMobile || mobileTab === 'roda') ? 'contents' : 'none' }}>
             <ErrorBoundary fallback={renderFallback('Séquenceur Circulaire', 'Sequenciador Circular')}>
               <Suspense fallback={null}>
-                <CircleSequencer
-                  isMobile={isMobile}
-                  mestreSignals={filteredMestreSignals}
-                  onStepTouchStart={handleStepTouchStart}
-                  isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')}
-                />
+                {renderedView === 'roda' && (
+                  <CircleSequencer
+                    isMobile={isMobile}
+                    mestreSignals={filteredMestreSignals}
+                    onStepTouchStart={handleStepTouchStart}
+                    isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')}
+                  />
+                )}
               </Suspense>
             </ErrorBoundary>
           </div>
@@ -735,10 +760,10 @@ export default function App() {
 
         {/* MIXER CONSOLE VIEW */}
         <div 
-          className="flex-1 min-w-0 flex flex-col h-full overflow-x-auto overflow-y-hidden custom-scrollbar"
+          className={`flex-1 min-w-0 flex flex-col h-full overflow-x-auto overflow-y-hidden custom-scrollbar ${isFadingIn && renderedView === 'console' ? 'fade-in-view' : ''}`}
           style={{ display: viewMode === 'console' ? 'flex' : 'none' }}
         >
-          {!isDetailViewDeferred && (
+          {!isDetailViewDeferred && renderedView === 'console' && (
             <ErrorBoundary fallback={renderFallback('Mixeur Console', 'Mesa de Som')}>
               <Suspense fallback={null}>
                 <ConsoleMixer
@@ -754,8 +779,11 @@ export default function App() {
         </div>
 
         {/* TIMELINE VIEW */}
-        <div style={{ display: viewMode === 'timeline' ? 'flex' : 'none', flex: 1, minWidth: 0, flexDirection: 'column', height: '100%' }}>
-          {!isDetailViewDeferred && (
+        <div 
+          style={{ display: viewMode === 'timeline' ? 'flex' : 'none', flex: 1, minWidth: 0, flexDirection: 'column', height: '100%' }}
+          className={isFadingIn && renderedView === 'timeline' ? 'fade-in-view-slow' : ''}
+        >
+          {!isDetailViewDeferred && renderedView === 'timeline' && (
             <ErrorBoundary fallback={renderFallback('Linha do Tempo / Timeline', 'Linha do Tempo')}>
               <Suspense fallback={null}>
                 <TimelineSequencer

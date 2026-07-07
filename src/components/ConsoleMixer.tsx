@@ -541,7 +541,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
         {trackIds.length > 0 && (
           <div 
-            className="flex flex-col bg-[var(--cordel-bg)] cordel-border w-[160px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-colors"
+            className="flex flex-col bg-[var(--cordel-bg)] cordel-border w-[110px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-colors"
             style={{
               zIndex: 1,
               '--fader-thumb-bg': '#8b2a1a',
@@ -549,47 +549,44 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             } as React.CSSProperties}
           >
             {/* Header / Title */}
-            <div className="relative p-3 pb-1 flex justify-center items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
-              <div className="flex items-center gap-1.5">
-                <svg className="w-4 h-4 object-contain" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 3L4 21h16L12 3z" />
-                  <line x1="12" y1="18" x2="16" y2="7" />
-                  <circle cx="15" cy="9.5" r="1.5" fill="currentColor" />
-                  <circle cx="12" cy="18" r="1" fill="currentColor" />
-                </svg>
-                <span className="font-cactus font-bold text-sm tracking-wider">MÉTRONOME</span>
-              </div>
+            <div className="relative p-2 pb-1.5 flex justify-center items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
+              <svg className="w-5 h-5 object-contain" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" title="Métronome">
+                <path d="M12 3L4 21h16L12 3z" />
+                <line x1="12" y1="18" x2="16" y2="7" />
+                <circle cx="15" cy="9.5" r="1.5" fill="currentColor" />
+                <circle cx="12" cy="18" r="1" fill="currentColor" />
+              </svg>
             </div>
 
             {/* Middle Section (Sound Selection) */}
-            <div className="relative z-10 flex-1 p-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar border-b-[3px] border-[var(--cordel-border)] bg-[#1a1a1a]/5">
+            <div className="relative z-10 flex-1 p-2 flex flex-col gap-4 overflow-y-auto custom-scrollbar border-b-[3px] border-[var(--cordel-border)] bg-[#1a1a1a]/5">
               <div className="flex flex-col gap-1.5 border-b border-[var(--cordel-border)]/20 pb-2">
-                <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
-                  🎵 SON DU CLIC
+                <span className="text-[9px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80 text-center">
+                  SON
                 </span>
-                <div className="flex flex-col gap-1.5 mt-1">
+                <div className="flex flex-col gap-2 mt-1">
                   <label className="flex items-center gap-1.5 cursor-pointer group">
-                    <input type="radio" name="metroSound" value="synth" checked={metroSound === 'synth'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3.5 h-3.5 cursor-pointer" />
-                    <span className="font-bold text-[10px] group-hover:text-[#8b2a1a] transition-colors leading-none mt-0.5">Beep (Synth)</span>
+                    <input type="radio" name="metroSound" value="synth" checked={metroSound === 'synth'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3 h-3 cursor-pointer" />
+                    <span className="font-bold text-[9px] group-hover:text-[#8b2a1a] transition-colors leading-none">Synth</span>
                   </label>
                   <label className="flex items-center gap-1.5 cursor-pointer group">
-                    <input type="radio" name="metroSound" value="clave" checked={metroSound === 'clave'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3.5 h-3.5 cursor-pointer" />
-                    <span className="font-bold text-[10px] group-hover:text-[#8b2a1a] transition-colors leading-none mt-0.5">Clave Bois</span>
+                    <input type="radio" name="metroSound" value="clave" checked={metroSound === 'clave'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3 h-3 cursor-pointer" />
+                    <span className="font-bold text-[9px] group-hover:text-[#8b2a1a] transition-colors leading-none">Clave</span>
                   </label>
                   <label className="flex items-center gap-1.5 cursor-pointer group">
-                    <input type="radio" name="metroSound" value="cowbell" checked={metroSound === 'cowbell'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3.5 h-3.5 cursor-pointer" />
-                    <span className="font-bold text-[10px] group-hover:text-[#8b2a1a] transition-colors leading-none mt-0.5">Cloche</span>
+                    <input type="radio" name="metroSound" value="cowbell" checked={metroSound === 'cowbell'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3 h-3 cursor-pointer" />
+                    <span className="font-bold text-[9px] group-hover:text-[#8b2a1a] transition-colors leading-none">Cloche</span>
                   </label>
                 </div>
               </div>
             </div>
 
             {/* Bottom Fader */}
-            <div className="relative z-10 p-4 pt-4 flex justify-around items-end h-[200px] gap-2">
+            <div className="relative z-10 p-2 pt-4 flex justify-around items-end h-[200px] gap-2">
               <div className="flex flex-col items-center gap-1.5 h-full w-full">
                 <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Volume</span>
-                <div className="h-[145px] flex justify-center items-center relative w-12">
-                  <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
+                <div className="h-[145px] flex justify-center items-center relative w-8">
+                  <div className="absolute top-0 bottom-0 w-1 bg-[var(--cordel-border)] rounded-none pointer-events-none"></div>
                   <AudioFader
                     type="range"
                     min="0"
@@ -599,7 +596,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     audioTarget="metroVolume"
                     value={metroVolume}
                     onChange={(val) => setMetroVolume(val)}
-                    className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
+                    className="vertical-fader touch-none z-10 h-[130px] w-6 cursor-pointer"
                   />
                 </div>
                 <span className="text-[10px] font-bold text-[var(--cordel-text)] text-center leading-none fader-val-label">
