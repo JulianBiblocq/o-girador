@@ -661,7 +661,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
               className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
             />
           </div>
-          <span className="text-[10px] font-bold text-[var(--cordel-text)]">{track.volumeVal}</span>
+          <span className="text-[10px] font-bold text-[var(--cordel-text)] fader-val-label">{track.volumeVal}</span>
         </div>
 
         {/* Reverb Fader Column */}
@@ -682,7 +682,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
               className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
             />
           </div>
-          <span className="text-[10px] font-bold text-[var(--cordel-text)]">{track.reverbVal || 0}</span>
+          <span className="text-[10px] font-bold text-[var(--cordel-text)] fader-val-label">{track.reverbVal || 0}</span>
         </div>
 
         {/* LED Meter */}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type * as ToneType from 'tone';
 import { loadTone, getTone } from '@/src/ToneLoader';
-import { channels, reverbSends, masterVolumeNode, masterEQNode, masterCompressorNode, metroChannel, masterReverbVolumeNode } from '../hooks/useAudioSync';
+import { channels, reverbSends, masterVolumeNode, masterEQNode, masterCompressorNode, metroChannel, masterReverbVolumeNode, reverbNode } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { instrumentsConfig } from '../data';
 
@@ -12,13 +12,12 @@ function safeGetTone() {
 interface AudioFaderProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
   value: number;
   onChange: (val: number) => void;
-  audioTarget?: 'trackVolume' | 'trackPan' | 'trackReverb' | 'masterVolume' | 'metroVolume' | 'eqLow' | 'eqMid' | 'eqHigh' | 'compThreshold' | 'compRatio' | 'masterReverbVol';
+  audioTarget?: 'trackVolume' | 'trackPan' | 'trackReverb' | 'masterVolume' | 'metroVolume' | 'eqLow' | 'eqMid' | 'eqHigh' | 'compThreshold' | 'compRatio' | 'masterReverbVol' | 'reverbDecay';
   trackId?: number;
 }
 
 export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTarget, trackId, ...props }) => {
   const [localVal, setLocalVal] = useState(value);
-  const throttleTimeoutRef = useRef<any>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const isDraggingRef = useRef(false);
@@ -30,26 +29,6 @@ export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTa
       setLocalVal(value);
     }
   }, [value]);
-
-  useEffect(() => {
-    return () => {
-      if (throttleTimeoutRef.current) {
-        clearTimeout(throttleTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Écrit dans Zustand au maximum toutes les 60ms pour protéger l'Event Loop
-  const throttledUpdate = (val: number) => {
-    if (!throttleTimeoutRef.current) {
-      throttleTimeoutRef.current = setTimeout(() => {
-        throttleTimeoutRef.current = null;
-        React.startTransition(() => {
-          onChangeRef.current(val);
-        });
-      }, 60);
-    }
-  };
 
   const handleDrag = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
@@ -93,19 +72,42 @@ export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTa
       masterCompressorNode.ratio.rampTo(val, 0.05);
     } else if (audioTarget === 'masterReverbVol' && masterReverbVolumeNode) {
       masterReverbVolumeNode.gain.rampTo(safeGetTone()?.dbToGain(val === -40 ? -Infinity : val), 0.05);
+    } else if (audioTarget === 'reverbDecay' && reverbNode) {
+      try {
+        reverbNode.decay = val;
+      } catch (err) {
+        console.warn("Error setting reverb decay:", err);
+      }
     }
 
-    throttledUpdate(val);
+    // Règle 1 (Bis) : Mutation directe du DOM (Vanilla JS) en dehors du cycle React pour le label
+    const container = e.target.closest('.flex-col') || e.target.parentElement;
+    if (container) {
+      const label = container.querySelector('.fader-val-label');
+      if (label) {
+        if (audioTarget === 'masterReverbVol' || audioTarget === 'masterVolume') {
+          label.textContent = val === -40 ? 'Mute' : `${val > 0 ? '+' : ''}${val} dB`;
+        } else if (audioTarget === 'trackVolume' || audioTarget === 'metroVolume') {
+          label.textContent = `${Math.round(val)}%`;
+        } else if (audioTarget === 'trackReverb') {
+          label.textContent = `${Math.round(val)}`;
+        } else if (audioTarget === 'eqLow' || audioTarget === 'eqMid' || audioTarget === 'eqHigh') {
+          label.textContent = `${val > 0 ? '+' : ''}${val} dB`;
+        } else if (audioTarget === 'compThreshold') {
+          label.textContent = `${val} dB`;
+        } else if (audioTarget === 'compRatio') {
+          label.textContent = `${val.toFixed(1)}:1`;
+        } else if (audioTarget === 'reverbDecay') {
+          label.textContent = `${val.toFixed(1)} s`;
+        }
+      }
+    }
   };
 
-  // Commit final pour s'assurer que la valeur est synchronisée dans Zustand
+  // Commit final pour s'assurer que la valeur est synchronisée dans Zustand à la fin du glissement
   const handleCommit = (e: React.SyntheticEvent) => {
     const val = parseFloat((e.target as HTMLInputElement).value);
     isDraggingRef.current = false;
-    if (throttleTimeoutRef.current) {
-      clearTimeout(throttleTimeoutRef.current);
-      throttleTimeoutRef.current = null;
-    }
     React.startTransition(() => {
       onChangeRef.current(val);
     });

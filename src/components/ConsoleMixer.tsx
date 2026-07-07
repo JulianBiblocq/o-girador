@@ -594,7 +594,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
                   />
                 </div>
-                <span className="text-[10px] font-bold text-[var(--cordel-text)] text-center leading-none">
+                <span className="text-[10px] font-bold text-[var(--cordel-text)] text-center leading-none fader-val-label">
                   {metroVolume}%
                 </span>
               </div>
@@ -630,48 +630,51 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 <div className="flex justify-between items-center">
                   <span>AIGUS</span>
                   <div className="flex items-center gap-1">
-                    <input
+                    <AudioFader
                       type="range"
                       min="-12"
                       max="12"
                       step="0.5"
+                      audioTarget="eqHigh"
                       value={masterEQ.high}
-                      onChange={(e) => onMasterEQChange({ ...masterEQ, high: parseFloat(e.target.value) })}
+                      onChange={(val) => onMasterEQChange({ ...masterEQ, high: val })}
                       className="w-20 accent-[#8b2a1a] cursor-pointer"
                     />
-                    <span className="w-8 text-right">{masterEQ.high > 0 ? `+${masterEQ.high}` : masterEQ.high} dB</span>
+                    <span className="w-8 text-right fader-val-label">{masterEQ.high > 0 ? `+${masterEQ.high}` : masterEQ.high} dB</span>
                   </div>
                 </div>
 
                 <div className="flex justify-between items-center">
                   <span>MÉDIUMS</span>
                   <div className="flex items-center gap-1">
-                    <input
+                    <AudioFader
                       type="range"
                       min="-12"
                       max="12"
                       step="0.5"
+                      audioTarget="eqMid"
                       value={masterEQ.mid}
-                      onChange={(e) => onMasterEQChange({ ...masterEQ, mid: parseFloat(e.target.value) })}
+                      onChange={(val) => onMasterEQChange({ ...masterEQ, mid: val })}
                       className="w-20 accent-[#8b2a1a] cursor-pointer"
                     />
-                    <span className="w-8 text-right">{masterEQ.mid > 0 ? `+${masterEQ.mid}` : masterEQ.mid} dB</span>
+                    <span className="w-8 text-right fader-val-label">{masterEQ.mid > 0 ? `+${masterEQ.mid}` : masterEQ.mid} dB</span>
                   </div>
                 </div>
 
                 <div className="flex justify-between items-center">
                   <span>GRAVES</span>
                   <div className="flex items-center gap-1">
-                    <input
+                    <AudioFader
                       type="range"
                       min="-12"
                       max="12"
                       step="0.5"
+                      audioTarget="eqLow"
                       value={masterEQ.low}
-                      onChange={(e) => onMasterEQChange({ ...masterEQ, low: parseFloat(e.target.value) })}
+                      onChange={(val) => onMasterEQChange({ ...masterEQ, low: val })}
                       className="w-20 accent-[#8b2a1a] cursor-pointer"
                     />
-                    <span className="w-8 text-right">{masterEQ.low > 0 ? `+${masterEQ.low}` : masterEQ.low} dB</span>
+                    <span className="w-8 text-right fader-val-label">{masterEQ.low > 0 ? `+${masterEQ.low}` : masterEQ.low} dB</span>
                   </div>
                 </div>
               </div>
@@ -686,32 +689,34 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 <div className="flex justify-between items-center">
                   <span>SEUIL (THRESH)</span>
                   <div className="flex items-center gap-1">
-                    <input
+                    <AudioFader
                       type="range"
                       min="-60"
                       max="0"
                       step="1"
+                      audioTarget="compThreshold"
                       value={masterCompressor.threshold}
-                      onChange={(e) => onMasterCompressorChange({ ...masterCompressor, threshold: parseFloat(e.target.value) })}
+                      onChange={(val) => onMasterCompressorChange({ ...masterCompressor, threshold: val })}
                       className="w-16 accent-[#8b2a1a] cursor-pointer"
                     />
-                    <span className="w-10 text-right">{masterCompressor.threshold} dB</span>
+                    <span className="w-10 text-right fader-val-label">{masterCompressor.threshold} dB</span>
                   </div>
                 </div>
 
                 <div className="flex justify-between items-center">
                   <span>RATIO</span>
                   <div className="flex items-center gap-1">
-                    <input
+                    <AudioFader
                       type="range"
                       min="1"
                       max="12"
                       step="0.1"
+                      audioTarget="compRatio"
                       value={masterCompressor.ratio}
-                      onChange={(e) => onMasterCompressorChange({ ...masterCompressor, ratio: parseFloat(e.target.value) })}
+                      onChange={(val) => onMasterCompressorChange({ ...masterCompressor, ratio: val })}
                       className="w-16 accent-[#8b2a1a] cursor-pointer"
                     />
-                    <span className="w-10 text-right">{masterCompressor.ratio.toFixed(1)}:1</span>
+                    <span className="w-10 text-right fader-val-label">{masterCompressor.ratio.toFixed(1)}:1</span>
                   </div>
                 </div>
               </div>
@@ -726,16 +731,17 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 <div className="flex justify-between items-center">
                   <span>DURÉE (DECAY)</span>
                   <div className="flex items-center gap-1">
-                    <input
+                    <AudioFader
                       type="range"
                       min="0.5"
                       max="10"
                       step="0.1"
+                      audioTarget="reverbDecay"
                       value={reverbDecay}
-                      onChange={(e) => setReverbDecay(parseFloat(e.target.value))}
+                      onChange={(val) => setReverbDecay(val)}
                       className="w-16 accent-[#8b2a1a] cursor-pointer"
                     />
-                    <span className="w-10 text-right">{reverbDecay.toFixed(1)} s</span>
+                    <span className="w-10 text-right fader-val-label">{reverbDecay.toFixed(1)} s</span>
                   </div>
                 </div>
               </div>
@@ -763,7 +769,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
                 />
               </div>
-              <span className="text-[10px] font-bold text-[var(--cordel-text)]">
+              <span className="text-[10px] font-bold text-[var(--cordel-text)] fader-val-label">
                 {masterReverbVol === -40 ? 'Mute' : `${masterReverbVol > 0 ? '+' : ''}${masterReverbVol} dB`}
               </span>
             </div>
@@ -785,7 +791,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
                 />
               </div>
-              <span className="text-[10px] font-bold text-[var(--cordel-text)]">
+              <span className="text-[10px] font-bold text-[var(--cordel-text)] fader-val-label">
                 {masterVol === -40 ? 'Mute' : `${masterVol > 0 ? '+' : ''}${masterVol} dB`}
               </span>
             </div>

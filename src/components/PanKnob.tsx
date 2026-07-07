@@ -12,7 +12,6 @@ interface PanKnobProps {
 
 export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, label = "Pan" }) => {
   const [localVal, setLocalVal] = useState(value);
-  const throttleTimeoutRef = useRef<any>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const isDraggingRef = useRef(false);
@@ -24,26 +23,6 @@ export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, labe
       setLocalVal(value);
     }
   }, [value]);
-
-  useEffect(() => {
-    return () => {
-      if (throttleTimeoutRef.current) {
-        clearTimeout(throttleTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Écrit dans Zustand au maximum toutes les 60ms pour protéger l'Event Loop
-  const throttledUpdate = (val: number) => {
-    if (!throttleTimeoutRef.current) {
-      throttleTimeoutRef.current = setTimeout(() => {
-        throttleTimeoutRef.current = null;
-        React.startTransition(() => {
-          onChangeRef.current(val);
-        });
-      }, 60);
-    }
-  };
 
   const handleDrag = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value, 10);
@@ -59,18 +38,12 @@ export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, labe
         }
       }
     }
-
-    throttledUpdate(val);
   };
 
   // Commit final pour s'assurer que la valeur est synchronisée dans Zustand
   const handleCommit = (e: React.SyntheticEvent) => {
     const val = parseInt((e.target as HTMLInputElement).value, 10);
     isDraggingRef.current = false;
-    if (throttleTimeoutRef.current) {
-      clearTimeout(throttleTimeoutRef.current);
-      throttleTimeoutRef.current = null;
-    }
     React.startTransition(() => {
       onChangeRef.current(val);
     });
@@ -121,7 +94,7 @@ export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, labe
       </div>
       <div className="flex justify-between w-full px-1 text-[8px] font-bold opacity-60">
         <span>L</span>
-        <span>{value === 0 ? 'C' : value > 0 ? `R${value}` : `L${Math.abs(value)}`}</span>
+        <span>{localVal === 0 ? 'C' : localVal > 0 ? `R${localVal}` : `L${Math.abs(localVal)}`}</span>
         <span>R</span>
       </div>
     </div>
