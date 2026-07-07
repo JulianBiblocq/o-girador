@@ -60,6 +60,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const sequencer = useSequencer();
   const { hasAccess } = useAuth();
   const [showSubModal, setShowSubModal] = React.useState(false);
+  const { isPlaying } = useAudio();
 
   // 🛡️ FIX (Audit): Direct Zustand selectors to avoid massive cascade re-renders
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
@@ -875,7 +876,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       data-zoom={isMacro ? 'macro' : 'normal'}
       data-mobile={isMobile ? 'true' : 'false'}
       style={{ ...zoomStyles, touchAction: 'pan-x pan-y', display: isActive ? 'flex' : 'none' }}
-      className="timeline-sequencer-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden sequencer-bg text-[var(--cordel-text)] select-none"
+      className={`timeline-sequencer-container flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden sequencer-bg text-[var(--cordel-text)] select-none ${isPlaying ? 'pointer-events-none' : ''}`}
       onContextMenu={(e) => e.preventDefault()}
     >
       {/* ══════════ TIMELINE OVERVIEW (MINI-MAP) ══════════ */}

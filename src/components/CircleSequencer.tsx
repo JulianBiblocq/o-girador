@@ -1403,7 +1403,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           width={1200}
           height={1200}
           onPointerDown={handleCanvasPointerDown}
-          className="max-w-full max-h-full aspect-square cursor-pointer block select-none"
+          className={`max-w-full max-h-full aspect-square cursor-pointer block select-none ${isPlaying ? 'pointer-events-none' : ''}`}
           style={{ touchAction: 'none' }}
           role="application"
           aria-label={lang === 'pt' ? 'Roda de maracatu — sequenciador circular' : 'Roda de maracatu — sequenciador circular'}
