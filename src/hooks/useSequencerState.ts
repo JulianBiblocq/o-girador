@@ -287,14 +287,21 @@ export function useSequencerState() {
 
   // Dynamic layout radial positioning offsets
   const applyRadii = (list: TrackGroup[]): TrackGroup[] => {
-    const visibleList = list.filter((t) => !t.isHidden && instrumentsConfig[t.instrumentIdx]?.id !== 'apito');
-    const gap = visibleList.length > 1 ? (495 - 180) / (visibleList.length - 1) : 0;
+    const drawableTracks = list.filter(t => 
+      !t.isHidden && 
+      (!t.isBusFolder || t.isLinkFolder) && 
+      !t.linkedToTrackId && 
+      instrumentsConfig[t.instrumentIdx]?.id !== 'apito'
+    );
+
+    const gap = drawableTracks.length > 1 ? (495 - 180) / (drawableTracks.length - 1) : 0;
     
     return list.map(t => {
-      if (t.isHidden || instrumentsConfig[t.instrumentIdx]?.id === 'apito') return t;
-      const visibleIdx = visibleList.findIndex(vt => vt.id === t.id);
-      if (visibleIdx === -1) return t;
-      const newRadius = visibleList.length === 1 ? (180 + 495) / 2 : 180 + visibleIdx * gap;
+      const drawableIdx = drawableTracks.findIndex(dt => dt.id === t.id);
+      if (drawableIdx === -1) {
+        return t;
+      }
+      const newRadius = drawableTracks.length === 1 ? (180 + 495) / 2 : 180 + drawableIdx * gap;
       if (t.radius !== newRadius) {
         return { ...t, radius: newRadius };
       }
@@ -302,15 +309,7 @@ export function useSequencerState() {
     });
   };
 
-  const handleReorderTracksDnd = (oldIndex: number, newIndex: number) => {
-    if (oldIndex !== newIndex) {
-      pushUndoState();
-      setTracks((prev) => {
-        const newTracks = arrayMove(prev, oldIndex, newIndex) as TrackGroup[];
-        return applyRadii(newTracks);
-      });
-    }
-  };
+  const handleReorderTracksDnd = useSequencerStore(state => state.handleReorderTracksDnd);
 
   const handleTrackInstrumentIdxChange = (id: number, targetInstIdx: number) => {
     pushUndoState();

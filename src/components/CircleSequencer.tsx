@@ -110,7 +110,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     if (!isActive) return EMPTY_ARRAY;
     return state.tracks;
   }, isTracksStructureEqual);
-  const tracks = (props.tracks !== undefined ? props.tracks : tracksFromStore).filter(t => !t.linkedToTrackId);
+  const tracks = (props.tracks !== undefined ? props.tracks : tracksFromStore).filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
   const totalMeasuresFromStore = useSequencerStore(state => state.totalMeasures);
   const totalMeasures = props.totalMeasures !== undefined ? props.totalMeasures : totalMeasuresFromStore;
   const bpm = props.bpm !== undefined ? props.bpm : sequencer.bpm;
@@ -533,12 +533,12 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   useEffect(() => {
     if (props.tracks !== undefined) return;
     
-    // Keep raw tracks in stateRef up to date imperatively
-    stateRef.current.tracks = useSequencerStore.getState().tracks;
+    // Keep filtered tracks in stateRef up to date imperatively
+    stateRef.current.tracks = useSequencerStore.getState().tracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
     
     const unsubscribe = useSequencerStore.subscribe(
       (state) => {
-        stateRef.current.tracks = state.tracks;
+        stateRef.current.tracks = state.tracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
       }
     );
     return unsubscribe;
@@ -570,22 +570,41 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
     const currentTracks = stateRef.current.tracks;
 
+    const hasSolo = currentTracks.some(t => 
+      t.isSolo && 
+      !t.isHidden && 
+      (!t.isBusFolder || t.isLinkFolder) && 
+      !t.linkedToTrackId && 
+      instrumentsConfig[t.instrumentIdx]?.id !== 'apito'
+    );
+
+    const activeVisibleTracksToDraw = currentTracks.filter(t => {
+      if (t.isHidden) return false;
+      if (t.linkedToTrackId) return false;
+      if (t.isBusFolder && !t.isLinkFolder) return false;
+      if (instrumentsConfig[t.instrumentIdx]?.id === 'apito') return false;
+
+      const isMutedOut = hasSolo ? !t.isSolo : t.isMute;
+      return !isMutedOut;
+    });
+
+    const minRadius = 180;
+    const maxRadius = 495;
+    const gap = activeVisibleTracksToDraw.length > 1 ? (maxRadius - minRadius) / (activeVisibleTracksToDraw.length - 1) : 0;
+
     // Detect click on any track
-    currentTracks.forEach((track) => {
+    activeVisibleTracksToDraw.forEach((track, visibleIdx) => {
       const inst = instrumentsConfig[track.instrumentIdx];
       if (!inst) return null;
-      if (track.isHidden || inst?.id === 'apito') return;
-      
-      const hasSolo = currentTracks.some(t => t.isSolo);
-      const isMutedOut = hasSolo ? !track.isSolo : track.isMute;
-      if (isMutedOut) return;
       
       const activePatternId = getLiveActivePatternId(track);
       if (activePatternId === null) return;
       const activePattern = track.patterns.find(p => p.id === activePatternId);
       if (!activePattern) return;
 
-      if (Math.abs(distance - (track.radius || 0)) < 18) {
+      const tRad = activeVisibleTracksToDraw.length === 1 ? (minRadius + maxRadius) / 2 : minRadius + visibleIdx * gap;
+
+      if (Math.abs(distance - tRad) < 18) {
         let clickAngle = Math.atan2(dy, dx) + Math.PI / 2;
         if (clickAngle < 0) clickAngle += Math.PI * 2;
 
@@ -777,7 +796,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       lastDrawTime = time;
 
       const { 
-        tracks: currentTracks, 
+        tracks, 
         isPlaying: localPlaying, 
         timeSig: localTimeSig,
         isMetroOn: localMetroOn, 
@@ -789,35 +808,67 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       const localStep = live.step;
       const localTicks = live.maxTicks || 96;
 
+      const minRadius = 180;
+      const maxRadius = 495;
+
+      // 1. Détecter si des pistes sont en solo
+      const hasSoloTrack = tracks.some(t => 
+        t.isSolo && 
+        !t.isHidden && 
+        (!t.isBusFolder || t.isLinkFolder) && 
+        !t.linkedToTrackId && 
+        instrumentsConfig[t.instrumentIdx]?.id !== 'apito'
+      );
+
+      // 2. Filtrer les pistes actives et visibles (non mutées, non masquées)
+      const activeVisibleTracks = tracks.filter(t => {
+        if (t.isHidden) return false;
+        if (t.linkedToTrackId) return false;
+        if (t.isBusFolder && !t.isLinkFolder) return false;
+        if (instrumentsConfig[t.instrumentIdx]?.id === 'apito') return false;
+
+        const isMutedOut = hasSoloTrack ? !t.isSolo : t.isMute;
+        return !isMutedOut;
+      });
+
+      const gap = activeVisibleTracks.length > 1 ? (maxRadius - minRadius) / (activeVisibleTracks.length - 1) : 0;
+
       // Consume hit triggers to create ripples
       if (localHitTriggers && localHitTriggers.current.length > 0) {
         const hits = localHitTriggers.current.splice(0, localHitTriggers.current.length);
         if (!isEco) {
           hits.forEach(hit => {
-            const track = currentTracks.find(t => t.id === hit.trackId);
-          if (track && !track.isHidden && !track.isMute) {
-            const inst = instrumentsConfig[track.instrumentIdx];
-      if (!inst) return null;
-            const color = inst.colors[hit.state as any] || themeText;
-            const activePatternId = getLiveActivePatternId(track);
-            if (activePatternId === null) return;
-            const activePattern = track.patterns.find(p => p.id === activePatternId) || track.patterns[0];
-            const angle = -Math.PI / 2 + ((hit.stepIndex / activePattern.steps) * Math.PI * 2);
-            const radius = track.radius || 0;
-            const x = 600 + Math.cos(angle) * radius;
-            const y = 600 + Math.sin(angle) * radius;
+            let track = tracks.find(t => t.id === hit.trackId);
+            if (track && track.linkedToTrackId) {
+              track = tracks.find(t => String(t.id) === String(track!.linkedToTrackId));
+            }
+            if (track && !track.isHidden && !track.isMute) {
+              const inst = instrumentsConfig[track.instrumentIdx];
+              if (!inst) return null;
+              const color = inst.colors[hit.state as any] || themeText;
+              const activePatternId = getLiveActivePatternId(track);
+              if (activePatternId === null) return;
+              const activePattern = track.patterns.find(p => p.id === activePatternId) || track.patterns[0];
+              const angle = -Math.PI / 2 + ((hit.stepIndex / activePattern.steps) * Math.PI * 2);
+              
+              const visibleIdx = activeVisibleTracks.findIndex(vt => vt.id === track!.id);
+              if (visibleIdx !== -1) {
+                const radius = activeVisibleTracks.length === 1 ? (minRadius + maxRadius) / 2 : minRadius + visibleIdx * gap;
+                const x = 600 + Math.cos(angle) * radius;
+                const y = 600 + Math.sin(angle) * radius;
 
-            ripples.push({
-              x, y,
-              radius: 6,
-              maxRadius: 25 + (track.volumeVal / 100) * 15,
-              alpha: 0.6 * (track.volumeVal / 100),
-              color: color,
-              speed: 1.0 + Math.random() * 0.5
-            });
-          }
-        });
-      }
+                ripples.push({
+                  x, y,
+                  radius: 6,
+                  maxRadius: 25 + (track.volumeVal / 100) * 15,
+                  alpha: 0.6 * (track.volumeVal / 100),
+                  color: color,
+                  speed: 1.0 + Math.random() * 0.5
+                });
+              }
+            }
+          });
+        }
       }
 
       const centerX = 600;
@@ -1032,21 +1083,14 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         stickAngle = -Math.PI / 2;
       }
 
+      // 3. Dessiner la baguette avec la longueur maximale dynamique uniforme
+      const maxVisibleRadius = activeVisibleTracks.length > 1 ? maxRadius : (activeVisibleTracks.length === 1 ? (minRadius + maxRadius) / 2 : 120);
+      const stickLength = maxVisibleRadius + 35;
+
       ctx.save();
       ctx.translate(centerX, centerY);
       ctx.rotate(stickAngle);
-      let maxVisibleRadius = -1;
-      for (let i = 0; i < currentTracks.length; i++) {
-        const t = currentTracks[i];
-        if (!t.isHidden && instrumentsConfig[t.instrumentIdx]?.id !== 'apito') {
-          const r = t.radius || 0;
-          if (r > maxVisibleRadius) {
-            maxVisibleRadius = r;
-          }
-        }
-      }
-      if (maxVisibleRadius === -1) maxVisibleRadius = 120;
-      const stickLength = maxVisibleRadius + 35;
+
       ctx.beginPath();
       ctx.moveTo(0, -2);
       ctx.lineTo(stickLength - 10, -1);
@@ -1064,8 +1108,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
       // Dynamic scale multiplier
       const maxTracks = 10;
-      const countClamped = Math.min(currentTracks.length, maxTracks);
-      const dynamicScale = currentTracks.length > 0 ? 1 + ((maxTracks - countClamped) * 0.08) : 1;
+      const countClamped = Math.min(activeVisibleTracks.length, maxTracks);
+      const dynamicScale = activeVisibleTracks.length > 0 ? 1 + ((maxTracks - countClamped) * 0.08) : 1;
 
       // Render Ripples (Ondes de choc)
       for (let i = ripples.length - 1; i >= 0; i--) {
@@ -1086,24 +1130,16 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         ctx.restore();
       }
 
-      let hasSoloTrack = false;
-      for (let i = 0; i < currentTracks.length; i++) {
-        if (currentTracks[i].isSolo) {
-          hasSoloTrack = true;
-          break;
-        }
-      }
-
       for (const key in instrumentTotals) delete instrumentTotals[key];
       for (const key in instrumentIndexes) delete instrumentIndexes[key];
 
-      for (let i = 0; i < currentTracks.length; i++) {
-        const idx = currentTracks[i].instrumentIdx;
+      for (let i = 0; i < activeVisibleTracks.length; i++) {
+        const idx = activeVisibleTracks[i].instrumentIdx;
         instrumentTotals[idx] = (instrumentTotals[idx] || 0) + 1;
       }
 
       // Render concentric sequencer tracks
-      currentTracks.forEach((track) => {
+      activeVisibleTracks.forEach((track, visibleIdx) => {
         const instIdx = track.instrumentIdx;
         const inst = instrumentsConfig[instIdx];
         
@@ -1144,7 +1180,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
         // Standard dashed track line
         ctx.beginPath();
-        const tRad = track.radius || 0;
+        const tRad = activeVisibleTracks.length === 1 ? (minRadius + maxRadius) / 2 : minRadius + visibleIdx * gap;
         ctx.arc(centerX, centerY, tRad, 0, Math.PI * 2);
         ctx.strokeStyle = themeBorder;
         ctx.lineWidth = 1.5;
@@ -1288,8 +1324,12 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               if (name === 'Gonguê') return 'Gonguês';
               return name + 's';
             };
-            let labelText = isMaster && inst ? `🔗 ${getPluralName(inst.name)}` : (inst?.name || 'Instrument');
-            if (instrumentTotals[instIdx] > 1) {
+            const tracks = useSequencerStore.getState().tracks;
+            const parentBus = track.busId ? tracks.find(t => String(t.id) === String(track.busId)) : null;
+            let labelText = (parentBus && parentBus.customName) 
+              ? parentBus.customName 
+              : (isMaster && inst ? `🔗 ${getPluralName(inst.name)}` : (inst?.name || 'Instrument'));
+            if (!parentBus && instrumentTotals[instIdx] > 1) {
               labelText += ` ${instrumentIndexes[instIdx]}`;
             }
             if (track.patterns.length > 1) {

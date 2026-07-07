@@ -16,7 +16,7 @@ export interface TrackSlice {
   // Actions (Squelette pour l'instant)
   setTracks: (tracks: TrackGroup[] | ((prev: TrackGroup[]) => TrackGroup[])) => void;
   setActiveAoVivoTrackId: (id: number | null) => void;
-  handleReorderTracksDnd: (oldIndex: number, newIndex: number) => void;
+  handleReorderTracksDnd: (activeId: number, overId: number) => void;
   handleTrackInstrumentIdxChange: (id: number, targetInstIdx: number) => void;
   handleTrackMuteToggle: (id: number) => void;
   handleTrackSoloToggle: (id: number) => void;
@@ -26,22 +26,33 @@ export interface TrackSlice {
   handleTrackReverbChange: (id: number, val: number) => void;
   handleTrackPanChange: (id: number, val: number) => void;
   handleLinkTrack: (trackId: number, linkedToTrackId: string | null) => void;
+  handleCreateLinkGroup: (trackId: number, name: string) => void;
   handleTimelinePatternAssign: (trackId: number, patternId: number | null, measureIdx: number) => void;
   handleTimelinePatternVariationToggle: (trackId: number, patternId: number, measureIdx: number, val: boolean) => void;
   handleTrackStepsChange: (trackId: number, patternId: number, targetSteps: number) => void;
   handleTrackStepVolumeChange: (trackId: number, patternId: number, stepIdx: number | number[], val: number) => void;
   handlePatternBeatResolutionChange: (patternId: number, beatIndex: number, newResolution: number) => void;
+  handleCreateBus: (trackId: number, name: string) => void;
+  handleAssignToBus: (trackId: number, busId: string | null) => void;
+  handleToggleFoldBus: (busId: string) => void;
 }
 
 const applyRadii = (list: TrackGroup[]): TrackGroup[] => {
-  const visibleList = list.filter((t) => !t.isHidden && instrumentsConfig[t.instrumentIdx]?.id !== 'apito');
-  const gap = visibleList.length > 1 ? (495 - 180) / (visibleList.length - 1) : 0;
+  const drawableTracks = list.filter(t => 
+    !t.isHidden && 
+    (!t.isBusFolder || t.isLinkFolder) && 
+    !t.linkedToTrackId && 
+    instrumentsConfig[t.instrumentIdx]?.id !== 'apito'
+  );
+
+  const gap = drawableTracks.length > 1 ? (495 - 180) / (drawableTracks.length - 1) : 0;
   
   return list.map(t => {
-    if (t.isHidden || instrumentsConfig[t.instrumentIdx]?.id === 'apito') return t;
-    const visibleIdx = visibleList.findIndex(vt => vt.id === t.id);
-    if (visibleIdx === -1) return t;
-    const newRadius = visibleList.length === 1 ? (180 + 495) / 2 : 180 + visibleIdx * gap;
+    const drawableIdx = drawableTracks.findIndex(dt => dt.id === t.id);
+    if (drawableIdx === -1) {
+      return t;
+    }
+    const newRadius = drawableTracks.length === 1 ? (180 + 495) / 2 : 180 + drawableIdx * gap;
     if (t.radius !== newRadius) {
       return { ...t, radius: newRadius };
     }
@@ -62,12 +73,81 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   }),
   setActiveAoVivoTrackId: (id) => set({ activeAoVivoTrackId: id }),
   
-  handleReorderTracksDnd: (oldIndex, newIndex) => {
-    if (oldIndex === newIndex) return;
+  handleReorderTracksDnd: (activeId, overId) => {
+    if (activeId === overId) return;
+
     get().pushUndoState();
     set((state) => {
-      const newTracks = arrayMove(state.tracks, oldIndex, newIndex) as TrackGroup[];
-      return { 
+      const currentTracks = [...state.tracks];
+      const oldIndex = currentTracks.findIndex(t => t.id === activeId);
+      const newIndex = currentTracks.findIndex(t => t.id === overId);
+
+      if (oldIndex === -1 || newIndex === -1) return {};
+
+      const draggedTrack = currentTracks[oldIndex];
+
+      // --- RÈGLE B : Drag d'un Enfant ---
+      if (draggedTrack.busId && !draggedTrack.isBusFolder) {
+        const busId = draggedTrack.busId;
+        const groupIndices = currentTracks
+          .map((t, idx) => (String(t.id) === String(busId) || String(t.busId) === String(busId) ? idx : -1))
+          .filter(idx => idx !== -1);
+
+        if (groupIndices.length > 0) {
+          const minLimit = Math.min(...groupIndices);
+          const maxLimit = Math.max(...groupIndices);
+
+          // Si l'index de destination sort des limites du groupe parent, on annule
+          if (newIndex < minLimit || newIndex > maxLimit) {
+            return {};
+          }
+        }
+        
+        const newTracks = arrayMove(currentTracks, oldIndex, newIndex) as TrackGroup[];
+        return {
+          tracks: applyRadii(newTracks),
+          tracksVersion: state.tracksVersion + 1
+        };
+      }
+
+      // --- RÈGLE A : Drag d'un Bus (Déplacement par Bloc) ---
+      if (draggedTrack.isBusFolder) {
+        const busId = draggedTrack.id;
+
+        // 1. Extraire toutes les pistes faisant partie du bloc (le Bus + ses enfants)
+        const blockTracks = currentTracks.filter(t => String(t.id) === String(busId) || String(t.busId) === String(busId));
+        
+        // 2. Créer la liste des pistes restantes (hors bloc)
+        const remainingTracks = currentTracks.filter(t => String(t.id) !== String(busId) && String(t.busId) !== String(busId));
+
+        // 3. Calculer l'index d'insertion dans la liste restante
+        const targetTrack = currentTracks[newIndex];
+        let insertIndex = remainingTracks.findIndex(t => t.id === targetTrack.id);
+        
+        if (oldIndex < newIndex) {
+          insertIndex = insertIndex + 1;
+        }
+
+        if (insertIndex === -1) {
+          insertIndex = oldIndex < newIndex ? remainingTracks.length : 0;
+        }
+
+        // 4. Reconstruire le tableau en injectant le bloc complet
+        const finalTracks = [
+          ...remainingTracks.slice(0, insertIndex),
+          ...blockTracks,
+          ...remainingTracks.slice(insertIndex)
+        ];
+
+        return {
+          tracks: applyRadii(finalTracks),
+          tracksVersion: state.tracksVersion + 1
+        };
+      }
+
+      // Déplacement standard pour les pistes autonomes
+      const newTracks = arrayMove(currentTracks, oldIndex, newIndex) as TrackGroup[];
+      return {
         tracks: applyRadii(newTracks),
         tracksVersion: state.tracksVersion + 1
       };
@@ -104,7 +184,54 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   handleTrackDelete: (id) => {
     get().pushUndoState();
     set((state) => {
-      const remaining = state.tracks.filter((t) => t.id !== id);
+      let updated = [...state.tracks];
+      const trackToDelete = updated.find(t => t.id === id);
+
+      if (trackToDelete) {
+        // Cas A : On supprime un bus de liaison de partition
+        if (trackToDelete.isLinkFolder) {
+          const patternsToCopy = JSON.parse(JSON.stringify(trackToDelete.patterns));
+          updated = updated.map(t => {
+            if (String(t.linkedToTrackId) === String(id)) {
+              return {
+                ...t,
+                linkedToTrackId: undefined,
+                isLinkMaster: undefined,
+                busId: undefined,
+                patterns: patternsToCopy.length ? patternsToCopy : t.patterns
+              };
+            }
+            return t;
+          });
+        }
+        // Cas B : On supprime l'instrument maître d'un bus de liaison
+        else if (trackToDelete.isLinkMaster && trackToDelete.linkedToTrackId) {
+          const busId = trackToDelete.linkedToTrackId;
+          const busTrack = updated.find(t => String(t.id) === String(busId) && t.isLinkFolder);
+          const patternsToCopy = busTrack ? JSON.parse(JSON.stringify(busTrack.patterns)) : [];
+
+          // Dissoudre le groupe pour les autres enfants restants
+          updated = updated.map(t => {
+            if (t.id !== id && String(t.linkedToTrackId) === String(busId)) {
+              return {
+                ...t,
+                linkedToTrackId: undefined,
+                isLinkMaster: undefined,
+                busId: undefined,
+                patterns: patternsToCopy.length ? patternsToCopy : t.patterns
+              };
+            }
+            return t;
+          });
+
+          // Supprimer le bus
+          updated = updated.filter(t => String(t.id) !== String(busId));
+        }
+      }
+
+      // Effectuer la suppression physique de la piste
+      const remaining = updated.filter((t) => t.id !== id);
+
       return { 
         tracks: applyRadii(remaining),
         tracksVersion: state.tracksVersion + 1
@@ -132,8 +259,233 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
 
   handleLinkTrack: (trackId, linkedToTrackId) => {
     get().pushUndoState();
+    set((state) => {
+      let updated = [...state.tracks];
+
+      if (linkedToTrackId) {
+        const masterTrackId = parseInt(linkedToTrackId, 10);
+        const masterTrack = updated.find(t => t.id === masterTrackId);
+        const slaveTrackIndex = updated.findIndex(t => t.id === trackId);
+
+        if (masterTrack && slaveTrackIndex !== -1) {
+          let targetBusId = masterTrack.busId;
+          let busTrack = targetBusId ? updated.find(t => t.id === parseInt(targetBusId!, 10) && t.isLinkFolder) : null;
+
+          // Si le maître n'est pas déjà dans un bus de liaison de partition, on en crée un automatiquement
+          if (!busTrack) {
+            const masterInst = instrumentsConfig[masterTrack.instrumentIdx];
+            const isAlfaia = masterInst.name.toLowerCase().includes('alfaia');
+            const busName = isAlfaia ? 'ALFAIAS' : `${masterInst.name.toUpperCase()}S`;
+            const newBusId = Date.now();
+
+            const clonedPatterns = JSON.parse(JSON.stringify(masterTrack.patterns));
+
+            const newBusTrack: TrackGroup = {
+              id: newBusId,
+              instrumentIdx: masterTrack.instrumentIdx,
+              patterns: clonedPatterns,
+              isMute: false,
+              isSolo: false,
+              isHidden: false,
+              volumeVal: 100,
+              selectedPatternId: masterTrack.selectedPatternId,
+              isBusFolder: true,
+              isLinkFolder: true,
+              isFolded: false,
+              customName: busName
+            };
+
+            const masterTrackIndex = updated.findIndex(t => t.id === masterTrackId);
+            
+            // Mettre à jour le maître : il devient lié au bus parent et est déclaré link master
+            updated = updated.map(t => t.id === masterTrackId 
+              ? { ...t, busId: String(newBusId), linkedToTrackId: String(newBusId), isLinkMaster: true } 
+              : t
+            );
+
+            // Insérer le bus juste avant le maître
+            updated.splice(masterTrackIndex, 0, newBusTrack);
+            
+            targetBusId = String(newBusId);
+          }
+
+          // Lier l'esclave au bus
+          updated = updated.map(t => 
+            t.id === trackId 
+              ? { ...t, linkedToTrackId: targetBusId, busId: targetBusId, isLinkMaster: false } 
+              : t
+          );
+
+          // Déplacer physiquement l'esclave pour la coller à la droite des autres pistes de ce bus
+          const slaveTrack = updated.find(t => t.id === trackId);
+          if (slaveTrack) {
+            // Filtrer la track esclave de sa position actuelle
+            updated = updated.filter(t => t.id !== trackId);
+
+            // Trouver l'index du dernier membre du bus
+            const lastMemberIndex = updated.map((t, idx) => 
+              (String(t.id) === String(targetBusId) || String(t.busId) === String(targetBusId)) ? idx : -1
+            ).reduce((max, idx) => Math.max(max, idx), -1);
+
+            if (lastMemberIndex !== -1) {
+              updated.splice(lastMemberIndex + 1, 0, slaveTrack);
+            } else {
+              updated.push(slaveTrack);
+            }
+          }
+        }
+      } else {
+        // Délier la piste trackId
+        const trackToUnlink = updated.find(t => t.id === trackId);
+        if (trackToUnlink) {
+          const busId = trackToUnlink.linkedToTrackId;
+          const busTrack = busId ? updated.find(t => String(t.id) === String(busId) && t.isLinkFolder) : null;
+          const patternsToCopy = busTrack ? JSON.parse(JSON.stringify(busTrack.patterns)) : [];
+
+          // Si c'est le maître qui se délie, on dissout TOUT le groupe de liaison
+          if (trackToUnlink.isLinkMaster && busId) {
+            // Pour toutes les pistes liées à ce bus
+            updated = updated.map(t => {
+              if (String(t.linkedToTrackId) === String(busId)) {
+                return {
+                  ...t,
+                  linkedToTrackId: undefined,
+                  isLinkMaster: undefined,
+                  busId: undefined,
+                  patterns: patternsToCopy.length ? patternsToCopy : t.patterns
+                };
+              }
+              return t;
+            });
+
+            // Supprimer le bus
+            updated = updated.filter(t => String(t.id) !== String(busId));
+          } else {
+            // Si c'est juste un esclave, on le délie individuellement
+            updated = updated.map(t => 
+              t.id === trackId 
+                ? { 
+                    ...t, 
+                    linkedToTrackId: undefined, 
+                    isLinkMaster: undefined,
+                    busId: undefined, 
+                    patterns: patternsToCopy.length ? patternsToCopy : t.patterns
+                  } 
+                : t
+            );
+          }
+        }
+      }
+
+      return {
+        tracks: applyRadii(updated),
+        tracksVersion: state.tracksVersion + 1
+      };
+    });
+  },
+
+  handleCreateLinkGroup: (trackId, name) => {
+    get().pushUndoState();
+    set((state) => {
+      const trackIndex = state.tracks.findIndex(t => t.id === trackId);
+      if (trackIndex === -1) return {};
+
+      const masterTrack = state.tracks[trackIndex];
+      const newBusId = Date.now();
+
+      // On clone les patterns du maître sur le bus de liaison
+      const clonedPatterns = JSON.parse(JSON.stringify(masterTrack.patterns));
+
+      const newBusTrack: TrackGroup = {
+        id: newBusId,
+        instrumentIdx: masterTrack.instrumentIdx,
+        patterns: clonedPatterns,
+        isMute: false,
+        isSolo: false,
+        isHidden: false,
+        volumeVal: 100,
+        selectedPatternId: masterTrack.selectedPatternId,
+        isBusFolder: true,
+        isLinkFolder: true,
+        isFolded: false,
+        customName: name
+      };
+
+      // Mettre à jour le maître : il devient lié au bus parent et est déclaré link master
+      const updatedTracks = state.tracks.map(t => 
+        t.id === trackId 
+          ? { 
+              ...t, 
+              busId: String(newBusId), 
+              linkedToTrackId: String(newBusId), 
+              isLinkMaster: true 
+            } 
+          : t
+      );
+
+      // Insérer le bus juste avant le maître
+      const nextTracks = [
+        ...updatedTracks.slice(0, trackIndex),
+        newBusTrack,
+        ...updatedTracks.slice(trackIndex)
+      ];
+
+      return {
+        tracks: applyRadii(nextTracks),
+        tracksVersion: state.tracksVersion + 1
+      };
+    });
+  },
+
+  handleCreateBus: (trackId, name) => {
+    get().pushUndoState();
+    set((state) => {
+      const trackIndex = state.tracks.findIndex(t => t.id === trackId);
+      if (trackIndex === -1) return {};
+
+      const newBusId = Date.now();
+      const newBusTrack: TrackGroup = {
+        id: newBusId,
+        instrumentIdx: state.tracks[trackIndex].instrumentIdx,
+        patterns: [],
+        isMute: false,
+        isSolo: false,
+        isHidden: false,
+        volumeVal: 100,
+        selectedPatternId: 0,
+        isBusFolder: true,
+        isFolded: false,
+        customName: name
+      };
+
+      const updatedTracks = state.tracks.map(t => 
+        t.id === trackId ? { ...t, busId: String(newBusId), linkedToTrackId: undefined } : t
+      );
+
+      const nextTracks = [
+        ...updatedTracks.slice(0, trackIndex),
+        newBusTrack,
+        ...updatedTracks.slice(trackIndex)
+      ];
+
+      return {
+        tracks: applyRadii(nextTracks),
+        tracksVersion: state.tracksVersion + 1
+      };
+    });
+  },
+
+  handleAssignToBus: (trackId, busId) => {
+    get().pushUndoState();
     set((state) => ({
-      tracks: state.tracks.map((t) => t.id === trackId ? { ...t, linkedToTrackId } : t),
+      tracks: state.tracks.map((t) => t.id === trackId ? { ...t, busId: busId || undefined } : t),
+      tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
+  handleToggleFoldBus: (busId) => {
+    set((state) => ({
+      tracks: state.tracks.map((t) => String(t.id) === String(busId) ? { ...t, isFolded: !t.isFolded } : t),
       tracksVersion: state.tracksVersion + 1
     }));
   },
@@ -1070,3 +1422,34 @@ export const useSequencerStore = create<SequencerStore>((...a) => ({
   ...createClipboardSlice(...a),
   ...createProjectSettingsSlice(...a),
 }));
+
+export const getEffectiveMuteState = (tracks: TrackGroup[], trackId: number): boolean => {
+  const track = tracks.find(t => t.id === trackId);
+  if (!track) return true;
+
+  const parentBus = track.busId 
+    ? tracks.find(b => b.isBusFolder && String(b.id) === String(track.busId)) 
+    : null;
+
+  const hasAnySolo = tracks.some(t => t.isSolo);
+
+  // 1. Règle B : Autorisation de chanter en mode Solo
+  let isAllowedToPlayBySolo = true;
+  if (hasAnySolo) {
+    const isSelfSolo = track.isSolo === true;
+    const isParentBusSolo = parentBus && parentBus.isSolo === true;
+    
+    // Si c'est un Bus, il a le droit de chanter si lui-même ou l'un de ses enfants directs est en solo
+    const isAnyChildSolo = track.isBusFolder && tracks.some(t => 
+      String(t.busId) === String(track.id) && t.isSolo === true
+    );
+
+    isAllowedToPlayBySolo = isSelfSolo || isParentBusSolo || isAnyChildSolo;
+  }
+
+  // 2. Règle A & C : Mute Prioritaire
+  const isSelfMuted = track.isMute === true;
+  const isParentBusMuted = parentBus && parentBus.isMute === true;
+
+  return !isAllowedToPlayBySolo || isSelfMuted || isParentBusMuted;
+};
