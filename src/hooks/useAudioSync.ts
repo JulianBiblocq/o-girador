@@ -846,10 +846,9 @@ export function useAudioSync({
           const markers = getCachedMarkers(currentMeasureSig, currentTicks);
 
           if (isMetroOnRef.current && markers.includes(stepIdx)) {
-            const metroVolLinear = Math.pow(Math.max(0, metroVolumeRef.current / 100), 2);
-            if (metroVolLinear > 0) {
+            if (metroVolumeRef.current > 0) {
               const isAccent = (stepIdx === 0);
-              playNativeMetroClick(time, isAccent, metroSoundRef.current, metroVolLinear);
+              playNativeMetroClick(time, isAccent, 'synth', 1.8);
             }
           }
 

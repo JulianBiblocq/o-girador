@@ -8,6 +8,9 @@ import { Play, Square, SkipBack, Circle, Repeat, ArrowRightToLine, Loader2, Gaug
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { i18n } from '../data';
+import { DragNumberBox } from './DragNumberBox';
+import { metroChannel } from '../audio/effectsChain';
+import * as Tone from 'tone';
 
 interface TransportBarProps {
   viewMode: 'roda' | 'console' | 'timeline';
@@ -24,6 +27,8 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
     recordingSeconds = 0,
     isMetroOn,
     setIsMetroOn,
+    metroVolume,
+    setMetroVolume,
     handleTogglePlay,
     handleStop,
     handleAudioRecordingToggle,
@@ -70,29 +75,46 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
       
       {/* Left side: Metro, Swing, BPM */}
       <div className="flex items-center gap-4 flex-1">
-        <button
-          onClick={() => setIsMetroOn(!isMetroOn)}
-          className={`px-3 py-1 font-cactus font-bold text-sm flex items-center gap-1.5 cordel-border-sm cordel-button ${
-            isMetroOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-          }`}
-          title={t('metroBtn')}
-        >
-          <svg
-            className="w-4 h-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        <div className="flex items-center gap-1.5 bg-[var(--cordel-bg)] cordel-border-sm overflow-hidden h-[30px] pr-2">
+          <button
+            onClick={() => setIsMetroOn(!isMetroOn)}
+            className={`px-3 py-1 font-cactus font-bold text-sm flex items-center gap-1.5 h-full transition-colors border-r border-[var(--cordel-border)]/20 ${
+              isMetroOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/5'
+            }`}
+            title={t('metroBtn')}
+            style={{ borderStyle: 'solid', borderWidth: '0 1px 0 0', borderRadius: 0 }}
           >
-            <path d="M12 3L4 21h16L12 3z" />
-            <line x1="12" y1="18" x2="16" y2="7" />
-            <circle cx="15" cy="9.5" r="1.5" fill="currentColor" />
-            <circle cx="12" cy="18" r="1" fill="currentColor" />
-          </svg>
-          <span className="hidden lg:inline">{lang === 'pt' ? 'Metrônomo' : 'Métronome'}</span>
-        </button>
+            <svg
+              className="w-4 h-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 3L4 21h16L12 3z" />
+              <line x1="12" y1="18" x2="16" y2="7" />
+              <circle cx="15" cy="9.5" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="18" r="1" fill="currentColor" />
+            </svg>
+            <span className="hidden lg:inline">{lang === 'pt' ? 'Metrônomo' : 'Métronome'}</span>
+          </button>
+
+          <DragNumberBox
+            label="Vol"
+            value={metroVolume}
+            onChange={(val) => {
+              setMetroVolume(val);
+              if (metroChannel && metroChannel.volume) {
+                const gain = Math.max(0.00001, val / 100);
+                const db = val === 0 ? -Infinity : Tone.gainToDb(gain);
+                metroChannel.volume.value = db;
+              }
+            }}
+            className="w-16 h-[22px] text-[10px] ml-1 bg-transparent border-0"
+          />
+        </div>
 
         <div className="flex items-center gap-1.5 bg-[var(--cordel-bg)] px-2 py-1 cordel-border-sm border-[var(--cordel-border)]">
           <Gauge className="w-4 h-4 text-[var(--cordel-text)] md:hidden" />

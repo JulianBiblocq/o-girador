@@ -651,60 +651,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           </SortableContext>
         </DndContext>
 
-        {trackIds.length > 0 && (
-          <div 
-            className="flex flex-col bg-[var(--cordel-bg)] cordel-border w-[110px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-colors"
-            style={{
-              zIndex: 1,
-              '--fader-thumb-bg': '#8b2a1a',
-              '--fader-thumb-border': 'var(--cordel-border)',
-            } as React.CSSProperties}
-          >
-            {/* Header / Title */}
-            <div className="relative p-2 pb-1.5 flex justify-center items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
-              <svg className="w-5 h-5 object-contain" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" title="Métronome">
-                <path d="M12 3L4 21h16L12 3z" />
-                <line x1="12" y1="18" x2="16" y2="7" />
-                <circle cx="15" cy="9.5" r="1.5" fill="currentColor" />
-                <circle cx="12" cy="18" r="1" fill="currentColor" />
-              </svg>
-            </div>
 
-            {/* Middle Section (Fader aligné) */}
-            <div className="relative z-10 flex-1 p-2 flex flex-col justify-center items-center border-b-[3px] border-[var(--cordel-border)] bg-[#1a1a1a]/5 min-h-[155px]">
-              <div className="h-[135px] flex items-center justify-center w-full">
-                <MixerVolumeFader
-                  value={metroVolume}
-                  onChange={(val) => setMetroVolume(val)}
-                  onAudioDrag={handleMetroAudioDrag}
-                />
-              </div>
-            </div>
-
-            {/* Bottom Section (Sound Selection tout en bas) */}
-            <div className="relative z-10 p-2 flex flex-col justify-center h-[90px] shrink-0 border-t border-[var(--cordel-border)]/10">
-              <div className="flex flex-col gap-1 w-full">
-                <span className="text-[8px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-60 text-center uppercase">
-                  Son
-                </span>
-                <div className="flex justify-around items-center mt-1 w-full gap-1">
-                  <label className="flex items-center gap-1 cursor-pointer group">
-                    <input type="radio" name="metroSound" value="synth" checked={metroSound === 'synth'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3 h-3 cursor-pointer" />
-                    <span className="font-bold text-[9px] group-hover:text-[#8b2a1a] transition-colors leading-none">Synth</span>
-                  </label>
-                  <label className="flex items-center gap-1 cursor-pointer group">
-                    <input type="radio" name="metroSound" value="clave" checked={metroSound === 'clave'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3 h-3 cursor-pointer" />
-                    <span className="font-bold text-[9px] group-hover:text-[#8b2a1a] transition-colors leading-none">Clave</span>
-                  </label>
-                  <label className="flex items-center gap-1 cursor-pointer group">
-                    <input type="radio" name="metroSound" value="cowbell" checked={metroSound === 'cowbell'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3 h-3 cursor-pointer" />
-                    <span className="font-bold text-[9px] group-hover:text-[#8b2a1a] transition-colors leading-none">Cloche</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Master Console Strip */}
         <div 
