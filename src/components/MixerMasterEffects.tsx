@@ -50,7 +50,7 @@ export const MixerMasterEffects: React.FC = () => {
             label="Time"
             value={masterFX.reverb.time}
             onChange={(val) => setMasterFxParam('reverb', 'time', val)}
-            className="w-full max-w-[50px]"
+            className="w-20"
           />
         </div>
 
@@ -89,7 +89,7 @@ export const MixerMasterEffects: React.FC = () => {
             label="Drive"
             value={masterFX.distortion.drive}
             onChange={(val) => setMasterFxParam('distortion', 'drive', val)}
-            className="w-full max-w-[50px]"
+            className="w-20"
           />
         </div>
 

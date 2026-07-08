@@ -184,13 +184,15 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     }
   };
 
-  const vuMeterRef = useRef<HTMLDivElement>(null);
+  const vuMeterLeftRef = useRef<HTMLDivElement>(null);
+  const vuMeterRightRef = useRef<HTMLDivElement>(null);
   const dbTextRef = useRef<HTMLDivElement>(null);
   const isPlayingRef = useRef(false);
 
   useEffect(() => {
     if (!isActive || !isPlaying) {
-      if (vuMeterRef.current) vuMeterRef.current.style.transform = 'scaleY(0)';
+      if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(0)';
+      if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(0)';
       if (dbTextRef.current) dbTextRef.current.innerText = '— dB';
       return;
     }
@@ -207,7 +209,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         return;
       }
       if (!isPlayingRef.current) {
-        if (vuMeterRef.current) vuMeterRef.current.style.transform = 'scaleY(0)';
+        if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(0)';
+        if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(0)';
         if (dbTextRef.current) dbTextRef.current.innerText = '— dB';
         idleTimerId = setTimeout(() => {
           animationFrameId = requestAnimationFrame(updateMasterMeter);
@@ -217,15 +220,33 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
       if (masterMeterNode) {
         try {
-          const db = masterMeterNode.getValue() as number;
-          const clampedDb = Math.max(-80, Math.min(6, db));
+          const val = masterMeterNode.getValue();
+          let leftDb = -80;
+          let rightDb = -80;
+
+          if (Array.isArray(val)) {
+            leftDb = val[0];
+            rightDb = val[1];
+          } else if (typeof val === 'number') {
+            leftDb = val;
+            rightDb = val;
+          }
+
+          const clampedLeftDb = Math.max(-80, Math.min(6, leftDb));
+          const clampedRightDb = Math.max(-80, Math.min(6, rightDb));
+          const maxDb = Math.max(clampedLeftDb, clampedRightDb);
 
           if (dbTextRef.current) {
-            dbTextRef.current.innerText = clampedDb <= -79 ? '-∞ dB' : `${Math.round(clampedDb)} dB`;
+            dbTextRef.current.innerText = maxDb <= -79 ? '-∞ dB' : `${Math.round(maxDb)} dB`;
           }
-          if (vuMeterRef.current) {
-            const percentage = Math.max(0, Math.min(100, ((clampedDb + 80) / 86) * 100));
-            vuMeterRef.current.style.transform = `scaleY(${percentage / 100})`;
+
+          if (vuMeterLeftRef.current) {
+            const percentageLeft = Math.max(0, Math.min(100, ((clampedLeftDb + 80) / 86) * 100));
+            vuMeterLeftRef.current.style.transform = `scaleY(${percentageLeft / 100})`;
+          }
+          if (vuMeterRightRef.current) {
+            const percentageRight = Math.max(0, Math.min(100, ((clampedRightDb + 80) / 86) * 100));
+            vuMeterRightRef.current.style.transform = `scaleY(${percentageRight / 100})`;
           }
         } catch (e) {
           console.error("Error reading master meter value:", e);
@@ -234,9 +255,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         if (dbTextRef.current) {
           dbTextRef.current.innerText = 'NO MTR';
         }
-        if (vuMeterRef.current) {
-          vuMeterRef.current.style.transform = 'scaleY(0)';
-        }
+        if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(0)';
+        if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(0)';
       }
       animationFrameId = requestAnimationFrame(updateMasterMeter);
     };
@@ -246,9 +266,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
       if (idleTimerId) clearTimeout(idleTimerId);
-      if (vuMeterRef.current) {
-        vuMeterRef.current.style.transform = 'scaleY(0)';
-      }
+      if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(0)';
+      if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(0)';
     };
   }, [isPlaying, isActive]);
 
@@ -651,37 +670,37 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
               </svg>
             </div>
 
-            {/* Middle Section (Sound Selection) */}
-            <div className="relative z-10 flex-1 p-2 flex flex-col gap-4 overflow-y-auto custom-scrollbar border-b-[3px] border-[var(--cordel-border)] bg-[#1a1a1a]/5">
-              <div className="flex flex-col gap-1.5 border-b border-[var(--cordel-border)]/20 pb-2">
-                <span className="text-[9px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80 text-center">
-                  SON
-                </span>
-                <div className="flex flex-col gap-2 mt-1">
-                  <label className="flex items-center gap-1.5 cursor-pointer group">
-                    <input type="radio" name="metroSound" value="synth" checked={metroSound === 'synth'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3 h-3 cursor-pointer" />
-                    <span className="font-bold text-[9px] group-hover:text-[#8b2a1a] transition-colors leading-none">Synth</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer group">
-                    <input type="radio" name="metroSound" value="clave" checked={metroSound === 'clave'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3 h-3 cursor-pointer" />
-                    <span className="font-bold text-[9px] group-hover:text-[#8b2a1a] transition-colors leading-none">Clave</span>
-                  </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer group">
-                    <input type="radio" name="metroSound" value="cowbell" checked={metroSound === 'cowbell'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3 h-3 cursor-pointer" />
-                    <span className="font-bold text-[9px] group-hover:text-[#8b2a1a] transition-colors leading-none">Cloche</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Fader */}
-            <div className="relative z-10 p-2 pt-4 flex justify-around items-end h-[200px] gap-2">
+            {/* Middle Section (Fader aligné) */}
+            <div className="relative z-10 flex-1 p-2 flex flex-col justify-center items-center border-b-[3px] border-[var(--cordel-border)] bg-[#1a1a1a]/5 min-h-[155px]">
               <div className="h-[135px] flex items-center justify-center w-full">
                 <MixerVolumeFader
                   value={metroVolume}
                   onChange={(val) => setMetroVolume(val)}
                   onAudioDrag={handleMetroAudioDrag}
                 />
+              </div>
+            </div>
+
+            {/* Bottom Section (Sound Selection tout en bas) */}
+            <div className="relative z-10 p-2 flex flex-col justify-center h-[90px] shrink-0 border-t border-[var(--cordel-border)]/10">
+              <div className="flex flex-col gap-1 w-full">
+                <span className="text-[8px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-60 text-center uppercase">
+                  Son
+                </span>
+                <div className="flex justify-around items-center mt-1 w-full gap-1">
+                  <label className="flex items-center gap-1 cursor-pointer group">
+                    <input type="radio" name="metroSound" value="synth" checked={metroSound === 'synth'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3 h-3 cursor-pointer" />
+                    <span className="font-bold text-[9px] group-hover:text-[#8b2a1a] transition-colors leading-none">Synth</span>
+                  </label>
+                  <label className="flex items-center gap-1 cursor-pointer group">
+                    <input type="radio" name="metroSound" value="clave" checked={metroSound === 'clave'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3 h-3 cursor-pointer" />
+                    <span className="font-bold text-[9px] group-hover:text-[#8b2a1a] transition-colors leading-none">Clave</span>
+                  </label>
+                  <label className="flex items-center gap-1 cursor-pointer group">
+                    <input type="radio" name="metroSound" value="cowbell" checked={metroSound === 'cowbell'} onChange={(e) => setMetroSound(e.target.value as any)} className="accent-[#8b2a1a] w-3 h-3 cursor-pointer" />
+                    <span className="font-bold text-[9px] group-hover:text-[#8b2a1a] transition-colors leading-none">Cloche</span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -780,7 +799,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             {/* Master Fader Column */}
             <div className="flex flex-col items-center gap-1.5 h-full">
               <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Master</span>
-              <div className="h-[135px] flex items-center">
+              <div className="h-[135px] flex items-center" style={{ transform: 'scale(1.12)', transformOrigin: 'bottom center' }}>
                 <MixerVolumeFader
                   value={Math.max(0, Math.min(100, Math.round(((masterVol + 40) / 46) * 100)))}
                   onChange={(val) => {
@@ -798,16 +817,24 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
               </div>
             </div>
 
-            {/* Master LED Meter */}
+            {/* Master LED Meter (Stereo) */}
             <div className="flex flex-col items-center gap-1.5 h-full">
               <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
-              <div className="w-3.5 h-[99px] bg-[var(--cordel-bg)] cordel-border-sm relative overflow-hidden">
-                <div
-                  ref={vuMeterRef}
-                  id="master-meter-bar"
-                  className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#8b2a1a] w-full"
-                  style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
-                />
+              <div className="w-7 h-[120px] bg-[var(--cordel-bg)] cordel-border relative overflow-hidden flex gap-[2px] p-[1.5px]">
+                <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
+                  <div
+                    ref={vuMeterLeftRef}
+                    className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#8b2a1a] w-full"
+                    style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
+                  />
+                </div>
+                <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
+                  <div
+                    ref={vuMeterRightRef}
+                    className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#8b2a1a] w-full"
+                    style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
+                  />
+                </div>
               </div>
               <div ref={dbTextRef} className="text-[9px] font-bold text-[var(--cordel-text)] text-center leading-none mt-1 h-[14px]">
                 — dB
