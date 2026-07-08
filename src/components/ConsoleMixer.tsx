@@ -23,6 +23,9 @@ import { MixerChannel } from './MixerChannel';
 import { MixerLinkedTrack } from './MixerLinkedTrack';
 import { MixerFolderBus } from './MixerFolderBus';
 import { MixerMasterEffects } from './MixerMasterEffects';
+import { MixerVolumeFader } from './MixerVolumeFader';
+import { DragNumberBox } from './DragNumberBox';
+import { metroChannel, masterVolumeNode } from '../audio/effectsChain';
 import { i18n, instrumentsConfig } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
@@ -163,6 +166,22 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const onMasterVolChange = setMasterVol;
   const onMasterEQChange = setMasterEQ;
   const onMasterCompressorChange = setMasterCompressor;
+
+  const handleMetroAudioDrag = (val: number) => {
+    if (metroChannel) {
+      const gain = Math.max(0.00001, val / 100);
+      const db = val === 0 ? -Infinity : Tone.gainToDb(gain);
+      metroChannel.volume.rampTo(db, 0.05);
+    }
+  };
+
+  const handleMasterAudioDrag = (val: number) => {
+    if (masterVolumeNode) {
+      const gain = Math.max(0.00001, val / 100);
+      const db = val === 0 ? -Infinity : Tone.gainToDb(gain);
+      masterVolumeNode.volume.rampTo(db, 0.05);
+    }
+  };
 
   const vuMeterRef = useRef<HTMLDivElement>(null);
   const dbTextRef = useRef<HTMLDivElement>(null);
@@ -656,32 +675,16 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
             {/* Bottom Fader */}
             <div className="relative z-10 p-2 pt-4 flex justify-around items-end h-[200px] gap-2">
-              <div className="flex flex-col items-center gap-1.5 h-full w-full">
-                <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Volume</span>
-                <div className="h-[145px] flex justify-center items-center relative w-8">
-                  <div className="absolute top-0 bottom-0 w-1 bg-[var(--cordel-border)] rounded-none pointer-events-none"></div>
-                  <AudioFader
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
-                    orient="vertical"
-                    audioTarget="metroVolume"
-                    value={metroVolume}
-                    onChange={(val) => setMetroVolume(val)}
-                    className="vertical-fader touch-none z-10 h-[130px] w-6 cursor-pointer"
-                  />
-                </div>
-                <span className="text-[10px] font-bold text-[var(--cordel-text)] text-center leading-none fader-val-label">
-                  {metroVolume}%
-                </span>
+              <div className="h-[135px] flex items-center justify-center w-full">
+                <MixerVolumeFader
+                  value={metroVolume}
+                  onChange={(val) => setMetroVolume(val)}
+                  onAudioDrag={handleMetroAudioDrag}
+                />
               </div>
             </div>
           </div>
         )}
-
-        {/* Retours d'effets globaux (Réverbe & Distorsion) */}
-        <MixerMasterEffects />
 
         {/* Master Console Strip */}
         <div 
@@ -707,180 +710,96 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
               <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
                 🎛️ ÉGALISEUR 3-BANDES
               </span>
-              <div className="flex flex-col gap-1 mt-1 font-cactus font-bold text-[10px]">
-                <div className="flex justify-between items-center">
-                  <span>AIGUS</span>
-                  <div className="flex items-center gap-1">
-                    <AudioFader
-                      type="range"
-                      min="-12"
-                      max="12"
-                      step="0.5"
-                      audioTarget="eqHigh"
-                      value={masterEQ.high}
-                      onChange={(val) => onMasterEQChange({ ...masterEQ, high: val })}
-                      className="w-20 accent-[#8b2a1a] cursor-pointer"
-                    />
-                    <span className="w-8 text-right fader-val-label">{masterEQ.high > 0 ? `+${masterEQ.high}` : masterEQ.high} dB</span>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span>MÉDIUMS</span>
-                  <div className="flex items-center gap-1">
-                    <AudioFader
-                      type="range"
-                      min="-12"
-                      max="12"
-                      step="0.5"
-                      audioTarget="eqMid"
-                      value={masterEQ.mid}
-                      onChange={(val) => onMasterEQChange({ ...masterEQ, mid: val })}
-                      className="w-20 accent-[#8b2a1a] cursor-pointer"
-                    />
-                    <span className="w-8 text-right fader-val-label">{masterEQ.mid > 0 ? `+${masterEQ.mid}` : masterEQ.mid} dB</span>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span>GRAVES</span>
-                  <div className="flex items-center gap-1">
-                    <AudioFader
-                      type="range"
-                      min="-12"
-                      max="12"
-                      step="0.5"
-                      audioTarget="eqLow"
-                      value={masterEQ.low}
-                      onChange={(val) => onMasterEQChange({ ...masterEQ, low: val })}
-                      className="w-20 accent-[#8b2a1a] cursor-pointer"
-                    />
-                    <span className="w-8 text-right fader-val-label">{masterEQ.low > 0 ? `+${masterEQ.low}` : masterEQ.low} dB</span>
-                  </div>
-                </div>
+              <div className="flex gap-2 justify-between mt-1">
+                <DragNumberBox 
+                  label="GRAV"
+                  value={masterEQ.low}
+                  onChange={(val) => onMasterEQChange({ ...masterEQ, low: val })}
+                  min={-12}
+                  max={12}
+                  step={0.5}
+                  className="flex-1"
+                />
+                <DragNumberBox 
+                  label="MED"
+                  value={masterEQ.mid}
+                  onChange={(val) => onMasterEQChange({ ...masterEQ, mid: val })}
+                  min={-12}
+                  max={12}
+                  step={0.5}
+                  className="flex-1"
+                />
+                <DragNumberBox 
+                  label="AIG"
+                  value={masterEQ.high}
+                  onChange={(val) => onMasterEQChange({ ...masterEQ, high: val })}
+                  min={-12}
+                  max={12}
+                  step={0.5}
+                  className="flex-1"
+                />
               </div>
             </div>
 
             {/* Compressor Section */}
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/20 pb-2">
               <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
                 🌀 COMPRESSEUR
               </span>
-              <div className="flex flex-col gap-1 mt-1 font-cactus font-bold text-[10px]">
-                <div className="flex justify-between items-center">
-                  <span>SEUIL (THRESH)</span>
-                  <div className="flex items-center gap-1">
-                    <AudioFader
-                      type="range"
-                      min="-60"
-                      max="0"
-                      step="1"
-                      audioTarget="compThreshold"
-                      value={masterCompressor.threshold}
-                      onChange={(val) => onMasterCompressorChange({ ...masterCompressor, threshold: val })}
-                      className="w-16 accent-[#8b2a1a] cursor-pointer"
-                    />
-                    <span className="w-10 text-right fader-val-label">{masterCompressor.threshold} dB</span>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span>RATIO</span>
-                  <div className="flex items-center gap-1">
-                    <AudioFader
-                      type="range"
-                      min="1"
-                      max="12"
-                      step="0.1"
-                      audioTarget="compRatio"
-                      value={masterCompressor.ratio}
-                      onChange={(val) => onMasterCompressorChange({ ...masterCompressor, ratio: val })}
-                      className="w-16 accent-[#8b2a1a] cursor-pointer"
-                    />
-                    <span className="w-10 text-right fader-val-label">{masterCompressor.ratio.toFixed(1)}:1</span>
-                  </div>
-                </div>
+              <div className="flex gap-2 justify-between mt-1">
+                <DragNumberBox 
+                  label="SEUIL"
+                  value={masterCompressor.threshold}
+                  onChange={(val) => onMasterCompressorChange({ ...masterCompressor, threshold: val })}
+                  min={-60}
+                  max={0}
+                  step={1}
+                  className="flex-1"
+                />
+                <DragNumberBox 
+                  label="RATIO"
+                  value={masterCompressor.ratio}
+                  onChange={(val) => onMasterCompressorChange({ ...masterCompressor, ratio: val })}
+                  min={1}
+                  max={12}
+                  step={0.1}
+                  className="flex-1"
+                />
               </div>
             </div>
 
-            {/* Reverb Decay Section */}
-            <div className="flex flex-col gap-1 mt-2">
-              <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
-                🌊 RÉVERBÉRATION
-              </span>
-              <div className="flex flex-col gap-1 mt-1 font-cactus font-bold text-[10px]">
-                <div className="flex justify-between items-center">
-                  <span>DURÉE (DECAY)</span>
-                  <div className="flex items-center gap-1">
-                    <AudioFader
-                      type="range"
-                      min="0.5"
-                      max="10"
-                      step="0.1"
-                      audioTarget="reverbDecay"
-                      value={reverbDecay}
-                      onChange={(val) => setReverbDecay(val)}
-                      className="w-16 accent-[#8b2a1a] cursor-pointer"
-                    />
-                    <span className="w-10 text-right fader-val-label">{reverbDecay.toFixed(1)} s</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Retours d'effets Master (Réverbe & Distorsion) intégrés au milieu */}
+            <MixerMasterEffects />
 
           </div>
 
-          {/* Bottom Fader (Master Fader & Master Reverb Fader & Master LED Meter) */}
-          <div className="relative z-10 p-4 pt-4 flex justify-between items-end h-[200px] gap-2">
+          {/* Bottom Fader (Master Fader & Master LED Meter) */}
+          <div className="relative z-10 p-3 pt-4 flex justify-around items-end h-[200px] gap-4">
             
-            {/* Reverb Fader Column */}
-            <div className="flex flex-col items-center gap-1.5 h-full">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Reverb</span>
-              <div className="h-[145px] flex justify-center items-center relative w-12">
-                <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
-                <AudioFader
-                  type="range"
-                  min="-40"
-                  max="6"
-                  step="0.5"
-                  orient="vertical"
-                  audioTarget="masterReverbVol"
-                  value={masterReverbVol}
-                  onChange={(val) => setMasterReverbVol(val)}
-                  className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
-                />
-              </div>
-              <span className="text-[10px] font-bold text-[var(--cordel-text)] fader-val-label">
-                {masterReverbVol === -40 ? 'Mute' : `${masterReverbVol > 0 ? '+' : ''}${masterReverbVol} dB`}
-              </span>
-            </div>
-
             {/* Master Fader Column */}
             <div className="flex flex-col items-center gap-1.5 h-full">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Volume</span>
-              <div className="h-[145px] flex justify-center items-center relative w-12">
-                <div className="absolute top-0 bottom-0 w-1.5 bg-[var(--cordel-border)] rounded-none border-x border-[var(--cordel-bg)] pointer-events-none"></div>
-                <AudioFader
-                  type="range"
-                  min="-40"
-                  max="6"
-                  step="0.5"
-                  orient="vertical"
-                  audioTarget="masterVolume"
-                  value={masterVol}
-                  onChange={(val) => onMasterVolChange(val)}
-                  className="vertical-fader touch-none z-10 h-[130px] w-8 cursor-pointer"
+              <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Master</span>
+              <div className="h-[135px] flex items-center">
+                <MixerVolumeFader
+                  value={Math.max(0, Math.min(100, Math.round(((masterVol + 40) / 46) * 100)))}
+                  onChange={(val) => {
+                    const db = val === 0 ? -40 : -40 + (val / 100) * 46;
+                    onMasterVolChange(db);
+                  }}
+                  onAudioDrag={(val) => {
+                    if (masterVolumeNode) {
+                      const db = val === 0 ? -Infinity : -40 + (val / 100) * 46;
+                      masterVolumeNode.volume.rampTo(db, 0.05);
+                    }
+                  }}
                 />
               </div>
-              <span className="text-[10px] font-bold text-[var(--cordel-text)] fader-val-label">
-                {masterVol === -40 ? 'Mute' : `${masterVol > 0 ? '+' : ''}${masterVol} dB`}
-              </span>
             </div>
 
             {/* Master LED Meter */}
             <div className="flex flex-col items-center gap-1.5 h-full">
               <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
-              <div className="w-3.5 h-[145px] bg-[var(--cordel-bg)] cordel-border relative overflow-hidden">
+              <div className="w-3.5 h-[99px] bg-[var(--cordel-bg)] cordel-border-sm relative overflow-hidden">
                 <div
                   ref={vuMeterRef}
                   id="master-meter-bar"

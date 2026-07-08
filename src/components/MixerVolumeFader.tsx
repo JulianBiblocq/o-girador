@@ -11,19 +11,21 @@ function safeGetTone() {
 }
 
 interface MixerVolumeFaderProps {
-  trackId: number;
+  trackId?: number;
   value: number; // 0 to 100
   onChange: (val: number) => void;
-  faderColor: string;
-  textColor: string;
+  onAudioDrag?: (val: number) => void;
+  faderColor?: string;
+  textColor?: string;
 }
 
 export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   trackId,
   value,
   onChange,
-  faderColor,
-  textColor,
+  onAudioDrag,
+  faderColor = '#d4af37',
+  textColor = 'var(--cordel-text)',
 }) => {
   const visualThumbRef = useRef<HTMLDivElement>(null);
   const valueTextRef = useRef<HTMLSpanElement>(null);
@@ -45,12 +47,18 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
 
   // Met à jour le gain de Tone.js directement via l'Audio API
   const updateAudioNode = (val: number) => {
-    const channelNode = channels[trackId];
-    if (channelNode) {
-      const gain = Math.max(0.00001, val / 100);
-      const toneInstance = safeGetTone();
-      const db = val === 0 ? -Infinity : toneInstance ? toneInstance.gainToDb(gain) : 0;
-      channelNode.volume.rampTo(db, 0.05);
+    if (onAudioDrag) {
+      onAudioDrag(val);
+      return;
+    }
+    if (trackId !== undefined) {
+      const channelNode = channels[trackId];
+      if (channelNode) {
+        const gain = Math.max(0.00001, val / 100);
+        const toneInstance = safeGetTone();
+        const db = val === 0 ? -Infinity : toneInstance ? toneInstance.gainToDb(gain) : 0;
+        channelNode.volume.rampTo(db, 0.05);
+      }
     }
   };
 
