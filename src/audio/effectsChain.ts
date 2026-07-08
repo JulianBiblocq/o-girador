@@ -22,6 +22,8 @@ export let masterEQNode: Tone.EQ3 | null = null;
 export let masterCompressorNode: Tone.Compressor | null = null;
 export let masterSoftClipperNode: Tone.WaveShaper | null = null;
 export let masterMeterNode: Tone.Meter | null = null;
+export let masterLeftMeterNode: Tone.Meter | null = null;
+export let masterRightMeterNode: Tone.Meter | null = null;
 export let masterReverbVolumeNode: Tone.Gain | null = null;
 export let reverbNode: Tone.Reverb | null = null;
 export let distortionNode: Tone.Distortion | null = null;
@@ -124,6 +126,18 @@ export function initMasterEffectsChain(
   masterMeterNode = new Tone.Meter({ channels: 2 });
   (window as any).masterMeterNode = masterMeterNode;
   masterLimiterNode.connect(masterMeterNode);
+
+  // Stereo split for dedicated left/right meters connected to Tone.getDestination()
+  const masterSplit = new Tone.Split(2);
+  Tone.getDestination().connect(masterSplit);
+
+  masterLeftMeterNode = new Tone.Meter();
+  masterRightMeterNode = new Tone.Meter();
+  masterSplit.connect(masterLeftMeterNode, 0);
+  masterSplit.connect(masterRightMeterNode, 1);
+
+  (window as any).masterLeftMeterNode = masterLeftMeterNode;
+  (window as any).masterRightMeterNode = masterRightMeterNode;
 
   // Metronome channel
   metroChannel = new Tone.Channel({ volume: Tone.gainToDb(metroVolume / 100) }).connect(masterVolumeNode);

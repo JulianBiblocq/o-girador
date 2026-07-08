@@ -31,6 +31,7 @@ import { i18n, instrumentsConfig } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { meters, masterMeterNode } from '../hooks/useAudioSync';
+import { masterLeftMeterNode, masterRightMeterNode } from '../audio/effectsChain';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -224,20 +225,13 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         return;
       }
 
-      const liveMeter = (window as any).masterMeterNode || masterMeterNode;
-      if (liveMeter) {
-        try {
-          const val = liveMeter.getValue();
-          let leftDb = -80;
-          let rightDb = -80;
+      const liveLeftMeter = (window as any).masterLeftMeterNode || masterLeftMeterNode;
+      const liveRightMeter = (window as any).masterRightMeterNode || masterRightMeterNode;
 
-          if (Array.isArray(val)) {
-            leftDb = val[0];
-            rightDb = val[1];
-          } else if (typeof val === 'number') {
-            leftDb = val;
-            rightDb = val;
-          }
+      if (liveLeftMeter && liveRightMeter) {
+        try {
+          const leftDb = liveLeftMeter.getValue() as number;
+          const rightDb = liveRightMeter.getValue() as number;
 
           const clampedLeftDb = Math.max(-80, Math.min(6, leftDb));
           const clampedRightDb = Math.max(-80, Math.min(6, rightDb));
@@ -248,8 +242,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           }
 
           // Left channel lissage
-          const percentageLeft = Math.max(0, Math.min(100, ((clampedLeftDb + 80) / 86) * 100));
-          const targetLeftScale = percentageLeft / 100;
+          const targetLeftScale = Math.max(0, Math.min(1, (clampedLeftDb + 60) / 65));
           let currentLeftScale = lastMasterLeftRef.current;
           if (targetLeftScale > currentLeftScale) {
             currentLeftScale = targetLeftScale; // instant attack
@@ -259,8 +252,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           lastMasterLeftRef.current = currentLeftScale;
 
           // Right channel lissage
-          const percentageRight = Math.max(0, Math.min(100, ((clampedRightDb + 80) / 86) * 100));
-          const targetRightScale = percentageRight / 100;
+          const targetRightScale = Math.max(0, Math.min(1, (clampedRightDb + 60) / 65));
           let currentRightScale = lastMasterRightRef.current;
           if (targetRightScale > currentRightScale) {
             currentRightScale = targetRightScale; // instant attack
