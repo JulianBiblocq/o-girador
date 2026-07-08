@@ -222,7 +222,16 @@ export const i18n = {
     pwaOfflineTitle: "📶 Modo Offline (PWA)",
     pwaOfflineDesc: "• Este aplicativo funciona 100% offline para ensaios na rua.<br>• Uma vez carregado, as telas, sons e ritmos ficam guardados no aparelho mesmo sem internet.",
     feedbackBtn: "Feedback & Fórum",
-    feedbackTitle: "💬 Contato & Feedback"
+    feedbackTitle: "💬 Contato & Feedback",
+    eqTitle: "EQ 3 BANDAS",
+    eqLow: "LOW",
+    eqMid: "MID",
+    eqHigh: "HIGH",
+    compTitle: "COMPRESSOR",
+    compThreshold: "THRESH.",
+    compRatio: "RATIO",
+    expandSteps: "Mostrar passos",
+    collapseSteps: "Ocultar passos"
   },
   fr: {
     loading: "Chargement des voix...",
@@ -309,7 +318,16 @@ export const i18n = {
     pwaOfflineTitle: "📶 Mode Hors-Ligne (PWA)",
     pwaOfflineDesc: "• Cette application fonctionne à 100% hors-ligne pour vos répétitions de rue.<br>• Une fois chargée, les visuels, sons et rythmes restent accessibles sans connexion internet.",
     feedbackBtn: "Feedback & Forum",
-    feedbackTitle: "💬 Contact & Forum"
+    feedbackTitle: "💬 Contact & Forum",
+    eqTitle: "EQ 3 BANDES",
+    eqLow: "GRAVES",
+    eqMid: "MÉDIUMS",
+    eqHigh: "AIGUS",
+    compTitle: "COMPRESSEUR",
+    compThreshold: "SEUIL",
+    compRatio: "RATIO",
+    expandSteps: "Déplier les pas",
+    collapseSteps: "Replier les pas"
   }
 };
 

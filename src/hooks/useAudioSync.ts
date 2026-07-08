@@ -381,8 +381,10 @@ export function useAudioSync({
   useEffect(() => {
     const applyCompressor = (isEco: boolean) => {
       if (masterCompressorNode) {
-        masterCompressorNode.threshold.value = isEco ? 0 : masterCompressor.threshold;
-        masterCompressorNode.ratio.value = isEco ? 1 : masterCompressor.ratio;
+        const threshold = isEco ? 0 : Math.max(-100, Math.min(0, masterCompressor.threshold));
+        const ratio = isEco ? 1 : Math.max(1, masterCompressor.ratio);
+        masterCompressorNode.threshold.value = threshold;
+        masterCompressorNode.ratio.value = ratio;
       }
     };
     
@@ -582,7 +584,12 @@ export function useAudioSync({
         if (inst) {
           if (!channels[t.id]) {
             channels[t.id] = new Tone.Channel({ volume: 0 }).connect(masterVolumeNode!);
-            meters[t.id] = new Tone.Meter();
+            try {
+              channels[t.id].channelCount = 2;
+              channels[t.id].channelCountMode = "explicit";
+            } catch (_) {}
+            
+            meters[t.id] = new Tone.Analyser("waveform", 256) as any;
             channels[t.id].connect(meters[t.id]);
 
             const initialRevDb = percentToDb(isEco ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
@@ -930,8 +937,8 @@ export function useAudioSync({
                 const velocity = flatArray[ptr + 2];
                 const microtimingPct = flatArray[ptr + 3];
 
-                // Decode packedData: trackIdx (4 bits), circleStepIdx (5 bits), strokeCharCode (7 bits), decayPct (7 bits), isTuplet (1 bit)
-                const trackIdx = (packedData >> 20) & 0x0F;
+                // Decode packedData: trackIdx (8 bits), circleStepIdx (5 bits), strokeCharCode (7 bits), decayPct (7 bits), isTuplet (1 bit)
+                const trackIdx = (packedData >> 20) & 0xFF;
                 const circleStepIdx = (packedData >> 15) & 0x1F;
                 const strokeCharCode = (packedData >> 8) & 0x7F;
                 const decayPct = (packedData >> 1) & 0x7F;
@@ -1472,11 +1479,15 @@ export function useAudioSync({
             // Créer le canal du Bus s'il n'existe pas encore
             if (!busChannels[t.id]) {
               const channelNode = new Tone.Channel({ volume: 0 });
+              try {
+                channelNode.channelCount = 2;
+                channelNode.channelCountMode = "explicit";
+              } catch (_) {}
               channelNode.connect(masterVolumeNode!);
 
               busChannels[t.id] = channelNode;
               
-              busMeters[t.id] = new Tone.Meter();
+              busMeters[t.id] = new Tone.Analyser("waveform", 256) as any;
               channelNode.connect(busMeters[t.id]);
             }
 
@@ -1530,6 +1541,8 @@ export function useAudioSync({
           }
         });
 
+
+
         // 2. Synchroniser les pistes normales et leur routage vers les Bus
         tracks.forEach((t) => {
           if (t.isBusFolder) return; // Déjà géré au-dessus
@@ -1540,7 +1553,11 @@ export function useAudioSync({
           // Création dynamique des canaux si inexistants pour cette piste
           if (!channels[t.id]) {
             channels[t.id] = new Tone.Channel({ volume: 0 }).connect(masterVolumeNode!);
-            meters[t.id] = new Tone.Meter();
+            try {
+              channels[t.id].channelCount = 2;
+              channels[t.id].channelCountMode = "explicit";
+            } catch (_) {}
+            meters[t.id] = new Tone.Analyser("waveform", 256) as any;
             channels[t.id].connect(meters[t.id]);
 
             const isEco = state.isEcoMode;

@@ -397,7 +397,9 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
       {/* Visual Only Timeline alternative / Barre de statut de liaison */}
       <div className="h-[48px] bg-[var(--cordel-bg)] border-b-[3px] border-[var(--cordel-border)] shrink-0 flex items-center justify-center gap-1">
         <span className="text-[8px] font-extrabold uppercase tracking-widest text-[var(--cordel-text)]/40 flex items-center gap-1">
-          {track.isLinkMaster ? '👑 MESTRE' : '🔒 ESCRAVO'}
+          {track.isLinkMaster 
+            ? (lang === 'fr' ? '👑 MAÎTRE' : '👑 MESTRE') 
+            : (lang === 'fr' ? '🔒 ESCLAVE' : '🔒 ESCRAVO')}
         </span>
       </div>
 
@@ -408,6 +410,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
           value={track.pan ?? track.panVal ?? 0} 
           onChange={onPanChange}
           className="w-full shrink-0 h-4"
+          lang={lang}
         />
 
         {/* Zone Inférieure (Mixage) : 3 colonnes horizontales regroupées au centre */}

@@ -191,7 +191,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         const p = t.patterns[0];
         const newPattern: Pattern = {
           id: Date.now() + Math.floor(Math.random() * 1000),
-          name: `Padrão ${t.patterns.length + 1}`,
+          name: lang === 'fr' ? `Motif ${t.patterns.length + 1}` : `Padrão ${t.patterns.length + 1}`,
           steps: p.steps,
           activeSteps: Array(p.steps).fill(0),
           lyrics: Array(p.steps).fill(''),

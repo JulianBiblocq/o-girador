@@ -155,7 +155,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         const p = t.patterns[0];
         const newPattern = {
           id: Date.now() + Math.floor(Math.random() * 1000),
-          name: `Padrão ${t.patterns.length + 1}`,
+          name: lang === 'fr' ? `Motif ${t.patterns.length + 1}` : `Padrão ${t.patterns.length + 1}`,
           steps: p.steps,
           activeSteps: Array(p.steps).fill(0),
           lyrics: Array(p.steps).fill(''),
@@ -317,6 +317,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [editName, setEditName] = useState<string>('');
   const [isCalibrating, setIsCalibrating] = useState<boolean>(false);
   const [noteSelectorTarget, setNoteSelectorTarget] = useState<{ patternId: number; stepIdx: number; note: string; element: HTMLElement } | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
 
   const isPlayingRef = useRef(isPlaying);
   const soloPatternPlayIdRef = useRef(soloPatternPlayId);
@@ -598,6 +599,14 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   const strokes = getStrokesForInstrument(inst.id, inst.type, lang, isLeftHanded);
 
+  const handleClose = React.useCallback(() => {
+    if (isClosing) return;
+    setIsClosing(true);
+    setTimeout(() => {
+      onClose();
+    }, 750);
+  }, [isClosing, onClose]);
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       setMouseDownOnBackdrop(true);
@@ -608,19 +617,22 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   const handleMouseUp = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget && mouseDownOnBackdrop) {
-      onClose();
+      handleClose();
     }
     setMouseDownOnBackdrop(false);
   };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        handleClose();
+      }
       if (onKeyDown) onKeyDown(e);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose, onKeyDown]);
+  }, [handleClose, onKeyDown]);
 
   return createPortal(
     <div
@@ -638,6 +650,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           boxShadow: '8px 8px 0px 0px #1a1a1a',
         }}
       >
+        {isClosing && (
+          <div className="absolute inset-0 bg-[#f4ecd8]/20 backdrop-blur-[0.5px] z-[99999] pointer-events-auto" />
+        )}
         {/* ═══════════════════ HEADER BAR ═══════════════════ */}
         <div
           className="flex items-center gap-3 px-5 py-3 border-b-[3px] border-[#1a1a1a] shrink-0"
@@ -713,10 +728,17 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
           {/* Close */}
           <button
-            onClick={onClose}
+            onClick={handleClose}
+            disabled={isClosing}
             className="w-8 h-8 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold text-sm flex items-center justify-center hover:bg-[#1a1a1a] cursor-pointer transition-colors ml-2"
           >
-            ✕
+            {isClosing ? (
+              <svg className="w-5 h-5 animate-spin text-[#f4ecd8]" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-13c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5 2.24-5 5-5zm0 8c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/>
+              </svg>
+            ) : (
+              '✕'
+            )}
           </button>
         </div>
 

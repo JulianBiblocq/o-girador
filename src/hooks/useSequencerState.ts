@@ -1590,7 +1590,7 @@ export function useSequencerState() {
       patterns: [
         {
           id: Date.now() + Math.floor(Math.random() * 1000) + 1,
-          name: 'Padrão 1',
+          name: lang === 'fr' ? 'Motif 1' : 'Padrão 1',
           steps: 16,
           activeSteps: Array(16).fill(0),
           lyrics: Array(16).fill(''),

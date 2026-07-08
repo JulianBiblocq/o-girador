@@ -2,11 +2,15 @@ import React, { useRef, useEffect } from 'react';
 
 interface DragNumberBoxProps {
   label: string;
-  value: number; // 0 to 100
+  value: number;
   onChange: (val: number) => void;
   onAudioDrag?: (val: number) => void;
   className?: string;
   disabled?: boolean;
+  min?: number;
+  max?: number;
+  step?: number;
+  displayFormatter?: (val: number) => string;
 }
 
 const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({ 
@@ -15,7 +19,11 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
   onChange, 
   onAudioDrag,
   className = '', 
-  disabled = false 
+  disabled = false,
+  min,
+  max,
+  step,
+  displayFormatter
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const valueSpanRef = useRef<HTMLSpanElement>(null);
@@ -27,12 +35,39 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
   const onAudioDragRef = useRef(onAudioDrag);
   onAudioDragRef.current = onAudioDrag;
 
+  const actualMin = min !== undefined ? min : 0;
+  const actualMax = max !== undefined ? max : 100;
+  const range = actualMax - actualMin;
+
+  const formatValue = (val: number) => {
+    if (displayFormatter) {
+      return displayFormatter(val);
+    }
+    const lowerLabel = label.toLowerCase();
+    if (lowerLabel.includes('thres') || lowerLabel.includes('seuil') || lowerLabel.includes('limiar')) {
+      return `${val} dB`;
+    }
+    if (
+      lowerLabel.includes('low') || lowerLabel.includes('mid') || lowerLabel.includes('high') ||
+      lowerLabel.includes('grave') || lowerLabel.includes('médium') || lowerLabel.includes('aigu')
+    ) {
+      return `${val > 0 ? '+' : ''}${val}`;
+    }
+    if (lowerLabel.includes('ratio')) {
+      return `${val}:1`;
+    }
+    if (min === undefined && max === undefined) {
+      return `${val}%`;
+    }
+    return `${val}`;
+  };
+
   useEffect(() => {
     currentValRef.current = value;
     if (valueSpanRef.current && !isDraggingRef.current) {
-      valueSpanRef.current.textContent = disabled ? '—' : `${value}%`;
+      valueSpanRef.current.textContent = disabled ? '—' : formatValue(value);
     }
-  }, [value, disabled]);
+  }, [value, disabled, min, max, label]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (disabled) return;
@@ -46,12 +81,22 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (disabled || !isDraggingRef.current || !containerRef.current?.hasPointerCapture(e.pointerId)) return;
     const dy = startYRef.current - e.clientY; // Dragging up increases value
-    // Scale: 1.5px drag = 1% value change
-    const delta = Math.round(dy / 1.5);
-    const newVal = Math.max(0, Math.min(100, startValRef.current + delta));
+    // Scale: 150px drag spans the entire range
+    const delta = (dy / 150) * range;
+    let newVal = startValRef.current + delta;
+    newVal = Math.max(actualMin, Math.min(actualMax, newVal));
+    
+    if (step !== undefined) {
+      newVal = Math.round(newVal / step) * step;
+      const precision = (step.toString().split('.')[1] || '').length;
+      newVal = parseFloat(newVal.toFixed(precision));
+    } else {
+      newVal = Math.round(newVal);
+    }
+
     currentValRef.current = newVal;
     if (valueSpanRef.current) {
-      valueSpanRef.current.textContent = `${newVal}%`;
+      valueSpanRef.current.textContent = formatValue(newVal);
     }
     if (onAudioDragRef.current) {
       onAudioDragRef.current(newVal);
@@ -81,7 +126,7 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
     >
       <span className="uppercase opacity-60 tracking-wider font-sans">{label}</span>
       <span ref={valueSpanRef} className="font-mono font-bold text-[10px] ml-1">
-        {disabled ? '—' : `${value}%`}
+        {disabled ? '—' : formatValue(value)}
       </span>
     </div>
   );

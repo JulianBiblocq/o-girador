@@ -360,7 +360,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         const p = t.patterns[0];
         const newPattern: Pattern = {
           id: Date.now() + Math.floor(Math.random() * 1000),
-          name: `Padrão ${t.patterns.length + 1}`,
+          name: lang === 'fr' ? `Motif ${t.patterns.length + 1}` : `Padrão ${t.patterns.length + 1}`,
           steps: p.steps,
           activeSteps: Array(p.steps).fill(0),
           lyrics: Array(p.steps).fill(''),
@@ -694,11 +694,11 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             {/* EQ Section */}
             <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/20 pb-2">
               <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
-                🎛️ ÉGALISEUR 3-BANDES
+                🎛️ {t('eqTitle')}
               </span>
               <div className="flex gap-2 justify-between mt-1">
                 <DragNumberBox 
-                  label="GRAV"
+                  label={t('eqLow')}
                   value={masterEQ.low}
                   onChange={(val) => onMasterEQChange({ ...masterEQ, low: val })}
                   min={-12}
@@ -707,7 +707,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   className="flex-1"
                 />
                 <DragNumberBox 
-                  label="MED"
+                  label={t('eqMid')}
                   value={masterEQ.mid}
                   onChange={(val) => onMasterEQChange({ ...masterEQ, mid: val })}
                   min={-12}
@@ -716,7 +716,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   className="flex-1"
                 />
                 <DragNumberBox 
-                  label="AIG"
+                  label={t('eqHigh')}
                   value={masterEQ.high}
                   onChange={(val) => onMasterEQChange({ ...masterEQ, high: val })}
                   min={-12}
@@ -730,11 +730,11 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             {/* Compressor Section */}
             <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/20 pb-2">
               <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
-                🌀 COMPRESSEUR
+                🌀 {t('compTitle')}
               </span>
               <div className="flex gap-2 justify-between mt-1">
                 <DragNumberBox 
-                  label="SEUIL"
+                  label={t('compThreshold')}
                   value={masterCompressor.threshold}
                   onChange={(val) => onMasterCompressorChange({ ...masterCompressor, threshold: val })}
                   min={-60}
@@ -743,7 +743,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   className="flex-1"
                 />
                 <DragNumberBox 
-                  label="RATIO"
+                  label={t('compRatio')}
                   value={masterCompressor.ratio}
                   onChange={(val) => onMasterCompressorChange({ ...masterCompressor, ratio: val })}
                   min={1}

@@ -355,7 +355,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         const stepsCount = p?.steps ?? 16;
         const newPattern: Pattern = {
           id: Date.now() + Math.floor(Math.random() * 1000),
-          name: `Padrão ${(t.patterns?.length ?? 0) + 1}`,
+          name: lang === 'fr' ? `Motif ${(t.patterns?.length ?? 0) + 1}` : `Padrão ${(t.patterns?.length ?? 0) + 1}`,
           steps: stepsCount,
           activeSteps: Array(stepsCount).fill(0),
           lyrics: Array(stepsCount).fill(''),
@@ -541,7 +541,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
             ) : (
               <div 
                 onClick={() => useSequencerStore.getState().handleToggleFoldBus(String(trackId))}
-                className="flex items-center gap-2 bg-[#eaddcf] text-[#1a1a1a] cordel-border-sm px-2 py-1.5 cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors w-full justify-between font-bold"
+                className="flex items-center gap-2 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-2 py-1.5 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-between font-bold"
               >
                 <div className="flex items-center gap-2 truncate">
                   {track.isFolded ? (
@@ -737,7 +737,9 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                 📥
               </button>
             </div>
-            <button onClick={onAddPattern} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] px-2 py-0.5 cordel-border-sm cordel-button text-[10px] font-bold hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]">+ Padrão</button>
+            <button onClick={onAddPattern} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] px-2 py-0.5 cordel-border-sm cordel-button text-[10px] font-bold hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]">
+              {lang === 'fr' ? '+ Motif' : '+ Padrão'}
+            </button>
           </div>
           
           <div className="flex flex-col gap-2">
@@ -852,6 +854,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           value={track.pan ?? track.panVal ?? 0} 
           onChange={onPanChange}
           className="w-full shrink-0 h-4"
+          lang={lang}
         />
 
         {/* Zone Inférieure (Mixage) : 3 colonnes horizontales regroupées au centre */}
