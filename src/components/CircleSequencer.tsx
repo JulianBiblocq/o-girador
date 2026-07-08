@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import type * as ToneType from 'tone';
-import { loadTone, getTone } from '@/src/ToneLoader';
+import { loadTone, getTone } from '../ToneLoader';
 
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
@@ -95,6 +95,40 @@ const isTracksStructureEqual = (prev: TrackGroup[], next: TrackGroup[]) => {
   return true;
 };
 
+function useTracksWithCustomEquality(isActive: boolean): TrackGroup[] {
+  const [tracks, setTracks] = useState<TrackGroup[]>(() => {
+    if (!isActive) return EMPTY_ARRAY;
+    return useSequencerStore.getState().tracks;
+  });
+
+  const lastTracksRef = useRef<TrackGroup[]>(tracks);
+
+  useEffect(() => {
+    if (!isActive) {
+      if (lastTracksRef.current !== EMPTY_ARRAY) {
+        lastTracksRef.current = EMPTY_ARRAY;
+        setTracks(EMPTY_ARRAY);
+      }
+      return;
+    }
+
+    const handleStoreChange = (state: any) => {
+      const nextTracks = state.tracks;
+      if (!isTracksStructureEqual(lastTracksRef.current, nextTracks)) {
+        lastTracksRef.current = nextTracks;
+        setTracks(nextTracks);
+      }
+    };
+
+    handleStoreChange(useSequencerStore.getState());
+
+    const unsubscribe = useSequencerStore.subscribe(handleStoreChange);
+    return unsubscribe;
+  }, [isActive]);
+
+  return tracks;
+}
+
 const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const { isActive = true } = props;
   const sequencer = useSequencer();
@@ -107,10 +141,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
   const lang = props.lang !== undefined ? props.lang : sequencer.lang;
   const isLeftHanded = props.isLeftHanded !== undefined ? props.isLeftHanded : sequencer.isLeftHanded;
-  const tracksFromStore = useSequencerStore(state => {
-    if (!isActive) return EMPTY_ARRAY;
-    return state.tracks;
-  }, isTracksStructureEqual);
+  const tracksFromStore = useTracksWithCustomEquality(isActive);
   const tracks = (props.tracks !== undefined ? props.tracks : tracksFromStore).filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
   const totalMeasuresFromStore = useSequencerStore(state => state.totalMeasures);
   const totalMeasures = props.totalMeasures !== undefined ? props.totalMeasures : totalMeasuresFromStore;
@@ -124,16 +155,6 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const songMarkers = props.songMarkers !== undefined ? props.songMarkers : (songMarkersFromStore || []);
 
   const isPlaying = props.isPlaying !== undefined ? props.isPlaying : audio.isPlaying;
-  const currentStepRef = useRef<number>(-1);
-
-  useEffect(() => {
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number }>;
-      currentStepRef.current = customEvent.detail.step;
-    };
-    window.addEventListener('o-girador-tick', handleTick);
-    return () => window.removeEventListener('o-girador-tick', handleTick);
-  }, []);
   const globalCurrentMeasure = useSequencerStore(state => isActive ? state.currentMeasure : 0);
   const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
   const currentMeasure = props.currentMeasure !== undefined ? props.currentMeasure : globalCurrentMeasure;
@@ -208,6 +229,12 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     setPendingTargetMeasure(null);
     pendingTargetMeasureRef.current = null;
   }, [currentMeasure]);
+
+  const expandedRef = useRef<any[]>([]);
+
+  useEffect(() => {
+    expandedRef.current = getExpandedMeasures(totalMeasures, songSections);
+  }, [totalMeasures, songSections]);
 
   const livePlaybackRef = useRef({
     step: -1,
@@ -400,7 +427,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         const measureToDisplay = pendingTargetMeasureRef.current !== null ? pendingTargetMeasureRef.current : measure;
         const iterationToUse = pendingTargetMeasureRef.current !== null ? 1 : iteration;
 
-        const expanded = getExpandedMeasures(totalMeasures, songSections);
+        const expanded = expandedRef.current;
         const activeRepIndex = expanded.findIndex(item => item.baseMeasure === measureToDisplay && item.iteration === iterationToUse);
         const displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : measureToDisplay + 1;
         const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
@@ -414,7 +441,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       const customEvent = e as CustomEvent<{ measure: number; iteration?: number }>;
       const { measure, iteration = 1 } = customEvent.detail;
       if (measureDisplayRef.current) {
-        const expanded = getExpandedMeasures(totalMeasures, songSections);
+        const expanded = expandedRef.current;
         const activeRepIndex = expanded.findIndex(item => item.baseMeasure === measure && item.iteration === iteration);
         const displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : measure + 1;
         const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
@@ -480,7 +507,6 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const stateRef = useRef({
     tracks,
     isPlaying,
-    currentStepIndex: currentStepRef.current,
     currentMeasure,
     maxTicks,
     timeSig,
@@ -507,7 +533,6 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     stateRef.current = {
       tracks,
       isPlaying,
-      currentStepIndex: currentStepRef.current,
       currentMeasure,
       maxTicks,
       timeSig,
@@ -773,7 +798,10 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         return;
       }
       const time = performance.now();
-      const isEco = useSequencerStore.getState().isEcoMode;
+      
+      const sequencerState = useSequencerStore.getState();
+      const isEco = sequencerState.isEcoMode;
+      const storeTracks = sequencerState.tracks;
       const targetSize = isEco ? 600 : 1200;
       
       if (currentCanvasSize !== targetSize) {
@@ -1200,22 +1228,24 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
         const currentStep = (localStep >= 0) ? Math.floor((localStep / localTicks) * activePattern.steps) : -1;
         const stepCount = activePattern.steps;
-
-        const stepAngles: number[] = [];
-        const beatRes = activePattern.beatResolutions || Array(4).fill(Math.floor(stepCount / 4) || 4);
-        const anglePerBeat = (Math.PI * 2) / beatRes.length;
-        let currentAngle = -Math.PI / 2;
-        for (let b = 0; b < beatRes.length; b++) {
-          const res = beatRes[b];
-          const anglePerStep = anglePerBeat / res;
-          for (let s = 0; s < res; s++) {
-            stepAngles.push(currentAngle + s * anglePerStep);
+        let stepAngles: number[] | null = null;
+        if (activePattern.beatResolutions) {
+          stepAngles = [];
+          const beatRes = activePattern.beatResolutions;
+          const anglePerBeat = (Math.PI * 2) / beatRes.length;
+          let currentAngle = -Math.PI / 2;
+          for (let b = 0; b < beatRes.length; b++) {
+            const res = beatRes[b];
+            const anglePerStep = anglePerBeat / res;
+            for (let s = 0; s < res; s++) {
+              stepAngles.push(currentAngle + s * anglePerStep);
+            }
+            currentAngle += anglePerBeat;
           }
-          currentAngle += anglePerBeat;
         }
 
         for (let i = 0; i < stepCount; i++) {
-          const stepAngle = stepAngles[i] || (-Math.PI / 2 + (i * (Math.PI * 2 / stepCount)));
+          const stepAngle = stepAngles ? stepAngles[i] : (-Math.PI / 2 + (i * (Math.PI * 2 / stepCount)));
           const x = centerX + Math.cos(stepAngle) * tRad;
           const y = centerY + Math.sin(stepAngle) * tRad;
 
@@ -1313,13 +1343,13 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           }
 
           // Name overlay on step 0
-          if (i === 0 && !useSequencerStore.getState().isEcoMode) {
+          if (i === 0 && !isEco) {
             ctx.save();
             ctx.globalAlpha = 1.0;
             ctx.fillStyle = themeText;
             ctx.font = 'bold 10px serif';
             ctx.textAlign = 'left';
-            const isMaster = useSequencerStore.getState().tracks.some(t => String(t.linkedToTrackId) === String(track.id));
+            const isMaster = storeTracks.some(t => String(t.linkedToTrackId) === String(track.id));
             const getPluralName = (name: string) => {
               if (name.includes('Alfaia')) return 'Alfaias';
               if (name === 'Caixa') return 'Caixas';
@@ -1329,8 +1359,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               if (name === 'Gonguê') return 'Gonguês';
               return name + 's';
             };
-            const tracks = useSequencerStore.getState().tracks;
-            const parentBus = track.busId ? tracks.find(t => String(t.id) === String(track.busId)) : null;
+            const parentBus = track.busId ? storeTracks.find(t => String(t.id) === String(track.busId)) : null;
             let labelText = (parentBus && parentBus.customName) 
               ? parentBus.customName 
               : (isMaster && inst ? `🔗 ${getPluralName(inst.name)}` : (inst?.name || 'Instrument'));
@@ -1379,7 +1408,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const activeBpm = measureBpms[currentMeasure] || bpm;
   const activeVol = measureVols[currentMeasure] !== undefined ? measureVols[currentMeasure] : 100;
 
-  const expanded = getExpandedMeasures(totalMeasures, songSections);
+  const expanded = useMemo(() => getExpandedMeasures(totalMeasures, songSections), [totalMeasures, songSections]);
   const activeMeasureForDisplay = pendingTargetMeasure !== null ? pendingTargetMeasure : currentMeasure;
   const activeRepIndex = expanded.findIndex(item => item.baseMeasure === activeMeasureForDisplay);
   const displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : activeMeasureForDisplay + 1;
