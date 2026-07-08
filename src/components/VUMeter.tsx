@@ -34,7 +34,6 @@ export const VUMeter: React.FC<VUMeterProps> = ({
     }
 
     let animationFrameId: number;
-    const meterNode = busId && busMeters ? busMeters[busId] : (meters && trackId !== undefined ? meters[trackId] : undefined);
 
     const updateMeter = () => {
       if ((window as any).oGiradorDetailEditorOpen) {
@@ -51,6 +50,7 @@ export const VUMeter: React.FC<VUMeterProps> = ({
         return;
       }
 
+      const meterNode = busId && busMeters ? busMeters[busId] : (meters && trackId !== undefined ? meters[trackId] : undefined);
       if (meterNode) {
         try {
           const db = meterNode.getValue() as number;

@@ -123,7 +123,7 @@ export function initMasterEffectsChain(
   
   masterMeterNode = new Tone.Meter({ channels: 2 });
   (window as any).masterMeterNode = masterMeterNode;
-  Tone.Destination.connect(masterMeterNode);
+  masterLimiterNode.connect(masterMeterNode);
 
   // Metronome channel
   metroChannel = new Tone.Channel({ volume: Tone.gainToDb(metroVolume / 100) }).connect(masterVolumeNode);

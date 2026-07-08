@@ -224,9 +224,10 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         return;
       }
 
-      if (masterMeterNode) {
+      const liveMeter = (window as any).masterMeterNode || masterMeterNode;
+      if (liveMeter) {
         try {
-          const val = masterMeterNode.getValue();
+          const val = liveMeter.getValue();
           let leftDb = -80;
           let rightDb = -80;
 
