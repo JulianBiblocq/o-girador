@@ -72,10 +72,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
     }
   };
 
-  const handleEnter = async () => {
-    if (safeGetTone()?.context.state !== 'running') {
-      await loadTone();
-    await getTone().start();
+  useEffect(() => {
+    // Preload Tone.js in the background so it is available synchronously on button click
+    loadTone().catch(err => console.error("Error preloading Tone.js:", err));
+  }, []);
+
+  const handleEnter = () => {
+    const tone = safeGetTone();
+    if (tone) {
+      if (tone.context.state !== 'running') {
+        tone.start().catch(err => {
+          console.error("Error starting Tone.js Context:", err);
+        });
+      }
+    } else {
+      // Fallback load-and-start in case preloading was not finished
+      loadTone().then(t => t.start()).catch(err => console.error("Fallback Tone start failed:", err));
     }
     onEnter();
   };

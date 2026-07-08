@@ -12,30 +12,14 @@ import { useAuth } from './contexts/AuthContext';
 import { i18n, instrumentsConfig } from './data';
 import { Header } from './components/Header';
 import { TransportBar } from './components/TransportBar';
-import { Mixer } from './components/Mixer';
-import { RightSidebar } from './components/RightSidebar';
 import { useSequencerStore } from './stores/useSequencerStore';
 import { TouchStrokeSelector } from './components/TouchStrokeSelector';
-import { ExportMenuModal } from './components/ExportMenuModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { MainWorkspaceLayout } from './components/MainWorkspaceLayout';
+import { GlobalModalsLayout } from './components/GlobalModalsLayout';
 
-const ConsoleMixer = lazy(() => import('./components/ConsoleMixer').then(m => ({ default: m.ConsoleMixer })));
-const CircleSequencer = lazy(() => import('./components/CircleSequencer').then(m => ({ default: m.CircleSequencer })));
-const TimelineSequencer = lazy(() => import('./components/TimelineSequencer').then(m => ({ default: m.TimelineSequencer })));
-const QuizEngine = lazy(() => import('./components/QuizEngine').then(m => ({ default: m.QuizEngine })));
-const DicteeEngine = lazy(() => import('./components/DicteeEngine').then(m => ({ default: m.DicteeEngine })));
-const InspecteurEngine = lazy(() => import('./components/InspecteurEngine').then(m => ({ default: m.InspecteurEngine })));
-const MestreEngine = lazy(() => import('./components/MestreEngine').then(m => ({ default: m.MestreEngine })));
-const RythmeLiveEngine = lazy(() => import('./components/RythmeLiveEngine').then(m => ({ default: m.RythmeLiveEngine })));
-const VaralCordel = lazy(() => import('./components/VaralCordel').then(m => ({ default: m.VaralCordel })));
-const MestreStudio = lazy(() => import('./components/MestreStudio').then(m => ({ default: m.MestreStudio })));
-const AoVivoOverlay = lazy(() => import('./components/AoVivoOverlay').then(m => ({ default: m.AoVivoOverlay })));
-const SaveSectionModal = lazy(() => import('./components/CloudSectionModals').then(m => ({ default: m.SaveSectionModal })));
-const LoadSectionModal = lazy(() => import('./components/CloudSectionModals').then(m => ({ default: m.LoadSectionModal })));
 import { Home } from './components/Home';
 const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
-const AdminPanel = lazy(() => import('./components/AdminPanel').then(m => ({ default: m.AdminPanel })));
-const InstrumentDetailEditor = lazy(() => import('./components/InstrumentDetailEditor').then(m => ({ default: m.InstrumentDetailEditor })));
 
 import { Pattern, SongSection, TimeSignature, CloudRhythmSignal } from './types';
 import { exportTablatureFile, printTablature, printLegendOnly } from './utils/exportTablature';
@@ -47,17 +31,14 @@ import { useCloudPresets } from './hooks/queries/useCloudPresets';
 import { useAppUpdate, CURRENT_VERSION } from './hooks/useAppUpdate';
 import { useAppAudio } from './hooks/useAppAudio';
 import { useGlobalKeyboardShortcuts } from './hooks/useGlobalKeyboardShortcuts';
+import { useViewRouter } from './hooks/useViewRouter';
+import { useThemeManager } from './hooks/useThemeManager';
 
 export default function App() {
   // 1. Core hook extraction setup
   const { deferredPrompt, handleInstallClick } = useAppUpdate();
   const { presetFiles, localPresets, isSavedIndicatorVisible, refreshLocalPresets } = useAppAudio();
   useGlobalKeyboardShortcuts();
-
-  const isEcoMode = useSequencerStore(state => state.isEcoMode);
-  useEffect(() => {
-    document.body.classList.toggle('eco-mode', isEcoMode);
-  }, [isEcoMode]);
 
   // Consume contexts
   const sequencer = useSequencer();
@@ -98,26 +79,9 @@ export default function App() {
   React.useEffect(() => { promptAsyncRef.current = promptAsync; }, [promptAsync]);
   React.useEffect(() => { setCustomDialogRef.current = setCustomDialog; }, [setCustomDialog]);
 
-  const renderFallback = (componentNameFr: string, componentNamePt: string) => (reset: () => void) => {
-    const isPt = sequencerRef.current.lang === 'pt';
-    return (
-      <div className="p-4 bg-red-900/20 border border-red-500 rounded text-red-400 font-cactus text-sm m-2">
-        {isPt 
-          ? `Ocorreu um erro no componente ${componentNamePt}.` 
-          : `Une erreur est survenue dans le composant ${componentNameFr}.`}
-        <button 
-          className="block mt-2 underline cursor-pointer hover:text-red-300 transition-colors"
-          onClick={reset}
-        >
-          {isPt ? 'Tentar novamente' : 'Réessayer'}
-        </button>
-      </div>
-    );
-  };
 
-  // Local Layout / UI States
-  const [isRecording, setIsRecording] = useState<boolean>(false);
-  const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
+
+
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 1024);
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
   const [selectedExportTracks, setSelectedExportTracks] = useState<Set<number>>(new Set());
@@ -125,58 +89,30 @@ export default function App() {
   const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | 'info' | null>(
     window.innerWidth < 1024 ? 'letras' : 'info'
   );
-  const [viewMode, setViewMode] = useState<'landing' | 'home' | 'roda' | 'console' | 'timeline' | 'quiz' | 'dictee' | 'inspecteur' | 'mestre' | 'rythmelive' | 'varal' | 'studio' | 'admin'>('landing');
-  const [renderedView, setRenderedView] = useState<typeof viewMode | null>('landing');
-  const [isFadingIn, setIsFadingIn] = useState(true);
 
-  useEffect(() => {
-    // 1. Demount active view and stop fadeIn animation instantly
-    setRenderedView(null);
-    setIsFadingIn(false);
+  // Instantiation of the new hooks
+  const router = useViewRouter({
+    audio,
+    setActiveRightPanel: (panel) => setActiveRightPanel(panel),
+  });
 
-    // 2. Remount the target view after customized delay (yielding main thread)
-    // Timeline is heavier, so we yield longer (120ms), others get 80ms
-    const delay = viewMode === 'timeline' ? 120 : 80;
+  const theme = useThemeManager({
+    lang: sequencer.lang,
+  });
 
-    const timer = setTimeout(() => {
-      setRenderedView(viewMode);
-      setIsFadingIn(true);
-    }, delay);
+  // Extract View and Theme states/actions
+  const {
+    viewMode,
+    renderedView,
+    isFadingIn,
+    hasVisitedStudio,
+    changeViewMode
+  } = router;
 
-    return () => clearTimeout(timer);
-  }, [viewMode]);
-
-  const [hasVisitedStudio, setHasVisitedStudio] = useState(false);
-
-  useEffect(() => {
-    if (viewMode === 'studio') {
-      setHasVisitedStudio(true);
-    }
-  }, [viewMode]);
-
-  const changeViewMode = React.useCallback((targetView: typeof viewMode) => {
-    const isHeavyView = ['studio', 'quiz', 'dictee', 'inspecteur', 'mestre', 'rythmelive', 'admin'].includes(targetView);
-
-    const applyViewChange = () => {
-      setViewMode(targetView);
-      if (targetView === 'console' || targetView === 'timeline') {
-        setActiveRightPanel(null);
-      } else if (targetView === 'roda') {
-        if (window.innerWidth >= 1024) {
-          setActiveRightPanel('letras');
-        }
-      }
-    };
-
-    if (isHeavyView && audioRef.current.isPlaying) {
-      audioRef.current.handleStop();
-      requestAnimationFrame(() => {
-        applyViewChange();
-      });
-    } else {
-      applyViewChange();
-    }
-  }, []);
+  const {
+    isDarkMode,
+    toggleDarkMode
+  } = theme;
 
   const [unlockedFolhetos, setUnlockedFolhetos] = useState<string[]>(() => {
     try {
@@ -187,17 +123,9 @@ export default function App() {
     }
   });
   const [justUnlockedBookletId, setJustUnlockedBookletId] = useState<string | null>(null);
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    const savedTheme = localStorage.getItem('o-girador-theme');
-    if (savedTheme) {
-      return savedTheme === 'dark';
-    }
-    const mediaDark = window.matchMedia('(prefers-color-scheme: dark)');
-    if (mediaDark.matches) return true;
-    return true; // default to true
-  });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
+  const editingTrackId = useSequencerStore(state => state.editingTrackId);
+  const setEditingTrackId = useSequencerStore(state => state.setEditingTrackId);
   const isDetailView = editingTrackId !== null;
   const [isDetailViewDeferred, setIsDetailViewDeferred] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -217,7 +145,7 @@ export default function App() {
     startTransition(() => {
       setEditingTrackId(id);
     });
-  }, []);
+  }, [setEditingTrackId]);
 
   const queryClient = useQueryClient();
   const { data: cloudPresetsData } = useCloudPresets({
@@ -231,40 +159,7 @@ export default function App() {
   }, [cloudPresetsData]);
 
 
-
-  // Dynamically update document title based on language, keeping "O Girador" untranslated
-  useEffect(() => {
-    document.title = sequencer.lang === 'fr'
-      ? 'O Girador | Séquenceur dédié au Maracatu de Baque Virado'
-      : 'O Girador | Sequenciador dedicado ao Maracatu de Baque Virado';
-  }, [sequencer.lang]);
-
-  // Security access gate controls: redirect to Roda if roles change and active view requires admin privileges
-  useEffect(() => {
-    if (viewMode === 'studio' && !hasAccess('admin')) {
-      setViewMode('roda');
-    }
-    if (viewMode === 'admin' && !hasAccess('admin')) {
-      setViewMode('roda');
-    }
-  }, [viewMode, hasAccess]);
-
-  // Cloud sync for Dark Mode
-  useEffect(() => {
-    if (userProfile && userProfile.isDarkMode !== undefined) {
-      setIsDarkMode(userProfile.isDarkMode);
-    }
-  }, [userProfile?.isDarkMode]);
-
-  const toggleDarkMode = React.useCallback(() => {
-    setIsDarkMode(prev => {
-      const newMode = !prev;
-      if (userProfileRef.current) {
-        updateUserPreferenceRef.current('isDarkMode', newMode);
-      }
-      return newMode;
-    });
-  }, []);
+  // All title sync, security gate redirections, and dark mode toggles are now handled by hooks
 
   const [mestreSignals, setMestreSignals] = useState<CloudRhythmSignal[]>([]);
   const [hideGlobalSignals, setHideGlobalSignals] = useState(false);
@@ -336,12 +231,7 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, [viewMode, activeRightPanel]);
 
-  // Sync theme
-  useEffect(() => {
-    const theme = isDarkMode ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('o-girador-theme', theme);
-  }, [isDarkMode]);
+  // Theme application and synchronization is now handled by useThemeManager
 
   // Local folhetos persistence
   useEffect(() => {
@@ -703,207 +593,39 @@ export default function App() {
       />
 
       {/* Main Workspace workspace containing expanding grids layouts */}
-      <div id="main-workspace" className="flex flex-grow min-h-0 overflow-hidden relative w-full mobile-stack cordel-bg">
-        {/* RODA VIEW */}
-        <div 
-          style={{ display: viewMode === 'roda' ? 'flex' : 'none' }}
-          className={`flex flex-1 min-h-0 min-w-0 w-full h-full mobile-stack ${isFadingIn && renderedView === 'roda' ? 'fade-in-view' : ''}`}
-        >
-          {/* Left column tracks mixers */}
-          <div style={{ display: (!isMobile || mobileTab === 'mixer') ? 'contents' : 'none' }}>
-            <ErrorBoundary fallback={renderFallback('Mixeur', 'Mixador')}>
-              <Mixer
-                onStepTouchStart={handleStepTouchStart}
-                onCopyPattern={handleCopyPattern}
-                onPastePattern={handlePastePattern}
-                onLoadLibraryPattern={handleLoadLibraryPattern}
-                canPaste={!!sequencer.copiedPattern}
-                isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'mixer')}
-                editingTrackId={editingTrackId}
-                setEditingTrackId={handleSetEditingTrackId}
-              />
-            </ErrorBoundary>
-          </div>
-
-          {/* Center circle visual canvas engine */}
-          <div style={{ display: (!isMobile || mobileTab === 'roda') ? 'contents' : 'none' }}>
-            <ErrorBoundary fallback={renderFallback('Séquenceur Circulaire', 'Sequenciador Circular')}>
-              <Suspense fallback={null}>
-                {renderedView === 'roda' && (
-                  <CircleSequencer
-                    isMobile={isMobile}
-                    mestreSignals={filteredMestreSignals}
-                    onStepTouchStart={handleStepTouchStart}
-                    isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')}
-                  />
-                )}
-              </Suspense>
-            </ErrorBoundary>
-          </div>
-
-          {/* Right drawer sidebar context panel */}
-          <div style={{ display: (!isMobile || mobileTab === 'toada') ? 'contents' : 'none' }}>
-            <ErrorBoundary fallback={renderFallback('Panneau Latéral', 'Painel Lateral')}>
-              <RightSidebar
-                activePanel={isMobile ? (activeRightPanel || 'letras') : 'info'}
-                onTogglePanel={handleToggleSidebarPanel}
-                isMobile={isMobile}
-                mestreSignals={filteredMestreSignals}
-                refreshMestreSignals={refreshMestreSignals}
-                hideGlobalSignals={hideGlobalSignals}
-                onToggleHideGlobalSignals={handleToggleHideGlobalSignals}
-                visible={viewMode === 'roda' && (!isMobile || mobileTab === 'toada')}
-              />
-            </ErrorBoundary>
-          </div>
-        </div>
-
-        {/* MIXER CONSOLE VIEW */}
-        <div 
-          className={`flex-1 min-w-0 flex flex-col h-full overflow-x-auto overflow-y-hidden custom-scrollbar ${isFadingIn && renderedView === 'console' ? 'fade-in-view' : ''}`}
-          style={{ display: viewMode === 'console' ? 'flex' : 'none' }}
-        >
-          {!isDetailViewDeferred && renderedView === 'console' && (
-            <ErrorBoundary fallback={renderFallback('Mixeur Console', 'Mesa de Som')}>
-              <Suspense fallback={null}>
-                <ConsoleMixer
-                  isMobile={isMobile}
-                  onStepTouchStart={handleStepTouchStart}
-                  isActive={viewMode === 'console'}
-                  editingTrackId={editingTrackId}
-                  setEditingTrackId={handleSetEditingTrackId}
-                />
-              </Suspense>
-            </ErrorBoundary>
-          )}
-        </div>
-
-        {/* TIMELINE VIEW */}
-        <div 
-          style={{ display: viewMode === 'timeline' ? 'flex' : 'none', flex: 1, minWidth: 0, flexDirection: 'column', height: '100%' }}
-          className={isFadingIn && renderedView === 'timeline' ? 'fade-in-view-slow' : ''}
-        >
-          {!isDetailViewDeferred && renderedView === 'timeline' && (
-            <ErrorBoundary fallback={renderFallback('Linha do Tempo / Timeline', 'Linha do Tempo')}>
-              <Suspense fallback={null}>
-                <TimelineSequencer
-                  isMobile={isMobile}
-                  measureWidth={measureWidth}
-                  onMeasureWidthChange={setMeasureWidth}
-                  onExportTablature={handleExportTablature}
-                  onSaveCloudSection={setSectionToSave}
-                  onLoadCloudSection={setLoadSectionInsertMeasure}
-                  mestreSignals={filteredMestreSignals}
-                  isActive={viewMode === 'timeline'}
-                />
-              </Suspense>
-            </ErrorBoundary>
-          )}
-        </div>
-
-        {viewMode === 'quiz' && (
-          <ErrorBoundary fallback={renderFallback('Quiz', 'Questionário')}>
-            <QuizEngine
-              lang={sequencer.lang}
-              onExit={handleGameExit}
-              onSuccess={handleQuizSuccess}
-              exerciseData={activeVaralExercise}
-            />
-          </ErrorBoundary>
-        )}
-
-        {viewMode === 'dictee' && (
-          <ErrorBoundary fallback={renderFallback('Dictée Rythmique', 'Ditado Rítmico')}>
-            <DicteeEngine
-              lang={sequencer.lang}
-              onExit={handleGameExit}
-              onSuccess={handleDicteeSuccess}
-              exerciseData={activeVaralExercise}
-            />
-          </ErrorBoundary>
-        )}
-
-        {viewMode === 'inspecteur' && (
-          <ErrorBoundary fallback={renderFallback('Inspecteur', 'Inspetor')}>
-            <Suspense fallback={<div>Chargement...</div>}>
-              <InspecteurEngine
-                lang={sequencer.lang}
-                onExit={handleGameExit}
-                exerciseData={activeVaralExercise}
-                onSuccess={handleInspecteurSuccess}
-              />
-            </Suspense>
-          </ErrorBoundary>
-        )}
-
-        {viewMode === 'mestre' && (
-          <ErrorBoundary fallback={renderFallback('Mestre', 'Mestre')}>
-            <MestreEngine
-              lang={sequencer.lang}
-              onExit={handleGameExit}
-              rhythmState={mestreRhythmState}
-              setRhythmState={setMestreRhythmState}
-              onSuccess={handleMestreSuccess}
-              exerciseData={activeVaralExercise}
-            />
-          </ErrorBoundary>
-        )}
-
-        {viewMode === 'rythmelive' && (
-          <ErrorBoundary fallback={renderFallback('Rythme Live', 'Ritmo Live')}>
-            <RythmeLiveEngine
-              lang={sequencer.lang}
-              onExit={handleGameExit}
-              onSuccess={handleRythmeLiveSuccess}
-              exerciseData={activeVaralExercise}
-            />
-          </ErrorBoundary>
-        )}
-
-        {viewMode === 'varal' && (
-          <ErrorBoundary fallback={renderFallback('Varal de Cordel', 'Varal de Cordel')}>
-            <Suspense fallback={<div>Chargement...</div>}>
-              <VaralCordel
-                lang={sequencer.lang}
-                onExit={handleVaralExit}
-                unlockedFolhetos={unlockedFolhetos}
-                justUnlockedBookletId={justUnlockedBookletId}
-                onClearJustUnlocked={handleClearJustUnlocked}
-                onLaunchExercise={handleLaunchExercise}
-              />
-            </Suspense>
-          </ErrorBoundary>
-        )}
-
-        {hasVisitedStudio && (
-          <div 
-            className="flex-1 w-full h-full overflow-hidden flex flex-col relative z-20"
-            style={{ display: viewMode === 'studio' ? 'flex' : 'none' }}
-          >
-            <ErrorBoundary fallback={renderFallback('Studio Mestre', 'Estúdio Mestre')}>
-              <Suspense fallback={<div className="flex-1 flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
-                <MestreStudio
-                  isActive={viewMode === 'studio'}
-                  lang={sequencer.lang}
-                  onExit={handleVaralExit}
-                  presetFiles={presetFiles}
-                  localPresets={localPresets}
-                />
-              </Suspense>
-            </ErrorBoundary>
-          </div>
-        )}
-
-        {viewMode === 'admin' && (
-          <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">
-            <ErrorBoundary fallback={renderFallback('Panneau Admin', 'Painel de Administração')}>
-              <Suspense fallback={<div className="flex-1 flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
-                <AdminPanel />
-              </Suspense>
-            </ErrorBoundary>
-          </div>
-        )}
-      </div>
+      <MainWorkspaceLayout
+        viewMode={viewMode}
+        renderedView={renderedView}
+        isFadingIn={isFadingIn}
+        hasVisitedStudio={hasVisitedStudio}
+        isMobile={isMobile}
+        mobileTab={mobileTab}
+        setMobileTab={setMobileTab}
+        filteredMestreSignals={filteredMestreSignals}
+        refreshMestreSignals={refreshMestreSignals}
+        hideGlobalSignals={hideGlobalSignals}
+        onToggleHideGlobalSignals={handleToggleHideGlobalSignals}
+        measureWidth={measureWidth}
+        setMeasureWidth={setMeasureWidth}
+        setSectionToSave={setSectionToSave}
+        setLoadSectionInsertMeasure={setLoadSectionInsertMeasure}
+        mestreRhythmState={mestreRhythmState}
+        setMestreRhythmState={setMestreRhythmState}
+        unlockedFolhetos={unlockedFolhetos}
+        justUnlockedBookletId={justUnlockedBookletId}
+        onClearJustUnlocked={handleClearJustUnlocked}
+        onLaunchExercise={handleLaunchExercise}
+        onGameExit={handleGameExit}
+        onQuizSuccess={handleQuizSuccess}
+        onDicteeSuccess={handleDicteeSuccess}
+        onInspecteurSuccess={handleInspecteurSuccess}
+        onMestreSuccess={handleMestreSuccess}
+        onRythmeLiveSuccess={handleRythmeLiveSuccess}
+        onVaralExit={handleVaralExit}
+        presetFiles={presetFiles}
+        localPresets={localPresets}
+        onStepTouchStart={handleStepTouchStart}
+      />
 
       {viewMode !== 'quiz' && viewMode !== 'dictee' && viewMode !== 'inspecteur' && viewMode !== 'mestre' && viewMode !== 'rythmelive' && viewMode !== 'varal' && viewMode !== 'studio' && viewMode !== 'admin' && (
         <TransportBar
@@ -936,174 +658,28 @@ export default function App() {
         <span>{sequencer.lang === 'pt' ? 'Salvo' : 'Sauvegardé'}</span>
       </div>
 
-      {/* Export Menu Modal */}
-      {showExportMenu && (
-        <ExportMenuModal
-          onClose={() => setShowExportMenu(false)}
-          selectedExportTracks={selectedExportTracks}
-          setSelectedExportTracks={setSelectedExportTracks}
-          selectedAnnexTracks={selectedAnnexTracks}
-          setSelectedAnnexTracks={setSelectedAnnexTracks}
-          executeExport={executeExport}
-          printLegendOnly={printLegendOnly}
-          lang={sequencer.lang}
-        />
-      )}
-
-      {customDialog && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[#121212]/80 backdrop-blur-sm select-text text-sm">
-          <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] shadow-[4px_4px_0_var(--cordel-border)] p-5 max-w-sm w-full mx-4 flex flex-col gap-4 font-mono select-text">
-            <div className="font-cactus font-bold text-base border-b-2 border-[var(--cordel-border)] pb-2 select-none">
-              {customDialog.type === 'alert' ? '📢 Info' : customDialog.type === 'confirm' ? '❓' : '📝'} {customDialog.type === 'alert' ? (sequencer.lang === 'pt' ? 'Aviso' : 'Information') : customDialog.type === 'confirm' ? (sequencer.lang === 'pt' ? 'Confirmação' : 'Confirmation') : (sequencer.lang === 'pt' ? 'Entrada' : 'Saisie')}
-            </div>
-            <p className="text-xs leading-relaxed">{customDialog.message}</p>
-            {customDialog.type === 'prompt' && (
-              <input
-                id="custom-prompt-input"
-                type="text"
-                autoComplete="off"
-                className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] p-1.5 text-xs outline-none focus:bg-[var(--cordel-text)] focus:text-[var(--cordel-bg)]"
-                defaultValue={customDialog.defaultValue}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    const val = (e.target as HTMLInputElement).value;
-                    setCustomDialog(null);
-                    customDialog.onResolve(val);
-                  }
-                }}
-              />
-            )}
-            <div className="flex justify-end gap-2.5 mt-2 select-none">
-              {customDialog.type !== 'alert' && (
-                <button
-                  onClick={() => {
-                    setCustomDialog(null);
-                    customDialog.onResolve(customDialog.type === 'prompt' ? null : false);
-                  }}
-                  className="px-3 py-1 text-xs border-2 border-[var(--cordel-border)] hover:bg-[var(--cordel-border)] hover:text-[var(--cordel-bg)] transition-colors font-bold cursor-pointer"
-                >
-                  {customDialog.cancelLabel || (sequencer.lang === 'pt' ? 'Cancelar' : 'Annuler')}
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  const input = document.getElementById('custom-prompt-input') as HTMLInputElement;
-                  setCustomDialog(null);
-                  if (customDialog.type === 'prompt') {
-                    customDialog.onResolve(input?.value || '');
-                  } else {
-                    customDialog.onResolve(true);
-                  }
-                }}
-                className="px-4 py-1 text-xs bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold hover:bg-[var(--cordel-border)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer"
-              >
-                {customDialog.confirmLabel || (sequencer.lang === 'pt' ? 'OK' : 'Valider')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Cloud Section Modals */}
-      <Suspense fallback={null}>
-        {sectionToSave && (
-          <SaveSectionModal
-            section={sectionToSave}
-            onClose={() => setSectionToSave(null)}
-          />
-        )}
-        {loadSectionInsertMeasure !== null && (
-          <LoadSectionModal
-            insertAtMeasure={loadSectionInsertMeasure}
-            onClose={() => setLoadSectionInsertMeasure(null)}
-          />
-        )}
-      </Suspense>
-
-      {/* Instrument Detail Editor Overlay (Root Level) */}
-      {editingTrackId !== null && (
-        <Suspense fallback={null}>
-          <InstrumentDetailEditor
-            lang={sequencer.lang}
-            isLeftHanded={sequencer.isLeftHanded}
-            trackId={editingTrackId}
-            onClose={() => handleSetEditingTrackId(null)}
-            onStepValueChange={sequencer.handleTrackStepValueChange}
-            onStepKeyDown={sequencer.handleTrackStepKeyDown}
-            onStepsChange={sequencer.handleTrackStepsChange}
-            onVoiceTypeToggle={sequencer.handleVoiceTypeToggle}
-            onVoiceSylChange={sequencer.handleVoiceSylChange}
-            onVoiceNoteChange={sequencer.handleVoiceNoteChange}
-            onVoiceNoteBlur={sequencer.handleVoiceNoteBlur}
-            onAddPattern={() => sequencer.handleTrackAddPattern && sequencer.handleTrackAddPattern(editingTrackId)}
-            onDeletePattern={(pid) => sequencer.handleTrackDeletePattern && sequencer.handleTrackDeletePattern(editingTrackId, pid)}
-            onSelectPattern={(pid) => sequencer.handleTrackSelectPattern && sequencer.handleTrackSelectPattern(editingTrackId, pid)}
-            onReorderPatternsDnd={(oldIdx, newIdx) => sequencer.handleReorderPatternsDnd && sequencer.handleReorderPatternsDnd(editingTrackId, oldIdx, newIdx)}
-            onAddPatternVariation={sequencer.handleAddPatternVariation}
-            onUpdatePatternVariationProbability={sequencer.handleUpdatePatternVariationProbability}
-            onTogglePatternVariationFirstTimeOnly={sequencer.handleTogglePatternVariationFirstTimeOnly}
-            onVariationStepValueChange={sequencer.handleVariationStepValueChange}
-            onDeletePatternVariation={sequencer.handleDeletePatternVariation}
-            onPatternAssign={(pid, mIdx, val) => sequencer.handlePatternAssign && sequencer.handlePatternAssign(editingTrackId, pid, mIdx, val)}
-            onVolumeChange={(val) => sequencer.handleTrackVolumeChange(editingTrackId, val)}
-            onMuteToggle={() => sequencer.handleTrackMuteToggle(editingTrackId)}
-            onSoloToggle={() => sequencer.handleTrackSoloToggle(editingTrackId)}
-            onStepVolumeChange={sequencer.handleTrackStepVolumeChange}
-            onStepDecayChange={sequencer.handleTrackStepDecayChange}
-            onStepMicrotimingChange={sequencer.handleTrackStepMicrotimingChange}
-            onVariationStepVolumeChange={sequencer.handleVariationStepVolumeChange}
-            onVariationStepDecayChange={sequencer.handleVariationStepDecayChange}
-            onVariationStepMicrotimingChange={sequencer.handleVariationStepMicrotimingChange}
-            globalSwing={audio.globalSwing}
-            isPlaying={audio.isPlaying}
-            currentStepIndex={audio.currentStepIndex}
-            currentMeasure={useSequencerStore.getState().currentMeasure}
-            maxTicks={audio.maxTicksRef.current}
-            totalMeasures={useSequencerStore.getState().totalMeasures}
-            isMobile={isMobile}
-            onStepTouchStart={handleStepTouchStart}
-            onCopyPattern={handleCopyPattern}
-            onPastePattern={(pid) => sequencer.handlePastePattern(editingTrackId, pid)}
-            onLoadLibraryPattern={(targetPtnId, libPattern) => sequencer.handleLoadLibraryPattern && sequencer.handleLoadLibraryPattern(editingTrackId, targetPtnId, libPattern)}
-            canPaste={!!sequencer.copiedPattern}
-            isRecordingVocal={sequencer.isRecordingVocal}
-            recordingVocalPatternId={sequencer.recordingVocalPatternId}
-            recordedPatternIds={sequencer.recordedPatternIds}
-            onStartVocalRecording={sequencer.startVocalRecording}
-            onStopVocalRecording={sequencer.stopVocalRecording}
-            onVocalModeChange={sequencer.handleVocalModeChange}
-            onDeleteVocalRecording={sequencer.handleDeleteVocalRecording}
-            onVocalLatencyChange={sequencer.handleVocalLatencyChange}
-            audioDevices={sequencer.audioDevices}
-            selectedAudioDeviceId={sequencer.selectedAudioDeviceId}
-            onAudioDeviceChange={sequencer.handleAudioDeviceChange}
-            onImportVocalFile={sequencer.handleImportVocalFile}
-            isVocalGuideEnabled={sequencer.isVocalGuideEnabled}
-            onVocalGuideToggle={sequencer.setIsVocalGuideEnabled}
-            onVocalBpmSyncToggle={sequencer.handleVocalBpmSyncToggle}
-            onPatternNameChange={(pid, name) => sequencer.handlePatternNameChange(editingTrackId, pid, name)}
-            soloPatternPlayId={audio.soloPatternPlayId}
-            soloPatternVariationId={audio.soloPatternVariationId}
-            onPlaySoloPattern={audio.handleStartSoloPattern}
-            onStopSoloPattern={audio.handleStopSoloPattern}
-            runAutoCalibration={audio.runAutoCalibration}
-            vocalCalibrationLatencyMs={audio.vocalCalibrationLatencyMs}
-          />
-        </Suspense>
-      )}
-
-      {viewMode === 'roda' && (!isMobile || mobileTab === 'roda') && (
-        <ErrorBoundary fallback={null}>
-          <AoVivoOverlay />
-        </ErrorBoundary>
-      )}
-
-      {/* Toast non-bloquant pour la synchronisation hors ligne */}
-      {toastMessage && (
-        <div className="fixed bottom-8 right-8 bg-[#8b2a1a] text-[#f4ecd8] font-cactus font-bold text-lg px-6 py-3 rounded-sm shadow-[4px_4px_0px_rgba(0,0,0,1)] z-[100] animate-bounce">
-          {toastMessage}
-        </div>
-      )}
+      {/* Global Modals Container */}
+      <GlobalModalsLayout
+        showExportMenu={showExportMenu}
+        setShowExportMenu={setShowExportMenu}
+        selectedExportTracks={selectedExportTracks}
+        setSelectedExportTracks={setSelectedExportTracks}
+        selectedAnnexTracks={selectedAnnexTracks}
+        setSelectedAnnexTracks={setSelectedAnnexTracks}
+        executeExport={executeExport}
+        printLegendOnly={printLegendOnly}
+        customDialog={customDialog}
+        setCustomDialog={setCustomDialog}
+        sectionToSave={sectionToSave}
+        setSectionToSave={setSectionToSave}
+        loadSectionInsertMeasure={loadSectionInsertMeasure}
+        setLoadSectionInsertMeasure={setLoadSectionInsertMeasure}
+        isMobile={isMobile}
+        mobileTab={mobileTab}
+        viewMode={viewMode}
+        toastMessage={toastMessage}
+        handleStepTouchStart={handleStepTouchStart}
+      />
     </div>
       )}
     </>

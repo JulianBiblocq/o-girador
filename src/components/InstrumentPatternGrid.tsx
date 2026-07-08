@@ -1261,16 +1261,20 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                                 return;
                               }
 
-                              // 3. Regular selection & painting
+                               // 3. Regular selection & painting
                               setSelectedStepIdx(idx);
                               setSelectedStepIndices([idx]);
                               isMouseDownRef.current = true;
-                              const nextVal = getNextStepValue(instrument?.id, instrument?.type, value);
-                              paintValueRef.current = nextVal;
-                              if (selectedVariationId) {
-                                handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, String(nextVal));
+                              if (onStepTouchStart) {
+                                handleStart(e, idx, value);
                               } else {
-                                handleTrackStepValueChange(trackId, pattern.id, idx, String(nextVal));
+                                const nextVal = getNextStepValue(instrument?.id, instrument?.type, value);
+                                paintValueRef.current = nextVal;
+                                if (selectedVariationId) {
+                                  handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, String(nextVal));
+                                } else {
+                                  handleTrackStepValueChange(trackId, pattern.id, idx, String(nextVal));
+                                }
                               }
                             }}
                             onMouseEnter={(idx) => {

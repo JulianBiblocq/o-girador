@@ -30,6 +30,7 @@ import { fetchCloudPatterns, savePatternToCloud, deleteCloudPattern } from '../c
 import { useGameData } from '../contexts/GameDataContext';
 import { AudioFader } from './AudioFader';
 import { useSequencer } from '../contexts/SequencerContext';
+import { useAudio } from '../contexts/AudioContext';
 import { MelodicNoteSelector } from './MelodicNoteSelector';
 import { VocalRecordingSection } from './instrument-editor/VocalRecordingSection';
 import { PatternVariationsEditor } from './instrument-editor/PatternVariationsEditor';
@@ -43,51 +44,8 @@ const SortablePatternWrapper = ({ id, children, className, style: propStyle }: a
 };
 
 interface InstrumentDetailEditorProps {
-  lang: Language;
-  isLeftHanded?: boolean;
   trackId: number;
   onClose: () => void;
-  onStepValueChange: (
-    patternId: number,
-    stepIdx: number | number[],
-    val: string | string[],
-    lyrics?: string[],
-    notes?: string[]
-  ) => void;
-  onStepKeyDown: (patternId: number, stepIdx: number, key: string, currentVal: string, targetEl: HTMLInputElement) => void;
-  onStepsChange: (patternId: number, steps: number) => void;
-  onVoiceTypeToggle: (patternId: number, stepIdx: number) => void;
-  onVoiceSylChange: (patternId: number, stepIdx: number, val: string) => void;
-  onVoiceNoteChange: (patternId: number, stepIdx: number, val: string) => void;
-  onVoiceNoteBlur: (patternId: number, stepIdx: number, val: string) => void;
-  onAddPattern: () => void;
-  onDeletePattern: (patternId: number) => void;
-  onSelectPattern: (patternId: number) => void;
-  onReorderPatternsDnd?: (oldIndex: number, newIndex: number) => void;
-  onAddPatternVariation?: (patternId: number) => void;
-  onUpdatePatternVariationProbability?: (patternId: number, variationId: string, probability: number) => void;
-  onNavigatePrev?: () => void;
-  onNavigateNext?: () => void;
-  onKeyDown?: (e: any) => void;
-  onTogglePatternVariationFirstTimeOnly?: (patternId: number, variationId: string, val: boolean) => void;
-  onVariationStepValueChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: string | string[]) => void;
-  onDeletePatternVariation?: (patternId: number, variationId: string) => void;
-  onPatternAssign: (patternId: number, measureIdx: number, val: boolean) => void;
-  onVolumeChange: (val: number) => void;
-  onMuteToggle: () => void;
-  onSoloToggle: () => void;
-  onStepVolumeChange: (patternId: number, stepIdx: number | number[], val: number) => void;
-  onStepDecayChange: (patternId: number, stepIdx: number | number[], val: number) => void;
-  onStepMicrotimingChange: (patternId: number, stepIdx: number | number[], val: number) => void;
-  onVariationStepVolumeChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: number) => void;
-  onVariationStepDecayChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: number) => void;
-  onVariationStepMicrotimingChange?: (patternId: number, variationId: string, stepIdx: number | number[], val: number) => void;
-  globalSwing: GlobalSwing;
-  isPlaying?: boolean;
-  currentStepIndex?: number;
-  currentMeasure?: number;
-  maxTicks?: number;
-  totalMeasures?: number;
   isMobile: boolean;
   onStepTouchStart?: (
     e: React.MouseEvent | React.TouchEvent,
@@ -97,90 +55,259 @@ interface InstrumentDetailEditorProps {
     currentVal: string | number,
     onSelect: (val: string) => void
   ) => void;
-  onCopyPattern?: (pattern: any) => void;
-  onPastePattern?: (patternId: number) => void;
-  onLoadLibraryPattern?: (targetPatternId: number, libraryPattern: any) => void;
-  canPaste?: boolean;
-  isRecordingVocal?: boolean;
-  recordingVocalPatternId?: number | null;
-  recordedPatternIds?: number[];
-  onStartVocalRecording?: (patternId: number) => void;
-  onStopVocalRecording?: () => void;
-  onVocalModeChange?: (patternId: number, mode: 'synth' | 'micro') => void;
-  onDeleteVocalRecording?: (patternId: number) => void;
-  onVocalLatencyChange?: (patternId: number, latencyMs: number) => void;
-  audioDevices?: MediaDeviceInfo[];
-  selectedAudioDeviceId?: string;
-  onAudioDeviceChange?: (deviceId: string) => void;
-  onImportVocalFile?: (patternId: number, file: File) => void;
-  isVocalGuideEnabled?: boolean;
-  onVocalGuideToggle?: (enabled: boolean) => void;
-  onVocalBpmSyncToggle?: (patternId: number, sync: boolean) => void;
-  onPatternNameChange?: (patternId: number, name: string) => void;
-  soloPatternPlayId?: number | null;
-  soloPatternVariationId?: string | null;
-  onPlaySoloPattern?: (patternId: number, variationId?: string) => void;
-  onStopSoloPattern?: () => void;
-  runAutoCalibration?: () => Promise<number>;
-  vocalCalibrationLatencyMs?: number;
+  setEditingTrackId: (id: number | null) => void;
 }
 
 const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = ({
-  lang,
   trackId,
   onClose,
-  onStepsChange,
-  onVoiceNoteChange,
-  onVoiceNoteBlur,
-  onAddPattern,
-  onDeletePattern,
-  onSelectPattern,
-  onReorderPatternsDnd,
-  onAddPatternVariation,
-  onUpdatePatternVariationProbability,
-  onTogglePatternVariationFirstTimeOnly,
-  onVariationStepValueChange,
-  onDeletePatternVariation,
-  onPatternAssign,
-  onVolumeChange,
-  onMuteToggle,
-  onSoloToggle,
-  isPlaying,
-  currentMeasure,
   isMobile,
   onStepTouchStart,
-  onCopyPattern,
-  onPastePattern,
-  onLoadLibraryPattern,
-  canPaste,
-  isRecordingVocal = false,
-  recordingVocalPatternId = null,
-  recordedPatternIds = [],
-  onStartVocalRecording,
-  onStopVocalRecording,
-  onVocalModeChange,
-  onDeleteVocalRecording,
-  onVocalLatencyChange,
-  audioDevices = [],
-  selectedAudioDeviceId = '',
-  onAudioDeviceChange,
-  onImportVocalFile,
-  isVocalGuideEnabled = true,
-  onVocalGuideToggle,
-  onVocalBpmSyncToggle,
-  onPatternNameChange,
-  isLeftHanded = false,
-  soloPatternPlayId,
-  soloPatternVariationId,
-  onPlaySoloPattern,
-  onStopSoloPattern,
-  onNavigatePrev,
-  onNavigateNext,
-  onKeyDown,
-  runAutoCalibration,
+  setEditingTrackId,
 }) => {
-  const { alertAsync } = useGameData();
-  const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
+
+  const sequencer = useSequencer();
+  const audio = useAudio();
+
+  // Zustand states and granular selectors (Commandement 1)
+  const lang = useSequencerStore(state => state.lang);
+  const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
+  const totalMeasures = useSequencerStore(state => state.totalMeasures);
+  const currentMeasure = useSequencerStore(state => state.currentMeasure);
+
+  // Audio states
+  const isPlaying = audio.isPlaying;
+  const soloPatternPlayId = audio.soloPatternPlayId;
+  const soloPatternVariationId = audio.soloPatternVariationId;
+  const globalSwing = audio.globalSwing;
+  const runAutoCalibration = sequencer.runAutoCalibration;
+  const vocalCalibrationLatencyMs = useSequencerStore(state => state.vocalCalibrationLatencyMs);
+
+  // Sequencer values and state mappings
+  const isRecordingVocal = sequencer.isRecordingVocal;
+  const recordingVocalPatternId = sequencer.recordingVocalPatternId;
+  const recordedPatternIds = sequencer.recordedPatternIds;
+  const audioDevices = sequencer.audioDevices;
+  const selectedAudioDeviceId = sequencer.selectedAudioDeviceId;
+  const isVocalGuideEnabled = sequencer.isVocalGuideEnabled;
+  const canPaste = !!sequencer.copiedPattern;
+
+  // Callbacks mapped directly to sequencer context actions
+  const onStepValueChange = React.useCallback((
+    patternId: number,
+    stepIdx: number | number[],
+    val: string | string[],
+    lyrics?: string[],
+    notes?: string[]
+  ) => {
+    sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, val, lyrics, notes);
+  }, [trackId, sequencer]);
+
+  const onStepKeyDown = React.useCallback((
+    patternId: number,
+    stepIdx: number,
+    key: string,
+    currentVal: string,
+    targetEl: HTMLInputElement
+  ) => {
+    sequencer.handleTrackStepKeyDown(trackId, patternId, stepIdx, key, currentVal, targetEl);
+  }, [trackId, sequencer]);
+
+  const onVoiceTypeToggle = React.useCallback((patternId: number, stepIdx: number) => {
+    sequencer.handleVoiceTypeToggle(trackId, patternId, stepIdx);
+  }, [trackId, sequencer]);
+
+  const onVoiceSylChange = React.useCallback((patternId: number, stepIdx: number, val: string) => {
+    sequencer.handleVoiceSylChange(trackId, patternId, stepIdx, val);
+  }, [trackId, sequencer]);
+
+  const onVoiceNoteChange = React.useCallback((patternId: number, stepIdx: number, val: string) => {
+    sequencer.handleVoiceNoteChange(trackId, patternId, stepIdx, val);
+  }, [trackId, sequencer]);
+
+  const onVoiceNoteBlur = React.useCallback((patternId: number, stepIdx: number, val: string) => {
+    sequencer.handleVoiceNoteBlur(trackId, patternId, stepIdx, val);
+  }, [trackId, sequencer]);
+
+  const onStartVocalRecording = sequencer.startVocalRecording;
+  const onStopVocalRecording = sequencer.stopVocalRecording;
+  const onVocalModeChange = sequencer.handleVocalModeChange;
+  const onDeleteVocalRecording = sequencer.handleDeleteVocalRecording;
+  const onVocalLatencyChange = sequencer.handleVocalLatencyChange;
+  const onAudioDeviceChange = sequencer.handleAudioDeviceChange;
+  const onImportVocalFile = sequencer.handleImportVocalFile;
+  const onVocalGuideToggle = sequencer.setIsVocalGuideEnabled;
+  const onVocalBpmSyncToggle = sequencer.handleVocalBpmSyncToggle;
+  const onCopyPattern = sequencer.handleCopyPattern;
+
+  const onPlaySoloPattern = audio.handleStartSoloPattern;
+  const onStopSoloPattern = audio.handleStopSoloPattern;
+
+  // Local actions utilizing trackId
+  const onStepsChange = React.useCallback((patternId: number, steps: number) => {
+    sequencer.handleTrackStepsChange(trackId, patternId, steps);
+  }, [trackId, sequencer]);
+
+  const onAddPattern = React.useCallback(() => {
+    sequencer.pushUndoState();
+    useSequencerStore.getState().setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const p = t.patterns[0];
+        const newPattern = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          name: `Padrão ${t.patterns.length + 1}`,
+          steps: p.steps,
+          activeSteps: Array(p.steps).fill(0),
+          lyrics: Array(p.steps).fill(''),
+          notes: Array(p.steps).fill(''),
+          measureAssignments: Array(totalMeasures).fill(false),
+          volumes: Array(p.steps).fill(80),
+          decays: Array(p.steps).fill(100),
+          microtimings: Array(p.steps).fill(0),
+          variations: [],
+        };
+        return { ...t, patterns: [...t.patterns, newPattern], selectedPatternId: newPattern.id };
+      }
+      return t;
+    }));
+  }, [trackId, sequencer, totalMeasures]);
+
+  const onDeletePattern = React.useCallback((patternId: number) => {
+    sequencer.pushUndoState();
+    useSequencerStore.getState().setTracks(prev => prev.map(t => {
+      if (t.id === trackId && t.patterns.length > 1) {
+        const nextPatterns = t.patterns.filter(p => p.id !== patternId);
+        const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;
+        return { ...t, patterns: nextPatterns, selectedPatternId: nextSelected };
+      }
+      return t;
+    }));
+  }, [trackId, sequencer]);
+
+  const onSelectPattern = React.useCallback((patternId: number) => {
+    useSequencerStore.getState().setTracks(prev =>
+      prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t)
+    );
+  }, [trackId]);
+
+  const onReorderPatternsDnd = React.useCallback((oldIndex: number, newIndex: number) => {
+    if (sequencer.handleReorderPatternsDnd) {
+      sequencer.handleReorderPatternsDnd(trackId, oldIndex, newIndex);
+    }
+  }, [trackId, sequencer]);
+
+  const onAddPatternVariation = React.useCallback((patternId: number) => {
+    if (sequencer.handleAddPatternVariation) {
+      sequencer.handleAddPatternVariation(trackId, patternId);
+    }
+  }, [trackId, sequencer]);
+
+  const onUpdatePatternVariationProbability = React.useCallback((patternId: number, variationId: string, probability: number) => {
+    if (sequencer.handleUpdatePatternVariationProbability) {
+      sequencer.handleUpdatePatternVariationProbability(trackId, patternId, variationId, probability);
+    }
+  }, [trackId, sequencer]);
+
+  const onTogglePatternVariationFirstTimeOnly = React.useCallback((patternId: number, variationId: string, val: boolean) => {
+    if (sequencer.handleTogglePatternVariationFirstTimeOnly) {
+      sequencer.handleTogglePatternVariationFirstTimeOnly(trackId, patternId, variationId, val);
+    }
+  }, [trackId, sequencer]);
+
+  const onVariationStepValueChange = React.useCallback((patternId: number, variationId: string, stepIdx: number | number[], val: string | string[]) => {
+    if (sequencer.handleVariationStepValueChange) {
+      sequencer.handleVariationStepValueChange(trackId, patternId, variationId, stepIdx, val);
+    }
+  }, [trackId, sequencer]);
+
+  const onDeletePatternVariation = React.useCallback((patternId: number, variationId: string) => {
+    if (sequencer.handleDeletePatternVariation) {
+      sequencer.handleDeletePatternVariation(trackId, patternId, variationId);
+    }
+  }, [trackId, sequencer]);
+
+
+  const onVolumeChange = React.useCallback((val: number) => {
+    sequencer.handleTrackVolumeChange(trackId, val);
+  }, [trackId, sequencer]);
+
+  const onMuteToggle = React.useCallback(() => {
+    sequencer.handleTrackMuteToggle(trackId);
+  }, [trackId, sequencer]);
+
+  const onSoloToggle = React.useCallback(() => {
+    sequencer.handleTrackSoloToggle(trackId);
+  }, [trackId, sequencer]);
+
+  const onStepVolumeChange = React.useCallback((patternId: number, stepIdx: number | number[], val: number) => {
+    sequencer.handleTrackStepVolumeChange(trackId, patternId, stepIdx, val);
+  }, [trackId, sequencer]);
+
+  const onStepDecayChange = React.useCallback((patternId: number, stepIdx: number | number[], val: number) => {
+    sequencer.handleTrackStepDecayChange(trackId, patternId, stepIdx, val);
+  }, [trackId, sequencer]);
+
+  const onStepMicrotimingChange = React.useCallback((patternId: number, stepIdx: number | number[], val: number) => {
+    sequencer.handleTrackStepMicrotimingChange(trackId, patternId, stepIdx, val);
+  }, [trackId, sequencer]);
+
+  const onVariationStepVolumeChange = React.useCallback((patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
+    sequencer.handleVariationStepVolumeChange(trackId, patternId, variationId, stepIdx, val);
+  }, [trackId, sequencer]);
+
+  const onVariationStepDecayChange = React.useCallback((patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
+    sequencer.handleVariationStepDecayChange(trackId, patternId, variationId, stepIdx, val);
+  }, [trackId, sequencer]);
+
+  const onVariationStepMicrotimingChange = React.useCallback((patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
+    sequencer.handleVariationStepMicrotimingChange(trackId, patternId, variationId, stepIdx, val);
+  }, [trackId, sequencer]);
+
+  const onPastePattern = React.useCallback((patternId: number) => {
+    sequencer.handlePastePattern(trackId, patternId);
+  }, [trackId, sequencer]);
+
+  const onLoadLibraryPattern = React.useCallback((targetPatternId: number, libraryPattern: any) => {
+    if (sequencer.handleLoadLibraryPattern) {
+      sequencer.handleLoadLibraryPattern(trackId, targetPatternId, libraryPattern);
+    }
+  }, [trackId, sequencer]);
+
+  const onPatternNameChange = React.useCallback((patternId: number, name: string) => {
+    sequencer.handlePatternNameChange(trackId, patternId, name);
+  }, [trackId, sequencer]);
+
+  // Dynamic Navigation callbacks
+  const onNavigatePrev = React.useCallback(() => {
+    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
+    const idx = tracksList.findIndex(t => t.id === trackId);
+    if (idx > 0) {
+      setEditingTrackId(tracksList[idx - 1].id);
+    }
+  }, [trackId, setEditingTrackId]);
+
+  const onNavigateNext = React.useCallback(() => {
+    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
+    const idx = tracksList.findIndex(t => t.id === trackId);
+    if (idx >= 0 && idx < tracksList.length - 1) {
+      setEditingTrackId(tracksList[idx + 1].id);
+    }
+  }, [trackId, setEditingTrackId]);
+
+  const onKeyDown = React.useCallback((e: any) => {
+    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
+    const idx = tracksList.findIndex(t => t.id === trackId);
+    if (e.key === 'ArrowDown') {
+      if (idx >= 0 && idx < tracksList.length - 1) setEditingTrackId(tracksList[idx + 1].id);
+    } else if (e.key === 'ArrowUp') {
+      if (idx > 0) setEditingTrackId(tracksList[idx - 1].id);
+    }
+  }, [trackId, setEditingTrackId]);
+
+  // Granular selection of only the current track to prevent parent-level render thrashing
+  const track = useSequencerStore(
+    React.useCallback(state => state.tracks.find(t => t.id === trackId), [trackId])
+  );
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
   const inst = track ? instrumentsConfig[track.instrumentIdx] : { id: '', name: '', type: 'percussion', iconImg: '', colors: { text: '' }, mixerBg: '' };
   
@@ -215,13 +342,13 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     setIsCalibrating(true);
     try {
       const latency = await runAutoCalibration();
-      await alertAsync(
+      alert(
         lang === 'fr' 
           ? `✅ Calibration réussie ! Latence matérielle mesurée et compensée à ${latency} ms.` 
           : `✅ Calibração bem-sucedida! Latência de hardware medida e compensada em ${latency} ms.`
       );
     } catch (err: any) {
-      await alertAsync(
+      alert(
         lang === 'fr'
           ? `❌ Échec de la calibration : ${err.message || err}`
           : `❌ Falha na calibração: ${err.message || err}`
@@ -1252,7 +1379,6 @@ export const InstrumentDetailEditor = React.memo(InstrumentDetailEditorComponent
   const keys = Object.keys(prevProps) as Array<keyof InstrumentDetailEditorProps>;
   for (const key of keys) {
     if (key === 'trackId') continue;
-    if (key === 'currentStepIndex' || key === 'currentMeasure') continue;
 
     if (prevProps[key] !== nextProps[key]) {
       return false;

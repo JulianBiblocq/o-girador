@@ -1426,6 +1426,7 @@ export interface ProjectSettingsSlice {
   lang: Language;
   vocalCalibrationLatencyMs: number;
   isEcoMode: boolean;
+  editingTrackId: number | null;
 
   setLetras: (letras: string) => void;
   setMetadata: (metadata: PresetMetadata) => void;
@@ -1434,6 +1435,7 @@ export interface ProjectSettingsSlice {
   setVocalCalibrationLatencyMs: (val: number) => void;
   handleExtractLyrics: () => void;
   toggleEcoMode: () => void;
+  setEditingTrackId: (id: number | null) => void;
 }
 
 const detectEcoMode = (): boolean => {
@@ -1456,6 +1458,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   lang: 'pt',
   vocalCalibrationLatencyMs: parseInt(localStorage.getItem('oGirador_vocal_calibration_latency') || '0', 10),
   isEcoMode: detectEcoMode(),
+  editingTrackId: null,
 
   setLetras: (letras) => set({ letras }),
   setMetadata: (metadata) => set({ metadata }),
@@ -1470,6 +1473,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
     localStorage.setItem('o-girador-eco-mode', String(next));
     return { isEcoMode: next };
   }),
+  setEditingTrackId: (id) => set({ editingTrackId: id }),
 
   
   handleExtractLyrics: () => {
