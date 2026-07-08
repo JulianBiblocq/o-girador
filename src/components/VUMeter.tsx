@@ -22,9 +22,11 @@ export const VUMeter: React.FC<VUMeterProps> = ({
   isActive = true,
 }) => {
   const gaugeRef = useRef<HTMLDivElement>(null);
+  const lastLevelRef = useRef<number>(0);
 
   useEffect(() => {
     if (!isActive || !isPlaying) {
+      lastLevelRef.current = 0;
       if (gaugeRef.current) {
         gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
       }
@@ -41,6 +43,7 @@ export const VUMeter: React.FC<VUMeterProps> = ({
       }
       const isEco = useSequencerStore.getState().isEcoMode;
       if (isEco) {
+        lastLevelRef.current = 0;
         if (gaugeRef.current) {
           gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
         }
@@ -55,12 +58,20 @@ export const VUMeter: React.FC<VUMeterProps> = ({
           const clampedDb = Math.max(-80, Math.min(6, db));
           // Map decibels to scale percentage (using linear db mapping over 86 dB range)
           const percentage = Math.max(0, Math.min(100, ((clampedDb + 80) / 86) * 100));
+          const targetScale = percentage / 100;
+
+          let currentScale = lastLevelRef.current;
+          if (targetScale > currentScale) {
+            currentScale = targetScale; // instant attack
+          } else {
+            currentScale = currentScale * 0.90 + targetScale * 0.10; // smooth decay
+          }
+          lastLevelRef.current = currentScale;
           
           if (gaugeRef.current) {
-            const scale = percentage / 100;
             gaugeRef.current.style.transform = orientation === 'vertical' 
-              ? `scaleY(${scale})` 
-              : `scaleX(${scale})`;
+              ? `scaleY(${currentScale})` 
+              : `scaleX(${currentScale})`;
           }
         } catch (e) {
           console.error("Error reading track meter value:", e);

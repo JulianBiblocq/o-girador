@@ -188,9 +188,13 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const vuMeterRightRef = useRef<HTMLDivElement>(null);
   const dbTextRef = useRef<HTMLDivElement>(null);
   const isPlayingRef = useRef(false);
+  const lastMasterLeftRef = useRef<number>(0);
+  const lastMasterRightRef = useRef<number>(0);
 
   useEffect(() => {
     if (!isActive || !isPlaying) {
+      lastMasterLeftRef.current = 0;
+      lastMasterRightRef.current = 0;
       if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(0)';
       if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(0)';
       if (dbTextRef.current) dbTextRef.current.innerText = '— dB';
@@ -209,6 +213,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         return;
       }
       if (!isPlayingRef.current) {
+        lastMasterLeftRef.current = 0;
+        lastMasterRightRef.current = 0;
         if (vuMeterLeftRef.current) vuMeterLeftRef.current.style.transform = 'scaleY(0)';
         if (vuMeterRightRef.current) vuMeterRightRef.current.style.transform = 'scaleY(0)';
         if (dbTextRef.current) dbTextRef.current.innerText = '— dB';
@@ -240,13 +246,33 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             dbTextRef.current.innerText = maxDb <= -79 ? '-∞ dB' : `${Math.round(maxDb)} dB`;
           }
 
+          // Left channel lissage
+          const percentageLeft = Math.max(0, Math.min(100, ((clampedLeftDb + 80) / 86) * 100));
+          const targetLeftScale = percentageLeft / 100;
+          let currentLeftScale = lastMasterLeftRef.current;
+          if (targetLeftScale > currentLeftScale) {
+            currentLeftScale = targetLeftScale; // instant attack
+          } else {
+            currentLeftScale = currentLeftScale * 0.90 + targetLeftScale * 0.10; // smooth decay
+          }
+          lastMasterLeftRef.current = currentLeftScale;
+
+          // Right channel lissage
+          const percentageRight = Math.max(0, Math.min(100, ((clampedRightDb + 80) / 86) * 100));
+          const targetRightScale = percentageRight / 100;
+          let currentRightScale = lastMasterRightRef.current;
+          if (targetRightScale > currentRightScale) {
+            currentRightScale = targetRightScale; // instant attack
+          } else {
+            currentRightScale = currentRightScale * 0.90 + targetRightScale * 0.10; // smooth decay
+          }
+          lastMasterRightRef.current = currentRightScale;
+
           if (vuMeterLeftRef.current) {
-            const percentageLeft = Math.max(0, Math.min(100, ((clampedLeftDb + 80) / 86) * 100));
-            vuMeterLeftRef.current.style.transform = `scaleY(${percentageLeft / 100})`;
+            vuMeterLeftRef.current.style.transform = `scaleY(${currentLeftScale})`;
           }
           if (vuMeterRightRef.current) {
-            const percentageRight = Math.max(0, Math.min(100, ((clampedRightDb + 80) / 86) * 100));
-            vuMeterRightRef.current.style.transform = `scaleY(${percentageRight / 100})`;
+            vuMeterRightRef.current.style.transform = `scaleY(${currentRightScale})`;
           }
         } catch (e) {
           console.error("Error reading master meter value:", e);
