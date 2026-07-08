@@ -53,7 +53,7 @@ export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, labe
         const targetPan = val / 100;
         if (track.isBusFolder) {
           if (busChannels && busChannels[track.id]) {
-            busChannels[track.id].panner.pan.rampTo(targetPan, 0.05);
+            busChannels[track.id].pan.rampTo(targetPan, 0.05);
           }
         } else {
           if (channels && channels[track.id]) {

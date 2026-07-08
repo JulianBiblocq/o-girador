@@ -108,6 +108,14 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
     useSequencerStore.getState().handleTrackSoloToggle(trackId);
   };
 
+  const onReverbChange = (val: number) => {
+    useSequencerStore.getState().setTrackFxSend(trackId, 'reverb', val);
+  };
+
+  const onDistortionChange = (val: number) => {
+    useSequencerStore.getState().setTrackFxSend(trackId, 'distortion', val);
+  };
+
   const onToggleFold = () => {
     useSequencerStore.getState().handleToggleFoldBus(String(trackId));
   };
@@ -295,20 +303,18 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
           </div>
         </div>
 
-        {/* Ligne 3 (Effets) : Deux DragNumberBox désactivés côte à côte tout en bas */}
+        {/* Ligne 3 (Effets) : Deux DragNumberBox actifs côte à côte tout en bas */}
         <div className="flex gap-2 w-full shrink-0">
           <DragNumberBox 
             label="Rev" 
-            value={0} 
-            onChange={() => {}}
-            disabled={true}
+            value={track.fxSends?.reverb ?? 0} 
+            onChange={onReverbChange}
             className="flex-1"
           />
           <DragNumberBox 
             label="Dst" 
-            value={0} 
-            onChange={() => {}}
-            disabled={true}
+            value={track.fxSends?.distortion ?? 0} 
+            onChange={onDistortionChange}
             className="flex-1"
           />
         </div>

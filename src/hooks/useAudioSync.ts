@@ -42,7 +42,9 @@ import {
   getDeferredReverbActivation,
   setDeferredReverbActivation,
   busChannels,
-  busMeters
+  busMeters,
+  reverbBusReceive,
+  distortionBusReceive
 } from '../audio/effectsChain';
 
 export {
@@ -578,8 +580,11 @@ export function useAudioSync({
             const initialRevDb = percentToDb(isEco ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
             const initialDistDb = percentToDb(t.fxSends?.distortion ?? 0);
 
-            reverbSends[t.id] = channels[t.id].send("reverb", initialRevDb);
-            distortionSends[t.id] = channels[t.id].send("distortion", initialDistDb);
+            reverbSends[t.id] = new Tone.Gain(Tone.dbToGain(initialRevDb));
+            reverbSends[t.id].connect(reverbBusReceive!);
+
+            distortionSends[t.id] = new Tone.Gain(Tone.dbToGain(initialDistDb));
+            distortionSends[t.id].connect(distortionBusReceive!);
 
             audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
           }
@@ -1435,36 +1440,57 @@ export function useAudioSync({
         // 1. Initialiser et synchroniser les Bus d'abord
         tracks.forEach((t) => {
           if (t.isBusFolder) {
-            // Créer la chaîne de nœuds stéréo-safe s'il n'existe pas encore
+            // Créer le canal du Bus s'il n'existe pas encore
             if (!busChannels[t.id]) {
-              const volNode = new Tone.Volume(0);
-              volNode.channelCount = 2;
-              volNode.channelCountMode = "explicit";
+              const channelNode = new Tone.Channel({ volume: 0 });
+              channelNode.channelCount = 2;
+              channelNode.channelCountMode = "explicit";
+              channelNode.connect(masterVolumeNode!);
 
-              const panNode = new Tone.Panner(0);
-              panNode.channelCount = 2;
-              panNode.channelCountMode = "explicit";
-
-              volNode.connect(panNode);
-              panNode.connect(masterVolumeNode!);
-
-              busChannels[t.id] = { volume: volNode, panner: panNode };
+              busChannels[t.id] = channelNode;
               
               busMeters[t.id] = new Tone.Meter();
-              volNode.connect(busMeters[t.id]);
+              channelNode.connect(busMeters[t.id]);
             }
 
             const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
             const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
             const pan = (t.panVal || 0) / 100;
+            const reverb = t.fxSends?.reverb ?? 0;
+            const distortion = t.fxSends?.distortion ?? 0;
             const muteState = getEffectiveMuteState(tracks, t.id);
 
-            const paramHash = `bus_${db}_${pan}_${muteState}`;
+            const paramHash = `bus_${db}_${pan}_${muteState}_${reverb}_${distortion}`;
 
             if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
-              busChannels[t.id].volume.volume.value = db;
-              busChannels[t.id].panner.pan.value = pan;
-              busChannels[t.id].volume.mute = muteState;
+              busChannels[t.id].volume.value = db;
+              busChannels[t.id].pan.value = pan;
+              busChannels[t.id].mute = muteState;
+
+              // Envois d'effet pour le bus de dossier (post-fader)
+              if (!reverbSends[t.id]) {
+                reverbSends[t.id] = new Tone.Gain(0);
+                reverbSends[t.id].connect(reverbBusReceive!);
+              }
+              if (!distortionSends[t.id]) {
+                distortionSends[t.id] = new Tone.Gain(0);
+                distortionSends[t.id].connect(distortionBusReceive!);
+              }
+
+              // Mettre à jour le gain des sends du bus
+              const isEco = state.isEcoMode;
+              const targetRevDb = percentToDb(isEco ? 0 : reverb);
+              const targetDistDb = percentToDb(distortion);
+              reverbSends[t.id].gain.value = Tone.dbToGain(targetRevDb);
+              distortionSends[t.id].gain.value = Tone.dbToGain(targetDistDb);
+
+              // Reconnecter la sortie du bus de dossier (post-fader)
+              busChannels[t.id].disconnect();
+              busChannels[t.id].connect(masterVolumeNode!);
+              busChannels[t.id].connect(busMeters[t.id]!);
+              busChannels[t.id].connect(reverbSends[t.id]);
+              busChannels[t.id].connect(distortionSends[t.id]);
+
               lastAppliedTracksParamsRef.current[t.id] = paramHash;
             }
           }
@@ -1487,8 +1513,11 @@ export function useAudioSync({
             const initialRevDb = percentToDb(isEco ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
             const initialDistDb = percentToDb(t.fxSends?.distortion ?? 0);
 
-            reverbSends[t.id] = channels[t.id].send("reverb", initialRevDb);
-            distortionSends[t.id] = channels[t.id].send("distortion", initialDistDb);
+            reverbSends[t.id] = new Tone.Gain(Tone.dbToGain(initialRevDb));
+            reverbSends[t.id].connect(reverbBusReceive!);
+
+            distortionSends[t.id] = new Tone.Gain(Tone.dbToGain(initialDistDb));
+            distortionSends[t.id].connect(distortionBusReceive!);
 
             audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
           }
@@ -1526,12 +1555,12 @@ export function useAudioSync({
           if (lastAppliedBussesRef.current[t.id] !== currentBusId) {
             channels[t.id].disconnect();
             if (currentBusId && busChannels[currentBusId]) {
-              channels[t.id].connect(busChannels[currentBusId].volume);
+              channels[t.id].connect(busChannels[currentBusId]);
             } else {
               channels[t.id].connect(masterVolumeNode!);
             }
             
-            // Reconnecter le send réverb, le send distorsion et le VU-mètre (le disconnect() coupe toutes les connexions)
+            // Reconnecter le send réverb, le send distorsion et le VU-mètre (post-fader)
             if (reverbSends[t.id]) {
               channels[t.id].connect(reverbSends[t.id]);
             }

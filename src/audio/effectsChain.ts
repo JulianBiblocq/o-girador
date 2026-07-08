@@ -35,10 +35,7 @@ export const meters: { [trackId: number]: Tone.Meter } = {};
 export const reverbSends: { [trackId: number]: any } = {};
 export const distortionSends: { [trackId: number]: any } = {};
 export const busChannels: {
-  [busId: string]: {
-    volume: Tone.Volume;
-    panner: Tone.Panner;
-  }
+  [busId: string]: Tone.Channel;
 } = {};
 export const busMeters: { [busId: string]: Tone.Meter } = {};
 
