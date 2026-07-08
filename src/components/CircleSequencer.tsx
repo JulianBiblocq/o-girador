@@ -19,7 +19,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { getExpandedMeasures } from '../utils/measureHelpers';
-import { getBusColor } from '../utils/colorHelpers';
+import { getBusColor, getBusNoteColor } from '../utils/colorHelpers';
 
 interface CircleSequencerProps {
   isActive?: boolean;
@@ -142,7 +142,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const lang = props.lang !== undefined ? props.lang : sequencer.lang;
   const isLeftHanded = props.isLeftHanded !== undefined ? props.isLeftHanded : sequencer.isLeftHanded;
   const tracksFromStore = useTracksWithCustomEquality(isActive);
-  const tracks = (props.tracks !== undefined ? props.tracks : tracksFromStore).filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
+  const rawTracks = props.tracks !== undefined ? props.tracks : tracksFromStore;
+  const tracks = rawTracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
   const totalMeasuresFromStore = useSequencerStore(state => state.totalMeasures);
   const totalMeasures = props.totalMeasures !== undefined ? props.totalMeasures : totalMeasuresFromStore;
   const bpm = props.bpm !== undefined ? props.bpm : sequencer.bpm;
@@ -506,6 +507,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   // Use refs in the animation loop to avoid stale closure issues
   const stateRef = useRef({
     tracks,
+    rawTracks,
     isPlaying,
     currentMeasure,
     maxTicks,
@@ -532,6 +534,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   useEffect(() => {
     stateRef.current = {
       tracks,
+      rawTracks,
       isPlaying,
       currentMeasure,
       maxTicks,
@@ -554,17 +557,19 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       isLeftHanded,
       songMarkers
     };
-  }, [tracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded]);
+  }, [tracks, rawTracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded]);
 
   useEffect(() => {
     if (props.tracks !== undefined) return;
     
     // Keep filtered tracks in stateRef up to date imperatively
     stateRef.current.tracks = useSequencerStore.getState().tracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
+    stateRef.current.rawTracks = useSequencerStore.getState().tracks;
     
     const unsubscribe = useSequencerStore.subscribe(
       (state) => {
         stateRef.current.tracks = state.tracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
+        stateRef.current.rawTracks = state.tracks;
       }
     );
     return unsubscribe;
@@ -826,6 +831,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
       const { 
         tracks, 
+        rawTracks: localRawTracks,
         isPlaying: localPlaying, 
         timeSig: localTimeSig,
         isMetroOn: localMetroOn, 
@@ -867,9 +873,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         const hits = localHitTriggers.current.splice(0, localHitTriggers.current.length);
         if (!isEco) {
           hits.forEach(hit => {
-            let track = tracks.find(t => t.id === hit.trackId);
+            let track = localRawTracks.find(t => t.id === hit.trackId);
             if (track && track.linkedToTrackId) {
-              track = tracks.find(t => String(t.id) === String(track!.linkedToTrackId));
+              track = localRawTracks.find(t => String(t.id) === String(track!.linkedToTrackId));
             }
             if (track && !track.isHidden && !track.isMute) {
               const inst = instrumentsConfig[track.instrumentIdx];
@@ -1204,7 +1210,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         }
         const isActiveState = hasAnyNotes;
 
-        const busColor = track.isLinkFolder ? getBusColor(String(track.id), tracks, instrumentsConfig) : null;
+        const busColor = track.isLinkFolder ? getBusColor(String(track.id), localRawTracks, instrumentsConfig) : null;
 
         ctx.save();
         ctx.globalAlpha = isActiveState ? 1.0 : 0.25;
@@ -1262,13 +1268,15 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             radiusSize = 13 * dynamicScale;
             if (inst.type === 'voice') {
               radiusSize = 22 * dynamicScale;
-              fillColor = (visualState === 'P') ? inst.colors['P'] : inst.colors['C'];
+              fillColor = track.isLinkFolder
+                ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
+                : ((visualState === 'P') ? inst.colors['P'] : inst.colors['C']);
               let syl = activePattern.lyrics[i] || 'X';
               textSymbol = String(syl).endsWith('-') ? String(syl).slice(0, -1) : String(syl);
             } else {
               const stateStr = String(visualState);
-              fillColor = (track.isLinkFolder && busColor) 
-                ? busColor 
+              fillColor = track.isLinkFolder 
+                ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
                 : ((inst.colors && inst.colors[visualState]) ? inst.colors[visualState] : '#fff');
               isAccent = (stateStr === stateStr.toUpperCase());
               radiusSize = (isAccent ? 15 : 12) * dynamicScale;
@@ -1310,7 +1318,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
           const isHit = state !== 0 && state !== '0' && state !== '';
           if (isHit) {
-            ctx.strokeStyle = (track.isLinkFolder && busColor) ? busColor : ((inst && inst.color) ? inst.color : themeBorder);
+            ctx.strokeStyle = track.isLinkFolder 
+              ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
+              : ((inst && inst.color) ? inst.color : themeBorder);
             ctx.lineWidth = 2.5;
           } else {
             ctx.strokeStyle = themeBorder;
@@ -1359,11 +1369,10 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               if (name === 'Gonguê') return 'Gonguês';
               return name + 's';
             };
-            const parentBus = track.busId ? storeTracks.find(t => String(t.id) === String(track.busId)) : null;
-            let labelText = (parentBus && parentBus.customName) 
-              ? parentBus.customName 
-              : (isMaster && inst ? `🔗 ${getPluralName(inst.name)}` : (inst?.name || 'Instrument'));
-            if (!parentBus && instrumentTotals[instIdx] > 1) {
+            let labelText = (isMaster && inst) 
+              ? `🔗 ${getPluralName(inst.name)}` 
+              : (inst?.name || 'Instrument');
+            if (!isMaster && instrumentTotals[instIdx] > 1) {
               labelText += ` ${instrumentIndexes[instIdx]}`;
             }
             if (track.patterns.length > 1) {
