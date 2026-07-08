@@ -25,6 +25,8 @@ export interface TrackSlice {
   handleTrackVolumeChange: (id: number, val: number) => void;
   handleTrackReverbChange: (id: number, val: number) => void;
   handleTrackPanChange: (id: number, val: number) => void;
+  setTrackFxSend: (trackId: number, fxType: 'reverb' | 'distortion', value: number) => void;
+  setTrackPan: (trackId: number, value: number) => void;
   handleLinkTrack: (trackId: number, linkedToTrackId: string | null) => void;
   handleCreateLinkGroup: (trackId: number, name: string) => void;
   handleTimelinePatternAssign: (trackId: number, patternId: number | null, measureIdx: number) => void;
@@ -253,7 +255,32 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
 
   handleTrackPanChange: (id, val) => {
     set((state) => ({
-      tracks: state.tracks.map((t) => t.id === id ? { ...t, panVal: val } : t)
+      tracks: state.tracks.map((t) => t.id === id ? { ...t, panVal: val, pan: val } : t)
+    }));
+  },
+
+  setTrackFxSend: (trackId, fxType, value) => {
+    set((state) => ({
+      tracks: state.tracks.map((t) =>
+        t.id === trackId
+          ? {
+              ...t,
+              reverbVal: fxType === 'reverb' ? value : t.reverbVal,
+              fxSends: {
+                reverb: fxType === 'reverb' ? value : (t.fxSends?.reverb ?? t.reverbVal ?? 0),
+                distortion: fxType === 'distortion' ? value : (t.fxSends?.distortion ?? 0)
+              }
+            }
+          : t
+      )
+    }));
+  },
+
+  setTrackPan: (trackId, value) => {
+    set((state) => ({
+      tracks: state.tracks.map((t) =>
+        t.id === trackId ? { ...t, pan: value, panVal: value } : t
+      )
     }));
   },
 
@@ -292,7 +319,11 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
               isBusFolder: true,
               isLinkFolder: true,
               isFolded: false,
-              customName: busName
+              customName: busName,
+              reverbVal: 0,
+              panVal: 0,
+              pan: 0,
+              fxSends: { reverb: 0, distortion: 0 }
             };
 
             const masterTrackIndex = updated.findIndex(t => t.id === masterTrackId);
@@ -408,7 +439,11 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         isBusFolder: true,
         isLinkFolder: true,
         isFolded: false,
-        customName: name
+        customName: name,
+        reverbVal: 0,
+        panVal: 0,
+        pan: 0,
+        fxSends: { reverb: 0, distortion: 0 }
       };
 
       // Mettre à jour le maître : il devient lié au bus parent et est déclaré link master
@@ -455,7 +490,11 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         selectedPatternId: 0,
         isBusFolder: true,
         isFolded: false,
-        customName: name
+        customName: name,
+        reverbVal: 0,
+        panVal: 0,
+        pan: 0,
+        fxSends: { reverb: 0, distortion: 0 }
       };
 
       const updatedTracks = state.tracks.map(t => 

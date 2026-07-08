@@ -1608,6 +1608,8 @@ export function useSequencerState() {
       selectedPatternId: 0,
       reverbVal: 0,
       panVal: 0,
+      pan: 0,
+      fxSends: { reverb: 0, distortion: 0 }
     };
     newTrack.selectedPatternId = newTrack.patterns[0].id;
     newTrack.patterns[0].measureAssignments[currentMeasure] = true;
@@ -1723,7 +1725,12 @@ export function useSequencerState() {
             volumeVal: loadedTrack.volumeVal,
             selectedPatternId: -1,
             reverbVal: loadedTrack.reverbVal,
-            panVal: loadedTrack.panVal
+            panVal: loadedTrack.panVal,
+            pan: loadedTrack.pan ?? loadedTrack.panVal ?? 0,
+            fxSends: loadedTrack.fxSends ?? {
+              reverb: loadedTrack.reverbVal ?? 0,
+              distortion: 0
+            }
           };
           newTracks.push(newTrack);
           existingTrackIdx = newTracks.length - 1;

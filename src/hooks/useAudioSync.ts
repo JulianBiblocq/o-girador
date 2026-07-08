@@ -28,10 +28,12 @@ import {
   masterMeterNode,
   masterReverbVolumeNode,
   reverbNode,
+  distortionNode,
   metroChannel,
   channels,
   meters,
   reverbSends,
+  distortionSends,
   initMasterEffectsChain,
   initInstrumentNodes,
   handleReverbEcoToggle,
@@ -50,10 +52,12 @@ export {
   masterMeterNode,
   masterReverbVolumeNode,
   reverbNode,
+  distortionNode,
   metroChannel,
   channels,
   meters,
   reverbSends,
+  distortionSends,
   busChannels,
   busMeters
 };
@@ -104,6 +108,12 @@ function getMeasureStartTick(mIdx: number, measureTimeSigs: string[]): number {
   }
   return ticks;
 }
+
+const percentToDb = (percent: number): number => {
+  if (percent <= 0) return -Infinity;
+  const normalized = percent / 100;
+  return 40 * Math.log10(normalized);
+};
 
 
 
@@ -564,11 +574,11 @@ export function useAudioSync({
             meters[t.id] = new Tone.Meter();
             channels[t.id].connect(meters[t.id]);
 
-            reverbSends[t.id] = new Tone.Gain(0);
-            channels[t.id].connect(reverbSends[t.id]);
-            if (reverbNode) {
-              reverbSends[t.id].connect(reverbNode);
-            }
+            const initialRevDb = percentToDb(isEco ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
+            const initialDistDb = percentToDb(t.fxSends?.distortion ?? 0);
+
+            reverbSends[t.id] = channels[t.id].send("reverb", initialRevDb);
+            distortionSends[t.id] = channels[t.id].send("distortion", initialDistDb);
 
             audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
           }
@@ -576,11 +586,16 @@ export function useAudioSync({
           const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
           const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
           channels[t.id].volume.value = db;
-          channels[t.id].pan.value = (t.panVal || 0) / 100;
+          channels[t.id].pan.value = (t.pan ?? t.panVal ?? 0) / 100;
           channels[t.id].mute = getEffectiveMuteState(tracksRef.current, t.id);
           
           if (reverbSends[t.id]) {
-            reverbSends[t.id].gain.value = isEco ? 0 : (t.reverbVal || 0) / 100;
+            const targetRevDb = percentToDb(isEco ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
+            reverbSends[t.id].gain.value = Tone.dbToGain(targetRevDb);
+          }
+          if (distortionSends[t.id]) {
+            const targetDistDb = percentToDb(t.fxSends?.distortion ?? 0);
+            distortionSends[t.id].gain.value = Tone.dbToGain(targetDistDb);
           }
         }
       });
@@ -1415,22 +1430,24 @@ export function useAudioSync({
             meters[t.id] = new Tone.Meter();
             channels[t.id].connect(meters[t.id]);
 
-            reverbSends[t.id] = new Tone.Gain(0);
-            channels[t.id].connect(reverbSends[t.id]);
-            if (reverbNode) {
-              reverbSends[t.id].connect(reverbNode);
-            }
+            const isEco = state.isEcoMode;
+            const initialRevDb = percentToDb(isEco ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
+            const initialDistDb = percentToDb(t.fxSends?.distortion ?? 0);
+
+            reverbSends[t.id] = channels[t.id].send("reverb", initialRevDb);
+            distortionSends[t.id] = channels[t.id].send("distortion", initialDistDb);
 
             audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
           }
 
           const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
           const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
-          const pan = (t.panVal || 0) / 100;
-          const reverb = (t.reverbVal || 0) / 100;
+          const pan = (t.pan ?? t.panVal ?? 0) / 100;
+          const reverb = t.fxSends?.reverb ?? t.reverbVal ?? 0;
+          const distortion = t.fxSends?.distortion ?? 0;
           const muteState = getEffectiveMuteState(tracks, t.id);
 
-          const paramHash = `${db}_${pan}_${muteState}_${reverb}`;
+          const paramHash = `${db}_${pan}_${muteState}_${reverb}_${distortion}`;
 
           // A. Appliquer le volume, pan et mute
           if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
@@ -1440,7 +1457,12 @@ export function useAudioSync({
 
             if (reverbSends[t.id]) {
               const isEco = state.isEcoMode;
-              reverbSends[t.id].gain.value = isEco ? 0 : reverb;
+              const targetRevDb = percentToDb(isEco ? 0 : reverb);
+              reverbSends[t.id].gain.value = Tone.dbToGain(targetRevDb);
+            }
+            if (distortionSends[t.id]) {
+              const targetDistDb = percentToDb(distortion);
+              distortionSends[t.id].gain.value = Tone.dbToGain(targetDistDb);
             }
 
             lastAppliedTracksParamsRef.current[t.id] = paramHash;
@@ -1456,9 +1478,12 @@ export function useAudioSync({
               channels[t.id].connect(masterVolumeNode!);
             }
             
-            // Reconnecter le send réverb et le VU-mètre (le disconnect() coupe toutes les connexions)
+            // Reconnecter le send réverb, le send distorsion et le VU-mètre (le disconnect() coupe toutes les connexions)
             if (reverbSends[t.id]) {
               channels[t.id].connect(reverbSends[t.id]);
+            }
+            if (distortionSends[t.id]) {
+              channels[t.id].connect(distortionSends[t.id]);
             }
             if (meters[t.id]) {
               channels[t.id].connect(meters[t.id]);

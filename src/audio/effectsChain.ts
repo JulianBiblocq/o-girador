@@ -24,11 +24,16 @@ export let masterSoftClipperNode: Tone.WaveShaper | null = null;
 export let masterMeterNode: Tone.Meter | null = null;
 export let masterReverbVolumeNode: Tone.Gain | null = null;
 export let reverbNode: Tone.Reverb | null = null;
+export let distortionNode: Tone.Distortion | null = null;
+export let masterDistortionVolumeNode: Tone.Gain | null = null;
+export let reverbBusReceive: Tone.Channel | null = null;
+export let distortionBusReceive: Tone.Channel | null = null;
 export let metroChannel: Tone.Channel | null = null;
 
 export const channels: { [trackId: number]: Tone.Channel } = {};
 export const meters: { [trackId: number]: Tone.Meter } = {};
-export const reverbSends: { [trackId: number]: Tone.Gain } = {};
+export const reverbSends: { [trackId: number]: any } = {};
+export const distortionSends: { [trackId: number]: any } = {};
 export const busChannels: {
   [busId: string]: {
     volume: Tone.Volume;
@@ -119,13 +124,27 @@ export function initMasterEffectsChain(
   metroChannel = new Tone.Channel({ volume: Tone.gainToDb(metroVolume / 100) }).connect(masterVolumeNode);
   metroChannel.mute = !isMetroOn;
 
-  // Reverb nodes
-  masterReverbVolumeNode = new Tone.Gain(Tone.dbToGain(masterReverbVol === -40 ? -Infinity : masterReverbVol)).connect(masterVolumeNode);
+  // Reverb nodes connected in parallel to Tone.getDestination()
+  masterReverbVolumeNode = new Tone.Gain(Tone.dbToGain(masterReverbVol === -40 ? -Infinity : masterReverbVol)).connect(Tone.getDestination());
+  
+  reverbBusReceive = new Tone.Channel();
+  reverbBusReceive.receive("reverb");
+
   if (!isEco) {
     reverbNode = new Tone.Reverb({ decay: 2.5, preDelay: 0.02, wet: 1 }).connect(masterReverbVolumeNode);
+    reverbBusReceive.connect(reverbNode);
   } else {
     reverbNode = null;
   }
+
+  // Distortion nodes (light distortion) connected in parallel to Tone.getDestination()
+  distortionNode = new Tone.Distortion({ distortion: 0.15, wet: 1 });
+  masterDistortionVolumeNode = new Tone.Gain(1.0).connect(Tone.getDestination());
+  distortionNode.connect(masterDistortionVolumeNode);
+
+  distortionBusReceive = new Tone.Channel();
+  distortionBusReceive.receive("distortion");
+  distortionBusReceive.connect(distortionNode);
 }
 
 export function initInstrumentNodes() {
@@ -151,16 +170,9 @@ export function ensureReverbConnected() {
       const decay = savedDecay ? parseFloat(savedDecay) : 2.5;
       
       reverbNode = new Tone.Reverb({ decay, preDelay: 0.02, wet: 1 }).connect(masterReverbVolumeNode);
-
-      // Reconnect all instrument sends to the new reverbNode
-      Object.entries(reverbSends).forEach(([id, sendNode]) => {
-        try {
-          sendNode.disconnect();
-          sendNode.connect(reverbNode!);
-        } catch (e) {
-          console.warn(`Error connecting reverb send for ${id}:`, e);
-        }
-      });
+      if (reverbBusReceive) {
+        reverbBusReceive.connect(reverbNode);
+      }
     } catch (err) {
       console.error("Failed to instantiate and connect Reverb:", err);
     }

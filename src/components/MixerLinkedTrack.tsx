@@ -37,7 +37,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   const audio = useAudio();
   const { isPlaying } = audio;
 
-  const [distoVal, setDistoVal] = useState(0);
+
 
   const lang = useSequencerStore(state => state.lang);
   const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
@@ -90,10 +90,13 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
     useSequencerStore.getState().handleTrackVolumeChange(trackId, val);
   };
   const onPanChange = (val: number) => {
-    useSequencerStore.getState().handleTrackPanChange(trackId, val);
+    useSequencerStore.getState().setTrackPan(trackId, val);
   };
   const onReverbChange = (val: number) => {
-    sequencer.handleTrackReverbChange(trackId, val);
+    useSequencerStore.getState().setTrackFxSend(trackId, 'reverb', val);
+  };
+  const onDistortionChange = (val: number) => {
+    useSequencerStore.getState().setTrackFxSend(trackId, 'distortion', val);
   };
 
   // Calcul des pistes cibles de liaison éligibles (même nature)
@@ -366,7 +369,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
       <div className="relative z-10 p-3 pt-2.5 pb-1 flex flex-col h-[200px] justify-between gap-1.5 w-full">
         {/* Ligne 1 (Panoramique) : HorizontalPanFader tout en haut */}
         <HorizontalPanFader 
-          value={track.panVal || 0} 
+          value={track.pan ?? track.panVal ?? 0} 
           onChange={onPanChange}
           className="w-full shrink-0 h-4"
         />
@@ -419,14 +422,14 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
         <div className="flex gap-2 w-full shrink-0">
           <DragNumberBox 
             label="Rev" 
-            value={track.reverbVal || 0} 
+            value={track.fxSends?.reverb ?? track.reverbVal ?? 0} 
             onChange={onReverbChange}
             className="flex-1"
           />
           <DragNumberBox 
             label="Dst" 
-            value={distoVal} 
-            onChange={setDistoVal}
+            value={track.fxSends?.distortion ?? 0} 
+            onChange={onDistortionChange}
             className="flex-1"
           />
         </div>

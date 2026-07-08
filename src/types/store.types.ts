@@ -70,6 +70,11 @@ export interface TrackGroup {
   radius?: number; // visual radius in the roda
   reverbVal?: number;
   panVal?: number; // -100 to 100
+  pan?: number; // -100 to 100
+  fxSends?: {
+    reverb: number; // 0 to 100
+    distortion: number; // 0 to 100
+  };
   linkedToTrackId?: string;
   busId?: string;
   isBusFolder?: boolean;
@@ -108,6 +113,11 @@ export interface SavedSectionTrack {
   volumeVal: number;
   reverbVal?: number;
   panVal?: number;
+  pan?: number;
+  fxSends?: {
+    reverb: number;
+    distortion: number;
+  };
   patterns: Pattern[]; // Patterns mapped to the section's measures
 }
 
