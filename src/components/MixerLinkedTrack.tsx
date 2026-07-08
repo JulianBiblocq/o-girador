@@ -301,8 +301,13 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
               })}
 
               {/* Section Audio Bussing */}
-              <div className="text-[10px] uppercase opacity-60 font-bold px-3 py-1 bg-[var(--cordel-text)]/5 border-t border-b border-[var(--cordel-border)]/20 mt-1">
-                📁 {lang === 'fr' ? 'Bus / Groupes' : 'Bus / Grupos'}
+              <div className="text-[10px] uppercase opacity-60 font-bold px-3 py-1 bg-[var(--cordel-text)]/5 border-t border-b border-[var(--cordel-border)]/20 mt-1 flex items-center gap-1.5">
+                <img 
+                  src={`${ASSETS_BASE_URL}icones/bus.svg`} 
+                  alt="" 
+                  className="w-3.5 h-3.5 object-contain filter invert-[var(--cordel-invert)] dark:invert-0 shrink-0" 
+                />
+                <span>{lang === 'fr' ? 'Bus / Groupes' : 'Bus / Grupos'}</span>
               </div>
 
               {/* Option 1: Créer un groupe avec cet instrument */}
@@ -314,9 +319,14 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
                   }
                   setInstDropdownOpen(false);
                 }}
-                className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold text-green-700 dark:text-green-400"
+                className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold text-green-700 dark:text-green-400 flex items-center gap-1.5"
               >
-                📁 {lang === 'fr' ? 'Créer un groupe avec cet instrument' : 'Criar um grupo com este instrumento'}
+                <img 
+                  src={`${ASSETS_BASE_URL}icones/bus.svg`} 
+                  alt="" 
+                  className="w-3.5 h-3.5 object-contain filter invert-[var(--cordel-invert)] dark:invert-0 shrink-0" 
+                />
+                <span>{lang === 'fr' ? 'Créer un groupe avec cet instrument' : 'Criar um grupo com este instrumento'}</span>
               </div>
 
               {/* Option 2: Quitter le Bus s'il y est affecté */}
@@ -342,11 +352,16 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
                       useSequencerStore.getState().handleAssignToBus(trackId, String(bus.id));
                       setInstDropdownOpen(false);
                     }}
-                    className={`px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold truncate ${
+                    className={`px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold truncate flex items-center gap-1.5 ${
                       String(track.busId) === String(bus.id) ? 'bg-[var(--cordel-text)]/10' : ''
                     }`}
                   >
-                    📁 {bus.customName || 'Bus'} ({busIdx + 1})
+                    <img 
+                      src={`${ASSETS_BASE_URL}icones/bus.svg`} 
+                      alt="" 
+                      className="w-3.5 h-3.5 object-contain filter invert-[var(--cordel-invert)] dark:invert-0 shrink-0" 
+                    />
+                    <span className="truncate">{bus.customName || 'Bus'} ({busIdx + 1})</span>
                   </div>
                 );
               })}

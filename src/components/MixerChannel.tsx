@@ -549,7 +549,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                   ) : (
                     <ChevronRight className="stroke-[3px] shrink-0" size={14} />
                   )}
-                  <span className="font-cactus text-xs truncate">📁 {index + 1}. {track.customName || 'Bus'}</span>
+                  <span className="font-cactus text-xs truncate">🔗 {index + 1}. {track.customName || 'Bus'}</span>
                 </div>
               </div>
             )
@@ -612,7 +612,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                     }}
                     className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold text-blue-600 dark:text-blue-400"
                   >
-                    📁 {lang === 'fr' ? 'Créer groupe (Maître)' : 'Criar grupo (Mestre)'}
+                    🔗 {lang === 'fr' ? 'Créer groupe (Maître)' : 'Criar grupo (Mestre)'}
                   </div>
                   {eligibleTracks.length > 0 ? (
                     eligibleTracks.map((tOpt) => {
@@ -641,8 +641,13 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
               )}
 
               {/* Section Audio Bussing */}
-              <div className="text-[10px] uppercase opacity-60 font-bold px-3 py-1 bg-[var(--cordel-text)]/5 border-t border-b border-[var(--cordel-border)]/20 mt-1">
-                📁 {lang === 'fr' ? 'Bus / Groupes' : 'Bus / Grupos'}
+              <div className="text-[10px] uppercase opacity-60 font-bold px-3 py-1 bg-[var(--cordel-text)]/5 border-t border-b border-[var(--cordel-border)]/20 mt-1 flex items-center gap-1.5">
+                <img 
+                  src={`${ASSETS_BASE_URL}icones/bus.svg`} 
+                  alt="" 
+                  className="w-3.5 h-3.5 object-contain filter invert-[var(--cordel-invert)] dark:invert-0 shrink-0" 
+                />
+                <span>{lang === 'fr' ? 'Bus / Groupes' : 'Bus / Grupos'}</span>
               </div>
 
               {/* Option 1: Créer un groupe avec cet instrument */}
@@ -654,9 +659,14 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                   }
                   setInstDropdownOpen(false);
                 }}
-                className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold text-green-700 dark:text-green-400"
+                className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold text-green-700 dark:text-green-400 flex items-center gap-1.5"
               >
-                📁 {lang === 'fr' ? 'Créer un groupe avec cet instrument' : 'Criar um grupo com este instrumento'}
+                <img 
+                  src={`${ASSETS_BASE_URL}icones/bus.svg`} 
+                  alt="" 
+                  className="w-3.5 h-3.5 object-contain filter invert-[var(--cordel-invert)] dark:invert-0 shrink-0" 
+                />
+                <span>{lang === 'fr' ? 'Créer un groupe avec cet instrument' : 'Criar um grupo com este instrumento'}</span>
               </div>
 
               {/* Option 2: Quitter le Bus s'il y est affecté */}
@@ -682,11 +692,16 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                       useSequencerStore.getState().handleAssignToBus(trackId, String(bus.id));
                       setInstDropdownOpen(false);
                     }}
-                    className={`px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold truncate ${
+                    className={`px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-xs font-bold truncate flex items-center gap-1.5 ${
                       String(track.busId) === String(bus.id) ? 'bg-[var(--cordel-text)]/10' : ''
                     }`}
                   >
-                    📁 {bus.customName || 'Bus'} ({busIdx + 1})
+                    <img 
+                      src={`${ASSETS_BASE_URL}icones/bus.svg`} 
+                      alt="" 
+                      className="w-3.5 h-3.5 object-contain filter invert-[var(--cordel-invert)] dark:invert-0 shrink-0" 
+                    />
+                    <span className="truncate">{bus.customName || 'Bus'} ({busIdx + 1})</span>
                   </div>
                 );
               })}

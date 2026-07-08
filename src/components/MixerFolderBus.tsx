@@ -259,18 +259,6 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
 
         {/* Zone de Titre avec Fold/Unfold */}
         <div className="flex items-center justify-between w-full mt-0.5 gap-2 px-1">
-          <button
-            onClick={onToggleFold}
-            className="w-7 h-7 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-xs transition-colors shrink-0 font-bold"
-            title={track.isFolded ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar')}
-          >
-            {track.isFolded ? (
-              <ChevronDown className="stroke-[3px]" size={14} />
-            ) : (
-              <ChevronRight className="stroke-[3px]" size={14} />
-            )}
-          </button>
-
           {isEditing ? (
             <input
               type="text"
@@ -278,17 +266,32 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
               onChange={(e) => setNameVal(e.target.value)}
               onBlur={handleRenameSubmit}
               onKeyDown={handleKeyDown}
-              className="font-cactus font-bold text-sm bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] rounded-none px-1.5 py-0.5 w-full outline-none text-center"
+              className="font-cactus font-bold text-xs bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-2 py-1 flex-1 outline-none w-full text-center"
               autoFocus
             />
           ) : (
-            <span
+            <div 
+              onClick={onToggleFold}
               onDoubleClick={() => setIsEditing(true)}
-              className="font-cactus font-bold text-sm truncate flex-grow text-center tracking-wide cursor-pointer"
-              title="Double-click to rename"
+              className="flex items-center gap-2 bg-[#eaddcf] text-[#1a1a1a] cordel-border-sm px-2 py-1.5 cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors w-full justify-between font-bold"
+              title={lang === 'fr' ? 'Double-cliquer pour renommer / Cliquer pour plier' : 'Clique duplo para renomear / Clique para dobrar'}
             >
-              📁 {index + 1}. {track.customName || 'Bus'}
-            </span>
+              <div className="flex items-center gap-2 truncate">
+                {track.isFolded ? (
+                  <ChevronDown className="stroke-[3px] shrink-0" size={14} />
+                ) : (
+                  <ChevronRight className="stroke-[3px] shrink-0" size={14} />
+                )}
+                <div className="flex items-center gap-1.5 truncate">
+                  <img 
+                    src={`${ASSETS_BASE_URL}icones/bus.svg`} 
+                    alt="Bus" 
+                    className="w-4 h-4 object-contain filter invert-[var(--cordel-invert)] dark:invert-0 shrink-0" 
+                  />
+                  <span className="font-cactus text-xs truncate">{index + 1}. {track.customName || 'Bus'}</span>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
