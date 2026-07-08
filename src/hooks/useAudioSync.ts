@@ -580,11 +580,15 @@ export function useAudioSync({
             const initialRevDb = percentToDb(isEco ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
             const initialDistDb = percentToDb(t.fxSends?.distortion ?? 0);
 
-            reverbSends[t.id] = new Tone.Gain(Tone.dbToGain(initialRevDb));
-            reverbSends[t.id].connect(reverbBusReceive!);
+             reverbSends[t.id] = new Tone.Gain(Tone.dbToGain(initialRevDb));
+             if (reverbBusReceive) {
+               reverbSends[t.id].connect(reverbBusReceive);
+             }
 
-            distortionSends[t.id] = new Tone.Gain(Tone.dbToGain(initialDistDb));
-            distortionSends[t.id].connect(distortionBusReceive!);
+             distortionSends[t.id] = new Tone.Gain(Tone.dbToGain(initialDistDb));
+             if (distortionBusReceive) {
+               distortionSends[t.id].connect(distortionBusReceive);
+             }
 
             audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
           }
@@ -1434,6 +1438,7 @@ export function useAudioSync({
       }
 
       if (state.tracks !== prevState.tracks) {
+        if (!isAudioInitializedRef.current) return;
         const tracks = state.tracks;
         const hasSolo = tracks.some((t: any) => t.isSolo);
 
@@ -1470,11 +1475,15 @@ export function useAudioSync({
               // Envois d'effet pour le bus de dossier (post-fader)
               if (!reverbSends[t.id]) {
                 reverbSends[t.id] = new Tone.Gain(0);
-                reverbSends[t.id].connect(reverbBusReceive!);
+                if (reverbBusReceive) {
+                  reverbSends[t.id].connect(reverbBusReceive);
+                }
               }
               if (!distortionSends[t.id]) {
                 distortionSends[t.id] = new Tone.Gain(0);
-                distortionSends[t.id].connect(distortionBusReceive!);
+                if (distortionBusReceive) {
+                  distortionSends[t.id].connect(distortionBusReceive);
+                }
               }
 
               // Mettre à jour le gain des sends du bus
@@ -1514,10 +1523,14 @@ export function useAudioSync({
             const initialDistDb = percentToDb(t.fxSends?.distortion ?? 0);
 
             reverbSends[t.id] = new Tone.Gain(Tone.dbToGain(initialRevDb));
-            reverbSends[t.id].connect(reverbBusReceive!);
+            if (reverbBusReceive) {
+              reverbSends[t.id].connect(reverbBusReceive);
+            }
 
             distortionSends[t.id] = new Tone.Gain(Tone.dbToGain(initialDistDb));
-            distortionSends[t.id].connect(distortionBusReceive!);
+            if (distortionBusReceive) {
+              distortionSends[t.id].connect(distortionBusReceive);
+            }
 
             audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
           }
