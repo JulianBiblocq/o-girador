@@ -1447,12 +1447,6 @@ export function useAudioSync({
             // Créer le canal du Bus s'il n'existe pas encore
             if (!busChannels[t.id]) {
               const channelNode = new Tone.Channel({ volume: 0 });
-              try {
-                channelNode.channelCount = 2;
-                channelNode.channelCountMode = "explicit";
-              } catch (err) {
-                console.warn("Could not set channelCount / channelCountMode on bus channel:", err);
-              }
               channelNode.connect(masterVolumeNode!);
 
               busChannels[t.id] = channelNode;
