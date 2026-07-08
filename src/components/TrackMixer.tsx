@@ -751,7 +751,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       className={`cordel-border p-3 flex flex-col relative transition-all duration-300 bg-[var(--cordel-bg)] w-full ${
         hasSolo ? (track.isSolo ? '' : 'opacity-50') : 
         (track.isMute ? 'opacity-60 bg-opacity-80' : '')
-      } ${isCollapsed ? 'py-1 border-x-0 border-t-0 border-b-2 min-h-[56px]' : 'min-h-[130px]'}`}
+      } ${isCollapsed ? 'py-1 border-x-0 border-t-0 border-b-2 min-h-[56px] justify-center' : 'pb-2 min-h-[130px]'}`}
       style={{
         ...style,
         zIndex: instDropdownOpen ? 9999 : 10,
@@ -763,12 +763,12 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       } as React.CSSProperties}
     >
 
-      <div className={`flex justify-between items-start ${isCollapsed ? '' : 'mb-2'} relative ${instDropdownOpen ? 'z-[9999]' : 'z-[2]'}`}>
-        <div className="flex items-start gap-2">
+      <div className={`flex justify-between items-center ${isCollapsed ? '' : 'mb-2'} relative ${instDropdownOpen ? 'z-[9999]' : 'z-[2]'}`}>
+        <div className="flex items-center gap-2">
           <div
             {...(inst.id !== 'apito' ? attributes : {})}
             {...(inst.id !== 'apito' ? listeners : {})}
-            className={`mr-2 transition-colors p-1 touch-none flex-shrink-0 mt-1 ${
+            className={`mr-2 transition-colors p-1 touch-none flex-shrink-0 ${
               inst.id === 'apito' 
                 ? 'opacity-0 pointer-events-none' 
                 : 'cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)]'
@@ -919,7 +919,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                 onTouchMove={handleGridTouchMove}
                 onTouchEnd={handleGridTouchEnd}
               >
-                {Array.from({ length: activePattern.steps }).reduce((acc: React.ReactNode[], _, i) => {
+                {(Array.from({ length: activePattern.steps }) as any[]).reduce((acc: React.ReactNode[], _, i) => {
                   if (i > 0 && i % 4 === 0 && i % 8 !== 0) {
                     acc.push(<div key={`spacer-${i}`} />);
                   }
@@ -1020,7 +1020,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                   isLeftHanded={isLeftHanded}
                   isEditable={true}
                   isFluid={true}
-                  className="w-full mb-2"
+                  className="w-full mb-0"
+                  isLinkFolder={track.isLinkFolder}
+                  tracks={tracks}
+                  trackId={String(track.id)}
                   readOnly={isTouchDevice || isMultiSelectActive}
                   currentStep={currentStep}
                   selectedStepIndices={selectedStepIndices}
@@ -1203,7 +1206,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                   isLeftHanded={isLeftHanded}
                   isEditable={true}
                   isFluid={true}
-                  className="w-full mb-2"
+                  className="w-full mb-0"
+                  isLinkFolder={track.isLinkFolder}
+                  tracks={tracks}
+                  trackId={String(track.id)}
                   readOnly={isTouchDevice || isMultiSelectActive}
                   currentStep={currentStep}
                   selectedStepIndices={selectedStepIndices}

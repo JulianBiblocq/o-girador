@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pattern } from '../types';
-import { getVisualStrokeSymbol, isDarkText } from '../data';
+import { getVisualStrokeSymbol, isDarkText, instrumentsConfig } from '../data';
+import { getBusNoteColor, getContrastColor } from '../utils/colorHelpers';
 
 interface CompactPatternRendererProps {
   pattern: Pattern;
@@ -20,6 +21,8 @@ interface CompactPatternRendererProps {
   onStepMouseEnter?: (stepIdx: number) => void;
   selectedStepIndices?: number[];
   trackId?: string;
+  isLinkFolder?: boolean;
+  tracks?: any[];
 }
 
 export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
@@ -39,7 +42,9 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
   registerStepRef,
   onStepMouseEnter,
   selectedStepIndices = [],
-  trackId
+  trackId,
+  isLinkFolder = false,
+  tracks = []
 }) => {
   const defaultBeats = 4;
   const beatRes = pattern.beatResolutions || Array(Math.ceil(pattern.steps / defaultBeats)).fill(defaultBeats);
@@ -82,9 +87,13 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
 
               let colorStyle: React.CSSProperties = {};
               if (isActive) {
-                const bgColor = inst.colors[visualVal as string] || '#111';
+                const bgColor = isLinkFolder && trackId
+                  ? getBusNoteColor(String(trackId), String(visualVal), tracks, instrumentsConfig)
+                  : (inst.colors[visualVal as string] || '#111');
                 let txtColor = inst.colors.text || '#f4ecd8';
-                if (isDarkText(inst.id, visualVal as string)) {
+                if (isLinkFolder) {
+                  txtColor = getContrastColor(bgColor);
+                } else if (isDarkText(inst.id, visualVal as string)) {
                   txtColor = '#1a1a1a';
                 }
                 colorStyle = {
