@@ -497,7 +497,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
                 : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
             }`}
-            title={lang === 'fr' ? 'Séquence' : 'Sequência'}
+            title={lang === 'fr' ? 'Séquenceur' : 'Sequenciador'}
           >
             🎞️
           </button>
@@ -772,9 +772,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
               : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
           }`}
-          title="Vue Séquence / Ligne temporelle"
+          title={lang === 'fr' ? 'Vue Séquenceur / Ligne temporelle' : 'Visualização do Sequenciador / Linha do tempo'}
         >
-          🎞️ {lang === 'fr' ? 'SÉQUENCE' : 'SEQUÊNCIA'}
+          🎞️ {lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR'}
         </button>
 
         {/* STUDIO DO MESTRE (Standalone Desktop) */}

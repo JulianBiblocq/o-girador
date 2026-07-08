@@ -125,7 +125,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const isMacro = measureWidth <= 240;
   const isMinZoom = measureWidth <= 120;
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-  const HEADER_W = isMobile ? 80 : (isMacro ? 150 : 180);
+  const HEADER_W = isMobile ? 80 : (isMacro ? 200 : 230);
   const MEASURE_W = measureWidth;
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
@@ -910,7 +910,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
           {/* ══════════ MARKER RULER ROW (📍 NEW) ══════════ */}
           <div
-            className="flex h-7 border-b border-[var(--cordel-border)]/15 bg-[var(--cordel-bg)]/50 relative select-none"
+            className="flex h-6 border-b border-[var(--cordel-border)]/15 bg-[var(--cordel-bg)]/50 relative select-none"
             style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px` }}
           >
             {/* Sticky Label */}
@@ -940,7 +940,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                 return (
                   <div
                     key={`marker-${marker.id}`}
-                    className={`absolute top-1 h-[18px] px-2 rounded-full text-[9px] font-bold text-white flex items-center gap-1 shadow-sm cursor-grab select-none hover:brightness-110 active:cursor-grabbing transform -translate-x-1/2 border border-black/10 z-40 ${
+                    className={`absolute top-1 h-[16px] px-2 rounded-full text-[9px] font-bold text-white flex items-center gap-1 shadow-sm cursor-grab select-none hover:brightness-110 active:cursor-grabbing transform -translate-x-1/2 border border-black/10 z-40 ${
                       isPanningActive ? 'pointer-events-none' : ''
                     }`}
                     style={{
@@ -978,7 +978,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             style={{ 
               width: `${HEADER_W + totalContentW + 150}px`, 
               minWidth: `${HEADER_W + totalContentW + 150}px`,
-              height: `${40 + (Math.max(0, ...songSections.map(s => s.level || 0)) * 34)}px` 
+              height: `${32 + (Math.max(0, ...songSections.map(s => s.level || 0)) * 26)}px` 
             }}
           >
             {/* Sticky header */}
@@ -1021,7 +1021,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                 const width = (section.endMeasure - section.startMeasure + 1) * MEASURE_W;
                 const maxLevel = Math.max(0, ...songSections.map(s => s.level || 0));
                 const level = section.level || 0;
-                const topOffset = (maxLevel - level) * 34 + 4;
+                const topOffset = (maxLevel - level) * 26 + 4;
 
                 return (
                   <div
@@ -1035,7 +1035,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       width: `${width - 8}px`, // 4px margin left & right
                       marginLeft: '4px',
                       top: `${topOffset}px`,
-                      height: '32px',
+                      height: '24px',
                       backgroundColor: section.color || '#eaddcf',
                       color: '#1a1a1a', // Toujours lisible en noir sur fond coloré
                       borderColor: '#1a1a1a',
@@ -1159,7 +1159,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
           {/* ══════════ RULER ROW ══════════ */}
           <div
-            className="flex min-h-16 h-auto border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-ns-resize select-none relative"
+            className="flex min-h-14 h-auto border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-ns-resize select-none relative"
             style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px` }}
             onPointerDown={handleRulerPointerDown}
             onTouchStart={handleRulerTouchStart}

@@ -111,10 +111,9 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${inst.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
     : undefined;
   const dbTrack = tracks.find(t => t.id === trackId);
-  const parentBus = dbTrack?.busId ? tracks.find(t => String(t.id) === String(dbTrack.busId)) : null;
-  const displayName = (parentBus && parentBus.customName)
-    ? parentBus.customName
-    : (isMaster ? `🔗 ${getPluralName(inst.name)}` : inst.name);
+  const displayName = dbTrack?.isLinkFolder
+    ? (dbTrack.customName || `🔗 ${getPluralName(inst.name)}`)
+    : inst.name;
   
   const isMutedBySolo = hasSolo && !trackData.isSolo;
   const canPlay = trackData.isSolo || (!trackData.isMute && !isMutedBySolo);
@@ -155,7 +154,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
 
   return (
     <div
-      className={`flex border-b border-[var(--cordel-border)]/20 h-12 transition-opacity duration-150 relative ${
+      className={`flex border-b border-[var(--cordel-border)]/20 h-10 transition-opacity duration-150 relative ${
         !canPlay ? 'opacity-50' : ''
       }`}
       style={{ 
@@ -193,7 +192,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
             </span>
           ) : null}
         </div>
-        <div className={`track-header-controls flex shrink-0 ${isMobile || isMacro ? 'flex-col gap-0.5' : 'flex-row gap-1'}`}>
+        <div className="track-header-controls flex flex-row gap-1 shrink-0">
           <button
             onClick={() => onMuteToggle(trackData.id)}
             className={`flex items-center justify-center font-bold cordel-border-sm cursor-pointer transition-colors ${

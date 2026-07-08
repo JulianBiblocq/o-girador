@@ -297,11 +297,7 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
   };
 
   return (
-    <div className="border-b border-[var(--cordel-border)]/20 bg-[var(--cordel-bg)] px-4 py-2 shrink-0 select-none">
-      <div className="flex justify-between items-center text-[9px] font-bold text-[var(--cordel-text)]/70 uppercase mb-1 tracking-wider">
-        <span>🗺️ {lang === 'fr' ? "Vue d'ensemble (Mini-Map)" : 'Visão Geral (Mini-Map)'}</span>
-        <span className="text-[8px] text-[var(--cordel-text)]/40 normal-case">{lang === 'fr' ? 'Glissez ou cliquez pour naviguer rapidement' : 'Clique ou arraste para navegar rapidamente'}</span>
-      </div>
+    <div className="border-b border-[var(--cordel-border)]/20 bg-[var(--cordel-bg)] px-4 py-1 shrink-0 select-none">
       <div 
         ref={minimapContainerRef}
         className="h-10 w-full relative bg-black/40 rounded border border-[var(--cordel-border)]/15 overflow-hidden cursor-pointer"
@@ -363,14 +359,22 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
         >
           {/* Left Handle */}
           <div
-            className="absolute left-0 top-0 bottom-0 w-2.5 bg-blue-500 dark:bg-blue-400 cursor-ew-resize opacity-80 hover:opacity-100"
+            className="absolute left-0 top-0 bottom-0 w-3.5 bg-blue-500 dark:bg-blue-400 cursor-ew-resize opacity-95 hover:opacity-100 flex items-center justify-center gap-[2px]"
             onPointerDown={handleMinimapZoomLeftPointerDown}
-          />
+          >
+            <div className="w-[1.5px] h-3.5 bg-white/60 rounded-xs" />
+            <div className="w-[1.5px] h-3.5 bg-white/60 rounded-xs" />
+            <div className="w-[1.5px] h-3.5 bg-white/60 rounded-xs" />
+          </div>
           {/* Right Handle */}
           <div
-            className="absolute right-0 top-0 bottom-0 w-2.5 bg-blue-500 dark:bg-blue-400 cursor-ew-resize opacity-80 hover:opacity-100"
+            className="absolute right-0 top-0 bottom-0 w-3.5 bg-blue-500 dark:bg-blue-400 cursor-ew-resize opacity-95 hover:opacity-100 flex items-center justify-center gap-[2px]"
             onPointerDown={handleMinimapZoomRightPointerDown}
-          />
+          >
+            <div className="w-[1.5px] h-3.5 bg-white/60 rounded-xs" />
+            <div className="w-[1.5px] h-3.5 bg-white/60 rounded-xs" />
+            <div className="w-[1.5px] h-3.5 bg-white/60 rounded-xs" />
+          </div>
         </div>
       </div>
     </div>

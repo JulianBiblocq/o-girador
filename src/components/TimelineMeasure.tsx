@@ -209,20 +209,46 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
 
       {/* Macro View */}
       {isMacro && (
-        <div className="cell-macro w-full h-full p-1">
+        <div className="cell-macro w-full h-full p-1 relative">
           {patternId === -1 ? (
-            <div
-              className="w-full h-full opacity-[0.05] border border-dashed border-[var(--cordel-border)]/30 rounded"
-              style={{
-                backgroundImage: 'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
-                backgroundSize: '8px 8px',
-              }}
-            />
+            <>
+              <div
+                className="w-full h-full opacity-[0.05] border border-dashed border-[var(--cordel-border)]/30 rounded"
+                style={{
+                  backgroundImage: 'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
+                  backgroundSize: '8px 8px',
+                }}
+              />
+              {!isMinZoom && (
+                <select
+                  value="silence"
+                  onChange={e => {
+                    const v = e.target.value;
+                    onPatternAssignForMeasure(
+                      trackId,
+                      v === 'silence' ? null : Number(v),
+                      mIdx,
+                    );
+                  }}
+                  className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
+                  title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
+                >
+                  <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                    {lang === 'fr' ? '— Silence' : '— Silêncio'}
+                  </option>
+                  {patternsList.map((p, pidx) => (
+                    <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                      {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </>
           ) : (
             <div
               className={`macro-pattern-block w-full h-full flex ${
-                isMinZoom ? 'flex-row justify-center items-center p-1' : 'flex-col justify-between p-1.5'
-              } border rounded-sm transition-all`}
+                isMinZoom ? 'flex-row justify-center items-center p-1' : 'flex-col justify-center p-1.5'
+              } border rounded-sm transition-all relative`}
               style={{
                 backgroundColor: `${instMixerBg}cc`,
                 borderColor: `${instColors['D'] || instColors['E'] || 'var(--cordel-border)'}40`,
@@ -232,13 +258,39 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
               title={`${activePatternName || (lang === 'fr' ? 'Motif' : 'Padrão')} (${instColors['text']})`}
             >
               {!isMinZoom && (
-                <span className="font-cactus text-[9px] font-bold truncate tracking-wider uppercase text-[var(--cordel-text)] leading-none">
-                  {activePatternName}
-                </span>
+                <>
+                  <span className="font-cactus text-[9px] font-bold truncate tracking-wider uppercase text-[var(--cordel-text)] pr-3">
+                    {activePatternName}
+                  </span>
+                  <span className="text-[6px] opacity-40 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">▼</span>
+                  
+                  <select
+                    value={patternId !== -1 ? String(patternId) : 'silence'}
+                    onChange={e => {
+                      const v = e.target.value;
+                      onPatternAssignForMeasure(
+                        trackId,
+                        v === 'silence' ? null : Number(v),
+                        mIdx,
+                      );
+                    }}
+                    className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
+                    title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
+                  >
+                    <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                      {lang === 'fr' ? '— Silence' : '— Silêncio'}
+                    </option>
+                    {patternsList.map((p, pidx) => (
+                      <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                        {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </>
               )}
 
-              <div className="flex items-center opacity-90 overflow-hidden w-full h-full pb-0.5">
-                {isMinZoom ? (
+              {isMinZoom && (
+                <div className="flex items-center opacity-90 overflow-hidden w-full h-full pb-0.5">
                   <div className="flex flex-wrap gap-[2px] justify-center w-full">
                     {activePatternActiveSteps?.map((val: any, sIdx: number) => {
                       const isActive = val !== 0 && val !== '';
@@ -253,8 +305,8 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                       );
                     })}
                   </div>
-                ) : null}
-              </div>
+                </div>
+              )}
             </div>
           )}
         </div>
