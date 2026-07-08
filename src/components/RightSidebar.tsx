@@ -43,6 +43,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   visible = true,
 }) => {
   const sequencer = useSequencer();
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const tracks = useSequencerStore(state => {
     if (!visible) return EMPTY_ARRAY;
     return state.tracks;
@@ -116,6 +117,14 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   } : null;
   const [subTab, setSubTab] = React.useState<'toada' | 'info' | 'gravacao' | 'legendes' | 'sinais'>('info');
 
+  React.useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  }, [metadata?.description, subTab]);
+
   const t = (key: string) => {
     const section = i18n[lang];
     return (section as any)[key] || key;
@@ -159,12 +168,11 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
           </div>
 
           {/* Sub-tab Selector */}
-          <div className="mb-4 shrink-0">
+          <div className="mb-4 shrink-0 relative">
             <select
               value={subTab}
               onChange={(e) => setSubTab(e.target.value as any)}
-              className="w-full py-2 px-3 font-cactus font-bold text-[14px] uppercase cordel-border-sm cursor-pointer bg-[var(--cordel-bg)] text-[var(--cordel-text)] focus:outline-none appearance-none"
-              style={{ backgroundImage: "url(\"data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e\")", backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.5rem center', backgroundSize: '1em' }}
+              className="w-full py-2 pl-3 pr-10 font-cactus font-bold text-[14px] uppercase cordel-border-sm cursor-pointer bg-[var(--cordel-bg)] text-[var(--cordel-text)] focus:outline-none appearance-none"
             >
               <option value="toada">📝 Toada</option>
               <option value="info">ℹ️ Info</option>
@@ -172,6 +180,9 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
               <option value="gravacao">🎙️ Gravação</option>
               <option value="legendes">📖 {t('legend')}</option>
             </select>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--cordel-text)] font-extrabold text-[12px]">
+              ▼
+            </span>
           </div>
 
           {/* TAB 4: Légendes */}
@@ -366,7 +377,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                     placeholder={lang === 'pt' ? 'Link do YouTube' : 'Lien YouTube'}
                     value={metadata.youtubeUrl || ''}
                     onChange={(e) => onMetadataChange({ ...metadata, youtubeUrl: e.target.value })}
-                    className="bg-transparent border-b border-[var(--cordel-border)] text-[var(--cordel-text)] font-bold text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full"
+                    className="bg-transparent border-b border-[var(--cordel-border)]/30 text-[var(--cordel-text)] font-bold text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full"
                   />
                   {metadata.youtubeUrl && getYouTubeEmbedUrl(metadata.youtubeUrl) && (
                     <div className="mt-2 aspect-video w-full rounded-none overflow-hidden cordel-border-sm">
@@ -380,7 +391,19 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                       />
                     </div>
                   )}
-
+                  <textarea
+                    ref={textareaRef}
+                    placeholder={lang === 'pt' ? 'Descrição / História do ritmo...' : 'Description / Histoire du rythme...'}
+                    value={metadata.description || ''}
+                    onChange={(e) => {
+                      onMetadataChange({ ...metadata, description: e.target.value });
+                      e.target.style.height = 'auto';
+                      e.target.style.height = `${e.target.scrollHeight}px`;
+                    }}
+                    rows={1}
+                    className="bg-transparent border border-[var(--cordel-border)]/30 text-[var(--cordel-text)] font-sans text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full resize-none mt-2 overflow-hidden"
+                    style={{ minHeight: '32px' }}
+                  />
                 </div>
               ) : (
                 <div className="text-[var(--cordel-text)] font-sans font-bold text-xs text-center mt-10 italic opacity-70">

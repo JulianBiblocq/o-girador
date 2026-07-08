@@ -32,6 +32,7 @@ export interface PresetMetadata {
   youtubeUrl?: string;
   partitionImage?: string; // base64 JPEG
   rhythmSignals?: RhythmSignal[];
+  description?: string;
 }
 
 export interface Circle {

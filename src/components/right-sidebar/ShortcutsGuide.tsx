@@ -26,14 +26,14 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t }) => {
               <p>• <b>Double-clic</b> (ou appui long) sur un temps pour y insérer une frappe forte.</p>
               <p>• <b>Clic simple</b> pour insérer une frappe faible.</p>
               <p>• <b>Molette souris</b> (ou glisser haut/bas) sur une cellule pour changer la frappe/nuance.</p>
-              <p>• <b>Ctrl + Clic</b> (ou long press) sur l'entête d'une ligne pour muter l'instrument.</p>
+              <p>• <b>Ctrl + Clic</b> (ou appui long) sur l'entête d'une ligne pour couper le son (mute) de l'instrument.</p>
             </>
           ) : (
             <>
-              <p>• <b>Duplo clique</b> (ou pressionar longo) em um tempo para inserir uma batida forte.</p>
+              <p>• <b>Duplo clique</b> (ou toque longo) em um tempo para inserir uma batida forte.</p>
               <p>• <b>Clique simples</b> para inserir uma batida fraca.</p>
               <p>• <b>Roda do mouse</b> (ou deslizar para cima/baixo) em uma célula para mudar a batida/nuance.</p>
-              <p>• <b>Ctrl + Clique</b> (ou pressionar longo) no cabeçalho de uma linha para mutar o instrumento.</p>
+              <p>• <b>Ctrl + Clique</b> (ou toque longo) no cabeçalho de uma linha para silenciar (mute) o instrumento.</p>
             </>
           )}
         </div>
@@ -158,7 +158,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t }) => {
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4a044e] text-[#f4ecd8]">B / b</span>
-            <span>{lang === 'fr' ? 'Barulho / Tremer (Caixa : Violet foncé, Tarol : Bleu)' : 'Barulho / Ruído (Caixa: Violeta escuro, Tarol: Azul)'}</span>
+            <span>{lang === 'fr' ? 'Barulho / Tremblement (Caixa : Violet foncé, Tarol : Bleu)' : 'Barulho / Tremor (Caixa: Violeta escuro, Tarol: Azul)'}</span>
           </div>
         </div>
       </details>
@@ -175,7 +175,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t }) => {
         <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#92400e] text-[#f4ecd8]">G / g</span>
-            <span>{lang === 'fr' ? 'Basse (baixo) - Main forte / faible' : 'Basse / Baixo - Mão forte / fraca'}</span>
+            <span>{lang === 'fr' ? 'Basse (baixo) - Main forte / faible' : 'Baixo - Mão forte / fraca'}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#d97706] text-[#f4ecd8]">A / a</span>
@@ -183,11 +183,11 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t }) => {
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fbbf24] text-[#1a1a1a]">S / s</span>
-            <span>{lang === 'fr' ? 'Claqué (slap) - Main forte / faible' : 'Claqué / Slap - Mão forte / fraca'}</span>
+            <span>{lang === 'fr' ? 'Claqué (slap) - Main forte / faible' : 'Slap - Mão forte / fraca'}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#7e7b8c] text-[#f4ecd8]">D / d</span>
-            <span>{lang === 'fr' ? 'Fantôme (dedilhado) - Main forte / faible' : 'Fantasma / Dedilhado - Mão forte / fraca'}</span>
+            <span>{lang === 'fr' ? 'Fantôme (dedilhado) - Main forte / faible' : 'Dedilhado - Mão forte / fraca'}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#5c2205] text-[#f4ecd8]">P / p</span>
@@ -207,7 +207,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t }) => {
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#291002] text-[#f4ecd8]">B / b</span>
-            <span>{lang === 'fr' ? 'Barulho (fatras)' : 'Barulho / Ruído'}</span>
+            <span>{lang === 'fr' ? 'Tremblement (Barulho)' : 'Tremor (Barulho)'}</span>
           </div>
         </div>
       </details>
