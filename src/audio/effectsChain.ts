@@ -78,8 +78,12 @@ export function initMasterEffectsChain(
   });
 
   masterVolumeNode = new Tone.Gain(1.0);
-  masterVolumeNode.channelCount = 2;
-  masterVolumeNode.channelCountMode = "explicit";
+  try {
+    masterVolumeNode.channelCount = 2;
+    masterVolumeNode.channelCountMode = "explicit";
+  } catch (err) {
+    console.warn("Could not set channelCount / channelCountMode on masterVolumeNode:", err);
+  }
   masterVolumeNode.connect(masterEQNode);
   masterEQNode.connect(masterCompressorNode);
   
@@ -105,8 +109,12 @@ export function initMasterEffectsChain(
   masterSoftClipperNode.curve = clipperCurve;
   masterSoftClipperNode.oversample = '4x';
   // Connect masterLimiterNode directly to Tone.Destination to prevent master intermodulation/harmonic distortion
-  Tone.Destination.channelCount = 2;
-  Tone.Destination.channelCountMode = "explicit";
+  try {
+    Tone.Destination.channelCount = 2;
+    Tone.Destination.channelCountMode = "explicit";
+  } catch (err) {
+    console.warn("Could not set channelCount / channelCountMode on Tone.Destination:", err);
+  }
   masterLimiterNode.connect(Tone.Destination);
   
   const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
@@ -121,8 +129,8 @@ export function initMasterEffectsChain(
   metroChannel = new Tone.Channel({ volume: Tone.gainToDb(metroVolume / 100) }).connect(masterVolumeNode);
   metroChannel.mute = !isMetroOn;
 
-  // Reverb nodes connected in parallel to Tone.getDestination()
-  masterReverbVolumeNode = new Tone.Gain(Tone.dbToGain(masterReverbVol === -40 ? -Infinity : masterReverbVol)).connect(Tone.getDestination());
+  // Reverb nodes connected in parallel to masterVolumeNode
+  masterReverbVolumeNode = new Tone.Gain(Tone.dbToGain(masterReverbVol === -40 ? -Infinity : masterReverbVol)).connect(masterVolumeNode);
   
   reverbBusReceive = new Tone.Channel();
   reverbBusReceive.receive("reverb");
@@ -134,9 +142,9 @@ export function initMasterEffectsChain(
     reverbNode = null;
   }
 
-  // Distortion nodes (light distortion) connected in parallel to Tone.getDestination()
+  // Distortion nodes (light distortion) connected in parallel to masterVolumeNode
   distortionNode = new Tone.Distortion({ distortion: 0.15, wet: 1 });
-  masterDistortionVolumeNode = new Tone.Gain(1.0).connect(Tone.getDestination());
+  masterDistortionVolumeNode = new Tone.Gain(1.0).connect(masterVolumeNode);
   distortionNode.connect(masterDistortionVolumeNode);
 
   distortionBusReceive = new Tone.Channel();

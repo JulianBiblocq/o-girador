@@ -418,10 +418,14 @@ export function useAudioSync({
       handleReverbEcoToggle(isEco, isPlayingRef.current);
 
       tracks.forEach((t) => {
-        const inst = instrumentsConfig[t.instrumentIdx];
-        if (inst && reverbSends[inst.id]) {
-          const reverb = (t.reverbVal || 0) / 100;
-          reverbSends[inst.id].gain.value = isEco ? 0 : reverb;
+        if (reverbSends[t.id]) {
+          try {
+            const reverbPct = t.fxSends?.reverb ?? t.reverbVal ?? 0;
+            const reverbDb = percentToDb(isEco ? 0 : reverbPct);
+            reverbSends[t.id].gain.value = reverbDb;
+          } catch (err) {
+            console.warn(`Could not set reverb send level for track ${t.id} in eco mode update:`, err);
+          }
         }
       });
     };
@@ -580,18 +584,13 @@ export function useAudioSync({
             const initialRevDb = percentToDb(isEco ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
             const initialDistDb = percentToDb(t.fxSends?.distortion ?? 0);
 
-             reverbSends[t.id] = new Tone.Gain(Tone.dbToGain(initialRevDb));
-             if (reverbBusReceive) {
-               reverbSends[t.id].connect(reverbBusReceive);
-             }
-
-             distortionSends[t.id] = new Tone.Gain(Tone.dbToGain(initialDistDb));
-             if (distortionBusReceive) {
-               distortionSends[t.id].connect(distortionBusReceive);
-             }
-
-            audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
+            // Native Tone.js sends for the channel
+            reverbSends[t.id] = channels[t.id].send("reverb", initialRevDb);
+            distortionSends[t.id] = channels[t.id].send("distortion", initialDistDb);
           }
+
+          // Always sync the channel mapping with audioEngine
+          audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
 
           const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
           const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
@@ -601,11 +600,11 @@ export function useAudioSync({
           
           if (reverbSends[t.id]) {
             const targetRevDb = percentToDb(isEco ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
-            reverbSends[t.id].gain.value = Tone.dbToGain(targetRevDb);
+            try { reverbSends[t.id].gain.value = targetRevDb; } catch (_) {}
           }
           if (distortionSends[t.id]) {
             const targetDistDb = percentToDb(t.fxSends?.distortion ?? 0);
-            distortionSends[t.id].gain.value = Tone.dbToGain(targetDistDb);
+            try { distortionSends[t.id].gain.value = targetDistDb; } catch (_) {}
           }
         }
       });
@@ -1103,7 +1102,7 @@ export function useAudioSync({
                     const trackVolLinear = Math.pow(trackVolPct / 100, 2);
                     const noteFreq = noteVal === 'A3' ? 220.00 : noteVal === 'E3' ? 329.63 : 130.81;
                     const noteDuration = 12 * tick96nSec;
-                    playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[inst.id]);
+                    playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[liveTrack.id]);
                   }
 
                   if (!isDocHidden) {
@@ -1448,8 +1447,12 @@ export function useAudioSync({
             // Créer le canal du Bus s'il n'existe pas encore
             if (!busChannels[t.id]) {
               const channelNode = new Tone.Channel({ volume: 0 });
-              channelNode.channelCount = 2;
-              channelNode.channelCountMode = "explicit";
+              try {
+                channelNode.channelCount = 2;
+                channelNode.channelCountMode = "explicit";
+              } catch (err) {
+                console.warn("Could not set channelCount / channelCountMode on bus channel:", err);
+              }
               channelNode.connect(masterVolumeNode!);
 
               busChannels[t.id] = channelNode;
@@ -1473,32 +1476,35 @@ export function useAudioSync({
               busChannels[t.id].mute = muteState;
 
               // Envois d'effet pour le bus de dossier (post-fader)
-              if (!reverbSends[t.id]) {
-                reverbSends[t.id] = new Tone.Gain(0);
-                if (reverbBusReceive) {
-                  reverbSends[t.id].connect(reverbBusReceive);
-                }
+              if (busChannels[t.id] && !reverbSends[t.id]) {
+                const isEco = state.isEcoMode;
+                reverbSends[t.id] = busChannels[t.id].send("reverb", percentToDb(isEco ? 0 : reverb));
               }
-              if (!distortionSends[t.id]) {
-                distortionSends[t.id] = new Tone.Gain(0);
-                if (distortionBusReceive) {
-                  distortionSends[t.id].connect(distortionBusReceive);
-                }
+              if (busChannels[t.id] && !distortionSends[t.id]) {
+                distortionSends[t.id] = busChannels[t.id].send("distortion", percentToDb(distortion));
               }
 
-              // Mettre à jour le gain des sends du bus
+              // Mettre à jour le gain des sends du bus (les sends natifs utilisent des decibels)
               const isEco = state.isEcoMode;
               const targetRevDb = percentToDb(isEco ? 0 : reverb);
               const targetDistDb = percentToDb(distortion);
-              reverbSends[t.id].gain.value = Tone.dbToGain(targetRevDb);
-              distortionSends[t.id].gain.value = Tone.dbToGain(targetDistDb);
+              if (reverbSends[t.id]) {
+                try { reverbSends[t.id].gain.value = targetRevDb; } catch (_) {}
+              }
+              if (distortionSends[t.id]) {
+                try { distortionSends[t.id].gain.value = targetDistDb; } catch (_) {}
+              }
 
               // Reconnecter la sortie du bus de dossier (post-fader)
               busChannels[t.id].disconnect();
               busChannels[t.id].connect(masterVolumeNode!);
               busChannels[t.id].connect(busMeters[t.id]!);
-              busChannels[t.id].connect(reverbSends[t.id]);
-              busChannels[t.id].connect(distortionSends[t.id]);
+              if (reverbSends[t.id]) {
+                busChannels[t.id].connect(reverbSends[t.id]);
+              }
+              if (distortionSends[t.id]) {
+                busChannels[t.id].connect(distortionSends[t.id]);
+              }
 
               lastAppliedTracksParamsRef.current[t.id] = paramHash;
             }
@@ -1522,18 +1528,13 @@ export function useAudioSync({
             const initialRevDb = percentToDb(isEco ? 0 : (t.fxSends?.reverb ?? t.reverbVal ?? 0));
             const initialDistDb = percentToDb(t.fxSends?.distortion ?? 0);
 
-            reverbSends[t.id] = new Tone.Gain(Tone.dbToGain(initialRevDb));
-            if (reverbBusReceive) {
-              reverbSends[t.id].connect(reverbBusReceive);
-            }
-
-            distortionSends[t.id] = new Tone.Gain(Tone.dbToGain(initialDistDb));
-            if (distortionBusReceive) {
-              distortionSends[t.id].connect(distortionBusReceive);
-            }
-
-            audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
+            // Native Tone.js sends for the channel
+            reverbSends[t.id] = channels[t.id].send("reverb", initialRevDb);
+            distortionSends[t.id] = channels[t.id].send("distortion", initialDistDb);
           }
+
+          // Always sync the channel mapping with audioEngine
+          audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
 
           const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
           const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
@@ -1553,11 +1554,11 @@ export function useAudioSync({
             if (reverbSends[t.id]) {
               const isEco = state.isEcoMode;
               const targetRevDb = percentToDb(isEco ? 0 : reverb);
-              reverbSends[t.id].gain.value = Tone.dbToGain(targetRevDb);
+              try { reverbSends[t.id].gain.value = targetRevDb; } catch (_) {}
             }
             if (distortionSends[t.id]) {
               const targetDistDb = percentToDb(distortion);
-              distortionSends[t.id].gain.value = Tone.dbToGain(targetDistDb);
+              try { distortionSends[t.id].gain.value = targetDistDb; } catch (_) {}
             }
 
             lastAppliedTracksParamsRef.current[t.id] = paramHash;

@@ -67,7 +67,16 @@ export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTa
       channels[trackId].pan.rampTo(val / 100, 0.05);
     } else if (audioTarget === 'trackReverb' && trackId !== undefined && reverbSends[trackId]) {
       const gain = Math.max(0.00001, val / 100);
-      reverbSends[trackId].gain.rampTo(val === 0 ? 0 : safeGetTone()!.dbToGain(safeGetTone()!.gainToDb(gain)), 0.05);
+      const targetDb = val === 0 ? -Infinity : safeGetTone()!.gainToDb(gain);
+      try {
+        if (reverbSends[trackId].gain.units === 'decibels') {
+          reverbSends[trackId].gain.rampTo(targetDb, 0.05);
+        } else {
+          reverbSends[trackId].gain.rampTo(val === 0 ? 0 : gain, 0.05);
+        }
+      } catch (err) {
+        console.warn("Could not set fader reverb level:", err);
+      }
     } else if (audioTarget === 'masterVolume' && masterVolumeNode) {
       masterVolumeNode.gain.rampTo(safeGetTone()?.dbToGain(val === -40 ? -Infinity : val), 0.05);
     } else if (audioTarget === 'metroVolume' && metroChannel) {
