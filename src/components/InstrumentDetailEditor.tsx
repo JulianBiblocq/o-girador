@@ -686,34 +686,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             )}
           </div>
 
-          {/* Volume slider */}
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase opacity-70">Vol</span>
-            <AudioFader
-              type="range"
-              min="0"
-              max="100"
-              audioTarget="trackVolume"
-              trackId={track.id}
-              value={track.volumeVal}
-              onChange={(val) => onVolumeChange(val)}
-              className="w-24 h-2 bg-[#1a1a1a] border border-[#f4ecd8] rounded-none outline-none cursor-pointer accent-[#f4ecd8]"
-            />
-            <span className="text-[11px] font-bold w-7 text-right">{track.volumeVal}</span>
-          </div>
-
-          {/* Mute */}
-          <button
-            onClick={onMuteToggle}
-            className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center ${
-              track.isMute
-                ? 'bg-[#8b2a1a] text-[#f4ecd8]'
-                : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
-            }`}
-          >
-            M
-          </button>
-
           {/* Solo */}
           <button
             onClick={onSoloToggle}
@@ -722,6 +694,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                 ? 'bg-[#1a1a1a] text-[#f4ecd8]'
                 : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
             }`}
+            title="Solo"
           >
             S
           </button>
@@ -778,6 +751,17 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                         >
                           {/* Pattern Header */}
                           <div className="flex items-center gap-3 border-b-[2px] border-[#1a1a1a] pb-2">
+                            {/* Reorder handle */}
+                            {onReorderPatternsDnd && (
+                              <div
+                                {...attributes}
+                                {...listeners}
+                                className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[#1a1a1a]/60 hover:text-[#1a1a1a] transition-colors touch-none"
+                                title="Drag to reorder patterns"
+                              >
+                                <GripVertical size={16} />
+                              </div>
+                            )}
                             <input
                               type="radio"
                               checked={isSelected}
@@ -907,18 +891,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 📥 {lang === 'fr' ? 'Coller' : 'Colar'}
                               </button>
                             </div>
-
-                            {/* Reorder handle */}
-                            {onReorderPatternsDnd && (
-                              <div
-                                {...attributes}
-                                {...listeners}
-                                className="ml-2 flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[#1a1a1a]/60 hover:text-[#1a1a1a] transition-colors touch-none"
-                                title="Drag to reorder patterns"
-                              >
-                                <GripVertical size={16} />
-                              </div>
-                            )}
 
                             {/* Steps selector */}
                             <div className="flex items-center gap-1.5 ml-auto">
@@ -1093,7 +1065,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           </div>
 
           {/* ─── Right sidebar: Stroke legend ─── */}
-          <div className="border-t-[3px] md:border-t-0 md:border-l-[3px] border-[#1a1a1a] bg-[#ece4d0] p-4 shrink-0 flex flex-col gap-4 w-full md:w-[240px] md:overflow-y-auto">
+          <div className="border-t-[3px] md:border-t-0 md:border-l-[3px] border-[#1a1a1a] bg-[#ece4d0] p-4 shrink-0 flex flex-col gap-4 w-full md:w-[320px] md:overflow-y-auto">
             <div className="border-b-[2px] border-[#1a1a1a] pb-2">
               <h3 className="font-cactus font-bold text-sm uppercase tracking-wide">
                 {t('legend')}

@@ -158,7 +158,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t }) => {
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4a044e] text-[#f4ecd8]">B / b</span>
-            <span>{lang === 'fr' ? 'Barulho / Tremblement (Caixa : Violet foncé, Tarol : Bleu)' : 'Barulho / Tremor (Caixa: Violeta escuro, Tarol: Azul)'}</span>
+            <span>{lang === 'fr' ? 'Barulho / Tremblement (Caixa : Violet foncé, Tarol : Bleu)' : 'Barulho (Caixa: Violeta escuro, Tarol: Azul)'}</span>
           </div>
         </div>
       </details>
@@ -207,7 +207,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t }) => {
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#291002] text-[#f4ecd8]">B / b</span>
-            <span>{lang === 'fr' ? 'Tremblement (Barulho)' : 'Tremor (Barulho)'}</span>
+            <span>{lang === 'fr' ? 'Tremblement (Barulho)' : 'Barulho'}</span>
           </div>
         </div>
       </details>

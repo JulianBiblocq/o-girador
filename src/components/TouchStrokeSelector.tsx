@@ -48,7 +48,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'F': return isPt ? 'Fla aberto' : 'Fla ouvert';
       case 'V': return isPt ? 'Fla slap' : 'Fla claqué';
       case 'C': return isPt ? 'Clap (mãos)' : 'Clap (mains)';
-      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
+      case 'B': return isPt ? 'Barulho' : 'Tremblement';
       default: return stroke;
     }
   }
@@ -65,7 +65,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
       case 'F': return isPt ? 'Fla' : 'Fla';
       case 'C': return isPt ? 'Click' : 'Click';
-      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
+      case 'B': return isPt ? 'Barulho' : 'Tremblement';
       default: return stroke;
     }
   }
@@ -80,7 +80,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
       case 'C': return isPt ? 'Click' : 'Click';
       case 'I': return isPt ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Iguarassu)';
-      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
+      case 'B': return isPt ? 'Barulho' : 'Tremblement';
       default: return stroke;
     }
   }
@@ -92,7 +92,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'A': return isPt ? 'Agudo Forte' : 'Aigu Fort';
       case 'a': return isPt ? 'Agudo Fraco' : 'Aigu Faible';
       case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
-      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
+      case 'B': return isPt ? 'Barulho' : 'Tremblement';
       default: return stroke;
     }
   }
@@ -105,7 +105,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'd': return isPt ? 'Direita (Fraca)' : 'Droite (Faible)';
       case 'S': return isPt ? 'Salto' : 'Salto';
       case 'V': return isPt ? 'Volta' : 'Volta';
-      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
+      case 'B': return isPt ? 'Barulho' : 'Tremblement';
       default: return stroke;
     }
   }
@@ -117,7 +117,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'T': return isPt ? 'Pull (Forte)' : 'Tirer (Fort)';
       case 't': return isPt ? 'Pull (Fraco)' : 'Tirer (Faible)';
       case 'L': return isPt ? 'Lado' : 'Lado';
-      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
+      case 'B': return isPt ? 'Barulho' : 'Tremblement';
       default: return stroke;
     }
   }

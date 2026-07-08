@@ -22,6 +22,54 @@ import { useAudio } from '../contexts/AudioContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 
+const UndoIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg
+    viewBox="0 0 100 100"
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="3.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    {/* Silhouette principale de la flèche avec fond jaune or pour un aspect actif et lumineux */}
+    <path
+      d="M 16 28 L 41 12 L 36 25 C 64 20, 82 42, 80 74 C 79 84, 75 90, 70 92 C 72 84, 74 72, 66 54 C 57 37, 43 29, 36 31 L 41 45 L 16 28 Z"
+      fill="#ffd369"
+    />
+    {/* Hachures de texture pointillée pour simuler la gravure sur bois (xilogravura) */}
+    <path
+      d="M 46 36 C 56 34, 66 44, 69 57"
+      strokeDasharray="2 3"
+      strokeWidth="1.5"
+    />
+  </svg>
+);
+
+const RedoIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
+  <svg
+    viewBox="0 0 100 100"
+    className={className}
+    style={{ transform: 'scaleX(-1)' }}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="3.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    {/* Version miroir horizontal du tracé de Undo */}
+    <path
+      d="M 16 28 L 41 12 L 36 25 C 64 20, 82 42, 80 74 C 79 84, 75 90, 70 92 C 72 84, 74 72, 66 54 C 57 37, 43 29, 36 31 L 41 45 L 16 28 Z"
+      fill="#ffd369"
+    />
+    <path
+      d="M 46 36 C 56 34, 66 44, 69 57"
+      strokeDasharray="2 3"
+      strokeWidth="1.5"
+    />
+  </svg>
+);
+
 interface HeaderProps {
   presetFiles: string[];
   localPresets: string[];
@@ -296,10 +344,10 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 
                 <div className="grid grid-cols-2 gap-1.5 mt-1">
                   <button onClick={() => { onUndo(); setMobileMenuOpen(false); }} disabled={!canUndo} className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-1">
-                    ↩️ {lang === 'pt' ? 'Desfazer' : 'Annuler'}
+                    <UndoIcon className="w-4 h-4" /> {lang === 'pt' ? 'Desfazer' : 'Annuler'}
                   </button>
                   <button onClick={() => { onRedo(); setMobileMenuOpen(false); }} disabled={!canRedo} className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-1">
-                    ↪️ {lang === 'pt' ? 'Refazer' : 'Rétablir'}
+                    <RedoIcon className="w-4 h-4" /> {lang === 'pt' ? 'Refazer' : 'Rétablir'}
                   </button>
                 </div>
 
@@ -572,7 +620,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
         <span
           id="header-title-text"
-          className="font-cactus text-[var(--cordel-text)] text-3xl font-medium tracking-widest uppercase select-none cursor-default drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
+          className="font-cactus text-[var(--cordel-text)] text-3xl font-medium tracking-widest uppercase select-none cursor-default"
         >
           O Girador {version && <span className="text-xs lowercase opacity-50 ml-1 font-sans">v{version}</span>}
         </span>
@@ -731,7 +779,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button w-[34px] h-[34px] flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ml-1.5 shrink-0"
           title={lang === 'pt' ? 'Desfazer (Ctrl+Z)' : 'Annuler (Ctrl+Z)'}
         >
-          ↩️
+          <UndoIcon className="w-5 h-5" />
         </button>
 
         <button
@@ -740,7 +788,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button w-[34px] h-[34px] flex items-center justify-center font-bold cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed ml-1.5 shrink-0"
           title={lang === 'pt' ? 'Refazer (Ctrl+Y)' : 'Rétablir (Ctrl+Y)'}
         >
-          ↪️
+          <RedoIcon className="w-5 h-5" />
         </button>
       </div>
 

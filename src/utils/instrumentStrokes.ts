@@ -25,7 +25,7 @@ export function getStrokesForInstrument(instId: string, instType: string, lang: 
       { symbol: 'F', label: isFr ? 'Fla ouvert' : 'Fla aberto', shortcut: 'F', colorKey: 'F' },
       { symbol: 'V', label: isFr ? 'Fla claqué' : 'Fla slap', shortcut: 'V', colorKey: 'V' },
       { symbol: 'C', label: isFr ? 'Clap (mains)' : 'Clap (mãos)', shortcut: 'C', colorKey: 'C' },
-      { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
+      { symbol: 'B', label: isFr ? 'Tremblement' : 'Barulho', shortcut: 'B', colorKey: 'B' },
     ];
   }
   else if (instId === 'caixa') {
@@ -38,7 +38,7 @@ export function getStrokesForInstrument(instId: string, instType: string, lang: 
 
       { symbol: 'X', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
       { symbol: 'C', label: isFr ? 'Click' : 'Click', shortcut: 'C', colorKey: 'C' },
-      { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
+      { symbol: 'B', label: isFr ? 'Tremblement' : 'Barulho', shortcut: 'B', colorKey: 'B' },
       { symbol: 'F', label: 'Fla', shortcut: 'F', colorKey: 'F' },
       { symbol: 'R', label: isFr ? 'Roulement court D' : 'Rufada Direita', shortcut: 'R', colorKey: 'R' },
       { symbol: 'r', label: isFr ? 'Roulement court G' : 'Rufada Esquerda', shortcut: 'r', colorKey: 'r' },
@@ -55,7 +55,7 @@ export function getStrokesForInstrument(instId: string, instType: string, lang: 
       { symbol: 'X', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
       { symbol: 'C', label: isFr ? 'Click' : 'Click', shortcut: 'C', colorKey: 'C' },
       { symbol: 'I', label: isFr ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Iguarassu)', shortcut: 'I', colorKey: 'I' },
-      { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
+      { symbol: 'B', label: isFr ? 'Tremblement' : 'Barulho', shortcut: 'B', colorKey: 'B' },
     ];
   }
   else if (instType === 'gongue') {
@@ -65,7 +65,7 @@ export function getStrokesForInstrument(instId: string, instType: string, lang: 
       { symbol: 'A', label: isFr ? 'Aigu Forte' : 'Agudo Forte', shortcut: 'A', colorKey: 'A' },
       { symbol: 'a', label: isFr ? 'Aigu Faible' : 'Agudo Fraco', shortcut: 'a', colorKey: 'a' },
       { symbol: 'X', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
-      { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
+      { symbol: 'B', label: isFr ? 'Tremblement' : 'Barulho', shortcut: 'B', colorKey: 'B' },
     ];
   }
   else if (instId === 'tarol') {
@@ -78,7 +78,7 @@ export function getStrokesForInstrument(instId: string, instType: string, lang: 
 
       { symbol: 'X', label: isFr ? 'Cerclage' : 'Toque no aro', shortcut: 'X', colorKey: 'X' },
       { symbol: 'C', label: isFr ? 'Click' : 'Click', shortcut: 'C', colorKey: 'C' },
-      { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
+      { symbol: 'B', label: isFr ? 'Tremblement' : 'Barulho', shortcut: 'B', colorKey: 'B' },
       { symbol: 'F', label: 'Fla', shortcut: 'F', colorKey: 'F' },
       { symbol: 'R', label: isFr ? 'Roulement court D' : 'Rufada Direita', shortcut: 'R', colorKey: 'R' },
       { symbol: 'r', label: isFr ? 'Roulement court G' : 'Rufada Esquerda', shortcut: 'r', colorKey: 'r' },
@@ -92,7 +92,7 @@ export function getStrokesForInstrument(instId: string, instType: string, lang: 
       { symbol: 'd', label: isFr ? 'Droite Faible' : 'Direita Fraca', shortcut: 'd', colorKey: 'd' },
       { symbol: 'S', label: isFr ? 'Salto' : 'Salto', shortcut: 'S', colorKey: 'S' },
       { symbol: 'V', label: isFr ? 'Volta' : 'Volta', shortcut: 'V', colorKey: 'V' },
-      { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
+      { symbol: 'B', label: isFr ? 'Tremblement' : 'Barulho', shortcut: 'B', colorKey: 'B' },
     ];
   }
   else if (instId === 'mineiro') {
@@ -102,7 +102,7 @@ export function getStrokesForInstrument(instId: string, instType: string, lang: 
       { symbol: 'p', label: isFr ? 'Haut Faible' : 'Push Fraco (Cima)', shortcut: 'p', colorKey: 'p' },
       { symbol: 't', label: isFr ? 'Bas Faible' : 'Pull Fraco (Baixo)', shortcut: 't', colorKey: 't' },
       { symbol: 'L', label: isFr ? 'Lado' : 'Lado', shortcut: 'L', colorKey: 'L' },
-      { symbol: 'B', label: isFr ? 'Tremblement' : 'Tremor (Barulho)', shortcut: 'B', colorKey: 'B' },
+      { symbol: 'B', label: isFr ? 'Tremblement' : 'Barulho', shortcut: 'B', colorKey: 'B' },
     ];
   }
   else if (instType === 'voice') {
