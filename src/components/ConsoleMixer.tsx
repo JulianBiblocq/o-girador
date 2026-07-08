@@ -4,6 +4,7 @@
  */
 
 import React, { useRef, useEffect, useState, useMemo, lazy, Suspense } from 'react';
+import * as Tone from 'tone';
 import {
   DndContext,
   PointerSensor,
@@ -168,7 +169,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const onMasterCompressorChange = setMasterCompressor;
 
   const handleMetroAudioDrag = (val: number) => {
-    if (metroChannel) {
+    if (metroChannel && metroChannel.volume) {
       const gain = Math.max(0.00001, val / 100);
       const db = val === 0 ? -Infinity : Tone.gainToDb(gain);
       metroChannel.volume.rampTo(db, 0.05);
@@ -176,10 +177,10 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   };
 
   const handleMasterAudioDrag = (val: number) => {
-    if (masterVolumeNode) {
-      const gain = Math.max(0.00001, val / 100);
-      const db = val === 0 ? -Infinity : Tone.gainToDb(gain);
-      masterVolumeNode.volume.rampTo(db, 0.05);
+    if (masterVolumeNode && masterVolumeNode.gain) {
+      const db = val === 0 ? -Infinity : -40 + (val / 100) * 46;
+      const gain = Tone.dbToGain(db);
+      masterVolumeNode.gain.rampTo(gain, 0.05);
     }
   };
 
@@ -787,9 +788,10 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     onMasterVolChange(db);
                   }}
                   onAudioDrag={(val) => {
-                    if (masterVolumeNode) {
+                    if (masterVolumeNode && masterVolumeNode.gain) {
                       const db = val === 0 ? -Infinity : -40 + (val / 100) * 46;
-                      masterVolumeNode.volume.rampTo(db, 0.05);
+                      const gain = Tone.dbToGain(db);
+                      masterVolumeNode.gain.rampTo(gain, 0.05);
                     }
                   }}
                 />
