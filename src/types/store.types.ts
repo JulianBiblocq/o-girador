@@ -151,3 +151,16 @@ export interface CloudPreset {
   targetUserId?: string;
   createdAt: number;
 }
+
+export interface MasterFX {
+  reverb: {
+    returnVolume: number;
+    time: number;
+    isMuted: boolean;
+  };
+  distortion: {
+    returnVolume: number;
+    drive: number;
+    isMuted: boolean;
+  };
+}

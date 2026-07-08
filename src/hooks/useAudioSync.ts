@@ -29,6 +29,7 @@ import {
   masterReverbVolumeNode,
   reverbNode,
   distortionNode,
+  masterDistortionVolumeNode,
   metroChannel,
   channels,
   meters,
@@ -599,6 +600,23 @@ export function useAudioSync({
           }
         }
       });
+
+      // Synchronize Master FX Returns initially
+      const initialFX = useSequencerStore.getState().masterFX;
+      if (masterReverbVolumeNode) {
+        const revGain = initialFX.reverb.isMuted ? 0 : Tone.dbToGain(percentToDb(initialFX.reverb.returnVolume));
+        masterReverbVolumeNode.gain.value = revGain;
+      }
+      if (reverbNode) {
+        reverbNode.decay = 0.5 + 7.5 * (initialFX.reverb.time / 100);
+      }
+      if (masterDistortionVolumeNode) {
+        const distGain = initialFX.distortion.isMuted ? 0 : Tone.dbToGain(percentToDb(initialFX.distortion.returnVolume));
+        masterDistortionVolumeNode.gain.value = distGain;
+      }
+      if (distortionNode) {
+        distortionNode.distortion = initialFX.distortion.drive / 100;
+      }
 
       // Load vocal recordings for all patterns in tracks
       tracksRef.current.forEach((t) => {
@@ -1375,6 +1393,42 @@ export function useAudioSync({
   // Synchronize track volume, panning, reverb levels, and mute/solo dynamically when React state changes
   useEffect(() => {
     const unsub = useSequencerStore.subscribe((state, prevState) => {
+      if (state.masterFX !== prevState.masterFX) {
+        const masterFX = state.masterFX;
+        
+        // 1. Reverb Return Volume & Mute
+        if (masterReverbVolumeNode) {
+          const revGain = masterFX.reverb.isMuted
+            ? 0
+            : Tone.dbToGain(percentToDb(masterFX.reverb.returnVolume));
+          masterReverbVolumeNode.gain.rampTo(revGain, 0.05);
+        }
+        
+        // 2. Reverb Return Parameter (Decay)
+        if (reverbNode) {
+          const decay = 0.5 + 7.5 * (masterFX.reverb.time / 100);
+          if (reverbNode.decay !== decay) {
+            reverbNode.decay = decay;
+          }
+        }
+        
+        // 3. Distortion Return Volume & Mute
+        if (masterDistortionVolumeNode) {
+          const distGain = masterFX.distortion.isMuted
+            ? 0
+            : Tone.dbToGain(percentToDb(masterFX.distortion.returnVolume));
+          masterDistortionVolumeNode.gain.rampTo(distGain, 0.05);
+        }
+        
+        // 4. Distortion Return Parameter (Drive)
+        if (distortionNode) {
+          const distVal = masterFX.distortion.drive / 100;
+          if (distortionNode.distortion !== distVal) {
+            distortionNode.distortion = distVal;
+          }
+        }
+      }
+
       if (state.tracks !== prevState.tracks) {
         const tracks = state.tracks;
         const hasSolo = tracks.some((t: any) => t.isSolo);

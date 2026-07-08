@@ -1,6 +1,6 @@
 import { create, StateCreator } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
-import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker } from '../types';
+import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX } from '../types';
 
 // Nous aurons besoin d'instrumentsConfig pour extraire les paroles
 import { instrumentsConfig } from '../data';
@@ -12,6 +12,7 @@ export interface TrackSlice {
   tracks: TrackGroup[];
   activeAoVivoTrackId: number | null;
   tracksVersion: number;
+  masterFX: MasterFX;
   
   // Actions (Squelette pour l'instant)
   setTracks: (tracks: TrackGroup[] | ((prev: TrackGroup[]) => TrackGroup[])) => void;
@@ -37,6 +38,9 @@ export interface TrackSlice {
   handleCreateBus: (trackId: number, name: string) => void;
   handleAssignToBus: (trackId: number, busId: string | null) => void;
   handleToggleFoldBus: (busId: string) => void;
+  setMasterFxVolume: (fxType: 'reverb' | 'distortion', volume: number) => void;
+  setMasterFxParam: (fxType: 'reverb' | 'distortion', param: 'time' | 'drive', value: number) => void;
+  toggleMasterFxMute: (fxType: 'reverb' | 'distortion') => void;
 }
 
 const applyRadii = (list: TrackGroup[]): TrackGroup[] => {
@@ -66,6 +70,18 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   tracks: [],
   activeAoVivoTrackId: null,
   tracksVersion: 0,
+  masterFX: {
+    reverb: {
+      returnVolume: 70,
+      time: 30,
+      isMuted: false
+    },
+    distortion: {
+      returnVolume: 0,
+      drive: 20,
+      isMuted: false
+    }
+  },
   setTracks: (updater) => set(state => {
     const nextTracks = typeof updater === 'function' ? (updater as any)(state.tracks) : updater;
     return {
@@ -526,6 +542,42 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     set((state) => ({
       tracks: state.tracks.map((t) => String(t.id) === String(busId) ? { ...t, isFolded: !t.isFolded } : t),
       tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
+  setMasterFxVolume: (fxType, volume) => {
+    set((state) => ({
+      masterFX: {
+        ...state.masterFX,
+        [fxType]: {
+          ...state.masterFX[fxType],
+          returnVolume: volume
+        }
+      }
+    }));
+  },
+
+  setMasterFxParam: (fxType, param, value) => {
+    set((state) => ({
+      masterFX: {
+        ...state.masterFX,
+        [fxType]: {
+          ...state.masterFX[fxType],
+          [param]: value
+        }
+      }
+    }));
+  },
+
+  toggleMasterFxMute: (fxType) => {
+    set((state) => ({
+      masterFX: {
+        ...state.masterFX,
+        [fxType]: {
+          ...state.masterFX[fxType],
+          isMuted: !state.masterFX[fxType].isMuted
+        }
+      }
     }));
   },
 

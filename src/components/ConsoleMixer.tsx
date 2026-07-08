@@ -22,6 +22,7 @@ import { Pattern } from '../types';
 import { MixerChannel } from './MixerChannel';
 import { MixerLinkedTrack } from './MixerLinkedTrack';
 import { MixerFolderBus } from './MixerFolderBus';
+import { MixerMasterEffects } from './MixerMasterEffects';
 import { i18n, instrumentsConfig } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
@@ -678,6 +679,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             </div>
           </div>
         )}
+
+        {/* Retours d'effets globaux (Réverbe & Distorsion) */}
+        <MixerMasterEffects />
 
         {/* Master Console Strip */}
         <div 
