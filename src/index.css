@@ -779,6 +779,20 @@ body.eco-mode #center-afficheur {
   box-shadow: 2px 2px 0px rgba(26, 26, 26, 0.15);
 }
 
+.visual-timeline-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  pointer-events: none;
+  background-color: rgba(26, 26, 26, 0.03);
+  padding: 6px;
+  border: 1.5px solid var(--cordel-border, #1a1a1a);
+  box-shadow: 2px 2px 0px rgba(26, 26, 26, 0.15);
+}
+
 .visual-step-led {
   aspect-ratio: 1;
   width: 100%;

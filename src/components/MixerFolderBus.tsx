@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { GripHorizontal, Trash2, Edit2 } from 'lucide-react';
+import { GripHorizontal, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore } from '../stores/useSequencerStore';
@@ -15,7 +15,8 @@ import { PanKnob } from './PanKnob';
 import { MixerVolumeFader } from './MixerVolumeFader';
 import { useAudio } from '../contexts/AudioContext';
 import { VUMeter } from './VUMeter';
-import { instrumentsConfig } from '../data';
+import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
+import { VisualOnlyTimeline } from './VisualOnlyTimeline';
 
 interface MixerFolderBusProps {
   trackId: number;
@@ -37,9 +38,45 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
   const tracks = useSequencerStore(state => state.tracks);
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
+  const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
+  const childTracks = tracks.filter(t => String(t.busId) === String(trackId));
 
   const [isEditing, setIsEditing] = useState(false);
   const [nameVal, setNameVal] = useState(track?.customName || 'Bus');
+
+  const [liveMeasure, setLiveMeasure] = useState<number>(-1);
+  const lastMeasureRef = useRef<number>(-1);
+
+  useEffect(() => {
+    if (!isActive) {
+      if (lastMeasureRef.current !== -1) {
+        lastMeasureRef.current = -1;
+        setLiveMeasure(-1);
+      }
+      return;
+    }
+
+    const handleTick = (e: Event) => {
+      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
+      const { step, measure } = customEvent.detail;
+      
+      if (step < 0) {
+        if (lastMeasureRef.current !== -1) {
+          lastMeasureRef.current = -1;
+          setLiveMeasure(-1);
+        }
+        return;
+      }
+      if (measure !== lastMeasureRef.current) {
+        lastMeasureRef.current = measure;
+        setLiveMeasure(prev => (prev !== measure ? measure : prev));
+      }
+    };
+    window.addEventListener('o-girador-tick', handleTick);
+    return () => {
+      window.removeEventListener('o-girador-tick', handleTick);
+    };
+  }, [isActive]);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `track-${trackId}`,
@@ -204,7 +241,11 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             className="w-7 h-7 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-xs transition-colors shrink-0 font-bold"
             title={track.isFolded ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar')}
           >
-            {track.isFolded ? '▶️' : '🔽'}
+            {track.isFolded ? (
+              <ChevronDown className="stroke-[3px]" size={14} />
+            ) : (
+              <ChevronRight className="stroke-[3px]" size={14} />
+            )}
           </button>
 
           {isEditing ? (
@@ -229,15 +270,71 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
         </div>
       </div>
 
-      {/* Zone centrale neutre de hauteur identique à la grille pattern */}
-      <div className="relative z-10 flex-1 p-3 flex flex-col gap-4 border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-text)]/5 justify-center items-center">
-        <div className="flex flex-col items-center justify-center py-6 px-4 text-center min-h-[220px]">
-          <span className="text-[10px] uppercase font-bold tracking-wider opacity-60">AUDIO BUS / GROUP</span>
-          <div className="flex items-center gap-1.5 mt-2 bg-[var(--cordel-bg)] border border-[var(--cordel-border)]/30 px-3 py-1.5 rounded-none font-bold text-xs">
-            <span>🔗 {childrenCount}</span>
-            <span>{lang === 'fr' ? (childrenCount > 1 ? 'pistes' : 'piste') : (childrenCount > 1 ? 'pistas' : 'pista')}</span>
+      {/* Zone centrale de hauteur identique à la grille pattern montrant les pistes enfants */}
+      <div className="relative z-10 flex-1 p-3 flex flex-col border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-text)]/5 justify-start items-center">
+        {childTracks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-6 px-4 text-center min-h-[220px]">
+            <span className="text-[10px] uppercase font-bold tracking-wider opacity-60">AUDIO BUS / GROUP</span>
+            <div className="flex items-center gap-1.5 mt-2 bg-[var(--cordel-bg)] border border-[var(--cordel-border)]/30 px-3 py-1.5 rounded-none font-bold text-xs">
+              <span>🔗 0</span>
+              <span>{lang === 'fr' ? 'piste' : 'pista'}</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-col w-full h-full justify-start gap-2.5 py-1 px-0.5 min-h-[220px]">
+            <div className="flex items-center justify-between text-[9px] uppercase font-bold tracking-wider opacity-60 border-b border-[var(--cordel-border)]/15 pb-1 select-none">
+              <span>{lang === 'fr' ? 'Pistes du Groupe' : 'Pistas do Grupo'}</span>
+              <span>🔗 {childTracks.length}</span>
+            </div>
+            <div className="flex flex-col gap-3 overflow-y-auto max-h-[210px] pr-1 w-full">
+              {childTracks.map(childTrack => {
+                const childInst = instrumentsConfig[childTrack.instrumentIdx];
+                if (!childInst) return null;
+
+                const childLiveActivePatternId = (() => {
+                  if (isPlaying && liveMeasure >= 0) {
+                    const assignedPattern = childTrack.patterns?.find(p => p?.measureAssignments?.[liveMeasure]);
+                    return assignedPattern ? assignedPattern.id : null;
+                  }
+                  return childTrack.selectedPatternId;
+                })();
+
+                const childActivePattern = childTrack.patterns?.find(p => p.id === childLiveActivePatternId) || childTrack.patterns?.[0];
+                if (!childActivePattern) return null;
+
+                const childDisplayName = childTrack.customName || childInst.name;
+
+                return (
+                  <div key={childTrack.id} className="flex flex-col gap-1 w-full bg-[var(--cordel-bg)] p-1.5 border border-[var(--cordel-border)]/20 shadow-[1px_1px_0px_rgba(26,26,26,0.1)]">
+                    {/* Nom de la piste & icône */}
+                    <div className="flex items-center gap-1.5 truncate select-none">
+                      <img 
+                        src={`${ASSETS_BASE_URL}${childInst.iconImg}`} 
+                        alt={childInst.name} 
+                        className="w-4 h-4 object-contain flex-shrink-0" 
+                      />
+                      <span className="font-cactus font-bold text-[10px] text-[var(--cordel-text)] truncate">
+                        {childDisplayName}
+                      </span>
+                    </div>
+
+                    {/* Défilement du motif de 16 pas */}
+                    <div className="w-full flex justify-center mt-0.5">
+                      <VisualOnlyTimeline
+                        trackId={childTrack.id}
+                        steps={childActivePattern.steps}
+                        activeSteps={childLiveActivePatternId === null ? Array(childActivePattern.steps).fill(0) : (childActivePattern.activeSteps || [])}
+                        instrumentIdx={childTrack.instrumentIdx}
+                        isPlaying={isPlaying && childLiveActivePatternId !== null}
+                        isLeftHanded={isLeftHanded}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Visual Only Timeline alternative (Hauteur identique fixe) */}

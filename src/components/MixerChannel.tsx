@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { GripHorizontal, GripVertical } from 'lucide-react';
+import { GripHorizontal, GripVertical, ChevronDown, ChevronRight } from 'lucide-react';
 import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore } from '../stores/useSequencerStore';
@@ -178,10 +178,10 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
           const hasSoloPattern = currentTrack?.patterns?.some(p => p.id === soloPatternPlayId);
           if (hasSoloPattern) {
-            return currentTrack?.patterns?.find(p => p.id === soloPatternPlayId) || currentTrack?.patterns?.[0];
+            return currentTrack?.patterns?.find(p => p.id === soloPatternPlayId);
           }
         }
-        return currentTrack?.patterns?.find(p => p?.measureAssignments?.[liveMeasure]) || currentTrack?.patterns?.[0];
+        return currentTrack?.patterns?.find(p => p?.measureAssignments?.[liveMeasure]);
       })();
 
       if (livePattern && livePattern.id !== currentTrack.selectedPatternId) {
@@ -381,7 +381,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         if (hasSoloPattern) return soloPatternPlayId;
       }
       const assignedPattern = track?.patterns?.find(p => p?.measureAssignments?.[liveMeasure]);
-      return assignedPattern ? assignedPattern.id : track?.selectedPatternId;
+      return assignedPattern ? assignedPattern.id : null;
     }
     return track?.selectedPatternId;
   })();
@@ -523,7 +523,11 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                 className="flex items-center gap-2 bg-[#eaddcf] text-[#1a1a1a] cordel-border-sm px-2 py-1.5 cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors w-full justify-between font-bold"
               >
                 <div className="flex items-center gap-2 truncate">
-                  <span>{track.isFolded ? '▶️' : '🔽'}</span>
+                  {track.isFolded ? (
+                    <ChevronDown className="stroke-[3px] shrink-0" size={14} />
+                  ) : (
+                    <ChevronRight className="stroke-[3px] shrink-0" size={14} />
+                  )}
                   <span className="font-cactus text-xs truncate">📁 {index + 1}. {track.customName || 'Bus'}</span>
                 </div>
               </div>
@@ -798,9 +802,9 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         <VisualOnlyTimeline
           trackId={trackId}
           steps={activePattern.steps}
-          activeSteps={activePattern.activeSteps || []}
+          activeSteps={liveActivePatternId === null ? Array(activePattern.steps).fill(0) : (activePattern.activeSteps || [])}
           instrumentIdx={track.instrumentIdx}
-          isPlaying={isPlaying}
+          isPlaying={isPlaying && liveActivePatternId !== null}
           isLeftHanded={isLeftHanded}
         />
       </div>

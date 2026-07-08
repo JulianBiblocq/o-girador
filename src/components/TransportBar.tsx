@@ -78,7 +78,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
         <div className="flex items-center gap-1.5 bg-[var(--cordel-bg)] cordel-border-sm overflow-hidden h-[30px] pr-2">
           <button
             onClick={() => setIsMetroOn(!isMetroOn)}
-            className={`px-3 py-1 font-cactus font-bold text-sm flex items-center gap-1.5 h-full transition-colors border-r border-[var(--cordel-border)]/20 ${
+            className={`px-2.5 py-1 font-cactus font-bold text-sm flex items-center justify-center h-full transition-colors border-r border-[var(--cordel-border)]/20 ${
               isMetroOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/5'
             }`}
             title={t('metroBtn')}
@@ -98,7 +98,6 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
               <circle cx="15" cy="9.5" r="1.5" fill="currentColor" />
               <circle cx="12" cy="18" r="1" fill="currentColor" />
             </svg>
-            <span className="hidden lg:inline">{lang === 'pt' ? 'Metrônomo' : 'Métronome'}</span>
           </button>
 
           <DragNumberBox
