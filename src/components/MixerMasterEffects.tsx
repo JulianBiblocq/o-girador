@@ -4,7 +4,7 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { DragNumberBox } from './DragNumberBox';
 import { MixerVolumeFader } from './MixerVolumeFader';
-import { masterReverbVolumeNode, masterDistortionVolumeNode } from '../audio/effectsChain';
+import { masterReverbVolumeNode, masterDistortionVolumeNode, reverbNode, distortionNode } from '../audio/effectsChain';
 
 // Fonction de conversion quadratique-logarithmique
 const percentToDb = (percent: number): number => {
@@ -32,6 +32,28 @@ export const MixerMasterEffects: React.FC = () => {
     }
   };
 
+  const handleReverbTimeDrag = React.useCallback((val: number) => {
+    if (reverbNode) {
+      const decay = 0.5 + 7.5 * (val / 100);
+      if (reverbNode.decay !== decay) {
+        try {
+          reverbNode.decay = decay;
+        } catch (_) {}
+      }
+    }
+  }, []);
+
+  const handleDistortionDriveDrag = React.useCallback((val: number) => {
+    if (distortionNode) {
+      const distVal = val / 100;
+      if (distortionNode.distortion !== distVal) {
+        try {
+          distortionNode.distortion = distVal;
+        } catch (_) {}
+      }
+    }
+  }, []);
+
   return (
     <div className="flex w-full text-[var(--cordel-text)] overflow-hidden relative pb-1 transition-colors select-none">
       {/* Texture de fond discrète */}
@@ -50,6 +72,7 @@ export const MixerMasterEffects: React.FC = () => {
             label="Time"
             value={masterFX.reverb.time}
             onChange={(val) => setMasterFxParam('reverb', 'time', val)}
+            onAudioDrag={handleReverbTimeDrag}
             className="w-20"
           />
         </div>
@@ -89,6 +112,7 @@ export const MixerMasterEffects: React.FC = () => {
             label="Drive"
             value={masterFX.distortion.drive}
             onChange={(val) => setMasterFxParam('distortion', 'drive', val)}
+            onAudioDrag={handleDistortionDriveDrag}
             className="w-20"
           />
         </div>

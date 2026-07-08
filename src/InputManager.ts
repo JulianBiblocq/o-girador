@@ -17,13 +17,22 @@ export class InputManager {
   private isLeftHanded: boolean = false;
   private onStrokeTriggered: ((instrumentId: string, strokeSymbol: string) => void) | null = null;
 
+  private handleBlur = () => {
+    this.audioEngine.stopAllBarulho();
+  };
+
   constructor(audioEngine: AudioEngine) {
     this.audioEngine = audioEngine;
 
     // Stop all barulhos if the user switches tabs or the window loses focus
-    window.addEventListener('blur', () => {
-      this.audioEngine.stopAllBarulho();
-    });
+    window.addEventListener('blur', this.handleBlur);
+  }
+
+  /**
+   * Cleans up global listeners to prevent memory leaks.
+   */
+  public dispose(): void {
+    window.removeEventListener('blur', this.handleBlur);
   }
 
   /**

@@ -870,8 +870,15 @@ export function useAudioSync({
           const globalMode = globalSwingRef.current.mode;
           
           if (globalMode !== 'off') {
+            const timeSig = measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
+            let beatsCount = 4;
+            if (timeSig === '3/4') beatsCount = 3;
+            else if (timeSig === '2/4' || timeSig === '6/8') beatsCount = 2;
+            else if (timeSig === '12/8') beatsCount = 4;
+
+            const ticksPerBeat = currentTicks / beatsCount;
             const stepDurationSec = tick96nSec * 6; // one 16th note
-            const posInBeat = ((stepIdx / (currentTicks / 4)) % 1) * 4;
+            const posInBeat = ((stepIdx / ticksPerBeat) % 1) * 4;
             const posInGroup = Math.round(posInBeat) % 4;
             
             swingJitter = (nextRandom() * 0.06 - 0.03) * stepDurationSec;
@@ -1010,18 +1017,22 @@ export function useAudioSync({
                 if (stepIdx === 0 && vocalRecordingStateRef.current === 'waiting') {
                   vocalRecordingStateRef.current = 'recording';
                   const startDelayMs = Math.max(0, (time - Tone.context.rawContext.currentTime) * 1000);
-                  setTimeout(() => {
+                  const startTimeout = setTimeout(() => {
+                    engineTimeoutsRef.current.delete(startTimeout);
                     startVocalRecording(recordingVocalPatternIdRef.current!);
                   }, startDelayMs);
+                  engineTimeoutsRef.current.add(startTimeout);
                   recordedMeasuresCountRef.current = 0;
                 } else if (stepIdx === currentTicks - 1 && vocalRecordingStateRef.current === 'recording') {
                   recordedMeasuresCountRef.current += 1;
                   if (recordedMeasuresCountRef.current >= recordingDurationMeasuresRef.current) {
                     vocalRecordingStateRef.current = 'inactive';
                     const stopDelayMs = Math.max(0, (time + tick96nSec - Tone.context.rawContext.currentTime) * 1000);
-                    setTimeout(() => {
+                    const stopTimeout = setTimeout(() => {
+                      engineTimeoutsRef.current.delete(stopTimeout);
                       finishVocalRecording();
                     }, stopDelayMs);
+                    engineTimeoutsRef.current.add(stopTimeout);
                   }
                 }
               }
@@ -1163,7 +1174,13 @@ export function useAudioSync({
         audioEngine.dispose();
         audioEngine = null;
       }
-      inputManager = null;
+      if (inputManager) {
+        inputManager.dispose();
+        inputManager = null;
+      }
+      engineTimeoutsRef.current.forEach((t) => clearTimeout(t));
+      engineTimeoutsRef.current.clear();
+      
       stopAllNativeOscillators();
       isAudioInitializedRef.current = false;
     };
@@ -1262,6 +1279,10 @@ export function useAudioSync({
   }, [audioEngine, setIsPlaying, setSoloPatternPlayId, setCurrentMeasure]);
 
   const handleStop = useCallback(() => {
+    // Clear all pending vocal recording or schedule timeouts
+    engineTimeoutsRef.current.forEach((t) => clearTimeout(t));
+    engineTimeoutsRef.current.clear();
+
     pendingMeasureRef.current = null;
     if (soloPatternPlayIdRef.current !== null) {
       setSoloPatternPlayId(null);

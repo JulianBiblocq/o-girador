@@ -42,8 +42,6 @@ export class AudioEngine {
   
   // Math Anchors for Drift Elimination
   private anchorTime: number = 0.0;
-  private anchorTickCount: number = 0;
-  private lastTickDuration: number = 0.0;
 
   // Diffusion index (UI)
   public currentStep: number = 0;
@@ -70,6 +68,7 @@ export class AudioEngine {
 
   // Sampler State & Buffers
   private bufferPool = new Map<string, ToneType.ToneAudioBuffer>(); // Maps absolute path -> ToneAudioBuffer (Sample Pooling)
+  private loadingPromises = new Map<string, Promise<void>>(); // Cache to prevent concurrent duplicate loading tasks
   private lastPlayedIndices = new Map<string, Map<string, number>>(); // Maps instrumentId -> strokeSymbol -> last played index (Round-Robin)
   private instrumentChannels = new Map<number, any>(); // Maps trackId -> Tone.Channel
   private defaultInstrumentChannels = new Map<string, any>(); // Maps instrumentId -> Tone.Channel
@@ -109,6 +108,23 @@ export class AudioEngine {
     return obj;
   }
 
+  private removeActiveVoice(instrumentId: string, source: AudioBufferSourceNode): void {
+    const currentVoices = this.instrumentVoices.get(instrumentId);
+    if (currentVoices) {
+      const len = currentVoices.length;
+      for (let i = 0; i < len; i++) {
+        if (currentVoices[i].source === source) {
+          const voice = currentVoices[i];
+          voice.source = null as any;
+          voice.gainNode = null as any;
+          voice.instrumentId = '';
+          currentVoices.splice(i, 1);
+          break;
+        }
+      }
+    }
+  }
+
   private handleVisibilityChange = () => {
     this.updateSchedulingParameters();
     
@@ -146,20 +162,7 @@ export class AudioEngine {
               this.activeBarulhoNodes.delete(instrumentId);
               this.activeBarulhoGains.delete(instrumentId);
             }
-            
-            const currentVoices = this.instrumentVoices.get(instrumentId);
-            if (currentVoices) {
-              for (let vIdx = 0; vIdx < currentVoices.length; vIdx++) {
-                if (currentVoices[vIdx].source === source) {
-                  const voice = currentVoices[vIdx];
-                  voice.source = null as any;
-                  voice.gainNode = null as any;
-                  voice.instrumentId = '';
-                  currentVoices.splice(vIdx, 1);
-                  break;
-                }
-              }
-            }
+            this.removeActiveVoice(instrumentId, source);
           }
         }
       }
@@ -191,6 +194,11 @@ export class AudioEngine {
 
     // Pre-build O(1) config lookup map (avoids Array.find() on every note played)
     this.configMap = new Map(instrumentAudioConfigs.map(c => [c.id, c]));
+
+    // Pre-populate instrument voices map to avoid runtime array allocations
+    instrumentAudioConfigs.forEach(config => {
+      this.instrumentVoices.set(config.id, []);
+    });
 
     // Pre-populate object pools to avoid runtime dynamic allocations in the hot path
     for (let i = 0; i < 512; i++) {
@@ -385,51 +393,61 @@ export class AudioEngine {
    */
   private async loadPath(path: string): Promise<void> {
     if (this.bufferPool.has(path)) return;
-    const Tone = getTone();
-    try {
-      let fetchPath = path;
-      if (path.includes('Mixdown/') || path.includes('mixdown/')) {
-        const filename = path.substring(path.lastIndexOf('/') + 1);
-        // @ts-ignore
-        fetchPath = `${import.meta.env.BASE_URL || '/'}Mixdown/${filename}`;
-      } else {
-        const cleanPath = path.startsWith('/') ? path : '/' + path;
-        // @ts-ignore
-        const baseUrl = import.meta.env.BASE_URL || '/';
-        fetchPath = baseUrl.endsWith('/') ? baseUrl + cleanPath.slice(1) : baseUrl + cleanPath;
-      }
-      const encodedFetchPath = fetchPath.split('/').map(segment => encodeURIComponent(segment)).join('/');
-      
-      let response = await fetch(encodedFetchPath);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      let arrayBuffer = await response.arrayBuffer();
-      
-      try {
-        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-        const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
-        this.bufferPool.set(path, toneBuffer);
-      } catch (decodeErr) {
-        console.warn(`AudioEngine: Safari/iOS fallback triggered for ${path}. Attempting .m4a`);
-        const fallbackPath = encodedFetchPath.replace(/\.ogg$/, '.m4a');
+    
+    let promise = this.loadingPromises.get(path);
+    if (!promise) {
+      promise = (async () => {
+        const Tone = getTone();
         try {
-          response = await fetch(fallbackPath);
-          if (!response.ok) {
-            console.warn(`AudioEngine: Fallback .m4a not found or failed to load for ${path} (status: ${response.status})`);
-            return;
+          let fetchPath = path;
+          if (path.includes('Mixdown/') || path.includes('mixdown/')) {
+            const filename = path.substring(path.lastIndexOf('/') + 1);
+            // @ts-ignore
+            fetchPath = `${import.meta.env.BASE_URL || '/'}Mixdown/${filename}`;
+          } else {
+            const cleanPath = path.startsWith('/') ? path : '/' + path;
+            // @ts-ignore
+            const baseUrl = import.meta.env.BASE_URL || '/';
+            fetchPath = baseUrl.endsWith('/') ? baseUrl + cleanPath.slice(1) : baseUrl + cleanPath;
           }
-          arrayBuffer = await response.arrayBuffer();
-          const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-          const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
-          this.bufferPool.set(path, toneBuffer);
-        } catch (fallbackErr) {
-          console.warn(`AudioEngine: Failed to load fallback .m4a for ${path}:`, fallbackErr);
+          const encodedFetchPath = fetchPath.split('/').map(segment => encodeURIComponent(segment)).join('/');
+          
+          let response = await fetch(encodedFetchPath);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          let arrayBuffer = await response.arrayBuffer();
+          
+          try {
+            const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+            const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
+            this.bufferPool.set(path, toneBuffer);
+          } catch (decodeErr) {
+            console.warn(`AudioEngine: Safari/iOS fallback triggered for ${path}. Attempting .m4a`);
+            const fallbackPath = encodedFetchPath.replace(/\.ogg$/, '.m4a');
+            try {
+              response = await fetch(fallbackPath);
+              if (!response.ok) {
+                console.warn(`AudioEngine: Fallback .m4a not found or failed to load for ${path} (status: ${response.status})`);
+                return;
+              }
+              arrayBuffer = await response.arrayBuffer();
+              const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+              const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
+              this.bufferPool.set(path, toneBuffer);
+            } catch (fallbackErr) {
+              console.warn(`AudioEngine: Failed to load fallback .m4a for ${path}:`, fallbackErr);
+            }
+          }
+        } catch (err) {
+          console.error(`AudioEngine: Failed to load sample: ${path}`, err);
+        } finally {
+          this.loadingPromises.delete(path);
         }
-      }
-    } catch (err) {
-      console.error(`AudioEngine: Failed to load sample: ${path}`, err);
+      })();
+      this.loadingPromises.set(path, promise);
     }
+    return promise;
   }
 
   public async loadAllSamples(): Promise<void> {
@@ -678,6 +696,8 @@ export class AudioEngine {
     decayMultiplier: number
   ): void {
     const Tone = getTone();
+    const isEco = useSequencerStore.getState().isEcoMode;
+
     // If it's a Barulho stroke and already looping, just adjust volume and continue seamlessly
     if (stroke.isBarulho && this.activeBarulhoNodes.has(instrumentId)) {
       const activeGain = this.activeBarulhoGains.get(instrumentId);
@@ -729,20 +749,37 @@ export class AudioEngine {
     // Voice Stealing (Choke Groups) - Always active for precise polyphony capping
     const isAlfaia = ALFAIA_INSTRUMENTS.has(instrumentId);
     if (isAlfaia) {
-      // 1. Gather all active voices for all Alfaias
-      let alfaiaVoices: ActiveVoice[] = [];
-      ALFAIA_INSTRUMENTS.forEach(id => {
-        const v = this.instrumentVoices.get(id) || [];
-        alfaiaVoices = alfaiaVoices.concat(v);
-      });
+      // Zero-allocation voice stealing: count active Alfaia voices.
+      let totalVoices = 0;
+      for (const id of ALFAIA_INSTRUMENTS) {
+        const voices = this.instrumentVoices.get(id);
+        if (voices) {
+          totalVoices += voices.length;
+        }
+      }
 
-      // 2. Sort by trigger time ascending (oldest first)
-      alfaiaVoices.sort((a, b) => a.time - b.time);
+      if (totalVoices >= 3) {
+        let oldestVoice: ActiveVoice | null = null;
+        let oldestVoiceIdx = -1;
+        let oldestVoiceInstrumentId = '';
 
-      // 3. FIFO Voice Stealing for Alfaias (Combined Limit: 3)
-      while (alfaiaVoices.length >= 3) {
-        const oldestVoice = alfaiaVoices.shift();
+        for (const id of ALFAIA_INSTRUMENTS) {
+          const voices = this.instrumentVoices.get(id);
+          if (voices) {
+            const len = voices.length;
+            for (let i = 0; i < len; i++) {
+              const voice = voices[i];
+              if (!oldestVoice || voice.time < oldestVoice.time) {
+                oldestVoice = voice;
+                oldestVoiceIdx = i;
+                oldestVoiceInstrumentId = id;
+              }
+            }
+          }
+        }
+
         if (oldestVoice) {
+          // Steal/stop the oldest voice
           try {
             const gainParam = oldestVoice.gainNode.gain;
             gainParam.cancelScheduledValues(time);
@@ -754,12 +791,9 @@ export class AudioEngine {
           }
 
           // Remove the stolen voice from its specific instrument's active voices list
-          const origVoices = this.instrumentVoices.get(oldestVoice.instrumentId);
-          if (origVoices) {
-            const idx = origVoices.findIndex(v => v.source === oldestVoice.source);
-            if (idx !== -1) {
-              origVoices.splice(idx, 1);
-            }
+          const origVoices = this.instrumentVoices.get(oldestVoiceInstrumentId);
+          if (origVoices && oldestVoiceIdx !== -1) {
+            origVoices.splice(oldestVoiceIdx, 1);
           }
 
           oldestVoice.source = null as any;
@@ -819,7 +853,6 @@ export class AudioEngine {
 
     source.connect(gainNode);
 
-
     // 6. Handle play duration and looping
     if (stroke.isBarulho) {
       source.loop = true;
@@ -837,19 +870,7 @@ export class AudioEngine {
           mapping.instrumentId = '';
         }
         this.activeGainNodes.delete(source);
-        const currentVoices = this.instrumentVoices.get(instrumentId);
-        if (currentVoices) {
-          for (let i = 0; i < currentVoices.length; i++) {
-            if (currentVoices[i].source === source) {
-              const voice = currentVoices[i];
-              voice.source = null as any;
-              voice.gainNode = null as any;
-              voice.instrumentId = '';
-              currentVoices.splice(i, 1);
-              break;
-            }
-          }
-        }
+        this.removeActiveVoice(instrumentId, source);
       };
 
       if (isEco) {
@@ -891,19 +912,7 @@ export class AudioEngine {
           mapping.instrumentId = '';
         }
         this.activeGainNodes.delete(source);
-        const currentVoices = this.instrumentVoices.get(instrumentId);
-        if (currentVoices) {
-          for (let i = 0; i < currentVoices.length; i++) {
-            if (currentVoices[i].source === source) {
-              const voice = currentVoices[i];
-              voice.source = null as any;
-              voice.gainNode = null as any;
-              voice.instrumentId = '';
-              currentVoices.splice(i, 1);
-              break;
-            }
-          }
-        }
+        this.removeActiveVoice(instrumentId, source);
       };
 
       // Track active voice for voice stealing
@@ -928,19 +937,7 @@ export class AudioEngine {
     
     if (activeNode && activeGain) {
       // Synchronously remove from instrumentVoices to prevent redundant voice stealing checks
-      const currentVoices = this.instrumentVoices.get(instrumentId);
-      if (currentVoices) {
-        for (let i = 0; i < currentVoices.length; i++) {
-          if (currentVoices[i].source === activeNode) {
-            const voice = currentVoices[i];
-            voice.source = null as any;
-            voice.gainNode = null as any;
-            voice.instrumentId = '';
-            currentVoices.splice(i, 1);
-            break;
-          }
-        }
-      }
+      this.removeActiveVoice(instrumentId, activeNode);
       try {
         const fadeTime = 0.015; // 15ms fade out to avoid clicks
         activeGain.gain.setValueAtTime(activeGain.gain.value, time);
@@ -985,6 +982,7 @@ export class AudioEngine {
     
     if (this.clockNode) {
       try {
+        this.clockNode.port.onmessage = null;
         this.clockNode.disconnect();
       } catch (_) {}
       this.clockNode = null;
@@ -1004,6 +1002,7 @@ export class AudioEngine {
     }
     
     this.bufferPool.clear();
+    this.loadingPromises.clear();
     this.activeBarulhoNodes.clear();
     this.activeBarulhoGains.clear();
     this.scheduledHits.clear();

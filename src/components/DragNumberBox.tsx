@@ -4,14 +4,16 @@ interface DragNumberBoxProps {
   label: string;
   value: number; // 0 to 100
   onChange: (val: number) => void;
+  onAudioDrag?: (val: number) => void;
   className?: string;
   disabled?: boolean;
 }
 
-export const DragNumberBox: React.FC<DragNumberBoxProps> = ({ 
+const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({ 
   label, 
   value, 
   onChange, 
+  onAudioDrag,
   className = '', 
   disabled = false 
 }) => {
@@ -20,10 +22,14 @@ export const DragNumberBox: React.FC<DragNumberBoxProps> = ({
   const startYRef = useRef<number>(0);
   const startValRef = useRef<number>(0);
   const currentValRef = useRef<number>(value);
+  const isDraggingRef = useRef<boolean>(false);
+
+  const onAudioDragRef = useRef(onAudioDrag);
+  onAudioDragRef.current = onAudioDrag;
 
   useEffect(() => {
     currentValRef.current = value;
-    if (valueSpanRef.current) {
+    if (valueSpanRef.current && !isDraggingRef.current) {
       valueSpanRef.current.textContent = disabled ? '—' : `${value}%`;
     }
   }, [value, disabled]);
@@ -34,10 +40,11 @@ export const DragNumberBox: React.FC<DragNumberBoxProps> = ({
     containerRef.current?.setPointerCapture(e.pointerId);
     startYRef.current = e.clientY;
     startValRef.current = currentValRef.current;
+    isDraggingRef.current = true;
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled || !containerRef.current?.hasPointerCapture(e.pointerId)) return;
+    if (disabled || !isDraggingRef.current || !containerRef.current?.hasPointerCapture(e.pointerId)) return;
     const dy = startYRef.current - e.clientY; // Dragging up increases value
     // Scale: 1.5px drag = 1% value change
     const delta = Math.round(dy / 1.5);
@@ -46,12 +53,16 @@ export const DragNumberBox: React.FC<DragNumberBoxProps> = ({
     if (valueSpanRef.current) {
       valueSpanRef.current.textContent = `${newVal}%`;
     }
+    if (onAudioDragRef.current) {
+      onAudioDragRef.current(newVal);
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (disabled) return;
     if (containerRef.current?.hasPointerCapture(e.pointerId)) {
       containerRef.current.releasePointerCapture(e.pointerId);
+      isDraggingRef.current = false;
       onChange(currentValRef.current);
     }
   };
@@ -75,3 +86,6 @@ export const DragNumberBox: React.FC<DragNumberBoxProps> = ({
     </div>
   );
 };
+
+export const DragNumberBox = React.memo(DragNumberBoxComponent);
+

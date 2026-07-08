@@ -17,6 +17,7 @@ import { MixerVolumeFader } from './MixerVolumeFader';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { VUMeter } from './VUMeter';
+import { reverbSends, distortionSends } from '../hooks/useAudioSync';
 
 interface MixerLinkedTrackProps {
   trackId: number;
@@ -98,6 +99,26 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   const onDistortionChange = (val: number) => {
     useSequencerStore.getState().setTrackFxSend(trackId, 'distortion', val);
   };
+  const handleReverbAudioDrag = React.useCallback((val: number) => {
+    const sendNode = reverbSends[trackId];
+    if (sendNode) {
+      const gain = Math.max(0.00001, val / 100);
+      const targetDb = val === 0 ? -Infinity : (40 * Math.log10(gain));
+      try {
+        sendNode.gain.value = targetDb;
+      } catch (_) {}
+    }
+  }, [trackId]);
+  const handleDistortionAudioDrag = React.useCallback((val: number) => {
+    const sendNode = distortionSends[trackId];
+    if (sendNode) {
+      const gain = Math.max(0.00001, val / 100);
+      const targetDb = val === 0 ? -Infinity : (40 * Math.log10(gain));
+      try {
+        sendNode.gain.value = targetDb;
+      } catch (_) {}
+    }
+  }, [trackId]);
 
   // Calcul des pistes cibles de liaison éligibles (même nature)
   const eligibleTracks = tracks.filter(tOpt => {
@@ -424,12 +445,14 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
             label="Rev" 
             value={track.fxSends?.reverb ?? track.reverbVal ?? 0} 
             onChange={onReverbChange}
+            onAudioDrag={handleReverbAudioDrag}
             className="flex-1"
           />
           <DragNumberBox 
             label="Dst" 
             value={track.fxSends?.distortion ?? 0} 
             onChange={onDistortionChange}
+            onAudioDrag={handleDistortionAudioDrag}
             className="flex-1"
           />
         </div>

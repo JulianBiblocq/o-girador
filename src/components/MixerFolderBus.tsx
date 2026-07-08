@@ -17,6 +17,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { VUMeter } from './VUMeter';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { VisualOnlyTimeline } from './VisualOnlyTimeline';
+import { reverbSends, distortionSends } from '../hooks/useAudioSync';
 
 interface MixerFolderBusProps {
   trackId: number;
@@ -152,6 +153,28 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   const onDistortionChange = (val: number) => {
     useSequencerStore.getState().setTrackFxSend(trackId, 'distortion', val);
   };
+
+  const handleReverbAudioDrag = React.useCallback((val: number) => {
+    const sendNode = reverbSends[trackId];
+    if (sendNode) {
+      const gain = Math.max(0.00001, val / 100);
+      const targetDb = val === 0 ? -Infinity : (40 * Math.log10(gain));
+      try {
+        sendNode.gain.value = targetDb;
+      } catch (_) {}
+    }
+  }, [trackId]);
+
+  const handleDistortionAudioDrag = React.useCallback((val: number) => {
+    const sendNode = distortionSends[trackId];
+    if (sendNode) {
+      const gain = Math.max(0.00001, val / 100);
+      const targetDb = val === 0 ? -Infinity : (40 * Math.log10(gain));
+      try {
+        sendNode.gain.value = targetDb;
+      } catch (_) {}
+    }
+  }, [trackId]);
 
   const onToggleFold = () => {
     useSequencerStore.getState().handleToggleFoldBus(String(trackId));
@@ -406,12 +429,14 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             label="Rev" 
             value={track.fxSends?.reverb ?? 0} 
             onChange={onReverbChange}
+            onAudioDrag={handleReverbAudioDrag}
             className="flex-1"
           />
           <DragNumberBox 
             label="Dst" 
             value={track.fxSends?.distortion ?? 0} 
             onChange={onDistortionChange}
+            onAudioDrag={handleDistortionAudioDrag}
             className="flex-1"
           />
         </div>
