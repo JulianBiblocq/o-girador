@@ -212,11 +212,9 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
       rgba(0, 0, 0, 0.05) 8px,
       rgba(0, 0, 0, 0.05) 16px
     )`,
-    ...groupStyle,
-    borderTop: busPosition === 'none' ? '2px dashed var(--cordel-border)' : groupStyle.borderTop,
-    borderBottom: busPosition === 'none' ? '2px dashed var(--cordel-border)' : groupStyle.borderBottom,
-    borderLeft: busPosition === 'none' ? '2px dashed var(--cordel-border)' : groupStyle.borderLeft,
-    borderRight: busPosition === 'none' ? '2px dashed var(--cordel-border)' : groupStyle.borderRight,
+    border: targetBusId && busPosition !== 'none'
+      ? `2px solid ${getBusColor(targetBusId, tracks, instrumentsConfig)}`
+      : '2px dashed var(--cordel-border)'
   };
 
   if (isCompact) {
