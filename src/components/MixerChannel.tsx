@@ -129,7 +129,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     }
   }, [track?.customName]);
 
-  const [liveMeasure, setLiveMeasure] = useState<number>(-1);
+  const [activePatternId, setActivePatternId] = useState<number | null>(track?.selectedPatternId);
   const lastMeasureRef = useRef<number>(-1);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -138,11 +138,15 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     trackRef.current = track;
   }, [track]);
 
+  const isPlayingRef = useRef(isPlaying);
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
   useEffect(() => {
     if (!isActive) {
       if (lastMeasureRef.current !== -1) {
         lastMeasureRef.current = -1;
-        setLiveMeasure(-1);
       }
       return;
     }
@@ -157,13 +161,33 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       if (step < 0) {
         if (lastMeasureRef.current !== -1) {
           lastMeasureRef.current = -1;
-          setLiveMeasure(-1);
         }
         return;
       }
       if (measure !== lastMeasureRef.current) {
         lastMeasureRef.current = measure;
-        setLiveMeasure(prev => (prev !== measure ? measure : prev));
+        
+        if (isPlayingRef.current) {
+          const soloPatternPlayId = soloPatternPlayIdRef?.current;
+          const livePatternId = (() => {
+            if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
+              const hasSoloPattern = currentTrack?.patterns?.some(p => p.id === soloPatternPlayId);
+              if (hasSoloPattern) return soloPatternPlayId;
+            }
+            const assignedPattern = currentTrack?.patterns?.find(p => p?.measureAssignments?.[measure]);
+            return assignedPattern ? assignedPattern.id : null;
+          })();
+
+          setActivePatternId(prev => {
+            if (prev !== livePatternId) {
+              if (livePatternId !== null) {
+                onSelectPattern(livePatternId);
+              }
+              return livePatternId;
+            }
+            return prev;
+          });
+        }
       }
     };
     window.addEventListener('o-girador-tick', handleTick);
@@ -173,32 +197,11 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   }, [isActive]);
 
   useEffect(() => {
-    if (isPlaying && liveMeasure >= 0) {
-      const currentTrack = trackRef.current;
-      if (!currentTrack) return;
-      
-      const soloPatternPlayId = soloPatternPlayIdRef?.current;
-      const livePattern = (() => {
-        if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
-          const hasSoloPattern = currentTrack?.patterns?.some(p => p.id === soloPatternPlayId);
-          if (hasSoloPattern) {
-            return currentTrack?.patterns?.find(p => p.id === soloPatternPlayId);
-          }
-        }
-        return currentTrack?.patterns?.find(p => p?.measureAssignments?.[liveMeasure]);
-      })();
-
-      if (livePattern && livePattern.id !== currentTrack.selectedPatternId) {
-        onSelectPattern(livePattern.id);
-      }
-    }
-  }, [liveMeasure, isPlaying]);
-
-  useEffect(() => {
     if (!isPlaying) {
-      setLiveMeasure(-1);
+      setActivePatternId(track?.selectedPatternId ?? null);
+      lastMeasureRef.current = -1;
     }
-  }, [isPlaying]);
+  }, [isPlaying, track?.selectedPatternId]);
 
   const isMouseDownRef = useRef(false);
   const paintValueRef = useRef<string | number>(0);
@@ -397,18 +400,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     transition,
   };
 
-  const liveActivePatternId = (() => {
-    const soloPatternPlayId = soloPatternPlayIdRef?.current;
-    if (liveMeasure >= 0) {
-      if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
-        const hasSoloPattern = track?.patterns?.some(p => p.id === soloPatternPlayId);
-        if (hasSoloPattern) return soloPatternPlayId;
-      }
-      const assignedPattern = track?.patterns?.find(p => p?.measureAssignments?.[liveMeasure]);
-      return assignedPattern ? assignedPattern.id : null;
-    }
-    return track?.selectedPatternId;
-  })();
+  const liveActivePatternId = activePatternId;
 
   const activePattern = track?.patterns?.find(p => p.id === liveActivePatternId) || track?.patterns?.[0];
 
