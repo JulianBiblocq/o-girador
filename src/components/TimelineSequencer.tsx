@@ -22,6 +22,7 @@ import { useSequencer } from '../contexts/SequencerContext';
 
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
 import { useAudio } from '../contexts/AudioContext';
+import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { useAuth } from '../contexts/AuthContext';
 import { SubscriptionModal } from './SubscriptionModal';
 import { TimelineMinimap } from './timeline/TimelineMinimap';
@@ -309,9 +310,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       return;
     }
 
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
-      const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number }) => {
+      const { step, measure, maxTicks, ratio = step / maxTicks } = detail;
       
       const cache = sequencerCache.current;
 
@@ -374,10 +374,10 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       }
     };
 
-    window.addEventListener('o-girador-tick', handleTick);
+    subscribeToTick(handleTick);
 
     return () => {
-      window.removeEventListener('o-girador-tick', handleTick);
+      unsubscribeFromTick(handleTick);
       // Nettoyage de sécurité au démontage
       sequencerCache.current.activeElements.forEach((el) => {
         el.classList.remove('live-playhead-highlight');

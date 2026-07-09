@@ -18,6 +18,8 @@ import { useSequencerStore, isSequencerVisibleTrack, isToadaBus } from '../store
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
+import { useTransportStore } from '../stores/useTransportStore';
+import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { getBusColor, getBusNoteColor } from '../utils/colorHelpers';
 
@@ -129,6 +131,23 @@ function useTracksWithCustomEquality(isActive: boolean): TrackGroup[] {
   return tracks;
 }
 
+const MIN_RADIUS = 180;
+const MAX_RADIUS = 495;
+
+const getTrackRadius = (visibleIdx: number, totalTracks: number) => {
+  if (totalTracks <= 0) return 0;
+  if (totalTracks === 1) return (MIN_RADIUS + MAX_RADIUS) / 2;
+  if (totalTracks === 2) {
+    // spacing equivalent to position 2 and 4 out of 5 tracks
+    // gap = (495 - 180) / 4 = 78.75
+    // pos 2: 180 + 78.75 = 258.75
+    // pos 4: 180 + 3 * 78.75 = 416.25
+    return visibleIdx === 0 ? 258.75 : 416.25;
+  }
+  const gap = (MAX_RADIUS - MIN_RADIUS) / (totalTracks - 1);
+  return MIN_RADIUS + visibleIdx * gap;
+};
+
 const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const { isActive = true } = props;
   const sequencer = useSequencer();
@@ -159,8 +178,10 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const globalCurrentMeasure = useSequencerStore(state => isActive ? state.currentMeasure : 0);
   const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
   const currentMeasure = props.currentMeasure !== undefined ? props.currentMeasure : globalCurrentMeasure;
-  const isMetroOn = props.isMetroOn !== undefined ? props.isMetroOn : audio.isMetroOn;
-  const soloPatternPlayId = props.soloPatternPlayId !== undefined ? props.soloPatternPlayId : audio.soloPatternPlayId;
+  const storeIsMetroOn = useTransportStore(state => state.isMetroOn);
+  const storeSoloPatternPlayId = useTransportStore(state => state.soloPatternPlayId);
+  const isMetroOn = props.isMetroOn !== undefined ? props.isMetroOn : storeIsMetroOn;
+  const soloPatternPlayId = props.soloPatternPlayId !== undefined ? props.soloPatternPlayId : storeSoloPatternPlayId;
   const hitTriggersRef = props.hitTriggersRef !== undefined ? props.hitTriggersRef : audio.hitTriggersRef;
 
   const metadata = sequencer.metadata;
@@ -225,10 +246,14 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const [isCenterShaking, setIsCenterShaking] = useState(false);
   const [pendingTargetMeasure, setPendingTargetMeasure] = useState<number | null>(null);
   const pendingTargetMeasureRef = useRef<number | null>(null);
+  const [pendingTargetExpandedIndex, setPendingTargetExpandedIndex] = useState<number | null>(null);
+  const pendingTargetExpandedIndexRef = useRef<number | null>(null);
 
   useEffect(() => {
     setPendingTargetMeasure(null);
     pendingTargetMeasureRef.current = null;
+    setPendingTargetExpandedIndex(null);
+    pendingTargetExpandedIndexRef.current = null;
   }, [currentMeasure]);
 
   const expandedRef = useRef<any[]>([]);
@@ -413,9 +438,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   useEffect(() => {
     if (!isActive) return;
 
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number; iteration?: number }>;
-      const { step, measure, maxTicks, ratio = step / maxTicks, iteration = 1 } = customEvent.detail;
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number; iteration?: number }) => {
+      const { step, measure, maxTicks, ratio = step / maxTicks, iteration = 1 } = detail;
       
       livePlaybackRef.current = {
         step,
@@ -425,13 +449,16 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       };
 
       if (measureDisplayRef.current) {
-        const measureToDisplay = pendingTargetMeasureRef.current !== null ? pendingTargetMeasureRef.current : measure;
-        const iterationToUse = pendingTargetMeasureRef.current !== null ? 1 : iteration;
-
         const expanded = expandedRef.current;
-        const activeRepIndex = expanded.findIndex(item => item.baseMeasure === measureToDisplay && item.iteration === iterationToUse);
-        const displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : measureToDisplay + 1;
+        let displayMeasure = 1;
         const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
+
+        if (pendingTargetExpandedIndexRef.current !== null) {
+          displayMeasure = pendingTargetExpandedIndexRef.current + 1;
+        } else {
+          const activeRepIndex = expanded.findIndex(item => item.baseMeasure === measure && item.iteration === iteration);
+          displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : measure + 1;
+        }
         measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
       }
 
@@ -443,17 +470,23 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       const { measure, iteration = 1 } = customEvent.detail;
       if (measureDisplayRef.current) {
         const expanded = expandedRef.current;
-        const activeRepIndex = expanded.findIndex(item => item.baseMeasure === measure && item.iteration === iteration);
-        const displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : measure + 1;
+        let displayMeasure = 1;
         const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
+
+        if (pendingTargetExpandedIndexRef.current !== null) {
+          displayMeasure = pendingTargetExpandedIndexRef.current + 1;
+        } else {
+          const activeRepIndex = expanded.findIndex(item => item.baseMeasure === measure && item.iteration === iteration);
+          displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : measure + 1;
+        }
         measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
       }
     };
 
-    window.addEventListener('o-girador-tick', handleTick);
+    subscribeToTick(handleTick);
     window.addEventListener('o-girador-measure-queued', handleMeasureQueued);
     return () => {
-      window.removeEventListener('o-girador-tick', handleTick);
+      unsubscribeFromTick(handleTick);
       window.removeEventListener('o-girador-measure-queued', handleMeasureQueued);
     };
   }, [totalMeasures, songSections, isActive]);
@@ -647,10 +680,6 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       return !isMutedOut;
     });
 
-    const minRadius = 180;
-    const maxRadius = 495;
-    const gap = activeVisibleTracksToDraw.length > 1 ? (maxRadius - minRadius) / (activeVisibleTracksToDraw.length - 1) : 0;
-
     // Detect click on any track
     activeVisibleTracksToDraw.forEach((track, visibleIdx) => {
       const isToada = isToadaBus(track);
@@ -680,7 +709,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       const inst = instrumentsConfig[ownerTrack.instrumentIdx];
       if (!inst) return null;
 
-      const tRad = activeVisibleTracksToDraw.length === 1 ? (minRadius + maxRadius) / 2 : minRadius + visibleIdx * gap;
+      const tRad = getTrackRadius(visibleIdx, activeVisibleTracksToDraw.length);
 
       if (Math.abs(distance - tRad) < 18) {
         let clickAngle = Math.atan2(dy, dx) + Math.PI / 2;
@@ -888,9 +917,6 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       const localStep = live.step;
       const localTicks = live.maxTicks || 96;
 
-      const minRadius = 180;
-      const maxRadius = 495;
-
       // 1. Détecter si des pistes sont en solo
       const hasSoloTrack = tracks.some(t => 
         t.isSolo && 
@@ -908,8 +934,6 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         const isMutedOut = hasSoloTrack ? !t.isSolo : t.isMute;
         return !isMutedOut;
       });
-
-      const gap = activeVisibleTracks.length > 1 ? (maxRadius - minRadius) / (activeVisibleTracks.length - 1) : 0;
 
       // Consume hit triggers to create ripples
       if (localHitTriggers && localHitTriggers.current) {
@@ -943,7 +967,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               
               const visibleIdx = activeVisibleTracks.findIndex(vt => vt.id === track!.id);
               if (visibleIdx !== -1) {
-                const radius = activeVisibleTracks.length === 1 ? (minRadius + maxRadius) / 2 : minRadius + visibleIdx * gap;
+                const radius = getTrackRadius(visibleIdx, activeVisibleTracks.length);
                 const x = 600 + Math.cos(angle) * radius;
                 const y = 600 + Math.sin(angle) * radius;
 
@@ -1115,13 +1139,13 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
           bgCtx.strokeStyle = themeBorder;
           if (isMainBeat) {
-            bgCtx.globalAlpha = 0.28;
-            bgCtx.lineWidth = 2.0;
+            bgCtx.globalAlpha = 0.60;
+            bgCtx.lineWidth = 3.0;
             bgCtx.setLineDash([]);
           } else {
-            bgCtx.globalAlpha = 0.12;
-            bgCtx.lineWidth = 1.0;
-            bgCtx.setLineDash([5, 5]);
+            bgCtx.globalAlpha = 0.22;
+            bgCtx.lineWidth = 1.5;
+            bgCtx.setLineDash([4, 4]);
           }
           bgCtx.stroke();
         }
@@ -1176,7 +1200,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       }
 
       // 3. Dessiner la baguette avec la longueur maximale dynamique uniforme
-      const maxVisibleRadius = activeVisibleTracks.length > 1 ? maxRadius : (activeVisibleTracks.length === 1 ? (minRadius + maxRadius) / 2 : 120);
+      const maxVisibleRadius = activeVisibleTracks.length > 0 
+        ? getTrackRadius(activeVisibleTracks.length - 1, activeVisibleTracks.length) 
+        : 120;
       const stickLength = maxVisibleRadius + 35;
 
       ctx.save();
@@ -1295,7 +1321,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
         // Standard dashed track line
         ctx.beginPath();
-        const tRad = activeVisibleTracks.length === 1 ? (minRadius + maxRadius) / 2 : minRadius + visibleIdx * gap;
+        const tRad = getTrackRadius(visibleIdx, activeVisibleTracks.length);
         ctx.arc(centerX, centerY, tRad, 0, Math.PI * 2);
         ctx.strokeStyle = busColor || themeBorder;
         ctx.lineWidth = 1.5;
@@ -1384,91 +1410,143 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               }
             });
           }
+          // ── RÉSOLUTION DES ÉVÉNEMENTS MASTER ET VARIATIONS ──
+          const masterState = activePlayingSteps[i];
+          const hasMasterEvent = masterState !== 0 && masterState !== '0' && masterState !== '' && masterState !== undefined && masterState !== null;
+          const hasVariationEvent = satellitesToDraw.length > 0;
 
-          // Dessiner les satellites en premier (z-index : dessiné derrière le pas principal)
-          satellitesToDraw.slice(0, 2).forEach((sat, satIdx) => {
-            const offsetMultiplier = dynamicScale;
-            const dx = satIdx === 0 ? -15 * offsetMultiplier : 15 * offsetMultiplier;
-            const dy = satIdx === 0 ? -15 * offsetMultiplier : 15 * offsetMultiplier;
-            
-            const satX = x + dx;
-            const satY = y + dy;
-            
-            const baseRad = currentInst.type === 'voice' ? 22 : 13;
-            const satRadius = baseRad * 0.65 * dynamicScale;
+          if (!hasMasterEvent && !hasVariationEvent) {
+            continue; // Pas d'événement au pas i
+          }
 
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(satX, satY, satRadius, 0, Math.PI * 2);
-            ctx.fillStyle = sat.color;
-            ctx.fill();
-            ctx.strokeStyle = themeBorder;
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
+          // 1. Résoudre les détails du Master
+          let masterText = '';
+          let masterFillColor = 'rgba(255,255,255,0.2)';
+          let masterTxtColor = '#f4ecd8';
+          let masterIsAccent = false;
+          let masterRadiusSize = 6 * dynamicScale;
 
-            ctx.fillStyle = sat.isDark ? '#1a1a1a' : '#f4ecd8';
-            let satSymbol = sat.text;
-            if (sat.childInstId === 'mineiro') {
-              if (satSymbol.toLowerCase() === 'p') satSymbol = '↑';
-              else if (satSymbol.toLowerCase() === 't') satSymbol = '↓';
-            } else if (sat.childInstId === 'agbe') {
-              if (satSymbol.toLowerCase() === 'e') satSymbol = '←';
-              else if (satSymbol.toLowerCase() === 'd') satSymbol = '→';
-              else if (satSymbol.toLowerCase() === 's') satSymbol = '↑';
-              else if (satSymbol.toLowerCase() === 'v') satSymbol = '↓';
-            }
-            const satFontSize = Math.max(8, Math.floor(10 * dynamicScale));
-            ctx.font = `900 ${satFontSize}px "Outfit", "Inter", sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            if (['↑', '↓', '←', '→'].includes(satSymbol)) {
-              ctx.save();
-              ctx.strokeStyle = ctx.fillStyle;
-              ctx.lineWidth = 1.5;
-              ctx.strokeText(satSymbol, satX, satY + 1);
-              ctx.restore();
-            }
-            ctx.fillText(satSymbol, satX, satY + 1);
-            ctx.restore();
-          });
+          if (hasMasterEvent) {
+            const visualState = getVisualStrokeSymbol(masterState, localLeftHanded || false, currentInst.id);
+            if (visualState !== 0 && visualState !== '0') {
+              masterRadiusSize = 13 * dynamicScale;
+              if (currentInst.type === 'voice') {
+                masterRadiusSize = 22 * dynamicScale;
+                masterFillColor = track.isLinkFolder
+                  ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
+                  : currentInst.color;
+                let syl = activePattern.lyrics[i] || String(visualState);
+                if (syl === '-') {
+                  masterText = '-';
+                  masterFillColor = '#ab5318'; // orange pour le silence
+                  masterTxtColor = '#1a1a1a';
+                } else {
+                  masterText = String(syl).endsWith('-') ? String(syl).slice(0, -1) : String(syl);
+                  masterTxtColor = '#000000';
+                }
+              } else {
+                const stateStr = String(visualState);
+                masterFillColor = track.isLinkFolder 
+                  ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
+                  : ((currentInst.colors && currentInst.colors[visualState]) ? currentInst.colors[visualState] : '#fff');
+                masterIsAccent = (stateStr === stateStr.toUpperCase());
+                masterRadiusSize = (masterIsAccent ? 15 : 12) * dynamicScale;
 
-          const state = activePlayingSteps[i];
-          if (!state || state === 0) continue;
-
-          const visualState = getVisualStrokeSymbol(state, localLeftHanded || false, currentInst.id);
-          let fillColor = 'rgba(255,255,255,0.2)';
-          let radiusSize = 6 * dynamicScale;
-          let isAccent = false;
-          let textSymbol = String(visualState);
-
-          if (visualState !== 0) {
-            radiusSize = 13 * dynamicScale;
-            if (currentInst.type === 'voice') {
-              radiusSize = 22 * dynamicScale;
-              fillColor = track.isLinkFolder
-                ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
-                : currentInst.color;
-              let syl = activePattern.lyrics[i] || String(visualState);
-              textSymbol = String(syl).endsWith('-') ? String(syl).slice(0, -1) : String(syl);
-            } else {
-              const stateStr = String(visualState);
-              fillColor = track.isLinkFolder 
-                ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
-                : ((currentInst.colors && currentInst.colors[visualState]) ? currentInst.colors[visualState] : '#fff');
-              isAccent = (stateStr === stateStr.toUpperCase());
-              radiusSize = (isAccent ? 15 : 12) * dynamicScale;
-
-              if (currentInst.id === 'mineiro') {
-                if (stateStr.toLowerCase() === 'p') textSymbol = '↑';
-                else if (stateStr.toLowerCase() === 't') textSymbol = '↓';
-              } else if (currentInst.id === 'agbe') {
-                if (stateStr.toLowerCase() === 'e') textSymbol = '←';
-                else if (stateStr.toLowerCase() === 'd') textSymbol = '→';
-                else if (stateStr.toLowerCase() === 's') textSymbol = '↑';
-                else if (stateStr.toLowerCase() === 'v') textSymbol = '↓';
+                masterText = stateStr;
+                if (currentInst.id === 'mineiro') {
+                  if (stateStr.toLowerCase() === 'p') masterText = '↑';
+                  else if (stateStr.toLowerCase() === 't') masterText = '↓';
+                } else if (currentInst.id === 'agbe') {
+                  if (stateStr.toLowerCase() === 'e') masterText = '←';
+                  else if (stateStr.toLowerCase() === 'd') masterText = '→';
+                  else if (stateStr.toLowerCase() === 's') masterText = '↑';
+                  else if (stateStr.toLowerCase() === 'v') masterText = '↓';
+                }
+                
+                masterTxtColor = isDarkText(currentInst.id, String(masterState)) ? '#1a1a1a' : '#f4ecd8';
               }
+            } else if (visualState === '0' || visualState === '-') {
+              masterRadiusSize = (currentInst.type === 'voice' ? 22 : 12) * dynamicScale;
+              masterFillColor = '#ab5318'; // orange pour le silence
+              masterText = '-';
+              masterTxtColor = '#1a1a1a';
             }
+          }
+
+          // 2. Décider de la forme du pas (Complet, Divisé ou Demi-cercle droit seul)
+          let isSplit = false;
+          let isRightHalfOnly = false;
+          let leftText = '';
+          let leftFillColor = 'rgba(255,255,255,0.2)';
+          let leftTxtColor = '#f4ecd8';
+          let leftIsAccent = false;
+
+          let rightText = '';
+          let rightFillColor = '';
+          let rightTxtColor = '#f4ecd8';
+
+          let radiusSize = 6 * dynamicScale;
+
+          if (hasMasterEvent && hasVariationEvent) {
+            // Master + Variation
+            isSplit = true;
+            leftText = masterText;
+            leftFillColor = masterFillColor;
+            leftTxtColor = masterTxtColor;
+            leftIsAccent = masterIsAccent;
+
+            const rightSat = satellitesToDraw[0];
+            rightText = rightSat.text;
+            rightFillColor = rightSat.color;
+            rightTxtColor = rightSat.isDark ? '#1a1a1a' : '#f4ecd8';
+
+            radiusSize = (currentInst.type === 'voice' ? 22 : (leftIsAccent ? 15 : 12)) * dynamicScale;
+          } else if (!hasMasterEvent && satellitesToDraw.length >= 2) {
+            // Deux variations ou plus sans Master (on utilise la première et la deuxième)
+            isSplit = true;
+            const leftSat = satellitesToDraw[0];
+            leftText = leftSat.text;
+            leftFillColor = leftSat.color;
+            leftTxtColor = leftSat.isDark ? '#1a1a1a' : '#f4ecd8';
+            leftIsAccent = false;
+
+            const rightSat = satellitesToDraw[1];
+            rightText = rightSat.text;
+            rightFillColor = rightSat.color;
+            rightTxtColor = rightSat.isDark ? '#1a1a1a' : '#f4ecd8';
+
+            radiusSize = (currentInst.type === 'voice' ? 22 : 12) * dynamicScale;
+          } else if (!hasMasterEvent && satellitesToDraw.length === 1) {
+            // Une seule Variation sans Master (Demi-cercle droit uniquement)
+            isRightHalfOnly = true;
+            const singleSat = satellitesToDraw[0];
+            rightText = singleSat.text;
+            rightFillColor = singleSat.color;
+            rightTxtColor = singleSat.isDark ? '#1a1a1a' : '#f4ecd8';
+
+            radiusSize = (currentInst.type === 'voice' ? 22 : 12) * dynamicScale;
+          } else {
+            // Master uniquement (Cercle Complet)
+            isSplit = false;
+            leftText = masterText;
+            leftFillColor = masterFillColor;
+            leftTxtColor = masterTxtColor;
+            leftIsAccent = masterIsAccent;
+            radiusSize = masterRadiusSize;
+          }
+
+          // 3. Calculer la couleur de la bordure active
+          let strokeColor = themeBorder;
+          let strokeWidth = 2.0;
+          if (hasMasterEvent) {
+            const visualState = getVisualStrokeSymbol(masterState, localLeftHanded || false, currentInst.id);
+            strokeColor = track.isLinkFolder 
+              ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
+              : ((currentInst && currentInst.color) ? currentInst.color : themeBorder);
+            strokeWidth = 2.5;
+          } else if (hasVariationEvent) {
+            strokeColor = themeBorder;
+            strokeWidth = 2.5;
           }
 
           // Highlight playhead match step
@@ -1481,7 +1559,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           }
 
           // Accent ring decoration
-          if (isAccent) {
+          if (leftIsAccent) {
             ctx.beginPath();
             ctx.arc(x, y, radiusSize + 4, 0, Math.PI * 2);
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
@@ -1489,47 +1567,137 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             ctx.stroke();
           }
 
-          ctx.beginPath();
-          ctx.arc(x, y, radiusSize, 0, Math.PI * 2);
-          ctx.fillStyle = fillColor;
-          ctx.fill();
+          // 4. Rendu graphique Canvas (Complet, Divisé ou Demi-cercle droit seul)
+          if (isRightHalfOnly) {
+            // Remplissage Moitié Droite uniquement
+            ctx.beginPath();
+            ctx.arc(x, y, radiusSize, Math.PI * 1.5, Math.PI * 0.5, false);
+            ctx.closePath();
+            ctx.fillStyle = rightFillColor;
+            ctx.fill();
 
-          const isHit = state !== 0 && state !== '0' && state !== '';
-          if (isHit) {
-            ctx.strokeStyle = track.isLinkFolder 
-              ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
-              : ((currentInst && currentInst.color) ? currentInst.color : themeBorder);
-            ctx.lineWidth = 2.5;
-          } else {
+            // Bordure du demi-cercle fermé
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = strokeWidth;
+            ctx.stroke();
+
+            // Dessin de la lettre décalée à droite
+            if (rightText) {
+              const rightFontSize = Math.max(8, Math.floor((rightText.length > 1 ? 11 : 15) * dynamicScale * 0.9));
+              ctx.font = `900 ${rightFontSize}px "Outfit", "Inter", sans-serif`;
+              ctx.fillStyle = rightTxtColor;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              const textX = x + radiusSize * 0.4;
+              const textY = y + 2;
+
+              if (['↑', '↓', '←', '→'].includes(rightText)) {
+                ctx.save();
+                ctx.strokeStyle = rightTxtColor;
+                ctx.lineWidth = 2.0;
+                ctx.strokeText(rightText, textX, textY);
+                ctx.restore();
+              }
+              ctx.fillText(rightText, textX, textY);
+            }
+          } else if (isSplit) {
+            // Remplissage Moitié Gauche
+            ctx.beginPath();
+            ctx.arc(x, y, radiusSize, Math.PI * 0.5, Math.PI * 1.5, false);
+            ctx.closePath();
+            ctx.fillStyle = leftFillColor;
+            ctx.fill();
+
+            // Remplissage Moitié Droite
+            ctx.beginPath();
+            ctx.arc(x, y, radiusSize, Math.PI * 1.5, Math.PI * 0.5, false);
+            ctx.closePath();
+            ctx.fillStyle = rightFillColor;
+            ctx.fill();
+
+            // Ligne verticale médiane de séparation
+            ctx.beginPath();
+            ctx.moveTo(x, y - radiusSize);
+            ctx.lineTo(x, y + radiusSize);
             ctx.strokeStyle = themeBorder;
-            ctx.lineWidth = 2;
-          }
-          ctx.stroke();
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
 
-          // Render letter/direction marker on top of step
-          if (state !== 0) {
-            let txtColor = '#f4ecd8'; // Cream by default
-            if (currentInst.type === 'voice') {
-              txtColor = '#000000'; // Noir absolu
-            } else if (isDarkText(currentInst.id, String(state))) {
-              txtColor = '#1a1a1a'; // Dark charcoal
+            // Bordure extérieure
+            ctx.beginPath();
+            ctx.arc(x, y, radiusSize, 0, Math.PI * 2);
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = strokeWidth;
+            ctx.stroke();
+
+            // Dessin des lettres décalées
+            if (leftText) {
+              const leftFontSize = Math.max(8, Math.floor((leftText.length > 1 ? 11 : 15) * dynamicScale * 0.9));
+              ctx.font = `900 ${leftFontSize}px "Outfit", "Inter", sans-serif`;
+              ctx.fillStyle = leftTxtColor;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              const textX = x - radiusSize * 0.4;
+              const textY = y + 2;
+
+              if (['↑', '↓', '←', '→'].includes(leftText)) {
+                ctx.save();
+                ctx.strokeStyle = leftTxtColor;
+                ctx.lineWidth = 2.0;
+                ctx.strokeText(leftText, textX, textY);
+                ctx.restore();
+              }
+              ctx.fillText(leftText, textX, textY);
             }
-            ctx.fillStyle = txtColor;
-            const fontSize = Math.max(10, Math.floor((textSymbol.length > 1 ? 15 : 20) * dynamicScale * 0.9));
-            ctx.font = `900 ${fontSize}px "Outfit", "Inter", sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
 
-            // Draw text outline for arrow symbols to make them extra bold/thick
-            if (['↑', '↓', '←', '→'].includes(textSymbol)) {
-              ctx.save();
-              ctx.strokeStyle = txtColor;
-              ctx.lineWidth = 2.5;
-              ctx.strokeText(textSymbol, x, y + 2);
-              ctx.restore();
+            if (rightText) {
+              const rightFontSize = Math.max(8, Math.floor((rightText.length > 1 ? 11 : 15) * dynamicScale * 0.9));
+              ctx.font = `900 ${rightFontSize}px "Outfit", "Inter", sans-serif`;
+              ctx.fillStyle = rightTxtColor;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              const textX = x + radiusSize * 0.4;
+              const textY = y + 2;
+
+              if (['↑', '↓', '←', '→'].includes(rightText)) {
+                ctx.save();
+                ctx.strokeStyle = rightTxtColor;
+                ctx.lineWidth = 2.0;
+                ctx.strokeText(rightText, textX, textY);
+                ctx.restore();
+              }
+              ctx.fillText(rightText, textX, textY);
             }
+          } else {
+            // Rendu Complet Traditionnel
+            ctx.beginPath();
+            ctx.arc(x, y, radiusSize, 0, Math.PI * 2);
+            ctx.fillStyle = leftFillColor;
+            ctx.fill();
 
-            ctx.fillText(textSymbol, x, y + 2);
+            // Bordure
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = strokeWidth;
+            ctx.stroke();
+
+            // Dessin du texte au centre
+            if (leftText) {
+              const fontSize = Math.max(10, Math.floor((leftText.length > 1 ? 15 : 20) * dynamicScale * 0.9));
+              ctx.font = `900 ${fontSize}px "Outfit", "Inter", sans-serif`;
+              ctx.fillStyle = leftTxtColor;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              const textY = y + 2;
+
+              if (['↑', '↓', '←', '→'].includes(leftText)) {
+                ctx.save();
+                ctx.strokeStyle = leftTxtColor;
+                ctx.lineWidth = 2.5;
+                ctx.strokeText(leftText, x, textY);
+                ctx.restore();
+              }
+              ctx.fillText(leftText, x, textY);
+            }
           }
 
           // Name overlay on step 0
@@ -1598,10 +1766,16 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const activeVol = measureVols[currentMeasure] !== undefined ? measureVols[currentMeasure] : 100;
 
   const expanded = useMemo(() => getExpandedMeasures(totalMeasures, songSections), [totalMeasures, songSections]);
-  const activeMeasureForDisplay = pendingTargetMeasure !== null ? pendingTargetMeasure : currentMeasure;
-  const activeRepIndex = expanded.findIndex(item => item.baseMeasure === activeMeasureForDisplay);
-  const displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : activeMeasureForDisplay + 1;
+  let displayMeasure = 1;
   const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
+
+  if (pendingTargetExpandedIndex !== null) {
+    displayMeasure = pendingTargetExpandedIndex + 1;
+  } else {
+    const activeMeasureForDisplay = currentMeasure;
+    const activeRepIndex = expanded.findIndex(item => item.baseMeasure === activeMeasureForDisplay);
+    displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : activeMeasureForDisplay + 1;
+  }
 
   return (
     <div
@@ -1622,11 +1796,34 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              const activeMeasureForNavigation = pendingTargetMeasure !== null ? pendingTargetMeasure : currentMeasure;
-              const prev = (activeMeasureForNavigation - 1 + totalMeasures) % totalMeasures;
-              setPendingTargetMeasure(prev);
-              pendingTargetMeasureRef.current = prev;
-              onNavigateMeasure?.(prev);
+              const expanded = expandedRef.current;
+              if (expanded.length === 0) {
+                const activeMeasureForNavigation = pendingTargetMeasure !== null ? pendingTargetMeasure : currentMeasure;
+                const prev = (activeMeasureForNavigation - 1 + totalMeasures) % totalMeasures;
+                setPendingTargetMeasure(prev);
+                pendingTargetMeasureRef.current = prev;
+                onNavigateMeasure?.(prev);
+                return;
+              }
+
+              let currentIdx = 0;
+              if (pendingTargetExpandedIndexRef.current !== null) {
+                currentIdx = pendingTargetExpandedIndexRef.current;
+              } else {
+                const activeMeasureForNavigation = currentMeasure;
+                currentIdx = expanded.findIndex(item => item.baseMeasure === activeMeasureForNavigation);
+                if (currentIdx === -1) currentIdx = 0;
+              }
+
+              const prevIdx = (currentIdx - 1 + expanded.length) % expanded.length;
+              const prevBaseMeasure = expanded[prevIdx].baseMeasure;
+
+              setPendingTargetExpandedIndex(prevIdx);
+              pendingTargetExpandedIndexRef.current = prevIdx;
+              setPendingTargetMeasure(prevBaseMeasure);
+              pendingTargetMeasureRef.current = prevBaseMeasure;
+
+              onNavigateMeasure?.(prevBaseMeasure);
             }}
             className="w-6 h-6 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors rounded-sm active:scale-95"
             title={lang === 'pt' ? 'Compasso anterior' : 'Mesure précédente'}
@@ -1640,11 +1837,34 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              const activeMeasureForNavigation = pendingTargetMeasure !== null ? pendingTargetMeasure : currentMeasure;
-              const next = (activeMeasureForNavigation + 1) % totalMeasures;
-              setPendingTargetMeasure(next);
-              pendingTargetMeasureRef.current = next;
-              onNavigateMeasure?.(next);
+              const expanded = expandedRef.current;
+              if (expanded.length === 0) {
+                const activeMeasureForNavigation = pendingTargetMeasure !== null ? pendingTargetMeasure : currentMeasure;
+                const next = (activeMeasureForNavigation + 1) % totalMeasures;
+                setPendingTargetMeasure(next);
+                pendingTargetMeasureRef.current = next;
+                onNavigateMeasure?.(next);
+                return;
+              }
+
+              let currentIdx = 0;
+              if (pendingTargetExpandedIndexRef.current !== null) {
+                currentIdx = pendingTargetExpandedIndexRef.current;
+              } else {
+                const activeMeasureForNavigation = currentMeasure;
+                currentIdx = expanded.findIndex(item => item.baseMeasure === activeMeasureForNavigation);
+                if (currentIdx === -1) currentIdx = 0;
+              }
+
+              const nextIdx = (currentIdx + 1) % expanded.length;
+              const nextBaseMeasure = expanded[nextIdx].baseMeasure;
+
+              setPendingTargetExpandedIndex(nextIdx);
+              pendingTargetExpandedIndexRef.current = nextIdx;
+              setPendingTargetMeasure(nextBaseMeasure);
+              pendingTargetMeasureRef.current = nextBaseMeasure;
+
+              onNavigateMeasure?.(nextBaseMeasure);
             }}
             className="w-6 h-6 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors rounded-sm active:scale-95"
             title={lang === 'pt' ? 'Próximo compasso' : 'Mesure suivante'}

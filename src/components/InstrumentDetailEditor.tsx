@@ -5,6 +5,9 @@
 
 import * as Tone from 'tone';
 import { useSequencerStore, isSequencerVisibleTrack } from '../stores/useSequencerStore';
+import { useTransportStore } from '../stores/useTransportStore';
+import { useShallow } from 'zustand/react/shallow';
+import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getStrokesForInstrument, STEP_OPTIONS } from '../utils/instrumentStrokes';
 import { createPortal } from 'react-dom';
@@ -77,8 +80,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   // Audio states
   const isPlaying = audio.isPlaying;
-  const soloPatternPlayId = audio.soloPatternPlayId;
-  const soloPatternVariationId = audio.soloPatternVariationId;
+  const { soloPatternPlayId, soloPatternVariationId } = useTransportStore(
+    useShallow((state) => ({
+      soloPatternPlayId: state.soloPatternPlayId,
+      soloPatternVariationId: state.soloPatternVariationId
+    }))
+  );
   const vocalCalibrationLatencyMs = useSequencerStore(state => state.vocalCalibrationLatencyMs);
 
   const canPaste = !!sequencer.copiedPattern;
@@ -498,10 +505,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
     let lastMeasure = currentMeasure !== undefined ? currentMeasure : -1;
 
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number }>;
-      if (customEvent.detail) {
-        const { measure, step } = customEvent.detail;
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number }) => {
+      if (detail) {
+        const { measure, step } = detail;
         if (step < 0) {
           if (lastMeasure !== -1) {
             lastMeasure = -1;
@@ -514,9 +520,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       }
     };
 
-    window.addEventListener('o-girador-tick', handleTick);
+    subscribeToTick(handleTick);
     return () => {
-      window.removeEventListener('o-girador-tick', handleTick);
+      unsubscribeFromTick(handleTick);
       // Clean up highlights on unmount
       if (lastActiveId !== null) {
         const card = patternDOMRefs.current.get(lastActiveId);

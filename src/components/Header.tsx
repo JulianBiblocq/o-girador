@@ -21,6 +21,8 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useTransportStore } from '../stores/useTransportStore';
+import { useShallow } from 'zustand/react/shallow';
 
 const UndoIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg
@@ -132,6 +134,16 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const metadata = useSequencerStore(state => state.metadata);
 
   const {
+    globalSwing,
+    setGlobalSwing
+  } = useTransportStore(
+    useShallow((state) => ({
+      globalSwing: state.globalSwing,
+      setGlobalSwing: state.setGlobalSwing
+    }))
+  );
+
+  const {
     activePresetName: preset,
     handlePresetSelect: onPresetChange,
     handleSaveState: onSave,
@@ -139,8 +151,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
     handleShare: onShare,
     handleSaveToLocal: onSaveToLocal,
     handleLoadLocalPreset: onLoadLocalPreset,
-    globalSwing,
-    setGlobalSwing,
     masterVol,
     setMasterVol,
     handleTimeSigChange: onTimeSigChange,

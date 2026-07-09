@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { instrumentsConfig, getVisualStrokeSymbol, isDarkText } from '../data';
+import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 
 interface VisualOnlyTimelineProps {
   trackId: number;
@@ -31,9 +32,8 @@ export const VisualOnlyTimeline: React.FC<VisualOnlyTimelineProps> = React.memo(
       return;
     }
 
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number }>;
-      const { step, maxTicks, ratio } = customEvent.detail;
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number }) => {
+      const { step, maxTicks, ratio } = detail;
 
       if (step < 0 || !containerRef.current) return;
 
@@ -54,9 +54,9 @@ export const VisualOnlyTimeline: React.FC<VisualOnlyTimelineProps> = React.memo(
       }
     };
 
-    window.addEventListener('o-girador-tick', handleTick);
+    subscribeToTick(handleTick);
     return () => {
-      window.removeEventListener('o-girador-tick', handleTick);
+      unsubscribeFromTick(handleTick);
       if (activeElementRef.current) {
         activeElementRef.current.classList.remove('is-active');
         activeElementRef.current = null;

@@ -22,7 +22,7 @@ import { MixerVolumeFader } from './MixerVolumeFader';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { VUMeter } from './VUMeter';
-import { reverbSends, distortionSends } from '../hooks/useAudioSync';
+import { reverbSends, distortionSends, subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 
 const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -47,6 +47,9 @@ interface MixerChannelProps {
   canPaste?: boolean;
   isActive?: boolean;
   busPosition?: 'first' | 'middle' | 'last' | 'none';
+  isPlaying?: boolean;
+  isLeftHanded?: boolean;
+  isCompact?: boolean;
 }
 
 const MixerChannelComponent: React.FC<MixerChannelProps> = ({
@@ -59,6 +62,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   canPaste,
   isActive = true,
   busPosition = 'none',
+  isCompact = false,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -151,9 +155,8 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       return;
     }
 
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
-      const { step, measure } = customEvent.detail;
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number }) => {
+      const { step, measure } = detail;
       
       const currentTrack = trackRef.current;
       if (!currentTrack) return;
@@ -190,9 +193,9 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         }
       }
     };
-    window.addEventListener('o-girador-tick', handleTick);
+    subscribeToTick(handleTick);
     return () => {
-      window.removeEventListener('o-girador-tick', handleTick);
+      unsubscribeFromTick(handleTick);
     };
   }, [isActive]);
 
@@ -420,7 +423,8 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
     const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
     const b = parseInt(cleanHex.substring(4, 6), 16) || 26;
-    const bgAlpha = `rgba(${r}, ${g}, ${b}, 0.03)`;
+    // Plus de contraste : le maître de liaison a 0.14, les enfants de bus ont 0.02
+    const bgAlpha = `rgba(${r}, ${g}, ${b}, ${track.isLinkFolder ? 0.14 : 0.02})`;
 
     groupStyle.backgroundColor = bgAlpha;
     groupStyle.borderTop = `3px solid ${busColor}`;
@@ -443,7 +447,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
     const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
     const b = parseInt(cleanHex.substring(4, 6), 16) || 26;
-    const bgAlpha = `rgba(${r}, ${g}, ${b}, 0.05)`;
+    const bgAlpha = `rgba(${r}, ${g}, ${b}, 0.12)`;
 
     groupStyle.backgroundColor = bgAlpha;
     groupStyle.borderTop = `3px double ${busColor}`;
@@ -457,6 +461,297 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     : (inst.color || '#8b2a1a');
 
   const faderTextColor = getContrastColor(faderColor);
+
+  if (isCompact) {
+    return (
+      <div 
+        ref={setNodeRef}
+        className={`flex flex-col bg-[var(--cordel-bg)] w-[90px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-3 transition-all duration-300 ${
+          hasSolo ? (track.isSolo ? 'bg-[var(--cordel-border)]/5 shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-50') : 
+          (track.isMute ? 'opacity-60 bg-black/5 dark:bg-white/5' : 'opacity-100')
+        } ${busPosition === 'none' ? 'cordel-border' : ''}`}
+        style={{
+          ...style,
+          ...groupStyle,
+          zIndex: instDropdownOpen ? 30 : 1,
+          '--fader-thumb-bg': faderColor,
+          '--fader-thumb-border': 'var(--cordel-border)',
+        } as React.CSSProperties}
+      >
+        {/* Niveau 6 (Tout en haut) : En-tête */}
+        <div 
+          className="relative p-1.5 pb-1 flex flex-col gap-1 border-b-[3px] border-[var(--cordel-border)] h-[76px] shrink-0 justify-between"
+          style={{ zIndex: instDropdownOpen ? 40 : 10 }}
+        >
+          {/* Outils */}
+          <div className="flex justify-between items-center w-full">
+            <div 
+              {...attributes}
+              {...listeners}
+              className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none"
+              title="Drag to reorder"
+            >
+              <GripHorizontal size={14} />
+            </div>
+            <button
+              onClick={() => onOpenDetailEditor(trackId)}
+              className="w-5 h-5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-[9px]"
+              title={track?.isLinkFolder ? (lang === 'fr' ? 'Éditer les patterns du groupe' : 'Editar padrões do grupo') : 'Éditeur détaillé'}
+            >
+              ✏️
+            </button>
+            <button 
+              onClick={onDelete} 
+              className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-[9px]"
+              title={track?.isLinkFolder ? (lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o grupo') : 'Supprimer la piste'}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Instrument Selector / Dropdown Trigger */}
+          <div className="relative flex items-center w-full" ref={dropdownRef}>
+            {track?.isLinkFolder ? (
+              isEditingName ? (
+                <input
+                  type="text"
+                  value={nameVal}
+                  onChange={(e) => setNameVal(e.target.value)}
+                  onBlur={handleRenameSubmit}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleRenameSubmit();
+                    if (e.key === 'Escape') setIsEditingName(false);
+                  }}
+                  className="font-cactus font-bold text-[9px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-1 py-0.5 flex-1 outline-none w-full"
+                  autoFocus
+                />
+              ) : (
+                <div 
+                  onClick={() => useSequencerStore.getState().handleToggleFoldBus(String(trackId))}
+                  className="flex items-center gap-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-1 py-1 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-center font-bold text-[9px]"
+                >
+                  <span className="font-cactus truncate">{track.isFolded ? '▼' : '▲'} {track.customName || 'Bus'}</span>
+                </div>
+              )
+            ) : (
+              <div 
+                onClick={() => setInstDropdownOpen(!instDropdownOpen)} 
+                className="flex items-center gap-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-1 py-1 cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors w-full justify-center"
+                title={linkedSlavesTooltip || displayName}
+              >
+                <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-4 h-4 object-contain flex-shrink-0" />
+                <span className="font-cactus font-bold text-[9px] truncate">{displayName}</span>
+              </div>
+            )}
+
+            {instDropdownOpen && (
+              <div className="absolute top-7 left-0 right-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-shadow max-h-[250px] overflow-y-auto z-[99] w-[180px] custom-scrollbar">
+                <div className="text-[9px] uppercase opacity-60 font-bold px-2 py-1 bg-[var(--cordel-text)]/5 border-b border-[var(--cordel-border)]/20">
+                  {lang === 'fr' ? 'Changer d\'instrument' : 'Mudar instrumento'}
+                </div>
+                {instrumentsConfig.map((opt, oIdx) => (
+                  <div 
+                    key={oIdx} 
+                    onClick={() => { onInstrumentChange(oIdx); setInstDropdownOpen(false); }} 
+                    className="flex items-center gap-2 px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-[10px] font-bold"
+                  >
+                    <img src={`${ASSETS_BASE_URL}${opt.iconImg}`} alt={opt.name} className="w-4 h-4 object-contain" />
+                    <span className="font-cactus">{opt.name}</span>
+                  </div>
+                ))}
+                
+                {/* Liaison de partition */}
+                <div className="text-[9px] uppercase opacity-60 font-bold px-2 py-1 bg-[var(--cordel-text)]/5 border-t border-b border-[var(--cordel-border)]/20 mt-1">
+                  🔗 {lang === 'fr' ? 'Liaison' : 'Vínculo'}
+                </div>
+                {track.linkedToTrackId ? (
+                  <div 
+                    onClick={() => {
+                      useSequencerStore.getState().handleLinkTrack(trackId, null);
+                      setInstDropdownOpen(false);
+                    }}
+                    className="px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-[10px] font-bold text-[#8b2a1a]"
+                  >
+                    ✕ {lang === 'fr' ? 'Délier' : 'Remover'}
+                  </div>
+                ) : (
+                  <>
+                    <div 
+                      onClick={() => {
+                        const isAlfaia = currentInst?.name.toLowerCase().includes('alfaia');
+                        const defaultName = isAlfaia ? 'ALFAIAS' : `${currentInst?.name.toUpperCase()}S`;
+                        const name = prompt(lang === 'fr' ? 'Nom du groupe :' : 'Nome do grupo:', defaultName);
+                        if (name) {
+                          useSequencerStore.getState().handleCreateLinkGroup(trackId, name);
+                        }
+                        setInstDropdownOpen(false);
+                      }}
+                      className="px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-[10px] font-bold text-blue-600"
+                    >
+                      🔗 {lang === 'fr' ? 'Créer maître' : 'Criar mestre'}
+                    </div>
+                    {eligibleTracks.length > 0 ? (
+                      eligibleTracks.map((tOpt) => {
+                        const tOptInst = instrumentsConfig[tOpt.instrumentIdx];
+                        const tOptIndex = tracks.findIndex(t => t.id === tOpt.id);
+                        const shortName = tOptInst.name.replace('Alfaia ', '');
+                        return (
+                          <div
+                            key={tOpt.id}
+                            onClick={() => {
+                              useSequencerStore.getState().handleLinkTrack(trackId, String(tOpt.id));
+                              setInstDropdownOpen(false);
+                            }}
+                            className="px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-[10px] font-bold truncate"
+                          >
+                            🔗 {shortName} ({tOptIndex + 1})
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="px-2 py-1 text-[8px] italic text-[var(--cordel-text)]/60">
+                        {lang === 'fr' ? 'Aucun compatible' : 'Nenhum compatível'}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Audio Bussing */}
+                <div className="text-[9px] uppercase opacity-60 font-bold px-2 py-1 bg-[var(--cordel-text)]/5 border-t border-b border-[var(--cordel-border)]/20 mt-1 flex items-center gap-1">
+                  <span>{lang === 'fr' ? 'Bus' : 'Bus'}</span>
+                </div>
+                <div
+                  onClick={() => {
+                    const busName = window.prompt(lang === 'fr' ? 'Nom du groupe :' : 'Nome do groupe:', 'Alfaias');
+                    if (busName && busName.trim()) {
+                      useSequencerStore.getState().handleCreateBus(trackId, busName.trim());
+                    }
+                    setInstDropdownOpen(false);
+                  }}
+                  className="px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-[10px] font-bold text-green-700 flex items-center gap-1"
+                >
+                  <span>{lang === 'fr' ? 'Créer un groupe' : 'Criar um groupe'}</span>
+                </div>
+                {track.busId && (
+                  <div
+                    onClick={() => {
+                      useSequencerStore.getState().handleAssignToBus(trackId, null);
+                      setInstDropdownOpen(false);
+                    }}
+                    className="px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-[10px] font-bold text-[#8b2a1a]"
+                  >
+                    ✕ {lang === 'fr' ? 'Quitter le groupe' : 'Sair do groupe'}
+                  </div>
+                )}
+                {tracks.filter(t => t.isBusFolder && t.id !== trackId).map((bus) => {
+                  const busIdx = tracks.findIndex(t => t.id === bus.id);
+                  return (
+                    <div
+                      key={bus.id}
+                      onClick={() => {
+                        useSequencerStore.getState().handleAssignToBus(trackId, String(bus.id));
+                        setInstDropdownOpen(false);
+                      }}
+                      className={`px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-[10px] font-bold truncate ${
+                        String(track.busId) === String(bus.id) ? 'bg-[var(--cordel-text)]/10' : ''
+                      }`}
+                    >
+                      <span>{bus.customName || 'Bus'} ({busIdx + 1})</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Inner Controls Stack (Levels 5 down to 1) */}
+        <div className="flex-1 flex flex-col p-2 gap-2 justify-end items-center overflow-y-auto custom-scrollbar">
+          {/* Ligne de délimitation fine au-dessus du bloc d'effet */}
+          <div className="w-full border-t border-[var(--cordel-border)]/20 my-0.5 shrink-0" />
+
+          {/* Niveau 5 : Distortion */}
+          <DragNumberBox 
+            label="Dst" 
+            value={track.fxSends?.distortion ?? 0} 
+            onChange={onDistortionChange}
+            onAudioDrag={handleDistortionAudioDrag}
+            className="w-full text-[8px] px-1 py-0.5 shrink-0"
+          />
+
+          {/* Niveau 4 : Reverb */}
+          <DragNumberBox 
+            label="Rev" 
+            value={track.fxSends?.reverb ?? track.reverbVal ?? 0} 
+            onChange={onReverbChange}
+            onAudioDrag={handleReverbAudioDrag}
+            className="w-full text-[8px] px-1 py-0.5 shrink-0"
+          />
+
+          {/* Ligne de délimitation fine au-dessus du Pan */}
+          <div className="w-full border-t border-[var(--cordel-border)]/20 my-0.5 shrink-0" />
+
+          {/* Niveau 3 : Panoramique */}
+          <PanKnob 
+            trackId={trackId} 
+            value={track.pan ?? track.panVal ?? 0} 
+            onChange={onPanChange}
+            label="Pan"
+          />
+
+          {/* Niveau 2 : Volume + VU-mètre side-by-side */}
+          <div className="flex items-center justify-center gap-1.5 w-full py-1">
+            <div className="flex flex-col items-center shrink-0">
+              <MixerVolumeFader
+                trackId={trackId}
+                value={track.volumeVal}
+                onChange={onVolumeChange}
+                faderColor={faderColor}
+                textColor={faderTextColor}
+                height={180}
+              />
+            </div>
+            <div className="flex flex-col items-center w-5 shrink-0">
+              <div className="h-[180px] flex justify-center items-center relative w-5">
+                <VUMeter
+                  trackId={trackId}
+                  instrumentId={inst.id}
+                  isPlaying={isPlaying && isActive}
+                  isActive={isActive}
+                  orientation="vertical"
+                  className="w-2 h-[164px] bg-[var(--cordel-bg)] cordel-border-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Niveau 1 (Tout en bas) : Mute & Solo */}
+          <div className="flex gap-1.5 w-full justify-center">
+            <button 
+              onClick={(e) => { e.stopPropagation(); onMuteToggle(); }} 
+              className={`flex-1 h-7 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${
+                (track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+              }`}
+              title="Mute"
+            >
+              M
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onSoloToggle(); }} 
+              className={`flex-1 h-7 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${
+                track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+              }`}
+              title="Solo"
+            >
+              S
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
 
   return (
     <div 

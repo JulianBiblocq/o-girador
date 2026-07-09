@@ -18,13 +18,14 @@ import { useAudio } from '../contexts/AudioContext';
 import { VUMeter } from './VUMeter';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { VisualOnlyTimeline } from './VisualOnlyTimeline';
-import { reverbSends, distortionSends } from '../hooks/useAudioSync';
+import { reverbSends, distortionSends, subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 
 interface MixerFolderBusProps {
   trackId: number;
   index: number;
   isActive?: boolean;
   busPosition?: 'first' | 'middle' | 'last' | 'none';
+  isCompact?: boolean;
 }
 
 const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
@@ -32,6 +33,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   index,
   isActive = true,
   busPosition = 'none',
+  isCompact = false,
 }) => {
   const audio = useAudio();
   const { isPlaying } = audio;
@@ -121,9 +123,8 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
       return;
     }
 
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
-      const { step, measure } = customEvent.detail;
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number }) => {
+      const { step, measure } = detail;
       
       if (step < 0) {
         if (lastMeasureRef.current !== -1) {
@@ -137,9 +138,9 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
         setLiveMeasure(prev => (prev !== measure ? measure : prev));
       }
     };
-    window.addEventListener('o-girador-tick', handleTick);
+    subscribeToTick(handleTick);
     return () => {
-      window.removeEventListener('o-girador-tick', handleTick);
+      unsubscribeFromTick(handleTick);
     };
   }, [isActive]);
 
@@ -252,8 +253,8 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
   const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
   const b = parseInt(cleanHex.substring(4, 6), 16) || 26;
-  const bgAlphaGroup = `rgba(${r}, ${g}, ${b}, 0.07)`;
-  const bgAlphaOrphan = `rgba(${r}, ${g}, ${b}, 0.05)`;
+  const bgAlphaGroup = `rgba(${r}, ${g}, ${b}, 0.14)`;
+  const bgAlphaOrphan = `rgba(${r}, ${g}, ${b}, 0.12)`;
 
   const groupStyle: React.CSSProperties = {};
   if (busPosition !== 'none') {
@@ -281,6 +282,161 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
     groupStyle.borderLeft = `3px double ${busColor}`;
     groupStyle.borderRight = `3px double ${busColor}`;
     groupStyle.marginRight = '16px';
+  }
+
+  if (isCompact) {
+    return (
+      <div
+        ref={setNodeRef}
+        className={`flex flex-col bg-[var(--cordel-bg)] w-[90px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-3 transition-all duration-300 ${
+          hasSolo ? (track.isSolo ? 'shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-50') : 
+          (track.isMute ? 'opacity-60 bg-black/5 dark:bg-white/5' : 'opacity-100')
+        } ${busPosition === 'none' ? 'cordel-border' : ''}`}
+        style={{
+          ...style,
+          ...groupStyle,
+          zIndex: isDragging ? 50 : 1,
+          '--fader-thumb-bg': busColor,
+          '--fader-thumb-border': 'var(--cordel-border)',
+        } as React.CSSProperties}
+      >
+        {/* Niveau 6 (Tout en haut) : En-tête */}
+        <div 
+          className="relative p-1.5 pb-1 flex flex-col gap-1 border-b-[3px] border-[var(--cordel-border)] h-[76px] shrink-0 justify-between bg-[var(--cordel-text)]/5"
+          style={{ zIndex: 10 }}
+        >
+          {/* Outils */}
+          <div className="flex justify-between items-center w-full">
+            <div 
+              {...attributes}
+              {...listeners}
+              className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none"
+              title="Drag to reorder"
+            >
+              <GripHorizontal size={14} />
+            </div>
+            <button
+              onClick={() => setIsEditing(true)}
+              className="w-5 h-5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-[9px]"
+              title="Renommer"
+            >
+              ✏️
+            </button>
+            <button 
+              onClick={onDelete} 
+              className="w-5 h-5 bg-[#8b2a1a]/10 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border-[#8b2a1a] text-[#8b2a1a] cordel-border-sm cursor-pointer font-bold flex items-center justify-center transition-colors text-[9px]"
+              title="Supprimer"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Title Fold/Unfold */}
+          <div className="relative flex items-center w-full">
+            {isEditing ? (
+              <input
+                type="text"
+                value={nameVal}
+                onChange={(e) => setNameVal(e.target.value)}
+                onBlur={handleRenameSubmit}
+                onKeyDown={handleKeyDown}
+                className="font-cactus font-bold text-[9px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-1 py-0.5 flex-1 outline-none w-full text-center"
+                autoFocus
+              />
+            ) : (
+              <div 
+                onClick={onToggleFold}
+                className="flex items-center gap-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-1 py-1 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-center font-bold text-[9px]"
+              >
+                <span className="font-cactus truncate">{track.isFolded ? '▼' : '▲'} {track.customName || 'Bus'}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Inner Controls Stack (Packed closer together at the bottom) */}
+        <div className="flex-1 flex flex-col p-2 gap-2 justify-end items-center overflow-y-auto custom-scrollbar">
+          {/* Ligne de délimitation fine au-dessus du bloc d'effet */}
+          <div className="w-full border-t border-[var(--cordel-border)]/20 my-0.5 shrink-0" />
+
+          {/* Niveau 5 : Distortion */}
+          <DragNumberBox 
+            label="Dst" 
+            value={track.fxSends?.distortion ?? 0} 
+            onChange={onDistortionChange}
+            onAudioDrag={handleDistortionAudioDrag}
+            className="w-full text-[8px] px-1 py-0.5 shrink-0"
+          />
+
+          {/* Niveau 4 : Reverb */}
+          <DragNumberBox 
+            label="Rev" 
+            value={track.fxSends?.reverb ?? 0} 
+            onChange={onReverbChange}
+            onAudioDrag={handleReverbAudioDrag}
+            className="w-full text-[8px] px-1 py-0.5 shrink-0"
+          />
+
+          {/* Ligne de délimitation fine au-dessus du Pan */}
+          <div className="w-full border-t border-[var(--cordel-border)]/20 my-0.5 shrink-0" />
+
+          {/* Niveau 3 : Panoramique */}
+          <PanKnob 
+            trackId={trackId} 
+            value={track.panVal || 0} 
+            onChange={onPanChange}
+            label="Pan"
+          />
+
+          {/* Niveau 2 : Volume + VU-mètre side-by-side */}
+          <div className="flex items-center justify-center gap-1.5 w-full py-1">
+            <div className="flex flex-col items-center shrink-0">
+              <MixerVolumeFader
+                trackId={trackId}
+                value={track.volumeVal}
+                onChange={onVolumeChange}
+                faderColor={busColor}
+                textColor={faderTextColor}
+                height={180}
+              />
+            </div>
+            <div className="flex flex-col items-center w-5 shrink-0">
+              <div className="h-[180px] flex justify-center items-center relative w-5">
+                <VUMeter
+                  busId={String(trackId)}
+                  isPlaying={isPlaying && isActive}
+                  isActive={isActive}
+                  orientation="vertical"
+                  className="w-2 h-[164px] bg-[var(--cordel-bg)] cordel-border-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Niveau 1 (Tout en bas) : Mute & Solo */}
+          <div className="flex gap-1.5 w-full justify-center">
+            <button 
+              onClick={(e) => { e.stopPropagation(); onMuteToggle(); }} 
+              className={`flex-1 h-7 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${
+                track.isMute ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+              }`}
+              title="Mute"
+            >
+              M
+            </button>
+            <button 
+              onClick={(e) => { e.stopPropagation(); onSoloToggle(); }} 
+              className={`flex-1 h-7 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${
+                track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+              }`}
+              title="Solo"
+            >
+              S
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (

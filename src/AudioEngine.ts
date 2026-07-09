@@ -277,9 +277,12 @@ export class AudioEngine {
 
     const hwLatency = (this.audioContext.baseLatency || 0.05) + ((this.audioContext as any).outputLatency || 0.05);
 
-    this.SCHEDULE_AHEAD_TIME = Math.max(0.150, hwLatency + 0.050);
+    // Augmenter drastiquement l'anticipation pour les processeurs lents
+    const baseAheadTime = isMobile ? 1.0 : 0.5; // 1 seconde d'avance sur mobile !
+    this.SCHEDULE_AHEAD_TIME = Math.max(baseAheadTime, hwLatency + 0.150);
 
-    this.LOOKAHEAD_INTERVAL = isDesktopActive ? 15.0 : 25.0;
+    // Augmenter légèrement l'intervalle de réveil pour économiser la batterie
+    this.LOOKAHEAD_INTERVAL = isDesktopActive ? 25.0 : 50.0;
 
     // Dynamically update interval of fallback timer if active and playing
     if (this.isPlaying && !this.clockNode && this.fallbackTimerId !== null) {

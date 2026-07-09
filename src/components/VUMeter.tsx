@@ -23,31 +23,24 @@ export const VUMeter: React.FC<VUMeterProps> = ({
 }) => {
   const gaugeRef = useRef<HTMLDivElement>(null);
   const lastLevelRef = useRef<number>(0);
+  const isEcoRef = useRef<boolean>(useSequencerStore.getState().isEcoMode);
 
   useEffect(() => {
-    if (!isActive || !isPlaying) {
-      lastLevelRef.current = 0;
-      if (gaugeRef.current) {
-        gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
-      }
-      return;
-    }
-
-    let animationFrameId: number;
+    isEcoRef.current = useSequencerStore.getState().isEcoMode;
+    let animationFrameId: number | null = null;
 
     const updateMeter = () => {
       if ((window as any).oGiradorDetailEditorOpen) {
         animationFrameId = requestAnimationFrame(updateMeter);
         return;
       }
-      const isEco = useSequencerStore.getState().isEcoMode;
-      if (isEco) {
+      if (isEcoRef.current) {
         lastLevelRef.current = 0;
         if (gaugeRef.current) {
           gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
         }
-        animationFrameId = requestAnimationFrame(updateMeter);
-        return;
+        animationFrameId = null;
+        return; // Break the rAF loop when eco mode is active
       }
 
       const meterNode = (busId && busMeters ? busMeters[busId] : undefined) || 
@@ -97,12 +90,48 @@ export const VUMeter: React.FC<VUMeterProps> = ({
       animationFrameId = requestAnimationFrame(updateMeter);
     };
 
-    updateMeter();
+    const unsubscribe = useSequencerStore.subscribe((state) => {
+      const nextEco = state.isEcoMode;
+      if (isEcoRef.current !== nextEco) {
+        isEcoRef.current = nextEco;
+        if (!nextEco) {
+          if (animationFrameId === null && isActive && isPlaying) {
+            updateMeter();
+          }
+        } else {
+          if (animationFrameId !== null) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+          }
+          lastLevelRef.current = 0;
+          if (gaugeRef.current) {
+            gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
+          }
+        }
+      }
+    });
+
+    if (!isActive || !isPlaying) {
+      lastLevelRef.current = 0;
+      if (gaugeRef.current) {
+        gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
+      }
+      return () => {
+        unsubscribe();
+      };
+    }
+
+    if (!isEcoRef.current) {
+      updateMeter();
+    }
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      unsubscribe();
     };
-  }, [trackId, instrumentId, orientation, isActive, isPlaying]);
+  }, [trackId, instrumentId, busId, orientation, isActive, isPlaying]);
 
   return (
     <div className={`relative overflow-hidden ${className}`}>

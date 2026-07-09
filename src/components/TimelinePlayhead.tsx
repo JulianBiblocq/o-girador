@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useContext } from 'react';
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
 import { useAudio } from '../contexts/AudioContext';
-import { audioEngine } from '../hooks/useAudioSync';
+import { audioEngine, subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 
 const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
@@ -94,9 +94,8 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
     };
     scrollEl.addEventListener('scroll', handleScroll, { passive: true });
 
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
-      const { step, measure, maxTicks, ratio = step / maxTicks, time = 0 } = customEvent.detail;
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number }) => {
+      const { step, measure, maxTicks, ratio = step / maxTicks, time = 0 } = detail;
       const el = playheadRef.current;
       
       if (!el) return;
@@ -148,10 +147,10 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       }
     };
 
-    window.addEventListener('o-girador-tick', handleTick);
+    subscribeToTick(handleTick);
 
     return () => {
-      window.removeEventListener('o-girador-tick', handleTick);
+      unsubscribeFromTick(handleTick);
       resizeObserver.disconnect();
       scrollEl.removeEventListener('scroll', handleScroll);
     };

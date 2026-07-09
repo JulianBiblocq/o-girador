@@ -23,6 +23,7 @@ import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencer
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { loadTone } from '../ToneLoader';
 import { useAudioStore } from '../stores/useAudioStore';
+import { useTransportStore } from '../stores/useTransportStore';
 import { vocalEngineService, workerSetTimeout } from '../audio/vocalEngineService';
 
 interface ScheduledNote {
@@ -278,14 +279,10 @@ export function useAudioSync({
     return unsub;
   }, []);
 
-  const [isMetroOn, setIsMetroOn] = useState<boolean>(false);
-  const [metroVolume, setMetroVolume] = useState<number>(80);
-  const [metroSound, setMetroSound] = useState<'synth' | 'clave' | 'cowbell'>('synth');
   const sectionIterationRef = useRef<number>(1);
   const lastPlayedPatternRef = useRef<Record<number, number>>({});
-  const [globalSwing, setGlobalSwing] = useState<GlobalSwing>({ mode: 'maracatu', customOffsets: [0, 8, -29, -58] });
-  const [soloPatternPlayId, setSoloPatternPlayId] = useState<number | null>(null);
-  const [soloPatternVariationId, setSoloPatternVariationId] = useState<string | null>(null);
+  const setSoloPatternPlayId = useTransportStore.getState().setSoloPatternPlayId;
+  const setSoloPatternVariationId = useTransportStore.getState().setSoloPatternVariationId;
 
   // Scheduling loop safety refs
   const maxTicksRef = useRef<number>(96);
@@ -310,8 +307,38 @@ export function useAudioSync({
   const lastAbsoluteTickRef = useRef<number>(-1);
   const currentMeasureStartTickRef = useRef<number>(0);
   const lastActiveInstrumentIdsRef = useRef<string>('');
-  
 
+  // Subscribe to useTransportStore to keep refs and metroChannel in sync non-reactively
+  useEffect(() => {
+    const syncTransport = (state: ReturnType<typeof useTransportStore.getState>) => {
+      isMetroOnRef.current = state.isMetroOn;
+      globalSwingRef.current = state.globalSwing;
+      metroVolumeRef.current = state.metroVolume;
+      metroSoundRef.current = state.metroSound;
+      soloPatternPlayIdRef.current = state.soloPatternPlayId;
+      soloPatternVariationIdRef.current = state.soloPatternVariationId;
+      
+      if (metroChannel) {
+        const gain = Math.max(0.00001, state.metroVolume / 100);
+        const db = state.metroVolume === 0 ? -Infinity : Tone.gainToDb(gain);
+
+        const now = Tone.context.currentTime;
+        metroChannel.volume.setValueAtTime(db, now);
+
+        metroChannel.mute = !state.isMetroOn;
+      }
+    };
+
+    // Initial sync
+    syncTransport(useTransportStore.getState());
+
+    // Subscribe to store changes
+    const unsub = useTransportStore.subscribe((state) => {
+      syncTransport(state);
+    });
+
+    return unsub;
+  }, []);
 
   // Local values sync
   useEffect(() => {
@@ -321,24 +348,6 @@ export function useAudioSync({
   useEffect(() => {
     setIsPlayingRef.current = setIsPlaying;
   });
-
-  useEffect(() => {
-    isMetroOnRef.current = isMetroOn;
-    globalSwingRef.current = globalSwing;
-    metroVolumeRef.current = metroVolume;
-    metroSoundRef.current = metroSound;
-    if (metroChannel) {
-      const gain = Math.max(0.00001, metroVolume / 100);
-      const db = metroVolume === 0 ? -Infinity : Tone.gainToDb(gain);
-      metroChannel.volume.value = db;
-      metroChannel.mute = !isMetroOn;
-    }
-  }, [isMetroOn, globalSwing, metroVolume, metroSound]);
-
-  useEffect(() => {
-    soloPatternPlayIdRef.current = soloPatternPlayId;
-    soloPatternVariationIdRef.current = soloPatternVariationId;
-  }, [soloPatternPlayId, soloPatternVariationId]);
 
   // Sync InputManager configurations
   useEffect(() => {
@@ -507,7 +516,7 @@ export function useAudioSync({
 
   // Recompile tick schedule when state changes (Async Worker)
   useEffect(() => {
-    let lastSoloPatternPlayId = soloPatternPlayId;
+    let lastSoloPatternPlayId = useTransportStore.getState().soloPatternPlayId;
 
     const compile = (stateTracks: any, totalM: number, mTimeSigs: any, soloId: number | null) => {
       const worker = compilerWorkerRef.current;
@@ -527,7 +536,7 @@ export function useAudioSync({
 
     // Initial compile
     const initialState = useSequencerStore.getState();
-    compile(initialState.tracks, initialState.totalMeasures, initialState.measureTimeSigs, soloPatternPlayId);
+    compile(initialState.tracks, initialState.totalMeasures, initialState.measureTimeSigs, lastSoloPatternPlayId);
 
     // Initial Active Instruments Cache Population
     const initialActiveIds = Array.from(new Set(initialState.tracks.map((t: any) => {
@@ -537,7 +546,7 @@ export function useAudioSync({
     lastActiveInstrumentIdsRef.current = initialActiveIds.join(',');
 
     // Subscribe to Zustand for store changes (using tracksVersion)
-    const unsub = useSequencerStore.subscribe((state, prevState) => {
+    const unsubSeq = useSequencerStore.subscribe((state, prevState) => {
       if (state.tracksVersion !== prevState.tracksVersion) {
         compile(state.tracks, state.totalMeasures, state.measureTimeSigs, lastSoloPatternPlayId);
       }
@@ -558,10 +567,20 @@ export function useAudioSync({
       }
     });
 
+    // Subscribe to useTransportStore for soloPatternPlayId changes
+    const unsubTransport = useTransportStore.subscribe((state) => {
+      if (state.soloPatternPlayId !== lastSoloPatternPlayId) {
+        lastSoloPatternPlayId = state.soloPatternPlayId;
+        const seqState = useSequencerStore.getState();
+        compile(seqState.tracks, seqState.totalMeasures, seqState.measureTimeSigs, lastSoloPatternPlayId);
+      }
+    });
+
     return () => {
-      unsub();
+      unsubSeq();
+      unsubTransport();
     };
-  }, [soloPatternPlayId]);
+  }, []);
 
   // Initialize stable Audio Engine Nodes
   useEffect(() => {
@@ -1601,18 +1620,18 @@ export function useAudioSync({
     setCurrentMeasure,
     setIsLoading,
     isCompiling,
-    isMetroOn,
-    setIsMetroOn,
-    globalSwing,
-    setGlobalSwing,
-    metroVolume,
-    setMetroVolume,
-    metroSound,
-    setMetroSound,
-    soloPatternPlayId,
-    setSoloPatternPlayId,
-    soloPatternVariationId,
-    setSoloPatternVariationId,
+    get isMetroOn() { return useTransportStore.getState().isMetroOn; },
+    setIsMetroOn: (on: boolean) => useTransportStore.getState().setIsMetroOn(on),
+    get globalSwing() { return useTransportStore.getState().globalSwing; },
+    setGlobalSwing: (gs: GlobalSwing) => useTransportStore.getState().setGlobalSwing(gs),
+    get metroVolume() { return useTransportStore.getState().metroVolume; },
+    setMetroVolume: (vol: number) => useTransportStore.getState().setMetroVolume(vol),
+    get metroSound() { return useTransportStore.getState().metroSound; },
+    setMetroSound: (sound: 'synth' | 'clave' | 'cowbell') => useTransportStore.getState().setMetroSound(sound),
+    get soloPatternPlayId() { return useTransportStore.getState().soloPatternPlayId; },
+    setSoloPatternPlayId: (id: number | null) => useTransportStore.getState().setSoloPatternPlayId(id),
+    get soloPatternVariationId() { return useTransportStore.getState().soloPatternVariationId; },
+    setSoloPatternVariationId: (id: string | null) => useTransportStore.getState().setSoloPatternVariationId(id),
     // Control Handlers
     handleTogglePlay,
     handleStop,
@@ -1637,12 +1656,6 @@ export function useAudioSync({
     isPlaying,
     isLoading,
     isCompiling,
-    isMetroOn,
-    metroVolume,
-    metroSound,
-    globalSwing,
-    soloPatternPlayId,
-    soloPatternVariationId,
     handleTogglePlay,
     handleStop,
     handleStartSoloPattern,

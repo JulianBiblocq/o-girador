@@ -13,8 +13,10 @@ import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSy
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
 import { useSequencerStore, isToadaBus } from '../stores/useSequencerStore';
+import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
+import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { useAudioStore } from '../stores/useAudioStore';
 
 const getGlobalClipboard = () => {
@@ -65,7 +67,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const isMaster = useSequencerStore(state => state.tracks.some(t => String(t.linkedToTrackId) === String(trackId)));
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
 
-  const { isPlaying, maxTicksRef, soloPatternPlayId } = audio;
+  const soloPatternPlayId = useTransportStore(state => state.soloPatternPlayId);
+  const { isPlaying, maxTicksRef } = audio;
   const maxTicks = maxTicksRef.current;
   const { activeVariationsRef, copiedPattern, handleCopyPattern, handlePastePattern, timeSig } = sequencer;
 
@@ -480,9 +483,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
     let activeElements: HTMLElement[] = [];
 
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
-      const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number }) => {
+      const { step, measure, maxTicks, ratio = step / maxTicks } = detail;
       const isEco = useSequencerStore.getState().isEcoMode;
       
       if (step < 0) {
@@ -558,9 +560,9 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       });
     };
 
-    window.addEventListener('o-girador-tick', handleTick);
+    subscribeToTick(handleTick);
     return () => {
-      window.removeEventListener('o-girador-tick', handleTick);
+      unsubscribeFromTick(handleTick);
       activeElements.forEach(el => {
         deactivateElementRef.current(el);
       });
@@ -781,9 +783,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     <div
       ref={setNodeRef}
       className={`cordel-border p-3 flex flex-col relative transition-all duration-300 bg-[var(--cordel-bg)] w-full ${
-        hasSolo ? (track.isSolo ? '' : 'opacity-50') : 
-        (track.isMute ? 'opacity-60 bg-opacity-80' : '')
-      } ${isCollapsed ? 'py-1 border-x-0 border-t-0 border-b-2 min-h-[56px] justify-center' : 'pb-2 min-h-[130px]'}`}
+        isCollapsed ? 'py-1 border-x-0 border-t-0 border-b-2 min-h-[56px] justify-center' : 'pb-2 min-h-[130px]'
+      }`}
       style={{
         ...style,
         zIndex: instDropdownOpen ? 9999 : 10,

@@ -24,7 +24,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { meters } from '../hooks/useAudioSync';
 import { useSequencerStore, isSequencerVisibleTrack, isToadaBus, isToadaChild } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
-import { Pattern } from '../types';
+import { Pattern, TrackGroup } from '../types';
 
 const trackListCache = new Map<string, { id: number; isHidden: boolean; isSolo: boolean; isMute: boolean }>();
 const getCachedTrack = (id: number, isHidden: boolean, isSolo: boolean, isMute: boolean) => {
@@ -70,7 +70,6 @@ const MixerComponent: React.FC<MixerProps> = ({
     useShallow(state => {
       const list: TrackGroup[] = [];
       state.tracks.forEach(t => {
-        if (t.isHidden) return;
         if (isToadaChild(t, state.tracks)) {
           // Never display children in the left panel sequence list
           return;

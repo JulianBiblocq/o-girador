@@ -6,6 +6,7 @@
 import React from 'react';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
+import { useTransportStore } from '../stores/useTransportStore';
 import { Pattern } from '../types';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { instrumentsConfig } from '../data';
@@ -48,7 +49,7 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
     handleVariationStepMicrotimingChange,
   } = useSequencer();
 
-  const { globalSwing } = useAudio();
+  const globalSwing = useTransportStore(state => state.globalSwing);
 
   /* Compute global swing offset for a step index */
   const getStepSwingPercent = (stepIdx: number, steps: number, beatResolutions?: number[]) => {

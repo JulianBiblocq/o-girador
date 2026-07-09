@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { subscribeToTick, unsubscribeFromTick } from '../../hooks/useAudioSync';
 
 interface TrackPatternId {
   trackId: number;
@@ -12,9 +13,8 @@ interface RhythmGridHighlighterProps {
 export const RhythmGridHighlighter: React.FC<RhythmGridHighlighterProps> = ({ trackPatternIds }) => {
   useEffect(() => {
     let previousTick: number | null = null;
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number }>;
-      const { step } = customEvent.detail;
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number }) => {
+      const { step } = detail;
       
       if (previousTick !== null) {
         const prevH = document.getElementsByClassName('step-active-highlight');
@@ -34,8 +34,8 @@ export const RhythmGridHighlighter: React.FC<RhythmGridHighlighterProps> = ({ tr
       
       previousTick = step;
     };
-    window.addEventListener('o-girador-tick', handleTick);
-    return () => window.removeEventListener('o-girador-tick', handleTick);
+    subscribeToTick(handleTick);
+    return () => unsubscribeFromTick(handleTick);
   }, [trackPatternIds]);
 
   return null;

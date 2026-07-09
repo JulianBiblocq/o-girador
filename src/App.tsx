@@ -87,7 +87,7 @@ export default function App() {
   const [selectedExportTracks, setSelectedExportTracks] = useState<Set<number>>(new Set());
   const [selectedAnnexTracks, setSelectedAnnexTracks] = useState<Set<number>>(new Set());
   const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | 'info' | 'feedback' | null>(
-    window.innerWidth < 1024 ? 'letras' : 'info'
+    'info'
   );
 
   // Instantiation of the new hooks

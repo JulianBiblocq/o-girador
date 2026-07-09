@@ -33,6 +33,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { meters, masterMeterNode } from '../hooks/useAudioSync';
 import { masterLeftMeterNode, masterRightMeterNode } from '../audio/effectsChain';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
 
 const trackListCache = new Map<string, { id: number; isHidden: boolean; isSolo: boolean; isMute: boolean }>();
@@ -70,6 +71,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
+  const [isCompactMode, setIsCompactMode] = useState(false);
 
   const {
     lang,
@@ -149,17 +151,38 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
 
   const {
+    isMetroOn,
+    setIsMetroOn,
+    metroVolume,
+    setMetroVolume,
+    metroSound,
+    setMetroSound,
+    globalSwing,
+    soloPatternPlayId,
+    soloPatternVariationId
+  } = useTransportStore(
+    useShallow((state) => ({
+      isMetroOn: state.isMetroOn,
+      setIsMetroOn: state.setIsMetroOn,
+      metroVolume: state.metroVolume,
+      setMetroVolume: state.setMetroVolume,
+      metroSound: state.metroSound,
+      setMetroSound: state.setMetroSound,
+      globalSwing: state.globalSwing,
+      soloPatternPlayId: state.soloPatternPlayId,
+      soloPatternVariationId: state.soloPatternVariationId
+    }))
+  );
+
+  const {
     isPlaying,
     maxTicksRef,
-    soloPatternPlayId,
-    soloPatternVariationId,
     handleStartSoloPattern,
     handleStopSoloPattern,
     activeKeyboardInstrumentId,
     setActiveKeyboardInstrumentId,
     handleTimeSigChange,
     masterVol, setMasterVol, masterEQ, setMasterEQ, masterCompressor, setMasterCompressor, reverbDecay, setReverbDecay, masterReverbVol, setMasterReverbVol,
-    metroVolume, setMetroVolume, metroSound, setMetroSound, isMetroOn, setIsMetroOn, globalSwing,
     isPresetLoading
   } = audio;
 
@@ -291,11 +314,17 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   }, [isPlaying, isActive]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const isEditingTrackValid = useSequencerStore(state => state.tracks.some(t => t.id === editingTrackId));
+  const { isEditingTrackValid, editingTrackInstIdx } = useSequencerStore(
+    useShallow((state) => {
+      const track = state.tracks.find((t) => t.id === editingTrackId);
+      return {
+        isEditingTrackValid: !!track,
+        editingTrackInstIdx: track?.instrumentIdx,
+      };
+    })
+  );
 
   const t = (key: string) => (i18n[lang] as any)[key] || key;
-
-  const editingTrackInstIdx = useSequencerStore(state => state.tracks.find(t => t.id === editingTrackId)?.instrumentIdx);
 
   useEffect(() => {
     if (editingTrackInstIdx !== undefined) {
@@ -595,12 +624,14 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             {displayedTracks.map((track, index) => {
               const trackId = track.id;
 
-              const group = track.isBusFolder ? String(track.id) : (track.busId ? String(track.busId) : null);
+              const group = track.isBusFolder || track.isLinkFolder
+                ? String(track.id) 
+                : (track.busId ? String(track.busId) : (track.linkedToTrackId ? String(track.linkedToTrackId) : null));
               const prevTrack = index > 0 ? displayedTracks[index - 1] : null;
               const nextTrack = index < displayedTracks.length - 1 ? displayedTracks[index + 1] : null;
 
-              const prevGroup = prevTrack ? (prevTrack.isBusFolder ? String(prevTrack.id) : (prevTrack.busId ? String(prevTrack.busId) : null)) : null;
-              const nextGroup = nextTrack ? (nextTrack.isBusFolder ? String(nextTrack.id) : (nextTrack.busId ? String(nextTrack.busId) : null)) : null;
+              const prevGroup = prevTrack ? (prevTrack.isBusFolder || prevTrack.isLinkFolder ? String(prevTrack.id) : (prevTrack.busId ? String(prevTrack.busId) : (prevTrack.linkedToTrackId ? String(prevTrack.linkedToTrackId) : null))) : null;
+              const nextGroup = nextTrack ? (nextTrack.isBusFolder || nextTrack.isLinkFolder ? String(nextTrack.id) : (nextTrack.busId ? String(nextTrack.busId) : (nextTrack.linkedToTrackId ? String(nextTrack.linkedToTrackId) : null))) : null;
 
               let busPosition: 'first' | 'middle' | 'last' | 'none' = 'none';
               if (group) {
@@ -626,6 +657,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                       busPosition={busPosition}
                       isPlaying={isPlaying}
                       isLeftHanded={isLeftHanded}
+                      isCompact={isCompactMode}
                     />
                   );
                 }
@@ -636,6 +668,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     index={index}
                     isActive={isActive}
                     busPosition={busPosition}
+                    isCompact={isCompactMode}
                   />
                 );
               }
@@ -649,6 +682,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     onOpenDetailEditor={onOpenDetailEditor}
                     isActive={isActive}
                     busPosition={busPosition}
+                    isCompact={isCompactMode}
                   />
                 );
               }
@@ -664,6 +698,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   canPaste={!!copiedPattern}
                   isActive={isActive}
                   busPosition={busPosition}
+                  isCompact={isCompactMode}
                 />
               );
             })}
@@ -682,10 +717,21 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           } as React.CSSProperties}
         >
           {/* Header / Title */}
-          <div className="relative p-3 pb-1 flex justify-center items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
+          <div className="relative p-3 pb-1 flex justify-between items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
             <div className="flex items-center gap-1.5">
               <span className="font-cactus font-bold text-sm tracking-wider">🔥 MASTER</span>
             </div>
+            <button
+              onClick={() => setIsCompactMode(!isCompactMode)}
+              className={`px-2 py-0.5 text-[10px] font-cactus font-bold cordel-border-sm cordel-button transition-colors ${
+                isCompactMode
+                  ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                  : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+              }`}
+              title={isCompactMode ? "Mode Normal" : "Mode Compact"}
+            >
+              {isCompactMode ? "🎛️ Normal" : "🎛️ Compact"}
+            </button>
           </div>
 
           {/* Middle Section (EQ & Compressor Controls) */}

@@ -7,6 +7,8 @@ import React from 'react';
 import { Play, Square, SkipBack, Circle, Repeat, ArrowRightToLine, Loader2, Gauge } from 'lucide-react';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
+import { useTransportStore } from '../stores/useTransportStore';
+import { useShallow } from 'zustand/react/shallow';
 import { i18n } from '../data';
 import { DragNumberBox } from './DragNumberBox';
 import { metroChannel } from '../audio/effectsChain';
@@ -21,14 +23,25 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
   const audio = useAudio();
 
   const { lang, bpm, setBpm, isLeftHanded, setIsLeftHanded } = sequencer;
+  
+  const {
+    isMetroOn,
+    setIsMetroOn,
+    metroVolume,
+    setMetroVolume
+  } = useTransportStore(
+    useShallow((state) => ({
+      isMetroOn: state.isMetroOn,
+      setIsMetroOn: state.setIsMetroOn,
+      metroVolume: state.metroVolume,
+      setMetroVolume: state.setMetroVolume
+    }))
+  );
+
   const {
     isPlaying,
     isRecording,
     recordingSeconds = 0,
-    isMetroOn,
-    setIsMetroOn,
-    metroVolume,
-    setMetroVolume,
     handleTogglePlay,
     handleStop,
     handleAudioRecordingToggle,

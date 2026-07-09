@@ -1,5 +1,6 @@
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
+import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import React, { useEffect, useState, useRef } from 'react';
 import { useSequencer } from '../contexts/SequencerContext';
 import { instrumentsConfig } from '../data';
@@ -187,9 +188,8 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
   // --- AUDIO TICK LISTENERS AND GPU ANIMATIONS (WAAPI) ---
   useEffect(() => {
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number }>;
-      const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number }) => {
+      const { step, measure, maxTicks, ratio = step / maxTicks } = detail;
       
       if (step < 0) {
         lastVuStepRef.current = -1;
@@ -204,6 +204,13 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
             el.classList.remove('scale-110', 'transform');
             el.style.color = '';
           });
+        }
+        if (inst.id === 'agbe' && agbeWholeRef.current && agbeLeftRef.current && agbeRightRef.current && agbeTopRef.current && agbeBottomRef.current) {
+          agbeWholeRef.current.style.display = 'block';
+          agbeLeftRef.current.style.display = 'none';
+          agbeRightRef.current.style.display = 'none';
+          agbeTopRef.current.style.display = 'none';
+          agbeBottomRef.current.style.display = 'none';
         }
         return;
       }
@@ -514,17 +521,47 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
             // --- 4. Agbê ---
             else if (inst.id === 'agbe') {
               if (agbeWholeRef.current && agbeLeftRef.current && agbeRightRef.current && agbeTopRef.current && agbeBottomRef.current) {
-                agbeWholeRef.current.style.display = 'block';
-                agbeLeftRef.current.style.display = 'none';
-                agbeRightRef.current.style.display = 'none';
-                agbeTopRef.current.style.display = 'none';
-                agbeBottomRef.current.style.display = 'none';
+                const isLeftRight = ['D', 'd', 'E', 'e'].includes(stroke);
+                const isTopBottom = ['S', 's', 'V', 'v'].includes(stroke);
 
-                const keyframes = generateAgbeKeyframes(stroke);
-                agbeWholeRef.current.animate(keyframes, {
-                  duration: 350,
-                  easing: 'linear'
-                });
+                if (isLeftRight) {
+                  agbeWholeRef.current.style.display = 'none';
+                  agbeTopRef.current.style.display = 'none';
+                  agbeBottomRef.current.style.display = 'none';
+                  agbeLeftRef.current.style.display = 'block';
+                  agbeRightRef.current.style.display = 'block';
+
+                  if (stroke === 'E' || stroke === 'e') {
+                    const keyframes = stroke === 'E' ? KEYFRAMES_AGBE_STRETCH_X_STRONG : KEYFRAMES_AGBE_STRETCH_X_WEAK;
+                    agbeLeftRef.current.animate(keyframes, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
+                  } else {
+                    const keyframes = stroke === 'D' ? KEYFRAMES_AGBE_STRETCH_X_STRONG : KEYFRAMES_AGBE_STRETCH_X_WEAK;
+                    agbeRightRef.current.animate(keyframes, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
+                  }
+                } else if (isTopBottom) {
+                  agbeWholeRef.current.style.display = 'none';
+                  agbeLeftRef.current.style.display = 'none';
+                  agbeRightRef.current.style.display = 'none';
+                  agbeTopRef.current.style.display = 'block';
+                  agbeBottomRef.current.style.display = 'block';
+
+                  if (stroke === 'S' || stroke === 's') {
+                    const keyframes = stroke === 'S' ? KEYFRAMES_AGBE_STRETCH_Y_STRONG : KEYFRAMES_AGBE_STRETCH_Y_WEAK;
+                    agbeTopRef.current.animate(keyframes, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
+                  } else {
+                    const keyframes = stroke === 'V' ? KEYFRAMES_AGBE_STRETCH_Y_STRONG : KEYFRAMES_AGBE_STRETCH_Y_WEAK;
+                    agbeBottomRef.current.animate(keyframes, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
+                  }
+                } else {
+                  agbeWholeRef.current.style.display = 'block';
+                  agbeLeftRef.current.style.display = 'none';
+                  agbeRightRef.current.style.display = 'none';
+                  agbeTopRef.current.style.display = 'none';
+                  agbeBottomRef.current.style.display = 'none';
+
+                  const keyframes = KEYFRAMES_AGBE_SHAKE;
+                  agbeWholeRef.current.animate(keyframes, { duration: 350, easing: 'linear' });
+                }
               }
             }
 
@@ -534,8 +571,11 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
               const handSpread = Math.min(width * 0.45, 550);
               const offset = isLeftHanded ? -handSpread : handSpread;
               
-              const hitTargetY = (stroke === 'G' || stroke === 'g') ? targetY - 300 : (stroke === 'A' || stroke === 'a') ? targetY + 250 : targetY - 30;
-              const hitTargetX = targetX;
+              const isAlternated = targetStep % 2 === 0;
+              const alternateX = isAlternated ? -25 : 25;
+
+              const hitTargetY = (stroke === 'G' || stroke === 'g') ? targetY - 200 : (stroke === 'A' || stroke === 'a') ? targetY + 120 : targetY - 30;
+              const hitTargetX = targetX + (offset * 0.4) + alternateX;
 
               const originX = width / 2 + offset;
               const originY = height + 350;
@@ -555,8 +595,9 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
               if (gongueStickRef.current) {
                 gongueStickRef.current.animate(keyframes, {
-                  duration: 150,
-                  easing: 'linear'
+                  duration: isVibrate ? 100 : 300,
+                  iterations: isVibrate ? Infinity : 1,
+                  easing: isVibrate ? 'linear' : undefined
                 });
               }
             }
@@ -565,9 +606,9 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
       }
     };
 
-    window.addEventListener('o-girador-tick', handleTick);
+    subscribeToTick(handleTick);
     return () => {
-      window.removeEventListener('o-girador-tick', handleTick);
+      unsubscribeFromTick(handleTick);
     };
   }, [activeAoVivoTrackId, isLeftHanded, activeTrack, inst]);
 

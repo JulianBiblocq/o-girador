@@ -32,12 +32,12 @@ export function generateAlfaiaKeyframes(stroke: string, isLeft: boolean): Keyfra
 
   // --- Strong Hits (E, D) with 3D wind-up (scale 1.15) and whipped impact (scale 0.85) ---
   if (stroke === 'D' || stroke === 'E') {
-    const finalY = -250 + randY;
-    const finalRotX = 55 + randRot;
+    const finalY = -280 + randY;
+    const finalRotX = 60 + randRot;
     return [
-      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)`, easing: 'ease-out' },
-      { transform: `translate(0px, 20px) rotateX(${reposRotX - 10}deg) scale(1.15)`, offset: 0.1, easing: 'cubic-bezier(0.5, 0, 1, 1)' },
-      { transform: `translate(${impactX}px, ${finalY + impactY}px) rotateX(${finalRotX}deg) scale(0.85)`, offset: 0.25, easing: 'ease-out' },
+      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)`, easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
+      { transform: `translate(0px, 20px) rotateX(${reposRotX - 10}deg) scale(1.15)`, offset: 0.1, easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
+      { transform: `translate(${impactX}px, ${finalY + impactY}px) rotateX(${finalRotX}deg) scale(0.85)`, offset: 0.25, easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
       { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)` }
     ];
   }
@@ -70,22 +70,21 @@ export function generateAlfaiaKeyframes(stroke: string, isLeft: boolean): Keyfra
 
   if (useZ) {
     return [
-      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) rotateZ(0deg) scale(1)`, easing: 'cubic-bezier(0.5, 0, 1, 1)' },
-      { transform: `translate(${impactX}px, ${finalY + impactY}px) rotateZ(${finalRotZ}deg) scale(1)`, offset: 0.25, easing: 'ease-out' },
+      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) rotateZ(0deg) scale(1)`, easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
+      { transform: `translate(${impactX}px, ${finalY + impactY}px) rotateZ(${finalRotZ}deg) scale(1)`, offset: 0.25, easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
       { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) rotateZ(0deg) scale(1)` }
     ];
   } else {
     return [
-      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)`, easing: 'cubic-bezier(0.5, 0, 1, 1)' },
-      { transform: `translate(${impactX}px, ${finalY + impactY}px) rotateX(${finalRotX}deg) scale(1)`, offset: 0.25, easing: 'ease-out' },
+      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)`, easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
+      { transform: `translate(${impactX}px, ${finalY + impactY}px) rotateX(${finalRotX}deg) scale(1)`, offset: 0.25, easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
       { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)` }
     ];
   }
 }
 
 // Drum (Caixa/Tarol) Keyframes Generator (Repos -> Impact -> Repos)
-// Caixa clara is resserrée. Weak Y impact target increased to -135px (halfway between -90px and -180px).
-// Three keyframes for normal hits, Four keyframes for strong E/D hits to add Z-axis (scale) wind-up and impact.
+// Caixa clara is resserrée. Snappy elastic rebound (easing: cubic-bezier(0.1, 2.0, 0.3, 1)).
 export function generateDrumKeyframes(stroke: string, isLeft: boolean): Keyframe[] {
   const randY = randomSign() * randomRange(5, 15);
   const randRot = randomSign() * randomRange(1, 3);
@@ -114,9 +113,9 @@ export function generateDrumKeyframes(stroke: string, isLeft: boolean): Keyframe
     const finalY = -180 + randY;
     const finalRotX = 55 + randRot;
     return [
-      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)`, easing: 'ease-out' },
-      { transform: `translate(0px, 20px) rotateX(${reposRotX - 8}deg) scale(1.15)`, offset: 0.1, easing: 'cubic-bezier(0.5, 0, 1, 1)' },
-      { transform: `translate(${impactX}px, ${finalY + impactY}px) rotateX(${finalRotX}deg) scale(0.85)`, offset: 0.25, easing: 'ease-out' },
+      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)`, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
+      { transform: `translate(0px, 20px) rotateX(${reposRotX - 8}deg) scale(1.15)`, offset: 0.1, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
+      { transform: `translate(${impactX}px, ${finalY + impactY}px) rotateX(${finalRotX}deg) scale(0.85)`, offset: 0.25, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
       { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)` }
     ];
   }
@@ -125,7 +124,7 @@ export function generateDrumKeyframes(stroke: string, isLeft: boolean): Keyframe
     // Rufada: Y impact zone confined strictly to weak hit impact coordinate (-135px)
     const hitY = -135;
     return [
-      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) rotateZ(0deg) scale(1)`, easing: 'cubic-bezier(0.5, 0, 1, 1)' },
+      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) rotateZ(0deg) scale(1)`, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
       { transform: `translate(${impactX}px, ${hitY + impactY}px) rotateZ(0deg) scale(1)`, offset: 0.25, easing: 'linear' },
       { transform: `translate(${impactX * 0.8}px, ${hitY + 5 - randY * 0.1}px) rotateZ(0deg) scale(1)`, offset: 0.40, easing: 'linear' },
       { transform: `translate(${impactX * 0.6}px, ${hitY + impactY}px) rotateZ(0deg) scale(1)`, offset: 0.55, easing: 'linear' },
@@ -163,54 +162,43 @@ export function generateDrumKeyframes(stroke: string, isLeft: boolean): Keyframe
 
   if (useZ) {
     return [
-      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) rotateZ(0deg) scale(1)`, easing: 'cubic-bezier(0.5, 0, 1, 1)' },
-      { transform: `translate(${impactX}px, ${finalY + impactY}px) rotateZ(${finalRotZ}deg) scale(1)`, offset: 0.25, easing: 'ease-out' },
+      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) rotateZ(0deg) scale(1)`, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
+      { transform: `translate(${impactX}px, ${finalY + impactY}px) rotateZ(${finalRotZ}deg) scale(1)`, offset: 0.25, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
       { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) rotateZ(0deg) scale(1)` }
     ];
   } else {
     return [
-      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)`, easing: 'cubic-bezier(0.5, 0, 1, 1)' },
-      { transform: `translate(${impactX}px, ${finalY + impactY}px) rotateX(${finalRotX}deg) scale(1)`, offset: 0.25, easing: 'ease-out' },
+      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)`, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
+      { transform: `translate(${impactX}px, ${finalY + impactY}px) rotateX(${finalRotX}deg) scale(1)`, offset: 0.25, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
       { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)` }
     ];
   }
 }
 
 // Gonguê Keyframes Generator (Impact -> Repos)
-// Unchanged from Task 10, as requested by user.
 export function generateGongueKeyframes(stroke: string): Keyframe[] {
-  const randY = randomSign() * randomRange(1, 3); // smaller random height offset for gongue
+  const randY = randomSign() * randomRange(1, 3);
   const randRot = randomSign() * randomRange(0.5, 1.5);
   const isVibrate = stroke === 'b' || stroke === 'B';
 
   const isStrong = ['G', 'A'].includes(stroke);
-  const reposY = isStrong ? -100 : 0;
-  const reposRotX = isStrong ? 2 : 4;
-
-  // Humanisation XY at the impact (0%)
-  const impactX = randomSign() * randomRange(2, 6);
-  const impactY = randomSign() * randomRange(2, 6);
-
-  const hitTargetY = isStrong ? -250 : -130;
+  const reposRotX = isStrong ? 4 : 8;
+  const hitTargetY = isStrong ? -40 : -15; // Amplitude minimal
 
   if (isVibrate) {
     return [
-      { transform: `translate(${impactX}px, ${reposY + impactY}px) rotateX(${reposRotX}deg) scale(1)`, easing: 'ease-in-out' },
-      { transform: `translateX(${-10 + randY * 0.2}px) translateY(${reposY - 10 + randY * 0.2}px) rotateZ(${-3 + randRot * 0.5}deg) scale(1)`, offset: 0.25, easing: 'ease-in-out' },
-      { transform: `translateX(${10 - randY * 0.2}px) translateY(${reposY + 10 - randY * 0.2}px) rotateZ(${3 - randRot * 0.5}deg) scale(1)`, offset: 0.5, easing: 'ease-in-out' },
-      { transform: `translateX(${-10 + randY * 0.2}px) translateY(${reposY + 10 - randY * 0.2}px) rotateZ(${-3 + randRot * 0.5}deg) scale(1)`, offset: 0.75, easing: 'ease-in-out' },
-      { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) rotateZ(0deg) scale(1)` }
+      { transform: `translateY(0px) rotateX(${reposRotX}deg) scale(1)`, easing: 'ease-in-out' },
+      { transform: `translateX(${-10 + randY * 0.2}px) translateY(${-10 + randY * 0.2}px) rotateZ(${-3 + randRot * 0.5}deg) scale(1)`, offset: 0.25, easing: 'ease-in-out' },
+      { transform: `translateX(${10 - randY * 0.2}px) translateY(${10 - randY * 0.2}px) rotateZ(${3 - randRot * 0.5}deg) scale(1)`, offset: 0.5, easing: 'ease-in-out' },
+      { transform: `translateX(${-10 + randY * 0.2}px) translateY(${10 - randY * 0.2}px) rotateZ(${-3 + randRot * 0.5}deg) scale(1)`, offset: 0.75, easing: 'ease-in-out' },
+      { transform: `translateY(0px) rotateX(${reposRotX}deg) scale(1)` }
     ];
   }
 
-  // Gonguê crushing physics:
-  // Hitting the skin/metal is at hitTargetY
-  // Glued state is hitTargetY (0.10s hold)
-  // Repos state is reposY
   return [
-    { transform: `translate(${impactX}px, ${hitTargetY + impactY}px) rotateX(0deg) scale(1)`, easing: 'linear' },
-    { transform: `translate(${impactX * 0.8}px, ${hitTargetY + randY * 0.1}px) rotateX(${reposRotX * 0.2 + randRot * 0.1}deg) scale(1)`, offset: 0.10, easing: 'ease-in-out' },
-    { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)` }
+    { transform: `translateY(0px) rotateX(${reposRotX}deg) scale(1)`, easing: 'cubic-bezier(0.1, 0.9, 0.2, 1)' },
+    { transform: `translateY(${hitTargetY}px) rotateX(0deg) scale(1)`, offset: 0.3, easing: 'cubic-bezier(0.1, 0.9, 0.2, 1)' },
+    { transform: `translateY(0px) rotateX(${reposRotX}deg) scale(1)` }
   ];
 }
 

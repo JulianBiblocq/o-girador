@@ -13,6 +13,7 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useAuth } from '../contexts/AuthContext';
 import { PresetMetadata, CloudRhythmSignal } from '../types';
+import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 
 const ShortcutsGuide = React.lazy(() => import('./right-sidebar/ShortcutsGuide').then(m => ({ default: m.ShortcutsGuide })));
 const PresetManagerSection = React.lazy(() => import('./right-sidebar/PresetManagerSection').then(m => ({ default: m.PresetManagerSection })));
@@ -59,16 +60,15 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   React.useEffect(() => {
     if (!visible) return;
 
-    const handleTick = (e: Event) => {
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number }) => {
       if (useSequencerStore.getState().isEcoMode) {
         setCurrentStepIndex(-1);
         return;
       }
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number }>;
-      setCurrentStepIndex(customEvent.detail.step);
+      setCurrentStepIndex(detail.step);
     };
-    window.addEventListener('o-girador-tick', handleTick);
-    return () => window.removeEventListener('o-girador-tick', handleTick);
+    subscribeToTick(handleTick);
+    return () => unsubscribeFromTick(handleTick);
   }, [visible]);
   const audio = useAudio();
 
@@ -203,8 +203,8 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                 }}
                 className="w-full py-2 pl-3 pr-10 font-cactus font-bold text-[14px] uppercase cordel-border-sm cursor-pointer bg-[var(--cordel-bg)] text-[var(--cordel-text)] focus:outline-none appearance-none"
               >
-                <option value="toada">📝 Toada</option>
                 <option value="info">ℹ️ {lang === 'fr' ? 'Informations' : 'Informações'}</option>
+                <option value="toada">📝 Toada</option>
                 <option value="sinais">🎨 {lang === 'fr' ? 'Signes' : 'Sinais'}</option>
                 <option value="legendes">📖 {t('legend')}</option>
                 <option value="feedback">💬 {lang === 'fr' ? 'Note & Avis' : 'Nota & Opinião'}</option>

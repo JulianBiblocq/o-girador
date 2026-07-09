@@ -7,7 +7,9 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as Tone from 'tone';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
+import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { Pattern } from '../types';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { Trash2 } from 'lucide-react';
@@ -467,7 +469,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     handleVariationStepValueChange,
   } = useSequencer();
 
-  const { globalSwing, soloPatternPlayIdRef } = useAudio();
+  const globalSwing = useTransportStore(state => state.globalSwing);
+  const { soloPatternPlayIdRef } = useAudio();
 
   const gridRef = useRef<HTMLDivElement>(null);
   const [hasClipboard, setHasClipboard] = useState(false);
@@ -532,11 +535,10 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     let lastActiveWordEl: HTMLElement | null = null;
     let lastActiveSylEl: HTMLElement | null = null;
 
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number }>;
-      if (!customEvent.detail || !gridRef.current) return;
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number }) => {
+      if (!detail || !gridRef.current) return;
 
-      const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+      const { step, measure, maxTicks, ratio = step / maxTicks } = detail;
 
       const storeState = useSequencerStore.getState();
       const trackObj = storeState.tracks.find(t => t.id === trackId);
@@ -617,9 +619,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       }
     };
 
-    window.addEventListener('o-girador-tick', handleTick);
+    subscribeToTick(handleTick);
     return () => {
-      window.removeEventListener('o-girador-tick', handleTick);
+      unsubscribeFromTick(handleTick);
       if (lastActiveWordEl) {
         lastActiveWordEl.classList.remove('text-[#8b2a1a]', 'scale-105', 'transform', 'origin-left');
         lastActiveWordEl.classList.add('opacity-85');

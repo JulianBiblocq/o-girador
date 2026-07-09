@@ -84,7 +84,7 @@ export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptio
         setActiveRightPanelRef.current(null);
       } else if (targetView === 'roda') {
         if (window.innerWidth >= 1024) {
-          setActiveRightPanelRef.current('letras');
+          setActiveRightPanelRef.current('info');
         }
       }
     };
