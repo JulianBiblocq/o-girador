@@ -806,15 +806,14 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           </div>
 
           {/* Bottom Fader (Master Fader & Master LED Meter) */}
-          <div className="relative z-10 p-3 pt-2 flex justify-center items-end h-[200px] gap-8">
+          <div className="relative z-10 p-3 pt-2 flex justify-center items-stretch flex-grow flex-1 min-h-[100px] h-auto gap-8 overflow-hidden">
             
             {/* Master Fader Column */}
-            <div className="flex flex-col items-center gap-1 h-full justify-end">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Master</span>
-              <div className="h-[140px] flex items-center">
+            <div className="flex flex-col items-center gap-1 h-full justify-end flex-1 min-w-0">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60 shrink-0">Master</span>
+              <div className="flex-grow flex-1 w-full flex items-center justify-center min-h-0">
                 <MixerVolumeFader
                   value={Math.max(0, Math.min(100, Math.round(((masterVol + 40) / 46) * 100)))}
-                  height={140}
                   thumbWidth={44}
                   thumbHeight={24}
                   fontSize="text-[11px]"
@@ -834,9 +833,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             </div>
 
             {/* Master LED Meter (Stereo) */}
-            <div className="flex flex-col items-center gap-1 h-full justify-end">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
-              <div className="w-7 h-[140px] bg-[var(--cordel-bg)] cordel-border relative overflow-hidden flex gap-[2px] p-[1.5px]">
+            <div className="flex flex-col items-center gap-1 h-full justify-end shrink-0 w-8">
+              <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60 shrink-0">Meter</span>
+              <div className="w-8 flex-grow flex-1 bg-[var(--cordel-bg)] cordel-border relative overflow-hidden flex gap-[2px] p-[1.5px] min-h-0">
                 <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
                   <div
                     ref={vuMeterLeftRef}

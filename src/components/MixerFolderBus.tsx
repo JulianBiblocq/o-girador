@@ -297,7 +297,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
     return (
       <div
         ref={setNodeRef}
-        className={`flex flex-col bg-[var(--cordel-bg)] w-[104px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
+        className={`flex flex-col bg-[var(--cordel-bg)] w-[104px] h-full justify-between shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
           hasSolo ? (track.isSolo ? 'shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-50') : 
           (track.isMute ? 'opacity-60 bg-black/5 dark:bg-white/5' : 'opacity-100')
         } ${busPosition === 'none' ? 'cordel-border' : ''}`}
@@ -313,8 +313,8 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
       >
         {/* Niveau 6 (Tout en haut) : En-tête */}
         <div 
-          className="relative p-1.5 pb-1 flex flex-col gap-1 border-b-[3px] border-[var(--cordel-border)] h-[76px] shrink-0 justify-between bg-[var(--cordel-text)]/5"
-          style={{ zIndex: 10 }}
+          className="relative p-1.5 pb-1 flex flex-col gap-1 border-b-[3px] border-[var(--cordel-border)] h-[76px] shrink-0 justify-between w-full"
+          style={{ zIndex: isDragging ? 60 : 10 }}
         >
           {/* Outils */}
           <div className="flex justify-between items-center w-full">
@@ -326,23 +326,25 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             >
               <GripHorizontal size={14} />
             </div>
+            
             <button
               onClick={() => setIsEditing(true)}
               className="w-5 h-5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-[9px]"
-              title="Renommer"
+              title={lang === 'fr' ? 'Renommer le groupe' : 'Renomear o grupo'}
             >
               ✏️
             </button>
+
             <button 
               onClick={onDelete} 
-              className="w-5 h-5 bg-[#8b2a1a]/10 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border-[#8b2a1a] text-[#8b2a1a] cordel-border-sm cursor-pointer font-bold flex items-center justify-center transition-colors text-[9px]"
-              title="Supprimer"
+              className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-[9px]"
+              title={lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o groupe'}
             >
               ✕
             </button>
           </div>
 
-          {/* Title Fold/Unfold */}
+          {/* Instrument Selector / Dropdown Trigger */}
           <div className="relative flex items-center w-full">
             {isEditing ? (
               <input
@@ -350,13 +352,16 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
                 value={nameVal}
                 onChange={(e) => setNameVal(e.target.value)}
                 onBlur={handleRenameSubmit}
-                onKeyDown={handleKeyDown}
-                className="font-cactus font-bold text-[9px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-1 py-0.5 flex-1 outline-none w-full text-center"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleRenameSubmit();
+                  if (e.key === 'Escape') setIsEditing(false);
+                }}
+                className="font-cactus font-bold text-[9px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-1 py-0.5 flex-1 outline-none w-full"
                 autoFocus
               />
             ) : (
               <div 
-                onClick={onToggleFold}
+                onClick={() => useSequencerStore.getState().handleToggleFoldBus(String(trackId))}
                 className="flex items-center gap-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-1 py-1 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-center font-bold text-[9px]"
               >
                 <span className="font-cactus truncate">{track.isFolded ? '▼' : '▲'} {track.customName || 'Bus'}</span>
@@ -365,9 +370,9 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
           </div>
         </div>
 
-        {/* Inner Controls Stack (Packed closer together at the bottom) */}
-        <div className="flex-1 flex flex-col p-2 gap-2 justify-end items-center overflow-y-auto custom-scrollbar">
-          {/* Section EQ & Low-Cut (Compact Mode) */}
+        {/* Inner Controls Stack (Responsive / Elastic Vertical Layout) */}
+        <div className="flex-1 flex flex-col p-1.5 gap-1.5 justify-between items-center w-full min-h-0 overflow-y-auto custom-scrollbar">
+          {/* Section EQ & Low-Cut (Compact Mode) - flex-shrink */}
           {(() => {
             if (!track) return null;
             const lowCut = track.lowCut ?? false;
@@ -434,7 +439,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             };
 
             return (
-              <div className="w-full flex flex-col gap-1 shrink-0 px-0.5">
+              <div className="w-full flex flex-col gap-1 shrink px-0.5">
                 {/* Reset button row */}
                 <div className="flex justify-end w-full">
                   <button
@@ -583,63 +588,62 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             );
           })()}
 
-          {/* Niveau 5 : Distortion */}
+          {/* Niveau 5 : Distortion - flexible compression */}
           <DragNumberBox 
             label="Dst" 
             value={track.fxSends?.distortion ?? 0} 
             onChange={onDistortionChange}
             onAudioDrag={handleDistortionAudioDrag}
-            className="w-full text-[8px] px-1 py-0.5 shrink-0"
+            className="w-full text-[8px] px-1 py-0.5 shrink"
           />
 
-          {/* Niveau 4 : Reverb */}
+          {/* Niveau 4 : Reverb - flexible compression */}
           <DragNumberBox 
             label="Rev" 
             value={track.fxSends?.reverb ?? 0} 
             onChange={onReverbChange}
             onAudioDrag={handleReverbAudioDrag}
-            className="w-full text-[8px] px-1 py-0.5 shrink-0"
+            className="w-full text-[8px] px-1 py-0.5 shrink"
           />
 
           {/* Ligne de délimitation fine au-dessus du Pan */}
           <div className="w-full border-t border-[var(--cordel-border)]/20 my-0.5 shrink-0" />
 
-          {/* Niveau 3 : Panoramique */}
-          <PanKnob 
-            trackId={trackId} 
-            value={track.panVal || 0} 
-            onChange={onPanChange}
-            label="PAN"
-            showLabels={false}
-          />
+          {/* Niveau 3 : Panoramique - fixed height */}
+          <div className="shrink-0 flex justify-center w-full">
+            <PanKnob 
+              trackId={trackId} 
+              value={track.panVal || 0} 
+              onChange={onPanChange}
+              label="PAN"
+              showLabels={false}
+            />
+          </div>
 
-          {/* Niveau 2 : Volume + VU-mètre side-by-side */}
-          <div className="flex items-center justify-center gap-1.5 w-full py-1">
-            <div className="flex flex-col items-center shrink-0">
+          {/* Niveau 2 : Volume + VU-mètre side-by-side (ÉLASTIQUE) */}
+          <div className="flex-grow flex-1 min-h-[100px] h-auto flex justify-center gap-2 items-stretch w-full py-1 overflow-hidden">
+            <div className="flex flex-col items-center flex-1 h-full min-w-0">
               <MixerVolumeFader
                 trackId={trackId}
                 value={track.volumeVal}
                 onChange={onVolumeChange}
                 faderColor={busColor}
                 textColor={faderTextColor}
-                height={150}
               />
             </div>
-            <div className="flex flex-col items-center w-5 shrink-0">
-              <div className="h-[150px] flex justify-center items-center relative w-5">
-                <VUMeter
-                  busId={String(trackId)}
-                  isPlaying={isPlaying && isActive}
-                  isActive={isActive}
-                  orientation="vertical"
-                  className="w-2 h-[134px] bg-[var(--cordel-bg)] cordel-border-sm"
-                />
-              </div>
+            <div className="flex flex-col items-center w-5 h-full justify-center">
+              <VUMeter
+                busId={String(trackId)}
+                isPlaying={isPlaying && isActive}
+                isActive={isActive}
+                orientation="vertical"
+                className="w-2 h-full bg-[var(--cordel-bg)] cordel-border-sm"
+              />
             </div>
           </div>
 
-          {/* Niveau 1 (Tout en bas) : Mute & Solo */}
-          <div className="flex gap-1.5 w-full justify-center">
+          {/* Niveau 1 (Tout en bas) : Mute & Solo - fixed size */}
+          <div className="flex gap-1.5 w-full justify-center shrink-0">
             <button 
               onClick={(e) => { e.stopPropagation(); onMuteToggle(); }} 
               className={`flex-1 h-7 cordel-border-sm cordel-button font-bold text-[10px] flex items-center justify-center transition-all ${

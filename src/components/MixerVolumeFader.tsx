@@ -40,8 +40,29 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const isDraggingRef = useRef(false);
 
+  const [measuredHeight, setMeasuredHeight] = React.useState(height || 115);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (height) {
+      setMeasuredHeight(height);
+      return;
+    }
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const rect = entry.contentRect;
+        if (rect.height > 0) {
+          setMeasuredHeight(rect.height);
+        }
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [height]);
+
   // Configuration géométrique correspondant au design (avec valeurs dynamiques ou par défaut)
-  const containerHeight = height || 115;
+  const containerHeight = height || measuredHeight;
   const faderHeight = containerHeight - 16; // préserve 8px de padding en haut et en bas
   const resolvedThumbHeight = thumbHeight || 20;
   const travelRange = faderHeight - resolvedThumbHeight;
@@ -118,12 +139,13 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
       }
       updateAudioNode(value);
     }
-  }, [value, trackId]);
+  }, [value, trackId, containerHeight]);
 
   return (
     <div 
-      className="flex justify-center items-center relative w-10 select-none"
-      style={{ height: `${containerHeight}px` }}
+      ref={containerRef}
+      className="flex justify-center items-center relative w-10 select-none h-full"
+      style={{ height: height !== undefined ? `${height}px` : '100%' }}
     >
       {/* 1. La fente du fader (Visuel en arrière-plan) */}
       <div 
@@ -158,7 +180,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
         type="range"
         min="0"
         max="100"
-        orient="vertical"
+        {...{ orient: 'vertical' }}
         defaultValue={value}
         onChange={handleDrag}
         onPointerDown={handlePointerDown}
