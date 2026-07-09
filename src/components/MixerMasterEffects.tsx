@@ -3,7 +3,6 @@ import * as Tone from 'tone';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { DragNumberBox } from './DragNumberBox';
-import { MixerVolumeFader } from './MixerVolumeFader';
 import { masterReverbVolumeNode, masterDistortionVolumeNode, reverbNode, distortionNode } from '../audio/effectsChain';
 
 // Fonction de conversion quadratique-logarithmique
@@ -14,10 +13,9 @@ const percentToDb = (percent: number): number => {
 
 export const MixerMasterEffects: React.FC = () => {
   const masterFX = useSequencerStore(useShallow((state) => state.masterFX));
-  const { setMasterFxVolume, setMasterFxParam, toggleMasterFxMute } = useSequencerStore();
+  const { setMasterFxVolume, setMasterFxParam } = useSequencerStore();
 
   const handleReverbDrag = (val: number) => {
-    if (masterFX.reverb.isMuted) return;
     const gain = val === 0 ? 0 : Tone.dbToGain(percentToDb(val));
     if (masterReverbVolumeNode) {
       masterReverbVolumeNode.gain.rampTo(gain, 0.05);
@@ -25,7 +23,6 @@ export const MixerMasterEffects: React.FC = () => {
   };
 
   const handleDistortionDrag = (val: number) => {
-    if (masterFX.distortion.isMuted) return;
     const gain = val === 0 ? 0 : Tone.dbToGain(percentToDb(val));
     if (masterDistortionVolumeNode) {
       masterDistortionVolumeNode.gain.rampTo(gain, 0.05);
@@ -66,8 +63,8 @@ export const MixerMasterEffects: React.FC = () => {
           <span className="font-cactus font-bold text-[9px] tracking-wider">🌊 REVERB</span>
         </div>
 
-        {/* Paramètre decay */}
-        <div className="p-1 flex justify-center border-b border-[var(--cordel-border)]/10">
+        {/* Paramètres: Decay & Vol */}
+        <div className="p-1 flex flex-col gap-2 items-center mt-1">
           <DragNumberBox 
             label="Time"
             value={masterFX.reverb.time}
@@ -75,27 +72,13 @@ export const MixerMasterEffects: React.FC = () => {
             onAudioDrag={handleReverbTimeDrag}
             className="w-20"
           />
-        </div>
-
-        {/* Fader et Mute */}
-        <div className="flex justify-around items-center p-1 pt-2 gap-1.5 h-[155px]">
-          <button
-            onClick={() => toggleMasterFxMute('reverb')}
-            className={`w-6 h-6 border font-bold text-[9px] flex items-center justify-center transition-all shrink-0 ${
-              masterFX.reverb.isMuted 
-                ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a]' 
-                : 'bg-transparent border-[var(--cordel-border)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-            }`}
-          >
-            M
-          </button>
-          <div className="h-[135px] flex items-center">
-            <MixerVolumeFader
-              value={masterFX.reverb.returnVolume}
-              onChange={(val) => setMasterFxVolume('reverb', val)}
-              onAudioDrag={handleReverbDrag}
-            />
-          </div>
+          <DragNumberBox 
+            label="Vol"
+            value={masterFX.reverb.returnVolume}
+            onChange={(val) => setMasterFxVolume('reverb', val)}
+            onAudioDrag={handleReverbDrag}
+            className="w-20"
+          />
         </div>
       </div>
 
@@ -106,8 +89,8 @@ export const MixerMasterEffects: React.FC = () => {
           <span className="font-cactus font-bold text-[9px] tracking-wider">🔥 DISTO</span>
         </div>
 
-        {/* Paramètre drive */}
-        <div className="p-1 flex justify-center border-b border-[var(--cordel-border)]/10">
+        {/* Paramètres: Drive & Vol */}
+        <div className="p-1 flex flex-col gap-2 items-center mt-1">
           <DragNumberBox 
             label="Drive"
             value={masterFX.distortion.drive}
@@ -115,27 +98,13 @@ export const MixerMasterEffects: React.FC = () => {
             onAudioDrag={handleDistortionDriveDrag}
             className="w-20"
           />
-        </div>
-
-        {/* Fader et Mute */}
-        <div className="flex justify-around items-center p-1 pt-2 gap-1.5 h-[155px]">
-          <button
-            onClick={() => toggleMasterFxMute('distortion')}
-            className={`w-6 h-6 border font-bold text-[9px] flex items-center justify-center transition-all shrink-0 ${
-              masterFX.distortion.isMuted 
-                ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a]' 
-                : 'bg-transparent border-[var(--cordel-border)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-            }`}
-          >
-            M
-          </button>
-          <div className="h-[135px] flex items-center">
-            <MixerVolumeFader
-              value={masterFX.distortion.returnVolume}
-              onChange={(val) => setMasterFxVolume('distortion', val)}
-              onAudioDrag={handleDistortionDrag}
-            />
-          </div>
+          <DragNumberBox 
+            label="Vol"
+            value={masterFX.distortion.returnVolume}
+            onChange={(val) => setMasterFxVolume('distortion', val)}
+            onAudioDrag={handleDistortionDrag}
+            className="w-20"
+          />
         </div>
       </div>
     </div>
