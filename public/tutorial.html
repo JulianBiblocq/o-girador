@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>O Girador - Tutorial / Guide</title>
+  <title>O Girador — Manuel d'utilisation / Manual de Instruções</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     @font-face {
       font-family: 'Cactus';
@@ -13,728 +13,1912 @@
       font-weight: normal;
       font-style: normal;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: #f4ecd8;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08' /%3E%3C/svg%3E");
-      color: #1a1a1a;
-      min-height: 100vh;
+
+    :root {
+      --bg: #f4ecd8;
+      --text: #1a1a1a;
+      --border: #1a1a1a;
+      --primary: #8b2a1a;
+      --primary-hover: #b13521;
+      --card-bg: #ebdcb9;
+      --kbd-bg: #f4ecd8;
+      
+      --green: #2e7d32;
+      --orange: #d84315;
+      --blue: #1565c0;
+      
+      --header-h: 70px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
       padding: 0;
     }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.07' /%3E%3C/svg%3E");
+      color: var(--text);
+      min-height: 100vh;
+      padding-top: var(--header-h);
+      scroll-behavior: smooth;
+    }
+
+    /* Clean Language Switcher via CSS classes */
+    body.lang-fr [lang="pt"] { display: none !important; }
+    body.lang-pt [lang="fr"] { display: none !important; }
+
+    /* Header */
     .header {
-      background-color: #f4ecd8;
-      border-bottom: 3px solid #1a1a1a;
-      padding: 16px 24px;
+      height: var(--header-h);
+      background-color: var(--bg);
+      border-bottom: 3px solid var(--border);
+      padding: 0 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      position: sticky;
+      position: fixed;
       top: 0;
+      left: 0;
+      right: 0;
       z-index: 100;
     }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-logo {
+      height: 40px;
+      width: 40px;
+      border-radius: 4px;
+    }
+
     .header h1 {
       font-family: 'Cactus', serif;
-      font-size: 1.8rem;
-      color: #1a1a1a;
-      letter-spacing: 2px;
+      font-size: 1.6rem;
+      color: var(--text);
+      letter-spacing: 1px;
       text-transform: uppercase;
     }
-    .header a {
-      color: #1a1a1a;
-      text-decoration: none;
-      border: 3px solid #1a1a1a;
-      border-radius: 2px;
-      box-shadow: 2px 2px 0px 0px #1a1a1a;
-      padding: 6px 16px;
-      font-size: 0.85rem;
-      font-weight: 700;
-      transition: all 0.2s;
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
     }
-    .header a:hover {
-      background: #1a1a1a;
-      color: #f4ecd8;
-      transform: translate(2px, 2px);
-      box-shadow: 0px 0px 0px 0px #1a1a1a;
-    }
+
     .lang-switch {
       display: flex;
-      gap: 12px;
-      justify-content: center;
-      padding: 20px;
+      border: 3px solid var(--border);
+      background: var(--bg);
     }
+
     .lang-switch button {
-      padding: 6px 16px;
-      border: 2px solid #1a1a1a;
-      box-shadow: 2px 2px 0px 0px #1a1a1a;
-      background: #f4ecd8;
-      color: #1a1a1a;
-      cursor: pointer;
+      padding: 6px 12px;
+      border: none;
+      background: transparent;
+      color: var(--text);
       font-weight: 700;
       font-size: 0.85rem;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.1s, color 0.1s;
+    }
+
+    .lang-switch button:not(:last-child) {
+      border-right: 3px solid var(--border);
+    }
+
+    .lang-switch button.active {
+      background: var(--border);
+      color: var(--bg);
+    }
+
+    .back-link {
+      color: var(--text);
+      text-decoration: none;
+      border: 3px solid var(--border);
+      box-shadow: 3px 3px 0px 0px var(--border);
+      padding: 6px 16px;
+      font-size: 0.85rem;
+      font-weight: 700;
       transition: all 0.1s;
+      background: var(--bg);
     }
-    .lang-switch button.active, .lang-switch button:hover {
-      background: #1a1a1a;
-      color: #f4ecd8;
-      transform: translate(1px, 1px);
-      box-shadow: 1px 1px 0px 0px #1a1a1a;
+
+    .back-link:hover {
+      background: var(--border);
+      color: var(--bg);
+      transform: translate(2px, 2px);
+      box-shadow: 1px 1px 0px 0px var(--border);
     }
-    .container {
-      max-width: 900px;
+
+    /* Layout Container */
+    .layout-container {
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 10px 20px 60px;
+      padding: 30px 24px 80px;
+      display: flex;
+      gap: 30px;
     }
-    .section {
-      margin-bottom: 40px;
-      background: #f4ecd8;
-      border: 3px solid #1a1a1a;
-      box-shadow: 4px 4px 0px 0px #1a1a1a;
-      padding: 24px;
+
+    /* Mobile trigger for index */
+    .mobile-menu-toggle {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      z-index: 110;
+      background: var(--primary);
+      color: var(--bg);
+      border: 3px solid var(--border);
+      box-shadow: 4px 4px 0px 0px var(--border);
+      padding: 12px 20px;
+      font-family: 'Cactus', serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    .mobile-menu-toggle:active {
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0px 0px var(--border);
+    }
+
+    /* Sidebar Index (Wobbly Xilo styling) */
+    .sidebar {
+      width: 280px;
+      flex-shrink: 0;
+      position: sticky;
+      top: calc(var(--header-h) + 20px);
+      height: calc(100vh - var(--header-h) - 60px);
+      overflow-y: auto;
+      background: var(--card-bg);
+      border: 4px solid var(--border);
+      border-radius: 15px 225px 15px 255px / 255px 15px 225px 15px; /* Organic wobbly frame */
+      box-shadow: 4px 6px 0px 0px rgba(0, 0, 0, 0.85);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .search-box {
       position: relative;
+      border: 3px solid var(--border);
+      border-radius: 8px 12px 6px 10px / 10px 6px 12px 8px; /* Organic input border like xilo-textarea */
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      padding: 6px 12px;
     }
+
+    .search-box input {
+      width: 100%;
+      border: none;
+      background: transparent;
+      outline: none;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .search-icon {
+      font-size: 0.95rem;
+      opacity: 0.7;
+    }
+
+    .index-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .index-link {
+      color: var(--text);
+      text-decoration: none;
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 8px 12px;
+      border: 2px solid transparent;
+      transition: all 0.15s;
+    }
+
+    .index-link:hover {
+      background: rgba(26, 26, 26, 0.05);
+      border-color: var(--border);
+    }
+
+    .index-link.active {
+      background: var(--primary);
+      color: var(--bg);
+      border-color: var(--border);
+      box-shadow: 2px 2px 0px 0px var(--border);
+    }
+
+    /* Content Pane */
+    .content-pane {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+    }
+
+    /* Section (Wobbly Hand-drawn Xilogravura Frames) */
+    .section {
+      background: var(--bg);
+      border: 4px solid var(--border);
+      border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; /* Matches xilo-feedback-container */
+      box-shadow: 4px 6px 0px 0px rgba(0, 0, 0, 0.85);
+      padding: 30px;
+      scroll-margin-top: calc(var(--header-h) + 30px);
+    }
+
     .section h2 {
       font-family: 'Cactus', serif;
-      color: #8b2a1a;
-      font-size: 1.5rem;
-      margin-bottom: 16px;
-      border-bottom: 2px solid #1a1a1a;
+      color: var(--primary);
+      font-size: 1.8rem;
+      margin-bottom: 20px;
+      border-bottom: 3px solid var(--border);
       padding-bottom: 8px;
       text-transform: uppercase;
       letter-spacing: 1px;
     }
+
     .section h3 {
       font-family: 'Cactus', serif;
-      color: #1a1a1a;
-      font-size: 1.1rem;
-      margin: 20px 0 10px;
+      color: var(--text);
+      font-size: 1.3rem;
+      margin: 24px 0 12px;
       text-transform: uppercase;
+      border-bottom: 2px dashed rgba(26, 26, 26, 0.2);
+      padding-bottom: 4px;
     }
-    .section p, .section li {
+
+    .section p {
       font-size: 0.95rem;
       line-height: 1.7;
-      color: #1a1a1a;
-      font-weight: 600;
+      margin-bottom: 16px;
+      font-weight: 500;
+      color: var(--text);
     }
+    
+    .section strong {
+      font-weight: 750;
+    }
+
     .section ul, .section ol {
-      padding-left: 20px;
-      margin: 12px 0;
+      padding-left: 24px;
+      margin: 14px 0;
     }
-    .section li { margin-bottom: 6px; }
+
+    .section li {
+      font-size: 0.95rem;
+      line-height: 1.7;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    /* Interactive Accordions (details & summary) in Xilo Style */
+    details {
+      border: 3px solid var(--border);
+      border-radius: 120px 8px 90px 8px / 8px 90px 8px 120px; /* Slight wobbly border for steps */
+      margin-bottom: 14px;
+      background: rgba(26, 26, 26, 0.015);
+      transition: all 0.2s ease;
+      box-shadow: 2px 3px 0px 0px rgba(0, 0, 0, 0.85);
+    }
+
+    details[open] {
+      background: rgba(26, 26, 26, 0.04);
+      box-shadow: 3px 4px 0px 0px rgba(0, 0, 0, 0.85);
+    }
+
+    summary {
+      padding: 12px 18px;
+      font-family: 'Cactus', serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      cursor: pointer;
+      outline: none;
+      user-select: none;
+      list-style: none; /* hide native arrow */
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    /* Remove default arrow in Firefox/Safari */
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    summary::after {
+      content: '➕';
+      font-size: 0.85rem;
+      transition: transform 0.2s;
+    }
+
+    details[open] summary::after {
+      content: '➖';
+    }
+
+    .details-content {
+      padding: 0 18px 18px;
+      font-size: 0.95rem;
+      line-height: 1.65;
+      border-top: 2px dashed rgba(26, 26, 26, 0.15);
+      padding-top: 14px;
+    }
+
+    /* Keyboard keys formatting */
     .kbd {
       display: inline-block;
-      background: #f4ecd8;
-      border: 2px solid #1a1a1a;
-      box-shadow: 1px 1px 0px 0px #1a1a1a;
-      border-radius: 2px;
-      padding: 1px 6px;
+      background: var(--kbd-bg);
+      border: 2px solid var(--border);
+      box-shadow: 2px 2px 0px 0px var(--border);
+      border-radius: 3px;
+      padding: 2px 8px;
       font-size: 0.8rem;
-      font-family: monospace;
-      font-weight: bold;
-      color: #1a1a1a;
-      margin: 0 4px;
+      font-family: 'Courier New', Courier, monospace;
+      font-weight: 800;
+      color: var(--text);
+      margin: 0 3px;
+      text-transform: uppercase;
     }
+
+    /* Tables */
     table {
       width: 100%;
       border-collapse: collapse;
-      margin: 16px 0;
+      margin: 20px 0;
       font-size: 0.9rem;
       font-weight: 600;
-      border: 2px solid #1a1a1a;
+      border: 3px solid var(--border);
+      box-shadow: 3px 3px 0px 0px var(--border);
     }
+
     th {
-      background: #1a1a1a;
-      color: #f4ecd8;
+      background: var(--border);
+      color: var(--bg);
       text-align: left;
-      padding: 10px 12px;
-      border: 2px solid #1a1a1a;
+      padding: 12px 14px;
+      border: 2px solid var(--border);
       font-family: 'Cactus', serif;
+      font-size: 1rem;
       text-transform: uppercase;
       letter-spacing: 1px;
     }
+
     td {
-      padding: 10px 12px;
-      border: 2px solid #1a1a1a;
-      color: #1a1a1a;
-      background: #f4ecd8;
+      padding: 12px 14px;
+      border: 2px solid var(--border);
+      color: var(--text);
+      background: var(--bg);
     }
+
+    tr:nth-child(even) td {
+      background: rgba(26, 26, 26, 0.03);
+    }
+
+    /* Neobrutalist Tips & Alerts (Wobbly Xilo) */
     .tip {
-      background: rgba(26, 26, 26, 0.05);
-      border-left: 4px solid #8b2a1a;
-      padding: 12px 16px;
-      margin: 16px 0;
+      background: var(--card-bg);
+      border: 3px solid var(--border);
+      border-radius: 180px 12px 160px 10px / 10px 160px 12px 180px; /* Wobbly box style */
+      box-shadow: 3px 3px 0px 0px var(--border);
+      padding: 16px 20px;
+      margin: 20px 0;
+      position: relative;
+    }
+
+    .tip::before {
+      content: '💡';
+      font-size: 1.2rem;
+      margin-right: 8px;
+      float: left;
+    }
+
+    .tip-content {
+      overflow: hidden;
       font-size: 0.9rem;
+      line-height: 1.6;
       font-weight: 600;
     }
-    .tip strong { color: #8b2a1a; }
+
+    .tip strong {
+      color: var(--primary);
+    }
+
+    /* Highlight badges */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      border: 2px solid var(--border);
+      border-radius: 2px;
+      margin-right: 6px;
+    }
+
+    .badge-green { background: #c8e6c9; color: #1b5e20; }
+    .badge-orange { background: #ffe0b2; color: #e65100; }
+    .badge-blue { background: #bbdefb; color: #0d47a1; }
+
+    /* Custom layout for step sculpture sliders demonstration */
+    .sculpture-demo {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    
+    .demo-bar {
+      flex: 1;
+      min-width: 140px;
+      border: 2px solid var(--border);
+      background: var(--bg);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .demo-bar-title {
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .demo-slider {
+      width: 100%;
+      height: 8px;
+      border: 2px solid var(--border);
+      border-radius: 4px;
+      position: relative;
+    }
+
+    .demo-slider-fill {
+      height: 100%;
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
+    .fill-vol { width: 80%; background-color: var(--green); }
+    .fill-dec { width: 50%; background-color: var(--orange); }
+    .fill-time { width: 65%; background-color: var(--blue); }
+
     .credit {
       text-align: center;
-      color: #1a1a1a;
-      font-size: 0.8rem;
+      color: var(--text);
+      font-size: 0.85rem;
       font-weight: 700;
-      padding: 20px;
-      border-top: 2px solid #1a1a1a;
-      background: #f4ecd8;
+      padding: 30px;
+      border-top: 3px solid var(--border);
+      background: var(--card-bg);
+      margin-top: 40px;
     }
-    [lang="fr"] { display: none; }
-    body.lang-fr [lang="pt"] { display: none; }
-    body.lang-fr [lang="fr"] { display: block; }
-    body.lang-fr li[lang="fr"], body.lang-fr span[lang="fr"],
-    body.lang-fr p[lang="fr"], body.lang-fr td[lang="fr"] { display: table-cell; }
-    body.lang-fr li[lang="fr"] { display: list-item; }
-    body.lang-fr span[lang="fr"] { display: inline; }
-    body.lang-fr p[lang="fr"] { display: block; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 10px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg);
+      border-left: 3px solid var(--border);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border: 2px solid var(--bg);
+    }
+
+    /* Responsiveness */
+    @media (max-width: 900px) {
+      .layout-container {
+        flex-direction: column;
+      }
+      
+      .sidebar {
+        width: 100%;
+        position: static;
+        height: auto;
+        margin-bottom: 20px;
+      }
+
+      .mobile-menu-toggle {
+        display: block;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 1.1rem;
+      }
+      
+      .header-logo {
+        height: 30px;
+        width: 30px;
+      }
+      
+      .section {
+        padding: 20px;
+      }
+
+      .sidebar {
+        display: none; /* Collapsible or simple list on mobile */
+      }
+      
+      .sidebar.open {
+        display: flex;
+        position: fixed;
+        top: var(--header-h);
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 105;
+        height: calc(100vh - var(--header-h));
+      }
+    }
   </style>
 </head>
-<body>
-  <div class="header">
-    <h1>📖 O Girador Tutorial</h1>
-    <a href="./">← Voltar / Retour</a>
-  </div>
+<body class="lang-fr">
 
-  <div class="lang-switch">
-    <button id="btn-pt" class="active" onclick="setLang('pt')">🇧🇷 Português</button>
-    <button id="btn-fr" onclick="setLang('fr')">🇫🇷 Français</button>
-  </div>
-
-  <div class="container">
-
-    <!-- ========== SECTION 1: O QUE É ========== -->
-    <div class="section" lang="pt">
-      <h2>🥁 O que é o O Girador?</h2>
-      <p>O Girador é um sequenciador rítmico interativo dedicado ao <strong>Maracatu de Baque Virado</strong>. Ele permite criar, visualizar e escutar padrões rítmicos de maracatu diretamente no navegador.</p>
-      <p>A interface simula um <strong>bloco de maracatu</strong> com um misturador (table de mixage) para compor sequências de alfaia, caixa, tarol, gonguê, agbê, mineiro e vozes.</p>
+  <!-- ==================== HEADER ==================== -->
+  <header class="header">
+    <div class="header-left">
+      <img src="o-girador-logo.svg" alt="O Girador Logo" class="header-logo" />
+      <h1 lang="fr">O Girador — Mode d'emploi</h1>
+      <h1 lang="pt">O Girador — Manual de Instruções</h1>
     </div>
-    <div class="section" lang="fr">
-      <h2>🥁 Qu'est-ce que O Girador ?</h2>
-      <p>O Girador est un séquenceur rythmique interactif dédié au <strong>Maracatu de Baque Virado</strong>. Il permet de créer, visualiser et écouter des patterns rythmiques de maracatu directement dans votre navigateur.</p>
-      <p>L'interface simule un <strong>bloco de maracatu</strong> avec un mixeur (table de mixage) pour composer des séquences d'alfaia, caixa, tarol, gonguê, agbê, mineiro et voix.</p>
+    <div class="header-actions">
+      <div class="lang-switch">
+        <button id="btn-pt" onclick="setLang('pt')">🇧🇷 PT</button>
+        <button id="btn-fr" class="active" onclick="setLang('fr')">🇫🇷 FR</button>
+      </div>
+      <a href="./" class="back-link">
+        <span lang="fr">← Application</span>
+        <span lang="pt">← Voltar ao App</span>
+      </a>
     </div>
+  </header>
 
-    <!-- ======    <div class="section" lang="pt">
-      <h2>🎛️ Visão Geral da Interface</h2>
-      <h3>Controles e Menus</h3>
-      <ul>
-        <li><strong>BPM</strong> (na barra inferior) — Ajuste a velocidade / tempo (40 a 240)</li>
-        <li><strong>Metrônomo</strong> 🎵 (na barra inferior) — Ativa o clique no tempo com halo amarelo na Roda</li>
-        <li><strong>Volume Geral</strong> (no menu ou menu móvel) — Volume master do mix</li>
-        <li><strong>Fórmula / Compasso</strong> (na barra superior ou menu móvel) — Escolha a fórmula de compasso (4/4, 2/4, 6/8, etc.)</li>
-        <li><strong>Balanço / Swing 〰️</strong> (no menu ou menu móvel) — Ativa o swing maracatu (balanço típico)</li>
-        <li><strong>Presets</strong> (na barra superior ou menu móvel) — Escolha ritmos pré-programados para experimentar</li>
-        <li><strong>FR/PT</strong> (na barra superior ou menu móvel) — Alterna o idioma do aplicativo</li>
-        <li><strong>🎥 Tuto</strong> (no menu ou menu móvel) — Abre a playlist de tutoriais em vídeo</li>
-        <li><strong>Feedback & Fórum</strong> (no menu ou menu móvel) — Abre o canal de contato e fórum</li>
-      </ul>
+  <!-- ==================== MOBILE TOGGLE ==================== -->
+  <button class="mobile-menu-toggle" id="mobile-toggle" onclick="toggleMobileSidebar()">
+    <span lang="fr">☰ Sommaire</span>
+    <span lang="pt">☰ Índice</span>
+  </button>
 
-      <h3>Área Central — A Roda</h3>
-      <p>Visualização circular dos instrumentos. Cada anel representa uma pista. A baguette gira indicando o passo atual. Instrumentos inativos (em rotação) ficam com opacidade reduzida.</p>
-
-      <h3>Painel Esquerdo — Misturador</h3>
-      <p>Cada instrumento possui um bloco com seletor de instrumento, volume, reverb, mute/solo e a grade de passos. Você pode adicionar novos instrumentos usando o botão <strong>Adicionar Instrumento ➕</strong> na parte inferior do painel.</p>
-
-      <h3>Painel Direito — Toada / Legenda</h3>
-      <p>Exibe a letra extraída dos instrumentos vocais (Toada) com efeito karaokê, a legenda dos símbolos utilizados ou os sinais de ritmo do mestre. Acesse selecionando a aba correspondente no topo do painel direito (ou pelo botão 📝 TOADA no celular).</p>
-    </div>
-    <div class="section" lang="fr">
-      <h2>🎛️ Vue d'ensemble de l'interface</h2>
-      <h3>Contrôles et Menus</h3>
-      <ul>
-        <li><strong>BPM / Vitesse</strong> (dans la barre inférieure) — Réglez le tempo (40 à 240)</li>
-        <li><strong>Métronome</strong> 🎵 (dans la barre inférieure) — Active le clic au tempo avec halo jaune sur la Roda</li>
-        <li><strong>Volume Général</strong> (dans le menu ou menu mobile) — Volume master du mix</li>
-        <li><strong>Signature</strong> (dans la barre supérieure ou menu mobile) — Choisissez la signature rythmique (4/4, 2/4, 6/8, etc.)</li>
-        <li><strong>Swing 〰️</strong> (dans le menu ou menu mobile) — Active le swing maracatu (balancement typique)</li>
-        <li><strong>Presets</strong> (dans la barre supérieure ou menu mobile) — Choisissez des rythmes pré-programmés à expérimenter</li>
-        <li><strong>FR/PT</strong> (dans la barre supérieure ou menu mobile) — Alterne la langue de l'application</li>
-        <li><strong>🎥 Tuto</strong> (dans le menu ou menu mobile) — Ouvre la playlist de tutoriels vidéo</li>
-        <li><strong>Feedback & Forum</strong> (dans le menu ou menu mobile) — Ouvre le canal de contact et d'échanges</li>
-      </ul>
-
-      <h3>Zone Centrale — La Roda</h3>
-      <p>Visualisation circulaire des instruments. Chaque anneau représente une piste. La baguette tourne en indiquant le pas actuel. Les instruments inactifs (en rotation) ont une opacité réduite.</p>
-
-      <h3>Panneau Gauche — Mixeur</h3>
-      <p>Chaque instrument a un bloc avec : sélecteur d'instrument, contrôle de volume, de réverbération, boutons Mute/Solo, et la grille de pas. Vous pouvez ajouter de nouvelles pistes via le bouton <strong>Ajouter un instrument ➕</strong> au bas du panneau.</p>
-
-      <h3>Panneau Droit — Toada / Légende</h3>
-      <p>Affiche les paroles extraites des instruments vocaux (Toada) avec effet karaokê, la légende des symboles utilisés ou les signes de rythme du mestre. Accessible via l'onglet correspondant en haut du panneau droit (ou via le bouton 📝 TOADA sur mobile).</p>
-    </div>
-
-    <!-- ========== SECTION 3: INSTRUMENTS ========== -->
-    <div class="section" lang="pt">
-      <h2>🎵 Instrumentos e Notações</h2>
-      <h3>Alfaia, Caixa & Tarol (Percussão de Mãos/Baquetas)</h3>
-      <table>
-        <tr><th>Tecla</th><th>Significado</th></tr>
-        <tr><td><span class="kbd">D</span></td><td>Mão Direita — Golpe <strong>Forte</strong></td></tr>
-        <tr><td><span class="kbd">d</span></td><td>Mão Direita — Golpe <strong>Fraco</strong></td></tr>
-        <tr><td><span class="kbd">E</span></td><td>Mão Esquerda — Golpe <strong>Forte</strong></td></tr>
-        <tr><td><span class="kbd">e</span></td><td>Mão Esquerda — Golpe <strong>Fraco</strong></td></tr>
-        <tr><td colspan="2" style="text-align: center; font-style: italic; background: rgba(0,0,0,0.05);">Apenas para a Alfaia:</td></tr>
-        <tr><td><span class="kbd">X</span> ou <span class="kbd">x</span></td><td>Toque no aro (cerclage) — símbolo <strong>X</strong> / <strong>x</strong></td></tr>
-        <tr><td><span class="kbd">I</span> ou <span class="kbd">i</span></td><td>Bacalhau (iguarassu) — símbolo <strong>I</strong> / <strong>i</strong></td></tr>
-        <tr><td><span class="kbd">C</span> ou <span class="kbd">c</span></td><td>Click (baguetas) — símbolo <strong>C</strong> / <strong>c</strong></td></tr>
-        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Barulho — símbolo <strong>B</strong> / <strong>b</strong></td></tr>
-        <tr><td colspan="2" style="text-align: center; font-style: italic; background: rgba(0,0,0,0.05);">Apenas para a Caixa:</td></tr>
-        <tr><td><span class="kbd">R</span></td><td>Rufada direita — símbolo <strong>R</strong></td></tr>
-        <tr><td><span class="kbd">r</span></td><td>Rufada esquerda — símbolo <strong>r</strong></td></tr>
-        <tr><td><span class="kbd">X</span> ou <span class="kbd">x</span></td><td>Toque no aro — símbolo <strong>X</strong> / <strong>x</strong></td></tr>
-        <tr><td><span class="kbd">F</span> ou <span class="kbd">f</span></td><td>Fla — símbolo <strong>F</strong> / <strong>f</strong></td></tr>
-        <tr><td><span class="kbd">C</span> ou <span class="kbd">c</span></td><td>Click (baguetas) — símbolo <strong>C</strong> / <strong>c</strong></td></tr>
-        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Barulho — símbolo <strong>B</strong> / <strong>b</strong></td></tr>
-        <tr><td colspan="2" style="text-align: center; font-style: italic; background: rgba(0,0,0,0.05);">Apenas para o Tarol:</td></tr>
-        <tr><td><span class="kbd">R</span></td><td>Rufada direita — símbolo <strong>R</strong></td></tr>
-        <tr><td><span class="kbd">r</span></td><td>Rufada esquerda — símbolo <strong>r</strong></td></tr>
-        <tr><td><span class="kbd">X</span> ou <span class="kbd">x</span></td><td>Toque no aro — símbolo <strong>X</strong> / <strong>x</strong></td></tr>
-        <tr><td><span class="kbd">F</span> ou <span class="kbd">f</span></td><td>Fla — símbolo <strong>F</strong> / <strong>f</strong></td></tr>
-        <tr><td><span class="kbd">C</span> ou <span class="kbd">c</span></td><td>Click (baguetas) — símbolo <strong>C</strong> / <strong>c</strong></td></tr>
-        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Barulho — símbolo <strong>B</strong> / <strong>b</strong></td></tr>
-      </table>
-
-      <h3>Gonguê (Campana)</h3>
-      <table>
-        <tr><th>Tecla</th><th>Som</th></tr>
-        <tr><td><span class="kbd">G</span> / <span class="kbd">g</span></td><td>Grave (Forte / Fraco)</td></tr>
-        <tr><td><span class="kbd">A</span> / <span class="kbd">a</span></td><td>Agudo (Forte / Fraco)</td></tr>
-        <tr><td><span class="kbd">X</span> ou <span class="kbd">x</span></td><td>Toque na borda — símbolo <strong>X</strong> / <strong>x</strong></td></tr>
-        <tr><td><span class="kbd">B</span> / <span class="kbd">b</span></td><td>Barulho — símbolo <strong>B</strong> / <strong>b</strong></td></tr>
-      </table>
-
-      <h3>Agbê</h3>
-      <table>
-        <tr><th>Tecla</th><th>Direção</th></tr>
-        <tr><td><span class="kbd">D</span></td><td>Para a Direita — <strong>Forte</strong></td></tr>
-        <tr><td><span class="kbd">d</span></td><td>Para a Direita — <strong>Fraco</strong></td></tr>
-        <tr><td><span class="kbd">E</span></td><td>Para a Esquerda — <strong>Forte</strong></td></tr>
-        <tr><td><span class="kbd">e</span></td><td>Para a Esquerda — <strong>Fraco</strong></td></tr>
-        <tr><td><span class="kbd">S</span> ou <span class="kbd">s</span></td><td>Salto / Lançamento — símbolo <strong>S</strong> / <strong>s</strong></td></tr>
-        <tr><td><span class="kbd">V</span> ou <span class="kbd">v</span></td><td>Volta / Retorno — símbolo <strong>V</strong> / <strong>v</strong></td></tr>
-        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Barulho — símbolo <strong>B</strong> / <strong>b</strong></td></tr>
-      </table>
-
-      <h3>Mineiro</h3>
-      <table>
-        <tr><th>Tecla</th><th>Movimento</th></tr>
-        <tr><td><span class="kbd">P</span></td><td>Empurrar — <strong>Forte</strong></td></tr>
-        <tr><td><span class="kbd">p</span></td><td>Empurrar — <strong>Fraco</strong></td></tr>
-        <tr><td><span class="kbd">T</span></td><td>Puxar — <strong>Forte</strong></td></tr>
-        <tr><td><span class="kbd">t</span></td><td>Puxar — <strong>Fraco</strong></td></tr>
-        <tr><td><span class="kbd">L</span> ou <span class="kbd">l</span></td><td>Toque lateral (lado) — símbolo <strong>L</strong> / <strong>l</strong></td></tr>
-        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Barulho — símbolo <strong>B</strong> / <strong>b</strong></td></tr>
-      </table>
-
-      <h3>Timbal</h3>
-      <table>
-        <tr><th>Tecla</th><th>Significado / Toque</th></tr>
-        <tr><td><span class="kbd">G</span></td><td>Grave (baixo) — Golpe <strong>Forte</strong> (Mão Forte)</td></tr>
-        <tr><td><span class="kbd">g</span></td><td>Grave (baixo) — Golpe <strong>Fraco</strong> (Mão Fraca)</td></tr>
-        <tr><td><span class="kbd">A</span></td><td>Aberto (aberto) — Golpe <strong>Forte</strong> (Mão Forte)</td></tr>
-        <tr><td><span class="kbd">a</span></td><td>Aberto (aberto) — Golpe <strong>Fraco</strong> (Mão Fraca)</td></tr>
-        <tr><td><span class="kbd">S</span></td><td>Claqué (slap) — Golpe <strong>Forte</strong> (Mão Forte)</td></tr>
-        <tr><td><span class="kbd">s</span></td><td>Claqué (slap) — Golpe <strong>Fraco</strong> (Mão Fraca)</td></tr>
-        <tr><td><span class="kbd">D</span></td><td>Fantasma (dedilhado) — Golpe <strong>Forte</strong> (Mão Forte)</td></tr>
-        <tr><td><span class="kbd">d</span></td><td>Fantasma (dedilhado) — Golpe <strong>Fraco</strong> (Mão Fraca)</td></tr>
-        <tr><td><span class="kbd">P</span></td><td>Abafado (preso) — Golpe <strong>Forte</strong> (Mão Forte)</td></tr>
-        <tr><td><span class="kbd">p</span></td><td>Abafado (preso) — Golpe <strong>Fraco</strong> (Mão Fraca)</td></tr>
-        <tr><td><span class="kbd">F</span> ou <span class="kbd">f</span></td><td>Fla aberto (aberto) — símbolo <strong>F</strong> / <strong>f</strong></td></tr>
-        <tr><td><span class="kbd">V</span> ou <span class="kbd">v</span></td><td>Fla slap — símbolo <strong>V</strong> / <strong>v</strong></td></tr>
-        <tr><td><span class="kbd">C</span> ou <span class="kbd">c</span></td><td>Clap (mãos) — Duas mãos uma contra a outra — símbolo <strong>C</strong> / <strong>c</strong></td></tr>
-        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Barulho / Ruído — símbolo <strong>B</strong> / <strong>b</strong></td></tr>
-      </table>
-
-      <h3>Apito</h3>
-      <table>
-        <tr><th>Tecla</th><th>Sopro</th></tr>
-        <tr><td><span class="kbd">W</span></td><td>Sopro Longo — símbolo <strong>W</strong></td></tr>
-        <tr><td><span class="kbd">w</span></td><td>Sopro Curto — símbolo <strong>w</strong></td></tr>
-      </table>
-
-      <h3>Voz / Coro</h3>
-      <p>Clique em <strong>PUX</strong> (Puxador - laranja) ou <strong>CORO</strong> (ciano) para alternar. Digite a sílaba no campo de texto.</p>
-      <div class="tip"><strong>💡 Sílabas com "-"</strong> (ex: "Va-") serão coladas com a próxima sílaba na Toada. Sem "-" = espaço entre palavras.</div>
-    </div>
-    <div class="section" lang="fr">
-      <h2>🎵 Instruments et Notations</h2>
-      <h3>Alfaia, Caixa & Tarol (Percussions)</h3>
-      <table>
-        <tr><th>Touche</th><th>Signification</th></tr>
-        <tr><td><span class="kbd">D</span></td><td>Main Droite — Coup <strong>Fort</strong></td></tr>
-        <tr><td><span class="kbd">d</span></td><td>Main Droite — Coup <strong>Faible</strong></td></tr>
-        <tr><td><span class="kbd">E</span></td><td>Main Gauche — Coup <strong>Fort</strong></td></tr>
-        <tr><td><span class="kbd">e</span></td><td>Main Gauche — Coup <strong>Faible</strong></td></tr>
-        <tr><td colspan="2" style="text-align: center; font-style: italic; background: rgba(0,0,0,0.05);">Uniquement pour l'Alfaia :</td></tr>
-        <tr><td><span class="kbd">X</span> ou <span class="kbd">x</span></td><td>Coup sur le cerclage — symbole <strong>X</strong> / <strong>x</strong></td></tr>
-        <tr><td><span class="kbd">I</span> ou <span class="kbd">i</span></td><td>Bacalhau (iguarassu) — symbole <strong>I</strong> / <strong>i</strong></td></tr>
-        <tr><td><span class="kbd">C</span> ou <span class="kbd">c</span></td><td>Click (baguettes l'une contre l'autre) — symbole <strong>C</strong> / <strong>c</strong></td></tr>
-        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Barulho — symbole <strong>B</strong> / <strong>b</strong></td></tr>
-        <tr><td colspan="2" style="text-align: center; font-style: italic; background: rgba(0,0,0,0.05);">Uniquement pour la Caixa :</td></tr>
-        <tr><td><span class="kbd">R</span></td><td>Rufada (Roulement main droite) — symbole <strong>R</strong></td></tr>
-        <tr><td><span class="kbd">r</span></td><td>Rufada (Roulement main gauche) — symbole <strong>r</strong></td></tr>
-        <tr><td><span class="kbd">X</span> ou <span class="kbd">x</span></td><td>Coup sur le cerclage — symbole <strong>X</strong> / <strong>x</strong></td></tr>
-        <tr><td><span class="kbd">F</span> ou <span class="kbd">f</span></td><td>Fla — symbole <strong>F</strong> / <strong>f</strong></td></tr>
-        <tr><td><span class="kbd">C</span> ou <span class="kbd">c</span></td><td>Click (baguettes l'une contre l'autre) — symbole <strong>C</strong> / <strong>c</strong></td></tr>
-        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Barulho — symbole <strong>B</strong> / <strong>b</strong></td></tr>
-        <tr><td colspan="2" style="text-align: center; font-style: italic; background: rgba(0,0,0,0.05);">Uniquement pour le Tarol :</td></tr>
-        <tr><td><span class="kbd">R</span></td><td>Rufada (Roulement main droite) — symbole <strong>R</strong></td></tr>
-        <tr><td><span class="kbd">r</span></td><td>Rufada (Roulement main gauche) — symbole <strong>r</strong></td></tr>
-        <tr><td><span class="kbd">X</span> ou <span class="kbd">x</span></td><td>Coup sur le cerclage — symbole <strong>X</strong> / <strong>x</strong></td></tr>
-        <tr><td><span class="kbd">F</span> ou <span class="kbd">f</span></td><td>Fla — symbole <strong>F</strong> / <strong>f</strong></td></tr>
-        <tr><td><span class="kbd">C</span> ou <span class="kbd">c</span></td><td>Click (baguettes l'une contre l'autre) — symbole <strong>C</strong> / <strong>c</strong></td></tr>
-        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Barulho — symbole <strong>B</strong> / <strong>b</strong></td></tr>
-      </table>
-
-      <h3>Gonguê (Cloche)</h3>
-      <table>
-        <tr><th>Touche</th><th>Son</th></tr>
-        <tr><td><span class="kbd">G</span> / <span class="kbd">g</span></td><td>Grave (Fort / Faible)</td></tr>
-        <tr><td><span class="kbd">A</span> / <span class="kbd">a</span></td><td>Aigu (Fort / Faible)</td></tr>
-        <tr><td><span class="kbd">X</span> ou <span class="kbd">x</span></td><td>Coup sur le bord — symbole <strong>X</strong> / <strong>x</strong></td></tr>
-        <tr><td><span class="kbd">B</span> / <span class="kbd">b</span></td><td>Barulho — symbole <strong>B</strong> / <strong>b</strong></td></tr>
-      </table>
-
-      <h3>Agbê</h3>
-      <table>
-        <tr><th>Touche</th><th>Direction</th></tr>
-        <tr><td><span class="kbd">D</span></td><td>Vers la Droite — <strong>Fort</strong></td></tr>
-        <tr><td><span class="kbd">d</span></td><td>Vers la Droite — <strong>Faible</strong></td></tr>
-        <tr><td><span class="kbd">E</span></td><td>Vers la Gauche — <strong>Fort</strong></td></tr>
-        <tr><td><span class="kbd">e</span></td><td>Vers la Gauche — <strong>Faible</strong></td></tr>
-        <tr><td><span class="kbd">S</span> ou <span class="kbd">s</span></td><td>Salto (Lancer) — symbole <strong>S</strong> / <strong>s</strong></td></tr>
-        <tr><td><span class="kbd">V</span> ou <span class="kbd">v</span></td><td>Volta (Retour) — symbole <strong>V</strong> / <strong>v</strong></td></tr>
-        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Barulho — symbole <strong>B</strong> / <strong>b</strong></td></tr>
-      </table>
-
-      <h3>Mineiro</h3>
-      <table>
-        <tr><th>Touche</th><th>Mouvement</th></tr>
-        <tr><td><span class="kbd">P</span></td><td>Pousser — <strong>Fort</strong></td></tr>
-        <tr><td><span class="kbd">p</span></td><td>Pousser — <strong>Faible</strong></td></tr>
-        <tr><td><span class="kbd">T</span></td><td>Tirer — <strong>Fort</strong></td></tr>
-        <tr><td><span class="kbd">t</span></td><td>Tirer — <strong>Faible</strong></td></tr>
-        <tr><td><span class="kbd">L</span> ou <span class="kbd">l</span></td><td>Coup sur le côté (lado) — symbole <strong>L</strong> / <strong>l</strong></td></tr>
-        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Barulho — symbole <strong>B</strong> / <strong>b</strong></td></tr>
-      </table>
-
-      <h3>Timbal</h3>
-      <table>
-        <tr><th>Touche</th><th>Mouvement / Son</th></tr>
-        <tr><td><span class="kbd">G</span></td><td>Grave (basse) — Coup <strong>Fort</strong> (Main Forte)</td></tr>
-        <tr><td><span class="kbd">g</span></td><td>Grave (basse) — Coup <strong>Faible</strong> (Main Faible)</td></tr>
-        <tr><td><span class="kbd">A</span></td><td>Ouvert — Coup <strong>Fort</strong> (Main Forte)</td></tr>
-        <tr><td><span class="kbd">a</span></td><td>Ouvert — Coup <strong>Faible</strong> (Main Faible)</td></tr>
-        <tr><td><span class="kbd">S</span></td><td>Claqué (slap) — Coup <strong>Fort</strong> (Main Forte)</td></tr>
-        <tr><td><span class="kbd">s</span></td><td>Claqué (slap) — Coup <strong>Faible</strong> (Main Faible)</td></tr>
-        <tr><td><span class="kbd">D</span></td><td>Fantôme (dedilhado) — Coup <strong>Fort</strong> (Main Forte)</td></tr>
-        <tr><td><span class="kbd">d</span></td><td>Fantôme (dedilhado) — Coup <strong>Faible</strong> (Main Faible)</td></tr>
-        <tr><td><span class="kbd">P</span></td><td>Fermé (preso) — Coup <strong>Fort</strong> (Main Forte)</td></tr>
-        <tr><td><span class="kbd">p</span></td><td>Fermé (preso) — Coup <strong>Faible</strong> (Main Faible)</td></tr>
-        <tr><td><span class="kbd">F</span> ou <span class="kbd">f</span></td><td>Fla ouvert — symbole <strong>F</strong> / <strong>f</strong></td></tr>
-        <tr><td><span class="kbd">V</span> ou <span class="kbd">v</span></td><td>Fla claqué (slap) — symbole <strong>V</strong> / <strong>v</strong></td></tr>
-        <tr><td><span class="kbd">C</span> ou <span class="kbd">c</span></td><td>Clap (mains) — Deux mains l'une contre l'autre — symbole <strong>C</strong> / <strong>c</strong></td></tr>
-        <tr><td><span class="kbd">B</span> ou <span class="kbd">b</span></td><td>Barulho (fatras) — symbole <strong>B</strong> / <strong>b</strong></td></tr>
-      </table>
-
-      <h3>Apito (Sifflet)</h3>
-      <table>
-        <tr><th>Touche</th><th>Souffle</th></tr>
-        <tr><td><span class="kbd">W</span></td><td>Souffle Long — symbole <strong>W</strong></td></tr>
-        <tr><td><span class="kbd">w</span></td><td>Souffle Court — symbole <strong>w</strong></td></tr>
-      </table>
-
-      <h3>Voix / Chœur</h3>
-      <p>Cliquez sur <strong>PUX</strong> (Puxador - orange) ou <strong>CORO</strong> (cyan) pour alterner. Tapez la syllabe dans le champ texte.</p>
-      <div class="tip"><strong>💡 Syllabes avec "-"</strong> (ex: "Va-") seront collées à la syllabe suivante dans la Toada. Sans "-" = espace entre les mots.</div>
-    </div>
-
-    <!-- ========== SECTION 4: NAVIGATION ========== -->
-    <div class="section" lang="pt">
-      <h2>⌨️ Navegação pelo Teclado</h2>
-      <table>
-        <tr><th>Tecla</th><th>Ação</th></tr>
-        <tr><td><span class="kbd">→</span> / <span class="kbd">Tab</span></td><td>Próximo passo</td></tr>
-        <tr><td><span class="kbd">←</span></td><td>Passo anterior</td></tr>
-        <tr><td><span class="kbd">Enter</span></td><td>Próximo passo (confirma)</td></tr>
-        <tr><td><span class="kbd">Backspace</span> (vazio)</td><td>Volta ao passo anterior</td></tr>
-      </table>
-      <div class="tip"><strong>💡 Dica:</strong> Nos instrumentos de percussão, basta digitar a letra (D, G, A...) para preencher e avançar automaticamente ao próximo passo.</div>
-    </div>
-    <div class="section" lang="fr">
-      <h2>⌨️ Navigation au Clavier</h2>
-      <table>
-        <tr><th>Touche</th><th>Action</th></tr>
-        <tr><td><span class="kbd">→</span> / <span class="kbd">Tab</span></td><td>Pas suivant</td></tr>
-        <tr><td><span class="kbd">←</span></td><td>Pas précédent</td></tr>
-        <tr><td><span class="kbd">Enter</span></td><td>Pas suivant (confirme)</td></tr>
-        <tr><td><span class="kbd">Backspace</span> (vide)</td><td>Retour au pas précédent</td></tr>
-      </table>
-      <div class="tip"><strong>💡 Astuce :</strong> Pour les percussions, il suffit de taper la lettre (D, G, A...) pour remplir et avancer automatiquement au pas suivant.</div>
-    </div>
-
-    <!-- ========== SECTION 5: MIXER ========== -->
-    <div class="section" lang="pt">
-      <h2>🎛️ Misturador & Escultura de Som</h2>
-      <h3>Controles Gerais de Pistas</h3>
-      <ul>
-        <li><strong>M</strong> (Mute) — Silencia a pista (fica vermelho quando ativo)</li>
-        <li><strong>S</strong> (Solo) — Só essa pista toca (fica amarelo)</li>
-        <li><strong>👁️ / 🙈</strong> — Mostra/oculta a pista na Roda</li>
-        <li><strong>🗑️</strong> — Remove a pista</li>
-        <li><strong>Arrastar e Soltar (Drag-and-Drop)</strong> — Reordena as pistas arrastando a alça de reordenação correspondente.</li>
-        <li><strong>Panorâmica (PAN) 🎛️</strong> — O botão giratório PAN permite direcionar o som de cada instrumento mais para a esquerda (L) ou para a direita (R) nos fones/caixas.</li>
-        <li><strong>Volume & Reverb</strong> — Controle o volume e o envio de reverberação global por pista.</li>
-        <li><strong>Tipo de Reverb</strong> — Na seção Master do console Mixer, escolha o tipo de reverberação ideal: <strong>Room</strong> (Estúdio pequeno), <strong>Studio</strong> (Sala média), ou <strong>Hall</strong> (Grande catedral).</li>
-      </ul>
-
-      <h3>Editor Detalhado (Lápis ✏️) & Escultor de Som</h3>
-      <p>Clique em ✏️ para abrir o editor avançado do instrumento:</p>
-      <ul>
-        <li><strong>Escultura por Passo (🎛️)</strong> — Selecione um passo para abrir o painel de escultura e ajustar individualmente:
-          <ul>
-            <li>🔊 <strong>Volume</strong> (barra verde) : Ajusta a dinâmica e acentuação da batida.</li>
-            <li>⏳ <strong>Decay / Ressonância</strong> (barra laranja) : Controla a sustentação e duração do som (por exemplo, deixar uma caixa ou alfaia mais abafada ou ressonante).</li>
-            <li>⏱️ <strong>Micro-timing</strong> (barra azul) : Desvia o tempo do passo para a esquerda (antecipado -50%) ou para a direita (atrasado +50%). O quadrado do passo se desloca visualmente na tela para representar essa antecipação/atraso !</li>
-          </ul>
-        </li>
-        <li><strong>Divisão dos Compassos</strong> — Para facilitar a leitura, os passos são organizados em grupos de 4 tempos (e nunca se sobrepõem visualmente).</li>
-        <li><strong>Ajustes de Vozes</strong> — Nas pistas de voz, você pode definir a sílaba (letra) e a nota musical exata (ex: C4, D4...) por passo, além de alternar entre PUX (Puxador) e CORO clicando no cabeçalho do passo.</li>
-        <li><strong>Padrões & Compassos</strong> — Crie vários padrões rítmicos para um instrumento e marque em quais compassos (1, 2, 3, 4...) cada um deve tocar.</li>
-      </ul>
-      <div class="tip"><strong>💡 Dica:</strong> O misturador vertical pequeno à esquerda mostra os padrões resumidos. O grande misturador de console ("Mixer") permite gerenciar tudo em tela cheia de forma extremamente visual.</div>
-    </div>
-    <div class="section" lang="fr">
-      <h2>🎛️ Mixeur & Sculpture du Son</h2>
-      <h3>Contrôles Généraux de Pistes</h3>
-      <ul>
-        <li><strong>M</strong> (Mute) — Coupe la piste (devient rouge quand actif)</li>
-        <li><strong>S</strong> (Solo) — Seule cette piste joue (devient jaune)</li>
-        <li><strong>👁️ / 🙈</strong> — Affiche/masque la piste dans la Roda</li>
-        <li><strong>🗑️</strong> — Supprime la piste</li>
-        <li><strong>Glisser-Déposer (Drag-and-Drop)</strong> — Réordonne les pistes en faisant glisser la poignée de déplacement correspondante.</li>
-        <li><strong>Panoramique (PAN) 🎛️</strong> — Le bouton rotatif PAN permet d'orienter le son de chaque instrument plus vers la gauche (L) ou la droite (R) dans vos écouteurs.</li>
-        <li><strong>Volume & Reverb</strong> — Contrôlez le volume et l'envoi de réverbération globale par piste.</li>
-        <li><strong>Type de Réverbération</strong> — Dans la section Master de la console Mixeur, choisissez le type de pièce idéal : <strong>Room</strong> (Petit studio), <strong>Studio</strong> (Salle moyenne), ou <strong>Hall</strong> (Grande église/cathédrale).</li>
-      </ul>
-
-      <h3>Éditeur Détaillé (Crayon ✏️) & Sculpteur de Son</h3>
-      <p>Cliquez sur ✏️ pour ouvrir l'éditeur avancé de l'instrument :</p>
-      <ul>
-        <li><strong>Sculpture par Pas (🎛️)</strong> — Sélectionnez un pas pour ouvrir le panneau de sculpture et ajuster individuellement :
-          <ul>
-            <li>🔊 <strong>Volume</strong> (barre verte) : Ajuste l'intensité de la frappe.</li>
-            <li>⏳ <strong>Decay / Résonance</strong> (barre orange) : Contrôle la longueur et la durée de résonance du son (pour étouffer ou faire résonner un fût).</li>
-            <li>⏱️ <strong>Micro-timing</strong> (barre bleue) : Décale le pas vers la gauche (en avance -50%) ou vers la droite (en retard +50%). Le carré du pas se déplace aussi visuellement à l'écran !</li>
-          </ul>
-        </li>
-        <li><strong>Division des Mesures</strong> — Pour une lecture claire, les pas sont regroupés par 4 temps (et ne se chevauchent jamais visuellement).</li>
-        <li><strong>Réglage des Voix</strong> : Dans les pistes vocales, vous pouvez saisir la syllabe et la note musicale exacte (ex: C4, D4...) par pas, et alterner entre PUX (Puxador) et CORO en cliquant sur l'en-tête du pas.</li>
-        <li><strong>Motifs & Mesures</strong> : Créez plusieurs motifs rythmiques pour un instrument et cochez sur quelles mesures (1, 2, 3, 4...) chacun doit être joué.</li>
-      </ul>
-      <div class="tip"><strong>💡 Astuce :</strong> Le petit mixeur à gauche permet une vue d'ensemble rapide. Le grand mixeur ("Console") permet de gérer toutes les pistes en plein écran de manière très visuelle.</div>
-    </div>
-
-    <!-- ========== SECTION 5b: SEQUENCIADOR LINEAR & MODE SONG ========== -->
-    <div class="section" lang="pt">
-      <h2>🎞️ Sequenciador Linear & Modo Song</h2>
-      <p>O <strong>Sequenciador Linear</strong> (acessível pelo botão 🎞️ no menu móvel ou pela aba "SÉQUENCE" no computador) permite organizar a sua composição ao longo do tempo através de uma linha do tempo (timeline) horizontal.</p>
+  <!-- ==================== MAIN LAYOUT ==================== -->
+  <div class="layout-container">
+    
+    <!-- STICKY SIDEBAR INDEX -->
+    <aside class="sidebar" id="sidebar">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Rechercher... / Pesquisar..." />
+        <span class="search-icon">🔍</span>
+      </div>
       
-      <h3>Modo Song (Arranjo de Padrões)</h3>
-      <ul>
-        <li><strong>Atribuição por Compasso</strong> — Cada bloco de compasso para cada instrumento possui um menu suspenso contendo os padrões criados. Você pode selecionar qual padrão tocar em cada compasso, ou escolher <strong>Silence / Silêncio</strong> (representado por hachuras diagonais) para silenciar essa pista no compasso selecionado.</li>
-        <li><strong>Navegação na Timeline</strong> — Dê um clique em qualquer ponto da timeline para posicionar instantaneamente a cabeça de leitura vermelha e sincronizar o reprodutor.</li>
-        <li><strong>Navegação Fluida (Arrastar e Scroll)</strong> — Para navegar horizontalmente na timeline de forma intuitiva (quando a música está pausada ou parada) :
-          <ul>
-            <li>🖱️ <strong>Moleta do mouse (Scroll Wheel)</strong> : Gire a moleta do mouse em qualquer lugar do sequenciador para mover a timeline horizontalmente.</li>
-            <li>🖐️ <strong>Clique e Arraste (Drag-to-Scroll)</strong> : Clique com o botão esquerdo e segure em qualquer ponto da régua superior (onde estão indicados os números dos compassos) e mova o mouse para os lados. O cursor mudará para uma mão agarrando (grab).</li>
-          </ul>
-        </li>
-      </ul>
+      <nav class="index-menu">
+        <a href="#intro" class="index-link active">
+          <span lang="fr">1. Présentation & Philosophie</span>
+          <span lang="pt">1. Apresentação & Filosofia</span>
+        </a>
+        <a href="#roda" class="index-link">
+          <span lang="fr">2. La Roda Centrale</span>
+          <span lang="pt">2. A Roda Central</span>
+        </a>
+        <a href="#mixer" class="index-link">
+          <span lang="fr">3. Console de Mixage (Mixeur)</span>
+          <span lang="pt">3. Console Mixer</span>
+        </a>
+        <a href="#step-sculpture" class="index-link">
+          <span lang="fr">4. Sculpture du Son par Pas</span>
+          <span lang="pt">4. Escultura de Som por Passo</span>
+        </a>
+        <a href="#linear-sequencer" class="index-link">
+          <span lang="fr">5. Séquenceur Linéaire</span>
+          <span lang="pt">5. Séquenciador Linear</span>
+        </a>
+        <a href="#time-signatures" class="index-link">
+          <span lang="fr">6. Signatures par Mesure</span>
+          <span lang="pt">6. Assinaturas por Compasso</span>
+        </a>
+        <a href="#tempo-ramps" class="index-link">
+          <span lang="fr">7. Rampes de Tempo (BPM)</span>
+          <span lang="pt">7. Rampas de Tempo (BPM)</span>
+        </a>
+        <a href="#volume-ramps" class="index-link">
+          <span lang="fr">8. Rampes de Volume (Fades)</span>
+          <span lang="pt">8. Rampas de Volume (Fades)</span>
+        </a>
+        <a href="#toada" class="index-link">
+          <span lang="fr">9. Toada & Voix Karaoké</span>
+          <span lang="pt">9. Toada & Vozes Karaokê</span>
+        </a>
+        <a href="#swing" class="index-link">
+          <span lang="fr">10. Algorithme de Swing (≈)</span>
+          <span lang="pt">10. Algoritmo de Swing (≈)</span>
+        </a>
+        <a href="#shortcuts" class="index-link">
+          <span lang="fr">11. Raccourcis Clavier</span>
+          <span lang="pt">11. Atalhos de Teclado</span>
+        </a>
+        <a href="#files-recording" class="index-link">
+          <span lang="fr">12. Sauvegardes & Audio</span>
+          <span lang="pt">12. Salvar & Gravação</span>
+        </a>
+        <a href="#eco-mode" class="index-link">
+          <span lang="fr">13. Optimisation & Mode Éco</span>
+          <span lang="pt">13. Otimização & Modo Eco</span>
+        </a>
+      </nav>
+    </aside>
 
-      <h3>Assinaturas Rítmicas por Compasso</h3>
-      <p>O O Girador oferece a possibilidade única de alterar a assinatura rítmica de cada compasso individualmente :</p>
-      <ul>
-        <li>Na régua superior, clique no seletor de assinatura de um compasso para escolher entre <strong>4/4, 3/4, 2/4, 6/8 ou 12/8</strong>. A grade e a demarcação dos tempos (beats) desse compasso se adaptarão automaticamente.</li>
-        <li>O metrônomo e a reprodução de áudio se ajustarão de forma inteligente na passagem de cada compasso.</li>
-      </ul>
-
-      <h3>Aceleração & Desaceleração de Tempo (Aceleração / Arrasto)</h3>
-      <p>Essencial para as dinâmicas tradicionais do maracatu, você pode programar variações de tempo de forma simples :</p>
-      <ul>
-        <li><strong>BPM por Compasso</strong> — Insira o tempo desejado no campo BPM de cada compasso.</li>
-        <li><strong>Transição Progressiva (Rampa ↗)</strong> — Clique no botão de transição ao lado do BPM :
-          <ul>
-            <li><strong>Imediata (→)</strong> : O tempo muda bruscamente na entrada do compasso.</li>
-            <li><strong>Progressiva (↗)</strong> : O tempo acelera ou desacelera de maneira contínua e matemática ao longo de todo o compasso, partindo do tempo do compasso anterior para atingir perfeitamente o tempo alvo no final do compasso.</li>
-          </ul>
-        </li>
-      </ul>
-
-      <h3>Fades e Volume por Compasso (Fade In / Fade Out)</h3>
-      <p>Para estruturar o arranjo, você pode programar variações de volume (atenuação ou fade) por compasso :</p>
-      <ul>
-        <li><strong>VOL por Compasso</strong> — Insira a porcentagem de volume (de 0% a 100%) desejada para cada compasso.</li>
-        <li><strong>Transição de Volume</strong> — Clique no botão de transição de volume ao lado da porcentagem :
-          <ul>
-            <li><strong>Imediata (→)</strong> : O volume muda bruscamente na entrada do compasso.</li>
-            <li><strong>Progressiva / Fade (↗)</strong> : O volume faz uma transição progressiva ao longo do compasso, partindo do volume do compasso anterior para atingir o volume alvo no final do compasso. Ideal para fazer um <strong>Fade In</strong> (ex: de 0% a 100% em um ou dois compassos) ou um <strong>Fade Out</strong> no final da música (ex: de 100% a 0%).</li>
-          </ul>
-        </li>
-      </ul>
-    </div>
-    <div class="section" lang="fr">
-      <h2>🎞️ Séquenceur Linéaire & Mode Song</h2>
-      <p>Le <strong>Séquenceur Linéaire</strong> (accessible via le bouton 🎞️ sur mobile ou l'onglet "SÉQUENCE" sur ordinateur) permet d'ouvrir votre composition dans le temps à l'aide d'une timeline horizontale.</p>
+    <!-- CONTENT PANE -->
+    <main class="content-pane">
       
-      <h3>Mode Song (Arrangement de motifs)</h3>
-      <ul>
-        <li><strong>Attribution par Mesure</strong> — Chaque bloc de mesure pour chaque instrument dispose d'un menu déroulant listant tous ses motifs (patterns). Vous pouvez choisir quel motif doit être joué sur chaque mesure, ou sélectionner <strong>Silence</strong> (représenté par des hachures diagonales) pour couper la piste sur cette mesure.</li>
-        <li><strong>Navigation Temporelle</strong> — Cliquez n'importe où sur la timeline pour déplacer instantanément la tête de lecture rouge et caler la lecture.</li>
-        <li><strong>Défilement Interactif (Drag & Scroll)</strong> : Pour faire défiler la timeline horizontalement de manière intuitive (quand la lecture est en pause ou arrêtée) :
+      <!-- ========== SECTION 1: INTRO ========== -->
+      <section id="intro" class="section">
+        <h2 lang="fr">1. Présentation & Philosophie de l'Application</h2>
+        <h2 lang="pt">1. Apresentação & Filosofia do Aplicativo</h2>
+        
+        <div lang="fr">
+          <p><strong>O Girador</strong> est un séquenceur rythmique interactif développé pour explorer, composer et transmettre le <strong>Maracatu de Baque Virado</strong>, une tradition percussive centenaire originaire de l'État du Pernambouc au Brésil. L'application est conçue pour simuler les interactions sonores et spatiales d'un <em>bloco</em> (groupe) de maracatu complet.</p>
+          <p>La philosophie d'O Girador repose sur la rencontre entre la tradition et l'audio numérique moderne (Web Audio API et Tone.js). Son identité visuelle est profondément inspirée de la littérature de <strong>Cordel</strong> et des <strong>Xilografias (gravures sur bois)</strong> traditionnelles du Nordeste brésilien, caractérisées par leurs traits noirs épais, leur papier vieilli et leurs contrastes marqués.</p>
+        </div>
+        
+        <div lang="pt">
+          <p><strong>O Girador</strong> é um sequenciador rítmico interativo desenvolvido para explorar, compor e transmitir o <strong>Maracatu de Baque Virado</strong>, uma tradição percussiva centenária originária de Pernambuco, Brasil. O aplicativo foi projetado para simular as interações sonoras e espaciais de um <em>bloco</em> de maracatu completo.</p>
+          <p>A filosofia do O Girador baseia-se no encontro entre a tradição e o áudio digital moderno (Web Audio API e Tone.js). Sua identidade visual é profundamente inspirada na literatura de <strong>Cordel</strong> e nas <strong>Xilogravuras</strong> tradicionais do Nordeste brasileiro, caracterizadas por traços pretos grossos, papel envelhecido e contrastes marcantes.</p>
+        </div>
+
+        <div class="tip">
+          <div class="tip-content">
+            <span lang="fr"><strong>Le Maracatu de Baque Virado</strong> s'articule autour de dialogues complexes entre les tambours graves (Alfaias), la cloche métallique guide (Gonguê), les caisses claires (Caixas, Tarol), les hochets (Agbê, Mineiro) et les chants responsoriaux (Puxador et Coro).</span>
+            <span lang="pt"><strong>O Maracatu de Baque Virado</strong> articula-se em torno de diálogos complexos entre os tambores graves (Alfaias), o sino metálico guia (Gonguê), as caixas claras (Caixas, Tarol), os chocalhos (Agbê, Mineiro) e os cantos responsoriais (Puxador e Coro).</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== SECTION 2: RODA ========== -->
+      <section id="roda" class="section">
+        <h2 lang="fr">2. La Roda Centrale (Visualiseur Circulaire)</h2>
+        <h2 lang="pt">2. A Roda Central (Visualizador Circular)</h2>
+        
+        <div lang="fr">
+          <p>La **Roda** est le cœur interactif et visuel de l'application. Elle remplace la grille de défilement linéaire standard par un format circulaire de cercles concentriques. Cela permet d'avoir une vision globale et holistique du rythme en cours, à la manière des percussionnistes réunis en cercle dans la tradition.</p>
+        </div>
+        <div lang="pt">
+          <p>A **Roda** é o coração interativo e visual do aplicativo. Ela substitui a grade de rolagem linear padrão por um formato circular de círculos concêntricos. Isso permite uma visão global do ritmo em andamento, imitando a disposição dos percussionistas em uma roda tradicional.</p>
+        </div>
+
+        <!-- RODA ACCORDION 1: PLAY/PAUSE -->
+        <details>
+          <summary>
+            <span lang="fr">▶️ Contrôle de lecture central (Play/Pause)</span>
+            <span lang="pt">▶️ Controle de Reprodução Central (Play/Pause)</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>Le disque situé au centre exact de la Roda (contenant l'icône de baguette ou les informations d'horloge) sert de déclencheur de lecture.</p>
+              <ul>
+                <li><strong>Clic / Tap au centre</strong> : Lance ou met en pause la musique instantanément.</li>
+                <li><strong>Cercle d'impulsion</strong> : Un halo jaune pulse au rythme de la pulsation master (Beat 1) pour vous aider à caler le tempo visuellement.</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>O disco localizado no centro exato da Roda (contendo o ícone de baqueta ou informações de tempo) funciona como botão de reprodução.</p>
+              <ul>
+                <li><strong>Clique / Toque no centro</strong> : Inicia ou pausa a reprodução instantaneamente.</li>
+                <li><strong>Círculo de impulso</strong> : Um halo amarelo pulsa no ritmo do compasso master (Beat 1) para ajudar a guiar o tempo visualmente.</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- RODA ACCORDION 2: PERCUSSION EDITING -->
+        <details>
+          <summary>
+            <span lang="fr">🥁 Saisie et Modification des Percussions</span>
+            <span lang="pt">🥁 Inserção e Modificação de Percussão</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>Chaque anneau concentrique représente une piste d'instrument active.</p>
+              <ul>
+                <li><strong>Clic sur un pas de l'anneau</strong> : Active ou désactive la note. Si le pas est actif, le clic modifie sa valeur de frappe en cyclant à travers les toques par défaut (ex: main droite, main gauche, rimshot, click).</li>
+                <li><strong>Coups colorés</strong> : La forme géométrique et la couleur des pas sur les anneaux indiquent visuellement le type de frappe programmée.</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>Cada anel concêntrico representa uma pista de instrumento ativa.</p>
+              <ul>
+                <li><strong>Clique em um passo do anel</strong> : Ativa ou desativa a nota. Se o passo estiver ativo, o clique altera o toque, alternando entre os golpes padrão (ex: mão direita, mão esquerda, aro, clique).</li>
+                <li><strong>Símbolos coloridos</strong> : A forma geométrica e a cor dos passos nos anéis indicam visualmente o tipo de toque programado.</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- RODA ACCORDION 3: VOICE/TOADA EDITING -->
+        <details>
+          <summary>
+            <span lang="fr">🗣️ Saisie des Paroles et Notes Vocales (Toada)</span>
+            <span lang="pt">🗣️ Inserção de Parolas e Notas de Canto (Toada)</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>L'anneau vocal (le plus large) vous permet de faire chanter des paroles articulées à l'application.</p>
+              <ul>
+                <li><strong>Invite Vocale (Prompt)</strong> : Cliquez sur un pas de l'anneau vocal pour ouvrir une boîte de saisie.</li>
+                <li><strong>Format de saisie</strong> : Saisissez sous la forme <kbd>Note:Syllabe</kbd> (par exemple <kbd>G4:di</kbd>). La note (ex: G4, C4) définit la hauteur chantée, et la syllabe le texte prononcé.</li>
+                <li><strong>Chant Solo vs Chœur</strong> : Ajoutez un astérisque devant la syllabe (ex: <kbd>C4:*Va</kbd>) pour assigner le rôle au **Puxador** (Chanteur principal). Sans astérisque, la note sera chantée par le **Coro** (Chœur).</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>O anel vocal (o mais largo) permite que você faça o aplicativo cantar palavras articuladas.</p>
+              <ul>
+                <li><strong>Prompt Vocal</strong> : Clique em um passo do anel de voz para abrir uma janela de digitação.</li>
+                <li><strong>Formato de escrita</strong> : Digite no formato <kbd>Nota:Sílaba</kbd> (ex: <kbd>G4:di</kbd>). A nota (ex: G4, C4) define o tom cantado, e a sílaba define a palavra pronunciada.</li>
+                <li><strong>Solo vs Coro</strong> : Adicione um asterisco antes da sílaba (ex: <kbd>C4:*Va</kbd>) para atribuir o canto ao **Puxador**. Sem o asterisco, o passo será cantado pelo **Coro**.</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- RODA ACCORDION 4: TOUCH SELECTOR -->
+        <details>
+          <summary>
+            <span lang="fr">📱 Sélecteur Tactile Avancé (Mobiles & Tablettes)</span>
+            <span lang="pt">📱 Seletor de Toques Táctil (Celular & Tablet)</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>Sur les interfaces tactiles, le clic répété peut s'avérer fastidieux.</p>
+              <ul>
+                <li><strong>Sélecteur de coup tactile</strong> : Un simple tap sur un pas ouvre instantanément un menu circulaire ou une barre d'options contenant tous les toques de l'instrument (ex: main droite faible, roulement, flam, rimshot). Sélectionnez directement le coup désiré du bout du doigt pour une composition ultra-fluide.</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>Em telas de celulares e tablets, clicar repetidamente pode ser lento.</p>
+              <ul>
+                <li><strong>Seletor circular táctil</strong> : Um toque em um passo abre imediatamente um menu contendo todos os toques disponíveis para o instrumento (ex: mão direita fraca, rolamento, fla, aro). Toque diretamente no golpe desejado para compor rapidamente.</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- RODA ACCORDION 5: DYNAMIC FEEDBACK -->
+        <details>
+          <summary>
+            <span lang="fr">👁️ Retours Visuels (Opacités et Masques)</span>
+            <span lang="pt">👁️ Feedback Visual (Opacidade & Mascaramento)</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>La Roda reflète dynamiquement les états de la console de mixage.</p>
+              <ul>
+                <li><strong>Mute (Silences)</strong> : Les anneaux d'instruments coupés deviennent semi-transparents.</li>
+                <li><strong>Masquage (👁️/🙈)</strong> : Cliquer sur l'icône de visibilité d'un instrument l'efface complètement de la Roda, libérant de l'espace visuel pour les autres instruments complexes.</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>A Roda reflete dinamicamente as alterações feitas no console mixer.</p>
+              <ul>
+                <li><strong>Mute (Silenciados)</strong> : Os anéis dos instrumentos em Mute ficam semi-transparentes.</li>
+                <li><strong>Ocultar (👁️/🙈)</strong> : Clicar no ícone de olho de um instrumento o remove da Roda, liberando espaço visual para os outros instrumentos.</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- ========== SECTION 3: MIXER ========== -->
+      <section id="mixer" class="section">
+        <h2 lang="fr">3. Console de Mixage (Mixeur)</h2>
+        <h2 lang="pt">3. Console Mixer (Mesa de Som)</h2>
+        
+        <div lang="fr">
+          <p>La console de mixage permet de sculpter l'espace acoustique global de votre bloc de maracatu en ajustant les niveaux, la réverbération et le panoramique stéréo de chaque instrument.</p>
+        </div>
+        <div lang="pt">
+          <p>O console mixer permite esculpir o espaço acústico global do seu bloco de maracatu, ajustando os volumes, efeitos e a distribuição estéreo de cada instrumento.</p>
+        </div>
+
+        <!-- MIXER ACCORDION 1: CONTROLES BASIQUES -->
+        <details>
+          <summary>
+            <span lang="fr">🎚️ Contrôles de Base (Mute, Solo, Volume)</span>
+            <span lang="pt">🎚️ Controles Básicos (Mute, Solo, Volume)</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>Chaque tranche de console possède les boutons d'état classiques :</p>
+              <ul>
+                <li><strong>M (Mute)</strong> : Coupe le signal audio de l'instrument. Le bouton s'illumine en rouge.</li>
+                <li><strong>S (Solo)</strong> : Coupe toutes les autres pistes pour isoler l'instrument sélectionné (s'illumine en jaune).</li>
+                <li><strong>Slider de volume</strong> : Ajuste le gain de l'instrument pour équilibrer le signal sonore de l'ensemble du bloc.</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>Cada canal da mesa possui botões de status clássicos:</p>
+              <ul>
+                <li><strong>M (Mute)</strong> : Silencia o sinal de áudio do instrumento. O botão fica vermelho.</li>
+                <li><strong>S (Solo)</strong> : Silencia as outras pistas para isolar o instrumento selecionado (fica amarelo).</li>
+                <li><strong>Slider de volume</strong> : Ajusta o ganho do instrumento para equilibrar o sinal sonoro geral do bloco.</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- MIXER ACCORDION 2: PAN -->
+        <details>
+          <summary>
+            <span lang="fr">🎛️ Spatialisation Stéréo (Bouton PAN)</span>
+            <span lang="pt">🎛️ Espacialização Estéreo (Botão PAN)</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>Le bouton rotatif <strong>PAN (Panoramique)</strong> permet de distribuer le son plus à gauche (L) ou à droite (R) dans vos haut-parleurs ou écouteurs.</p>
+              <ul>
+                <li>Double-cliquez sur le bouton PAN pour le réinitialiser instantanément au centre (C).</li>
+                <li><strong>Utilité traditionnelle</strong> : Permet de spatialiser les alfaies (par exemple, placer les alfaias de marque à gauche et les alfaias de dobra à droite) pour simuler la disposition géographique physique des musiciens sur scène.</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>O botão rotativo <strong>PAN (Panorâmica)</strong> distribui o som mais para a esquerda (L) ou para a direita (R) nos seus fones ou caixas.</p>
+              <ul>
+                <li>Dê um duplo clique no botão PAN para reiniciá-lo instantaneamente ao centro (C).</li>
+                <li><strong>Utilidade tradicional</strong> : Permite espacializar as alfaias (por exemplo, colocar os tambores de marcação na esquerda e os de dobra na direita) simulando a disposição física no palco.</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- MIXER ACCORDION 3: VISIBILITÉ -->
+        <details>
+          <summary>
+            <span lang="fr">👁️ Masquage et Visibilité Roda</span>
+            <span lang="pt">👁️ Ocultação e Visibilidade Roda</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>L'icône d'œil (👁️) sur chaque piste permet d'afficher ou de masquer l'instrument sur le visualiseur circulaire.</p>
+              <ul>
+                <li><strong>Icône œil (👁️)</strong> : L'instrument s'affiche normalement sous forme d'anneau dans la Roda centrale.</li>
+                <li><strong>Icône œil barré (🙈)</strong> : Masque la piste de la Roda. L'instrument continue d'être joué par le moteur audio, mais n'occupe plus d'espace visuel dans le cercle central.</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>O ícone de olho (👁️) em cada pista permite exibir ou ocultar o instrumento no visualizador circular.</p>
+              <ul>
+                <li><strong>Ícone de olho (👁️)</strong> : O instrumento é exibido como um anel na Roda central.</li>
+                <li><strong>Ícone de olho riscado (🙈)</strong> : Oculta a pista da Roda. O instrumento continua tocando, mas não ocupa espaço no círculo central.</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- MIXER ACCORDION 4: REVERB -->
+        <details>
+          <summary>
+            <span lang="fr">🌌 Envoi d'Effet et Types de Réverbération (Reverb)</span>
+            <span lang="pt">🌌 Envio de Efeito e Tipos de Reverb</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>La réverbération permet d'ajouter de la profondeur tridimensionnelle aux instruments.</p>
+              <ul>
+                <li><strong>Bouton Reverb (par piste)</strong> : Règle la quantité de signal envoyé vers la réverbération générale.</li>
+                <li><strong>Sélecteur d'espace (Master)</strong> : Choisissez le type de pièce souhaité sur la console :
+                  <ul>
+                    <li><strong>Room</strong> : Studio sec et mat.</li>
+                    <li><strong>Studio</strong> : Pièce de répétition moyenne, chaleureuse.</li>
+                    <li><strong>Hall</strong> : Grande cathédrale avec une longue traîne de réverbération traditionnelle.</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>A reverberação adiciona profundidade tridimensional aos instrumentos.</p>
+              <ul>
+                <li><strong>Botão Reverb (por pista)</strong> : Ajusta a quantidade de sinal enviado para a reverberação geral.</li>
+                <li><strong>Seletor de ambiente (Master)</strong> : Escolha o tipo de ambiente virtual no console:
+                  <ul>
+                    <li><strong>Room</strong> : Estúdio pequeno e seco.</li>
+                    <li><strong>Studio</strong> : Sala de ensaio média.</li>
+                    <li><strong>Hall</strong> : Grande igreja com ressonância acústica longa.</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- MIXER ACCORDION 5: DRAG AND DROP -->
+        <details>
+          <summary>
+            <span lang="fr">↕️ Réorganisation des Pistes (Drag-and-Drop)</span>
+            <span lang="pt">↕️ Reorganização de Pistas (Arrastar-e-Soltar)</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>Vous pouvez réorganiser les instruments selon vos préférences de travail.</p>
+              <ul>
+                <li>Maintenez le clic sur la poignée striée verticale (↕️) située à gauche de la piste du mixeur, puis faites-la glisser vers le haut ou le bas.</li>
+                <li>L'ordre est également mis à jour en temps réel sur les anneaux de la Roda centrale (les instruments situés en haut s'affichent sur les anneaux extérieurs).</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>Você pode reorganizar os instrumentos de acordo com suas preferências.</p>
+              <ul>
+                <li>Clique e segure a alça listrada (↕️) no lado esquerdo da pista no mixer e arraste para cima ou para baixo.</li>
+                <li>A ordem também é atualizada em tempo real nos anéis da Roda central (os instrumentos no topo aparecem nos anéis externos).</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- ========== SECTION 4: STEP SCULPTURE ========== -->
+      <section id="step-sculpture" class="section">
+        <h2 lang="fr">4. Sculpture du Son par Pas (Éditeur Détaillé)</h2>
+        <h2 lang="pt">4. Escultura de Som por Passo (Editor Avançado)</h2>
+        
+        <div lang="fr">
+          <p>L'éditeur détaillé (✏️) vous donne un accès chirurgical au comportement acoustique de chaque frappe individuelle. Cliquez sur un pas actif pour ouvrir la boîte de sculpture :</p>
+        </div>
+        <div lang="pt">
+          <p>O editor detalhado (✏️) oferece acesso cirúrgico ao comportamento acústico de cada batida individual. Clique em um passo ativo para abrir o painel de escultura:</p>
+        </div>
+
+        <div class="sculpture-demo">
+          <div class="demo-bar">
+            <span class="demo-bar-title" style="color: var(--green);">🔊 Volume</span>
+            <div class="demo-slider"><div class="demo-slider-fill fill-vol"></div></div>
+          </div>
+          <div class="demo-bar">
+            <span class="demo-bar-title" style="color: var(--orange);">⏳ Decay</span>
+            <div class="demo-slider"><div class="demo-slider-fill fill-dec"></div></div>
+          </div>
+          <div class="demo-bar">
+            <span class="demo-bar-title" style="color: var(--blue);">⏱️ Micro-timing</span>
+            <div class="demo-slider"><div class="demo-slider-fill fill-time"></div></div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 20px;"></div>
+
+        <!-- SCULPTURE ACCORDION 1: VOLUME -->
+        <details>
+          <summary>
+            <span lang="fr">🔊 Volume par Pas (Vélocité / Accentuation)</span>
+            <span lang="pt">🔊 Volume por Passo (Velocidade / Acentuação)</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>Permet d'ajuster l'intensité de chaque frappe sur une échelle de 0% à 100%.</p>
+              <ul>
+                <li><strong>Utilité</strong> : Indispensable pour introduire du relief et de la dynamique rituels dans vos compositions (coups faibles appelés "notes fantômes" vs accents forts sur le premier temps).</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>Permite ajustar a intensidade de cada golpe em uma escala de 0% a 100%.</p>
+              <ul>
+                <li><strong>Utilidade</strong> : Indispensável para introduzir variações e dinâmicas nos ritmos (golpes fracos chamados de "notas fantasmas" vs acentos fortes).</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- SCULPTURE ACCORDION 2: DECAY -->
+        <details>
+          <summary>
+            <span lang="fr">⏳ Decay par Pas (Résonance / Amortissement)</span>
+            <span lang="pt">⏳ Decay por Passo (Ressonância / Abafamento)</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>Règle la durée de résonance du tambour sur le pas sélectionné.</p>
+              <ul>
+                <li><strong>Decay court</strong> : Le tambour s'éteint très vite, simulant un coup étouffé par la main ou par une sourdine (très typique de la technique d'Alfaia pour éviter que les notes se chevauchent).</li>
+                <li><strong>Decay long</strong> : Laisse la peau résonner librement dans l'espace.</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>Ajusta o tempo de ressonância do tambor no passo selecionado.</p>
+              <ul>
+                <li><strong>Decay curto</strong> : O som do tambor apaga rapidamente, simulando uma batida abafada pela mão ou abafador (muito típico na técnica de Alfaia para evitar que as notas embolem).</li>
+                <li><strong>Decay longo</strong> : Deixa a pele vibrar livremente.</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- SCULPTURE ACCORDION 3: MICRO-TIMING -->
+        <details>
+          <summary>
+            <span lang="fr">⏱️ Micro-timing et Déplacement Visuel</span>
+            <span lang="pt">⏱️ Micro-timing & Deslocamento Visual</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>Permet d'avancer (anticipation, vers la gauche) ou de retarder (traînante, vers la droite) la frappe par rapport à la grille mathématique stricte, de -50% à +50%.</p>
+              <ul>
+                <li><strong>Déplacement du carré de pas</strong> : Ajuster le micro-timing déplace physiquement le pas sur la grille à l'écran, ce qui permet de "voir" la syncope ou le retard rythmique du musicien !</li>
+                <li><strong>But</strong> : Humaniser la machine pour obtenir un ressenti authentique.</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>Permite adiantar (para a esquerda) ou atrasar (para a direita) o golpe em relação à grade matemática exata, de -50% a +50%.</p>
+              <ul>
+                <li><strong>Deslocamento do quadrado</strong> : Ajustar o micro-timing move fisicamente o quadrado do passo na tela, permitindo "ver" o suingue ou o atraso rítmico do músico!</li>
+                <li><strong>Objetivo</strong> : Humanizar a máquina para obter um balanço autêntico.</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- SCULPTURE ACCORDION 4: VOICE EDITING -->
+        <details>
+          <summary>
+            <span lang="fr">🗣️ Réglages Vocaux : Syllabes, Notes et Rôles</span>
+            <span lang="pt">🗣️ Ajustes de Voz: Sílabas, Notas e Funções</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>Sur les pistes de type voix, l'éditeur de pas propose des réglages uniques :</p>
+              <ul>
+                <li><strong>Changement de rôle rapide</strong> : Cliquez sur l'en-tête du pas pour basculer instantanément entre **PUX** (Puxador, orange) et **CORO** (Chœur, cian).</li>
+                <li><strong>Champ Note</strong> : Permet de définir précisément la note musicale (ex: C4, D4, E4...) jouée par le synthétiseur vocal sur ce pas précis.</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>Nas pistas de voz, o editor de passos oferece configurações exclusivas:</p>
+              <ul>
+                <li><strong>Troca de papel rápida</strong> : Clique no cabeçalho do passo para alternar entre **PUX** (Puxador, laranja) e **CORO** (Coro, ciano).</li>
+                <li><strong>Campo Nota</strong> : Permite definir a nota musical exata (ex: C4, D4, E4...) tocada pelo sintetizador de voz naquele passo específico.</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- ========== SECTION 5: LINEAR SEQUENCER ========== -->
+      <section id="linear-sequencer" class="section">
+        <h2 lang="fr">5. Séquenceur Linéaire & Mode Song</h2>
+        <h2 lang="pt">5. Séquenciador Linear & Modo Song</h2>
+        
+        <div lang="fr">
+          <p>Le séquenceur linéaire (🎞️) permet d'agencer de multiples patterns sur la durée pour construire une structure de chanson complexe (intro, couplet, refrain, breaks).</p>
+        </div>
+        <div lang="pt">
+          <p>O sequenciador linear (🎞️) permite organizar múltiplos padrões ao longo do tempo para construir uma estrutura musical completa (introdução, estrofe, refrão, quebras).</p>
+        </div>
+
+        <!-- SEQUENCER ACCORDION 1: SONG MODE -->
+        <details>
+          <summary>
+            <span lang="fr">🎞️ Mode Song (Arrangement de motifs par mesure)</span>
+            <span lang="pt">🎞️ Modo Song (Arranjo de padrões por compasso)</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>Chaque instrument peut posséder plusieurs variations rythmiques distinctes.</p>
+              <ul>
+                <li>Dans le tableau du séquenceur linéaire, chaque case représente une mesure. Cliquez dessus pour ouvrir un menu déroulant listant tous les motifs créés pour cet instrument.</li>
+                <li>Sélectionnez le motif désiré pour l'affecter à la mesure sélectionnée.</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>Cada instrumento pode ter várias variações rítmicas diferentes.</p>
+              <ul>
+                <li>Na grade do sequenciador linear, cada bloco representa um compasso. Clique sobre ele para abrir um menu suspenso listando os padrões criados.</li>
+                <li>Selecione o padrão desejado para atribuí-lo àquele compasso.</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- SEQUENCER ACCORDION 2: SILENCE -->
+        <details>
+          <summary>
+            <span lang="fr">🔕 Gestion du Silence Hachuré</span>
+            <span lang="pt">🔕 Gerenciamento de Silêncio Hachurado</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>Il est fréquent d'arrêter certains instruments pendant un chant ou une transition.</p>
+              <ul>
+                <li>Sélectionnez <strong>Silence / Silêncio</strong> dans le menu déroulant de la mesure.</li>
+                <li>La case affiche alors de magnifiques hachures diagonales noires et grises, indiquant visuellement d'un seul coup d'œil que l'instrument ne joue pas dans cette mesure.</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>É comum silenciar alguns instrumentos durante o canto ou uma transição.</p>
+              <ul>
+                <li>Selecione <strong>Silence / Silêncio</strong> no menu suspenso do compasso.</li>
+                <li>O bloco exibe listras diagonais pretas e cinzas, indicando que o instrumento não tocará naquele compasso específico.</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+
+        <!-- SEQUENCER ACCORDION 3: NAVIGATION -->
+        <details>
+          <summary>
+            <span lang="fr">🖱️ Navigation Intuitive (Molette et Glisser-Déposer)</span>
+            <span lang="pt">🖱️ Navegação Suave (Scroll & Arrastar)</span>
+          </summary>
+          <div class="details-content">
+            <div lang="fr">
+              <p>Pour faire défiler horizontalement de longues compositions de manière fluide :</p>
+              <ul>
+                <li><strong>Défilement par molette</strong> : Placez le curseur de la souris n'importe où sur le séquenceur et tournez la molette pour défiler horizontalement.</li>
+                <li><strong>Glisser-déposer de la règle (Drag-to-Scroll)</strong> : Cliquez et maintenez le bouton gauche sur la réglette des mesures supérieure, puis bougez la souris vers la gauche ou la droite.</li>
+              </ul>
+            </div>
+            <div lang="pt">
+              <p>Para rolar a linha do tempo horizontalmente em músicas longas de forma suave:</p>
+              <ul>
+                <li><strong>Rolar com a moleta</strong> : Coloque o cursor do mouse no sequenciador e gire a moleta para rolar horizontalmente.</li>
+                <li><strong>Arrastar pela régua (Drag-to-Scroll)</strong> : Clique e segure o botão esquerdo na régua superior de compassos e mova o mouse para os lados.</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- ========== SECTION 6: TIME SIGNATURES ========== -->
+      <section id="time-signatures" class="section">
+        <h2 lang="fr">6. Signatures Rythmiques par Mesure</h2>
+        <h2 lang="pt">6. Assinaturas Rítmicas por Compasso</h2>
+        
+        <div lang="fr">
+          <p>Contrairement aux séquenceurs classiques limités à une seule métrique globale, O Girador vous permet de changer la <strong>Signature Rythmique</strong> à chaque mesure individuelle.</p>
           <ul>
-            <li>🖱️ <strong>Molette de la souris</strong> : Faites tourner la molette de votre souris n'importe où sur le séquenceur pour faire défiler la timeline horizontalement.</li>
-            <li>🖐️ <strong>Cliquer-Glisser (Drag-to-Scroll)</strong> : Maintenez le clic gauche enfoncé n'importe où sur la règle supérieure (la zone affichant les numéros de mesures) et déplacez votre souris. Le curseur se change en main fermée (grabbing).</li>
+            <li><strong>Sélection</strong> : Sur la règle supérieure, cliquez sur l'indicateur de signature (ex: <kbd>4/4</kbd>) au sommet d'un compasso.</li>
+            <li><strong>Choix Disponibles</strong> : Vous pouvez choisir parmi <strong>4/4, 3/4, 2/4, 6/8 ou 12/8</strong>.</li>
+            <li><strong>Adaptation Automatique</strong> : La grille des pas se redivise instantanément à l'écran. Le métronome ajuste dynamiquement son accentuation (pulsation forte sur le premier temps de la mesure) lors de la lecture en temps réel.</li>
           </ul>
-        </li>
-      </ul>
-
-      <h3>Signatures Rythmiques par Mesure</h3>
-      <p>O Girador offre la possibilité unique de modifier la signature rythmique de chaque mesure de manière indépendante :</p>
-      <ul>
-        <li>Dans la règle supérieure, utilisez le sélecteur de signature d'une mesure pour choisir entre <strong>4/4, 3/4, 2/4, 6/8 ou 12/8</strong>. La grille et le marquage des temps de cette mesure s'adaptent instantanément.</li>
-        <li>Le métronome et la lecture audio s'ajustent automatiquement et en temps réel lors du passage d'une mesure à l'autre.</li>
-      </ul>
-
-      <h3>Accélération & Ralentissement de Tempo (Aceleração / Arrasto)</h3>
-      <p>Essentiel pour restituer les dynamiques traditionnelles du maracatu, vous pouvez programmer des variations de tempo très précises :</p>
-      <ul>
-        <li><strong>BPM par Mesure</strong> — Saisissez le tempo souhaité dans le champ BPM de chaque mesure.</li>
-        <li><strong>Type de Transition</strong> — Cliquez sur l'icône de transition à côté du BPM :
+        </div>
+        
+        <div lang="pt">
+          <p>Ao contrário dos sequenciadores clássicos limitados a uma única métrica global, o O Girador permite alterar a <strong>Assinatura Rítmica</strong> a cada compasso individualmente.</p>
           <ul>
-            <li><strong>Immédiaate (→)</strong> : Le tempo change d'un coup sec au début de la mesure.</li>
-            <li><strong>Progressive / Rampe (↗)</strong> : Le tempo accélère ou ralentit de manière totalement linéaire et fluide tout au long de la mesure, partant du tempo de la mesure précédente pour atteindre exactement le BPM cible à la fin de celle-ci.</li>
+            <li><strong>Seleção</strong> : Na régua superior, clique no indicador de assinatura (ex: <kbd>4/4</kbd>) no topo de um compasso.</li>
+            <li><strong>Métricas Disponíveis</strong> : Você pode escolher entre <strong>4/4, 3/4, 2/4, 6/8 ou 12/8</strong>.</li>
+            <li><strong>Adaptação Automática</strong> : A grade de passos se reorganiza instantaneamente na tela. O metrônomo ajusta automaticamente sua acentuação (pulso forte no primeiro tempo do compasso) durante a reprodução.</li>
           </ul>
-        </li>
-      </ul>
+        </div>
+      </section>
 
-      <h3>Fades et Volume par Mesure (Fade In / Fade Out)</h3>
-      <p>Pour structurer l'arrangement, vous pouvez programmer des variations de volume (atténuation ou fondu) par mesure :</p>
-      <ul>
-        <li><strong>VOL par Mesure</strong> — Saisissez le pourcentage de volume (de 0% à 100%) souhaité pour chaque mesure.</li>
-        <li><strong>Type de Transition</strong> — Cliquez sur l'icône de transition de volume (à côté du pourcentage) :
+      <!-- ========== SECTION 7: TEMPO RAMPS ========== -->
+      <section id="tempo-ramps" class="section">
+        <h2 lang="fr">7. Variations et Rampes de Tempo (BPM)</h2>
+        <h2 lang="pt">7. Variações e Rampas de Tempo (BPM)</h2>
+        
+        <div lang="fr">
+          <p>Le maracatu est une musique vivante caractérisée par des variations de vitesse (l'<em>aceleração</em> à la fin d'un morceau, ou le freinage du rythme - <em>arrasto</em>). O Girador vous permet de programmer précisément ces variations :</p>
           <ul>
-            <li><strong>Immédiate (→)</strong> : Le volume est appliqué instantanément au début de la mesure.</li>
-            <li><strong>Progressive / Fondu (↗)</strong> : Le volume effectue un fondu progressif tout au long de la mesure, partant du volume de la mesure précédente pour atteindre le volume cible à la fin de la mesure. C'est parfait pour réaliser un <strong>Fade In</strong> (ex: de 0% à 100% sur une ou deux mesures) ou un <strong>Fade Out</strong> à la fin d'un morceau (ex: de 100% à 0%).</li>
+            <li><strong>BPM par Mesure</strong> : Saisissez le tempo désiré dans le champ de saisie numérique BPM disponible en haut de chaque mesure sur la timeline.</li>
+            <li><strong>Type de Transition</strong> : Cliquez sur l'icône de transition à côté du BPM pour basculer entre :
+              <ul>
+                <li><strong>Transition Immédiate (<kbd>→</kbd>)</strong> : Le tempo change brusquement dès la première note de la mesure cible.</li>
+                <li><strong>Rampe Progressive (<kbd>↗</kbd>)</strong> : Le tempo accélère ou ralentit de façon linéaire et continue tout au long de la mesure en cours, partant du tempo de la mesure précédente pour atteindre exactement le BPM cible à la fin de la mesure.</li>
+              </ul>
+            </li>
           </ul>
-        </li>
-      </ul>
-    </div>
+        </div>
+        
+        <div lang="pt">
+          <p>O maracatu é uma música viva caracterizada por variações de velocidade (a <em>aceleração</em> no final de uma música, ou o <em>arrasto</em>). O Girador permite programar essas variações de forma muito precisa:</p>
+          <ul>
+            <li><strong>BPM por Compasso</strong> : Digite o tempo desejado no campo BPM disponível no topo de cada compasso na linha do tempo.</li>
+            <li><strong>Tipo de Transição</strong> : Clique no ícone de transição ao lado do BPM para alternar entre:
+              <ul>
+                <li><strong>Transição Imediata (<kbd>→</kbd>)</strong> : O tempo muda bruscamente na entrada do compasso alvo.</li>
+                <li><strong>Rampa Progressiva (<kbd>↗</kbd>)</strong> : O tempo acelera ou desacelera linearmente ao longo do compasso, partindo do tempo do compasso anterior para atingir o tempo alvo exatamente no final do compasso.</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </section>
 
-    <!-- ========== SECTION 6: TOADA ========== -->
-    <div class="section" lang="pt">
-      <h2>📝 Toada (Letras / Karaokê)</h2>
-      <ol>
-        <li>Adicione um instrumento <strong>Voz / Coro</strong> no misturador</li>
-        <li>Preencha as sílabas nos passos ativos (PUX ou CORO)</li>
-        <li>Abra o painel <strong>Toada</strong> (botão 📝 no menu)</li>
-        <li>Clique em <strong>"🔄 Extrair do mixador"</strong></li>
-        <li>Pressione ▶ Play — as sílabas se iluminam em tempo real!</li>
-      </ol>
-      <h3>Regras das Sílabas</h3>
-      <ul>
-        <li><strong>"Va-"</strong> (com hífen) → cola com a próxima sílaba: Va + diar = <strong>Vadiar</strong></li>
-        <li><strong>"ar"</strong> (sem hífen) → fim da palavra, espaço depois</li>
-      </ul>
-    </div>
-    <div class="section" lang="fr">
-      <h2>📝 Toada (Paroles / Karaoké)</h2>
-      <ol>
-        <li>Ajoutez un instrument <strong>Voix / Chœur</strong> dans le mixeur</li>
-        <li>Remplissez les syllabes dans les pas actifs (PUX ou CORO)</li>
-        <li>Ouvrez le panneau <strong>Toada</strong> (bouton 📝 dans le menu)</li>
-        <li>Cliquez sur <strong>"🔄 Extraire du mixeur"</strong></li>
-        <li>Appuyez sur ▶ Play — les syllabes s'illuminent en temps réel !</li>
-      </ol>
-      <h3>Règles des Syllabes</h3>
-      <ul>
-        <li><strong>"Va-"</strong> (avec tiret) → collé à la syllabe suivante : Va + diar = <strong>Vadiar</strong></li>
-        <li><strong>"ar"</strong> (sans tiret) → fin du mot, espace après</li>
-      </ul>
-    </div>
+      <!-- ========== SECTION 8: VOLUME RAMPS ========== -->
+      <section id="volume-ramps" class="section">
+        <h2 lang="fr">8. Variations de Volume & Fades (Fins en Fondu)</h2>
+        <h2 lang="pt">8. Variações de Volume & Fades (Finais em Fondu)</h2>
+        
+        <div lang="fr">
+          <p>Pour structurer l'intensité dramatique de votre morceau ou créer des transitions de fondu enchaîné, vous pouvez programmer des variations de volume global par mesure :</p>
+          <ul>
+            <li><strong>Volume par Mesure</strong> : Réglez le pourcentage de volume (de 0% à 100%) souhaité pour chaque mesure dans le champ VOL situé dans la règle supérieure.</li>
+            <li><strong>Type de Transition de Volume</strong> : Cliquez sur l'icône de transition de volume pour choisir :
+              <ul>
+                <li><strong>Transition Immédiate (<kbd>→</kbd>)</strong> : Le volume général s'ajuste instantanément au début de la mesure.</li>
+                <li><strong>Rampe de Volume / Fade (<kbd>↗</kbd>)</strong> : Effectue une transition progressive (Fade In ou Fade Out) tout au long de la mesure. Idéal pour faire apparaître doucement le groupe au début d'un arrangement (ex: de 0% à 100% sur 2 mesures) ou pour effectuer une baisse progressive de volume jusqu'au silence complet à la fin du morceau (Fade Out de 100% à 0%).</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+        
+        <div lang="pt">
+          <p>Para estruturar a intensidade dramática da sua música ou criar transições suaves, você pode programar variações de volume global por compasso:</p>
+          <ul>
+            <li><strong>Volume por Compasso</strong> : Defina a porcentagem de volume (de 0% a 100%) desejada para cada compasso no campo VOL localizado na régua superior.</li>
+            <li><strong>Tipo de Transição de Volume</strong> : Clique no ícone de transição de volume para escolher:
+              <ul>
+                <li><strong>Transição Imediata (<kbd>→</kbd>)</strong> : O volume geral se ajusta instantaneamente no início do compasso.</li>
+                <li><strong>Rampa de Volume / Fade (<kbd>↗</kbd>)</strong> : Faz uma transição progressiva (Fade In ou Fade Out) ao longo do compasso. Ideal para introduzir o bloco gradualmente (ex: de 0% a 100% em 2 compassos) ou terminar a música em silêncio (Fade Out de 100% a 0%).</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </section>
 
-    <!-- ========== SECTION 7: SWING ========== -->
-    <div class="section" lang="pt">
-      <h2>≈ Swing Maracatu</h2>
-      <p>O swing maracatu é diferente do swing jazz. Ativando o botão <strong>≈</strong>, cada grupo de 4 passos recebe micro-ajustes de timing:</p>
-      <table>
-        <tr><th>Passo</th><th>Comportamento</th></tr>
-        <tr><td>1</td><td>No tempo ✓</td></tr>
-        <tr><td>2</td><td>Ligeiramente atrasado (+15%)</td></tr>
-        <tr><td>3</td><td>No contratempo ✓</td></tr>
-        <tr><td>4</td><td>Ligeiramente adiantado (-10%)</td></tr>
-      </table>
-      <p>Isso cria o balanço ("gingado") característico do Maracatu de Baque Virado.</p>
-    </div>
-    <div class="section" lang="fr">
-      <h2>≈ Swing Maracatu</h2>
-      <p>Le swing maracatu est différent du swing jazz. En activant le bouton <strong>≈</strong>, chaque groupe de 4 pas reçoit des micro-ajustements de timing :</p>
-      <table>
-        <tr><th>Pas</th><th>Comportement</th></tr>
-        <tr><td>1</td><td>Sur le temps ✓</td></tr>
-        <tr><td>2</td><td>Légèrement en retard (+15%)</td></tr>
-        <tr><td>3</td><td>Sur le contretemps ✓</td></tr>
-        <tr><td>4</td><td>Légèrement en avance (-10%)</td></tr>
-      </table>
-      <p>Cela crée le balancement ("gingado") caractéristique du Maracatu de Baque Virado.</p>
-    </div>
+      <!-- ========== SECTION 9: TOADA ========== -->
+      <section id="toada" class="section">
+        <h2 lang="fr">9. Toada & Voix Karaoké</h2>
+        <h2 lang="pt">9. Toada & Vozes Karaokê</h2>
+        
+        <div lang="fr">
+          <p>La <strong>Toada</strong> désigne le chant traditionnel qui accompagne le maracatu. O Girador intègre un moteur de synthèse vocale syllabique unique couplé à un affichage de paroles de style Karaoké.</p>
+          <h3>Comment configurer et chanter la Toada :</h3>
+          <ol>
+            <li>Ajoutez une piste de type <strong>Voz / Coro</strong> dans le mixeur à l'aide du bouton <kbd>➕ Ajouter instrument</kbd>.</li>
+            <li>Ouvrez l'éditeur détaillé (✏️) de cette piste.</li>
+            <li>Pour chaque pas actif, choisissez s'il s'agit d'un chant principal solo (<strong>PUX</strong> - Puxador, s'affiche en orange) ou d'un chant collectif (<strong>CORO</strong> - Chœur, s'affiche en cian/bleu clair).</li>
+            <li>Saisissez la syllabe correspondante dans le champ de texte du pas (ex: "Va", "di", "ar").</li>
+            <li>Réglez la note musicale voulue (ex: Do, Ré, Mi / C4, D4, E4...) pour faire chanter le synthétiseur vocal.</li>
+            <li>Ouvrez le panneau de droite sur l'onglet <strong>TOADA</strong> et cliquez sur <strong>🔄 Extraire du mixeur</strong>. Les paroles sont générées.</li>
+            <li>Appuyez sur ▶ Play : les syllabes s'illuminent en temps réel en suivant le rythme exact de la lecture audio !</li>
+          </ol>
+          <h3>Règles d'écriture des syllabes (Liaisons) :</h3>
+          <ul>
+            <li><strong>Tiret final (<kbd>-</kbd>)</strong> : Si vous ajoutez un tiret à la fin d'une syllabe (ex: <kbd>Va-</kbd> puis <kbd>di-</kbd> puis <kbd>ar</kbd>), l'application comprend qu'il s'agit du même mot et colle les syllabes visuellement à l'écran : <strong>Vadiar</strong>.</li>
+            <li><strong>Sans tiret</strong> : Indique la fin d'un mot et ajoute automatiquement un espace après la syllabe dans le texte de la Toada.</li>
+          </ul>
+        </div>
+        
+        <div lang="pt">
+          <p>A <strong>Toada</strong> refere-se ao canto tradicional que acompanha o maracatu. O Girador integra um motor de síntese de voz silábica exclusivo acoplado a uma exibição de letras no estilo Karaokê.</p>
+          <h3>Como configurar e cantar a Toada:</h3>
+          <ol>
+            <li>Adicione uma pista do tipo <strong>Voz / Coro</strong> no mixer usando o botão <kbd>➕ Adicionar Instrumento</kbd>.</li>
+            <li>Abra o editor avançado (✏️) desta pista.</li>
+            <li>Para cada passo ativo, selecione se é o canto do puxador (<strong>PUX</strong> - laranja) ou do coro (<strong>CORO</strong> - ciano).</li>
+            <li>Digite a sílaba correspondente no campo de texto do passo (ex: "Va", "di", "ar").</li>
+            <li>Defina a nota musical desejada (ex: Dó, Ré, Mi / C4, D4, E4...) para fazer o sintetizador de voz cantar.</li>
+            <li>Abra o painel direito na aba <strong>TOADA</strong> e clique em <strong>🔄 Extrair do mixador</strong> para gerar as letras.</li>
+            <li>Pressione ▶ Play : as sílabas acendem em tempo real seguindo o andamento da música!</li>
+          </ol>
+          <h3>Regras de escrita das sílabas (Ligações):</h3>
+          <ul>
+            <li><strong>Hífen final (<kbd>-</kbd>)</strong> : Se você adicionar um hífen ao final de uma sílaba (ex: <kbd>Va-</kbd> depois <kbd>di-</kbd> depois <kbd>ar</kbd>), o aplicativo une as sílabas formando uma única palavra na tela: <strong>Vadiar</strong>.</li>
+            <li><strong>Sem hífen</strong> : Indica o fim de uma palavra e adiciona automaticamente um espaço após a sílaba na Toada.</li>
+          </ul>
+        </div>
+      </section>
 
-    <!-- ========== SECTION 8: SAUVEGARDER ========== -->
-    <div class="section" lang="pt">
-      <h2>💾 Salvar / Carregar / Apagar</h2>
-      <ul>
-        <li><strong>💾 Salvar</strong> — Baixa um arquivo .json com toda a configuração atual (instrumentos, passos, BPM, etc.)</li>
-        <li><strong>📂 Carregar</strong> — Importa um arquivo .json para restaurar um ritmo salvo anteriormente</li>
-        <li><strong>🗑️ Apagar</strong> — Remove todos os instrumentos e reinicia a composição</li>
-      </ul>
+      <!-- ========== SECTION 10: SWING ========== -->
+      <section id="swing" class="section">
+        <h2 lang="fr">10. L'Algorithme de Swing Maracatu (≈)</h2>
+        <h2 lang="pt">10. O Algoritmo de Swing Maracatu (≈)</h2>
+        
+        <div lang="fr">
+          <p>Le maracatu n'est pas une musique rigide ou mathématiquement calée sur une grille temporelle parfaite. Son balancement ("gingado" ou "suingue") caractéristique provient de micro-décalages temporels constants dans la manière de frapper les instruments, en particulier la Caixa.</p>
+          <p>En activant le bouton <strong>≈ Swing</strong> (situé dans la barre de contrôle), O Girador applique un décalage de micro-timing dynamique et mathématique sur chaque groupe de 4 doubles croches (16e de note) :</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Pas du cycle (de 4)</th>
+                <th>Ajustement Temporel</th>
+                <th>Effet Acoustique</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Premier Pas (Le Temps)</td>
+                <td>Sur le temps strict (0% de décalage)</td>
+                <td>Assure l'assise rythmique stable du groupe.</td>
+              </tr>
+              <tr>
+                <td>Deuxième Pas</td>
+                <td>Retardé de +15%</td>
+                <td>Crée une sensation de retenue, de lourdeur traditionnelle.</td>
+              </tr>
+              <tr>
+                <td>Troisième Pas (Le Contretemps)</td>
+                <td>Sur le contretemps strict (0% de décalage)</td>
+                <td>Maintient la pulsation de soutien.</td>
+              </tr>
+              <tr>
+                <td>Quatrième Pas</td>
+                <td>Anticipé de -10%</td>
+                <td>Relance l'élan vers le temps fort suivant.</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>Ce décalage interne propre à la tradition permet de redonner vie et authenticité aux banques de sons de l'application.</p>
+        </div>
+        
+        <div lang="pt">
+          <p>O maracatu não é uma música rígida ou matematicamente alinhada em uma grade perfeita. O seu balanço ("gingado" ou "suingue") tradicional provém de micro-desvios temporais constantes na execução dos instrumentos, em especial a Caixa.</p>
+          <p>Ao ativar o botão <strong>≈ Swing</strong> (localizado na barra de controle), o O Girador aplica um desvio de tempo dinâmico a cada grupo de 4 semicolcheias:</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Passo no ciclo (de 4)</th>
+                <th>Ajuste Temporal</th>
+                <th>Efeito Acústico</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Primeiro Passo (O Tempo)</td>
+                <td>No tempo estrito (0% de desvio)</td>
+                <td>Garante a base rítmica firme do grupo.</td>
+              </tr>
+              <tr>
+                <td>Segundo Passo</td>
+                <td>Atrasado em +15%</td>
+                <td>Cria uma sensação de retenção, a "pesantez" típica do baque.</td>
+              </tr>
+              <tr>
+                <td>Terceiro Passo (Contratempo)</td>
+                <td>No contratempo estrito (0% de desvio)</td>
+                <td>Mantém a pulsação de suporte.</td>
+              </tr>
+              <tr>
+                <td>Quarto Passo</td>
+                <td>Adiantado em -10%</td>
+                <td>Empurra o ritmo em direção à próxima batida forte.</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>Este algoritmo interno permite reproduzir de maneira fiel o suingue orgânico das nações de maracatu de Pernambuco.</p>
+        </div>
+      </section>
 
-      <h3>🎙️ Gravador de Áudio</h3>
-      <p>Pressione o botão de gravação <strong>⏺</strong> para capturar o áudio da sua composição em tempo real. Quando parar a gravação, um arquivo de áudio será gerado automaticamente para download.</p>
+      <!-- ========== SECTION 11: SHORTCUTS ========== -->
+      <section id="shortcuts" class="section">
+        <h2 lang="fr">11. Raccourcis Clavier & Édition Rythmique</h2>
+        <h2 lang="pt">11. Atalhos de Teclado & Edição Rítmica</h2>
+        
+        <div lang="fr">
+          <p>Pour composer rapidement sur la grille des pas de l'éditeur détaillé (✏️), vous pouvez utiliser votre clavier d'ordinateur. Lorsque vous appuyez sur une touche correspondant à une frappe, la note est insérée sur le pas en surbrillance, et le curseur avance automatiquement au pas suivant.</p>
+          <h3>Touches de Navigation :</h3>
+          <ul>
+            <li><kbd>→</kbd> ou <kbd>Tab</kbd> : Déplace la surbrillance vers le pas suivant.</li>
+            <li><kbd>←</kbd> : Déplace la surbrillance vers le pas précédent.</li>
+            <li><kbd>Entrée</kbd> : Confirme et passe au pas suivant.</li>
+            <li><kbd>Retour arrière (Backspace)</kbd> : Efface le contenu du pas actuel et revient au pas précédent.</li>
+          </ul>
+        </div>
+        
+        <div lang="pt">
+          <p>Para compor rapidamente na grade de passos do editor detalhado (✏️), você pode usar o teclado do seu computador. Ao pressionar uma tecla correspondente a um toque, a nota é inserida no passo selecionado e o cursor avança automaticamente para o próximo passo.</p>
+          <h3>Teclas de Navegação:</h3>
+          <ul>
+            <li><kbd>→</kbd> ou <kbd>Tab</kbd> : Move a seleção para o próximo passo.</li>
+            <li><kbd>←</kbd> : Move a seleção para o passo anterior.</li>
+            <li><kbd>Enter</kbd> : Confirma e avança para o próximo passo.</li>
+            <li><kbd>Backspace</kbd> : Apaga o conteúdo do passo atual e volta ao passo anterior.</li>
+          </ul>
+        </div>
 
-      <h3>📚 Biblioteca de Ritmos</h3>
-      <p>A aplicação inclui uma seleção de ritmos tradicionais no menu <strong>Presets</strong>. Novos ritmos são adicionados regularmente. Você também pode salvar e carregar seus próprios ritmos com os botões Salvar/Carregar.</p>
-    </div>
-    <div class="section" lang="fr">
-      <h2>💾 Sauvegarder / Charger / Supprimer</h2>
-      <ul>
-        <li><strong>💾 Sauvegarder</strong> — Télécharge un fichier .json avec toute la configuration actuelle (instruments, pas, BPM, etc.)</li>
-        <li><strong>📂 Charger</strong> — Importe un fichier .json pour restaurer un rythme sauvegardé précédemment</li>
-        <li><strong>🗑️ Supprimer</strong> — Supprime tous les instruments et réinitialise la composition</li>
-      </ul>
+        <!-- INSTRUMENT TABLES -->
+        <h3 lang="fr">Lexique des Frappes par Instrument</h3>
+        <h3 lang="pt">Léxico de Toques por Instrumento</h3>
 
-      <h3>🎙️ Enregistreur Audio</h3>
-      <p>Appuyez sur le bouton d'enregistrement <strong>⏺</strong> pour capturer l'audio de votre composition en temps réel. Quand vous arrêtez l'enregistrement, un fichier audio est généré automatiquement pour le téléchargement.</p>
+        <!-- Alfaia, Caixa, Tarol -->
+        <h4 lang="fr">Alfaia, Caixa & Tarol</h4>
+        <h4 lang="pt">Alfaia, Caixa & Tarol</h4>
+        <table>
+          <thead>
+            <tr>
+              <th><span lang="fr">Touche</span><span lang="pt">Tecla</span></th>
+              <th><span lang="fr">Action / Son</span><span lang="pt">Ação / Som</span></th>
+              <th><span lang="fr">Symbole</span><span lang="pt">Símbolo</span></th>
+              <th><span lang="fr">Compatibilité</span><span lang="pt">Compatibilidade</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>D</kbd></td>
+              <td><span lang="fr">Main Droite — Coup <strong>Fort</strong> (Accent)</span><span lang="pt">Mão Direita — Golpe <strong>Forte</strong></span></td>
+              <td><strong>D</strong></td>
+              <td>Alfaia, Caixa, Tarol</td>
+            </tr>
+            <tr>
+              <td><kbd>d</kbd></td>
+              <td><span lang="fr">Main Droite — Coup <strong>Faible</strong> (Note fantôme)</span><span lang="pt">Mão Direita — Golpe <strong>Fraco</strong></span></td>
+              <td><strong>d</strong></td>
+              <td>Alfaia, Caixa, Tarol</td>
+            </tr>
+            <tr>
+              <td><kbd>E</kbd></td>
+              <td><span lang="fr">Main Gauche — Coup <strong>Fort</strong> (Accent)</span><span lang="pt">Mão Esquerda — Golpe <strong>Forte</strong></span></td>
+              <td><strong>E</strong></td>
+              <td>Alfaia, Caixa, Tarol</td>
+            </tr>
+            <tr>
+              <td><kbd>e</kbd></td>
+              <td><span lang="fr">Main Gauche — Coup <strong>Faible</strong> (Note fantôme)</span><span lang="pt">Mão Esquerda — Golpe <strong>Fraco</strong></span></td>
+              <td><strong>e</strong></td>
+              <td>Alfaia, Caixa, Tarol</td>
+            </tr>
+            <tr>
+              <td><kbd>R</kbd></td>
+              <td><span lang="fr">Rufada (Roulement rapide) Main Droite</span><span lang="pt">Rufada (Rolamento) Mão Direita</span></td>
+              <td><strong>R</strong></td>
+              <td>Caixa, Tarol</td>
+            </tr>
+            <tr>
+              <td><kbd>r</kbd></td>
+              <td><span lang="fr">Rufada (Roulement rapide) Main Gauche</span><span lang="pt">Rufada (Rolamento) Mão Esquerda</span></td>
+              <td><strong>r</strong></td>
+              <td>Caixa, Tarol</td>
+            </tr>
+            <tr>
+              <td><kbd>F</kbd> ou <kbd>f</kbd></td>
+              <td><span lang="fr">Fla (Deux coups très rapprochés)</span><span lang="pt">Fla (Dois golpes muito próximos)</span></td>
+              <td><strong>F</strong> / <strong>f</strong></td>
+              <td>Caixa, Tarol</td>
+            </tr>
+            <tr>
+              <td><kbd>X</kbd> ou <kbd>x</kbd></td>
+              <td><span lang="fr">Rimshot (Frappe sur le cerclage en bois/métal)</span><span lang="pt">Cerrilho / Toque no aro</span></td>
+              <td><strong>X</strong> / <strong>x</strong></td>
+              <td>Alfaia, Caixa, Tarol</td>
+            </tr>
+            <tr>
+              <td><kbd>I</kbd> ou <kbd>i</kbd></td>
+              <td><span lang="fr">Bacalhau (Coup fouetté sur le côté du fût de l'Alfaia)</span><span lang="pt">Bacalhau (Batida na madeira lateral)</span></td>
+              <td><strong>I</strong> / <strong>i</strong></td>
+              <td>Alfaia uniquement</td>
+            </tr>
+            <tr>
+              <td><kbd>C</kbd> ou <kbd>c</kbd></td>
+              <td><span lang="fr">Click (Baguettes frappées l'une contre l'autre)</span><span lang="pt">Clique (Baguetas entre si)</span></td>
+              <td><strong>C</strong> / <strong>c</strong></td>
+              <td>Alfaia, Caixa, Tarol</td>
+            </tr>
+            <tr>
+              <td><kbd>B</kbd> ou <kbd>b</kbd></td>
+              <td><span lang="fr">Barulho (Effet de bruitage)</span><span lang="pt">Barulho (Ruído de efeito)</span></td>
+              <td><strong>B</strong> / <strong>b</strong></td>
+              <td>Alfaia, Caixa, Tarol</td>
+            </tr>
+          </tbody>
+        </table>
 
-      <h3>📚 Bibliothèque de Rythmes</h3>
-      <p>L'application inclut une sélection de rythmes traditionnels dans le menu <strong>Presets</strong>. De nouveaux rythmes sont ajoutés régulièrement. Vous pouvez aussi sauvegarder et charger vos propres rythmes avec les boutons Sauvegarder/Charger.</p>
-    </div>
+        <!-- Gonguê -->
+        <h4>Gonguê (Cloche métallique)</h4>
+        <table>
+          <thead>
+            <tr>
+              <th><span lang="fr">Touche</span><span lang="pt">Tecla</span></th>
+              <th><span lang="fr">Son</span><span lang="pt">Som</span></th>
+              <th><span lang="fr">Symbole</span><span lang="pt">Símbolo</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>G</kbd></td>
+              <td><span lang="fr">Son Grave — Coup <strong>Fort</strong></span><span lang="pt">Som Grave — Golpe <strong>Forte</strong></span></td>
+              <td><strong>G</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>g</kbd></td>
+              <td><span lang="fr">Son Grave — Coup <strong>Faible</strong></span><span lang="pt">Som Grave — Golpe <strong>Fraco</strong></span></td>
+              <td><strong>g</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>A</kbd></td>
+              <td><span lang="fr">Son Aigu — Coup <strong>Fort</strong></span><span lang="pt">Som Agudo — Golpe <strong>Forte</strong></span></td>
+              <td><strong>A</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>a</kbd></td>
+              <td><span lang="fr">Son Aigu — Coup <strong>Faible</strong></span><span lang="pt">Som Agudo — Golpe <strong>Fraco</strong></span></td>
+              <td><strong>a</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>X</kbd> ou <kbd>x</kbd></td>
+              <td><span lang="fr">Toque na borda (Coup sur le bord de la cloche)</span><span lang="pt">Toque na borda do metal</span></td>
+              <td><strong>X</strong> / <strong>x</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>B</kbd> ou <kbd>b</kbd></td>
+              <td><span lang="fr">Barulho (Effet étouffé)</span><span lang="pt">Barulho (Golpe abafado)</span></td>
+              <td><strong>B</strong> / <strong>b</strong></td>
+            </tr>
+          </tbody>
+        </table>
 
+        <!-- Agbê -->
+        <h4>Agbê (Calebasse filetée de perles)</h4>
+        <table>
+          <thead>
+            <tr>
+              <th><span lang="fr">Touche</span><span lang="pt">Tecla</span></th>
+              <th><span lang="fr">Action / Mouvement</span><span lang="pt">Ação / Movimento</span></th>
+              <th><span lang="fr">Symbole</span><span lang="pt">Símbolo</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>D</kbd></td>
+              <td><span lang="fr">Mouvement vers la Droite (Forte secousse)</span><span lang="pt">Movimento para a Direita — <strong>Forte</strong></span></td>
+              <td><strong>D</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>d</kbd></td>
+              <td><span lang="fr">Mouvement vers la Droite (Légère secousse)</span><span lang="pt">Movimento para a Direita — <strong>Fraco</strong></span></td>
+              <td><strong>d</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>E</kbd></td>
+              <td><span lang="fr">Mouvement vers la Gauche (Forte secousse)</span><span lang="pt">Movimento para a Esquerda — <strong>Forte</strong></span></td>
+              <td><strong>E</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>e</kbd></td>
+              <td><span lang="fr">Mouvement vers la Gauche (Légère secousse)</span><span lang="pt">Movimento para a Esquerda — <strong>Fraco</strong></span></td>
+              <td><strong>e</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>S</kbd> ou <kbd>s</kbd></td>
+              <td><span lang="fr">Salto (Lancer de la calebasse vers le haut)</span><span lang="pt">Salto / Lançamento (Para cima)</span></td>
+              <td><strong>S</strong> / <strong>s</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>V</kbd> ou <kbd>v</kbd></td>
+              <td><span lang="fr">Volta (Rattraper la calebasse dans la paume de la main)</span><span lang="pt">Volta / Retorno</span></td>
+              <td><strong>V</strong> / <strong>v</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>B</kbd> ou <kbd>b</kbd></td>
+              <td><span lang="fr">Barulho (Friction sourde des perles)</span><span lang="pt">Barulho (Atrito das contas)</span></td>
+              <td><strong>B</strong> / <strong>b</strong></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Mineiro -->
+        <h4>Mineiro (Shaker métallique cylindrique)</h4>
+        <table>
+          <thead>
+            <tr>
+              <th><span lang="fr">Touche</span><span lang="pt">Tecla</span></th>
+              <th><span lang="fr">Mouvement</span><span lang="pt">Movimento</span></th>
+              <th><span lang="fr">Symbole</span><span lang="pt">Símbolo</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>P</kbd></td>
+              <td><span lang="fr">Empousser vers l'avant (Coup <strong>Fort</strong>)</span><span lang="pt">Empurrar para frente — <strong>Forte</strong></span></td>
+              <td><strong>P</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>p</kbd></td>
+              <td><span lang="fr">Empousser vers l'avant (Coup <strong>Faible</strong>)</span><span lang="pt">Empurrar para frente — <strong>Fraco</strong></span></td>
+              <td><strong>p</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>T</kbd></td>
+              <td><span lang="fr">Tirer vers l'arrière (Coup <strong>Fort</strong>)</span><span lang="pt">Puxar para trás — <strong>Forte</strong></span></td>
+              <td><strong>T</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>t</kbd></td>
+              <td><span lang="fr">Tirer vers l'arrière (Coup <strong>Faible</strong>)</span><span lang="pt">Puxar para trás — <strong>Fraco</strong></span></td>
+              <td><strong>t</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>L</kbd> ou <kbd>l</kbd></td>
+              <td><span lang="fr">Coup latéral (Lado) contre la paroi du shaker</span><span lang="pt">Toque lateral (Lado)</span></td>
+              <td><strong>L</strong> / <strong>l</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>B</kbd> ou <kbd>b</kbd></td>
+              <td><span lang="fr">Barulho (Bruissement continu des graines)</span><span lang="pt">Barulho (Ruído contínuo)</span></td>
+              <td><strong>B</strong> / <strong>b</strong></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Timbal -->
+        <h4>Timbal (Tambour à main de forme conique)</h4>
+        <table>
+          <thead>
+            <tr>
+              <th><span lang="fr">Touche</span><span lang="pt">Tecla</span></th>
+              <th><span lang="fr">Type de Frappe</span><span lang="pt">Tipo de Toque</span></th>
+              <th><span lang="fr">Symbole</span><span lang="pt">Símbolo</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>G</kbd> / <kbd>g</kbd></td>
+              <td><span lang="fr">Grave (Coup au centre de la peau — Fort / Faible)</span><span lang="pt">Grave (Centro da pele — Forte / Fraco)</span></td>
+              <td><strong>G</strong> / <strong>g</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>A</kbd> / <kbd>a</kbd></td>
+              <td><span lang="fr">Ouvert (Coup sur le bord de la peau — Fort / Faible)</span><span lang="pt">Aberto (Borda da pele — Forte / Fraco)</span></td>
+              <td><strong>A</strong> / <strong>a</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>S</kbd> / <kbd>s</kbd></td>
+              <td><span lang="fr">Slap (Frappe claquée avec les doigts fouettés — Fort / Faible)</span><span lang="pt">Slap / Claqué (Estalo — Forte / Fraco)</span></td>
+              <td><strong>S</strong> / <strong>s</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>D</kbd> / <kbd>d</kbd></td>
+              <td><span lang="fr">Note Fantôme / Dedilhado (Tapotement léger des doigts)</span><span lang="pt">Nota Fantasma / Dedilhado (Forte / Fraco)</span></td>
+              <td><strong>D</strong> / <strong>d</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>P</kbd> / <kbd>p</kbd></td>
+              <td><span lang="fr">Coup abattu et étouffé (Preso)</span><span lang="pt">Toque preso / Abafado (Forte / Fraco)</span></td>
+              <td><strong>P</strong> / <strong>p</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>F</kbd> / <kbd>f</kbd></td>
+              <td><span lang="fr">Fla ouvert (Frappe ouverte très rapide)</span><span lang="pt">Fla aberto</span></td>
+              <td><strong>F</strong> / <strong>f</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>V</kbd> / <kbd>v</kbd></td>
+              <td><span lang="fr">Fla slap (Frappe claquée très rapide)</span><span lang="pt">Fla slap</span></td>
+              <td><strong>V</strong> / <strong>v</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>C</kbd> / <kbd>c</kbd></td>
+              <td><span lang="fr">Clap (Frappe des deux mains plates l'une contre l'autre)</span><span lang="pt">Clap (Palma)</span></td>
+              <td><strong>C</strong> / <strong>c</strong></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Apito -->
+        <h4>Apito (Sifflet tri-ton du mestre)</h4>
+        <table>
+          <thead>
+            <tr>
+              <th><span lang="fr">Touche</span><span lang="pt">Tecla</span></th>
+              <th><span lang="fr">Type de Souffle</span><span lang="pt">Tipo de Sopro</span></th>
+              <th><span lang="fr">Symbole</span><span lang="pt">Símbolo</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><kbd>W</kbd></td>
+              <td><span lang="fr">Souffle Long (Tenue)</span><span lang="pt">Sopro Longo</span></td>
+              <td><strong>W</strong></td>
+            </tr>
+            <tr>
+              <td><kbd>w</kbd></td>
+              <td><span lang="fr">Souffle Court (Accentué)</span><span lang="pt">Sopro Curto</span></td>
+              <td><strong>w</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ========== SECTION 12: FILES & RECORDING ========== -->
+      <section id="files-recording" class="section">
+        <h2 lang="fr">12. Sauvegardes, Exports et Enregistrement Audio</h2>
+        <h2 lang="pt">12. Salvar, Exportar & Gravação de Áudio</h2>
+        
+        <div lang="fr">
+          <p>O Girador vous donne un contrôle total sur vos créations pour les sauvegarder, les partager et les exporter dans différents formats :</p>
+          <ul>
+            <li><strong>📂 Charger & 💾 Sauvegarder</strong> (Menu Projet) : Permet de télécharger un fichier <kbd>.json</kbd> contenant l'ensemble de votre projet (les instruments, les volumes, les panoramiques, les notes de chaque motif et le séquencement complet). Vous pouvez ensuite réimporter ce fichier pour reprendre votre travail.</li>
+            <li><strong>Exporter Tablature 📄</strong> : Génère un fichier texte (.txt) formaté contenant une tablature rythmique lisible et universelle de votre composition, idéale pour l'impression ou l'étude visuelle.</li>
+            <li><strong>🎙️ Enregistreur Audio Direct (Bouton ⏺️)</strong> : En cliquant sur le bouton d'enregistrement rouge situé dans la barre inférieure, l'application capture directement le flux audio généré par le moteur Tone.js. À la fin de l'enregistrement, un fichier audio au format compressé de haute qualité <kbd>.webm</kbd> (ou WAV) est généré instantanément pour le téléchargement.</li>
+            <li><strong>Bibliothèque de Presets 📚</strong> : Découvrez et étudiez les classiques du Maracatu (ex: <em>Luanda</em>, <em>Imalê</em>, <em>Vou Vadiar</em>) préchargés dans le menu de sélection des presets en haut de la page.</li>
+          </ul>
+        </div>
+        
+        <div lang="pt">
+          <p>O Girador oferece controle completo para salvar, compartilhar e exportar suas criações em múltiplos formatos:</p>
+          <ul>
+            <li><strong>📂 Carregar & 💾 Salvar</strong> (Menu Projeto) : Baixe um arquivo <kbd>.json</kbd> contendo toda a configuração do seu projeto (instrumentos, volumes, pans, notas dos padrões e arranjo). Você pode importar este arquivo depois para continuar compondo.</li>
+            <li><strong>Exportar Tablatura 📄</strong> : Gera um arquivo de texto (.txt) contendo uma partitura/tablatura rítmica estruturada da sua composição, pronta para estudo ou impressão.</li>
+            <li><strong>🎙️ Gravador de Áudio (Botão ⏺️)</strong> : Ao clicar no botão de gravação na barra inferior, o aplicativo captura o fluxo de áudio direto do Tone.js. Quando você parar, um arquivo de áudio de alta fidelidade <kbd>.webm</kbd> (ou WAV) será gerado para download automático.</li>
+            <li><strong>Biblioteca de Presets 📚</strong> : Experimente e estude baques clássicos do maracatu (como <em>Luanda</em>, <em>Imalê</em>, <em>Vou Vadiar</em>) integrados no menu superior de Presets.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ========== SECTION 13: ECO MODE ========== -->
+      <section id="eco-mode" class="section">
+        <h2 lang="fr">13. Performances, Calibrage et Mode Éco (🌱)</h2>
+        <h2 lang="pt">13. Performance, Calibração & Modo Eco (🌱)</h2>
+        
+        <div lang="fr">
+          <p>L'utilisation de la Web Audio API et les animations en temps réel (la rotation de la baguette et la pulsation de la Roda) peuvent être gourmandes en ressources processeur sur les ordinateurs anciens, les tablettes ou les smartphones.</p>
+          <p>Pour assurer une reproduction audio parfaitement stable et éviter les craquements ou désynchronisations sonores, O Girador intègre plusieurs systèmes d'optimisation :</p>
+          <ul>
+            <li><strong>🌱 Mode Éco (On/Off)</strong> : Cette option, disponible dans le menu principal, désactive l'ensemble des animations lourdes de l'interface (dont la rotation fluide de la baguette et les rebonds visuels des pistes). Le processeur est ainsi soulagé et entièrement dédié au rendu sonore. <strong>Fortement recommandé sur tablette et mobile.</strong></li>
+            <li><strong>Isolation du Thread Audio</strong> : Les calculs de synthèse vocale et les timers rythmiques s'exécutent au sein d'un composant de synchronisation audio dédié (Web Audio Worklet) pour ne jamais être perturbés par l'affichage ou les actions de l'utilisateur sur la page.</li>
+          </ul>
+        </div>
+        
+        <div lang="pt">
+          <p>O uso da Web Audio API e as animações em tempo real (a rotação da baguete e os pulsares da Roda) podem consumir muitos recursos do processador em computadores antigos, tablets ou celulares.</p>
+          <p>Para garantir que a música toque sem estalos ou travamentos, o O Girador possui opções de otimização:</p>
+          <ul>
+            <li><strong>🌱 Modo Eco (On/Off)</strong> : Esta opção, no menu principal, desativa todas as animações pesadas (como a rotação contínua da baguete). Isso alivia o processador, focando os recursos no áudio. <strong>Muito recomendado para celulares e tablets antigos.</strong></li>
+            <li><strong>Isolamento do Thread de Áudio</strong> : O motor de som e os relógios do sequenciador rodam em processos paralelos (Audio Worklet) para garantir estabilidade e sincronia constante, independente do que acontece na tela.</li>
+          </ul>
+        </div>
+      </section>
+
+    </main>
   </div>
 
-  <div class="credit">Créé par Julian Biblocq | Art: Toni Braga · O Girador © 2025</div>
+  <!-- ==================== FOOTER ==================== -->
+  <div class="credit">
+    Créé par Julian Biblocq | Art: Toni Braga · O Girador © 2026
+  </div>
 
+  <!-- ==================== JAVASCRIPT ==================== -->
   <script>
+    // Lang switcher function
     function setLang(lang) {
-      document.body.className = lang === 'fr' ? 'lang-fr' : '';
+      document.body.className = lang === 'fr' ? 'lang-fr' : 'lang-pt';
       document.getElementById('btn-pt').className = lang === 'pt' ? 'active' : '';
       document.getElementById('btn-fr').className = lang === 'fr' ? 'active' : '';
+      localStorage.setItem('o_girador_lang', lang);
+      
+      // Re-trigger search to filter properly in new language if active
+      handleSearch();
     }
+
+    // Toggle Mobile Sidebar Drawer
+    function toggleMobileSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('open');
+    }
+
+    // Close sidebar on link click (mobile)
+    document.querySelectorAll('.index-link').forEach(link => {
+      link.addEventListener('click', () => {
+        document.getElementById('sidebar').classList.remove('open');
+      });
+    });
 
     // Auto-detect language on load
     window.addEventListener('DOMContentLoaded', () => {
       const urlParams = new URLSearchParams(window.location.search);
       const queryLang = urlParams.get('lang');
       const savedLang = localStorage.getItem('o_girador_lang');
-      const lang = queryLang || savedLang || 'pt';
-      setLang(lang === 'fr' ? 'fr' : 'pt');
+      const lang = queryLang || savedLang || 'fr';
+      setLang(lang === 'pt' ? 'pt' : 'fr');
+      
+      // Initialize Scroll-Spy
+      updateActiveSection();
     });
+
+    // SCROLL-SPY IMPLEMENTATION (Zero Layout Thrashing, throttled via requestAnimationFrame)
+    const sections = document.querySelectorAll('.section');
+    const indexLinks = document.querySelectorAll('.index-link');
+
+    function updateActiveSection() {
+      let activeSectionId = '';
+      // Offset for the sticky header
+      const scrollPosition = window.scrollY + 120;
+
+      sections.forEach((section) => {
+        // If the section is displayed, read its offsetTop
+        if (section.style.display !== 'none') {
+          if (section.offsetTop <= scrollPosition) {
+            activeSectionId = section.id;
+          }
+        }
+      });
+
+      // Default to first if none matched
+      if (!activeSectionId && sections.length > 0) {
+        activeSectionId = sections[0].id;
+      }
+
+      indexLinks.forEach((link) => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === `#${activeSectionId}`) {
+          link.classList.add('active');
+        }
+      });
+    }
+
+    let ticking = false;
+    window.addEventListener('scroll', () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          updateActiveSection();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    });
+
+    // SEARCH FILTER FUNCTIONALITY (includes content in details and summaries)
+    const searchInput = document.getElementById('search-input');
+
+    function handleSearch() {
+      const query = searchInput.value.toLowerCase().trim();
+      const isFr = document.body.classList.contains('lang-fr');
+      
+      sections.forEach((section) => {
+        let match = false;
+        
+        if (query === '') {
+          match = true;
+        } else {
+          // Find text content matching query within active language elements OR general elements (like tables/kbd/details/summary)
+          const textElements = section.querySelectorAll(isFr 
+            ? '[lang="fr"], th, td, kbd, summary, details p, details li' 
+            : '[lang="pt"], th, td, kbd, summary, details p, details li');
+            
+          textElements.forEach((el) => {
+            if (el.textContent.toLowerCase().includes(query)) {
+              match = true;
+            }
+          });
+          
+          // Also check headings which might not have explicit lang if parent does
+          const heading = section.querySelector('h2');
+          if (heading && heading.textContent.toLowerCase().includes(query)) {
+            match = true;
+          }
+        }
+
+        if (match) {
+          section.style.display = '';
+          const menuLink = document.querySelector(`.index-link[href="#${section.id}"]`);
+          if (menuLink) menuLink.style.display = '';
+          
+          // Auto-expand accordions containing matched terms to aid visibility
+          if (query !== '') {
+            const matchedDetails = section.querySelectorAll('details');
+            matchedDetails.forEach((det) => {
+              const textToSearch = det.textContent.toLowerCase();
+              if (textToSearch.includes(query)) {
+                det.open = true;
+              }
+            });
+          }
+        } else {
+          section.style.display = 'none';
+          const menuLink = document.querySelector(`.index-link[href="#${section.id}"]`);
+          if (menuLink) menuLink.style.display = 'none';
+        }
+      });
+
+      updateActiveSection();
+    }
+
+    searchInput.addEventListener('input', handleSearch);
   </script>
 </body>
 </html>
