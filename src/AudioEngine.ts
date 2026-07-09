@@ -18,6 +18,7 @@ import { getTone } from './ToneLoader';
 import { instrumentAudioConfigs, StrokeMapping, InstrumentAudioConfig } from './data/audioConfig';
 import { useSequencerStore } from './stores/useSequencerStore';
 import { instrumentsConfig } from './data';
+import { TrackGroup } from './types';
 
 interface ActiveVoice {
   source: AudioBufferSourceNode;
@@ -29,6 +30,7 @@ interface ActiveVoice {
 
 const HUMANIZED_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
 const ALFAIA_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
+const HUMANIZED_INSTRUMENTS_SET = new Set(['marcante', 'meiao', 'repique', 'caixa', 'tarol']);
 
 export class AudioEngine {
   private audioContext: AudioContext;
@@ -81,6 +83,26 @@ export class AudioEngine {
 
   // O(1) lookup cache for instrument configurations (built once in constructor)
   private readonly configMap: Map<string, InstrumentAudioConfig>;
+
+  // O(1) lookup map for strokes per instrument: maps instrumentId -> (normalizedSymbol -> StrokeMapping)
+  private strokesMaps = new Map<string, Map<string, StrokeMapping>>();
+
+  // O(1) lookup map for tracks: maps trackId (as string) -> TrackGroup
+  private trackLookupMap = new Map<string, TrackGroup>();
+  private lastTracksRef: TrackGroup[] | null = null;
+  private unsubscribeTracks: (() => void) | null = null;
+
+  private updateTrackLookupMap(tracks: TrackGroup[]): void {
+    if (this.lastTracksRef === tracks) return;
+    this.lastTracksRef = tracks;
+    
+    this.trackLookupMap.clear();
+    const len = tracks.length;
+    for (let i = 0; i < len; i++) {
+      const track = tracks[i];
+      this.trackLookupMap.set(String(track.id), track);
+    }
+  }
 
   // Pre-allocated object pools to avoid runtime dynamic allocations in the hot path
   private gainNodeMappingPool: { instrumentId: string; gainNode: GainNode | null; expectedEnd: number }[] = [];
@@ -194,6 +216,25 @@ export class AudioEngine {
 
     // Pre-build O(1) config lookup map (avoids Array.find() on every note played)
     this.configMap = new Map(instrumentAudioConfigs.map(c => [c.id, c]));
+
+    // Pre-build O(1) strokes maps (avoids config.strokes.find() in playNote())
+    for (const config of instrumentAudioConfigs) {
+      const map = new Map<string, StrokeMapping>();
+      for (const stroke of config.strokes) {
+        map.set(stroke.symbol, stroke);
+        const upper = stroke.symbol.toUpperCase();
+        if (!map.has(upper)) {
+          map.set(upper, stroke);
+        }
+      }
+      this.strokesMaps.set(config.id, map);
+    }
+
+    // Initialize trackLookupMap and subscribe to updates
+    this.updateTrackLookupMap(useSequencerStore.getState().tracks);
+    this.unsubscribeTracks = useSequencerStore.subscribe((state) => {
+      this.updateTrackLookupMap(state.tracks);
+    });
 
     // Pre-populate instrument voices map to avoid runtime array allocations
     instrumentAudioConfigs.forEach(config => {
@@ -636,11 +677,11 @@ export class AudioEngine {
     velocity: number,
     decayMultiplier: number
   ): void {
-    let trackId: number | string | null = null;
+    let trackId: number | null = null;
     let instrumentId = '';
     
     // Find the track dynamically (handles string vs number IDs robustly)
-    const track = useSequencerStore.getState().tracks.find(t => String(t.id) === String(trackIdOrInstrumentId));
+    const track = this.trackLookupMap.get(String(trackIdOrInstrumentId));
     if (track) {
       trackId = track.id;
       instrumentId = instrumentsConfig[track.instrumentIdx].id;
@@ -659,7 +700,7 @@ export class AudioEngine {
 
     // Normalizations for legacy sequencer symbol compatibilities
     // Note: G→E normalization for Alfaias removed — symbols are now canonical and unambiguous.
-    if (['marcante', 'meiao', 'repique', 'caixa', 'tarol'].includes(instrumentId)) {
+    if (HUMANIZED_INSTRUMENTS_SET.has(instrumentId)) {
       if (normSymbol === 't' || normSymbol === 'T') normSymbol = 'B';
       else if (normSymbol === 'C') normSymbol = 'c';
     } else if (instrumentId === 'agbe') {
@@ -669,16 +710,20 @@ export class AudioEngine {
     }
 
     // 2. Find the stroke mapping
-    const stroke = config.strokes.find(s => s.symbol === normSymbol);
+    const strokesMap = this.strokesMaps.get(instrumentId);
+    if (!strokesMap) {
+      console.warn(`AudioEngine: No strokes map found for instrument: ${instrumentId}`);
+      return;
+    }
+
+    let stroke = strokesMap.get(normSymbol);
     if (!stroke || stroke.files.length === 0) {
       // Fallback matching if symbol casing differs (for case-insensitive actions)
-      const fallbackStroke = config.strokes.find(s => s.symbol.toUpperCase() === normSymbol.toUpperCase());
-      if (!fallbackStroke || fallbackStroke.files.length === 0) {
+      stroke = strokesMap.get(normSymbol.toUpperCase());
+      if (!stroke || stroke.files.length === 0) {
         console.warn(`AudioEngine: No stroke mapped for symbol "${strokeSymbol}" (normalized: "${normSymbol}") on instrument "${instrumentId}"`);
         return;
       }
-      this.playStroke(trackId, instrumentId, config, fallbackStroke, time, velocity, decayMultiplier);
-      return;
     }
 
     this.playStroke(trackId, instrumentId, config, stroke, time, velocity, decayMultiplier);
@@ -976,6 +1021,11 @@ export class AudioEngine {
    */
   public dispose(): void {
     this.stopAllBarulho();
+
+    if (this.unsubscribeTracks) {
+      this.unsubscribeTracks();
+      this.unsubscribeTracks = null;
+    }
 
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this.handleVisibilityChange);
