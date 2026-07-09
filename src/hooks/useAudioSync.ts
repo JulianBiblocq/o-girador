@@ -7,7 +7,18 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import * as Tone from 'tone';
 import { AudioEngine } from '../AudioEngine';
 import { InputManager } from '../InputManager';
-import { TrackGroup, TimeSignature, HitTrigger, SongSection, GlobalSwing } from '../types';
+import { TrackGroup, TimeSignature, HitTrigger, HitTriggerPool, SongSection, GlobalSwing } from '../types';
+
+// Pub/Sub system for high-performance visual tick updates
+export const tickSubscribers = new Set<(detail: any) => void>();
+
+export function subscribeToTick(callback: (detail: any) => void): void {
+  tickSubscribers.add(callback);
+}
+
+export function unsubscribeFromTick(callback: (detail: any) => void): void {
+  tickSubscribers.delete(callback);
+}
 import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencerStore';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { loadTone } from '../ToneLoader';
@@ -286,7 +297,7 @@ export function useAudioSync({
   const soloPatternVariationIdRef = useRef<string | null>(null);
   const pendingMeasureRef = useRef<number | null>(null);
 
-  const hitTriggersRef = useRef<HitTrigger[]>([]);
+  const hitTriggersRef = useRef<HitTriggerPool>(new HitTriggerPool());
   const engineTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   // We still keep tickScheduleRef for rendering static partition / export / pre-compilation
   const tickScheduleRef = useRef<Map<number, Map<number, ScheduledNote[]>>>(new Map());
@@ -778,9 +789,9 @@ export function useAudioSync({
               detail.time = time;
               detail.iteration = sectionIterationRef.current;
 
-              window.dispatchEvent(new CustomEvent('o-girador-tick', {
-                detail
-              }));
+              tickSubscribers.forEach((cb) => {
+                try { cb(detail); } catch (err) { console.error(err); }
+              });
 
               // OPTIMISATION : Ne pas mettre à jour le store Zustand de la mesure pendant la lecture.
               // Les composants critiques (Playhead, CircleSequencer) se mettent déjà à jour en temps réel
@@ -980,7 +991,7 @@ export function useAudioSync({
                       // Visual hit trigger
                       if (!isDocHidden) {
                         Tone.Draw.schedule(() => {
-                          hitTriggersRef.current.push({ trackId: liveTrack.id, stepIndex: circleStepIdx, state: strokeCharCode });
+                          hitTriggersRef.current.push(liveTrack.id, circleStepIdx, strokeCharCode);
                         }, triggerTime);
                       }
                     }
@@ -1088,7 +1099,7 @@ export function useAudioSync({
 
                   if (!isDocHidden) {
                     Tone.Draw.schedule(() => {
-                      hitTriggersRef.current.push({ trackId: track.id, stepIndex: cellIdx, state });
+                      hitTriggersRef.current.push(track.id, cellIdx, state);
                     }, triggerTime);
                   }
                 }
@@ -1208,7 +1219,7 @@ export function useAudioSync({
       }
       audioEngine?.stop();
       Tone.Draw.cancel();
-      hitTriggersRef.current = [];
+      hitTriggersRef.current.clear();
       Tone.Transport.pause();
       if (useAudioStore.getState().recordingStatus !== 'inactive') {
         vocalEngineService.stopRecording();
@@ -1236,7 +1247,9 @@ export function useAudioSync({
       detail.time = Tone.context.currentTime;
       detail.iteration = 1;
 
-      window.dispatchEvent(new CustomEvent('o-girador-tick', { detail }));
+      tickSubscribers.forEach((cb) => {
+        try { cb(detail); } catch (err) { console.error(err); }
+      });
     }
   }, [audioEngine, setIsPlaying, setSoloPatternPlayId, setCurrentMeasure]);
 
@@ -1251,7 +1264,7 @@ export function useAudioSync({
     }
     audioEngine?.stop();
     Tone.Draw.cancel();
-    hitTriggersRef.current = [];
+    hitTriggersRef.current.clear();
     lastPlayedPatternRef.current = {};
     Tone.Transport.stop();
     if (useAudioStore.getState().recordingStatus !== 'inactive') {
@@ -1277,7 +1290,9 @@ export function useAudioSync({
     detail.time = 0;
     detail.iteration = 1;
 
-    window.dispatchEvent(new CustomEvent('o-girador-tick', { detail }));
+    tickSubscribers.forEach((cb) => {
+      try { cb(detail); } catch (err) { console.error(err); }
+    });
   }, [audioEngine, setIsPlaying, setSoloPatternPlayId, setCurrentMeasure]);
 
   const handleStartSoloPattern = useCallback(async (patternId: number, variationId?: string) => {
@@ -1345,17 +1360,19 @@ export function useAudioSync({
     maxTicksRef.current = currentTicks;
 
     const ratioVal = tickIdx / currentTicks;
-    window.dispatchEvent(new CustomEvent('o-girador-tick', {
-      detail: {
-        step: tickIdx,
-        measure: targetMeasure,
-        maxTicks: currentTicks,
-        ratio: ratioVal,
-        visualStep16: Math.floor(ratioVal * 16),
-        visualStep12: Math.floor(ratioVal * 12),
-        iteration: 1
-      }
-    }));
+    const detail = tickEventDetailRef.current;
+    detail.step = tickIdx;
+    detail.measure = targetMeasure;
+    detail.maxTicks = currentTicks;
+    detail.ratio = ratioVal;
+    detail.visualStep16 = Math.floor(ratioVal * 16);
+    detail.visualStep12 = Math.floor(ratioVal * 12);
+    detail.time = Tone.context.currentTime;
+    detail.iteration = 1;
+
+    tickSubscribers.forEach((cb) => {
+      try { cb(detail); } catch (err) { console.error(err); }
+    });
   }, [setCurrentMeasure]);
 
   const navigateRef = useRef(handleTimelineNavigate);

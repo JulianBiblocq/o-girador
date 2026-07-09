@@ -10,7 +10,7 @@ import { loadTone, getTone } from '../ToneLoader';
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
 }
-import { TrackGroup, Language, HitTrigger, TimeSignature, SongSection, SongMarker, CloudRhythmSignal } from '../types';
+import { TrackGroup, Language, HitTrigger, HitTriggerPool, TimeSignature, SongSection, SongMarker, CloudRhythmSignal } from '../types';
 import { instrumentsConfig, getMarkers, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol, i18n } from '../data';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { useGameData } from '../contexts/GameDataContext';
@@ -46,7 +46,7 @@ interface CircleSequencerProps {
   activeCircleIdByInst?: { [instIdx: number]: number | null };
   totalMeasures?: number;
   activePatternIdByTrack?: Record<number, number | null>;
-  hitTriggersRef?: React.MutableRefObject<HitTrigger[]>;
+  hitTriggersRef?: React.MutableRefObject<HitTriggerPool>;
   bpm?: number;
   measureBpms?: number[];
   measureVols?: number[];
@@ -912,20 +912,32 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       const gap = activeVisibleTracks.length > 1 ? (maxRadius - minRadius) / (activeVisibleTracks.length - 1) : 0;
 
       // Consume hit triggers to create ripples
-      if (localHitTriggers && localHitTriggers.current.length > 0) {
-        const hits = localHitTriggers.current.splice(0, localHitTriggers.current.length);
+      if (localHitTriggers && localHitTriggers.current) {
+        const pool = localHitTriggers.current;
         if (!isEco) {
-          hits.forEach(hit => {
-            let track = localRawTracks.find(t => t.id === hit.trackId);
+          // Coût unique par trame de dessin : O(N) où N est le nombre de pistes
+          const tracksMap = new Map<number | string, any>();
+          const len = localRawTracks.length;
+          for (let i = 0; i < len; i++) {
+            const t = localRawTracks[i];
+            tracksMap.set(t.id, t);
+            tracksMap.set(String(t.id), t);
+          }
+
+          while (pool.readIndex !== pool.writeIndex) {
+            const hit = pool.buffer[pool.readIndex];
+            pool.readIndex = (pool.readIndex + 1) % pool.size;
+            
+            let track = tracksMap.get(hit.trackId);
             if (track && track.linkedToTrackId) {
-              track = localRawTracks.find(t => String(t.id) === String(track!.linkedToTrackId));
+              track = tracksMap.get(track.linkedToTrackId) || tracksMap.get(Number(track.linkedToTrackId));
             }
             if (track && !track.isHidden && !track.isMute) {
               const inst = instrumentsConfig[track.instrumentIdx];
-              if (!inst) return null;
+              if (!inst) continue;
               const color = inst.colors[hit.state as any] || themeText;
               const activePatternId = getLiveActivePatternId(track);
-              if (activePatternId === null) return;
+              if (activePatternId === null) continue;
               const activePattern = track.patterns.find(p => p.id === activePatternId) || track.patterns[0];
               const angle = -Math.PI / 2 + ((hit.stepIndex / activePattern.steps) * Math.PI * 2);
               
@@ -945,7 +957,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
                 });
               }
             }
-          });
+          }
+        } else {
+          pool.readIndex = pool.writeIndex;
         }
       }
 
