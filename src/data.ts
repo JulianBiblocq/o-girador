@@ -102,13 +102,13 @@ export const instrumentsConfig: InstrumentConfig[] = [
       'A': '#d97706',
       's': '#f59e0b',
       'S': '#fbbf24',
-      'd': '#a89f91',
-      'D': '#7e7b8c',
+      'd': '#fef08a',
+      'D': '#fde047',
       'p': '#451a03',
       'P': '#5c2205',
       'F': '#ea580c',
       'V': '#f97316',
-      'C': '#a89f91',
+      'C': '#fdba74',
       'B': '#291002',
       text: '#f4ecd8'
     },
@@ -544,7 +544,7 @@ export function isDarkText(instId: string, strokeVal: string): boolean {
   if (instId === 'gongue' && (strokeVal === 'A' || strokeVal === 'a')) return true;
   if (instId === 'agbe' && ['s', 'S', 'd', 'D', 'e', 'E', 'v', 'V'].includes(strokeVal)) return true;
   if (instId === 'caixa' && ['r', 'R'].includes(strokeVal)) return true;
-  if (instId === 'timbal' && ['s', 'S'].includes(strokeVal)) return true;
+  if (instId === 'timbal' && ['s', 'S', 'd', 'D', 'c', 'C'].includes(strokeVal)) return true;
   if (instId === 'mineiro' && ['t', 'T', 'L'].includes(strokeVal)) return true;
   if (instId === 'tarol' && ['C', 'e', 'F'].includes(strokeVal)) return true;
   if (['marcante', 'meiao', 'repique'].includes(instId) && ['c', 'C'].includes(strokeVal)) return true;

@@ -17,6 +17,10 @@ interface MixerVolumeFaderProps {
   onAudioDrag?: (val: number) => void;
   faderColor?: string;
   textColor?: string;
+  height?: number;
+  thumbWidth?: number;
+  thumbHeight?: number;
+  fontSize?: string;
 }
 
 export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
@@ -26,18 +30,22 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   onAudioDrag,
   faderColor = '#d4af37',
   textColor = 'var(--cordel-text)',
+  height,
+  thumbWidth,
+  thumbHeight,
+  fontSize,
 }) => {
   const visualThumbRef = useRef<HTMLDivElement>(null);
   const valueTextRef = useRef<HTMLSpanElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isDraggingRef = useRef(false);
 
-  // Configuration géométrique correspondant au design
-  const containerHeight = 115;
-  const faderHeight = 99;
-  const thumbHeight = 20;
-  const travelRange = faderHeight - thumbHeight; // 99 - 20 = 79px
-  const topPadding = (containerHeight - faderHeight) / 2; // (115 - 99)/2 = 8px
+  // Configuration géométrique correspondant au design (avec valeurs dynamiques ou par défaut)
+  const containerHeight = height || 115;
+  const faderHeight = containerHeight - 16; // préserve 8px de padding en haut et en bas
+  const resolvedThumbHeight = thumbHeight || 20;
+  const travelRange = faderHeight - resolvedThumbHeight;
+  const topPadding = 8; // padding fixe de 8px en haut
 
   // Calcule la position "top" en pixels en fonction de la valeur
   const getTopPosition = (val: number) => {
@@ -113,17 +121,23 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   }, [value, trackId]);
 
   return (
-    <div className="h-[115px] flex justify-center items-center relative w-10 select-none">
+    <div 
+      className="flex justify-center items-center relative w-10 select-none"
+      style={{ height: `${containerHeight}px` }}
+    >
       {/* 1. La fente du fader (Visuel en arrière-plan) */}
-      <div className="absolute top-[8px] bottom-[8px] w-1 bg-[var(--cordel-border)] pointer-events-none z-0"></div>
+      <div 
+        className="absolute w-1 bg-[var(--cordel-border)] pointer-events-none z-0"
+        style={{ top: `${topPadding}px`, bottom: `${topPadding}px` }}
+      ></div>
 
       {/* 2. Le bouton visuel (Thumb) avec texte centré en Flexbox */}
       <div
         ref={visualThumbRef}
         className="absolute left-1/2 -translate-x-1/2 cordel-border-sm shadow-[0_2px_5px_var(--cordel-shadow-color)] flex items-center justify-center pointer-events-none z-10 transition-colors"
         style={{
-          width: '32px',
-          height: '20px',
+          width: `${thumbWidth || 32}px`,
+          height: `${resolvedThumbHeight}px`,
           top: `${getTopPosition(value)}px`,
           backgroundColor: faderColor,
           borderColor: 'var(--cordel-border)',
@@ -131,7 +145,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
       >
         <span
           ref={valueTextRef}
-          className="text-[10px] font-black font-mono select-none"
+          className={`${fontSize || 'text-[10px]'} font-black font-mono select-none`}
           style={{ color: textColor }}
         >
           {value}

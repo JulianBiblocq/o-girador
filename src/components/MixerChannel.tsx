@@ -488,16 +488,14 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         {/* Ligne 1 : Outils */}
         <div className="flex justify-between items-center w-full">
           <div className="flex items-center gap-1.5">
-            {inst.id !== 'apito' && (
-              <div 
-                {...attributes}
-                {...listeners}
-                className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none"
-                title="Drag to reorder"
-              >
-                <GripHorizontal size={18} />
-              </div>
-            )}
+            <div 
+              {...attributes}
+              {...listeners}
+              className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none"
+              title="Drag to reorder"
+            >
+              <GripHorizontal size={18} />
+            </div>
             {track?.isLinkFolder ? (
               <button
                 onClick={() => setIsEditingName(!isEditingName)}

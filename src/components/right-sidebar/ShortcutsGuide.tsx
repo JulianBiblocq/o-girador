@@ -186,7 +186,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t }) => {
             <span>{lang === 'fr' ? 'Claqué (slap) - Main forte / faible' : 'Slap - Mão forte / fraca'}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#7e7b8c] text-[#f4ecd8]">D / d</span>
+            <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fde047] text-[#1a1a1a]">D / d</span>
             <span>{lang === 'fr' ? 'Fantôme (dedilhado) - Main forte / faible' : 'Dedilhado - Mão forte / fraca'}</span>
           </div>
           <div className="flex items-center gap-2">
@@ -202,7 +202,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t }) => {
             <span>{lang === 'fr' ? 'Fla claqué (slap)' : 'Fla slap'}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a89f91] text-[#1a1a1a]">C / c</span>
+            <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fdba74] text-[#1a1a1a]">C / c</span>
             <span>{lang === 'fr' ? 'Clap (mains) - Deux mains l\'une contre l\'autre' : 'Clap (mãos) - Duas mãos uma contra a outra'}</span>
           </div>
           <div className="flex items-center gap-2">

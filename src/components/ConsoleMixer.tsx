@@ -760,14 +760,18 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           </div>
 
           {/* Bottom Fader (Master Fader & Master LED Meter) */}
-          <div className="relative z-10 p-3 pt-4 flex justify-around items-end h-[200px] gap-4">
+          <div className="relative z-10 p-3 pt-2 flex justify-center items-end h-[200px] gap-8">
             
             {/* Master Fader Column */}
-            <div className="flex flex-col items-center gap-1.5 h-full">
+            <div className="flex flex-col items-center gap-1 h-full justify-end">
               <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Master</span>
-              <div className="h-[135px] flex items-center" style={{ transform: 'scale(1.12)', transformOrigin: 'bottom center' }}>
+              <div className="h-[140px] flex items-center">
                 <MixerVolumeFader
                   value={Math.max(0, Math.min(100, Math.round(((masterVol + 40) / 46) * 100)))}
+                  height={140}
+                  thumbWidth={44}
+                  thumbHeight={24}
+                  fontSize="text-[11px]"
                   onChange={(val) => {
                     const db = val === 0 ? -40 : -40 + (val / 100) * 46;
                     onMasterVolChange(db);
@@ -784,9 +788,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             </div>
 
             {/* Master LED Meter (Stereo) */}
-            <div className="flex flex-col items-center gap-1.5 h-full">
+            <div className="flex flex-col items-center gap-1 h-full justify-end">
               <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Meter</span>
-              <div className="w-7 h-[120px] bg-[var(--cordel-bg)] cordel-border relative overflow-hidden flex gap-[2px] p-[1.5px]">
+              <div className="w-7 h-[140px] bg-[var(--cordel-bg)] cordel-border relative overflow-hidden flex gap-[2px] p-[1.5px]">
                 <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
                   <div
                     ref={vuMeterLeftRef}
@@ -801,9 +805,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
                   />
                 </div>
-              </div>
-              <div ref={dbTextRef} className="text-[9px] font-bold text-[var(--cordel-text)] text-center leading-none mt-1 h-[14px]">
-                — dB
               </div>
             </div>
           </div>
