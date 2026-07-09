@@ -60,7 +60,9 @@ import {
   busChannels,
   busMeters,
   reverbBusReceive,
-  distortionBusReceive
+  distortionBusReceive,
+  trackInputs,
+  syncTrackInsertChain
 } from '../audio/effectsChain';
 
 export {
@@ -210,6 +212,28 @@ interface UseAudioSyncProps {
   masterReverbVol: number;
   reverbDecay: number;
 }
+
+const syncMasterReverbBypass = (isMuted: boolean, returnVolume: number) => {
+  if (!reverbBusReceive || !reverbNode) return;
+  const shouldBypass = isMuted || returnVolume === 0;
+  try {
+    reverbBusReceive.disconnect(reverbNode);
+  } catch (_) {}
+  if (!shouldBypass) {
+    reverbBusReceive.connect(reverbNode);
+  }
+};
+
+const syncMasterDistortionBypass = (isMuted: boolean, returnVolume: number) => {
+  if (!distortionBusReceive || !distortionNode) return;
+  const shouldBypass = isMuted || returnVolume === 0;
+  try {
+    distortionBusReceive.disconnect(distortionNode);
+  } catch (_) {}
+  if (!shouldBypass) {
+    distortionBusReceive.connect(distortionNode);
+  }
+};
 
 export function useAudioSync({
   tracksRef,
@@ -384,12 +408,31 @@ export function useAudioSync({
     return () => unsubscribe();
   }, [masterVol]);
 
-  // Sync Master EQ
+  // Sync Master EQ with Smart Bypass
   useEffect(() => {
-    if (masterEQNode) {
+    if (masterEQNode && masterVolumeNode && masterCompressorNode) {
       masterEQNode.low.value = masterEQ.low;
       masterEQNode.mid.value = masterEQ.mid;
       masterEQNode.high.value = masterEQ.high;
+
+      const isFlat = masterEQ.low === 0 && masterEQ.mid === 0 && masterEQ.high === 0;
+
+      try {
+        masterVolumeNode.disconnect(masterEQNode);
+      } catch (_) {}
+      try {
+        masterVolumeNode.disconnect(masterCompressorNode);
+      } catch (_) {}
+      try {
+        masterEQNode.disconnect(masterCompressorNode);
+      } catch (_) {}
+
+      if (isFlat) {
+        masterVolumeNode.connect(masterCompressorNode);
+      } else {
+        masterVolumeNode.connect(masterEQNode);
+        masterEQNode.connect(masterCompressorNode);
+      }
     }
   }, [masterEQ]);
 
@@ -626,8 +669,13 @@ export function useAudioSync({
             distortionSends[t.id] = channels[t.id].send("distortion", initialDistDb);
           }
 
-          // Always sync the channel mapping with audioEngine
-          audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
+          if (!trackInputs[t.id]) {
+            trackInputs[t.id] = new Tone.Gain(1.0);
+            syncTrackInsertChain(t.id, t);
+          }
+
+          // Always sync the channel mapping with audioEngine using the start of the insert chain
+          audioEngine?.setInstrumentChannel(t.id, inst.id, trackInputs[t.id] || channels[t.id]);
 
           const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
           const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
@@ -655,6 +703,8 @@ export function useAudioSync({
       if (reverbNode) {
         reverbNode.decay = 0.5 + 7.5 * (initialFX.reverb.time / 100);
       }
+      syncMasterReverbBypass(initialFX.reverb.isMuted, initialFX.reverb.returnVolume);
+
       if (masterDistortionVolumeNode) {
         const distGain = initialFX.distortion.isMuted ? 0 : Tone.dbToGain(percentToDb(initialFX.distortion.returnVolume));
         masterDistortionVolumeNode.gain.value = distGain;
@@ -662,6 +712,7 @@ export function useAudioSync({
       if (distortionNode) {
         distortionNode.distortion = initialFX.distortion.drive / 100;
       }
+      syncMasterDistortionBypass(initialFX.distortion.isMuted, initialFX.distortion.returnVolume);
 
       tracksRef.current.forEach((t) => {
         const inst = instrumentsConfig[t.instrumentIdx];
@@ -1433,6 +1484,7 @@ export function useAudioSync({
             reverbNode.decay = decay;
           }
         }
+        syncMasterReverbBypass(masterFX.reverb.isMuted, masterFX.reverb.returnVolume);
         
         // 3. Distortion Return Volume & Mute
         if (masterDistortionVolumeNode) {
@@ -1449,6 +1501,7 @@ export function useAudioSync({
             distortionNode.distortion = distVal;
           }
         }
+        syncMasterDistortionBypass(masterFX.distortion.isMuted, masterFX.distortion.returnVolume);
       }
 
       if (state.tracks !== prevState.tracks) {
@@ -1552,8 +1605,13 @@ export function useAudioSync({
             distortionSends[t.id] = channels[t.id].send("distortion", initialDistDb);
           }
 
-          // Always sync the channel mapping with audioEngine
-          audioEngine?.setInstrumentChannel(t.id, inst.id, channels[t.id]);
+          if (!trackInputs[t.id]) {
+            trackInputs[t.id] = new Tone.Gain(1.0);
+            syncTrackInsertChain(t.id, t);
+          }
+
+          // Always sync the channel mapping with audioEngine using the start of the insert chain
+          audioEngine?.setInstrumentChannel(t.id, inst.id, trackInputs[t.id] || channels[t.id]);
 
           const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
           const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
@@ -1562,9 +1620,18 @@ export function useAudioSync({
           const distortion = t.fxSends?.distortion ?? 0;
           const muteState = getEffectiveMuteState(tracks, t.id);
 
-          const paramHash = `${db}_${pan}_${muteState}_${reverb}_${distortion}`;
+          const lowCut = t.lowCut ?? false;
+          const eqLowG = t.eqBands?.low?.g ?? 0;
+          const eqLowF = t.eqBands?.low?.f ?? 100;
+          const eqMidG = t.eqBands?.mid?.g ?? 0;
+          const eqMidF = t.eqBands?.mid?.f ?? 1000;
+          const eqMidQ = t.eqBands?.mid?.q ?? 'wide';
+          const eqHighG = t.eqBands?.high?.g ?? 0;
+          const eqHighF = t.eqBands?.high?.f ?? 8000;
 
-          // A. Appliquer le volume, pan et mute
+          const paramHash = `${db}_${pan}_${muteState}_${reverb}_${distortion}_${lowCut}_${eqLowG}_${eqLowF}_${eqMidG}_${eqMidF}_${eqMidQ}_${eqHighG}_${eqHighF}`;
+
+          // A. Appliquer le volume, pan, mute et les inserts (EQ/Low-Cut)
           if (lastAppliedTracksParamsRef.current[t.id] !== paramHash) {
             channels[t.id].volume.value = db;
             channels[t.id].pan.value = pan;
@@ -1579,6 +1646,9 @@ export function useAudioSync({
               const targetDistDb = percentToDb(distortion);
               try { distortionSends[t.id].gain.value = targetDistDb; } catch (_) {}
             }
+
+            // Mettre à jour la chaîne d'inserts
+            syncTrackInsertChain(t.id, t);
 
             lastAppliedTracksParamsRef.current[t.id] = paramHash;
           }

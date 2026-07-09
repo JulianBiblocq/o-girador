@@ -8,9 +8,10 @@ interface PanKnobProps {
   value: number; // -100 to 100
   onChange: (val: number) => void;
   label?: string;
+  showLabels?: boolean;
 }
 
-export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, label = "Pan" }) => {
+export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, label = "Pan", showLabels = true }) => {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const isDraggingRef = useRef(false);
@@ -122,10 +123,12 @@ export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, labe
           className="absolute inset-0 opacity-0 cursor-ew-resize w-full h-full touch-none"
         />
       </div>
-      <div className="flex justify-between w-full px-1.5 text-[8px] font-bold opacity-60">
-        <span>E</span>
-        <span>D</span>
-      </div>
+      {showLabels && (
+        <div className="flex justify-between w-full px-1.5 text-[8px] font-bold opacity-60">
+          <span>E</span>
+          <span>D</span>
+        </div>
+      )}
     </div>
   );
 };

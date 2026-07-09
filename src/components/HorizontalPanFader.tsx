@@ -67,13 +67,8 @@ export const HorizontalPanFader: React.FC<HorizontalPanFaderProps> = ({
     }
   };
 
-  const leftLabel = lang === 'fr' ? 'G' : 'L';
-  const rightLabel = lang === 'fr' ? 'D' : 'R';
-
   return (
-    <div className={`flex items-center gap-1.5 w-full select-none ${className}`}>
-      <span className="text-[10px] font-black text-[var(--cordel-text)]/40 w-3 text-center font-mono">{leftLabel}</span>
-      
+    <div className={`flex items-center w-full select-none ${className}`}>
       {/* Track container */}
       <div
         ref={trackRef}
@@ -93,8 +88,6 @@ export const HorizontalPanFader: React.FC<HorizontalPanFaderProps> = ({
           style={{ left: `${getPositionPercent(value)}%` }}
         ></div>
       </div>
-
-      <span className="text-[10px] font-black text-[var(--cordel-text)]/40 w-3 text-center font-mono">{rightLabel}</span>
     </div>
   );
 };

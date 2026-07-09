@@ -8,6 +8,7 @@ import { GripHorizontal, Trash2, Edit2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { TrackGroup } from '../types';
 import { useAudioStore } from '../stores/useAudioStore';
 import { getBusColor, getContrastColor } from '../utils/colorHelpers';
 import { DragNumberBox } from './DragNumberBox';
@@ -19,6 +20,9 @@ import { VUMeter } from './VUMeter';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { VisualOnlyTimeline } from './VisualOnlyTimeline';
 import { reverbSends, distortionSends, subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
+import { MixerKnob } from './MixerKnob';
+import { MixerSlantedDivider } from './MixerSlantedDivider';
+import { eqNodes } from '../audio/effectsChain';
 
 interface MixerFolderBusProps {
   trackId: number;
@@ -285,16 +289,23 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   }
 
   if (isCompact) {
+    const borderThicknessTop = 3;
+    const borderThicknessBottom = 3;
+    const paddingTop = 3 - borderThicknessTop;
+    const paddingBottom = 3 - borderThicknessBottom;
+
     return (
       <div
         ref={setNodeRef}
-        className={`flex flex-col bg-[var(--cordel-bg)] w-[90px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-3 transition-all duration-300 ${
+        className={`flex flex-col bg-[var(--cordel-bg)] w-[104px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
           hasSolo ? (track.isSolo ? 'shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-50') : 
           (track.isMute ? 'opacity-60 bg-black/5 dark:bg-white/5' : 'opacity-100')
         } ${busPosition === 'none' ? 'cordel-border' : ''}`}
         style={{
           ...style,
           ...groupStyle,
+          paddingTop: `${paddingTop}px`,
+          paddingBottom: `${12 + paddingBottom}px`,
           zIndex: isDragging ? 50 : 1,
           '--fader-thumb-bg': busColor,
           '--fader-thumb-border': 'var(--cordel-border)',
@@ -356,8 +367,221 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
 
         {/* Inner Controls Stack (Packed closer together at the bottom) */}
         <div className="flex-1 flex flex-col p-2 gap-2 justify-end items-center overflow-y-auto custom-scrollbar">
-          {/* Ligne de délimitation fine au-dessus du bloc d'effet */}
-          <div className="w-full border-t border-[var(--cordel-border)]/20 my-0.5 shrink-0" />
+          {/* Section EQ & Low-Cut (Compact Mode) */}
+          {(() => {
+            if (!track) return null;
+            const lowCut = track.lowCut ?? false;
+            const eq = track.eqBands ?? {
+              low: { f: 100, g: 0 },
+              mid: { f: 1000, g: 0, q: 'wide' },
+              high: { f: 8000, g: 0 }
+            };
+
+            const isEQModified = eq.low.g !== 0 || eq.low.f !== 100 ||
+                                eq.mid.g !== 0 || eq.mid.f !== 1000 ||
+                                eq.high.g !== 0 || eq.high.f !== 8000;
+
+            const handleLowCutToggle = () => {
+              useSequencerStore.getState().handleTrackLowCutToggle(trackId);
+            };
+
+            const handleEQChange = (bands: Partial<typeof eq>) => {
+              useSequencerStore.getState().handleTrackEQChange(trackId, bands);
+            };
+
+            const handleEQReset = () => {
+              if (isEQModified) {
+                useSequencerStore.getState().handleTrackEQReset(trackId);
+              }
+            };
+
+            // Real-time audio update handlers (Zero Render Thrashing)
+            const handleHFAudioDrag = (val: number) => {
+              const node = eqNodes[trackId];
+              if (node) {
+                try { node.high.frequency.value = val; } catch (_) {}
+              }
+            };
+            const handleHGAudioDrag = (val: number) => {
+              const node = eqNodes[trackId];
+              if (node) {
+                try { node.high.gain.value = val; } catch (_) {}
+              }
+            };
+            const handleMFAudioDrag = (val: number) => {
+              const node = eqNodes[trackId];
+              if (node) {
+                try { node.mid.frequency.value = val; } catch (_) {}
+              }
+            };
+            const handleMGAudioDrag = (val: number) => {
+              const node = eqNodes[trackId];
+              if (node) {
+                try { node.mid.gain.value = val; } catch (_) {}
+              }
+            };
+            const handleLFAudioDrag = (val: number) => {
+              const node = eqNodes[trackId];
+              if (node) {
+                try { node.low.frequency.value = val; } catch (_) {}
+              }
+            };
+            const handleLGAudioDrag = (val: number) => {
+              const node = eqNodes[trackId];
+              if (node) {
+                try { node.low.gain.value = val; } catch (_) {}
+              }
+            };
+
+            return (
+              <div className="w-full flex flex-col gap-1 shrink-0 px-0.5">
+                {/* Reset button row */}
+                <div className="flex justify-end w-full">
+                  <button
+                    onClick={handleEQReset}
+                    className={`w-5 h-5 flex items-center justify-center cordel-border-sm transition-colors rounded-sm ${
+                      isEQModified 
+                        ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a] hover:opacity-90' 
+                        : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]/30 border-[var(--cordel-border)]/20 cursor-default opacity-55'
+                    }`}
+                    title="Reset EQ"
+                    disabled={!isEQModified}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l.73-.73" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* HF / HG in diagonal */}
+                <div className="flex justify-between w-full items-start">
+                  <MixerKnob 
+                    label="HF" 
+                    min={4000} 
+                    max={16000} 
+                    step={100} 
+                    value={eq.high.f} 
+                    unit="Hz" 
+                    size={30}
+                    color="#3d8b85"
+                    onChange={(v) => handleEQChange({ high: { f: v, g: eq.high.g } })} 
+                    onAudioDrag={handleHFAudioDrag}
+                  />
+                  <div className="pt-2">
+                    <MixerKnob 
+                      label="HG" 
+                      min={-15} 
+                      max={15} 
+                      step={1} 
+                      value={eq.high.g} 
+                      unit="dB" 
+                      size={30}
+                      isGain={true}
+                      onChange={(v) => handleEQChange({ high: { f: eq.high.f, g: v } })} 
+                      onAudioDrag={handleHGAudioDrag}
+                    />
+                  </div>
+                </div>
+
+                <MixerSlantedDivider />
+
+                {/* MF / MG in diagonal, Q button under MF */}
+                <div className="flex justify-between w-full items-start">
+                  <div className="flex flex-col items-center gap-1.5">
+                    <MixerKnob 
+                      label="MF" 
+                      min={250} 
+                      max={4000} 
+                      step={50} 
+                      value={eq.mid.f} 
+                      unit="Hz" 
+                      size={30}
+                      color="#d4af37"
+                      onChange={(v) => handleEQChange({ mid: { f: v, g: eq.mid.g, q: eq.mid.q } })} 
+                      onAudioDrag={handleMFAudioDrag}
+                    />
+                    <div className="flex flex-col items-center">
+                      <button 
+                        onClick={() => handleEQChange({ mid: { ...eq.mid, q: eq.mid.q === 'narrow' ? 'wide' : 'narrow' } })}
+                        className={`w-6 h-3.5 text-[7px] font-black cordel-border-sm flex items-center justify-center transition-colors rounded-sm ${
+                          eq.mid.q === 'narrow' ? 'bg-[#d4af37] text-black border-[#d4af37]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+                        }`}
+                      >
+                        {eq.mid.q === 'narrow' ? 'N' : 'W'}
+                      </button>
+                      <span className="text-[5.5px] font-black opacity-40 uppercase tracking-wide mt-0.5">Q</span>
+                    </div>
+                  </div>
+                  <div className="pt-2">
+                    <MixerKnob 
+                      label="MG" 
+                      min={-15} 
+                      max={15} 
+                      step={1} 
+                      value={eq.mid.g} 
+                      unit="dB" 
+                      size={30}
+                      isGain={true}
+                      onChange={(v) => handleEQChange({ mid: { f: eq.mid.f, g: v, q: eq.mid.q } })} 
+                      onAudioDrag={handleMGAudioDrag}
+                    />
+                  </div>
+                </div>
+
+                <MixerSlantedDivider />
+
+                {/* LF / LG in diagonal */}
+                <div className="flex justify-between w-full items-start">
+                  <MixerKnob 
+                    label="LF" 
+                    min={50} 
+                    max={250} 
+                    step={5} 
+                    value={eq.low.f} 
+                    unit="Hz" 
+                    size={30}
+                    color="#8b2a1a"
+                    onChange={(v) => handleEQChange({ low: { f: v, g: eq.low.g } })} 
+                    onAudioDrag={handleLFAudioDrag}
+                  />
+                  <div className="pt-2">
+                    <MixerKnob 
+                      label="LG" 
+                      min={-15} 
+                      max={15} 
+                      step={1} 
+                      value={eq.low.g} 
+                      unit="dB" 
+                      size={30}
+                      isGain={true}
+                      onChange={(v) => handleEQChange({ low: { f: eq.low.f, g: v } })} 
+                      onAudioDrag={handleLGAudioDrag}
+                    />
+                  </div>
+                </div>
+
+                <MixerSlantedDivider />
+
+                {/* Low-Cut Button Row */}
+                <div className="flex justify-between w-full items-center">
+                  <button 
+                    onClick={handleLowCutToggle}
+                    className={`w-6 h-6 cordel-border-sm flex items-center justify-center p-0.5 transition-colors rounded-sm ${
+                      lowCut ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+                    }`}
+                    title="Low Cut 80Hz"
+                  >
+                    <svg width="16" height="12" viewBox="0 0 24 16" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="opacity-95 pointer-events-none">
+                      <path d="M 2 14 L 10 3 L 22 3" />
+                    </svg>
+                  </button>
+                  <span className="text-[6.5px] font-black opacity-35 uppercase tracking-widest pr-2 select-none">80Hz</span>
+                </div>
+
+                <MixerSlantedDivider />
+              </div>
+            );
+          })()}
 
           {/* Niveau 5 : Distortion */}
           <DragNumberBox 
@@ -385,7 +609,8 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             trackId={trackId} 
             value={track.panVal || 0} 
             onChange={onPanChange}
-            label="Pan"
+            label="PAN"
+            showLabels={false}
           />
 
           {/* Niveau 2 : Volume + VU-mètre side-by-side */}
@@ -397,17 +622,17 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
                 onChange={onVolumeChange}
                 faderColor={busColor}
                 textColor={faderTextColor}
-                height={180}
+                height={150}
               />
             </div>
             <div className="flex flex-col items-center w-5 shrink-0">
-              <div className="h-[180px] flex justify-center items-center relative w-5">
+              <div className="h-[150px] flex justify-center items-center relative w-5">
                 <VUMeter
                   busId={String(trackId)}
                   isPlaying={isPlaying && isActive}
                   isActive={isActive}
                   orientation="vertical"
-                  className="w-2 h-[164px] bg-[var(--cordel-bg)] cordel-border-sm"
+                  className="w-2 h-[134px] bg-[var(--cordel-bg)] cordel-border-sm"
                 />
               </div>
             </div>

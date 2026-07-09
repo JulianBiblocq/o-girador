@@ -43,6 +43,9 @@ export interface TrackSlice {
   setMasterFxVolume: (fxType: 'reverb' | 'distortion', volume: number) => void;
   setMasterFxParam: (fxType: 'reverb' | 'distortion', param: 'time' | 'drive', value: number) => void;
   toggleMasterFxMute: (fxType: 'reverb' | 'distortion') => void;
+  handleTrackLowCutToggle: (id: number) => void;
+  handleTrackEQChange: (id: number, bands: Partial<TrackGroup['eqBands']>) => void;
+  handleTrackEQReset: (id: number) => void;
 }
 
 export const isToadaBus = (t: { isBusFolder?: boolean; customName?: string; id?: any }): boolean => {
@@ -373,6 +376,54 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     set((state) => ({
       tracks: state.tracks.map((t) =>
         t.id === trackId ? { ...t, pan: value, panVal: value } : t
+      )
+    }));
+  },
+
+  handleTrackLowCutToggle: (id) => {
+    set((state) => ({
+      tracks: state.tracks.map((t) =>
+        t.id === id ? { ...t, lowCut: !t.lowCut } : t
+      )
+    }));
+  },
+
+  handleTrackEQChange: (id, bands) => {
+    set((state) => ({
+      tracks: state.tracks.map((t) => {
+        if (t.id === id) {
+          const currentBands = t.eqBands || {
+            low: { f: 100, g: 0 },
+            mid: { f: 1000, g: 0, q: 'wide' as const },
+            high: { f: 8000, g: 0 }
+          };
+          return {
+            ...t,
+            eqBands: {
+              low: { ...currentBands.low, ...bands.low },
+              mid: { ...currentBands.mid, ...bands.mid },
+              high: { ...currentBands.high, ...bands.high }
+            }
+          };
+        }
+        return t;
+      })
+    }));
+  },
+
+  handleTrackEQReset: (id) => {
+    set((state) => ({
+      tracks: state.tracks.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              eqBands: {
+                low: { f: 100, g: 0 },
+                mid: { f: 1000, g: 0, q: 'wide' as const },
+                high: { f: 8000, g: 0 }
+              }
+            }
+          : t
       )
     }));
   },

@@ -89,6 +89,12 @@ export interface TrackGroup {
   isSequencerFolded?: boolean;
   customName?: string;
   patternOverrides?: Record<number, number | null>;
+  lowCut?: boolean;
+  eqBands?: {
+    low: { f: number; g: number };
+    mid: { f: number; g: number; q: 'wide' | 'narrow' };
+    high: { f: number; g: number };
+  };
 }
 
 export interface CatalogItem {

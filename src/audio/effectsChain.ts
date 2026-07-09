@@ -36,6 +36,15 @@ export const channels: { [trackId: number]: Tone.Channel } = {};
 export const meters: { [trackId: number]: Tone.Meter } = {};
 export const reverbSends: { [trackId: number]: any } = {};
 export const distortionSends: { [trackId: number]: any } = {};
+export const trackInputs: { [trackId: number]: Tone.Gain } = {};
+export const lowCutNodes: { [trackId: number]: Tone.Filter } = {};
+export const eqNodes: { 
+  [trackId: number]: {
+    low: Tone.Filter;
+    mid: Tone.Filter;
+    high: Tone.Filter;
+  }
+} = {};
 export const busChannels: {
   [busId: string]: Tone.Channel;
 } = {};
@@ -183,13 +192,16 @@ export function setDeferredReverbActivation(val: boolean) {
 export function ensureReverbConnected() {
   if (!masterReverbVolumeNode) return;
 
+  const masterFX = useSequencerStore.getState().masterFX;
+  const shouldBypass = masterFX.reverb.isMuted || masterFX.reverb.returnVolume === 0;
+
   if (!reverbNode) {
     try {
       const savedDecay = localStorage.getItem('oGirador_reverb_decay');
       const decay = savedDecay ? parseFloat(savedDecay) : 2.5;
       
       reverbNode = new Tone.Reverb({ decay, preDelay: 0.02, wet: 1 }).connect(masterReverbVolumeNode);
-      if (reverbBusReceive) {
+      if (reverbBusReceive && !shouldBypass) {
         reverbBusReceive.connect(reverbNode);
       }
     } catch (err) {
@@ -199,6 +211,14 @@ export function ensureReverbConnected() {
     try {
       reverbNode.disconnect();
       reverbNode.connect(masterReverbVolumeNode);
+      if (reverbBusReceive) {
+        try {
+          reverbBusReceive.disconnect(reverbNode);
+        } catch (_) {}
+        if (!shouldBypass) {
+          reverbBusReceive.connect(reverbNode);
+        }
+      }
     } catch (e) {
       console.warn("Error reconnecting reverbNode:", e);
     }
@@ -246,5 +266,91 @@ export function handleReverbEcoToggle(isEco: boolean, isPlaying: boolean) {
       ensureReverbConnected();
     }
   }
+}
+
+export function syncTrackInsertChain(trackId: number, track: any) {
+  const isMobile = 'ontouchstart' in globalThis || navigator.maxTouchPoints > 0;
+
+  const inputNode = trackInputs[trackId];
+  const channelNode = channels[trackId];
+  if (!inputNode || !channelNode) return;
+
+  // 1. Disconnect input and active inserts
+  inputNode.disconnect();
+  
+  const lowCutNode = lowCutNodes[trackId];
+  if (lowCutNode) {
+    lowCutNode.disconnect();
+  }
+  
+  const eqNodeGroup = eqNodes[trackId];
+  if (eqNodeGroup) {
+    eqNodeGroup.low.disconnect();
+    eqNodeGroup.mid.disconnect();
+    eqNodeGroup.high.disconnect();
+  }
+
+  // If mobile, bypass EQ & Low-Cut completely (they remain uninstantiated)
+  if (isMobile) {
+    inputNode.connect(channelNode);
+    return;
+  }
+
+  // Check state
+  const hasLowCut = !!track.lowCut;
+  const eq = track.eqBands;
+  const hasEQ = eq ? (
+    (eq.low?.g !== undefined && eq.low.g !== 0) ||
+    (eq.mid?.g !== undefined && eq.mid.g !== 0) ||
+    (eq.high?.g !== undefined && eq.high.g !== 0)
+  ) : false;
+
+  // Instantiate nodes if they don't exist yet
+  let currentLowCut = lowCutNodes[trackId];
+  if (hasLowCut && !currentLowCut) {
+    // Note: Tone.Filter wraps Web Audio API's BiquadFilterNode (highpass)
+    currentLowCut = new Tone.Filter(80, "highpass");
+    lowCutNodes[trackId] = currentLowCut;
+  }
+
+  let currentEQ = eqNodes[trackId];
+  if (hasEQ && !currentEQ) {
+    currentEQ = {
+      low: new Tone.Filter(eq?.low?.f || 100, "lowshelf"),
+      mid: new Tone.Filter(eq?.mid?.f || 1000, "peaking"),
+      high: new Tone.Filter(eq?.high?.f || 8000, "highshelf")
+    };
+    eqNodes[trackId] = currentEQ;
+  }
+
+  // Update parameters if nodes exist
+  if (currentEQ && eq) {
+    currentEQ.low.frequency.value = eq.low?.f ?? 100;
+    currentEQ.low.gain.value = eq.low?.g ?? 0;
+
+    currentEQ.mid.frequency.value = eq.mid?.f ?? 1000;
+    currentEQ.mid.gain.value = eq.mid?.g ?? 0;
+    currentEQ.mid.Q.value = eq.mid?.q === 'narrow' ? 2.0 : 0.7;
+
+    currentEQ.high.frequency.value = eq.high?.f ?? 8000;
+    currentEQ.high.gain.value = eq.high?.g ?? 0;
+  }
+
+  // Connect the active chain (Smart Bypass)
+  let lastNode: any = inputNode;
+
+  if (hasLowCut && currentLowCut) {
+    lastNode.connect(currentLowCut);
+    lastNode = currentLowCut;
+  }
+
+  if (hasEQ && currentEQ) {
+    lastNode.connect(currentEQ.low);
+    currentEQ.low.connect(currentEQ.mid);
+    currentEQ.mid.connect(currentEQ.high);
+    lastNode = currentEQ.high;
+  }
+
+  lastNode.connect(channelNode);
 }
 
