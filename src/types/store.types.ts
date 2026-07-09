@@ -86,7 +86,9 @@ export interface TrackGroup {
   isLinkFolder?: boolean;
   isLinkMaster?: boolean;
   isFolded?: boolean;
+  isSequencerFolded?: boolean;
   customName?: string;
+  patternOverrides?: Record<number, number | null>;
 }
 
 export interface CatalogItem {

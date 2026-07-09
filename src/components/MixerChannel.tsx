@@ -112,7 +112,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const linkedSlavesTooltip = isMaster 
     ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${currentInst?.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
     : undefined;
-  const displayName = currentInst ? (isMaster ? `🔗 ${getPluralName(currentInst.name)}` : currentInst.name) : 'Instrument';
+  const displayName = track?.customName || (currentInst ? (isMaster ? `🔗 ${getPluralName(currentInst.name)}` : currentInst.name) : 'Instrument');
 
   const { isPlaying, maxTicksRef, soloPatternPlayIdRef } = audio;
   const maxTicks = maxTicksRef.current;
@@ -496,23 +496,13 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
             >
               <GripHorizontal size={18} />
             </div>
-            {track?.isLinkFolder ? (
-              <button
-                onClick={() => setIsEditingName(!isEditingName)}
-                className="w-7 h-7 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-xs"
-                title={lang === 'fr' ? 'Renommer le groupe' : 'Renomear o grupo'}
-              >
-                ✏️
-              </button>
-            ) : (
-              <button
-                onClick={() => onOpenDetailEditor(trackId)}
-                className="w-7 h-7 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-xs"
-                title="Éditeur détaillé"
-              >
-                ✏️
-              </button>
-            )}
+            <button
+              onClick={() => onOpenDetailEditor(trackId)}
+              className="w-7 h-7 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-xs"
+              title={track?.isLinkFolder ? (lang === 'fr' ? 'Éditer les patterns du groupe' : 'Editar padrões do grupo') : 'Éditeur détaillé'}
+            >
+              ✏️
+            </button>
           </div>
           <button 
             onClick={onDelete} 

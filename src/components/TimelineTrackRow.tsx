@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { useSequencerStore, isToadaBus } from '../stores/useSequencerStore';
+import { useSequencerStore, isToadaBus, isToadaChild } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
@@ -31,12 +31,39 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     lang, 
   } = uiContext;
 
+  const tracks = useSequencerStore(state => state.tracks);
+  const dbTrack = tracks.find(t => t.id === trackId);
+  const trackInst = dbTrack ? instrumentsConfig[dbTrack.instrumentIdx] : null;
+
+  const [isEditingName, setIsEditingName] = React.useState(false);
+  const [nameVal, setNameVal] = React.useState(dbTrack?.customName || (trackInst ? trackInst.name : ''));
+
+  React.useEffect(() => {
+    setNameVal(dbTrack?.customName || (trackInst ? trackInst.name : ''));
+  }, [dbTrack?.customName, trackInst?.name]);
+
+  const handleRenameSubmit = () => {
+    setIsEditingName(false);
+    if (!dbTrack) return;
+    useSequencerStore.getState().setTracks(prev => prev.map(t => 
+      t.id === trackId ? { ...t, customName: nameVal.trim() || undefined } : t
+    ));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleRenameSubmit();
+    } else if (e.key === 'Escape') {
+      setIsEditingName(false);
+      setNameVal(dbTrack?.customName || (inst ? inst.name : ''));
+    }
+  };
+
   // Granular primitive selectors to avoid any reference instability or infinite loops
   const instrumentIdx = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.instrumentIdx ?? 0);
   const isMute = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.isMute ?? false);
   const isSolo = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.isSolo ?? false);
   const isMaster = useSequencerStore(state => state.tracks.some(t => String(t.linkedToTrackId) === String(trackId)));
-  const tracks = useSequencerStore(state => state.tracks);
 
   // Subscribe to full track only in Macro mode (where compact preview must update on step changes)
   const fullTrack = useSequencerStore(state => {
@@ -73,9 +100,25 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
       instrumentIdx,
       isMute,
       isSolo,
+      isBusFolder: dbTrack?.isBusFolder,
+      isLinkFolder: dbTrack?.isLinkFolder,
+      isLinkMaster: dbTrack?.isLinkMaster,
+      customName: dbTrack?.customName,
       patterns: JSON.parse(trackStructureJson),
     };
-  }, [isMacro, fullTrack, trackStructureJson, trackId, instrumentIdx, isMute, isSolo]);
+  }, [
+    isMacro, 
+    fullTrack, 
+    trackStructureJson, 
+    trackId, 
+    instrumentIdx, 
+    isMute, 
+    isSolo,
+    dbTrack?.isBusFolder,
+    dbTrack?.isLinkFolder,
+    dbTrack?.isLinkMaster,
+    dbTrack?.customName
+  ]);
 
   const trackIndex = useSequencerStore(state => state.tracks.findIndex(t => t.id === trackId));
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
@@ -91,6 +134,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const onSoloToggle = useSequencerStore(state => state.handleTrackSoloToggle);
   const onPatternAssignForMeasure = useSequencerStore(state => state.handleTimelinePatternAssign);
   const onPatternVariationToggleForMeasure = useSequencerStore(state => state.handleTimelinePatternVariationToggle);
+  const onToggleFoldBus = useSequencerStore(state => state.handleToggleSequencerFoldBus);
 
   if (!trackData) return null;
 
@@ -110,10 +154,14 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const linkedSlavesTooltip = isMaster
     ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${inst.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
     : undefined;
-  const dbTrack = tracks.find(t => t.id === trackId);
-  const displayName = dbTrack?.isLinkFolder
-    ? (dbTrack.customName || `🔗 ${getPluralName(inst.name)}`)
-    : inst.name;
+  const isLinkedChild = dbTrack && dbTrack.linkedToTrackId && !dbTrack.isLinkFolder;
+  const isToada = isToadaBus(trackData);
+  const isToadaChildTrack = dbTrack && isToadaChild(dbTrack, tracks);
+  const isChild = isLinkedChild || isToadaChildTrack;
+
+  const displayName = dbTrack?.isLinkFolder || isToada
+    ? (dbTrack?.customName || (isToada ? 'Toada' : `🔗 ${getPluralName(inst.name)}`))
+    : (isChild ? `↳ ${dbTrack?.customName || inst.name}` : (dbTrack?.customName || inst.name));
   
   const isMutedBySolo = hasSolo && !trackData.isSolo;
   const canPlay = trackData.isSolo || (!trackData.isMute && !isMutedBySolo);
@@ -166,11 +214,20 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
       {/* ── Sticky track header ── */}
       <div
         className={`timeline-sticky-header sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] shrink-0 ${
-          isMobile ? 'px-1' : 'px-3'
+          isMobile ? (isChild ? 'pl-3 pr-1' : 'px-1') : (isChild ? 'pl-8 pr-3' : 'px-3')
         }`}
         style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
       >
         <div className={`flex items-center min-w-0 flex-grow ${isMobile ? 'gap-0.5' : 'gap-2'}`}>
+          {(dbTrack?.isLinkFolder || isToada) && (
+            <button
+              onClick={() => onToggleFoldBus(String(trackData.id))}
+              className="p-0.5 hover:bg-[var(--cordel-text)]/10 rounded cursor-pointer text-[10px] font-bold mr-1 shrink-0 flex items-center justify-center w-4 h-4 border border-[var(--cordel-border)]/30 text-[var(--cordel-text)]"
+              title={dbTrack?.isSequencerFolded ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar')}
+            >
+              {dbTrack?.isSequencerFolded ? '▶' : '▼'}
+            </button>
+          )}
           {isMobile ? (
             <span className="font-mono text-[10px] text-[var(--cordel-text)]/60 shrink-0">
               #{trackIndex + 1}
@@ -184,12 +241,27 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
             }`}
           />
           {!isMobile ? (
-            <span 
-              className="track-header-name font-cactus text-sm font-bold truncate text-[var(--cordel-text)] tracking-wider"
-              title={linkedSlavesTooltip}
-            >
-              {displayName}
-            </span>
+            isEditingName ? (
+              <input
+                type="text"
+                value={nameVal}
+                onChange={e => setNameVal(e.target.value)}
+                onBlur={handleRenameSubmit}
+                onKeyDown={handleKeyDown}
+                className="font-cactus font-bold text-sm bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-1 py-0.5 outline-none max-w-[120px] text-left"
+                autoFocus
+                onClick={e => e.stopPropagation()}
+                onMouseDown={e => e.stopPropagation()}
+              />
+            ) : (
+              <span 
+                onDoubleClick={() => setIsEditingName(true)}
+                className="track-header-name font-cactus text-sm font-bold truncate text-[var(--cordel-text)] tracking-wider cursor-pointer hover:bg-[var(--cordel-text)]/5 rounded px-1"
+                title={lang === 'fr' ? 'Double-cliquer pour renommer' : 'Clique duplo para renomear'}
+              >
+                {displayName}
+              </span>
+            )
           ) : null}
         </div>
         <div className="track-header-controls flex flex-row gap-1 shrink-0">
@@ -235,6 +307,8 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
           let currentInst = inst;
           let currentPatternsList = trackData.patterns;
           let currentTrackIdx = trackIndex;
+          let isOverridden = false;
+          let isSilence = false;
 
           if (isToada) {
             const pPtn = puxTrack?.patterns.find(p => p.measureAssignments[mIdx]);
@@ -259,6 +333,25 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
             if (puxTrack) toadaPatternsList.push(...puxTrack.patterns);
             if (coroTrack) toadaPatternsList.push(...coroTrack.patterns);
             currentPatternsList = toadaPatternsList;
+          } else if (isLinkedChild && dbTrack) {
+            const parentBus = tracks.find(p => String(p.id) === String(dbTrack.linkedToTrackId) && p.isLinkFolder);
+            if (parentBus) {
+              const override = dbTrack.patternOverrides?.[mIdx];
+              if (override === null) {
+                isSilence = true;
+                activePattern = null;
+                isOverridden = true;
+              } else if (override !== undefined) {
+                activePattern = parentBus.patterns.find(p => p.id === override) || null;
+                isOverridden = true;
+              } else {
+                activePattern = parentBus.patterns.find(p => p.measureAssignments[mIdx]) || null;
+                isOverridden = false;
+              }
+              activeTrack = parentBus;
+              currentPatternsList = parentBus.patterns;
+              currentTrackIdx = tracks.findIndex(t => t.id === parentBus.id);
+            }
           } else {
             activePattern = trackData.patterns.find(p => p.measureAssignments[mIdx]);
             activeTrack = trackData;
@@ -277,6 +370,12 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
           const loopStatus = loopStartMeasure !== null && loopEndMeasure !== null
             ? (isInLoop ? (isLoopRegionActive ? 'inside-active' as const : 'none' as const) : (isLoopRegionActive ? 'outside-active' as const : 'none' as const))
             : 'none' as const;
+
+          const hasChildOverrides = dbTrack?.isLinkFolder && tracks.some(child => 
+            String(child.linkedToTrackId) === String(dbTrack.id) && 
+            !child.isLinkFolder && 
+            child.patternOverrides?.[mIdx] !== undefined
+          );
 
           return (
             <TimelineMeasure
@@ -298,7 +397,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               instId={currentInst.id}
               instType={currentInst.type}
               lang={lang}
-              activePatternName={activePattern ? activePattern.name : null}
+              activePatternName={isSilence ? (lang === 'fr' ? 'Silence' : 'Silêncio') : (activePattern ? activePattern.name : null)}
               patternsList={currentPatternsList}
               signalDropdownOpen={uiContext.signalDropdownOpen}
               onPatternAssignForMeasure={onPatternAssignForMeasure}
@@ -312,6 +411,10 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               activePatternActiveSteps={activePattern?.activeSteps}
               onGridPointerDown={handleGridPointerDown}
               onMeasureClick={handleMeasureClick}
+              isLinkedChild={!!isLinkedChild}
+              isOverridden={isOverridden}
+              isSilence={isSilence}
+              hasChildOverrides={hasChildOverrides}
             />
           );
         })}

@@ -30,7 +30,8 @@ export interface TrackSlice {
   setTrackPan: (trackId: number, value: number) => void;
   handleLinkTrack: (trackId: number, linkedToTrackId: string | null) => void;
   handleCreateLinkGroup: (trackId: number, name: string) => void;
-  handleTimelinePatternAssign: (trackId: number, patternId: number | null, measureIdx: number) => void;
+  handleSetPatternOverride: (trackId: number, measureIdx: number, patternId: number | null | undefined) => void;
+  handleTimelinePatternAssign: (trackId: number, patternId: number | null | undefined, measureIdx: number) => void;
   handleTimelinePatternVariationToggle: (trackId: number, patternId: number, measureIdx: number, val: boolean) => void;
   handleTrackStepsChange: (trackId: number, patternId: number, targetSteps: number) => void;
   handleTrackStepVolumeChange: (trackId: number, patternId: number, stepIdx: number | number[], val: number) => void;
@@ -38,6 +39,7 @@ export interface TrackSlice {
   handleCreateBus: (trackId: number, name: string) => void;
   handleAssignToBus: (trackId: number, busId: string | null) => void;
   handleToggleFoldBus: (busId: string) => void;
+  handleToggleSequencerFoldBus: (busId: string) => void;
   setMasterFxVolume: (fxType: 'reverb' | 'distortion', volume: number) => void;
   setMasterFxParam: (fxType: 'reverb' | 'distortion', param: 'time' | 'drive', value: number) => void;
   toggleMasterFxMute: (fxType: 'reverb' | 'distortion') => void;
@@ -77,6 +79,7 @@ export const ensureToadaBus = (list: TrackGroup[]): TrackGroup[] => {
       selectedPatternId: 0,
       isBusFolder: true,
       isFolded: false,
+      isSequencerFolded: false,
       customName: 'Toada',
       reverbVal: 0,
       panVal: 0,
@@ -409,6 +412,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
               isBusFolder: true,
               isLinkFolder: true,
               isFolded: false,
+              isSequencerFolded: false,
               customName: busName,
               reverbVal: 0,
               panVal: 0,
@@ -529,6 +533,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         isBusFolder: true,
         isLinkFolder: true,
         isFolded: false,
+        isSequencerFolded: false,
         customName: name,
         reverbVal: 0,
         panVal: 0,
@@ -580,6 +585,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         selectedPatternId: 0,
         isBusFolder: true,
         isFolded: false,
+        isSequencerFolded: false,
         customName: name,
         reverbVal: 0,
         panVal: 0,
@@ -604,6 +610,25 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     });
   },
 
+  handleSetPatternOverride: (trackId, measureIdx, patternId) => {
+    get().pushUndoState();
+    set((state) => ({
+      tracks: state.tracks.map(t => {
+        if (t.id === trackId) {
+          const overrides = { ...(t.patternOverrides || {}) };
+          if (patternId === undefined) {
+            delete overrides[measureIdx];
+          } else {
+            overrides[measureIdx] = patternId;
+          }
+          return { ...t, patternOverrides: overrides };
+        }
+        return t;
+      }),
+      tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
   handleAssignToBus: (trackId, busId) => {
     get().pushUndoState();
     set((state) => ({
@@ -615,6 +640,13 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   handleToggleFoldBus: (busId) => {
     set((state) => ({
       tracks: state.tracks.map((t) => String(t.id) === String(busId) ? { ...t, isFolded: !t.isFolded } : t),
+      tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
+  handleToggleSequencerFoldBus: (busId) => {
+    set((state) => ({
+      tracks: state.tracks.map((t) => String(t.id) === String(busId) ? { ...t, isSequencerFolded: !t.isSequencerFolded } : t),
       tracksVersion: state.tracksVersion + 1
     }));
   },
@@ -658,10 +690,31 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   handleTimelinePatternAssign: (trackId, patternId, measureIdx) => {
     get().pushUndoState();
     set((state) => {
+      const clickedTrack = state.tracks.find(t => t.id === trackId);
+      const isLinkedChild = clickedTrack && clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder;
+
+      if (isLinkedChild) {
+        return {
+          tracks: state.tracks.map(t => {
+            if (t.id === trackId) {
+              const overrides = { ...(t.patternOverrides || {}) };
+              if (patternId === undefined) {
+                delete overrides[measureIdx];
+              } else {
+                overrides[measureIdx] = patternId;
+              }
+              return { ...t, patternOverrides: overrides };
+            }
+            return t;
+          }),
+          tracksVersion: state.tracksVersion + 1
+        };
+      }
+
       const isToadaTrackId = isToadaBus(state.tracks.find(t => t.id === trackId) || {});
       
       let targetTrackId = trackId;
-      if (patternId !== null) {
+      if (patternId !== null && patternId !== undefined) {
         const ownerTrack = state.tracks.find(t => t.patterns.some(p => p.id === patternId));
         if (ownerTrack) {
           targetTrackId = ownerTrack.id;

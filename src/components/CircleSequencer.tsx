@@ -1319,6 +1319,106 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           const x = centerX + Math.cos(stepAngle) * tRad;
           const y = centerY + Math.sin(stepAngle) * tRad;
 
+          // ── DESSIN DES SATELLITES POUR VARIATIONS INDIVIDUELLES ──
+          let satellitesToDraw: Array<{
+            color: string;
+            text: string;
+            isDark: boolean;
+            childInstId: string;
+            childState: string | number;
+          }> = [];
+
+          const live = livePlaybackRef.current;
+          const stateVal = stateRef.current;
+          const measureIdx = (live && live.step >= 0) ? live.measure : (pendingTargetMeasureRef.current !== null ? pendingTargetMeasureRef.current : stateVal.currentMeasure);
+
+          if (track.isLinkFolder) {
+            const children = (props.tracks !== undefined ? rawTracks : stateRef.current.rawTracks).filter((t: any) => 
+              String(t.linkedToTrackId) === String(track.id) && 
+              !t.isBusFolder
+            );
+            
+            children.forEach((c: any) => {
+              const override = c.patternOverrides?.[measureIdx];
+              if (override !== undefined) {
+                if (override !== null) {
+                  const childPattern = track.patterns.find((p: any) => p.id === override);
+                  if (childPattern) {
+                    const childActivePlayingSteps = (props.tracks === undefined && sequencer.activeVariationsRef?.current)
+                      ? (sequencer.activeVariationsRef.current[c.id] || childPattern.activeSteps)
+                      : childPattern.activeSteps;
+                    const childState = childActivePlayingSteps[i] || 0;
+                    if (childState !== 0 && childState !== '') {
+                      const childInst = instrumentsConfig[c.instrumentIdx];
+                      if (childInst) {
+                        const childVisualState = getVisualStrokeSymbol(childState, localLeftHanded || false, childInst.id);
+                        if (childVisualState !== 0) {
+                          const childColor = (childInst.colors && childInst.colors[childVisualState]) || childInst.color || '#fff';
+                          const childText = String(childVisualState);
+                          satellitesToDraw.push({
+                            color: childColor,
+                            text: childText,
+                            isDark: isDarkText(childInst.id, String(childState)),
+                            childInstId: childInst.id,
+                            childState: childState
+                          });
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            });
+          }
+
+          // Dessiner les satellites en premier (z-index : dessiné derrière le pas principal)
+          satellitesToDraw.slice(0, 2).forEach((sat, satIdx) => {
+            const offsetMultiplier = dynamicScale;
+            const dx = satIdx === 0 ? -15 * offsetMultiplier : 15 * offsetMultiplier;
+            const dy = satIdx === 0 ? -15 * offsetMultiplier : 15 * offsetMultiplier;
+            
+            const satX = x + dx;
+            const satY = y + dy;
+            
+            const baseRad = currentInst.type === 'voice' ? 22 : 13;
+            const satRadius = baseRad * 0.65 * dynamicScale;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(satX, satY, satRadius, 0, Math.PI * 2);
+            ctx.fillStyle = sat.color;
+            ctx.fill();
+            ctx.strokeStyle = themeBorder;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            ctx.fillStyle = sat.isDark ? '#1a1a1a' : '#f4ecd8';
+            let satSymbol = sat.text;
+            if (sat.childInstId === 'mineiro') {
+              if (satSymbol.toLowerCase() === 'p') satSymbol = '↑';
+              else if (satSymbol.toLowerCase() === 't') satSymbol = '↓';
+            } else if (sat.childInstId === 'agbe') {
+              if (satSymbol.toLowerCase() === 'e') satSymbol = '←';
+              else if (satSymbol.toLowerCase() === 'd') satSymbol = '→';
+              else if (satSymbol.toLowerCase() === 's') satSymbol = '↑';
+              else if (satSymbol.toLowerCase() === 'v') satSymbol = '↓';
+            }
+            const satFontSize = Math.max(8, Math.floor(10 * dynamicScale));
+            ctx.font = `900 ${satFontSize}px "Outfit", "Inter", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            if (['↑', '↓', '←', '→'].includes(satSymbol)) {
+              ctx.save();
+              ctx.strokeStyle = ctx.fillStyle;
+              ctx.lineWidth = 1.5;
+              ctx.strokeText(satSymbol, satX, satY + 1);
+              ctx.restore();
+            }
+            ctx.fillText(satSymbol, satX, satY + 1);
+            ctx.restore();
+          });
+
           const state = activePlayingSteps[i];
           if (!state || state === 0) continue;
 

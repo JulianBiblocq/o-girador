@@ -250,7 +250,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
           >
             <div className="flex items-center gap-2 truncate">
               <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-5 h-5 object-contain flex-shrink-0" />
-              <span className="font-cactus font-bold text-xs truncate">{index + 1}. {inst.name}</span>
+              <span className="font-cactus font-bold text-xs truncate">{index + 1}. {track?.customName || inst.name}</span>
             </div>
             <span className="text-[8px] flex-shrink-0 opacity-60">▼</span>
           </div>

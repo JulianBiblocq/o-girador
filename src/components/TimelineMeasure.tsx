@@ -25,7 +25,7 @@ interface TimelineMeasureProps {
   activePatternName: string | null;
   patternsList: Array<{ id: number; name: string; vocalMode?: string }>;
   signalDropdownOpen: number | null;
-  onPatternAssignForMeasure: (trackId: number, patternId: number | null, mIdx: number) => void;
+  onPatternAssignForMeasure: (trackId: number, patternId: number | null | undefined, mIdx: number) => void;
   onPatternVariationToggleForMeasure: (trackId: number, patternId: number, mIdx: number, value: boolean) => void;
   measureAllowVariations: boolean;
   variationsCount: number;
@@ -36,6 +36,10 @@ interface TimelineMeasureProps {
   activePatternActiveSteps?: any[];
   onGridPointerDown: (e: React.PointerEvent) => void;
   onMeasureClick: (mIdx: number, steps: number, clickX: number) => void;
+  isLinkedChild?: boolean;
+  isOverridden?: boolean;
+  isSilence?: boolean;
+  hasChildOverrides?: boolean;
 }
 
 const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
@@ -70,6 +74,10 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   activePatternActiveSteps,
   onGridPointerDown,
   onMeasureClick,
+  isLinkedChild,
+  isOverridden,
+  isSilence,
+  hasChildOverrides,
 }) => {
   const hasAudio = useAudioStore((state) => !!state.vocalBlobs[patternId]);
   const targetPatternId = useAudioStore((state) => state.targetPatternId);
@@ -101,6 +109,8 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
       ? 'bg-black/10 dark:bg-black/30 opacity-70' 
       : '';
 
+  const isFollowingMaster = isLinkedChild && !isOverridden;
+
   return (
     <div
       className={`h-full cursor-pointer border-r shrink-0 ${
@@ -118,6 +128,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
         width: currentMeasureW, 
         minWidth: currentMeasureW,
         contain: 'layout paint style',
+        opacity: isFollowingMaster ? 0.45 : 1.0,
         ...({ '--section-color': sectionColor } as React.CSSProperties)
       }}
       onClick={handleCellClick}
@@ -133,23 +144,30 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
           >
             <div className="flex items-center gap-1 bg-[var(--cordel-bg)]/80 hover:bg-[var(--cordel-bg)]/95 border border-[var(--cordel-border)]/20 hover:border-[var(--cordel-border)]/50 rounded px-1.5 py-px shadow-sm max-w-[125px] relative h-[20px]">
               <span className="text-[10px] font-cactus font-bold tracking-wider uppercase truncate leading-tight select-none pr-2.5">
+                {isFollowingMaster && <span className="mr-0.5 opacity-60">🔗</span>}
                 {activePatternName || (lang === 'fr' ? 'Silence' : 'Silêncio')}
+                {hasChildOverrides && <span className="text-amber-500 ml-1 font-sans" title={lang === 'fr' ? 'Variation individuelle active' : 'Variação individual activa'}>✦</span>}
               </span>
               <span className="text-[7px] opacity-50 absolute right-1 top-1/2 -translate-y-1/2">▼</span>
               
               <select
-                value={patternId !== -1 ? String(patternId) : 'silence'}
+                value={isLinkedChild && !isOverridden ? 'follow' : (patternId !== -1 && !isSilence ? String(patternId) : 'silence')}
                 onChange={e => {
                   const v = e.target.value;
                   onPatternAssignForMeasure(
                     trackId,
-                    v === 'silence' ? null : Number(v),
+                    v === 'follow' ? undefined : (v === 'silence' ? null : Number(v)),
                     mIdx,
                   );
                 }}
                 className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
                 title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
               >
+                {isLinkedChild && (
+                  <option value="follow" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                    {lang === 'fr' ? '🔗 Suivre le maître' : '🔗 Seguir mestre'}
+                  </option>
+                )}
                 <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
                   {lang === 'fr' ? '— Silence' : '— Silêncio'}
                 </option>

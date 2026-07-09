@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useSequencerStore, isSequencerVisibleTrack } from '../stores/useSequencerStore';
+import { useSequencerStore, isSequencerVisibleTrack, isToadaBus } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef } from 'react';
 import type * as ToneType from 'tone';
@@ -107,7 +107,28 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     handleDeleteMeasure: onDeleteMeasure,
     handleInsertMeasure: onInsertMeasure,
   } = sequencer;
-  const trackIds = useSequencerStore(useShallow(state => state.tracks.filter(t => isSequencerVisibleTrack(t, state.tracks)).map(t => t.id)));
+  const trackIds = useSequencerStore(useShallow(state => {
+    const visibleTrackIds: number[] = [];
+    state.tracks.forEach(t => {
+      if (isSequencerVisibleTrack(t, state.tracks)) {
+        visibleTrackIds.push(t.id);
+        if (isToadaBus(t) && !t.isSequencerFolded) {
+          const puxTrack = state.tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'puxador');
+          const coroTrack = state.tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'coro');
+          if (puxTrack) visibleTrackIds.push(puxTrack.id);
+          if (coroTrack) visibleTrackIds.push(coroTrack.id);
+        }
+      } else {
+        if (t.busId) {
+          const parentBus = state.tracks.find(p => String(p.id) === String(t.busId));
+          if (parentBus && parentBus.isLinkFolder && !parentBus.isSequencerFolded) {
+            visibleTrackIds.push(t.id);
+          }
+        }
+      }
+    });
+    return visibleTrackIds;
+  }));
 
   const localRhythmSignals = metadata?.rhythmSignals || [];
   const rhythmSignals = [
