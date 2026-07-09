@@ -86,6 +86,8 @@ interface MainWorkspaceLayoutProps {
     currentVal: string | number,
     onSelect: (val: string) => void
   ) => void;
+  activeRightPanel: 'legend' | 'letras' | 'info' | 'feedback' | null;
+  onToggleRightPanel: (panel: 'legend' | 'letras' | 'info' | 'feedback', force?: boolean) => void;
 }
 
 export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
@@ -120,21 +122,17 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
   presetFiles,
   localPresets,
   onStepTouchStart,
+  activeRightPanel,
+  onToggleRightPanel,
 }) => {
   const sequencer = useSequencer();
   const lang = useSequencerStore(state => state.lang);
   const editingTrackId = useSequencerStore(state => state.editingTrackId);
   const setEditingTrackId = useSequencerStore(state => state.setEditingTrackId);
 
-  const activeRightPanel = useSequencerStore(state => state.metadata ? 'letras' : 'info');
-
   const handleSetEditingTrackId = React.useCallback((id: number | null) => {
     setEditingTrackId(id);
   }, [setEditingTrackId]);
-
-  const handleToggleSidebarPanel = React.useCallback(() => {
-    // Toggles between letras and info panels
-  }, []);
 
   const activeVaralExercise = useMemo(() => {
     // Stub or resolver logic if needed for varal exercise
@@ -178,8 +176,8 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
           <div style={{ display: (!isMobile || mobileTab === 'toada') ? 'contents' : 'none' }}>
             <ErrorBoundary fallback={renderFallback('Panneau Latéral', 'Painel Lateral')}>
               <RightSidebar
-                activePanel={isMobile ? (activeRightPanel || 'letras') : 'info'}
-                onTogglePanel={handleToggleSidebarPanel}
+                activePanel={activeRightPanel}
+                onTogglePanel={onToggleRightPanel}
                 isMobile={isMobile}
                 mestreSignals={filteredMestreSignals}
                 refreshMestreSignals={refreshMestreSignals}

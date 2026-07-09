@@ -17,10 +17,11 @@ import { PresetMetadata, CloudRhythmSignal } from '../types';
 const ShortcutsGuide = React.lazy(() => import('./right-sidebar/ShortcutsGuide').then(m => ({ default: m.ShortcutsGuide })));
 const PresetManagerSection = React.lazy(() => import('./right-sidebar/PresetManagerSection').then(m => ({ default: m.PresetManagerSection })));
 const CloudLibraryTab = React.lazy(() => import('./right-sidebar/CloudLibraryTab').then(m => ({ default: m.CloudLibraryTab })));
+const FeedbackSection = React.lazy(() => import('./right-sidebar/FeedbackSection').then(m => ({ default: m.FeedbackSection })));
 
 interface RightSidebarProps {
-  activePanel: 'legend' | 'letras' | 'info' | null;
-  onTogglePanel: (panel: 'legend' | 'letras') => void;
+  activePanel: 'legend' | 'letras' | 'info' | 'feedback' | null;
+  onTogglePanel: (panel: 'legend' | 'letras' | 'info' | 'feedback', force?: boolean) => void;
   isMobile: boolean;
   mestreSignals?: CloudRhythmSignal[];
   refreshMestreSignals?: () => void;
@@ -43,6 +44,12 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
 }) => {
   const sequencer = useSequencer();
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const toadaInputRef = React.useRef<HTMLInputElement>(null);
+  const nacaoInputRef = React.useRef<HTMLInputElement>(null);
+  const compositorInputRef = React.useRef<HTMLInputElement>(null);
+  const ritmoInputRef = React.useRef<HTMLInputElement>(null);
+  const youtubeInputRef = React.useRef<HTMLInputElement>(null);
+  const letrasRef = React.useRef<HTMLTextAreaElement>(null);
   const tracks = useSequencerStore(state => {
     if (!visible) return EMPTY_ARRAY;
     return state.tracks;
@@ -113,7 +120,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
       return result;
     })(),
   } : null;
-  const [subTab, setSubTab] = React.useState<'toada' | 'info' | 'legendes' | 'sinais'>('info');
+  const [subTab, setSubTab] = React.useState<'toada' | 'info' | 'legendes' | 'sinais' | 'feedback'>('info');
 
   React.useEffect(() => {
     const textarea = textareaRef.current;
@@ -122,6 +129,28 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
       textarea.style.height = `${textarea.scrollHeight}px`;
     }
   }, [metadata?.description, subTab]);
+
+  // Synchronize uncontrolled inputs when metadata or letras change (e.g. on preset load or file import)
+  React.useEffect(() => {
+    if (metadata) {
+      if (toadaInputRef.current) toadaInputRef.current.value = metadata.toada || '';
+      if (nacaoInputRef.current) nacaoInputRef.current.value = metadata.nacao || '';
+      if (compositorInputRef.current) compositorInputRef.current.value = metadata.compositor || '';
+      if (ritmoInputRef.current) ritmoInputRef.current.value = metadata.ritmo || '';
+      if (youtubeInputRef.current) youtubeInputRef.current.value = metadata.youtubeUrl || '';
+      if (textareaRef.current) {
+        textareaRef.current.value = metadata.description || '';
+        textareaRef.current.style.height = 'auto';
+        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+      }
+    }
+  }, [metadata]);
+
+  React.useEffect(() => {
+    if (letrasRef.current) {
+      letrasRef.current.value = letras || '';
+    }
+  }, [letras]);
 
   const t = (key: string) => {
     const section = i18n[lang];
@@ -132,11 +161,13 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   if (isMobile && !activePanel) return null;
 
   React.useEffect(() => {
-    if (isMobile) {
+    if (activePanel) {
       if (activePanel === 'legend') setSubTab('legendes');
-      if (activePanel === 'letras') setSubTab('toada');
+      else if (activePanel === 'letras') setSubTab('toada');
+      else if (activePanel === 'info') setSubTab('info');
+      else if (activePanel === 'feedback') setSubTab('feedback');
     }
-  }, [activePanel, isMobile]);  const getYouTubeEmbedUrl = (url: string) => {
+  }, [activePanel]);  const getYouTubeEmbedUrl = (url: string) => {
     if (!url) return '';
     const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/);
     const videoId = match ? match[1] : null;
@@ -151,75 +182,96 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
         className="w-[340px] min-w-[340px] bg-[var(--cordel-bg)] cordel-bg border-l-[3px] border-[var(--cordel-border)] flex flex-col h-full transition-all duration-300 relative z-10 text-[var(--cordel-text)]"
       >
         <div className="flex flex-col p-5 h-full overflow-hidden">
-          <div className="flex justify-between items-center border-b-[3px] border-[var(--cordel-border)] pb-3 mb-4 shrink-0">
-            <span className="font-cactus font-bold text-2xl text-[var(--cordel-text)] tracking-wider uppercase font-medium">
-              Info
-            </span>
+          {/* Sub-tab Selector & Mobile Close Button aligned side-by-side */}
+          <div className="flex gap-2 items-center mb-4 shrink-0 mt-1">
+            <div className="flex-grow relative">
+              <select
+                value={subTab}
+                onChange={(e) => {
+                  const val = e.target.value as any;
+                  setSubTab(val);
+                  
+                  // Synchronize local select with parent state, forcing it to prevent toggles
+                  let mappedPanel: 'legend' | 'letras' | 'info' | 'feedback' = 'info';
+                  if (val === 'legendes') mappedPanel = 'legend';
+                  else if (val === 'toada') mappedPanel = 'letras';
+                  else if (val === 'feedback') mappedPanel = 'feedback';
+                  else if (val === 'info') mappedPanel = 'info';
+                  else if (val === 'sinais') mappedPanel = 'info'; // Map sinais to info view
+                  
+                  onTogglePanel(mappedPanel, true);
+                }}
+                className="w-full py-2 pl-3 pr-10 font-cactus font-bold text-[14px] uppercase cordel-border-sm cursor-pointer bg-[var(--cordel-bg)] text-[var(--cordel-text)] focus:outline-none appearance-none"
+              >
+                <option value="toada">📝 Toada</option>
+                <option value="info">ℹ️ {lang === 'fr' ? 'Informations' : 'Informações'}</option>
+                <option value="sinais">🎨 {lang === 'fr' ? 'Signes' : 'Sinais'}</option>
+                <option value="legendes">📖 {t('legend')}</option>
+                <option value="feedback">💬 {lang === 'fr' ? 'Note & Avis' : 'Nota & Opinião'}</option>
+              </select>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--cordel-text)] font-extrabold text-[12px]">
+                ▼
+              </span>
+            </div>
             {isMobile && (
               <button
                 onClick={() => onTogglePanel('letras')}
-                className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-2 py-1 text-sm font-bold hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors"
+                className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-3 py-2 text-sm font-bold hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors h-full flex items-center justify-center shrink-0"
               >
-                X
+                ✖
               </button>
             )}
           </div>
 
-          {/* Sub-tab Selector */}
-          <div className="mb-4 shrink-0 relative">
-            <select
-              value={subTab}
-              onChange={(e) => setSubTab(e.target.value as any)}
-              className="w-full py-2 pl-3 pr-10 font-cactus font-bold text-[14px] uppercase cordel-border-sm cursor-pointer bg-[var(--cordel-bg)] text-[var(--cordel-text)] focus:outline-none appearance-none"
-            >
-              <option value="toada">📝 Toada</option>
-              <option value="info">ℹ️ Info</option>
-              <option value="sinais">🎨 {lang === 'fr' ? 'Signes' : 'Sinais'}</option>
-              <option value="legendes">📖 {t('legend')}</option>
-            </select>
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--cordel-text)] font-extrabold text-[12px]">
-              ▼
-            </span>
-          </div>
-
           {/* TAB 4: Légendes */}
           {subTab === 'legendes' && (
-            <React.Suspense fallback={null}>
-              <ShortcutsGuide
-                lang={lang}
-                t={t}
-              />
-            </React.Suspense>
+            <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar min-h-0">
+              <React.Suspense fallback={null}>
+                <div className="xilo-feedback-container flex flex-col gap-2">
+                  <ShortcutsGuide
+                    lang={lang}
+                    t={t}
+                  />
+                </div>
+              </React.Suspense>
+            </div>
           )}
 {subTab === 'toada' && (
             <div className="flex flex-col flex-grow overflow-hidden min-h-0">
-              <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus mb-1 shrink-0">
+              <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus mb-1 shrink-0 text-left">
                 {lang === 'fr' ? 'Paroles de la Toada' : 'Letra da Toada'}
               </span>
-              <textarea
-                id="letras-textarea"
-                placeholder={t('letrasPlaceholder')}
-                value={letras}
-                onChange={(e) => onLetrasChange(e.target.value)}
-                className="w-full h-[150px] min-h-[100px] bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-[2px] border-[var(--cordel-border)] p-2 font-sans text-xs outline-none resize-none focus:border-[var(--cordel-border)] mb-4 shrink-0"
-              />
               
-              {onExtractLyrics && (
-                <button
-                  onClick={onExtractLyrics}
-                  className="w-full py-1.5 bg-[#8b2a1a] text-[#f4ecd8] text-xs font-bold cordel-border-sm hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer mb-4 shrink-0 flex items-center justify-center gap-1.5"
-                  title={t('extractBtn')}
-                >
-                  <span>{t('extractBtn')}</span>
-                </button>
-              )}
-              
-              <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus mb-1 shrink-0">
-                🎤 Karaokê
-              </span>
+              <div className="xilo-feedback-container flex flex-col flex-grow overflow-hidden min-h-0 p-4 gap-2 mb-1">
+                <textarea
+                  ref={letrasRef}
+                  id="letras-textarea"
+                  placeholder={t('letrasPlaceholder')}
+                  defaultValue={letras}
+                  onBlur={(e) => {
+                    if (e.target.value !== letras) {
+                      onLetrasChange(e.target.value);
+                    }
+                  }}
+                  className="xilo-textarea h-[120px] min-h-[80px] mb-3 shrink-0"
+                />
+                
+                {onExtractLyrics && (
+                  <button
+                    onClick={onExtractLyrics}
+                    className="w-full py-1.5 bg-[#8b2a1a] text-[#f4ecd8] text-xs font-bold cordel-border-sm hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer mb-3 shrink-0 flex items-center justify-center gap-1.5"
+                    title={t('extractBtn')}
+                  >
+                    <span>{t('extractBtn')}</span>
+                  </button>
+                )}
+                
+                <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus mb-1 shrink-0 text-left">
+                  🎤 Karaokê
+                </span>
 
-              {/* Karaoke Viewer Container */}
-              <div className="flex-grow overflow-y-auto min-h-0 pr-1 custom-scrollbar">
+                {/* Karaoke Viewer Container */}
+                <div className="flex-grow overflow-y-auto min-h-0 pr-1 custom-scrollbar">
                 {(() => {
                   const voiceTracks = tracks.filter(t => instrumentsConfig[t.instrumentIdx]?.type === 'voice' && !t.isMute);
                   if (voiceTracks.length === 0) {
@@ -330,6 +382,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                   );
                 })()}
               </div>
+              </div>
             </div>
           )}
 
@@ -337,43 +390,68 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
           {subTab === 'info' && (
             <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar min-h-0">
               {metadata && onMetadataChange ? (
-                <div className="flex flex-col gap-2 p-3 bg-[var(--cordel-bg)] cordel-border-sm">
+                <div className="xilo-feedback-container flex flex-col gap-2">
                   <span className="text-[var(--cordel-text)] font-cactus text-sm font-bold uppercase tracking-wider mb-1">
                     {t('metaInfo')}
                   </span>
                   <input
+                    ref={toadaInputRef}
                     type="text"
                     placeholder={t('metaToada')}
-                    value={metadata.toada}
-                    onChange={(e) => onMetadataChange({ ...metadata, toada: e.target.value })}
+                    defaultValue={metadata.toada}
+                    onBlur={(e) => {
+                      if (e.target.value !== metadata.toada) {
+                        onMetadataChange({ ...metadata, toada: e.target.value });
+                      }
+                    }}
                     className="bg-transparent border-b border-[var(--cordel-border)] text-[var(--cordel-text)] font-bold text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full"
                   />
                   <input
+                    ref={nacaoInputRef}
                     type="text"
                     placeholder={t('metaNacao')}
-                    value={metadata.nacao}
-                    onChange={(e) => onMetadataChange({ ...metadata, nacao: e.target.value })}
+                    defaultValue={metadata.nacao}
+                    onBlur={(e) => {
+                      if (e.target.value !== metadata.nacao) {
+                        onMetadataChange({ ...metadata, nacao: e.target.value });
+                      }
+                    }}
                     className="bg-transparent border-b border-[var(--cordel-border)] text-[var(--cordel-text)] font-bold text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full"
                   />
                   <input
+                    ref={compositorInputRef}
                     type="text"
                     placeholder={t('metaCompositor')}
-                    value={metadata.compositor}
-                    onChange={(e) => onMetadataChange({ ...metadata, compositor: e.target.value })}
+                    defaultValue={metadata.compositor}
+                    onBlur={(e) => {
+                      if (e.target.value !== metadata.compositor) {
+                        onMetadataChange({ ...metadata, compositor: e.target.value });
+                      }
+                    }}
                     className="bg-transparent border-b border-[var(--cordel-border)] text-[var(--cordel-text)] font-bold text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full"
                   />
                   <input
+                    ref={ritmoInputRef}
                     type="text"
                     placeholder={t('metaRitmo')}
-                    value={metadata.ritmo}
-                    onChange={(e) => onMetadataChange({ ...metadata, ritmo: e.target.value })}
+                    defaultValue={metadata.ritmo}
+                    onBlur={(e) => {
+                      if (e.target.value !== metadata.ritmo) {
+                        onMetadataChange({ ...metadata, ritmo: e.target.value });
+                      }
+                    }}
                     className="bg-transparent border-b border-[var(--cordel-border)] text-[var(--cordel-text)] font-bold text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full"
                   />
                   <input
+                    ref={youtubeInputRef}
                     type="text"
                     placeholder={lang === 'pt' ? 'Link do YouTube' : 'Lien YouTube'}
-                    value={metadata.youtubeUrl || ''}
-                    onChange={(e) => onMetadataChange({ ...metadata, youtubeUrl: e.target.value })}
+                    defaultValue={metadata.youtubeUrl || ''}
+                    onBlur={(e) => {
+                      if (e.target.value !== (metadata.youtubeUrl || '')) {
+                        onMetadataChange({ ...metadata, youtubeUrl: e.target.value });
+                      }
+                    }}
                     className="bg-transparent border-b border-[var(--cordel-border)]/30 text-[var(--cordel-text)] font-bold text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full"
                   />
                   {metadata.youtubeUrl && getYouTubeEmbedUrl(metadata.youtubeUrl) && (
@@ -391,14 +469,19 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                   <textarea
                     ref={textareaRef}
                     placeholder={lang === 'pt' ? 'Descrição / História do ritmo...' : 'Description / Histoire du rythme...'}
-                    value={metadata.description || ''}
-                    onChange={(e) => {
-                      onMetadataChange({ ...metadata, description: e.target.value });
-                      e.target.style.height = 'auto';
-                      e.target.style.height = `${e.target.scrollHeight}px`;
+                    defaultValue={metadata.description || ''}
+                    onInput={(e) => {
+                      const el = e.currentTarget;
+                      el.style.height = 'auto';
+                      el.style.height = `${el.scrollHeight}px`;
+                    }}
+                    onBlur={(e) => {
+                      if (e.target.value !== (metadata.description || '')) {
+                        onMetadataChange({ ...metadata, description: e.target.value });
+                      }
                     }}
                     rows={1}
-                    className="bg-transparent border border-[var(--cordel-border)]/30 text-[var(--cordel-text)] font-sans text-xs p-1.5 focus:border-[var(--cordel-border)] outline-none w-full resize-none mt-2 overflow-hidden"
+                    className="xilo-textarea mt-2 overflow-hidden"
                     style={{ minHeight: '32px' }}
                   />
                 </div>
@@ -415,7 +498,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
           {/* Tab: Sinais */}
           {subTab === 'sinais' && (
             <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar min-h-0 flex flex-col gap-2">
-              <div className="flex flex-col gap-2 p-3 bg-[var(--cordel-bg)] cordel-border-sm">
+              <div className="xilo-feedback-container flex flex-col gap-2">
                 <span className="text-[var(--cordel-text)] font-cactus text-sm font-bold uppercase tracking-wider mb-1 flex items-center justify-between">
                   🥁 {lang === 'fr' ? 'Signes du rythme' : 'Sinais do ritmo'}
                 </span>
@@ -459,6 +542,12 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                 />
               </React.Suspense>
             </div>
+          )}
+
+          {subTab === 'feedback' && (
+            <React.Suspense fallback={null}>
+              <FeedbackSection />
+            </React.Suspense>
           )}
 
         </div>

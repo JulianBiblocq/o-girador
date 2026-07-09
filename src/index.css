@@ -879,3 +879,126 @@ body.eco-mode #center-afficheur {
   animation: fadeOut 0.12s ease-in forwards;
   will-change: opacity;
 }
+
+/* Xilogravura Feedback module styles */
+.xilo-feedback-container {
+  /* Force light theme variables locally so all nested elements match the light-paper aesthetic in dark mode */
+  --cordel-bg: #f4ecd8;
+  --cordel-text: #1a1a1a;
+  --cordel-border: #1a1a1a;
+  --cordel-shadow-color: rgba(26, 26, 26, 0.25);
+
+  border: 4px solid var(--cordel-border);
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  background-color: var(--cordel-bg);
+  color: var(--cordel-text);
+  box-shadow: 4px 6px 0px 0px rgba(0, 0, 0, 0.85);
+  padding: 1.25rem;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.xilo-rating-group {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  gap: 0.375rem;
+}
+
+.xilo-mandala {
+  display: inline-block;
+  width: 2.25rem;
+  height: 2.25rem;
+  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.xilo-mandala svg .mandala-bg {
+  fill: transparent;
+  stroke: var(--cordel-border, #1a1a1a);
+  stroke-width: 3.5px;
+  transition: fill 0.2s ease, stroke 0.2s ease;
+}
+
+.xilo-mandala svg .mandala-details {
+  stroke: var(--cordel-border, #1a1a1a);
+  stroke-width: 2px;
+  fill: none;
+  transition: stroke 0.2s ease, fill 0.2s ease;
+}
+
+/* Selected state: Filled with ink */
+.xilo-mandala.is-active svg .mandala-bg {
+  fill: var(--cordel-border, #1a1a1a);
+}
+
+.xilo-mandala.is-active svg .mandala-details {
+  stroke: var(--cordel-bg, #f4ecd8);
+}
+
+/* Pure CSS Hover state: hover highlighting itself and all previous (visually left, HTML sibling-after) mandalas */
+.xilo-mandala:hover {
+  transform: scale(1.18);
+}
+
+.xilo-mandala:hover svg .mandala-bg,
+.xilo-mandala:hover ~ .xilo-mandala svg .mandala-bg {
+  fill: var(--cordel-border, #1a1a1a) !important;
+}
+
+.xilo-mandala:hover svg .mandala-details,
+.xilo-mandala:hover ~ .xilo-mandala svg .mandala-details {
+  stroke: var(--cordel-bg, #f4ecd8) !important;
+}
+
+/* Uncontrolled Paper-colored Textarea */
+.xilo-textarea {
+  background-color: #fcf9f2;
+  color: var(--cordel-border, #1a1a1a);
+  border: 3px solid var(--cordel-border, #1a1a1a);
+  border-radius: 8px 12px 6px 10px / 10px 6px 12px 8px;
+  font-family: inherit;
+  font-size: 0.825rem;
+  line-height: 1.25rem;
+  outline: none;
+  padding: 0.5rem;
+  resize: none;
+  width: 100%;
+  box-shadow: inset 1px 1.5px 3px rgba(0, 0, 0, 0.12);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.xilo-textarea:focus {
+  border-color: var(--color-wood-red, #8b2a1a);
+  box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--color-wood-red, #8b2a1a);
+}
+
+/* Carved Wood submit block button */
+.xilo-submit-btn {
+  background-color: var(--cordel-border, #1a1a1a);
+  color: var(--cordel-bg, #f4ecd8);
+  border: 3px solid var(--cordel-border, #1a1a1a);
+  border-radius: 4px 6px 3px 5px / 5px 3px 6px 4px;
+  font-family: var(--font-cactus, monospace);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.65rem 1rem;
+  box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.85);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.xilo-submit-btn:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 3px 3px 0px 0px rgba(0, 0, 0, 0.85);
+}
+
+.xilo-submit-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0.85);
+}
+

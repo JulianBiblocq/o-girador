@@ -253,7 +253,7 @@ export const CloudLibraryTab: React.FC<CloudLibraryTabProps> = ({
   const isMestreOrAdmin = userProfile?.role === 'mestre' || userProfile?.role === 'admin';
 
   return (
-    <div className="flex flex-col gap-2 p-3 bg-[var(--cordel-bg)] cordel-border-sm mt-2 border-green-600/40 border-2">
+    <div className="xilo-feedback-container flex flex-col gap-2 mt-2">
       <span className="text-[var(--cordel-text)] font-cactus text-sm font-bold uppercase tracking-wider mb-1 flex items-center justify-between">
         ☁️ {lang === 'fr' ? 'Signes Cloud (Mestre)' : 'Sinais Cloud (Mestre)'}
       </span>

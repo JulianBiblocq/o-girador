@@ -86,7 +86,7 @@ export default function App() {
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
   const [selectedExportTracks, setSelectedExportTracks] = useState<Set<number>>(new Set());
   const [selectedAnnexTracks, setSelectedAnnexTracks] = useState<Set<number>>(new Set());
-  const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | 'info' | null>(
+  const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | 'info' | 'feedback' | null>(
     window.innerWidth < 1024 ? 'letras' : 'info'
   );
 
@@ -490,8 +490,8 @@ export default function App() {
   const handleAddTrackInstrument = React.useCallback((instIdx: number) => sequencerRef.current.handleAddTrackInstrument(instIdx, useSequencerStore.getState().currentMeasure), []);
 
   const handleAdminClick = React.useCallback(() => changeViewMode('admin'), [changeViewMode]);
-  const handleToggleRightPanel = React.useCallback((p: 'legend' | 'letras' | 'info') => {
-    setActiveRightPanel(prev => prev === p ? null : p);
+  const handleToggleRightPanel = React.useCallback((p: 'legend' | 'letras' | 'info' | 'feedback', force?: boolean) => {
+    setActiveRightPanel(prev => (prev === p && !force) ? null : p);
   }, []);
 
   const handleToggleSidebarPanel = React.useCallback(() => {
@@ -625,6 +625,8 @@ export default function App() {
         presetFiles={presetFiles}
         localPresets={localPresets}
         onStepTouchStart={handleStepTouchStart}
+        activeRightPanel={activeRightPanel}
+        onToggleRightPanel={handleToggleRightPanel}
       />
 
       {viewMode !== 'quiz' && viewMode !== 'dictee' && viewMode !== 'inspecteur' && viewMode !== 'mestre' && viewMode !== 'rythmelive' && viewMode !== 'varal' && viewMode !== 'studio' && viewMode !== 'admin' && (

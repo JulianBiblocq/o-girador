@@ -82,8 +82,8 @@ interface HeaderProps {
   isMobile: boolean;
   mobileTab?: 'roda' | 'mixer' | 'toada';
   onMobileTabToggle?: (tab: 'roda' | 'mixer' | 'toada') => void;
-  activeRightPanel?: 'legend' | 'letras' | null;
-  onToggleRightPanel: (panel: 'legend' | 'letras') => void;
+  activeRightPanel?: 'legend' | 'letras' | 'info' | 'feedback' | null;
+  onToggleRightPanel: (panel: 'legend' | 'letras' | 'info' | 'feedback') => void;
   version?: string | number;
   onExportTablature?: () => void;
   showInstallButton?: boolean;
@@ -447,13 +447,13 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 </span>
                 
                 <div className="grid grid-cols-2 gap-1.5 mt-1">
-                  <button onClick={() => { window.open('https://youtube.com/playlist?list=PLBaYhFEJG6PwhFTn0mbfkdejwOrphZRu1&si=p80nNE9lcbzij4Eo', '_blank'); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[#e67e22] text-[#1a1a1a] cordel-border-sm text-xs font-bold font-cactus hover:opacity-90 cursor-pointer flex items-center justify-center gap-1">
+                  <button onClick={() => { window.open('https://youtube.com/playlist?list=PLBaYhFEJG6PwhFTn0mbfkdejwOrphZRu1&si=p80nNE9lcbzij4Eo', '_blank'); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cursor-pointer flex items-center justify-center gap-1 transition-colors">
                     🎥 Tuto
                   </button>
-                  <button onClick={() => { window.open('tutorial.html', '_blank'); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[#8e44ad] text-[#1a1a1a] cordel-border-sm text-xs font-bold font-cactus hover:opacity-90 cursor-pointer flex items-center justify-center gap-1">
+                  <button onClick={() => { window.open('tutorial.html', '_blank'); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cursor-pointer flex items-center justify-center gap-1 transition-colors">
                     📖 Guide
                   </button>
-                  <button onClick={() => { window.open('https://github.com/JulianBiblocq/o-girador/issues', '_blank'); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[#27ae60] text-[#1a1a1a] cordel-border-sm text-xs font-bold font-cactus hover:opacity-90 cursor-pointer flex items-center justify-center gap-1">
+                  <button onClick={() => { onToggleRightPanel('feedback'); onMobileTabToggle?.('toada'); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cursor-pointer flex items-center justify-center gap-1 transition-colors">
                     💬 {t('feedbackBtn')}
                   </button>
                   <button onClick={() => {
@@ -461,8 +461,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                       onShare();
                     }
                     setMobileMenuOpen(false);
-                  }} className="px-2 py-1.5 bg-[#2980b9] text-[#1a1a1a] cordel-border-sm text-xs font-bold font-cactus hover:opacity-90 cursor-pointer flex items-center justify-center gap-1">
-                    <Share2 className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Compartilhar' : 'Partager'}
+                  }} className="px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer flex items-center justify-center gap-1 transition-colors">
+                    <Share2 className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Compartilhar o App' : "Partager l'application"}
                   </button>
                 </div>
               </div>
@@ -731,17 +731,17 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   ❓ {lang === 'pt' ? 'Ajuda & Comunidade' : 'Aide & Communauté'}
                 </span>
                 <div className="grid grid-cols-2 gap-1.5">
-                  <button onClick={() => { window.open('https://youtube.com/playlist?list=PLBaYhFEJG6PwhFTn0mbfkdejwOrphZRu1&si=p80nNE9lcbzij4Eo', '_blank'); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[#e67e22] text-[#1a1a1a] cordel-border-sm text-[10px] font-bold font-cactus hover:opacity-90 cursor-pointer w-full">
+                  <button onClick={() => { window.open('https://youtube.com/playlist?list=PLBaYhFEJG6PwhFTn0mbfkdejwOrphZRu1&si=p80nNE9lcbzij4Eo', '_blank'); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cursor-pointer w-full transition-colors">
                     <Video className="w-3.5 h-3.5 shrink-0" /> Tuto
                   </button>
-                  <button onClick={() => { window.open('tutorial.html', '_blank'); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[#8e44ad] text-[#1a1a1a] cordel-border-sm text-[10px] font-bold font-cactus hover:opacity-90 cursor-pointer w-full">
+                  <button onClick={() => { window.open('tutorial.html', '_blank'); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cursor-pointer w-full">
                     <BookOpen className="w-3.5 h-3.5 shrink-0" /> Guide
                   </button>
-                  <button onClick={() => { window.open('https://github.com/JulianBiblocq/o-girador/issues', '_blank'); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[#27ae60] text-[#1a1a1a] cordel-border-sm text-[10px] font-bold font-cactus hover:opacity-90 cursor-pointer w-full">
+                  <button onClick={() => { onToggleRightPanel('feedback'); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cursor-pointer w-full transition-colors">
                     <MessageSquare className="w-3.5 h-3.5 shrink-0" /> {t('feedbackBtn')}
                   </button>
-                  <button onClick={() => { if (onShare) onShare(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[#2980b9] text-[#1a1a1a] cordel-border-sm text-[10px] font-bold font-cactus hover:opacity-90 cursor-pointer w-full border-none">
-                    <Share2 className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Compartilhar' : 'Partager'}
+                  <button onClick={() => { if (onShare) onShare(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full border-none transition-colors">
+                    <Share2 className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Compartilhar o App' : "Partager l'application"}
                   </button>
                 </div>
               </div>
