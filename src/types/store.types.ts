@@ -35,6 +35,11 @@ export interface Pattern {
   vocalAudioUrl?: string;
   beatResolutions?: number[]; // Added for tuplet support
   variations?: PatternVariation[];
+  preRollActiveSteps?: (string | number)[];
+  preRollLyrics?: string[];
+  preRollNotes?: string[];
+  preRollVolumes?: number[];
+  preRollDecays?: number[];
 }
 
 export interface SavedPattern {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { TimelineStep } from './TimelineStep';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Mic } from 'lucide-react';
 import { useAudioStore } from '../stores/useAudioStore';
 import { vocalEngineService } from '../audio/vocalEngineService';
 
@@ -72,6 +72,17 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   onMeasureClick,
 }) => {
   const hasAudio = useAudioStore((state) => !!state.vocalBlobs[patternId]);
+  const targetPatternId = useAudioStore((state) => state.targetPatternId);
+  const isArmed = targetPatternId === patternId;
+
+  const handleMicroClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isArmed) {
+      useAudioStore.getState().setTargetPatternId(null);
+    } else {
+      useAudioStore.getState().setTargetPatternId(patternId);
+    }
+  };
 
   const handleCellClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isPanningActive) return;
@@ -211,15 +222,26 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                 />
               ))}
 
+              {instType === 'voice' && !hasAudio && (
+                <button
+                  onClick={handleMicroClick}
+                  className={`absolute right-1.5 bottom-1.5 p-1 rounded-sm border transition-colors cursor-pointer z-20 ${
+                    isArmed 
+                      ? 'bg-red-600 text-white border-red-700 animate-pulse shadow-sm shadow-red-600/50' 
+                      : 'bg-gray-400/20 hover:bg-gray-400/40 text-gray-500 hover:text-gray-700 dark:text-gray-400 border-gray-400/30'
+                  }`}
+                  title={lang === 'fr' ? "Armer pour l'enregistrement vocal" : "Armar para gravação de voz"}
+                >
+                  <Mic className="w-3 h-3" />
+                </button>
+              )}
+
               {instType === 'voice' && hasAudio && (
                 <div 
-                  className="absolute inset-0 z-10 flex items-center justify-between px-3 border border-[#1a1a1a]/40"
+                  className="absolute inset-0 z-10 flex items-center justify-between px-3 border border-[#1a1a1a]/40 pointer-events-none"
                   style={{
-                    backgroundColor: instId === 'coro' ? 'rgba(179, 220, 216, 0.85)' : 'rgba(233, 204, 168, 0.85)',
+                    backgroundColor: instId === 'coro' ? 'rgba(179, 220, 216, 0.2)' : 'rgba(233, 204, 168, 0.2)',
                     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08' /%3E%3C/svg%3E")`,
-                  }}
-                  onClick={(e) => {
-                    e.stopPropagation();
                   }}
                 >
                   <div className="flex-grow flex items-center justify-center pointer-events-none opacity-85">
@@ -235,7 +257,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                         vocalEngineService.deleteVocalRecording(patternId);
                       }
                     }}
-                    className="p-1 hover:bg-[#8b2a1a]/15 text-[#8b2a1a] rounded transition-colors z-20 border border-transparent hover:border-[#8b2a1a]/30 cursor-pointer"
+                    className="p-1 hover:bg-[#8b2a1a]/15 text-[#8b2a1a] rounded transition-colors z-20 border border-transparent hover:border-[#8b2a1a]/30 cursor-pointer pointer-events-auto"
                     title={lang === 'fr' ? "Supprimer l'audio" : "Excluir áudio"}
                   >
                     <Trash2 className="w-3.5 h-3.5" />

@@ -6,6 +6,91 @@ import { channels, masterVolumeNode } from './effectsChain';
 import { instrumentsConfig } from '../data';
 import { playNativeMetroClick } from './nativeSynths';
 
+// Background-immune high-precision worker timer helpers to bypass browser tab throttling
+let timerWorker: Worker | null = null;
+let nextTimerId = 1;
+const pendingCallbacks = new Map<number, () => void>();
+
+function getTimerWorker(): Worker {
+  if (typeof window === 'undefined') return null as any;
+  if (!timerWorker) {
+    const code = `
+      let activeTimers = new Map();
+      self.onmessage = (e) => {
+        const { type, id, delay } = e.data;
+        if (type === 'setTimeout') {
+          const timerId = setTimeout(() => {
+            postMessage({ type: 'timeout', id });
+            activeTimers.delete(id);
+          }, delay);
+          activeTimers.set(id, timerId);
+        } else if (type === 'clearTimeout') {
+          const timerId = activeTimers.get(id);
+          if (timerId !== undefined) {
+            clearTimeout(timerId);
+            activeTimers.delete(id);
+          }
+        } else if (type === 'setInterval') {
+          const timerId = setInterval(() => {
+            postMessage({ type: 'interval', id });
+          }, delay);
+          activeTimers.set(id, timerId);
+        } else if (type === 'clearInterval') {
+          const timerId = activeTimers.get(id);
+          if (timerId !== undefined) {
+            clearInterval(timerId);
+            activeTimers.delete(id);
+          }
+        }
+      };
+    `;
+    const blob = new Blob([code], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    timerWorker = new Worker(url);
+    URL.revokeObjectURL(url);
+
+    timerWorker.onmessage = (e) => {
+      const { type, id } = e.data;
+      const callback = pendingCallbacks.get(id);
+      if (callback) {
+        callback();
+        if (type === 'timeout') {
+          pendingCallbacks.delete(id);
+        }
+      }
+    };
+  }
+  return timerWorker;
+}
+
+export function workerSetTimeout(callback: () => void, delay: number): number {
+  const id = nextTimerId++;
+  pendingCallbacks.set(id, callback);
+  getTimerWorker().postMessage({ type: 'setTimeout', id, delay });
+  return id;
+}
+
+export function workerClearTimeout(id: number) {
+  pendingCallbacks.delete(id);
+  try {
+    getTimerWorker().postMessage({ type: 'clearTimeout', id });
+  } catch (_) {}
+}
+
+export function workerSetInterval(callback: () => void, delay: number): number {
+  const id = nextTimerId++;
+  pendingCallbacks.set(id, callback);
+  getTimerWorker().postMessage({ type: 'setInterval', id, delay });
+  return id;
+}
+
+export function workerClearInterval(id: number) {
+  pendingCallbacks.delete(id);
+  try {
+    getTimerWorker().postMessage({ type: 'clearInterval', id });
+  } catch (_) {}
+}
+
 interface ActiveVocal {
   mainPlayer: Tone.GrainPlayer;
   chorusPlayers: Tone.GrainPlayer[];
@@ -19,10 +104,45 @@ let audioStream: MediaStream | null = null;
 let recordedChunks: Blob[] = [];
 let armingTimeout: any = null;
 let countdownInterval: any = null;
+let punchInTimeout: any = null;
 
 export const vocalEngineService = {
   recordingDurationMeasures: 1,
   recordedMeasuresCount: 0,
+
+  /**
+   * Helper to scan vocal pattern and find the exact temporal start offset (in seconds)
+   * of the first active syllable (either in pre-roll or main grid).
+   */
+  getPatternFirstNoteOffset(pattern: any, bpm: number): number {
+    const beatsPerMeasure = 4; // default
+    const measureDurationSec = (beatsPerMeasure * 60) / bpm;
+    
+    // 1. Scan Pre-roll (Mesure -1)
+    if (pattern.preRollActiveSteps) {
+      for (let i = 0; i < 16; i++) {
+        const stepVal = pattern.preRollActiveSteps[i];
+        if (stepVal && stepVal !== 0 && stepVal !== '0') {
+          const stepDurationPreRoll = measureDurationSec / 16;
+          return -measureDurationSec + (i * stepDurationPreRoll);
+        }
+      }
+    }
+    
+    // 2. Scan main measure grid
+    if (pattern.activeSteps) {
+      const steps = pattern.steps || 16;
+      for (let j = 0; j < steps; j++) {
+        const stepVal = pattern.activeSteps[j];
+        if (stepVal && stepVal !== 0 && stepVal !== '0') {
+          const stepDurationMain = measureDurationSec / steps;
+          return j * stepDurationMain;
+        }
+      }
+    }
+    
+    return 0;
+  },
 
   /**
    * Starts the recording process with micro arming and beat countdown.
@@ -90,13 +210,16 @@ export const vocalEngineService = {
         }
       };
 
-      // Start recording immediately in background (arming phase)
-      mediaRecorder.start();
-
-      // Find pattern to calculate duration of recording
+      // Find pattern to calculate duration of recording and first note offset
       const tracks = sequencerStore.tracks;
       const voiceTrack = tracks.find(t => t.patterns.some(p => p.id === patternId));
       const targetPattern = voiceTrack?.patterns.find(p => p.id === patternId);
+
+      const targetBpm = targetPattern 
+        ? (targetPattern.measureAssignments.indexOf(true) !== -1 
+          ? (sequencerStore.measureBpms[targetPattern.measureAssignments.indexOf(true)] || bpm)
+          : bpm)
+        : bpm;
 
       if (targetPattern) {
         let consecutiveMeasures = 0;
@@ -116,17 +239,34 @@ export const vocalEngineService = {
       }
       this.recordedMeasuresCount = 0;
 
+      // Smart Punch-in Timing scan
+      const beatDurationMs = (60 / targetBpm) * 1000;
+      const firstNoteOffsetSec = targetPattern ? this.getPatternFirstNoteOffset(targetPattern, targetBpm) : 0;
+      
+      // Sequencer start time is 1000ms of arming + 4 beats of countdown
+      const seqStartMs = 1000 + 4 * beatDurationMs;
+      // Punch-in is scheduled exactly 500ms before first note start
+      const punchInMs = seqStartMs + (firstNoteOffsetSec * 1000) - 500;
+      
+      const punchInDelayMs = Math.max(0, punchInMs);
+
+      // Program the MediaRecorder punch-in
+      punchInTimeout = workerSetTimeout(() => {
+        if (mediaRecorder && mediaRecorder.state === 'inactive') {
+          mediaRecorder.start();
+        }
+      }, punchInDelayMs);
+
       // Arming phase duration: 1.0 second
-      armingTimeout = setTimeout(() => {
+      armingTimeout = workerSetTimeout(() => {
         store.setRecordingStatus('countdown');
 
         let currentBeat = 1;
-        const beatDurationMs = (60 / bpm) * 1000;
 
-        countdownInterval = setInterval(() => {
+        countdownInterval = workerSetInterval(() => {
           currentBeat++;
           if (currentBeat > 4) {
-            clearInterval(countdownInterval);
+            workerClearInterval(countdownInterval);
             countdownInterval = null;
 
             // Transition to recording status
@@ -155,11 +295,18 @@ export const vocalEngineService = {
    */
   stopRecording() {
     this.cleanupTimers();
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      try {
-        mediaRecorder.stop();
-      } catch (err) {
-        console.error("Error stopping media recorder:", err);
+    if (mediaRecorder) {
+      if (mediaRecorder.state !== 'inactive') {
+        try {
+          mediaRecorder.stop();
+        } catch (err) {
+          console.error("Error stopping media recorder:", err);
+          this.cleanupMedia();
+          useAudioStore.getState().setRecordingStatus('inactive');
+          useAudioStore.getState().setTargetPatternId(null);
+        }
+      } else {
+        // If recording was scheduled/armed but never actually active, clean up
         this.cleanupMedia();
         useAudioStore.getState().setRecordingStatus('inactive');
         useAudioStore.getState().setTargetPatternId(null);
@@ -173,12 +320,16 @@ export const vocalEngineService = {
 
   cleanupTimers() {
     if (armingTimeout) {
-      clearTimeout(armingTimeout);
+      workerClearTimeout(armingTimeout);
       armingTimeout = null;
     }
     if (countdownInterval) {
-      clearInterval(countdownInterval);
+      workerClearInterval(countdownInterval);
       countdownInterval = null;
+    }
+    if (punchInTimeout) {
+      workerClearTimeout(punchInTimeout);
+      punchInTimeout = null;
     }
   },
 
@@ -275,9 +426,21 @@ export const vocalEngineService = {
       }
       mainPlayer.playbackRate = playbackRate;
 
-      // Compensate latency
+      // Compensate latency & auto-calibration (-500ms offset relative to first syllabus)
       const latencyMs = ptnRef?.vocalLatency || 0;
-      const triggerTime = time + (latencyMs / 1000);
+      const firstNoteOffsetSec = ptnRef ? this.getPatternFirstNoteOffset(ptnRef, measureBpm) : 0;
+      const calibrationOffset = firstNoteOffsetSec - 0.5;
+      
+      const triggerTime = time + (latencyMs / 1000) + calibrationOffset;
+      const now = Tone.context.currentTime;
+
+      let startOffset = 0;
+      let startPlayTime = triggerTime;
+
+      if (triggerTime < now) {
+        startOffset = now - triggerTime;
+        startPlayTime = now;
+      }
 
       // Setup active vocal track tracking
       const activeVocalEntry: ActiveVocal = {
@@ -298,12 +461,18 @@ export const vocalEngineService = {
       const timeSig = sequencerStore.measureTimeSigs[currentMeasureIdx] || '4/4';
       const beatsPerMeasure = parseInt(timeSig.split('/')[0]) || 4;
       const measureDurationSec = (beatsPerMeasure * 60) / measureBpm;
-
-      mainPlayer.start(triggerTime, 0, measureDurationSec);
+      const patternMeasures = Math.max(1, Math.ceil((ptnRef?.steps ?? 16) / 16));
+      const playbackDurationSec = patternMeasures * measureDurationSec;
+      
+      const remainingDuration = Math.max(0, playbackDurationSec - startOffset);
+      if (remainingDuration > 0) {
+        mainPlayer.start(startPlayTime, startOffset, remainingDuration);
+      }
 
       // Guide melody option
       if (store.isVocalGuideEnabled) {
-        playNativeMetroClick(triggerTime, true, 'synth', 0.5);
+        const guideTime = Math.max(now, triggerTime);
+        playNativeMetroClick(guideTime, true, 'synth', 0.5);
       }
 
       // Chorus/Ensemble effect
@@ -323,7 +492,17 @@ export const vocalEngineService = {
         panner1.connect(outputNode as any);
         
         player1.detune = -8;
-        player1.start(triggerTime + 0.015, 0, measureDurationSec);
+        
+        let chorister1Time = triggerTime + 0.015;
+        let chorister1Offset = 0;
+        if (chorister1Time < now) {
+          chorister1Offset = now - chorister1Time;
+          chorister1Time = now;
+        }
+        const remainingChorister1 = Math.max(0, playbackDurationSec - chorister1Offset);
+        if (remainingChorister1 > 0) {
+          player1.start(chorister1Time, chorister1Offset, remainingChorister1);
+        }
 
         activeVocalEntry.chorusPlayers.push(player1);
         activeVocalEntry.panners.push(panner1);
@@ -340,7 +519,17 @@ export const vocalEngineService = {
         panner2.connect(outputNode as any);
         
         player2.detune = 10;
-        player2.start(triggerTime + 0.025, 0, measureDurationSec);
+        
+        let chorister2Time = triggerTime + 0.025;
+        let chorister2Offset = 0;
+        if (chorister2Time < now) {
+          chorister2Offset = now - chorister2Time;
+          chorister2Time = now;
+        }
+        const remainingChorister2 = Math.max(0, playbackDurationSec - chorister2Offset);
+        if (remainingChorister2 > 0) {
+          player2.start(chorister2Time, chorister2Offset, remainingChorister2);
+        }
 
         activeVocalEntry.chorusPlayers.push(player2);
         activeVocalEntry.panners.push(panner2);

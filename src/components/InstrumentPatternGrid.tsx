@@ -4,11 +4,13 @@
  */
 
 import React, { useEffect, useRef, useState } from 'react';
+import * as Tone from 'tone';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { Pattern } from '../types';
 import { getNextStepValue } from '../utils/instrumentStrokes';
+import { Trash2 } from 'lucide-react';
 import { isDarkText, instrumentsConfig, NEWTON_NOTE_COLORS } from '../data';
 
 interface InstrumentPatternGridProps {
@@ -204,10 +206,11 @@ interface VoiceStepCellProps {
   isLinked: boolean;
   volume: number;
   decay: number;
+  isPreRoll?: boolean;
   
-  onTouchStart: (e: React.TouchEvent<HTMLDivElement>, index: number) => void;
-  onMouseDown: (e: React.MouseEvent<HTMLDivElement>, index: number) => void;
-  onMouseEnter: (index: number) => void;
+  onTouchStart?: (e: React.TouchEvent<HTMLDivElement>, index: number) => void;
+  onMouseDown?: (e: React.MouseEvent<HTMLDivElement>, index: number) => void;
+  onMouseEnter?: (index: number) => void;
   onVoiceTypeToggle: (trackId: number, patternId: number, index: number) => void;
   onVoiceSylChange: (trackId: number, patternId: number, index: number, value: string) => void;
   onVoiceNoteChange: (trackId: number, patternId: number, index: number, value: string) => void;
@@ -233,6 +236,7 @@ const VoiceStepCellComponent = ({
   isLinked,
   volume,
   decay,
+  isPreRoll,
   onTouchStart,
   onMouseDown,
   onMouseEnter,
@@ -248,14 +252,30 @@ const VoiceStepCellComponent = ({
   const isActive = state !== 0 && state !== '';
   const isPux = state === 'P';
   const inst = instrumentsConfig.find(c => c.id === (isPux ? 'puxador' : 'coro')) || { color: '#f4ecd8' };
-  const cardBg = isActive ? inst.color : 'transparent';
+  const cardBg = isActive 
+    ? (isPreRoll ? '#999999' : inst.color) 
+    : (isPreRoll ? 'rgba(0, 0, 0, 0.08)' : 'transparent');
 
-  const noteLetterOnly = note
-    ? (note.includes('#') ? note.substring(0, 2).toUpperCase() : note.charAt(0).toUpperCase())
-    : '';
-  const octave = note ? note.replace(/^[a-gA-G][#b]?/, '') : '';
-  const baseNote = note ? note.charAt(0).toUpperCase() : '';
-  const noteColor = baseNote ? (NEWTON_NOTE_COLORS[baseNote] || '#1a1a1a') : '#1a1a1a';
+  const vocalTransposeSteps = useSequencerStore(state => state.vocalTransposeSteps || 0);
+
+  const getTransposedNoteDetails = () => {
+    if (!note || note.trim() === '') {
+      return { letter: '', octave: '', color: '#1a1a1a' };
+    }
+    let finalNote = note;
+    if (vocalTransposeSteps !== 0) {
+      try {
+        finalNote = Tone.Frequency(note).transpose(vocalTransposeSteps).toNote();
+      } catch (_) {}
+    }
+    const letter = finalNote.includes('#') ? finalNote.substring(0, 2).toUpperCase() : finalNote.charAt(0).toUpperCase();
+    const oct = finalNote.replace(/^[a-gA-G][#b]?/, '');
+    const base = finalNote.charAt(0).toUpperCase();
+    const color = base ? (NEWTON_NOTE_COLORS[base] || '#1a1a1a') : '#1a1a1a';
+    return { letter, octave: oct, color };
+  };
+
+  const { letter: noteLetterOnly, octave, color: noteColor } = getTransposedNoteDetails();
 
   return (
     <div className="relative" style={{ width: '56px' }}>
@@ -280,9 +300,9 @@ const VoiceStepCellComponent = ({
         data-track-id={trackId}
         data-step-index={i}
         data-step-type="voice"
-        onTouchStart={(e) => onTouchStart(e, i)}
-        onMouseDown={(e) => onMouseDown(e, i)}
-        onMouseEnter={() => onMouseEnter(i)}
+        onTouchStart={(e) => onTouchStart?.(e, i)}
+        onMouseDown={(e) => onMouseDown?.(e, i)}
+        onMouseEnter={() => onMouseEnter?.(i)}
       >
         {/* Step number */}
         <div className="text-[8px] text-[#999] text-center font-bold bg-[#ece4d0] leading-tight py-0.5">
@@ -438,6 +458,11 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     handleVoiceSylChange,
     handleVoiceNoteChange,
     handleVoiceNoteBlur,
+    handleVoicePreRollSylChange,
+    handleVoicePreRollNoteChange,
+    handleVoicePreRollNoteBlur,
+    handleTrackStepsChange,
+    handleDeletePatternMeasure,
     handlePatternBeatResolutionChange,
     handleVariationStepValueChange,
   } = useSequencer();
@@ -978,93 +1003,63 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         }
       `}</style>
       
-      {isTouchDevice && renderSelectionToolbar(pattern)}
-
-      {instrument.type === 'voice' ? (
+      {isTouchDevice && renderSelectionToolbar(pattern)}      {instrument.type === 'voice' ? (
         /* ──── Voice step grid ──── */
-        <div
-          className="step-boxes flex flex-wrap gap-y-4 gap-x-6"
-          id={`detail-voice-${trackId}-${pattern.id}`}
-          onTouchMove={handleGridTouchMove}
-          onTouchEnd={handleGridTouchEnd}
-        >
+        <div className="flex flex-col w-full gap-2">
+          {/* Pre-roll (Mesure -1) Section */}
           {(() => {
-            const groups = [];
-            let accumulated = 0;
-            const defaultBeats = 4;
-            const beatRes = pattern?.beatResolutions || Array(Math.ceil((pattern?.steps ?? 16) / defaultBeats)).fill(defaultBeats);
-            for (let b = 0; b < beatRes.length; b++) {
-              const res = beatRes[b];
-              const group = [];
-              for (let i = 0; i < res; i++) {
-                if (accumulated + i < (pattern?.steps ?? 16)) {
-                  group.push(accumulated + i);
+            const preRollGroups = [
+              [0, 1, 2, 3],
+              [4, 5, 6, 7],
+              [8, 9, 10, 11],
+              [12, 13, 14, 15]
+            ];
+
+            const getPreRollStepsCount = () => {
+              if (!pattern?.preRollActiveSteps) return 0;
+              for (let i = 0; i < 16; i++) {
+                const stepVal = pattern.preRollActiveSteps[i];
+                if (stepVal && stepVal !== 0 && stepVal !== '0') {
+                  return 16 - i;
                 }
               }
-              if (group.length > 0) groups.push(group);
-              accumulated += res;
-            }
+              return 0;
+            };
 
-            const row1Groups = groups.filter(g => g[g.length - 1] < 8);
-            const row2Groups = groups.filter(g => g[0] >= 8);
+            const preRollStepsCount = getPreRollStepsCount();
 
-            const renderGroup = (group: number[], groupIdx: number) => (
-              <div key={groupIdx} className="flex gap-4 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
+            const renderPreRollGroup = (group: number[], groupIdx: number) => (
+              <div key={`preroll-group-${groupIdx}`} className="flex gap-4 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
                 {group.map((i) => {
-                  const state = pattern?.activeSteps?.[i];
-                  const syl = pattern?.lyrics?.[i] || '';
-                  const note = pattern?.notes?.[i] || '';
-                  const isSelected = selectedStepIndices.includes(i);
-
-                  // Calculate total micro-timing shift (manual + global swing)
-                  const manualMicro = pattern?.microtimings?.[i] ?? 0;
-                  const swingOffset = getStepSwingPercent(i, pattern?.steps ?? 16, pattern?.beatResolutions);
-                  const totalShift = Math.max(-100, Math.min(100, manualMicro + swingOffset));
-                  const shiftPx = (totalShift / 100) * 8; // Max 8px shift
-
-                  const isLinked = syl && !syl.endsWith(' ') && i < (pattern?.steps ?? 16) - 1 && (pattern?.lyrics?.[i + 1] || '').trim() !== '';
-
+                  const state = pattern?.preRollActiveSteps?.[i] ?? 0;
+                  const syl = pattern?.preRollLyrics?.[i] || '';
+                  const note = pattern?.preRollNotes?.[i] || '';
+                  const volume = pattern?.preRollVolumes?.[i] ?? 100;
+                  const decay = pattern?.preRollDecays?.[i] ?? 10;
                   return (
                     <VoiceStepCell
-                      key={i}
+                      key={`preroll-cell-${i}`}
                       i={i}
-                      steps={pattern?.steps ?? 16}
+                      steps={16}
                       trackId={trackId}
                       patternId={pattern.id}
                       state={state}
                       syl={syl}
                       note={note}
-                      isSelected={isSelected}
-                      isMultiSelectActive={isMultiSelectActive}
-                      manualMicro={manualMicro}
-                      totalShift={totalShift}
-                      shiftPx={shiftPx}
-                      isLinked={isLinked}
-                      volume={pattern.volumes?.[i] ?? 100}
-                      decay={pattern.decays?.[i] ?? 100}
-                      onTouchStart={(e) => {
-                        if (isMultiSelectActive) {
-                          handleStepTouchStartMulti(e as any, i);
-                        }
-                      }}
-                      onMouseDown={(e) => {
-                        if (isMultiSelectActive) {
-                          handleStepMouseDownMulti(e as any, i);
-                        }
-                      }}
-                      onMouseEnter={(idx) => {
-                        if (isMultiSelectActive) {
-                          handleStepMouseEnterMulti(idx);
-                        }
-                      }}
-                      onVoiceTypeToggle={handleVoiceTypeToggle}
-                      onVoiceSylChange={handleVoiceSylChange}
-                      onVoiceNoteChange={handleVoiceNoteChange}
-                      onVoiceNoteBlur={handleVoiceNoteBlur}
-                      onFocusStep={(idx) => {
-                        setSelectedStepIdx(idx);
-                        setSelectedPatternId(pattern.id);
-                      }}
+                      isSelected={false}
+                      isMultiSelectActive={false}
+                      manualMicro={0}
+                      totalShift={0}
+                      shiftPx={0}
+                      isLinked={false}
+                      volume={volume}
+                      decay={decay}
+                      isPreRoll={true}
+                      onVoiceTypeToggle={() => {}}
+                      onVoiceSylChange={handleVoicePreRollSylChange}
+                      onVoiceNoteChange={handleVoicePreRollNoteChange}
+                      onVoiceNoteBlur={handleVoicePreRollNoteBlur}
+                      onFocusStep={() => {}}
                       onNoteSelectorTarget={setNoteSelectorTarget}
                       onVoiceNav={handleVoiceNav}
                     />
@@ -1074,75 +1069,238 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
             );
 
             return (
-              <div className="flex flex-wrap gap-4 w-full">
-                <div className="flex flex-wrap gap-4 shrink-0">
-                  {row1Groups.map((group, idx) => renderGroup(group, idx))}
+              <div 
+                className="pre-roll-section w-full mb-1 p-3.5 rounded border border-dashed border-[#1a1a1a]/30"
+                style={{
+                  background: 'repeating-linear-gradient(45deg, rgba(200, 200, 200, 0.15), rgba(200, 200, 200, 0.15) 10px, rgba(160, 160, 160, 0.1) 10px, rgba(160, 160, 160, 0.1) 20px)',
+                  backgroundColor: 'rgba(0, 0, 0, 0.05)'
+                }}
+              >
+                <div className="text-[11px] font-bold text-[#8b2a1a] mb-2 tracking-wide uppercase select-none flex items-center gap-1.5">
+                  <span>🎙️ {lang === 'fr' ? 'Mesure -1 : Anacrouse (Pre-roll)' : 'Compasso -1 : Anacruse (Pre-roll)'}</span>
+                  {preRollStepsCount > 0 && (
+                    <span className="bg-[#8b2a1a] text-[#f4ecd8] text-[8px] font-bold px-1.5 py-px rounded-full animate-pulse">
+                      +{preRollStepsCount} {lang === 'fr' ? 'pas' : 'passos'}
+                    </span>
+                  )}
+                  <span className="text-[9px] text-[#555] font-normal normal-case italic ml-auto">
+                    ({lang === 'fr' ? 'La première syllabe détermine la durée' : 'A primeira sílaba determina a duração'})
+                  </span>
                 </div>
-                {row2Groups.length > 0 && (
-                  <div className="flex flex-wrap gap-4 shrink-0">
-                    {row2Groups.map((group, idx) => renderGroup(group, idx + row1Groups.length))}
-                  </div>
-                )}
+                <div 
+                  className="step-boxes flex flex-nowrap gap-x-2 w-full overflow-x-auto justify-between p-1 bg-[#ece4d0]/10 border border-[#1a1a1a]/15 rounded-md"
+                  id={`preroll-voice-${trackId}-${pattern.id}`}
+                >
+                  {preRollGroups.map((group, idx) => renderPreRollGroup(group, idx))}
+                </div>
               </div>
             );
           })()}
-          
-          {/* Live Karaoke Preview */}
-          {(() => {
-            const karaokeWords = [];
-            let currentWord = [];
+
+          {/* Controls bar with [+ Allonger le pattern] Button */}
+          <div className="flex justify-between items-center mb-1 mt-3 px-1 select-none">
+            <div className="text-[11px] font-bold text-[#1a1a1a]/60 tracking-wide uppercase">
+              {lang === 'fr' ? 'Mesure principale' : 'Compasso principal'} ({Math.ceil(pattern.steps / 16)} {lang === 'fr' ? 'Mesure(s)' : 'Compasso(s)'})
+            </div>
+            <button
+              onClick={() => {
+                let nextSteps = 16;
+                if (pattern.steps === 16) nextSteps = 32;
+                else if (pattern.steps === 32) nextSteps = 48;
+                else if (pattern.steps === 48) nextSteps = 64;
+                else nextSteps = 16;
+                
+                if (nextSteps < pattern.steps) {
+                  const confirmMsg = lang === 'fr' 
+                    ? "Réduire la taille du motif va tronquer les notes de la fin. Continuer ?"
+                    : "Reduzir o tamanho do padrão cortará as notas no final. Continuar?";
+                  if (!confirm(confirmMsg)) return;
+                }
+                handleTrackStepsChange(trackId, pattern.id, nextSteps);
+              }}
+              className="px-2.5 py-1 bg-[#8b2a1a]/10 hover:bg-[#8b2a1a]/20 text-[#8b2a1a] border border-[#8b2a1a]/30 rounded text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+            >
+              <span>➕</span>
+              <span>
+                {lang === 'fr' 
+                  ? `Allonger le pattern (${pattern.steps === 16 ? '2 mes.' : pattern.steps === 32 ? '3 mes.' : pattern.steps === 48 ? '4 mes.' : '1 mes.'})` 
+                  : `Alongar padrão (${pattern.steps === 16 ? '2 comp.' : pattern.steps === 32 ? '3 comp.' : pattern.steps === 48 ? '4 comp.' : '1 comp.'})`}
+              </span>
+            </button>
+          </div>
+
+          <div
+            className="flex flex-col gap-3 w-full"
+            id={`detail-voice-${trackId}-${pattern.id}`}
+            onTouchMove={handleGridTouchMove}
+            onTouchEnd={handleGridTouchEnd}
+          >
+            {(() => {
+              const numMeasures = Math.max(1, Math.ceil((pattern?.steps ?? 16) / 16));
+              const rows = [];
+              for (let m = 0; m < numMeasures; m++) {
+                const startStep = m * 16;
+                const measureGroups = [
+                  [startStep, startStep + 1, startStep + 2, startStep + 3],
+                  [startStep + 4, startStep + 5, startStep + 6, startStep + 7],
+                  [startStep + 8, startStep + 9, startStep + 10, startStep + 11],
+                  [startStep + 12, startStep + 13, startStep + 14, startStep + 15]
+                ];
+
+                const renderMainGroup = (group: number[], groupIdx: number) => (
+                  <div key={`group-${m}-${groupIdx}`} className="flex gap-4 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
+                    {group.map((i) => {
+                      if (i >= (pattern?.steps ?? 16)) return null;
+                      const state = pattern?.activeSteps?.[i];
+                      const syl = pattern?.lyrics?.[i] || '';
+                      const note = pattern?.notes?.[i] || '';
+                      const isSelected = selectedStepIndices.includes(i);
+
+                      // Calculate total micro-timing shift (manual + global swing)
+                      const manualMicro = pattern?.microtimings?.[i] ?? 0;
+                      const swingOffset = getStepSwingPercent(i, pattern?.steps ?? 16, pattern?.beatResolutions);
+                      const totalShift = Math.max(-100, Math.min(100, manualMicro + swingOffset));
+                      const shiftPx = (totalShift / 100) * 8; // Max 8px shift
+
+                      const isLinked = syl && !syl.endsWith(' ') && i < (pattern?.steps ?? 16) - 1 && (pattern?.lyrics?.[i + 1] || '').trim() !== '';
+
+                      return (
+                        <VoiceStepCell
+                          key={i}
+                          i={i}
+                          steps={pattern?.steps ?? 16}
+                          trackId={trackId}
+                          patternId={pattern.id}
+                          state={state}
+                          syl={syl}
+                          note={note}
+                          isSelected={isSelected}
+                          isMultiSelectActive={isMultiSelectActive}
+                          manualMicro={manualMicro}
+                          totalShift={totalShift}
+                          shiftPx={shiftPx}
+                          isLinked={isLinked}
+                          volume={pattern.volumes?.[i] ?? 100}
+                          decay={pattern.decays?.[i] ?? 10}
+                          onTouchStart={(e) => {
+                            if (isMultiSelectActive) {
+                              handleStepTouchStartMulti(e as any, i);
+                            }
+                          }}
+                          onMouseDown={(e) => {
+                            if (isMultiSelectActive) {
+                              handleStepMouseDownMulti(e as any, i);
+                            }
+                          }}
+                          onMouseEnter={(idx) => {
+                            if (isMultiSelectActive) {
+                              handleStepMouseEnterMulti(idx);
+                            }
+                          }}
+                          onVoiceTypeToggle={handleVoiceTypeToggle}
+                          onVoiceSylChange={handleVoiceSylChange}
+                          onVoiceNoteChange={handleVoiceNoteChange}
+                          onVoiceNoteBlur={handleVoiceNoteBlur}
+                          onFocusStep={(idx) => {
+                            setSelectedStepIdx(idx);
+                            setSelectedPatternId(pattern.id);
+                          }}
+                          onNoteSelectorTarget={setNoteSelectorTarget}
+                          onVoiceNav={handleVoiceNav}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+
+                rows.push(
+                  <div key={`measure-row-${m}`} className="flex flex-col gap-1 w-full">
+                    <div className="text-[9px] font-bold text-[#1a1a1a]/40 tracking-wider uppercase pl-1 flex items-center gap-2">
+                      <span>{lang === 'fr' ? `Mesure ${m + 1}` : `Compasso ${m + 1}`}</span>
+                      {pattern.steps > 16 && (
+                        <button
+                          onClick={() => {
+                            const confirmMsg = lang === 'fr'
+                              ? `Supprimer la mesure ${m + 1} du motif ? Cette action est irréversible.`
+                              : `Excluir o compasso ${m + 1} do padrão? Esta ação é irreversível.`;
+                            if (confirm(confirmMsg)) {
+                              handleDeletePatternMeasure(trackId, pattern.id, m);
+                            }
+                          }}
+                          className="text-[#8b2a1a] hover:text-[#a63d2d] transition-colors p-0.5 hover:bg-[#8b2a1a]/10 rounded cursor-pointer"
+                          title={lang === 'fr' ? "Supprimer cette mesure" : "Excluir este compasso"}
+                        >
+                          <Trash2 className="w-2.5 h-2.5" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex flex-nowrap gap-x-2 w-full overflow-x-auto justify-between p-1 bg-[#ece4d0]/10 border border-[#1a1a1a]/15 rounded-md">
+                      {measureGroups.map((group, idx) => renderMainGroup(group, idx))}
+                    </div>
+                  </div>
+                );
+              }
+
+              return <div className="flex flex-col gap-2.5 w-full">{rows}</div>;
+            })()}
             
-            for (let idx = 0; idx < (pattern?.steps ?? 16); idx++) {
-              const active = pattern?.activeSteps?.[idx] !== 0;
-              const syl = pattern?.lyrics?.[idx] || '';
-              if (active && syl) {
-                currentWord.push({ text: syl, index: idx });
-                if (syl.endsWith(' ') || idx === (pattern?.steps ?? 16) - 1) {
-                  karaokeWords.push([...currentWord]);
-                  currentWord = [];
+            {/* Live Karaoke Preview */}
+            {(() => {
+              const karaokeWords = [];
+              let currentWord = [];
+              
+              for (let idx = 0; idx < (pattern?.steps ?? 16); idx++) {
+                const active = pattern?.activeSteps?.[idx] !== 0;
+                const syl = pattern?.lyrics?.[idx] || '';
+                if (active && syl) {
+                  currentWord.push({ text: syl, index: idx });
+                  if (syl.endsWith(' ') || idx === (pattern?.steps ?? 16) - 1) {
+                    karaokeWords.push([...currentWord]);
+                    currentWord = [];
+                  }
                 }
               }
-            }
-            if (currentWord.length > 0) {
-              karaokeWords.push(currentWord);
-            }
+              if (currentWord.length > 0) {
+                karaokeWords.push(currentWord);
+              }
 
-            return (
-              <div className="mt-3 p-3 bg-[#ece4d0] border border-[#1a1a1a]/25 cordel-border-sm flex flex-col gap-1 w-full text-[#1a1a1a]">
-                <span className="text-[10px] font-bold uppercase opacity-65 tracking-wider">
-                  📖 {lang === 'fr' ? 'Paroles (Karaoké en direct)' : 'Letras (Karaokê ao vivo)'}
-                </span>
-                <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm font-bold font-cactus leading-relaxed">
-                  {karaokeWords.length === 0 ? (
-                    <span className="italic text-[#666]">
-                      {lang === 'fr' ? 'Saisissez des syllabes dans la grille...' : 'Digite sílabas na grade...'}
-                    </span>
-                  ) : (
-                    karaokeWords.map((word, wIdx) => {
-                      return (
-                        <span 
-                          key={wIdx} 
-                          data-word-steps={JSON.stringify(word.map(item => item.index))}
-                          className="opacity-85 transition-colors duration-150"
-                        >
-                          {word.map((item, sIdx) => {
-                            return (
-                              <span 
-                                key={sIdx} 
-                                data-syl-index={item.index}
-                              >
-                                {item.text}
-                              </span>
-                            );
-                          })}
-                        </span>
-                      );
-                    })
-                  )}
+              return (
+                <div className="mt-3 p-3 bg-[#ece4d0] border border-[#1a1a1a]/25 cordel-border-sm flex flex-col gap-1 w-full text-[#1a1a1a]">
+                  <span className="text-[10px] font-bold uppercase opacity-65 tracking-wider">
+                    📖 {lang === 'fr' ? 'Paroles (Karaoké en direct)' : 'Letras (Karaokê ao vivo)'}
+                  </span>
+                  <div className="flex flex-wrap gap-x-2 gap-y-1 text-sm font-bold font-cactus leading-relaxed">
+                    {karaokeWords.length === 0 ? (
+                      <span className="italic text-[#666]">
+                        {lang === 'fr' ? 'Saisissez des syllabes dans la grille...' : 'Digite sílabas na grade...'}
+                      </span>
+                    ) : (
+                      karaokeWords.map((word, wIdx) => {
+                        return (
+                          <span 
+                            key={wIdx} 
+                            data-word-steps={JSON.stringify(word.map(item => item.index))}
+                            className="opacity-85 transition-colors duration-150"
+                          >
+                            {word.map((item, sIdx) => {
+                              return (
+                                <span 
+                                  key={sIdx} 
+                                  data-syl-index={item.index}
+                                >
+                                  {item.text}
+                                </span>
+                              );
+                            })}
+                          </span>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
+          </div>
         </div>
       ) : (
         /* ──── Instrument step grid ──── */

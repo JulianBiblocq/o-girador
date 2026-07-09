@@ -65,6 +65,11 @@ export function useSequencerState() {
   const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
   const setActiveAoVivoTrackId = useSequencerStore(state => state.setActiveAoVivoTrackId);
 
+  const vocalTransposeSteps = useSequencerStore(state => state.vocalTransposeSteps);
+  const setVocalTransposeSteps = useSequencerStore(state => state.setVocalTransposeSteps);
+  const incrementVocalTransposeSteps = useSequencerStore(state => state.incrementVocalTransposeSteps);
+  const decrementVocalTransposeSteps = useSequencerStore(state => state.decrementVocalTransposeSteps);
+
   // Sync local states to the store for autosave and global access
   useEffect(() => {
     useSequencerStore.setState({
@@ -885,6 +890,11 @@ export function useSequencerState() {
                 decays: patternToPaste.decays ? [...patternToPaste.decays] : Array(firstP.steps).fill(100),
                 microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(firstP.steps).fill(0),
                 variations: patternToPaste.variations ? JSON.parse(JSON.stringify(patternToPaste.variations)) : undefined,
+                preRollActiveSteps: patternToPaste.preRollActiveSteps ? [...patternToPaste.preRollActiveSteps] : undefined,
+                preRollLyrics: patternToPaste.preRollLyrics ? [...patternToPaste.preRollLyrics] : undefined,
+                preRollNotes: patternToPaste.preRollNotes ? [...patternToPaste.preRollNotes] : undefined,
+                preRollVolumes: patternToPaste.preRollVolumes ? [...patternToPaste.preRollVolumes] : undefined,
+                preRollDecays: patternToPaste.preRollDecays ? [...patternToPaste.preRollDecays] : undefined,
               };
             }
             return p;
@@ -908,6 +918,11 @@ export function useSequencerState() {
             decays: patternToPaste.decays ? [...patternToPaste.decays] : Array(firstP.steps).fill(100),
             microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(firstP.steps).fill(0),
             variations: patternToPaste.variations ? JSON.parse(JSON.stringify(patternToPaste.variations)) : undefined,
+            preRollActiveSteps: patternToPaste.preRollActiveSteps ? [...patternToPaste.preRollActiveSteps] : undefined,
+            preRollLyrics: patternToPaste.preRollLyrics ? [...patternToPaste.preRollLyrics] : undefined,
+            preRollNotes: patternToPaste.preRollNotes ? [...patternToPaste.preRollNotes] : undefined,
+            preRollVolumes: patternToPaste.preRollVolumes ? [...patternToPaste.preRollVolumes] : undefined,
+            preRollDecays: patternToPaste.preRollDecays ? [...patternToPaste.preRollDecays] : undefined,
           };
           while (pasted.activeSteps.length < firstP.steps) pasted.activeSteps.push(0);
           while (pasted.lyrics.length < firstP.steps) pasted.lyrics.push('');
@@ -1160,6 +1175,8 @@ export function useSequencerState() {
                 const instId = instrumentsConfig[t.instrumentIdx]?.id;
                 copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
                 if (!arrNotes[stepIdx]) arrNotes[stepIdx] = 'C4';
+              }
+              if (arrDecays[stepIdx] === 100 || !arrDecays[stepIdx]) {
                 arrDecays[stepIdx] = 10;
               }
             } else {
@@ -1211,6 +1228,148 @@ export function useSequencerState() {
                 const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
                 arrNotes[stepIdx] = completedNote;
                 return { ...p, notes: arrNotes };
+              }
+              return p;
+            });
+            return { ...t, patterns: nextPatterns };
+          }
+          return t;
+        }));
+      }
+    }
+  };
+
+  const handleVoicePreRollSylChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
+    const tracks = useSequencerStore.getState().tracks;
+    const activePattern = tracks.find(t => t.id === trackId)?.patterns.find(p => p.id === patternId);
+    const prevVal = activePattern?.preRollLyrics?.[stepIdx] || '';
+    if (prevVal === '' && val !== '') {
+      pushUndoState();
+    }
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const copySteps = p.preRollActiveSteps ? [...p.preRollActiveSteps] : Array(16).fill(0);
+            const arrLyrics = p.preRollLyrics ? [...p.preRollLyrics] : Array(16).fill('');
+            const arrNotes = p.preRollNotes ? [...p.preRollNotes] : Array(16).fill('');
+            const arrDecays = p.preRollDecays ? [...p.preRollDecays] : Array(16).fill(10);
+            const arrVolumes = p.preRollVolumes ? [...p.preRollVolumes] : Array(16).fill(100);
+            
+            arrLyrics[stepIdx] = val;
+            if (val.trim() !== '') {
+              if (copySteps[stepIdx] === 0) {
+                const instId = instrumentsConfig[t.instrumentIdx]?.id;
+                copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
+                if (!arrNotes[stepIdx]) arrNotes[stepIdx] = 'C4';
+              }
+              if (arrDecays[stepIdx] === 100 || !arrDecays[stepIdx]) {
+                arrDecays[stepIdx] = 10;
+              }
+            } else {
+              copySteps[stepIdx] = 0;
+            }
+            return { 
+              ...p, 
+              preRollActiveSteps: copySteps, 
+              preRollLyrics: arrLyrics, 
+              preRollNotes: arrNotes, 
+              preRollDecays: arrDecays,
+              preRollVolumes: arrVolumes
+            };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleDeletePatternMeasure = (trackId: number, patternId: number, measureIdx: number) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            if (p.steps <= 16) return p; // Cannot delete the only measure
+            
+            const startIdx = measureIdx * 16;
+            const newSteps = p.steps - 16;
+
+            const newActiveSteps = [...p.activeSteps];
+            newActiveSteps.splice(startIdx, 16);
+
+            const newLyrics = p.lyrics ? [...p.lyrics] : Array(p.steps).fill('');
+            newLyrics.splice(startIdx, 16);
+
+            const newNotes = p.notes ? [...p.notes] : Array(p.steps).fill('');
+            newNotes.splice(startIdx, 16);
+
+            const newVolumes = p.volumes ? [...p.volumes] : Array(p.steps).fill(80);
+            newVolumes.splice(startIdx, 16);
+
+            const newDecays = p.decays ? [...p.decays] : Array(p.steps).fill(10);
+            newDecays.splice(startIdx, 16);
+
+            const newMicrotimings = p.microtimings ? [...p.microtimings] : Array(p.steps).fill(0);
+            newMicrotimings.splice(startIdx, 16);
+
+            return {
+              ...p,
+              steps: newSteps,
+              activeSteps: newActiveSteps,
+              lyrics: newLyrics,
+              notes: newNotes,
+              volumes: newVolumes,
+              decays: newDecays,
+              microtimings: newMicrotimings
+            };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleVoicePreRollNoteChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
+    const tracks = useSequencerStore.getState().tracks;
+    const activePattern = tracks.find(t => t.id === trackId)?.patterns.find(p => p.id === patternId);
+    const prevVal = activePattern?.preRollNotes?.[stepIdx] || '';
+    if (prevVal === '' && val !== '') {
+      pushUndoState();
+    }
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const arrNotes = p.preRollNotes ? [...p.preRollNotes] : Array(16).fill('');
+            arrNotes[stepIdx] = val;
+            return { ...p, preRollNotes: arrNotes };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleVoicePreRollNoteBlur = (trackId: number, patternId: number, stepIdx: number, val: string) => {
+    pushUndoState();
+    const trimmed = val.trim();
+    if (trimmed.length === 1 || (trimmed.length === 2 && (trimmed.includes('#') || trimmed.includes('b')))) {
+      if (/^[a-gA-G][#b]?$/.test(trimmed)) {
+        const completedNote = trimmed.toUpperCase() + '4';
+        setTracks(prev => prev.map(t => {
+          if (t.id === trackId) {
+            const nextPatterns = t.patterns.map(p => {
+              if (p.id === patternId) {
+                const arrNotes = p.preRollNotes ? [...p.preRollNotes] : Array(16).fill('');
+                arrNotes[stepIdx] = completedNote;
+                return { ...p, preRollNotes: arrNotes };
               }
               return p;
             });
@@ -1613,7 +1772,7 @@ export function useSequencerState() {
             notes: Array(16).fill(''),
             measureAssignments: Array(totalMeasuresRef.current).fill(false),
             volumes: Array(16).fill(80),
-            decays: Array(16).fill(100),
+            decays: Array(16).fill(10),
             microtimings: Array(16).fill(0),
           }
         ],
@@ -1644,7 +1803,7 @@ export function useSequencerState() {
             notes: Array(16).fill(''),
             measureAssignments: Array(totalMeasuresRef.current).fill(false),
             volumes: Array(16).fill(80),
-            decays: Array(16).fill(100),
+            decays: Array(16).fill(10),
             microtimings: Array(16).fill(0),
           }
         ],
@@ -1683,7 +1842,7 @@ export function useSequencerState() {
           notes: Array(16).fill(''),
           measureAssignments: Array(totalMeasuresRef.current).fill(false),
           volumes: Array(16).fill(80),
-          decays: Array(16).fill(100),
+          decays: Array(16).fill(instrumentsConfig[instIdx]?.type === 'voice' ? 10 : 100),
           microtimings: Array(16).fill(0),
         },
       ],
@@ -1934,6 +2093,10 @@ export function useSequencerState() {
     handleVoiceSylChange,
     handleVoiceNoteChange,
     handleVoiceNoteBlur,
+    handleVoicePreRollSylChange,
+    handleVoicePreRollNoteChange,
+    handleVoicePreRollNoteBlur,
+    handleDeletePatternMeasure,
     handleExtractLyrics,
     handleTrackStepValueChange,
     handleTrackStepKeyDown,
@@ -1946,6 +2109,10 @@ export function useSequencerState() {
     handleVariationStepValueChange,
     handleDeletePatternVariation,
     handleAddTrackInstrument,
-    activeVariationsRef
+    activeVariationsRef,
+    vocalTransposeSteps,
+    setVocalTransposeSteps,
+    incrementVocalTransposeSteps,
+    decrementVocalTransposeSteps
   };
 }

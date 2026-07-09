@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import * as Tone from 'tone';
 import { useSequencerStore, isSequencerVisibleTrack } from '../stores/useSequencerStore';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getStrokesForInstrument, STEP_OPTIONS } from '../utils/instrumentStrokes';
@@ -643,6 +644,28 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                 ▶
               </button>
             )}
+
+            {/* Pitch Shift Controller for Vocal/Toada tracks */}
+            {inst.type === 'voice' && (
+              <div className="flex items-center gap-2 bg-[#f4ecd8] px-3 py-1.5 rounded border-[2px] border-[#1a1a1a] text-xs font-bold ml-6 select-none text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]">
+                <span>{lang === 'fr' ? 'Transposition :' : 'Transposição :'}</span>
+                <button
+                  onClick={() => sequencer.decrementVocalTransposeSteps()}
+                  className="w-5 h-5 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
+                >
+                  -
+                </button>
+                <span className="w-8 text-center font-cactus text-sm">
+                  {sequencer.vocalTransposeSteps > 0 ? `+${sequencer.vocalTransposeSteps}` : sequencer.vocalTransposeSteps}
+                </span>
+                <button
+                  onClick={() => sequencer.incrementVocalTransposeSteps()}
+                  className="w-5 h-5 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
+                >
+                  +
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Solo */}
@@ -1072,22 +1095,55 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                   </p>
                   <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-0.5">
                     {Object.entries(NEWTON_NOTE_COLORS).map(([noteName, hexColor]) => {
-                      const noteLabels: Record<string, string> = {
-                        C: lang === 'fr' ? 'C (Do - Rouge)' : 'C (Dó - Vermelho)',
-                        D: lang === 'fr' ? 'D (Ré - Terracotta)' : 'D (Ré - Terracota)',
-                        E: lang === 'fr' ? 'E (Mi - Jaune)' : 'E (Mi - Amarelo)',
-                        F: lang === 'fr' ? 'F (Fa - Vert)' : 'F (Fá - Verde)',
-                        G: lang === 'fr' ? 'G (Sol - Bleu)' : 'G (Sol - Azul)',
-                        A: lang === 'fr' ? 'A (La - Indigo)' : 'A (Lá - Índigo)',
-                        B: lang === 'fr' ? 'B (Si - Violet)' : 'B (Si - Violeta)',
+                      const transposeSteps = sequencer.vocalTransposeSteps || 0;
+                      let displayNote = noteName;
+                      let displayColor = hexColor;
+
+                      if (transposeSteps !== 0) {
+                        try {
+                          const transposed = Tone.Frequency(noteName + "4").transpose(transposeSteps).toNote();
+                          const transposedLetter = transposed.replace(/\d+$/, '').toUpperCase();
+                          displayNote = transposedLetter;
+                          
+                          const baseTransposedLetter = transposedLetter.charAt(0);
+                          displayColor = NEWTON_NOTE_COLORS[baseTransposedLetter] || hexColor;
+                        } catch (_) {}
+                      }
+
+                      const noteSolfeges: Record<string, string> = {
+                        C: lang === 'fr' ? 'Do' : 'Dó',
+                        D: 'Ré',
+                        E: lang === 'fr' ? 'Mi' : 'Mi',
+                        F: lang === 'fr' ? 'Fa' : 'Fá',
+                        G: 'Sol',
+                        A: lang === 'fr' ? 'La' : 'Lá',
+                        B: 'Si'
                       };
+
+                      const noteColors: Record<string, string> = {
+                        C: lang === 'fr' ? 'Rouge' : 'Vermelho',
+                        D: lang === 'fr' ? 'Terracotta' : 'Terracota',
+                        E: lang === 'fr' ? 'Jaune' : 'Amarelo',
+                        F: lang === 'fr' ? 'Vert' : 'Verde',
+                        G: lang === 'fr' ? 'Bleu' : 'Azul',
+                        A: lang === 'fr' ? 'Indigo' : 'Índigo',
+                        B: lang === 'fr' ? 'Violet' : 'Violeta'
+                      };
+
+                      const baseLetter = displayNote.charAt(0).toUpperCase();
+                      const solfege = noteSolfeges[baseLetter] || '';
+                      const colorName = noteColors[baseLetter] || '';
+                      const hasAccident = displayNote.includes('#');
+
+                      const label = `${displayNote} (${solfege}${hasAccident ? '#' : ''} - ${colorName})`;
+
                       return (
                         <div key={noteName} className="flex items-center gap-1.5 font-sans">
                           <span 
                             className="w-2.5 h-2.5 rounded-full border border-black/10 shrink-0" 
-                            style={{ backgroundColor: hexColor }} 
+                            style={{ backgroundColor: displayColor }} 
                           />
-                          <span className="font-medium text-[9px] text-[#1a1a1a]">{noteLabels[noteName] || noteName}</span>
+                          <span className="font-medium text-[9px] text-[#1a1a1a]">{label}</span>
                         </div>
                       );
                     })}

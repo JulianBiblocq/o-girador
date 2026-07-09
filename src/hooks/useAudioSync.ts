@@ -12,7 +12,7 @@ import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencer
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { loadTone } from '../ToneLoader';
 import { useAudioStore } from '../stores/useAudioStore';
-import { vocalEngineService } from '../audio/vocalEngineService';
+import { vocalEngineService, workerSetTimeout } from '../audio/vocalEngineService';
 
 interface ScheduledNote {
   time: number;
@@ -1012,8 +1012,8 @@ export function useAudioSync({
                 if (stepIdx === currentTicks - 1) {
                   vocalEngineService.recordedMeasuresCount++;
                   if (vocalEngineService.recordedMeasuresCount >= vocalEngineService.recordingDurationMeasures) {
-                    const stopDelayMs = Math.max(0, (time + tick96nSec - Tone.context.rawContext.currentTime) * 1000);
-                    const stopTimeout = setTimeout(() => {
+                    const stopDelayMs = Math.max(0, (time + tick96nSec - Tone.context.rawContext.currentTime) * 1000) + 1000;
+                    workerSetTimeout(() => {
                       vocalEngineService.stopRecording();
                     }, stopDelayMs);
                   }
@@ -1072,7 +1072,14 @@ export function useAudioSync({
                   if (trackVolPct > 0) {
                     const trackVolLinear = Math.pow(trackVolPct / 100, 2);
                     const noteVal = activePattern.notes?.[cellIdx] || 'C4';
-                    const noteFreq = noteToFrequency(noteVal);
+                    const transposeSteps = useSequencerStore.getState().vocalTransposeSteps || 0;
+                    let finalNoteVal = noteVal;
+                    if (transposeSteps !== 0) {
+                      try {
+                        finalNoteVal = Tone.Frequency(noteVal).transpose(transposeSteps).toNote();
+                      } catch (_) {}
+                    }
+                    const noteFreq = noteToFrequency(finalNoteVal);
                     const decayVal = activePattern.decays?.[cellIdx] ?? 10;
                     const numSteps = getVoiceNoteStepsFromDecay(decayVal);
                     const noteDuration = (numSteps * 6) * tick96nSec;
