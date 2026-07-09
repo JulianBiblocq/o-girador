@@ -110,9 +110,12 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
             }
           }
         });
-      }).catch((err: any) => console.error("Failed to fetch progressions:", err));
+      }).catch((err: any) => {
+        console.error("Failed to fetch progressions:", err);
+        alert(lang === 'fr' ? "Erreur de connexion : Impossible de charger vos progressions depuis le Cloud." : "Erro de conexão: Não foi possível carregar seus progressos do Cloud.");
+      });
     }
-  }, [mestreUid]);
+  }, [mestreUid, lang]);
 
   useEffect(() => {
     if (isActive) {
@@ -186,11 +189,14 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
 
   useEffect(() => {
     if (isActive && mestreUid && mestreUid !== 'local') {
-      fetchAllMestreExercises(mestreUid).then(exercises => {
-        setCloudExercisesList(exercises);
-      }).catch(err => console.error("Failed to fetch mestre exercises:", err));
+      fetchAllMestreExercises(mestreUid).then(res => {
+        setCloudExercisesList(res.exercises || []);
+      }).catch(err => {
+        console.error("Failed to fetch mestre exercises:", err);
+        alert(lang === 'fr' ? "Erreur de connexion : Impossible de charger vos exercices depuis le Cloud." : "Erro de conexão: Não foi possível carregar seus exercícios do Cloud.");
+      });
     }
-  }, [mestreUid, isActive]);
+  }, [mestreUid, isActive, lang]);
 
   // 2. Quiz State
   const [quizTitle, setQuizTitle] = useState('');

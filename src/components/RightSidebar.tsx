@@ -6,7 +6,6 @@
 import React from 'react';
 import { Language } from '../types';
 import { i18n, instrumentsConfig, getMaxTicks } from '../data';
-import { AudioTrackRecorder } from './AudioTrackRecorder';
 // import { parseCordelFormatting } from '../utils/cordelFormatter';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -75,7 +74,6 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
     bpm = 120,
     timeSig,
     handleExtractLyrics: onExtractLyrics,
-    handleAudioPatternCreated: onAudioPatternCreated,
   } = sequencer;
 
   const {
@@ -115,7 +113,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
       return result;
     })(),
   } : null;
-  const [subTab, setSubTab] = React.useState<'toada' | 'info' | 'gravacao' | 'legendes' | 'sinais'>('info');
+  const [subTab, setSubTab] = React.useState<'toada' | 'info' | 'legendes' | 'sinais'>('info');
 
   React.useEffect(() => {
     const textarea = textareaRef.current;
@@ -177,7 +175,6 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
               <option value="toada">📝 Toada</option>
               <option value="info">ℹ️ Info</option>
               <option value="sinais">🎨 {lang === 'fr' ? 'Signes' : 'Sinais'}</option>
-              <option value="gravacao">🎙️ Gravação</option>
               <option value="legendes">📖 {t('legend')}</option>
             </select>
             <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--cordel-text)] font-extrabold text-[12px]">
@@ -464,18 +461,6 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
             </div>
           )}
 
-          {/* Tab 4: Gravação */}
-          {subTab === 'gravacao' && onAudioPatternCreated && (
-            <div className="flex-grow overflow-y-auto pr-1 custom-scrollbar min-h-0">
-              <AudioTrackRecorder
-                patternId={9999}
-                bpm={bpm}
-                beatsPerMeasure={beatsPerMeasure}
-                onStartSequencer={onTogglePlay}
-                onAudioPatternCreated={onAudioPatternCreated}
-              />
-            </div>
-          )}
         </div>
     </div>
 

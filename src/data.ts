@@ -125,16 +125,46 @@ export const instrumentsConfig: InstrumentConfig[] = [
     color: '#e74c3c'
   },
   {
-    id: 'voice',
+    id: 'puxador',
     iconImg: 'icones/micro.svg',
-    name: 'Vocal / Toada',
+    name: 'Puxador',
+    type: 'voice',
+    mixerBg: '#5c3a1c',
+    path: 'internal',
+    colors: { 'P': '#e9cca8', text: '#f4ecd8' },
+    color: '#e9cca8'
+  },
+  {
+    id: 'coro',
+    iconImg: 'icones/micro.svg',
+    name: 'Coro',
     type: 'voice',
     mixerBg: '#114a4a',
     path: 'internal',
-    colors: { 'C': '#449c9c', 'P': '#c4864b', text: '#f4ecd8' },
-    color: '#449c9c'
+    colors: { 'C': '#b3dcd8', text: '#f4ecd8' },
+    color: '#b3dcd8'
+  },
+  {
+    id: 'toada',
+    iconImg: 'icones/micro.svg',
+    name: 'Toada',
+    type: 'voice',
+    mixerBg: '#392416',
+    path: 'internal',
+    colors: { 'P': '#e9cca8', 'C': '#b3dcd8', text: '#f4ecd8' },
+    color: '#e9cca8'
   }
 ];
+
+export const NEWTON_NOTE_COLORS: Record<string, string> = {
+  'C': '#a83232', // Rouge brique
+  'D': '#ab5c23', // Terracotta
+  'E': '#ab8f1b', // Moutarde
+  'F': '#287545', // Vert forêt doux
+  'G': '#1e6280', // Bleu ardoise
+  'A': '#3e4d80', // Bleu indigo patiné
+  'B': '#6e3b75', // Prune/Violet sourd
+};
 
 export const i18n = {
   pt: {

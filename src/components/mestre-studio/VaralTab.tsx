@@ -357,12 +357,12 @@ export const VaralTab: React.FC<VaralTabProps> = ({
                           .filter(ex => {
                             const ropeType = varalCordes[idx]?.gameType || 'random';
                             if (ropeType === 'random') return true;
-                            const exMod = ex.module;
+                            const exMod = ex.gameType;
                             const normalizedRopeType = ropeType === 'sablier_mestre' ? 'sablier' : (ropeType === 'rythme_live' ? 'rythmelive' : ropeType);
                             return exMod === normalizedRopeType;
                           })
                           .map(ex => (
-                            <option key={ex.id} value={ex.id}>[{ex.module.toUpperCase()}] {ex.name}</option>
+                            <option key={ex.id} value={ex.id}>[{ex.gameType.toUpperCase()}] {ex.name}</option>
                           ))
                         }
                       </select>

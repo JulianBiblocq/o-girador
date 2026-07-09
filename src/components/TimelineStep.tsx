@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
-import { instrumentsConfig, isDarkText } from '../data';
+import { instrumentsConfig, isDarkText, NEWTON_NOTE_COLORS } from '../data';
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
 
 interface TimelineStepProps {
@@ -42,10 +42,12 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
   const inst = instrumentsConfig[instrumentIdx];
   const isVoice = inst?.type === 'voice';
 
-  // S'abonner aux paroles uniquement pour les pistes de chant
-  const lyric = useSequencerStore(
-    (state) => isVoice ? (state.tracks[trackIdx]?.patterns[patternIdx]?.lyrics?.[stepIdx] ?? '') : ''
+  // S'abonner aux notes uniquement pour les pistes de chant
+  const note = useSequencerStore(
+    (state) => isVoice ? (state.tracks[trackIdx]?.patterns[patternIdx]?.notes?.[stepIdx] ?? '') : ''
   );
+  const noteLetter = note ? note.charAt(0).toUpperCase() : '';
+  const noteColor = noteLetter ? (NEWTON_NOTE_COLORS[noteLetter] || '#1a1a1a') : '#1a1a1a';
 
   const timeSigStr = useSequencerStore(
     (state) => state.measureTimeSigs[measureIdx] || '4/4'
@@ -76,9 +78,9 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     width: `${stepWidth}px`,
   };
 
-  const bg = inst.colors?.[val as string] || '#111';
-  let fg = inst.colors?.text || '#f4ecd8';
-  if (isDarkText(inst.id, String(val))) {
+  const bg = isActive ? (isVoice ? inst.color : (inst.colors?.[val as string] || '#111')) : '#111';
+  let fg = isVoice ? noteColor : (inst.colors?.text || '#f4ecd8');
+  if (!isVoice && isDarkText(inst.id, String(val))) {
     fg = '#1a1a1a';
   }
 
@@ -110,14 +112,12 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
         style={{ color: fg }}
       >
         {isVoice ? (
-          <div className="flex flex-col items-center justify-center leading-none px-0.5 overflow-hidden w-full h-full">
-            <span className="text-[9px] font-bold uppercase opacity-75">
-              {val === 'P' ? 'PUX' : val === 'C' ? 'CORO' : ''}
-            </span>
-            <span className="text-[11px] font-cactus font-bold truncate max-w-full">
-              {lyric}
-            </span>
-          </div>
+          <span 
+            className="text-[13px] font-extrabold tracking-wide" 
+            style={{ color: noteColor, textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}
+          >
+            {noteLetter || ''}
+          </span>
         ) : (
           <span className="text-[13px] font-extrabold tracking-wide">
             {display}

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, isSequencerVisibleTrack } from '../stores/useSequencerStore';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getStrokesForInstrument, STEP_OPTIONS } from '../utils/instrumentStrokes';
 import { createPortal } from 'react-dom';
@@ -24,7 +24,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useSortable } from '@dnd-kit/sortable';
 import { Pattern, RhythmSignal, CloudPattern, CatalogVisibility, Language, GlobalSwing } from '../types';
-import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText } from '../data';
+import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, NEWTON_NOTE_COLORS } from '../data';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchCloudPatterns, savePatternToCloud, deleteCloudPattern } from '../cloudPatterns';
 import { useGameData } from '../contexts/GameDataContext';
@@ -32,7 +32,6 @@ import { AudioFader } from './AudioFader';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { MelodicNoteSelector } from './MelodicNoteSelector';
-import { VocalRecordingSection } from './instrument-editor/VocalRecordingSection';
 import { PatternVariationsEditor } from './instrument-editor/PatternVariationsEditor';
 import { InstrumentEffects } from './InstrumentEffects';
 import { InstrumentPatternGrid } from './InstrumentPatternGrid';
@@ -79,17 +78,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const isPlaying = audio.isPlaying;
   const soloPatternPlayId = audio.soloPatternPlayId;
   const soloPatternVariationId = audio.soloPatternVariationId;
-  const globalSwing = audio.globalSwing;
-  const runAutoCalibration = sequencer.runAutoCalibration;
   const vocalCalibrationLatencyMs = useSequencerStore(state => state.vocalCalibrationLatencyMs);
 
-  // Sequencer values and state mappings
-  const isRecordingVocal = sequencer.isRecordingVocal;
-  const recordingVocalPatternId = sequencer.recordingVocalPatternId;
-  const recordedPatternIds = sequencer.recordedPatternIds;
-  const audioDevices = sequencer.audioDevices;
-  const selectedAudioDeviceId = sequencer.selectedAudioDeviceId;
-  const isVocalGuideEnabled = sequencer.isVocalGuideEnabled;
   const canPaste = !!sequencer.copiedPattern;
 
   // Callbacks mapped directly to sequencer context actions
@@ -129,15 +119,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     sequencer.handleVoiceNoteBlur(trackId, patternId, stepIdx, val);
   }, [trackId, sequencer]);
 
-  const onStartVocalRecording = sequencer.startVocalRecording;
-  const onStopVocalRecording = sequencer.stopVocalRecording;
-  const onVocalModeChange = sequencer.handleVocalModeChange;
-  const onDeleteVocalRecording = sequencer.handleDeleteVocalRecording;
-  const onVocalLatencyChange = sequencer.handleVocalLatencyChange;
-  const onAudioDeviceChange = sequencer.handleAudioDeviceChange;
-  const onImportVocalFile = sequencer.handleImportVocalFile;
-  const onVocalGuideToggle = sequencer.setIsVocalGuideEnabled;
-  const onVocalBpmSyncToggle = sequencer.handleVocalBpmSyncToggle;
   const onCopyPattern = sequencer.handleCopyPattern;
 
   const onPlaySoloPattern = audio.handleStartSoloPattern;
@@ -279,7 +260,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   // Dynamic Navigation callbacks
   const onNavigatePrev = React.useCallback(() => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
+    const tracksList = useSequencerStore.getState().tracks.filter(t => isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (idx > 0) {
       setEditingTrackId(tracksList[idx - 1].id);
@@ -287,7 +268,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   }, [trackId, setEditingTrackId]);
 
   const onNavigateNext = React.useCallback(() => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
+    const tracksList = useSequencerStore.getState().tracks.filter(t => isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (idx >= 0 && idx < tracksList.length - 1) {
       setEditingTrackId(tracksList[idx + 1].id);
@@ -295,7 +276,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   }, [trackId, setEditingTrackId]);
 
   const onKeyDown = React.useCallback((e: any) => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
+    const tracksList = useSequencerStore.getState().tracks.filter(t => isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (e.key === 'ArrowDown') {
       if (idx >= 0 && idx < tracksList.length - 1) setEditingTrackId(tracksList[idx + 1].id);
@@ -315,7 +296,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
-  const [isCalibrating, setIsCalibrating] = useState<boolean>(false);
   const [noteSelectorTarget, setNoteSelectorTarget] = useState<{ patternId: number; stepIdx: number; note: string; element: HTMLElement } | null>(null);
   const [isClosing, setIsClosing] = useState(false);
 
@@ -337,27 +317,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { soloPatternPlayIdRef.current = soloPatternPlayId; }, [soloPatternPlayId]);
   useEffect(() => { trackRef.current = track; }, [track]);
-
-  const handleAutoCalibrate = async () => {
-    if (!runAutoCalibration) return;
-    setIsCalibrating(true);
-    try {
-      const latency = await runAutoCalibration();
-      alert(
-        lang === 'fr' 
-          ? `✅ Calibration réussie ! Latence matérielle mesurée et compensée à ${latency} ms.` 
-          : `✅ Calibração bem-sucedida! Latência de hardware medida e compensada em ${latency} ms.`
-      );
-    } catch (err: any) {
-      alert(
-        lang === 'fr'
-          ? `❌ Échec de la calibration : ${err.message || err}`
-          : `❌ Falha na calibração: ${err.message || err}`
-      );
-    } finally {
-      setIsCalibrating(false);
-    }
-  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -917,26 +876,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             )}
                           </div>
 
-                          {/* Vocal recording controls (only for voice instruments) */}
-                          <VocalRecordingSection
-                            lang={lang}
-                            ptn={ptn}
-                            inst={inst}
-                            selectedAudioDeviceId={selectedAudioDeviceId}
-                            audioDevices={audioDevices}
-                            isVocalGuideEnabled={isVocalGuideEnabled}
-                            recordedPatternIds={recordedPatternIds}
-                            isCalibrating={isCalibrating}
-                            onVocalModeChange={onVocalModeChange}
-                            onAudioDeviceChange={onAudioDeviceChange}
-                            onVocalGuideToggle={onVocalGuideToggle}
-                            onImportVocalFile={onImportVocalFile}
-                            onDeleteVocalRecording={onDeleteVocalRecording}
-                            onVocalLatencyChange={onVocalLatencyChange}
-                            onVocalBpmSyncToggle={onVocalBpmSyncToggle}
-                            onAutoCalibrate={handleAutoCalibrate}
-                          />
-
                           {/* Interactive Step Grid */}
                           {/* Resolution header & Tuplet edit tools */}
                           {(() => {
@@ -1082,7 +1021,16 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-6 h-1 bg-amber-500 shrink-0" />
-                <span>{lang === 'fr' ? 'Résonance/Decay (10-100%)' : 'Ressonância/Decay (10-100%)'}</span>
+                <span>
+                  {inst.type === 'voice'
+                    ? (lang === 'fr' 
+                        ? 'Durée de la note (1 double croche par pas de 10%)' 
+                        : 'Duração da nota (1 semicolcheia por passo de 10%)')
+                    : (lang === 'fr' 
+                        ? 'Résonance/Decay (10-100%)' 
+                        : 'Ressonância/Decay (10-100%)')
+                  }
+                </span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="w-6 h-1.5 bg-[#2980b9] shrink-0" />
@@ -1101,16 +1049,50 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
             {/* Voice-specific instructions */}
             {inst.type === 'voice' && (
-              <div className="bg-[#f4ecd8] cordel-border-sm p-2.5 text-[10px] flex flex-col gap-1">
-                <p className="font-bold">🎤 {lang === 'fr' ? 'Voix / Chœur' : 'Voz / Coro'}</p>
-                <p>{lang === 'fr'
-                  ? 'Cliquez en haut de la case (PUX/CORO) pour changer qui chante.'
-                  : 'Clique no topo da caixa (PUX/CORO) para alterar quem canta.'
-                }</p>
-                <p>{lang === 'fr'
-                  ? 'Puxador: Orange (Aigu). Chœur: Cyan (Grave).'
-                  : 'Puxador: Laranja (Agudo). Coro: Ciano (Grave).'
-                }</p>
+              <div className="bg-[#f4ecd8] cordel-border-sm p-3 text-[10px] flex flex-col gap-2">
+                <p className="font-bold text-xs border-b border-[#1a1a1a]/20 pb-1">
+                  🎤 {inst.id === 'puxador' 
+                    ? (lang === 'fr' ? 'Soliste (Puxador)' : 'Solista (Puxador)') 
+                    : (lang === 'fr' ? 'Chœur (Coro)' : 'Coro')}
+                </p>
+                <p className="opacity-90">
+                  {inst.id === 'puxador'
+                    ? (lang === 'fr' 
+                        ? 'Sur cette piste, vous écrivez uniquement le chant du Puxador (fond terracotta/sable).' 
+                        : 'Nesta faixa, você escreve apenas o canto do Puxador (fundo terracota/areia).')
+                    : (lang === 'fr' 
+                        ? 'Sur cette piste, vous écrivez uniquement le chant du Coro (fond ciano).' 
+                        : 'Nesta faixa, você escreve apenas o canto do Coro (fundo ciano).')
+                  }
+                </p>
+                
+                <div className="mt-1 flex flex-col gap-1">
+                  <p className="font-bold uppercase tracking-wider text-[9px] text-[#666]">
+                    {lang === 'fr' ? 'Couleurs des Notes (Newton) :' : 'Cores das Notas (Newton) :'}
+                  </p>
+                  <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-0.5">
+                    {Object.entries(NEWTON_NOTE_COLORS).map(([noteName, hexColor]) => {
+                      const noteLabels: Record<string, string> = {
+                        C: lang === 'fr' ? 'C (Do - Rouge)' : 'C (Dó - Vermelho)',
+                        D: lang === 'fr' ? 'D (Ré - Terracotta)' : 'D (Ré - Terracota)',
+                        E: lang === 'fr' ? 'E (Mi - Jaune)' : 'E (Mi - Amarelo)',
+                        F: lang === 'fr' ? 'F (Fa - Vert)' : 'F (Fá - Verde)',
+                        G: lang === 'fr' ? 'G (Sol - Bleu)' : 'G (Sol - Azul)',
+                        A: lang === 'fr' ? 'A (La - Indigo)' : 'A (Lá - Índigo)',
+                        B: lang === 'fr' ? 'B (Si - Violet)' : 'B (Si - Violeta)',
+                      };
+                      return (
+                        <div key={noteName} className="flex items-center gap-1.5 font-sans">
+                          <span 
+                            className="w-2.5 h-2.5 rounded-full border border-black/10 shrink-0" 
+                            style={{ backgroundColor: hexColor }} 
+                          />
+                          <span className="font-medium text-[9px] text-[#1a1a1a]">{noteLabels[noteName] || noteName}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             )}
 

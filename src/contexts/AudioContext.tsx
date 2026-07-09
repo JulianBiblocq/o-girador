@@ -222,17 +222,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     songSectionsRef: sequencer.songSectionsRef,
     activeVariationsRef: sequencer.activeVariationsRef,
 
-    isRecordingVocal: sequencer.isRecordingVocal,
-    startVocalRecording: sequencer.startVocalRecording,
-    stopVocalRecording: sequencer.stopVocalRecording,
-    finishVocalRecording: sequencer.finishVocalRecording,
-    recordingVocalPatternIdRef: sequencer.recordingVocalPatternIdRef,
-    vocalRecordingStateRef: sequencer.vocalRecordingStateRef,
-    recordedMeasuresCountRef: sequencer.recordedMeasuresCountRef,
-    recordingDurationMeasuresRef: sequencer.recordingDurationMeasuresRef,
-    vocalPlayersRef: sequencer.vocalPlayersRef,
-    isVocalGuideEnabledRef: sequencer.isVocalGuideEnabledRef,
-    loadVocalRecording: sequencer.loadVocalRecording,
 
     isPlayingRef: sequencer.isPlayingRef,
     currentStepIndexRef: sequencer.currentStepIndexRef,

@@ -1,5 +1,8 @@
 import React from 'react';
 import { TimelineStep } from './TimelineStep';
+import { Trash2 } from 'lucide-react';
+import { useAudioStore } from '../stores/useAudioStore';
+import { vocalEngineService } from '../audio/vocalEngineService';
 
 interface TimelineMeasureProps {
   mIdx: number;
@@ -68,12 +71,17 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   onGridPointerDown,
   onMeasureClick,
 }) => {
+  const hasAudio = useAudioStore((state) => !!state.vocalBlobs[patternId]);
 
   const handleCellClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isPanningActive) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     onMeasureClick(mIdx, steps, clickX);
+
+    if (instType === 'voice' && patternId !== -1) {
+      useAudioStore.getState().setSelectedVocalPatternId(patternId);
+    }
   };
 
   const loopBgClass = loopStatus === 'inside-active' 
@@ -202,6 +210,38 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                   beatResolutions={beatResolutions}
                 />
               ))}
+
+              {instType === 'voice' && hasAudio && (
+                <div 
+                  className="absolute inset-0 z-10 flex items-center justify-between px-3 border border-[#1a1a1a]/40"
+                  style={{
+                    backgroundColor: instId === 'coro' ? 'rgba(179, 220, 216, 0.85)' : 'rgba(233, 204, 168, 0.85)',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08' /%3E%3C/svg%3E")`,
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                  }}
+                >
+                  <div className="flex-grow flex items-center justify-center pointer-events-none opacity-85">
+                    <svg className="w-full h-8 max-w-[120px]" viewBox="0 0 100 30" fill="none" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M 5,15 Q 12,5 18,15 T 30,15 T 42,28 T 55,10 T 68,22 T 80,15 T 95,15" />
+                      <path d="M 8,15 Q 15,22 22,12 T 35,18 T 48,5 T 62,25 T 75,10 T 88,18" opacity="0.6" strokeWidth="1.5" />
+                    </svg>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(lang === 'fr' ? "Supprimer l'enregistrement audio ?" : "Excluir a gravação de áudio?")) {
+                        vocalEngineService.deleteVocalRecording(patternId);
+                      }
+                    }}
+                    className="p-1 hover:bg-[#8b2a1a]/15 text-[#8b2a1a] rounded transition-colors z-20 border border-transparent hover:border-[#8b2a1a]/30 cursor-pointer"
+                    title={lang === 'fr' ? "Supprimer l'audio" : "Excluir áudio"}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

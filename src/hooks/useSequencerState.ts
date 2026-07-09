@@ -14,7 +14,7 @@ import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Langua
 import { instrumentsConfig, getMarkers, getVisualStrokeSymbol } from '../data';
 import { audioEngine } from './useAudioSync';
 import { useAuth } from '../contexts/AuthContext';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, isSequencerVisibleTrack } from '../stores/useSequencerStore';
 import { useSequencerHistory } from './useSequencerHistory';
 
 export function useSequencerState() {
@@ -289,8 +289,7 @@ export function useSequencerState() {
   const applyRadii = (list: TrackGroup[]): TrackGroup[] => {
     const drawableTracks = list.filter(t => 
       !t.isHidden && 
-      (!t.isBusFolder || t.isLinkFolder) && 
-      !t.linkedToTrackId && 
+      isSequencerVisibleTrack(t, list) && 
       instrumentsConfig[t.instrumentIdx]?.id !== 'apito'
     );
 
@@ -1136,22 +1135,8 @@ export function useSequencerState() {
   };
 
   const handleVoiceTypeToggle = (trackId: number, patternId: number, stepIdx: number) => {
-    pushUndoState();
-    setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        const nextPatterns = t.patterns.map(p => {
-          if (p.id === patternId) {
-            const copySteps = [...p.activeSteps];
-            if (copySteps[stepIdx] === 0) return p;
-            copySteps[stepIdx] = copySteps[stepIdx] === 'P' ? 'C' : 'P';
-            return { ...p, activeSteps: copySteps };
-          }
-          return p;
-        });
-        return { ...t, patterns: nextPatterns };
-      }
-      return t;
-    }));
+    // Toggling voice type between P and C is disabled because tracks are separate.
+    return;
   };
 
   const handleVoiceSylChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
@@ -1168,16 +1153,19 @@ export function useSequencerState() {
             const copySteps = [...p.activeSteps];
             const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
             const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
+            const arrDecays = p.decays ? [...p.decays] : Array(p.steps).fill(10);
             arrLyrics[stepIdx] = val;
             if (val.trim() !== '') {
               if (copySteps[stepIdx] === 0) {
-                copySteps[stepIdx] = 'C';
+                const instId = instrumentsConfig[t.instrumentIdx]?.id;
+                copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
                 if (!arrNotes[stepIdx]) arrNotes[stepIdx] = 'C4';
+                arrDecays[stepIdx] = 10;
               }
             } else {
               copySteps[stepIdx] = 0;
             }
-            return { ...p, activeSteps: copySteps, lyrics: arrLyrics, notes: arrNotes };
+            return { ...p, activeSteps: copySteps, lyrics: arrLyrics, notes: arrNotes, decays: arrDecays };
           }
           return p;
         });
@@ -1584,6 +1572,104 @@ export function useSequencerState() {
     if (inst) {
       audioEngine.loadInstrumentSamples(inst.id).catch(console.error);
     }
+
+    if (inst?.id === 'toada') {
+      const toadaBusId = Date.now() + Math.floor(Math.random() * 1000);
+      const puxTrackId = toadaBusId + 1;
+      const coroTrackId = toadaBusId + 2;
+
+      const puxInstIdx = instrumentsConfig.findIndex(c => c.id === 'puxador');
+      const coroInstIdx = instrumentsConfig.findIndex(c => c.id === 'coro');
+
+      const toadaBusTrack: TrackGroup = {
+        id: toadaBusId,
+        instrumentIdx: instIdx,
+        patterns: [],
+        isMute: false,
+        isSolo: false,
+        isHidden: false,
+        volumeVal: 100,
+        selectedPatternId: 0,
+        isBusFolder: true,
+        isFolded: false,
+        customName: 'Toada',
+        reverbVal: 0,
+        panVal: 0,
+        pan: 0,
+        fxSends: { reverb: 0, distortion: 0 }
+      };
+
+      const puxTrack: TrackGroup = {
+        id: puxTrackId,
+        instrumentIdx: puxInstIdx !== -1 ? puxInstIdx : 8,
+        busId: String(toadaBusId),
+        patterns: [
+          {
+            id: Date.now() + Math.floor(Math.random() * 1000) + 10,
+            name: lang === 'fr' ? 'Solo 1' : 'Solista 1',
+            steps: 16,
+            activeSteps: Array(16).fill(0),
+            lyrics: Array(16).fill(''),
+            notes: Array(16).fill(''),
+            measureAssignments: Array(totalMeasuresRef.current).fill(false),
+            volumes: Array(16).fill(80),
+            decays: Array(16).fill(100),
+            microtimings: Array(16).fill(0),
+          }
+        ],
+        isMute: false,
+        isSolo: false,
+        isHidden: false,
+        volumeVal: 100,
+        selectedPatternId: 0,
+        reverbVal: 0,
+        panVal: 0,
+        pan: 0,
+        fxSends: { reverb: 0, distortion: 0 }
+      };
+      puxTrack.selectedPatternId = puxTrack.patterns[0].id;
+      puxTrack.patterns[0].measureAssignments[currentMeasure] = true;
+
+      const coroTrack: TrackGroup = {
+        id: coroTrackId,
+        instrumentIdx: coroInstIdx !== -1 ? coroInstIdx : 9,
+        busId: String(toadaBusId),
+        patterns: [
+          {
+            id: Date.now() + Math.floor(Math.random() * 1000) + 20,
+            name: lang === 'fr' ? 'Chœur 1' : 'Coro 1',
+            steps: 16,
+            activeSteps: Array(16).fill(0),
+            lyrics: Array(16).fill(''),
+            notes: Array(16).fill(''),
+            measureAssignments: Array(totalMeasuresRef.current).fill(false),
+            volumes: Array(16).fill(80),
+            decays: Array(16).fill(100),
+            microtimings: Array(16).fill(0),
+          }
+        ],
+        isMute: false,
+        isSolo: false,
+        isHidden: false,
+        volumeVal: 100,
+        selectedPatternId: 0,
+        reverbVal: 0,
+        panVal: 0,
+        pan: 0,
+        fxSends: { reverb: 0, distortion: 0 }
+      };
+      coroTrack.selectedPatternId = coroTrack.patterns[0].id;
+
+      audioEngine.loadInstrumentSamples('puxador').catch(console.error);
+      audioEngine.loadInstrumentSamples('coro').catch(console.error);
+
+      setTracks(prev => {
+        const next = [...prev, toadaBusTrack, puxTrack, coroTrack];
+        return applyRadii(next);
+      });
+      return;
+    }
+
     const newTrack: TrackGroup = {
       id: Date.now() + Math.floor(Math.random() * 1000),
       instrumentIdx: instIdx,

@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, isToadaBus } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
@@ -224,8 +224,47 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
         .map((_, mIdx) => ({ mIdx }))
         .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
         .map(({ mIdx }) => {
-          const activePattern = trackData.patterns.find(p => p.measureAssignments[mIdx]);
-          const patternIdx = activePattern ? trackData.patterns.findIndex(p => p.id === activePattern.id) : -1;
+          const puxTrack = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+          const coroTrack = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+          const isToada = isToadaBus(trackData);
+
+          let activePattern = null;
+          let activeTrack = null;
+          let currentTrackId = trackData.id;
+          let currentInstrumentIdx = trackData.instrumentIdx;
+          let currentInst = inst;
+          let currentPatternsList = trackData.patterns;
+          let currentTrackIdx = trackIndex;
+
+          if (isToada) {
+            const pPtn = puxTrack?.patterns.find(p => p.measureAssignments[mIdx]);
+            const cPtn = coroTrack?.patterns.find(p => p.measureAssignments[mIdx]);
+            if (cPtn) {
+              activePattern = cPtn;
+              activeTrack = coroTrack;
+              currentTrackIdx = tracks.findIndex(t => t.id === coroTrack!.id);
+            } else if (pPtn) {
+              activePattern = pPtn;
+              activeTrack = puxTrack;
+              currentTrackIdx = tracks.findIndex(t => t.id === puxTrack!.id);
+            }
+
+            if (activeTrack) {
+              currentTrackId = activeTrack.id;
+              currentInstrumentIdx = activeTrack.instrumentIdx;
+              currentInst = instrumentsConfig[currentInstrumentIdx] || inst;
+            }
+
+            const toadaPatternsList = [];
+            if (puxTrack) toadaPatternsList.push(...puxTrack.patterns);
+            if (coroTrack) toadaPatternsList.push(...coroTrack.patterns);
+            currentPatternsList = toadaPatternsList;
+          } else {
+            activePattern = trackData.patterns.find(p => p.measureAssignments[mIdx]);
+            activeTrack = trackData;
+          }
+
+          const patternIdx = activePattern && activeTrack ? activeTrack.patterns.findIndex((p: any) => p.id === activePattern.id) : -1;
           const steps = activePattern ? activePattern.steps : 16;
 
           // Find if there is a section covering this measure
@@ -243,9 +282,9 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
             <TimelineMeasure
               key={mIdx}
               mIdx={mIdx}
-              trackId={trackData.id}
-              trackIdx={trackIndex}
-              instrumentIdx={trackData.instrumentIdx}
+              trackId={currentTrackId}
+              trackIdx={currentTrackIdx}
+              instrumentIdx={currentInstrumentIdx}
               currentMeasureW={currentMeasureW}
               patternId={activePattern ? activePattern.id : -1}
               patternIdx={patternIdx}
@@ -256,11 +295,11 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               isSectionEnd={isSectionEnd}
               loopStatus={loopStatus}
               isPanningActive={isPanningActive}
-              instId={inst.id}
-              instType={inst.type}
+              instId={currentInst.id}
+              instType={currentInst.type}
               lang={lang}
               activePatternName={activePattern ? activePattern.name : null}
-              patternsList={trackData.patterns}
+              patternsList={currentPatternsList}
               signalDropdownOpen={uiContext.signalDropdownOpen}
               onPatternAssignForMeasure={onPatternAssignForMeasure}
               onPatternVariationToggleForMeasure={onPatternVariationToggleForMeasure}
@@ -268,8 +307,8 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               variationsCount={activePattern?.variationsCount || 0}
               isMacro={isMacro}
               isMinZoom={isMinZoom}
-              instColors={inst.colors}
-              instMixerBg={inst.mixerBg}
+              instColors={currentInst.colors}
+              instMixerBg={currentInst.mixerBg}
               activePatternActiveSteps={activePattern?.activeSteps}
               onGridPointerDown={handleGridPointerDown}
               onMeasureClick={handleMeasureClick}

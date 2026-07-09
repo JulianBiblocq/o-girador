@@ -527,7 +527,7 @@ export default function App() {
   const handleExportTablature = React.useCallback(() => {
     const tracks = useSequencerStore.getState().tracks;
     const validTrackIds = tracks
-      .filter(t => instrumentsConfig[t.instrumentIdx]?.id !== 'apito' && instrumentsConfig[t.instrumentIdx]?.id !== 'voice')
+      .filter(t => instrumentsConfig[t.instrumentIdx]?.id !== 'apito' && instrumentsConfig[t.instrumentIdx]?.type !== 'voice')
       .map(t => t.id);
       
     setSelectedExportTracks(new Set(validTrackIds));

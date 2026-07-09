@@ -105,6 +105,16 @@ export function getStrokesForInstrument(instId: string, instType: string, lang: 
       { symbol: 'B', label: isFr ? 'Tremblement' : 'Barulho', shortcut: 'B', colorKey: 'B' },
     ];
   }
+  else if (instId === 'puxador') {
+    strokes = [
+      { symbol: 'P', label: 'Puxador', shortcut: 'P', colorKey: 'P' },
+    ];
+  }
+  else if (instId === 'coro') {
+    strokes = [
+      { symbol: 'C', label: isFr ? 'Chœur' : 'Coro', shortcut: 'C', colorKey: 'C' },
+    ];
+  }
   else if (instType === 'voice') {
     strokes = [
       { symbol: 'P', label: 'Puxador', shortcut: 'Click top', colorKey: 'P' },

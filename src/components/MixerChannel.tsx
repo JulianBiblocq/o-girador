@@ -4,12 +4,13 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { GripHorizontal, GripVertical, ChevronDown, ChevronRight } from 'lucide-react';
+import { GripHorizontal, GripVertical } from 'lucide-react';
 import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { Pattern, TrackGroup } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
+import { useAudioStore } from '../stores/useAudioStore';
 import { getBusColor, getContrastColor } from '../utils/colorHelpers';
 import { DragNumberBox } from './DragNumberBox';
 import { HorizontalPanFader } from './HorizontalPanFader';
@@ -61,6 +62,8 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
+  const chorusDensity = useAudioStore(state => state.chorusDensity);
+  const setChorusDensity = useAudioStore(state => state.setChorusDensity);
 
 
 
@@ -544,11 +547,9 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                 className="flex items-center gap-2 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-2 py-1.5 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-between font-bold"
               >
                 <div className="flex items-center gap-2 truncate">
-                  {track.isFolded ? (
-                    <ChevronDown className="stroke-[3px] shrink-0" size={14} />
-                  ) : (
-                    <ChevronRight className="stroke-[3px] shrink-0" size={14} />
-                  )}
+                  <span className="text-[10px] flex-shrink-0 font-sans font-bold select-none opacity-80">
+                    {track.isFolded ? '▼' : '▲'}
+                  </span>
                   <span className="font-cactus text-xs truncate">🔗 {index + 1}. {track.customName || 'Bus'}</span>
                 </div>
               </div>
@@ -848,6 +849,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       </div>
 
       {/* Fader & Mute/Solo Section (Bottom) */}
+      {/* Fader & Mute/Solo Section (Bottom) */}
       <div className="relative z-10 p-3 pt-2.5 pb-1 flex flex-col h-[200px] justify-between gap-1.5 w-full">
         {/* Ligne 1 (Panoramique) : HorizontalPanFader tout en haut */}
         <HorizontalPanFader 
@@ -857,8 +859,19 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           lang={lang}
         />
 
+        {currentInst?.id === 'coro' && (
+          <DragNumberBox 
+            label="Coro" 
+            value={Math.round(chorusDensity * 100)} 
+            onChange={(val) => setChorusDensity(val / 100)}
+            onAudioDrag={(val) => setChorusDensity(val / 100)}
+            className="absolute left-3 bottom-[32px] w-[65px] !px-1 text-[8px]"
+          />
+        )}
+
         {/* Zone Inférieure (Mixage) : 3 colonnes horizontales regroupées au centre */}
         <div className="flex justify-center items-center w-full flex-grow gap-5 pt-1.5">
+          {/* Colonne de gauche : Bouton Mute [M] au-dessus de Solo [S] */}
           {/* Colonne de gauche : Bouton Mute [M] au-dessus de Solo [S] */}
           <div className="flex flex-col gap-2 justify-center items-center w-7 shrink-0">
             <button 
@@ -901,6 +914,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           </div>
         </div>
 
+        {/* Ligne 3 (Effets) : Effet Coro si piste Coro, puis Réverb et Distorsion */}
         {/* Ligne 3 (Effets) : Deux DragNumberBox côte à côte tout en bas */}
         <div className="flex gap-2 w-full shrink-0">
           <DragNumberBox 

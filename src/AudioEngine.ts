@@ -70,7 +70,7 @@ export class AudioEngine {
   private bufferPool = new Map<string, ToneType.ToneAudioBuffer>(); // Maps absolute path -> ToneAudioBuffer (Sample Pooling)
   private loadingPromises = new Map<string, Promise<void>>(); // Cache to prevent concurrent duplicate loading tasks
   private lastPlayedIndices = new Map<string, Map<string, number>>(); // Maps instrumentId -> strokeSymbol -> last played index (Round-Robin)
-  private instrumentChannels = new Map<number, any>(); // Maps trackId -> Tone.Channel
+  private instrumentChannels = new Map<string, any>(); // Maps trackId -> Tone.Channel
   private defaultInstrumentChannels = new Map<string, any>(); // Maps instrumentId -> Tone.Channel
   private activeBarulhoNodes = new Map<string, AudioBufferSourceNode>(); // Maps instrumentId -> active looping BufferSource
   private activeBarulhoGains = new Map<string, GainNode>(); // Maps instrumentId -> GainNode of active Barulho
@@ -523,8 +523,9 @@ export class AudioEngine {
    * Register output destination / channel for an instrument ID
    * and initialize its dedicated GainNode pool.
    */
-  public setInstrumentChannel(trackId: number, instrumentId: string, channel: any): void {
-    this.instrumentChannels.set(trackId, channel);
+  public setInstrumentChannel(trackId: number | string, instrumentId: string, channel: any): void {
+    const normalizedId = String(trackId);
+    this.instrumentChannels.set(normalizedId, channel);
     this.defaultInstrumentChannels.set(instrumentId, channel);
     
     if (!this.gainNodePools.has(instrumentId)) {
@@ -572,7 +573,7 @@ export class AudioEngine {
     }
   }
 
-  private getGainNode(trackId: number | null, instrumentId: string): GainNode {
+  private getGainNode(trackId: number | string | null, instrumentId: string): GainNode {
     const Tone = getTone();
     let gainNode: GainNode;
 
@@ -589,7 +590,7 @@ export class AudioEngine {
 
     // Connexion dynamique au canal propre à la piste trackId ou par défaut à l'instrumentId
     const channel = trackId !== null
-      ? this.instrumentChannels.get(trackId)
+      ? this.instrumentChannels.get(String(trackId))
       : this.defaultInstrumentChannels.get(instrumentId);
       
     if (channel) {
@@ -635,16 +636,16 @@ export class AudioEngine {
     velocity: number,
     decayMultiplier: number
   ): void {
-    let trackId: number | null = null;
+    let trackId: number | string | null = null;
     let instrumentId = '';
     
-    if (typeof trackIdOrInstrumentId === 'number') {
-      trackId = trackIdOrInstrumentId;
-      const track = useSequencerStore.getState().tracks.find(t => t.id === trackId);
-      if (!track) return;
+    // Find the track dynamically (handles string vs number IDs robustly)
+    const track = useSequencerStore.getState().tracks.find(t => String(t.id) === String(trackIdOrInstrumentId));
+    if (track) {
+      trackId = track.id;
       instrumentId = instrumentsConfig[track.instrumentIdx].id;
     } else {
-      instrumentId = trackIdOrInstrumentId;
+      instrumentId = String(trackIdOrInstrumentId);
     }
 
     // 1. Find the configuration for this instrument — O(1) Map lookup instead of O(n) Array.find()

@@ -31,6 +31,8 @@ function buildFlatSongSchedule(
     const maxTicks = beats * (96 / beatUnit);
 
     tracks.forEach((track: any, trackIdx: number) => {
+      if (track.isBusFolder) return;
+
       const inst = instConfig[track.instrumentIdx];
       if (!inst || inst.type === 'voice') return;
 

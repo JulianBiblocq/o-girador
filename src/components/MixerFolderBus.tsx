@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import { GripHorizontal, Trash2, Edit2, ChevronDown, ChevronRight } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { GripHorizontal, Trash2, Edit2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useAudioStore } from '../stores/useAudioStore';
 import { getBusColor, getContrastColor } from '../utils/colorHelpers';
 import { DragNumberBox } from './DragNumberBox';
 import { HorizontalPanFader } from './HorizontalPanFader';
@@ -47,6 +48,69 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
 
   const [liveMeasure, setLiveMeasure] = useState<number>(-1);
   const lastMeasureRef = useRef<number>(-1);
+
+  const isToada = track?.customName === 'Toada' || String(track?.id) === 'toada';
+
+  const activeChildTrack = useMemo(() => {
+    if (!isToada) return null;
+    const pux = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+    const coro = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+    
+    const globalSelectedId = useAudioStore.getState().selectedVocalPatternId;
+    if (globalSelectedId) {
+      if (pux && pux.patterns.some(p => p.id === globalSelectedId)) return pux;
+      if (coro && coro.patterns.some(p => p.id === globalSelectedId)) return coro;
+    }
+    
+    const measure = liveMeasure >= 0 ? liveMeasure : useSequencerStore.getState().currentMeasure;
+    const coroPtn = coro?.patterns.find(p => p.measureAssignments[measure]);
+    if (coroPtn) return coro;
+    
+    const puxPtn = pux?.patterns.find(p => p.measureAssignments[measure]);
+    if (puxPtn) return pux;
+    
+    return coro || pux || null;
+  }, [isToada, tracks, liveMeasure]);
+
+  const effectiveTrack = isToada ? (activeChildTrack || track) : track;
+
+  const effectiveLiveActivePatternId = useMemo(() => {
+    if (!effectiveTrack) return null;
+    if (isPlaying && liveMeasure >= 0) {
+      const assignedPattern = effectiveTrack.patterns?.find(p => p?.measureAssignments?.[liveMeasure]);
+      return assignedPattern ? assignedPattern.id : null;
+    }
+    return effectiveTrack.selectedPatternId;
+  }, [effectiveTrack, isPlaying, liveMeasure]);
+
+  const effectiveActivePattern = useMemo(() => {
+    if (!effectiveTrack) return null;
+    return effectiveTrack.patterns?.find(p => p.id === effectiveLiveActivePatternId) || effectiveTrack.patterns?.[0];
+  }, [effectiveTrack, effectiveLiveActivePatternId]);
+
+  const toadaLyrics = useMemo(() => {
+    if (!isToada) return null;
+    const pux = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+    const coro = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+    const measure = liveMeasure >= 0 ? liveMeasure : useSequencerStore.getState().currentMeasure;
+
+    const getPtnText = (trackObj: TrackGroup | undefined) => {
+      if (!trackObj) return '';
+      const ptn = trackObj.patterns?.find(p => p?.measureAssignments?.[measure]) || trackObj.patterns?.[0];
+      if (!ptn || !ptn.lyrics) return '';
+      return ptn.lyrics.filter(l => l && l.trim() !== '').join(' ');
+    };
+
+    const puxText = getPtnText(pux);
+    const coroText = getPtnText(coro);
+
+    return {
+      puxText: puxText || '...',
+      coroText: coroText || '...',
+      puxColor: '#eaddcf',
+      coroColor: '#b3dcd8',
+    };
+  }, [isToada, tracks, liveMeasure]);
 
   useEffect(() => {
     if (!isActive) {
@@ -273,15 +337,13 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             <div 
               onClick={onToggleFold}
               onDoubleClick={() => setIsEditing(true)}
-              className="flex items-center gap-2 bg-[#eaddcf] text-[#1a1a1a] cordel-border-sm px-2 py-1.5 cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors w-full justify-between font-bold"
+              className="flex items-center gap-2 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-2 py-1.5 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-between font-bold"
               title={lang === 'fr' ? 'Double-cliquer pour renommer / Cliquer pour plier' : 'Clique duplo para renomear / Clique para dobrar'}
             >
               <div className="flex items-center gap-2 truncate">
-                {track.isFolded ? (
-                  <ChevronDown className="stroke-[3px] shrink-0" size={14} />
-                ) : (
-                  <ChevronRight className="stroke-[3px] shrink-0" size={14} />
-                )}
+                <span className="text-[10px] flex-shrink-0 font-sans font-bold select-none opacity-80">
+                  {track.isFolded ? '▼' : '▲'}
+                </span>
                 <div className="flex items-center gap-1.5 truncate">
                   <img 
                     src={`${ASSETS_BASE_URL}icones/bus.svg`} 
@@ -297,8 +359,40 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
       </div>
 
       {/* Zone centrale de hauteur identique à la grille pattern montrant les pistes enfants */}
-      <div className="relative z-10 flex-1 p-3 flex flex-col border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-text)]/5 justify-start items-center">
-        {childTracks.length === 0 ? (
+      <div className="relative z-10 flex-1 p-3 flex flex-col border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-text)]/5 justify-start items-center w-full">
+        {isToada && toadaLyrics ? (
+          <div className="flex flex-col w-full h-full justify-start gap-2 py-1 px-0.5 min-h-[220px]">
+            <div className="flex items-center justify-between text-[9px] uppercase font-bold tracking-wider opacity-60 border-b border-[var(--cordel-border)]/15 pb-1 select-none">
+              <span>{lang === 'fr' ? 'Pistes du Groupe' : 'Pistas do Grupo'}</span>
+              <span>🔗 {childTracks.length}</span>
+            </div>
+            
+            <div className="flex flex-col gap-2 overflow-y-auto max-h-[210px] w-full mt-2 font-cactus text-[11px] leading-[1.3] text-left">
+              {/* Puxador lyrics */}
+              <div className="flex flex-col gap-1 p-2 rounded bg-[var(--cordel-bg)] border border-[var(--cordel-border)]/15 shadow-[1px_1px_0px_rgba(26,26,26,0.05)]">
+                <span className="text-[8px] uppercase tracking-wider font-sans font-extrabold opacity-60" style={{ color: toadaLyrics.puxColor }}>
+                  Puxador
+                </span>
+                <p className="font-cactus font-bold truncate-2-lines" style={{ color: toadaLyrics.puxColor }}>
+                  {toadaLyrics.puxText}
+                </p>
+              </div>
+
+              {/* Separateur */}
+              <div className="border-t border-dashed border-[var(--cordel-border)]/20 my-1 w-full" />
+
+              {/* Coro lyrics */}
+              <div className="flex flex-col gap-1 p-2 rounded bg-[var(--cordel-bg)] border border-[var(--cordel-border)]/15 shadow-[1px_1px_0px_rgba(26,26,26,0.05)]">
+                <span className="text-[8px] uppercase tracking-wider font-sans font-extrabold opacity-60" style={{ color: toadaLyrics.coroColor }}>
+                  Coro
+                </span>
+                <p className="font-cactus font-bold truncate-2-lines" style={{ color: toadaLyrics.coroColor }}>
+                  {toadaLyrics.coroText}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : childTracks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-6 px-4 text-center min-h-[220px]">
             <span className="text-[10px] uppercase font-bold tracking-wider opacity-60">AUDIO BUS / GROUP</span>
             <div className="flex items-center gap-1.5 mt-2 bg-[var(--cordel-bg)] border border-[var(--cordel-border)]/30 px-3 py-1.5 rounded-none font-bold text-xs">
@@ -364,8 +458,23 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
       </div>
 
       {/* Visual Only Timeline alternative (Hauteur identique fixe) */}
-      <div className="h-[48px] bg-[var(--cordel-bg)] border-b-[3px] border-[var(--cordel-border)] shrink-0 flex items-center justify-center font-bold text-[9px] uppercase tracking-widest opacity-40">
-        CANAL DE BUS
+      <div className="h-[48px] bg-[var(--cordel-bg)] border-b-[3px] border-[var(--cordel-border)] shrink-0 flex items-center justify-center z-10">
+        {isToada && effectiveActivePattern ? (
+          <div className="px-4 py-2 w-full h-full flex items-center justify-center">
+            <VisualOnlyTimeline
+              trackId={effectiveTrack.id}
+              steps={effectiveActivePattern.steps}
+              activeSteps={effectiveLiveActivePatternId === null ? Array(effectiveActivePattern.steps).fill(0) : (effectiveActivePattern.activeSteps || [])}
+              instrumentIdx={effectiveTrack.instrumentIdx}
+              isPlaying={isPlaying && effectiveLiveActivePatternId !== null}
+              isLeftHanded={isLeftHanded}
+            />
+          </div>
+        ) : (
+          <div className="font-bold text-[9px] uppercase tracking-widest opacity-40 select-none">
+            CANAL DE BUS
+          </div>
+        )}
       </div>
 
       {/* Fader & Mute/Solo Section (Bottom) */}
@@ -381,6 +490,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
           value={track.panVal || 0} 
           onChange={onPanChange}
           className="w-full shrink-0 h-4"
+          lang={lang}
         />
 
         {/* Zone Inférieure (Mixage) : 3 colonnes horizontales regroupées au centre */}

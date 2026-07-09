@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import type * as ToneType from 'tone';
 import { loadTone, getTone } from '@/src/ToneLoader';
 
@@ -9,12 +9,13 @@ import { Eye, EyeOff, GripVertical } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TrackGroup, Language, Pattern } from '../types';
-import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol } from '../data';
+import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol, NEWTON_NOTE_COLORS } from '../data';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, isToadaBus } from '../stores/useSequencerStore';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
+import { useAudioStore } from '../stores/useAudioStore';
 
 const getGlobalClipboard = () => {
   if (typeof window !== 'undefined') {
@@ -51,6 +52,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   isActive = true,
 }) => {
   const sequencer = useSequencer();
+  const [focusedVoiceNoteStep, setFocusedVoiceNoteStep] = useState<number | null>(null);
   const audio = useAudio();
 
   const lang = useSequencerStore(state => state.lang);
@@ -68,22 +70,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const { activeVariationsRef, copiedPattern, handleCopyPattern, handlePastePattern, timeSig } = sequencer;
 
   const canPaste = !!copiedPattern;
-  const inst = track ? instrumentsConfig[track.instrumentIdx] : null;
 
-  const slaves = tracks.filter(t => String(t.linkedToTrackId) === String(trackId));
-  const getPluralName = (name: string) => {
-    if (name.includes('Alfaia')) return 'Alfaias';
-    if (name === 'Caixa') return 'Caixas';
-    if (name === 'Tarol') return 'Tarols';
-    if (name === 'Agbê') return 'Agbês';
-    if (name === 'Mineiro') return 'Mineiros';
-    if (name === 'Gonguê') return 'Gonguês';
-    return name + 's';
-  };
-  const linkedSlavesTooltip = isMaster && inst
-    ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${inst.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
-    : undefined;
-  const displayName = inst ? (isMaster ? `🔗 ${getPluralName(inst.name)}` : inst.name) : 'Instrument';
+
 
   // Local Actions mapped directly to Zustand and Context
   const onInstrumentChange = (instIdx: number) => {
@@ -108,69 +96,69 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     useSequencerStore.getState().handleTrackPanChange(trackId, val);
   };
   const onStepsChange = (patternId: number, steps: number) => {
-    useSequencerStore.getState().handleTrackStepsChange(trackId, patternId, steps);
+    useSequencerStore.getState().handleTrackStepsChange(effectiveTrack.id, patternId, steps);
   };
   const onStepValueChange = (patternId: number, stepIdx: number | number[], val: string | string[], lyrics?: string[], notes?: string[]) => {
-    sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, val, lyrics, notes);
+    sequencer.handleTrackStepValueChange(effectiveTrack.id, patternId, stepIdx, val, lyrics, notes);
   };
   const onStepKeyDown = (patternId: number, stepIdx: number, key: string, currentVal: string, targetEl: HTMLInputElement) => {
-    sequencer.handleTrackStepKeyDown(trackId, patternId, stepIdx, key, currentVal, targetEl);
+    sequencer.handleTrackStepKeyDown(effectiveTrack.id, patternId, stepIdx, key, currentVal, targetEl);
   };
   const onVoiceTypeToggle = (patternId: number, stepIdx: number) => {
-    sequencer.handleVoiceTypeToggle(trackId, patternId, stepIdx);
+    sequencer.handleVoiceTypeToggle(effectiveTrack.id, patternId, stepIdx);
   };
   const onVoiceSylChange = (patternId: number, stepIdx: number, val: string) => {
-    sequencer.handleVoiceSylChange(trackId, patternId, stepIdx, val);
+    sequencer.handleVoiceSylChange(effectiveTrack.id, patternId, stepIdx, val);
   };
   const onVoiceNoteChange = (patternId: number, stepIdx: number, val: string) => {
-    sequencer.handleVoiceNoteChange(trackId, patternId, stepIdx, val);
+    sequencer.handleVoiceNoteChange(effectiveTrack.id, patternId, stepIdx, val);
   };
   const onVoiceNoteBlur = (patternId: number, stepIdx: number, val: string) => {
-    sequencer.handleVoiceNoteBlur(trackId, patternId, stepIdx, val);
+    sequencer.handleVoiceNoteBlur(effectiveTrack.id, patternId, stepIdx, val);
   };
   const onPatternNameChange = (patternId: number, name: string) => {
-    sequencer.handlePatternNameChange(trackId, patternId, name);
+    sequencer.handlePatternNameChange(effectiveTrack.id, patternId, name);
   };
   const onAddPatternVariation = (patternId: number) => {
-    sequencer.handleAddPatternVariation && sequencer.handleAddPatternVariation(trackId, patternId);
+    sequencer.handleAddPatternVariation && sequencer.handleAddPatternVariation(effectiveTrack.id, patternId);
   };
   const onUpdatePatternVariationProbability = (patternId: number, variationId: string, probability: number) => {
-    sequencer.handleUpdatePatternVariationProbability && sequencer.handleUpdatePatternVariationProbability(trackId, patternId, variationId, probability);
+    sequencer.handleUpdatePatternVariationProbability && sequencer.handleUpdatePatternVariationProbability(effectiveTrack.id, patternId, variationId, probability);
   };
   const onTogglePatternVariationFirstTimeOnly = (patternId: number, variationId: string, val: boolean) => {
-    sequencer.handleTogglePatternVariationFirstTimeOnly && sequencer.handleTogglePatternVariationFirstTimeOnly(trackId, patternId, variationId, val);
+    sequencer.handleTogglePatternVariationFirstTimeOnly && sequencer.handleTogglePatternVariationFirstTimeOnly(effectiveTrack.id, patternId, variationId, val);
   };
   const onVariationStepValueChange = (patternId: number, variationId: string, stepIdx: number | number[], val: string | string[]) => {
-    sequencer.handleVariationStepValueChange && sequencer.handleVariationStepValueChange(trackId, patternId, variationId, stepIdx, val);
+    sequencer.handleVariationStepValueChange && sequencer.handleVariationStepValueChange(effectiveTrack.id, patternId, variationId, stepIdx, val);
   };
   const onDeletePatternVariation = (patternId: number, variationId: string) => {
-    sequencer.handleDeletePatternVariation && sequencer.handleDeletePatternVariation(trackId, patternId, variationId);
+    sequencer.handleDeletePatternVariation && sequencer.handleDeletePatternVariation(effectiveTrack.id, patternId, variationId);
   };
   const onStepVolumeChange = (patternId: number, stepIdx: number | number[], val: number) => {
-    useSequencerStore.getState().handleTrackStepVolumeChange(trackId, patternId, stepIdx, val);
+    useSequencerStore.getState().handleTrackStepVolumeChange(effectiveTrack.id, patternId, stepIdx, val);
   };
   const onStepDecayChange = (patternId: number, stepIdx: number | number[], val: number) => {
-    sequencer.handleTrackStepDecayChange && sequencer.handleTrackStepDecayChange(trackId, patternId, stepIdx, val);
+    sequencer.handleTrackStepDecayChange && sequencer.handleTrackStepDecayChange(effectiveTrack.id, patternId, stepIdx, val);
   };
   const onStepMicrotimingChange = (patternId: number, stepIdx: number | number[], val: number) => {
-    sequencer.handleTrackStepMicrotimingChange && sequencer.handleTrackStepMicrotimingChange(trackId, patternId, stepIdx, val);
+    sequencer.handleTrackStepMicrotimingChange && sequencer.handleTrackStepMicrotimingChange(effectiveTrack.id, patternId, stepIdx, val);
   };
   const onVariationStepVolumeChange = (patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
-    sequencer.handleVariationStepVolumeChange && sequencer.handleVariationStepVolumeChange(trackId, patternId, variationId, stepIdx, val);
+    sequencer.handleVariationStepVolumeChange && sequencer.handleVariationStepVolumeChange(effectiveTrack.id, patternId, variationId, stepIdx, val);
   };
   const onVariationStepDecayChange = (patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
-    sequencer.handleVariationStepDecayChange && sequencer.handleVariationStepDecayChange(trackId, patternId, variationId, stepIdx, val);
+    sequencer.handleVariationStepDecayChange && sequencer.handleVariationStepDecayChange(effectiveTrack.id, patternId, variationId, stepIdx, val);
   };
   const onVariationStepMicrotimingChange = (patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
-    sequencer.handleVariationStepMicrotimingChange && sequencer.handleVariationStepMicrotimingChange(trackId, patternId, variationId, stepIdx, val);
+    sequencer.handleVariationStepMicrotimingChange && sequencer.handleVariationStepMicrotimingChange(effectiveTrack.id, patternId, variationId, stepIdx, val);
   };
   const onSelectPattern = (patternId: number) => {
-    useSequencerStore.getState().setTracks(prev => prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t));
+    useSequencerStore.getState().setTracks(prev => prev.map(t => t.id === effectiveTrack.id ? { ...t, selectedPatternId: patternId } : t));
   };
   const onPatternAssign = (patternId: number, measureIdx: number, val: boolean) => {
     sequencer.pushUndoState();
     useSequencerStore.getState().setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
+      if (t.id === effectiveTrack.id) {
         const nextPatterns = t.patterns.map(p => {
           if (p.id === patternId) {
             const assign = [...p.measureAssignments];
@@ -187,7 +175,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const onAddPattern = () => {
     sequencer.pushUndoState();
     useSequencerStore.getState().setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
+      if (t.id === effectiveTrack.id) {
         const p = t.patterns[0];
         const newPattern: Pattern = {
           id: Date.now() + Math.floor(Math.random() * 1000),
@@ -210,7 +198,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const onDeletePattern = (patternId: number) => {
     sequencer.pushUndoState();
     useSequencerStore.getState().setTracks(prev => prev.map(t => {
-      if (t.id === trackId && t.patterns.length > 1) {
+      if (t.id === effectiveTrack.id && t.patterns.length > 1) {
         const nextPatterns = t.patterns.filter(p => p.id !== patternId);
         const nextSelected = t.selectedPatternId === patternId ? nextPatterns[0].id : t.selectedPatternId;
         return { ...t, patterns: nextPatterns, selectedPatternId: nextSelected };
@@ -225,7 +213,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     }
   };
   const onPastePattern = (patternId: number) => {
-    sequencer.handlePastePattern(trackId, patternId);
+    sequencer.handlePastePattern(effectiveTrack.id, patternId);
   };
   const onReorderPatternsDnd = (oldIdx: number, newIdx: number) => {
     sequencer.handleReorderPatternsDnd && sequencer.handleReorderPatternsDnd(trackId, oldIdx, newIdx);
@@ -264,6 +252,49 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const [hasClipboard, setHasClipboard] = useState(false);
   const wasSelectedRef = useRef(false);
 
+  const isToada = track ? isToadaBus(track) : false;
+
+  const activeChildTrack = useMemo(() => {
+    if (!isToada) return null;
+    const pux = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+    const coro = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+    
+    const globalSelectedId = useAudioStore.getState().selectedVocalPatternId;
+    if (globalSelectedId) {
+      if (pux && pux.patterns.some(p => p.id === globalSelectedId)) return pux;
+      if (coro && coro.patterns.some(p => p.id === globalSelectedId)) return coro;
+    }
+    
+    const measure = liveMeasure >= 0 ? liveMeasure : useSequencerStore.getState().currentMeasure;
+    const coroPtn = coro?.patterns.find(p => p.measureAssignments[measure]);
+    if (coroPtn) return coro;
+    
+    const puxPtn = pux?.patterns.find(p => p.measureAssignments[measure]);
+    if (puxPtn) return pux;
+    
+    return coro || pux || null;
+  }, [isToada, tracks, liveMeasure]);
+
+  const effectiveTrack = isToada ? (activeChildTrack || track) : track;
+  const inst = effectiveTrack ? instrumentsConfig[effectiveTrack.instrumentIdx] : null;
+
+  const slaves = tracks.filter(t => String(t.linkedToTrackId) === String(trackId));
+  const getPluralName = (name: string) => {
+    if (name.includes('Alfaia')) return 'Alfaias';
+    if (name === 'Caixa') return 'Caixas';
+    if (name === 'Tarol') return 'Tarols';
+    if (name === 'Agbê') return 'Agbês';
+    if (name === 'Mineiro') return 'Mineiros';
+    if (name === 'Gonguê') return 'Gonguês';
+    return name + 's';
+  };
+  const linkedSlavesTooltip = isMaster && inst
+    ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${inst.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
+    : undefined;
+  const displayName = isToada
+    ? 'Toada'
+    : (inst ? (isMaster ? `🔗 ${getPluralName(inst.name)}` : inst.name) : 'Instrument');
+
   const isAoVivo = track ? activeAoVivoTrackId === track.id : false;
   const toggleAoVivo = () => {
     if (!track) return;
@@ -275,19 +306,19 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   };
 
   const liveActivePatternId = (() => {
-    if (!track) return '';
+    if (!effectiveTrack) return '';
     if (liveMeasure >= 0) {
       if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
-        const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
+        const hasSoloPattern = effectiveTrack.patterns.some(p => p.id === soloPatternPlayId);
         if (hasSoloPattern) return soloPatternPlayId;
       }
-      const assignedPattern = track.patterns.find(p => p.measureAssignments[liveMeasure]);
-      return assignedPattern ? assignedPattern.id : track.selectedPatternId;
+      const assignedPattern = effectiveTrack.patterns.find(p => p.measureAssignments[liveMeasure]);
+      return assignedPattern ? assignedPattern.id : effectiveTrack.selectedPatternId;
     }
-    return track.selectedPatternId;
+    return effectiveTrack.selectedPatternId;
   })();
 
-  const activePattern = track ? track.patterns.find(p => p.id === liveActivePatternId) || track.patterns[0] : null;
+  const activePattern = effectiveTrack ? effectiveTrack.patterns.find(p => p.id === liveActivePatternId) || effectiveTrack.patterns[0] : null;
 
   const activateElement = (el: HTMLElement) => {
     const type = el.getAttribute('data-step-type');
@@ -381,6 +412,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
   useEffect(() => {
     const handleGlobalMouseUp = (e: MouseEvent) => {
+      if (!activePattern || !inst) return;
       if (isMultiSelectActive && isSelectingRef.current) {
         isSelectingRef.current = false;
         if (!hasDraggedRef.current && initialTouchIndexRef.current !== null) {
@@ -401,10 +433,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     };
     window.addEventListener('mouseup', handleGlobalMouseUp);
     return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, [isMultiSelectActive, selectedStepIndices, activePattern.id, activePattern.activeSteps, inst.id, onStepTouchStart, onStepValueChange]);
+  }, [isMultiSelectActive, selectedStepIndices, activePattern?.id, activePattern?.activeSteps, inst?.id, onStepTouchStart, onStepValueChange]);
 
   useEffect(() => {
-    if (!isMultiSelectActive || selectedStepIndices.length === 0) return;
+    if (!isMultiSelectActive || selectedStepIndices.length === 0 || !activePattern) return;
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((window as any).oGiradorDetailEditorOpen) return;
@@ -434,7 +466,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isMultiSelectActive, selectedStepIndices, activePattern.id, onStepValueChange]);
+  }, [isMultiSelectActive, selectedStepIndices, activePattern?.id, onStepValueChange]);
 
   // Listen to CustomEvent 'o-girador-tick' to highlight step cells dynamically (Bypass React)
   useEffect(() => {
@@ -537,7 +569,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
   // Post-render highlight to prevent visual flicker during pattern transitions
   useEffect(() => {
-    if (lastRatioRef.current >= 0) {
+    if (lastRatioRef.current >= 0 && activePattern) {
       const stepsCount = activePattern.steps;
       const targetStep = Math.floor(lastRatioRef.current * stepsCount);
       const activeStepElements = cellRefs.current.get(targetStep) || [];
@@ -545,11 +577,11 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         activateElement(el as HTMLElement);
       });
     }
-  }, [activePattern.id, track.id]);
+  }, [activePattern?.id, track?.id]);
 
   // Synchronize the visually active pattern selection index in parent state during playback
   useEffect(() => {
-    if (isPlaying && liveMeasure >= 0) {
+    if (isPlaying && liveMeasure >= 0 && track) {
       const livePattern = (() => {
         if (soloPatternPlayId !== undefined && soloPatternPlayId !== null) {
           const hasSoloPattern = track.patterns.some(p => p.id === soloPatternPlayId);
@@ -564,7 +596,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         onSelectPattern(livePattern.id);
       }
     }
-  }, [liveMeasure, isPlaying, track.patterns, track.selectedPatternId, soloPatternPlayId, onSelectPattern]);
+  }, [liveMeasure, isPlaying, track?.patterns, track?.selectedPatternId, soloPatternPlayId, onSelectPattern]);
 
   const handleVoiceNav = (el: HTMLInputElement, key: string, type: 'syl' | 'note') => {
     if (key === 'Tab') return;
@@ -736,7 +768,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     setNodeRef,
     transform,
     transition,
-  } = useSortable({ id: `track-${track.id}` });
+  } = useSortable({ id: track ? `track-${track.id}` : 'track-temp' });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -800,13 +832,26 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               <span className="text-[8px] flex-shrink-0">▼</span>
             </button>
 
-            {onOpenDetailEditor && (
+            {onOpenDetailEditor && !track.isBusFolder && (
               <button
                 onClick={onOpenDetailEditorClick}
                 className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
                 title={lang === 'pt' ? 'Editor detalhado' : 'Éditeur détaillé'}
               >
                 ✏️
+              </button>
+            )}
+
+            {track.isBusFolder && !isToada && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  useSequencerStore.getState().handleToggleFoldBus(String(track.id));
+                }}
+                className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-xs"
+                title={track.isFolded ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar')}
+              >
+                {track.isFolded ? '▼' : '▲'}
               </button>
             )}
 
@@ -867,9 +912,9 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               className={`w-6 h-6 cordel-border-sm cordel-button font-bold cursor-pointer transition-all flex items-center justify-center ${
                 isAoVivo ? 'bg-[#27ae60] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
               }`}
-              title={inst.id === 'voice' ? (lang === 'fr' ? 'Karaoké (Live)' : 'Karaokê (Ao Vivo)') : "Ao Vivo (Live POV)"}
+              title={inst.type === 'voice' ? (lang === 'fr' ? 'Karaoké (Live)' : 'Karaokê (Ao Vivo)') : "Ao Vivo (Live POV)"}
             >
-              {inst.id === 'voice' ? (
+              {inst.type === 'voice' ? (
                 <span className="text-xs leading-none">🎤</span>
               ) : (
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
@@ -906,7 +951,11 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
 
       <div className="flex gap-2 items-start relative z-[2] w-full">
-        {!isCollapsed && (() => {
+        {!isCollapsed && (track.isBusFolder && !isToada ? (
+          <div className="w-full flex-grow py-3.5 px-4 border border-[var(--cordel-border)]/20 rounded bg-[var(--cordel-bg)]/40 text-[var(--cordel-text)]/70 font-cactus text-sm font-bold tracking-wider text-center uppercase select-none animate-fade-in">
+            🎚️ {track.customName || 'Bus'} Master
+          </div>
+        ) : (() => {
           const activePlayingSteps = activePattern.activeSteps;
           return isTouchDevice || window.innerWidth <= 1024 ? (
           /* ── MOBILE TOUCH LAYOUT: Grid 8 per line with grouping and multi-select ── */
@@ -925,27 +974,28 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                   }
 
                   const state = activePlayingSteps[i];
-                  const isActive = state !== 0;
+                  const isActive = state !== 0 && state !== '';
                   const isPux = state === 'P';
+                  const voiceInst = instrumentsConfig.find(c => c.id === (isPux ? 'puxador' : 'coro')) || { color: '#f4ecd8' };
+                  const cardBg = isActive ? voiceInst.color : 'transparent';
                   const syl = activePattern.lyrics?.[i] || '';
                   const note = activePattern.notes?.[i] || '';
 
-                  const typeText = isActive ? (isPux ? 'PUX' : 'CORO') : '---';
-                  const typeClass = isActive ? '' : 'bg-transparent text-[#666] cursor-default';
-                  const typeStyle = isActive ? { backgroundColor: isPux ? inst.colors['P'] : inst.colors['C'], color: '#1a1a1a' } : {};
-
                   const isSelected = selectedStepIndices.includes(i);
+                  const noteLetter = note ? note.charAt(0).toUpperCase() : '';
+                  const noteColor = noteLetter ? (NEWTON_NOTE_COLORS[noteLetter] || '#1a1a1a') : '#1a1a1a';
 
                   acc.push(
                     <div
                       key={i}
-                      className={`v-card flex flex-col w-full bg-[#f4ecd8] cordel-border-sm overflow-hidden ${
+                      className={`v-card flex flex-col w-full cordel-border-sm overflow-hidden ${
                         currentStep === i 
                           ? 'border-[#8b2a1a]' 
                           : isSelected
                             ? 'border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f]'
                             : 'border-[#1a1a1a]'
                       }`}
+                      style={{ backgroundColor: cardBg }}
                       data-track-id={track.id}
                       data-step-index={i}
                       ref={(el) => registerCellRef(i, el)}
@@ -956,25 +1006,13 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                         }
                       }}
                     >
-                      <div
-                        onClick={() => {
-                          if (!isMultiSelectActive) {
-                            onVoiceTypeToggle(activePattern.id, i);
-                          }
-                        }}
-                        className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`}
-                        style={typeStyle}
-                      >
-                        {typeText}
-                      </div>
-                      
                       <input
                         type="text"
                         value={syl}
                         readOnly={isMultiSelectActive}
                         onChange={(e) => onVoiceSylChange(activePattern.id, i, e.target.value)}
                         placeholder="-"
-                        className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-[#1a1a1a] focus:outline-none"
+                        className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-black focus:outline-none"
                         onKeyDown={(e) => {
                           if (e.key === 'Tab') {
                             e.preventDefault();
@@ -985,23 +1023,43 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                         }}
                       />
 
-                      <input
-                        type="text"
-                        value={note}
-                        readOnly={isMultiSelectActive}
-                        onChange={(e) => onVoiceNoteChange(activePattern.id, i, e.target.value)}
-                        onBlur={(e) => onVoiceNoteBlur(activePattern.id, i, e.target.value)}
-                        placeholder="Ex:C4"
-                        className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase focus:outline-none"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Tab') {
-                            e.preventDefault();
-                            handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
-                          } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
-                            handleVoiceNav(e.target as HTMLInputElement, e.key, 'note');
-                          }
-                        }}
-                      />
+                      <div className="relative w-full h-[24px] flex items-center justify-center cursor-pointer hover:bg-black/5">
+                        <input
+                          type="text"
+                          value={note}
+                          readOnly={isMultiSelectActive}
+                          onChange={(e) => onVoiceNoteChange(activePattern.id, i, e.target.value)}
+                          onBlur={(e) => {
+                            onVoiceNoteBlur(activePattern.id, i, e.target.value);
+                            setFocusedVoiceNoteStep(null);
+                          }}
+                          placeholder="Ex:C4"
+                          className={`v-note w-full h-full text-center text-[10px] py-1 bg-transparent border-0 uppercase outline-none transition-opacity ${
+                            focusedVoiceNoteStep === i ? 'opacity-100 z-10 text-black font-bold' : 'opacity-0 z-0'
+                          }`}
+                          onFocus={(e) => {
+                            if (!isMultiSelectActive) {
+                              setFocusedVoiceNoteStep(i);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Tab') {
+                              e.preventDefault();
+                              handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
+                            } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
+                              handleVoiceNav(e.target as HTMLInputElement, e.key, 'note');
+                            }
+                          }}
+                        />
+                        {focusedVoiceNoteStep !== i && (
+                          <span 
+                            className="absolute inset-0 flex items-center justify-center text-xs font-black tracking-wide pointer-events-none"
+                            style={{ color: noteColor, textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}
+                          >
+                            {noteLetter || '-'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   );
                   return acc;
@@ -1095,34 +1153,35 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
           <div className="flex flex-col gap-2 w-full select-none">
             {inst.type === 'voice' ? (
               <div 
-                className="grid grid-cols-4 gap-1.5 w-full flex-grow step-boxes" 
+                className="grid grid-cols-8 gap-1.5 w-full flex-grow step-boxes animate-fade-in" 
                 id={`voice-boxes-${track.id}`}
                 onTouchMove={handleGridTouchMove}
                 onTouchEnd={handleGridTouchEnd}
               >
                 {Array.from({ length: activePattern.steps }).map((_, i) => {
                   const state = activePlayingSteps[i];
-                  const isActive = state !== 0;
+                  const isActive = state !== 0 && state !== '';
                   const isPux = state === 'P';
+                  const voiceInst = instrumentsConfig.find(c => c.id === (isPux ? 'puxador' : 'coro')) || { color: '#f4ecd8' };
+                  const cardBg = isActive ? voiceInst.color : 'transparent';
                   const syl = activePattern.lyrics?.[i] || '';
                   const note = activePattern.notes?.[i] || '';
 
-                  const typeText = isActive ? (isPux ? 'PUX' : 'CORO') : '---';
-                  const typeClass = isActive ? '' : 'bg-transparent text-[#666] cursor-default';
-                  const typeStyle = isActive ? { backgroundColor: isPux ? inst.colors['P'] : inst.colors['C'], color: '#1a1a1a' } : {};
-
                   const isSelected = selectedStepIndices.includes(i);
+                  const noteLetter = note ? note.charAt(0).toUpperCase() : '';
+                  const noteColor = noteLetter ? (NEWTON_NOTE_COLORS[noteLetter] || '#1a1a1a') : '#1a1a1a';
 
                   return (
                     <div
                       key={i}
-                      className={`v-card flex flex-col w-12 bg-[#f4ecd8] cordel-border-sm overflow-hidden ${
+                      className={`v-card flex flex-col w-full cordel-border-sm overflow-hidden ${
                         currentStep === i 
                           ? 'border-[#8b2a1a]' 
                           : isSelected
                             ? 'border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f]'
                             : 'border-[#1a1a1a]'
                       }`}
+                      style={{ backgroundColor: cardBg }}
                       data-track-id={track.id}
                       data-step-index={i}
                       ref={(el) => registerCellRef(i, el)}
@@ -1143,25 +1202,13 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                         }
                       }}
                     >
-                      <div
-                        onClick={() => {
-                          if (!isMultiSelectActive) {
-                            onVoiceTypeToggle(activePattern.id, i);
-                          }
-                        }}
-                        className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`}
-                        style={typeStyle}
-                      >
-                        {typeText}
-                      </div>
-                      
                       <input
                         type="text"
                         value={syl}
                         readOnly={isMultiSelectActive}
                         onChange={(e) => onVoiceSylChange(activePattern.id, i, e.target.value)}
                         placeholder="-"
-                        className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-[#1a1a1a] focus:outline-none"
+                        className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-black focus:outline-none"
                         onKeyDown={(e) => {
                           if (e.key === 'Tab') {
                             e.preventDefault();
@@ -1172,23 +1219,43 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                         }}
                       />
 
-                      <input
-                        type="text"
-                        value={note}
-                        readOnly={isMultiSelectActive}
-                        onChange={(e) => onVoiceNoteChange(activePattern.id, i, e.target.value)}
-                        onBlur={(e) => onVoiceNoteBlur(activePattern.id, i, e.target.value)}
-                        placeholder="Ex:C4"
-                        className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase focus:outline-none"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Tab') {
-                            e.preventDefault();
-                            handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
-                          } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
-                            handleVoiceNav(e.target as HTMLInputElement, e.key, 'note');
-                          }
-                        }}
-                      />
+                      <div className="relative w-full h-[24px] flex items-center justify-center cursor-pointer hover:bg-black/5">
+                        <input
+                          type="text"
+                          value={note}
+                          readOnly={isMultiSelectActive}
+                          onChange={(e) => onVoiceNoteChange(activePattern.id, i, e.target.value)}
+                          onBlur={(e) => {
+                            onVoiceNoteBlur(activePattern.id, i, e.target.value);
+                            setFocusedVoiceNoteStep(null);
+                          }}
+                          placeholder="Ex:C4"
+                          className={`v-note w-full h-full text-center text-[10px] py-1 bg-transparent border-0 uppercase outline-none transition-opacity ${
+                            focusedVoiceNoteStep === i ? 'opacity-100 z-10 text-black font-bold' : 'opacity-0 z-0'
+                          }`}
+                          onFocus={(e) => {
+                            if (!isMultiSelectActive) {
+                              setFocusedVoiceNoteStep(i);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Tab') {
+                              e.preventDefault();
+                              handleVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
+                            } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Enter') {
+                              handleVoiceNav(e.target as HTMLInputElement, e.key, 'note');
+                            }
+                          }}
+                        />
+                        {focusedVoiceNoteStep !== i && (
+                          <span 
+                            className="absolute inset-0 flex items-center justify-center text-xs font-black tracking-wide pointer-events-none"
+                            style={{ color: noteColor, textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}
+                          >
+                            {noteLetter || '-'}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -1276,7 +1343,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               </div>
             )}
           </div>
-        ); })()}
+        ); })())}
       </div>
     </div>
   );

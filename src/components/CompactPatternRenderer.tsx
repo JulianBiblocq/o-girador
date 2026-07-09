@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pattern } from '../types';
-import { getVisualStrokeSymbol, isDarkText, instrumentsConfig } from '../data';
+import { getVisualStrokeSymbol, isDarkText, instrumentsConfig, NEWTON_NOTE_COLORS } from '../data';
 import { getBusNoteColor, getContrastColor } from '../utils/colorHelpers';
 
 interface CompactPatternRendererProps {
@@ -78,7 +78,13 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
             {group.map((stepIdx, indexInGroup) => {
               const val = pattern.activeSteps[stepIdx];
               const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
-              let displayVal = visualVal === 0 ? '' : String(visualVal);
+              const isVoice = inst.type === 'voice';
+
+              const note = isVoice ? (pattern.notes?.[stepIdx] || '') : '';
+              const noteLetter = note ? note.charAt(0).toUpperCase() : '';
+              const noteColor = noteLetter ? (NEWTON_NOTE_COLORS[noteLetter] || '#1a1a1a') : '#1a1a1a';
+
+              let displayVal = visualVal === 0 ? '' : (isVoice ? noteLetter : String(visualVal));
 
               const isActive = val !== 0 && val !== '';
               const isSelected = selectedStepIndices.includes(stepIdx);
@@ -89,16 +95,17 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
               if (isActive) {
                 const bgColor = isLinkFolder && trackId
                   ? getBusNoteColor(String(trackId), String(visualVal), tracks, instrumentsConfig)
-                  : (inst.colors[visualVal as string] || '#111');
-                let txtColor = inst.colors.text || '#f4ecd8';
+                  : (isVoice ? inst.color : (inst.colors[visualVal as string] || '#111'));
+                let txtColor = isVoice ? noteColor : (inst.colors.text || '#f4ecd8');
                 if (isLinkFolder) {
                   txtColor = getContrastColor(bgColor);
-                } else if (isDarkText(inst.id, visualVal as string)) {
+                } else if (!isVoice && isDarkText(inst.id, visualVal as string)) {
                   txtColor = '#1a1a1a';
                 }
                 colorStyle = {
                   backgroundColor: bgColor,
                   color: txtColor,
+                  textShadow: isVoice ? '0 1px 2px rgba(0, 0, 0, 0.4)' : undefined,
                   border: isSextuplet || isTriplet ? 'none' : `1px solid ${bgColor}`
                 };
               } else {

@@ -5,7 +5,6 @@
 
 import React, { createContext, useContext, useRef, useState } from 'react';
 import { useSequencerState } from '../hooks/useSequencerState';
-import { useVocalRecorder } from '../hooks/useVocalRecorder';
 import { audioEngine, channels, masterVolumeNode } from '../hooks/useAudioSync';
 
 import { useSequencerStore } from '../stores/useSequencerStore';
@@ -19,8 +18,7 @@ export interface CustomDialogState {
   onResolve: (value: any) => void;
 }
 
-export type SequencerContextType = ReturnType<typeof useSequencerState> &
-  ReturnType<typeof useVocalRecorder> & {
+export type SequencerContextType = ReturnType<typeof useSequencerState> & {
     isPlayingRef: React.MutableRefObject<boolean>;
     currentStepIndexRef: React.MutableRefObject<number>;
     measureCountRef: React.MutableRefObject<number>;
@@ -68,24 +66,8 @@ export const SequencerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   };
 
-  const vocalRecorder = useVocalRecorder({
-    pushUndoState: sequencerState.pushUndoState,
-    bpm: sequencerState.bpm,
-    measureBpms: sequencerState.measureBpms,
-    totalMeasures: totalMeasures,
-    audioEngine,
-    setIsPlaying: (val) => setIsPlayingRef.current(val),
-    channels,
-    masterVolumeNode,
-    isPlayingRef,
-    measureCountRef,
-    currentStepIndexRef,
-    lastPlayedSignalIdRef,
-  });
-
   const value: SequencerContextType = {
     ...sequencerState,
-    ...vocalRecorder,
     isPlayingRef,
     currentStepIndexRef,
     measureCountRef,

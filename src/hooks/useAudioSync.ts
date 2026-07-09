@@ -11,6 +11,8 @@ import { TrackGroup, TimeSignature, HitTrigger, SongSection, GlobalSwing } from 
 import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencerStore';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { loadTone } from '../ToneLoader';
+import { useAudioStore } from '../stores/useAudioStore';
+import { vocalEngineService } from '../audio/vocalEngineService';
 
 interface ScheduledNote {
   time: number;
@@ -87,6 +89,40 @@ export {
   stopAllNativeOscillators
 };
 
+const noteToFrequency = (noteStr: string): number => {
+  const noteMap: { [key: string]: number } = {
+    'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3, 'E': 4, 'F': 5,
+    'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8, 'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
+  };
+  
+  const match = noteStr.match(/^([A-G][#b]?)(-?\d+)$/);
+  if (!match) return 261.63; // Default to C4 if invalid
+  
+  const pitch = match[1];
+  const octave = parseInt(match[2], 10);
+  
+  const semitoneIndex = noteMap[pitch];
+  if (semitoneIndex === undefined) return 261.63;
+  
+  const semitonesFromC4 = semitoneIndex + (octave - 4) * 12;
+  const semitonesFromA4 = semitonesFromC4 - 9;
+  
+  return 440 * Math.pow(2, semitonesFromA4 / 12);
+};
+
+const getVoiceNoteStepsFromDecay = (decay: number): number => {
+  if (decay <= 10) return 1;
+  if (decay <= 20) return 2;
+  if (decay <= 30) return 3;
+  if (decay <= 40) return 4;
+  if (decay <= 50) return 5;
+  if (decay <= 60) return 6;
+  if (decay <= 70) return 7;
+  if (decay <= 80) return 8;
+  if (decay <= 90) return 12;
+  return 16;
+};
+
 // Performance caches and pools
 const RANDOM_POOL_SIZE = 1000;
 const randomPool = Array.from({ length: RANDOM_POOL_SIZE }, () => Math.random());
@@ -145,19 +181,6 @@ interface UseAudioSyncProps {
   songSectionsRef: React.MutableRefObject<SongSection[]>;
   activeVariationsRef: React.MutableRefObject<Record<number, (string | number)[]>>;
 
-  // Vocal Recorder state & handlers
-  isRecordingVocal: boolean;
-  startVocalRecording: (patternId: number) => void;
-  stopVocalRecording: () => void;
-  finishVocalRecording: () => void;
-  recordingVocalPatternIdRef: React.MutableRefObject<number | null>;
-  vocalRecordingStateRef: React.MutableRefObject<'inactive' | 'waiting' | 'recording'>;
-  recordedMeasuresCountRef: React.MutableRefObject<number>;
-  recordingDurationMeasuresRef: React.MutableRefObject<number>;
-  vocalPlayersRef: React.MutableRefObject<{ [patternId: number]: any }>;
-  isVocalGuideEnabledRef: React.MutableRefObject<boolean>;
-  loadVocalRecording: (patternId: number) => Promise<any>;
-
   // Shared refs for circular dependency resolution
   isPlayingRef: React.MutableRefObject<boolean>;
   currentStepIndexRef: React.MutableRefObject<number>;
@@ -194,18 +217,6 @@ export function useAudioSync({
   isLoopingRef,
   songSectionsRef,
   activeVariationsRef,
-
-  isRecordingVocal,
-  startVocalRecording,
-  stopVocalRecording,
-  finishVocalRecording,
-  recordingVocalPatternIdRef,
-  vocalRecordingStateRef,
-  recordedMeasuresCountRef,
-  recordingDurationMeasuresRef,
-  vocalPlayersRef,
-  isVocalGuideEnabledRef,
-  loadVocalRecording,
 
   isPlayingRef,
   currentStepIndexRef,
@@ -255,21 +266,6 @@ export function useAudioSync({
     });
     return unsub;
   }, []);
-
-  // Refs for vocal recording states and callbacks to avoid re-rendering dependencies
-  const isRecordingVocalRef = useRef(isRecordingVocal);
-  const startVocalRecordingRef = useRef(startVocalRecording);
-  const stopVocalRecordingRef = useRef(stopVocalRecording);
-  const finishVocalRecordingRef = useRef(finishVocalRecording);
-  const loadVocalRecordingRef = useRef(loadVocalRecording);
-
-  useEffect(() => {
-    isRecordingVocalRef.current = isRecordingVocal;
-    startVocalRecordingRef.current = startVocalRecording;
-    stopVocalRecordingRef.current = stopVocalRecording;
-    finishVocalRecordingRef.current = finishVocalRecording;
-    loadVocalRecordingRef.current = loadVocalRecording;
-  }, [isRecordingVocal, startVocalRecording, stopVocalRecording, finishVocalRecording, loadVocalRecording]);
 
   const [isMetroOn, setIsMetroOn] = useState<boolean>(false);
   const [metroVolume, setMetroVolume] = useState<number>(80);
@@ -637,12 +633,11 @@ export function useAudioSync({
         distortionNode.distortion = initialFX.distortion.drive / 100;
       }
 
-      // Load vocal recordings for all patterns in tracks
       tracksRef.current.forEach((t) => {
         const inst = instrumentsConfig[t.instrumentIdx];
         if (inst && inst.type === 'voice') {
           t.patterns.forEach((p) => {
-            loadVocalRecording(p.id);
+            vocalEngineService.loadVocalRecording(p.id);
           });
         }
       });
@@ -1009,37 +1004,18 @@ export function useAudioSync({
             const inst = instrumentsConfig[track.instrumentIdx];
             if (!inst || inst.type !== 'voice') continue;
 
-            if (recordingVocalPatternIdRef.current !== null) {
-              let hasPatternBeingRecorded = false;
-              const patterns = track.patterns;
-              const numPatterns = patterns.length;
-              for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
-                if (patterns[pIdx].id === recordingVocalPatternIdRef.current) {
-                  hasPatternBeingRecorded = true;
-                  break;
-                }
-              }
-
+            const targetPatternId = useAudioStore.getState().targetPatternId;
+            const recordingStatus = useAudioStore.getState().recordingStatus;
+            if (targetPatternId !== null && recordingStatus === 'recording') {
+              const hasPatternBeingRecorded = track.patterns.some(p => p.id === targetPatternId);
               if (hasPatternBeingRecorded) {
-                if (stepIdx === 0 && vocalRecordingStateRef.current === 'waiting') {
-                  vocalRecordingStateRef.current = 'recording';
-                  const startDelayMs = Math.max(0, (time - Tone.context.rawContext.currentTime) * 1000);
-                  const startTimeout = setTimeout(() => {
-                    engineTimeoutsRef.current.delete(startTimeout);
-                    startVocalRecording(recordingVocalPatternIdRef.current!);
-                  }, startDelayMs);
-                  engineTimeoutsRef.current.add(startTimeout);
-                  recordedMeasuresCountRef.current = 0;
-                } else if (stepIdx === currentTicks - 1 && vocalRecordingStateRef.current === 'recording') {
-                  recordedMeasuresCountRef.current += 1;
-                  if (recordedMeasuresCountRef.current >= recordingDurationMeasuresRef.current) {
-                    vocalRecordingStateRef.current = 'inactive';
+                if (stepIdx === currentTicks - 1) {
+                  vocalEngineService.recordedMeasuresCount++;
+                  if (vocalEngineService.recordedMeasuresCount >= vocalEngineService.recordingDurationMeasures) {
                     const stopDelayMs = Math.max(0, (time + tick96nSec - Tone.context.rawContext.currentTime) * 1000);
                     const stopTimeout = setTimeout(() => {
-                      engineTimeoutsRef.current.delete(stopTimeout);
-                      finishVocalRecording();
+                      vocalEngineService.stopRecording();
                     }, stopDelayMs);
-                    engineTimeoutsRef.current.add(stopTimeout);
                   }
                 }
               }
@@ -1081,33 +1057,8 @@ export function useAudioSync({
             if (!canPlay) continue;
 
             if (activePattern.vocalMode === 'micro') {
-              const player = vocalPlayersRef.current[activePattern.id];
-              if (player && player.loaded) {
-                const bpmVal = measureBpmsRef.current[currentMeasureLocal] || 100;
-                const beatsPerMeasure = parseInt(currentMeasureSig.split('/')[0]) || 4;
-                const beatsPerMin = bpmVal;
-                const measureDurationSec = (beatsPerMeasure * 60) / beatsPerMin;
-
-                let playbackRate = 1.0;
-                if (activePattern.vocalBpmSync && activePattern.vocalBaseBpm) {
-                  playbackRate = bpmVal / activePattern.vocalBaseBpm;
-                }
-
-                const delaySec = (activePattern.vocalLatency ?? 0) / 1000;
-                const triggerTime = time + delaySec;
-
-                const liveTrack = tracks[trackIdx];
-                const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
-
-                if (stepIdx === 0 && trackVolPct > 0) {
-                  player.volume.value = Tone.gainToDb(Math.pow(trackVolPct / 100, 2) || 0.0001);
-                  player.playbackRate = playbackRate;
-                  player.start(triggerTime, 0, measureDurationSec);
-
-                  if (isVocalGuideEnabledRef.current) {
-                    playNativeMetroClick(triggerTime, true, 'synth', 0.5);
-                  }
-                }
+              if (stepIdx === 0) {
+                vocalEngineService.playVocalPattern(activePattern.id, time);
               }
             } else {
               const stepCount = activePattern.steps;
@@ -1115,15 +1066,16 @@ export function useAudioSync({
                 const cellIdx = Math.floor(stepIdx / (currentTicks / stepCount));
                 const state = activePattern.activeSteps[cellIdx];
                 if (state && state !== 0) {
-                  const symbol = String(state);
-                  const noteVal = symbol === 'D' ? 'A3' : symbol === 'E' ? 'E3' : 'C3';
                   const triggerTime = swingTime;
                   const liveTrack = tracks[trackIdx];
                   const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
                   if (trackVolPct > 0) {
                     const trackVolLinear = Math.pow(trackVolPct / 100, 2);
-                    const noteFreq = noteVal === 'A3' ? 220.00 : noteVal === 'E3' ? 329.63 : 130.81;
-                    const noteDuration = 12 * tick96nSec;
+                    const noteVal = activePattern.notes?.[cellIdx] || 'C4';
+                    const noteFreq = noteToFrequency(noteVal);
+                    const decayVal = activePattern.decays?.[cellIdx] ?? 10;
+                    const numSteps = getVoiceNoteStepsFromDecay(decayVal);
+                    const noteDuration = (numSteps * 6) * tick96nSec;
                     playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[liveTrack.id]);
                   }
 
@@ -1251,17 +1203,13 @@ export function useAudioSync({
       Tone.Draw.cancel();
       hitTriggersRef.current = [];
       Tone.Transport.pause();
-      if (isRecordingVocalRef.current) {
-        stopVocalRecordingRef.current();
+      if (useAudioStore.getState().recordingStatus !== 'inactive') {
+        vocalEngineService.stopRecording();
       }
       audioEngine?.stopAllBarulho();
       stopAllNativeOscillators();
 
-      (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
-        try {
-          player.stop();
-        } catch (_) {}
-      });
+      vocalEngineService.stopAllVocalPlayback();
       setIsPlaying(false);
       setCurrentMeasure(measureCountRef.current);
 
@@ -1299,17 +1247,13 @@ export function useAudioSync({
     hitTriggersRef.current = [];
     lastPlayedPatternRef.current = {};
     Tone.Transport.stop();
-    if (isRecordingVocalRef.current) {
-      stopVocalRecordingRef.current();
+    if (useAudioStore.getState().recordingStatus !== 'inactive') {
+      vocalEngineService.stopRecording();
     }
     audioEngine?.stopAllBarulho();
     stopAllNativeOscillators();
 
-    (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
-      try {
-        player.stop();
-      } catch (_) {}
-    });
+    vocalEngineService.stopAllVocalPlayback();
     setIsPlaying(false);
     currentStepIndexRef.current = -1;
     measureCountRef.current = 0;
@@ -1337,19 +1281,15 @@ export function useAudioSync({
         // console.warn("AudioContext resume failed:", e);
       }
     }
-    if (isRecordingVocalRef.current) {
-      stopVocalRecordingRef.current();
+    if (useAudioStore.getState().recordingStatus !== 'inactive') {
+      vocalEngineService.stopRecording();
     }
     audioEngine?.stop();
     Tone.Transport.stop();
     audioEngine?.stopAllBarulho();
     stopAllNativeOscillators();
 
-    (Object.values(vocalPlayersRef.current) as any[]).forEach((player) => {
-      try {
-        player.stop();
-      } catch (_) {}
-    });
+    vocalEngineService.stopAllVocalPlayback();
 
     setSoloPatternPlayId(patternId);
     setSoloPatternVariationId(variationId || null);

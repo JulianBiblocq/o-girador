@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, isSequencerVisibleTrack } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef } from 'react';
 import type * as ToneType from 'tone';
@@ -28,6 +28,7 @@ import { TimelineMinimap } from './timeline/TimelineMinimap';
 import { SongSectionModal } from './timeline/SongSectionModal';
 import { SongMarkerModal } from './timeline/SongMarkerModal';
 import { RhythmSignalsRow } from './timeline/RhythmSignalsRow';
+import { VocalRecordingBar } from './VocalRecordingBar';
 
 interface TimelineSequencerProps {
   isMobile: boolean;
@@ -106,7 +107,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     handleDeleteMeasure: onDeleteMeasure,
     handleInsertMeasure: onInsertMeasure,
   } = sequencer;
-  const trackIds = useSequencerStore(useShallow(state => state.tracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder)).map(t => t.id)));
+  const trackIds = useSequencerStore(useShallow(state => state.tracks.filter(t => isSequencerVisibleTrack(t, state.tracks)).map(t => t.id)));
 
   const localRhythmSignals = metadata?.rhythmSignals || [];
   const rhythmSignals = [
@@ -1416,14 +1417,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         </div>
       )}
 
-      {/* Bottom legend */}
-      {!isMobile && (
-        <div className="h-8 border-t border-[var(--cordel-border)] flex items-center justify-center px-4 bg-[var(--cordel-bg)] text-[10px] font-bold opacity-80 uppercase tracking-widest gap-4 shrink-0">
-          <span>💡 {lang === 'fr'
-            ? 'Cliquer-glisser sur la règle ou utiliser la molette pour défiler · Cliquer sur la timeline pour naviguer'
-            : 'Clique e arraste na régua ou use o scroll para navegar · Clique na timeline para navegar'}</span>
-        </div>
-      )}
+
 
       {/* ══════════ SECTION FORM MODAL ══════════ */}
       <SongSectionModal
@@ -1454,6 +1448,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       {showSubModal && (
         <SubscriptionModal lang={lang} onClose={() => setShowSubModal(false)} />
       )}
+      <VocalRecordingBar />
     </div>
     </TimelineUIContext.Provider>
   );

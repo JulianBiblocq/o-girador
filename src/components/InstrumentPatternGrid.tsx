@@ -9,7 +9,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { Pattern } from '../types';
 import { getNextStepValue } from '../utils/instrumentStrokes';
-import { isDarkText } from '../data';
+import { isDarkText, instrumentsConfig, NEWTON_NOTE_COLORS } from '../data';
 
 interface InstrumentPatternGridProps {
   trackId: number;
@@ -244,13 +244,18 @@ const VoiceStepCellComponent = ({
   onNoteSelectorTarget,
   onVoiceNav
 }: VoiceStepCellProps) => {
-  const isActive = state !== 0;
+  const [isNoteFocused, setIsNoteFocused] = useState(false);
+  const isActive = state !== 0 && state !== '';
   const isPux = state === 'P';
-  const typeText = isActive ? (isPux ? '🗣️ Pux' : '👥 Coro') : '---';
-  const typeClass = isActive ? 'text-white' : 'bg-transparent text-[#666]';
-  const typeStyle = isActive
-    ? { backgroundColor: isPux ? '#8b2a1a' : '#2980b9', color: '#ffffff' }
-    : {};
+  const inst = instrumentsConfig.find(c => c.id === (isPux ? 'puxador' : 'coro')) || { color: '#f4ecd8' };
+  const cardBg = isActive ? inst.color : 'transparent';
+
+  const noteLetterOnly = note
+    ? (note.includes('#') ? note.substring(0, 2).toUpperCase() : note.charAt(0).toUpperCase())
+    : '';
+  const octave = note ? note.replace(/^[a-gA-G][#b]?/, '') : '';
+  const baseNote = note ? note.charAt(0).toUpperCase() : '';
+  const noteColor = baseNote ? (NEWTON_NOTE_COLORS[baseNote] || '#1a1a1a') : '#1a1a1a';
 
   return (
     <div className="relative" style={{ width: '56px' }}>
@@ -262,7 +267,7 @@ const VoiceStepCellComponent = ({
       )}
       
       <div
-        className={`v-card flex flex-col bg-[#f4ecd8] cordel-border-sm overflow-hidden z-10 relative transition-all duration-100 ${
+        className={`v-card flex flex-col cordel-border-sm overflow-hidden z-10 relative transition-all duration-100 ${
           isSelected
             ? 'border-[#f1c40f] bg-[#f1c40f]/20 shadow-[0_0_8px_#f1c40f]'
             : 'border-[#1a1a1a]'
@@ -270,6 +275,7 @@ const VoiceStepCellComponent = ({
         style={{
           width: '56px',
           transform: `translateX(${shiftPx}px)`,
+          backgroundColor: cardBg,
         }}
         data-track-id={trackId}
         data-step-index={i}
@@ -283,18 +289,7 @@ const VoiceStepCellComponent = ({
           {i + 1}
         </div>
 
-        {/* PUX / CORO toggle */}
-        <div
-          onClick={() => {
-            if (!isMultiSelectActive) {
-              onVoiceTypeToggle(trackId, patternId, i);
-            }
-          }}
-          className={`text-[9px] font-bold text-center py-0.5 cursor-pointer select-none uppercase ${typeClass}`}
-          style={typeStyle}
-        >
-          {typeText}
-        </div>
+
 
         {/* Syllable input */}
         <input
@@ -303,7 +298,7 @@ const VoiceStepCellComponent = ({
           readOnly={isMultiSelectActive}
           onChange={(e) => onVoiceSylChange(trackId, patternId, i, e.target.value)}
           placeholder="-"
-          className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-[#1a1a1a] outline-none"
+          className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-black outline-none"
           onFocus={() => {
             if (!isMultiSelectActive) {
               onFocusStep(i);
@@ -320,34 +315,52 @@ const VoiceStepCellComponent = ({
         />
 
         {/* Note input */}
-        <input
-          type="text"
-          value={note}
-          readOnly={isMultiSelectActive}
-          onChange={(e) => onVoiceNoteChange(trackId, patternId, i, e.target.value)}
-          onBlur={(e) => onVoiceNoteBlur(trackId, patternId, i, e.target.value)}
-          placeholder="C4"
-          className="v-note w-full text-center text-[10px] py-1 bg-transparent border-0 text-[#1a1a1a] uppercase outline-none cursor-pointer hover:bg-black/5"
-          onFocus={(e) => {
-            if (!isMultiSelectActive) {
-              onFocusStep(i);
-              onNoteSelectorTarget({ patternId, stepIdx: i, note, element: e.currentTarget as any });
-            }
-          }}
-          onClick={(e) => {
-            if (!isMultiSelectActive) {
-              onNoteSelectorTarget({ patternId, stepIdx: i, note, element: e.currentTarget as any });
-            }
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Tab') {
-              e.preventDefault();
-              onVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
-            } else if (['ArrowRight', 'ArrowLeft', 'Enter'].includes(e.key)) {
-              onVoiceNav(e.target as HTMLInputElement, e.key, 'note');
-            }
-          }}
-        />
+        <div className="relative w-full h-[24px] flex items-center justify-center cursor-pointer hover:bg-black/5">
+          <input
+            type="text"
+            value={note}
+            readOnly={isMultiSelectActive}
+            onChange={(e) => onVoiceNoteChange(trackId, patternId, i, e.target.value)}
+            onBlur={(e) => {
+              onVoiceNoteBlur(trackId, patternId, i, e.target.value);
+              setIsNoteFocused(false);
+            }}
+            placeholder="C4"
+            className={`v-note w-full h-full text-center text-[10px] py-1 bg-transparent border-0 uppercase outline-none transition-opacity ${
+              isNoteFocused ? 'opacity-100 z-10 text-black font-bold' : 'opacity-0 z-0'
+            }`}
+            onFocus={(e) => {
+              if (!isMultiSelectActive) {
+                onFocusStep(i);
+                onNoteSelectorTarget({ patternId, stepIdx: i, note, element: e.currentTarget as any });
+                setIsNoteFocused(true);
+              }
+            }}
+            onClick={(e) => {
+              if (!isMultiSelectActive) {
+                onNoteSelectorTarget({ patternId, stepIdx: i, note, element: e.currentTarget as any });
+                setIsNoteFocused(true);
+              }
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Tab') {
+                e.preventDefault();
+                onVoiceNav(e.target as HTMLInputElement, 'ArrowRight', 'note');
+              } else if (['ArrowRight', 'ArrowLeft', 'Enter'].includes(e.key)) {
+                onVoiceNav(e.target as HTMLInputElement, e.key, 'note');
+              }
+            }}
+          />
+          {!isNoteFocused && (
+            <span 
+              className="absolute inset-0 flex items-center justify-center text-xs font-black tracking-wide pointer-events-none"
+              style={{ color: noteColor, textShadow: '0 1px 2px rgba(0, 0, 0, 0.6), 0 0 1px rgba(0, 0, 0, 0.5)' }}
+            >
+              {noteLetterOnly || '-'}
+              {octave && <span className="text-[7px] align-super opacity-60 ml-0.5">{octave}</span>}
+            </span>
+          )}
+        </div>
         {/* Sculpting micro-bars */}
         <div className="w-full flex flex-col gap-[2px] p-[2px] bg-[#ece4d0] border-t border-[#1a1a1a]/20 shrink-0">
           <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
@@ -991,7 +1004,11 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
               if (group.length > 0) groups.push(group);
               accumulated += res;
             }
-            return groups.map((group, groupIdx) => (
+
+            const row1Groups = groups.filter(g => g[g.length - 1] < 8);
+            const row2Groups = groups.filter(g => g[0] >= 8);
+
+            const renderGroup = (group: number[], groupIdx: number) => (
               <div key={groupIdx} className="flex gap-4 p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm shrink-0">
                 {group.map((i) => {
                   const state = pattern?.activeSteps?.[i];
@@ -1054,7 +1071,20 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                   );
                 })}
               </div>
-            ));
+            );
+
+            return (
+              <div className="flex flex-wrap gap-4 w-full">
+                <div className="flex flex-wrap gap-4 shrink-0">
+                  {row1Groups.map((group, idx) => renderGroup(group, idx))}
+                </div>
+                {row2Groups.length > 0 && (
+                  <div className="flex flex-wrap gap-4 shrink-0">
+                    {row2Groups.map((group, idx) => renderGroup(group, idx + row1Groups.length))}
+                  </div>
+                )}
+              </div>
+            );
           })()}
           
           {/* Live Karaoke Preview */}

@@ -194,13 +194,15 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
       if (step < 0) {
         lastVuStepRef.current = -1;
         // Clean highlights on stop
-        if (inst.id === 'voice' && voiceWrapperRef.current) {
+        if (inst.type === 'voice' && voiceWrapperRef.current) {
           const stepSpans = voiceWrapperRef.current.querySelectorAll('[data-step-idx]');
           stepSpans.forEach(el => el.classList.remove('underline', 'decoration-4', 'underline-offset-4'));
           const wordSpans = voiceWrapperRef.current.querySelectorAll('[data-word-idx]');
-          wordSpans.forEach(el => {
+          wordSpans.forEach(wordEl => {
+            const el = wordEl as HTMLElement;
             el.classList.add('opacity-40');
-            el.classList.remove('text-[#8b2a1a]', 'scale-110', 'transform');
+            el.classList.remove('scale-110', 'transform');
+            el.style.color = '';
           });
         }
         return;
@@ -223,7 +225,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
       const targetStep = Math.floor(ratio * currentLivePattern.steps);
 
       // Highlight active steps for Voice (Karaoke) via Vanilla DOM mutations
-      if (inst.id === 'voice' && voiceWrapperRef.current) {
+      if (inst.type === 'voice' && voiceWrapperRef.current) {
         const stepSpans = voiceWrapperRef.current.querySelectorAll('[data-step-idx]');
         stepSpans.forEach((spanEl) => {
           const el = spanEl as HTMLElement;
@@ -241,10 +243,12 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
           const hasActiveStep = el.querySelector(`[data-step-idx="${targetStep}"]`) !== null;
           if (hasActiveStep) {
             el.classList.remove('opacity-40');
-            el.classList.add('text-[#8b2a1a]', 'scale-110', 'transform');
+            el.classList.add('scale-110', 'transform');
+            el.style.color = inst.color || '#000000';
           } else {
             el.classList.add('opacity-40');
-            el.classList.remove('text-[#8b2a1a]', 'scale-110', 'transform');
+            el.classList.remove('scale-110', 'transform');
+            el.style.color = '';
           }
         });
       }
@@ -730,7 +734,9 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
         );
       }
 
-      case 'voice': {
+      case 'voice':
+      case 'puxador':
+      case 'coro': {
         const currentLivePattern = currentMeasureIdx >= 0
           ? activeTrack.patterns.find(p => p.measureAssignments[currentMeasureIdx])
           : activeTrack.patterns[0];
@@ -763,7 +769,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
               transform: 'translate(-50%, -50%)',
             }}
           >
-            <div className="bg-[#ece4d0]/80 backdrop-blur-[2px] text-[#1a1a1a] border-4 border-[#1a1a1a] shadow-[8px_8px_0_#1a1a1a] p-6 w-full flex flex-col gap-2 font-sans select-none cordel-border">
+            <div className="bg-[#ece4d0]/80 backdrop-blur-[2px] text-[#000000] border-4 border-[#1a1a1a] shadow-[8px_8px_0_#1a1a1a] p-6 w-full flex flex-col gap-2 font-sans select-none cordel-border">
               <div className="text-lg opacity-60 mb-0.5">
                 🎙️
               </div>

@@ -138,6 +138,26 @@ body {
   background: #eaddcf;
 }
 
+/* Specific wider scrollbar for the linear sequencer instrument tracks */
+#timeline-scroll-container::-webkit-scrollbar {
+  width: 16px;
+  height: 10px;
+}
+
+#timeline-scroll-container::-webkit-scrollbar-track {
+  background: #181310;
+}
+
+#timeline-scroll-container::-webkit-scrollbar-thumb {
+  background: #3e332c;
+  border: 2px solid #eaddcf;
+  border-radius: 4px;
+}
+
+#timeline-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #eaddcf;
+}
+
 /* === MOBILE & TABLET RESPONSIVE LAYOUT (portrait/medium screens) === */
 @media (max-width: 1023px) {
   /* Main workspace becomes vertical flex */

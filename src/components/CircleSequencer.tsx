@@ -14,7 +14,7 @@ import { TrackGroup, Language, HitTrigger, TimeSignature, SongSection, SongMarke
 import { instrumentsConfig, getMarkers, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol, i18n } from '../data';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { useGameData } from '../contexts/GameDataContext';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, isSequencerVisibleTrack, isToadaBus } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
@@ -143,7 +143,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const isLeftHanded = props.isLeftHanded !== undefined ? props.isLeftHanded : sequencer.isLeftHanded;
   const tracksFromStore = useTracksWithCustomEquality(isActive);
   const rawTracks = props.tracks !== undefined ? props.tracks : tracksFromStore;
-  const tracks = rawTracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
+  const tracks = rawTracks.filter(t => isSequencerVisibleTrack(t, rawTracks));
   const totalMeasuresFromStore = useSequencerStore(state => state.totalMeasures);
   const totalMeasures = props.totalMeasures !== undefined ? props.totalMeasures : totalMeasuresFromStore;
   const bpm = props.bpm !== undefined ? props.bpm : sequencer.bpm;
@@ -486,6 +486,36 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     const state = stateRef.current;
     const measureIdx = (live && live.step >= 0) ? live.measure : state.currentMeasure;
 
+    const isToada = isToadaBus(track);
+
+    if (isToada) {
+      const pux = state.rawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coro = state.rawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+      
+      const soloPlayId = state.soloPatternPlayId;
+      if (soloPlayId !== undefined && soloPlayId !== null) {
+        if (pux && pux.patterns.some(p => p.id === soloPlayId)) return soloPlayId;
+        if (coro && coro.patterns.some(p => p.id === soloPlayId)) return soloPlayId;
+        return null;
+      }
+
+      if (coro) {
+        for (let i = 0; i < coro.patterns.length; i++) {
+          if (coro.patterns[i].measureAssignments[measureIdx]) {
+            return coro.patterns[i].id;
+          }
+        }
+      }
+      if (pux) {
+        for (let i = 0; i < pux.patterns.length; i++) {
+          if (pux.patterns[i].measureAssignments[measureIdx]) {
+            return pux.patterns[i].id;
+          }
+        }
+      }
+      return null;
+    }
+
     const soloPlayId = state.soloPatternPlayId;
     if (soloPlayId !== undefined && soloPlayId !== null) {
       for (let i = 0; i < track.patterns.length; i++) {
@@ -563,12 +593,12 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     if (props.tracks !== undefined) return;
     
     // Keep filtered tracks in stateRef up to date imperatively
-    stateRef.current.tracks = useSequencerStore.getState().tracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
+    stateRef.current.tracks = useSequencerStore.getState().tracks.filter(t => isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
     stateRef.current.rawTracks = useSequencerStore.getState().tracks;
     
     const unsubscribe = useSequencerStore.subscribe(
       (state) => {
-        stateRef.current.tracks = state.tracks.filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder));
+        stateRef.current.tracks = state.tracks.filter(t => isSequencerVisibleTrack(t, state.tracks));
         stateRef.current.rawTracks = state.tracks;
       }
     );
@@ -604,15 +634,13 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     const hasSolo = currentTracks.some(t => 
       t.isSolo && 
       !t.isHidden && 
-      (!t.isBusFolder || t.isLinkFolder) && 
-      !t.linkedToTrackId && 
+      isSequencerVisibleTrack(t, currentTracks) && 
       instrumentsConfig[t.instrumentIdx]?.id !== 'apito'
     );
 
     const activeVisibleTracksToDraw = currentTracks.filter(t => {
       if (t.isHidden) return false;
-      if (t.linkedToTrackId) return false;
-      if (t.isBusFolder && !t.isLinkFolder) return false;
+      if (!isSequencerVisibleTrack(t, currentTracks)) return false;
       if (instrumentsConfig[t.instrumentIdx]?.id === 'apito') return false;
 
       const isMutedOut = hasSolo ? !t.isSolo : t.isMute;
@@ -625,13 +653,32 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
     // Detect click on any track
     activeVisibleTracksToDraw.forEach((track, visibleIdx) => {
-      const inst = instrumentsConfig[track.instrumentIdx];
-      if (!inst) return null;
+      const isToada = isToadaBus(track);
+      let activePattern = null;
+      let ownerTrack = track;
       
       const activePatternId = getLiveActivePatternId(track);
       if (activePatternId === null) return;
-      const activePattern = track.patterns.find(p => p.id === activePatternId);
+      
+      if (isToada) {
+        const pux = currentTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+        const coro = currentTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+        
+        if (pux) {
+          activePattern = pux.patterns.find(p => p.id === activePatternId);
+          if (activePattern) ownerTrack = pux;
+        }
+        if (!activePattern && coro) {
+          activePattern = coro.patterns.find(p => p.id === activePatternId);
+          if (activePattern) ownerTrack = coro;
+        }
+      } else {
+        activePattern = track.patterns.find(p => p.id === activePatternId);
+      }
+      
       if (!activePattern) return;
+      const inst = instrumentsConfig[ownerTrack.instrumentIdx];
+      if (!inst) return null;
 
       const tRad = activeVisibleTracksToDraw.length === 1 ? (minRadius + maxRadius) / 2 : minRadius + visibleIdx * gap;
 
@@ -648,8 +695,6 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
           // Inside target step hitbox
           if (angleDiff < stepAngleSize / 2) {
-            const inst = instrumentsConfig[track.instrumentIdx];
-      if (!inst) return null;
             const currentVal = activePattern.activeSteps[i];
 
             if (inst.type === 'voice') {
@@ -661,7 +706,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               if (typed !== null) {
                 const trimmed = typed.trim();
                 if (trimmed === '') {
-                  onStepChange(track.id, activePattern.id, i, 0, '', '');
+                  onStepChange(ownerTrack.id, activePattern.id, i, 0, '', '');
                 } else {
                   let parsedNote = '';
                   let parsedSyllable = trimmed;
@@ -683,7 +728,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
                     parsedSyllable = parsedSyllable.substring(0, 15);
                   }
 
-                  onStepChange(track.id, activePattern.id, i, activeType, parsedSyllable, parsedNote.toUpperCase());
+                  onStepChange(ownerTrack.id, activePattern.id, i, activeType, parsedSyllable, parsedNote.toUpperCase());
                 }
               }
             } else {
@@ -695,14 +740,14 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
                   inst.id,
                   currentVal,
                   (nextVal) => {
-                    onStepChange(track.id, activePattern.id, i, nextVal);
+                    onStepChange(ownerTrack.id, activePattern.id, i, nextVal);
                   }
                 );
               } else {
                 const visualVal = getVisualStrokeSymbol(currentVal, stateRef.current.isLeftHanded || false, inst.id);
                 const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
                 const nextSemanticVal = getVisualStrokeSymbol(nextVisualVal, stateRef.current.isLeftHanded || false, inst.id);
-                onStepChange(track.id, activePattern.id, i, nextSemanticVal);
+                onStepChange(ownerTrack.id, activePattern.id, i, nextSemanticVal);
               }
             }
             return;
@@ -850,16 +895,14 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       const hasSoloTrack = tracks.some(t => 
         t.isSolo && 
         !t.isHidden && 
-        (!t.isBusFolder || t.isLinkFolder) && 
-        !t.linkedToTrackId && 
+        isSequencerVisibleTrack(t, tracks) && 
         instrumentsConfig[t.instrumentIdx]?.id !== 'apito'
       );
 
       // 2. Filtrer les pistes actives et visibles (non mutées, non masquées)
       const activeVisibleTracks = tracks.filter(t => {
         if (t.isHidden) return false;
-        if (t.linkedToTrackId) return false;
-        if (t.isBusFolder && !t.isLinkFolder) return false;
+        if (!isSequencerVisibleTrack(t, tracks)) return false;
         if (instrumentsConfig[t.instrumentIdx]?.id === 'apito') return false;
 
         const isMutedOut = hasSoloTrack ? !t.isSolo : t.isMute;
@@ -1190,13 +1233,34 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         const activePatternId = getLiveActivePatternId(track);
         if (activePatternId === null) return;
         let activePattern = null;
-        for (let i = 0; i < track.patterns.length; i++) {
-          if (track.patterns[i].id === activePatternId) {
-            activePattern = track.patterns[i];
-            break;
+        let ownerTrack = track;
+
+        const isToada = isToadaBus(track);
+        if (isToada) {
+          const pux = (props.tracks !== undefined ? rawTracks : stateRef.current.rawTracks).find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+          const coro = (props.tracks !== undefined ? rawTracks : stateRef.current.rawTracks).find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+          
+          if (pux) {
+            activePattern = pux.patterns.find(p => p.id === activePatternId);
+            if (activePattern) ownerTrack = pux;
+          }
+          if (!activePattern && coro) {
+            activePattern = coro.patterns.find(p => p.id === activePatternId);
+            if (activePattern) ownerTrack = coro;
+          }
+        } else {
+          for (let i = 0; i < track.patterns.length; i++) {
+            if (track.patterns[i].id === activePatternId) {
+              activePattern = track.patterns[i];
+              break;
+            }
           }
         }
+
         if (!activePattern) return;
+        
+        const currentInst = instrumentsConfig[ownerTrack.instrumentIdx] || inst;
+        const currentInstIdx = ownerTrack.instrumentIdx;
         
          const activePlayingSteps = (props.tracks === undefined && sequencer.activeVariationsRef?.current)
           ? (sequencer.activeVariationsRef.current[track.id] || activePattern.activeSteps)
@@ -1258,7 +1322,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           const state = activePlayingSteps[i];
           if (!state || state === 0) continue;
 
-          const visualState = getVisualStrokeSymbol(state, localLeftHanded || false, inst.id);
+          const visualState = getVisualStrokeSymbol(state, localLeftHanded || false, currentInst.id);
           let fillColor = 'rgba(255,255,255,0.2)';
           let radiusSize = 6 * dynamicScale;
           let isAccent = false;
@@ -1266,25 +1330,25 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
           if (visualState !== 0) {
             radiusSize = 13 * dynamicScale;
-            if (inst.type === 'voice') {
+            if (currentInst.type === 'voice') {
               radiusSize = 22 * dynamicScale;
               fillColor = track.isLinkFolder
                 ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
-                : ((visualState === 'P') ? inst.colors['P'] : inst.colors['C']);
-              let syl = activePattern.lyrics[i] || 'X';
+                : currentInst.color;
+              let syl = activePattern.lyrics[i] || String(visualState);
               textSymbol = String(syl).endsWith('-') ? String(syl).slice(0, -1) : String(syl);
             } else {
               const stateStr = String(visualState);
               fillColor = track.isLinkFolder 
                 ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
-                : ((inst.colors && inst.colors[visualState]) ? inst.colors[visualState] : '#fff');
+                : ((currentInst.colors && currentInst.colors[visualState]) ? currentInst.colors[visualState] : '#fff');
               isAccent = (stateStr === stateStr.toUpperCase());
               radiusSize = (isAccent ? 15 : 12) * dynamicScale;
 
-              if (inst.id === 'mineiro') {
+              if (currentInst.id === 'mineiro') {
                 if (stateStr.toLowerCase() === 'p') textSymbol = '↑';
                 else if (stateStr.toLowerCase() === 't') textSymbol = '↓';
-              } else if (inst.id === 'agbe') {
+              } else if (currentInst.id === 'agbe') {
                 if (stateStr.toLowerCase() === 'e') textSymbol = '←';
                 else if (stateStr.toLowerCase() === 'd') textSymbol = '→';
                 else if (stateStr.toLowerCase() === 's') textSymbol = '↑';
@@ -1320,7 +1384,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           if (isHit) {
             ctx.strokeStyle = track.isLinkFolder 
               ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
-              : ((inst && inst.color) ? inst.color : themeBorder);
+              : ((currentInst && currentInst.color) ? currentInst.color : themeBorder);
             ctx.lineWidth = 2.5;
           } else {
             ctx.strokeStyle = themeBorder;
@@ -1331,7 +1395,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           // Render letter/direction marker on top of step
           if (state !== 0) {
             let txtColor = '#f4ecd8'; // Cream by default
-            if (inst.type === 'voice' || isDarkText(inst.id, String(state))) {
+            if (currentInst.type === 'voice') {
+              txtColor = '#000000'; // Noir absolu
+            } else if (isDarkText(currentInst.id, String(state))) {
               txtColor = '#1a1a1a'; // Dark charcoal
             }
             ctx.fillStyle = txtColor;
@@ -1369,11 +1435,11 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               if (name === 'Gonguê') return 'Gonguês';
               return name + 's';
             };
-            let labelText = (isMaster && inst) 
-              ? `🔗 ${getPluralName(inst.name)}` 
-              : (inst?.name || 'Instrument');
-            if (!isMaster && instrumentTotals[instIdx] > 1) {
-              labelText += ` ${instrumentIndexes[instIdx]}`;
+            let labelText = (isMaster && currentInst) 
+              ? `🔗 ${getPluralName(currentInst.name)}` 
+              : (currentInst?.name || 'Instrument');
+            if (!isMaster && instrumentTotals[currentInstIdx] > 1) {
+              labelText += ` ${instrumentIndexes[currentInstIdx]}`;
             }
             if (track.patterns.length > 1) {
               let patternIdx = -1;

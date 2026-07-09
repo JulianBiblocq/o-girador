@@ -35,7 +35,7 @@ const generateTablatureCore = (
   // Filter out Apito and Voice tracks
   const filteredTracks = tracks.filter(t => {
     const conf = instrumentsConfig[t.instrumentIdx];
-    return conf && conf.id !== 'apito' && conf.id !== 'voice';
+    return conf && conf.id !== 'apito' && conf.type !== 'voice';
   });
 
   let currentChunk: number[] = [];

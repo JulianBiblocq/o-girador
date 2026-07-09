@@ -50,10 +50,26 @@ export const VUMeter: React.FC<VUMeterProps> = ({
         return;
       }
 
-      const meterNode = busId && busMeters ? busMeters[busId] : (meters && trackId !== undefined ? meters[trackId] : undefined);
+      const meterNode = (busId && busMeters ? busMeters[busId] : undefined) || 
+                        (meters && trackId !== undefined ? meters[trackId] : undefined) ||
+                        (busMeters && trackId !== undefined ? busMeters[trackId] : undefined);
       if (meterNode) {
         try {
-          const db = meterNode.getValue() as number;
+          let db = -80;
+          if (typeof (meterNode as any).getValue === 'function') {
+            const data = (meterNode as any).getValue();
+            if (data instanceof Float32Array) {
+              let sum = 0;
+              for (let i = 0; i < data.length; i++) {
+                sum += data[i] * data[i];
+              }
+              const rms = Math.sqrt(sum / data.length);
+              db = rms > 0.00001 ? 20 * Math.log10(rms) : -80;
+            } else if (typeof data === 'number') {
+              db = data;
+            }
+          }
+
           // Clamp dB value between -80 (silence) and 6 (peak level)
           const clampedDb = Math.max(-80, Math.min(6, db));
           // Map decibels to scale percentage (using linear db mapping over 86 dB range)

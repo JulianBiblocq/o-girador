@@ -4,12 +4,14 @@ interface HorizontalPanFaderProps {
   value: number; // -100 to 100
   onChange: (val: number) => void;
   className?: string;
+  lang?: 'fr' | 'pt';
 }
 
 export const HorizontalPanFader: React.FC<HorizontalPanFaderProps> = ({ 
   value, 
   onChange, 
-  className = '' 
+  className = '',
+  lang = 'pt'
 }) => {
   const trackRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
@@ -65,9 +67,12 @@ export const HorizontalPanFader: React.FC<HorizontalPanFaderProps> = ({
     }
   };
 
+  const leftLabel = lang === 'fr' ? 'G' : 'L';
+  const rightLabel = lang === 'fr' ? 'D' : 'R';
+
   return (
     <div className={`flex items-center gap-1.5 w-full select-none ${className}`}>
-      <span className="text-[10px] font-black text-[var(--cordel-text)]/40 w-3 text-center font-mono">E</span>
+      <span className="text-[10px] font-black text-[var(--cordel-text)]/40 w-3 text-center font-mono">{leftLabel}</span>
       
       {/* Track container */}
       <div
@@ -89,7 +94,7 @@ export const HorizontalPanFader: React.FC<HorizontalPanFaderProps> = ({
         ></div>
       </div>
 
-      <span className="text-[10px] font-black text-[var(--cordel-text)]/40 w-3 text-center font-mono">D</span>
+      <span className="text-[10px] font-black text-[var(--cordel-text)]/40 w-3 text-center font-mono">{rightLabel}</span>
     </div>
   );
 };

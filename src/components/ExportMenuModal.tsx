@@ -45,12 +45,12 @@ export const ExportMenuModal: React.FC<ExportMenuModalProps> = ({
                 type="checkbox" 
                 className="w-4 h-4 cursor-pointer accent-[var(--cordel-wood)]"
                 checked={
-                  tracks.filter(t => instrumentsConfig[t.instrumentIdx]?.id !== 'apito' && instrumentsConfig[t.instrumentIdx]?.id !== 'voice').length === selectedExportTracks.size
+                  tracks.filter(t => instrumentsConfig[t.instrumentIdx]?.id !== 'apito' && instrumentsConfig[t.instrumentIdx]?.type !== 'voice').length === selectedExportTracks.size
                 }
                 onChange={(e) => {
                   if (e.target.checked) {
                     const allIds = tracks
-                      .filter(t => instrumentsConfig[t.instrumentIdx]?.id !== 'apito' && instrumentsConfig[t.instrumentIdx]?.id !== 'voice')
+                      .filter(t => instrumentsConfig[t.instrumentIdx]?.id !== 'apito' && instrumentsConfig[t.instrumentIdx]?.type !== 'voice')
                       .map(t => t.id);
                     setSelectedExportTracks(new Set(allIds));
                   } else {
@@ -66,7 +66,7 @@ export const ExportMenuModal: React.FC<ExportMenuModalProps> = ({
 
             {tracks.map(track => {
               const conf = instrumentsConfig[track.instrumentIdx];
-              if (!conf || conf.id === 'apito' || conf.id === 'voice') return null;
+              if (!conf || conf.id === 'apito' || conf.type === 'voice') return null;
               
               return (
                 <div key={track.id} className="flex flex-col gap-1 p-2 border-2 border-[var(--cordel-border)]/50 ml-4">

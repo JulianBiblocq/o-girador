@@ -22,7 +22,7 @@ import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { meters } from '../hooks/useAudioSync';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, isSequencerVisibleTrack, isToadaBus, isToadaChild } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { Pattern } from '../types';
 
@@ -67,11 +67,24 @@ const MixerComponent: React.FC<MixerProps> = ({
   const handleReorderTracksDnd = useSequencerStore(state => state.handleReorderTracksDnd);
   
   const trackList = useSequencerStore(
-    useShallow(state =>
-      state.tracks
-        .filter(t => !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder))
-        .map(t => getCachedTrack(t.id, t.isHidden, t.isSolo, t.isMute))
-    )
+    useShallow(state => {
+      const list: TrackGroup[] = [];
+      state.tracks.forEach(t => {
+        if (t.isHidden) return;
+        if (isToadaChild(t, state.tracks)) {
+          // Never display children in the left panel sequence list
+          return;
+        }
+        if (isToadaBus(t)) {
+          list.push(t);
+          return;
+        }
+        if (isSequencerVisibleTrack(t, state.tracks)) {
+          list.push(t);
+        }
+      });
+      return list.map(t => getCachedTrack(t.id, t.isHidden, t.isSolo, t.isMute));
+    })
   );
 
   const trackIdsNumbers = trackList.map(t => t.id);
@@ -132,11 +145,18 @@ const MixerComponent: React.FC<MixerProps> = ({
             onClick={() => setAddDropOpen(!addDropOpen)}
             className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button px-3 py-2 text-xs font-bold font-cactus uppercase transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
           >
-            ➕ {t('addInst')}
+            ➕ {t('addInst')} <span className="text-[8px] opacity-60">▼</span>
           </button>
           {addDropOpen && (
             <div className="absolute top-10 left-0 w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] shadow-[4px_4px_0_var(--cordel-border)] max-h-none z-[100]">
-              {instrumentsConfig.map((inst, idx) => (
+              {(() => {
+                const list = instrumentsConfig
+                  .map((inst, idx) => ({ inst, idx }))
+                  .filter(({ inst }) => inst.id !== 'puxador' && inst.id !== 'coro');
+                const apitoItem = list.find(item => item.inst.id === 'apito');
+                const rest = list.filter(item => item.inst.id !== 'apito');
+                const sorted = apitoItem ? [...rest, apitoItem] : list;
+                return sorted.map(({ inst, idx }) => (
                 <div
                   key={idx}
                   onClick={() => {
@@ -155,14 +175,15 @@ const MixerComponent: React.FC<MixerProps> = ({
                   />
                   <span>{inst.name}</span>
                 </div>
-              ))}
+                ));
+              })()}
             </div>
           )}
         </div>
         <button
           onClick={() => setIsTracksCollapsed(!isTracksCollapsed)}
           className="bg-transparent border border-[#444] px-3 py-2 text-sm font-extrabold cursor-pointer text-[#eaddcf] hover:bg-[#eaddcf] hover:text-black transition-colors"
-          title={isTracksCollapsed ? "Déplier les pas" : "Replier les pas"}
+          title={isTracksCollapsed ? t('expandSteps') : t('collapseSteps')}
         >
           {isTracksCollapsed ? '▼' : '▲'}
         </button>

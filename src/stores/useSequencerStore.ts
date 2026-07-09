@@ -43,11 +43,86 @@ export interface TrackSlice {
   toggleMasterFxMute: (fxType: 'reverb' | 'distortion') => void;
 }
 
+export const isToadaBus = (t: { isBusFolder?: boolean; customName?: string; id?: any }): boolean => {
+  return !!t.isBusFolder && (t.customName === 'Toada' || String(t.id) === 'toada');
+};
+
+export const isToadaChild = (t: { busId?: string }, allTracks: TrackGroup[]): boolean => {
+  if (!t.busId) return false;
+  const parent = allTracks.find(p => String(p.id) === String(t.busId));
+  return !!parent && isToadaBus(parent);
+};
+
+export const ensureToadaBus = (list: TrackGroup[]): TrackGroup[] => {
+  const puxTrack = list.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+  const coroTrack = list.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+  
+  if (!puxTrack && !coroTrack) {
+    return list;
+  }
+
+  let toadaBus = list.find(t => t.isBusFolder && t.customName === 'Toada');
+  let nextList = [...list];
+
+  if (!toadaBus) {
+    const newBusId = 999901; // ID unique stable
+    toadaBus = {
+      id: newBusId,
+      instrumentIdx: puxTrack ? puxTrack.instrumentIdx : (coroTrack ? coroTrack.instrumentIdx : 8),
+      patterns: [],
+      isMute: false,
+      isSolo: false,
+      isHidden: false,
+      volumeVal: 100,
+      selectedPatternId: 0,
+      isBusFolder: true,
+      isFolded: false,
+      customName: 'Toada',
+      reverbVal: 0,
+      panVal: 0,
+      pan: 0,
+      fxSends: { reverb: 0, distortion: 0 }
+    };
+
+    // Insérer le bus Toada juste avant le premier des enfants vocaux
+    const firstVoiceIndex = list.findIndex(t => 
+      t.id === (puxTrack?.id ?? -1) || t.id === (coroTrack?.id ?? -1)
+    );
+    
+    if (firstVoiceIndex !== -1) {
+      nextList.splice(firstVoiceIndex, 0, toadaBus);
+    } else {
+      nextList.push(toadaBus);
+    }
+  }
+
+  // S'assurer que les enfants pointent vers le bus
+  nextList = nextList.map(t => {
+    const isPux = instrumentsConfig[t.instrumentIdx]?.id === 'puxador';
+    const isCoro = instrumentsConfig[t.instrumentIdx]?.id === 'coro';
+    if ((isPux || isCoro) && String(t.busId) !== String(toadaBus!.id)) {
+      return { ...t, busId: String(toadaBus!.id) };
+    }
+    return t;
+  });
+
+  return nextList;
+};
+
+export const isSequencerVisibleTrack = (t: TrackGroup, allTracks: TrackGroup[]): boolean => {
+  if (isToadaChild(t, allTracks)) {
+    return false;
+  }
+  if (isToadaBus(t)) {
+    return true;
+  }
+  return !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder);
+};
+
 const applyRadii = (list: TrackGroup[]): TrackGroup[] => {
   const drawableTracks = list.filter(t => 
     !t.isHidden && 
-    (!t.isBusFolder || t.isLinkFolder) && 
-    !t.linkedToTrackId && 
+    isSequencerVisibleTrack(t, list) && 
     instrumentsConfig[t.instrumentIdx]?.id !== 'apito'
   );
 
@@ -83,7 +158,8 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     }
   },
   setTracks: (updater) => set(state => {
-    const nextTracks = typeof updater === 'function' ? (updater as any)(state.tracks) : updater;
+    let nextTracks = typeof updater === 'function' ? (updater as any)(state.tracks) : updater;
+    nextTracks = ensureToadaBus(nextTracks);
     return {
       tracks: nextTracks,
       tracksVersion: state.tracksVersion + 1
@@ -241,11 +317,9 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
             }
             return t;
           });
-
-          // Supprimer le bus
-          updated = updated.filter(t => String(t.id) !== String(busId));
         }
       }
+
 
       // Effectuer la suppression physique de la piste
       const remaining = updated.filter((t) => t.id !== id);
@@ -583,45 +657,79 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
 
   handleTimelinePatternAssign: (trackId, patternId, measureIdx) => {
     get().pushUndoState();
-    set((state) => ({
-      tracks: state.tracks.map(t => {
-        if (t.id === trackId) {
-          return {
-            ...t,
-            patterns: t.patterns.map(p => {
-              const assign = [...p.measureAssignments];
-              assign[measureIdx] = p.id === patternId;
-              return { ...p, measureAssignments: assign };
-            })
-          };
+    set((state) => {
+      const isToadaTrackId = isToadaBus(state.tracks.find(t => t.id === trackId) || {});
+      
+      let targetTrackId = trackId;
+      if (patternId !== null) {
+        const ownerTrack = state.tracks.find(t => t.patterns.some(p => p.id === patternId));
+        if (ownerTrack) {
+          targetTrackId = ownerTrack.id;
         }
-        return t;
-      }),
-      tracksVersion: state.tracksVersion + 1
-    }));
+      }
+
+      const puxTrack = state.tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coroTrack = state.tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+
+      const isVoiceToadaAssign = isToadaTrackId || 
+        (puxTrack && targetTrackId === puxTrack.id) || 
+        (coroTrack && targetTrackId === coroTrack.id);
+
+      return {
+        tracks: state.tracks.map(t => {
+          if (isVoiceToadaAssign && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
+            return {
+              ...t,
+              patterns: t.patterns.map(p => {
+                const assign = [...p.measureAssignments];
+                assign[measureIdx] = (t.id === targetTrackId && p.id === patternId);
+                return { ...p, measureAssignments: assign };
+              })
+            };
+          }
+          
+          if (t.id === targetTrackId) {
+            return {
+              ...t,
+              patterns: t.patterns.map(p => {
+                const assign = [...p.measureAssignments];
+                assign[measureIdx] = p.id === patternId;
+                return { ...p, measureAssignments: assign };
+              })
+            };
+          }
+          return t;
+        }),
+        tracksVersion: state.tracksVersion + 1
+      };
+    });
   },
 
   handleTimelinePatternVariationToggle: (trackId, patternId, measureIdx, val) => {
     get().pushUndoState();
-    set((state) => ({
-      tracks: state.tracks.map(t => {
-        if (t.id === trackId) {
-          return {
-            ...t,
-            patterns: t.patterns.map(p => {
-              if (p.id === patternId) {
-                const currentAllow = p.measureAllowVariations ? [...p.measureAllowVariations] : Array(state.totalMeasures).fill(false);
-                currentAllow[measureIdx] = val;
-                return { ...p, measureAllowVariations: currentAllow };
-              }
-              return p;
-            })
-          };
-        }
-        return t;
-      }),
-      tracksVersion: state.tracksVersion + 1
-    }));
+    set((state) => {
+      const ownerTrack = state.tracks.find(t => t.patterns.some(p => p.id === patternId));
+      const targetTrackId = ownerTrack ? ownerTrack.id : trackId;
+      return {
+        tracks: state.tracks.map(t => {
+          if (t.id === targetTrackId) {
+            return {
+              ...t,
+              patterns: t.patterns.map(p => {
+                if (p.id === patternId) {
+                  const currentAllow = p.measureAllowVariations ? [...p.measureAllowVariations] : Array(state.totalMeasures).fill(false);
+                  currentAllow[measureIdx] = val;
+                  return { ...p, measureAllowVariations: currentAllow };
+                }
+                return p;
+              })
+            };
+          }
+          return t;
+        }),
+        tracksVersion: state.tracksVersion + 1
+      };
+    });
   },
 
   handleTrackStepsChange: (trackId, patternId, targetSteps) => {

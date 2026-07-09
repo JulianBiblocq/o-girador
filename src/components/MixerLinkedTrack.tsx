@@ -8,6 +8,7 @@ import { GripHorizontal, Link } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useAudioStore } from '../stores/useAudioStore';
 import { instrumentsConfig, ASSETS_BASE_URL, i18n } from '../data';
 import { getBusColor, getContrastColor } from '../utils/colorHelpers';
 import { DragNumberBox } from './DragNumberBox';
@@ -37,6 +38,8 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   const sequencer = useSequencer();
   const audio = useAudio();
   const { isPlaying } = audio;
+  const chorusDensity = useAudioStore(state => state.chorusDensity);
+  const setChorusDensity = useAudioStore(state => state.setChorusDensity);
 
 
 
@@ -413,8 +416,19 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
           lang={lang}
         />
 
+        {inst.id === 'coro' && (
+          <DragNumberBox 
+            label="Coro" 
+            value={Math.round(chorusDensity * 100)} 
+            onChange={(val) => setChorusDensity(val / 100)}
+            onAudioDrag={(val) => setChorusDensity(val / 100)}
+            className="absolute left-3 bottom-[32px] w-[65px] !px-1 text-[8px]"
+          />
+        )}
+
         {/* Zone Inférieure (Mixage) : 3 colonnes horizontales regroupées au centre */}
         <div className="flex justify-center items-center w-full flex-grow gap-5 pt-1.5">
+          {/* Colonne de gauche : Bouton Mute [M] au-dessus de Solo [S] */}
           {/* Colonne de gauche : Bouton Mute [M] au-dessus de Solo [S] */}
           <div className="flex flex-col gap-2 justify-center items-center w-7 shrink-0">
             <button 
