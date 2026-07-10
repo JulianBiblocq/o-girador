@@ -495,12 +495,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                 return (
                   <div 
                     key={section.id} 
-                    className="border-4 border-black bg-white shadow-[4px_4px_0px_#000] flex flex-col overflow-hidden"
+                    className="border-t-2 border-b-4 border-l-3 border-r-2 border-black rounded-[4px_10px_6px_12px] bg-white shadow-[4px_4px_0px_#000] flex flex-col overflow-hidden"
                   >
                     {/* Header de Section Accordéon */}
                     <button
                       onClick={() => toggleSection(section.id)}
-                      className="w-full text-left px-5 py-4 font-cactus font-bold text-sm md:text-base uppercase flex justify-between items-center transition-colors bg-white hover:bg-black hover:text-white cursor-pointer select-none border-none outline-none"
+                      className="w-full text-left px-4 py-2.5 font-cactus font-bold text-xs md:text-sm uppercase flex justify-between items-center transition-colors bg-white hover:bg-black hover:text-white cursor-pointer select-none border-none outline-none"
                     >
                       <span>{section.title}</span>
                       <span className="font-black text-lg transition-transform duration-200">
@@ -510,12 +510,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
                     {/* Contenu de Section Accordéon */}
                     {isOpen && (
-                      <div className="p-5 border-t-4 border-black bg-[#fbf8f0] text-xs leading-relaxed font-sans text-left">
+                      <div className="p-5 border-t-2 border-black bg-[#fbf8f0] text-xs leading-relaxed font-sans text-left">
                         {section.id === 'groove' && (
                           <div className="flex flex-col gap-6">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                               {/* 1. BLOC GROOVE (BALANÇO COMPLET INLINE) */}
-                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000]">
+                            <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000]">
                               <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
                                 🌊 {lang === 'fr' ? 'Balanço Général' : 'Balanço Geral'}
                               </h3>
@@ -618,7 +618,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                             </div>
 
                             {/* 2. BLOC MÉTRONOME */}
-                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000]">
+                            <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000]">
                               <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
                                 ⏱️ Metrônomo
                               </h3>
@@ -678,7 +678,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                             </div>
 
                             {/* 3. BLOC MONTAGEM DO KIT (MACROS EXHAUSTIVES AVEC FRAPPES FANTÔMES GRISÉES) */}
-                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000]">
+                            <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[4px_10px_6px_12px] p-4 bg-white shadow-[3.5px_3.5px_0px_#000]">
                               <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
                                 🥁 Montagem do Kit (Macros)
                               </h3>
@@ -963,7 +963,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                             {/* Zone de configuration (Haut) */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                               {/* Colonne de Gauche : Métadonnées et Paroles */}
-                              <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
+                              <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
                                 <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
                                   📝 Informações da Toada
                                 </h3>
@@ -1012,7 +1012,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               </div>
 
                               {/* Colonne de Droite : Sélection d'instruments */}
-                              <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
+                              <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
                                 <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
                                   🥁 Seleção de Instrumentos
                                 </h3>
@@ -1071,7 +1071,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                             </div>
 
                             {/* 3. PLAN DE TRAVAIL (ÉDITEUR LIVETEXT INTERACTIF) */}
-                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-3">
+                            <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[4px_10px_6px_12px] p-4 bg-white shadow-[3.5px_3.5px_0px_#000] flex flex-col gap-3">
                               <div className="flex justify-between items-center border-b border-black/10 pb-1 flex-wrap gap-2">
                                 <h3 className="font-cactus font-bold text-sm uppercase flex items-center gap-1.5">
                                   ✍️ {lang === 'fr' ? 'Plan de Travail - Éditeur de Partition' : 'Planilha de Trabalho - Editor de Partitura'}
@@ -1097,8 +1097,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               />
                             </div>
 
-                            {/* 4. AÇÕES DE IMPRESSÃO */}
-                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
+                             {/* 4. AÇÕES DE IMPRESSÃO */}
+                             <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
                               <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
                                 🖨️ Ações de Impressão & Exportação
                               </h3>
@@ -1155,7 +1155,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                             {/* Grille supérieure : Télémétrie + Configuration */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                               {/* TÉLÉMÉTRIE */}
-                              <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-2">
+                              <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-2">
                                 <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
                                   ⚡ Télémétrie en Temps Réel
                                 </h3>
@@ -1168,7 +1168,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               </div>
 
                               {/* CONFIGURATION MODE ÉCO */}
-                              <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
+                              <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
                                 <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
                                   ⚙️ {lang === 'fr' ? 'Configuration des Performances' : 'Configurações de Desempenho'}
                                 </h3>
@@ -1258,8 +1258,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               </div>
                             </div>
 
-                            {/* PURGE DU CACHE */}
-                            <div className="border-2 border-[#8b2a1a] p-4 bg-[#fbf8f0] shadow-[3px_3px_0px_#8b2a1a] flex flex-col gap-4">
+                             {/* PURGE DU CACHE */}
+                             <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-[#8b2a1a] rounded-[4px_10px_6px_12px] p-4 bg-[#fbf8f0] shadow-[3px_3px_0px_#8b2a1a] flex flex-col gap-4">
                               <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-[#8b2a1a]/20 pb-1 text-[#8b2a1a]">
                                 🖨️ {lang === 'fr' ? 'Purge de l\'Atelier' : 'Limpar Oficina'}
                               </h3>
