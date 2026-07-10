@@ -364,7 +364,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
                 onClick={() => useSequencerStore.getState().handleToggleFoldBus(String(trackId))}
                 className="flex items-center gap-1 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm px-1 py-1 cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors w-full justify-center font-bold text-[9px]"
               >
-                <span className="font-cactus truncate">{track.isFolded ? '▼' : '▲'} {track.customName || 'Bus'}</span>
+                <span className="font-cactus truncate">{track.isFolded ? '▼' : '▶'} {track.customName || 'Bus'}</span>
               </div>
             )}
           </div>
@@ -727,7 +727,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             >
               <div className="flex items-center gap-2 truncate">
                 <span className="text-[10px] flex-shrink-0 font-sans font-bold select-none opacity-80">
-                  {track.isFolded ? '▼' : '▲'}
+                  {track.isFolded ? '▼' : '▶'}
                 </span>
                 <div className="flex items-center gap-1.5 truncate">
                   <img 
