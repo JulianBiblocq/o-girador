@@ -326,7 +326,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
         </div>
 
         {/* Inner Controls Stack (Responsive / Elastic Vertical Layout) */}
-        <div className="flex-1 flex flex-col p-1.5 gap-1.5 justify-start items-center w-full min-h-0 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 flex flex-col p-1.5 gap-1.5 justify-start items-center w-full min-h-0 overflow-hidden">
           
           {/* Section EQ */}
           {heightCategory !== 'large' && !openPanels.eq ? (
