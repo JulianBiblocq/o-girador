@@ -25,6 +25,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   const setStrokeDefault = useSequencerSettingsStore((state) => state.setStrokeDefault);
   const enabledSignalIds = useSequencerSettingsStore((state) => state.enabledSignalIds);
   const toggleSignalEnabled = useSequencerSettingsStore((state) => state.toggleSignalEnabled);
+  const setSignalsBatch = useSequencerSettingsStore((state) => state.setSignalsBatch);
   const forcedStrokes = useSequencerSettingsStore((state) => state.forcedStrokes) || {};
   const setStrokeForcedState = useSequencerSettingsStore((state) => state.setStrokeForcedState);
 
@@ -423,7 +424,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   };
 
   const sections = [
-    { id: 'groove', title: lang === 'pt' ? 'Groove, Kit & Metrônomo' : 'Groove, Kit & Métronome' },
+    { id: 'groove', title: lang === 'pt' ? 'Balanço, Kit & Metrônomo' : 'Balanço, Kit & Métronome' },
     { id: 'sinais', title: lang === 'pt' ? 'Sinais do Mestre' : 'Sinais do Mestre' },
     { id: 'prensa', title: lang === 'pt' ? 'A Prensa (Partitura)' : 'A Prensa (Partition)' },
     { id: 'performance', title: lang === 'pt' ? 'Desempenho (Performances)' : 'Desempenho (Performances)' },
@@ -433,7 +434,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   return (
     <div className="fixed inset-0 z-[999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       {/* Container Principal Brutaliste */}
-      <div className="bg-[#f4ecd8] border-4 border-black w-full md:w-[90vw] max-w-5xl h-[85vh] flex flex-col shadow-[8px_8px_0px_#000] relative overflow-hidden text-[#1a1a1a]">
+      <div className="bg-[#f4ecd8] border-4 border-black w-full md:w-[92vw] max-w-6xl h-[85vh] flex flex-col shadow-[8px_8px_0px_#000] relative overflow-hidden text-[#1a1a1a]">
         
         {/* Header de la page */}
         <div className="bg-black text-[#f4ecd8] px-6 py-4 flex justify-between items-center shrink-0 border-b-4 border-black">
@@ -512,8 +513,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                       <div className="p-5 border-t-4 border-black bg-[#fbf8f0] text-xs leading-relaxed font-sans text-left">
                         {section.id === 'groove' && (
                           <div className="flex flex-col gap-6">
-                            
-                            {/* 1. BLOC GROOVE (BALANÇO COMPLET INLINE) */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                              {/* 1. BLOC GROOVE (BALANÇO COMPLET INLINE) */}
                             <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000]">
                               <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
                                 🌊 {lang === 'fr' ? 'Balanço Général' : 'Balanço Geral'}
@@ -674,6 +675,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                 </div>
                               </div>
                             </div>
+                            </div>
 
                             {/* 3. BLOC MONTAGEM DO KIT (MACROS EXHAUSTIVES AVEC FRAPPES FANTÔMES GRISÉES) */}
                             <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000]">
@@ -686,7 +688,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                   : 'Cliquez sur une frappe pour régler son volume et sa résonance globale. Les frappes grisées/pointillées ne sont pas utilisées, mais vous pouvez définir leurs valeurs par défaut.'}
                               </p>
 
-                              <div className="flex flex-col gap-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {activeTracks.length === 0 ? (
                                   <p className="text-[10px] italic opacity-60">Aucun instrument actif dans cette session.</p>
                                 ) : (
@@ -788,48 +790,45 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                                    </button>
                                                  </div>
 
-                                                {/* Grid container for sliders */}
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                  {/* Volume macro slider */}
-                                                  <div className="flex flex-col gap-1">
-                                                    <div className="flex justify-between text-[10px] font-bold">
-                                                      <span>🔊 Volume Global :</span>
-                                                      <span>{avgVolume}%</span>
-                                                    </div>
-                                                    <input 
-                                                      type="range"
-                                                      min="0"
-                                                      max="100"
-                                                      value={avgVolume}
-                                                      onChange={(e) => {
-                                                        const val = parseInt(e.target.value, 10);
-                                                        const delta = val - avgVolume;
-                                                        applyMacroVolumeDelta(track.id, stroke, delta, val);
-                                                      }}
-                                                      className="w-full accent-green-600 cursor-pointer h-1.5 bg-black/10"
-                                                    />
-                                                  </div>
+                                                 {/* Volume macro slider */}
+                                                 <div className="flex flex-col gap-1">
+                                                   <div className="flex justify-between text-[10px] font-bold">
+                                                     <span>🔊 Volume Global :</span>
+                                                     <span>{avgVolume}%</span>
+                                                   </div>
+                                                   <input 
+                                                     type="range"
+                                                     min="0"
+                                                     max="100"
+                                                     value={avgVolume}
+                                                     onChange={(e) => {
+                                                       const val = parseInt(e.target.value, 10);
+                                                       const delta = val - avgVolume;
+                                                       applyMacroVolumeDelta(track.id, stroke, delta, val);
+                                                     }}
+                                                     className="w-full accent-green-600 cursor-pointer h-1.5 bg-black/10"
+                                                   />
+                                                 </div>
 
-                                                  {/* Decay macro slider */}
-                                                  <div className="flex flex-col gap-1">
-                                                    <div className="flex justify-between text-[10px] font-bold">
-                                                      <span>⏳ {isVoice ? (lang === 'fr' ? 'Durée Globale :' : 'Duração Geral :') : 'Decay Global :'}</span>
-                                                      <span>{avgDecay}%</span>
-                                                    </div>
-                                                    <input 
-                                                      type="range"
-                                                      min="10"
-                                                      max="100"
-                                                      value={avgDecay}
-                                                      onChange={(e) => {
-                                                        const val = parseInt(e.target.value, 10);
-                                                        const delta = val - avgDecay;
-                                                        applyMacroDecayDelta(track.id, stroke, delta, val);
-                                                      }}
-                                                      className="w-full accent-[#8b2a1a] cursor-pointer h-1.5 bg-black/10"
-                                                    />
-                                                  </div>
-                                                </div>
+                                                 {/* Decay macro slider */}
+                                                 <div className="flex flex-col gap-1">
+                                                   <div className="flex justify-between text-[10px] font-bold">
+                                                     <span>⏳ {isVoice ? (lang === 'fr' ? 'Durée Globale :' : 'Duração Geral :') : 'Decay Global :'}</span>
+                                                     <span>{avgDecay}%</span>
+                                                   </div>
+                                                   <input 
+                                                     type="range"
+                                                     min="10"
+                                                     max="100"
+                                                     value={avgDecay}
+                                                     onChange={(e) => {
+                                                       const val = parseInt(e.target.value, 10);
+                                                       const delta = val - avgDecay;
+                                                       applyMacroDecayDelta(track.id, stroke, delta, val);
+                                                     }}
+                                                     className="w-full accent-[#8b2a1a] cursor-pointer h-1.5 bg-black/10"
+                                                   />
+                                                 </div>
                                               </div>
                                             );
                                           })()
@@ -853,6 +852,61 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                 ? 'Décochez les signaux visuels que vous ne souhaitez pas afficher dans le menu déroulant de votre timeline pour simplifier la grille.'
                                 : 'Desmarque os sinais visuais que você não deseja exibir no menu suspenso da sua linha do tempo para simplificar a grade.'}
                             </p>
+
+                            {rhythmSignals.length > 0 && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-2 border-black p-3 bg-[#eaddcf]/30 mb-2">
+                                <div className="flex flex-col gap-2">
+                                  <span className="font-bold text-[10px] uppercase text-black/60">
+                                    🌐 {lang === 'fr' ? 'Signaux Cloud' : 'Sinais Cloud'}
+                                  </span>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => {
+                                        const cloudIds = rhythmSignals.filter(s => s.isCloud).map(s => s.id);
+                                        setSignalsBatch(cloudIds, true, allSignalIds);
+                                      }}
+                                      className="px-2 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white hover:bg-black hover:text-white cursor-pointer transition-colors shadow-[1.5px_1.5px_0px_#000] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none"
+                                    >
+                                      {lang === 'fr' ? 'Tout cocher' : 'Selecionar Todos'}
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        const cloudIds = rhythmSignals.filter(s => s.isCloud).map(s => s.id);
+                                        setSignalsBatch(cloudIds, false, allSignalIds);
+                                      }}
+                                      className="px-2 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white hover:bg-[#8b2a1a] hover:text-white cursor-pointer transition-colors shadow-[1.5px_1.5px_0px_#000] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none"
+                                    >
+                                      {lang === 'fr' ? 'Tout décocher' : 'Desmarcar Todos'}
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                  <span className="font-bold text-[10px] uppercase text-black/60">
+                                    💻 {lang === 'fr' ? 'Signaux Locaux' : 'Sinais Locais'}
+                                  </span>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => {
+                                        const localIds = rhythmSignals.filter(s => !s.isCloud).map(s => s.id);
+                                        setSignalsBatch(localIds, true, allSignalIds);
+                                      }}
+                                      className="px-2 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white hover:bg-black hover:text-white cursor-pointer transition-colors shadow-[1.5px_1.5px_0px_#000] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none"
+                                    >
+                                      {lang === 'fr' ? 'Tout cocher' : 'Selecionar Todos'}
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        const localIds = rhythmSignals.filter(s => !s.isCloud).map(s => s.id);
+                                        setSignalsBatch(localIds, false, allSignalIds);
+                                      }}
+                                      className="px-2 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white hover:bg-[#8b2a1a] hover:text-white cursor-pointer transition-colors shadow-[1.5px_1.5px_0px_#000] active:translate-x-[0.5px] active:translate-y-[0.5px] active:shadow-none"
+                                    >
+                                      {lang === 'fr' ? 'Tout décocher' : 'Desmarcar Todos'}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
 
                             {rhythmSignals.length === 0 ? (
                               <p className="text-[10px] italic opacity-60">
@@ -906,110 +960,113 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                         {section.id === 'prensa' && (
                           <div className="flex flex-col gap-6 text-left">
                             
-                            {/* 1. INFORMAÇÕES DA TOADA */}
-                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
-                              <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
-                                📝 Informações da Toada
-                              </h3>
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="flex flex-col gap-1">
-                                  <label className="font-bold text-[10px] uppercase">Título / Titre :</label>
-                                  <input 
-                                    type="text"
-                                    value={metadata.toada || ''}
-                                    onChange={(e) => handleMetaChange('toada', e.target.value)}
-                                    className="bg-white border-2 border-black font-cactus font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none"
-                                    placeholder="Nome da Toada"
-                                  />
+                            {/* Zone de configuration (Haut) */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                              {/* Colonne de Gauche : Métadonnées et Paroles */}
+                              <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
+                                <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+                                  📝 Informações da Toada
+                                </h3>
+                                <div className="flex flex-col gap-3">
+                                  <div className="flex flex-col gap-1">
+                                    <label className="font-bold text-[10px] uppercase">Título / Titre :</label>
+                                    <input 
+                                      type="text"
+                                      value={metadata.toada || ''}
+                                      onChange={(e) => handleMetaChange('toada', e.target.value)}
+                                      className="bg-white border-2 border-black font-cactus font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none"
+                                      placeholder="Nome da Toada"
+                                    />
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <label className="font-bold text-[10px] uppercase">Mestre / Compositeur :</label>
+                                    <input 
+                                      type="text"
+                                      value={metadata.compositor || ''}
+                                      onChange={(e) => handleMetaChange('compositor', e.target.value)}
+                                      className="bg-white border-2 border-black font-cactus font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none"
+                                      placeholder="Mestre / Compositor"
+                                    />
+                                  </div>
+                                  <div className="flex flex-col gap-1">
+                                    <label className="font-bold text-[10px] uppercase">Ritmo / Rythme :</label>
+                                    <input 
+                                      type="text"
+                                      value={metadata.ritmo || ''}
+                                      onChange={(e) => handleMetaChange('ritmo', e.target.value)}
+                                      className="bg-white border-2 border-black font-cactus font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none"
+                                      placeholder="Ex: Maracatu Nação"
+                                    />
+                                  </div>
                                 </div>
-                                <div className="flex flex-col gap-1">
-                                  <label className="font-bold text-[10px] uppercase">Mestre / Compositeur :</label>
-                                  <input 
-                                    type="text"
-                                    value={metadata.compositor || ''}
-                                    onChange={(e) => handleMetaChange('compositor', e.target.value)}
-                                    className="bg-white border-2 border-black font-cactus font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none"
-                                    placeholder="Mestre / Compositor"
-                                  />
-                                </div>
-                                <div className="flex flex-col gap-1">
-                                  <label className="font-bold text-[10px] uppercase">Ritmo / Rythme :</label>
-                                  <input 
-                                    type="text"
-                                    value={metadata.ritmo || ''}
-                                    onChange={(e) => handleMetaChange('ritmo', e.target.value)}
-                                    className="bg-white border-2 border-black font-cactus font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none"
-                                    placeholder="Ex: Maracatu Nação"
+                                <div className="flex flex-col gap-1 flex-grow">
+                                  <label className="font-bold text-[10px] uppercase">Letras / Paroles :</label>
+                                  <textarea
+                                    rows={5}
+                                    value={letras}
+                                    onChange={(e) => setLetras && setLetras(e.target.value)}
+                                    className="bg-white border-2 border-black font-sans font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none resize-none custom-scrollbar flex-grow"
+                                    placeholder="Digite as letras aqui..."
                                   />
                                 </div>
                               </div>
-                              <div className="flex flex-col gap-1">
-                                <label className="font-bold text-[10px] uppercase">Letras / Paroles :</label>
-                                <textarea
-                                  rows={4}
-                                  value={letras}
-                                  onChange={(e) => setLetras && setLetras(e.target.value)}
-                                  className="bg-white border-2 border-black font-sans font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none resize-none custom-scrollbar"
-                                  placeholder="Digite as letras aqui..."
-                                />
-                              </div>
-                            </div>
 
-                            {/* 2. SELEÇÃO DE INSTRUMENTOS */}
-                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
-                              <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
-                                🥁 Seleção de Instrumentos
-                              </h3>
-                              <div className="flex flex-col gap-2 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
-                                
-                                {/* Case "Tous les instruments" */}
-                                <label className="flex items-center gap-3 p-2 border-2 border-black bg-white cursor-pointer hover:bg-black/5 transition-colors select-none">
-                                  <input 
-                                    type="checkbox" 
-                                    className="w-4 h-4 cursor-pointer accent-black"
-                                    checked={validExportTracks.length === selectedExportTracks.size}
-                                    onChange={handleToggleAll}
-                                  />
-                                  <span className="font-cactus font-bold text-xs uppercase">
-                                    {lang === 'fr' ? 'Tous les instruments' : 'Todos os instrumentos'}
-                                  </span>
-                                </label>
-
-                                {/* Liste des instruments actifs */}
-                                {validExportTracks.map(track => {
-                                  const conf = instrumentsConfig[track.instrumentIdx];
-                                  if (!conf) return null;
+                              {/* Colonne de Droite : Sélection d'instruments */}
+                              <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
+                                <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+                                  🥁 Seleção de Instrumentos
+                                </h3>
+                                <div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar flex-grow">
                                   
-                                  const isExportChecked = selectedExportTracks.has(track.id);
-                                  const isAnnexChecked = selectedAnnexTracks.has(track.id);
+                                  {/* Case "Tous les instruments" */}
+                                  <label className="flex items-center gap-3 p-2 border-2 border-black bg-white cursor-pointer hover:bg-black/5 transition-colors select-none">
+                                    <input 
+                                      type="checkbox" 
+                                      className="w-4 h-4 cursor-pointer accent-black"
+                                      checked={validExportTracks.length === selectedExportTracks.size}
+                                      onChange={handleToggleAll}
+                                    />
+                                    <span className="font-cactus font-bold text-xs uppercase">
+                                      {lang === 'fr' ? 'Tous les instruments' : 'Todos os instrumentos'}
+                                    </span>
+                                  </label>
 
-                                  return (
-                                    <div key={track.id} className="flex flex-col gap-2 p-2 border-2 border-black/30 bg-black/[0.01] ml-4">
-                                      <label className="flex items-center gap-3 cursor-pointer hover:bg-black/5 transition-colors select-none">
-                                        <input 
-                                          type="checkbox" 
-                                          className="w-4 h-4 cursor-pointer accent-black"
-                                          checked={isExportChecked}
-                                          onChange={(e) => handleToggleTrackExport(track.id, e.target.checked)}
-                                        />
-                                        <span className="font-cactus text-xs font-bold text-[#8b2a1a] uppercase">{conf.name}</span>
-                                      </label>
-                                      
-                                      <label className={`flex items-center gap-2 pl-7 cursor-pointer transition-all select-none ${!isExportChecked ? 'opacity-40 pointer-events-none' : 'hover:bg-black/5'}`}>
-                                        <input 
-                                          type="checkbox" 
-                                          className="w-3 h-3 cursor-pointer accent-black"
-                                          checked={isAnnexChecked}
-                                          disabled={!isExportChecked}
-                                          onChange={(e) => handleToggleTrackAnnex(track.id, e.target.checked)}
-                                        />
-                                        <span className="font-sans text-[10px] opacity-80">
-                                          {lang === 'fr' ? 'Lexique des variations en annexe' : 'Léxico de variações em anexo'}
-                                        </span>
-                                      </label>
-                                    </div>
-                                  );
-                                })}
+                                  {/* Liste des instruments actifs */}
+                                  {validExportTracks.map(track => {
+                                    const conf = instrumentsConfig[track.instrumentIdx];
+                                    if (!conf) return null;
+                                    
+                                    const isExportChecked = selectedExportTracks.has(track.id);
+                                    const isAnnexChecked = selectedAnnexTracks.has(track.id);
+
+                                    return (
+                                      <div key={track.id} className="flex flex-col gap-2 p-2 border-2 border-black/30 bg-black/[0.01] ml-4">
+                                        <label className="flex items-center gap-3 cursor-pointer hover:bg-black/5 transition-colors select-none">
+                                          <input 
+                                            type="checkbox" 
+                                            className="w-4 h-4 cursor-pointer accent-black"
+                                            checked={isExportChecked}
+                                            onChange={(e) => handleToggleTrackExport(track.id, e.target.checked)}
+                                          />
+                                          <span className="font-cactus text-xs font-bold text-[#8b2a1a] uppercase">{conf.name}</span>
+                                        </label>
+                                        
+                                        <label className={`flex items-center gap-2 pl-7 cursor-pointer transition-all select-none ${!isExportChecked ? 'opacity-40 pointer-events-none' : 'hover:bg-black/5'}`}>
+                                          <input 
+                                            type="checkbox" 
+                                            className="w-3 h-3 cursor-pointer accent-black"
+                                            checked={isAnnexChecked}
+                                            disabled={!isExportChecked}
+                                            onChange={(e) => handleToggleTrackAnnex(track.id, e.target.checked)}
+                                          />
+                                          <span className="font-sans text-[10px] opacity-80">
+                                            {lang === 'fr' ? 'Lexique des variations en annexe' : 'Léxico de variações em anexo'}
+                                          </span>
+                                        </label>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             </div>
 
@@ -1058,7 +1115,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                     );
                                   }}
                                   disabled={!liveText}
-                                  className="px-4 py-3 text-xs bg-[#eaddcf] text-black border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-black hover:text-white shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-center"
+                                  className="px-3 py-2 text-[10px] bg-[#eaddcf] text-black border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-black hover:text-white shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-center"
                                 >
                                   {lang === 'fr' ? 'Télécharger (.txt)' : 'Baixar (.txt)'}
                                 </button>
@@ -1074,7 +1131,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                     );
                                   }}
                                   disabled={!liveText}
-                                  className="px-4 py-3 text-xs bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-white hover:text-black shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-center"
+                                  className="px-3 py-2 text-[10px] bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-white hover:text-black shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-center"
                                 >
                                   {lang === 'fr' ? 'Imprimer (HTML)' : 'Imprimir (HTML)'}
                                 </button>
@@ -1083,7 +1140,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               <div className="border-t border-dashed border-black/20 pt-3">
                                 <button
                                   onClick={printLegendOnly}
-                                  className="w-full px-4 py-3 text-xs bg-white text-black border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-[#8b2a1a] hover:text-[#f4ecd8] shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all text-center"
+                                  className="w-full px-3 py-2 text-[10px] bg-white text-black border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-[#8b2a1a] hover:text-[#f4ecd8] shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all text-center"
                                 >
                                   {lang === 'fr' ? '🖨️ Imprimer la Légende' : '🖨️ Imprimir a Legenda'}
                                 </button>
@@ -1095,108 +1152,110 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                         {section.id === 'performance' && (
                           <div className="flex flex-col gap-6 text-left">
                             
-                            {/* TÉLÉMÉTRIE */}
-                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-2">
-                              <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
-                                ⚡ Télémétrie en Temps Réel
-                              </h3>
-                              <p className="text-[10px] opacity-75 mb-2">
-                                {lang === 'fr' 
-                                  ? "Suivi des performances pour assurer un rendu fluide à 60 FPS sans coupure audio." 
-                                  : "Monitoramento de desempenho para garantir renderização fluida a 60 FPS sem engasgos de áudio."}
-                              </p>
-                              <TelemetryBadge />
-                            </div>
-
-                            {/* CONFIGURATION MODE ÉCO */}
-                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
-                              <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
-                                ⚙️ {lang === 'fr' ? 'Configuration des Performances' : 'Configurações de Desempenho'}
-                              </h3>
-                              
-                              {/* Interrupteur Maître */}
-                              <label className="flex items-center gap-3 p-3 border-2 border-black bg-[#f4ecd8]/40 cursor-pointer hover:bg-black/5 transition-colors select-none">
-                                <input 
-                                  type="checkbox" 
-                                  className="w-5 h-5 cursor-pointer accent-black"
-                                  checked={isEcoMode}
-                                  onChange={toggleEcoMode}
-                                />
-                                <div className="flex flex-col">
-                                  <span className="font-cactus font-bold text-xs uppercase">
-                                    {lang === 'fr' ? 'Mode Éco Maître (Recommandé)' : 'Modo Eco Mestre (Recomendado)'}
-                                  </span>
-                                  <span className="text-[9px] opacity-70">
-                                    {lang === 'fr' 
-                                      ? "Active automatiquement toutes les options d'économie d'énergie." 
-                                      : "Ativa automaticamente todas as opções de economia de energia."}
-                                  </span>
-                                </div>
-                              </label>
-
-                              {/* Options granulaires */}
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-2 border-l-2 border-dashed border-black/30 mt-2">
-                                {/* Option FX */}
-                                <label className="flex items-center gap-3 cursor-pointer hover:bg-black/5 p-1 transition-colors select-none">
-                                  <input 
-                                    type="checkbox" 
-                                    className="w-4 h-4 cursor-pointer accent-black"
-                                    checked={!!ecoConfig?.disableFx}
-                                    onChange={() => toggleEcoOption('disableFx')}
-                                  />
-                                  <div className="flex flex-col">
-                                    <span className="font-cactus text-xs font-bold text-black uppercase">
-                                      {lang === 'fr' ? 'Désactiver les Effets (Reverb/Compressor)' : 'Desativar Efeitos (Reverb/Compressor)'}
-                                    </span>
-                                    <span className="text-[9px] opacity-70">
-                                      {lang === 'fr' 
-                                        ? "Bypasse la réverbération spatiale et la compression master." 
-                                        : "Ignora a reverberação espacial e compressão master."}
-                                    </span>
-                                  </div>
-                                </label>
-
-                                {/* Option EQ */}
-                                <label className="flex items-center gap-3 cursor-pointer hover:bg-black/5 p-1 transition-colors select-none">
-                                  <input 
-                                    type="checkbox" 
-                                    className="w-4 h-4 cursor-pointer accent-black"
-                                    checked={!!ecoConfig?.disableEq}
-                                    onChange={() => toggleEcoOption('disableEq')}
-                                  />
-                                  <div className="flex flex-col">
-                                    <span className="font-cactus text-xs font-bold text-black uppercase">
-                                      {lang === 'fr' ? 'Désactiver les Égaliseurs par piste' : 'Desativar Equalizadores por canal'}
-                                    </span>
-                                    <span className="text-[9px] opacity-70">
-                                      {lang === 'fr' 
-                                        ? "Bypasse les bandes d'égalisation (EQ) individuelles sur la table de mixage." 
-                                        : "Ignora as bandas de equalização (EQ) individuais no mixer."}
-                                    </span>
-                                  </div>
-                                </label>
-
-                                {/* Option Animations */}
-                                <label className="flex items-center gap-3 cursor-pointer hover:bg-black/5 p-1 transition-colors select-none">
-                                  <input 
-                                    type="checkbox" 
-                                    className="w-4 h-4 cursor-pointer accent-black"
-                                    checked={!!ecoConfig?.disableAnimations}
-                                    onChange={() => toggleEcoOption('disableAnimations')}
-                                  />
-                                  <div className="flex flex-col">
-                                    <span className="font-cactus text-xs font-bold text-black uppercase">
-                                      {lang === 'fr' ? 'Désactiver les Animations (30 FPS)' : 'Desativar Animações (30 FPS)'}
-                                    </span>
-                                    <span className="text-[9px] opacity-70">
-                                      {lang === 'fr' 
-                                        ? "Limite l'affichage et la rotation à 30 FPS pour soulager le GPU." 
-                                        : "Limita o display e a rotação a 30 FPS para aliviar o GPU."}
-                                    </span>
-                                  </div>
-                                </label>
+                            {/* Grille supérieure : Télémétrie + Configuration */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              {/* TÉLÉMÉTRIE */}
+                              <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-2">
+                                <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+                                  ⚡ Télémétrie en Temps Réel
+                                </h3>
+                                <p className="text-[10px] opacity-75 mb-2">
+                                  {lang === 'fr' 
+                                    ? "Suivi des performances pour assurer un rendu fluide à 60 FPS sans coupure audio." 
+                                    : "Monitoramento de desempenho para garantir renderização fluida a 60 FPS sem engasgos de áudio."}
+                                </p>
+                                <TelemetryBadge />
                               </div>
 
+                              {/* CONFIGURATION MODE ÉCO */}
+                              <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
+                                <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+                                  ⚙️ {lang === 'fr' ? 'Configuration des Performances' : 'Configurações de Desempenho'}
+                                </h3>
+                                
+                                {/* Interrupteur Maître */}
+                                <label className="flex items-center gap-3 p-3 border-2 border-black bg-[#f4ecd8]/40 cursor-pointer hover:bg-black/5 transition-colors select-none">
+                                  <input 
+                                    type="checkbox" 
+                                    className="w-5 h-5 cursor-pointer accent-black"
+                                    checked={isEcoMode}
+                                    onChange={toggleEcoMode}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-cactus font-bold text-xs uppercase">
+                                      {lang === 'fr' ? 'Mode Éco Maître (Recommandé)' : 'Modo Eco Mestre (Recomendado)'}
+                                    </span>
+                                    <span className="text-[9px] opacity-70">
+                                      {lang === 'fr' 
+                                        ? "Active automatiquement toutes les options d'économie d'énergie." 
+                                        : "Ativa automaticamente todas as opções de economia de energia."}
+                                    </span>
+                                  </div>
+                                </label>
+
+                                {/* Options granulaires (Empilées verticalement) */}
+                                <div className="flex flex-col gap-3 pl-2 border-l-2 border-dashed border-black/30 mt-2">
+                                  {/* Option FX */}
+                                  <label className="flex items-center gap-3 cursor-pointer hover:bg-black/5 p-1 transition-colors select-none">
+                                    <input 
+                                      type="checkbox" 
+                                      className="w-4 h-4 cursor-pointer accent-black"
+                                      checked={!!ecoConfig?.disableFx}
+                                      onChange={() => toggleEcoOption('disableFx')}
+                                    />
+                                    <div className="flex flex-col">
+                                      <span className="font-cactus text-xs font-bold text-black uppercase">
+                                        {lang === 'fr' ? 'Désactiver les Effets (Reverb/Compressor)' : 'Desativar Efeitos (Reverb/Compressor)'}
+                                      </span>
+                                      <span className="text-[9px] opacity-70">
+                                        {lang === 'fr' 
+                                          ? "Bypasse la réverbération spatiale et la compression master." 
+                                          : "Ignora a reverberação espacial e compressão master."}
+                                      </span>
+                                    </div>
+                                  </label>
+
+                                  {/* Option EQ */}
+                                  <label className="flex items-center gap-3 cursor-pointer hover:bg-black/5 p-1 transition-colors select-none">
+                                    <input 
+                                      type="checkbox" 
+                                      className="w-4 h-4 cursor-pointer accent-black"
+                                      checked={!!ecoConfig?.disableEq}
+                                      onChange={() => toggleEcoOption('disableEq')}
+                                    />
+                                    <div className="flex flex-col">
+                                      <span className="font-cactus text-xs font-bold text-black uppercase">
+                                        {lang === 'fr' ? 'Désactiver les Égaliseurs par piste' : 'Desativar Equalizadores por canal'}
+                                      </span>
+                                      <span className="text-[9px] opacity-70">
+                                        {lang === 'fr' 
+                                          ? "Bypasse les bandes d'égalisation (EQ) individuelles sur la table de mixage." 
+                                          : "Ignora as bandas de equalização (EQ) individuais no mixer."}
+                                      </span>
+                                    </div>
+                                  </label>
+
+                                  {/* Option Animations */}
+                                  <label className="flex items-center gap-3 cursor-pointer hover:bg-black/5 p-1 transition-colors select-none">
+                                    <input 
+                                      type="checkbox" 
+                                      className="w-4 h-4 cursor-pointer accent-black"
+                                      checked={!!ecoConfig?.disableAnimations}
+                                      onChange={() => toggleEcoOption('disableAnimations')}
+                                    />
+                                    <div className="flex flex-col">
+                                      <span className="font-cactus text-xs font-bold text-black uppercase">
+                                        {lang === 'fr' ? 'Désactiver les Animations (30 FPS)' : 'Desativar Animações (30 FPS)'}
+                                      </span>
+                                      <span className="text-[9px] opacity-70">
+                                        {lang === 'fr' 
+                                          ? "Limite l'affichage et la rotation à 30 FPS pour soulager le GPU." 
+                                          : "Limita o display e a rotação a 30 FPS para aliviar o GPU."}
+                                      </span>
+                                    </div>
+                                  </label>
+                                </div>
+                              </div>
                             </div>
 
                             {/* PURGE DU CACHE */}

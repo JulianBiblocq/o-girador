@@ -13,6 +13,7 @@ interface SettingsState {
   toggleSettings: () => void;
   setStrokeDefault: (key: string, values: { volume?: number; decay?: number }) => void;
   toggleSignalEnabled: (id: string, allIds?: string[]) => void;
+  setSignalsBatch: (ids: string[], enabled: boolean, allIds: string[]) => void;
   setStrokeForcedState: (key: string, enabled: boolean) => void;
 }
 
@@ -43,6 +44,20 @@ export const useSequencerSettingsStore = create<SettingsState>((set) => ({
     const next = current.includes(id) 
       ? current.filter(x => x !== id) 
       : [...current, id];
+    return { enabledSignalIds: next };
+  }),
+  setSignalsBatch: (ids, enabled, allIds) => set((state) => {
+    const current = state.enabledSignalIds !== null 
+      ? state.enabledSignalIds 
+      : allIds;
+    let next: string[];
+    if (enabled) {
+      const nextSet = new Set(current);
+      ids.forEach(id => nextSet.add(id));
+      next = Array.from(nextSet);
+    } else {
+      next = current.filter(id => !ids.includes(id));
+    }
     return { enabledSignalIds: next };
   }),
   setStrokeForcedState: (key, enabled) => set((state) => ({

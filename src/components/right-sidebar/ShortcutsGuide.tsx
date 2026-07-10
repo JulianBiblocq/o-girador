@@ -28,7 +28,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
   };
 
   return (
-    <div className="flex flex-col gap-1.5 pr-1 flex-grow overflow-y-auto custom-scrollbar min-h-0">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 pr-1 flex-grow overflow-y-auto custom-scrollbar min-h-0 content-start">
       
       {/* Shortcuts & Gestures */}
       <details className="group bg-[var(--cordel-bg)] cordel-border-sm mb-1">
