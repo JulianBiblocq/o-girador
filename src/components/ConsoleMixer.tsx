@@ -752,10 +752,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   step={1}
                   mode="bipolar"
                   style={{
-                    '--fader-bg-color': '#8b2a1a',
-                    '--fader-border-color': '#1a1a1a',
+                    '--fader-fill-color': '#8b2a1a',
                   } as React.CSSProperties}
-                  className="flex-grow master-eq-fader"
+                  className="flex-grow"
                 />
                 <DragNumberBox 
                   label={t('eqMid')}
@@ -766,10 +765,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   step={1}
                   mode="bipolar"
                   style={{
-                    '--fader-bg-color': '#d4af37',
-                    '--fader-border-color': '#1a1a1a',
+                    '--fader-fill-color': '#d4af37',
                   } as React.CSSProperties}
-                  className="flex-grow master-eq-fader"
+                  className="flex-grow"
                 />
                 <DragNumberBox 
                   label={t('eqHigh')}
@@ -780,10 +778,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   step={1}
                   mode="bipolar"
                   style={{
-                    '--fader-bg-color': '#3d8b85',
-                    '--fader-border-color': '#1a1a1a',
+                    '--fader-fill-color': '#3d8b85',
                   } as React.CSSProperties}
-                  className="flex-grow master-eq-fader"
+                  className="flex-grow"
                 />
               </div>
             </div>
