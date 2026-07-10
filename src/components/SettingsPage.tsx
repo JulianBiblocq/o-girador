@@ -728,7 +728,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                                       setSelectedMacro({ trackId: track.id, stroke });
                                                     }
                                                   }}
-                                                  className={`w-7 h-7 font-cactus font-black text-xs uppercase flex items-center justify-center border-2 border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer hover:scale-105 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all select-none ${
+                                                  className={`w-7 h-7 font-mono font-bold text-xs normal-case flex items-center justify-center border-2 border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer hover:scale-105 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all select-none ${
                                                     !isActive ? 'opacity-40 grayscale border-dashed shadow-none hover:opacity-75 hover:grayscale-0' : ''
                                                   }`}
                                                   style={{ 
