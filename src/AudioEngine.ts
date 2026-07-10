@@ -28,6 +28,11 @@ interface ActiveVoice {
   instrumentId: string;
 }
 
+export interface ActiveInstrumentData {
+  id: string;
+  activeStrokes: string[];
+}
+
 const HUMANIZED_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
 const ALFAIA_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
 const HUMANIZED_INSTRUMENTS_SET = new Set(['marcante', 'meiao', 'repique', 'caixa', 'tarol']);
@@ -510,15 +515,26 @@ export class AudioEngine {
    * Dynamically unloads unused instrument buffers to save RAM.
    * Useful for mobile devices where holding all samples in memory can cause crashes.
    */
-  public async syncActiveInstrumentsMemory(activeIds: string[]): Promise<void> {
+  public async syncActiveInstrumentsMemory(activeInstruments: ActiveInstrumentData[]): Promise<void> {
     const requiredPaths = new Set<string>();
 
-    for (const id of activeIds) {
-      const config = this.configMap.get(id);
+    for (const activeInst of activeInstruments) {
+      const config = this.configMap.get(activeInst.id);
       if (config) {
+        const activeStrokes = activeInst.activeStrokes;
         for (const stroke of config.strokes) {
-          for (const file of stroke.files) {
-            requiredPaths.add(file);
+          // Filtrage intelligent :
+          // Si aucun stroke n'est programmé dans la partition pour cette piste (activeStrokes est vide),
+          // on précharge par défaut le tout premier stroke configuré de l'instrument.
+          // Sinon, on ne charge que les strokes présents dans activeStrokes.
+          const isStrokeActive = activeStrokes.length === 0
+            ? config.strokes[0] === stroke
+            : activeStrokes.includes(stroke.symbol);
+
+          if (isStrokeActive) {
+            for (const file of stroke.files) {
+              requiredPaths.add(file);
+            }
           }
         }
       }

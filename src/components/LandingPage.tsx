@@ -114,7 +114,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
   );
 
   const ptText = (
-    <p>O Maracatu de Baque Virado, poderosa percussão brasileira originária do Recife (Pernambuco), aprende-se no coração da roda pela transmissão oral das Nações. Nenhuma máquina substituirá os ensinamentos dos mestres. O Girador foi pensado com humildade para se somar a isso: é um caderno sonoro gratuito, um sequenciador interativo e uma bateria eletrônica online para criar, experimentar seus baques e vislumbrar as polirritmias secretas entre as alfaias, a caixa, o tarol, o gonguê, o agbê, o mineiro e as toadas, aguardando o próximo ensinamento vivo.</p>
+    <>
+      <p><strong>O Girador: O sequenciador dedicado ao Maracatu de Baque Virado</strong><br/>
+      O maracatu de baque virado é uma música tradicional forte em história, frequentemente repleta de uma grande espiritualidade e um poderoso símbolo de resistência. Esta tradição é transmitida oralmente na sua totalidade pelos mestres desde a sua origem.</p>
+
+      <p>O aplicativo O Girador não pretende, de forma alguma, substituir a transmissão dos mestres. Sua única vocação é ser uma ferramenta pedagógica e lúdica para compreender o ritmo e o entrelaçamento das percussões e das vozes.</p>
+
+      <p>Componha, esculpa o som e compartilhe seus arranjos:</p>
+
+      <p>
+        <strong>Composição e arranjos:</strong> o aplicativo foi projetado para compor e ouvir seus arranjos de maracatu de baque virado com a Alfaia, o Gonguê, a Caixa, o Tarol, o Mineiro, o Agbê, o Timbal e as vozes!!!<br/><br/>
+        <strong>Os samples:</strong> Aproveite um banco de sons com samples reais e a possibilidade de esculpir o som de cada passo do sequenciador com precisão.<br/><br/>
+        <strong>O "Balanço":</strong> O aplicativo integra um groove focado no maracatu que você pode modificar, acoplado a uma humanização para se aproximar da pulsação orgânica do maracatu.
+      </p>
+
+      <p>Usar em um computador ou em um dispositivo móvel recente permitirá aproveitar as melhores condições de uso.</p>
+
+      <p>Aproveite bem este aplicativo enquanto aguarda a próxima vivência!</p>
+    </>
   );
 
   return (

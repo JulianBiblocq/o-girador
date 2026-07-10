@@ -5,6 +5,40 @@ import fs from 'fs';
 import {defineConfig} from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Stratégie de mise en cache à la volée (Runtime Caching) pour la PWA
+const pwaRuntimeCaching = [
+  // Cache des samples audio locaux (chargés à la volée et disponibles hors-ligne)
+  {
+    urlPattern: /\.(?:mp3|ogg|wav|m4a)$/i,
+    handler: 'CacheFirst',
+    options: {
+      cacheName: 'audio-samples-cache',
+      expiration: {
+        maxEntries: 200, // Sécurité mémoire pour ne pas saturer le disque
+        maxAgeSeconds: 30 * 24 * 60 * 60, // Conservation maximale de 30 jours
+      },
+      cacheableResponse: {
+        statuses: [0, 200], // Accepte les requêtes standard et opaques
+      },
+    },
+  },
+  // Cache existant pour les fichiers Firebase Storage
+  {
+    urlPattern: /^https:\/\/firebasestorage\.googleapis\.com/,
+    handler: 'CacheFirst',
+    options: {
+      cacheName: 'firebase-storage-cache',
+      expiration: {
+        maxEntries: 50,
+        maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+      },
+      cacheableResponse: {
+        statuses: [0, 200]
+      }
+    }
+  }
+];
+
 
 export default defineConfig(({ command, mode }) => {
   const isPreview = mode === 'production' && command === 'serve';
@@ -62,24 +96,9 @@ export default defineConfig(({ command, mode }) => {
           ]
         },
         workbox: {
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,wav,mp3,ogg,m4a,json,woff2,otf}'],
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,json,woff2,otf}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
-          runtimeCaching: [
-            {
-              urlPattern: /^https:\/\/firebasestorage\.googleapis\.com/,
-              handler: 'CacheFirst',
-              options: {
-                cacheName: 'firebase-storage-cache',
-                expiration: {
-                  maxEntries: 50,
-                  maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
-                },
-                cacheableResponse: {
-                  statuses: [0, 200]
-                }
-              }
-            }
-          ]
+          runtimeCaching: pwaRuntimeCaching
         }
       }),
 

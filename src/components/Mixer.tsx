@@ -61,7 +61,8 @@ const MixerComponent: React.FC<MixerProps> = ({
     lang,
   } = sequencer;
 
-  const [isTracksCollapsed, setIsTracksCollapsed] = React.useState(true);
+  const isTracksCollapsed = useSequencerStore(state => state.isTracksCollapsed);
+  const toggleTracksCollapsed = useSequencerStore(state => state.toggleTracksCollapsed);
 
   // Zustand actions and states
   const handleReorderTracksDnd = useSequencerStore(state => state.handleReorderTracksDnd);
@@ -139,6 +140,13 @@ const MixerComponent: React.FC<MixerProps> = ({
       className="w-[400px] min-w-[400px] h-full bg-gradient-to-b from-[#1c1815] to-[#120e0c] border-r-2 border-[#eaddcf] flex flex-col p-5 box-border z-10 transition-all duration-300 overflow-hidden"
     >
       <div className="border-b border-[#333] pb-2.5 mb-4 shrink-0 w-full flex items-center gap-2">
+        <button
+          onClick={toggleTracksCollapsed}
+          className="bg-transparent border border-[#444] px-3 py-2 text-sm font-extrabold cursor-pointer text-[#eaddcf] hover:bg-[#eaddcf] hover:text-black transition-colors flex-shrink-0"
+          title={isTracksCollapsed ? t('expandSteps') : t('collapseSteps')}
+        >
+          {isTracksCollapsed ? '▼' : '▲'}
+        </button>
         <div className="relative flex-1" ref={addDropRef}>
           <button
             onClick={() => setAddDropOpen(!addDropOpen)}
@@ -179,13 +187,6 @@ const MixerComponent: React.FC<MixerProps> = ({
             </div>
           )}
         </div>
-        <button
-          onClick={() => setIsTracksCollapsed(!isTracksCollapsed)}
-          className="bg-transparent border border-[#444] px-3 py-2 text-sm font-extrabold cursor-pointer text-[#eaddcf] hover:bg-[#eaddcf] hover:text-black transition-colors"
-          title={isTracksCollapsed ? t('expandSteps') : t('collapseSteps')}
-        >
-          {isTracksCollapsed ? '▼' : '▲'}
-        </button>
       </div>
 
       <div id="mixer-section" className="flex-grow overflow-y-auto pr-1">
@@ -198,9 +199,7 @@ const MixerComponent: React.FC<MixerProps> = ({
                   trackId={trackId}
                   index={idx}
                   totalTracks={trackIdsNumbers.length}
-                  isCollapsed={isTracksCollapsed}
                   onOpenDetailEditor={onOpenDetailEditor}
-                  onStepTouchStart={onStepTouchStart}
                   isActive={isActive}
                 />
               ))}

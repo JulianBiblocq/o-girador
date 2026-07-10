@@ -14,6 +14,7 @@ import { RightSidebar } from './RightSidebar';
 // Lazy load views for optimal bundle splitting (Time-to-Interactive reduction)
 const ConsoleMixer = lazy(() => import('./ConsoleMixer').then(m => ({ default: m.ConsoleMixer })));
 const CircleSequencer = lazy(() => import('./CircleSequencer').then(m => ({ default: m.CircleSequencer })));
+const DawLinearSequencer = lazy(() => import('./DawLinearSequencer').then(m => ({ default: m.DawLinearSequencer })));
 const TimelineSequencer = lazy(() => import('./TimelineSequencer').then(m => ({ default: m.TimelineSequencer })));
 const QuizEngine = lazy(() => import('./QuizEngine').then(m => ({ default: m.QuizEngine })));
 const DicteeEngine = lazy(() => import('./DicteeEngine').then(m => ({ default: m.DicteeEngine })));
@@ -129,6 +130,7 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
   const lang = useSequencerStore(state => state.lang);
   const editingTrackId = useSequencerStore(state => state.editingTrackId);
   const setEditingTrackId = useSequencerStore(state => state.setEditingTrackId);
+  const isTracksCollapsed = useSequencerStore(state => state.isTracksCollapsed);
 
   const handleSetEditingTrackId = React.useCallback((id: number | null) => {
     setEditingTrackId(id);
@@ -150,24 +152,34 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
           {/* Left column tracks mixers */}
           <div style={{ display: (!isMobile || mobileTab === 'mixer') ? 'contents' : 'none' }}>
             <ErrorBoundary fallback={renderFallback('Mixeur', 'Mixador')}>
-              <Mixer
-                onStepTouchStart={onStepTouchStart}
-                isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'mixer')}
-                setEditingTrackId={handleSetEditingTrackId}
-              />
+              {(!isMobile && !isTracksCollapsed) ? null : (
+                <Mixer
+                  onStepTouchStart={onStepTouchStart}
+                  isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'mixer')}
+                  setEditingTrackId={handleSetEditingTrackId}
+                />
+              )}
             </ErrorBoundary>
           </div>
 
           {/* Center circle visual canvas engine */}
           <div style={{ display: (!isMobile || mobileTab === 'roda') ? 'contents' : 'none' }}>
-            <ErrorBoundary fallback={renderFallback('Séquenceur Circulaire', 'Sequenciador Circular')}>
+            <ErrorBoundary fallback={renderFallback('Séquenceur', 'Sequenciador')}>
               {renderedView === 'roda' && (
-                <CircleSequencer
-                  isMobile={isMobile}
-                  mestreSignals={filteredMestreSignals}
-                  onStepTouchStart={onStepTouchStart}
-                  isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')}
-                />
+                (!isMobile && !isTracksCollapsed) ? (
+                  <DawLinearSequencer
+                    isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')}
+                    mestreSignals={filteredMestreSignals}
+                    onStepTouchStart={onStepTouchStart}
+                  />
+                ) : (
+                  <CircleSequencer
+                    isMobile={isMobile}
+                    mestreSignals={filteredMestreSignals}
+                    onStepTouchStart={onStepTouchStart}
+                    isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')}
+                  />
+                )
               )}
             </ErrorBoundary>
           </div>

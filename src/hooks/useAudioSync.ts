@@ -33,6 +33,64 @@ interface ScheduledNote {
   decayMultiplier?: number;
 }
 
+function getNormalizedStroke(instId: string, rawStroke: string): string {
+  const targetKey = rawStroke.trim();
+  if (['marcante', 'meiao', 'repique', 'caixa', 'tarol'].includes(instId)) {
+    if (targetKey === 't' || targetKey === 'T') return 'B';
+    if (targetKey === 'C') return 'c';
+  } else if (instId === 'agbe' || instId === 'gongue') {
+    if (targetKey === 't') return 'B';
+  }
+  return targetKey;
+}
+
+function getActiveStrokesForTrack(t: any): string[] {
+  const inst = instrumentsConfig[t.instrumentIdx];
+  if (!inst) return [];
+  
+  const strokes = new Set<string>();
+  t.patterns.forEach((ptn: any) => {
+    const isAssigned = ptn.measureAssignments && ptn.measureAssignments.includes(true);
+    if (isAssigned) {
+      if (inst.type !== 'voice') {
+        if (ptn.activeSteps) {
+          ptn.activeSteps.forEach((stepVal: any) => {
+            if (stepVal !== undefined && stepVal !== null && stepVal !== 0 && stepVal !== '0') {
+              const str = String(stepVal).trim();
+              if (str !== '') {
+                strokes.add(getNormalizedStroke(inst.id, str));
+              }
+            }
+          });
+        }
+        if (ptn.variations) {
+          ptn.variations.forEach((varPtn: any) => {
+            if (varPtn.steps) {
+              varPtn.steps.forEach((stepVal: any) => {
+                if (stepVal !== undefined && stepVal !== null && stepVal !== 0 && stepVal !== '0') {
+                  const str = String(stepVal).trim();
+                  if (str !== '') {
+                    strokes.add(getNormalizedStroke(inst.id, str));
+                  }
+                }
+              });
+            }
+          });
+        }
+      } else {
+        if (ptn.notes) {
+          ptn.notes.forEach((note: any) => {
+            if (note && note.trim() !== '') {
+              strokes.add(note.trim());
+            }
+          });
+        }
+      }
+    }
+  });
+  return Array.from(strokes).sort();
+}
+
 // Module scope audio engines and nodes to avoid duplicate instantiations on React re-renders
 import {
   masterVolumeNode,
@@ -608,21 +666,9 @@ export function useAudioSync({
       const inst = instrumentsConfig[t.instrumentIdx];
       if (!inst) return null;
       
-      const strokes = new Set<string>();
-      t.patterns.forEach((ptn: any) => {
-        const isAssigned = ptn.measureAssignments && ptn.measureAssignments.includes(true);
-        if (isAssigned && ptn.notes) {
-          ptn.notes.forEach((note: any) => {
-            if (note && note.trim() !== '') {
-              strokes.add(note.trim());
-            }
-          });
-        }
-      });
-      
       return {
         id: inst.id,
-        activeStrokes: Array.from(strokes).sort()
+        activeStrokes: getActiveStrokesForTrack(t)
       };
     }).filter(Boolean) as ActiveInstrumentData[];
 
@@ -641,21 +687,9 @@ export function useAudioSync({
           const inst = instrumentsConfig[t.instrumentIdx];
           if (!inst) return null;
           
-          const strokes = new Set<string>();
-          t.patterns.forEach((ptn: any) => {
-            const isAssigned = ptn.measureAssignments && ptn.measureAssignments.includes(true);
-            if (isAssigned && ptn.notes) {
-              ptn.notes.forEach((note: any) => {
-                if (note && note.trim() !== '') {
-                  strokes.add(note.trim());
-                }
-              });
-            }
-          });
-          
           return {
             id: inst.id,
-            activeStrokes: Array.from(strokes).sort()
+            activeStrokes: getActiveStrokesForTrack(t)
           };
         }).filter(Boolean) as ActiveInstrumentData[];
 
@@ -1309,21 +1343,9 @@ export function useAudioSync({
             const inst = instrumentsConfig[t.instrumentIdx];
             if (!inst) return null;
 
-            const strokes = new Set<string>();
-            t.patterns.forEach(ptn => {
-              const isAssigned = ptn.measureAssignments && ptn.measureAssignments.includes(true);
-              if (isAssigned && ptn.notes) {
-                ptn.notes.forEach(note => {
-                  if (note && note.trim() !== '') {
-                    strokes.add(note.trim());
-                  }
-                });
-              }
-            });
-
             return {
               id: inst.id,
-              activeStrokes: Array.from(strokes).sort()
+              activeStrokes: getActiveStrokesForTrack(t)
             };
           }).filter(Boolean) as ActiveInstrumentData[];
 

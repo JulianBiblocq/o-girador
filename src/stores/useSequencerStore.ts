@@ -1647,6 +1647,7 @@ export interface ProjectSettingsSlice {
   ecoConfig: EcoConfig;
   editingTrackId: number | null;
   vocalTransposeSteps: number;
+  isTracksCollapsed: boolean;
 
   setLetras: (letras: string) => void;
   setMetadata: (metadata: PresetMetadata) => void;
@@ -1660,6 +1661,7 @@ export interface ProjectSettingsSlice {
   setVocalTransposeSteps: (steps: number) => void;
   incrementVocalTransposeSteps: () => void;
   decrementVocalTransposeSteps: () => void;
+  toggleTracksCollapsed: () => void;
 }
 
 const detectEcoMode = (): boolean => {
@@ -1689,6 +1691,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   },
   editingTrackId: null,
   vocalTransposeSteps: 0,
+  isTracksCollapsed: true,
 
   setLetras: (letras) => set({ letras }),
   setMetadata: (metadata) => set({ metadata }),
@@ -1710,6 +1713,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
       }
     };
   }),
+  toggleTracksCollapsed: () => set((state) => ({ isTracksCollapsed: !state.isTracksCollapsed })),
   toggleEcoOption: (key) => set((state) => {
     const nextConfig = {
       ...state.ecoConfig,

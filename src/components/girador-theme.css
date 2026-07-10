@@ -73,19 +73,16 @@
 /* Le Pas Séquence (Style bloc de bois gravé) */
 .sequencer-step {
   aspect-ratio: 1;
-  background-color: var(--color-paper-beige);
   border: var(--border-width-thick) solid var(--color-wood-black);
   cursor: pointer;
   position: relative;
-  transition: transform 0.1s ease, background-color 0.15s ease;
+  transition: transform 0.1s ease;
   box-shadow: 2px 2px 0px var(--color-wood-black);
 }
 
 /* Pas Actif : Tampon d'encre noire */
 .sequencer-step.is-active {
-  background-color: var(--color-wood-black);
   box-shadow: none;
-  transform: translate(2px, 2px);
 }
 
 /* Tête de Lecture : Effet de relief négatif (double bordure ou couleur contrastée) */

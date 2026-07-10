@@ -88,17 +88,17 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
       
       {/* Left side: Metro, Swing, BPM */}
       <div className="flex items-center gap-4 flex-1">
-        <div className="flex items-center gap-1.5 bg-[var(--cordel-bg)] cordel-border-sm overflow-hidden h-[30px] pr-2">
+        <div className="flex items-center bg-[var(--cordel-bg)] cordel-border-sm overflow-hidden h-[30px]">
           <button
             onClick={() => setIsMetroOn(!isMetroOn)}
-            className={`px-2.5 py-1 font-cactus font-bold text-sm flex items-center justify-center h-full transition-colors border-r border-[var(--cordel-border)]/20 ${
+            className={`px-3 py-1 font-cactus font-bold text-sm flex items-center justify-center gap-2 h-full transition-colors cursor-pointer select-none ${
               isMetroOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/5'
             }`}
             title={t('metroBtn')}
-            style={{ borderStyle: 'solid', borderWidth: '0 1px 0 0', borderRadius: 0 }}
+            style={{ borderRadius: 0 }}
           >
             <svg
-              className="w-4 h-4"
+              className="w-4 h-4 flex-shrink-0"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -111,21 +111,10 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
               <circle cx="15" cy="9.5" r="1.5" fill="currentColor" />
               <circle cx="12" cy="18" r="1" fill="currentColor" />
             </svg>
+            <span className="select-none hidden md:inline">
+              {lang === 'fr' ? 'Métronome' : lang === 'pt' ? 'Metrônomo' : 'Metronome'}
+            </span>
           </button>
-
-          <DragNumberBox
-            label="Vol"
-            value={metroVolume}
-            onChange={(val) => {
-              setMetroVolume(val);
-              if (metroChannel && metroChannel.volume) {
-                const gain = Math.max(0.00001, val / 100);
-                const db = val === 0 ? -Infinity : Tone.gainToDb(gain);
-                metroChannel.volume.value = db;
-              }
-            }}
-            className="w-16 h-[22px] text-[10px] ml-1 bg-transparent border-0"
-          />
         </div>
 
         <div className="flex items-center gap-1.5 bg-[var(--cordel-bg)] px-2 py-1 cordel-border-sm border-[var(--cordel-border)]">
