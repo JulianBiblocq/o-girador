@@ -1040,18 +1040,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                     const isAnnexChecked = selectedAnnexTracks.has(track.id);
 
                                     return (
-                                      <div key={track.id} className="flex flex-col gap-2 p-2 border-2 border-black/30 bg-black/[0.01] ml-4">
-                                        <label className="flex items-center gap-3 cursor-pointer hover:bg-black/5 transition-colors select-none">
+                                      <div key={track.id} className="grid grid-cols-2 gap-2 p-2 border border-black/20 bg-black/[0.01] ml-4">
+                                        <label className="flex items-center gap-2 cursor-pointer hover:bg-black/5 transition-colors select-none truncate">
                                           <input 
                                             type="checkbox" 
-                                            className="w-4 h-4 cursor-pointer accent-black"
+                                            className="w-3.5 h-3.5 cursor-pointer accent-black"
                                             checked={isExportChecked}
                                             onChange={(e) => handleToggleTrackExport(track.id, e.target.checked)}
                                           />
-                                          <span className="font-cactus text-xs font-bold text-[#8b2a1a] uppercase">{conf.name}</span>
+                                          <span className="font-cactus text-xs font-bold text-[#8b2a1a] uppercase truncate">{conf.name}</span>
                                         </label>
                                         
-                                        <label className={`flex items-center gap-2 pl-7 cursor-pointer transition-all select-none ${!isExportChecked ? 'opacity-40 pointer-events-none' : 'hover:bg-black/5'}`}>
+                                        <label className={`flex items-center gap-2 cursor-pointer transition-all select-none ${!isExportChecked ? 'opacity-40 pointer-events-none' : 'hover:bg-black/5'}`}>
                                           <input 
                                             type="checkbox" 
                                             className="w-3 h-3 cursor-pointer accent-black"
@@ -1060,7 +1060,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                             onChange={(e) => handleToggleTrackAnnex(track.id, e.target.checked)}
                                           />
                                           <span className="font-sans text-[10px] opacity-80">
-                                            {lang === 'fr' ? 'Lexique des variations en annexe' : 'Léxico de variações em anexo'}
+                                            {lang === 'fr' ? 'Variation' : 'Variação'}
                                           </span>
                                         </label>
                                       </div>
