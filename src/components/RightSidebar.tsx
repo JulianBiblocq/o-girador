@@ -14,6 +14,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { useAuth } from '../contexts/AuthContext';
 import { PresetMetadata, CloudRhythmSignal } from '../types';
 import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
+import { XiloInfo, XiloScroll, XiloHand, XiloBook, XiloChat } from './XiloIcons';
 
 const ShortcutsGuide = React.lazy(() => import('./right-sidebar/ShortcutsGuide').then(m => ({ default: m.ShortcutsGuide })));
 const PresetManagerSection = React.lazy(() => import('./right-sidebar/PresetManagerSection').then(m => ({ default: m.PresetManagerSection })));
@@ -121,6 +122,18 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
     })(),
   } : null;
   const [subTab, setSubTab] = React.useState<'toada' | 'info' | 'legendes' | 'sinais' | 'feedback'>('info');
+  const [dropdownOpen, setDropdownOpen] = React.useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   React.useEffect(() => {
     const textarea = textareaRef.current;
@@ -184,34 +197,55 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
         <div className="flex flex-col p-5 h-full overflow-hidden">
           {/* Sub-tab Selector & Mobile Close Button aligned side-by-side */}
           <div className="flex gap-2 items-center mb-4 shrink-0 mt-1">
-            <div className="flex-grow relative">
-              <select
-                value={subTab}
-                onChange={(e) => {
-                  const val = e.target.value as any;
-                  setSubTab(val);
-                  
-                  // Synchronize local select with parent state, forcing it to prevent toggles
-                  let mappedPanel: 'legend' | 'letras' | 'info' | 'feedback' = 'info';
-                  if (val === 'legendes') mappedPanel = 'legend';
-                  else if (val === 'toada') mappedPanel = 'letras';
-                  else if (val === 'feedback') mappedPanel = 'feedback';
-                  else if (val === 'info') mappedPanel = 'info';
-                  else if (val === 'sinais') mappedPanel = 'info'; // Map sinais to info view
-                  
-                  onTogglePanel(mappedPanel, true);
-                }}
-                className="w-full py-2 pl-3 pr-10 font-cactus font-bold text-[14px] uppercase cordel-border-sm cursor-pointer bg-[var(--cordel-bg)] text-[var(--cordel-text)] focus:outline-none appearance-none"
-              >
-                <option value="info">ℹ️ {lang === 'fr' ? 'Informations' : 'Informações'}</option>
-                <option value="toada">📝 Toada</option>
-                <option value="sinais">🖐️ {lang === 'fr' ? 'Signes' : 'Sinais'}</option>
-                <option value="legendes">📖 {t('legend')}</option>
-                <option value="feedback">💬 {lang === 'fr' ? 'Note & Avis' : 'Nota & Opinião'}</option>
-              </select>
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[var(--cordel-text)] font-extrabold text-[12px]">
-                ▼
-              </span>
+            <div className="flex-grow relative" ref={dropdownRef}>
+              {(() => {
+                const options = [
+                  { value: 'info', label: lang === 'fr' ? 'Informations' : 'Informações', Icon: XiloInfo, panel: 'info' as const },
+                  { value: 'toada', label: 'Toada', Icon: XiloScroll, panel: 'letras' as const },
+                  { value: 'sinais', label: lang === 'fr' ? 'Signes' : 'Sinais', Icon: XiloHand, panel: 'info' as const },
+                  { value: 'legendes', label: t('legend'), Icon: XiloBook, panel: 'legend' as const },
+                  { value: 'feedback', label: lang === 'fr' ? 'Note & Avis' : 'Nota & Opinião', Icon: XiloChat, panel: 'feedback' as const },
+                ];
+                const activeOption = options.find(o => o.value === subTab) || options[0];
+
+                return (
+                  <>
+                    <button
+                      onClick={() => setDropdownOpen(!dropdownOpen)}
+                      className="w-full py-2 pl-3 pr-8 font-cactus font-bold text-[12px] uppercase cordel-border-sm cursor-pointer bg-[var(--cordel-bg)] text-[var(--cordel-text)] focus:outline-none flex items-center gap-2 select-none justify-between h-[36px]"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <activeOption.Icon size={14} className="shrink-0" />
+                        <span className="truncate">{activeOption.label}</span>
+                      </div>
+                      <span className="text-[10px] shrink-0 opacity-80">▼</span>
+                    </button>
+                    
+                    {dropdownOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-[var(--cordel-bg)] cordel-border-sm shadow-[3px_3px_0_var(--cordel-border)] z-50 flex flex-col py-1 max-h-[220px] overflow-y-auto custom-scrollbar">
+                        {options.map((opt) => (
+                          <button
+                            key={opt.value}
+                            onClick={() => {
+                              setSubTab(opt.value as any);
+                              onTogglePanel(opt.panel, true);
+                              setDropdownOpen(false);
+                            }}
+                            className={`flex items-center gap-2 px-3 py-2 text-[11px] font-cactus uppercase font-bold transition-colors w-full text-left cursor-pointer ${
+                              subTab === opt.value
+                                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/10'
+                            }`}
+                          >
+                            <opt.Icon size={13} className="shrink-0" />
+                            <span className="truncate">{opt.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
             {isMobile && (
               <button

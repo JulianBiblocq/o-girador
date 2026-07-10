@@ -23,6 +23,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
+import { XiloRoda, XiloConsole, XiloTimeline, XiloMestre, XiloGame, XiloSun, XiloMoon, XiloDrum } from './XiloIcons';
 
 const UndoIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg
@@ -434,8 +435,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 </span>
                 
                 <div className="grid grid-cols-2 gap-1.5 mt-1">
-                  <button onClick={() => { onToggleDarkMode(); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer">
-                    {isDarkMode ? '🌞 Light' : '🌙 Dark'}
+                  <button onClick={() => { onToggleDarkMode(); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer flex items-center justify-center gap-1">
+                    {isDarkMode ? <><XiloSun size={12} className="shrink-0" /> Light</> : <><XiloMoon size={11} className="shrink-0" /> Dark</>}
                   </button>
                   <button onClick={() => { onLangToggle(); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer">
                     🌐 {lang === 'pt' ? 'FR' : 'PT'}
@@ -519,7 +520,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             }`}
             title="Roda"
           >
-            ⭕
+            <XiloRoda size={16} />
           </button>
 
           {/* MIXADOR (MOBILE ONLY TRACK MIXER) */}
@@ -536,7 +537,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               }`}
               title="Mixador (Instruments)"
             >
-              🥁
+              <XiloDrum size={16} />
             </button>
           )}
 
@@ -550,7 +551,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             }`}
             title="Console"
           >
-            🎚️
+            <XiloConsole size={16} />
           </button>
 
           {/* TIMELINE */}
@@ -563,7 +564,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             }`}
             title={lang === 'fr' ? 'Séquenceur' : 'Sequenciador'}
           >
-            🎞️
+            <XiloTimeline size={16} />
           </button>
 
           {/* STUDIO DO MESTRE (Mobile) */}
@@ -577,7 +578,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               }`}
               title={lang === 'pt' ? 'Estúdio do Mestre' : 'Studio du Mestre'}
             >
-              👑
+              <XiloMestre size={16} />
             </button>
           )}
 
@@ -593,7 +594,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 }`}
                 title={lang === 'pt' ? 'Jogos' : 'Jeux'}
               >
-                🎮
+                <XiloGame size={16} />
               </button>
               
               {jogoDropOpen && (
@@ -814,7 +815,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           }`}
           title="Vue Roda / Séquenceur circulaire"
         >
-          ⭕ RODA
+          <XiloRoda size={14} className="shrink-0" /> RODA
         </button>
 
         {/* MIXER */}
@@ -827,7 +828,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           }`}
           title="Vue Console / Mixeur vertical"
         >
-          🎚️ {lang === 'fr' ? 'MIXEUR' : 'MIXADOR'}
+          <XiloConsole size={14} className="shrink-0" /> {lang === 'fr' ? 'MIXEUR' : 'MIXADOR'}
         </button>
 
         {/* TIMELINE */}
@@ -840,7 +841,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           }`}
           title={lang === 'fr' ? 'Vue Séquenceur / Ligne temporelle' : 'Visualização do Sequenciador / Linha do tempo'}
         >
-          🎞️ {lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR'}
+          <XiloTimeline size={14} className="shrink-0" /> {lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR'}
         </button>
 
         {/* STUDIO DO MESTRE (Standalone Desktop) */}
@@ -854,7 +855,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             }`}
             title={lang === 'pt' ? 'Estúdio do Mestre' : 'Studio du Mestre'}
           >
-            👑 {lang === 'pt' ? 'ESTÚDIO' : 'STUDIO'}
+            <XiloMestre size={14} className="shrink-0" /> {lang === 'pt' ? 'ESTÚDIO' : 'STUDIO'}
           </button>
         )}
 
@@ -870,7 +871,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               }`}
               title={lang === 'pt' ? 'Jogos' : 'Jeux'}
             >
-              🎮 {lang === 'pt' ? 'JOGOS' : 'JEUX'} <span className="text-[10px]">▼</span>
+              <XiloGame size={14} className="shrink-0" /> {lang === 'pt' ? 'JOGOS' : 'JEUX'} <span className="text-[10px] ml-1">▼</span>
             </button>
           )}
           
@@ -907,7 +908,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           className="bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-text)] cordel-button text-xl px-2 py-1 w-12 text-center cursor-pointer flex justify-center items-center"
           title="Dark / Light Mode"
         >
-          {isDarkMode ? '🌞' : '🌙'}
+          {isDarkMode ? <XiloSun size={18} className="shrink-0" /> : <XiloMoon size={16} className="shrink-0" />}
         </button>
 
         <button

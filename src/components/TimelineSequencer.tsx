@@ -30,7 +30,7 @@ import { SongSectionModal } from './timeline/SongSectionModal';
 import { SongMarkerModal } from './timeline/SongMarkerModal';
 import { RhythmSignalsRow } from './timeline/RhythmSignalsRow';
 import { VocalRecordingBar } from './VocalRecordingBar';
-import { XiloChisel } from './XiloIcons';
+import { XiloChisel, XiloMagnet } from './XiloIcons';
 
 interface TimelineSequencerProps {
   isMobile: boolean;
@@ -1012,17 +1012,42 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
               style={{ width: HEADER_W, minWidth: HEADER_W }}
             >
               <div className="flex items-center gap-1">
-                <span className="text-[9px] md:text-[10px] uppercase font-bold text-[var(--cordel-text)]/70 shrink-0 select-none hidden md:inline-block" title="Magnétisme">🧲</span>
-                <select
-                  value={snapMode}
-                  onChange={(e) => setSnapMode(e.target.value as 'measure' | 'beat' | 'none')}
-                  className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] text-[9px] md:text-[10px] font-bold rounded cordel-border-sm px-1 py-0.5 outline-none cursor-pointer tracking-wider shadow-[1.5px_1.5px_0_var(--cordel-border)] max-w-[75px] md:max-w-[85px]"
-                  title={lang === 'fr' ? 'Attraction' : 'Atração'}
-                >
-                  <option value="measure">{isMobile ? (lang === 'fr' ? 'Mes.' : 'Comp.') : (lang === 'fr' ? 'Mesure' : 'Compasso')}</option>
-                  <option value="beat">{isMobile ? (lang === 'fr' ? 'Tps' : 'Tmp') : (lang === 'fr' ? 'Temps' : 'Tempos')}</option>
-                  <option value="none">{lang === 'fr' ? 'Libre' : 'Livre'}</option>
-                </select>
+                <XiloMagnet size={11} className="text-[var(--cordel-text)]/70 shrink-0 hidden md:inline-block" />
+                <div className="flex cordel-border-sm overflow-hidden select-none h-[22px]">
+                  <button
+                    onClick={() => setSnapMode('measure')}
+                    className={`px-1.5 py-0.5 text-[9px] font-cactus uppercase font-bold cursor-pointer transition-colors leading-none flex items-center justify-center ${
+                      snapMode === 'measure'
+                        ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-extrabold'
+                        : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/10'
+                    }`}
+                    title={lang === 'fr' ? 'Attraction à la mesure' : 'Atração ao compasso'}
+                  >
+                    {isMobile ? (lang === 'fr' ? 'Mes.' : 'Comp.') : (lang === 'fr' ? 'Mesure' : 'Compasso')}
+                  </button>
+                  <button
+                    onClick={() => setSnapMode('beat')}
+                    className={`px-1.5 py-0.5 text-[9px] font-cactus uppercase font-bold cursor-pointer transition-colors border-l border-[var(--cordel-border)] leading-none flex items-center justify-center ${
+                      snapMode === 'beat'
+                        ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-extrabold'
+                        : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/10'
+                    }`}
+                    title={lang === 'fr' ? 'Attraction au temps' : 'Atração ao tempo'}
+                  >
+                    {lang === 'fr' ? 'Temps' : 'Tempos'}
+                  </button>
+                  <button
+                    onClick={() => setSnapMode('none')}
+                    className={`px-1.5 py-0.5 text-[9px] font-cactus uppercase font-bold cursor-pointer transition-colors border-l border-[var(--cordel-border)] leading-none flex items-center justify-center ${
+                      snapMode === 'none'
+                        ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-extrabold'
+                        : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/10'
+                    }`}
+                    title={lang === 'fr' ? 'Mouvement libre' : 'Movimento livre'}
+                  >
+                    {lang === 'fr' ? 'Libre' : 'Livre'}
+                  </button>
+                </div>
               </div>
               <button
                 onClick={() => {
