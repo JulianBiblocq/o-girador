@@ -1054,4 +1054,29 @@ body.eco-mode #center-afficheur {
   z-index: 2;
 }
 
+/* Style de Gravure double-bordure pour l'égaliseur Master */
+.master-eq-fader.digital-fader {
+  background-color: var(--fader-bg-color) !important;
+  border: 4px double var(--fader-border-color, #1a1a1a) !important;
+  box-shadow: 1px 1px 0 var(--fader-border-color, #1a1a1a) !important;
+  color: #1a1a1a !important;
+}
+
+/* Jauge de remplissage sombre pour assombrir la couleur de fond */
+.master-eq-fader.digital-fader::before {
+  background-color: #000000 !important;
+  opacity: 0.15 !important;
+}
+
+.master-eq-fader.digital-fader.is-dragging::before {
+  opacity: 0.35 !important;
+}
+
+/* Ligne centrale noire pour le mode bipolaire */
+.master-eq-fader.digital-fader::after {
+  background-color: #1a1a1a !important;
+  opacity: 0.25 !important;
+}
+
+
 
