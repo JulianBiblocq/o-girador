@@ -64,7 +64,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   }, [height]);
 
   // Configuration géométrique correspondant au design (avec valeurs dynamiques ou par défaut)
-  const containerHeight = height || measuredHeight;
+  const containerHeight = height || (measuredHeight > 20 ? measuredHeight : 115);
   const faderHeight = containerHeight - 16; // préserve 8px de padding en haut et en bas
   const resolvedThumbHeight = thumbHeight || 20;
   const travelRange = faderHeight - resolvedThumbHeight;

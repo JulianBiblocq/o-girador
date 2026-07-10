@@ -732,13 +732,14 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
           </div>
 
           {/* Colonne centrale : Fader vertical de volume (Ghost Input à haute performance) */}
-          <div className="flex flex-col items-center w-10 shrink-0">
+          <div className="flex flex-col items-center w-10 h-[115px] shrink-0">
             <MixerVolumeFader
               trackId={trackId}
               value={track.volumeVal}
               onChange={onVolumeChange}
               faderColor={faderColor}
               textColor={faderTextColor}
+              height={115}
             />
           </div>
 
