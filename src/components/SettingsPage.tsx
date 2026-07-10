@@ -1157,7 +1157,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                    : "Instrução de oficina: Você pode editar, espaçar ou anotar diretamente a partitura abaixo antes de imprimir ou exportar."}
                                </p>
                                <div className="w-full p-4 md:p-8 bg-black/5 border border-black/10 rounded-md overflow-x-auto flex justify-center">
-                                 <div className="w-full max-w-[21cm] min-h-[60vh] md:min-h-[29.7cm] bg-[#fbf8f0] p-6 md:p-12 shadow-[0px_10px_25px_rgba(0,0,0,0.15)] md:shadow-[0px_15px_40px_rgba(0,0,0,0.25)] border border-black/5 flex flex-col text-left">
+                                 <div className="w-[21cm] h-[29.7cm] shrink-0 bg-[#fbf8f0] p-12 md:p-16 border-4 border-black shadow-[8px_8px_0px_rgba(0,0,0,0.15)] flex flex-col text-left overflow-hidden">
                                    {/* En-tête HTML fixe */}
                                    <div className="text-center mb-1">
                                      <h2 className="font-cactus text-3xl md:text-4xl font-bold text-black uppercase tracking-wider text-center">
@@ -1174,7 +1174,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                      value={liveText}
                                      onChange={(e) => setLiveText(e.target.value)}
                                      style={{ fontSize: `${bodyFontSize}px`, whiteSpace: 'pre', overflowX: 'auto' }}
-                                     className="w-full flex-grow bg-transparent text-black font-mono whitespace-pre overflow-x-auto leading-relaxed outline-none resize-none custom-scrollbar text-[#1a1a1a]"
+                                     className="w-full flex-grow h-0 min-h-0 bg-transparent text-black font-mono whitespace-pre overflow-x-auto overflow-y-auto leading-relaxed outline-none resize-none custom-scrollbar text-[#1a1a1a]"
                                      placeholder="Générez ou tapez la partition ici..."
                                    />
                                  </div>
