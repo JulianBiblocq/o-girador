@@ -872,7 +872,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       const time = performance.now();
       
       const sequencerState = useSequencerStore.getState();
-      const isEco = sequencerState.isEcoMode;
+      const isEco = sequencerState.ecoConfig?.disableAnimations ?? sequencerState.isEcoMode;
       const storeTracks = sequencerState.tracks;
       const targetSize = isEco ? 600 : 1200;
       

@@ -240,7 +240,8 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       }
       lastFrameTimeRef.current = now;
 
-      const isEco = useSequencerStore.getState().isEcoMode || (window as any).oGiradorVisualEcoMode;
+      const state = useSequencerStore.getState();
+      const isEco = (state.ecoConfig?.disableAnimations ?? state.isEcoMode) || (window as any).oGiradorVisualEcoMode;
       const isManualEco = isEco && !forcedEcoModeRef.current;
       const anchor = anchorRef.current;
       

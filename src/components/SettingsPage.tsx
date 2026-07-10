@@ -40,6 +40,10 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   const totalMeasures = useSequencerStore((state) => state.totalMeasures);
   const songSections = useSequencerStore((state) => state.songSections);
   const measureTimeSigs = useSequencerStore((state) => state.measureTimeSigs);
+  const isEcoMode = useSequencerStore((state) => state.isEcoMode);
+  const ecoConfig = useSequencerStore((state) => state.ecoConfig);
+  const toggleEcoMode = useSequencerStore((state) => state.toggleEcoMode);
+  const toggleEcoOption = useSequencerStore((state) => state.toggleEcoOption);
 
   const [isLoading, setIsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<string | null>('groove');
@@ -933,10 +937,158 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                           </div>
                         )}
                         {section.id === 'performance' && (
-                          <div className="flex flex-col gap-4">
-                            <p className="font-bold">⚡ Télémétrie & Options d'affichage</p>
-                            <p className="opacity-70 mb-2">Suivi des performances système en temps réel pour assurer les 60 FPS requis.</p>
-                            <TelemetryBadge />
+                          <div className="flex flex-col gap-6 text-left">
+                            
+                            {/* TÉLÉMÉTRIE */}
+                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-2">
+                              <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+                                ⚡ Télémétrie en Temps Réel
+                              </h3>
+                              <p className="text-[10px] opacity-75 mb-2">
+                                {lang === 'fr' 
+                                  ? "Suivi des performances pour assurer un rendu fluide à 60 FPS sans coupure audio." 
+                                  : "Monitoramento de desempenho para garantir renderização fluida a 60 FPS sem engasgos de áudio."}
+                              </p>
+                              <TelemetryBadge />
+                            </div>
+
+                            {/* CONFIGURATION MODE ÉCO */}
+                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
+                              <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+                                ⚙️ {lang === 'fr' ? 'Configuration des Performances' : 'Configurações de Desempenho'}
+                              </h3>
+                              
+                              {/* Interrupteur Maître */}
+                              <label className="flex items-center gap-3 p-3 border-2 border-black bg-[#f4ecd8]/40 cursor-pointer hover:bg-black/5 transition-colors select-none">
+                                <input 
+                                  type="checkbox" 
+                                  className="w-5 h-5 cursor-pointer accent-black"
+                                  checked={isEcoMode}
+                                  onChange={toggleEcoMode}
+                                />
+                                <div className="flex flex-col">
+                                  <span className="font-cactus font-bold text-xs uppercase">
+                                    {lang === 'fr' ? 'Mode Éco Maître (Recommandé)' : 'Modo Eco Mestre (Recomendado)'}
+                                  </span>
+                                  <span className="text-[9px] opacity-70">
+                                    {lang === 'fr' 
+                                      ? "Active automatiquement toutes les options d'économie d'énergie." 
+                                      : "Ativa automaticamente todas as opções de economia de energia."}
+                                  </span>
+                                </div>
+                              </label>
+
+                              {/* Options granulaires */}
+                              <div className="flex flex-col gap-3 pl-2 border-l-2 border-dashed border-black/30 mt-2">
+                                {/* Option FX */}
+                                <label className="flex items-center gap-3 cursor-pointer hover:bg-black/5 p-1 transition-colors select-none">
+                                  <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 cursor-pointer accent-black"
+                                    checked={!!ecoConfig?.disableFx}
+                                    onChange={() => toggleEcoOption('disableFx')}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-cactus text-xs font-bold text-black uppercase">
+                                      {lang === 'fr' ? 'Désactiver les Effets (Reverb/Compressor)' : 'Desativar Efeitos (Reverb/Compressor)'}
+                                    </span>
+                                    <span className="text-[9px] opacity-70">
+                                      {lang === 'fr' 
+                                        ? "Bypasse la réverbération spatiale et la compression master." 
+                                        : "Ignora a reverberação espacial e compressão master."}
+                                    </span>
+                                  </div>
+                                </label>
+
+                                {/* Option EQ */}
+                                <label className="flex items-center gap-3 cursor-pointer hover:bg-black/5 p-1 transition-colors select-none">
+                                  <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 cursor-pointer accent-black"
+                                    checked={!!ecoConfig?.disableEq}
+                                    onChange={() => toggleEcoOption('disableEq')}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-cactus text-xs font-bold text-black uppercase">
+                                      {lang === 'fr' ? 'Désactiver les Égaliseurs par piste' : 'Desativar Equalizadores por canal'}
+                                    </span>
+                                    <span className="text-[9px] opacity-70">
+                                      {lang === 'fr' 
+                                        ? "Bypasse les bandes d'égalisation (EQ) individuelles sur la table de mixage." 
+                                        : "Ignora as bandas de equalização (EQ) individuais no mixer."}
+                                    </span>
+                                  </div>
+                                </label>
+
+                                {/* Option Animations */}
+                                <label className="flex items-center gap-3 cursor-pointer hover:bg-black/5 p-1 transition-colors select-none">
+                                  <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 cursor-pointer accent-black"
+                                    checked={!!ecoConfig?.disableAnimations}
+                                    onChange={() => toggleEcoOption('disableAnimations')}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-cactus text-xs font-bold text-black uppercase">
+                                      {lang === 'fr' ? 'Désactiver les Animations (30 FPS)' : 'Desativar Animações (30 FPS)'}
+                                    </span>
+                                    <span className="text-[9px] opacity-70">
+                                      {lang === 'fr' 
+                                        ? "Limite l'affichage et la rotation à 30 FPS pour soulager le GPU." 
+                                        : "Limita o display e a rotação a 30 FPS para aliviar o GPU."}
+                                    </span>
+                                  </div>
+                                </label>
+                              </div>
+
+                            </div>
+
+                            {/* PURGE DU CACHE */}
+                            <div className="border-2 border-[#8b2a1a] p-4 bg-[#fbf8f0] shadow-[3px_3px_0px_#8b2a1a] flex flex-col gap-4">
+                              <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-[#8b2a1a]/20 pb-1 text-[#8b2a1a]">
+                                🖨️ {lang === 'fr' ? 'Purge de l\'Atelier' : 'Limpar Oficina'}
+                              </h3>
+                              <p className="text-[10px] italic opacity-85">
+                                {lang === 'fr'
+                                  ? "Si le son bégaie ou que la mémoire s'étouffe, purgez l'atelier pour repartir sur une toile vierge."
+                                  : "Se o som engasgar ou a memória ficar cheia, limpe a oficina para começar do zero."}
+                              </p>
+                              
+                              <button
+                                onClick={async () => {
+                                  const confirmText = lang === 'fr' 
+                                    ? "Attention, vous devrez re-télécharger les sons avec une connexion internet à la prochaine ouverture. Voulez-vous continuer ?"
+                                    : "Atenção, você precisará baixar novamente os sons com uma conexão de internet na próxima vez que abrir. Deseja continuar ?";
+                                  if (window.confirm(confirmText)) {
+                                    try {
+                                      if ('caches' in window) {
+                                        const keys = await caches.keys();
+                                        for (const key of keys) {
+                                          await caches.delete(key);
+                                        }
+                                      }
+                                      if ('serviceWorker' in navigator) {
+                                        const registrations = await navigator.serviceWorker.getRegistrations();
+                                        for (const reg of registrations) {
+                                          await reg.unregister();
+                                        }
+                                      }
+                                      alert(lang === 'fr' ? "Le cache a été purgé avec succès. Rechargement de la page..." : "O cache foi limpo com sucesso. Recarregando a página...");
+                                      window.location.reload();
+                                    } catch (err) {
+                                      console.error('Error purging cache:', err);
+                                    }
+                                  }
+                                }}
+                                className="w-full px-4 py-3 text-xs bg-[#8b2a1a] text-[#f4ecd8] border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-black hover:text-white shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all text-center"
+                                style={{
+                                  backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.1) 5px, rgba(0,0,0,0.1) 10px)'
+                                }}
+                              >
+                                {lang === 'fr' ? 'Purger le Cache Local' : 'Purger o Cache Local'}
+                              </button>
+                            </div>
+
                           </div>
                         )}
                         {section.id === 'ajuda' && (

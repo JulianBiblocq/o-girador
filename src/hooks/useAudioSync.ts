@@ -5,7 +5,7 @@
 
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import * as Tone from 'tone';
-import { AudioEngine } from '../AudioEngine';
+import { AudioEngine, ActiveInstrumentData } from '../AudioEngine';
 import { InputManager } from '../InputManager';
 import { TrackGroup, TimeSignature, HitTrigger, HitTriggerPool, SongSection, GlobalSwing } from '../types';
 
@@ -477,16 +477,19 @@ export function useAudioSync({
     // from regenerating (and abruptly cutting its tail) when the user adjusts a track fader!
   }, [reverbDecay, masterReverbVol]);
 
-  // Sync Reverb Sends and Reverb Connection in response to Eco Mode changes
+  // Sync Reverb Sends, EQ configurations and Connection in response to Eco Mode / ecoConfig changes
   useEffect(() => {
-    const applyEcoReverbSendsAndToggle = (isEco: boolean, tracks: any[]) => {
-      handleReverbEcoToggle(isEco, isPlayingRef.current);
+    let lastDisableFx = useSequencerStore.getState().ecoConfig?.disableFx ?? useSequencerStore.getState().isEcoMode;
+    let lastDisableEq = useSequencerStore.getState().ecoConfig?.disableEq ?? useSequencerStore.getState().isEcoMode;
+
+    const applyEcoReverbSendsAndToggle = (disableFx: boolean, tracks: any[]) => {
+      handleReverbEcoToggle(disableFx, isPlayingRef.current);
 
       tracks.forEach((t) => {
         if (reverbSends[t.id]) {
           try {
             const reverbPct = t.fxSends?.reverb ?? t.reverbVal ?? 0;
-            const reverbDb = percentToDb(isEco ? 0 : reverbPct);
+            const reverbDb = percentToDb(disableFx ? 0 : reverbPct);
             reverbSends[t.id].gain.value = reverbDb;
           } catch (err) {
             console.warn(`Could not set reverb send level for track ${t.id} in eco mode update:`, err);
@@ -495,13 +498,32 @@ export function useAudioSync({
       });
     };
 
-    applyEcoReverbSendsAndToggle(
-      useSequencerStore.getState().isEcoMode,
-      useSequencerStore.getState().tracks
-    );
+    const applyEqSync = (tracks: any[]) => {
+      tracks.forEach((t) => {
+        try {
+          syncTrackInsertChain(t.id, t);
+        } catch (err) {
+          console.warn(`Could not sync track insert chain for track ${t.id}:`, err);
+        }
+      });
+    };
+
+    const initialStore = useSequencerStore.getState();
+    applyEcoReverbSendsAndToggle(lastDisableFx, initialStore.tracks);
+    applyEqSync(initialStore.tracks);
 
     const unsubscribe = useSequencerStore.subscribe((state) => {
-      applyEcoReverbSendsAndToggle(state.isEcoMode, state.tracks);
+      const nextDisableFx = state.ecoConfig?.disableFx ?? state.isEcoMode;
+      const nextDisableEq = state.ecoConfig?.disableEq ?? state.isEcoMode;
+
+      if (nextDisableFx !== lastDisableFx) {
+        lastDisableFx = nextDisableFx;
+        applyEcoReverbSendsAndToggle(nextDisableFx, state.tracks);
+      }
+      if (nextDisableEq !== lastDisableEq) {
+        lastDisableEq = nextDisableEq;
+        applyEqSync(state.tracks);
+      }
     });
 
     return () => unsubscribe();
@@ -581,12 +603,31 @@ export function useAudioSync({
     const initialState = useSequencerStore.getState();
     compile(initialState.tracks, initialState.totalMeasures, initialState.measureTimeSigs, lastSoloPatternPlayId);
 
-    // Initial Active Instruments Cache Population
-    const initialActiveIds = Array.from(new Set(initialState.tracks.map((t: any) => {
+    // Initial Active Instruments Cache Population (Stroke-level lazy loading)
+    const initialActiveInstruments = initialState.tracks.map((t: any) => {
       const inst = instrumentsConfig[t.instrumentIdx];
-      return inst ? inst.id : null;
-    }).filter(Boolean))).sort() as string[];
-    lastActiveInstrumentIdsRef.current = initialActiveIds.join(',');
+      if (!inst) return null;
+      
+      const strokes = new Set<string>();
+      t.patterns.forEach((ptn: any) => {
+        const isAssigned = ptn.measureAssignments && ptn.measureAssignments.includes(true);
+        if (isAssigned && ptn.notes) {
+          ptn.notes.forEach((note: any) => {
+            if (note && note.trim() !== '') {
+              strokes.add(note.trim());
+            }
+          });
+        }
+      });
+      
+      return {
+        id: inst.id,
+        activeStrokes: Array.from(strokes).sort()
+      };
+    }).filter(Boolean) as ActiveInstrumentData[];
+
+    initialActiveInstruments.sort((a, b) => a.id.localeCompare(b.id));
+    lastActiveInstrumentIdsRef.current = JSON.stringify(initialActiveInstruments);
 
     // Subscribe to Zustand for store changes (using tracksVersion)
     const unsubSeq = useSequencerStore.subscribe((state, prevState) => {
@@ -595,16 +636,35 @@ export function useAudioSync({
       }
       
       if (audioEngine && state.tracks !== prevState.tracks) {
-        // Optimisation : Diff léger sur la liste des instruments pour éviter de recharger inutilement
-        const activeIds = Array.from(new Set(state.tracks.map((t: any) => {
+        // Optimisation : Extraction des instruments actifs et de leurs frappes (strokes) uniques
+        const activeInstruments = state.tracks.map((t: any) => {
           const inst = instrumentsConfig[t.instrumentIdx];
-          return inst ? inst.id : null;
-        }).filter(Boolean))).sort() as string[];
+          if (!inst) return null;
+          
+          const strokes = new Set<string>();
+          t.patterns.forEach((ptn: any) => {
+            const isAssigned = ptn.measureAssignments && ptn.measureAssignments.includes(true);
+            if (isAssigned && ptn.notes) {
+              ptn.notes.forEach((note: any) => {
+                if (note && note.trim() !== '') {
+                  strokes.add(note.trim());
+                }
+              });
+            }
+          });
+          
+          return {
+            id: inst.id,
+            activeStrokes: Array.from(strokes).sort()
+          };
+        }).filter(Boolean) as ActiveInstrumentData[];
+
+        activeInstruments.sort((a, b) => a.id.localeCompare(b.id));
+        const activeInstrumentsString = JSON.stringify(activeInstruments);
         
-        const activeIdsString = activeIds.join(',');
-        if (activeIdsString !== lastActiveInstrumentIdsRef.current) {
-          lastActiveInstrumentIdsRef.current = activeIdsString;
-          audioEngine.syncActiveInstrumentsMemory(activeIds)
+        if (activeInstrumentsString !== lastActiveInstrumentIdsRef.current) {
+          lastActiveInstrumentIdsRef.current = activeInstrumentsString;
+          audioEngine.syncActiveInstrumentsMemory(activeInstruments)
             .catch(e => {});
         }
       }
@@ -1233,7 +1293,7 @@ export function useAudioSync({
     };
   }, []);
 
-  // Dynamic RAM Management for Mobile
+  // Dynamic RAM Management for Mobile (Stroke-level Lazy Loading)
   useEffect(() => {
     const isMobileDevice = window.innerWidth <= 768 || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
     if (!audioEngine || !isMobileDevice) return;
@@ -1243,18 +1303,33 @@ export function useAudioSync({
         const tracks = state.tracks;
         if (tracks.length === 0) return;
 
-        const activeIds = new Set<string>();
-        
-        tracks.forEach(t => {
-          // Keep active track instruments loaded in RAM even if muted or bypassed by solo,
-          // so that they trigger instantly when unmuted/unsoloed.
-          if (!t.isHidden) {
+        const activeInstruments = tracks
+          .filter(t => !t.isHidden)
+          .map(t => {
             const inst = instrumentsConfig[t.instrumentIdx];
-            if (inst) activeIds.add(inst.id);
-          }
-        });
+            if (!inst) return null;
 
-        audioEngine.syncActiveInstrumentsMemory(Array.from(activeIds))
+            const strokes = new Set<string>();
+            t.patterns.forEach(ptn => {
+              const isAssigned = ptn.measureAssignments && ptn.measureAssignments.includes(true);
+              if (isAssigned && ptn.notes) {
+                ptn.notes.forEach(note => {
+                  if (note && note.trim() !== '') {
+                    strokes.add(note.trim());
+                  }
+                });
+              }
+            });
+
+            return {
+              id: inst.id,
+              activeStrokes: Array.from(strokes).sort()
+            };
+          }).filter(Boolean) as ActiveInstrumentData[];
+
+        activeInstruments.sort((a, b) => a.id.localeCompare(b.id));
+
+        audioEngine.syncActiveInstrumentsMemory(activeInstruments)
           .catch(e => { /* console.warn("Dynamic RAM sync failed:", e); */ });
       }
     });

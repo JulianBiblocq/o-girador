@@ -1631,6 +1631,12 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
   }
 });
 
+export interface EcoConfig {
+  disableFx: boolean;
+  disableEq: boolean;
+  disableAnimations: boolean;
+}
+
 export interface ProjectSettingsSlice {
   letras: string;
   metadata: PresetMetadata;
@@ -1638,6 +1644,7 @@ export interface ProjectSettingsSlice {
   lang: Language;
   vocalCalibrationLatencyMs: number;
   isEcoMode: boolean;
+  ecoConfig: EcoConfig;
   editingTrackId: number | null;
   vocalTransposeSteps: number;
 
@@ -1648,6 +1655,7 @@ export interface ProjectSettingsSlice {
   setVocalCalibrationLatencyMs: (val: number) => void;
   handleExtractLyrics: () => void;
   toggleEcoMode: () => void;
+  toggleEcoOption: (key: keyof EcoConfig) => void;
   setEditingTrackId: (id: number | null) => void;
   setVocalTransposeSteps: (steps: number) => void;
   incrementVocalTransposeSteps: () => void;
@@ -1674,6 +1682,11 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   lang: 'pt',
   vocalCalibrationLatencyMs: parseInt(localStorage.getItem('oGirador_vocal_calibration_latency') || '0', 10),
   isEcoMode: detectEcoMode(),
+  ecoConfig: {
+    disableFx: detectEcoMode(),
+    disableEq: detectEcoMode(),
+    disableAnimations: detectEcoMode()
+  },
   editingTrackId: null,
   vocalTransposeSteps: 0,
 
@@ -1688,7 +1701,33 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   toggleEcoMode: () => set((state) => {
     const next = !state.isEcoMode;
     localStorage.setItem('o-girador-eco-mode', String(next));
-    return { isEcoMode: next };
+    return { 
+      isEcoMode: next,
+      ecoConfig: {
+        disableFx: next,
+        disableEq: next,
+        disableAnimations: next
+      }
+    };
+  }),
+  toggleEcoOption: (key) => set((state) => {
+    const nextConfig = {
+      ...state.ecoConfig,
+      [key]: !state.ecoConfig[key]
+    };
+    const allTrue = nextConfig.disableFx && nextConfig.disableEq && nextConfig.disableAnimations;
+    const allFalse = !nextConfig.disableFx && !nextConfig.disableEq && !nextConfig.disableAnimations;
+    
+    let nextEcoMode = state.isEcoMode;
+    if (allTrue) nextEcoMode = true;
+    if (allFalse) nextEcoMode = false;
+    
+    localStorage.setItem('o-girador-eco-mode', String(nextEcoMode));
+    
+    return {
+      ecoConfig: nextConfig,
+      isEcoMode: nextEcoMode
+    };
   }),
   setEditingTrackId: (id) => set({ editingTrackId: id }),
   setVocalTransposeSteps: (steps) => set({ vocalTransposeSteps: Math.max(-12, Math.min(12, steps)) }),

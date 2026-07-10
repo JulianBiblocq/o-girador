@@ -81,9 +81,11 @@ export function initMasterEffectsChain(
     high: masterEQ.high
   });
 
+  const disableFx = useSequencerStore.getState().ecoConfig?.disableFx ?? isEco;
+
   masterCompressorNode = new Tone.Compressor({
-    threshold: isEco ? 0 : -12, // Compression douce pour ne pas saturer sur mobile
-    ratio: isEco ? 1 : 2,
+    threshold: disableFx ? 0 : -12, // Compression douce pour ne pas saturer sur mobile
+    ratio: disableFx ? 1 : 2,
     attack: 0.015,
     release: 0.15
   });
@@ -158,7 +160,7 @@ export function initMasterEffectsChain(
   reverbBusReceive = new Tone.Channel();
   reverbBusReceive.receive("reverb");
 
-  if (!isEco) {
+  if (!disableFx) {
     reverbNode = new Tone.Reverb({ decay: 2.5, preDelay: 0.02, wet: 1 }).connect(masterReverbVolumeNode);
     reverbBusReceive.connect(reverbNode);
   } else {
@@ -298,8 +300,9 @@ export function syncTrackInsertChain(trackId: number, track: any) {
 
   // Check state
   const hasLowCut = !!track.lowCut;
+  const disableEq = useSequencerStore.getState().ecoConfig?.disableEq;
   const eq = track.eqBands;
-  const hasEQ = eq ? (
+  const hasEQ = eq && !disableEq ? (
     (eq.low?.g !== undefined && eq.low.g !== 0) ||
     (eq.mid?.g !== undefined && eq.mid.g !== 0) ||
     (eq.high?.g !== undefined && eq.high.g !== 0)
