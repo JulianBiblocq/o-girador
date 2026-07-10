@@ -25,6 +25,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   const setStrokeDefault = useSequencerSettingsStore((state) => state.setStrokeDefault);
   const enabledSignalIds = useSequencerSettingsStore((state) => state.enabledSignalIds);
   const toggleSignalEnabled = useSequencerSettingsStore((state) => state.toggleSignalEnabled);
+  const forcedStrokes = useSequencerSettingsStore((state) => state.forcedStrokes) || {};
+  const setStrokeForcedState = useSequencerSettingsStore((state) => state.setStrokeForcedState);
 
   const isMetroOn = useTransportStore((state) => state.isMetroOn);
   const setIsMetroOn = useTransportStore((state) => state.setIsMetroOn);
@@ -221,18 +223,25 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
       if (conf) {
         const id = conf.id;
         const activeForTrack = getActiveStrokesForTrack(t);
+        const allStrokes = getStrokesForInstrument(conf.id, conf.type, lang, sequencer?.isLeftHanded || false);
+        
         if (!dict[id]) {
           dict[id] = [];
         }
-        activeForTrack.forEach(stroke => {
-          if (!dict[id].includes(stroke)) {
+        allStrokes.forEach(strokeDef => {
+          const stroke = strokeDef.symbol;
+          const isUsed = activeForTrack.includes(stroke);
+          const forced = forcedStrokes[`${t.id}:${stroke}`];
+          const isActive = forced !== undefined ? forced : isUsed;
+          
+          if (isActive && !dict[id].includes(stroke)) {
             dict[id].push(stroke);
           }
         });
       }
     });
     return dict;
-  }, [activeTracks]);
+  }, [activeTracks, forcedStrokes, lang, sequencer?.isLeftHanded]);
 
   // 3. Calculer les moyennes réelles (volume et decay) pour une frappe donnée sur une piste
   const getStrokeAverages = (track: TrackGroup, stroke: string) => {
@@ -658,6 +667,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                               const strokeTextColor = inst.colors.text || '#f4ecd8';
                                               
                                               const isUsed = activeStrokes.includes(stroke);
+                                              const forced = forcedStrokes[`${track.id}:${stroke}`];
+                                              const isActive = forced !== undefined ? forced : isUsed;
                                               const isSelected = selectedMacro?.trackId === track.id && selectedMacro?.stroke === stroke;
                                               
                                               return (
@@ -671,7 +682,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                                     }
                                                   }}
                                                   className={`w-7 h-7 font-cactus font-black text-xs uppercase flex items-center justify-center border-2 border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer hover:scale-105 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all select-none ${
-                                                    !isUsed ? 'opacity-40 grayscale border-dashed shadow-none hover:opacity-75 hover:grayscale-0' : ''
+                                                    !isActive ? 'opacity-40 grayscale border-dashed shadow-none hover:opacity-75 hover:grayscale-0' : ''
                                                   }`}
                                                   style={{ 
                                                     backgroundColor: strokeColor, 
@@ -679,7 +690,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                                     outline: isSelected ? '3px solid #000' : 'none',
                                                     outlineOffset: isSelected ? '1px' : '0px'
                                                   }}
-                                                  title={`${stroke} : ${strokeDef.label} (${isUsed ? (lang === 'fr' ? 'Actif' : 'Ativo') : (lang === 'fr' ? 'Anticipé' : 'Antecipado')})`}
+                                                  title={`${stroke} : ${strokeDef.label} (${isActive ? (lang === 'fr' ? 'Actif' : 'Ativo') : (lang === 'fr' ? 'Anticipé' : 'Antecipado')})`}
                                                 >
                                                   {stroke}
                                                 </button>
@@ -698,17 +709,39 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
                                             return (
                                               <div className="mt-2 border-2 border-dashed border-black p-3 bg-white flex flex-col gap-3">
-                                                <div className="flex justify-between items-center text-[10px] font-bold border-b border-black/10 pb-1.5">
-                                                  <span>
-                                                    🎚️ CONFIGURAÇÃO DE GOLPE : [{stroke}] {!isUsed && (lang === 'pt' ? '(INATIVO - ANTECIPADO)' : '(INACTIF - ANTICIPÉ)')}
-                                                  </span>
-                                                  <button 
-                                                    onClick={() => setSelectedMacro(null)}
-                                                    className="text-[#8b2a1a] hover:underline uppercase font-bold text-[9px] cursor-pointer"
-                                                  >
-                                                    Fermer
-                                                  </button>
-                                                </div>
+                                                <div className="flex justify-between items-center text-[10px] font-bold border-b border-black/10 pb-1.5 flex-wrap gap-2">
+                                                   <div className="flex items-center gap-2 flex-wrap">
+                                                     <span>
+                                                       🎚️ CONFIGURAÇÃO DE GOLPE : [{stroke}]
+                                                     </span>
+                                                     {/* Bouton de forçage d'activation/désactivation de frappe */}
+                                                     <button
+                                                       onClick={() => {
+                                                         const currentForced = forcedStrokes[`${track.id}:${stroke}`];
+                                                         const isStrokeCurrentlyActive = currentForced !== undefined ? currentForced : isUsed;
+                                                         setStrokeForcedState(`${track.id}:${stroke}`, !isStrokeCurrentlyActive);
+                                                       }}
+                                                       className={`px-2 py-0.5 border text-[9px] font-black uppercase tracking-wider cursor-pointer shadow-[1px_1px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all select-none ${
+                                                         (forcedStrokes[`${track.id}:${stroke}`] !== undefined ? forcedStrokes[`${track.id}:${stroke}`] : isUsed)
+                                                           ? 'bg-green-600 text-white border-green-700 hover:bg-green-700' 
+                                                           : 'bg-red-700 text-white border-red-800 hover:bg-red-800'
+                                                       }`}
+                                                       title={lang === 'fr' 
+                                                         ? 'Cliquez pour forcer l\'activation ou la désactivation de cette frappe dans le kit'
+                                                         : 'Clique para forçar a ativação ou desativação desta batida no kit'}
+                                                     >
+                                                       {(forcedStrokes[`${track.id}:${stroke}`] !== undefined ? forcedStrokes[`${track.id}:${stroke}`] : isUsed)
+                                                         ? '● ACTIF' 
+                                                         : '○ DÉSACTIVÉ'}
+                                                     </button>
+                                                   </div>
+                                                   <button 
+                                                     onClick={() => setSelectedMacro(null)}
+                                                     className="text-[#8b2a1a] hover:underline uppercase font-bold text-[9px] cursor-pointer"
+                                                   >
+                                                     Fermer
+                                                   </button>
+                                                 </div>
 
                                                 {/* Volume macro slider */}
                                                 <div className="flex flex-col gap-1">
