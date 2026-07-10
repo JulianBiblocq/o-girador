@@ -9,7 +9,7 @@ import { instrumentsConfig, i18n } from '../data';
 import { metroChannel } from '../audio/effectsChain';
 import { TrackGroup, Pattern, GlobalSwing, CloudRhythmSignal } from '../types';
 import { getStrokesForInstrument } from '../utils/instrumentStrokes';
-import { exportTablatureFile, printTablature, printLegendOnly } from '../utils/exportTablature';
+import { exportTablatureFile, printTablature, printLegendOnly, generateTablatureCore, generateAnnexTablature } from '../utils/exportTablature';
 import { ShortcutsGuide } from './right-sidebar/ShortcutsGuide';
 
 interface SettingsPageProps {
@@ -102,6 +102,42 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
       setSelectedExportTracks(new Set(validExportTracks.map(t => t.id)));
     }
   };
+
+  const [liveText, setLiveText] = useState<string>('');
+
+  const refreshPreviewText = () => {
+    const tracksToExport = tracks.filter(t => selectedExportTracks.has(t.id));
+    const outputTxt = generateTablatureCore(
+      tracksToExport, 
+      totalMeasures, 
+      songSections, 
+      measureTimeSigs, 
+      sequencer?.measureBpms || Array(totalMeasures).fill(83), 
+      false
+    );
+    const annexTxt = generateAnnexTablature(tracks, selectedAnnexTracks, false);
+    
+    const title = metadata?.toada?.trim() || "O Girador Tablature";
+    
+    let finalTxt = `TITRE: ${title}\n`;
+    if (metadata?.compositor) finalTxt += `COMPOSITEUR: ${metadata.compositor}\n`;
+    if (metadata?.ritmo) finalTxt += `RYTHME: ${metadata.ritmo}\n`;
+    finalTxt += `\n${outputTxt}`;
+    if (annexTxt) finalTxt += annexTxt;
+    
+    if (letras && letras.trim() !== '') {
+      finalTxt += `\n--- VOIX / PAROLES ---\n${letras}\n`;
+    }
+    
+    finalTxt += `\n(Généré avec O Girador)\n`;
+    setLiveText(finalTxt);
+  };
+
+  useEffect(() => {
+    if (activeSection === 'prensa' && selectedExportTracks.size > 0 && !liveText) {
+      refreshPreviewText();
+    }
+  }, [activeSection, selectedExportTracks.size, liveText]);
 
   const handleToggleTrackExport = (trackId: number, checked: boolean) => {
     const newSet = new Set(selectedExportTracks);
@@ -974,7 +1010,34 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               </div>
                             </div>
 
-                            {/* 3. AÇÕES DE IMPRESSÃO */}
+                            {/* 3. PLAN DE TRAVAIL (ÉDITEUR LIVETEXT INTERACTIF) */}
+                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-3">
+                              <div className="flex justify-between items-center border-b border-black/10 pb-1 flex-wrap gap-2">
+                                <h3 className="font-cactus font-bold text-sm uppercase flex items-center gap-1.5">
+                                  ✍️ {lang === 'fr' ? 'Plan de Travail - Éditeur de Partition' : 'Planilha de Trabalho - Editor de Partitura'}
+                                </h3>
+                                <button
+                                  onClick={refreshPreviewText}
+                                  className="px-3 py-1 bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase cursor-pointer hover:bg-[#8b2a1a] shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
+                                >
+                                  🔄 {lang === 'fr' ? "Régénérer depuis l'Atelier" : 'Gerar da Oficina'}
+                                </button>
+                              </div>
+                              <p className="text-[10px] opacity-75">
+                                {lang === 'fr' 
+                                  ? "Modifiez, aérez ou annotez directement la partition ci-dessous avant de l'imprimer ou de la télécharger. Vos retouches manuelles seront conservées lors de l'export."
+                                  : "Edite, espaceje ou anote diretamente a partitura abaixo antes de imprimir ou baixar. Seus ajustes manuais serão mantidos no arquivo exportado."}
+                              </p>
+                              <textarea
+                                value={liveText}
+                                onChange={(e) => setLiveText(e.target.value)}
+                                rows={14}
+                                className="w-full bg-[#fbf8f0] border-4 border-black font-mono text-xs p-3 outline-none resize-y custom-scrollbar text-[#1a1a1a]"
+                                placeholder="Générez ou tapez la partition ici..."
+                              />
+                            </div>
+
+                            {/* 4. AÇÕES DE IMPRESSÃO */}
                             <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
                               <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
                                 🖨️ Ações de Impressão & Exportação
@@ -983,19 +1046,15 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <button
                                   onClick={() => {
-                                    const tracksToExport = tracks.filter(t => selectedExportTracks.has(t.id));
                                     exportTablatureFile(
-                                      tracksToExport, 
+                                      liveText, 
                                       selectedAnnexTracks, 
-                                      totalMeasures, 
-                                      songSections, 
-                                      metadata, 
-                                      measureTimeSigs, 
-                                      sequencer?.measureBpms || Array(totalMeasures).fill(83), 
-                                      letras
+                                      undefined, 
+                                      undefined, 
+                                      metadata
                                     );
                                   }}
-                                  disabled={selectedExportTracks.size === 0}
+                                  disabled={!liveText}
                                   className="px-4 py-3 text-xs bg-[#eaddcf] text-black border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-black hover:text-white shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-center"
                                 >
                                   {lang === 'fr' ? 'Télécharger (.txt)' : 'Baixar (.txt)'}
@@ -1003,19 +1062,15 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
                                 <button
                                   onClick={() => {
-                                    const tracksToExport = tracks.filter(t => selectedExportTracks.has(t.id));
                                     printTablature(
-                                      tracksToExport, 
+                                      liveText, 
                                       selectedAnnexTracks, 
-                                      totalMeasures, 
-                                      songSections, 
-                                      metadata, 
-                                      measureTimeSigs, 
-                                      sequencer?.measureBpms || Array(totalMeasures).fill(83), 
-                                      letras
+                                      undefined, 
+                                      undefined, 
+                                      metadata
                                     );
                                   }}
-                                  disabled={selectedExportTracks.size === 0}
+                                  disabled={!liveText}
                                   className="px-4 py-3 text-xs bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-white hover:text-black shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-center"
                                 >
                                   {lang === 'fr' ? 'Imprimer (HTML)' : 'Imprimir (HTML)'}
