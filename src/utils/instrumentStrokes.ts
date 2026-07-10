@@ -115,6 +115,12 @@ export function getStrokesForInstrument(instId: string, instType: string, lang: 
       { symbol: 'C', label: isFr ? 'Chœur' : 'Coro', shortcut: 'C', colorKey: 'C' },
     ];
   }
+  else if (instId === 'apito') {
+    strokes = [
+      { symbol: 'W', label: isFr ? 'Sifflet Long (Apito)' : 'Apito Longo', shortcut: 'W', colorKey: 'W' },
+      { symbol: 'w', label: isFr ? 'Sifflet Court (Apito)' : 'Apito Curto', shortcut: 'w', colorKey: 'w' },
+    ];
+  }
   else if (instType === 'voice') {
     strokes = [
       { symbol: 'P', label: 'Puxador', shortcut: 'Click top', colorKey: 'P' },

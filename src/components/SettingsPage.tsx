@@ -192,7 +192,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
   // 1. Extraire les pistes actives qui représentent de vrais instruments
   const activeTracks = useMemo(() => {
-    return tracks.filter(t => !t.isBusFolder && !t.isLinkFolder && t.instrumentIdx !== undefined);
+    return tracks.filter(t => {
+      if (t.isBusFolder || t.isLinkFolder || t.instrumentIdx === undefined) return false;
+      const conf = instrumentsConfig[t.instrumentIdx];
+      return conf && conf.type !== 'voice';
+    });
   }, [tracks]);
 
   // 2. Extraire toutes les frappes uniques programmées sur une piste
