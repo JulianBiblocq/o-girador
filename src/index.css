@@ -1002,3 +1002,56 @@ body.eco-mode #center-afficheur {
   box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0.85);
 }
 
+/* Digital Fader (DragNumberBox with fill gauge) */
+.digital-fader {
+  position: relative;
+  background-color: transparent !important;
+  border: 2px solid var(--fader-border-color, var(--cordel-border, #1a1a1a));
+  color: var(--fader-text-color, var(--cordel-text, #1a1a1a));
+  box-shadow: 1px 1px 0 var(--fader-border-color, var(--cordel-border, #1a1a1a));
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+/* Pseudo-element for fill gauge */
+.digital-fader::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--fill-left, 0%);
+  width: var(--fill-width, 0%);
+  background-color: var(--fader-fill-color, currentColor);
+  opacity: 0.12;
+  transition: opacity 0.15s ease;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Active fill gauge state during drag */
+.digital-fader.is-dragging::before {
+  opacity: 0.30;
+}
+
+/* Center vertical line for bipolar mode */
+.digital-fader::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--zero-pos, 50%);
+  width: 2px;
+  background-color: var(--fader-border-color, currentColor);
+  opacity: 0.2;
+  z-index: 1;
+  pointer-events: none;
+  display: var(--show-center-line, none);
+}
+
+/* Ensure child text content sits on top of absolute pseudo-elements */
+.digital-fader > span {
+  position: relative;
+  z-index: 2;
+}
+
+

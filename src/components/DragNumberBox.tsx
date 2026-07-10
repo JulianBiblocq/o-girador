@@ -10,7 +10,9 @@ interface DragNumberBoxProps {
   min?: number;
   max?: number;
   step?: number;
+  mode?: 'unipolar' | 'bipolar';
   displayFormatter?: (val: number) => string;
+  style?: React.CSSProperties;
 }
 
 const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({ 
@@ -23,7 +25,9 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
   min,
   max,
   step,
-  displayFormatter
+  mode = 'unipolar',
+  displayFormatter,
+  style
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const valueSpanRef = useRef<HTMLSpanElement>(null);
@@ -62,17 +66,50 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
     return `${val}`;
   };
 
+  // Helper to calculate fill left and width percentages
+  const getFillStyles = (val: number) => {
+    if (range <= 0) return { left: '0%', width: '0%' };
+
+    if (mode === 'bipolar') {
+      const posZero = Math.max(0, Math.min(100, ((0 - actualMin) / range) * 100));
+      const posVal = Math.max(0, Math.min(100, ((val - actualMin) / range) * 100));
+      if (val >= 0) {
+        return {
+          left: `${posZero}%`,
+          width: `${posVal - posZero}%`
+        };
+      } else {
+        return {
+          left: `${posVal}%`,
+          width: `${posZero - posVal}%`
+        };
+      }
+    } else {
+      const pct = Math.max(0, Math.min(100, ((val - actualMin) / range) * 100));
+      return {
+        left: '0%',
+        width: `${pct}%`
+      };
+    }
+  };
+
   useEffect(() => {
     currentValRef.current = value;
     if (valueSpanRef.current && !isDraggingRef.current) {
       valueSpanRef.current.textContent = disabled ? '—' : formatValue(value);
     }
-  }, [value, disabled, min, max, label]);
+    if (containerRef.current && !isDraggingRef.current) {
+      const fillStyles = getFillStyles(value);
+      containerRef.current.style.setProperty('--fill-left', fillStyles.left);
+      containerRef.current.style.setProperty('--fill-width', fillStyles.width);
+    }
+  }, [value, disabled, min, max, label, mode]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (disabled) return;
     e.preventDefault();
     containerRef.current?.setPointerCapture(e.pointerId);
+    containerRef.current?.classList.add('is-dragging');
     startYRef.current = e.clientY;
     startValRef.current = currentValRef.current;
     isDraggingRef.current = true;
@@ -95,8 +132,15 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
     }
 
     currentValRef.current = newVal;
+    
+    // Direct DOM manipulation for fast rendering (Zero Render/Layout Thrashing)
     if (valueSpanRef.current) {
       valueSpanRef.current.textContent = formatValue(newVal);
+    }
+    if (containerRef.current) {
+      const fillStyles = getFillStyles(newVal);
+      containerRef.current.style.setProperty('--fill-left', fillStyles.left);
+      containerRef.current.style.setProperty('--fill-width', fillStyles.width);
     }
     if (onAudioDragRef.current) {
       onAudioDragRef.current(newVal);
@@ -107,10 +151,21 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
     if (disabled) return;
     if (containerRef.current?.hasPointerCapture(e.pointerId)) {
       containerRef.current.releasePointerCapture(e.pointerId);
+      containerRef.current.classList.remove('is-dragging');
       isDraggingRef.current = false;
       onChange(currentValRef.current);
     }
   };
+
+  const initialStyles = getFillStyles(value);
+  const zeroPos = range > 0 ? Math.max(0, Math.min(100, ((0 - actualMin) / range) * 100)) : 50;
+
+  const styleObject = {
+    '--fill-left': initialStyles.left,
+    '--fill-width': initialStyles.width,
+    '--zero-pos': `${zeroPos}%`,
+    '--show-center-line': mode === 'bipolar' ? 'block' : 'none',
+  } as React.CSSProperties;
 
   return (
     <div
@@ -118,7 +173,8 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      className={`flex items-center justify-between px-2 py-0.5 text-[9px] font-bold select-none border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] text-[var(--cordel-text)] shadow-[1px_1px_0_var(--cordel-border)] transition-all ${
+      style={{ ...styleObject, ...style }}
+      className={`digital-fader flex items-center justify-between px-2 py-0.5 text-[9px] font-bold select-none border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] text-[var(--cordel-text)] shadow-[1px_1px_0_var(--cordel-border)] transition-all ${
         disabled 
           ? 'opacity-35 cursor-not-allowed' 
           : 'cursor-row-resize active:translate-y-[0.5px] active:shadow-none'
@@ -133,4 +189,3 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
 };
 
 export const DragNumberBox = React.memo(DragNumberBoxComponent);
-

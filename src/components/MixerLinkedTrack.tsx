@@ -357,14 +357,17 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
                 <div className="flex justify-between w-full items-start">
                   <div className="flex flex-col items-center gap-1.5">
                     <MixerKnob label="MF" min={250} max={4000} step={50} value={eq.mid.f} unit="Hz" size={30} color="#d4af37" onChange={(v) => handleEQChange({ mid: { f: v, g: eq.mid.g, q: eq.mid.q } })} onAudioDrag={handleMFAudioDrag} />
-                    <button 
-                      onClick={() => handleEQChange({ mid: { ...eq.mid, q: eq.mid.q === 'narrow' ? 'wide' : 'narrow' } })}
-                      className={`w-6 h-3.5 text-[7px] font-black cordel-border-sm flex items-center justify-center transition-colors rounded-sm ${
-                        eq.mid.q === 'narrow' ? 'bg-[#d4af37] text-black border-[#d4af37]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-                      }`}
-                    >
-                      {eq.mid.q === 'narrow' ? 'N' : 'W'}
-                    </button>
+                    <div className="flex flex-col items-center">
+                      <button 
+                        onClick={() => handleEQChange({ mid: { ...eq.mid, q: eq.mid.q === 'narrow' ? 'wide' : 'narrow' } })}
+                        className={`w-6 h-3.5 text-[7px] font-black cordel-border-sm flex items-center justify-center transition-colors rounded-sm ${
+                          eq.mid.q === 'narrow' ? 'bg-[#d4af37] text-black border-[#d4af37]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+                        }`}
+                      >
+                        {eq.mid.q === 'narrow' ? 'N' : 'W'}
+                      </button>
+                      <span className="text-[5.5px] font-black opacity-40 uppercase tracking-wide mt-0.5">Q</span>
+                    </div>
                   </div>
                   <div className="pt-2">
                     <MixerKnob label="MG" min={-15} max={15} step={1} value={eq.mid.g} unit="dB" size={30} isGain={true} onChange={(v) => handleEQChange({ mid: { f: eq.mid.f, g: v, q: eq.mid.q } })} onAudioDrag={handleMGAudioDrag} />

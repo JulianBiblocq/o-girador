@@ -71,7 +71,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
-  const [isCompactMode, setIsCompactMode] = useState(false);
+  const [isCompactMode, setIsCompactMode] = useState(true);
 
   const {
     lang,
@@ -750,7 +750,13 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   min={-12}
                   max={12}
                   step={0.5}
-                  className="flex-1"
+                  mode="bipolar"
+                  style={{
+                    '--fader-border-color': '#8b2a1a',
+                    '--fader-fill-color': '#8b2a1a',
+                    '--fader-text-color': '#f4ecd8',
+                  } as React.CSSProperties}
+                  className="flex-grow"
                 />
                 <DragNumberBox 
                   label={t('eqMid')}
@@ -759,7 +765,13 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   min={-12}
                   max={12}
                   step={0.5}
-                  className="flex-1"
+                  mode="bipolar"
+                  style={{
+                    '--fader-border-color': '#d4af37',
+                    '--fader-fill-color': '#d4af37',
+                    '--fader-text-color': '#f4ecd8',
+                  } as React.CSSProperties}
+                  className="flex-grow"
                 />
                 <DragNumberBox 
                   label={t('eqHigh')}
@@ -768,7 +780,13 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   min={-12}
                   max={12}
                   step={0.5}
-                  className="flex-1"
+                  mode="bipolar"
+                  style={{
+                    '--fader-border-color': '#3d8b85',
+                    '--fader-fill-color': '#3d8b85',
+                    '--fader-text-color': '#f4ecd8',
+                  } as React.CSSProperties}
+                  className="flex-grow"
                 />
               </div>
             </div>
