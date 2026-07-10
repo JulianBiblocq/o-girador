@@ -204,7 +204,7 @@ export const generateTablatureCore = (
 
   for (let m = 0; m < totalMeasures; m++) {
     const sectionStart = songSections.find(s => s.startMeasure === m);
-    if (currentChunk.length > 0 && (currentChunk.length === 4 || sectionStart)) {
+    if (currentChunk.length > 0 && (currentChunk.length === 2 || sectionStart)) {
       flushChunk();
     }
     currentChunk.push(m);

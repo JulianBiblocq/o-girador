@@ -1160,7 +1160,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                  <div className="w-full max-w-[21cm] min-h-[60vh] md:min-h-[29.7cm] bg-[#fbf8f0] p-6 md:p-12 shadow-[0px_10px_25px_rgba(0,0,0,0.15)] md:shadow-[0px_15px_40px_rgba(0,0,0,0.25)] border border-black/5 flex flex-col text-left">
                                    {/* En-tête HTML fixe */}
                                    <div className="text-center mb-1">
-                                     <h2 className="font-cactus text-2xl md:text-3xl font-bold text-black uppercase tracking-wider">
+                                     <h2 className="font-cactus text-3xl md:text-4xl font-bold text-black uppercase tracking-wider text-center">
                                        {metadata.toada || (lang === 'fr' ? 'PARTITION SANS TITRE' : 'PARTITURA SEM TÍTULO')}
                                      </h2>
                                    </div>
@@ -1173,8 +1173,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                    <textarea
                                      value={liveText}
                                      onChange={(e) => setLiveText(e.target.value)}
-                                     style={{ fontSize: `${bodyFontSize}px` }}
-                                     className="w-full flex-grow bg-transparent text-black font-mono leading-relaxed outline-none resize-none custom-scrollbar text-[#1a1a1a]"
+                                     style={{ fontSize: `${bodyFontSize}px`, whiteSpace: 'pre', overflowX: 'auto' }}
+                                     className="w-full flex-grow bg-transparent text-black font-mono whitespace-pre overflow-x-auto leading-relaxed outline-none resize-none custom-scrollbar text-[#1a1a1a]"
                                      placeholder="Générez ou tapez la partition ici..."
                                    />
                                  </div>
