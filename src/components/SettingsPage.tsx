@@ -1019,48 +1019,48 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               {/* Colonne de Gauche : Métadonnées et Paroles */}
                               <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
                                 <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
-                                  📝 Informações da Toada
+                                  📝 {lang === 'fr' ? 'Informations de la Toada' : 'Informações da Toada'}
                                 </h3>
                                 <div className="flex flex-col gap-3">
                                   <div className="flex flex-col gap-1">
-                                    <label className="font-bold text-[10px] uppercase">Título / Titre :</label>
+                                    <label className="font-bold text-[10px] uppercase">{lang === 'fr' ? 'Titre :' : 'Título :'}</label>
                                     <input 
                                       type="text"
                                       value={metadata.toada || ''}
                                       onChange={(e) => handleMetaChange('toada', e.target.value)}
                                       className="bg-white border-2 border-black font-cactus font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none"
-                                      placeholder="Nome da Toada"
+                                      placeholder={lang === 'fr' ? 'Nom de la Toada' : 'Nome da Toada'}
                                     />
                                   </div>
                                   <div className="flex flex-col gap-1">
-                                    <label className="font-bold text-[10px] uppercase">Mestre / Compositeur :</label>
+                                    <label className="font-bold text-[10px] uppercase">{lang === 'fr' ? 'Compositeur :' : 'Compositor :'}</label>
                                     <input 
                                       type="text"
                                       value={metadata.compositor || ''}
                                       onChange={(e) => handleMetaChange('compositor', e.target.value)}
                                       className="bg-white border-2 border-black font-cactus font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none"
-                                      placeholder="Mestre / Compositor"
+                                      placeholder={lang === 'fr' ? 'Mestre / Compositeur' : 'Mestre / Compositor'}
                                     />
                                   </div>
                                   <div className="flex flex-col gap-1">
-                                    <label className="font-bold text-[10px] uppercase">Ritmo / Rythme :</label>
+                                    <label className="font-bold text-[10px] uppercase">{lang === 'fr' ? 'Rythme :' : 'Ritmo :'}</label>
                                     <input 
                                       type="text"
                                       value={metadata.ritmo || ''}
                                       onChange={(e) => handleMetaChange('ritmo', e.target.value)}
                                       className="bg-white border-2 border-black font-cactus font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none"
-                                      placeholder="Ex: Maracatu Nação"
+                                      placeholder={lang === 'fr' ? 'Ex : Maracatu Nação' : 'Ex: Maracatu Nação'}
                                     />
                                   </div>
                                 </div>
                                 <div className="flex flex-col gap-1 flex-grow">
-                                  <label className="font-bold text-[10px] uppercase">Letras / Paroles :</label>
+                                  <label className="font-bold text-[10px] uppercase">{lang === 'fr' ? 'Paroles :' : 'Letras :'}</label>
                                   <textarea
                                     rows={5}
                                     value={letras}
                                     onChange={(e) => setLetras && setLetras(e.target.value)}
                                     className="bg-white border-2 border-black font-sans font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none resize-none custom-scrollbar flex-grow"
-                                    placeholder="Digite as letras aqui..."
+                                    placeholder={lang === 'fr' ? 'Entrez les paroles ici...' : 'Digite as letras aqui...'}
                                   />
                                 </div>
                               </div>
@@ -1068,7 +1068,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               {/* Colonne de Droite : Sélection d'instruments */}
                               <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
                                 <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
-                                  🥁 Seleção de Instrumentos
+                                  🥁 {lang === 'fr' ? 'Sélection des Instruments' : 'Seleção de Instrumentos'}
                                 </h3>
                                 <div className="flex flex-col gap-2 max-h-[360px] overflow-y-auto pr-2 custom-scrollbar flex-grow">
                                   
@@ -1388,7 +1388,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                   backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 5px, rgba(0,0,0,0.1) 5px, rgba(0,0,0,0.1) 10px)'
                                 }}
                               >
-                                {lang === 'fr' ? 'Purger le Cache Local' : 'Purger o Cache Local'}
+                                {lang === 'fr' ? 'Purger le Cache Local' : 'Limpar Cache Local'}
                               </button>
                             </div>
 
@@ -1412,7 +1412,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                 onClick={() => window.open('tutorial.html', '_blank')}
                                 className="w-full px-4 py-3 bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-[#8b2a1a] hover:text-[#f4ecd8] shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all text-center"
                               >
-                                {lang === 'fr' ? 'Abrir o Manual / Ouvrir le Mode d\'Emploi' : 'Abrir o Manual / Ouvrir le Mode d\'Emploi'}
+                                {lang === 'fr' ? "Ouvrir le Mode d'Emploi" : 'Abrir o Manual'}
                               </button>
                             </div>
 
