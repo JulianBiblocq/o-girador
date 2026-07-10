@@ -138,6 +138,11 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   }, [track?.customName]);
 
   const [activePatternId, setActivePatternId] = useState<number | null>(track?.selectedPatternId);
+  const activePatternIdRef = useRef<number | null>(track?.selectedPatternId ?? null);
+  useEffect(() => {
+    activePatternIdRef.current = activePatternId;
+  }, [activePatternId]);
+
   const [heightCategory, setHeightCategory] = useState<'large' | 'medium' | 'tight' | 'short'>('large');
   const [openPanels, setOpenPanels] = useState({ eq: true, fx: true, pan: true, fader: true });
 
@@ -246,15 +251,14 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
             return assignedPattern ? assignedPattern.id : null;
           })();
 
-          setActivePatternId(prev => {
-            if (prev !== livePatternId) {
-              if (livePatternId !== null) {
+          if (activePatternIdRef.current !== livePatternId) {
+            setActivePatternId(livePatternId);
+            if (livePatternId !== null) {
+              setTimeout(() => {
                 onSelectPattern(livePatternId);
-              }
-              return livePatternId;
+              }, 0);
             }
-            return prev;
-          });
+          }
         }
       }
     };
