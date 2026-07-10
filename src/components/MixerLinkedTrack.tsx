@@ -61,16 +61,16 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
     const handleResize = () => {
       const h = window.innerHeight;
       let newCat: 'large' | 'medium' | 'tight' | 'short' = 'large';
-      if (h < 830) newCat = 'short';
-      else if (h < 930) newCat = 'tight';
-      else if (h < 1030) newCat = 'medium';
+      if (h < 680) newCat = 'short';
+      else if (h < 760) newCat = 'tight';
+      else if (h < 880) newCat = 'medium';
       
       setHeightCategory(prev => {
         if (prev !== newCat) {
           if (newCat === 'large') {
             setOpenPanels({ eq: true, fx: true, pan: true, fader: true });
           } else if (newCat === 'medium') {
-            setOpenPanels({ eq: true, fx: true, pan: false, fader: true });
+            setOpenPanels({ eq: true, fx: true, pan: true, fader: true });
           } else if (newCat === 'tight') {
             setOpenPanels({ eq: true, fx: false, pan: false, fader: true });
           } else if (newCat === 'short') {
@@ -280,7 +280,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
     return (
       <div 
         ref={setNodeRef}
-        className={`flex flex-col bg-[var(--cordel-bg)] w-[104px] h-full justify-between shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
+        className={`flex flex-col bg-[var(--cordel-bg)] w-[115px] h-full justify-between shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
           track.isMute ? 'opacity-60 bg-black/5' : 'opacity-100'
         } ${busPosition === 'none' ? 'cordel-border' : ''}`}
         style={{
@@ -549,8 +549,8 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
               <span className="text-[9px] text-[var(--cordel-text)]/40 font-bold">▶</span>
             </button>
           ) : (
-            <div className="w-full flex flex-col flex-grow min-h-[90px] overflow-hidden">
-              <div className="flex-grow flex-1 min-h-[90px] h-auto flex justify-center gap-2 items-stretch w-full py-1.5 overflow-hidden">
+            <div className="w-full flex flex-col flex-grow min-h-[60px] overflow-hidden">
+              <div className="flex-grow flex-1 min-h-[60px] h-auto flex justify-center gap-2 items-stretch w-full py-1.5 overflow-hidden">
                 <div className="flex flex-col items-center flex-1 h-full min-w-0">
                   <MixerVolumeFader
                     trackId={trackId}

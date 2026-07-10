@@ -64,7 +64,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   }, [height]);
 
   // Configuration géométrique correspondant au design (avec valeurs dynamiques ou par défaut)
-  const containerHeight = height || (measuredHeight > 85 ? measuredHeight : 85);
+  const containerHeight = height || (measuredHeight > 60 ? measuredHeight : 60);
   const faderHeight = containerHeight - 16; // préserve 8px de padding en haut et en bas
   const resolvedThumbHeight = thumbHeight || 20;
   const travelRange = faderHeight - resolvedThumbHeight;
@@ -149,7 +149,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
       className="flex justify-center items-center relative w-10 select-none h-full"
       style={{ 
         height: height !== undefined ? `${height}px` : '100%',
-        minHeight: height !== undefined ? `${height}px` : '85px'
+        minHeight: height !== undefined ? `${height}px` : '60px'
       }}
     >
       {/* 1. La fente du fader (Visuel en arrière-plan) */}
