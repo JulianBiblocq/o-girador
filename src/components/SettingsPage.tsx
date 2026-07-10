@@ -391,13 +391,42 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
           <h2 className="text-xl md:text-2xl font-cactus font-bold tracking-wider uppercase">
             ⚙️ A Oficina - O Girador
           </h2>
-          <button 
-            onClick={() => setIsSettingsOpen(false)}
-            className="bg-[#f4ecd8] text-black border-2 border-black hover:bg-black hover:text-[#f4ecd8] transition-colors px-3 py-1 font-cactus font-black text-lg cursor-pointer shadow-[2px_2px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
-            title="Fechar / Fermer"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Commutateur de langue brutaliste */}
+            <div className="flex border-2 border-[#f4ecd8] bg-black text-[10px] md:text-xs font-cactus font-bold uppercase overflow-hidden shadow-[2px_2px_0px_#f4ecd8]/20">
+              <button
+                onClick={() => sequencer?.setLang && sequencer.setLang('fr')}
+                className={`px-2 py-1 cursor-pointer transition-colors ${
+                  lang === 'fr' 
+                    ? 'bg-[#f4ecd8] text-black font-black font-cactus' 
+                    : 'bg-black text-[#f4ecd8] hover:bg-[#f4ecd8]/10'
+                }`}
+                title="Passer en Français"
+              >
+                FR
+              </button>
+              <div className="w-[2px] bg-[#f4ecd8]/30"></div>
+              <button
+                onClick={() => sequencer?.setLang && sequencer.setLang('pt')}
+                className={`px-2 py-1 cursor-pointer transition-colors ${
+                  lang === 'pt' 
+                    ? 'bg-[#f4ecd8] text-black font-black font-cactus' 
+                    : 'bg-black text-[#f4ecd8] hover:bg-[#f4ecd8]/10'
+                }`}
+                title="Mudar para Português"
+              >
+                PT
+              </button>
+            </div>
+
+            <button 
+              onClick={() => setIsSettingsOpen(false)}
+              className="bg-[#f4ecd8] text-black border-2 border-black hover:bg-black hover:text-[#f4ecd8] transition-colors px-3 py-1 font-cactus font-black text-lg cursor-pointer shadow-[2px_2px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+              title={lang === 'fr' ? 'Fermer' : 'Fechar'}
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Zone de contenu / Écran de chargement temporisé */}
