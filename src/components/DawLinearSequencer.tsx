@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useRef, useMemo, useState } from 'react';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, Eye, EyeOff } from 'lucide-react';
 import { useSequencerStore, isSequencerVisibleTrack, isToadaBus } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
 import { instrumentsConfig, ASSETS_BASE_URL, getVisualStrokeSymbol, NEWTON_NOTE_COLORS, isDarkText } from '../data';
@@ -342,104 +342,149 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
             return (
               <div
                 key={track.id}
-                className="flex items-center w-full h-auto min-h-[116px] xl:h-[76px] xl:min-h-[76px] py-2 xl:py-0 border-b-2 border-x-0 border-t-0 border-[#1a1a1a] pl-3 pr-4 justify-start shrink-0 rounded-sm shadow-[2px_2px_0px_rgba(0,0,0,1)] bg-[#f4ecd8] text-[#1a1a1a] overflow-hidden"
+                className="flex items-center w-full h-auto min-h-[116px] xl:h-[76px] xl:min-h-[76px] py-2 xl:py-0 border-b-2 border-x-0 border-t-0 border-[#1a1a1a] pl-0 pr-4 justify-start shrink-0 rounded-sm shadow-[2px_2px_0px_rgba(0,0,0,1)] bg-[#f4ecd8] text-[#1a1a1a] overflow-hidden"
               >
                 {/* A. Left Side: Integrated Instrument Mixer Controls (w-[360px] fixed width) */}
-                <div className="flex items-center gap-3 w-[360px] min-w-[360px] shrink-0 border-r border-[#1a1a1a]/20 pr-4 h-full relative" ref={dropdownOpenTrackId === track.id ? dropdownRef : undefined}>
-                  
-                  {/* Sortable drag grip (pure aesthetic in DAW view but maintains Mixer visual layout) */}
-                  <div className="mr-1 p-1 flex-shrink-0 text-[#1a1a1a]/40">
-                    <GripVertical size={16} />
-                  </div>
+                <div 
+                  className="flex items-center justify-between gap-2 w-[360px] min-w-[360px] h-[76px] min-h-[76px] shrink-0 border-r border-[#1a1a1a]/20 pl-3 pr-3 relative z-[2]"
+                  ref={dropdownOpenTrackId === track.id ? dropdownRef : undefined}
+                >
+                  <div className="flex items-center gap-2">
+                    {/* Sortable drag grip (pure aesthetic in DAW view but maintains Mixer visual layout) */}
+                    <div className="mr-2 transition-colors p-1 touch-none flex-shrink-0 text-[#1a1a1a]/40">
+                      <GripVertical size={16} />
+                    </div>
 
-                  {/* Instrument Selector Button */}
-                  <div className="relative flex items-center">
-                    <button
-                      onClick={() => setDropdownOpenTrackId(dropdownOpenTrackId === track.id ? null : track.id)}
-                      className="flex items-center justify-between gap-1.5 cordel-border-sm cordel-button px-2 py-1 text-[11px] cursor-pointer transition-colors w-[125px] h-[32px]"
-                      style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
-                    >
-                      <img
-                        src={`${ASSETS_BASE_URL}${inst.iconImg}`}
-                        alt={inst.name}
-                        className="w-4 h-4 object-contain flex-shrink-0"
-                        onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
-                        }}
-                      />
-                      <span className="font-cactus font-bold text-xs text-center leading-[1.1] flex-1 truncate">
-                        {trackIdx + 1}. {displayName.split(' ')[0]}
-                      </span>
-                      <span className="text-[8px] flex-shrink-0">▼</span>
-                    </button>
+                    {/* Instrument Selector Button */}
+                    <div className="relative flex items-center">
+                      <button
+                        onClick={() => setDropdownOpenTrackId(dropdownOpenTrackId === track.id ? null : track.id)}
+                        className="flex items-center justify-between gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-[11px] cursor-pointer transition-colors w-[110px] sm:w-[120px]"
+                        style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
+                      >
+                        <img
+                          src={`${ASSETS_BASE_URL}${inst.iconImg}`}
+                          alt={inst.name}
+                          className="w-4 h-4 object-contain flex-shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                        <span className="font-cactus font-bold text-center leading-[1.1] flex-1 truncate">
+                          {trackIdx + 1}. {displayName.split(' ')[0]}
+                          {displayName.indexOf(' ') !== -1 && <><br/>{displayName.substring(displayName.indexOf(' ') + 1)}</>}
+                        </span>
+                        <span className="text-[8px] flex-shrink-0">▼</span>
+                      </button>
 
-                    {/* Instrument Selector Dropdown popup */}
-                    {dropdownOpenTrackId === track.id && (
-                      <div className="absolute top-9 left-0 bg-[#f4ecd8] text-[#1a1a1a] cordel-border cordel-shadow min-w-[180px] max-h-[220px] overflow-y-auto z-[99]">
-                        {instrumentsConfig.map((opt, oIdx) => (
+                      {/* Instrument Selector Dropdown popup */}
+                      {dropdownOpenTrackId === track.id && (
+                        <div className="absolute top-9 left-0 bg-[#f4ecd8] text-[#1a1a1a] cordel-border cordel-shadow min-w-[180px] max-h-[220px] overflow-y-auto z-[99]">
+                          {instrumentsConfig.map((opt, oIdx) => (
+                            <div
+                              key={opt.id}
+                              onClick={() => {
+                                useSequencerStore.getState().handleTrackInstrumentIdxChange(track.id, oIdx);
+                                setDropdownOpenTrackId(null);
+                              }}
+                              className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold border-b border-black/10 hover:bg-black hover:text-[#f4ecd8]"
+                            >
+                              <img
+                                src={`${ASSETS_BASE_URL}${opt.iconImg}`}
+                                alt={opt.name}
+                                className="w-5 h-5 object-contain"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = 'none';
+                                }}
+                              />
+                              <span>{opt.name}</span>
+                            </div>
+                          ))}
                           <div
-                            key={opt.id}
                             onClick={() => {
-                              useSequencerStore.getState().handleTrackInstrumentIdxChange(track.id, oIdx);
+                              useSequencerStore.getState().handleTrackDelete(track.id);
                               setDropdownOpenTrackId(null);
                             }}
-                            className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold border-b border-black/10 hover:bg-black hover:text-[#f4ecd8]"
+                            className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold text-[#8b2a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]"
                           >
-                            <img
-                              src={`${ASSETS_BASE_URL}${opt.iconImg}`}
-                              alt={opt.name}
-                              className="w-5 h-5 object-contain"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = 'none';
-                              }}
-                            />
-                            <span>{opt.name}</span>
+                            <span className="w-5 text-center">✕</span>
+                            <span>{lang === 'fr' ? 'Supprimer la piste' : 'Excluir pista'}</span>
                           </div>
-                        ))}
-                        <div
-                          onClick={() => {
-                            useSequencerStore.getState().handleTrackDelete(track.id);
-                            setDropdownOpenTrackId(null);
-                          }}
-                          className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold text-[#8b2a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]"
-                        >
-                          <span className="w-5 text-center">✕</span>
-                          <span>{lang === 'fr' ? 'Supprimer la piste' : 'Excluir pista'}</span>
                         </div>
-                      </div>
+                      )}
+                    </div>
+
+                    {/* Detailed Editor Icon */}
+                    {(!track.isBusFolder || isToada || track.isLinkFolder) && (
+                      <button
+                        onClick={() => {
+                          const targetTrack = isToada
+                            ? (activeChildTrack || tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador') || track)
+                            : track;
+                          useSequencerStore.getState().setEditingTrackId(targetTrack.id);
+                        }}
+                        className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
+                        title={lang === 'pt' ? 'Editor detalhado' : 'Éditeur détaillé'}
+                      >
+                        <XiloChisel size={10} />
+                      </button>
                     )}
                   </div>
 
-                  {/* Detailed Editor Icon */}
-                  {(!track.isBusFolder || isToada || track.isLinkFolder) && (
-                    <button
-                      onClick={() => {
-                        const targetTrack = isToada
-                          ? (activeChildTrack || tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador') || track)
-                          : track;
-                        useSequencerStore.getState().setEditingTrackId(targetTrack.id);
-                      }}
-                      className="flex items-center justify-center w-[26px] h-[26px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-black hover:text-[#f4ecd8]"
-                      title={lang === 'pt' ? 'Editor detalhado' : 'Éditeur détaillé'}
-                    >
-                      <XiloChisel size={11} />
-                    </button>
-                  )}
-
-                  {/* Mute & Solo buttons */}
-                  <div className="flex gap-1 ml-auto">
+                  {/* Right Side Buttons: Mute, Solo, Live, Hide */}
+                  <div className="flex gap-1.5">
                     <button 
                       onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackMuteToggle(track.id); }} 
                       className={`w-6 h-6 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
-                        (track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-black hover:text-[#f4ecd8]'
+                        (track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
                       }`}
                     >M</button>
                     <button 
                       onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackSoloToggle(track.id); }} 
                       className={`w-6 h-6 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
-                        track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-black hover:text-[#f4ecd8]'
+                        track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
                       }`}
                     >S</button>
+
+                    {inst.id !== 'apito' && (
+                      <button
+                        onClick={() => useSequencerStore.getState().handleTrackAoVivoToggle(track.id)}
+                        className={`w-6 h-6 cordel-border-sm cordel-button font-bold cursor-pointer transition-all flex items-center justify-center ${
+                          (useSequencerStore.getState().aoVivoTrackId === String(track.id)) ? 'bg-[#27ae60] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
+                        }`}
+                        title={inst.type === 'voice' ? (lang === 'fr' ? 'Karaoké (Live)' : 'Karaokê (Ao Vivo)') : "Ao Vivo (Live POV)"}
+                      >
+                        {inst.type === 'voice' ? (
+                          <span className="text-xs leading-none">🎤</span>
+                        ) : (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                            <path d="M11 22 L5 6" />
+                            <circle cx="4" cy="3" r="2.5" fill="currentColor" />
+                            <path d="M13 22 L19 6" />
+                            <circle cx="20" cy="3" r="2.5" fill="currentColor" />
+                          </svg>
+                        )}
+                      </button>
+                    )}
+
+                    {inst.id !== 'apito' && (
+                      <button
+                        onClick={() => useSequencerStore.getState().handleTrackHideToggle(track.id)}
+                        className={`w-6 h-6 cordel-border-sm cordel-button text-[10px] font-bold cursor-pointer transition-all flex items-center justify-center ${
+                          track.isHidden ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
+                        }`}
+                        title="Ocultar pista"
+                      >
+                        {track.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    )}
+
+                    {inst.id === 'apito' && (
+                      <>
+                        <div className="w-6 h-6 pointer-events-none"></div>
+                        <div className="w-6 h-6 pointer-events-none"></div>
+                      </>
+                    )}
                   </div>
                 </div>
 
