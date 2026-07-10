@@ -15,6 +15,7 @@ import { instrumentsConfig, getMarkers, getVisualStrokeSymbol } from '../data';
 import { audioEngine } from './useAudioSync';
 import { useAuth } from '../contexts/AuthContext';
 import { useSequencerStore, isSequencerVisibleTrack } from '../stores/useSequencerStore';
+import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useSequencerHistory } from './useSequencerHistory';
 
 export function useSequencerState() {
@@ -1122,6 +1123,8 @@ export function useSequencerState() {
   ) => {
     pushUndoState();
     const tracks = useSequencerStore.getState().tracks;
+    const defaults = useSequencerSettingsStore.getState().strokeDefaults?.[`${trackId}:${newState}`];
+
     setTracks(tracks.map((t) => {
       if (t.id === trackId) {
         const nextPatterns = t.patterns.map(p => {
@@ -1130,6 +1133,14 @@ export function useSequencerState() {
             arrSteps[stepIdx] = newState;
             const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
             const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
+            
+            const arrVols = [...(p.volumes || Array(p.steps).fill(80))];
+            const arrDecays = [...(p.decays || Array(p.steps).fill(100))];
+
+            if (defaults) {
+              if (defaults.volume !== undefined) arrVols[stepIdx] = defaults.volume;
+              if (defaults.decay !== undefined) arrDecays[stepIdx] = defaults.decay;
+            }
 
             if (optLyric !== undefined) arrLyrics[stepIdx] = optLyric;
             if (optNote !== undefined) arrNotes[stepIdx] = optNote;
@@ -1139,6 +1150,8 @@ export function useSequencerState() {
               activeSteps: arrSteps,
               lyrics: arrLyrics,
               notes: arrNotes,
+              volumes: arrVols,
+              decays: arrDecays,
             };
           }
           return p;
