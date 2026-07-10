@@ -6,6 +6,7 @@
 import React, { useContext } from 'react';
 import { TimelineUIContext } from '../../contexts/TimelineUIContext';
 import { XiloHand } from '../XiloIcons';
+import { useSequencerSettingsStore } from '../../stores/useSequencerSettingsStore';
 
 interface RhythmSignalsRowProps {
   totalMeasures: number;
@@ -36,6 +37,8 @@ const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
     signalDropdownOpen,
     setSignalDropdownOpen,
   } = uiContext;
+
+  const enabledSignalIds = useSequencerSettingsStore((state) => state.enabledSignalIds);
 
   if (rhythmSignals.length === 0) return null;
 
@@ -133,7 +136,9 @@ const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
                   <span className="opacity-70">{lang === 'fr' ? 'Aucun' : 'Nenhum'}</span>
                 </button>
                 <div className="border-t border-[var(--cordel-border)]/20 my-0.5" />
-                {rhythmSignals.map(sig => (
+                {rhythmSignals
+                  .filter(sig => enabledSignalIds === null || enabledSignalIds.includes(sig.id))
+                  .map(sig => (
                   <button
                     key={sig.id}
                     onClick={() => {

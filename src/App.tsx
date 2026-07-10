@@ -13,6 +13,8 @@ import { i18n, instrumentsConfig } from './data';
 import { Header } from './components/Header';
 import { TransportBar } from './components/TransportBar';
 import { useSequencerStore } from './stores/useSequencerStore';
+import { useSequencerSettingsStore } from './stores/useSequencerSettingsStore';
+import { SettingsPage } from './components/SettingsPage';
 import { TouchStrokeSelector } from './components/TouchStrokeSelector';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MainWorkspaceLayout } from './components/MainWorkspaceLayout';
@@ -39,6 +41,8 @@ export default function App() {
   const { deferredPrompt, handleInstallClick } = useAppUpdate();
   const { presetFiles, localPresets, isSavedIndicatorVisible, refreshLocalPresets } = useAppAudio();
   useGlobalKeyboardShortcuts();
+
+  const isSettingsOpen = useSequencerSettingsStore((state) => state.isSettingsOpen);
 
   // Consume contexts
   const sequencer = useSequencer();
@@ -682,6 +686,10 @@ export default function App() {
         toastMessage={toastMessage}
         handleStepTouchStart={handleStepTouchStart}
       />
+
+      {isSettingsOpen && (
+        <SettingsPage mestreSignals={mestreSignals} />
+      )}
     </div>
       )}
     </>

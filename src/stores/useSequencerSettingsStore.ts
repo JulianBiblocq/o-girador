@@ -5,11 +5,13 @@ interface SettingsState {
   balanco: number;
   isSettingsOpen: boolean;
   strokeDefaults: Record<string, { volume?: number; decay?: number }>;
+  enabledSignalIds: string[] | null;
   setBpm: (bpm: number) => void;
   setBalanco: (balanco: number) => void;
   setIsSettingsOpen: (isSettingsOpen: boolean) => void;
   toggleSettings: () => void;
   setStrokeDefault: (key: string, values: { volume?: number; decay?: number }) => void;
+  toggleSignalEnabled: (id: string, allIds?: string[]) => void;
 }
 
 export const useSequencerSettingsStore = create<SettingsState>((set) => ({
@@ -17,6 +19,7 @@ export const useSequencerSettingsStore = create<SettingsState>((set) => ({
   balanco: 0,
   isSettingsOpen: false,
   strokeDefaults: {},
+  enabledSignalIds: null,
   setBpm: (bpm) => set({ bpm }),
   setBalanco: (balanco) => set({ balanco }),
   setIsSettingsOpen: (isSettingsOpen) => set({ isSettingsOpen }),
@@ -30,4 +33,13 @@ export const useSequencerSettingsStore = create<SettingsState>((set) => ({
       }
     }
   })),
+  toggleSignalEnabled: (id, allIds) => set((state) => {
+    const current = state.enabledSignalIds !== null 
+      ? state.enabledSignalIds 
+      : (allIds || []);
+    const next = current.includes(id) 
+      ? current.filter(x => x !== id) 
+      : [...current, id];
+    return { enabledSignalIds: next };
+  }),
 }));

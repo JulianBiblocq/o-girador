@@ -7,16 +7,23 @@ import { TelemetryBadge } from './TelemetryBadge';
 import { useSequencer } from '../contexts/SequencerContext';
 import { instrumentsConfig } from '../data';
 import { metroChannel } from '../audio/effectsChain';
-import { TrackGroup, Pattern, GlobalSwing } from '../types';
+import { TrackGroup, Pattern, GlobalSwing, CloudRhythmSignal } from '../types';
 import { getStrokesForInstrument } from '../utils/instrumentStrokes';
+import { exportTablatureFile, printTablature, printLegendOnly } from '../utils/exportTablature';
 
-export const SettingsPage: React.FC = () => {
+interface SettingsPageProps {
+  mestreSignals?: CloudRhythmSignal[];
+}
+
+export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }) => {
   const isSettingsOpen = useSequencerSettingsStore((state) => state.isSettingsOpen);
   const setIsSettingsOpen = useSequencerSettingsStore((state) => state.setIsSettingsOpen);
   const balanco = useSequencerSettingsStore((state) => state.balanco);
   const setBalanco = useSequencerSettingsStore((state) => state.setBalanco);
   const strokeDefaults = useSequencerSettingsStore((state) => state.strokeDefaults);
   const setStrokeDefault = useSequencerSettingsStore((state) => state.setStrokeDefault);
+  const enabledSignalIds = useSequencerSettingsStore((state) => state.enabledSignalIds);
+  const toggleSignalEnabled = useSequencerSettingsStore((state) => state.toggleSignalEnabled);
 
   const isMetroOn = useTransportStore((state) => state.isMetroOn);
   const setIsMetroOn = useTransportStore((state) => state.setIsMetroOn);
@@ -30,13 +37,82 @@ export const SettingsPage: React.FC = () => {
   const tracks = useSequencerStore((state) => state.tracks);
   const setTracks = useSequencerStore((state) => state.setTracks);
   const pushUndoState = useSequencerStore((state) => state.pushUndoState);
+  const totalMeasures = useSequencerStore((state) => state.totalMeasures);
+  const songSections = useSequencerStore((state) => state.songSections);
+  const measureTimeSigs = useSequencerStore((state) => state.measureTimeSigs);
 
   const [isLoading, setIsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<string | null>('groove');
   const [selectedMacro, setSelectedMacro] = useState<{ trackId: number; stroke: string } | null>(null);
-  
+
   const sequencer = useSequencer();
   const lang = sequencer?.lang || 'fr';
+
+  // --- LOGIQUE DES MÉTADONNÉES ET PAROLES (PANNEAU 3) ---
+  const letras = sequencer?.letras || '';
+  const setLetras = sequencer?.setLetras;
+  const metadata = sequencer?.metadata || { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] };
+  const setMetadata = sequencer?.setMetadata;
+
+  const handleMetaChange = (field: string, val: any) => {
+    if (setMetadata) {
+      setMetadata({
+        ...metadata,
+        [field]: val
+      });
+    }
+  };
+
+  // --- LOGIQUE DE SÉLECTION D'INSTRUMENTS D'EXPORT (PANNEAU 3) ---
+  const validExportTracks = useMemo(() => {
+    return tracks.filter(t => {
+      const conf = instrumentsConfig[t.instrumentIdx];
+      return conf && conf.id !== 'apito' && conf.type !== 'voice' && !t.isBusFolder && !t.isLinkFolder;
+    });
+  }, [tracks]);
+
+  const [selectedExportTracks, setSelectedExportTracks] = useState<Set<number>>(new Set());
+  const [selectedAnnexTracks, setSelectedAnnexTracks] = useState<Set<number>>(new Set());
+
+  // Initialisation par défaut avec toutes les pistes d'export valides
+  useEffect(() => {
+    if (validExportTracks.length > 0 && selectedExportTracks.size === 0) {
+      setSelectedExportTracks(new Set(validExportTracks.map(t => t.id)));
+    }
+  }, [validExportTracks]);
+
+  const handleToggleAll = () => {
+    const isAllChecked = validExportTracks.length === selectedExportTracks.size;
+    if (isAllChecked) {
+      setSelectedExportTracks(new Set());
+      setSelectedAnnexTracks(new Set());
+    } else {
+      setSelectedExportTracks(new Set(validExportTracks.map(t => t.id)));
+    }
+  };
+
+  const handleToggleTrackExport = (trackId: number, checked: boolean) => {
+    const newSet = new Set(selectedExportTracks);
+    if (checked) {
+      newSet.add(trackId);
+    } else {
+      newSet.delete(trackId);
+      const newAnnexSet = new Set(selectedAnnexTracks);
+      newAnnexSet.delete(trackId);
+      setSelectedAnnexTracks(newAnnexSet);
+    }
+    setSelectedExportTracks(newSet);
+  };
+
+  const handleToggleTrackAnnex = (trackId: number, checked: boolean) => {
+    const newSet = new Set(selectedAnnexTracks);
+    if (checked) {
+      newSet.add(trackId);
+    } else {
+      newSet.delete(trackId);
+    }
+    setSelectedAnnexTracks(newSet);
+  };
 
   // --- LOGIQUE LOCALE DU BALANÇO (SWING) ---
   const [localSwing, setLocalSwing] = useState<GlobalSwing>(globalSwing);
@@ -87,6 +163,18 @@ export const SettingsPage: React.FC = () => {
       metroChannel.volume.value = db;
     }
   };
+
+  // --- LOGIQUE DES SIGNAUX DU MESTRE (PANNEAU 2) ---
+  const localRhythmSignals = useSequencerStore((state) => state.metadata?.rhythmSignals || []);
+
+  const rhythmSignals = useMemo(() => {
+    return [
+      ...mestreSignals.map(s => ({ id: s.id, name: s.name, image: s.imageUrl, isCloud: true })),
+      ...localRhythmSignals.map(s => ({ id: s.id, name: s.name, image: s.image, isCloud: false }))
+    ];
+  }, [mestreSignals, localRhythmSignals]);
+
+  const allSignalIds = useMemo(() => rhythmSignals.map(s => s.id), [rhythmSignals]);
 
   // --- LOGIQUE DES MACROS PAR FRAPPE (DELTAS) ---
 
@@ -615,15 +703,233 @@ export const SettingsPage: React.FC = () => {
                           </div>
                         )}
                         {section.id === 'sinais' && (
-                          <div className="flex flex-col gap-2">
-                            <p className="font-bold">📢 Signaux du Mestre (Placeholder)</p>
-                            <p className="opacity-70">La sélection et configuration des appels de rythme (signaux du Mestre) seront configurables ici.</p>
+                          <div className="flex flex-col gap-4 text-left">
+                            <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+                              📢 {lang === 'fr' ? 'Sélection des Appels du Mestre' : 'Seleção dos Sinais do Mestre'}
+                            </h3>
+                            <p className="text-[10px] opacity-75">
+                              {lang === 'fr'
+                                ? 'Décochez les signaux visuels que vous ne souhaitez pas afficher dans le menu déroulant de votre timeline pour simplifier la grille.'
+                                : 'Desmarque os sinais visuais que você não deseja exibir no menu suspenso da sua linha do tempo para simplificar a grade.'}
+                            </p>
+
+                            {rhythmSignals.length === 0 ? (
+                              <p className="text-[10px] italic opacity-60">
+                                {lang === 'fr' ? 'Aucun signal disponible dans ce projet.' : 'Nenhum sinal disponível neste projeto.'}
+                              </p>
+                            ) : (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-2">
+                                {rhythmSignals.map((sig) => {
+                                  const isEnabled = enabledSignalIds === null || enabledSignalIds.includes(sig.id);
+                                  
+                                  return (
+                                    <button
+                                      key={sig.id}
+                                      onClick={() => toggleSignalEnabled(sig.id, allSignalIds)}
+                                      className={`border-2 border-black p-3 bg-white flex flex-col items-center gap-2 cursor-pointer text-center relative shadow-[3px_3px_0px_#000] hover:scale-[1.02] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all select-none ${
+                                        isEnabled 
+                                          ? 'bg-white border-black font-bold' 
+                                          : 'opacity-40 grayscale bg-gray-50 border-dashed shadow-none'
+                                      }`}
+                                    >
+                                      {/* Checkbox Brutaliste */}
+                                      <div className="absolute top-1.5 right-1.5 w-4 h-4 border-2 border-black bg-white flex items-center justify-center font-cactus text-[9px] font-black text-black">
+                                        {isEnabled ? '✓' : ''}
+                                      </div>
+
+                                      {/* Image / Icône de Signal */}
+                                      <div className="w-12 h-12 flex items-center justify-center bg-black/5 border border-black/10 rounded overflow-hidden">
+                                        {sig.image ? (
+                                          <img src={sig.image} alt={sig.name} className="w-full h-full object-contain" />
+                                        ) : (
+                                          <span className="text-xl">📢</span>
+                                        )}
+                                      </div>
+
+                                      {/* Nom du Signal */}
+                                      <span className="text-[9px] uppercase font-bold tracking-wider truncate w-full">
+                                        {sig.name}
+                                      </span>
+                                      
+                                      {/* Badge Cloud / Local */}
+                                      <span className="text-[8px] opacity-50 font-normal">
+                                        {sig.isCloud ? 'Cloud' : 'Local'}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         )}
                         {section.id === 'prensa' && (
-                          <div className="flex flex-col gap-2">
-                            <p className="font-bold">🖨️ Édition & Impression de Partition (Placeholder)</p>
-                            <p className="opacity-70">Les champs d'édition (Titre, Nação, Mestre, etc.) et les options de génération PDF/impression seront placés ici.</p>
+                          <div className="flex flex-col gap-6 text-left">
+                            
+                            {/* 1. INFORMAÇÕES DA TOADA */}
+                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
+                              <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+                                📝 Informações da Toada
+                              </h3>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="flex flex-col gap-1">
+                                  <label className="font-bold text-[10px] uppercase">Título / Titre :</label>
+                                  <input 
+                                    type="text"
+                                    value={metadata.toada || ''}
+                                    onChange={(e) => handleMetaChange('toada', e.target.value)}
+                                    className="bg-white border-2 border-black font-cactus font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none"
+                                    placeholder="Nome da Toada"
+                                  />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <label className="font-bold text-[10px] uppercase">Mestre / Compositeur :</label>
+                                  <input 
+                                    type="text"
+                                    value={metadata.compositor || ''}
+                                    onChange={(e) => handleMetaChange('compositor', e.target.value)}
+                                    className="bg-white border-2 border-black font-cactus font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none"
+                                    placeholder="Mestre / Compositor"
+                                  />
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <label className="font-bold text-[10px] uppercase">Ritmo / Rythme :</label>
+                                  <input 
+                                    type="text"
+                                    value={metadata.ritmo || ''}
+                                    onChange={(e) => handleMetaChange('ritmo', e.target.value)}
+                                    className="bg-white border-2 border-black font-cactus font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none"
+                                    placeholder="Ex: Maracatu Nação"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex flex-col gap-1">
+                                <label className="font-bold text-[10px] uppercase">Letras / Paroles :</label>
+                                <textarea
+                                  rows={4}
+                                  value={letras}
+                                  onChange={(e) => setLetras && setLetras(e.target.value)}
+                                  className="bg-white border-2 border-black font-sans font-bold text-xs p-2 focus:bg-[#fbf8f0] outline-none resize-none custom-scrollbar"
+                                  placeholder="Digite as letras aqui..."
+                                />
+                              </div>
+                            </div>
+
+                            {/* 2. SELEÇÃO DE INSTRUMENTOS */}
+                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
+                              <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+                                🥁 Seleção de Instrumentos
+                              </h3>
+                              <div className="flex flex-col gap-2 max-h-[30vh] overflow-y-auto pr-2 custom-scrollbar">
+                                
+                                {/* Case "Tous les instruments" */}
+                                <label className="flex items-center gap-3 p-2 border-2 border-black bg-white cursor-pointer hover:bg-black/5 transition-colors select-none">
+                                  <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 cursor-pointer accent-black"
+                                    checked={validExportTracks.length === selectedExportTracks.size}
+                                    onChange={handleToggleAll}
+                                  />
+                                  <span className="font-cactus font-bold text-xs uppercase">
+                                    {lang === 'fr' ? 'Tous les instruments' : 'Todos os instrumentos'}
+                                  </span>
+                                </label>
+
+                                {/* Liste des instruments actifs */}
+                                {validExportTracks.map(track => {
+                                  const conf = instrumentsConfig[track.instrumentIdx];
+                                  if (!conf) return null;
+                                  
+                                  const isExportChecked = selectedExportTracks.has(track.id);
+                                  const isAnnexChecked = selectedAnnexTracks.has(track.id);
+
+                                  return (
+                                    <div key={track.id} className="flex flex-col gap-2 p-2 border-2 border-black/30 bg-black/[0.01] ml-4">
+                                      <label className="flex items-center gap-3 cursor-pointer hover:bg-black/5 transition-colors select-none">
+                                        <input 
+                                          type="checkbox" 
+                                          className="w-4 h-4 cursor-pointer accent-black"
+                                          checked={isExportChecked}
+                                          onChange={(e) => handleToggleTrackExport(track.id, e.target.checked)}
+                                        />
+                                        <span className="font-cactus text-xs font-bold text-[#8b2a1a] uppercase">{conf.name}</span>
+                                      </label>
+                                      
+                                      <label className={`flex items-center gap-2 pl-7 cursor-pointer transition-all select-none ${!isExportChecked ? 'opacity-40 pointer-events-none' : 'hover:bg-black/5'}`}>
+                                        <input 
+                                          type="checkbox" 
+                                          className="w-3 h-3 cursor-pointer accent-black"
+                                          checked={isAnnexChecked}
+                                          disabled={!isExportChecked}
+                                          onChange={(e) => handleToggleTrackAnnex(track.id, e.target.checked)}
+                                        />
+                                        <span className="font-sans text-[10px] opacity-80">
+                                          {lang === 'fr' ? 'Lexique des variations en annexe' : 'Léxico de variações em anexo'}
+                                        </span>
+                                      </label>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+
+                            {/* 3. AÇÕES DE IMPRESSÃO */}
+                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
+                              <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+                                🖨️ Ações de Impressão & Exportação
+                              </h3>
+                              
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <button
+                                  onClick={() => {
+                                    const tracksToExport = tracks.filter(t => selectedExportTracks.has(t.id));
+                                    exportTablatureFile(
+                                      tracksToExport, 
+                                      selectedAnnexTracks, 
+                                      totalMeasures, 
+                                      songSections, 
+                                      metadata, 
+                                      measureTimeSigs, 
+                                      sequencer?.measureBpms || Array(totalMeasures).fill(83), 
+                                      letras
+                                    );
+                                  }}
+                                  disabled={selectedExportTracks.size === 0}
+                                  className="px-4 py-3 text-xs bg-[#eaddcf] text-black border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-black hover:text-white shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-center"
+                                >
+                                  {lang === 'fr' ? 'Télécharger (.txt)' : 'Baixar (.txt)'}
+                                </button>
+
+                                <button
+                                  onClick={() => {
+                                    const tracksToExport = tracks.filter(t => selectedExportTracks.has(t.id));
+                                    printTablature(
+                                      tracksToExport, 
+                                      selectedAnnexTracks, 
+                                      totalMeasures, 
+                                      songSections, 
+                                      metadata, 
+                                      measureTimeSigs, 
+                                      sequencer?.measureBpms || Array(totalMeasures).fill(83), 
+                                      letras
+                                    );
+                                  }}
+                                  disabled={selectedExportTracks.size === 0}
+                                  className="px-4 py-3 text-xs bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-white hover:text-black shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed text-center"
+                                >
+                                  {lang === 'fr' ? 'Imprimer (HTML)' : 'Imprimir (HTML)'}
+                                </button>
+                              </div>
+
+                              <div className="border-t border-dashed border-black/20 pt-3">
+                                <button
+                                  onClick={printLegendOnly}
+                                  className="w-full px-4 py-3 text-xs bg-white text-black border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-[#8b2a1a] hover:text-[#f4ecd8] shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all text-center"
+                                >
+                                  {lang === 'fr' ? '🖨️ Imprimer la Légende' : '🖨️ Imprimir a Legenda'}
+                                </button>
+                              </div>
+                            </div>
+
                           </div>
                         )}
                         {section.id === 'performance' && (
