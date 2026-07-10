@@ -21,6 +21,7 @@ interface MixerVolumeFaderProps {
   thumbWidth?: number;
   thumbHeight?: number;
   fontSize?: string;
+  isMaster?: boolean;
 }
 
 export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
@@ -34,6 +35,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   thumbWidth,
   thumbHeight,
   fontSize,
+  isMaster = false,
 }) => {
   const visualThumbRef = useRef<HTMLDivElement>(null);
   const valueTextRef = useRef<HTMLSpanElement>(null);
@@ -156,7 +158,9 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
       {/* 2. Le bouton visuel (Thumb) avec texte centré en Flexbox */}
       <div
         ref={visualThumbRef}
-        className="absolute left-1/2 -translate-x-1/2 cordel-border-sm shadow-[0_2px_5px_var(--cordel-shadow-color)] flex items-center justify-center pointer-events-none z-10 transition-colors"
+        className={`absolute left-1/2 -translate-x-1/2 shadow-[0_2px_5px_var(--cordel-shadow-color)] flex items-center justify-center pointer-events-none z-10 transition-colors ${
+          isMaster ? 'master-fader-thumb' : 'cordel-border-sm'
+        }`}
         style={{
           width: `${thumbWidth || 32}px`,
           height: `${resolvedThumbHeight}px`,

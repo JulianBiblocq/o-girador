@@ -174,14 +174,14 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       style={{ ...styleObject, ...style }}
-      className={`digital-fader flex items-center justify-between px-2 py-0.5 text-[9px] font-bold select-none border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] text-[var(--cordel-text)] shadow-[1px_1px_0_var(--cordel-border)] transition-all ${
+      className={`digital-fader flex items-center justify-between px-1.5 py-0.5 text-[9px] font-bold select-none border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] text-[var(--cordel-text)] shadow-[1px_1px_0_var(--cordel-border)] transition-all ${
         disabled 
           ? 'opacity-35 cursor-not-allowed' 
           : 'cursor-row-resize active:translate-y-[0.5px] active:shadow-none'
       } ${className}`}
     >
       <span className="uppercase opacity-60 tracking-wider font-sans">{label}</span>
-      <span ref={valueSpanRef} className="font-mono font-bold text-[10px] ml-1 w-[36px] text-right shrink-0">
+      <span ref={valueSpanRef} className="font-mono font-bold text-[10px] ml-1 w-[24px] text-right shrink-0">
         {disabled ? '—' : formatValue(value)}
       </span>
     </div>

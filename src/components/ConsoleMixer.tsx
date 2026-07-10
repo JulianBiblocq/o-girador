@@ -832,15 +832,17 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   thumbWidth={44}
                   thumbHeight={24}
                   fontSize="text-[11px]"
+                  isMaster={true}
+                  textColor="#1a1a1a"
                   onChange={(val) => {
                     const db = val === 0 ? -40 : -40 + (val / 100) * 46;
                     onMasterVolChange(db);
                   }}
                   onAudioDrag={(val) => {
                     if (masterVolumeNode && masterVolumeNode.gain) {
-                      const db = val === 0 ? -Infinity : -40 + (val / 100) * 46;
-                      const gain = Tone.dbToGain(db);
-                      masterVolumeNode.gain.rampTo(gain, 0.05);
+                       const db = val === 0 ? -Infinity : -40 + (val / 100) * 46;
+                       const gain = Tone.dbToGain(db);
+                       masterVolumeNode.gain.rampTo(gain, 0.05);
                     }
                   }}
                 />

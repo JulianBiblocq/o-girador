@@ -1078,5 +1078,12 @@ body.eco-mode #center-afficheur {
   opacity: 0.25 !important;
 }
 
+/* Master Volume Fader Visual Thumb with Gravure double-border */
+.master-fader-thumb {
+  border: 4px double var(--cordel-border, #1a1a1a) !important;
+  box-shadow: 1px 1px 0 var(--cordel-border, #1a1a1a) !important;
+}
+
+
 
 
