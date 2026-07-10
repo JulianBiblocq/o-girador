@@ -3,6 +3,7 @@ import * as Tone from 'tone';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { DragNumberBox } from './DragNumberBox';
+import { XiloReverb, XiloDistortion } from './XiloIcons';
 import { masterReverbVolumeNode, masterDistortionVolumeNode, reverbNode, distortionNode } from '../audio/effectsChain';
 
 // Fonction de conversion quadratique-logarithmique
@@ -60,7 +61,7 @@ export const MixerMasterEffects: React.FC = () => {
       <div className="flex-1 flex flex-col border-r border-[var(--cordel-border)]/20 relative z-10 py-1">
         {/* En-tête */}
         <div className="pb-1 flex justify-center items-center h-[24px] border-b border-[var(--cordel-border)]/20">
-          <span className="font-cactus font-bold text-[9px] tracking-wider">🌊 REVERB</span>
+          <span className="font-cactus font-bold text-[9px] tracking-wider flex items-center justify-center gap-1"><XiloReverb size={12} className="shrink-0" /> REVERB</span>
         </div>
 
         {/* Paramètres: Decay & Vol */}
@@ -86,7 +87,7 @@ export const MixerMasterEffects: React.FC = () => {
       <div className="flex-1 flex flex-col relative z-10 py-1">
         {/* En-tête */}
         <div className="pb-1 flex justify-center items-center h-[24px] border-b border-[var(--cordel-border)]/20">
-          <span className="font-cactus font-bold text-[9px] tracking-wider">🔥 DISTO</span>
+          <span className="font-cactus font-bold text-[9px] tracking-wider flex items-center justify-center gap-1"><XiloDistortion size={11} className="shrink-0" /> DISTO</span>
         </div>
 
         {/* Paramètres: Drive & Vol */}

@@ -26,6 +26,7 @@ import { MixerFolderBus } from './MixerFolderBus';
 import { MixerMasterEffects } from './MixerMasterEffects';
 import { MixerVolumeFader } from './MixerVolumeFader';
 import { DragNumberBox } from './DragNumberBox';
+import { XiloEQ, XiloCompressor, XiloMestre } from './XiloIcons';
 import { metroChannel, masterVolumeNode } from '../audio/effectsChain';
 import { i18n, instrumentsConfig } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
@@ -719,7 +720,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           {/* Header / Title */}
           <div className="relative p-3 pb-1 flex justify-between items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
             <div className="flex items-center gap-1.5">
-              <span className="font-cactus font-bold text-sm tracking-wider">🔥 MASTER</span>
+              <span className="font-cactus font-bold text-sm tracking-wider flex items-center gap-1"><XiloMestre size={13} className="shrink-0" /> MASTER</span>
             </div>
             <button
               onClick={() => setIsCompactMode(!isCompactMode)}
@@ -739,8 +740,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             
             {/* EQ Section */}
             <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/20 pb-2">
-              <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
-                🎛️ {t('eqTitle')}
+              <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80 flex items-center gap-1">
+                <XiloEQ size={11} className="shrink-0" /> {t('eqTitle')}
               </span>
               <div className="flex gap-2 justify-between mt-1">
                 <DragNumberBox 
@@ -787,8 +788,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
             {/* Compressor Section */}
             <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/20 pb-2">
-              <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80">
-                🌀 {t('compTitle')}
+              <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80 flex items-center gap-1">
+                <XiloCompressor size={11} className="shrink-0" /> {t('compTitle')}
               </span>
               <div className="flex gap-2 justify-between mt-1">
                 <DragNumberBox 
