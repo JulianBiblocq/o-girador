@@ -84,7 +84,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
   }, [stopBpmChange]);
 
   return (
-    <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] flex flex-wrap items-center justify-between px-4 z-50 shrink-0">
+    <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] flex flex-wrap items-center justify-between px-4 z-[1000] shrink-0">
       
       {/* Left side: Metro, Swing, BPM */}
       <div className="flex items-center gap-4 flex-1">

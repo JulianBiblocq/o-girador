@@ -50,6 +50,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   const toggleEcoOption = useSequencerStore((state) => state.toggleEcoOption);
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isClosing, setIsClosing] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>('groove');
   const [selectedMacro, setSelectedMacro] = useState<{ trackId: number; stroke: string } | null>(null);
 
@@ -198,6 +199,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
     }, 85);
     return () => clearTimeout(timer);
   }, []);
+
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsSettingsOpen(false);
+      setIsClosing(false);
+    }, 85);
+  };
 
   const toggleSection = (section: string) => {
     setActiveSection(activeSection === section ? null : section);
@@ -431,6 +440,20 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
     { id: 'ajuda', title: lang === 'pt' ? 'Ajuda (Ajuda)' : 'Ajuda (Aide)' },
   ];
 
+  if (isClosing) {
+    return (
+      <div className="fixed inset-0 z-[999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+        {/* Conteneur sas de décompression brutaliste */}
+        <div className="border-4 border-black bg-[#fbf8f0] p-8 max-w-sm text-center shadow-[6px_6px_0px_#000] flex flex-col items-center justify-center gap-3">
+          <div className="animate-spin text-3xl">⚙️</div>
+          <span className="font-cactus font-bold text-sm tracking-wider uppercase animate-pulse">
+            {lang === 'fr' ? 'Fermeture de l\'Atelier...' : 'Fechando A Oficina...'}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       {/* Container Principal Brutaliste */}
@@ -470,7 +493,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
             </div>
 
             <button 
-              onClick={() => setIsSettingsOpen(false)}
+              onClick={handleClose}
               className="bg-[#f4ecd8] text-black border-2 border-black hover:bg-black hover:text-[#f4ecd8] transition-colors px-3 py-1 font-cactus font-black text-lg cursor-pointer shadow-[2px_2px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
               title={lang === 'fr' ? 'Fermer' : 'Fechar'}
             >
@@ -489,7 +512,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
               </span>
             </div>
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 pb-32">
               {sections.map((section) => {
                 const isOpen = activeSection === section.id;
                 return (
