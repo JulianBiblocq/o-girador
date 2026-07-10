@@ -549,7 +549,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
               <span className="text-[9px] text-[var(--cordel-text)]/40 font-bold">▶</span>
             </button>
           ) : (
-            <div className="w-full flex flex-col flex-grow min-h-0">
+            <div className="w-full flex flex-col flex-grow min-h-[90px] overflow-hidden">
               <div className="flex-grow flex-1 min-h-[90px] h-auto flex justify-center gap-2 items-stretch w-full py-1.5 overflow-hidden">
                 <div className="flex flex-col items-center flex-1 h-full min-w-0">
                   <MixerVolumeFader
