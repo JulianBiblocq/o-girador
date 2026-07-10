@@ -749,7 +749,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   onChange={(val) => onMasterEQChange({ ...masterEQ, low: val })}
                   min={-12}
                   max={12}
-                  step={0.5}
+                  step={1}
                   mode="bipolar"
                   style={{
                     '--fader-border-color': '#8b2a1a',
@@ -764,7 +764,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   onChange={(val) => onMasterEQChange({ ...masterEQ, mid: val })}
                   min={-12}
                   max={12}
-                  step={0.5}
+                  step={1}
                   mode="bipolar"
                   style={{
                     '--fader-border-color': '#d4af37',
@@ -779,7 +779,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   onChange={(val) => onMasterEQChange({ ...masterEQ, high: val })}
                   min={-12}
                   max={12}
-                  step={0.5}
+                  step={1}
                   mode="bipolar"
                   style={{
                     '--fader-border-color': '#3d8b85',

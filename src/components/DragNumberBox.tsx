@@ -181,7 +181,7 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
       } ${className}`}
     >
       <span className="uppercase opacity-60 tracking-wider font-sans">{label}</span>
-      <span ref={valueSpanRef} className="font-mono font-bold text-[10px] ml-1">
+      <span ref={valueSpanRef} className="font-mono font-bold text-[10px] ml-1 w-[36px] text-right shrink-0">
         {disabled ? '—' : formatValue(value)}
       </span>
     </div>
