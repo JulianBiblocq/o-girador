@@ -271,6 +271,48 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         p.measureAssignments.push(p.measureAssignments[0] || false);
       }
     }
+
+    if (!p.volumes || p.volumes.length !== p.steps) {
+      const existing = p.volumes || [];
+      p.volumes = Array(p.steps).fill(100);
+      for (let i = 0; i < Math.min(existing.length, p.steps); i++) {
+        const val = Number(existing[i]);
+        p.volumes[i] = isNaN(val) ? 100 : val;
+      }
+    } else {
+      for (let i = 0; i < p.steps; i++) {
+        const val = Number(p.volumes[i]);
+        p.volumes[i] = isNaN(val) ? 100 : val;
+      }
+    }
+
+    if (!p.decays || p.decays.length !== p.steps) {
+      const existing = p.decays || [];
+      p.decays = Array(p.steps).fill(100);
+      for (let i = 0; i < Math.min(existing.length, p.steps); i++) {
+        const val = Number(existing[i]);
+        p.decays[i] = isNaN(val) ? 100 : val;
+      }
+    } else {
+      for (let i = 0; i < p.steps; i++) {
+        const val = Number(p.decays[i]);
+        p.decays[i] = isNaN(val) ? 100 : val;
+      }
+    }
+
+    if (!p.microtimings || p.microtimings.length !== p.steps) {
+      const existing = p.microtimings || [];
+      p.microtimings = Array(p.steps).fill(0);
+      for (let i = 0; i < Math.min(existing.length, p.steps); i++) {
+        const val = Number(existing[i]);
+        p.microtimings[i] = isNaN(val) ? 0 : val;
+      }
+    } else {
+      for (let i = 0; i < p.steps; i++) {
+        const val = Number(p.microtimings[i]);
+        p.microtimings[i] = isNaN(val) ? 0 : val;
+      }
+    }
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps

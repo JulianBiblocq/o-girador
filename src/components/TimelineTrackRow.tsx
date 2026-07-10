@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { useSequencerStore, isToadaBus, isToadaChild } from '../stores/useSequencerStore';
+import { useSequencerStore, isToadaBus, isToadaChild, getEffectiveMuteState } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
@@ -163,8 +163,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     ? (dbTrack?.customName || (isToada ? 'Toada' : `🔗 ${getPluralName(inst.name)}`))
     : (isChild ? `↳ ${dbTrack?.customName || inst.name}` : (dbTrack?.customName || inst.name));
   
-  const isMutedBySolo = hasSolo && !trackData.isSolo;
-  const canPlay = trackData.isSolo || (!trackData.isMute && !isMutedBySolo);
+  const canPlay = !getEffectiveMuteState(tracks, trackId);
 
   const sequencer = useSequencer();
 

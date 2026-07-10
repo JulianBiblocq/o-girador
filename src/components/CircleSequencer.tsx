@@ -14,7 +14,7 @@ import { TrackGroup, Language, HitTrigger, HitTriggerPool, TimeSignature, SongSe
 import { instrumentsConfig, getMarkers, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol, i18n } from '../data';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { useGameData } from '../contexts/GameDataContext';
-import { useSequencerStore, isSequencerVisibleTrack, isToadaBus } from '../stores/useSequencerStore';
+import { useSequencerStore, isSequencerVisibleTrack, isToadaBus, getEffectiveMuteState } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
@@ -663,21 +663,14 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     }
 
     const currentTracks = stateRef.current.tracks;
-
-    const hasSolo = currentTracks.some(t => 
-      t.isSolo && 
-      !t.isHidden && 
-      isSequencerVisibleTrack(t, currentTracks) && 
-      instrumentsConfig[t.instrumentIdx]?.id !== 'apito'
-    );
+    const currentRawTracks = stateRef.current.rawTracks;
 
     const activeVisibleTracksToDraw = currentTracks.filter(t => {
       if (t.isHidden) return false;
       if (!isSequencerVisibleTrack(t, currentTracks)) return false;
       if (instrumentsConfig[t.instrumentIdx]?.id === 'apito') return false;
 
-      const isMutedOut = hasSolo ? !t.isSolo : t.isMute;
-      return !isMutedOut;
+      return !getEffectiveMuteState(currentRawTracks, t.id);
     });
 
     // Detect click on any track
@@ -917,22 +910,13 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       const localStep = live.step;
       const localTicks = live.maxTicks || 96;
 
-      // 1. Détecter si des pistes sont en solo
-      const hasSoloTrack = tracks.some(t => 
-        t.isSolo && 
-        !t.isHidden && 
-        isSequencerVisibleTrack(t, tracks) && 
-        instrumentsConfig[t.instrumentIdx]?.id !== 'apito'
-      );
-
       // 2. Filtrer les pistes actives et visibles (non mutées, non masquées)
       const activeVisibleTracks = tracks.filter(t => {
         if (t.isHidden) return false;
         if (!isSequencerVisibleTrack(t, tracks)) return false;
         if (instrumentsConfig[t.instrumentIdx]?.id === 'apito') return false;
 
-        const isMutedOut = hasSoloTrack ? !t.isSolo : t.isMute;
-        return !isMutedOut;
+        return !getEffectiveMuteState(localRawTracks, t.id);
       });
 
       // Consume hit triggers to create ripples
@@ -1267,7 +1251,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
         if (!inst || track.isHidden || inst.id === 'apito') return;
 
-        const isMutedOut = hasSoloTrack ? !track.isSolo : track.isMute;
+        const isMutedOut = getEffectiveMuteState(props.tracks !== undefined ? rawTracks : stateRef.current.rawTracks, track.id);
         if (isMutedOut) return;
 
         const activePatternId = getLiveActivePatternId(track);

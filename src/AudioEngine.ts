@@ -633,7 +633,7 @@ export class AudioEngine {
     }
 
     // Connexion dynamique au canal propre à la piste trackId ou par défaut à l'instrumentId
-    const channel = trackId !== null
+    const channel = (trackId !== null && trackId !== undefined)
       ? this.instrumentChannels.get(String(trackId))
       : this.defaultInstrumentChannels.get(instrumentId);
       

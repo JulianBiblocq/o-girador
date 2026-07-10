@@ -173,13 +173,22 @@ function buildFlatSongSchedule(
           if (targetKey === 't') targetKey = 'B';
         }
 
-        const baseVol = effectiveVolumes?.[step] ?? 80;
+        let baseVol = effectiveVolumes?.[step] ?? 80;
+        if (baseVol === null || isNaN(baseVol)) baseVol = 80;
         const volVariation = (nextRandom() * 2 - 1) * (baseVol * 0.15);
         let finalVol = Math.max(0, Math.min(100, baseVol + volVariation));
+        if (isNaN(finalVol)) finalVol = 80;
 
         const stepVolMultiplier = finalVol / 100;
-        const stepDecayMultiplier = (effectiveDecays?.[step] ?? 100) / 100;
-        const microtimingPct = effectiveMicrotimings?.[step] ?? 0;
+
+        let rawDecay = effectiveDecays?.[step] ?? 100;
+        if (rawDecay === null || isNaN(rawDecay)) rawDecay = 100;
+        let stepDecayMultiplier = rawDecay / 100;
+        if (isNaN(stepDecayMultiplier) || stepDecayMultiplier < 0) stepDecayMultiplier = 1.0;
+
+        let rawMicro = effectiveMicrotimings?.[step] ?? 0;
+        if (rawMicro === null || isNaN(rawMicro)) rawMicro = 0;
+        const microtimingPct = rawMicro;
 
         const isTuplet = stepIsTupletMap[step] || false;
         const absoluteTick = accumulatedTicks + tickIdx;
