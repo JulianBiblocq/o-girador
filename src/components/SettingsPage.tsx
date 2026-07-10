@@ -5,11 +5,12 @@ import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { TelemetryBadge } from './TelemetryBadge';
 import { useSequencer } from '../contexts/SequencerContext';
-import { instrumentsConfig } from '../data';
+import { instrumentsConfig, i18n } from '../data';
 import { metroChannel } from '../audio/effectsChain';
 import { TrackGroup, Pattern, GlobalSwing, CloudRhythmSignal } from '../types';
 import { getStrokesForInstrument } from '../utils/instrumentStrokes';
 import { exportTablatureFile, printTablature, printLegendOnly } from '../utils/exportTablature';
+import { ShortcutsGuide } from './right-sidebar/ShortcutsGuide';
 
 interface SettingsPageProps {
   mestreSignals?: CloudRhythmSignal[];
@@ -51,6 +52,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
   const sequencer = useSequencer();
   const lang = sequencer?.lang || 'fr';
+
+  const t = (key: string) => {
+    const section = i18n[lang];
+    return (section as any)[key] || key;
+  };
 
   // --- LOGIQUE DES MÉTADONNÉES ET PAROLES (PANNEAU 3) ---
   const letras = sequencer?.letras || '';
@@ -206,6 +212,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
     });
     return Array.from(activeStrokes).sort();
   };
+
+  // --- LOGIQUE DE CALCUL DES FRAPPES ACTIVES PAR INSTRUMENT (PANNEAU 5) ---
+  const activeStrokesByInstrument = useMemo(() => {
+    const dict: Record<string, string[]> = {};
+    activeTracks.forEach(t => {
+      const conf = instrumentsConfig[t.instrumentIdx];
+      if (conf) {
+        const id = conf.id;
+        const activeForTrack = getActiveStrokesForTrack(t);
+        if (!dict[id]) {
+          dict[id] = [];
+        }
+        activeForTrack.forEach(stroke => {
+          if (!dict[id].includes(stroke)) {
+            dict[id].push(stroke);
+          }
+        });
+      }
+    });
+    return dict;
+  }, [activeTracks]);
 
   // 3. Calculer les moyennes réelles (volume et decay) pour une frappe donnée sur une piste
   const getStrokeAverages = (track: TrackGroup, stroke: string) => {
@@ -623,7 +650,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                                     outline: isSelected ? '3px solid #000' : 'none',
                                                     outlineOffset: isSelected ? '1px' : '0px'
                                                   }}
-                                                  title={isUsed ? `Macro ${stroke} (Actif)` : `Macro ${stroke} (Anticipé)`}
+                                                  title={`${stroke} : ${strokeDef.label} (${isUsed ? (lang === 'fr' ? 'Actif' : 'Ativo') : (lang === 'fr' ? 'Anticipé' : 'Antecipado')})`}
                                                 >
                                                   {stroke}
                                                 </button>
@@ -1092,9 +1119,46 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                           </div>
                         )}
                         {section.id === 'ajuda' && (
-                          <div className="flex flex-col gap-2">
-                            <p className="font-bold">❓ Aide & Raccourcis (Placeholder)</p>
-                            <p className="opacity-70">Les guides, tutoriels vidéo, légendes des frappes et modes d'emploi généraux de l'application seront documentés ici.</p>
+                          <div className="flex flex-col gap-5 text-left">
+                            
+                            {/* Manuel / Mode d'emploi */}
+                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
+                              <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+                                📖 {lang === 'fr' ? "Mode d'Emploi de l'Atelier" : 'Manual da Oficina'}
+                              </h3>
+                              <p className="text-[10px] opacity-75">
+                                {lang === 'fr' 
+                                  ? "Accédez au guide illustré complet pour apprendre à utiliser les fonctions de la Roda, de la Timeline, de la synthèse vocale et de l'exportation."
+                                  : "Acesse o guia ilustrado completo para aprender a usar os recursos da Roda, Linha do tempo, sintetizador de voz e exportação."}
+                              </p>
+                              
+                              <button
+                                onClick={() => window.open('tutorial.html', '_blank')}
+                                className="w-full px-4 py-3 bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-[#8b2a1a] hover:text-[#f4ecd8] shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all text-center"
+                              >
+                                {lang === 'fr' ? 'Abrir o Manual / Ouvrir le Mode d\'Emploi' : 'Abrir o Manual / Ouvrir le Mode d\'Emploi'}
+                              </button>
+                            </div>
+
+                            {/* Légende Dynamique */}
+                            <div className="border-2 border-black p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-3 max-h-[45vh] min-h-[30vh]">
+                              <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
+                                📝 {lang === 'fr' ? 'Légende des Frappes Actives' : 'Legenda das Batidas Ativas'}
+                              </h3>
+                              <p className="text-[10px] opacity-75 mb-1">
+                                {lang === 'fr' 
+                                  ? "Voici la liste des raccourcis clavier et notations pour les instruments de la partition courante. Les instruments non programmés sont automatiquement masqués."
+                                  : "Esta é a lista de atalhos e notações para os instrumentos do ritmo atual. Instrumentos não programados são ocultados automaticamente."}
+                              </p>
+                              <div className="flex-1 overflow-hidden flex flex-col min-h-0">
+                                <ShortcutsGuide 
+                                  lang={lang} 
+                                  t={t} 
+                                  activeStrokesByInstrument={activeStrokesByInstrument} 
+                                />
+                              </div>
+                            </div>
+
                           </div>
                         )}
                       </div>
