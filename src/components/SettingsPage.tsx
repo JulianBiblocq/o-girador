@@ -106,6 +106,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   };
 
   const [liveText, setLiveText] = useState<string>('');
+  const [bodyFontSize, setBodyFontSize] = useState<number>(13);
 
   const refreshPreviewText = () => {
     const tracksToExport = tracks.filter(t => selectedExportTracks.has(t.id));
@@ -119,12 +120,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
     );
     const annexTxt = generateAnnexTablature(tracks, selectedAnnexTracks, false);
     
-    const title = metadata?.toada?.trim() || "O Girador Tablature";
-    
-    let finalTxt = `TITRE: ${title}\n`;
-    if (metadata?.compositor) finalTxt += `COMPOSITEUR: ${metadata.compositor}\n`;
-    if (metadata?.ritmo) finalTxt += `RYTHME: ${metadata.ritmo}\n`;
-    finalTxt += `\n${outputTxt}`;
+    let finalTxt = outputTxt;
     if (annexTxt) finalTxt += annexTxt;
     
     if (letras && letras.trim() !== '') {
@@ -1134,12 +1130,26 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                  <h3 className="font-cactus font-bold text-sm uppercase flex items-center gap-1.5">
                                    ✍️ {lang === 'fr' ? 'Plan de Travail - Éditeur de Partition' : 'Planilha de Trabalho - Editor de Partitura'}
                                  </h3>
-                                 <button
-                                   onClick={refreshPreviewText}
-                                   className="px-3 py-1 bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase cursor-pointer hover:bg-[#8b2a1a] shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
-                                 >
-                                   🔄 {lang === 'fr' ? "Régénérer depuis l'Atelier" : 'Gerar da Oficina'}
-                                 </button>
+                                 <div className="flex items-center gap-3 flex-wrap">
+                                   {/* Curseur de réglage de taille brutaliste */}
+                                   <div className="flex items-center gap-2 bg-[#f4ecd8] border-2 border-black px-2.5 py-1 shadow-[1.5px_1.5px_0px_#000] text-[9px] font-bold uppercase select-none">
+                                     <span>{lang === 'fr' ? 'Taille :' : 'Tamanho :'} {bodyFontSize}px</span>
+                                     <input 
+                                       type="range" 
+                                       min="11" 
+                                       max="18" 
+                                       value={bodyFontSize} 
+                                       onChange={(e) => setBodyFontSize(Number(e.target.value))} 
+                                       className="accent-black cursor-pointer w-20 h-1 bg-black/10"
+                                     />
+                                   </div>
+                                   <button
+                                     onClick={refreshPreviewText}
+                                     className="px-3 py-1 bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase cursor-pointer hover:bg-[#8b2a1a] shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
+                                   >
+                                     🔄 {lang === 'fr' ? "Régénérer depuis l'Atelier" : 'Gerar da Oficina'}
+                                   </button>
+                                 </div>
                                </div>
                                <p className="text-[10px] italic opacity-60 text-center border-b border-dashed border-black/15 pb-2">
                                  📋 {lang === 'fr' 
@@ -1147,12 +1157,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                    : "Instrução de oficina: Você pode editar, espaçar ou anotar diretamente a partitura abaixo antes de imprimir ou exportar."}
                                </p>
                                <div className="w-full p-4 md:p-8 bg-black/5 border border-black/10 rounded-md overflow-x-auto flex justify-center">
-                                 <textarea
-                                   value={liveText}
-                                   onChange={(e) => setLiveText(e.target.value)}
-                                   className="w-full max-w-[21cm] min-h-[60vh] md:min-h-[29.7cm] bg-[#fbf8f0] text-black font-mono text-[11px] leading-relaxed p-6 md:p-12 outline-none shadow-[0px_10px_25px_rgba(0,0,0,0.15)] md:shadow-[0px_15px_40px_rgba(0,0,0,0.25)] border border-black/5 resize-y custom-scrollbar text-[#1a1a1a]"
-                                   placeholder="Générez ou tapez la partition ici..."
-                                 />
+                                 <div className="w-full max-w-[21cm] min-h-[60vh] md:min-h-[29.7cm] bg-[#fbf8f0] p-6 md:p-12 shadow-[0px_10px_25px_rgba(0,0,0,0.15)] md:shadow-[0px_15px_40px_rgba(0,0,0,0.25)] border border-black/5 flex flex-col text-left">
+                                   {/* En-tête HTML fixe */}
+                                   <div className="text-center mb-1">
+                                     <h2 className="font-cactus text-2xl md:text-3xl font-bold text-black uppercase tracking-wider">
+                                       {metadata.toada || (lang === 'fr' ? 'PARTITION SANS TITRE' : 'PARTITURA SEM TÍTULO')}
+                                     </h2>
+                                   </div>
+                                   {(metadata.compositor || metadata.ritmo) && (
+                                     <div className="text-right text-[10px] md:text-xs text-gray-700 font-sans mb-3 border-b border-dashed border-black/20 pb-2">
+                                       {metadata.compositor && <div>{lang === 'fr' ? 'Mestre / Compositeur' : 'Mestre / Compositor'} : {metadata.compositor}</div>}
+                                       {metadata.ritmo && <div>{lang === 'fr' ? 'Rythme' : 'Ritmo'} : {metadata.ritmo}</div>}
+                                     </div>
+                                   )}
+                                   <textarea
+                                     value={liveText}
+                                     onChange={(e) => setLiveText(e.target.value)}
+                                     style={{ fontSize: `${bodyFontSize}px` }}
+                                     className="w-full flex-grow bg-transparent text-black font-mono leading-relaxed outline-none resize-none custom-scrollbar text-[#1a1a1a]"
+                                     placeholder="Générez ou tapez la partition ici..."
+                                   />
+                                 </div>
                                </div>
                              </div>
 
@@ -1186,7 +1211,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                       selectedAnnexTracks, 
                                       undefined, 
                                       undefined, 
-                                      metadata
+                                      metadata,
+                                      undefined,
+                                      undefined,
+                                      undefined,
+                                      bodyFontSize
                                     );
                                   }}
                                   disabled={!liveText}

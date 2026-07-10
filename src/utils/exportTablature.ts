@@ -502,7 +502,8 @@ export const printTablature = (
   metadata?: PresetMetadata,
   measureTimeSigs?: { [m: number]: string },
   measureBpms?: { [m: number]: number },
-  letras?: string
+  letras?: string,
+  fontSize?: number
 ) => {
   const title = metadata?.toada?.trim() || "O Girador Tablature";
   const composer = metadata?.compositor ? `Compositeur : ${metadata.compositor}` : "";
@@ -590,7 +591,7 @@ export const printTablature = (
       .tab-pre {
         white-space: pre;
         font-family: monospace;
-        font-size: 13px !important;
+        font-size: ${fontSize || 13}px !important;
         line-height: 1.3;
       }
       .tab-chunk {
