@@ -60,7 +60,7 @@ export function initMasterEffectsChain(
 ) {
   if (masterVolumeNode) return; // Déjà initialisé
 
-  if (!Tone.context) {
+  if (!Tone.context || Tone.context.sampleRate !== 44100) {
     let rawCtx: AudioContext;
     try {
       rawCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
