@@ -582,23 +582,43 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                 ⏱️ Metrônomo
                               </h3>
                               <div className="flex flex-col gap-4">
-                                <div className="flex items-center gap-3">
-                                  <button
-                                    onClick={() => setIsMetroOn(!isMetroOn)}
-                                    className={`px-4 py-2 font-cactus font-bold text-xs uppercase border-2 border-black cursor-pointer transition-colors shadow-[2px_2px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
-                                      isMetroOn 
-                                        ? 'bg-black text-white' 
-                                        : 'bg-white text-black hover:bg-black/5'
-                                    }`}
-                                  >
-                                    {isMetroOn ? 'On' : 'Off'}
-                                  </button>
-                                  <span className="text-[10px] font-bold">
-                                    {lang === 'pt' ? 'Ativar Clique' : 'Activer le Clic'}
-                                  </span>
+                                <div className="flex flex-wrap items-center justify-between gap-4 border-b border-black/5 pb-3">
+                                  {/* Gauche : Activer Clic */}
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      onClick={() => setIsMetroOn(!isMetroOn)}
+                                      className={`px-4 py-2 font-cactus font-bold text-xs uppercase border-2 border-black cursor-pointer transition-colors shadow-[2px_2px_0px_#000] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none ${
+                                        isMetroOn 
+                                          ? 'bg-black text-white' 
+                                          : 'bg-white text-black hover:bg-black/5'
+                                      }`}
+                                    >
+                                      {isMetroOn ? 'On' : 'Off'}
+                                    </button>
+                                    <span className="text-[10px] font-bold">
+                                      {lang === 'pt' ? 'Ativar Clique' : 'Activer le Clic'}
+                                    </span>
+                                  </div>
+
+                                  {/* Droite : Choix du son */}
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider">
+                                      {lang === 'pt' ? 'Som :' : 'Son :'}
+                                    </span>
+                                    <select
+                                      value={metroSound}
+                                      onChange={(e) => setMetroSound(e.target.value as any)}
+                                      className="bg-white border-2 border-black p-1.5 font-cactus font-bold text-xs uppercase outline-none cursor-pointer focus:bg-[#fbf8f0] min-w-[100px]"
+                                    >
+                                      <option value="synth">Synth</option>
+                                      <option value="clave">Clave</option>
+                                      <option value="cowbell">Cowbell</option>
+                                    </select>
+                                  </div>
                                 </div>
 
-                                <div className="flex flex-col gap-2">
+                                {/* Volume */}
+                                <div className="flex flex-col gap-1">
                                   <div className="flex justify-between items-center text-[10px] font-bold">
                                     <span>Volume :</span>
                                     <span>{metroVolume}%</span>
@@ -609,23 +629,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                     max="100"
                                     value={metroVolume}
                                     onChange={(e) => handleMetroVolumeChange(parseInt(e.target.value, 10))}
-                                    className="w-full accent-black cursor-pointer h-2 bg-black/10"
+                                    className="w-full accent-black cursor-pointer h-1.5 bg-black/10"
                                   />
-                                </div>
-
-                                <div className="flex flex-col gap-1.5">
-                                  <span className="text-[10px] font-bold uppercase tracking-wider">
-                                    {lang === 'pt' ? 'Som do Metrônomo :' : 'Son du Métronome :'}
-                                  </span>
-                                  <select
-                                    value={metroSound}
-                                    onChange={(e) => setMetroSound(e.target.value as any)}
-                                    className="bg-white border-2 border-black p-2 font-cactus font-bold text-xs uppercase outline-none cursor-pointer focus:bg-[#fbf8f0] w-full max-w-[200px]"
-                                  >
-                                    <option value="synth">Synth</option>
-                                    <option value="clave">Clave</option>
-                                    <option value="cowbell">Cowbell</option>
-                                  </select>
                                 </div>
                               </div>
                             </div>
