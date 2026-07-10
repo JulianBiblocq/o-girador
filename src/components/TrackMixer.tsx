@@ -18,6 +18,7 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { useAudioStore } from '../stores/useAudioStore';
+import { XiloChisel } from './XiloIcons';
 
 const getGlobalClipboard = () => {
   if (typeof window !== 'undefined') {
@@ -839,7 +840,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                 className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
                 title={lang === 'pt' ? 'Editor detalhado' : 'Éditeur détaillé'}
               >
-                ✏️
+                <XiloChisel size={10} />
               </button>
             )}
 
@@ -852,7 +853,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                 className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-xs"
                 title={track.isFolded ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar')}
               >
-                {track.isFolded ? '▼' : '▲'}
+                {track.isFolded ? '▼' : '▶'}
               </button>
             )}
 

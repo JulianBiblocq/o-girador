@@ -205,7 +205,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
               >
                 <option value="info">ℹ️ {lang === 'fr' ? 'Informations' : 'Informações'}</option>
                 <option value="toada">📝 Toada</option>
-                <option value="sinais">🎨 {lang === 'fr' ? 'Signes' : 'Sinais'}</option>
+                <option value="sinais">🖐️ {lang === 'fr' ? 'Signes' : 'Sinais'}</option>
                 <option value="legendes">📖 {t('legend')}</option>
                 <option value="feedback">💬 {lang === 'fr' ? 'Note & Avis' : 'Nota & Opinião'}</option>
               </select>

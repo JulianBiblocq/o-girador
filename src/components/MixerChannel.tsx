@@ -26,7 +26,7 @@ import { reverbSends, distortionSends, subscribeToTick, unsubscribeFromTick } fr
 import { MixerKnob } from './MixerKnob';
 import { MixerSlantedDivider } from './MixerSlantedDivider';
 import { eqNodes } from '../audio/effectsChain';
-import { XiloPencil, XiloClose } from './XiloIcons';
+import { XiloChisel } from './XiloIcons';
 
 const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -515,14 +515,14 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
               className="w-5 h-5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-[9px]"
               title={track?.isLinkFolder ? (lang === 'fr' ? 'Éditer les patterns du groupe' : 'Editar padrões do groupe') : 'Éditeur détaillé'}
             >
-              <XiloPencil size={9} />
+              <XiloChisel size={9} />
             </button>
             <button 
               onClick={onDelete} 
               className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-[9px]"
               title={track?.isLinkFolder ? (lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o grupo') : 'Supprimer la piste'}
             >
-              <XiloClose size={9} />
+              ✕
             </button>
           </div>
 
@@ -1018,7 +1018,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
               className="w-7 h-7 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-xs"
               title={track?.isLinkFolder ? (lang === 'fr' ? 'Éditer les patterns du groupe' : 'Editar padrões do grupo') : 'Éditeur détaillé'}
             >
-              <XiloPencil size={11} />
+              <XiloChisel size={11} />
             </button>
           </div>
           <button 
@@ -1026,7 +1026,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
             className="w-7 h-7 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-xs"
             title={track?.isLinkFolder ? (lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o grupo') : 'Supprimer la piste'}
           >
-            <XiloClose size={11} />
+            ✕
           </button>
         </div>
 
@@ -1303,7 +1303,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                               className="text-xs opacity-60 hover:opacity-100 p-1 cursor-pointer flex items-center justify-center flex-shrink-0"
                               title={lang === 'fr' ? 'Renommer' : 'Renomear'}
                             >
-                              ✏️
+                              <XiloChisel size={10} />
                             </button>
                           )}
 

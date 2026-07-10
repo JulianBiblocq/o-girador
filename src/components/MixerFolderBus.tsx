@@ -23,7 +23,7 @@ import { reverbSends, distortionSends, subscribeToTick, unsubscribeFromTick } fr
 import { MixerKnob } from './MixerKnob';
 import { MixerSlantedDivider } from './MixerSlantedDivider';
 import { eqNodes } from '../audio/effectsChain';
-import { XiloPencil, XiloClose } from './XiloIcons';
+import { XiloChisel } from './XiloIcons';
 
 interface MixerFolderBusProps {
   trackId: number;
@@ -329,20 +329,20 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             </div>
             
             <button
-              onClick={() => setIsEditing(true)}
-              className="w-5 h-5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-[9px]"
-              title={lang === 'fr' ? 'Renommer le groupe' : 'Renomear o grupo'}
-            >
-              <XiloPencil size={9} />
-            </button>
+               onClick={() => setIsEditing(true)}
+               className="w-5 h-5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-[9px]"
+               title={lang === 'fr' ? 'Renommer le groupe' : 'Renomear o grupo'}
+             >
+               <XiloChisel size={9} />
+             </button>
 
-            <button 
-              onClick={onDelete} 
-              className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-[9px]"
-              title={lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o groupe'}
-            >
-              <XiloClose size={9} />
-            </button>
+             <button 
+               onClick={onDelete} 
+               className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-[9px]"
+               title={lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o groupe'}
+             >
+               ✕
+             </button>
           </div>
 
           {/* Instrument Selector / Dropdown Trigger */}
@@ -703,7 +703,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             className="w-7 h-7 bg-[#8b2a1a]/10 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border-[#8b2a1a] text-[#8b2a1a] cordel-border-sm cursor-pointer font-bold flex items-center justify-center transition-colors text-xs"
             title={lang === 'pt' ? 'Excluir Bus' : 'Supprimer le Bus'}
           >
-            <XiloClose size={11} />
+            ✕
           </button>
         </div>
 

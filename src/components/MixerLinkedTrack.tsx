@@ -22,7 +22,7 @@ import { reverbSends, distortionSends } from '../hooks/useAudioSync';
 import { MixerKnob } from './MixerKnob';
 import { MixerSlantedDivider } from './MixerSlantedDivider';
 import { eqNodes } from '../audio/effectsChain';
-import { XiloPencil, XiloClose } from './XiloIcons';
+import { XiloChisel, XiloMestre, XiloLock } from './XiloIcons';
 
 interface MixerLinkedTrackProps {
   trackId: number;
@@ -260,7 +260,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
               className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-[9px]"
               title={lang === 'fr' ? 'Supprimer la piste' : 'Excluir a faixa'}
             >
-              <XiloClose size={9} />
+              ✕
             </button>
           </div>
 
@@ -516,7 +516,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
               className="w-7 h-7 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-xs"
               title="Éditeur détaillé"
             >
-              <XiloPencil size={11} />
+              <XiloChisel size={11} />
             </button>
           </div>
           <button 
@@ -524,7 +524,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
             className="w-7 h-7 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-xs"
             title="Supprimer la piste"
           >
-            <XiloClose size={11} />
+            ✕
           </button>
         </div>
 
@@ -568,7 +568,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
                 }}
                 className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-xs font-bold text-[#8b2a1a]"
               >
-                <XiloClose size={10} className="inline mr-1" /> {lang === 'fr' ? 'Délier la piste' : 'Remover vínculo'}
+                ✕ {lang === 'fr' ? 'Délier la piste' : 'Remover vínculo'}
               </div>
 
               {eligibleTracks.length > 0 && eligibleTracks.map((tOpt) => {
@@ -627,7 +627,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
                   }}
                   className="px-3 py-2 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-xs font-bold text-[#8b2a1a]"
                 >
-                  <XiloClose size={10} className="inline mr-1" /> {lang === 'fr' ? 'Quitter le Bus/Groupe' : 'Sair do Bus/Grupo'}
+                  ✕ {lang === 'fr' ? 'Quitter le Bus/Groupe' : 'Sair do Bus/Grupo'}
                 </div>
               )}
 
@@ -687,8 +687,8 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
       <div className="h-[48px] bg-[var(--cordel-bg)] border-b-[3px] border-[var(--cordel-border)] shrink-0 flex items-center justify-center gap-1">
         <span className="text-[8px] font-extrabold uppercase tracking-widest text-[var(--cordel-text)]/40 flex items-center gap-1">
           {track.isLinkMaster 
-            ? (lang === 'fr' ? '👑 MAÎTRE' : '👑 MESTRE') 
-            : (lang === 'fr' ? '🔒 ESCLAVE' : '🔒 ESCRAVO')}
+            ? (lang === 'fr' ? <><XiloMestre size={11} className="shrink-0" /> MAÎTRE</> : <><XiloMestre size={11} className="shrink-0" /> MESTRE</>) 
+            : (lang === 'fr' ? <><XiloLock size={10} className="shrink-0" /> ESCLAVE</> : <><XiloLock size={10} className="shrink-0" /> ESCRAVO</>)}
         </span>
       </div>
 

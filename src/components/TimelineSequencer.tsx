@@ -30,6 +30,7 @@ import { SongSectionModal } from './timeline/SongSectionModal';
 import { SongMarkerModal } from './timeline/SongMarkerModal';
 import { RhythmSignalsRow } from './timeline/RhythmSignalsRow';
 import { VocalRecordingBar } from './VocalRecordingBar';
+import { XiloChisel } from './XiloIcons';
 
 interface TimelineSequencerProps {
   isMobile: boolean;
@@ -1110,7 +1111,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                         className="bg-white/80 hover:bg-white text-black text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer"
                         title={lang === 'fr' ? 'Modifier' : 'Editar'}
                       >
-                        ✏️
+                         <XiloChisel size={8} />
                       </button>
                       <button
                         onClick={(e) => {

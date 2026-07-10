@@ -5,6 +5,7 @@
 
 import React, { useContext } from 'react';
 import { TimelineUIContext } from '../../contexts/TimelineUIContext';
+import { XiloHand } from '../XiloIcons';
 
 interface RhythmSignalsRowProps {
   totalMeasures: number;
@@ -50,7 +51,7 @@ const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
         }`}
         style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
       >
-        <span className="text-base">🙌</span>
+        <span className="text-base flex items-center justify-center"><XiloHand size={14} className="shrink-0" /></span>
         {!isMobile && (
           <span className="font-cactus text-[10px] font-bold uppercase tracking-wider text-[var(--cordel-text)]">
             {lang === 'fr' ? 'Signaux' : 'Sinais'}

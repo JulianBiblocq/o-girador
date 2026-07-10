@@ -39,6 +39,7 @@ import { MelodicNoteSelector } from './MelodicNoteSelector';
 import { PatternVariationsEditor } from './instrument-editor/PatternVariationsEditor';
 import { InstrumentEffects } from './InstrumentEffects';
 import { InstrumentPatternGrid } from './InstrumentPatternGrid';
+import { XiloChisel } from './XiloIcons';
 
 const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -796,7 +797,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 className="text-xs opacity-60 hover:opacity-100 p-1 cursor-pointer flex items-center justify-center"
                                 title={lang === 'fr' ? 'Renommer' : 'Renomear'}
                               >
-                                ✏️
+                                 <XiloChisel size={10} />
                               </button>
                             )}
 
