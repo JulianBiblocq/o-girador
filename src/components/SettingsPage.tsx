@@ -433,7 +433,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   return (
     <div className="fixed inset-0 z-[999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       {/* Container Principal Brutaliste */}
-      <div className="bg-[#f4ecd8] border-4 border-black w-full max-w-4xl h-[85vh] flex flex-col shadow-[8px_8px_0px_#000] relative overflow-hidden text-[#1a1a1a]">
+      <div className="bg-[#f4ecd8] border-4 border-black w-full md:w-[90vw] max-w-5xl h-[85vh] flex flex-col shadow-[8px_8px_0px_#000] relative overflow-hidden text-[#1a1a1a]">
         
         {/* Header de la page */}
         <div className="bg-black text-[#f4ecd8] px-6 py-4 flex justify-between items-center shrink-0 border-b-4 border-black">
@@ -788,44 +788,47 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                                    </button>
                                                  </div>
 
-                                                {/* Volume macro slider */}
-                                                <div className="flex flex-col gap-1">
-                                                  <div className="flex justify-between text-[10px] font-bold">
-                                                    <span>🔊 Volume Global :</span>
-                                                    <span>{avgVolume}%</span>
+                                                {/* Grid container for sliders */}
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                  {/* Volume macro slider */}
+                                                  <div className="flex flex-col gap-1">
+                                                    <div className="flex justify-between text-[10px] font-bold">
+                                                      <span>🔊 Volume Global :</span>
+                                                      <span>{avgVolume}%</span>
+                                                    </div>
+                                                    <input 
+                                                      type="range"
+                                                      min="0"
+                                                      max="100"
+                                                      value={avgVolume}
+                                                      onChange={(e) => {
+                                                        const val = parseInt(e.target.value, 10);
+                                                        const delta = val - avgVolume;
+                                                        applyMacroVolumeDelta(track.id, stroke, delta, val);
+                                                      }}
+                                                      className="w-full accent-green-600 cursor-pointer h-1.5 bg-black/10"
+                                                    />
                                                   </div>
-                                                  <input 
-                                                    type="range"
-                                                    min="0"
-                                                    max="100"
-                                                    value={avgVolume}
-                                                    onChange={(e) => {
-                                                      const val = parseInt(e.target.value, 10);
-                                                      const delta = val - avgVolume;
-                                                      applyMacroVolumeDelta(track.id, stroke, delta, val);
-                                                    }}
-                                                    className="w-full accent-green-600 cursor-pointer h-1.5 bg-black/10"
-                                                  />
-                                                </div>
 
-                                                {/* Decay macro slider */}
-                                                <div className="flex flex-col gap-1">
-                                                  <div className="flex justify-between text-[10px] font-bold">
-                                                    <span>⏳ {isVoice ? (lang === 'fr' ? 'Durée Globale :' : 'Duração Geral :') : 'Decay Global :'}</span>
-                                                    <span>{avgDecay}%</span>
+                                                  {/* Decay macro slider */}
+                                                  <div className="flex flex-col gap-1">
+                                                    <div className="flex justify-between text-[10px] font-bold">
+                                                      <span>⏳ {isVoice ? (lang === 'fr' ? 'Durée Globale :' : 'Duração Geral :') : 'Decay Global :'}</span>
+                                                      <span>{avgDecay}%</span>
+                                                    </div>
+                                                    <input 
+                                                      type="range"
+                                                      min="10"
+                                                      max="100"
+                                                      value={avgDecay}
+                                                      onChange={(e) => {
+                                                        const val = parseInt(e.target.value, 10);
+                                                        const delta = val - avgDecay;
+                                                        applyMacroDecayDelta(track.id, stroke, delta, val);
+                                                      }}
+                                                      className="w-full accent-[#8b2a1a] cursor-pointer h-1.5 bg-black/10"
+                                                    />
                                                   </div>
-                                                  <input 
-                                                    type="range"
-                                                    min="10"
-                                                    max="100"
-                                                    value={avgDecay}
-                                                    onChange={(e) => {
-                                                      const val = parseInt(e.target.value, 10);
-                                                      const delta = val - avgDecay;
-                                                      applyMacroDecayDelta(track.id, stroke, delta, val);
-                                                    }}
-                                                    className="w-full accent-[#8b2a1a] cursor-pointer h-1.5 bg-black/10"
-                                                  />
                                                 </div>
                                               </div>
                                             );
@@ -1132,7 +1135,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               </label>
 
                               {/* Options granulaires */}
-                              <div className="flex flex-col gap-3 pl-2 border-l-2 border-dashed border-black/30 mt-2">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-2 border-l-2 border-dashed border-black/30 mt-2">
                                 {/* Option FX */}
                                 <label className="flex items-center gap-3 cursor-pointer hover:bg-black/5 p-1 transition-colors select-none">
                                   <input 
