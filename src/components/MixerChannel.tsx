@@ -138,39 +138,62 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   }, [track?.customName]);
 
   const [activePatternId, setActivePatternId] = useState<number | null>(track?.selectedPatternId);
-  const [isShortScreen, setIsShortScreen] = useState(false);
-  const [openPanels, setOpenPanels] = useState({ eq: false, fx: true, pan: true, fader: true });
+  const [heightCategory, setHeightCategory] = useState<'large' | 'medium' | 'tight' | 'short'>('large');
+  const [openPanels, setOpenPanels] = useState({ eq: true, fx: true, pan: true, fader: true });
 
   useEffect(() => {
-    const checkHeight = () => {
-      setIsShortScreen(window.innerHeight < 750);
+    const handleResize = () => {
+      const h = window.innerHeight;
+      let newCat: 'large' | 'medium' | 'tight' | 'short' = 'large';
+      if (h < 640) newCat = 'short';
+      else if (h < 720) newCat = 'tight';
+      else if (h < 850) newCat = 'medium';
+      
+      setHeightCategory(prev => {
+        if (prev !== newCat) {
+          // Cross-boundary transitions: apply adaptive default panel configurations
+          if (newCat === 'large') {
+            setOpenPanels({ eq: true, fx: true, pan: true, fader: true });
+          } else if (newCat === 'medium') {
+            setOpenPanels({ eq: true, fx: true, pan: false, fader: true });
+          } else if (newCat === 'tight') {
+            setOpenPanels({ eq: true, fx: false, pan: false, fader: true });
+          } else if (newCat === 'short') {
+            setOpenPanels({ eq: false, fx: true, pan: true, fader: true });
+          }
+        }
+        return newCat;
+      });
     };
-    checkHeight();
-    window.addEventListener('resize', checkHeight);
-    return () => window.removeEventListener('resize', checkHeight);
-  }, []);
 
-  useEffect(() => {
-    if (isShortScreen) {
-      setOpenPanels(prev => ({ ...prev, eq: false }));
-    }
-  }, [isShortScreen]);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const togglePanel = (panelName: keyof typeof openPanels) => {
     setOpenPanels(prev => {
       const nextVal = !prev[panelName];
-      if (!isShortScreen) {
+      
+      // If we are on large or medium screen, toggle independently
+      if (heightCategory === 'large' || heightCategory === 'medium') {
         return { ...prev, [panelName]: nextVal };
       }
       
-      // On short screen, if opening a panel, automatically close others
+      // Mutual exclusion logic for tight or short screens
       if (nextVal) {
         if (panelName === 'eq') {
-          // EQ is huge: close fx and pan
+          // Opening EQ: close FX and PAN
           return { ...prev, eq: true, fx: false, pan: false };
         } else if (panelName === 'fx' || panelName === 'pan') {
-          // Close EQ if opening fx or pan
+          // Opening FX or PAN: close EQ
           return { ...prev, [panelName]: true, eq: false };
+        }
+      } else {
+        // Closing a panel
+        if (panelName === 'eq') {
+          // Closing EQ: automatically reopen FX and PAN to fill vertical space!
+          return { ...prev, eq: false, fx: true, pan: true };
         }
       }
       return { ...prev, [panelName]: nextVal };
