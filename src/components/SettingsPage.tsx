@@ -1070,32 +1070,33 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               </div>
                             </div>
 
-                            {/* 3. PLAN DE TRAVAIL (ÉDITEUR LIVETEXT INTERACTIF) */}
-                            <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[4px_10px_6px_12px] p-4 bg-white shadow-[3.5px_3.5px_0px_#000] flex flex-col gap-3">
-                              <div className="flex justify-between items-center border-b border-black/10 pb-1 flex-wrap gap-2">
-                                <h3 className="font-cactus font-bold text-sm uppercase flex items-center gap-1.5">
-                                  ✍️ {lang === 'fr' ? 'Plan de Travail - Éditeur de Partition' : 'Planilha de Trabalho - Editor de Partitura'}
-                                </h3>
-                                <button
-                                  onClick={refreshPreviewText}
-                                  className="px-3 py-1 bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase cursor-pointer hover:bg-[#8b2a1a] shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
-                                >
-                                  🔄 {lang === 'fr' ? "Régénérer depuis l'Atelier" : 'Gerar da Oficina'}
-                                </button>
-                              </div>
-                              <p className="text-[10px] opacity-75">
-                                {lang === 'fr' 
-                                  ? "Modifiez, aérez ou annotez directement la partition ci-dessous avant de l'imprimer ou de la télécharger. Vos retouches manuelles seront conservées lors de l'export."
-                                  : "Edite, espaceje ou anote diretamente a partitura abaixo antes de imprimir ou baixar. Seus ajustes manuais serão mantidos no arquivo exportado."}
-                              </p>
-                              <textarea
-                                value={liveText}
-                                onChange={(e) => setLiveText(e.target.value)}
-                                rows={14}
-                                className="w-full bg-[#fbf8f0] border-4 border-black font-mono text-xs p-3 outline-none resize-y custom-scrollbar text-[#1a1a1a]"
-                                placeholder="Générez ou tapez la partition ici..."
-                              />
-                            </div>
+                             {/* 3. PLAN DE TRAVAIL (ÉDITEUR LIVETEXT INTERACTIF) */}
+                             <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[4px_10px_6px_12px] p-4 bg-white shadow-[3.5px_3.5px_0px_#000] flex flex-col gap-4">
+                               <div className="flex justify-between items-center border-b border-black/10 pb-1.5 flex-wrap gap-2">
+                                 <h3 className="font-cactus font-bold text-sm uppercase flex items-center gap-1.5">
+                                   ✍️ {lang === 'fr' ? 'Plan de Travail - Éditeur de Partition' : 'Planilha de Trabalho - Editor de Partitura'}
+                                 </h3>
+                                 <button
+                                   onClick={refreshPreviewText}
+                                   className="px-3 py-1 bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase cursor-pointer hover:bg-[#8b2a1a] shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all"
+                                 >
+                                   🔄 {lang === 'fr' ? "Régénérer depuis l'Atelier" : 'Gerar da Oficina'}
+                                 </button>
+                               </div>
+                               <p className="text-[10px] italic opacity-60 text-center border-b border-dashed border-black/15 pb-2">
+                                 📋 {lang === 'fr' 
+                                   ? "Consigne d'atelier : Vous pouvez modifier, aérer ou annoter directement la partition ci-dessous avant impression ou export."
+                                   : "Instrução de oficina: Você pode editar, espaçar ou anotar diretamente a partitura abaixo antes de imprimir ou exportar."}
+                               </p>
+                               <div className="w-full p-4 md:p-8 bg-black/5 border border-black/10 rounded-md overflow-x-auto flex justify-center">
+                                 <textarea
+                                   value={liveText}
+                                   onChange={(e) => setLiveText(e.target.value)}
+                                   className="w-full max-w-[21cm] min-h-[60vh] md:min-h-[29.7cm] bg-[#fbf8f0] text-black font-mono text-[11px] leading-relaxed p-6 md:p-12 outline-none shadow-[0px_10px_25px_rgba(0,0,0,0.15)] md:shadow-[0px_15px_40px_rgba(0,0,0,0.25)] border border-black/5 resize-y custom-scrollbar text-[#1a1a1a]"
+                                   placeholder="Générez ou tapez la partition ici..."
+                                 />
+                               </div>
+                             </div>
 
                              {/* 4. AÇÕES DE IMPRESSÃO */}
                              <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-4">
