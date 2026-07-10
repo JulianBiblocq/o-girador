@@ -145,9 +145,9 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     const handleResize = () => {
       const h = window.innerHeight;
       let newCat: 'large' | 'medium' | 'tight' | 'short' = 'large';
-      if (h < 640) newCat = 'short';
-      else if (h < 720) newCat = 'tight';
-      else if (h < 850) newCat = 'medium';
+      if (h < 830) newCat = 'short';
+      else if (h < 930) newCat = 'tight';
+      else if (h < 1030) newCat = 'medium';
       
       setHeightCategory(prev => {
         if (prev !== newCat) {
