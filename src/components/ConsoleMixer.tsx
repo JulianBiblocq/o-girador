@@ -210,6 +210,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     }
   };
 
+  const [isMasterCollapsed, setIsMasterCollapsed] = useState(false);
+
   const vuMeterLeftRef = useRef<HTMLDivElement>(null);
   const vuMeterRightRef = useRef<HTMLDivElement>(null);
   const dbTextRef = useRef<HTMLDivElement>(null);
@@ -716,152 +718,216 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         >
           {/* Master Console Strip */}
           <div 
-            className="flex flex-col cordel-master-strip w-[240px] shrink-0 text-[var(--cordel-text)] overflow-hidden pb-4 transition-colors"
+            className={`flex flex-col cordel-master-strip shrink-0 text-[var(--cordel-text)] overflow-hidden pb-4 transition-all duration-300 ${
+              isMasterCollapsed ? 'w-[45px]' : 'w-[240px]'
+            }`}
             style={{
               '--fader-thumb-bg': '#8b2a1a',
               '--fader-thumb-border': 'var(--cordel-border)',
             } as React.CSSProperties}
           >
           {/* Header / Title */}
-          <div className="relative p-3 pb-1 flex justify-center items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
-            <div className="flex items-center gap-1.5">
-              <span className="font-cactus font-bold text-sm tracking-wider flex items-center gap-1"><XiloMestre size={13} className="shrink-0" /> MASTER</span>
-            </div>
-          </div>
-
-          {/* Middle Section (EQ & Compressor Controls) */}
-          <div className="relative z-10 flex-1 p-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar border-b-[3px] border-[var(--cordel-border)] bg-[#1a1a1a]/5">
-            
-            {/* EQ Section */}
-            <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/20 pb-2">
-              <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80 flex items-center gap-1">
-                <XiloEQ size={11} className="shrink-0" /> {t('eqTitle')}
-              </span>
-              <div className="flex gap-2 justify-between mt-1">
-                <DragNumberBox 
-                  label={t('eqLow')}
-                  value={masterEQ.low}
-                  onChange={(val) => onMasterEQChange({ ...masterEQ, low: val })}
-                  min={-12}
-                  max={12}
-                  step={1}
-                  mode="bipolar"
-                  style={{
-                    '--fader-fill-color': '#8b2a1a',
-                  } as React.CSSProperties}
-                  className="flex-grow"
-                />
-                <DragNumberBox 
-                  label={t('eqMid')}
-                  value={masterEQ.mid}
-                  onChange={(val) => onMasterEQChange({ ...masterEQ, mid: val })}
-                  min={-12}
-                  max={12}
-                  step={1}
-                  mode="bipolar"
-                  style={{
-                    '--fader-fill-color': '#d4af37',
-                  } as React.CSSProperties}
-                  className="flex-grow"
-                />
-                <DragNumberBox 
-                  label={t('eqHigh')}
-                  value={masterEQ.high}
-                  onChange={(val) => onMasterEQChange({ ...masterEQ, high: val })}
-                  min={-12}
-                  max={12}
-                  step={1}
-                  mode="bipolar"
-                  style={{
-                    '--fader-fill-color': '#3d8b85',
-                  } as React.CSSProperties}
-                  className="flex-grow"
-                />
-              </div>
-            </div>
-
-            {/* Compressor Section */}
-            <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/20 pb-2">
-              <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80 flex items-center gap-1">
-                <XiloCompressor size={11} className="shrink-0" /> {t('compTitle')}
-              </span>
-              <div className="flex gap-2 justify-between mt-1">
-                <DragNumberBox 
-                  label={t('compThreshold')}
-                  value={masterCompressor.threshold}
-                  onChange={(val) => onMasterCompressorChange({ ...masterCompressor, threshold: val })}
-                  min={-60}
-                  max={0}
-                  step={1}
-                  className="flex-1"
-                />
-                <DragNumberBox 
-                  label={t('compRatio')}
-                  value={masterCompressor.ratio}
-                  onChange={(val) => onMasterCompressorChange({ ...masterCompressor, ratio: val })}
-                  min={1}
-                  max={12}
-                  step={0.1}
-                  className="flex-1"
-                />
-              </div>
-            </div>
-
-            {/* Retours d'effets Master (Réverbe & Distorsion) intégrés au milieu */}
-            <MixerMasterEffects />
-
-          </div>
-
-          {/* Bottom Fader (Master Fader & Master LED Meter) */}
-          <div className="relative z-10 p-3 pt-2 flex justify-center items-stretch flex-grow flex-1 min-h-[100px] h-auto gap-8 overflow-hidden">
-            
-            {/* Master Fader Column */}
-            <div className="flex flex-col items-center gap-1 h-full justify-end flex-1 min-w-0">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60 shrink-0">Master</span>
-              <div className="flex-grow flex-1 w-full flex items-center justify-center min-h-0">
-                <MixerVolumeFader
-                  value={Math.max(0, Math.min(100, Math.round(((masterVol + 40) / 46) * 100)))}
-                  thumbWidth={44}
-                  thumbHeight={24}
-                  fontSize="text-[11px]"
-                  isMaster={true}
-                  textColor="#1a1a1a"
-                  onChange={(val) => {
-                    const db = val === 0 ? -40 : -40 + (val / 100) * 46;
-                    onMasterVolChange(db);
-                  }}
-                  onAudioDrag={(val) => {
-                    if (masterVolumeNode && masterVolumeNode.gain) {
-                       const db = val === 0 ? -Infinity : -40 + (val / 100) * 46;
-                       const gain = Tone.dbToGain(db);
-                       masterVolumeNode.gain.rampTo(gain, 0.05);
-                    }
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Master LED Meter (Stereo) */}
-            <div className="flex flex-col items-center gap-1 h-full justify-end shrink-0 w-8">
-              <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60 shrink-0">Meter</span>
-              <div className="w-8 flex-grow flex-1 bg-[var(--cordel-bg)] cordel-border relative overflow-hidden flex gap-[2px] p-[1.5px] min-h-0">
-                <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
-                  <div
-                    ref={vuMeterLeftRef}
-                    className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#8b2a1a] w-full"
-                    style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
-                  />
+          <div className="relative p-3 pb-1 flex justify-between items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)] w-full">
+            {!isMasterCollapsed ? (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-cactus font-bold text-sm tracking-wider flex items-center gap-1">
+                    <XiloMestre size={13} className="shrink-0" /> MASTER
+                  </span>
                 </div>
-                <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
-                  <div
-                    ref={vuMeterRightRef}
-                    className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#8b2a1a] w-full"
-                    style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
-                  />
+                <button
+                  onClick={() => setIsMasterCollapsed(true)}
+                  className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer text-[10px]"
+                  title={lang === 'fr' ? 'Replier le Master' : 'Recolher o Master'}
+                >
+                  ▶
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setIsMasterCollapsed(false)}
+                className="w-7 h-7 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer text-[10px] mx-auto"
+                title={lang === 'fr' ? 'Déplier le Master' : 'Expandir o Master'}
+              >
+                ◀
+              </button>
+            )}
+          </div>
+
+          {!isMasterCollapsed ? (
+            <>
+              {/* Middle Section (EQ & Compressor Controls) */}
+              <div className="relative z-10 flex-1 p-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar border-b-[3px] border-[var(--cordel-border)] bg-[#1a1a1a]/5">
+                
+                {/* EQ Section */}
+                <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/20 pb-2">
+                  <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80 flex items-center gap-1">
+                    <XiloEQ size={11} className="shrink-0" /> {t('eqTitle')}
+                  </span>
+                  <div className="flex gap-2 justify-between mt-1">
+                    <DragNumberBox 
+                      label={t('eqLow')}
+                      value={masterEQ.low}
+                      onChange={(val) => onMasterEQChange({ ...masterEQ, low: val })}
+                      min={-12}
+                      max={12}
+                      step={1}
+                      mode="bipolar"
+                      style={{
+                        '--fader-fill-color': '#8b2a1a',
+                      } as React.CSSProperties}
+                      className="flex-grow"
+                    />
+                    <DragNumberBox 
+                      label={t('eqMid')}
+                      value={masterEQ.mid}
+                      onChange={(val) => onMasterEQChange({ ...masterEQ, mid: val })}
+                      min={-12}
+                      max={12}
+                      step={1}
+                      mode="bipolar"
+                      style={{
+                        '--fader-fill-color': '#d4af37',
+                      } as React.CSSProperties}
+                      className="flex-grow"
+                    />
+                    <DragNumberBox 
+                      label={t('eqHigh')}
+                      value={masterEQ.high}
+                      onChange={(val) => onMasterEQChange({ ...masterEQ, high: val })}
+                      min={-12}
+                      max={12}
+                      step={1}
+                      mode="bipolar"
+                      style={{
+                        '--fader-fill-color': '#3d8b85',
+                      } as React.CSSProperties}
+                      className="flex-grow"
+                    />
+                  </div>
+                </div>
+
+                {/* Compressor Section */}
+                <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/20 pb-2">
+                  <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80 flex items-center gap-1">
+                    <XiloCompressor size={11} className="shrink-0" /> {t('compTitle')}
+                  </span>
+                  <div className="flex gap-2 justify-between mt-1">
+                    <DragNumberBox 
+                      label={t('compThreshold')}
+                      value={masterCompressor.threshold}
+                      onChange={(val) => onMasterCompressorChange({ ...masterCompressor, threshold: val })}
+                      min={-60}
+                      max={0}
+                      step={1}
+                      className="flex-1"
+                    />
+                    <DragNumberBox 
+                      label={t('compRatio')}
+                      value={masterCompressor.ratio}
+                      onChange={(val) => onMasterCompressorChange({ ...masterCompressor, ratio: val })}
+                      min={1}
+                      max={12}
+                      step={0.1}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+
+                {/* Retours d'effets Master (Réverbe & Distorsion) intégrés au milieu */}
+                <MixerMasterEffects />
+
+              </div>
+
+              {/* Bottom Fader (Master Fader & Master LED Meter) */}
+              <div className="relative z-10 p-3 pt-2 flex justify-center items-stretch flex-grow flex-1 min-h-[100px] h-auto gap-8 overflow-hidden">
+                
+                {/* Master Fader Column */}
+                <div className="flex flex-col items-center gap-1 h-full justify-end flex-1 min-w-0">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60 shrink-0">Master</span>
+                  <div className="flex-grow flex-1 w-full flex items-center justify-center min-h-0">
+                    <MixerVolumeFader
+                      value={Math.max(0, Math.min(100, Math.round(((masterVol + 40) / 46) * 100)))}
+                      thumbWidth={44}
+                      thumbHeight={24}
+                      fontSize="text-[11px]"
+                      isMaster={true}
+                      textColor="#1a1a1a"
+                      onChange={(val) => {
+                        const db = val === 0 ? -40 : -40 + (val / 100) * 46;
+                        onMasterVolChange(db);
+                      }}
+                      onAudioDrag={(val) => {
+                        if (masterVolumeNode && masterVolumeNode.gain) {
+                           const db = val === 0 ? -Infinity : -40 + (val / 100) * 46;
+                           const gain = Tone.dbToGain(db);
+                           masterVolumeNode.gain.rampTo(gain, 0.05);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Master LED Meter (Stereo) */}
+                <div className="flex flex-col items-center gap-1 h-full justify-end shrink-0 w-8">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60 shrink-0">Meter</span>
+                  <div className="w-8 flex-grow flex-1 bg-[var(--cordel-bg)] cordel-border relative overflow-hidden flex gap-[2px] p-[1.5px] min-h-0">
+                    <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
+                      <div
+                        ref={vuMeterLeftRef}
+                        className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#8b2a1a] w-full"
+                        style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
+                      />
+                    </div>
+                    <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
+                      <div
+                        ref={vuMeterRightRef}
+                        className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#8b2a1a] w-full"
+                        style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* Version Repliée */
+            <div className="flex-grow flex flex-col items-center justify-between pt-6 pb-2 px-1 w-full gap-4 min-h-0">
+              {/* Titre vertical */}
+              <div className="flex-grow flex items-center justify-center select-none">
+                <span
+                  className="font-cactus font-bold text-xs tracking-widest text-[var(--cordel-text)]/50 hover:text-[var(--cordel-text)]/80 transition-colors uppercase cursor-pointer"
+                  style={{
+                    writingMode: 'vertical-rl',
+                    transform: 'rotate(180deg)',
+                  }}
+                  onClick={() => setIsMasterCollapsed(false)}
+                >
+                  MASTER
+                </span>
+              </div>
+
+              {/* Mini VU-mètre LED vertical compact */}
+              <div className="flex flex-col items-center gap-1 shrink-0 w-6 h-[160px] pb-4">
+                <div className="w-6 h-full bg-[var(--cordel-bg)] cordel-border-sm relative overflow-hidden flex gap-[2px] p-[1px] min-h-0">
+                  <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
+                    <div
+                      ref={vuMeterLeftRef}
+                      className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#8b2a1a] w-full"
+                      style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
+                    />
+                  </div>
+                  <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
+                    <div
+                      ref={vuMeterRightRef}
+                      className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#8b2a1a] w-full"
+                      style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
           {/* Solid masking spacer on the right */}
           <div className="w-4 shrink-0 bg-[var(--cordel-bg)] z-10 transition-colors" />
         </div>
