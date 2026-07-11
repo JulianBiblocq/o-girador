@@ -25,7 +25,8 @@ interface TimelineStepProps {
     stepIdx: number,
     instId: string,
     currentVal: string | number,
-    onSelect: (val: string) => void
+    onSelect: (val: string) => void,
+    trackId: number
   ) => void;
 }
 
@@ -440,19 +441,33 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
       }
     }
 
-    const rect = e.currentTarget.getBoundingClientRect();
-    const allowedStrokes = Object.keys(inst.colors || {}).filter(k => k !== 'text');
+    if (onStepTouchStart) {
+      onStepTouchStart(
+        e,
+        targetPatternId,
+        stepIdx,
+        inst.id,
+        stepData.val,
+        (newVal) => {
+          sequencer.handleTrackStepValueChange(targetTrackId, targetPatternId, stepIdx, newVal);
+        },
+        targetTrackId
+      );
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const allowedStrokes = Object.keys(inst.colors || {}).filter(k => k !== 'text');
 
-    useTimelineEditStore.getState().openEditor({
-      activeStepKey: `${targetTrackId}_${measureIdx}_${stepIdx}`,
-      anchorRect: rect,
-      allowedStrokes,
-      currentVal: stepData.val,
-      trackId: targetTrackId,
-      patternId: targetPatternId,
-      measureIdx,
-      stepIdx
-    });
+      useTimelineEditStore.getState().openEditor({
+        activeStepKey: `${targetTrackId}_${measureIdx}_${stepIdx}`,
+        anchorRect: rect,
+        allowedStrokes,
+        currentVal: stepData.val,
+        trackId: targetTrackId,
+        patternId: targetPatternId,
+        measureIdx,
+        stepIdx
+      });
+    }
   };
 
   const handleMouseEnter = () => {

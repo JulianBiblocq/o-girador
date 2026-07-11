@@ -15,6 +15,7 @@ import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { getBusNoteColor, getContrastColor } from '../utils/colorHelpers';
 import { XiloChisel } from './XiloIcons';
 import { CompassoSelector } from './CompassoSelector';
+import { useSequencer } from '../contexts/SequencerContext';
 
 interface DawLinearSequencerProps {
   isActive: boolean;
@@ -24,7 +25,9 @@ interface DawLinearSequencerProps {
 
 export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
   isActive,
+  onStepTouchStart,
 }) => {
+  const sequencer = useSequencer();
   const lang = useSequencerStore(state => state.lang);
   const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
   const currentMeasure = useSequencerStore(state => state.currentMeasure);
@@ -140,22 +143,37 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
     };
   }, [isActive, visibleTrackIds]);
 
-  // Handle clicking step cells to open StepEditorPopup
+  // Handle clicking step cells to open TouchStrokeSelector or StepEditorPopup
   const handleStepClick = (e: React.MouseEvent, trackId: number, activePattern: any, inst: any, stepIdx: number, currentVal: any) => {
     e.stopPropagation();
-    const rect = e.currentTarget.getBoundingClientRect();
-    const allowedStrokes = Object.keys(inst.colors || {}).filter(k => k !== 'text');
     
-    useTimelineEditStore.getState().openEditor({
-      activeStepKey: `${trackId}_${currentMeasure - 1}_${stepIdx}`,
-      anchorRect: rect,
-      allowedStrokes,
-      currentVal,
-      trackId,
-      patternId: activePattern.id,
-      measureIdx: currentMeasure - 1,
-      stepIdx
-    });
+    if (onStepTouchStart) {
+      onStepTouchStart(
+        e,
+        activePattern.id,
+        stepIdx,
+        inst.id,
+        currentVal,
+        (newVal) => {
+          sequencer.handleTrackStepValueChange(trackId, activePattern.id, stepIdx, newVal);
+        },
+        trackId
+      );
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const allowedStrokes = Object.keys(inst.colors || {}).filter(k => k !== 'text');
+      
+      useTimelineEditStore.getState().openEditor({
+        activeStepKey: `${trackId}_${currentMeasure - 1}_${stepIdx}`,
+        anchorRect: rect,
+        allowedStrokes,
+        currentVal,
+        trackId,
+        patternId: activePattern.id,
+        measureIdx: currentMeasure - 1,
+        stepIdx
+      });
+    }
   };
 
   // Helper names formatting
