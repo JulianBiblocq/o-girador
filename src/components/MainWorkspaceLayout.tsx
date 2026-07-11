@@ -203,7 +203,7 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
 
         {/* 2. MIXER CONSOLE VIEW */}
         <div 
-          className={`flex-1 min-w-0 flex flex-col h-full overflow-x-auto overflow-y-hidden custom-scrollbar ${isFadingIn && renderedView === 'console' ? 'fade-in-view' : ''}`}
+          className={`flex-1 min-w-0 flex flex-col h-full overflow-hidden ${isFadingIn && renderedView === 'console' ? 'fade-in-view' : ''}`}
           style={{ display: viewMode === 'console' ? 'flex' : 'none' }}
         >
           {renderedView === 'console' && (
