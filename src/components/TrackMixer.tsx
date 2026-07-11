@@ -146,14 +146,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       <div className="flex justify-between items-center relative z-[2]">
         <div className="flex items-center gap-2">
           <div
-            {...(inst.id !== 'apito' ? attributes : {})}
-            {...(inst.id !== 'apito' ? listeners : {})}
-            className={`mr-2 transition-colors p-1 touch-none flex-shrink-0 ${
-              inst.id === 'apito' 
-                ? 'opacity-0 pointer-events-none' 
-                : 'cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)]'
-            }`}
-            title={inst.id !== 'apito' ? "Drag to reorder" : undefined}
+            {...attributes}
+            {...listeners}
+            className="mr-2 transition-colors p-1 touch-none flex-shrink-0 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)]"
+            title="Drag to reorder"
           >
             <GripVertical size={16} />
           </div>
@@ -179,7 +175,6 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               </span>
               <span className="text-[8px] flex-shrink-0">▼</span>
             </button>
-
             {/* 1. Éditeur détaillé pour les pistes normales (non esclaves, hors Toada) */}
             {onOpenDetailEditor && !track.isBusFolder && !track.linkedToTrackId && !isToada && (
               <button
@@ -187,10 +182,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                   e.stopPropagation();
                   onOpenDetailEditor(track.id); 
                 }}
-                className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
+                className="ml-1 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]"
                 title={lang === 'pt' ? 'Editor detalhado' : 'Éditeur détaillé'}
               >
-                <XiloChisel size={10} />
+                <XiloChisel size={13} />
               </button>
             )}
 
@@ -208,10 +203,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     e.stopPropagation();
                     onOpenDetailEditor(masterId);
                   }}
-                  className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
-                  title={lang === 'pt' ? 'Editar instrumento principal (Master)' : 'Éditer l\'instrument maître (Master)'}
+                  className="ml-1 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]"
+                  title={lang === 'pt' ? 'Editar instrument principal (Master)' : 'Éditer l\'instrument maître (Master)'}
                 >
-                  <XiloChisel size={10} />
+                  <XiloChisel size={13} />
                 </button>
               );
             })()}
@@ -226,10 +221,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     onOpenDetailEditor(coro.id);
                   }
                 }}
-                className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
+                className="ml-1 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]"
                 title={lang === 'pt' ? 'Editor de vozes (Coro)' : 'Éditeur de voix (Chœur)'}
               >
-                <XiloChisel size={10} />
+                <XiloChisel size={13} />
               </button>
             )}
 

@@ -25,6 +25,7 @@ import { MixerLinkedTrack } from './MixerLinkedTrack';
 import { MixerFolderBus } from './MixerFolderBus';
 import { MixerMasterEffects } from './MixerMasterEffects';
 import { MixerVolumeFader } from './MixerVolumeFader';
+import { MixerAddChannel } from './MixerAddChannel';
 import { DragNumberBox } from './DragNumberBox';
 import { XiloEQ, XiloCompressor, XiloMestre } from './XiloIcons';
 import { metroChannel, masterVolumeNode } from '../audio/effectsChain';
@@ -619,7 +620,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       className={`flex-1 flex flex-col h-full overflow-hidden transition-opacity duration-200 ${isPresetLoading ? 'pointer-events-none opacity-80' : ''}`}
       style={{ display: isActive ? 'flex' : 'none' }}
     >
-      <div ref={scrollRef} className="flex-grow flex overflow-x-auto p-4 custom-scrollbar">
+      <div ref={scrollRef} className="flex-grow flex overflow-x-auto pt-4 pb-4 pl-4 pr-0 custom-scrollbar">
         <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
           <SortableContext items={displayedTrackIds} strategy={horizontalListSortingStrategy}>
             {displayedTracks.map((track, index) => {
@@ -702,19 +703,27 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           </SortableContext>
         </DndContext>
 
+        <MixerAddChannel isActive={isActive} />
 
-
-        {/* Master Console Strip */}
+        {/* Master Console Strip Sticky Wrapper */}
         <div 
-          className="flex flex-col bg-[var(--cordel-bg)] cordel-border w-[240px] shrink-0 text-[var(--cordel-text)] overflow-hidden relative pb-4 transition-colors"
+          className="flex shrink-0 sticky right-0 z-20 items-stretch"
           style={{
-            zIndex: 1,
-            '--fader-thumb-bg': '#8b2a1a',
-            '--fader-thumb-border': 'var(--cordel-border)',
-          } as React.CSSProperties}
+            position: 'sticky',
+            right: 0,
+            zIndex: 20
+          }}
         >
+          {/* Master Console Strip */}
+          <div 
+            className="flex flex-col cordel-master-strip w-[240px] shrink-0 text-[var(--cordel-text)] overflow-hidden pb-4 transition-colors"
+            style={{
+              '--fader-thumb-bg': '#8b2a1a',
+              '--fader-thumb-border': 'var(--cordel-border)',
+            } as React.CSSProperties}
+          >
           {/* Header / Title */}
-          <div className="relative p-3 pb-1 flex justify-between items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
+          <div className="relative p-3 pb-1 flex justify-center items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)]">
             <div className="flex items-center gap-1.5">
               <span className="font-cactus font-bold text-sm tracking-wider flex items-center gap-1"><XiloMestre size={13} className="shrink-0" /> MASTER</span>
             </div>
@@ -853,10 +862,13 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
               </div>
             </div>
           </div>
+          {/* Solid masking spacer on the right */}
+          <div className="w-4 shrink-0 bg-[var(--cordel-bg)] z-10 transition-colors" />
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };
 
 export const ConsoleMixer = React.memo(ConsoleMixerComponent);

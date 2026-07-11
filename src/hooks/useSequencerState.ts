@@ -261,29 +261,10 @@ export function useSequencerState() {
     });
   }, [timeSig, bpm]); // removed totalMeasures from deps since it's now tracked via ref/store
 
-  // Enforce Apito is always the last track in the list
+  // Keep tracksRef.current synchronized with the store
   useEffect(() => {
     const unsub = useSequencerStore.subscribe((state) => {
       tracksRef.current = state.tracks;
-
-      let needsSort = false;
-      let seenApito = false;
-      for (const t of state.tracks) {
-        const isApito = instrumentsConfig[t.instrumentIdx]?.id === 'apito';
-        if (isApito) {
-          seenApito = true;
-        } else if (seenApito) {
-          needsSort = true;
-          break;
-        }
-      }
-      
-      if (needsSort) {
-        const apitos = state.tracks.filter(t => instrumentsConfig[t.instrumentIdx]?.id === 'apito');
-        const others = state.tracks.filter(t => instrumentsConfig[t.instrumentIdx]?.id !== 'apito');
-        const sorted = [...others, ...apitos];
-        setTracks(applyRadii(sorted));
-      }
     });
     return unsub;
   }, []);
