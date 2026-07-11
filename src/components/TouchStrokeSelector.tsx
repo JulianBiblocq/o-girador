@@ -182,7 +182,7 @@ const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
   const choicesToShow = allChoices.filter(stroke => {
     if (isExpanded || stroke === '0') return true; // Always show silence
     const forced = forcedStrokes[`${selector.trackId}:${stroke}`];
-    const isActive = forced !== undefined ? forced : activeStrokes.includes(stroke);
+    const isActive = forced !== undefined ? forced : activeStrokes.some(s => s.toLowerCase() === stroke.toLowerCase());
     // Always keep currently selected step value visible in clean mode
     return isActive || String(selector.currentVal) === String(stroke);
   });
@@ -396,9 +396,8 @@ const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
                 return;
               }
 
-              // Check if the stroke is currently active for the project
               const forced = forcedStrokes[`${selector.trackId}:${strokeVal}`];
-              const isActive = forced !== undefined ? forced : activeStrokes.includes(strokeVal);
+              const isActive = forced !== undefined ? forced : activeStrokes.some(s => s.toLowerCase() === strokeVal.toLowerCase());
 
               if (!isLoaded && audioEngine) {
                 setLoadingStroke(strokeVal);

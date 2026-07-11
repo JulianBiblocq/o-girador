@@ -110,7 +110,7 @@ export const StepEditorPopup: React.FC = () => {
   const choicesToShow = allowedStrokes.filter(stroke => {
     if (isExpanded) return true;
     const forced = forcedStrokes[`${trackId}:${stroke}`];
-    const isActive = forced !== undefined ? forced : activeStrokesForTrack.includes(stroke);
+    const isActive = forced !== undefined ? forced : activeStrokesForTrack.some(s => s.toLowerCase() === stroke.toLowerCase());
     // Keep currently selected step value visible in clean mode
     return isActive || String(currentVal) === String(stroke);
   });
@@ -125,9 +125,8 @@ export const StepEditorPopup: React.FC = () => {
     const strokeStr = String(stroke);
     const isLoaded = inst && audioEngine ? audioEngine.isStrokeLoaded(inst.id, strokeStr) : true;
 
-    // Check if the stroke is currently active for the project
     const forced = forcedStrokes[`${trackId}:${strokeStr}`];
-    const isActive = forced !== undefined ? forced : activeStrokesForTrack.includes(strokeStr);
+    const isActive = forced !== undefined ? forced : activeStrokesForTrack.some(s => s.toLowerCase() === strokeStr.toLowerCase());
 
     if (!isLoaded && inst && audioEngine) {
       setLoadingStroke(strokeStr);
