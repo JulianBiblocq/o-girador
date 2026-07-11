@@ -295,11 +295,11 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
         const lastPattern = patterns[patterns.length - 1];
         patterns.push({
           id: Date.now() + Math.random(),
-          name: `${lastPattern.name}_copy`,
+          name: lastPattern ? `${lastPattern.name}_copy` : `Pattern ${patterns.length + 1}`,
           steps: 16,
-          activeSteps: [...lastPattern.activeSteps],
-          lyrics: [...lastPattern.lyrics],
-          notes: [...lastPattern.notes],
+          activeSteps: lastPattern ? [...lastPattern.activeSteps] : Array(16).fill(0),
+          lyrics: lastPattern ? [...lastPattern.lyrics] : Array(16).fill(''),
+          notes: lastPattern ? [...lastPattern.notes] : Array(16).fill(''),
           measureAssignments: [true]
         });
       }
@@ -324,11 +324,11 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
           const lastPattern = patterns[patterns.length - 1];
           patterns.push({
             id: Date.now() + Math.random(),
-            name: `${lastPattern.name}_copy`,
+            name: lastPattern ? `${lastPattern.name}_copy` : `Pattern ${patterns.length + 1}`,
             steps: 16,
-            activeSteps: [...lastPattern.activeSteps],
-            lyrics: [...lastPattern.lyrics],
-            notes: [...lastPattern.notes],
+            activeSteps: lastPattern ? [...lastPattern.activeSteps] : Array(16).fill(0),
+            lyrics: lastPattern ? [...lastPattern.lyrics] : Array(16).fill(''),
+            notes: lastPattern ? [...lastPattern.notes] : Array(16).fill(''),
             measureAssignments: [true]
           });
         }

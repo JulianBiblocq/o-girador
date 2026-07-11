@@ -4,16 +4,17 @@
  */
 
 import React, { useEffect, useRef, useMemo, useState } from 'react';
-import { GripVertical, Eye, EyeOff } from 'lucide-react';
-import { useSequencerStore, isSequencerVisibleTrack, isToadaBus } from '../stores/useSequencerStore';
+import { GripVertical } from 'lucide-react';
+import { useSequencerStore, isLinearDAWVisibleTrack, isToadaBus } from '../stores/useSequencerStore';
+import { useTimelineEditStore } from '../stores/useTimelineEditStore';
+import { StepEditorPopup } from './StepEditorPopup';
 import { useAudioStore } from '../stores/useAudioStore';
 import { instrumentsConfig, ASSETS_BASE_URL, getVisualStrokeSymbol, NEWTON_NOTE_COLORS, isDarkText } from '../data';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { getBusNoteColor, getContrastColor } from '../utils/colorHelpers';
 import { XiloChisel } from './XiloIcons';
-import { useAudio } from '../contexts/AudioContext';
-import { getExpandedMeasures } from '../utils/measureHelpers';
+import { CompassoSelector } from './CompassoSelector';
 
 interface DawLinearSequencerProps {
   isActive: boolean;
@@ -28,41 +29,6 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
   const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
   const currentMeasure = useSequencerStore(state => state.currentMeasure);
   const tracks = useSequencerStore(state => state.tracks);
-  const totalMeasures = useSequencerStore(state => state.totalMeasures);
-  const songSections = useSequencerStore(state => state.songSections);
-
-  const audio = useAudio();
-
-  const expanded = useMemo(() => getExpandedMeasures(totalMeasures, songSections), [totalMeasures, songSections]);
-  const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
-
-  const currentExpandedIdx = useMemo(() => {
-    return expanded.findIndex(item => item.baseMeasure === currentMeasure);
-  }, [expanded, currentMeasure]);
-
-  const displayMeasure = currentExpandedIdx !== -1 ? currentExpandedIdx + 1 : currentMeasure + 1;
-
-  const handleNavigatePrev = () => {
-    if (expanded.length === 0) {
-      const prev = (currentMeasure - 1 + totalMeasures) % totalMeasures;
-      audio.handleTimelineNavigate(prev, 0, 16);
-    } else {
-      const currentIdx = currentExpandedIdx !== -1 ? currentExpandedIdx : 0;
-      const prevIdx = (currentIdx - 1 + expanded.length) % expanded.length;
-      audio.handleTimelineNavigate(expanded[prevIdx].baseMeasure, 0, 16);
-    }
-  };
-
-  const handleNavigateNext = () => {
-    if (expanded.length === 0) {
-      const next = (currentMeasure + 1) % totalMeasures;
-      audio.handleTimelineNavigate(next, 0, 16);
-    } else {
-      const currentIdx = currentExpandedIdx !== -1 ? currentExpandedIdx : 0;
-      const nextIdx = (currentIdx + 1) % expanded.length;
-      audio.handleTimelineNavigate(expanded[nextIdx].baseMeasure, 0, 16);
-    }
-  };
 
   // For instrument selection dropdown
   const [dropdownOpenTrackId, setDropdownOpenTrackId] = useState<number | null>(null);
@@ -81,7 +47,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
 
   // Filter visible tracks to show on the DAW grid (matching left Mixer panel list)
   const visibleTracks = useMemo(() => {
-    return tracks.filter(t => isSequencerVisibleTrack(t, tracks));
+    return tracks.filter(t => isLinearDAWVisibleTrack(t, tracks));
   }, [tracks]);
 
   // Keep track of DOM elements for playhead updates (Zero Render Thrashing)
@@ -174,45 +140,22 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
     };
   }, [isActive, visibleTrackIds]);
 
-  // Handle clicking step cells
-  const handleStepClick = (trackId: number, activePattern: any, inst: any, stepIdx: number, currentVal: any) => {
-    let nextVal: string | number = 0;
+  // Handle clicking step cells to open StepEditorPopup
+  const handleStepClick = (e: React.MouseEvent, trackId: number, activePattern: any, inst: any, stepIdx: number, currentVal: any) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const allowedStrokes = Object.keys(inst.colors || {}).filter(k => k !== 'text');
     
-    if (inst.type === 'voice') {
-      // Voice cycle: 0 -> 'P' (Puxador) -> 'C' (Coro) -> 0
-      if (currentVal === 0 || currentVal === '0' || !currentVal) {
-        nextVal = 'P';
-      } else if (currentVal === 'P') {
-        nextVal = 'C';
-      } else {
-        nextVal = 0;
-      }
-    } else {
-      const visualVal = getVisualStrokeSymbol(currentVal, isLeftHanded, inst.id);
-      const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
-      nextVal = getVisualStrokeSymbol(nextVisualVal, isLeftHanded, inst.id);
-    }
-
-    // Push state for Undo if global context exists
-    const sequencer = (window as any).__oGiradorSequencerContext;
-    if (sequencer && sequencer.pushUndoState) {
-      sequencer.pushUndoState();
-    }
-
-    useSequencerStore.getState().setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        const nextPatterns = t.patterns.map(p => {
-          if (p.id === activePattern.id) {
-            const activeSteps = [...p.activeSteps];
-            activeSteps[stepIdx] = nextVal;
-            return { ...p, activeSteps };
-          }
-          return p;
-        });
-        return { ...t, patterns: nextPatterns };
-      }
-      return t;
-    }));
+    useTimelineEditStore.getState().openEditor({
+      activeStepKey: `${trackId}_${currentMeasure - 1}_${stepIdx}`,
+      anchorRect: rect,
+      allowedStrokes,
+      currentVal,
+      trackId,
+      patternId: activePattern.id,
+      measureIdx: currentMeasure - 1,
+      stepIdx
+    });
   };
 
   // Helper names formatting
@@ -246,32 +189,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
             >
               ▲
             </button>
-            <div className="flex flex-col items-center bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm p-1 shadow-[2px_2px_0px_rgba(0,0,0,1)] flex-grow max-w-[240px] select-none rounded-sm">
-              <span className="text-[8px] uppercase opacity-75 tracking-wider font-bold leading-none">
-                {lang === 'pt' ? 'Compasso' : 'Mesure'}
-              </span>
-              <div className="flex items-center justify-between w-full mt-1 gap-1 px-1">
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleNavigatePrev(); }}
-                  className="w-5 h-5 flex items-center justify-center bg-[#f4ecd8] text-[#1a1a1a] border border-black font-bold text-[10px] cursor-pointer hover:bg-black hover:text-[#f4ecd8] transition-colors rounded-sm active:scale-95"
-                  title={lang === 'pt' ? 'Compasso anterior' : 'Mesure précédente'}
-                  style={{ padding: 0 }}
-                >
-                  &lt;
-                </button>
-                <span className="text-xs font-cactus font-bold leading-none flex-grow text-center">
-                  {displayMeasure} / {displayTotal}
-                </span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleNavigateNext(); }}
-                  className="w-5 h-5 flex items-center justify-center bg-[#f4ecd8] text-[#1a1a1a] border border-black font-bold text-[10px] cursor-pointer hover:bg-black hover:text-[#f4ecd8] transition-colors rounded-sm active:scale-95"
-                  title={lang === 'pt' ? 'Próximo compasso' : 'Mesure suivante'}
-                  style={{ padding: 0 }}
-                >
-                  &gt;
-                </button>
-              </div>
-            </div>
+            <CompassoSelector className="flex-grow max-w-[240px]" />
           </div>
 
           {/* Right Ruler steps timeline headers aligned to beats */}
@@ -342,7 +260,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
             return (
               <div
                 key={track.id}
-                className="flex items-center w-full h-auto min-h-[116px] xl:h-[76px] xl:min-h-[76px] py-2 xl:py-0 border-b-2 border-x-0 border-t-0 border-[#1a1a1a] pl-0 pr-4 justify-start shrink-0 rounded-sm shadow-[2px_2px_0px_rgba(0,0,0,1)] bg-[#f4ecd8] text-[#1a1a1a] overflow-hidden"
+                className="flex items-center w-full h-auto min-h-[116px] xl:h-[76px] xl:min-h-[76px] justify-start shrink-0 text-[#1a1a1a] overflow-hidden border-b-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] px-3 py-1"
               >
                 {/* A. Left Side: Integrated Instrument Mixer Controls (w-[360px] fixed width) */}
                 <div 
@@ -431,7 +349,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                     )}
                   </div>
 
-                  {/* Right Side Buttons: Mute, Solo, Live, Hide */}
+                  {/* Right Side Buttons: Mute and Solo only */}
                   <div className="flex gap-1.5">
                     <button 
                       onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackMuteToggle(track.id); }} 
@@ -445,46 +363,6 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                         track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
                       }`}
                     >S</button>
-
-                    {inst.id !== 'apito' && (
-                      <button
-                        onClick={() => useSequencerStore.getState().handleTrackAoVivoToggle(track.id)}
-                        className={`w-6 h-6 cordel-border-sm cordel-button font-bold cursor-pointer transition-all flex items-center justify-center ${
-                          (useSequencerStore.getState().aoVivoTrackId === String(track.id)) ? 'bg-[#27ae60] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
-                        }`}
-                        title={inst.type === 'voice' ? (lang === 'fr' ? 'Karaoké (Live)' : 'Karaokê (Ao Vivo)') : "Ao Vivo (Live POV)"}
-                      >
-                        {inst.type === 'voice' ? (
-                          <span className="text-xs leading-none">🎤</span>
-                        ) : (
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
-                            <path d="M11 22 L5 6" />
-                            <circle cx="4" cy="3" r="2.5" fill="currentColor" />
-                            <path d="M13 22 L19 6" />
-                            <circle cx="20" cy="3" r="2.5" fill="currentColor" />
-                          </svg>
-                        )}
-                      </button>
-                    )}
-
-                    {inst.id !== 'apito' && (
-                      <button
-                        onClick={() => useSequencerStore.getState().handleTrackHideToggle(track.id)}
-                        className={`w-6 h-6 cordel-border-sm cordel-button text-[10px] font-bold cursor-pointer transition-all flex items-center justify-center ${
-                          track.isHidden ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
-                        }`}
-                        title="Ocultar pista"
-                      >
-                        {track.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    )}
-
-                    {inst.id === 'apito' && (
-                      <>
-                        <div className="w-6 h-6 pointer-events-none"></div>
-                        <div className="w-6 h-6 pointer-events-none"></div>
-                      </>
-                    )}
                   </div>
                 </div>
 
@@ -671,7 +549,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                             <button
                               ref={(el) => registerStepRef(track.id, stepIdx, el)}
                               data-step-index={stepIdx}
-                              onClick={() => handleStepClick(effectiveTrack.id, activePattern, inst, stepIdx, val)}
+                              onClick={(e) => handleStepClick(e, effectiveTrack.id, activePattern, inst, stepIdx, val)}
                               className="sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out w-11 h-11 md:w-12 md:h-12 flex-shrink-0 aspect-square overflow-hidden outline-none"
                               style={{
                                 border: borderStyle,
@@ -705,7 +583,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                             ref={(el) => registerStepRef(track.id, stepIdx, el)}
                             data-step-index={stepIdx}
                             data-step-type={isVoice ? 'voice' : 'sampler'}
-                            onClick={() => handleStepClick(effectiveTrack.id, activePattern, inst, stepIdx, val)}
+                            onClick={(e) => handleStepClick(e, effectiveTrack.id, activePattern, inst, stepIdx, val)}
                             className={`sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out w-11 h-11 md:w-12 md:h-12 flex-shrink-0 aspect-square outline-none ${
                               isActiveCell ? 'is-active scale-100' : 'hover:bg-black/5'
                             } ${
@@ -753,6 +631,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
           })}
         </div>
       </div>
+      <StepEditorPopup />
     </div>
   );
 };

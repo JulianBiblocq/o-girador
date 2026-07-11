@@ -132,7 +132,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   return (
     <div
       ref={setNodeRef}
-      className="cordel-border p-3 flex flex-col relative transition-all duration-300 bg-[var(--cordel-bg)] w-full py-1 border-x-0 border-t-0 border-b-2 h-[76px] min-h-[76px] justify-center"
+      className="flex flex-col relative transition-all duration-300 w-full justify-center h-[76px] min-h-[76px] border-b-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] px-3 py-1"
       style={{
         ...style,
         zIndex: instDropdownOpen ? 9999 : 10,
@@ -180,9 +180,13 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               <span className="text-[8px] flex-shrink-0">▼</span>
             </button>
 
-            {onOpenDetailEditor && !track.isBusFolder && (
+            {/* 1. Éditeur détaillé pour les pistes normales (non esclaves, hors Toada) */}
+            {onOpenDetailEditor && !track.isBusFolder && !track.linkedToTrackId && !isToada && (
               <button
-                onClick={onOpenDetailEditorClick}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenDetailEditor(track.id); 
+                }}
                 className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
                 title={lang === 'pt' ? 'Editor detalhado' : 'Éditeur détaillé'}
               >
@@ -190,11 +194,53 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               </button>
             )}
 
-            {track.isBusFolder && !isToada && (
+            {/* 2. Éditeur Master pour les pistes esclaves ou dossiers de liens */}
+            {(track.isLinkFolder || (track.linkedToTrackId && !track.isLinkFolder)) && (() => {
+              const masterTrack = track.isLinkFolder
+                ? tracks.find(t => String(t.linkedToTrackId) === String(track.id) && t.isLinkMaster)
+                : (track.linkedToTrackId ? tracks.find(t => t.id === parseInt(track.linkedToTrackId!, 10)) : null);
+              const masterId = masterTrack?.id;
+              if (masterId === undefined) return null;
+
+              return (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onOpenDetailEditor(masterId);
+                  }}
+                  className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
+                  title={lang === 'pt' ? 'Editar instrumento principal (Master)' : 'Éditer l\'instrument maître (Master)'}
+                >
+                  <XiloChisel size={10} />
+                </button>
+              );
+            })()}
+
+            {/* 3. Exception Toada -> Ouvre l'éditeur de la piste 'Coro' */}
+            {isToada && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  useSequencerStore.getState().handleToggleFoldBus(String(track.id));
+                  const coro = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+                  if (coro) {
+                    onOpenDetailEditor(coro.id);
+                  }
+                }}
+                className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
+                title={lang === 'pt' ? 'Editor de vozes (Coro)' : 'Éditeur de voix (Chœur)'}
+              >
+                <XiloChisel size={10} />
+              </button>
+            )}
+
+            {/* 4. Bouton plier/déplier pour les dossiers de bus normaux (hors Toada, hors dossiers de liens) */}
+            {track.isBusFolder && !isToada && !track.isLinkFolder && !track.linkedToTrackId && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setTimeout(() => {
+                    useSequencerStore.getState().handleToggleFoldBus(String(track.id));
+                  }, 10);
                 }}
                 className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-xs"
                 title={track.isFolded ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar')}

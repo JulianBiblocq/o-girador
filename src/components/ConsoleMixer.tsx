@@ -26,7 +26,7 @@ import { MixerFolderBus } from './MixerFolderBus';
 import { MixerMasterEffects } from './MixerMasterEffects';
 import { MixerVolumeFader } from './MixerVolumeFader';
 import { DragNumberBox } from './DragNumberBox';
-import { XiloEQ, XiloCompressor, XiloMestre, XiloExpand, XiloCollapse } from './XiloIcons';
+import { XiloEQ, XiloCompressor, XiloMestre } from './XiloIcons';
 import { metroChannel, masterVolumeNode } from '../audio/effectsChain';
 import { i18n, instrumentsConfig } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
@@ -72,7 +72,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
-  const [isCompactMode, setIsCompactMode] = useState(true);
+
 
   const {
     lang,
@@ -658,7 +658,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                       busPosition={busPosition}
                       isPlaying={isPlaying}
                       isLeftHanded={isLeftHanded}
-                      isCompact={isCompactMode}
                     />
                   );
                 }
@@ -669,7 +668,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     index={index}
                     isActive={isActive}
                     busPosition={busPosition}
-                    isCompact={isCompactMode}
                   />
                 );
               }
@@ -683,7 +681,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     onOpenDetailEditor={onOpenDetailEditor}
                     isActive={isActive}
                     busPosition={busPosition}
-                    isCompact={isCompactMode}
                   />
                 );
               }
@@ -699,7 +696,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   canPaste={!!copiedPattern}
                   isActive={isActive}
                   busPosition={busPosition}
-                  isCompact={isCompactMode}
                 />
               );
             })}
@@ -722,23 +718,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             <div className="flex items-center gap-1.5">
               <span className="font-cactus font-bold text-sm tracking-wider flex items-center gap-1"><XiloMestre size={13} className="shrink-0" /> MASTER</span>
             </div>
-             <button
-               onClick={() => setIsCompactMode(!isCompactMode)}
-               className="px-2.5 py-1 text-[9px] uppercase font-sans font-extrabold cordel-border-sm cordel-button transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] flex items-center gap-1 select-none cursor-pointer"
-               title={isCompactMode ? (lang === 'fr' ? "Déployer la console" : "Expandir console") : (lang === 'fr' ? "Replier la console" : "Recolher console")}
-             >
-               {isCompactMode ? (
-                 <>
-                   <XiloExpand size={10} className="shrink-0" />
-                   {lang === 'fr' ? "Déployer" : "Déployer"}
-                 </>
-               ) : (
-                 <>
-                   <XiloCollapse size={10} className="shrink-0" />
-                   {lang === 'fr' ? "Replier" : "Replier"}
-                 </>
-               )}
-             </button>
           </div>
 
           {/* Middle Section (EQ & Compressor Controls) */}

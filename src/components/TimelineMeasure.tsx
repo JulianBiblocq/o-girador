@@ -34,12 +34,19 @@ interface TimelineMeasureProps {
   instColors: Record<string, string>;
   instMixerBg: string;
   activePatternActiveSteps?: any[];
-  onGridPointerDown: (e: React.PointerEvent) => void;
   onMeasureClick: (mIdx: number, steps: number, clickX: number) => void;
   isLinkedChild?: boolean;
   isOverridden?: boolean;
   isSilence?: boolean;
   hasChildOverrides?: boolean;
+  onStepTouchStart?: (
+    e: React.MouseEvent | React.TouchEvent,
+    patternId: number,
+    stepIdx: number,
+    instId: string,
+    currentVal: string | number,
+    onSelect: (val: string) => void
+  ) => void;
 }
 
 const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
@@ -72,12 +79,12 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   instColors,
   instMixerBg,
   activePatternActiveSteps,
-  onGridPointerDown,
   onMeasureClick,
   isLinkedChild,
   isOverridden,
   isSilence,
   hasChildOverrides,
+  onStepTouchStart,
 }) => {
   const hasAudio = useAudioStore((state) => !!state.vocalBlobs[patternId]);
   const targetPatternId = useAudioStore((state) => state.targetPatternId);
@@ -222,7 +229,6 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
           ) : (
             <div 
               className="flex h-full w-full"
-              onPointerDown={onGridPointerDown}
               onClick={(e) => e.stopPropagation()}
             >
               {Array.from({ length: steps }).map((_, sIdx) => (
@@ -237,6 +243,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                   patternIdx={patternIdx}
                   instrumentIdx={instrumentIdx}
                   beatResolutions={beatResolutions}
+                  onStepTouchStart={onStepTouchStart}
                 />
               ))}
 

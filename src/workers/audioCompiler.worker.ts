@@ -51,7 +51,7 @@ function buildFlatSongSchedule(
               canPlay = true;
             }
           } else {
-            const override = track.patternOverrides?.[measureIdx];
+            const override = track.isLinkMaster ? undefined : track.patternOverrides?.[measureIdx];
             if (override === null) {
               activePattern = null;
               canPlay = false;

@@ -529,7 +529,11 @@ export class AudioEngine {
           // Sinon, on ne charge que les strokes présents dans activeStrokes.
           const isStrokeActive = activeStrokes.length === 0
             ? config.strokes[0] === stroke
-            : activeStrokes.includes(stroke.symbol);
+            : activeStrokes.some(as => 
+                stroke.caseSensitive === false 
+                  ? as.toUpperCase() === stroke.symbol.toUpperCase()
+                  : as === stroke.symbol
+              );
 
           if (isStrokeActive) {
             for (const file of stroke.files) {
@@ -578,6 +582,39 @@ export class AudioEngine {
     }
     await Promise.all(pathsArray.map(p => this.loadPath(p)));
   }
+
+  /**
+   * Checks if all samples for a specific stroke symbol of an instrument are loaded in the buffer pool.
+   */
+  public isStrokeLoaded(instrumentId: string, strokeSymbol: string): boolean {
+    const config = this.configMap.get(instrumentId);
+    if (!config) return true; // If instrument has no config (e.g. voice), consider it loaded by default
+    const norm = strokeSymbol.trim();
+    const stroke = config.strokes.find(s => 
+      s.caseSensitive === false 
+        ? s.symbol.toUpperCase() === norm.toUpperCase()
+        : s.symbol === norm
+    );
+    if (!stroke) return true;
+    return stroke.files.every(p => this.bufferPool.has(p));
+  }
+
+  /**
+   * Dynamically loads and decodes the samples associated with a specific stroke of an instrument.
+   */
+  public async loadStrokeSamples(instrumentId: string, strokeSymbol: string): Promise<void> {
+    const config = this.configMap.get(instrumentId);
+    if (!config) return;
+    const norm = strokeSymbol.trim();
+    const stroke = config.strokes.find(s => 
+      s.caseSensitive === false 
+        ? s.symbol.toUpperCase() === norm.toUpperCase()
+        : s.symbol === norm
+    );
+    if (!stroke) return;
+    await Promise.all(stroke.files.map(p => this.loadPath(p)));
+  }
+
 
   /**
    * Register output destination / channel for an instrument ID

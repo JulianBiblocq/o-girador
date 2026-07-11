@@ -4,7 +4,7 @@
  */
 
 import * as Tone from 'tone';
-import { useSequencerStore, isSequencerVisibleTrack } from '../stores/useSequencerStore';
+import { useSequencerStore, isLinearDAWVisibleTrack } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
 import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
@@ -45,6 +45,82 @@ const SortablePatternWrapper = ({ id, children, className, style: propStyle }: a
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
   const style = { ...propStyle, transform: CSS.Transform.toString(transform), transition };
   return children({ setNodeRef, style, attributes, listeners });
+};
+
+const getPatternUsage = (patternId: number, parentBusTrack: any, allTracks: any[], lang: string) => {
+  const pattern = parentBusTrack.patterns.find((p: any) => p.id === patternId);
+  if (!pattern) return [];
+
+  const totalMeasures = pattern.measureAssignments.length;
+  const usage: Array<{
+    trackName: string;
+    trackId: number;
+    isMaster: boolean;
+    measures: number[];
+  }> = [];
+
+  if (!parentBusTrack.isLinkFolder) {
+    const measures: number[] = [];
+    for (let m = 0; m < totalMeasures; m++) {
+      if (pattern.measureAssignments[m]) {
+        measures.push(m + 1);
+      }
+    }
+    if (measures.length > 0) {
+      usage.push({
+        trackName: parentBusTrack.customName || instrumentsConfig[parentBusTrack.instrumentIdx]?.name || 'Instrument',
+        trackId: parentBusTrack.id,
+        isMaster: true,
+        measures
+      });
+    }
+    return usage;
+  }
+
+  // 1. Find master track and slave tracks for this group
+  const masterTrack = allTracks.find(t => String(t.linkedToTrackId) === String(parentBusTrack.id) && t.isLinkMaster);
+  const slaveTracks = allTracks.filter(t => String(t.linkedToTrackId) === String(parentBusTrack.id) && !t.isLinkFolder && !t.isLinkMaster);
+
+  // Track usage for master
+  if (masterTrack) {
+    const masterMeasures: number[] = [];
+    for (let m = 0; m < totalMeasures; m++) {
+      if (pattern.measureAssignments[m]) {
+        masterMeasures.push(m + 1);
+      }
+    }
+    if (masterMeasures.length > 0) {
+      usage.push({
+        trackName: masterTrack.customName || instrumentsConfig[masterTrack.instrumentIdx]?.name || 'Master',
+        trackId: masterTrack.id,
+        isMaster: true,
+        measures: masterMeasures
+      });
+    }
+  }
+
+  // Track usage for slaves
+  slaveTracks.forEach(slave => {
+    const slaveMeasures: number[] = [];
+    for (let m = 0; m < totalMeasures; m++) {
+      const override = slave.patternOverrides?.[m];
+      if (override === patternId) {
+        slaveMeasures.push(m + 1);
+      } else if (override === undefined && pattern.measureAssignments[m]) {
+        slaveMeasures.push(m + 1);
+      }
+    }
+    if (slaveMeasures.length > 0) {
+      usage.push({
+        trackName: slave.customName || instrumentsConfig[slave.instrumentIdx]?.name || (lang === 'fr' ? 'Esclave' : 'Escravo'),
+        trackId: slave.id,
+        isMaster: false,
+        measures: slaveMeasures
+      });
+    }
+  });
+
+  return usage;
 };
 
 interface InstrumentDetailEditorProps {
@@ -269,7 +345,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   // Dynamic Navigation callbacks
   const onNavigatePrev = React.useCallback(() => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
+    const tracksList = useSequencerStore.getState().tracks.filter(t => isLinearDAWVisibleTrack(t, useSequencerStore.getState().tracks));
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (idx > 0) {
       setEditingTrackId(tracksList[idx - 1].id);
@@ -277,7 +353,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   }, [trackId, setEditingTrackId]);
 
   const onNavigateNext = React.useCallback(() => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
+    const tracksList = useSequencerStore.getState().tracks.filter(t => isLinearDAWVisibleTrack(t, useSequencerStore.getState().tracks));
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (idx >= 0 && idx < tracksList.length - 1) {
       setEditingTrackId(tracksList[idx + 1].id);
@@ -285,7 +361,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   }, [trackId, setEditingTrackId]);
 
   const onKeyDown = React.useCallback((e: any) => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
+    const tracksList = useSequencerStore.getState().tracks.filter(t => isLinearDAWVisibleTrack(t, useSequencerStore.getState().tracks));
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (e.key === 'ArrowDown') {
       if (idx >= 0 && idx < tracksList.length - 1) setEditingTrackId(tracksList[idx + 1].id);
@@ -298,6 +374,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const track = useSequencerStore(
     React.useCallback(state => state.tracks.find(t => t.id === trackId), [trackId])
   );
+  const allTracks = useSequencerStore(state => state.tracks);
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
   const inst = track ? instrumentsConfig[track.instrumentIdx] : { id: '', name: '', type: 'percussion', iconImg: '', colors: { text: '' }, mixerBg: '' };
   
@@ -905,6 +982,29 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               </button>
                             )}
                           </div>
+
+                          {/* Pattern Usage Info */}
+                          {(() => {
+                            const usage = getPatternUsage(ptn.id, track, allTracks, lang);
+                            return (
+                              <div className="flex flex-wrap gap-2 text-[10px] bg-[#eaddcf]/50 p-2 rounded border border-[#1a1a1a]/10 mb-2">
+                                <span className="font-bold text-[#1a1a1a]/60 uppercase tracking-wide flex items-center gap-1 select-none">
+                                  📢 {lang === 'fr' ? 'Joué par :' : 'Tocado por :'}
+                                </span>
+                                {usage.length === 0 ? (
+                                  <span className="px-2 py-0.5 rounded font-bold bg-[#8b2a1a]/10 text-[#8b2a1a] cordel-border-sm">
+                                    ⚠️ {lang === 'fr' ? 'Non utilisé dans le morceau' : 'Não utilizado na música'}
+                                  </span>
+                                ) : (
+                                  usage.map((u, uIdx) => (
+                                    <span key={uIdx} className={`px-2 py-0.5 rounded font-bold cordel-border-sm ${u.isMaster ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
+                                      {u.trackName} ({lang === 'fr' ? 'Mesures' : 'Compassos'} : {u.measures.join(', ')})
+                                    </span>
+                                  ))
+                                )}
+                              </div>
+                            );
+                          })()}
 
                           {/* Interactive Step Grid */}
                           {/* Resolution header & Tuplet edit tools */}

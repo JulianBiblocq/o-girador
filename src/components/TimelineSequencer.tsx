@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useSequencerStore, isSequencerVisibleTrack, isToadaBus } from '../stores/useSequencerStore';
+import { useSequencerStore, isLinearDAWVisibleTrack, isToadaBus } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef } from 'react';
 import type * as ToneType from 'tone';
@@ -17,7 +17,9 @@ import { ASSETS_BASE_URL, instrumentsConfig, getMaxTicks, getMarkers, isDarkText
 import { CompactPatternRenderer } from './CompactPatternRenderer';
 import { TimelineTrackRow } from './TimelineTrackRow';
 import { TimelinePlayhead } from './TimelinePlayhead';
-
+import { CompassoSelector } from './CompassoSelector';
+import { StepEditorPopup } from './StepEditorPopup';
+import { useTimelineEditStore } from '../stores/useTimelineEditStore';
 import { useSequencer } from '../contexts/SequencerContext';
 
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
@@ -41,6 +43,14 @@ interface TimelineSequencerProps {
   onSaveCloudSection?: (section: SongSection) => void;
   onLoadCloudSection?: (insertAtMeasure: number) => void;
   isActive?: boolean;
+  onStepTouchStart?: (
+    e: React.MouseEvent | React.TouchEvent,
+    patternId: number,
+    stepIdx: number,
+    instId: string,
+    currentVal: string | number,
+    onSelect: (val: string) => void
+  ) => void;
 }
 
 const HEADER_W = 180;
@@ -59,6 +69,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   onSaveCloudSection,
   onLoadCloudSection,
   isActive = true,
+  onStepTouchStart,
 }) => {
   const sequencer = useSequencer();
   const { hasAccess } = useAuth();
@@ -112,20 +123,13 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const trackIds = useSequencerStore(useShallow(state => {
     const visibleTrackIds: number[] = [];
     state.tracks.forEach(t => {
-      if (isSequencerVisibleTrack(t, state.tracks)) {
+      if (isLinearDAWVisibleTrack(t, state.tracks)) {
         visibleTrackIds.push(t.id);
         if (isToadaBus(t) && !t.isSequencerFolded) {
           const puxTrack = state.tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'puxador');
           const coroTrack = state.tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'coro');
           if (puxTrack) visibleTrackIds.push(puxTrack.id);
           if (coroTrack) visibleTrackIds.push(coroTrack.id);
-        }
-      } else {
-        if (t.busId) {
-          const parentBus = state.tracks.find(p => String(p.id) === String(t.busId));
-          if (parentBus && parentBus.isLinkFolder && !parentBus.isSequencerFolded) {
-            visibleTrackIds.push(t.id);
-          }
         }
       }
     });
@@ -435,6 +439,73 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   useEffect(() => {
     propsRef.current = { totalMeasures, measureTimeSigs };
   });
+
+  // Écouteur global keydown pour la saisie clavier directe sur la case survolée (Étape 5)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // 1. Exclusion si en cours de lecture (Contrainte 1)
+      if (isPlaying) {
+        return;
+      }
+
+      // 2. Exclusion stricte des champs de saisie de texte
+      const activeEl = document.activeElement;
+      if (activeEl && (
+        activeEl.tagName === 'INPUT' ||
+        activeEl.tagName === 'TEXTAREA' ||
+        activeEl.getAttribute('contenteditable') === 'true'
+      )) {
+        return;
+      }
+
+      // Touche Escape pour fermer la popup ou vider la cellule
+      if (e.key === 'Escape') {
+        const isPopupOpen = useTimelineEditStore.getState().activeStepKey !== null;
+        if (isPopupOpen) {
+          useTimelineEditStore.getState().closeEditor();
+          e.preventDefault();
+        } else {
+          const hovered = (window as any).activeHoveredStep;
+          if (hovered) {
+            sequencer.handleTrackStepValueChange(
+              hovered.trackId,
+              hovered.patternId,
+              hovered.stepIdx,
+              '0'
+            );
+            e.preventDefault();
+          }
+        }
+        return;
+      }
+
+      // Vérifier s'il y a une cellule survolée
+      const hovered = (window as any).activeHoveredStep;
+      if (!hovered) return;
+
+      const { trackId, patternId, stepIdx, allowedStrokes } = hovered;
+
+      // Touche '0' ou 'Backspace' ou 'Delete' pour vider le pas
+      if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') {
+        sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, '0');
+        e.preventDefault();
+        return;
+      }
+
+      // Si la touche correspond à l'un des raccourcis autorisés (insensible à la casse)
+      const targetStroke = allowedStrokes.find(
+        (s: string) => String(s).toLowerCase() === e.key.toLowerCase()
+      );
+
+      if (targetStroke) {
+        sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, String(targetStroke));
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isPlaying]);
 
   const handleRulerClickOrDrag = (clientX: number) => {
     if (!scrollRef.current) return;
@@ -1214,12 +1285,16 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           >
              {/* Sticky corner */}
              <div
-               className={`timeline-sticky-header sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center font-cactus text-sm font-bold uppercase ${
+               className={`timeline-sticky-header sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-center ${
                  isMobile ? 'px-1.5' : 'px-3'
                }`}
                style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
              >
-               <span>{isMobile ? 'Inst.' : (lang === 'fr' ? 'Instruments' : 'Instrumentos')}</span>
+               {isMobile ? (
+                 <span className="font-cactus text-sm font-bold uppercase">Inst.</span>
+               ) : (
+                 <CompassoSelector className="w-full max-w-[180px] shadow-[2px_2px_0px_rgba(0,0,0,1)]" />
+               )}
              </div>
 
             {/* Left spacer column */}
@@ -1441,7 +1516,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
           {/* ══════════ TRACK ROWS ══════════ */}
           {trackIds.map(trackId => (
-            <TimelineTrackRow key={trackId} trackId={trackId} visibleRange={visibleRange} currentMeasureW={MEASURE_W} />
+            <TimelineTrackRow key={trackId} trackId={trackId} visibleRange={visibleRange} currentMeasureW={MEASURE_W} onStepTouchStart={onStepTouchStart} />
           ))}
           {/* ══════════ PLAYHEAD (Bypass React via Ref) ══════════ */}
           <TimelinePlayhead isActive={isActive} />
@@ -1496,6 +1571,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         <SubscriptionModal lang={lang} onClose={() => setShowSubModal(false)} />
       )}
       <VocalRecordingBar />
+      <StepEditorPopup />
     </div>
     </TimelineUIContext.Provider>
   );

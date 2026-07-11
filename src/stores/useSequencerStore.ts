@@ -125,6 +125,25 @@ export const isSequencerVisibleTrack = (t: TrackGroup, allTracks: TrackGroup[]):
   return !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder);
 };
 
+export const isLinearDAWVisibleTrack = (t: TrackGroup, allTracks: TrackGroup[]): boolean => {
+  if (isToadaChild(t, allTracks)) {
+    return false;
+  }
+  if (isToadaBus(t)) {
+    return true;
+  }
+  if (t.isLinkFolder) {
+    return false;
+  }
+  if (t.isLinkMaster) {
+    return true;
+  }
+  if (t.linkedToTrackId) {
+    return false;
+  }
+  return !t.isBusFolder;
+};
+
 const applyRadii = (list: TrackGroup[]): TrackGroup[] => {
   const drawableTracks = list.filter(t => 
     !t.isHidden && 
@@ -742,9 +761,10 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     get().pushUndoState();
     set((state) => {
       const clickedTrack = state.tracks.find(t => t.id === trackId);
-      const isLinkedChild = clickedTrack && clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder;
+      const isLinkedSlave = clickedTrack && clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && !clickedTrack.isLinkMaster;
+      const isLinkMaster = clickedTrack && clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && clickedTrack.isLinkMaster;
 
-      if (isLinkedChild) {
+      if (isLinkedSlave) {
         return {
           tracks: state.tracks.map(t => {
             if (t.id === trackId) {
@@ -765,7 +785,9 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       const isToadaTrackId = isToadaBus(state.tracks.find(t => t.id === trackId) || {});
       
       let targetTrackId = trackId;
-      if (patternId !== null && patternId !== undefined) {
+      if (isLinkMaster && clickedTrack) {
+        targetTrackId = Number(clickedTrack.linkedToTrackId);
+      } else if (patternId !== null && patternId !== undefined) {
         const ownerTrack = state.tracks.find(t => t.patterns.some(p => p.id === patternId));
         if (ownerTrack) {
           targetTrackId = ownerTrack.id;
@@ -1302,6 +1324,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
 // ---------------------------------------------------------
 export interface PlaybackSlice {
   currentMeasure: number;
+  currentExpandedMeasureIdx: number;
   loopStartMeasure: number | null;
   loopEndMeasure: number | null;
   isLoopRegionActive: boolean;
@@ -1315,16 +1338,19 @@ export interface PlaybackSlice {
   setLoopStartMeasure: (measure: number | null | ((prev: number | null) => number | null)) => void;
   setLoopEndMeasure: (measure: number | null | ((prev: number | null) => number | null)) => void;
   setCurrentMeasure: (measure: number | ((prev: number) => number)) => void;
+  setCurrentExpandedMeasureIdx: (idx: number | ((prev: number) => number)) => void;
 }
 
 const createPlaybackSlice: StateCreator<SequencerStore, [], [], PlaybackSlice> = (set, get) => ({
   currentMeasure: 0,
+  currentExpandedMeasureIdx: 0,
   loopStartMeasure: null,
   loopEndMeasure: null,
   isLoopRegionActive: true,
   isLooping: true,
 
   setCurrentMeasure: (updater) => set(state => ({ currentMeasure: typeof updater === 'function' ? updater(state.currentMeasure) : updater })),
+  setCurrentExpandedMeasureIdx: (updater) => set(state => ({ currentExpandedMeasureIdx: typeof updater === 'function' ? updater(state.currentExpandedMeasureIdx) : updater })),
   setLoopStartMeasure: (updater) => set(state => ({ loopStartMeasure: typeof updater === 'function' ? updater(state.loopStartMeasure) : updater })),
   setLoopEndMeasure: (updater) => set(state => ({ loopEndMeasure: typeof updater === 'function' ? updater(state.loopEndMeasure) : updater })),
 
@@ -1733,7 +1759,17 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
       isEcoMode: nextEcoMode
     };
   }),
-  setEditingTrackId: (id) => set({ editingTrackId: id }),
+  setEditingTrackId: (id) => set((state) => {
+    if (id === null) return { editingTrackId: null };
+    const track = state.tracks.find(t => t.id === id);
+    if (track && track.linkedToTrackId && !track.isLinkFolder) {
+      const parentBus = state.tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder);
+      if (parentBus) {
+        return { editingTrackId: parentBus.id };
+      }
+    }
+    return { editingTrackId: id };
+  }),
   setVocalTransposeSteps: (steps) => set({ vocalTransposeSteps: Math.max(-12, Math.min(12, steps)) }),
   incrementVocalTransposeSteps: () => set((state) => ({ vocalTransposeSteps: Math.min(12, state.vocalTransposeSteps + 1) })),
   decrementVocalTransposeSteps: () => set((state) => ({ vocalTransposeSteps: Math.max(-12, state.vocalTransposeSteps - 1) })),

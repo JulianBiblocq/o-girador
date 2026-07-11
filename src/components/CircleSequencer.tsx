@@ -41,7 +41,8 @@ interface CircleSequencerProps {
     stepIdx: number,
     instId: string,
     currentVal: string | number,
-    onSelect: (val: string) => void
+    onSelect: (val: string) => void,
+    trackId: number
   ) => void;
   langPromptVoiceText?: string;
   isMetroOn?: boolean;
@@ -763,7 +764,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
                   currentVal,
                   (nextVal) => {
                     onStepChange(ownerTrack.id, activePattern.id, i, nextVal);
-                  }
+                  },
+                  ownerTrack.id
                 );
               } else {
                 const visualVal = getVisualStrokeSymbol(currentVal, stateRef.current.isLeftHanded || false, inst.id);
@@ -1359,7 +1361,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           if (track.isLinkFolder) {
             const children = (props.tracks !== undefined ? rawTracks : stateRef.current.rawTracks).filter((t: any) => 
               String(t.linkedToTrackId) === String(track.id) && 
-              !t.isBusFolder
+              !t.isBusFolder &&
+              !t.isLinkMaster
             );
             
             children.forEach((c: any) => {

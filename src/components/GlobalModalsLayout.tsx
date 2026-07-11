@@ -41,7 +41,8 @@ interface GlobalModalsLayoutProps {
     stepIdx: number,
     instId: string,
     currentVal: string | number,
-    onSelect: (val: string) => void
+    onSelect: (val: string) => void,
+    trackId: number
   ) => void;
 }
 

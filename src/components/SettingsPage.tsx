@@ -244,20 +244,31 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   // 2. Extraire toutes les frappes uniques programmées sur une piste
   const getActiveStrokesForTrack = (track: TrackGroup) => {
     const activeStrokes = new Set<string>();
-    track.patterns.forEach((pattern) => {
-      pattern.activeSteps.forEach((step) => {
-        if (step !== 0 && typeof step === 'string') {
-          activeStrokes.add(step);
-        }
-      });
-      pattern.variations?.forEach((variation) => {
-        variation.steps.forEach((step) => {
+    
+    let patternsToScan = track.patterns;
+    if (track.linkedToTrackId && !track.isLinkFolder) {
+      const parentBus = tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder);
+      if (parentBus) {
+        patternsToScan = parentBus.patterns;
+      }
+    }
+
+    if (patternsToScan) {
+      patternsToScan.forEach((pattern) => {
+        pattern.activeSteps.forEach((step) => {
           if (step !== 0 && typeof step === 'string') {
             activeStrokes.add(step);
           }
         });
+        pattern.variations?.forEach((variation) => {
+          variation.steps.forEach((step) => {
+            if (step !== 0 && typeof step === 'string') {
+              activeStrokes.add(step);
+            }
+          });
+        });
       });
-    });
+    }
     return Array.from(activeStrokes).sort();
   };
 

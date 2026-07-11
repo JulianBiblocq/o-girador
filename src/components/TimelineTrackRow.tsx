@@ -11,12 +11,21 @@ interface TimelineTrackRowProps {
   trackId: number;
   visibleRange: { start: number; end: number };
   currentMeasureW: number;
+  onStepTouchStart?: (
+    e: React.MouseEvent | React.TouchEvent,
+    patternId: number,
+    stepIdx: number,
+    instId: string,
+    currentVal: string | number,
+    onSelect: (val: string) => void
+  ) => void;
 }
 
 const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ 
   trackId, 
   visibleRange = { start: 0, end: 8 },
-  currentMeasureW
+  currentMeasureW,
+  onStepTouchStart
 }) => {
   const uiContext = useContext(TimelineUIContext);
   
@@ -201,7 +210,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
 
   return (
     <div
-      className={`flex border-b border-[var(--cordel-border)]/20 h-10 transition-opacity duration-150 relative ${
+      className={`flex border-b border-[var(--cordel-border)]/20 h-10 rounded-none transition-opacity duration-150 relative ${
         !canPlay ? 'opacity-50' : ''
       }`}
       style={{ 
@@ -335,7 +344,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
           } else if (isLinkedChild && dbTrack) {
             const parentBus = tracks.find(p => String(p.id) === String(dbTrack.linkedToTrackId) && p.isLinkFolder);
             if (parentBus) {
-              const override = dbTrack.patternOverrides?.[mIdx];
+              const override = dbTrack.isLinkMaster ? undefined : dbTrack.patternOverrides?.[mIdx];
               if (override === null) {
                 isSilence = true;
                 activePattern = null;
@@ -380,9 +389,9 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
             <TimelineMeasure
               key={mIdx}
               mIdx={mIdx}
-              trackId={currentTrackId}
-              trackIdx={currentTrackIdx}
-              instrumentIdx={currentInstrumentIdx}
+              trackId={isLinkedChild && dbTrack ? dbTrack.id : currentTrackId}
+              trackIdx={isLinkedChild && dbTrack ? trackIndex : currentTrackIdx}
+              instrumentIdx={isLinkedChild && dbTrack ? dbTrack.instrumentIdx : currentInstrumentIdx}
               currentMeasureW={currentMeasureW}
               patternId={activePattern ? activePattern.id : -1}
               patternIdx={patternIdx}
@@ -393,8 +402,8 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               isSectionEnd={isSectionEnd}
               loopStatus={loopStatus}
               isPanningActive={isPanningActive}
-              instId={currentInst.id}
-              instType={currentInst.type}
+              instId={isLinkedChild ? inst.id : currentInst.id}
+              instType={isLinkedChild ? inst.type : currentInst.type}
               lang={lang}
               activePatternName={isSilence ? (lang === 'fr' ? 'Silence' : 'Silêncio') : (activePattern ? activePattern.name : null)}
               patternsList={currentPatternsList}
@@ -405,15 +414,15 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               variationsCount={activePattern?.variationsCount || 0}
               isMacro={isMacro}
               isMinZoom={isMinZoom}
-              instColors={currentInst.colors}
-              instMixerBg={currentInst.mixerBg}
+              instColors={isLinkedChild ? inst.colors : currentInst.colors}
+              instMixerBg={isLinkedChild ? inst.mixerBg : currentInst.mixerBg}
               activePatternActiveSteps={activePattern?.activeSteps}
-              onGridPointerDown={handleGridPointerDown}
               onMeasureClick={handleMeasureClick}
               isLinkedChild={!!isLinkedChild}
               isOverridden={isOverridden}
               isSilence={isSilence}
               hasChildOverrides={hasChildOverrides}
+              onStepTouchStart={onStepTouchStart}
             />
           );
         })}

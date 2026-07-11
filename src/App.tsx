@@ -387,7 +387,8 @@ export default function App() {
     stepIdx: number,
     instId: string,
     currentVal: string | number,
-    onSelect: (val: string) => void
+    onSelect: (val: string) => void,
+    trackId: number
   ) => {
     if ('button' in e && e.button !== 0) return;
     
@@ -417,7 +418,8 @@ export default function App() {
       y: clickY,
       currentVal,
       onSelect,
-      isStickyDefault: e.type !== 'touchstart'
+      isStickyDefault: e.type !== 'touchstart',
+      trackId
     });
     setHoveredStroke(String(currentVal));
   }, []);

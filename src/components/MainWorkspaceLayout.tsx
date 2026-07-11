@@ -235,6 +235,7 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
                 onLoadCloudSection={setLoadSectionInsertMeasure}
                 mestreSignals={filteredMestreSignals}
                 isActive={viewMode === 'timeline'}
+                onStepTouchStart={onStepTouchStart}
               />
             </ErrorBoundary>
           )}

@@ -46,7 +46,8 @@ interface InstrumentPatternGridProps {
     stepIdx: number,
     instId: string,
     currentVal: string | number,
-    onSelect: (val: string) => void
+    onSelect: (val: string) => void,
+    trackId: number
   ) => void;
   onCopyPattern?: (pattern: any) => void;
   onPastePattern?: (patternId: number) => void;
@@ -807,7 +808,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
               handleTrackStepValueChange(trackId, pattern.id, selectedStepIndices, newVal);
             }
             setSelectedStepIndices([]);
-          });
+          }, trackId);
         }
       } else {
         setSelectedStepIndices(prev => {
@@ -905,7 +906,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         } else {
           handleTrackStepValueChange(trackId, pattern.id, stepIdx, newVal);
         }
-      });
+      }, trackId);
     }
   };
 
