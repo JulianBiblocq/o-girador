@@ -606,7 +606,7 @@ export default function App() {
         hasVisitedStudio={hasVisitedStudio}
         isMobile={isMobile}
         mobileTab={mobileTab}
-        setMobileTab={setMobileTab}
+        setMobileTab={(tab) => setMobileTab(tab as any)}
         filteredMestreSignals={filteredMestreSignals}
         refreshMestreSignals={refreshMestreSignals}
         hideGlobalSignals={hideGlobalSignals}
@@ -620,7 +620,7 @@ export default function App() {
         unlockedFolhetos={unlockedFolhetos}
         justUnlockedBookletId={justUnlockedBookletId}
         onClearJustUnlocked={handleClearJustUnlocked}
-        onLaunchExercise={handleLaunchExercise}
+        onLaunchExercise={(ex) => handleLaunchExercise(ex, 0)}
         onGameExit={handleGameExit}
         onQuizSuccess={handleQuizSuccess}
         onDicteeSuccess={handleDicteeSuccess}
@@ -630,7 +630,7 @@ export default function App() {
         onVaralExit={handleVaralExit}
         presetFiles={presetFiles}
         localPresets={localPresets}
-        onStepTouchStart={handleStepTouchStart}
+        onStepTouchStart={(e, pId, sIdx, iId, cur, onSel) => handleStepTouchStart(e, pId, sIdx, iId, cur, onSel, 0)}
         activeRightPanel={activeRightPanel}
         onToggleRightPanel={handleToggleRightPanel}
       />
@@ -638,10 +638,6 @@ export default function App() {
       {viewMode !== 'quiz' && viewMode !== 'dictee' && viewMode !== 'inspecteur' && viewMode !== 'mestre' && viewMode !== 'rythmelive' && viewMode !== 'varal' && viewMode !== 'studio' && viewMode !== 'admin' && (
         <TransportBar
           viewMode={viewMode as any}
-          onViewModeToggle={changeViewMode}
-          isMobile={isMobile}
-          isDarkMode={isDarkMode}
-          onToggleDarkMode={toggleDarkMode}
         />
       )}
       {touchSelector && (

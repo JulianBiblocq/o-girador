@@ -169,7 +169,12 @@ export const vocalEngineService = {
 
     try {
       audioStream = await navigator.mediaDevices.getUserMedia({
-        audio: options.deviceId ? { exact: options.deviceId } : {
+        audio: options.deviceId ? {
+          deviceId: { exact: options.deviceId },
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        } : {
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,

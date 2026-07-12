@@ -1415,6 +1415,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
           if (hasMasterEvent) {
             const visualState = getVisualStrokeSymbol(masterState, localLeftHanded || false, currentInst.id);
+            const visualStateStr = String(visualState);
             if (visualState !== 0 && visualState !== '0') {
               masterRadiusSize = 13 * dynamicScale;
               if (currentInst.type === 'voice') {
@@ -1452,7 +1453,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
                 
                 masterTxtColor = isDarkText(currentInst.id, String(masterState)) ? '#1a1a1a' : '#f4ecd8';
               }
-            } else if (visualState === '0' || visualState === '-') {
+            } else if (visualStateStr === '0' || visualStateStr === '-') {
               masterRadiusSize = (currentInst.type === 'voice' ? 22 : 12) * dynamicScale;
               masterFillColor = '#ab5318'; // orange pour le silence
               masterText = '-';

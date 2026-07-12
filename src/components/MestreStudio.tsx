@@ -677,7 +677,12 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
           const formattedTracks = tracks.map((t: any, idx: number) => ({
              id: t.id || idx,
              instrumentIdx: t.instrumentIdx,
-             patterns: t.patterns ? t.patterns : [{ activeSteps: t.activeSteps || Array(16).fill(0) }]
+             patterns: t.patterns ? t.patterns : [{ activeSteps: t.activeSteps || Array(16).fill(0) }],
+             isMute: t.isMute || false,
+             isSolo: t.isSolo || false,
+             isHidden: t.isHidden || false,
+             volumeVal: t.volumeVal !== undefined ? t.volumeVal : 100,
+             selectedPatternId: t.selectedPatternId !== undefined ? t.selectedPatternId : 0
           }));
 
           const name = file.name;

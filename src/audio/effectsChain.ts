@@ -134,7 +134,7 @@ export function initMasterEffectsChain(
   const multiplier = isEco ? Tone.dbToGain(-8) : 1.0;
   masterVolumeNode.gain.value = baseGain * multiplier;
   
-  masterMeterNode = new Tone.Meter({ channels: 2 });
+  masterMeterNode = new Tone.Meter();
   (window as any).masterMeterNode = masterMeterNode;
   masterLimiterNode.connect(masterMeterNode);
 

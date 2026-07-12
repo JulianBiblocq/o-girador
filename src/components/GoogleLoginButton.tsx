@@ -143,7 +143,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
               <div>
                 <span className="text-xs font-cactus font-bold text-[var(--cordel-text)] truncate flex items-center gap-1">
                   {userProfile.displayName}
-                  {userProfile.role === 'admin' && <Shield size={12} className="text-[#8b2a1a]" title="Administrateur" />}
+                  {userProfile.role === 'admin' && <span title="Administrateur"><Shield size={12} className="text-[#8b2a1a]" /></span>}
                 </span>
                 <span className="text-[10px] font-sans text-[var(--cordel-text)] opacity-60 truncate block">
                   {userProfile.email}

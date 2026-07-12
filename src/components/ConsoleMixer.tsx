@@ -659,8 +659,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                       canPaste={copiedPattern !== null}
                       isActive={isActive}
                       busPosition={busPosition}
-                      isPlaying={isPlaying}
-                      isLeftHanded={isLeftHanded}
                     />
                   );
                 }

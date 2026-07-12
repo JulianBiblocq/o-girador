@@ -498,10 +498,23 @@ export class AudioEngine {
             fetchPath = baseUrl.endsWith('/') ? baseUrl + cleanPath.slice(1) : baseUrl + cleanPath;
           }
           const encodedFetchPath = fetchPath.split('/').map(segment => encodeURIComponent(segment)).join('/');
-          
-          let response = await fetch(encodedFetchPath);
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+          let response: Response | null = null;
+          let attempts = 3;
+          let delayMs = 300;
+          for (let attempt = 1; attempt <= attempts; attempt++) {
+            try {
+              response = await fetch(encodedFetchPath);
+              if (response.ok) break;
+              throw new Error(`HTTP status ${response.status}`);
+            } catch (fetchErr) {
+              if (attempt === attempts) throw fetchErr;
+              console.warn(`AudioEngine: Fetch attempt ${attempt} failed for ${path}. Retrying in ${delayMs}ms...`, fetchErr);
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+              delayMs *= 2;
+            }
+          }
+          if (!response || !response.ok) {
+            throw new Error(`HTTP error! status: ${response ? response.status : 'unknown'}`);
           }
           let arrayBuffer = await response.arrayBuffer();
           
@@ -1150,13 +1163,7 @@ export class AudioEngine {
       this.fallbackTimerId = null;
     }
     
-    if (this.audioContext && this.audioContext.state !== 'closed') {
-      try {
-        this.audioContext.close();
-      } catch (e) {
-        console.warn("Failed to close AudioContext during dispose:", e);
-      }
-    }
+
     
     this.bufferPool.clear();
     this.loadingPromises.clear();

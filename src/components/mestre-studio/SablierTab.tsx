@@ -27,7 +27,7 @@ interface SablierTabProps {
   
   handleLoadSablierSequence: (e: React.ChangeEvent<HTMLInputElement>, type: 'fond' | 'cible' | 'piege1' | 'piege2' | 'piege3') => void;
   handleLoadDraft: (e: React.ChangeEvent<HTMLInputElement>, type: string) => void;
-  handleLoadPresetToGame: (presetName: string, gameType: 'dictee' | 'inspecteur' | 'rythmelive' | 'sablier_mestre') => void;
+  handleLoadPresetToGame: any;
   presetFiles: string[];
   localPresets: string[];
 }

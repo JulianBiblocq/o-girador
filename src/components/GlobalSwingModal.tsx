@@ -28,7 +28,7 @@ export const GlobalSwingModal: React.FC<GlobalSwingModalProps> = ({
   };
 
   const handleCustomOffsetChange = (index: number, val: number) => {
-    const newOffsets = [...localSwing.customOffsets];
+    const newOffsets = [...localSwing.customOffsets] as [number, number, number, number];
     newOffsets[index] = val;
     const newSwing = { ...localSwing, customOffsets: newOffsets };
     setLocalSwing(newSwing);
@@ -36,7 +36,7 @@ export const GlobalSwingModal: React.FC<GlobalSwingModalProps> = ({
   };
 
   const handleResetCustom = () => {
-    const newSwing = { ...localSwing, customOffsets: [0, 8, -29, -58] };
+    const newSwing = { ...localSwing, customOffsets: [0, 8, -29, -58] as [number, number, number, number] };
     setLocalSwing(newSwing);
     setGlobalSwing(newSwing);
   };

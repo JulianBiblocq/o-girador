@@ -23,7 +23,7 @@ interface GlobalModalsLayoutProps {
   setSelectedExportTracks: React.Dispatch<React.SetStateAction<Set<number>>>;
   selectedAnnexTracks: Set<number>;
   setSelectedAnnexTracks: React.Dispatch<React.SetStateAction<Set<number>>>;
-  executeExport: (type: string) => void;
+  executeExport: (wantsPrint: boolean) => void;
   printLegendOnly: () => void;
   customDialog: any;
   setCustomDialog: (val: any) => void;
@@ -154,12 +154,14 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
           <SaveSectionModal
             section={sectionToSave}
             onClose={() => setSectionToSave(null)}
+            lang={sequencer.lang}
           />
         )}
         {loadSectionInsertMeasure !== null && (
           <LoadSectionModal
             insertAtMeasure={loadSectionInsertMeasure}
             onClose={() => setLoadSectionInsertMeasure(null)}
+            lang={sequencer.lang}
           />
         )}
       </Suspense>
@@ -171,7 +173,7 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
             trackId={editingTrackId}
             onClose={handleCloseDetailEditor}
             isMobile={isMobile}
-            onStepTouchStart={handleStepTouchStart}
+            onStepTouchStart={(e, pId, sIdx, iId, cur, onSel) => handleStepTouchStart(e, pId, sIdx, iId, cur, onSel, editingTrackId)}
             setEditingTrackId={setEditingTrackId}
           />
         </Suspense>

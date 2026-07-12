@@ -30,6 +30,24 @@ export type SequencerContextType = ReturnType<typeof useSequencerState> & {
     alertAsync: (message: string) => Promise<void>;
     confirmAsync: (message: string, confirmLabel?: string, cancelLabel?: string) => Promise<boolean>;
     promptAsync: (message: string, defaultValue?: string) => Promise<string | null>;
+    isRecordingVocal?: boolean;
+    recordingVocalPatternId?: number | null;
+    recordedPatternIds?: number[];
+    startVocalRecording?: any;
+    stopVocalRecording?: any;
+    handleVocalModeChange?: any;
+    handleDeleteVocalRecording?: any;
+    handleVocalLatencyChange?: any;
+    audioDevices?: any[];
+    selectedAudioDeviceId?: string;
+    handleAudioDeviceChange?: any;
+    handleImportVocalFile?: any;
+    isVocalGuideEnabled?: boolean;
+    setIsVocalGuideEnabled?: any;
+    handleVocalBpmSyncToggle?: any;
+    activeVariationsRef?: any;
+    runAutoCalibration?: any;
+    vocalCalibrationLatencyMs?: number;
   };
 
 const SequencerContext = createContext<SequencerContextType | undefined>(undefined);

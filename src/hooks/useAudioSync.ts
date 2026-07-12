@@ -389,6 +389,9 @@ export function useAudioSync({
     iteration: 1
   });
   const isAudioInitializedRef = useRef(false);
+  const onTickRef = useRef<(time: number) => void>(() => {});
+  const getTickDurationRef = useRef<() => number>(() => 0.25);
+  const getTicksPerMeasureRef = useRef<(idx: number) => number>(() => 96);
 
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -471,6 +474,18 @@ export function useAudioSync({
 
     return unsub;
   }, []);
+
+  // Update dynamic callback refs on every render to ensure the AudioEngine loop uses fresh closures
+  getTickDurationRef.current = () => {
+    const currentMeasureIdx = measureCountRef.current % (totalMeasuresRef.current || 1);
+    const rawBpm = measureBpmsRef.current[currentMeasureIdx];
+    const targetBpm = isNaN(rawBpm) || rawBpm <= 0 ? 100 : rawBpm;
+    return 2.5 / targetBpm;
+  };
+  getTicksPerMeasureRef.current = (measureIdx) => {
+    const timeSig = measureTimeSigsRef.current[measureIdx % (totalMeasuresRef.current || 1)] || '4/4';
+    return getMaxTicks(timeSig);
+  };
 
   // Local values sync
   useEffect(() => {
@@ -804,6 +819,17 @@ export function useAudioSync({
     const initAudio = async () => {
       try {
         await loadTone();
+
+        // Guard: Context Closed (Fail-safe)
+        if (Tone.getContext().state === 'closed') {
+          Tone.setContext(new Tone.Context());
+        }
+
+        if (audioEngine) {
+          setIsLoading(false);
+          return;
+        }
+
         if (isAudioInitializedRef.current) return; // already initialized
         isAudioInitializedRef.current = true;
 
@@ -898,459 +924,436 @@ export function useAudioSync({
       });
 
       // Stable 96-tick sequencing loop using our AudioEngine
+      onTickRef.current = (time) => {
+        const isDocHidden = typeof document !== 'undefined' && document.hidden;
+        let currentTicks = maxTicksRef.current;
+        let stepIdx = currentStepIndexRef.current;
+
+        // 1. Déterminer le prochain pas et commuter la mesure si on arrive à la fin
+        let nextStepIdx = stepIdx + 1;
+
+        if (stepIdx === -1) {
+          nextStepIdx = 0;
+          if (soloPatternPlayIdRef.current !== null) {
+            measureCountRef.current = 0;
+          } else if (isLoopRegionActiveRef.current && loopStartRef.current !== null && (measureCountRef.current < loopStartRef.current || (loopEndRef.current !== null && measureCountRef.current > loopEndRef.current))) {
+            measureCountRef.current = loopStartRef.current;
+          } else {
+            measureCountRef.current = measureCountRef.current % (totalMeasuresRef.current || 1);
+          }
+          const firstMeasureIdx = measureCountRef.current;
+          const firstTimeSig = measureTimeSigsRef.current[firstMeasureIdx] || '4/4';
+          currentTicks = getMaxTicks(firstTimeSig);
+          maxTicksRef.current = currentTicks;
+
+          flatArrayPointerRef.current = 0;
+          absoluteTickCountRef.current = getMeasureStartTick(firstMeasureIdx, measureTimeSigsRef.current);
+          currentMeasureStartTickRef.current = absoluteTickCountRef.current;
+          lastAbsoluteTickRef.current = -1;
+        } else if (stepIdx === currentTicks - 1) {
+          nextStepIdx = 0;
+          if (soloPatternPlayIdRef.current !== null) {
+            measureCountRef.current = 0;
+          } else {
+            const currentMeasureIdx = measureCountRef.current;
+            const effectiveLoopEnd = (isLoopRegionActiveRef.current && loopEndRef.current !== null) ? loopEndRef.current : (totalMeasuresRef.current - 1);
+
+            let activeSection = null;
+            const sections = songSectionsRef.current;
+            if (sections) {
+              for (let i = 0; i < sections.length; i++) {
+                if (sections[i].endMeasure === currentMeasureIdx) {
+                  activeSection = sections[i];
+                  break;
+                }
+              }
+            }
+
+            if (pendingMeasureRef.current !== null) {
+              measureCountRef.current = pendingMeasureRef.current;
+              pendingMeasureRef.current = null;
+              sectionIterationRef.current = 1;
+            } else if (currentMeasureIdx === effectiveLoopEnd) {
+              // Global boundary logic wins
+              sectionIterationRef.current = 1;
+              if (!isLoopingRef.current) {
+                setTimeout(() => {
+                  handleStop();
+                }, 0);
+                measureCountRef.current = (isLoopRegionActiveRef.current && loopStartRef.current !== null) ? loopStartRef.current : 0;
+              } else {
+                measureCountRef.current = (isLoopRegionActiveRef.current && loopStartRef.current !== null) ? loopStartRef.current : 0;
+              }
+            } else if (activeSection && sectionIterationRef.current < (activeSection.repeatCount || 1)) {
+              // Local section jump
+              sectionIterationRef.current++;
+              measureCountRef.current = activeSection.startMeasure;
+            } else {
+              // Normal progression
+              if (activeSection) {
+                sectionIterationRef.current = 1; // reset for the next pass
+              }
+              measureCountRef.current = (measureCountRef.current + 1) % (totalMeasuresRef.current || 1);
+            }
+          }
+          const nextMeasureIdx = measureCountRef.current;
+          const nextTimeSig = measureTimeSigsRef.current[nextMeasureIdx] || '4/4';
+          currentTicks = getMaxTicks(nextTimeSig);
+          maxTicksRef.current = currentTicks;
+        } else {
+          nextStepIdx = nextStepIdx % currentTicks;
+        }
+
+        // 2. Avancer le pas
+        stepIdx = nextStepIdx;
+        currentStepIndexRef.current = stepIdx;
+
+        const currentMeasureIdx = measureCountRef.current;
+
+        if (audioEngine) {
+          audioEngine.schedulingStep = stepIdx;
+          audioEngine.schedulingMeasure = currentMeasureIdx;
+        }
+
+        if (stepIdx === 0) {
+          const prevMeasureIdx = (currentMeasureIdx - 1 + (totalMeasuresRef.current || 1)) % (totalMeasuresRef.current || 1);
+          const sigId = measureSignalsRef.current[prevMeasureIdx] || null;
+          lastPlayedSignalIdRef.current = sigId;
+
+          currentMeasureStartTickRef.current = getMeasureStartTick(currentMeasureIdx, measureTimeSigsRef.current);
+        }
+
+        const _stepForUI = isNaN(stepIdx) ? 0 : stepIdx;
+        const _measureForUI = isNaN(currentMeasureIdx) ? 0 : currentMeasureIdx;
+        const _currentTicks = isNaN(currentTicks) || currentTicks <= 0 ? 96 : currentTicks;
+        const ratioVal = _stepForUI / _currentTicks;
+
+        const rawCtx = Tone.getContext().rawContext as AudioContext;
+        // Compensate for hardware output latency on mobile devices so visuals match sound
+        const visualDelay = rawCtx.outputLatency || 0.050; // Fallback to 50ms if not supported
+        const drawTime = time + visualDelay;
+
+        if (!isDocHidden) {
+          Tone.Draw.schedule(() => {
+            if (audioEngine) {
+              audioEngine.currentStep = _stepForUI;
+              audioEngine.currentMeasure = _measureForUI;
+            }
+
+            const detail = tickEventDetailRef.current;
+            detail.step = _stepForUI;
+            detail.measure = _measureForUI;
+            detail.maxTicks = _currentTicks;
+            detail.ratio = ratioVal;
+            detail.visualStep16 = Math.floor(ratioVal * 16);
+            detail.visualStep12 = Math.floor(ratioVal * 12);
+            detail.time = time;
+            detail.iteration = sectionIterationRef.current;
+
+            tickSubscribers.forEach((cb) => {
+              try { cb(detail); } catch (err) { console.error(err); }
+            });
+          }, drawTime);
+        }
+
+        // Pré-calculer la durée d'un 96n une seule fois par tick
+        const rawBpm = measureBpmsRef.current[currentMeasureIdx];
+        const targetBpm = isNaN(rawBpm) || rawBpm <= 0 ? 100 : rawBpm;
+        const tick96nSec = 2.5 / targetBpm;
+
+        // 3. Appliquer le BPM
+        const transition = measureBpmTransitionsRef.current[currentMeasureIdx] || 'immediate';
+
+        if (stepIdx === 0) {
+          try {
+            const totalM = totalMeasuresRef.current || 1;
+            const prevMeasureIdx = (currentMeasureIdx - 1 + totalM) % totalM;
+            const rawPrevBpm = measureBpmsRef.current[prevMeasureIdx];
+            const startBpm = isNaN(rawPrevBpm) || rawPrevBpm <= 0 ? targetBpm : rawPrevBpm;
+
+            if (startBpm !== targetBpm) {
+              if (transition === 'ramp') {
+                const measureDurationSec = currentTicks * tick96nSec;
+                Tone.Transport.bpm.cancelScheduledValues(time);
+                Tone.Transport.bpm.setValueAtTime(startBpm, time);
+                Tone.Transport.bpm.linearRampToValueAtTime(targetBpm, time + measureDurationSec);
+              } else {
+                Tone.Transport.bpm.cancelScheduledValues(time);
+                Tone.Transport.bpm.setValueAtTime(targetBpm, time);
+              }
+            }
+          } catch (e) {}
+        }
+
+        // 3b. Appliquer le volume
+        const targetVolPercent = measureVolsRef.current[currentMeasureIdx] !== undefined ? measureVolsRef.current[currentMeasureIdx] : 100;
+        const volTransition = measureVolTransitionsRef.current[currentMeasureIdx] || 'immediate';
+
+        if (stepIdx === 0) {
+          try {
+            const endGain = targetVolPercent / 100;
+            const prevMeasureIdx = (currentMeasureIdx - 1 + (totalMeasuresRef.current || 1)) % (totalMeasuresRef.current || 1);
+            const startVolPercent = measureVolsRef.current[prevMeasureIdx] !== undefined ? measureVolsRef.current[prevMeasureIdx] : 100;
+            const startGain = startVolPercent / 100;
+
+            if (endGain !== startGain) {
+              if (volTransition === 'ramp') {
+                const measureDurationSec = currentTicks * tick96nSec;
+                Tone.Destination.volume.cancelScheduledValues(time);
+                Tone.Destination.volume.setValueAtTime(Tone.gainToDb(startGain === 0 ? 0.0001 : startGain), time);
+                Tone.Destination.volume.linearRampToValueAtTime(Tone.gainToDb(endGain === 0 ? 0.0001 : endGain), time + measureDurationSec);
+              } else {
+                Tone.Destination.volume.cancelScheduledValues(time);
+                Tone.Destination.volume.setValueAtTime(Tone.gainToDb(endGain === 0 ? 0.0001 : endGain), time);
+              }
+            }
+          } catch (e) {}
+        }
+
+        // Click metronome beat pulse
+        const currentMeasureSig = measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
+        const markers = getCachedMarkers(currentMeasureSig, currentTicks);
+
+        if (isMetroOnRef.current && markers.includes(stepIdx)) {
+          if (metroVolumeRef.current > 0) {
+            const isAccent = (stepIdx === 0);
+            playNativeMetroClick(time, isAccent, 'synth', 1.8);
+          }
+        }
+
+        // Parse trigger of step events
+        let swingOffset = 0;
+        let swingJitter = 0;
+        const globalMode = globalSwingRef.current.mode;
+        
+        if (globalMode !== 'off') {
+          const timeSig = measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
+          let beatsCount = 4;
+          if (timeSig === '3/4') beatsCount = 3;
+          else if (timeSig === '2/4' || timeSig === '6/8') beatsCount = 2;
+          else if (timeSig === '12/8') beatsCount = 4;
+
+          const ticksPerBeat = currentTicks / beatsCount;
+          const stepDurationSec = tick96nSec * 6; // one 16th note
+          const posInBeat = ((stepIdx / ticksPerBeat) % 1) * 4;
+          const posInGroup = Math.round(posInBeat) % 4;
+          
+          swingJitter = (nextRandom() * 0.06 - 0.03) * stepDurationSec;
+
+          if (globalMode === 'maracatu') {
+            if (posInGroup === 0) {
+              swingOffset = swingJitter;
+            } else if (posInGroup === 1) {
+              swingOffset = (0.04 * stepDurationSec) + swingJitter;
+            } else if (posInGroup === 2) {
+              const minimalJitter = (nextRandom() * 0.02 - 0.01) * stepDurationSec;
+              swingOffset = (-0.144 * stepDurationSec) + minimalJitter;
+            } else if (posInGroup === 3) {
+              swingOffset = (-0.292 * stepDurationSec) + swingJitter;
+            }
+          } else if (globalMode === 'custom') {
+            // Custom offset is defined in percentages from -100 to 100, where 100 is half a step duration
+            const customOffsetPct = globalSwingRef.current.customOffsets[posInGroup] || 0;
+            swingOffset = (customOffsetPct / 100) * stepDurationSec * 0.5 + swingJitter;
+          }
+        }
+        const swingTime = time + swingOffset;
+
+        // Percussive notes playback (flat compiled schedule)
+        const currentAbsoluteTick = currentMeasureStartTickRef.current + stepIdx;
+        const flatArray = flatCompiledScheduleRef.current;
+        if (flatArray) {
+          const len = flatArray.length;
+          let ptr = flatArrayPointerRef.current;
+
+          // Reset pointer if compiled schedule changed, or currentAbsoluteTick decreased or jumped significantly
+          if (flatArray !== lastCompiledScheduleRef.current || currentAbsoluteTick < lastAbsoluteTickRef.current || currentAbsoluteTick - lastAbsoluteTickRef.current > 5) {
+            ptr = 0;
+            while (ptr < len && flatArray[ptr] < currentAbsoluteTick) {
+              ptr += 4;
+            }
+            lastCompiledScheduleRef.current = flatArray;
+          }
+          lastAbsoluteTickRef.current = currentAbsoluteTick;
+
+          while (ptr < len) {
+            const noteTick = flatArray[ptr];
+            if (noteTick > currentAbsoluteTick) {
+              break;
+            }
+
+            if (noteTick === currentAbsoluteTick) {
+              const packedData = flatArray[ptr + 1];
+              const velocity = flatArray[ptr + 2];
+              const microtimingPct = flatArray[ptr + 3];
+
+              // Decode packedData: trackIdx (8 bits), circleStepIdx (5 bits), strokeCharCode (7 bits), decayPct (7 bits), isTuplet (1 bit)
+              const trackIdx = (packedData >> 20) & 0xFF;
+              const circleStepIdx = (packedData >> 15) & 0x1F;
+              const strokeCharCode = (packedData >> 8) & 0x7F;
+              const decayPct = (packedData >> 1) & 0x7F;
+              const isTuplet = (packedData & 1) === 1;
+
+              const liveTrack = tracksRef.current[trackIdx];
+              if (liveTrack) {
+                const inst = instrumentsConfig[liveTrack.instrumentIdx];
+                if (inst) {
+                  const trackVolPct = liveTrack.volumeVal ?? 100;
+                  if (trackVolPct > 0) {
+                    const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                    const finalVel = velocity * trackVolLinear;
+                    const strokeSymbol = String.fromCharCode(strokeCharCode);
+                    const decayMultiplier = decayPct / 100;
+
+                    // Calculate real-time swing and microtiming offsets
+                    let noteSwingOffset = 0;
+                    if (globalMode !== 'off') {
+                      if (isTuplet) {
+                        noteSwingOffset = swingJitter;
+                      } else {
+                        noteSwingOffset = swingOffset;
+                      }
+                    }
+
+                    let activePattern = null;
+                    const patterns = liveTrack.patterns;
+                    const numPatterns = patterns.length;
+                    for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+                      if (patterns[pIdx].measureAssignments[currentMeasureIdx]) {
+                        activePattern = patterns[pIdx];
+                        break;
+                      }
+                    }
+                    const stepCount = activePattern ? activePattern.steps : 16;
+                    const stepDurSec = tick96nSec * (currentTicks / stepCount);
+                    const microOffset = (microtimingPct / 100) * stepDurSec * 0.5;
+
+                    const triggerTime = time + noteSwingOffset + microOffset;
+
+                    audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
+
+                    // Visual hit trigger
+                    if (!isDocHidden) {
+                      Tone.Draw.schedule(() => {
+                        hitTriggersRef.current.push(liveTrack.id, circleStepIdx, strokeCharCode);
+                      }, triggerTime);
+                    }
+                  }
+                }
+              }
+            }
+            ptr += 4;
+          }
+          flatArrayPointerRef.current = ptr;
+        }
+
+        // Vocal recordings logic
+        const tracks = tracksRef.current;
+        const numTracks = tracks.length;
+        const currentMeasureLocal = measureCountRef.current % totalMeasuresRef.current;
+
+        for (let trackIdx = 0; trackIdx < numTracks; trackIdx++) {
+          const track = tracks[trackIdx];
+          const inst = instrumentsConfig[track.instrumentIdx];
+          if (!inst || inst.type !== 'voice') continue;
+
+          const targetPatternId = useAudioStore.getState().targetPatternId;
+          const recordingStatus = useAudioStore.getState().recordingStatus;
+          if (targetPatternId !== null && recordingStatus === 'recording') {
+            const hasPatternBeingRecorded = track.patterns.some(p => p.id === targetPatternId);
+            if (hasPatternBeingRecorded) {
+              if (stepIdx === currentTicks - 1) {
+                vocalEngineService.recordedMeasuresCount++;
+                if (vocalEngineService.recordedMeasuresCount >= vocalEngineService.recordingDurationMeasures) {
+                  const stopDelayMs = Math.max(0, (time + tick96nSec - Tone.context.rawContext.currentTime) * 1000) + 1000;
+                  workerSetTimeout(() => {
+                    vocalEngineService.stopRecording();
+                  }, stopDelayMs);
+                }
+              }
+            }
+          }
+
+          // Playback of vocal patterns
+          let activePattern = null;
+          const patterns = track.patterns;
+          const numPatterns = patterns.length;
+          for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+            if (patterns[pIdx].measureAssignments[currentMeasureLocal]) {
+              activePattern = patterns[pIdx];
+              break;
+            }
+          }
+          if (!activePattern) continue;
+
+          const isSoloPlayActive = soloPatternPlayIdRef.current !== null;
+          let canPlay = false;
+
+          if (isSoloPlayActive) {
+            for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+              if (patterns[pIdx].id === soloPatternPlayIdRef.current) {
+                canPlay = true;
+                break;
+              }
+            }
+          } else {
+            let hasSolo = false;
+            for (let tIdx = 0; tIdx < numTracks; tIdx++) {
+              if (tracks[tIdx].isSolo) {
+                hasSolo = true;
+                break;
+              }
+            }
+            canPlay = hasSolo ? track.isSolo : !track.isMute;
+          }
+
+          if (!canPlay) continue;
+
+          if (activePattern.vocalMode === 'micro') {
+            if (stepIdx === 0) {
+              vocalEngineService.playVocalPattern(activePattern.id, time);
+            }
+          } else {
+            const stepCount = activePattern.steps;
+            if (stepIdx % (currentTicks / stepCount) === 0) {
+              const cellIdx = Math.floor(stepIdx / (currentTicks / stepCount));
+              const state = activePattern.activeSteps[cellIdx];
+              if (state && state !== 0) {
+                const triggerTime = swingTime;
+                const liveTrack = tracks[trackIdx];
+                const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
+                if (trackVolPct > 0) {
+                  const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                  const noteVal = activePattern.notes?.[cellIdx] || 'C4';
+                  const transposeSteps = useSequencerStore.getState().vocalTransposeSteps || 0;
+                  let finalNoteVal = noteVal;
+                  if (transposeSteps !== 0) {
+                    try {
+                      finalNoteVal = Tone.Frequency(noteVal).transpose(transposeSteps).toNote();
+                    } catch (_) {}
+                  }
+                  const noteFreq = noteToFrequency(finalNoteVal);
+                  const decayVal = activePattern.decays?.[cellIdx] ?? 10;
+                  const numSteps = getVoiceNoteStepsFromDecay(decayVal);
+                  const noteDuration = (numSteps * 6) * tick96nSec;
+                  playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[liveTrack.id]);
+                }
+
+                if (!isDocHidden) {
+                  Tone.Draw.schedule(() => {
+                    hitTriggersRef.current.push(track.id, cellIdx, state);
+                  }, triggerTime);
+                }
+              }
+            }
+          }
+        }
+      };
+
       const rawCtx = Tone.getContext().rawContext as AudioContext;
       audioEngine = new AudioEngine(
         rawCtx,
-        (time) => {
-          const isDocHidden = typeof document !== 'undefined' && document.hidden;
-          if (import.meta.env.DEV) {
-          }
-          let currentTicks = maxTicksRef.current;
-          let stepIdx = currentStepIndexRef.current;
-
-          // 1. Déterminer le prochain pas et commuter la mesure si on arrive à la fin
-          let nextStepIdx = stepIdx + 1;
-
-          if (stepIdx === -1) {
-            nextStepIdx = 0;
-            if (soloPatternPlayIdRef.current !== null) {
-              measureCountRef.current = 0;
-            } else if (isLoopRegionActiveRef.current && loopStartRef.current !== null && (measureCountRef.current < loopStartRef.current || (loopEndRef.current !== null && measureCountRef.current > loopEndRef.current))) {
-              measureCountRef.current = loopStartRef.current;
-            } else {
-              measureCountRef.current = measureCountRef.current % (totalMeasuresRef.current || 1);
-            }
-            const firstMeasureIdx = measureCountRef.current;
-            const firstTimeSig = measureTimeSigsRef.current[firstMeasureIdx] || '4/4';
-            currentTicks = getMaxTicks(firstTimeSig);
-            maxTicksRef.current = currentTicks;
-
-            flatArrayPointerRef.current = 0;
-            absoluteTickCountRef.current = getMeasureStartTick(firstMeasureIdx, measureTimeSigsRef.current);
-            currentMeasureStartTickRef.current = absoluteTickCountRef.current;
-            lastAbsoluteTickRef.current = -1;
-          } else if (stepIdx === currentTicks - 1) {
-            nextStepIdx = 0;
-            if (soloPatternPlayIdRef.current !== null) {
-              measureCountRef.current = 0;
-            } else {
-              const currentMeasureIdx = measureCountRef.current;
-              const effectiveLoopEnd = (isLoopRegionActiveRef.current && loopEndRef.current !== null) ? loopEndRef.current : (totalMeasuresRef.current - 1);
-
-              let activeSection = null;
-              const sections = songSectionsRef.current;
-              if (sections) {
-                for (let i = 0; i < sections.length; i++) {
-                  if (sections[i].endMeasure === currentMeasureIdx) {
-                    activeSection = sections[i];
-                    break;
-                  }
-                }
-              }
-
-              if (pendingMeasureRef.current !== null) {
-                measureCountRef.current = pendingMeasureRef.current;
-                pendingMeasureRef.current = null;
-                sectionIterationRef.current = 1;
-              } else if (currentMeasureIdx === effectiveLoopEnd) {
-                // Global boundary logic wins
-                sectionIterationRef.current = 1;
-                if (!isLoopingRef.current) {
-                  setTimeout(() => {
-                    handleStop();
-                  }, 0);
-                  measureCountRef.current = (isLoopRegionActiveRef.current && loopStartRef.current !== null) ? loopStartRef.current : 0;
-                } else {
-                  measureCountRef.current = (isLoopRegionActiveRef.current && loopStartRef.current !== null) ? loopStartRef.current : 0;
-                }
-              } else if (activeSection && sectionIterationRef.current < (activeSection.repeatCount || 1)) {
-                // Local section jump
-                sectionIterationRef.current++;
-                measureCountRef.current = activeSection.startMeasure;
-              } else {
-                // Normal progression
-                if (activeSection) {
-                  sectionIterationRef.current = 1; // reset for the next pass
-                }
-                measureCountRef.current = (measureCountRef.current + 1) % (totalMeasuresRef.current || 1);
-              }
-            }
-            const nextMeasureIdx = measureCountRef.current;
-            const nextTimeSig = measureTimeSigsRef.current[nextMeasureIdx] || '4/4';
-            currentTicks = getMaxTicks(nextTimeSig);
-            maxTicksRef.current = currentTicks;
-          } else {
-            nextStepIdx = nextStepIdx % currentTicks;
-          }
-
-          // 2. Avancer le pas
-          stepIdx = nextStepIdx;
-          currentStepIndexRef.current = stepIdx;
-
-          const currentMeasureIdx = measureCountRef.current;
-
-          if (audioEngine) {
-            audioEngine.schedulingStep = stepIdx;
-            audioEngine.schedulingMeasure = currentMeasureIdx;
-          }
-
-          if (stepIdx === 0) {
-            const prevMeasureIdx = (currentMeasureIdx - 1 + (totalMeasuresRef.current || 1)) % (totalMeasuresRef.current || 1);
-            const sigId = measureSignalsRef.current[prevMeasureIdx] || null;
-            lastPlayedSignalIdRef.current = sigId;
-
-            currentMeasureStartTickRef.current = getMeasureStartTick(currentMeasureIdx, measureTimeSigsRef.current);
-          }
-
-          const _stepForUI = isNaN(stepIdx) ? 0 : stepIdx;
-          const _measureForUI = isNaN(currentMeasureIdx) ? 0 : currentMeasureIdx;
-          const _currentTicks = isNaN(currentTicks) || currentTicks <= 0 ? 96 : currentTicks;
-          const ratioVal = _stepForUI / _currentTicks;
-
-          const delaySec = Math.max(0, time - rawCtx.currentTime);
-          
-          // Compensate for hardware output latency on mobile devices so visuals match sound
-          const visualDelay = rawCtx.outputLatency || 0.050; // Fallback to 50ms if not supported
-          const drawTime = time + visualDelay;
-
-          if (!isDocHidden) {
-            Tone.Draw.schedule(() => {
-              // ECO MODE: We used to bypass the visual dispatch here, but we now allow the needle to animate
-              // while saving CPU strictly on DSP effects (Reverb, Compressor).
-
-              if (audioEngine) {
-                audioEngine.currentStep = _stepForUI;
-                audioEngine.currentMeasure = _measureForUI;
-              }
-
-              const detail = tickEventDetailRef.current;
-              detail.step = _stepForUI;
-              detail.measure = _measureForUI;
-              detail.maxTicks = _currentTicks;
-              detail.ratio = ratioVal;
-              detail.visualStep16 = Math.floor(ratioVal * 16);
-              detail.visualStep12 = Math.floor(ratioVal * 12);
-              detail.time = time;
-              detail.iteration = sectionIterationRef.current;
-
-              tickSubscribers.forEach((cb) => {
-                try { cb(detail); } catch (err) { console.error(err); }
-              });
-
-              // OPTIMISATION : Ne pas mettre à jour le store Zustand de la mesure pendant la lecture.
-              // Les composants critiques (Playhead, CircleSequencer) se mettent déjà à jour en temps réel
-              // via les événements DOM natifs 'o-girador-tick'. Éviter cette mise à jour de store durant la lecture
-              // élimine les rendus React lourds au début de chaque mesure, libérant le Main Thread
-              // et évitant les sautes de son ou saccades. La synchronisation React se fait lors de la pause/arrêt/seek.
-              /*
-              if (_stepForUI === 0) {
-                requestAnimationFrame(() => {
-                  setTimeout(() => {
-                    React.startTransition(() => {
-                      setCurrentMeasure(_measureForUI);
-                    });
-                  }, 0);
-                });
-              }
-              */
-            }, drawTime);
-          }
-
-          // Pré-calculer la durée d'un 96n une seule fois par tick
-          const rawBpm = measureBpmsRef.current[currentMeasureIdx];
-          const targetBpm = isNaN(rawBpm) || rawBpm <= 0 ? 100 : rawBpm;
-          const tick96nSec = 2.5 / targetBpm;
-
-          // 3. Appliquer le BPM
-          const transition = measureBpmTransitionsRef.current[currentMeasureIdx] || 'immediate';
-
-          if (stepIdx === 0) {
-            try {
-              const totalM = totalMeasuresRef.current || 1;
-              const prevMeasureIdx = (currentMeasureIdx - 1 + totalM) % totalM;
-              const rawPrevBpm = measureBpmsRef.current[prevMeasureIdx];
-              const startBpm = isNaN(rawPrevBpm) || rawPrevBpm <= 0 ? targetBpm : rawPrevBpm;
-
-              if (startBpm !== targetBpm) {
-                if (transition === 'ramp') {
-                  const measureDurationSec = currentTicks * tick96nSec;
-                  Tone.Transport.bpm.cancelScheduledValues(time);
-                  Tone.Transport.bpm.setValueAtTime(startBpm, time);
-                  Tone.Transport.bpm.linearRampToValueAtTime(targetBpm, time + measureDurationSec);
-                } else {
-                  Tone.Transport.bpm.cancelScheduledValues(time);
-                  Tone.Transport.bpm.setValueAtTime(targetBpm, time);
-                }
-              }
-            } catch (e) {}
-          }
-
-          // 3b. Appliquer le volume
-          const targetVolPercent = measureVolsRef.current[currentMeasureIdx] !== undefined ? measureVolsRef.current[currentMeasureIdx] : 100;
-          const volTransition = measureVolTransitionsRef.current[currentMeasureIdx] || 'immediate';
-
-          if (stepIdx === 0) {
-            try {
-              const endGain = targetVolPercent / 100;
-              const prevMeasureIdx = (currentMeasureIdx - 1 + (totalMeasuresRef.current || 1)) % (totalMeasuresRef.current || 1);
-              const startVolPercent = measureVolsRef.current[prevMeasureIdx] !== undefined ? measureVolsRef.current[prevMeasureIdx] : 100;
-              const startGain = startVolPercent / 100;
-
-              if (endGain !== startGain) {
-                if (volTransition === 'ramp') {
-                  const measureDurationSec = currentTicks * tick96nSec;
-                  Tone.Destination.volume.cancelScheduledValues(time);
-                  Tone.Destination.volume.setValueAtTime(Tone.gainToDb(startGain === 0 ? 0.0001 : startGain), time);
-                  Tone.Destination.volume.linearRampToValueAtTime(Tone.gainToDb(endGain === 0 ? 0.0001 : endGain), time + measureDurationSec);
-                } else {
-                  Tone.Destination.volume.cancelScheduledValues(time);
-                  Tone.Destination.volume.setValueAtTime(Tone.gainToDb(endGain === 0 ? 0.0001 : endGain), time);
-                }
-              }
-            } catch (e) {}
-          }
-
-          // Click metronome beat pulse
-          const currentMeasureSig = measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
-          const markers = getCachedMarkers(currentMeasureSig, currentTicks);
-
-          if (isMetroOnRef.current && markers.includes(stepIdx)) {
-            if (metroVolumeRef.current > 0) {
-              const isAccent = (stepIdx === 0);
-              playNativeMetroClick(time, isAccent, 'synth', 1.8);
-            }
-          }
-
-          // Parse trigger of step events
-          let swingOffset = 0;
-          let swingJitter = 0;
-          const globalMode = globalSwingRef.current.mode;
-          
-          if (globalMode !== 'off') {
-            const timeSig = measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
-            let beatsCount = 4;
-            if (timeSig === '3/4') beatsCount = 3;
-            else if (timeSig === '2/4' || timeSig === '6/8') beatsCount = 2;
-            else if (timeSig === '12/8') beatsCount = 4;
-
-            const ticksPerBeat = currentTicks / beatsCount;
-            const stepDurationSec = tick96nSec * 6; // one 16th note
-            const posInBeat = ((stepIdx / ticksPerBeat) % 1) * 4;
-            const posInGroup = Math.round(posInBeat) % 4;
-            
-            swingJitter = (nextRandom() * 0.06 - 0.03) * stepDurationSec;
-
-            if (globalMode === 'maracatu') {
-              if (posInGroup === 0) {
-                swingOffset = swingJitter;
-              } else if (posInGroup === 1) {
-                swingOffset = (0.04 * stepDurationSec) + swingJitter;
-              } else if (posInGroup === 2) {
-                const minimalJitter = (nextRandom() * 0.02 - 0.01) * stepDurationSec;
-                swingOffset = (-0.144 * stepDurationSec) + minimalJitter;
-              } else if (posInGroup === 3) {
-                swingOffset = (-0.292 * stepDurationSec) + swingJitter;
-              }
-            } else if (globalMode === 'custom') {
-              // Custom offset is defined in percentages from -100 to 100, where 100 is half a step duration
-              const customOffsetPct = globalSwingRef.current.customOffsets[posInGroup] || 0;
-              swingOffset = (customOffsetPct / 100) * stepDurationSec * 0.5 + swingJitter;
-            }
-          }
-          const swingTime = time + swingOffset;
-
-          // Percussive notes playback (flat compiled schedule)
-          const currentAbsoluteTick = currentMeasureStartTickRef.current + stepIdx;
-          const flatArray = flatCompiledScheduleRef.current;
-          if (flatArray) {
-            const len = flatArray.length;
-            let ptr = flatArrayPointerRef.current;
-
-            // Reset pointer if compiled schedule changed, or currentAbsoluteTick decreased or jumped significantly
-            if (flatArray !== lastCompiledScheduleRef.current || currentAbsoluteTick < lastAbsoluteTickRef.current || currentAbsoluteTick - lastAbsoluteTickRef.current > 5) {
-              ptr = 0;
-              while (ptr < len && flatArray[ptr] < currentAbsoluteTick) {
-                ptr += 4;
-              }
-              lastCompiledScheduleRef.current = flatArray;
-            }
-            lastAbsoluteTickRef.current = currentAbsoluteTick;
-
-            while (ptr < len) {
-              const noteTick = flatArray[ptr];
-              if (noteTick > currentAbsoluteTick) {
-                break;
-              }
-
-              if (noteTick === currentAbsoluteTick) {
-                const packedData = flatArray[ptr + 1];
-                const velocity = flatArray[ptr + 2];
-                const microtimingPct = flatArray[ptr + 3];
-
-                // Decode packedData: trackIdx (8 bits), circleStepIdx (5 bits), strokeCharCode (7 bits), decayPct (7 bits), isTuplet (1 bit)
-                const trackIdx = (packedData >> 20) & 0xFF;
-                const circleStepIdx = (packedData >> 15) & 0x1F;
-                const strokeCharCode = (packedData >> 8) & 0x7F;
-                const decayPct = (packedData >> 1) & 0x7F;
-                const isTuplet = (packedData & 1) === 1;
-
-                const liveTrack = tracksRef.current[trackIdx];
-                if (liveTrack) {
-                  const inst = instrumentsConfig[liveTrack.instrumentIdx];
-                  if (inst) {
-                    const trackVolPct = liveTrack.volumeVal ?? 100;
-                    if (trackVolPct > 0) {
-                      const trackVolLinear = Math.pow(trackVolPct / 100, 2);
-                      const finalVel = velocity * trackVolLinear;
-                      const strokeSymbol = String.fromCharCode(strokeCharCode);
-                      const decayMultiplier = decayPct / 100;
-
-                      // Calculate real-time swing and microtiming offsets
-                      let noteSwingOffset = 0;
-                      if (globalMode !== 'off') {
-                        if (isTuplet) {
-                          noteSwingOffset = swingJitter;
-                        } else {
-                          noteSwingOffset = swingOffset;
-                        }
-                      }
-
-                      let activePattern = null;
-                      const patterns = liveTrack.patterns;
-                      const numPatterns = patterns.length;
-                      for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
-                        if (patterns[pIdx].measureAssignments[currentMeasureIdx]) {
-                          activePattern = patterns[pIdx];
-                          break;
-                        }
-                      }
-                      const stepCount = activePattern ? activePattern.steps : 16;
-                      const stepDurSec = tick96nSec * (currentTicks / stepCount);
-                      const microOffset = (microtimingPct / 100) * stepDurSec * 0.5;
-
-                      const triggerTime = time + noteSwingOffset + microOffset;
-
-                      audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
-
-                      // Visual hit trigger
-                      if (!isDocHidden) {
-                        Tone.Draw.schedule(() => {
-                          hitTriggersRef.current.push(liveTrack.id, circleStepIdx, strokeCharCode);
-                        }, triggerTime);
-                      }
-                    }
-                  }
-                }
-              }
-              ptr += 4;
-            }
-            flatArrayPointerRef.current = ptr;
-          }
-
-
-
-          // Vocal recordings logic
-          const tracks = tracksRef.current;
-          const numTracks = tracks.length;
-          const currentMeasureLocal = measureCountRef.current % totalMeasuresRef.current;
-
-          for (let trackIdx = 0; trackIdx < numTracks; trackIdx++) {
-            const track = tracks[trackIdx];
-            const inst = instrumentsConfig[track.instrumentIdx];
-            if (!inst || inst.type !== 'voice') continue;
-
-            const targetPatternId = useAudioStore.getState().targetPatternId;
-            const recordingStatus = useAudioStore.getState().recordingStatus;
-            if (targetPatternId !== null && recordingStatus === 'recording') {
-              const hasPatternBeingRecorded = track.patterns.some(p => p.id === targetPatternId);
-              if (hasPatternBeingRecorded) {
-                if (stepIdx === currentTicks - 1) {
-                  vocalEngineService.recordedMeasuresCount++;
-                  if (vocalEngineService.recordedMeasuresCount >= vocalEngineService.recordingDurationMeasures) {
-                    const stopDelayMs = Math.max(0, (time + tick96nSec - Tone.context.rawContext.currentTime) * 1000) + 1000;
-                    workerSetTimeout(() => {
-                      vocalEngineService.stopRecording();
-                    }, stopDelayMs);
-                  }
-                }
-              }
-            }
-
-            // Playback of vocal patterns
-            let activePattern = null;
-            const patterns = track.patterns;
-            const numPatterns = patterns.length;
-            for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
-              if (patterns[pIdx].measureAssignments[currentMeasureLocal]) {
-                activePattern = patterns[pIdx];
-                break;
-              }
-            }
-            if (!activePattern) continue;
-
-            const isSoloPlayActive = soloPatternPlayIdRef.current !== null;
-            let canPlay = false;
-
-            if (isSoloPlayActive) {
-              for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
-                if (patterns[pIdx].id === soloPatternPlayIdRef.current) {
-                  canPlay = true;
-                  break;
-                }
-              }
-            } else {
-              let hasSolo = false;
-              for (let tIdx = 0; tIdx < numTracks; tIdx++) {
-                if (tracks[tIdx].isSolo) {
-                  hasSolo = true;
-                  break;
-                }
-              }
-              canPlay = hasSolo ? track.isSolo : !track.isMute;
-            }
-
-            if (!canPlay) continue;
-
-            if (activePattern.vocalMode === 'micro') {
-              if (stepIdx === 0) {
-                vocalEngineService.playVocalPattern(activePattern.id, time);
-              }
-            } else {
-              const stepCount = activePattern.steps;
-              if (stepIdx % (currentTicks / stepCount) === 0) {
-                const cellIdx = Math.floor(stepIdx / (currentTicks / stepCount));
-                const state = activePattern.activeSteps[cellIdx];
-                if (state && state !== 0) {
-                  const triggerTime = swingTime;
-                  const liveTrack = tracks[trackIdx];
-                  const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
-                  if (trackVolPct > 0) {
-                    const trackVolLinear = Math.pow(trackVolPct / 100, 2);
-                    const noteVal = activePattern.notes?.[cellIdx] || 'C4';
-                    const transposeSteps = useSequencerStore.getState().vocalTransposeSteps || 0;
-                    let finalNoteVal = noteVal;
-                    if (transposeSteps !== 0) {
-                      try {
-                        finalNoteVal = Tone.Frequency(noteVal).transpose(transposeSteps).toNote();
-                      } catch (_) {}
-                    }
-                    const noteFreq = noteToFrequency(finalNoteVal);
-                    const decayVal = activePattern.decays?.[cellIdx] ?? 10;
-                    const numSteps = getVoiceNoteStepsFromDecay(decayVal);
-                    const noteDuration = (numSteps * 6) * tick96nSec;
-                    playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[liveTrack.id]);
-                  }
-
-                  if (!isDocHidden) {
-                    Tone.Draw.schedule(() => {
-                      hitTriggersRef.current.push(track.id, cellIdx, state);
-                    }, triggerTime);
-                  }
-                }
-              }
-            }
-          }
-        },
+        (time) => onTickRef.current(time),
         () => {
           const currentMeasureIdx = measureCountRef.current % (totalMeasuresRef.current || 1);
           const rawBpm = measureBpmsRef.current[currentMeasureIdx];
@@ -1391,21 +1394,17 @@ export function useAudioSync({
     initAudio();
 
     return () => {
+      // Pour le Strict Mode React 18, nous ne fermons plus et ne détruisons plus le singleton global AudioEngine.
+      // Cela évite de réinstancier le graphe audio sur un contexte fermé lors du remontage immédiat.
       if (audioEngine) {
-        audioEngine.dispose();
-        audioEngine = null;
-      }
-      if (inputManager) {
-        inputManager.dispose();
-        inputManager = null;
+        audioEngine.stop();
       }
       engineTimeoutsRef.current.forEach((t) => clearTimeout(t));
       engineTimeoutsRef.current.clear();
       
       stopAllNativeOscillators();
-      isAudioInitializedRef.current = false;
     };
-  }, [isAudioUnlocked, masterVol, masterEQ, masterReverbVol]);
+  }, [isAudioUnlocked]);
 
   // Dynamic RAM Management for Mobile (Stroke-level Lazy Loading)
   useEffect(() => {

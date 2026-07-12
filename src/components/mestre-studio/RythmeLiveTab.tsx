@@ -27,22 +27,13 @@ interface RythmeLiveTabProps {
   
   presetFiles: string[];
   localPresets: string[];
-  handleLoadPresetToGame: (presetName: string, gameType: 'dictee' | 'inspecteur' | 'rythmelive' | 'sablier_mestre') => void;
+  handleLoadPresetToGame: any;
   handleLoadDraft: (e: React.ChangeEvent<HTMLInputElement>, type: string) => void;
   
   studioPlaying: boolean;
   setStudioPlaying: (val: boolean) => void;
-  handleStepChangeGeneric: (
-    tracksState: TrackGroup[],
-    setTracksState: React.Dispatch<React.SetStateAction<TrackGroup[]>>,
-    trackId: string,
-    patternId: string,
-    stepIndex: number,
-    newValue: number,
-    layerIndex: number,
-    noteIndex: number
-  ) => void;
-  getActivePatternMap: (tracks: TrackGroup[]) => Record<string, string>;
+  handleStepChangeGeneric: any;
+  getActivePatternMap: any;
 }
 
 export const RythmeLiveTab: React.FC<RythmeLiveTabProps> = ({

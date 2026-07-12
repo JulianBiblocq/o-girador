@@ -1,6 +1,7 @@
 import React, { Suspense, useMemo } from 'react';
 import { Play, Square, Check, X, ArrowRight, HelpCircle } from 'lucide-react';
 import { useDicteeGame } from '../hooks/useDicteeGame';
+import { instrumentsConfig } from '../data';
 
 const CircleSequencer = React.lazy(() => import('./CircleSequencer').then(m => ({ default: m.CircleSequencer })));
 
@@ -86,7 +87,7 @@ export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSucc
     if (!sequenceAudio || !targetInstrument) return [];
     
     return sequenceAudio.map((track) => {
-      const isTarget = track.id === targetInstrument.id || track.instrumentIdx === targetInstrument.instrumentIdx;
+      const isTarget = instrumentsConfig[track.instrumentIdx]?.id === targetInstrument.id;
       if (isTarget) {
         return {
           ...track,
@@ -142,7 +143,7 @@ export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSucc
 
   // Active patterns map for other instruments rendering
   const activePatternMap = useMemo(() => {
-    const map: Record<string, string> = {};
+    const map: Record<number, number> = {};
     if (sequenceAudio) {
       sequenceAudio.forEach(t => {
         if (t.patterns && t.patterns[currentPlayMeasure]) {
@@ -253,8 +254,8 @@ export const DicteeEngine: React.FC<DicteeEngineProps> = ({ lang, onExit, onSucc
                 onTogglePlay={startListening}
                 langPromptVoiceText=""
                 activePatternIdByTrack={activePatternMap}
-                bpm={effectiveExerciseData.bpm || 83}
-                measureBpms={[effectiveExerciseData.bpm || 83]}
+                bpm={exerciseData?.bpm || 83}
+                measureBpms={[exerciseData?.bpm || 83]}
                 measureVols={[80]}
                 isMobile={true}
               />

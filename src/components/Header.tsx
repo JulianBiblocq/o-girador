@@ -80,8 +80,8 @@ interface HeaderProps {
   localPresets: string[];
   cloudPresets?: { id: string; name: string }[];
 
-  viewMode: 'roda' | 'console' | 'timeline';
-  onViewModeToggle: (mode: 'roda' | 'console' | 'timeline') => void;
+  viewMode: string;
+  onViewModeToggle: (mode: any) => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
   isMobile: boolean;
@@ -417,7 +417,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 <div className="flex flex-col gap-1 mt-1">
                   <span className="text-[9px] font-bold text-[var(--cordel-text)]/60 uppercase tracking-wider">Volume Général</span>
                   <AudioFader
-                    type="range"
                     min="-40"
                     max="6"
                     step="0.5"
