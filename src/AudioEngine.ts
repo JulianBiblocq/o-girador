@@ -67,6 +67,8 @@ export class AudioEngine {
   // Timer handlers
   private clockNode: AudioWorkletNode | null = null;
   private fallbackTimerId: number | null = null;
+  private isInitializingWorklet: boolean = false;
+  private stateChangeListener: (() => void) | null = null;
 
   // Callbacks
   private onTick: (time: number) => void;
@@ -264,14 +266,38 @@ export class AudioEngine {
       (audioContext as any)._context ||
       audioContext;
 
-    if (typeof nativeContext.audioWorklet === 'undefined') {
-      console.warn("AudioEngine: AudioWorklet not supported. Falling back to setInterval timer.");
+    const isSecure = typeof window !== 'undefined' ? (window.isSecureContext !== false) : true;
+
+    if (!isSecure || typeof nativeContext.audioWorklet === 'undefined') {
+      console.warn("AudioEngine: Secure context is false or AudioWorklet not supported. Forcing setInterval fallback.");
       this.initFallbackTimer();
     } else {
-      this.initClockWorklet().catch(err => {
-        console.error("AudioEngine: Error initializing clock worklet:", err);
+      if (nativeContext.state === 'running') {
+        this.initClockWorklet().catch(err => {
+          console.error("AudioEngine: Error initializing clock worklet:", err);
+          this.initFallbackTimer();
+        });
+      } else {
+        // Enregistrer la minuterie de secours par défaut sur mobile/tablette (où le contexte commence suspended)
         this.initFallbackTimer();
-      });
+        
+        // Attendre que le contexte passe en 'running' pour initialiser le Worklet en toute sécurité
+        this.stateChangeListener = () => {
+          if (nativeContext.state === 'running' && !this.clockNode && !this.isInitializingWorklet) {
+            this.isInitializingWorklet = true;
+            this.initClockWorklet()
+              .then(() => {
+                this.isInitializingWorklet = false;
+              })
+              .catch(err => {
+                console.error("AudioEngine: Error initializing clock worklet on statechange:", err);
+                this.isInitializingWorklet = false;
+                this.initFallbackTimer();
+              });
+          }
+        };
+        nativeContext.addEventListener('statechange', this.stateChangeListener);
+      }
     }
   }
 
@@ -313,7 +339,13 @@ export class AudioEngine {
         (this.audioContext as any)._context ||
         this.audioContext;
 
-      await nativeContext.audioWorklet.addModule(workletUrl);
+      // Wrap addModule with a timeout of 1.5s to prevent hanging on untrusted SSL / iOS bugs
+      const addModulePromise = nativeContext.audioWorklet.addModule(workletUrl);
+      const timeoutPromise = new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error("AudioWorklet addModule timed out after 1.5s")), 1500)
+      );
+
+      await Promise.race([addModulePromise, timeoutPromise]);
       
       this.clockNode = new AudioWorkletNode(nativeContext, 'clock-processor');
       this.clockNode.port.onmessage = () => {
@@ -322,6 +354,12 @@ export class AudioEngine {
         }
       };
       this.clockNode.connect(nativeContext.destination);
+
+      // Nettoyer la minuterie de secours puisque le Worklet tourne désormais
+      if (this.fallbackTimerId !== null) {
+        window.clearInterval(this.fallbackTimerId);
+        this.fallbackTimerId = null;
+      }
     } catch (err) {
       console.warn("AudioEngine: Failed to initialize clock AudioWorklet. Falling back to setInterval clock.", err);
       this.initFallbackTimer();
@@ -693,7 +731,7 @@ export class AudioEngine {
     if (channel) {
       Tone.connect(gainNode, channel);
     } else {
-      Tone.connect(gainNode, Tone.Destination);
+      Tone.connect(gainNode, Tone.getDestination());
     }
 
     return gainNode;
@@ -1081,6 +1119,18 @@ export class AudioEngine {
     if (this.unsubscribeTracks) {
       this.unsubscribeTracks();
       this.unsubscribeTracks = null;
+    }
+
+    if (this.stateChangeListener && this.audioContext) {
+      const nativeContext =
+        (this.audioContext as any)._nativeContext ||
+        (this.audioContext as any).rawContext ||
+        (this.audioContext as any)._context ||
+        this.audioContext;
+      try {
+        nativeContext.removeEventListener('statechange', this.stateChangeListener);
+      } catch (_) {}
+      this.stateChangeListener = null;
     }
 
     if (typeof document !== 'undefined') {

@@ -163,18 +163,40 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const linkedSlavesTooltip = isMaster
     ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${inst.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
     : undefined;
-  const isLinkedChild = dbTrack && dbTrack.linkedToTrackId && !dbTrack.isLinkFolder;
+  const isLinkedChild = !!(dbTrack && dbTrack.linkedToTrackId && !dbTrack.isLinkFolder);
+  const isLinkedSlave = dbTrack && dbTrack.linkedToTrackId && !dbTrack.isLinkFolder && !dbTrack.isLinkMaster;
   const isToada = isToadaBus(trackData);
   const isToadaChildTrack = dbTrack && isToadaChild(dbTrack, tracks);
-  const isChild = isLinkedChild || isToadaChildTrack;
+  const isChild = isLinkedSlave || isToadaChildTrack;
 
-  const displayName = dbTrack?.isLinkFolder || isToada
+  const displayName = dbTrack?.isLinkFolder || dbTrack?.isLinkMaster || isToada
     ? (dbTrack?.customName || (isToada ? 'Toada' : `🔗 ${getPluralName(inst.name)}`))
     : (isChild ? `↳ ${dbTrack?.customName || inst.name}` : (dbTrack?.customName || inst.name));
   
   const canPlay = !getEffectiveMuteState(tracks, trackId);
 
   const sequencer = useSequencer();
+
+  const parentBus = React.useMemo(() => {
+    if (dbTrack?.isLinkMaster && dbTrack.linkedToTrackId) {
+      return tracks.find(p => String(p.id) === String(dbTrack.linkedToTrackId) && p.isLinkFolder);
+    }
+    return null;
+  }, [dbTrack?.isLinkMaster, dbTrack?.linkedToTrackId, tracks]);
+
+  const isCollapsed = React.useMemo(() => {
+    if (isToada) return dbTrack?.isSequencerFolded;
+    if (dbTrack?.isLinkMaster) return parentBus?.isSequencerFolded;
+    return false;
+  }, [isToada, dbTrack?.isSequencerFolded, dbTrack?.isLinkMaster, parentBus?.isSequencerFolded]);
+
+  const handleToggleFold = () => {
+    if (isToada) {
+      onToggleFoldBus(String(trackData.id));
+    } else if (dbTrack?.isLinkMaster && parentBus) {
+      onToggleFoldBus(String(parentBus.id));
+    }
+  };
 
   const handleGridPointerDown = (e: React.PointerEvent) => {
     if (isPanningActive) return;
@@ -227,13 +249,13 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
         style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
       >
         <div className={`flex items-center min-w-0 flex-grow ${isMobile ? 'gap-0.5' : 'gap-2'}`}>
-          {(dbTrack?.isLinkFolder || isToada) && (
+          {(dbTrack?.isLinkMaster || isToada) && (
             <button
-              onClick={() => onToggleFoldBus(String(trackData.id))}
+              onClick={handleToggleFold}
               className="p-0.5 hover:bg-[var(--cordel-text)]/10 rounded cursor-pointer text-[10px] font-bold mr-1 shrink-0 flex items-center justify-center w-4 h-4 border border-[var(--cordel-border)]/30 text-[var(--cordel-text)]"
-              title={dbTrack?.isSequencerFolded ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar')}
+              title={isCollapsed ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar')}
             >
-              {dbTrack?.isSequencerFolded ? '▶' : '▼'}
+              {isCollapsed ? '▶' : '▼'}
             </button>
           )}
           {isMobile ? (

@@ -39,8 +39,8 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
 }) => {
   const visualThumbRef = useRef<HTMLDivElement>(null);
   const valueTextRef = useRef<HTMLSpanElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const isDraggingRef = useRef(false);
+  const rectRef = useRef<DOMRect | null>(null);
 
   const [measuredHeight, setMeasuredHeight] = React.useState(height || 115);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -93,9 +93,35 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
     }
   };
 
-  // Durant le glissement (onChange) : Manipulation directe du DOM sans re-render React
-  const handleDrag = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = Math.round(parseFloat(e.target.value));
+  // Calcule la valeur du volume en fonction de la position verticale (clientY)
+  const calculateValueFromPointer = (clientY: number) => {
+    const rect = rectRef.current;
+    if (!rect) return value;
+    const relativeY = clientY - rect.top;
+
+    const startY = topPadding + resolvedThumbHeight / 2;
+    const endY = containerHeight - topPadding - resolvedThumbHeight / 2;
+    const totalTravel = endY - startY;
+
+    if (totalTravel <= 0) return 0;
+
+    let ratio = (relativeY - startY) / totalTravel;
+    ratio = Math.min(1, Math.max(0, ratio));
+    return Math.round((1 - ratio) * 100);
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (_) {}
+
+    if (containerRef.current) {
+      rectRef.current = containerRef.current.getBoundingClientRect();
+    }
+
+    const val = calculateValueFromPointer(e.clientY);
 
     // 1. Déplacement immédiat du bouton visuel
     const topPx = getTopPosition(val);
@@ -112,16 +138,36 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
     updateAudioNode(val);
   };
 
-  // Pointer Down
-  const handlePointerDown = () => {
-    isDraggingRef.current = true;
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    e.preventDefault();
+
+    const val = calculateValueFromPointer(e.clientY);
+
+    // 1. Déplacement immédiat du bouton visuel
+    const topPx = getTopPosition(val);
+    if (visualThumbRef.current) {
+      visualThumbRef.current.style.top = `${topPx}px`;
+    }
+
+    // 2. Mise à jour immédiate du texte
+    if (valueTextRef.current) {
+      valueTextRef.current.textContent = String(val);
+    }
+
+    // 3. Mise à jour directe du volume Web Audio API (Tone.js)
+    updateAudioNode(val);
   };
 
-  // Au relâchement : Commit définitif dans Zustand
-  const handleCommit = (e: React.SyntheticEvent) => {
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
-    const val = Math.round(parseFloat((e.target as HTMLInputElement).value));
-    
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+
+    const val = calculateValueFromPointer(e.clientY);
+
     updateAudioNode(val);
     onChange(val);
   };
@@ -129,9 +175,6 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   // Synchronisation lorsque la valeur change depuis l'extérieur (ex: presets)
   useEffect(() => {
     if (!isDraggingRef.current) {
-      if (inputRef.current) {
-        inputRef.current.value = String(value);
-      }
       const topPx = getTopPosition(value);
       if (visualThumbRef.current) {
         visualThumbRef.current.style.top = `${topPx}px`;
@@ -146,7 +189,11 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   return (
     <div 
       ref={containerRef}
-      className="flex justify-center items-center relative w-10 select-none h-full"
+      className="flex justify-center items-center relative w-10 select-none h-full cursor-pointer touch-none"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       style={{ 
         height: height !== undefined ? `${height}px` : '100%',
         minHeight: height !== undefined ? `${height}px` : '60px'
@@ -180,26 +227,6 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
           {value}
         </span>
       </div>
-
-      {/* 3. L'input range invisible (Ghost Input) survolant tout le composant */}
-      <input
-        ref={inputRef}
-        type="range"
-        min="0"
-        max="100"
-        {...{ orient: 'vertical' }}
-        defaultValue={value}
-        onChange={handleDrag}
-        onPointerDown={handlePointerDown}
-        onPointerUp={handleCommit}
-        onKeyUp={handleCommit}
-        onBlur={handleCommit}
-        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20 touch-none"
-        style={{
-          writingMode: 'vertical-lr',
-          direction: 'rtl',
-        }}
-      />
     </div>
   );
 };

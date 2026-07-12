@@ -375,6 +375,8 @@ export function useAudioSync({
   masterReverbVol,
   reverbDecay
 }: UseAudioSyncProps) {
+  const isAudioUnlocked = useAudioStore((state) => state.isAudioUnlocked);
+
   // 🛡️ FIX (Audit): Rapatrie instanciation à l'intérieur du hook React via des useRef
   const tickEventDetailRef = useRef({
     step: 0,
@@ -637,11 +639,13 @@ export function useAudioSync({
 
   // Sync Transport BPM
   useEffect(() => {
+    if (!isAudioUnlocked) return;
     Tone.Transport.bpm.value = bpm;
-  }, [bpm]);
+  }, [bpm, isAudioUnlocked]);
 
   // Reset Destination Volume to neutral and process deferred reverb when stopped
   useEffect(() => {
+    if (!isAudioUnlocked) return;
     if (!isPlaying) {
       try {
         Tone.Destination.volume.setValueAtTime(0, Tone.context.currentTime);
@@ -652,7 +656,7 @@ export function useAudioSync({
         setDeferredReverbActivation(false);
       }
     }
-  }, [isPlaying]);
+  }, [isPlaying, isAudioUnlocked]);
 
   // Instancier le Web Worker de compilation une seule fois au montage du composant
   useEffect(() => {
@@ -795,6 +799,8 @@ export function useAudioSync({
 
   // Initialize stable Audio Engine Nodes
   useEffect(() => {
+    if (!isAudioUnlocked) return;
+
     const initAudio = async () => {
       try {
         await loadTone();
@@ -1399,7 +1405,7 @@ export function useAudioSync({
       stopAllNativeOscillators();
       isAudioInitializedRef.current = false;
     };
-  }, []);
+  }, [isAudioUnlocked, masterVol, masterEQ, masterReverbVol]);
 
   // Dynamic RAM Management for Mobile (Stroke-level Lazy Loading)
   useEffect(() => {
@@ -1436,6 +1442,20 @@ export function useAudioSync({
   const handleTogglePlay = useCallback(async () => {
     if (import.meta.env.DEV) {
     }
+    // 🛡️ SYNC CHECK: Resume context synchronously inside the user event click stack to bypass Safari autoplay block
+    if (Tone.context && Tone.context.state !== 'running') {
+      try {
+        Tone.context.resume();
+      } catch (e) {
+        // console.warn("AudioContext resume failed:", e);
+      }
+    }
+    if (Tone.start) {
+      try {
+        Tone.start();
+      } catch (_) {}
+    }
+
     if (Tone.context && Tone.context.state !== 'running') {
       try {
         await Tone.context.resume();
@@ -1537,6 +1557,20 @@ export function useAudioSync({
   }, [audioEngine, setIsPlaying, setSoloPatternPlayId, setCurrentMeasure]);
 
   const handleStartSoloPattern = useCallback(async (patternId: number, variationId?: string) => {
+    // 🛡️ SYNC CHECK: Resume context synchronously inside the user event click stack to bypass Safari autoplay block
+    if (Tone.context && Tone.context.state !== 'running') {
+      try {
+        Tone.context.resume();
+      } catch (e) {
+        // console.warn("AudioContext resume failed:", e);
+      }
+    }
+    if (Tone.start) {
+      try {
+        Tone.start();
+      } catch (_) {}
+    }
+
     if (Tone.context && Tone.context.state !== 'running') {
       try {
         await Tone.context.resume();

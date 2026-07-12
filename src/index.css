@@ -14,6 +14,8 @@
   --cordel-text: #f4ecd8;
   --cordel-border: #f4ecd8;
   --cordel-wood: #8b2a1a;
+  /* --cordel-master-bg: #121212; -- Old charcoal tint */
+  --cordel-master-bg: #251c1a; /* Deeper earth-red tinted dark background (10% #8b2a1a) */
   --cordel-shadow-color: rgba(0, 0, 0, 0.55); /* Ombre sombre douce en mode nuit */
   --title-text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
   --title-drop-shadow: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
@@ -24,6 +26,8 @@
   --cordel-text: #1a1a1a;
   --cordel-border: #1a1a1a;
   --cordel-wood: #8b2a1a;
+  /* --cordel-master-bg: #eae1cd; -- Old antique beige */
+  --cordel-master-bg: #e7d5c1; /* Deeper earth-red tinted light background (12% #8b2a1a) */
   --cordel-shadow-color: rgba(26, 26, 26, 0.25); /* Ombre sombre classique */
   --title-text-shadow: none;
   --title-drop-shadow: none;
@@ -1059,6 +1063,14 @@ body.eco-mode #center-afficheur {
 .master-fader-thumb {
   border: 4px double var(--cordel-border, #1a1a1a) !important;
   box-shadow: 1px 1px 0 var(--cordel-border, #1a1a1a) !important;
+}
+
+/* Master console strip double border frame & custom background */
+.cordel-master-strip {
+  border: 5px double var(--cordel-border, #1a1a1a);
+  background-color: var(--cordel-master-bg, var(--cordel-bg));
+  box-shadow: 0 4px 10px var(--cordel-shadow-color);
+  border-radius: 3px;
 }
 
 

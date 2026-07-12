@@ -1,5 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import path from 'path';
 import fs from 'fs';
 import {defineConfig} from 'vite';
@@ -69,6 +70,7 @@ export default defineConfig(({ command, mode }) => {
       drop: command === 'build' ? ['console', 'debugger'] : [],
     },
     plugins: [
+      basicSsl(),
       react(),
       tailwindcss(),
       VitePWA({
@@ -178,6 +180,8 @@ export default defineConfig(({ command, mode }) => {
       },
     },
     server: {
+      host: true,
+      port: 5173,
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modify—file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

@@ -709,11 +709,12 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
         {/* Master Console Strip Sticky Wrapper */}
         <div 
-          className="flex shrink-0 sticky right-0 z-20 items-stretch shadow-[-8px_0_16px_rgba(0,0,0,0.18)]"
+          className="flex shrink-0 sticky right-0 z-20 items-stretch shadow-[-8px_0_16px_rgba(0,0,0,0.18)] ml-auto"
           style={{
             position: 'sticky',
             right: 0,
-            zIndex: 20
+            zIndex: 20,
+            marginLeft: 'auto'
           }}
         >
           {/* Master Console Strip */}

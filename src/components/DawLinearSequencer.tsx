@@ -5,7 +5,7 @@
 
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { GripVertical } from 'lucide-react';
-import { useSequencerStore, isLinearDAWVisibleTrack, isToadaBus } from '../stores/useSequencerStore';
+import { useSequencerStore, isLinearDAWVisibleTrack, isToadaBus, isToadaChild } from '../stores/useSequencerStore';
 import { useTimelineEditStore } from '../stores/useTimelineEditStore';
 import { StepEditorPopup } from './StepEditorPopup';
 import { useAudioStore } from '../stores/useAudioStore';
@@ -50,7 +50,30 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
 
   // Filter visible tracks to show on the DAW grid (matching left Mixer panel list)
   const visibleTracks = useMemo(() => {
-    return tracks.filter(t => isLinearDAWVisibleTrack(t, tracks));
+    const list: any[] = [];
+    tracks.forEach(t => {
+      if (isLinearDAWVisibleTrack(t, tracks)) {
+        list.push(t);
+        if (isToadaBus(t) && !t.isSequencerFolded) {
+          const puxTrack = tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'puxador');
+          const coroTrack = tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'coro');
+          if (puxTrack) list.push(puxTrack);
+          if (coroTrack) list.push(coroTrack);
+        }
+        if (t.isLinkMaster) {
+          const parentBus = tracks.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
+          if (parentBus && !parentBus.isSequencerFolded) {
+            const slaves = tracks.filter(child => 
+              String(child.linkedToTrackId) === String(parentBus.id) && 
+              !child.isLinkFolder && 
+              !child.isLinkMaster
+            );
+            list.push(...slaves);
+          }
+        }
+      }
+    });
+    return list;
   }, [tracks]);
 
   // Keep track of DOM elements for playhead updates (Zero Render Thrashing)
@@ -270,10 +293,13 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
             if (!inst) return null;
 
             const activePattern = effectiveTrack.patterns?.find(p => p.measureAssignments?.[currentMeasure]) || effectiveTrack.patterns?.[0];
-            const isMaster = tracks.some(t => String(t.linkedToTrackId) === String(track.id));
+            const isLinkedSlave = track.linkedToTrackId && !track.isLinkFolder && !track.isLinkMaster;
+            const isToadaChildTrack = isToadaChild(track, tracks);
+            const isChild = isLinkedSlave || isToadaChildTrack;
+
             const displayName = isToada
               ? 'Toada'
-              : (inst ? (isMaster ? `🔗 ${getPluralName(inst.name)}` : inst.name) : 'Instrument');
+              : (inst ? (track.isLinkMaster ? `🔗 ${getPluralName(inst.name)}` : (isChild ? `↳ ${track.customName || inst.name}` : (track.customName || inst.name))) : 'Instrument');
 
             return (
               <div
@@ -282,10 +308,40 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
               >
                 {/* A. Left Side: Integrated Instrument Mixer Controls (w-[360px] fixed width) */}
                 <div 
-                  className="flex items-center justify-between gap-2 w-[360px] min-w-[360px] h-[76px] min-h-[76px] shrink-0 border-r border-[#1a1a1a]/20 pl-3 pr-3 relative z-[2]"
+                  className={`flex items-center justify-between gap-2 w-[360px] min-w-[360px] h-[76px] min-h-[76px] shrink-0 border-r border-[#1a1a1a]/20 pr-3 relative z-[2] ${
+                    isChild ? 'pl-8' : 'pl-3'
+                  }`}
                   ref={dropdownOpenTrackId === track.id ? dropdownRef : undefined}
                 >
                   <div className="flex items-center gap-2">
+                    {(track.isLinkMaster || isToada) && (
+                      <button
+                        onClick={() => {
+                          if (isToada) {
+                            useSequencerStore.getState().handleToggleSequencerFoldBus(String(track.id));
+                          } else if (track.isLinkMaster && track.linkedToTrackId) {
+                            const parentBus = tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder);
+                            if (parentBus) {
+                              useSequencerStore.getState().handleToggleSequencerFoldBus(String(parentBus.id));
+                            }
+                          }
+                        }}
+                        className="p-0.5 hover:bg-black/10 rounded cursor-pointer text-[10px] font-bold shrink-0 flex items-center justify-center w-4 h-4 border border-black/30 text-black mr-1"
+                        title={(() => {
+                          const isCollapsed = isToada
+                            ? track.isSequencerFolded
+                            : (tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder)?.isSequencerFolded ?? false);
+                          return isCollapsed ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar');
+                        })()}
+                      >
+                        {(() => {
+                          const isCollapsed = isToada
+                            ? track.isSequencerFolded
+                            : (tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder)?.isSequencerFolded ?? false);
+                          return isCollapsed ? '▶' : '▼';
+                        })()}
+                      </button>
+                    )}
                     {/* Sortable drag grip (pure aesthetic in DAW view but maintains Mixer visual layout) */}
                     <div className="mr-2 transition-colors p-1 touch-none flex-shrink-0 text-[#1a1a1a]/40">
                       <GripVertical size={16} />
@@ -359,10 +415,10 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                             : track;
                           useSequencerStore.getState().setEditingTrackId(targetTrack.id);
                         }}
-                        className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
+                        className="ml-1 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]"
                         title={lang === 'pt' ? 'Editor detalhado' : 'Éditeur détaillé'}
                       >
-                        <XiloChisel size={10} />
+                        <XiloChisel size={13} />
                       </button>
                     )}
                   </div>

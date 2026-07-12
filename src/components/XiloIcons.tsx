@@ -91,16 +91,21 @@ export const XiloChisel: React.FC<XiloIconProps> = ({ size = 16, className = '',
     width={size} 
     height={size} 
     viewBox="0 0 24 24" 
-    fill="currentColor" 
+    fill="none" 
     className={`xilo-icon ${className}`} 
     {...props}
   >
-    {/* Handle part: thicker, textured */}
-    <path d="M19.8,4.2 C20.7,5.1 20.7,6.5 19.8,7.4 L14.0,13.2 L10.8,10.0 L16.6,4.2 C17.5,3.3 18.9,3.3 19.8,4.2 Z" />
-    {/* Ferrule (metal band) */}
-    <path d="M13.2,14.0 L10.0,10.8 L11.2,9.6 L14.4,12.8 Z" opacity="0.8" />
-    {/* Chisel blade: flat rectangular body ending in a sharp angled bevel */}
-    <path d="M10.8,10.0 L9.6,11.2 L3.6,17.2 C3.1,17.7 2.0,19.8 2.0,21.0 C2.0,21.5 2.5,22.0 3.0,22.0 C4.2,22.0 6.3,20.9 6.8,20.4 L12.8,14.4 L11.6,13.2 Z" />
+    {/* Poignée bois plus large */}
+    <path d="M11.5,13.0 C10.0,11.0 12.5,5.5 16.5,2.5 C19.0,0.5 22.0,1.0 23.0,2.5 C24.0,4.0 23.0,7.5 20.5,10.5 C18.0,13.5 13.5,15.0 12.0,13.5 Z" fill="#b17046" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+    {/* Veines de bois */}
+    <path d="M16.5,4.5 C18.5,3.0 20.5,2.5 22.0,2.5" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
+    <path d="M15.5,7.0 C17.5,5.5 19.5,5.0 20.5,5.0" stroke="currentColor" strokeWidth="0.8" strokeLinecap="round" />
+    {/* Virole plus large */}
+    <path d="M8.5,15.5 L12.0,12.0 L11.0,11.0 L7.5,14.5 Z" fill="#d4af37" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+    {/* Tige métallique plus épaisse */}
+    <path d="M1.5,22.5 L7.5,14.5 L8.5,15.5 Z" fill="#e0e0e0" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+    {/* Biseau de la lame plus marqué */}
+    <path d="M1.5,22.5 L4.0,20.0 L5.0,21.0 Z" fill="#ffffff" stroke="currentColor" strokeWidth="0.8" strokeLinejoin="round" />
   </svg>
 );
 
@@ -459,4 +464,30 @@ export const XiloDrum: React.FC<XiloIconProps> = ({ size = 16, className = '', .
     <path d="M16,9 V17" />
   </svg>
 );
+
+// 📢 Mégaphone (Tocado por / Joué par)
+export const XiloMegaphone: React.FC<XiloIconProps> = ({ size = 16, className = '', ...props }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2.5" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={`xilo-icon ${className}`} 
+    {...props}
+  >
+    {/* Cone body with a slightly hand-drawn wobbly edge */}
+    <path d="M6,9.5 C5.2,9.5 4.5,10 4.5,11.5 C4.5,13 5.2,13.5 6,13.5 Z" fill="currentColor" />
+    <path d="M6,10.5 L14.2,7.5 C14.9,7.2 15.5,7.8 15.5,8.5 L15.5,15.5 C15.5,16.2 14.9,16.8 14.2,16.5 L6,13.5" />
+    {/* Handle */}
+    <path d="M9.5,13 L8.5,18.5 C8.3,19.2 9.3,19.5 9.5,18.8 L10.5,12.8" />
+    {/* Sound waves (carved wood lines) */}
+    <path d="M18.5,8.5 C19.5,9.5 19.5,14.5 18.5,15.5" strokeWidth="2.5" />
+    <path d="M21.5,6.5 C23.5,8.2 23.5,15.8 21.5,17.5" strokeWidth="2" strokeDasharray="1.5 2" />
+  </svg>
+);
+
 

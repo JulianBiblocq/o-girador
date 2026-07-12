@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase/config';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { GoogleLoginButton } from './GoogleLoginButton';
 import type * as ToneType from 'tone';
+import { useAudioStore } from '../stores/useAudioStore';
 import { loadTone, getTone } from '@/src/ToneLoader';
 
 function safeGetTone() {
@@ -24,8 +25,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
   const [editMsgContent, setEditMsgContent] = useState('');
   const [isSavingMsg, setIsSavingMsg] = useState(false);
 
+  const [isToneReady, setIsToneReady] = useState(false);
+  const [isUnlocking, setIsUnlocking] = useState(false);
+  const enterButtonRef = useRef<HTMLButtonElement>(null);
+
   // Détermine la langue du texte de présentation
-  const hasSavedLang = localStorage.getItem('o_girador_lang') !== null;
+  const hasSavedLang = localStorage.getItem('o_gridador_lang') !== null;
   const isBrowserFr = typeof navigator !== 'undefined' && navigator.language.startsWith('fr');
   const displayFr = hasSavedLang ? (lang === 'fr') : isBrowserFr;
 
@@ -74,23 +79,83 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
 
   useEffect(() => {
     // Preload Tone.js in the background so it is available synchronously on button click
-    loadTone().catch(err => console.error("Error preloading Tone.js:", err));
+    loadTone()
+      .then(() => {
+        setIsToneReady(true);
+      })
+      .catch(err => {
+        console.error("Error preloading Tone.js:", err);
+      });
   }, []);
 
-  const handleEnter = () => {
-    const tone = safeGetTone();
-    if (tone) {
-      if (tone.context.state !== 'running') {
-        tone.start().catch(err => {
-          console.error("Error starting Tone.js Context:", err);
-        });
+  const [errors, setErrors] = useState<string[]>([]);
+
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      const errorMsg = `[Global Error] ${event.message} at ${event.filename}:${event.lineno}:${event.colno}`;
+      setErrors(prev => [...prev, errorMsg]);
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      const errorMsg = `[Unhandled Rejection] ${reason?.stack || reason?.message || String(reason)}`;
+      setErrors(prev => [...prev, errorMsg]);
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+
+  useEffect(() => {
+    const btn = enterButtonRef.current;
+    if (!btn || !isToneReady) return;
+
+    const unlockAudio = async (e: Event) => {
+      e.preventDefault();
+      
+      if (isUnlocking) return;
+      setIsUnlocking(true);
+
+      const Tone = safeGetTone();
+      if (!Tone) {
+        setIsUnlocking(false);
+        return;
       }
-    } else {
-      // Fallback load-and-start in case preloading was not finished
-      loadTone().then(t => t.start()).catch(err => console.error("Fallback Tone start failed:", err));
-    }
-    onEnter();
-  };
+
+      try {
+        // 1. Déverrouille proprement le contexte par défaut de Tone.js
+        if (Tone.context.state !== 'running') {
+          await Tone.start();
+        }
+        
+        // 2. Vérification de sécurité
+        if (Tone.context.state === 'running') {
+          // 3. Autorise le chargement des instruments (Lazy Init) et change de page
+          useAudioStore.getState().unlockAudio();
+          onEnter();
+        } else {
+          console.error("Le contexte n'a pas pu démarrer.");
+          setIsUnlocking(false);
+        }
+      } catch (error) {
+        console.error("Erreur de déverrouillage Audio:", error);
+        setIsUnlocking(false);
+      }
+    };
+
+    btn.addEventListener('touchend', unlockAudio, { once: true });
+    btn.addEventListener('click', unlockAudio, { once: true });
+
+    return () => {
+      btn.removeEventListener('touchend', unlockAudio);
+      btn.removeEventListener('click', unlockAudio);
+    };
+  }, [isToneReady, onEnter, isUnlocking]);
 
   const frText = (
     <>
@@ -154,7 +219,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
             <path d="M 2 50 L 12 35 L 22 50 L 12 65 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.8" />
             <path d="M 16 16 L 30 10 L 40 22 L 26 30 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.8" />
           </svg>
-          <button id="entra-btn" className="lp-entra-btn" onClick={handleEnter}>ENTRA<br/>NA RODA</button>
+          <button 
+            ref={enterButtonRef}
+            id="entra-btn" 
+            className={`lp-entra-btn ${!isToneReady ? 'opacity-50 cursor-not-allowed' : ''}`} 
+            disabled={!isToneReady}
+          >
+            {isToneReady ? (
+              <>ENTRA<br/>NA RODA</>
+            ) : (
+              <span className="flex items-center justify-center animate-spin text-xl">⚙️</span>
+            )}
+          </button>
         </div>
         <h1 className="sr-only">O Girador - Séquenceur et Boîte à Rythmes de Maracatu de Baque Virado | Sequenciador Interativo</h1>
         <div className="lp-title">GIRADOR</div>

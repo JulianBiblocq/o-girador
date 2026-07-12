@@ -128,7 +128,7 @@ export function initMasterEffectsChain(
   } catch (err) {
     console.warn("Could not set channelCount / channelCountMode on Tone.Destination:", err);
   }
-  masterLimiterNode.connect(Tone.Destination);
+  masterLimiterNode.toDestination();
   
   const baseGain = Tone.dbToGain(masterVol === -40 ? -Infinity : masterVol);
   const multiplier = isEco ? Tone.dbToGain(-8) : 1.0;

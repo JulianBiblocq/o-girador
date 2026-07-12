@@ -4,10 +4,11 @@
  */
 
 import * as Tone from 'tone';
-import { useSequencerStore, isLinearDAWVisibleTrack } from '../stores/useSequencerStore';
+import { useSequencerStore, isLinearDAWVisibleTrack, isSequencerVisibleTrack } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
-import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
+import { subscribeToTick, unsubscribeFromTick, getActiveStrokesForTrack } from '../hooks/useAudioSync';
+import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getStrokesForInstrument, STEP_OPTIONS } from '../utils/instrumentStrokes';
 import { createPortal } from 'react-dom';
@@ -39,7 +40,7 @@ import { MelodicNoteSelector } from './MelodicNoteSelector';
 import { PatternVariationsEditor } from './instrument-editor/PatternVariationsEditor';
 import { InstrumentEffects } from './InstrumentEffects';
 import { InstrumentPatternGrid } from './InstrumentPatternGrid';
-import { XiloChisel } from './XiloIcons';
+import { XiloChisel, XiloMegaphone } from './XiloIcons';
 
 const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -164,6 +165,16 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     }))
   );
   const vocalCalibrationLatencyMs = useSequencerStore(state => state.vocalCalibrationLatencyMs);
+  const setTracks = useSequencerStore(state => state.setTracks);
+  const pushUndoState = useSequencerStore(state => state.pushUndoState);
+
+  // Settings Store hooks for global stroke controls
+  const forcedStrokes = useSequencerSettingsStore(state => state.forcedStrokes) || {};
+  const setStrokeForcedState = useSequencerSettingsStore(state => state.setStrokeForcedState);
+  const strokeDefaults = useSequencerSettingsStore(state => state.strokeDefaults);
+  const setStrokeDefault = useSequencerSettingsStore(state => state.setStrokeDefault);
+
+  const [selectedStrokeMacro, setSelectedStrokeMacro] = useState<string | null>(null);
 
   const canPaste = !!sequencer.copiedPattern;
 
@@ -345,28 +356,40 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   // Dynamic Navigation callbacks
   const onNavigatePrev = React.useCallback(() => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => isLinearDAWVisibleTrack(t, useSequencerStore.getState().tracks));
+    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.isHidden && isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (idx > 0) {
       setEditingTrackId(tracksList[idx - 1].id);
+    } else if (idx === 0 && tracksList.length > 0) {
+      setEditingTrackId(tracksList[tracksList.length - 1].id);
     }
   }, [trackId, setEditingTrackId]);
 
   const onNavigateNext = React.useCallback(() => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => isLinearDAWVisibleTrack(t, useSequencerStore.getState().tracks));
+    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.isHidden && isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (idx >= 0 && idx < tracksList.length - 1) {
       setEditingTrackId(tracksList[idx + 1].id);
+    } else if (idx === tracksList.length - 1 && tracksList.length > 0) {
+      setEditingTrackId(tracksList[0].id);
     }
   }, [trackId, setEditingTrackId]);
 
   const onKeyDown = React.useCallback((e: any) => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => isLinearDAWVisibleTrack(t, useSequencerStore.getState().tracks));
+    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.isHidden && isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (e.key === 'ArrowDown') {
-      if (idx >= 0 && idx < tracksList.length - 1) setEditingTrackId(tracksList[idx + 1].id);
+      if (idx >= 0 && idx < tracksList.length - 1) {
+        setEditingTrackId(tracksList[idx + 1].id);
+      } else if (idx === tracksList.length - 1 && tracksList.length > 0) {
+        setEditingTrackId(tracksList[0].id);
+      }
     } else if (e.key === 'ArrowUp') {
-      if (idx > 0) setEditingTrackId(tracksList[idx - 1].id);
+      if (idx > 0) {
+        setEditingTrackId(tracksList[idx - 1].id);
+      } else if (idx === 0 && tracksList.length > 0) {
+        setEditingTrackId(tracksList[tracksList.length - 1].id);
+      }
     }
   }, [trackId, setEditingTrackId]);
 
@@ -379,6 +402,143 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const inst = track ? instrumentsConfig[track.instrumentIdx] : { id: '', name: '', type: 'percussion', iconImg: '', colors: { text: '' }, mixerBg: '' };
   
   if (!track) return null;
+
+  // 1. Calculer les moyennes réelles (volume et decay) pour une frappe donnée sur la piste en cours
+  const getStrokeAverages = (stroke: string) => {
+    let volSum = 0;
+    let volCount = 0;
+    let decaySum = 0;
+    let decayCount = 0;
+
+    const isVoice = inst?.type === 'voice';
+    const defaultDecay = isVoice ? 10 : 100;
+
+    track.patterns.forEach((p) => {
+      const vols = p.volumes || [];
+      const decays = p.decays || [];
+
+      p.activeSteps.forEach((step, idx) => {
+        if (step === stroke) {
+          volSum += vols[idx] !== undefined ? vols[idx] : 80;
+          volCount++;
+          decaySum += decays[idx] !== undefined ? decays[idx] : defaultDecay;
+          decayCount++;
+        }
+      });
+
+      p.variations?.forEach((v) => {
+        const varVols = v.volumes || [];
+        const varDecays = v.decays || [];
+        v.steps.forEach((step, idx) => {
+          if (step === stroke) {
+            volSum += varVols[idx] !== undefined ? varVols[idx] : 80;
+            volCount++;
+            decaySum += varDecays[idx] !== undefined ? varDecays[idx] : defaultDecay;
+            decayCount++;
+          }
+        });
+      });
+    });
+
+    if (volCount > 0 && decayCount > 0) {
+      return {
+        avgVolume: Math.round(volSum / volCount),
+        avgDecay: Math.round(decaySum / decayCount),
+      };
+    }
+
+    // Récupération de la valeur par défaut anticipée dans les strokeDefaults
+    const defaults = strokeDefaults[`${track.id}:${stroke}`];
+    return {
+      avgVolume: defaults?.volume !== undefined ? defaults.volume : 80,
+      avgDecay: defaults?.decay !== undefined ? defaults.decay : defaultDecay,
+    };
+  };
+
+  // 2. Appliquer un delta de volume relatif sur tous les pas correspondants de la piste, et sauvegarder la valeur par défaut
+  const applyMacroVolumeDelta = (stroke: string, delta: number, targetVal: number) => {
+    if (pushUndoState) pushUndoState();
+
+    // Enregistrer la macro par défaut anticipée
+    setStrokeDefault(`${trackId}:${stroke}`, { volume: targetVal });
+
+    setTracks(prevTracks => prevTracks.map(t => {
+      if (t.id === trackId) {
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            const newVols = [...(p.volumes || Array(p.steps).fill(80))];
+            let hasChanged = false;
+            p.activeSteps.forEach((step, idx) => {
+              if (step === stroke) {
+                newVols[idx] = Math.max(0, Math.min(100, newVols[idx] + delta));
+                hasChanged = true;
+              }
+            });
+
+            const newVariations = p.variations?.map(v => {
+              const newVarVols = [...(v.volumes || Array(v.steps.length).fill(80))];
+              let varChanged = false;
+              v.steps.forEach((step, idx) => {
+                if (step === stroke) {
+                  newVarVols[idx] = Math.max(0, Math.min(100, newVarVols[idx] + delta));
+                  varChanged = true;
+                }
+              });
+              return varChanged ? { ...v, volumes: newVarVols } : v;
+            });
+
+            return (hasChanged || p.variations) ? { ...p, volumes: newVols, variations: newVariations } : p;
+          })
+        };
+      }
+      return t;
+    }));
+  };
+
+  // 3. Appliquer un delta de decay relatif sur tous les pas correspondants de la piste, et sauvegarder la valeur par défaut
+  const applyMacroDecayDelta = (stroke: string, delta: number, targetVal: number) => {
+    if (pushUndoState) pushUndoState();
+
+    // Enregistrer la macro par défaut anticipée
+    setStrokeDefault(`${trackId}:${stroke}`, { decay: targetVal });
+
+    setTracks(prevTracks => prevTracks.map(t => {
+      if (t.id === trackId) {
+        const isVoice = inst?.type === 'voice';
+        const defaultDecay = isVoice ? 10 : 100;
+
+        return {
+          ...t,
+          patterns: t.patterns.map(p => {
+            const newDecays = [...(p.decays || Array(p.steps).fill(defaultDecay))];
+            let hasChanged = false;
+            p.activeSteps.forEach((step, idx) => {
+              if (step === stroke) {
+                newDecays[idx] = Math.max(10, Math.min(100, newDecays[idx] + delta));
+                hasChanged = true;
+              }
+            });
+
+            const newVariations = p.variations?.map(v => {
+              const newVarDecays = [...(v.decays || Array(v.steps.length).fill(defaultDecay))];
+              let varChanged = false;
+              v.steps.forEach((step, idx) => {
+                if (step === stroke) {
+                  newVarDecays[idx] = Math.max(10, Math.min(100, newVarDecays[idx] + delta));
+                  varChanged = true;
+                }
+              });
+              return varChanged ? { ...v, decays: newVarDecays } : v;
+            });
+
+            return (hasChanged || p.variations) ? { ...p, decays: newDecays, variations: newVariations } : p;
+          })
+        };
+      }
+      return t;
+    }));
+  };
 
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
@@ -987,18 +1147,27 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                           {(() => {
                             const usage = getPatternUsage(ptn.id, track, allTracks, lang);
                             return (
-                              <div className="flex flex-wrap gap-2 text-[10px] bg-[#eaddcf]/50 p-2 rounded border border-[#1a1a1a]/10 mb-2">
-                                <span className="font-bold text-[#1a1a1a]/60 uppercase tracking-wide flex items-center gap-1 select-none">
-                                  📢 {lang === 'fr' ? 'Joué par :' : 'Tocado por :'}
+                              <div className="flex flex-wrap items-center gap-2 text-[10px] bg-[#eaddcf]/30 p-1.5 px-2.5 rounded-sm border border-[#1a1a1a]/10 mb-2">
+                                <span className="font-bold text-[#1a1a1a]/60 uppercase tracking-wider flex items-center gap-1.5 select-none">
+                                  <XiloMegaphone size={12} className="text-[#1a1a1a]/60" />
+                                  {lang === 'fr' ? 'Joué par :' : 'Tocado por :'}
                                 </span>
                                 {usage.length === 0 ? (
-                                  <span className="px-2 py-0.5 rounded font-bold bg-[#8b2a1a]/10 text-[#8b2a1a] cordel-border-sm">
+                                  <span className="inline-flex items-center gap-1 bg-[#8b2a1a]/5 text-[#8b2a1a]/85 px-2 py-0.5 rounded-sm text-[10px] border border-[#8b2a1a]/15 font-semibold">
                                     ⚠️ {lang === 'fr' ? 'Non utilisé dans le morceau' : 'Não utilizado na música'}
                                   </span>
                                 ) : (
                                   usage.map((u, uIdx) => (
-                                    <span key={uIdx} className={`px-2 py-0.5 rounded font-bold cordel-border-sm ${u.isMaster ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
-                                      {u.trackName} ({lang === 'fr' ? 'Mesures' : 'Compassos'} : {u.measures.join(', ')})
+                                    <span 
+                                      key={uIdx} 
+                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-medium border ${
+                                        u.isMaster 
+                                          ? 'bg-amber-50/40 border-amber-900/10 text-amber-900/80' 
+                                          : 'bg-blue-50/40 border-blue-900/10 text-blue-900/80'
+                                      }`}
+                                    >
+                                      <span className="font-bold opacity-90">{u.trackName}</span>
+                                      <span className="opacity-60">({lang === 'fr' ? 'mesures' : 'compassos'} : {u.measures.join(', ')})</span>
                                     </span>
                                   ))
                                 )}
@@ -1262,33 +1431,132 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             {/* Stroke list */}
             <div className="flex flex-col gap-2">
               {strokes.map((stroke, sIdx) => {
+                const symbol = stroke.symbol;
+                const activeStrokes = getActiveStrokesForTrack(track, allTracks);
+                const isUsed = activeStrokes.includes(symbol);
+                const forced = forcedStrokes[`${track.id}:${symbol}`];
+                const isActive = forced !== undefined ? forced : isUsed;
+                const isSelected = selectedStrokeMacro === symbol;
+
                 const bgColor = inst.colors[stroke.colorKey] || '#666';
                 let txtColor = inst.colors.text || '#f4ecd8';
                 if (isDarkText(inst.id, stroke.colorKey)) {
                   txtColor = '#1a1a1a';
                 }
 
-                return (
-                  <div key={sIdx} className="flex items-center gap-2.5">
-                    <div
-                      className="flex items-center justify-center cordel-border-sm font-bold text-xs shrink-0"
-                      style={{
-                        width: '32px',
-                        height: '32px',
-                        backgroundColor: bgColor,
-                        color: txtColor,
-                        borderColor: '#1a1a1a',
-                      }}
-                    >
-                      {stroke.symbol.length <= 2 ? stroke.symbol : stroke.symbol.charAt(0)}
-                    </div>
+                const { avgVolume, avgDecay } = getStrokeAverages(symbol);
+                const isVoice = inst?.type === 'voice';
 
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-[11px] font-bold text-[#1a1a1a] leading-tight">{stroke.label}</span>
-                      <span className="text-[9px] text-[#666] leading-tight">
-                        {lang === 'fr' ? 'Touche' : 'Tecla'}: {stroke.shortcut}
+                return (
+                  <div key={sIdx} className="flex flex-col border border-black/10 bg-black/[0.01] p-1.5 rounded-sm">
+                    {/* Touche et Infos (Ligne interactive) */}
+                    <div
+                      onClick={() => setSelectedStrokeMacro(isSelected ? null : symbol)}
+                      className={`flex items-center gap-2.5 cursor-pointer hover:bg-black/5 p-0.5 select-none transition-all ${
+                        !isActive ? 'opacity-40 grayscale border-dashed border border-black/30' : ''
+                      }`}
+                      title={`${symbol} : ${stroke.label} (${isActive ? (lang === 'fr' ? 'Actif' : 'Ativo') : (lang === 'fr' ? 'Inactif' : 'Inativo')})`}
+                    >
+                      <div
+                        className="flex items-center justify-center cordel-border-sm font-bold text-xs shrink-0"
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          backgroundColor: bgColor,
+                          color: txtColor,
+                          borderColor: '#1a1a1a',
+                          borderStyle: isActive ? 'solid' : 'dashed',
+                        }}
+                      >
+                        {symbol.length <= 2 ? symbol : symbol.charAt(0)}
+                      </div>
+
+                      <div className="flex flex-col min-w-0 flex-grow">
+                        <span className="text-[11px] font-bold text-[#1a1a1a] leading-tight">{stroke.label}</span>
+                        <span className="text-[9px] text-[#666] leading-tight">
+                          {lang === 'fr' ? 'Touche' : 'Tecla'}: {stroke.shortcut}
+                        </span>
+                      </div>
+
+                      <span className="text-[9px] text-[#666] font-bold mr-1 shrink-0 select-none">
+                        {isSelected ? '▲' : '▼'}
                       </span>
                     </div>
+
+                    {/* Accordéon Tiroir Contextuel pour les réglages globaux */}
+                    {isSelected && (
+                      <div className="mt-2 border-t border-dashed border-[#1a1a1a]/30 pt-2 pb-1 px-1 flex flex-col gap-2.5 bg-[#ece4d0]/40">
+                        <div className="flex justify-between items-center text-[9px] font-bold">
+                          <span>🎛️ {lang === 'fr' ? 'MACRO :' : 'MACRO :'} [{symbol}]</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setStrokeForcedState(`${track.id}:${symbol}`, !isActive);
+                            }}
+                            className={`px-1.5 py-0.5 border text-[8px] font-black uppercase tracking-wider cursor-pointer shadow-[1px_1px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all select-none ${
+                              isActive
+                                ? 'bg-green-600 text-white border-green-700 hover:bg-green-700' 
+                                : 'bg-red-700 text-white border-red-800 hover:bg-red-800'
+                            }`}
+                            title={lang === 'fr' 
+                              ? 'Forcer l\'activation ou la désactivation de cette frappe'
+                              : 'Forçar a ativação ou desativação desta batida'}
+                          >
+                            {isActive ? '● ACTIF' : '○ DÉSACTIVÉ'}
+                          </button>
+                        </div>
+
+                        {/* Volume slider */}
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex justify-between text-[9px] font-bold">
+                            <span>🔊 Volume Global :</span>
+                            <span className={`vol-label-${symbol}`}>{avgVolume}%</span>
+                          </div>
+                          <input 
+                            type="range"
+                            min="0"
+                            max="100"
+                            defaultValue={avgVolume}
+                            onInput={(e) => {
+                              const target = e.currentTarget;
+                              const label = target.parentElement?.querySelector(`.vol-label-${symbol}`);
+                              if (label) label.textContent = `${target.value}%`;
+                            }}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              const delta = val - avgVolume;
+                              applyMacroVolumeDelta(symbol, delta, val);
+                            }}
+                            className="w-full accent-green-600 cursor-pointer h-1.5 bg-black/10"
+                          />
+                        </div>
+
+                        {/* Decay slider */}
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex justify-between text-[9px] font-bold">
+                            <span>⏳ {isVoice ? (lang === 'fr' ? 'Durée Globale :' : 'Duração Geral :') : (lang === 'fr' ? 'Decay Global :' : 'Decay Geral :')}</span>
+                            <span className={`decay-label-${symbol}`}>{avgDecay}%</span>
+                          </div>
+                          <input 
+                            type="range"
+                            min="10"
+                            max="100"
+                            defaultValue={avgDecay}
+                            onInput={(e) => {
+                              const target = e.currentTarget;
+                              const label = target.parentElement?.querySelector(`.decay-label-${symbol}`);
+                              if (label) label.textContent = `${target.value}%`;
+                            }}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              const delta = val - avgDecay;
+                              applyMacroDecayDelta(symbol, delta, val);
+                            }}
+                            className="w-full accent-[#8b2a1a] cursor-pointer h-1.5 bg-black/10"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}

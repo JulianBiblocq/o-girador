@@ -29,24 +29,25 @@ export const VUMeter: React.FC<VUMeterProps> = ({
     isEcoRef.current = useSequencerStore.getState().isEcoMode;
     let animationFrameId: number | null = null;
 
-    const updateMeter = () => {
-      if ((window as any).oGiradorDetailEditorOpen) {
-        animationFrameId = requestAnimationFrame(updateMeter);
-        return;
-      }
-      if (isEcoRef.current) {
-        lastLevelRef.current = 0;
-        if (gaugeRef.current) {
-          gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
+      const updateMeter = () => {
+        if ((window as any).oGiradorDetailEditorOpen) {
+          animationFrameId = requestAnimationFrame(updateMeter);
+          return;
         }
-        animationFrameId = null;
-        return; // Break the rAF loop when eco mode is active
-      }
+        if (isEcoRef.current) {
+          lastLevelRef.current = 0;
+          if (gaugeRef.current) {
+            gaugeRef.current.style.transform = orientation === 'vertical' ? 'scaleY(0)' : 'scaleX(0)';
+          }
+          animationFrameId = null;
+          return; // Break the rAF loop when eco mode is active
+        }
 
-      const meterNode = (busId && busMeters ? busMeters[busId] : undefined) || 
-                        (meters && trackId !== undefined ? meters[trackId] : undefined) ||
-                        (busMeters && trackId !== undefined ? busMeters[trackId] : undefined);
-      if (meterNode) {
+        const meterNode = (busId && busMeters ? busMeters[busId] : undefined) || 
+                          (meters && trackId !== undefined ? meters[trackId] : undefined) ||
+                          (busMeters && trackId !== undefined ? busMeters[trackId] : undefined);
+
+        if (meterNode) {
         try {
           let db = -80;
           if (typeof (meterNode as any).getValue === 'function') {

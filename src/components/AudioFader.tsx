@@ -1,36 +1,59 @@
 import React, { useEffect, useRef } from 'react';
-import type * as ToneType from 'tone';
-import { loadTone, getTone } from '@/src/ToneLoader';
+import { getTone } from '@/src/ToneLoader';
 import { channels, reverbSends, masterVolumeNode, masterEQNode, masterCompressorNode, metroChannel, masterReverbVolumeNode, reverbNode } from '../hooks/useAudioSync';
-import { useSequencerStore } from '../stores/useSequencerStore';
-import { instrumentsConfig } from '../data';
 
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
 }
 
-interface AudioFaderProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
+interface AudioFaderProps {
   value: number;
   onChange: (val: number) => void;
   audioTarget?: 'trackVolume' | 'trackPan' | 'trackReverb' | 'masterVolume' | 'metroVolume' | 'eqLow' | 'eqMid' | 'eqHigh' | 'compThreshold' | 'compRatio' | 'masterReverbVol' | 'reverbDecay';
   trackId?: number;
-  orient?: string;
+  min?: string | number;
+  max?: string | number;
+  step?: string | number;
+  className?: string;
+  style?: React.CSSProperties;
 }
 
-export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTarget, trackId, ...props }) => {
-  const inputRef = useRef<HTMLInputElement>(null);
+export const AudioFader: React.FC<AudioFaderProps> = ({ 
+  value, 
+  onChange, 
+  audioTarget, 
+  trackId, 
+  min = 0, 
+  max = 100, 
+  step = 1, 
+  className, 
+  style 
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const visualThumbRef = useRef<HTMLDivElement>(null);
+  
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const isDraggingRef = useRef(false);
+  const rectRef = useRef<DOMRect | null>(null);
   const lastAudioUpdateTimeRef = useRef(0);
   const THROTTLE_MS = 25; // 40 Hz limit
 
+  const numMin = parseFloat(String(min));
+  const numMax = parseFloat(String(max));
+  const numStep = parseFloat(String(step));
+
+  const getPercentage = (val: number) => {
+    if (numMax === numMin) return 0;
+    return ((val - numMin) / (numMax - numMin)) * 100;
+  };
+
   const updateLabelText = (val: number) => {
-    const inputEl = inputRef.current;
-    if (!inputEl) return;
-    let label = inputEl.parentElement?.querySelector('.fader-val-label');
-    if (!label && inputEl.parentElement?.parentElement) {
-      label = inputEl.parentElement.parentElement.querySelector('.fader-val-label');
+    const containerEl = containerRef.current;
+    if (!containerEl) return;
+    let label = containerEl.parentElement?.querySelector('.fader-val-label');
+    if (!label && containerEl.parentElement?.parentElement) {
+      label = containerEl.parentElement.parentElement.querySelector('.fader-val-label');
     }
     if (label) {
       if (audioTarget === 'masterReverbVol' || audioTarget === 'masterVolume') {
@@ -105,47 +128,105 @@ export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTa
 
   useEffect(() => {
     if (!isDraggingRef.current) {
-      if (inputRef.current) {
-        inputRef.current.value = String(value);
+      const pct = getPercentage(value);
+      if (visualThumbRef.current) {
+        visualThumbRef.current.style.left = `${pct}%`;
       }
       updateLabelText(value);
       updateAudio(value, true);
     }
   }, [value, audioTarget, trackId]);
 
-  const handleDrag = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
+  const calculateValueFromPointer = (clientX: number) => {
+    const rect = rectRef.current;
+    if (!rect) return value;
+    const relativeX = clientX - rect.left;
+    
+    let ratio = relativeX / rect.width;
+    ratio = Math.min(1, Math.max(0, ratio));
+    
+    let val = numMin + ratio * (numMax - numMin);
+    
+    // Align with step
+    const steps = Math.round((val - numMin) / numStep);
+    val = numMin + steps * numStep;
+    
+    val = Math.min(numMax, Math.max(numMin, val));
+    return val;
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (_) {}
+
+    if (containerRef.current) {
+      rectRef.current = containerRef.current.getBoundingClientRect();
+    }
+
+    const val = calculateValueFromPointer(e.clientX);
+    
+    // Direct DOM updates
+    const pct = getPercentage(val);
+    if (visualThumbRef.current) {
+      visualThumbRef.current.style.left = `${pct}%`;
+    }
+    updateLabelText(val);
+    updateAudio(val, true);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    e.preventDefault();
+    
+    const val = calculateValueFromPointer(e.clientX);
+
+    // Direct DOM updates
+    const pct = getPercentage(val);
+    if (visualThumbRef.current) {
+      visualThumbRef.current.style.left = `${pct}%`;
+    }
     updateLabelText(val);
     updateAudio(val, false);
   };
 
-  const handleCommit = (e: React.SyntheticEvent) => {
-    const val = parseFloat((e.target as HTMLInputElement).value);
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
     isDraggingRef.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+
+    const val = calculateValueFromPointer(e.clientX);
     updateAudio(val, true);
-    React.startTransition(() => {
-      onChangeRef.current(val);
-    });
+    onChange(val);
   };
-
-  const handlePointerDown = () => {
-    isDraggingRef.current = true;
-  };
-
-  const combinedClassName = `${props.className || ''} touch-none`.trim();
 
   return (
-    <input
-      ref={inputRef}
-      type="range"
-      defaultValue={value}
-      onChange={handleDrag}
+    <div
+      ref={containerRef}
       onPointerDown={handlePointerDown}
-      onPointerUp={handleCommit}
-      onKeyUp={handleCommit}
-      onBlur={handleCommit}
-      {...props}
-      className={combinedClassName}
-    />
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      className={`relative select-none touch-none cursor-pointer ${className || ''}`}
+      style={{
+        ...style,
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center'
+      }}
+    >
+      {/* Visual thumb inside the rail */}
+      <div
+        ref={visualThumbRef}
+        className="absolute w-3 h-4 bg-[var(--cordel-border)] border border-[var(--cordel-bg)] -translate-x-1/2 -translate-y-1/2 top-1/2 pointer-events-none"
+        style={{
+          left: `${getPercentage(value)}%`
+        }}
+      />
+    </div>
   );
 };

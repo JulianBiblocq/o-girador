@@ -332,20 +332,20 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none"
             title="Drag to reorder"
           >
-            <GripHorizontal size={14} />
+            <GripHorizontal size={18} />
           </div>
           
           <button
              onClick={() => setIsEditing(true)}
-             className="w-5 h-5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-[9px]"
+             className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-sm"
              title={lang === 'fr' ? 'Renommer le groupe' : 'Renomear o grupo'}
            >
-             <XiloChisel size={9} />
+             <XiloChisel size={12} />
            </button>
 
            <button 
              onClick={onDelete} 
-             className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-[9px]"
+             className="w-6 h-6 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-sm"
              title={lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o groupe'}
            >
              ✕
