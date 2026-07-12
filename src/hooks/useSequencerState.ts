@@ -1605,8 +1605,17 @@ export function useSequencerState() {
     pushUndoState();
     setTracks([]);
     setLetras('');
-    setMeasureSignals(Array(totalMeasuresRef.current).fill(null));
+    setBpm(83);
+    setTimeSig('4/4');
+    setTotalMeasures(8);
+    setMeasureTimeSigs(Array(8).fill('4/4'));
+    setMeasureBpms(Array(8).fill(83));
+    setMeasureBpmTransitions(Array(8).fill('immediate'));
+    setMeasureVols(Array(8).fill(100));
+    setMeasureVolTransitions(Array(8).fill('immediate'));
+    setMeasureSignals(Array(8).fill(null));
     setSongSections([]);
+    setSongMarkers([]);
     setActiveAoVivoTrackId(null);
     setMetadata({ toada: '', nacao: '', compositor: '', ritmo: '', youtubeUrl: '', partitionImage: undefined, rhythmSignals: [] });
   };
