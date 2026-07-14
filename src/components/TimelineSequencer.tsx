@@ -5,7 +5,7 @@
 
 import { useSequencerStore, isLinearDAWVisibleTrack, isToadaBus } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import type * as ToneType from 'tone';
 import { loadTone, getTone } from '@/src/ToneLoader';
 
@@ -18,6 +18,7 @@ import { CompactPatternRenderer } from './CompactPatternRenderer';
 import { TimelineTrackRow } from './TimelineTrackRow';
 import { TimelinePlayhead } from './TimelinePlayhead';
 import { CompassoSelector } from './CompassoSelector';
+import { getExpandedMeasures } from '../utils/measureHelpers';
 import { StepEditorPopup } from './StepEditorPopup';
 import { useTimelineEditStore } from '../stores/useTimelineEditStore';
 import { useSequencer } from '../contexts/SequencerContext';
@@ -433,6 +434,36 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
   const [hoveredPasteMeasure, setHoveredPasteMeasure] = React.useState<number | null>(null);
   const [signalDropdownOpen, setSignalDropdownOpen] = React.useState<number | null>(null);
+  const [activeRepeatDropdownSectionId, setActiveRepeatDropdownSectionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleGlobalClick = () => {
+      setActiveRepeatDropdownSectionId(null);
+    };
+    window.addEventListener('click', handleGlobalClick);
+    return () => window.removeEventListener('click', handleGlobalClick);
+  }, []);
+
+  const expanded = useMemo(() => getExpandedMeasures(totalMeasures, songSections), [totalMeasures, songSections]);
+
+  const measureLabelsMap = useMemo(() => {
+    const map = new Map<number, string>();
+    for (let mIdx = 0; mIdx < totalMeasures; mIdx++) {
+      const globalIndices: number[] = [];
+      expanded.forEach((item, expIdx) => {
+        if (item.baseMeasure === mIdx) {
+          globalIndices.push(expIdx + 1);
+        }
+      });
+      const prefix = lang === 'fr' ? 'M.' : 'C.';
+      if (globalIndices.length === 0) {
+        map.set(mIdx, `${prefix}${mIdx + 1}`);
+      } else {
+        map.set(mIdx, `${prefix}${globalIndices.join('.')}`);
+      }
+    }
+    return map;
+  }, [expanded, totalMeasures, lang]);
 
   // Tablature state and logic removed (lifted to App.tsx)
 
@@ -524,27 +555,32 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     const relativeX = clientX - rect.left - HEADER_W + scrollRef.current.scrollLeft;
     const { totalMeasures: tMeasures, measureTimeSigs: mSigs } = propsRef.current;
     
+    let measureIdx = 0;
     if (relativeX < 0) {
-      window.dispatchEvent(new CustomEvent('o-girador-timeline-nav', { detail: { mIdx: 0, sIdx: 0 } }));
-      return;
+      measureIdx = 0;
+    } else {
+      measureIdx = Math.floor(relativeX / MEASURE_W);
     }
     
-    const measureIdx = Math.floor(relativeX / MEASURE_W);
     if (measureIdx >= tMeasures) {
-      const lastMeasureIdx = tMeasures - 1;
-      const mTimeSig = mSigs[lastMeasureIdx] || '4/4';
-      const steps = mTimeSig === '6/8' || mTimeSig === '12/8' ? 24 : 16;
-      window.dispatchEvent(new CustomEvent('o-girador-timeline-nav', { detail: { mIdx: lastMeasureIdx, sIdx: steps - 1 } }));
-      return;
+      measureIdx = tMeasures - 1;
     }
     
-    const mTimeSig = mSigs[measureIdx] || '4/4';
-    const steps = mTimeSig === '6/8' || mTimeSig === '12/8' ? 24 : 16;
-    const xInMeasure = relativeX - measureIdx * MEASURE_W;
-    const ratio = Math.max(0, Math.min(1, xInMeasure / MEASURE_W));
-    const stepIdx = Math.floor(ratio * steps);
+    // Trouver la première itération correspondante dans expanded
+    const firstMatchIdx = expanded.findIndex(item => item.baseMeasure === measureIdx);
+    const targetIteration = firstMatchIdx !== -1 ? expanded[firstMatchIdx].iteration : 1;
     
-    window.dispatchEvent(new CustomEvent('o-girador-timeline-nav', { detail: { mIdx: measureIdx, sIdx: stepIdx } }));
+    if (firstMatchIdx !== -1) {
+      useSequencerStore.getState().setCurrentExpandedMeasureIdx(firstMatchIdx);
+    }
+
+    window.dispatchEvent(new CustomEvent('o-girador-timeline-nav', { 
+      detail: { 
+        mIdx: measureIdx, 
+        sIdx: 0,
+        iteration: targetIteration
+      } 
+    }));
   };
 
   const handleRulerPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -1083,7 +1119,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             style={{ 
               width: `${HEADER_W + totalContentW + 150}px`, 
               minWidth: `${HEADER_W + totalContentW + 150}px`,
-              height: `${32 + (Math.max(0, ...songSections.map(s => s.level || 0)) * 26)}px` 
+              height: `${32 + (Math.max(0, ...songSections.map(s => s.level || 0)) * 26)}px`,
+              zIndex: activeRepeatDropdownSectionId !== null ? 60 : undefined
             }}
           >
             {/* Sticky header */}
@@ -1170,35 +1207,76 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       color: '#1a1a1a', // Toujours lisible en noir sur fond coloré
                       borderColor: '#1a1a1a',
                       borderWidth: '1.5px',
+                      zIndex: activeRepeatDropdownSectionId === section.id ? 70 : 10
                     }}
                   >
                     <span className="truncate max-w-[50%] font-cactus uppercase tracking-wider">{section.name}</span>
                     <div className="flex gap-1 shrink-0">
-                      <button
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          const val = await sequencer.promptAsync(
-                            lang === 'fr' ? 'Nombre de répétitions pour cette section ?' : 'Número de repetições?',
-                            (section.repeatCount || 1).toString()
-                          );
-                          if (val) {
-                            const count = parseInt(val, 10);
-                            if (!isNaN(count) && count > 0) {
-                              const sectionLength = section.endMeasure - section.startMeasure + 1;
-                              const diff = (count - (section.repeatCount || 1)) * sectionLength;
-                              if (totalMeasures + diff > 20 && !hasAccess('mestre')) {
-                                setShowSubModal(true);
-                              } else {
-                                onUpdateSectionRepeat(section.id, count);
-                              }
-                            }
-                          }
-                        }}
-                        className="bg-white/80 hover:bg-white text-black text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer font-sans font-bold flex items-center gap-0.5"
-                        title={lang === 'fr' ? 'Répétitions' : 'Repetições'}
-                      >
-                        🔁 x{section.repeatCount || 1}
-                      </button>
+                      <div className="relative flex items-center">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveRepeatDropdownSectionId(activeRepeatDropdownSectionId === section.id ? null : section.id);
+                          }}
+                          className="bg-white/80 hover:bg-white text-black text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer font-sans font-bold flex items-center gap-0.5"
+                          title={lang === 'fr' ? 'Répétitions' : 'Repetições'}
+                        >
+                          🔁 x{section.repeatCount || 1}
+                        </button>
+                        
+                        {activeRepeatDropdownSectionId === section.id && (
+                          <div
+                            className="absolute top-full mt-1 right-0 z-[100] bg-[#f4ecd8] border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] flex flex-col py-1 rounded-sm min-w-[70px]"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {[1, 2, 3, 4, 5, 6, 7].map((count) => (
+                              <button
+                                key={count}
+                                onClick={() => {
+                                  const sectionLength = section.endMeasure - section.startMeasure + 1;
+                                  const diff = (count - (section.repeatCount || 1)) * sectionLength;
+                                  if (totalMeasures + diff > 20 && !hasAccess('mestre')) {
+                                    setShowSubModal(true);
+                                  } else {
+                                    onUpdateSectionRepeat(section.id, count);
+                                  }
+                                  setActiveRepeatDropdownSectionId(null);
+                                }}
+                                className={`px-2 py-1 text-[10px] font-bold text-[#1a1a1a] hover:bg-black/10 text-left w-full cursor-pointer ${
+                                  (section.repeatCount || 1) === count ? 'bg-black/15' : ''
+                                }`}
+                              >
+                                x{count}
+                              </button>
+                            ))}
+                            <div className="border-t border-black/10 my-0.5" />
+                            <button
+                              onClick={async () => {
+                                setActiveRepeatDropdownSectionId(null);
+                                const val = await sequencer.promptAsync(
+                                  lang === 'fr' ? 'Nombre de répétitions pour cette section ?' : 'Número de repetições?',
+                                  (section.repeatCount || 1).toString()
+                                );
+                                if (val) {
+                                  const count = parseInt(val, 10);
+                                  if (!isNaN(count) && count > 0) {
+                                    const sectionLength = section.endMeasure - section.startMeasure + 1;
+                                    const diff = (count - (section.repeatCount || 1)) * sectionLength;
+                                    if (totalMeasures + diff > 20 && !hasAccess('mestre')) {
+                                      setShowSubModal(true);
+                                    } else {
+                                      onUpdateSectionRepeat(section.id, count);
+                                    }
+                                  }
+                                }
+                              }}
+                              className="px-2 py-1 text-[10px] font-bold text-[#1a1a1a] hover:bg-black/10 text-left w-full cursor-pointer opacity-70"
+                            >
+                              {lang === 'fr' ? 'Autre...' : 'Outro...'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1358,7 +1436,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                   )}
                   <div className="ruler-measure-header flex flex-wrap items-center justify-between w-full mt-0.5 gap-x-2 gap-y-1">
                     <span className="font-cactus text-xs tracking-wide flex items-center gap-1.5 shrink-0">
-                      <span>{lang === 'fr' ? 'M.' : 'C.'} {mIdx + 1}</span>
+                      <span>{measureLabelsMap.get(mIdx)}</span>
                       
                       {/* Loop Delimiters */}
                       <div className="ruler-detailed flex gap-0.5 border-l border-[var(--cordel-border)]/20 pl-1.5">
