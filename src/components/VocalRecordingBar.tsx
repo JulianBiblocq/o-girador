@@ -150,6 +150,23 @@ export const VocalRecordingBar: React.FC = () => {
   };
 
   const handleStartRec = () => {
+    // 🛡️ SYNC CHECK: Resume context synchronously inside user gesture to bypass Safari/Chrome autoplay blocks
+    try {
+      if (Tone.context && Tone.context.state !== 'running') {
+        Tone.context.resume();
+      }
+      Tone.start();
+      console.log("🎙️ [VOCAL DEBUG] Tone.start() invoked on user gesture click.");
+    } catch (e) {
+      console.warn("🎙️ [VOCAL DEBUG] Tone.start failed on gesture:", e);
+    }
+
+    // Stop the sequencer if it was playing to ensure start from beginning
+    if (isPlaying) {
+      console.log("🎙️ [VOCAL DEBUG] Sequencer was playing. Stopping it before arming recording.");
+      handleStop();
+    }
+
     vocalEngineService.startRecording(selectedPatternId, {
       onStartSequencer: () => {
         if (!isPlaying) {

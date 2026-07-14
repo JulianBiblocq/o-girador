@@ -3,7 +3,10 @@ import { create } from 'zustand';
 export interface AudioState {
   recordingStatus: 'inactive' | 'arming' | 'countdown' | 'recording';
   targetPatternId: number | null;
+  targetMeasureIdx: number | null;
   vocalBlobs: Record<number, Blob>;
+  vocalBuffers: Record<number, AudioBuffer>;
+  tempRecording: { patternId: number; blob: Blob } | null;
   chorusDensity: number;
   isVocalGuideEnabled: boolean;
   isVocalRecordingBarExpanded: boolean;
@@ -12,10 +15,14 @@ export interface AudioState {
 
   setRecordingStatus: (status: 'inactive' | 'arming' | 'countdown' | 'recording') => void;
   setTargetPatternId: (id: number | null) => void;
+  setTargetMeasureIdx: (idx: number | null) => void;
+  setTempRecording: (temp: { patternId: number; blob: Blob } | null) => void;
   setChorusDensity: (density: number) => void;
   setIsVocalGuideEnabled: (enabled: boolean) => void;
   addVocalBlob: (patternId: number, blob: Blob) => void;
   removeVocalBlob: (patternId: number) => void;
+  addVocalBuffer: (patternId: number, buffer: AudioBuffer) => void;
+  removeVocalBuffer: (patternId: number) => void;
   setIsVocalRecordingBarExpanded: (expanded: boolean) => void;
   setSelectedVocalPatternId: (id: number | null) => void;
   unlockAudio: () => void;
@@ -24,7 +31,10 @@ export interface AudioState {
 export const useAudioStore = create<AudioState>((set) => ({
   recordingStatus: 'inactive',
   targetPatternId: null,
+  targetMeasureIdx: null,
   vocalBlobs: {},
+  vocalBuffers: {},
+  tempRecording: null,
   chorusDensity: 0.0,
   isVocalGuideEnabled: true,
   isVocalRecordingBarExpanded: false,
@@ -33,6 +43,8 @@ export const useAudioStore = create<AudioState>((set) => ({
 
   setRecordingStatus: (status) => set({ recordingStatus: status }),
   setTargetPatternId: (id) => set({ targetPatternId: id }),
+  setTargetMeasureIdx: (idx) => set({ targetMeasureIdx: idx }),
+  setTempRecording: (temp) => set({ tempRecording: temp }),
   setChorusDensity: (density) => set({ chorusDensity: Math.max(0, Math.min(1, density)) }),
   setIsVocalGuideEnabled: (enabled) => set({ isVocalGuideEnabled: enabled }),
   setIsVocalRecordingBarExpanded: (expanded) => set({ isVocalRecordingBarExpanded: expanded }),
@@ -47,5 +59,15 @@ export const useAudioStore = create<AudioState>((set) => ({
       const nextBlobs = { ...state.vocalBlobs };
       delete nextBlobs[patternId];
       return { vocalBlobs: nextBlobs };
+    }),
+  addVocalBuffer: (patternId, buffer) =>
+    set((state) => ({
+      vocalBuffers: { ...state.vocalBuffers, [patternId]: buffer },
+    })),
+  removeVocalBuffer: (patternId) =>
+    set((state) => {
+      const nextBuffers = { ...state.vocalBuffers };
+      delete nextBuffers[patternId];
+      return { vocalBuffers: nextBuffers };
     }),
 }));

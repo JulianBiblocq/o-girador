@@ -154,17 +154,21 @@ export const vocalEngineService = {
       onRecordingStopped?: (blob: Blob) => void;
       onError?: (err: Error) => void;
       deviceId?: string;
+      immediate?: boolean;
     } = {}
   ) {
+    const numPatternId = Number(patternId);
+    console.log(`🎙️ [VOCAL DEBUG] 4. startRecording() invoqué, instanciation du MediaRecorder... patternId: ${numPatternId}`);
+
     const store = useAudioStore.getState();
     const sequencerStore = useSequencerStore.getState();
     const bpm = sequencerStore.bpm;
 
-    // Reset any ongoing recording/timers
-    this.stopRecording();
+    // Reset timers
+    this.cleanupTimers();
 
-    store.setRecordingStatus('arming');
-    store.setTargetPatternId(patternId);
+    store.setRecordingStatus(options.immediate ? 'recording' : 'arming');
+    store.setTargetPatternId(numPatternId);
     recordedChunks = [];
 
     try {
@@ -192,101 +196,149 @@ export const vocalEngineService = {
       };
 
       mediaRecorder.onstop = async () => {
+        console.log(`🎙️ [VOCAL DEBUG] mediaRecorder.onstop event fired. numPatternId: ${numPatternId}, recordedChunks count: ${recordedChunks.length}`);
         try {
           const blob = new Blob(recordedChunks, {
             type: mediaRecorder?.mimeType || 'audio/webm',
           });
-          
-          // Save in DB
-          await saveVocalRecording(patternId, blob);
-          // Update store
-          store.addVocalBlob(patternId, blob);
+          console.log(`🎙️ [VOCAL DEBUG] Created Blob. Size: ${blob.size} bytes, Type: ${blob.type}`);
+
+          // Intercept and store temporarily instead of direct save/insert
+          console.log(`🎙️ [VOCAL DEBUG] Dispatching setTempRecording to store for patternId: ${numPatternId}`);
+          useAudioStore.getState().setTempRecording({ patternId: numPatternId, blob });
+          console.log("🎙️ [VOCAL DEBUG] Store updated. tempRecording state is now:", useAudioStore.getState().tempRecording);
 
           if (options.onRecordingStopped) {
             options.onRecordingStopped(blob);
           }
         } catch (err: any) {
-          console.error("Error saving recording in vocalEngineService:", err);
+          console.error("🎙️ [VOCAL DEBUG] Error in media recorder stop:", err);
           if (options.onError) options.onError(err);
         } finally {
           this.cleanupMedia();
           store.setRecordingStatus('inactive');
-          store.setTargetPatternId(null);
+          // Note: targetPatternId is kept to maintain arming state, disarming is handled on confirm/cancel
         }
       };
 
       // Find pattern to calculate duration of recording and first note offset
       const tracks = sequencerStore.tracks;
-      const voiceTrack = tracks.find(t => t.patterns.some(p => p.id === patternId));
-      const targetPattern = voiceTrack?.patterns.find(p => p.id === patternId);
+      const voiceTrack = tracks.find(t => t.patterns.some(p => Number(p.id) === numPatternId));
+      const targetPattern = voiceTrack?.patterns.find(p => Number(p.id) === numPatternId);
 
-      const targetBpm = targetPattern 
-        ? (targetPattern.measureAssignments.indexOf(true) !== -1 
-          ? (sequencerStore.measureBpms[targetPattern.measureAssignments.indexOf(true)] || bpm)
-          : bpm)
-        : bpm;
+      console.log(`🎙️ [VOCAL DEBUG] startRecording - Found voiceTrack: ${voiceTrack ? voiceTrack.id : 'undefined'}, targetPattern: ${targetPattern ? targetPattern.name : 'undefined'}`);
 
-      if (targetPattern) {
-        let consecutiveMeasures = 0;
-        const initialMeasureIdx = targetPattern.measureAssignments.indexOf(true) !== -1 
-          ? targetPattern.measureAssignments.indexOf(true) 
-          : 0;
-        for (let i = initialMeasureIdx; i < sequencerStore.totalMeasures; i++) {
-          if (targetPattern.measureAssignments[i]) {
-            consecutiveMeasures++;
-          } else {
-            break;
-          }
-        }
-        this.recordingDurationMeasures = Math.max(1, consecutiveMeasures);
-      } else {
-        this.recordingDurationMeasures = 1;
+      if (!targetPattern || !voiceTrack) {
+        throw new Error("Target pattern or voice track not found");
       }
+
+      const initialMeasureIdx = targetPattern.measureAssignments.indexOf(true) !== -1 
+        ? targetPattern.measureAssignments.indexOf(true) 
+        : 0;
+
+      // 1 measure pre-roll
+      const startMeasureIdx = Math.max(0, initialMeasureIdx - 1);
+
+      let consecutiveMeasures = 0;
+      for (let i = initialMeasureIdx; i < sequencerStore.totalMeasures; i++) {
+        if (targetPattern.measureAssignments[i]) {
+          consecutiveMeasures++;
+        } else {
+          break;
+        }
+      }
+      consecutiveMeasures = Math.max(1, consecutiveMeasures);
+
+      // 1 measure post-roll
+      const endMeasureIdx = initialMeasureIdx + consecutiveMeasures + 1;
+      this.recordingDurationMeasures = endMeasureIdx - startMeasureIdx;
       this.recordedMeasuresCount = 0;
 
-      // Smart Punch-in Timing scan
-      const beatDurationMs = (60 / targetBpm) * 1000;
-      const firstNoteOffsetSec = targetPattern ? this.getPatternFirstNoteOffset(targetPattern, targetBpm) : 0;
-      
-      // Sequencer start time is 1000ms of arming + 4 beats of countdown
-      const seqStartMs = 1000 + 4 * beatDurationMs;
-      // Punch-in is scheduled exactly 500ms before first note start
-      const punchInMs = seqStartMs + (firstNoteOffsetSec * 1000) - 500;
-      
-      const punchInDelayMs = Math.max(0, punchInMs);
+      const targetBpm = sequencerStore.measureBpms[startMeasureIdx] || bpm;
 
-      // Program the MediaRecorder punch-in
-      punchInTimeout = workerSetTimeout(() => {
+      if (options.immediate) {
         if (mediaRecorder && mediaRecorder.state === 'inactive') {
-          mediaRecorder.start();
-        }
-      }, punchInDelayMs);
-
-      // Arming phase duration: 1.0 second
-      armingTimeout = workerSetTimeout(() => {
-        store.setRecordingStatus('countdown');
-
-        let currentBeat = 1;
-
-        countdownInterval = workerSetInterval(() => {
-          currentBeat++;
-          if (currentBeat > 4) {
-            workerClearInterval(countdownInterval);
-            countdownInterval = null;
-
-            // Transition to recording status
+          try {
+            mediaRecorder.start();
+            console.log("🎙️ [VOCAL DEBUG] mediaRecorder.start() executed successfully (immediate mode). State:", mediaRecorder.state);
             store.setRecordingStatus('recording');
+            console.log("🎙️ [VOCAL DEBUG] Punch-in triggered! Status set to recording.");
+          } catch (e) {
+            console.error("🎙️ [VOCAL DEBUG] Error starting media recorder immediately:", e);
+          }
+        }
+      } else {
+        // Smart Punch-in Timing scan: 1 measure pre-roll start time
+        const getElapsedSeconds = (mCount: number) => {
+          let secs = 0;
+          for (let i = 0; i < mCount; i++) {
+            const mIdx = i % (sequencerStore.measureBpms.length || 1);
+            const mBpm = sequencerStore.measureBpms[mIdx] || bpm;
+            const timeSig = sequencerStore.measureTimeSigs[mIdx] || '4/4';
+            const beats = parseInt(timeSig.split('/')[0]) || 4;
+            secs += (beats * 60) / mBpm;
+          }
+          return secs;
+        };
 
-            // Trigger sequencer playback
-            if (options.onStartSequencer) {
-              options.onStartSequencer();
+        const punchInTimeSec = getElapsedSeconds(startMeasureIdx);
+        const beatDurationMs = (60 / targetBpm) * 1000;
+        
+        // Sequencer start time is 1000ms of arming + 4 beats of countdown
+        const seqStartMs = 1000 + 4 * beatDurationMs;
+        // Punch-in is scheduled exactly at the start of startMeasureIdx
+        const punchInMs = seqStartMs + (punchInTimeSec * 1000);
+        
+        const punchInDelayMs = Math.max(0, punchInMs);
+
+        console.log(`🎙️ [VOCAL DEBUG] startRecording - startMeasureIdx: ${startMeasureIdx}, endMeasureIdx: ${endMeasureIdx}`);
+        console.log(`🎙️ [VOCAL DEBUG] startRecording - seqStartMs: ${seqStartMs}, punchInMs: ${punchInMs}, punchInDelayMs: ${punchInDelayMs}`);
+
+        // Program the MediaRecorder punch-in
+        punchInTimeout = workerSetTimeout(() => {
+          console.log("🎙️ [VOCAL DEBUG] punchInTimeout fired. State before start:", mediaRecorder ? mediaRecorder.state : 'null');
+          if (mediaRecorder && mediaRecorder.state === 'inactive') {
+            try {
+              mediaRecorder.start();
+              console.log("🎙️ [VOCAL DEBUG] mediaRecorder.start() executed successfully. State:", mediaRecorder.state);
+              store.setRecordingStatus('recording');
+              console.log("🎙️ [VOCAL DEBUG] Punch-in triggered! Status set to recording.");
+            } catch (e) {
+              console.error("🎙️ [VOCAL DEBUG] Error starting media recorder inside punchInTimeout:", e);
             }
           }
-        }, beatDurationMs);
+        }, punchInDelayMs);
 
-      }, 1000);
+        // Arming phase duration: 1.0 second
+        armingTimeout = workerSetTimeout(() => {
+          console.log("🎙️ [VOCAL DEBUG] armingTimeout completed. Transitioning to countdown.");
+          store.setRecordingStatus('countdown');
+
+          let currentBeat = 1;
+
+          countdownInterval = workerSetInterval(() => {
+            console.log("🎙️ [VOCAL DEBUG] Countdown beat:", currentBeat);
+            currentBeat++;
+            if (currentBeat > 4) {
+              workerClearInterval(countdownInterval);
+              countdownInterval = null;
+
+              console.log("🎙️ [VOCAL DEBUG] Countdown finished. Transitioning status to recording.");
+              // Transition to recording status
+              store.setRecordingStatus('recording');
+
+              // Trigger sequencer playback
+              if (options.onStartSequencer) {
+                options.onStartSequencer();
+              }
+            }
+          }, beatDurationMs);
+
+        }, 1000);
+      }
 
     } catch (err: any) {
+      console.error("🎙️ [VOCAL DEBUG] Error caught in startRecording try block:", err);
       this.cleanupTimers();
       this.cleanupMedia();
       store.setRecordingStatus('inactive');
@@ -299,27 +351,28 @@ export const vocalEngineService = {
    * Stops the active recording process.
    */
   stopRecording() {
+    console.log("🎙️ [VOCAL DEBUG] stopRecording() called. mediaRecorder state:", mediaRecorder ? mediaRecorder.state : 'null');
     this.cleanupTimers();
     if (mediaRecorder) {
       if (mediaRecorder.state !== 'inactive') {
         try {
+          console.log("🎙️ [VOCAL DEBUG] Calling mediaRecorder.stop()");
           mediaRecorder.stop();
         } catch (err) {
-          console.error("Error stopping media recorder:", err);
+          console.error("🎙️ [VOCAL DEBUG] Error stopping media recorder:", err);
           this.cleanupMedia();
           useAudioStore.getState().setRecordingStatus('inactive');
-          useAudioStore.getState().setTargetPatternId(null);
         }
       } else {
+        console.log("🎙️ [VOCAL DEBUG] mediaRecorder state is inactive, cleaning up without stop()");
         // If recording was scheduled/armed but never actually active, clean up
         this.cleanupMedia();
         useAudioStore.getState().setRecordingStatus('inactive');
-        useAudioStore.getState().setTargetPatternId(null);
       }
     } else {
+      console.log("🎙️ [VOCAL DEBUG] mediaRecorder is null, cleaning up");
       this.cleanupMedia();
       useAudioStore.getState().setRecordingStatus('inactive');
-      useAudioStore.getState().setTargetPatternId(null);
     }
   },
 
@@ -356,6 +409,17 @@ export const vocalEngineService = {
       const blob = await getVocalRecording(patternId);
       if (blob) {
         useAudioStore.getState().addVocalBlob(patternId, blob);
+        
+        // Pre-decode blob to AudioBuffer in RAM for zero-latency playback
+        try {
+          const arrayBuffer = await blob.arrayBuffer();
+          const rawCtx = Tone.getContext().rawContext as AudioContext;
+          const audioBuffer = await rawCtx.decodeAudioData(arrayBuffer);
+          useAudioStore.getState().addVocalBuffer(patternId, audioBuffer);
+        } catch (decErr) {
+          console.error(`Failed to pre-decode vocal recording for pattern ${patternId}:`, decErr);
+        }
+
         return blob;
       }
     } catch (err) {
@@ -384,28 +448,38 @@ export const vocalEngineService = {
     const store = useAudioStore.getState();
     const sequencerStore = useSequencerStore.getState();
     
-    // Check if we have the blob in memory or in DB
-    let blob = store.vocalBlobs[patternId];
-    if (!blob) {
-      blob = await this.loadVocalRecording(patternId) || undefined;
-    }
-    if (!blob) return;
-
     // Choke existing playback for this pattern if any
     this.stopVocalPattern(patternId);
 
+    let audioBuffer = store.vocalBuffers[patternId];
+    if (!audioBuffer) {
+      // Check if we have the blob in memory or in DB
+      let blob = store.vocalBlobs[patternId];
+      if (!blob) {
+        blob = await this.loadVocalRecording(patternId) || undefined;
+      }
+      if (!blob) return;
+
+      try {
+        const arrayBuffer = await blob.arrayBuffer();
+        // Decode audio data using raw Web Audio Context (inside Tone)
+        const rawCtx = Tone.getContext().rawContext as AudioContext;
+        audioBuffer = await rawCtx.decodeAudioData(arrayBuffer);
+        // Cache the decoded buffer for future plays
+        store.addVocalBuffer(patternId, audioBuffer);
+      } catch (err) {
+        console.error(`🎙️ [VOCAL DEBUG] Error decoding vocal blob for pattern ${patternId}:`, err);
+        return;
+      }
+    }
+
     try {
-      const arrayBuffer = await blob.arrayBuffer();
-      // Decode audio data using raw Web Audio Context (inside Tone)
-      const rawCtx = Tone.getContext().rawContext as AudioContext;
-      const audioBuffer = await rawCtx.decodeAudioData(arrayBuffer);
-
-      // Find the vocal track in the store to find its output channel
+      // Find the vocal track in the store to find its output channel (with strict Number comparison to avoid type mismatch)
       const tracks = sequencerStore.tracks;
-      const voiceTrack = tracks.find(t => t.patterns.some(p => p.id === patternId));
+      const voiceTrack = tracks.find(t => t.patterns.some(p => Number(p.id) === Number(patternId)));
 
-      // Connect to the specific channel if available, or fallback
-      const outputNode = voiceTrack ? channels[voiceTrack.id] : (channels['voice'] || masterVolumeNode || Tone.Destination);
+      // Connect to the specific channel if available, or fallback (with strict safety fallback to avoid undefined channels)
+      const outputNode = (voiceTrack && channels[voiceTrack.id]) || masterVolumeNode || Tone.Destination;
 
       // Get track volume
       const trackVolPct = voiceTrack ? (voiceTrack.volumeVal ?? 100) : 100;
@@ -422,8 +496,8 @@ export const vocalEngineService = {
       const currentMeasureIdx = sequencerStore.currentMeasure || 0;
       const measureBpm = sequencerStore.measureBpms[currentMeasureIdx] || sequencerStore.bpm;
       
-      // Look up target pattern vocal properties
-      let ptnRef = voiceTrack?.patterns.find(p => p.id === patternId);
+      // Look up target pattern vocal properties (with strict Number comparison)
+      let ptnRef = voiceTrack?.patterns.find(p => Number(p.id) === Number(patternId));
       
       let playbackRate = 1.0;
       if (ptnRef && ptnRef.vocalBpmSync && ptnRef.vocalBaseBpm) {
@@ -431,12 +505,11 @@ export const vocalEngineService = {
       }
       mainPlayer.playbackRate = playbackRate;
 
-      // Compensate latency & auto-calibration (-500ms offset relative to first syllabus)
-      const latencyMs = ptnRef?.vocalLatency || 0;
-      const firstNoteOffsetSec = ptnRef ? this.getPatternFirstNoteOffset(ptnRef, measureBpm) : 0;
-      const calibrationOffset = firstNoteOffsetSec - 0.5;
-      
-      const triggerTime = time + (latencyMs / 1000) + calibrationOffset;
+      // Compensate latency Nudge and Trim Start
+      const nudgeMs = (ptnRef as any)?.vocalNudge || 0;
+      const trimStartMs = (ptnRef as any)?.vocalTrimStart || 0;
+
+      const triggerTime = time + (nudgeMs / 1000) + (trimStartMs / 1000);
       const now = Tone.context.currentTime;
 
       let startOffset = 0;
@@ -463,13 +536,13 @@ export const vocalEngineService = {
       };
 
       // Start main player
-      const timeSig = sequencerStore.measureTimeSigs[currentMeasureIdx] || '4/4';
-      const beatsPerMeasure = parseInt(timeSig.split('/')[0]) || 4;
-      const measureDurationSec = (beatsPerMeasure * 60) / measureBpm;
-      const patternMeasures = Math.max(1, Math.ceil((ptnRef?.steps ?? 16) / 16));
-      const playbackDurationSec = patternMeasures * measureDurationSec;
+      const playbackDurationSec = audioBuffer.duration;
       
       const remainingDuration = Math.max(0, playbackDurationSec - startOffset);
+      
+      // Diagnostic logs for in-context vocal playback tracing
+      console.log(`🎙️ [VOCAL DEBUG] playVocalPattern - patternId: ${patternId}, voiceTrackId: ${voiceTrack?.id}, baseGain: ${baseGain}, outputNode: ${outputNode === Tone.Destination ? 'Destination' : 'Channel'}, triggerTime: ${triggerTime.toFixed(3)}s, now: ${now.toFixed(3)}s, startOffset: ${startOffset.toFixed(3)}s, startPlayTime: ${startPlayTime.toFixed(3)}s, remainingDuration: ${remainingDuration.toFixed(3)}s, playbackRate: ${playbackRate}`);
+
       if (remainingDuration > 0) {
         mainPlayer.start(startPlayTime, startOffset, remainingDuration);
       }
@@ -576,5 +649,13 @@ export const vocalEngineService = {
   stopAllVocalPlayback() {
     const patternIds = Array.from(activeVocals.keys());
     patternIds.forEach(id => this.stopVocalPattern(id));
+  },
+
+  /**
+   * Saves a validated temporary recording to IndexedDB and registers it in the store.
+   */
+  async saveValidatedRecording(patternId: number, blob: Blob) {
+    await saveVocalRecording(patternId, blob);
+    useAudioStore.getState().addVocalBlob(patternId, blob);
   }
 };

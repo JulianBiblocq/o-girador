@@ -33,6 +33,8 @@ export interface Pattern {
   vocalBpmSync?: boolean;
   vocalAudioData?: string;
   vocalAudioUrl?: string;
+  vocalNudge?: number;
+  vocalTrimStart?: number;
   beatResolutions?: number[]; // Added for tuplet support
   variations?: PatternVariation[];
   preRollActiveSteps?: (string | number)[];

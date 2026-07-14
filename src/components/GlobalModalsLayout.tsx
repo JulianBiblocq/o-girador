@@ -9,6 +9,8 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencer } from '../contexts/SequencerContext';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ExportMenuModal } from './ExportMenuModal';
+import { useAudioStore } from '../stores/useAudioStore';
+import { VocalValidationModal } from './VocalValidationModal';
 
 // Lazy loaded modals for bundle size optimization
 const SaveSectionModal = lazy(() => import('./CloudSectionModals').then(m => ({ default: m.SaveSectionModal })));
@@ -70,6 +72,8 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
   const sequencer = useSequencer();
   const editingTrackId = useSequencerStore(state => state.editingTrackId);
   const setEditingTrackId = useSequencerStore(state => state.setEditingTrackId);
+  const tempRecording = useAudioStore(state => state.tempRecording);
+  console.log("🎙️ [VOCAL DEBUG] GlobalModalsLayout rendering. tempRecording:", tempRecording);
 
   const handleCloseDetailEditor = React.useCallback(() => {
     setEditingTrackId(null);
@@ -191,6 +195,11 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
         <div className="fixed bottom-8 right-8 bg-[#8b2a1a] text-[#f4ecd8] font-cactus font-bold text-lg px-6 py-3 rounded-sm shadow-[4px_4px_0px_rgba(0,0,0,1)] z-[100] animate-bounce">
           {toastMessage}
         </div>
+      )}
+
+      {/* Vocal Validation Interception Modal */}
+      {tempRecording !== null && (
+        <VocalValidationModal />
       )}
     </>
   );

@@ -92,10 +92,14 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
 
   const handleMicroClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    const newArmed = !isArmed;
+    console.log(`🎙️ [VOCAL DEBUG] 1. Bouton Arm cliqué. targetPatternId: ${patternId}, measureIdx: ${mIdx}, isArmed: ${newArmed}`);
     if (isArmed) {
       useAudioStore.getState().setTargetPatternId(null);
+      useAudioStore.getState().setTargetMeasureIdx(null);
     } else {
       useAudioStore.getState().setTargetPatternId(patternId);
+      useAudioStore.getState().setTargetMeasureIdx(mIdx);
     }
   };
 
