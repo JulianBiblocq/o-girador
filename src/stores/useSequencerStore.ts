@@ -1,6 +1,6 @@
 import { create, StateCreator } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
-import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX } from '../types';
+import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX, CloudRhythmSignal } from '../types';
 
 // Nous aurons besoin d'instrumentsConfig pour extraire les paroles
 import { instrumentsConfig } from '../data';
@@ -46,6 +46,7 @@ export interface TrackSlice {
   handleTrackLowCutToggle: (id: number) => void;
   handleTrackEQChange: (id: number, bands: Partial<TrackGroup['eqBands']>) => void;
   handleTrackEQReset: (id: number) => void;
+  handleVocalLatencyChange: (trackId: number, patternId: number, latencyMs: number) => void;
 }
 
 export const isToadaBus = (t: { isBusFolder?: boolean; customName?: string; id?: any }): boolean => {
@@ -858,6 +859,27 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     });
   },
 
+  handleVocalLatencyChange: (trackId, patternId, latencyMs) => {
+    get().pushUndoState();
+    set((state) => ({
+      tracks: state.tracks.map((t) => {
+        if (t.id === trackId) {
+          return {
+            ...t,
+            patterns: t.patterns.map((p) => {
+              if (p.id === patternId) {
+                return { ...p, vocalLatency: latencyMs };
+              }
+              return p;
+            })
+          };
+        }
+        return t;
+      }),
+      tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
   handleTrackStepsChange: (trackId, patternId, targetSteps) => {
     get().pushUndoState();
     set((state) => ({
@@ -1023,6 +1045,7 @@ export interface StructureSlice {
   measureSignals: (string | null)[];
   songSections: SongSection[];
   songMarkers: SongMarker[];
+  mestreSignals: CloudRhythmSignal[];
   
   setTotalMeasures: (val: number | ((prev: number) => number)) => void;
   setBpm: (bpm: number) => void;
@@ -1035,6 +1058,7 @@ export interface StructureSlice {
   setMeasureVolTransitions: (updater: ('immediate' | 'ramp')[] | ((prev: ('immediate' | 'ramp')[]) => ('immediate' | 'ramp')[])) => void;
   setSongSections: (updater: SongSection[] | ((prev: SongSection[]) => SongSection[])) => void;
   setSongMarkers: (updater: SongMarker[] | ((prev: SongMarker[]) => SongMarker[])) => void;
+  setMestreSignals: (signals: CloudRhythmSignal[]) => void;
   handleTotalMeasuresChange: (val: number) => void;
   handleMeasureTimeSigChange: (measureIdx: number, val: TimeSignature) => void;
   handleMeasureBpmChange: (measureIdx: number, val: number) => void;
@@ -1069,7 +1093,8 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
   measureSignals: Array(8).fill(null),
   songSections: [],
   songMarkers: [],
-
+  mestreSignals: [],
+ 
   setBpm: (bpm) => set({ bpm }),
   setTimeSig: (sig) => set({ timeSig: sig }),
   setTotalMeasures: (updater) => set(state => ({ 
@@ -1085,6 +1110,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
   setMeasureVols: (updater) => set((state) => ({ measureVols: typeof updater === 'function' ? updater(state.measureVols) : updater })),
   setMeasureVolTransitions: (updater) => set((state) => ({ measureVolTransitions: typeof updater === 'function' ? updater(state.measureVolTransitions) : updater })),
   setSongMarkers: (updater) => set((state) => ({ songMarkers: typeof updater === 'function' ? updater(state.songMarkers) : updater })),
+  setMestreSignals: (signals) => set({ mestreSignals: signals }),
 
   handleTotalMeasuresChange: (val) => {
     get().pushUndoState();

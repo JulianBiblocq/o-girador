@@ -177,6 +177,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
   const isPlaying = props.isPlaying !== undefined ? props.isPlaying : audio.isPlaying;
   const globalCurrentMeasure = useSequencerStore(state => isActive ? state.currentMeasure : 0);
+  const currentExpandedMeasureIdx = useSequencerStore(state => state.currentExpandedMeasureIdx);
   const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
   const currentMeasure = props.currentMeasure !== undefined ? props.currentMeasure : globalCurrentMeasure;
   const storeIsMetroOn = useTransportStore(state => state.isMetroOn);
@@ -272,7 +273,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
   if (!tracks) return null;
 
-  const updateOverlay = (measureIdx: number) => {
+  const updateOverlay = (expandedMeasureIdx: number, baseMeasureIdx: number) => {
     const container = centerOverlayRef.current;
     if (!container) return;
 
@@ -284,7 +285,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     } = stateRef.current;
 
     // 1. Resolve active signal (visible only on the measure it's set)
-    const sigId = currentMeasureSignals?.[measureIdx] || null;
+    const sigId = currentMeasureSignals?.[expandedMeasureIdx] || null;
     let activeSig: { name: string; image: string } | null = null;
     if (sigId) {
       const cloudSig = currentMestreSignals?.find(s => s.id === sigId);
@@ -300,7 +301,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     let activeMarker: SongMarker | null = null;
     if (currentSongMarkers && currentSongMarkers.length > 0) {
       for (const marker of currentSongMarkers) {
-        if (marker.measure <= measureIdx) {
+        if (marker.measure <= baseMeasureIdx) {
           if (!activeMarker || marker.measure > activeMarker.measure) {
             activeMarker = marker;
           }
@@ -449,23 +450,24 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         ratio,
       };
 
-      if (measureDisplayRef.current) {
-        const expanded = expandedRef.current;
-        let displayMeasure = 1;
-        const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
-
-        if (pendingTargetExpandedIndexRef.current !== null) {
-          displayMeasure = pendingTargetExpandedIndexRef.current + 1;
-        } else {
-          const activeRepIndex = expanded.findIndex(item => item.baseMeasure === measure && item.iteration === iteration);
-          displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : measure + 1;
-        }
-        measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
+      const expanded = expandedRef.current;
+      let displayMeasure = 1;
+      const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
+ 
+      if (pendingTargetExpandedIndexRef.current !== null) {
+        displayMeasure = pendingTargetExpandedIndexRef.current + 1;
+      } else {
+        const activeRepIndex = expanded.findIndex(item => item.baseMeasure === measure && item.iteration === iteration);
+        displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : measure + 1;
       }
 
-      updateOverlay(measure);
+      if (measureDisplayRef.current) {
+        measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
+      }
+ 
+      updateOverlay(displayMeasure - 1, measure);
     };
-
+ 
     const handleMeasureQueued = (e: Event) => {
       const customEvent = e as CustomEvent<{ measure: number; iteration?: number }>;
       const { measure, iteration = 1 } = customEvent.detail;
@@ -473,7 +475,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         const expanded = expandedRef.current;
         let displayMeasure = 1;
         const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
-
+ 
         if (pendingTargetExpandedIndexRef.current !== null) {
           displayMeasure = pendingTargetExpandedIndexRef.current + 1;
         } else {
@@ -483,7 +485,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
       }
     };
-
+ 
     subscribeToTick(handleTick);
     window.addEventListener('o-girador-measure-queued', handleMeasureQueued);
     return () => {
@@ -491,12 +493,26 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       window.removeEventListener('o-girador-measure-queued', handleMeasureQueued);
     };
   }, [totalMeasures, songSections, isActive]);
-
+ 
   useEffect(() => {
-    const live = livePlaybackRef.current;
-    const measureIdx = isPlaying && live.step >= 0 ? live.measure : currentMeasure;
-    updateOverlay(measureIdx);
-  }, [currentMeasure, isPlaying, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers]);
+    let expandedIdx = currentExpandedMeasureIdx;
+    let baseIdx = currentMeasure;
+    if (isPlaying) {
+      const live = livePlaybackRef.current;
+      baseIdx = live.measure;
+      const expanded = expandedRef.current;
+      const activeRepIndex = expanded.findIndex(item => item.baseMeasure === live.measure && item.iteration === (live.iteration || 1));
+      if (activeRepIndex !== -1) {
+        expandedIdx = activeRepIndex;
+      }
+    } else {
+      const expanded = expandedRef.current;
+      if (expanded && expanded[currentExpandedMeasureIdx]) {
+        baseIdx = expanded[currentExpandedMeasureIdx].baseMeasure;
+      }
+    }
+    updateOverlay(expandedIdx, baseIdx);
+  }, [currentExpandedMeasureIdx, currentMeasure, isPlaying, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers]);
 
   useEffect(() => {
     let timerId: any = null;

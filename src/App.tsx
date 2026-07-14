@@ -188,10 +188,12 @@ export default function App() {
     if (targetMestreId) {
       const { signals } = await fetchMestreSignals(targetMestreId);
       setMestreSignals(signals);
+      useSequencerStore.getState().setMestreSignals(signals);
     } else {
       // Even if no mestre ID, we can fetch 'global' signals
       const { signals } = await fetchMestreSignals('global');
       setMestreSignals(signals);
+      useSequencerStore.getState().setMestreSignals(signals);
     }
   }, []);
 

@@ -13,6 +13,7 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker } from '../types';
 import { instrumentsConfig, getMarkers, getVisualStrokeSymbol } from '../data';
 import { audioEngine } from './useAudioSync';
+import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useAuth } from '../contexts/AuthContext';
 import { useSequencerStore, isSequencerVisibleTrack } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
@@ -34,6 +35,8 @@ export function useSequencerState() {
   const measureSignals = useSequencerStore(state => state.measureSignals);
   const setMeasureSignals = (useSequencerStore as any)(state => state.setMeasureSignals) as any;
   const setSongMarkers = (useSequencerStore as any)(state => state.setSongMarkers) as any;
+  const totalMeasures = useSequencerStore(state => state.totalMeasures);
+  const songSections = useSequencerStore(state => state.songSections);
 
   const setLoopStartMeasure = (useSequencerStore as any)(state => state.setLoopStartMeasure) as any;
   const setLoopEndMeasure = (useSequencerStore as any)(state => state.setLoopEndMeasure) as any;
@@ -112,6 +115,7 @@ export function useSequencerState() {
   const songSectionsRef = useRef<SongSection[]>([]);
   const songMarkersRef = useRef<SongMarker[]>([]);
   const measureSignalsRef = useRef<(string | null)[]>([]);
+  const pendingStructureActionRef = useRef<{ type: 'insert' | 'delete'; measureIdx: number } | null>(null);
 
   const loopStartRef = useRef<number | null>(null);
   const loopEndRef = useRef<number | null>(null);
@@ -247,19 +251,64 @@ export function useSequencerState() {
       }
       return arr;
     });
-
-    setMeasureSignals(prev => {
-      const arr = [...prev];
-      if (arr.length === totalMeasures) return prev;
-      while (arr.length < totalMeasures) {
-        arr.push(null);
-      }
-      if (arr.length > totalMeasures) {
-        arr.length = totalMeasures;
-      }
-      return arr;
-    });
   }, [timeSig, bpm]); // removed totalMeasures from deps since it's now tracked via ref/store
+
+  // Synchroniser measureSignals avec les mesures étendues (compas globaux)
+  const lastExpandedRef = useRef<{ baseMeasure: number; iteration: number }[]>([]);
+
+  useEffect(() => {
+    const expanded = getExpandedMeasures(totalMeasures, songSections);
+    const prevExpanded = lastExpandedRef.current;
+
+    // Détecter s'il y a eu un ajustement structurel (insert/delete)
+    const action = pendingStructureActionRef.current;
+    pendingStructureActionRef.current = null; // consommé
+
+    let adjustedPrevExpanded = prevExpanded;
+    if (action) {
+      if (action.type === 'insert') {
+        adjustedPrevExpanded = prevExpanded.map(item => {
+          if (item.baseMeasure >= action.measureIdx) {
+            return { ...item, baseMeasure: item.baseMeasure + 1 };
+          }
+          return item;
+        });
+      } else if (action.type === 'delete') {
+        adjustedPrevExpanded = prevExpanded
+          .filter(item => item.baseMeasure !== action.measureIdx)
+          .map(item => {
+            if (item.baseMeasure > action.measureIdx) {
+              return { ...item, baseMeasure: item.baseMeasure - 1 };
+            }
+            return item;
+          });
+      }
+    }
+
+    lastExpandedRef.current = expanded;
+
+    if (measureSignals.length !== expanded.length) {
+      setMeasureSignals(prev => {
+        const nextSignals = expanded.map(item => {
+          // Si l'ancien format était physique (longueur de prev === ancienne valeur de totalMeasures et différent de adjustedPrevExpanded.length),
+          // on fait la correspondance par baseMeasure (physique) et iteration === 1
+          if (adjustedPrevExpanded.length === 0 || prev.length !== adjustedPrevExpanded.length) {
+            if (item.iteration === 1 && item.baseMeasure < prev.length) {
+              return prev[item.baseMeasure];
+            }
+            return null;
+          }
+
+          // Correspondance par baseMeasure et iteration
+          const oldIdx = adjustedPrevExpanded.findIndex(
+            oldItem => oldItem.baseMeasure === item.baseMeasure && oldItem.iteration === item.iteration
+          );
+          return oldIdx !== -1 ? prev[oldIdx] : null;
+        });
+        return nextSignals;
+      });
+    }
+  }, [totalMeasures, songSections, measureSignals, setMeasureSignals]);
 
   // Keep tracksRef.current synchronized with the store
   useEffect(() => {
@@ -533,6 +582,26 @@ export function useSequencerState() {
     setTracks(prev => prev.map((t) => (t.id === id ? { ...t, panVal: val } : t)));
   };
 
+  const handleVocalLatencyChange = (trackId: number, patternId: number, latencyMs: number) => {
+    pushUndoState();
+    setTracks(prev =>
+      prev.map((t) => {
+        if (t.id === trackId) {
+          return {
+            ...t,
+            patterns: t.patterns.map((p) => {
+              if (p.id === patternId) {
+                return { ...p, vocalLatency: latencyMs };
+              }
+              return p;
+            })
+          };
+        }
+        return t;
+      })
+    );
+  };
+
   const handleTrackStepsChange = (trackId: number, patternId: number, targetSteps: number) => {
     pushUndoState();
     setTracks(prev =>
@@ -735,13 +804,13 @@ export function useSequencerState() {
   const handleDeleteMeasure = (measureIdx: number) => {
     pushUndoState();
     if (totalMeasuresRef.current <= 1) return;
+    pendingStructureActionRef.current = { type: 'delete', measureIdx };
     setTotalMeasures((prev: number) => prev - 1);
     setMeasureTimeSigs(prev => prev.filter((_, idx) => idx !== measureIdx));
     setMeasureBpms(prev => prev.filter((_, idx) => idx !== measureIdx));
     setMeasureBpmTransitions(prev => prev.filter((_, idx) => idx !== measureIdx));
     setMeasureVols(prev => prev.filter((_, idx) => idx !== measureIdx));
     setMeasureVolTransitions(prev => prev.filter((_, idx) => idx !== measureIdx));
-    setMeasureSignals(prev => prev.filter((_, idx) => idx !== measureIdx));
     setSongSections((prev: SongSection[]) => prev
       .filter((s: SongSection) => !(s.startMeasure === measureIdx && s.endMeasure === measureIdx))
       .map((s: SongSection) => {
@@ -764,6 +833,7 @@ export function useSequencerState() {
 
   const handleInsertMeasure = (measureIdx: number) => {
     pushUndoState();
+    pendingStructureActionRef.current = { type: 'insert', measureIdx };
     setTotalMeasures((prev: number) => prev + 1);
     const refSig = measureTimeSigsRef.current[measureIdx] || timeSig;
     const refBpm = measureBpms[measureIdx] || bpm;
@@ -792,11 +862,6 @@ export function useSequencerState() {
     setMeasureVolTransitions(prev => {
       const arr = [...prev];
       arr.splice(measureIdx, 0, 'immediate');
-      return arr;
-    });
-    setMeasureSignals(prev => {
-      const arr = [...prev];
-      arr.splice(measureIdx, 0, null);
       return arr;
     });
     setSongSections((prev: SongSection[]) => prev.map((s: SongSection) => {
@@ -2063,6 +2128,7 @@ export function useSequencerState() {
     handleResetTrackMicrotimings,
     handleTrackPanChange,
     handleTrackStepsChange,
+    handleVocalLatencyChange,
     handlePatternBeatResolutionChange,
     handleTimelinePatternAssign,
     handleTimelinePatternVariationToggle,

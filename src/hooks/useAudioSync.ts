@@ -23,6 +23,7 @@ import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencer
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { loadTone } from '../ToneLoader';
 import { useAudioStore } from '../stores/useAudioStore';
+import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { vocalEngineService, workerSetTimeout } from '../audio/vocalEngineService';
@@ -376,6 +377,7 @@ export function useAudioSync({
   reverbDecay
 }: UseAudioSyncProps) {
   const isAudioUnlocked = useAudioStore((state) => state.isAudioUnlocked);
+  const tracks = useSequencerStore((state) => state.tracks);
 
   // 🛡️ FIX (Audit): Rapatrie instanciation à l'intérieur du hook React via des useRef
   const tickEventDetailRef = useRef({
@@ -398,6 +400,8 @@ export function useAudioSync({
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
   const compilerWorkerRef = useRef<Worker | null>(null);
   const isRecordingRef = useRef(false);
+  const hasTriggeredPunchInRef = useRef(false);
+  const hasTriggeredAutoStopRef = useRef(false);
   // Stable reference to the non-reactive store action to avoid Zustand state subscriptions
   const setCurrentMeasure = useRef(useSequencerStore.getState().setCurrentMeasure).current;
 
@@ -1016,8 +1020,20 @@ export function useAudioSync({
         }
 
         if (stepIdx === 0) {
-          const prevMeasureIdx = (currentMeasureIdx - 1 + (totalMeasuresRef.current || 1)) % (totalMeasuresRef.current || 1);
-          const sigId = measureSignalsRef.current[prevMeasureIdx] || null;
+          const expanded = getExpandedMeasures(totalMeasuresRef.current, songSectionsRef.current);
+          let sigId: string | null = null;
+          if (expanded.length > 0) {
+            const currentExpandedIdx = expanded.findIndex(
+              item => item.baseMeasure === currentMeasureIdx && item.iteration === sectionIterationRef.current
+            );
+            if (currentExpandedIdx !== -1) {
+              const prevExpandedIdx = (currentExpandedIdx - 1 + expanded.length) % expanded.length;
+              sigId = measureSignalsRef.current[prevExpandedIdx] || null;
+            }
+          } else {
+            const prevMeasureIdx = (currentMeasureIdx - 1 + (totalMeasuresRef.current || 1)) % (totalMeasuresRef.current || 1);
+            sigId = measureSignalsRef.current[prevMeasureIdx] || null;
+          }
           lastPlayedSignalIdRef.current = sigId;
 
           currentMeasureStartTickRef.current = getMeasureStartTick(currentMeasureIdx, measureTimeSigsRef.current);
@@ -1259,16 +1275,69 @@ export function useAudioSync({
 
           const targetPatternId = useAudioStore.getState().targetPatternId;
           const recordingStatus = useAudioStore.getState().recordingStatus;
-          if (targetPatternId !== null && recordingStatus === 'recording') {
-            const hasPatternBeingRecorded = track.patterns.some(p => p.id === targetPatternId);
+
+          // Self-healing reset of trigger flags
+          if (targetPatternId === null || recordingStatus === 'inactive') {
+            hasTriggeredPunchInRef.current = false;
+            hasTriggeredAutoStopRef.current = false;
+          }
+
+          if (targetPatternId !== null) {
+            const hasPatternBeingRecorded = track.patterns.some(p => Number(p.id) === Number(targetPatternId));
+            
             if (hasPatternBeingRecorded) {
-              if (stepIdx === currentTicks - 1) {
-                vocalEngineService.recordedMeasuresCount++;
-                if (vocalEngineService.recordedMeasuresCount >= vocalEngineService.recordingDurationMeasures) {
-                  const stopDelayMs = Math.max(0, (time + tick96nSec - Tone.context.rawContext.currentTime) * 1000) + 1000;
-                  workerSetTimeout(() => {
-                    vocalEngineService.stopRecording();
-                  }, stopDelayMs);
+              const targetPattern = track.patterns.find(p => Number(p.id) === Number(targetPatternId));
+              if (targetPattern) {
+                const storeTargetMeasureIdx = useAudioStore.getState().targetMeasureIdx;
+                const initialMeasureIdx = storeTargetMeasureIdx !== null
+                  ? storeTargetMeasureIdx
+                  : targetPattern.measureAssignments.indexOf(true);
+                if (initialMeasureIdx !== -1) {
+                  const currentMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
+                  
+                  // 1 measure pre-roll
+                  const startMeasureIdx = Math.max(0, initialMeasureIdx - 1);
+
+                  // Calculate endMeasureIdx (1 measure post-roll after consecutive assignments)
+                  let consecutiveMeasures = 0;
+                  for (let i = initialMeasureIdx; i < totalMeasuresRef.current; i++) {
+                    if (targetPattern.measureAssignments[i]) {
+                      consecutiveMeasures++;
+                    } else {
+                      break;
+                    }
+                  }
+                  consecutiveMeasures = Math.max(1, consecutiveMeasures);
+                  const endMeasureIdx = initialMeasureIdx + consecutiveMeasures + 1;
+
+                  // 1. Punch-in check: exact start of startMeasureIdx
+                  if (recordingStatus === 'inactive' && currentMeasureIdx === startMeasureIdx && stepIdx === 0 && !hasTriggeredPunchInRef.current) {
+                    console.log(`🎙️ [VOCAL DEBUG] useAudioSync.ts - Punch-in measure reached: ${currentMeasureIdx}. Calling startRecording()`);
+                    hasTriggeredPunchInRef.current = true;
+                    useAudioStore.getState().setRecordingStatus('arming');
+                    
+                    vocalEngineService.startRecording(targetPatternId, {
+                      immediate: true,
+                      onError: (err) => {
+                        console.error("🎙️ [VOCAL DEBUG] Immediate recording error:", err);
+                        hasTriggeredPunchInRef.current = false;
+                        useAudioStore.getState().setRecordingStatus('inactive');
+                      }
+                    });
+                  }
+
+                  // 2. Auto-stop check: exact start of endMeasureIdx
+                  if (recordingStatus === 'recording' && currentMeasureIdx === endMeasureIdx && stepIdx === 0) {
+                    if (!hasTriggeredAutoStopRef.current) {
+                      hasTriggeredAutoStopRef.current = true;
+                      const stopDelayMs = Math.max(0, (time + tick96nSec - Tone.context.rawContext.currentTime) * 1000) + 1000;
+                      console.log(`🎙️ [VOCAL DEBUG] useAudioSync.ts - Auto-stop measure reached: ${currentMeasureIdx}. Scheduling stopRecording and handleStop in ${stopDelayMs.toFixed(1)} ms`);
+                      workerSetTimeout(() => {
+                        vocalEngineService.stopRecording();
+                        handleStop();
+                      }, stopDelayMs);
+                    }
+                  }
                 }
               }
             }
@@ -1309,10 +1378,13 @@ export function useAudioSync({
 
           if (!canPlay) continue;
 
-          if (activePattern.vocalMode === 'micro') {
-            if (stepIdx === 0) {
-              vocalEngineService.playVocalPattern(activePattern.id, time);
-            }
+          const hasVocalBlob = useAudioStore.getState().vocalBlobs[Number(activePattern.id)];
+          const hasVocalBuf = useAudioStore.getState().vocalBuffers[Number(activePattern.id)];
+          const isMicroMode = activePattern.vocalMode === 'micro' || hasVocalBlob || hasVocalBuf;
+
+          if (isMicroMode) {
+            // Audio is handled reactively by the useAudioSync useEffect, skip note tick triggers
+            continue;
           } else {
             const stepCount = activePattern.steps;
             if (stepIdx % (currentTicks / stepCount) === 0) {
@@ -1336,7 +1408,12 @@ export function useAudioSync({
                   const decayVal = activePattern.decays?.[cellIdx] ?? 10;
                   const numSteps = getVoiceNoteStepsFromDecay(decayVal);
                   const noteDuration = (numSteps * 6) * tick96nSec;
-                  playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[liveTrack.id]);
+                  const safeId = Number(activePattern.id);
+                  if (activePattern.vocalMode === 'micro' && useAudioStore.getState().vocalBuffers[safeId]) {
+                    // Bloque le synthétiseur pour laisser place à la voix réelle
+                  } else {
+                    playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[liveTrack.id]);
+                  }
                 }
 
                 if (!isDocHidden) {
@@ -1480,10 +1557,8 @@ export function useAudioSync({
       audioEngine?.stop();
       Tone.Draw.cancel();
       hitTriggersRef.current.clear();
-      Tone.Transport.pause();
-      if (useAudioStore.getState().recordingStatus !== 'inactive') {
-        vocalEngineService.stopRecording();
-      }
+      console.log("🎙️ [VOCAL DEBUG] useAudioSync.ts - handleTogglePlay stop. Calling stopRecording() unconditionally.");
+      vocalEngineService.stopRecording();
       audioEngine?.stopAllBarulho();
       stopAllNativeOscillators();
 
@@ -1527,9 +1602,8 @@ export function useAudioSync({
     hitTriggersRef.current.clear();
     lastPlayedPatternRef.current = {};
     Tone.Transport.stop();
-    if (useAudioStore.getState().recordingStatus !== 'inactive') {
-      vocalEngineService.stopRecording();
-    }
+    console.log("🎙️ [VOCAL DEBUG] useAudioSync.ts - handleStop. Calling stopRecording() unconditionally.");
+    vocalEngineService.stopRecording();
     audioEngine?.stopAllBarulho();
     stopAllNativeOscillators();
 
@@ -1577,9 +1651,8 @@ export function useAudioSync({
         // console.warn("AudioContext resume failed:", e);
       }
     }
-    if (useAudioStore.getState().recordingStatus !== 'inactive') {
-      vocalEngineService.stopRecording();
-    }
+    console.log("🎙️ [VOCAL DEBUG] useAudioSync.ts - handleStartSoloPattern. Calling stopRecording() unconditionally.");
+    vocalEngineService.stopRecording();
     audioEngine?.stop();
     Tone.Transport.stop();
     audioEngine?.stopAllBarulho();
@@ -1886,6 +1959,99 @@ export function useAudioSync({
 
     return unsub;
   }, [channels]);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    const players: Tone.Player[] = [];
+
+    const getMeasurePlayTimes = (targetIdx: number) => {
+      const sections = songSectionsRef.current || [];
+      const bpms = measureBpmsRef.current || [];
+      const timeSigs = measureTimeSigsRef.current || [];
+      const total = totalMeasuresRef.current || 1;
+      
+      const playTimes: number[] = [];
+      let currentTime = 0;
+      let currentMeasureIdx = 0;
+      let sectionIteration = 1;
+      
+      const maxSteps = 500;
+      let stepCount = 0;
+      
+      while (currentMeasureIdx < total && stepCount < maxSteps) {
+        if (currentMeasureIdx === targetIdx) {
+          playTimes.push(currentTime);
+        }
+        
+        const measureBpm = bpms[currentMeasureIdx] || bpm;
+        const measureTimeSig = timeSigs[currentMeasureIdx] || '4/4';
+        let beatsPerMeasure = 4;
+        let beatValue = 4;
+        
+        if (typeof measureTimeSig === 'string') {
+          const parts = measureTimeSig.split('/');
+          beatsPerMeasure = parseInt(parts[0]) || 4;
+          beatValue = parseInt(parts[1]) || 4;
+        } else if (Array.isArray(measureTimeSig)) {
+          beatsPerMeasure = measureTimeSig[0] || 4;
+          beatValue = measureTimeSig[1] || 4;
+        }
+        
+        const secondsPerBeat = 60 / measureBpm;
+        const measureDuration = beatsPerMeasure * secondsPerBeat * (4 / beatValue);
+        
+        currentTime += measureDuration;
+        stepCount++;
+        
+        let activeSection = null;
+        for (let i = 0; i < sections.length; i++) {
+          if (sections[i].endMeasure === currentMeasureIdx) {
+            activeSection = sections[i];
+            break;
+          }
+        }
+        
+        if (activeSection && sectionIteration < (activeSection.repeatCount || 1)) {
+          sectionIteration++;
+          currentMeasureIdx = activeSection.startMeasure;
+        } else {
+          if (activeSection) {
+            sectionIteration = 1;
+          }
+          currentMeasureIdx++;
+        }
+      }
+      
+      return playTimes;
+    };
+
+    tracks.forEach(track => {
+      track.patterns.forEach(pattern => {
+        const safeId = Number(pattern.id);
+        const vocalBuf = useAudioStore.getState().vocalBuffers[safeId];
+        if (vocalBuf && pattern.vocalMode === 'micro') {
+          const numMeasures = pattern.measureAssignments.length;
+          for (let mIdx = 0; mIdx < numMeasures; mIdx++) {
+            if (pattern.measureAssignments[mIdx]) {
+              const startMeasureIdx = Math.max(0, mIdx - 1);
+              const playTimes = getMeasurePlayTimes(startMeasureIdx);
+              
+              playTimes.forEach(startMeasureTime => {
+                const player = new Tone.Player(vocalBuf).toDestination();
+                const trackVol = track.volumeVal ?? 100;
+                player.volume.value = Tone.gainToDb(Math.pow(trackVol / 100, 2) || 0.0001);
+                
+                const playTime = startMeasureTime + ((pattern.vocalTrimStart || 0) / 1000) + ((pattern.vocalNudge || 0) / 1000);
+                player.sync().start(playTime);
+                players.push(player);
+              });
+            }
+          }
+        }
+      });
+    });
+    return () => { players.forEach(p => p.dispose()); };
+  }, [isPlaying, tracks, bpm]);
 
   return useMemo(() => ({
     isPlaying,

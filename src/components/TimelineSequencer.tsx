@@ -1289,14 +1289,14 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
           {/* ══════════ RULER ROW ══════════ */}
           <div
-            className="flex min-h-14 h-auto border-b-2 border-[var(--cordel-border)] sticky top-0 z-30 bg-[var(--cordel-bg)] cursor-ns-resize select-none relative"
+            className="flex min-h-14 h-auto border-b-2 border-[var(--cordel-border)] sticky top-0 z-50 bg-[var(--cordel-bg)] cursor-ns-resize select-none relative"
             style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px` }}
             onPointerDown={handleRulerPointerDown}
             onTouchStart={handleRulerTouchStart}
           >
              {/* Sticky corner */}
              <div
-               className={`timeline-sticky-header sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-center ${
+               className={`timeline-sticky-header sticky left-0 z-60 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-center ${
                  isMobile ? 'px-1.5' : 'px-3'
                }`}
                style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
@@ -1517,13 +1517,14 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           </div>
 
           {/* ══════════ SIGNAUX DU RYTHME ROW ══════════ */}
-          <RhythmSignalsRow
+          {/* Signaux déplacés vers le panneau compas (CompassoSelector) */}
+          {/* <RhythmSignalsRow
             totalMeasures={totalMeasures}
             rhythmSignals={rhythmSignals}
             measureSignals={measureSignals}
             onMeasureSignalChange={onMeasureSignalChange}
             visibleRange={visibleRange}
-          />
+          /> */}
 
           {/* ══════════ TRACK ROWS ══════════ */}
           {trackIds.map(trackId => (
