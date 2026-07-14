@@ -54,7 +54,8 @@ export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = 
     const prevIdx = (currentExpandedMeasureIdx - 1 + displayTotal) % displayTotal;
     useSequencerStore.getState().setCurrentExpandedMeasureIdx(prevIdx);
     const targetBaseMeasure = expanded.length > 0 ? expanded[prevIdx].baseMeasure : prevIdx;
-    audio.handleTimelineNavigate(targetBaseMeasure, 0, 16);
+    const targetIteration = expanded.length > 0 ? expanded[prevIdx].iteration : 1;
+    audio.handleTimelineNavigate(targetBaseMeasure, 0, 16, targetIteration);
   };
 
   const handleNavigateNext = () => {
@@ -62,7 +63,8 @@ export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = 
     const nextIdx = (currentExpandedMeasureIdx + 1) % displayTotal;
     useSequencerStore.getState().setCurrentExpandedMeasureIdx(nextIdx);
     const targetBaseMeasure = expanded.length > 0 ? expanded[nextIdx].baseMeasure : nextIdx;
-    audio.handleTimelineNavigate(targetBaseMeasure, 0, 16);
+    const targetIteration = expanded.length > 0 ? expanded[nextIdx].iteration : 1;
+    audio.handleTimelineNavigate(targetBaseMeasure, 0, 16, targetIteration);
   };
 
   return (

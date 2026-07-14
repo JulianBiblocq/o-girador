@@ -432,6 +432,7 @@ export function useAudioSync({
   const soloPatternPlayIdRef = useRef<number | null>(null);
   const soloPatternVariationIdRef = useRef<string | null>(null);
   const pendingMeasureRef = useRef<number | null>(null);
+  const pendingIterationRef = useRef<number | null>(null);
 
   const hitTriggersRef = useRef<HitTriggerPool>(new HitTriggerPool());
   const engineTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
@@ -976,7 +977,8 @@ export function useAudioSync({
             if (pendingMeasureRef.current !== null) {
               measureCountRef.current = pendingMeasureRef.current;
               pendingMeasureRef.current = null;
-              sectionIterationRef.current = 1;
+              sectionIterationRef.current = pendingIterationRef.current !== null ? pendingIterationRef.current : 1;
+              pendingIterationRef.current = null;
             } else if (currentMeasureIdx === effectiveLoopEnd) {
               // Global boundary logic wins
               sectionIterationRef.current = 1;
@@ -1594,6 +1596,7 @@ export function useAudioSync({
     engineTimeoutsRef.current.clear();
 
     pendingMeasureRef.current = null;
+    pendingIterationRef.current = null;
     if (soloPatternPlayIdRef.current !== null) {
       setSoloPatternPlayId(null);
     }
@@ -1683,14 +1686,15 @@ export function useAudioSync({
     }
   }, [setSoloPatternPlayId, setSoloPatternVariationId, handleStop]);
 
-  const handleTimelineNavigate = useCallback((measureIdx: number, stepIdxInMeasure: number, stepsInMeasure?: number) => {
+  const handleTimelineNavigate = useCallback((measureIdx: number, stepIdxInMeasure: number, stepsInMeasure?: number, iteration: number = 1) => {
     const targetMeasure = measureIdx % (totalMeasuresRefInternal.current || 1);
     if (isPlayingRef.current) {
       pendingMeasureRef.current = targetMeasure;
+      pendingIterationRef.current = iteration;
       window.dispatchEvent(new CustomEvent('o-girador-measure-queued', {
         detail: {
           measure: targetMeasure,
-          iteration: 1
+          iteration: iteration
         }
       }));
       return;
@@ -1702,9 +1706,15 @@ export function useAudioSync({
     const tickIdx = Math.max(0, Math.min(currentTicks - 1, Math.floor((stepIdxInMeasure / steps) * currentTicks)));
     
     measureCountRef.current = measureIdx;
+    sectionIterationRef.current = iteration;
     setCurrentMeasure(targetMeasure);
     currentStepIndexRef.current = tickIdx - 1; // -1 so the next loop cycle increments to tickIdx
     maxTicksRef.current = currentTicks;
+
+    if (audioEngine) {
+      audioEngine.currentMeasure = measureIdx;
+      audioEngine.currentStep = Math.max(0, tickIdx);
+    }
 
     const ratioVal = tickIdx / currentTicks;
     const detail = tickEventDetailRef.current;
@@ -1715,7 +1725,7 @@ export function useAudioSync({
     detail.visualStep16 = Math.floor(ratioVal * 16);
     detail.visualStep12 = Math.floor(ratioVal * 12);
     detail.time = Tone.context.currentTime;
-    detail.iteration = 1;
+    detail.iteration = iteration;
 
     tickSubscribers.forEach((cb) => {
       try { cb(detail); } catch (err) { console.error(err); }
