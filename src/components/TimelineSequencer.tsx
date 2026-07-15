@@ -77,6 +77,13 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const [showSubModal, setShowSubModal] = React.useState(false);
   const { isPlaying } = useAudio();
 
+  // Replier automatiquement toutes les pistes de liens du séquenceur lors du montage (entrée sur la page)
+  React.useEffect(() => {
+    useSequencerStore.getState().setTracks(prev =>
+      prev.map(t => t.isLinkFolder ? { ...t, isSequencerFolded: true } : t)
+    );
+  }, []);
+
   // 🛡️ FIX (Audit): Direct Zustand selectors to avoid massive cascade re-renders
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const measureTimeSigs = useSequencerStore(useShallow(state => state.measureTimeSigs));
