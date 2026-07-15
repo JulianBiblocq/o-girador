@@ -37,6 +37,8 @@ export interface TrackSlice {
   handleTrackStepVolumeChange: (trackId: number, patternId: number, stepIdx: number | number[], val: number) => void;
   handlePatternBeatResolutionChange: (patternId: number, beatIndex: number, newResolution: number) => void;
   handleCreateBus: (trackId: number, name: string) => void;
+  handleCreateCustomBus: (trackIds: number[], name: string) => void;
+  handleCreateCustomLinkGroup: (masterTrackId: number, slaveTrackIds: number[], name: string) => void;
   handleAssignToBus: (trackId: number, busId: string | null) => void;
   handleToggleFoldBus: (busId: string) => void;
   handleToggleSequencerFoldBus: (busId: string) => void;
@@ -205,6 +207,34 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       if (oldIndex === -1 || newIndex === -1) return {};
 
       const draggedTrack = currentTracks[oldIndex];
+      const overTrack = currentTracks[newIndex];
+
+      // --- RÈGLE C : Dépôt sur un dossier de Bus / Groupe de Liaison (Routage) ---
+      if (overTrack.isBusFolder && !draggedTrack.isBusFolder) {
+        if (draggedTrack.busId !== String(overTrack.id)) {
+          const targetBusId = String(overTrack.id);
+          const isLink = !!overTrack.isLinkFolder;
+
+          const updatedTrack: TrackGroup = {
+            ...draggedTrack,
+            busId: targetBusId,
+            linkedToTrackId: isLink ? targetBusId : undefined,
+            isLinkMaster: isLink ? false : undefined
+          };
+
+          // Retirer la piste de sa position d'origine
+          let nextTracks = currentTracks.filter(t => t.id !== activeId);
+          // Trouver l'index du bus cible dans la liste filtrée
+          const busIdxInNext = nextTracks.findIndex(t => t.id === overTrack.id);
+          // Insérer juste après le dossier de bus
+          nextTracks.splice(busIdxInNext + 1, 0, updatedTrack);
+
+          return {
+            tracks: applyRadii(nextTracks),
+            tracksVersion: state.tracksVersion + 1
+          };
+        }
+      }
 
       // --- RÈGLE B : Drag d'un Enfant ---
       if (draggedTrack.busId && !draggedTrack.isBusFolder) {
@@ -217,9 +247,22 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           const minLimit = Math.min(...groupIndices);
           const maxLimit = Math.max(...groupIndices);
 
-          // Si l'index de destination sort des limites du groupe parent, on annule
+          // Si l'index de destination sort des limites du groupe parent, on la fait sortir du bus !
           if (newIndex < minLimit || newIndex > maxLimit) {
-            return {};
+            const updatedTrack: TrackGroup = {
+              ...draggedTrack,
+              busId: undefined,
+              linkedToTrackId: undefined,
+              isLinkMaster: undefined
+            };
+
+            const tempTracks = currentTracks.map(t => t.id === activeId ? updatedTrack : t);
+            const nextTracks = arrayMove(tempTracks, oldIndex, newIndex) as TrackGroup[];
+
+            return {
+              tracks: applyRadii(nextTracks),
+              tracksVersion: state.tracksVersion + 1
+            };
           }
         }
         
@@ -343,6 +386,10 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
             }
             return t;
           });
+        }
+        // Cas C : On supprime un bus audio de section (isBusFolder: true)
+        else if (trackToDelete.isBusFolder) {
+          updated = updated.filter(t => String(t.busId) !== String(id));
         }
       }
 
@@ -672,6 +719,126 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         ...updatedTracks.slice(0, trackIndex),
         newBusTrack,
         ...updatedTracks.slice(trackIndex)
+      ];
+
+      return {
+        tracks: applyRadii(nextTracks),
+        tracksVersion: state.tracksVersion + 1
+      };
+    });
+  },
+
+  handleCreateCustomBus: (trackIds, name) => {
+    get().pushUndoState();
+    set((state) => {
+      if (trackIds.length === 0) return {};
+      
+      const indices = trackIds.map(id => state.tracks.findIndex(t => t.id === id)).filter(idx => idx !== -1);
+      if (indices.length === 0) return {};
+      
+      const firstIndex = Math.min(...indices);
+      const representativeTrack = state.tracks[firstIndex];
+      const newBusId = Date.now();
+      
+      const newBusTrack: TrackGroup = {
+        id: newBusId,
+        instrumentIdx: representativeTrack.instrumentIdx,
+        patterns: [],
+        isMute: false,
+        isSolo: false,
+        isHidden: false,
+        volumeVal: 100,
+        selectedPatternId: 0,
+        isBusFolder: true,
+        isFolded: false,
+        isSequencerFolded: false,
+        customName: name,
+        reverbVal: 0,
+        panVal: 0,
+        pan: 0,
+        fxSends: { reverb: 0, distortion: 0 }
+      };
+
+      const updatedSelectedTracks = state.tracks
+        .filter(t => trackIds.includes(t.id))
+        .map(t => ({ ...t, busId: String(newBusId), linkedToTrackId: undefined }));
+      
+      const remainingTracks = state.tracks.filter(t => !trackIds.includes(t.id));
+      
+      const insertIndex = Math.max(0, Math.min(firstIndex, remainingTracks.length));
+      
+      const nextTracks = [
+        ...remainingTracks.slice(0, insertIndex),
+        newBusTrack,
+        ...updatedSelectedTracks,
+        ...remainingTracks.slice(insertIndex)
+      ];
+
+      return {
+        tracks: applyRadii(nextTracks),
+        tracksVersion: state.tracksVersion + 1
+      };
+    });
+  },
+
+  handleCreateCustomLinkGroup: (masterTrackId, slaveTrackIds, name) => {
+    get().pushUndoState();
+    set((state) => {
+      const masterTrack = state.tracks.find(t => t.id === masterTrackId);
+      if (!masterTrack) return {};
+      
+      const newBusId = Date.now();
+      const clonedPatterns = JSON.parse(JSON.stringify(masterTrack.patterns));
+      
+      const newBusTrack: TrackGroup = {
+        id: newBusId,
+        instrumentIdx: masterTrack.instrumentIdx,
+        patterns: clonedPatterns,
+        isMute: false,
+        isSolo: false,
+        isHidden: false,
+        volumeVal: 100,
+        selectedPatternId: masterTrack.selectedPatternId,
+        isBusFolder: true,
+        isLinkFolder: true,
+        isFolded: false,
+        isSequencerFolded: false,
+        customName: name,
+        reverbVal: 0,
+        panVal: 0,
+        pan: 0,
+        fxSends: { reverb: 0, distortion: 0 }
+      };
+
+      const masterTrackIndex = state.tracks.findIndex(t => t.id === masterTrackId);
+      
+      const updatedMaster = {
+        ...masterTrack,
+        busId: String(newBusId),
+        linkedToTrackId: String(newBusId),
+        isLinkMaster: true
+      };
+      
+      const updatedSlaves = state.tracks
+        .filter(t => slaveTrackIds.includes(t.id))
+        .map(t => ({
+          ...t,
+          busId: String(newBusId),
+          linkedToTrackId: String(newBusId),
+          isLinkMaster: false
+        }));
+      
+      const allSelectedIds = [masterTrackId, ...slaveTrackIds];
+      const remainingTracks = state.tracks.filter(t => !allSelectedIds.includes(t.id));
+      
+      const insertIndex = Math.max(0, Math.min(masterTrackIndex, remainingTracks.length));
+      
+      const nextTracks = [
+        ...remainingTracks.slice(0, insertIndex),
+        newBusTrack,
+        updatedMaster,
+        ...updatedSlaves,
+        ...remainingTracks.slice(insertIndex)
       ];
 
       return {

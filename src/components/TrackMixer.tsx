@@ -13,6 +13,8 @@ interface TrackMixerProps {
   totalTracks: number;
   onOpenDetailEditor: (trackId: number) => void;
   isActive?: boolean;
+  isDragOver?: boolean;
+  dropIndicator?: 'top' | 'bottom' | null;
 }
 
 const TrackMixerComponent: React.FC<TrackMixerProps> = ({
@@ -21,6 +23,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   totalTracks,
   onOpenDetailEditor,
   isActive = true,
+  isDragOver = false,
+  dropIndicator = null,
 }) => {
   const lang = useSequencerStore(state => state.lang);
   const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
@@ -132,7 +136,9 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   return (
     <div
       ref={setNodeRef}
-      className="flex flex-col relative transition-all duration-300 w-full justify-center h-[76px] min-h-[76px] border-b-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] px-3 py-1"
+      className={`flex flex-col relative transition-all duration-300 w-full justify-center h-[76px] min-h-[76px] border-b-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] px-3 py-1 ${
+        isDragOver ? 'ring-4 ring-[var(--cordel-wood)] shadow-[0_0_20px_var(--cordel-wood)] z-30 scale-[1.01] border-[var(--cordel-wood)]' : ''
+      }`}
       style={{
         ...style,
         zIndex: instDropdownOpen ? 9999 : 10,
@@ -143,6 +149,12 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         '--fader-thumb-border': '#1a1a1a',
       } as React.CSSProperties}
     >
+      {dropIndicator === 'top' && (
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />
+      )}
+      {dropIndicator === 'bottom' && (
+        <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />
+      )}
       <div className="flex justify-between items-center relative z-[2]">
         <div className="flex items-center gap-2">
           <div
@@ -268,6 +280,16 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                 ))}
                 <div
                   onClick={() => {
+                    const isBus = track.isBusFolder;
+                    const childTracks = tracks.filter(t => String(t.busId) === String(trackId));
+                    if (isBus && childTracks.length > 0) {
+                      const confirmMsg = lang === 'fr' 
+                        ? "Attention, si vous supprimez ce bus, toutes les pistes audio qui sont à l'intérieur seront supprimées également. Voulez-vous continuer ?" 
+                        : lang === 'pt'
+                        ? "Atenção: se você excluir este bus, todas as pistas de áudio dentro dele também serão excluídas. Deseja continuar?"
+                        : "Warning: if you delete this bus, all audio tracks inside will also be deleted. Do you want to continue?";
+                      if (!window.confirm(confirmMsg)) return;
+                    }
                     onDelete();
                     setInstDropdownOpen(false);
                   }}

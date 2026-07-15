@@ -377,11 +377,7 @@ export function useSequencerState() {
   };
 
   const handleTrackDelete = (id: number) => {
-    pushUndoState();
-    setTracks(prev => {
-      const remaining = prev.filter((t) => t.id !== id);
-      return applyRadii(remaining);
-    });
+    useSequencerStore.getState().handleTrackDelete(id);
   };
 
   const handleTrackVolumeChange = (id: number, val: number) => {

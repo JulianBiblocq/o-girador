@@ -6,7 +6,7 @@ import { TimelineUIContext } from '../contexts/TimelineUIContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { getBusNoteColor } from '../utils/colorHelpers';
-import { useTimelineEditStore } from '../stores/useTimelineEditStore';
+
 
 interface TimelineStepProps {
   trackId: number;
@@ -407,96 +407,12 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
 
   const inst = instrumentsConfig[instrumentIdx];
 
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    if (isPlaying) return;
 
-    let targetTrackId = trackId;
-    let targetPatternId = patternId;
-
-    const state = useSequencerStore.getState();
-    const currentTrack = state.tracks[trackIdx];
-    const isLinkedChild = !!(currentTrack && currentTrack.linkedToTrackId && !currentTrack.isLinkFolder);
-
-    if (isLinkedChild) {
-      const parentBus = state.tracks.find(p => String(p.id) === String(currentTrack.linkedToTrackId) && p.isLinkFolder);
-      if (parentBus) {
-        targetTrackId = parentBus.id;
-        if (currentTrack.isLinkMaster) {
-          const masterPattern = parentBus.patterns?.find(p => p.measureAssignments[measureIdx]) || parentBus.patterns?.[0];
-          if (masterPattern) {
-            targetPatternId = masterPattern.id;
-          }
-        } else {
-          const override = currentTrack.patternOverrides?.[measureIdx];
-          if (override !== undefined && override !== null) {
-            targetPatternId = override;
-          } else {
-            const masterPattern = parentBus.patterns?.find(p => p.measureAssignments[measureIdx]) || parentBus.patterns?.[0];
-            if (masterPattern) {
-              targetPatternId = masterPattern.id;
-            }
-          }
-        }
-      }
-    }
-
-    if (onStepTouchStart) {
-      onStepTouchStart(
-        e,
-        targetPatternId,
-        stepIdx,
-        inst.id,
-        stepData.val,
-        (newVal) => {
-          sequencer.handleTrackStepValueChange(targetTrackId, targetPatternId, stepIdx, newVal);
-        },
-        targetTrackId
-      );
-    } else {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const allowedStrokes = Object.keys(inst.colors || {}).filter(k => k !== 'text');
-
-      useTimelineEditStore.getState().openEditor({
-        activeStepKey: `${targetTrackId}_${measureIdx}_${stepIdx}`,
-        anchorRect: rect,
-        allowedStrokes,
-        currentVal: stepData.val,
-        trackId: targetTrackId,
-        patternId: targetPatternId,
-        measureIdx,
-        stepIdx
-      });
-    }
-  };
-
-  const handleMouseEnter = () => {
-    const allowedStrokes = Object.keys(inst.colors || {}).filter(k => k !== 'text');
-    (window as any).activeHoveredStep = {
-      trackId,
-      patternId,
-      measureIdx,
-      stepIdx,
-      allowedStrokes,
-      currentVal: stepData.val
-    };
-  };
-
-  const handleMouseLeave = () => {
-    if ((window as any).activeHoveredStep?.trackId === trackId &&
-        (window as any).activeHoveredStep?.measureIdx === measureIdx &&
-        (window as any).activeHoveredStep?.stepIdx === stepIdx) {
-      (window as any).activeHoveredStep = null;
-    }
-  };
 
   return (
     <div
-      className="timeline-step relative h-full border-r border-[var(--cordel-border)]/10 flex flex-col items-center justify-center text-center cursor-pointer select-none overflow-hidden"
+      className="timeline-step relative h-full border-r border-[var(--cordel-border)]/10 flex flex-col items-center justify-center text-center cursor-default select-none overflow-hidden"
       style={style}
-      onClick={handleClick}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
       data-measure={measureIdx}
       data-step={stepIdx}
       data-steps={stepsCount}

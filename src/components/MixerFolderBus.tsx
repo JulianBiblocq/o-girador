@@ -27,6 +27,8 @@ interface MixerFolderBusProps {
   index: number;
   isActive?: boolean;
   busPosition?: 'first' | 'middle' | 'last' | 'none';
+  isDragOver?: boolean;
+  dropIndicator?: 'left' | 'right' | null;
 }
 
 const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
@@ -34,6 +36,8 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   index,
   isActive = true,
   busPosition = 'none',
+  isDragOver = false,
+  dropIndicator = null,
 }) => {
   const audio = useAudio();
   const { isPlaying } = audio;
@@ -140,15 +144,34 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   };
 
   const onDelete = () => {
-    const confirmMsg = lang === 'fr' 
-      ? 'Voulez-vous supprimer ce Bus ? Les pistes enfants seront déliées du bus.' 
-      : 'Deseja excluir este Bus? As pistas filhas serão desvinculadas.';
-    if (window.confirm(confirmMsg)) {
-      useSequencerStore.getState().pushUndoState();
-      useSequencerStore.getState().setTracks(prev => {
-        const next = prev.map(t => String(t.busId) === String(trackId) ? { ...t, busId: undefined } : t);
-        return next.filter(t => t.id !== trackId);
-      });
+    const childTracks = tracks.filter(t => String(t.busId) === String(trackId));
+    
+    if (childTracks.length > 0) {
+      const confirmMsg = lang === 'fr' 
+        ? "Attention, si vous supprimez ce bus, toutes les pistes audio qui sont à l'intérieur seront supprimées également. Voulez-vous continuer ?" 
+        : lang === 'pt'
+        ? "Atenção: se você excluir este bus, todas as pistas de áudio dentro dele também serão excluídas. Deseja continuar?"
+        : "Warning: if you delete this bus, all audio tracks inside will also be deleted. Do you want to continue?";
+      
+      if (window.confirm(confirmMsg)) {
+        useSequencerStore.getState().pushUndoState();
+        useSequencerStore.getState().setTracks(prev => {
+          return prev.filter(t => t.id !== trackId && String(t.busId) !== String(trackId));
+        });
+      }
+    } else {
+      const confirmMsg = lang === 'fr' 
+        ? "Voulez-vous supprimer ce Bus ?" 
+        : lang === 'pt'
+        ? "Deseja excluir este Bus?"
+        : "Do you want to delete this Bus?";
+      
+      if (window.confirm(confirmMsg)) {
+        useSequencerStore.getState().pushUndoState();
+        useSequencerStore.getState().setTracks(prev => {
+          return prev.filter(t => t.id !== trackId);
+        });
+      }
     }
   };
 
@@ -308,7 +331,9 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
       className={`flex flex-col bg-[var(--cordel-bg)] w-[115px] h-full justify-between shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
         hasSolo ? (track.isSolo ? 'shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-50') : 
         (track.isMute ? 'opacity-60 bg-black/5 dark:bg-white/5' : 'opacity-100')
-      } ${busPosition === 'none' ? 'cordel-border' : ''}`}
+      } ${busPosition === 'none' ? 'cordel-border' : ''} ${
+        isDragOver ? 'ring-4 ring-[var(--cordel-wood)] shadow-[0_0_25px_var(--cordel-wood)] scale-[1.02] border-[var(--cordel-wood)] z-30' : ''
+      }`}
       style={{
         ...style,
         ...groupStyle,
@@ -319,6 +344,13 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
         '--fader-thumb-border': 'var(--cordel-border)',
       } as React.CSSProperties}
     >
+      {dropIndicator === 'left' && (
+        <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />
+      )}
+      {dropIndicator === 'right' && (
+        <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />
+      )}
+
       {/* Niveau 6 (Tout en haut) : En-tête */}
       <div 
         className="relative p-1.5 pb-1 flex flex-col gap-1 border-b-[3px] border-[var(--cordel-border)] h-[76px] shrink-0 justify-between w-full"
