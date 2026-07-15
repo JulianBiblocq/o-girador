@@ -12,7 +12,7 @@ import { useAudioStore } from '../stores/useAudioStore';
 import { instrumentsConfig, ASSETS_BASE_URL, getVisualStrokeSymbol, NEWTON_NOTE_COLORS, isDarkText } from '../data';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
-import { getBusNoteColor, getContrastColor } from '../utils/colorHelpers';
+import { getBusNoteColor, getContrastColor, getTrackDisplayName } from '../utils/colorHelpers';
 import { XiloChisel } from './XiloIcons';
 import { CompassoSelector } from './CompassoSelector';
 import { useSequencer } from '../contexts/SequencerContext';
@@ -335,7 +335,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
 
             const displayName = isToada
               ? 'Toada'
-              : (inst ? (track.isLinkMaster ? `🔗 ${getPluralName(inst.name)}` : (isChild ? `↳ ${track.customName || inst.name}` : (track.customName || inst.name))) : 'Instrument');
+              : (isChild ? `↳ ${getTrackDisplayName(track, tracks)}` : getTrackDisplayName(track, tracks));
 
             return (
               <div

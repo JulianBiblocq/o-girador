@@ -10,7 +10,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencerStore';
 import { Pattern } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
-import { getBusColor, getContrastColor, getTopParentBusId } from '../utils/colorHelpers';
+import { getBusColor, getContrastColor, getTopParentBusId, getTrackDisplayName } from '../utils/colorHelpers';
 import { DragNumberBox } from './DragNumberBox';
 import { PanKnob } from './PanKnob';
 import { MixerVolumeFader } from './MixerVolumeFader';
@@ -104,7 +104,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const linkedSlavesTooltip = isMaster 
     ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${currentInst?.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
     : undefined;
-  const displayName = track?.customName || (currentInst ? (isMaster ? `🔗 ${getPluralName(currentInst.name)}` : currentInst.name) : 'Instrument');
+  const displayName = getTrackDisplayName(track, tracks);
 
   const { isPlaying } = audio;
 

@@ -10,7 +10,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
-import { getBusColor, getContrastColor, getTopParentBusId } from '../utils/colorHelpers';
+import { getBusColor, getContrastColor, getTopParentBusId, getTrackDisplayName } from '../utils/colorHelpers';
 import { DragNumberBox } from './DragNumberBox';
 import { PanKnob } from './PanKnob';
 import { MixerVolumeFader } from './MixerVolumeFader';
@@ -318,7 +318,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
         {/* Title / Name */}
         <div className="relative flex items-center w-full">
           <div className="flex items-center gap-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-1 py-1 w-full justify-center opacity-70">
-            <span className="font-cactus font-bold text-[9px] truncate">{track.customName || inst.name}</span>
+            <span className="font-cactus font-bold text-[9px] truncate">{getTrackDisplayName(track, tracks)}</span>
           </div>
         </div>
       </div>

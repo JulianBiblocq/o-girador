@@ -1,3 +1,5 @@
+import { instrumentsConfig } from '../data';
+
 /**
  * Calculates the average RGB color of all child tracks inside a bus
  * to dynamically colorize the bus connection outlines.
@@ -157,4 +159,47 @@ export function getTopParentBusId(track: any, allTracks: any[]): string | null {
   }
 
   return null;
+}
+
+export function getTrackDisplayName(track: any, allTracks: any[]): string {
+  if (track.customName) return track.customName;
+  const inst = instrumentsConfig[track.instrumentIdx];
+  if (!inst) return 'Instrument';
+
+  if (track.isBusFolder && track.isLinkFolder) {
+    return `🔗 ${getPluralName(inst.name)}`;
+  }
+  if (track.isLinkMaster) {
+    return `🔗 ${getPluralName(inst.name)}`;
+  }
+  if (track.isBusFolder) {
+    return track.customName || 'Bus';
+  }
+
+  // Trouver toutes les pistes d'instrument physiques (non-bus) du même type
+  const sameInstTracks = allTracks.filter((t: any) => 
+    !t.isBusFolder && 
+    instrumentsConfig[t.instrumentIdx]?.id === inst.id
+  );
+
+  if (sameInstTracks.length > 1) {
+    sameInstTracks.sort((a, b) => a.id - b.id);
+    const index = sameInstTracks.findIndex((t: any) => t.id === track.id);
+    if (index !== -1) {
+      return `${inst.name} n°${index + 1}`;
+    }
+  }
+
+  return inst.name;
+}
+
+function getPluralName(name: string): string {
+  if (name.toLowerCase().includes('alfaia')) return 'Alfaias';
+  if (name.toLowerCase().includes('caixa')) return 'Caixas';
+  if (name.toLowerCase().includes('tarol')) return 'Tarols';
+  if (name.toLowerCase().includes('agbe') || name.toLowerCase().includes('agbê')) return 'Agbês';
+  if (name.toLowerCase().includes('mineiro')) return 'Mineiros';
+  if (name.toLowerCase().includes('timbal')) return 'Timbais';
+  if (name.toLowerCase().includes('gongue') || name.toLowerCase().includes('gonguê')) return 'Gonguês';
+  return `${name}s`;
 }

@@ -6,6 +6,7 @@ import { TimelineUIContext } from '../contexts/TimelineUIContext';
 import { TimelineMeasure } from './TimelineMeasure';
 import { useSequencer } from '../contexts/SequencerContext';
 import { getNextStepValue } from '../utils/instrumentStrokes';
+import { getTrackDisplayName } from '../utils/colorHelpers';
 
 interface TimelineTrackRowProps {
   trackId: number;
@@ -169,9 +170,9 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const isToadaChildTrack = dbTrack && isToadaChild(dbTrack, tracks);
   const isChild = isLinkedSlave || isToadaChildTrack;
 
-  const displayName = dbTrack?.isLinkFolder || dbTrack?.isLinkMaster || isToada
-    ? (dbTrack?.customName || (isToada ? 'Toada' : `🔗 ${getPluralName(inst.name)}`))
-    : (isChild ? `↳ ${dbTrack?.customName || inst.name}` : (dbTrack?.customName || inst.name));
+  const displayName = isToada
+    ? 'Toada'
+    : (isChild ? `↳ ${getTrackDisplayName(dbTrack, tracks)}` : getTrackDisplayName(dbTrack, tracks));
   
   const canPlay = !getEffectiveMuteState(tracks, trackId);
 
