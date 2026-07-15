@@ -278,26 +278,6 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
             )
           ) : null}
         </div>
-        <div className="track-header-controls flex flex-row gap-1 shrink-0">
-          <button
-            onClick={() => onMuteToggle(trackData.id)}
-            className={`flex items-center justify-center font-bold cordel-border-sm cursor-pointer transition-colors ${
-              isMobile ? 'w-5 h-5 text-[9px]' : 'w-6 h-6 text-[11px]'
-            } ${
-              (trackData.isMute && !trackData.isSolo) ? 'bg-red-600 text-white border-red-600' : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-            }`}
-            title="Mute"
-          >M</button>
-          <button
-            onClick={() => onSoloToggle(trackData.id)}
-            className={`flex items-center justify-center font-bold cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
-              isMobile ? 'w-5 h-5 text-[9px]' : 'w-6 h-6 text-[11px]'
-            } ${
-              trackData.isSolo ? 'bg-amber-500 text-black border-amber-500' : 'bg-transparent text-[var(--cordel-text)]'
-            }`}
-            title="Solo"
-          >S</button>
-        </div>
       </div>
 
       {/* Left spacer column */}

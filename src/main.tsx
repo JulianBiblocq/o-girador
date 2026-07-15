@@ -10,6 +10,16 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { indexedDBPersister } from './queryPersister';
 import './index.css';
 
+// Filtrer les logs de debug vocal (VOCAL DEBUG) et de scheduler pour ne pas encombrer la console F12
+const originalLog = console.log;
+console.log = function (...args) {
+  const firstArg = args[0];
+  if (typeof firstArg === 'string' && (firstArg.includes('[VOCAL DEBUG]') || firstArg.includes('Scheduling tick'))) {
+    return;
+  }
+  originalLog.apply(console, args);
+};
+
 export function isValidGoogleClientId(id: string | undefined | null): boolean {
   if (!id) return false;
   const trimmed = id.trim();
