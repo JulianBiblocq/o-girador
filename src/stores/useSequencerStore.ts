@@ -202,9 +202,59 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   handleReorderTracksDnd: (activeId, overId) => {
     if (activeId === overId) return;
 
+    // Helper récursif interne pour forcer l'alignement hiérarchique physique dans le store
+    const sortTracksHierarchically = (tracksList: TrackGroup[]): TrackGroup[] => {
+      const visited = new Set<number>();
+      const ordered: TrackGroup[] = [];
+
+      const isRoot = (t: TrackGroup) => {
+        if (t.linkedToTrackId && !t.isLinkMaster && !t.isLinkFolder) {
+          return false;
+        }
+        const busIdStr = t.busId;
+        if (!busIdStr) return true;
+        const hasParent = tracksList.some(p => String(p.id) === String(busIdStr));
+        return !hasParent;
+      };
+
+      const roots = tracksList.filter(isRoot);
+
+      const visit = (track: TrackGroup) => {
+        if (visited.has(track.id)) return;
+        visited.add(track.id);
+        ordered.push(track);
+
+        const children = tracksList.filter(t => {
+          if (visited.has(t.id)) return false;
+          const isChildByBus = t.busId && String(t.busId) === String(track.id);
+          const isChildByLink = t.linkedToTrackId && String(t.linkedToTrackId) === String(track.id);
+          return isChildByBus || isChildByLink;
+        });
+
+        children.sort((a, b) => {
+          const aScore = a.isBusFolder ? 1 : 0;
+          const bScore = b.isBusFolder ? 1 : 0;
+          return bScore - aScore;
+        });
+
+        children.forEach(visit);
+      };
+
+      roots.forEach(visit);
+
+      tracksList.forEach(t => {
+        if (!visited.has(t.id)) {
+          ordered.push(t);
+        }
+      });
+
+      return ordered;
+    };
+
     get().pushUndoState();
     set((state) => {
-      const currentTracks = [...state.tracks];
+      // On travaille sur la liste triée hiérarchiquement
+      const currentTracks = sortTracksHierarchically([...state.tracks]);
       const oldIndex = currentTracks.findIndex(t => t.id === activeId);
       const newIndex = currentTracks.findIndex(t => t.id === overId);
 
@@ -226,21 +276,18 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
             isLinkMaster: isLink ? false : undefined
           };
 
-          // Retirer la piste de sa position d'origine
           let nextTracks = currentTracks.filter(t => t.id !== activeId);
-          // Trouver l'index du bus cible dans la liste filtrée
           const busIdxInNext = nextTracks.findIndex(t => t.id === overTrack.id);
-          // Insérer juste après le dossier de bus
           nextTracks.splice(busIdxInNext + 1, 0, updatedTrack);
 
           return {
-            tracks: applyRadii(nextTracks),
+            tracks: applyRadii(sortTracksHierarchically(nextTracks)),
             tracksVersion: state.tracksVersion + 1
           };
         }
       }
 
-      // --- RÈGLE B : Drag d'un Enfant ---
+      // --- RÈGLE B : Drag d'un Enfant (Déracinage automatique s'il sort du bloc) ---
       if (draggedTrack.busId && !draggedTrack.isBusFolder) {
         const busId = draggedTrack.busId;
         const groupIndices = currentTracks
@@ -251,7 +298,6 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           const minLimit = Math.min(...groupIndices);
           const maxLimit = Math.max(...groupIndices);
 
-          // Si l'index de destination sort des limites du groupe parent, on la fait sortir du bus !
           if (newIndex < minLimit || newIndex > maxLimit) {
             const updatedTrack: TrackGroup = {
               ...draggedTrack,
@@ -264,7 +310,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
             const nextTracks = arrayMove(tempTracks, oldIndex, newIndex) as TrackGroup[];
 
             return {
-              tracks: applyRadii(nextTracks),
+              tracks: applyRadii(sortTracksHierarchically(nextTracks)),
               tracksVersion: state.tracksVersion + 1
             };
           }
@@ -272,7 +318,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         
         const newTracks = arrayMove(currentTracks, oldIndex, newIndex) as TrackGroup[];
         return {
-          tracks: applyRadii(newTracks),
+          tracks: applyRadii(sortTracksHierarchically(newTracks)),
           tracksVersion: state.tracksVersion + 1
         };
       }
@@ -281,13 +327,9 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       if (draggedTrack.isBusFolder) {
         const busId = draggedTrack.id;
 
-        // 1. Extraire toutes les pistes faisant partie du bloc (le Bus + ses enfants)
         const blockTracks = currentTracks.filter(t => String(t.id) === String(busId) || String(t.busId) === String(busId));
-        
-        // 2. Créer la liste des pistes restantes (hors bloc)
         const remainingTracks = currentTracks.filter(t => String(t.id) !== String(busId) && String(t.busId) !== String(busId));
 
-        // 3. Calculer l'index d'insertion dans la liste restante
         const targetTrack = currentTracks[newIndex];
         let insertIndex = remainingTracks.findIndex(t => t.id === targetTrack.id);
         
@@ -299,7 +341,6 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           insertIndex = oldIndex < newIndex ? remainingTracks.length : 0;
         }
 
-        // 4. Reconstruire le tableau en injectant le bloc complet
         const finalTracks = [
           ...remainingTracks.slice(0, insertIndex),
           ...blockTracks,
@@ -307,7 +348,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         ];
 
         return {
-          tracks: applyRadii(finalTracks),
+          tracks: applyRadii(sortTracksHierarchically(finalTracks)),
           tracksVersion: state.tracksVersion + 1
         };
       }
@@ -315,7 +356,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       // Déplacement standard pour les pistes autonomes
       const newTracks = arrayMove(currentTracks, oldIndex, newIndex) as TrackGroup[];
       return {
-        tracks: applyRadii(newTracks),
+        tracks: applyRadii(sortTracksHierarchically(newTracks)),
         tracksVersion: state.tracksVersion + 1
       };
     });
