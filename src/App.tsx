@@ -14,6 +14,7 @@ import { Header } from './components/Header';
 import { TransportBar } from './components/TransportBar';
 import { useSequencerStore } from './stores/useSequencerStore';
 import { useSequencerSettingsStore } from './stores/useSequencerSettingsStore';
+import { useTransportStore } from './stores/useTransportStore';
 import { SettingsPage } from './components/SettingsPage';
 import { TouchStrokeSelector } from './components/TouchStrokeSelector';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -200,6 +201,20 @@ export default function App() {
   useEffect(() => {
     refreshMestreSignals();
   }, [userProfile?.uid, userProfile?.mestreId, userProfile?.role, refreshMestreSignals]);
+
+  // Charger le balanço personnalisé du Mestre connecté depuis Firebase
+  useEffect(() => {
+    if (userProfile && (userProfile as any).customSwingOffsets) {
+      const savedOffsets = (userProfile as any).customSwingOffsets;
+      const savedIntensity = (userProfile as any).customSwingIntensity !== undefined ? (userProfile as any).customSwingIntensity : 100;
+      const currentSwing = useTransportStore.getState().globalSwing;
+      useTransportStore.getState().setGlobalSwing({
+        ...currentSwing,
+        customOffsets: savedOffsets,
+        swingIntensity: savedIntensity
+      });
+    }
+  }, [userProfile?.uid]);
 
   // Context menu prevention on UI elements
   useEffect(() => {
@@ -632,7 +647,7 @@ export default function App() {
         onVaralExit={handleVaralExit}
         presetFiles={presetFiles}
         localPresets={localPresets}
-        onStepTouchStart={(e, pId, sIdx, iId, cur, onSel) => handleStepTouchStart(e, pId, sIdx, iId, cur, onSel, 0)}
+        onStepTouchStart={(e, pId, sIdx, iId, cur, onSel, tId?: number) => handleStepTouchStart(e, pId, sIdx, iId, cur, onSel, tId !== undefined ? tId : 0)}
         activeRightPanel={activeRightPanel}
         onToggleRightPanel={handleToggleRightPanel}
       />
