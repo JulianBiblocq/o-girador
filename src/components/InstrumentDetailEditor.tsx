@@ -416,6 +416,26 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
   const inst = track ? instrumentsConfig[track.instrumentIdx] : { id: '', name: '', type: 'percussion', iconImg: '', colors: { text: '' }, mixerBg: '' };
   
+  const trackDisplayName = useMemo(() => {
+    if (!track || !inst) return '';
+    if (track.customName) return track.customName;
+    const instName = inst.name || 'Instrument';
+    
+    const sameInstTracks = allTracks.filter(t => 
+      !t.isBusFolder && 
+      instrumentsConfig[t.instrumentIdx]?.id === inst.id
+    );
+    
+    if (sameInstTracks.length > 1) {
+      sameInstTracks.sort((a, b) => a.id - b.id);
+      const index = sameInstTracks.findIndex(t => t.id === trackId);
+      if (index !== -1) {
+        return `${instName} ${index + 1}`;
+      }
+    }
+    return instName;
+  }, [track, inst, allTracks, trackId]);
+
   if (!track) return null;
 
   // 1. Calculer les moyennes réelles (volume et decay) pour une frappe donnée sur la piste en cours
@@ -879,7 +899,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         >
           <img
             src={`${ASSETS_BASE_URL}${inst.iconImg}`}
-            alt={inst.name}
+            alt={trackDisplayName}
             className="w-8 h-8 object-contain"
             onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
           />
@@ -893,7 +913,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               </button>
             )}
             <span className="font-cactus font-bold text-lg tracking-wide">
-              {inst.name}
+              {trackDisplayName}
             </span>
             {onNavigateNext && (
               <button 
@@ -1323,7 +1343,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               <h3 className="font-cactus font-bold text-sm uppercase tracking-wide">
                 {t('legend')}
               </h3>
-              <p className="text-[10px] text-[#666] mt-0.5">{inst.name}</p>
+              <p className="text-[10px] text-[#666] mt-0.5">{trackDisplayName}</p>
             </div>
 
             {/* Sculpting Legend */}
@@ -1662,7 +1682,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           <div className="bg-[#f4ecd8] border-2 border-[#1a1a1a] p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto rounded-sm shadow-[8px_8px_0px_rgba(0,0,0,1)]" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6 border-b-2 border-[#1a1a1a] pb-2">
               <h3 className="font-cactus text-3xl font-bold text-[#1a1a1a]">
-                {lang === 'fr' ? 'Catalogue - ' : 'Catálogo - '}{inst.name}
+                {lang === 'fr' ? 'Catalogue - ' : 'Catálogo - '}{trackDisplayName}
               </h3>
               <button onClick={() => setLoadModalPatternId(null)} className="text-[#1a1a1a] font-bold text-xl hover:text-[#8b2a1a]">
                 ✕
