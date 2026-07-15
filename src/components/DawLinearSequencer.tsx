@@ -37,6 +37,13 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
   const [dropdownOpenTrackId, setDropdownOpenTrackId] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Replier automatiquement toutes les pistes de liens du séquenceur lors du montage (entrée sur la page)
+  useEffect(() => {
+    useSequencerStore.getState().setTracks(prev =>
+      prev.map(t => t.isLinkFolder ? { ...t, isSequencerFolded: true } : t)
+    );
+  }, []);
+
   // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -359,7 +366,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                     <div className="relative flex items-center">
                       <button
                         onClick={() => setDropdownOpenTrackId(dropdownOpenTrackId === track.id ? null : track.id)}
-                        className="flex items-center justify-between gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-[11px] cursor-pointer transition-colors w-[110px] sm:w-[120px]"
+                        className="flex items-center justify-between gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-[10px] cursor-pointer transition-colors w-[180px] sm:w-[190px]"
                         style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
                       >
                         <img
@@ -370,9 +377,8 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                             (e.target as HTMLElement).style.display = 'none';
                           }}
                         />
-                        <span className="font-cactus font-bold text-center leading-[1.1] flex-1 truncate">
-                          {trackIdx + 1}. {displayName.split(' ')[0]}
-                          {displayName.indexOf(' ') !== -1 && <><br/>{displayName.substring(displayName.indexOf(' ') + 1)}</>}
+                        <span className="font-cactus font-bold text-center leading-normal flex-1 truncate">
+                          {trackIdx + 1}. {displayName}
                         </span>
                         <span className="text-[8px] flex-shrink-0">▼</span>
                       </button>
@@ -460,21 +466,6 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                     )}
                   </div>
 
-                  {/* Right Side Buttons: Mute and Solo only */}
-                  <div className="flex gap-1.5">
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackMuteToggle(track.id); }} 
-                      className={`w-6 h-6 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
-                        (track.isMute && !track.isSolo) ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
-                      }`}
-                    >M</button>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); useSequencerStore.getState().handleTrackSoloToggle(track.id); }} 
-                      className={`w-6 h-6 cordel-border-sm cordel-button font-bold text-xs flex items-center justify-center transition-all ${
-                        track.isSolo ? 'bg-[#d4af37] text-[#1a1a1a]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
-                      }`}
-                    >S</button>
-                  </div>
                 </div>
 
                 {/* B. Right Side: 16 Step Buttons aligned in a regular fluid grid, stretched to border */}
