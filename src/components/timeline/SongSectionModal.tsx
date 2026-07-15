@@ -75,46 +75,6 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">{lang === 'fr' ? 'Début (Mesure)' : 'Compasso inicial'}</label>
-            <input
-              type="number"
-              min={1}
-              max={totalMeasures}
-              value={sectionFormStart}
-              onChange={(e) => setSectionFormStart(e.target.value)}
-              onBlur={() => {
-                let val = parseInt(String(sectionFormStart)) || 1;
-                val = Math.max(1, Math.min(totalMeasures, val));
-                setSectionFormStart(val);
-                let endVal = parseInt(String(sectionFormEnd)) || 1;
-                if (endVal < val) {
-                  setSectionFormEnd(val);
-                }
-              }}
-              className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-2 py-1.5 text-sm font-bold outline-none rounded-none text-center text-[var(--cordel-text)]"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">{lang === 'fr' ? 'Fin (Mesure)' : 'Compasso final'}</label>
-            <input
-              type="number"
-              min={Number(sectionFormStart)}
-              max={totalMeasures}
-              value={sectionFormEnd}
-              onChange={(e) => setSectionFormEnd(e.target.value)}
-              onBlur={() => {
-                let val = parseInt(String(sectionFormEnd)) || 1;
-                let startVal = parseInt(String(sectionFormStart)) || 1;
-                val = Math.max(startVal, Math.min(totalMeasures, val));
-                setSectionFormEnd(val);
-              }}
-              className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-2 py-1.5 text-sm font-bold outline-none rounded-none text-center text-[var(--cordel-text)]"
-            />
-          </div>
-        </div>
-
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">{lang === 'fr' ? 'Couleur du bloc' : 'Cor do bloco'}</label>
           <div className="flex flex-wrap gap-2 mt-1">
@@ -139,18 +99,6 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
             ))}
           </div>
         </div>
-        <div className="mb-3.5">
-          <label className="block text-xs font-bold mb-1.5 opacity-90">{lang === 'fr' ? "Niveau d'imbrication" : 'Nível de aninhamento'}</label>
-          <select
-            value={sectionFormLevel}
-            onChange={(e) => setSectionFormLevel(parseInt(e.target.value))}
-            className="w-full bg-white/10 border border-[var(--cordel-border)]/50 rounded p-1.5 text-xs text-[var(--cordel-text)] outline-none focus:border-[var(--cordel-border)]"
-          >
-            <option value={0} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Niveau 0 (Base)' : 'Nível 0 (Base)'}</option>
-            <option value={1} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Niveau 1 (Groupe)' : 'Nível 1 (Grupo)'}</option>
-            <option value={2} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">{lang === 'fr' ? 'Niveau 2 (Super-groupe)' : 'Nível 2 (Super-grupo)'}</option>
-          </select>
-        </div>
 
         <div className="flex flex-wrap justify-end gap-2.5 mt-2 border-t border-[var(--cordel-border)]/30 pt-3">
           <div className="flex flex-wrap gap-2.5 mr-auto">
@@ -164,20 +112,6 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
                 title={lang === 'fr' ? 'Sauvegarder dans le Cloud' : 'Salvar na Nuvem'}
               >
                 ☁️ {lang === 'fr' ? 'Sauvegarder' : 'Salvar'}
-              </button>
-            )}
-            {onLoadCloudSection && (
-              <button
-                onClick={() => {
-                  let startVal = parseInt(String(sectionFormStart)) || 1;
-                  startVal = Math.max(1, Math.min(totalMeasures, startVal));
-                  onLoadCloudSection(startVal - 1);
-                  onClose();
-                }}
-                className="px-3 py-1.5 bg-white/10 text-[var(--cordel-text)] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-white/20"
-                title={lang === 'fr' ? 'Importer une Section' : 'Importar uma Seção'}
-              >
-                📥 {lang === 'fr' ? 'Importer' : 'Importar'}
               </button>
             )}
           </div>

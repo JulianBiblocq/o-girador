@@ -36,6 +36,7 @@ interface TimelineMeasureProps {
   activePatternActiveSteps?: any[];
   onMeasureClick: (mIdx: number, steps: number, clickX: number) => void;
   isLinkedChild?: boolean;
+  isLinkMaster?: boolean;
   isOverridden?: boolean;
   isSilence?: boolean;
   hasChildOverrides?: boolean;
@@ -81,6 +82,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   activePatternActiveSteps,
   onMeasureClick,
   isLinkedChild,
+  isLinkMaster,
   isOverridden,
   isSilence,
   hasChildOverrides,
@@ -120,7 +122,8 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
       ? 'bg-black/10 dark:bg-black/30 opacity-70' 
       : '';
 
-  const isFollowingMaster = isLinkedChild && !isOverridden;
+  const isSlave = isLinkedChild && !isLinkMaster;
+  const isFollowingMaster = isSlave && !isOverridden;
 
   return (
     <div
@@ -162,7 +165,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
               <span className="text-[7px] opacity-50 absolute right-1 top-1/2 -translate-y-1/2">▼</span>
               
               <select
-                value={isLinkedChild && !isOverridden ? 'follow' : (patternId !== -1 && !isSilence ? String(patternId) : 'silence')}
+                value={isSlave && !isOverridden ? 'follow' : (patternId !== -1 && !isSilence ? String(patternId) : 'silence')}
                 onChange={e => {
                   const v = e.target.value;
                   onPatternAssignForMeasure(
@@ -174,7 +177,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                 className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
                 title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
               >
-                {isLinkedChild && (
+                {isSlave && (
                   <option value="follow" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
                     {lang === 'fr' ? '🔗 Suivre le maître' : '🔗 Seguir mestre'}
                   </option>
@@ -231,10 +234,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
               }}
             />
           ) : (
-            <div 
-              className="flex h-full w-full"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="flex h-full w-full pointer-events-none">
               {Array.from({ length: steps }).map((_, sIdx) => (
                 <TimelineStep
                   key={sIdx}
@@ -426,5 +426,8 @@ export const TimelineMeasure = React.memo(TimelineMeasureComponent, (prev, next)
          prev.signalDropdownOpen === next.signalDropdownOpen &&
          prev.isMacro === next.isMacro &&
          prev.isMinZoom === next.isMinZoom &&
-         prev.activePatternActiveSteps === next.activePatternActiveSteps;
+         prev.activePatternActiveSteps === next.activePatternActiveSteps &&
+         prev.isLinkedChild === next.isLinkedChild &&
+         prev.isLinkMaster === next.isLinkMaster &&
+         prev.isOverridden === next.isOverridden;
 });

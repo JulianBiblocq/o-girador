@@ -198,23 +198,6 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     }
   };
 
-  const handleGridPointerDown = (e: React.PointerEvent) => {
-    if (isPanningActive) return;
-    const stepEl = (e.target as HTMLElement).closest('.timeline-step') as HTMLElement;
-    if (!stepEl) return;
-    
-    e.stopPropagation();
-    
-    const { trackId: tIdStr, patternId: pIdStr, step: stepStr, val } = stepEl.dataset;
-    if (!tIdStr || !pIdStr || stepStr === undefined) return;
-    
-    const tId = Number(tIdStr);
-    const pId = Number(pIdStr);
-    const sIdx = Number(stepStr);
-    
-    const nextVal = getNextStepValue(inst.id, inst.type, val || '');
-    sequencer.handleTrackStepValueChange(tId, pId, sIdx, String(nextVal));
-  };
 
   const handleMeasureClick = (mIdx: number, steps: number, clickX: number) => {
     const ratio = Math.max(0, Math.min(1, clickX / currentMeasureW));
@@ -441,6 +424,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               activePatternActiveSteps={activePattern?.activeSteps}
               onMeasureClick={handleMeasureClick}
               isLinkedChild={!!isLinkedChild}
+              isLinkMaster={!!dbTrack?.isLinkMaster}
               isOverridden={isOverridden}
               isSilence={isSilence}
               hasChildOverrides={hasChildOverrides}

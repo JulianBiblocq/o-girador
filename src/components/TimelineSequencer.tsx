@@ -436,6 +436,73 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const [signalDropdownOpen, setSignalDropdownOpen] = React.useState<number | null>(null);
   const [activeRepeatDropdownSectionId, setActiveRepeatDropdownSectionId] = useState<string | null>(null);
 
+  // States for Click & Drag section creation (Proposal 2)
+  const [isDraggingRange, setIsDraggingRange] = React.useState<boolean>(false);
+  const [dragStartMeasure, setDragStartMeasure] = React.useState<number | null>(null);
+  const [dragCurrentMeasure, setDragCurrentMeasure] = React.useState<number | null>(null);
+  const [quickSectionRange, setQuickSectionRange] = React.useState<{ start: number; end: number } | null>(null);
+  const [quickSectionName, setQuickSectionName] = React.useState<string>('');
+  const [quickSectionColor, setQuickSectionColor] = React.useState<string>('#f19066');
+  const [quickSectionLevel, setQuickSectionLevel] = React.useState<number>(0);
+
+  // Global pointerup listener to finalize dragging
+  React.useEffect(() => {
+    const handleGlobalPointerUp = () => {
+      if (isDraggingRange && dragStartMeasure !== null && dragCurrentMeasure !== null) {
+        const start = Math.min(dragStartMeasure, dragCurrentMeasure);
+        const end = Math.max(dragStartMeasure, dragCurrentMeasure);
+        
+        setQuickSectionRange({ start, end });
+        setQuickSectionName(lang === 'fr' ? `Partie ${String.fromCharCode(65 + songSections.length)}` : `Parte ${String.fromCharCode(65 + songSections.length)}`);
+        setQuickSectionColor('#f19066');
+        setQuickSectionLevel(0);
+      }
+      setIsDraggingRange(false);
+      setDragStartMeasure(null);
+      setDragCurrentMeasure(null);
+    };
+
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+    };
+  }, [isDraggingRange, dragStartMeasure, dragCurrentMeasure, lang, songSections.length]);
+
+  const handleEmptySlotPointerDown = (e: React.PointerEvent, mIdx: number) => {
+    if (e.button !== 0) return; // Clic gauche seulement
+    setIsDraggingRange(true);
+    setDragStartMeasure(mIdx);
+    setDragCurrentMeasure(mIdx);
+    setQuickSectionRange(null); // ferme la popover existante
+  };
+
+  const handleEmptySlotPointerEnter = (mIdx: number) => {
+    if (isDraggingRange && dragStartMeasure !== null) {
+      setDragCurrentMeasure(mIdx);
+    }
+  };
+
+  const handlePlusClick = (mIdx: number) => {
+    setQuickSectionRange({ start: mIdx, end: mIdx });
+    setQuickSectionName(lang === 'fr' ? `Partie ${String.fromCharCode(65 + songSections.length)}` : `Parte ${String.fromCharCode(65 + songSections.length)}`);
+    setQuickSectionColor('#f19066');
+    setQuickSectionLevel(0);
+  };
+
+  const handleQuickSectionCreate = () => {
+    if (!quickSectionRange) return;
+    const name = quickSectionName.trim() || (lang === 'fr' ? 'Sans titre' : 'Sem título');
+    onCreateSection(
+      name,
+      quickSectionRange.start,
+      quickSectionRange.end,
+      quickSectionColor,
+      1, // default repeatCount
+      quickSectionLevel
+    );
+    setQuickSectionRange(null);
+  };
+
   useEffect(() => {
     const handleGlobalClick = () => {
       setActiveRepeatDropdownSectionId(null);
@@ -926,7 +993,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     e.stopPropagation();
   };
 
-  // Section Block Drag-and-Drop Handler (Smart Snapping)
+  // Section Block Drag-and-Drop Handler (Smart Snapping & Level Dragging)
   const handleSectionBlockPointerDown = (e: React.PointerEvent<HTMLDivElement>, section: SongSection) => {
     if (toolMode === 'hand' || isSpacePressed) return;
     if ((e.target as HTMLElement).closest('button')) return;
@@ -938,13 +1005,17 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     }
     
     const startX = e.clientX;
+    const startY = e.clientY;
     const startMeasure = section.startMeasure;
+    const startLevel = section.level || 0;
     const duration = section.endMeasure - section.startMeasure;
+    const maxLevel = Math.max(0, ...songSections.map(s => s.level || 0));
     
     const handlePointerMove = (moveEv: PointerEvent) => {
       const dx = moveEv.clientX - startX;
-      const proposedStart = startMeasure + (dx / MEASURE_W);
+      const dy = moveEv.clientY - startY;
       
+      const proposedStart = startMeasure + (dx / MEASURE_W);
       let snappedStart = section.startMeasure;
       if (snapMode === 'measure') {
         snappedStart = Math.round(proposedStart);
@@ -956,8 +1027,11 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       
       snappedStart = Math.max(0, Math.min(totalMeasures - 1 - duration, snappedStart));
       const currentLeft = snappedStart * MEASURE_W;
-      
       el.style.left = `${currentLeft}px`;
+      
+      const proposedLevel = Math.max(0, Math.min(2, startLevel + Math.round(-dy / 26)));
+      const currentTop = (maxLevel - proposedLevel) * 26 + 4;
+      el.style.top = `${currentTop}px`;
       
       if (snapMode !== 'none') {
         setSnapGuideX(HEADER_W + currentLeft);
@@ -977,10 +1051,14 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       const finalStart = Math.max(0, Math.min(totalMeasures - 1 - duration, Math.round(finalLeft / MEASURE_W)));
       const finalEnd = finalStart + duration;
       
-      if (finalStart !== section.startMeasure) {
-        onUpdateSection(section.id, section.name, finalStart, finalEnd, section.color);
+      const finalTop = parseFloat(el.style.top) ?? ((maxLevel - (section.level || 0)) * 26 + 4);
+      const finalLevel = Math.max(0, Math.min(2, maxLevel - Math.round((finalTop - 4) / 26)));
+      
+      if (finalStart !== section.startMeasure || finalLevel !== (section.level || 0)) {
+        onUpdateSection(section.id, section.name, finalStart, finalEnd, section.color, finalLevel);
       } else {
         el.style.left = `${section.startMeasure * MEASURE_W}px`;
+        el.style.top = `${((maxLevel - (section.level || 0)) * 26 + 4)}px`;
       }
     };
     
@@ -991,6 +1069,91 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     window.addEventListener('pointermove', handlePointerMove, { signal });
     window.addEventListener('pointerup', handlePointerUp, { signal });
     e.stopPropagation();
+  };
+
+  // Section boundary resizing handler with magnetic snapping (Proposal 2)
+  const handleResizePointerDown = (
+    e: React.PointerEvent<HTMLDivElement>,
+    section: SongSection,
+    edge: 'left' | 'right'
+  ) => {
+    e.stopPropagation(); // Avoid triggering block dragging
+    if (e.button !== 0) return;
+
+    const el = e.currentTarget.parentElement as HTMLDivElement;
+    if (!el) return;
+    if (typeof el.setPointerCapture === 'function') {
+      el.setPointerCapture(e.pointerId);
+    }
+
+    const startX = e.clientX;
+    const startMeasure = section.startMeasure;
+    const endMeasure = section.endMeasure;
+
+    const handlePointerMove = (moveEv: PointerEvent) => {
+      const dx = moveEv.clientX - startX;
+      const measureDelta = dx / MEASURE_W;
+
+      if (edge === 'left') {
+        const proposedStart = startMeasure + measureDelta;
+        let snappedStart = startMeasure;
+        if (snapMode === 'measure') {
+          snappedStart = Math.round(proposedStart);
+        } else if (snapMode === 'beat') {
+          snappedStart = Math.round(proposedStart * 4) / 4;
+        } else {
+          snappedStart = proposedStart;
+        }
+
+        snappedStart = Math.max(0, Math.min(endMeasure, snappedStart));
+        const currentLeft = snappedStart * MEASURE_W;
+        const currentWidth = (endMeasure - snappedStart + 1) * MEASURE_W;
+
+        el.style.left = `${currentLeft}px`;
+        el.style.width = `${currentWidth - 8}px`;
+      } else {
+        const proposedEnd = endMeasure + measureDelta;
+        let snappedEnd = endMeasure;
+        if (snapMode === 'measure') {
+          snappedEnd = Math.round(proposedEnd);
+        } else if (snapMode === 'beat') {
+          snappedEnd = Math.round(proposedEnd * 4) / 4;
+        } else {
+          snappedEnd = proposedEnd;
+        }
+
+        snappedEnd = Math.max(startMeasure, Math.min(totalMeasures - 1, snappedEnd));
+        const currentWidth = (snappedEnd - startMeasure + 1) * MEASURE_W;
+        el.style.width = `${currentWidth - 8}px`;
+      }
+    };
+
+    const handlePointerUp = () => {
+      if (typeof el.releasePointerCapture === 'function') {
+        el.releasePointerCapture(e.pointerId);
+      }
+      if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
+
+      const currentLeft = parseFloat(el.style.left) || (section.startMeasure * MEASURE_W);
+      const currentWidth = (parseFloat(el.style.width) || 0) + 8;
+
+      const finalStart = Math.max(0, Math.min(totalMeasures - 1, Math.round(currentLeft / MEASURE_W)));
+      const finalEnd = Math.max(finalStart, Math.min(totalMeasures - 1, finalStart + Math.round(currentWidth / MEASURE_W) - 1));
+
+      if (finalStart !== section.startMeasure || finalEnd !== section.endMeasure) {
+        onUpdateSection(section.id, section.name, finalStart, finalEnd, section.color, section.level);
+      } else {
+        el.style.left = `${section.startMeasure * MEASURE_W}px`;
+        el.style.width = `${(section.endMeasure - section.startMeasure + 1) * MEASURE_W - 8}px`;
+      }
+    };
+
+    if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
+    dragAbortControllerRef.current = new AbortController();
+    const { signal } = dragAbortControllerRef.current;
+
+    window.addEventListener('pointermove', handlePointerMove, { signal });
+    window.addEventListener('pointerup', handlePointerUp, { signal });
   };
 
 
@@ -1183,6 +1346,166 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
             {/* Space where sections will render */}
             <div className="flex-grow relative h-full">
+              {/* Grid of empty measure slots for click-and-drag section creation */}
+              <div className="absolute inset-0 flex pointer-events-none z-0">
+                {Array.from({ length: totalMeasures }).map((_, mIdx) => {
+                  if (mIdx < visibleRange.start || mIdx > visibleRange.end) {
+                    return (
+                      <div
+                        key={mIdx}
+                        style={{
+                          width: `${MEASURE_W}px`,
+                          minWidth: `${MEASURE_W}px`,
+                          height: '100%'
+                        }}
+                      />
+                    );
+                  }
+                  return (
+                    <div
+                      key={mIdx}
+                      className="group relative border-r border-dashed border-[var(--cordel-border)]/15 hover:bg-black/[0.03] flex items-center justify-center cursor-crosshair select-none pointer-events-auto"
+                      style={{
+                        width: `${MEASURE_W}px`,
+                        minWidth: `${MEASURE_W}px`,
+                        height: '100%'
+                      }}
+                      onPointerDown={(e) => handleEmptySlotPointerDown(e, mIdx)}
+                      onPointerEnter={() => handleEmptySlotPointerEnter(mIdx)}
+                    >
+                      {/* Hover '+' button */}
+                      <button
+                        className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-[1px_1px_3px_rgba(0,0,0,0.3)] hover:scale-110 cursor-pointer z-20 pointer-events-auto"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePlusClick(mIdx);
+                        }}
+                        title={lang === 'fr' ? 'Créer une section' : 'Criar seção'}
+                      >
+                        ＋
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Highlight selection during drag */}
+              {isDraggingRange && dragStartMeasure !== null && dragCurrentMeasure !== null && (
+                <div
+                  className="absolute bg-blue-500/25 border-2 border-dashed border-blue-500 pointer-events-none rounded-sm"
+                  style={{
+                    left: `${Math.min(dragStartMeasure, dragCurrentMeasure) * MEASURE_W + 4}px`,
+                    width: `${(Math.abs(dragCurrentMeasure - dragStartMeasure) + 1) * MEASURE_W - 8}px`,
+                    top: '4px',
+                    bottom: '4px',
+                    zIndex: 30
+                  }}
+                />
+              )}
+
+              {/* Quick Section Creator Popover */}
+              {quickSectionRange && (
+                <div
+                  className="absolute z-[85] bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-3 border-2 border-black shadow-[3px_3px_0px_rgba(0,0,0,1)] flex flex-col gap-2 rounded-sm"
+                  style={{
+                    left: `${quickSectionRange.start * MEASURE_W + 4}px`,
+                    top: '100%',
+                    marginTop: '4px',
+                    width: '260px',
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between border-b border-[var(--cordel-border)]/20 pb-1">
+                    <span className="text-[9px] font-bold uppercase tracking-wider opacity-60">
+                      {lang === 'fr' 
+                        ? `Nouvelle Section (M. ${quickSectionRange.start + 1} - ${quickSectionRange.end + 1})` 
+                        : `Nova Seção (C. ${quickSectionRange.start + 1} - ${quickSectionRange.end + 1})`}
+                    </span>
+                    <button 
+                      className="text-xs hover:text-red-500 font-bold cursor-pointer"
+                      onClick={() => setQuickSectionRange(null)}
+                    >✕</button>
+                  </div>
+                  
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[8px] font-bold uppercase opacity-75">{lang === 'fr' ? 'Nom' : 'Nome'}</label>
+                    <input
+                      type="text"
+                      value={quickSectionName}
+                      onChange={(e) => setQuickSectionName(e.target.value)}
+                      placeholder={lang === 'fr' ? "ex: Couplet" : "ex: Verso"}
+                      className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-2 py-1 text-xs font-bold outline-none text-[var(--cordel-text)] focus:bg-[var(--cordel-border)]/10"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleQuickSectionCreate();
+                        if (e.key === 'Escape') setQuickSectionRange(null);
+                      }}
+                    />
+                  </div>
+
+                  {/* Level / Imbrication Selector */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[8px] font-bold uppercase opacity-75">{lang === 'fr' ? "Niveau d'imbrication" : "Nível de aninhamento"}</label>
+                    <select
+                      value={quickSectionLevel}
+                      onChange={(e) => setQuickSectionLevel(parseInt(e.target.value, 10))}
+                      className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] p-1 text-[10px] font-bold text-[var(--cordel-text)] outline-none cursor-pointer"
+                    >
+                      <option value={0}>{lang === 'fr' ? 'Niveau 0 (Base)' : 'Nível 0 (Base)'}</option>
+                      <option value={1}>{lang === 'fr' ? 'Niveau 1 (Groupe)' : 'Nível 1 (Grupo)'}</option>
+                      <option value={2}>{lang === 'fr' ? 'Niveau 2 (Super-groupe)' : 'Nível 2 (Super-grupo)'}</option>
+                    </select>
+                  </div>
+
+                  {/* Colors row */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[8px] font-bold uppercase opacity-75">{lang === 'fr' ? 'Couleur' : 'Cor'}</label>
+                    <div className="flex gap-1.5 justify-center py-1">
+                      {[
+                        '#e08283', // Rouge
+                        '#f19066', // Orange
+                        '#f5cd79', // Jaune
+                        '#55efc4', // Vert d'eau
+                        '#74b9ff', // Bleu pastel
+                        '#a29bfe', // Violet doux
+                        '#eaddcf'  // Beige
+                      ].map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => setQuickSectionColor(color)}
+                          className={`w-4.5 h-4.5 rounded-full cursor-pointer border border-black/35 transition-transform ${
+                            quickSectionColor === color ? 'scale-120 ring-1 ring-[var(--cordel-text)]' : 'hover:scale-110'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1 mt-1">
+                    <button
+                      onClick={handleQuickSectionCreate}
+                      className="w-full bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] py-1.5 rounded cordel-border-sm hover:opacity-95 transition-opacity cursor-pointer text-center"
+                    >
+                      ➕ {lang === 'fr' ? 'Créer la section' : 'Criar seção'}
+                    </button>
+                    
+                    {onLoadCloudSection && (
+                      <button
+                        onClick={() => {
+                          onLoadCloudSection(quickSectionRange.start);
+                          setQuickSectionRange(null);
+                        }}
+                        className="w-full bg-emerald-600 text-white font-bold text-[10px] py-1.5 rounded cordel-border-sm hover:bg-emerald-700 transition-colors cursor-pointer text-center"
+                      >
+                        ☁️ {lang === 'fr' ? 'Insérer section enregistrée' : 'Inserir seção gravada'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {songSections.map((section) => {
                 const startX = section.startMeasure * MEASURE_W;
                 const width = (section.endMeasure - section.startMeasure + 1) * MEASURE_W;
@@ -1193,7 +1516,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                 return (
                   <div
                     key={section.id}
-                    className={`absolute flex items-center justify-between px-3 text-xs font-bold rounded cordel-border-sm select-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)] cursor-grab active:cursor-grabbing hover:brightness-105 transition-[background-color] ${
+                    className={`absolute flex items-center justify-between px-6 text-xs font-bold rounded cordel-border-sm select-none shadow-[2px_2px_0px_0px_rgba(0,0,0,0.15)] cursor-grab active:cursor-grabbing hover:brightness-105 transition-[background-color] ${
                       isPanningActive ? 'pointer-events-none' : ''
                     }`}
                     onPointerDown={(e) => handleSectionBlockPointerDown(e, section)}
@@ -1210,8 +1533,46 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       zIndex: activeRepeatDropdownSectionId === section.id ? 70 : 10
                     }}
                   >
-                    <span className="truncate max-w-[50%] font-cactus uppercase tracking-wider">{section.name}</span>
-                    <div className="flex gap-1 shrink-0">
+                    {/* Left resize handle */}
+                    <div
+                      className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize flex items-center justify-center hover:bg-black/15 select-none z-20 rounded-l"
+                      onPointerDown={(e) => handleResizePointerDown(e, section, 'left')}
+                      title={lang === 'fr' ? "Étendre à gauche" : "Estender para esquerda"}
+                    >
+                      <div className="flex gap-[0.5px]">
+                        <div className="w-[1px] h-2 bg-black/40" />
+                        <div className="w-[1px] h-2 bg-black/40" />
+                        <div className="w-[1px] h-2 bg-black/40" />
+                      </div>
+                    </div>
+
+                    {/* Right resize handle */}
+                    <div
+                      className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize flex items-center justify-center hover:bg-black/15 select-none z-20 rounded-r"
+                      onPointerDown={(e) => handleResizePointerDown(e, section, 'right')}
+                      title={lang === 'fr' ? "Étendre à droite" : "Estender para direita"}
+                    >
+                      <div className="flex gap-[0.5px]">
+                        <div className="w-[1px] h-2 bg-black/40" />
+                        <div className="w-[1px] h-2 bg-black/40" />
+                        <div className="w-[1px] h-2 bg-black/40" />
+                      </div>
+                    </div>
+
+                    <span 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingSection(section);
+                        setSectionModalOpen(true);
+                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      className="truncate max-w-[65%] font-cactus uppercase tracking-wider cursor-pointer hover:underline z-10"
+                      title={lang === 'fr' ? 'Modifier la section' : 'Editar seção'}
+                    >
+                      {section.name}
+                    </span>
+                    
+                    <div className="flex gap-1 shrink-0 z-10">
                       <div className="relative flex items-center">
                         <button
                           onClick={(e) => {
@@ -1277,27 +1638,6 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                           </div>
                         )}
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onCopySection(section);
-                        }}
-                        className="bg-white/80 hover:bg-white text-black text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer font-sans"
-                        title={lang === 'fr' ? 'Copier le bloc' : 'Copiar bloco'}
-                      >
-                        📋 Copier
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingSection(section);
-                          setSectionModalOpen(true);
-                        }}
-                        className="bg-white/80 hover:bg-white text-black text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer"
-                        title={lang === 'fr' ? 'Modifier' : 'Editar'}
-                      >
-                         <XiloChisel size={8} />
-                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

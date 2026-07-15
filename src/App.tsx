@@ -299,7 +299,17 @@ export default function App() {
   // Cloud Section State
   const [sectionToSave, setSectionToSave] = useState<SongSection | null>(null);
   const [loadSectionInsertMeasure, setLoadSectionInsertMeasure] = useState<number | null>(null);
-  const [measureWidth, setMeasureWidth] = useState<number>(480);
+  const [measureWidth, setMeasureWidth] = useState<number>(() => {
+    if (typeof window === 'undefined') return 240;
+    const w = window.innerWidth;
+    if (w < 600) {
+      return Math.max(120, Math.min(150, Math.round((w - 100) / 2.5)));
+    } else if (w < 1024) {
+      return Math.max(140, Math.min(200, Math.round((w - 160) / 4.5)));
+    } else {
+      return Math.max(160, Math.min(280, Math.round((w - 260) / 6.5)));
+    }
+  });
   const [mobileTab, setMobileTab] = useState<'roda' | 'mixer' | 'toada'>('roda');
 
   const t = (key: string) => {

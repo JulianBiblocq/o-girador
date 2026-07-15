@@ -376,20 +376,24 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     width: `${stepWidth}px`,
   };
 
+  // Résolution de la note vocale (chant)
+  const noteLetter = stepData.note ? stepData.note.charAt(0).toUpperCase() : '';
+  const noteColor = noteLetter ? (NEWTON_NOTE_COLORS[noteLetter as keyof typeof NEWTON_NOTE_COLORS] || '#1a1a1a') : '#1a1a1a';
+
   // Résolution géométrique du fond de la cellule
   let stepBg = '#111';
   let hasBackground = false;
 
   if (stepData.isRightHalfOnly) {
-    // 135deg avec transparent en haut-gauche et variation en bas-droite
     stepBg = `linear-gradient(135deg, transparent 50%, ${stepData.rightFillColor} 50%)`;
     hasBackground = true;
   } else if (stepData.isSplit) {
-    // 135deg avec Maître en haut-gauche et Variation en bas-droite
     stepBg = `linear-gradient(135deg, ${stepData.leftFillColor} 50%, ${stepData.rightFillColor} 50%)`;
     hasBackground = true;
   } else if (stepData.leftFillColor !== 'transparent') {
-    stepBg = stepData.leftFillColor;
+    stepBg = stepData.isVoice 
+      ? (noteColor !== '#1a1a1a' ? noteColor : stepData.leftFillColor)
+      : stepData.leftFillColor;
     hasBackground = true;
   }
 
@@ -401,17 +405,11 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     bgOpacity = 0;
   }
 
-  // Résolution de la note vocale (chant)
-  const noteLetter = stepData.note ? stepData.note.charAt(0).toUpperCase() : '';
-  const noteColor = noteLetter ? (NEWTON_NOTE_COLORS[noteLetter] || '#1a1a1a') : '#1a1a1a';
-
-  const inst = instrumentsConfig[instrumentIdx];
-
-
+  const accentClass = stepData.leftIsAccent ? 'scale-120 border border-white/60' : 'border border-black/10';
 
   return (
     <div
-      className="timeline-step relative h-full border-r border-[var(--cordel-border)]/10 flex flex-col items-center justify-center text-center cursor-default select-none overflow-hidden"
+      className="timeline-step relative h-full border-r border-[var(--cordel-border)]/10 flex items-center justify-center pointer-events-none select-none overflow-hidden"
       style={style}
       data-measure={measureIdx}
       data-step={stepIdx}
@@ -420,65 +418,19 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
       data-pattern-id={patternId}
       data-val={stepData.val}
     >
-      {/* Background layer (GPU accelerated) */}
-      <div 
-        className="absolute inset-0 pointer-events-none transition-opacity duration-75 ease-out"
-        style={{
-          background: (stepData.isSplit || stepData.isRightHalfOnly) ? stepBg : undefined,
-          backgroundColor: (stepData.isSplit || stepData.isRightHalfOnly) ? undefined : stepBg,
-          opacity: bgOpacity,
-          willChange: 'opacity',
-          zIndex: 1
-        }}
-      />
-
-      {/* Accent ring decoration */}
-      {stepData.leftIsAccent && (
-        <div className="absolute inset-1 border border-white/80 rounded z-10 pointer-events-none" />
+      {hasBackground ? (
+        <div 
+          className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-xs transition-transform duration-75 ease-out shadow-sm ${accentClass}`}
+          style={{
+            background: (stepData.isSplit || stepData.isRightHalfOnly) ? stepBg : undefined,
+            backgroundColor: (stepData.isSplit || stepData.isRightHalfOnly) ? undefined : stepBg,
+            opacity: bgOpacity,
+          }}
+        />
+      ) : (
+        /* Un point gris très discret pour la structure vide */
+        <div className="w-[2px] h-[2px] bg-black/10 dark:bg-white/10 rounded-full" />
       )}
-
-      {/* Content layer */}
-      <div 
-        className="relative z-10 w-full h-full flex flex-col items-center justify-center animate-fade-in"
-        style={{ opacity: stepData.renderCas === 4 ? 0.6 : 1 }}
-      >
-        {stepData.isSplit || stepData.isRightHalfOnly ? (
-          <div className="relative w-full h-full">
-            {/* Cas 3: Raccourci du maître/variation1 en haut à gauche */}
-            {stepData.isSplit && stepData.leftText && (
-              <span 
-                className="absolute top-0.5 left-1 text-[9px] font-black leading-none"
-                style={{ color: stepData.leftTxtColor }}
-              >
-                {stepData.leftText}
-              </span>
-            )}
-            {/* Cas 2 & 3: Raccourci de la variation/esclave en bas à droite */}
-            {stepData.rightText && (
-              <span 
-                className="absolute bottom-0.5 right-1 text-[9px] font-black leading-none"
-                style={{ color: stepData.rightTxtColor }}
-              >
-                {stepData.rightText}
-              </span>
-            )}
-          </div>
-        ) : stepData.isVoice ? (
-          <span 
-            className="text-[13px] font-extrabold tracking-wide" 
-            style={{ color: noteColor, textShadow: '0 1px 2px rgba(0, 0, 0, 0.4)' }}
-          >
-            {noteLetter || ''}
-          </span>
-        ) : (
-          <span 
-            className="text-[13px] font-extrabold tracking-wide"
-            style={{ color: stepData.leftTxtColor }}
-          >
-            {getDisplayVal(stepData.leftText)}
-          </span>
-        )}
-      </div>
     </div>
   );
 };
