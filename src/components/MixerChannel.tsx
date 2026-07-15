@@ -274,7 +274,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   } else if (linkPosition === 'last') {
     linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
     linkStyle.borderRight = `2.5px solid ${linkColor}`;
-  } else if (linkPosition === 'none' && track.isLinkFolder) {
+  } else if (linkPosition === 'none' && (!track.isBusFolder || track.isLinkFolder)) {
     linkStyle.borderLeft = `2.5px solid ${linkColor}`;
     linkStyle.borderRight = `2.5px solid ${linkColor}`;
   }
@@ -371,8 +371,14 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         '--fader-thumb-border': 'var(--cordel-border)',
       } as React.CSSProperties}
     >
-      {linkPosition !== 'none' && (
+      {(linkPosition !== 'none' || !track.isBusFolder) && (
         <div style={linkStyle} className="rounded-sm" />
+      )}
+      {dropIndicator === 'left' && (
+        <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />
+      )}
+      {dropIndicator === 'right' && (
+        <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />
       )}
       {/* Niveau 6 (Tout en haut) : En-tête */}
       <div 

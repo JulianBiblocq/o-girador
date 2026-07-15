@@ -192,7 +192,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   } else if (linkPosition === 'last') {
     linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
     linkStyle.borderRight = `2.5px solid ${linkColor}`;
-  } else if (linkPosition === 'none' && track.isLinkFolder) {
+  } else if (linkPosition === 'none' && (!track.isBusFolder || track.isLinkFolder)) {
     linkStyle.borderLeft = `2.5px solid ${linkColor}`;
     linkStyle.borderRight = `2.5px solid ${linkColor}`;
   }
@@ -281,7 +281,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
         '--fader-thumb-border': 'var(--cordel-border)',
       } as React.CSSProperties}
     >
-      {linkPosition !== 'none' && (
+      {(linkPosition !== 'none' || !track.isBusFolder) && (
         <div style={linkStyle} className="rounded-sm" />
       )}
       {dropIndicator === 'left' && (
