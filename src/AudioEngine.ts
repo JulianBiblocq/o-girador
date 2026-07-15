@@ -96,6 +96,7 @@ export class AudioEngine {
 
   // O(1) lookup map for tracks: maps trackId (as string) -> TrackGroup
   private trackLookupMap = new Map<string, TrackGroup>();
+  private timeStrokeIndicesUsed = new Map<string, number[]>();
   private lastTracksRef: TrackGroup[] | null = null;
   private unsubscribeTracks: (() => void) | null = null;
 
@@ -869,7 +870,7 @@ export class AudioEngine {
       this.stopBarulho(instrumentId, time);
     }
 
-    // 1. Round-Robin Index Selection
+    // 1. Round-Robin Index Selection with Anti-Collision
     const numFiles = stroke.files.length;
     let chosenIdx = 0;
 
@@ -879,15 +880,52 @@ export class AudioEngine {
       this.lastPlayedIndices.set(instrumentId, instMap);
     }
 
+    // Time slot key (approx. 3ms window to group simultaneous hits)
+    const timeSlot = Math.round(time * 333);
+    const timeKey = `${timeSlot}_${instrumentId}_${stroke.symbol}`;
+    if (!this.timeStrokeIndicesUsed.has(timeKey)) {
+      if (this.timeStrokeIndicesUsed.size > 2000) {
+        this.timeStrokeIndicesUsed.clear(); // Safety cleanup
+      }
+      this.timeStrokeIndicesUsed.set(timeKey, []);
+    }
+    const usedIndices = this.timeStrokeIndicesUsed.get(timeKey)!;
+
     if (numFiles > 1) {
       const lastIdx = instMap.has(stroke.symbol) ? instMap.get(stroke.symbol)! : -1;
-      // Zero-allocation round-robin: pick random index from [0, numFiles-1] excluding lastIdx
-      const availableCount = numFiles - (lastIdx >= 0 ? 1 : 0);
-      let rawIdx = Math.floor(Math.random() * availableCount);
-      if (lastIdx >= 0 && rawIdx >= lastIdx) rawIdx++;
-      chosenIdx = rawIdx;
+      
+      // Try to find indices that are neither in usedIndices (this step) nor lastIdx (previous step)
+      const candidates: number[] = [];
+      for (let i = 0; i < numFiles; i++) {
+        if (!usedIndices.includes(i) && i !== lastIdx) {
+          candidates.push(i);
+        }
+      }
+      
+      // Fallback 1: Allow lastIdx if all other samples are taken by simultaneous channels
+      if (candidates.length === 0) {
+        for (let i = 0; i < numFiles; i++) {
+          if (!usedIndices.includes(i)) {
+            candidates.push(i);
+          }
+        }
+      }
+      
+      // Fallback 2: Allow all if more simultaneous channels play than files available
+      if (candidates.length === 0) {
+        for (let i = 0; i < numFiles; i++) {
+          candidates.push(i);
+        }
+      }
+      
+      const randIdx = Math.floor(Math.random() * candidates.length);
+      chosenIdx = candidates[randIdx];
+      
+      usedIndices.push(chosenIdx);
       instMap.set(stroke.symbol, chosenIdx);
     } else {
+      chosenIdx = 0;
+      usedIndices.push(0);
       instMap.set(stroke.symbol, 0);
     }
 

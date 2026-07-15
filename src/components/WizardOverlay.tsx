@@ -769,15 +769,25 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
       });
     };
 
+    // 1. Calcul préliminaire des volumes bruts basés sur la distance
+    const rawVols = placedInstruments.map(inst => {
+      const dbVol = ((inst.y - 100) / 100) * 12;
+      const gain = Math.pow(10, dbVol / 20);
+      return Math.max(0, Math.min(120, Math.round(gain * 100)));
+    });
+
+    const maxRawVol = rawVols.length > 0 ? Math.max(...rawVols) : 100;
+    // Facteur d'échelle pour amener le plus fort à 90%
+    const scaleFactor = maxRawVol > 0 ? (90 / maxRawVol) : 1.0;
+
     // 2. Traduction Spatiale et Création des Pistes
     placedInstruments.forEach((inst, idx) => {
       const instIdx = instrumentsConfig.findIndex(c => c.id === inst.instrumentType);
       if (instIdx === -1) return;
 
       const panPct = Math.round(((inst.x - 50) / 50) * 100);
-      const dbVol = ((inst.y - 100) / 100) * 12;
-      const gain = Math.pow(10, dbVol / 20);
-      const volumeVal = Math.max(0, Math.min(120, Math.round(gain * 100)));
+      const rawVol = rawVols[idx];
+      const volumeVal = Math.max(0, Math.min(120, Math.round(rawVol * scaleFactor)));
 
       let intensity = 100;
       if (inst.instrumentType === 'marcante' || inst.instrumentType === 'meiao' || inst.instrumentType === 'repique') {
@@ -958,7 +968,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
         isMute: false,
         isSolo: false,
         isHidden: false,
-        volumeVal: 100,
+        volumeVal: 70,
         selectedPatternId: 0,
         isBusFolder: true,
         isFolded: false,
@@ -991,7 +1001,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
         isMute: false,
         isSolo: false,
         isHidden: false,
-        volumeVal: 100,
+        volumeVal: 70,
         selectedPatternId: 0,
         isBusFolder: true,
         isFolded: false,
