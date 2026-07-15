@@ -60,6 +60,17 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
           if (puxTrack) list.push(puxTrack);
           if (coroTrack) list.push(coroTrack);
         }
+        if (t.isLinkMaster) {
+          const parentBus = tracks.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
+          if (parentBus && !parentBus.isSequencerFolded) {
+            const slaves = tracks.filter(child => 
+              String(child.linkedToTrackId) === String(parentBus.id) && 
+              !child.isLinkFolder && 
+              !child.isLinkMaster
+            );
+            list.push(...slaves);
+          }
+        }
 
       }
     });

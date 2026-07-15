@@ -132,6 +132,17 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           if (puxTrack) visibleTrackIds.push(puxTrack.id);
           if (coroTrack) visibleTrackIds.push(coroTrack.id);
         }
+        if (t.isLinkMaster) {
+          const parentBus = state.tracks.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
+          if (parentBus && !parentBus.isSequencerFolded) {
+            const slaves = state.tracks.filter(child => 
+              String(child.linkedToTrackId) === String(parentBus.id) && 
+              !child.isLinkFolder && 
+              !child.isLinkMaster
+            );
+            slaves.forEach(slave => visibleTrackIds.push(slave.id));
+          }
+        }
 
       }
     });
