@@ -7,8 +7,9 @@ import * as Tone from 'tone';
 import { useSequencerStore, isLinearDAWVisibleTrack, isSequencerVisibleTrack } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
-import { subscribeToTick, unsubscribeFromTick, getActiveStrokesForTrack } from '../hooks/useAudioSync';
+import { subscribeToTick, unsubscribeFromTick, getActiveStrokesForTrack, audioEngine } from '../hooks/useAudioSync';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
+import { useMidiStore } from '../stores/useMidiStore';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getStrokesForInstrument, STEP_OPTIONS } from '../utils/instrumentStrokes';
 import { createPortal } from 'react-dom';
@@ -124,6 +125,12 @@ const getPatternUsage = (patternId: number, parentBusTrack: any, allTracks: any[
   return usage;
 };
 
+const midiNoteToName = (note: number): string => {
+  const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const octave = Math.floor(note / 12) - 1;
+  return `${notes[note % 12]}${octave}`;
+};
+
 interface InstrumentDetailEditorProps {
   trackId: number;
   onClose: () => void;
@@ -173,6 +180,14 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const setStrokeForcedState = useSequencerSettingsStore(state => state.setStrokeForcedState);
   const strokeDefaults = useSequencerSettingsStore(state => state.strokeDefaults);
   const setStrokeDefault = useSequencerSettingsStore(state => state.setStrokeDefault);
+
+  // MIDI store hooks
+  const isMidiLearnActive = useMidiStore(state => state.isMidiLearnActive);
+  const setMidiLearnActive = useMidiStore(state => state.setMidiLearnActive);
+  const waitingForMidiStroke = useMidiStore(state => state.waitingForMidiStroke);
+  const setWaitingForMidiStroke = useMidiStore(state => state.setWaitingForMidiStroke);
+  const mappings = useMidiStore(state => state.mappings);
+  const removeMidiMapping = useMidiStore(state => state.removeMidiMapping);
 
   const [selectedStrokeMacro, setSelectedStrokeMacro] = useState<string | null>(null);
 
@@ -1428,6 +1443,23 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               </div>
             )}
 
+            {/* Bouton d'activation global MIDI Learn */}
+            <div className="flex justify-between items-center gap-2 border-b border-black/10 pb-2">
+              <button
+                onClick={() => setMidiLearnActive(!isMidiLearnActive)}
+                className={`w-full border-black border-2 px-3 py-1.5 active:scale-95 transition-all text-xs font-bold font-mono shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none cursor-pointer flex items-center justify-center gap-1.5 ${
+                  isMidiLearnActive 
+                    ? 'bg-amber-500 text-black hover:bg-amber-600' 
+                    : 'bg-[#f4ecd8] text-black hover:bg-[#ebdcb9]'
+                }`}
+              >
+                <span>🎹</span>
+                <span>
+                  {lang === 'fr' ? 'Apprentissage MIDI :' : 'Aprendizado MIDI :'} {isMidiLearnActive ? (lang === 'fr' ? 'ACTIF' : 'ATIVO') : (lang === 'fr' ? 'INACTIF' : 'INATIVO')}
+                </span>
+              </button>
+            </div>
+
             {/* Stroke list */}
             <div className="flex flex-col gap-2">
               {strokes.map((stroke, sIdx) => {
@@ -1444,39 +1476,85 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                   txtColor = '#1a1a1a';
                 }
 
-                const { avgVolume, avgDecay } = getStrokeAverages(symbol);
-                const isVoice = inst?.type === 'voice';
-
-                return (
-                  <div key={sIdx} className="flex flex-col border border-black/10 bg-black/[0.01] p-1.5 rounded-sm">
-                    {/* Touche et Infos (Ligne interactive) */}
-                    <div
-                      onClick={() => setSelectedStrokeMacro(isSelected ? null : symbol)}
-                      className={`flex items-center gap-2.5 cursor-pointer hover:bg-black/5 p-0.5 select-none transition-all ${
-                        !isActive ? 'opacity-40 grayscale border-dashed border border-black/30' : ''
-                      }`}
-                      title={`${symbol} : ${stroke.label} (${isActive ? (lang === 'fr' ? 'Actif' : 'Ativo') : (lang === 'fr' ? 'Inactif' : 'Inativo')})`}
-                    >
-                      <div
-                        className="flex items-center justify-center cordel-border-sm font-bold text-xs shrink-0"
-                        style={{
-                          width: '32px',
-                          height: '32px',
-                          backgroundColor: bgColor,
-                          color: txtColor,
-                          borderColor: '#1a1a1a',
-                          borderStyle: isActive ? 'solid' : 'dashed',
-                        }}
-                      >
-                        {symbol.length <= 2 ? symbol : symbol.charAt(0)}
-                      </div>
-
-                      <div className="flex flex-col min-w-0 flex-grow">
-                        <span className="text-[11px] font-bold text-[#1a1a1a] leading-tight">{stroke.label}</span>
-                        <span className="text-[9px] text-[#666] leading-tight">
-                          {lang === 'fr' ? 'Touche' : 'Tecla'}: {stroke.shortcut}
-                        </span>
-                      </div>
+                 const { avgVolume, avgDecay } = getStrokeAverages(symbol);
+                 const isVoice = inst?.type === 'voice';
+ 
+                 const isWaiting = waitingForMidiStroke && 
+                   String(waitingForMidiStroke.trackId) === String(track.id) && 
+                   waitingForMidiStroke.symbol === symbol;
+ 
+                 // Find note associated with this track & symbol
+                 let associatedNote: number | null = null;
+                 for (const key in mappings) {
+                   const m = mappings[key];
+                   if (m && String(m.trackId) === String(track.id) && m.symbol === symbol) {
+                     associatedNote = Number(key);
+                     break;
+                   }
+                 }
+ 
+                 return (
+                   <div key={sIdx} className="flex flex-col border border-black/10 bg-black/[0.01] p-1.5 rounded-sm">
+                     {/* Touche et Infos (Ligne interactive) */}
+                     <div
+                       onClick={() => setSelectedStrokeMacro(isSelected ? null : symbol)}
+                       className={`flex items-center gap-2.5 cursor-pointer hover:bg-black/5 p-0.5 select-none transition-all ${
+                         !isActive ? 'opacity-40 grayscale border-dashed border border-black/30' : ''
+                       }`}
+                       title={`${symbol} : ${stroke.label} (${isActive ? (lang === 'fr' ? 'Actif' : 'Ativo') : (lang === 'fr' ? 'Inactif' : 'Inativo')})`}
+                     >
+                       <div
+                         onClick={(e) => {
+                           e.stopPropagation();
+                           if (isMidiLearnActive) {
+                             setWaitingForMidiStroke({
+                               trackId: String(trackId),
+                               instrumentId: inst.id,
+                               symbol
+                             });
+                           } else {
+                             if (audioEngine) {
+                               audioEngine.playNote(trackId, symbol, Tone.now(), 1.0, 1.0);
+                             }
+                           }
+                         }}
+                         data-midi-target={`${inst.id}-${symbol}`}
+                         className={`flex items-center justify-center cordel-border-sm font-bold text-xs shrink-0 cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90 ${
+                           isWaiting ? 'animate-pulse border-2 border-dashed !border-amber-600' : ''
+                         }`}
+                         style={{
+                           width: '32px',
+                           height: '32px',
+                           backgroundColor: bgColor,
+                           color: txtColor,
+                           borderColor: isWaiting ? '#d35400' : '#1a1a1a',
+                           borderStyle: isWaiting ? 'dashed' : (isActive ? 'solid' : 'dashed'),
+                         }}
+                       >
+                         {symbol.length <= 2 ? symbol : symbol.charAt(0)}
+                       </div>
+ 
+                       <div className="flex flex-col min-w-0 flex-grow">
+                         <div className="flex items-center gap-1.5 flex-wrap">
+                           <span className="text-[11px] font-bold text-[#1a1a1a] leading-tight">{stroke.label}</span>
+                           {associatedNote !== null && (
+                             <span 
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 removeMidiMapping(associatedNote!);
+                               }}
+                               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-[#1a1a1a] text-[#f4ecd8] border border-black hover:bg-red-700 hover:text-white cursor-pointer transition-colors"
+                               title={lang === 'fr' ? "Cliquez pour dissocier la note MIDI" : "Clique para desassociar a nota MIDI"}
+                             >
+                               <span>🎹 {midiNoteToName(associatedNote)}</span>
+                               <span className="font-extrabold text-[9px] leading-none">×</span>
+                             </span>
+                           )}
+                         </div>
+                         <span className="text-[9px] text-[#666] leading-tight">
+                           {lang === 'fr' ? 'Touche' : 'Tecla'}: {stroke.shortcut}
+                         </span>
+                       </div>
 
                       <span className="text-[9px] text-[#666] font-bold mr-1 shrink-0 select-none">
                         {isSelected ? '▲' : '▼'}

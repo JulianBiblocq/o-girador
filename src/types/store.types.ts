@@ -78,6 +78,7 @@ export interface TrackGroup {
   reverbVal?: number;
   panVal?: number; // -100 to 100
   pan?: number; // -100 to 100
+  swingIntensity?: number; // 0 to 100
   fxSends?: {
     reverb: number; // 0 to 100
     distortion: number; // 0 to 100

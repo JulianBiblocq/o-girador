@@ -25,7 +25,8 @@ export function usePerformanceMonitor() {
     const store = usePerformanceStore.getState();
     store.setHardwareInfo(ram, cores);
 
-    // 2. Initialisation de la boucle FPS
+    const lowFpsCountRef = { current: 0 };
+    const highFpsCountRef = { current: 0 };
     lastTimeRef.current = performance.now();
     frameCountRef.current = 0;
 
@@ -37,8 +38,27 @@ export function usePerformanceMonitor() {
       if (elapsed >= 1000) {
         const fps = Math.round((frameCountRef.current * 1000) / elapsed);
         
-        // Mise à jour de l'état Zustand à basse fréquence (1 Hz) pour l'affichage UI
-        usePerformanceStore.getState().setFps(fps);
+        const store = usePerformanceStore.getState();
+        store.setFps(fps);
+
+        if (fps < 45) {
+          lowFpsCountRef.current += 1;
+          highFpsCountRef.current = 0;
+          if (lowFpsCountRef.current >= 3 && !store.isCPUSurcharged) {
+            store.setCPUSurcharged(true);
+            console.warn("⚠️ CPU overload detected, enabling Dynamic CPU Throttling (FPS < 45 for 3s)");
+          }
+        } else if (fps >= 54) {
+          highFpsCountRef.current += 1;
+          lowFpsCountRef.current = 0;
+          if (highFpsCountRef.current >= 5 && store.isCPUSurcharged) {
+            store.setCPUSurcharged(false);
+            console.log("ℹ️ CPU load normalized, disabling Dynamic CPU Throttling (FPS >= 54 for 5s)");
+          }
+        } else {
+          lowFpsCountRef.current = 0;
+          highFpsCountRef.current = 0;
+        }
 
         // Réinitialisation des accumulateurs
         frameCountRef.current = 0;

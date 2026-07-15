@@ -20,6 +20,8 @@ export interface UserProfile {
   mestreMessage?: string;
   signatureUrl?: string;
   instrument?: string;
+  customSwingOffsets?: [number, number, number, number];
+  customSwingIntensity?: number;
 }
 
 interface AuthContextType {

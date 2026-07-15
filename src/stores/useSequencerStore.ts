@@ -2,6 +2,7 @@ import { create, StateCreator } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
 import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX, CloudRhythmSignal } from '../types';
 
+import { usePerformanceStore } from './usePerformanceStore';
 // Nous aurons besoin d'instrumentsConfig pour extraire les paroles
 import { instrumentsConfig } from '../data';
 
@@ -134,6 +135,9 @@ export const isLinearDAWVisibleTrack = (t: TrackGroup, allTracks: TrackGroup[]):
   }
   if (isToadaBus(t)) {
     return true;
+  }
+  if (t.isBusFolder && !t.isLinkFolder) {
+    return false;
   }
   if (t.isLinkFolder) {
     return false;
@@ -804,6 +808,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         isFolded: false,
         isSequencerFolded: false,
         customName: name,
+        busId: masterTrack.busId, // Hériter du bus audio d'origine (ex: Section Caixas)
         reverbVal: 0,
         panVal: 0,
         pan: 0,
@@ -2014,29 +2019,102 @@ export const getEffectiveMuteState = (tracks: TrackGroup[], trackId: number): bo
   const track = tracks.find(t => t.id === trackId);
   if (!track) return true;
 
-  const parentBus = track.busId 
-    ? tracks.find(b => b.isBusFolder && String(b.id) === String(track.busId)) 
-    : null;
-
   const hasAnySolo = tracks.some(t => t.isSolo);
 
-  // 1. Règle B : Autorisation de chanter en mode Solo
+  // Checks recursively if any parent (via busId or linkedToTrackId) is soloed
+  const isAnyParentSolo = (currentTrack: TrackGroup): boolean => {
+    let current: TrackGroup | undefined = currentTrack;
+    const visited = new Set<number>();
+    while (current) {
+      if (visited.has(current.id)) break;
+      visited.add(current.id);
+      
+      const parentId = current.busId || current.linkedToTrackId;
+      if (!parentId) break;
+      
+      const parent = tracks.find(t => String(t.id) === String(parentId));
+      if (parent) {
+        if (parent.isSolo) return true;
+        current = parent;
+      } else {
+        break;
+      }
+    }
+    return false;
+  };
+
+  // Checks recursively if any child descendant is soloed
+  const isAnyDescendantSolo = (currentTrack: TrackGroup): boolean => {
+    const visited = new Set<number>();
+    const check = (node: TrackGroup): boolean => {
+      if (visited.has(node.id)) return false;
+      visited.add(node.id);
+      
+      const children = tracks.filter(t => 
+        (t.busId && String(t.busId) === String(node.id)) || 
+        (t.linkedToTrackId && String(t.linkedToTrackId) === String(node.id))
+      );
+      
+      for (const child of children) {
+        if (child.isSolo) return true;
+        if (check(child)) return true;
+      }
+      return false;
+    };
+    return check(currentTrack);
+  };
+
+  // Checks recursively if any parent is muted
+  const isAnyParentMuted = (currentTrack: TrackGroup): boolean => {
+    let current: TrackGroup | undefined = currentTrack;
+    const visited = new Set<number>();
+    while (current) {
+      if (visited.has(current.id)) break;
+      visited.add(current.id);
+      
+      const parentId = current.busId || current.linkedToTrackId;
+      if (!parentId) break;
+      
+      const parent = tracks.find(t => String(t.id) === String(parentId));
+      if (parent) {
+        if (parent.isMute) return true;
+        current = parent;
+      } else {
+        break;
+      }
+    }
+    return false;
+  };
+
+  // 1. Recursive Solo check
   let isAllowedToPlayBySolo = true;
   if (hasAnySolo) {
     const isSelfSolo = track.isSolo === true;
-    const isParentBusSolo = parentBus && parentBus.isSolo === true;
-    
-    // Si c'est un Bus, il a le droit de chanter si lui-même ou l'un de ses enfants directs est en solo
-    const isAnyChildSolo = track.isBusFolder && tracks.some(t => 
-      String(t.busId) === String(track.id) && t.isSolo === true
-    );
-
-    isAllowedToPlayBySolo = isSelfSolo || isParentBusSolo || isAnyChildSolo;
+    isAllowedToPlayBySolo = isSelfSolo || isAnyParentSolo(track) || isAnyDescendantSolo(track);
   }
 
-  // 2. Règle A & C : Mute Prioritaire
-  const isSelfMuted = track.isMute === true;
-  const isParentBusMuted = parentBus && parentBus.isMute === true;
+  // 1.5. Dynamic CPU Overload Muting (Hysteresis-based throttling)
+  // If CPU overload is active, mute redundant instruments while leaving at least one of each type playing.
+  const isCPUSurcharged = usePerformanceStore.getState().isCPUSurcharged;
+  if (isCPUSurcharged && !track.isBusFolder) {
+    const instId = instrumentsConfig[track.instrumentIdx]?.id;
+    if (instId) {
+      const sameInstTracks = tracks.filter(t => 
+        !t.isBusFolder && 
+        instrumentsConfig[t.instrumentIdx]?.id === instId
+      );
+      if (sameInstTracks.length > 1) {
+        sameInstTracks.sort((a, b) => a.id - b.id);
+        if (sameInstTracks[0].id !== track.id) {
+          return true; // Auto-mute redundant track for CPU protection
+        }
+      }
+    }
+  }
 
-  return !isAllowedToPlayBySolo || isSelfMuted || isParentBusMuted;
+  // 2. Recursive Mute check
+  const isSelfMuted = track.isMute === true;
+  const isParentMuted = isAnyParentMuted(track);
+
+  return !isAllowedToPlayBySolo || isSelfMuted || isParentMuted;
 };

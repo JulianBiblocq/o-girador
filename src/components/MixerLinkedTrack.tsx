@@ -7,10 +7,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GripHorizontal } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
-import { getBusColor, getContrastColor } from '../utils/colorHelpers';
+import { getBusColor, getContrastColor, getTopParentBusId } from '../utils/colorHelpers';
 import { DragNumberBox } from './DragNumberBox';
 import { PanKnob } from './PanKnob';
 import { MixerVolumeFader } from './MixerVolumeFader';
@@ -28,6 +28,8 @@ interface MixerLinkedTrackProps {
   onOpenDetailEditor: (trackId: number) => void;
   isActive?: boolean;
   busPosition?: 'first' | 'middle' | 'last' | 'none';
+  linkPosition?: 'first' | 'middle' | 'last' | 'none';
+  dropIndicator?: 'left' | 'right' | null;
 }
 
 const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
@@ -35,6 +37,8 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   index,
   isActive = true,
   busPosition = 'none',
+  linkPosition = 'none',
+  dropIndicator = null,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -129,13 +133,15 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
     '--fader-thumb-border': 'var(--cordel-border)',
   } as React.CSSProperties;
 
-  // Calcul du style de groupe
+  const isInsideBusBlock = busPosition === 'first' || busPosition === 'middle';
+  const isInsideLinkBlock = linkPosition === 'first' || linkPosition === 'middle';
   const groupStyle: React.CSSProperties = {
-    marginRight: (busPosition === 'none' || busPosition === 'last') ? '16px' : '0px'
+    marginRight: (isInsideBusBlock || isInsideLinkBlock) ? '0px' : '16px'
   };
-  const targetBusId = track.busId || (track.linkedToTrackId ? String(track.linkedToTrackId) : null);
-  if (targetBusId) {
-    const busColor = getBusColor(targetBusId, tracks, instrumentsConfig);
+  const topBusId = getTopParentBusId(track, tracks);
+  if (busPosition !== 'none' && topBusId) {
+    const parentBusId = topBusId;
+    const busColor = getBusColor(parentBusId, tracks, instrumentsConfig);
     const cleanHex = busColor.replace('#', '');
     const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
     const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
@@ -155,16 +161,40 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
     } else if (busPosition === 'last') {
       groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
       groupStyle.borderRight = `3px solid ${busColor}`;
-    } else if (busPosition === 'none') {
-      groupStyle.borderLeft = `3px solid ${busColor}`;
-      groupStyle.borderRight = `3px solid ${busColor}`;
     }
-  } else {
-    groupStyle.backgroundColor = 'rgba(26, 26, 26, 0.02)';
-    groupStyle.borderTop = '3px double var(--cordel-border)';
-    groupStyle.borderBottom = '3px double var(--cordel-border)';
-    groupStyle.borderLeft = '3px double var(--cordel-border)';
-    groupStyle.borderRight = '3px double var(--cordel-border)';
+  }
+
+  // Calcul du cadre de liaison de partition interne (Track Linking)
+  const linkColor = track.isLinkFolder 
+    ? getBusColor(String(track.id), tracks, instrumentsConfig) 
+    : (track.linkedToTrackId 
+        ? getBusColor(String(track.linkedToTrackId), tracks, instrumentsConfig) 
+        : (inst?.color || '#8b2a1a'));
+
+  const linkStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: '3px',
+    bottom: '3px',
+    left: '3px',
+    right: '3px',
+    pointerEvents: 'none',
+    zIndex: 2,
+    borderTop: `2.5px solid ${linkColor}`,
+    borderBottom: `2.5px solid ${linkColor}`,
+  };
+
+  if (linkPosition === 'first') {
+    linkStyle.borderLeft = `2.5px solid ${linkColor}`;
+    linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
+  } else if (linkPosition === 'middle') {
+    linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
+    linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
+  } else if (linkPosition === 'last') {
+    linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
+    linkStyle.borderRight = `2.5px solid ${linkColor}`;
+  } else if (linkPosition === 'none' && track.isLinkFolder) {
+    linkStyle.borderLeft = `2.5px solid ${linkColor}`;
+    linkStyle.borderRight = `2.5px solid ${linkColor}`;
   }
 
   const borderThicknessTop = 3;
@@ -234,11 +264,12 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
     }
   };
 
+    const isMuted = getEffectiveMuteState(tracks, trackId);
   return (
     <div 
       ref={setNodeRef}
       className={`flex flex-col bg-[var(--cordel-bg)] w-[115px] h-full justify-between shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
-        track.isMute ? 'opacity-60 bg-black/5' : 'opacity-100'
+        isMuted ? 'opacity-50 bg-black/5' : 'opacity-100'
       } ${busPosition === 'none' ? 'cordel-border' : ''}`}
       style={{
         ...style,
@@ -250,6 +281,16 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
         '--fader-thumb-border': 'var(--cordel-border)',
       } as React.CSSProperties}
     >
+      {linkPosition !== 'none' && (
+        <div style={linkStyle} className="rounded-sm" />
+      )}
+      {dropIndicator === 'left' && (
+        <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />
+      )}
+      {dropIndicator === 'right' && (
+        <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />
+      )}
+
       {/* Niveau 6 (Tout en haut) : En-tête */}
       <div 
         className="relative p-1.5 pb-1 flex flex-col gap-1 border-b-[3px] border-[var(--cordel-border)] h-[76px] shrink-0 justify-between w-full"

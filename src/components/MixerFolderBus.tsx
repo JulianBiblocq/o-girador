@@ -7,9 +7,9 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GripHorizontal } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
-import { getBusColor, getContrastColor } from '../utils/colorHelpers';
+import { getBusColor, getContrastColor, getTopParentBusId } from '../utils/colorHelpers';
 import { DragNumberBox } from './DragNumberBox';
 import { PanKnob } from './PanKnob';
 import { MixerVolumeFader } from './MixerVolumeFader';
@@ -27,6 +27,7 @@ interface MixerFolderBusProps {
   index: number;
   isActive?: boolean;
   busPosition?: 'first' | 'middle' | 'last' | 'none';
+  linkPosition?: 'first' | 'middle' | 'last' | 'none';
   isDragOver?: boolean;
   dropIndicator?: 'left' | 'right' | null;
 }
@@ -36,6 +37,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   index,
   isActive = true,
   busPosition = 'none',
+  linkPosition = 'none',
   isDragOver = false,
   dropIndicator = null,
 }) => {
@@ -221,7 +223,8 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
     }
   }, [trackId]);
 
-  const busColor = getBusColor(String(trackId), tracks, instrumentsConfig);
+  const topBusId = getTopParentBusId(track, tracks) || String(trackId);
+  const busColor = getBusColor(topBusId, tracks, instrumentsConfig);
   const faderTextColor = getContrastColor(busColor);
 
   const cleanHex = busColor.replace('#', '');
@@ -256,6 +259,33 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
     groupStyle.borderLeft = `3px double ${busColor}`;
     groupStyle.borderRight = `3px double ${busColor}`;
     groupStyle.marginRight = '16px';
+  }
+
+  const linkColor = busColor;
+  const linkStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: '3px',
+    bottom: '3px',
+    left: '3px',
+    right: '3px',
+    pointerEvents: 'none',
+    zIndex: 2,
+    borderTop: `2.5px solid ${linkColor}`,
+    borderBottom: `2.5px solid ${linkColor}`,
+  };
+
+  if (linkPosition === 'first') {
+    linkStyle.borderLeft = `2.5px solid ${linkColor}`;
+    linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
+  } else if (linkPosition === 'middle') {
+    linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
+    linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
+  } else if (linkPosition === 'last') {
+    linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
+    linkStyle.borderRight = `2.5px solid ${linkColor}`;
+  } else if (linkPosition === 'none' && track.isLinkFolder) {
+    linkStyle.borderLeft = `2.5px solid ${linkColor}`;
+    linkStyle.borderRight = `2.5px solid ${linkColor}`;
   }
 
   const borderThicknessTop = 3;
@@ -325,12 +355,12 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
     }
   };
 
+    const isMuted = getEffectiveMuteState(tracks, trackId);
   return (
     <div
       ref={setNodeRef}
       className={`flex flex-col bg-[var(--cordel-bg)] w-[115px] h-full justify-between shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
-        hasSolo ? (track.isSolo ? 'shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-50') : 
-        (track.isMute ? 'opacity-60 bg-black/5 dark:bg-white/5' : 'opacity-100')
+        isMuted ? 'opacity-50 bg-black/5 dark:bg-white/5' : (track.isSolo ? 'shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-100')
       } ${busPosition === 'none' ? 'cordel-border' : ''} ${
         isDragOver ? 'ring-4 ring-[var(--cordel-wood)] shadow-[0_0_25px_var(--cordel-wood)] scale-[1.02] border-[var(--cordel-wood)] z-30' : ''
       }`}
@@ -344,6 +374,9 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
         '--fader-thumb-border': 'var(--cordel-border)',
       } as React.CSSProperties}
     >
+      {linkPosition !== 'none' && (
+        <div style={linkStyle} className="rounded-sm" />
+      )}
       {dropIndicator === 'left' && (
         <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />
       )}

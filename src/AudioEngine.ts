@@ -911,7 +911,7 @@ export class AudioEngine {
         }
       }
 
-      if (totalVoices >= 3) {
+      if (totalVoices >= 16) {
         let oldestVoice: ActiveVoice | null = null;
         let oldestVoiceIdx = -1;
         let oldestVoiceInstrumentId = '';

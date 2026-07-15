@@ -269,6 +269,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     measure: 0,
     maxTicks: 96,
     ratio: 0,
+    iteration: 1,
   });
 
   if (!tracks) return null;
@@ -448,6 +449,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         measure,
         maxTicks,
         ratio,
+        iteration,
       };
 
       const expanded = expandedRef.current;
@@ -1721,10 +1723,12 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               if (name === 'Gonguê') return 'Gonguês';
               return name + 's';
             };
-            let labelText = (isMaster && currentInst) 
-              ? `🔗 ${getPluralName(currentInst.name)}` 
-              : (currentInst?.name || 'Instrument');
-            if (!isMaster && instrumentTotals[currentInstIdx] > 1) {
+            let labelText = track.customName
+              ? (isMaster ? `🔗 ${track.customName}` : track.customName)
+              : ((isMaster && currentInst) 
+                  ? `🔗 ${getPluralName(currentInst.name)}` 
+                  : (currentInst?.name || 'Instrument'));
+            if (!track.customName && !isMaster && instrumentTotals[currentInstIdx] > 1) {
               labelText += ` ${instrumentIndexes[currentInstIdx]}`;
             }
             if (track.patterns.length > 1) {

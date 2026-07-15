@@ -60,12 +60,12 @@ export const quizQuestions: QuizQuestion[] = [
       pt: 'Qual instrumento produz esse som grave e pesado ?'
     },
     options: {
-      fr: ['Alfaia Marcante', 'Agbê', 'Tarol', 'Mineiro'],
-      pt: ['Alfaia Marcante', 'Agbê', 'Tarol', 'Mineiro']
+      fr: ['Marcante (alfaia)', 'Agbê', 'Tarol', 'Mineiro'],
+      pt: ['Marcante (alfaia)', 'Agbê', 'Tarol', 'Mineiro']
     },
     correctAnswer: {
-      fr: 'Alfaia Marcante',
-      pt: 'Alfaia Marcante'
+      fr: 'Marcante (alfaia)',
+      pt: 'Marcante (alfaia)'
     }
   },
   {

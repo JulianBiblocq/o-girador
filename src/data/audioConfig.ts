@@ -100,7 +100,7 @@ export const instrumentAudioConfigs: InstrumentAudioConfig[] = [
   },
   {
     id: 'marcante',
-    name: 'Alfaia Marcante',
+    name: 'Marcante (alfaia)',
     uiOrder: ['D', 'E', 'd', 'e', 'X', 'C', 'B', 'I'],
     leftHandedSupport: true,
     macroPitch: Math.pow(2, -3/12), // -3 semitones
@@ -108,7 +108,7 @@ export const instrumentAudioConfigs: InstrumentAudioConfig[] = [
   },
   {
     id: 'meiao',
-    name: 'Alfaia Meião',
+    name: 'Meião (alfaia)',
     uiOrder: ['D', 'E', 'd', 'e', 'X', 'C', 'B', 'I'],
     leftHandedSupport: true,
     macroPitch: 1.0, // 0 semitones
@@ -116,7 +116,7 @@ export const instrumentAudioConfigs: InstrumentAudioConfig[] = [
   },
   {
     id: 'repique',
-    name: 'Alfaia Repique',
+    name: 'Repique (alfaia)',
     uiOrder: ['D', 'E', 'd', 'e', 'X', 'C', 'B', 'I'],
     leftHandedSupport: true,
     macroPitch: Math.pow(2, 4/12), // +4 semitones

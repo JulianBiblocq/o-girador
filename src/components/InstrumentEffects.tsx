@@ -71,15 +71,17 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
       posInGroup = Math.round(posInBeat) % 4;
     }
 
+    const intensity = (globalSwing.swingIntensity !== undefined ? globalSwing.swingIntensity : 100) / 100;
+
     if (globalSwing.mode === 'custom') {
-      return globalSwing.customOffsets[posInGroup] || 0;
+      return (globalSwing.customOffsets[posInGroup] || 0) * intensity;
     }
 
     // Default 'maracatu' mode
     if (posInGroup === 0) return 0;
-    if (posInGroup === 1) return 8;
-    if (posInGroup === 2) return -29;
-    if (posInGroup === 3) return -58;
+    if (posInGroup === 1) return 8 * intensity;
+    if (posInGroup === 2) return -29 * intensity;
+    if (posInGroup === 3) return -58 * intensity;
     return 0;
   };
 

@@ -292,10 +292,45 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
 
             if (!inst) return null;
 
-            const activePattern = effectiveTrack.patterns?.find(p => p.measureAssignments?.[currentMeasure]) || effectiveTrack.patterns?.[0];
+            const override = track.patternOverrides?.[currentMeasure];
+            const hasExplicitVariation = override !== undefined && override !== null;
+
             const isLinkedSlave = track.linkedToTrackId && !track.isLinkFolder && !track.isLinkMaster;
+            const parentBus = isLinkedSlave
+              ? tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder)
+              : null;
+
+            let activePattern = null;
+            if (isLinkedSlave && parentBus) {
+              if (override === null) {
+                activePattern = null;
+              } else if (override !== undefined) {
+                activePattern = parentBus.patterns.find(p => p.id === override) || null;
+              } else {
+                activePattern = parentBus.patterns.find(p => p.measureAssignments?.[currentMeasure]) || parentBus.patterns[0] || null;
+              }
+            } else {
+              if (override === null) {
+                activePattern = null;
+              } else if (override !== undefined) {
+                activePattern = effectiveTrack.patterns?.find(p => p.id === override) || null;
+              } else {
+                activePattern = effectiveTrack.patterns?.find(p => p.measureAssignments?.[currentMeasure]) || effectiveTrack.patterns?.[0] || null;
+              }
+            }
+
             const isToadaChildTrack = isToadaChild(track, tracks);
             const isChild = isLinkedSlave || isToadaChildTrack;
+
+            // Ghost track detection
+            const isGhostStep = isLinkedSlave && !hasExplicitVariation;
+
+            const masterTrack = isGhostStep 
+              ? tracks.find(t => String(t.linkedToTrackId) === String(track.linkedToTrackId) && t.isLinkMaster)
+              : null;
+            const masterActivePattern = masterTrack
+              ? (masterTrack.patterns?.find(p => p.measureAssignments?.[currentMeasure]) || masterTrack.patterns?.[0])
+              : null;
 
             const displayName = isToada
               ? 'Toada'
@@ -314,34 +349,6 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                   ref={dropdownOpenTrackId === track.id ? dropdownRef : undefined}
                 >
                   <div className="flex items-center gap-2">
-                    {(track.isLinkMaster || isToada) && (
-                      <button
-                        onClick={() => {
-                          if (isToada) {
-                            useSequencerStore.getState().handleToggleSequencerFoldBus(String(track.id));
-                          } else if (track.isLinkMaster && track.linkedToTrackId) {
-                            const parentBus = tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder);
-                            if (parentBus) {
-                              useSequencerStore.getState().handleToggleSequencerFoldBus(String(parentBus.id));
-                            }
-                          }
-                        }}
-                        className="p-0.5 hover:bg-black/10 rounded cursor-pointer text-[10px] font-bold shrink-0 flex items-center justify-center w-4 h-4 border border-black/30 text-black mr-1"
-                        title={(() => {
-                          const isCollapsed = isToada
-                            ? track.isSequencerFolded
-                            : (tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder)?.isSequencerFolded ?? false);
-                          return isCollapsed ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar');
-                        })()}
-                      >
-                        {(() => {
-                          const isCollapsed = isToada
-                            ? track.isSequencerFolded
-                            : (tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder)?.isSequencerFolded ?? false);
-                          return isCollapsed ? '▶' : '▼';
-                        })()}
-                      </button>
-                    )}
                     {/* Sortable drag grip (pure aesthetic in DAW view but maintains Mixer visual layout) */}
                     <div className="mr-2 transition-colors p-1 touch-none flex-shrink-0 text-[#1a1a1a]/40">
                       <GripVertical size={16} />
@@ -421,6 +428,35 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                         <XiloChisel size={13} />
                       </button>
                     )}
+
+                    {(track.isLinkMaster || isToada) && (
+                      <button
+                        onClick={() => {
+                          if (isToada) {
+                            useSequencerStore.getState().handleToggleSequencerFoldBus(String(track.id));
+                          } else if (track.isLinkMaster && track.linkedToTrackId) {
+                            const parentBus = tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder);
+                            if (parentBus) {
+                              useSequencerStore.getState().handleToggleSequencerFoldBus(String(parentBus.id));
+                            }
+                          }
+                        }}
+                        className="ml-1 p-0.5 hover:bg-black/10 rounded cursor-pointer text-[10px] font-bold shrink-0 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button text-black"
+                        title={(() => {
+                          const isCollapsed = isToada
+                            ? track.isSequencerFolded
+                            : (tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder)?.isSequencerFolded ?? false);
+                          return isCollapsed ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar');
+                        })()}
+                      >
+                        {(() => {
+                          const isCollapsed = isToada
+                            ? track.isSequencerFolded
+                            : (tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder)?.isSequencerFolded ?? false);
+                          return isCollapsed ? '▶' : '▼';
+                        })()}
+                      </button>
+                    )}
                   </div>
 
                   {/* Right Side Buttons: Mute and Solo only */}
@@ -444,17 +480,25 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                 <div className="flex items-center flex-grow pl-4">
                   <div className="grid grid-cols-8 xl:grid-cols-[repeat(16,_minmax(0,_1fr))] gap-y-1 md:gap-y-2 gap-x-0 w-full items-center select-none">
                     {Array.from({ length: 16 }).map((_, stepIdx) => {
-                      const val = activePattern?.activeSteps?.[stepIdx] ?? 0;
+                      const val = isGhostStep
+                        ? (masterActivePattern?.activeSteps?.[stepIdx] ?? 0)
+                        : (activePattern?.activeSteps?.[stepIdx] ?? 0);
                       const isActiveCell = val !== 0 && val !== '';
                       const isVoice = inst.type === 'voice' || inst.id === 'toada';
 
-                      const note = isVoice ? (activePattern?.notes?.[stepIdx] || '') : '';
+                      const note = isVoice 
+                        ? (isGhostStep 
+                            ? (masterActivePattern?.notes?.[stepIdx] || '')
+                            : (activePattern?.notes?.[stepIdx] || ''))
+                        : '';
                       const noteLetter = note ? note.charAt(0).toUpperCase() : '';
 
                       const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
                       
                       // Resolve lyrics or text symbol for voice track, percussions get letters
-                      const syl = activePattern?.lyrics?.[stepIdx] || (val !== 0 && val !== '' ? String(val) : '');
+                      const syl = isGhostStep
+                        ? (masterActivePattern?.lyrics?.[stepIdx] || (val !== 0 && val !== '' ? String(val) : ''))
+                        : (activePattern?.lyrics?.[stepIdx] || (val !== 0 && val !== '' ? String(val) : ''));
                       let displayVal = isVoice ? syl : (visualVal === 0 ? '' : String(visualVal));
 
                       // Zebra timing: alternate background color every 4 steps
@@ -513,7 +557,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                           if (override === null) {
                             cPattern = null;
                           } else if (override !== undefined) {
-                            cPattern = c.patterns?.find((p: any) => p.id === override);
+                            cPattern = track.patterns?.find((p: any) => p.id === override);
                           } else if (activePattern) {
                             cPattern = c.patterns?.find((p: any) => p.id === activePattern.id);
                             if (!cPattern) {
@@ -671,6 +715,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                               border: borderStyle,
                               borderRadius: '2px',
                               boxShadow: isActiveCell ? '1px 1px 0px rgba(0,0,0,1)' : undefined,
+                              opacity: isGhostStep ? 0.35 : 1,
                             }}
                           >
                             {displayVal}

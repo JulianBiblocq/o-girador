@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as Tone from 'tone';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
+import { audioEngine } from '../hooks/useAudioSync';
 import { useTransportStore } from '../stores/useTransportStore';
+import { useAuth } from '../contexts/AuthContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { TelemetryBadge } from './TelemetryBadge';
 import { useSequencer } from '../contexts/SequencerContext';
@@ -11,6 +13,7 @@ import { TrackGroup, Pattern, GlobalSwing, CloudRhythmSignal } from '../types';
 import { getStrokesForInstrument } from '../utils/instrumentStrokes';
 import { exportTablatureFile, printTablature, printLegendOnly, generateTablatureCore, generateAnnexTablature } from '../utils/exportTablature';
 import { ShortcutsGuide } from './right-sidebar/ShortcutsGuide';
+import { MidiManagerPanel } from './MidiManagerPanel';
 
 interface SettingsPageProps {
   mestreSignals?: CloudRhythmSignal[];
@@ -37,6 +40,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   const setMetroSound = useTransportStore((state) => state.setMetroSound);
   const globalSwing = useTransportStore((state) => state.globalSwing);
   const setGlobalSwing = useTransportStore((state) => state.setGlobalSwing);
+
+  const { userProfile, updateUserProfileField } = useAuth();
+  const isMestre = userProfile && (userProfile.role === 'mestre' || userProfile.role === 'admin');
 
   const tracks = useSequencerStore((state) => state.tracks);
   const setTracks = useSequencerStore((state) => state.setTracks);
@@ -186,6 +192,40 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
     const newSwing = { ...localSwing, customOffsets: [0, 8, -29, -58] as [number, number, number, number] };
     setLocalSwing(newSwing);
     setGlobalSwing(newSwing);
+  };
+
+  const handleIntensityChange = (val: number) => {
+    const newSwing = { ...localSwing, swingIntensity: val };
+    setLocalSwing(newSwing);
+    setGlobalSwing(newSwing);
+  };
+
+  const handleSaveSwingToFirebase = async () => {
+    if (updateUserProfileField) {
+      try {
+        await updateUserProfileField('customSwingOffsets', localSwing.customOffsets);
+        await updateUserProfileField('customSwingIntensity', localSwing.swingIntensity ?? 100);
+        alert(lang === 'fr' ? 'Balanço personnalisé sauvegardé avec succès !' : 'Balanço personalizado salvo com sucesso!');
+      } catch (e) {
+        console.error(e);
+        alert(lang === 'fr' ? 'Erreur lors de la sauvegarde.' : 'Erro ao salvar.');
+      }
+    }
+  };
+
+  const handleLoadSwingFromFirebase = () => {
+    if (userProfile && userProfile.customSwingOffsets) {
+      const savedOffsets = userProfile.customSwingOffsets;
+      const savedIntensity = userProfile.customSwingIntensity !== undefined ? userProfile.customSwingIntensity : 100;
+      const newSwing = {
+        mode: 'custom' as const,
+        customOffsets: savedOffsets,
+        swingIntensity: savedIntensity
+      };
+      setLocalSwing(newSwing);
+      setGlobalSwing(newSwing);
+      alert(lang === 'fr' ? 'Balanço personnalisé chargé avec succès !' : 'Balanço personalizado carregado com sucesso!');
+    }
   };
 
   // Latence artificielle pour protéger le thread audio d'un pic de render synchrone
@@ -441,6 +481,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
   const sections = [
     { id: 'groove', title: lang === 'pt' ? 'Balanço, Kit & Metrônomo' : 'Balanço, Kit & Métronome' },
+    { id: 'midi', title: lang === 'pt' ? '🎹 Controladores MIDI' : '🎹 Contrôleurs MIDI' },
     { id: 'sinais', title: lang === 'pt' ? 'Sinais do Mestre' : 'Sinais do Mestre' },
     { id: 'prensa', title: lang === 'pt' ? 'A Prensa (Partitura)' : 'A Prensa (Partition)' },
     { id: 'performance', title: lang === 'pt' ? 'Desempenho (Performances)' : 'Desempenho (Performances)' },
@@ -615,6 +656,51 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                     </button>
                                   </div>
                                 </div>
+
+                                {/* Actions Firebase Mestre */}
+                                {isMestre && (
+                                  <div className="flex gap-2 border-t border-black/10 pt-2 flex-wrap">
+                                    {localSwing.mode === 'custom' && (
+                                      <button
+                                        onClick={handleSaveSwingToFirebase}
+                                        className="px-2.5 py-1 bg-[#8b2a1a] text-[#f4ecd8] border border-black text-[10px] font-bold hover:bg-black hover:text-white transition-colors cursor-pointer flex items-center gap-1 shadow-[1.5px_1.5px_0px_#000]"
+                                      >
+                                        💾 {lang === 'fr' ? 'Sauvegarder mon balanço' : 'Salvar meu balanço'}
+                                      </button>
+                                    )}
+                                    {userProfile?.customSwingOffsets && (
+                                      <button
+                                        onClick={handleLoadSwingFromFirebase}
+                                        className="px-2.5 py-1 bg-white text-black border border-black text-[10px] font-bold hover:bg-black hover:text-white transition-colors cursor-pointer flex items-center gap-1 shadow-[1.5px_1.5px_0px_#000]"
+                                      >
+                                        📂 {lang === 'fr' ? 'Importer mon balanço' : 'Importar meu balanço'}
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Curseur d'intensité (uniquement en mode maracatu ou personnalisé) */}
+                                {localSwing.mode !== 'off' && (
+                                  <div className="flex flex-col gap-2 bg-[#eaddcf]/30 p-3 border border-black/10 rounded-sm">
+                                    <div className="flex justify-between items-center mb-1">
+                                      <span className="font-bold text-[10px] uppercase flex items-center gap-1">
+                                        🎚️ {lang === 'fr' ? 'Intensité du Balanço :' : 'Intensidade do Balanço :'}
+                                      </span>
+                                      <span className="font-bold text-[#8b2a1a] text-xs">
+                                        {localSwing.swingIntensity !== undefined ? localSwing.swingIntensity : 100}%
+                                      </span>
+                                    </div>
+                                    <input
+                                      type="range"
+                                      min="0"
+                                      max="100"
+                                      value={localSwing.swingIntensity !== undefined ? localSwing.swingIntensity : 100}
+                                      onChange={(e) => handleIntensityChange(parseInt(e.target.value))}
+                                      className="w-full h-2 bg-black/10 rounded-full appearance-none cursor-pointer outline-none"
+                                      style={{ accentColor: '#8b2a1a' }}
+                                    />
+                                  </div>
+                                )}
 
                                 {/* Custom blocks */}
                                 {localSwing.mode === 'custom' && (
@@ -792,8 +878,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                                     } else {
                                                       setSelectedMacro({ trackId: track.id, stroke });
                                                     }
+                                                    if (audioEngine) {
+                                                      audioEngine.playNote(track.id, stroke, Tone.now(), 1.0, 1.0);
+                                                    }
                                                   }}
-                                                  className={`w-7 h-7 font-mono font-bold text-xs normal-case flex items-center justify-center border-2 border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer hover:scale-105 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all select-none ${
+                                                  data-midi-target={`${inst.id}-${stroke}`}
+                                                  className={`w-7 h-7 font-mono font-bold text-xs normal-case flex items-center justify-center border-2 border-black shadow-[1.5px_1.5px_0px_#000] cursor-pointer hover:scale-105 active:scale-95 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all transition-transform duration-100 select-none ${
                                                     !isActive ? 'opacity-40 grayscale border-dashed shadow-none hover:opacity-75 hover:grayscale-0' : ''
                                                   }`}
                                                   style={{ 
@@ -906,6 +996,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                             </div>
 
                           </div>
+                        )}
+                        {section.id === 'midi' && (
+                          <MidiManagerPanel />
                         )}
                         {section.id === 'sinais' && (
                           <div className="flex flex-col gap-4 text-left">

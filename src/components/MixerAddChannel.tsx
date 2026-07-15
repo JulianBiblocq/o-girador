@@ -3,35 +3,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Plus } from 'lucide-react';
-import { instrumentsConfig, ASSETS_BASE_URL, i18n } from '../data';
-import { useSequencer } from '../contexts/SequencerContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { AddChannelModal } from './AddChannelModal';
 
 interface MixerAddChannelProps {
   isActive?: boolean;
 }
 
 export const MixerAddChannel: React.FC<MixerAddChannelProps> = ({ isActive = true }) => {
-  const sequencer = useSequencer();
   const lang = useSequencerStore(state => state.lang);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const t = (key: string) => (i18n[lang] as any)[key] || key;
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  const [modalOpen, setModalOpen] = useState(false);
 
   if (!isActive) return null;
+
+  const modalRoot = document.getElementById('modal-root') || document.body;
 
   return (
     <div
@@ -46,58 +34,18 @@ export const MixerAddChannel: React.FC<MixerAddChannelProps> = ({ isActive = tru
       {/* Top Section with + Button */}
       <div className="relative p-1 flex flex-col items-center border-b border-[var(--cordel-border)]/20 h-[76px] shrink-0 justify-center">
         <button
-          onClick={() => setDropdownOpen(!dropdownOpen)}
+          onClick={() => setModalOpen(true)}
           className="w-7 h-7 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer"
-          title={lang === 'fr' ? 'Ajouter un instrument' : 'Adicionar instrumento'}
+          title={lang === 'fr' ? 'Ajouter un canal' : 'Adicionar canal'}
         >
           <Plus size={16} />
         </button>
-
-        {dropdownOpen && (
-          <div
-            ref={dropdownRef}
-            className="absolute top-16 left-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-shadow max-h-[300px] overflow-y-auto z-[99] w-[180px] custom-scrollbar"
-          >
-            <div className="text-[9px] uppercase opacity-60 font-bold px-2 py-1 bg-[var(--cordel-text)]/5 border-b border-[var(--cordel-border)]/20">
-              {lang === 'fr' ? 'Ajouter un instrument' : 'Adicionar instrumento'}
-            </div>
-            {(() => {
-              const list = instrumentsConfig
-                .map((inst, idx) => ({ inst, idx }))
-                .filter(({ inst }) => inst.id !== 'puxador' && inst.id !== 'coro');
-              const apitoItem = list.find(item => item.inst.id === 'apito');
-              const rest = list.filter(item => item.inst.id !== 'apito');
-              const sorted = apitoItem ? [...rest, apitoItem] : list;
-
-              return sorted.map(({ inst, idx }) => (
-                <div
-                  key={idx}
-                  onClick={() => {
-                    sequencer.handleAddTrackInstrument(idx, useSequencerStore.getState().currentMeasure);
-                    setDropdownOpen(false);
-                  }}
-                  className="flex items-center gap-2 px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-[10px] font-bold"
-                >
-                  <img
-                    src={`${ASSETS_BASE_URL}${inst.iconImg}`}
-                    alt={inst.name}
-                    className="w-4 h-4 object-contain"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                  <span className="font-cactus">{inst.name}</span>
-                </div>
-              ));
-            })()}
-          </div>
-        )}
       </div>
 
       {/* Vertical Label Strip */}
       <div
         className="flex-grow flex items-center justify-center select-none"
-        onClick={() => setDropdownOpen(true)}
+        onClick={() => setModalOpen(true)}
       >
         <span
           className="font-cactus font-bold text-[10px] tracking-widest text-[var(--cordel-text)]/40 hover:text-[var(--cordel-text)]/80 transition-colors uppercase cursor-pointer"
@@ -109,6 +57,12 @@ export const MixerAddChannel: React.FC<MixerAddChannelProps> = ({ isActive = tru
           {lang === 'fr' ? 'Nouveau' : 'Novo'}
         </span>
       </div>
+
+      {/* Add Channel Modal Portal */}
+      {modalOpen && createPortal(
+        <AddChannelModal onClose={() => setModalOpen(false)} />,
+        modalRoot
+      )}
     </div>
   );
 };

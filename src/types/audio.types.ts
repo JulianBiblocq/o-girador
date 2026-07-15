@@ -54,6 +54,7 @@ export type SwingMode = 'maracatu' | 'custom' | 'off';
 export interface GlobalSwing {
   mode: SwingMode;
   customOffsets: [number, number, number, number]; // e.g. [0, 8, -29, -58]
+  swingIntensity?: number; // 0 to 100
 }
 
 export interface RhythmSignal {

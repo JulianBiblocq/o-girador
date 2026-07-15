@@ -26,6 +26,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { XiloRoda, XiloConsole, XiloTimeline, XiloMestre, XiloGame, XiloSun, XiloMoon, XiloDrum } from './XiloIcons';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { MiniTelemetryBadge } from './TelemetryBadge';
+import { useWizardStore } from '../stores/useWizardStore';
 
 const UndoIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg
@@ -161,7 +162,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   } = audio;
 
   const onLangToggle = () => setLang(lang === 'pt' ? 'fr' : 'pt');
-  const onClear = handleClear;
+  const onClear = () => {
+    useWizardStore.getState().setIntroModalOpen(true);
+  };
   const onAddInstrument = handleAddTrackInstrument;
   const onUndo = handleUndo;
   const canUndo = tracksHistory.length > 0;

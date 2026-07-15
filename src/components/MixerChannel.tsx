@@ -7,10 +7,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GripHorizontal } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencerStore';
 import { Pattern } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
-import { getBusColor, getContrastColor } from '../utils/colorHelpers';
+import { getBusColor, getContrastColor, getTopParentBusId } from '../utils/colorHelpers';
 import { DragNumberBox } from './DragNumberBox';
 import { PanKnob } from './PanKnob';
 import { MixerVolumeFader } from './MixerVolumeFader';
@@ -40,14 +40,24 @@ interface MixerChannelProps {
   canPaste?: boolean;
   isActive?: boolean;
   busPosition?: 'first' | 'middle' | 'last' | 'none';
+  linkPosition?: 'first' | 'middle' | 'last' | 'none';
+  isDragOver?: boolean;
+  dropIndicator?: 'left' | 'right' | null;
 }
 
 const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   trackId,
   index,
   onOpenDetailEditor,
+  onStepTouchStart,
+  onCopyPattern,
+  onPastePattern,
+  canPaste = false,
   isActive = true,
   busPosition = 'none',
+  linkPosition = 'none',
+  isDragOver = false,
+  dropIndicator = null,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -190,12 +200,15 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     transition,
   };
 
-  // Calcul du style de groupe
+  // Calcul du style du grand bus externe
+  const isInsideBusBlock = busPosition === 'first' || busPosition === 'middle';
+  const isInsideLinkBlock = linkPosition === 'first' || linkPosition === 'middle';
   const groupStyle: React.CSSProperties = {
-    marginRight: (busPosition === 'none' || busPosition === 'last') ? '16px' : '0px'
+    marginRight: (isInsideBusBlock || isInsideLinkBlock) ? '0px' : '16px'
   };
-  if (busPosition !== 'none' && (track.busId || track.isLinkFolder)) {
-    const targetBusId = track.busId || String(track.id);
+  const topBusId = getTopParentBusId(track, tracks);
+  if (busPosition !== 'none' && topBusId) {
+    const targetBusId = topBusId;
     const busColor = getBusColor(targetBusId, tracks, instrumentsConfig);
     const cleanHex = busColor.replace('#', '');
     const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
@@ -231,6 +244,39 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     groupStyle.borderBottom = `3px double ${busColor}`;
     groupStyle.borderLeft = `3px double ${busColor}`;
     groupStyle.borderRight = `3px double ${busColor}`;
+  }
+
+  // Calcul du cadre de liaison de partition interne (Track Linking)
+  const linkColor = track.isLinkFolder 
+    ? getBusColor(String(track.id), tracks, instrumentsConfig) 
+    : (track.linkedToTrackId 
+        ? getBusColor(String(track.linkedToTrackId), tracks, instrumentsConfig) 
+        : (inst?.color || '#8b2a1a'));
+
+  const linkStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: '3px',
+    bottom: '3px',
+    left: '3px',
+    right: '3px',
+    pointerEvents: 'none',
+    zIndex: 2,
+    borderTop: `2.5px solid ${linkColor}`,
+    borderBottom: `2.5px solid ${linkColor}`,
+  };
+
+  if (linkPosition === 'first') {
+    linkStyle.borderLeft = `2.5px solid ${linkColor}`;
+    linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
+  } else if (linkPosition === 'middle') {
+    linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
+    linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
+  } else if (linkPosition === 'last') {
+    linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
+    linkStyle.borderRight = `2.5px solid ${linkColor}`;
+  } else if (linkPosition === 'none' && track.isLinkFolder) {
+    linkStyle.borderLeft = `2.5px solid ${linkColor}`;
+    linkStyle.borderRight = `2.5px solid ${linkColor}`;
   }
 
   const faderColor = track.isLinkFolder 
@@ -308,12 +354,12 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     }
   };
 
+    const isMuted = getEffectiveMuteState(tracks, trackId);
   return (
     <div 
       ref={setNodeRef}
       className={`flex flex-col bg-[var(--cordel-bg)] w-[115px] h-full justify-between shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
-        hasSolo ? (track.isSolo ? 'bg-[var(--cordel-border)]/5 shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-50') : 
-        (track.isMute ? 'opacity-60 bg-black/5 dark:bg-white/5' : 'opacity-100')
+        isMuted ? 'opacity-50 bg-black/5 dark:bg-white/5' : (track.isSolo ? 'bg-[var(--cordel-border)]/5 shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-100')
       } ${busPosition === 'none' ? 'cordel-border' : ''}`}
       style={{
         ...style,
@@ -325,6 +371,9 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         '--fader-thumb-border': 'var(--cordel-border)',
       } as React.CSSProperties}
     >
+      {linkPosition !== 'none' && (
+        <div style={linkStyle} className="rounded-sm" />
+      )}
       {/* Niveau 6 (Tout en haut) : En-tête */}
       <div 
         className="relative p-1.5 pb-1 flex flex-col gap-1 border-b-[3px] border-[var(--cordel-border)] h-[76px] shrink-0 justify-between w-full"

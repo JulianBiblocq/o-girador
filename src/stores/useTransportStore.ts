@@ -21,7 +21,7 @@ export const useTransportStore = create<TransportState>((set) => ({
   isMetroOn: false,
   metroVolume: 80,
   metroSound: 'synth',
-  globalSwing: { mode: 'maracatu', customOffsets: [0, 8, -29, -58] },
+  globalSwing: { mode: 'maracatu', customOffsets: [0, 8, -29, -58], swingIntensity: 100 },
   soloPatternPlayId: null,
   soloPatternVariationId: null,
 

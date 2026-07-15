@@ -66,6 +66,10 @@ const MixerComponent: React.FC<MixerProps> = ({
 
   // Zustand actions and states
   const handleReorderTracksDnd = useSequencerStore(state => state.handleReorderTracksDnd);
+  const tracks = useSequencerStore(state => state.tracks);
+
+  const [activeDragTrackId, setActiveDragTrackId] = useState<number | null>(null);
+  const [overDragTrackId, setOverDragTrackId] = useState<number | null>(null);
   
   const trackList = useSequencerStore(
     useShallow(state => {
@@ -120,7 +124,30 @@ const MixerComponent: React.FC<MixerProps> = ({
     })
   );
 
+  const handleDragStart = (event: any) => {
+    const activeId = String(event.active.id);
+    if (activeId.startsWith('track-')) {
+      setActiveDragTrackId(parseInt(activeId.replace('track-', ''), 10));
+    }
+  };
+
+  const handleDragOver = (event: any) => {
+    const overId = event.over ? String(event.over.id) : null;
+    if (overId && overId.startsWith('track-')) {
+      setOverDragTrackId(parseInt(overId.replace('track-', ''), 10));
+    } else {
+      setOverDragTrackId(null);
+    }
+  };
+
+  const handleDragCancel = () => {
+    setActiveDragTrackId(null);
+    setOverDragTrackId(null);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragTrackId(null);
+    setOverDragTrackId(null);
     const { active, over } = event;
     if (over && active.id !== over.id) {
       const activeId = String(active.id);
@@ -191,18 +218,50 @@ const MixerComponent: React.FC<MixerProps> = ({
 
       <div id="mixer-section" className="flex-grow overflow-y-auto pr-1">
         <div id="tracks-mixer-container" className="flex flex-col gap-3">
-          <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={pointerWithin}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
+          >
             <SortableContext items={trackIds} strategy={verticalListSortingStrategy}>
-              {trackIdsNumbers.map((trackId, idx) => (
-                <TrackMixer
-                  key={trackId}
-                  trackId={trackId}
-                  index={idx}
-                  totalTracks={trackIdsNumbers.length}
-                  onOpenDetailEditor={onOpenDetailEditor}
-                  isActive={isActive}
-                />
-              ))}
+              {trackIdsNumbers.map((trackId, idx) => {
+                const track = tracks.find(t => t.id === trackId);
+                const isDragOverBus = activeDragTrackId !== null && 
+                                      overDragTrackId === trackId && 
+                                      activeDragTrackId !== trackId && 
+                                      track?.isBusFolder &&
+                                      !tracks.find(t => t.id === activeDragTrackId)?.isBusFolder;
+
+                let dropIndicator: 'top' | 'bottom' | null = null;
+                if (activeDragTrackId !== null && overDragTrackId === trackId && activeDragTrackId !== trackId) {
+                  const activeTrack = tracks.find(t => t.id === activeDragTrackId);
+                  const isRouting = track?.isBusFolder && activeTrack && !activeTrack.isBusFolder && activeTrack.busId !== String(trackId);
+                  
+                  if (!isRouting) {
+                    const activeIdx = trackIdsNumbers.indexOf(activeDragTrackId);
+                    const overIdx = trackIdsNumbers.indexOf(trackId);
+                    if (activeIdx !== -1 && overIdx !== -1) {
+                      dropIndicator = activeIdx < overIdx ? 'bottom' : 'top';
+                    }
+                  }
+                }
+
+                return (
+                  <TrackMixer
+                    key={trackId}
+                    trackId={trackId}
+                    index={idx}
+                    totalTracks={trackIdsNumbers.length}
+                    onOpenDetailEditor={onOpenDetailEditor}
+                    isActive={isActive}
+                    isDragOver={isDragOverBus}
+                    dropIndicator={dropIndicator}
+                  />
+                );
+              })}
             </SortableContext>
           </DndContext>
         </div>

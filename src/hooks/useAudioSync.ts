@@ -404,6 +404,7 @@ export function useAudioSync({
   const hasTriggeredAutoStopRef = useRef(false);
   // Stable reference to the non-reactive store action to avoid Zustand state subscriptions
   const setCurrentMeasure = useRef(useSequencerStore.getState().setCurrentMeasure).current;
+  const setCurrentExpandedMeasureIdx = useRef(useSequencerStore.getState().setCurrentExpandedMeasureIdx).current;
 
   // Refs to hold totalMeasures and measureTimeSigs to avoid hook dependency triggers
   const totalMeasuresRefInternal = useRef(useSequencerStore.getState().totalMeasures);
@@ -428,7 +429,7 @@ export function useAudioSync({
   const isMetroOnRef = useRef<boolean>(false);
   const metroVolumeRef = useRef<number>(80);
   const metroSoundRef = useRef<string>('synth');
-  const globalSwingRef = useRef<GlobalSwing>({ mode: 'maracatu', customOffsets: [0, 8, -29, -58] });
+  const globalSwingRef = useRef<GlobalSwing>({ mode: 'maracatu', customOffsets: [0, 8, -29, -58], swingIntensity: 100 });
   const soloPatternPlayIdRef = useRef<number | null>(null);
   const soloPatternVariationIdRef = useRef<string | null>(null);
   const pendingMeasureRef = useRef<number | null>(null);
@@ -1058,6 +1059,21 @@ export function useAudioSync({
               audioEngine.currentMeasure = _measureForUI;
             }
 
+            if (_stepForUI === 0) {
+              setCurrentMeasure(_measureForUI);
+              const expanded = getExpandedMeasures(totalMeasuresRef.current, songSectionsRef.current);
+              if (expanded.length > 0) {
+                const currentExpandedIdx = expanded.findIndex(
+                  item => item.baseMeasure === _measureForUI && item.iteration === sectionIterationRef.current
+                );
+                if (currentExpandedIdx !== -1) {
+                  setCurrentExpandedMeasureIdx(currentExpandedIdx);
+                }
+              } else {
+                setCurrentExpandedMeasureIdx(_measureForUI);
+              }
+            }
+
             const detail = tickEventDetailRef.current;
             detail.step = _stepForUI;
             detail.measure = _measureForUI;
@@ -1158,21 +1174,23 @@ export function useAudioSync({
           
           swingJitter = (nextRandom() * 0.06 - 0.03) * stepDurationSec;
 
+          const intensity = (globalSwingRef.current.swingIntensity !== undefined ? globalSwingRef.current.swingIntensity : 100) / 100;
+
           if (globalMode === 'maracatu') {
             if (posInGroup === 0) {
               swingOffset = swingJitter;
             } else if (posInGroup === 1) {
-              swingOffset = (0.04 * stepDurationSec) + swingJitter;
+              swingOffset = (0.04 * intensity * stepDurationSec) + swingJitter;
             } else if (posInGroup === 2) {
               const minimalJitter = (nextRandom() * 0.02 - 0.01) * stepDurationSec;
-              swingOffset = (-0.144 * stepDurationSec) + minimalJitter;
+              swingOffset = (-0.144 * intensity * stepDurationSec) + minimalJitter;
             } else if (posInGroup === 3) {
-              swingOffset = (-0.292 * stepDurationSec) + swingJitter;
+              swingOffset = (-0.292 * intensity * stepDurationSec) + swingJitter;
             }
           } else if (globalMode === 'custom') {
             // Custom offset is defined in percentages from -100 to 100, where 100 is half a step duration
             const customOffsetPct = globalSwingRef.current.customOffsets[posInGroup] || 0;
-            swingOffset = (customOffsetPct / 100) * stepDurationSec * 0.5 + swingJitter;
+            swingOffset = (customOffsetPct / 100) * stepDurationSec * 0.5 * intensity + swingJitter;
           }
         }
         const swingTime = time + swingOffset;
@@ -1217,7 +1235,8 @@ export function useAudioSync({
                 const inst = instrumentsConfig[liveTrack.instrumentIdx];
                 if (inst) {
                   const trackVolPct = liveTrack.volumeVal ?? 100;
-                  if (trackVolPct > 0) {
+                  const isMuted = getEffectiveMuteState(tracksRef.current, liveTrack.id);
+                  if (trackVolPct > 0 && !isMuted) {
                     const trackVolLinear = Math.pow(trackVolPct / 100, 2);
                     const finalVel = velocity * trackVolLinear;
                     const strokeSymbol = String.fromCharCode(strokeCharCode);
@@ -1850,7 +1869,14 @@ export function useAudioSync({
 
               // Reconnecter la sortie du bus de dossier (post-fader)
               busChannels[t.id].disconnect();
-              busChannels[t.id].connect(masterVolumeNode!);
+              
+              const currentBusId = t.busId || null;
+              if (currentBusId && busChannels[currentBusId]) {
+                busChannels[t.id].connect(busChannels[currentBusId]);
+              } else {
+                busChannels[t.id].connect(masterVolumeNode!);
+              }
+              
               busChannels[t.id].connect(busMeters[t.id]!);
               if (reverbSends[t.id]) {
                 busChannels[t.id].connect(reverbSends[t.id]);

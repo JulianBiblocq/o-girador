@@ -19,7 +19,7 @@ import {
   horizontalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { AudioFader } from './AudioFader';
-import { Pattern } from '../types';
+import { Pattern, TrackGroup } from '../types';
 import { MixerChannel } from './MixerChannel';
 import { MixerLinkedTrack } from './MixerLinkedTrack';
 import { MixerFolderBus } from './MixerFolderBus';
@@ -37,6 +37,8 @@ import { masterLeftMeterNode, masterRightMeterNode } from '../audio/effectsChain
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
+
+import { getTopParentBusId } from '../utils/colorHelpers';
 
 const trackListCache = new Map<string, { id: number; isHidden: boolean; isSolo: boolean; isMute: boolean }>();
 const getCachedTrack = (id: number, isHidden: boolean, isSolo: boolean, isMute: boolean) => {
@@ -138,16 +140,102 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const trackIds = trackList.map(t => t.id);
   const tracks = useSequencerStore(state => state.tracks);
   const displayedTracks = useMemo(() => {
-    return tracks.filter(t => {
+    // 1. Filtrer les pistes visibles dans le mixeur
+    const filtered = tracks.filter(t => {
+      // Les esclaves d'Alfaias masqués de la timeline s'affichent dans le mixeur si leur dossier de liens est déplié
+      const isAlfSlave = t.linkedToTrackId && 
+        (instrumentsConfig[t.instrumentIdx]?.id === 'meiao' || 
+         instrumentsConfig[t.instrumentIdx]?.id === 'repique' || 
+         (instrumentsConfig[t.instrumentIdx]?.id === 'marcante' && !t.isLinkMaster));
+
+      if (isAlfSlave && t.isHidden) {
+        const parentBus = tracks.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
+        if (parentBus && !parentBus.isFolded) {
+          return true;
+        }
+      }
+
       if (t.isHidden) return false;
       if (t.busId) {
         const parentBus = tracks.find(p => String(p.id) === String(t.busId));
         if (parentBus && parentBus.isFolded) return false;
+
+        // Sécurité récursive : si n'importe quel parent ascendant est plié
+        let currentParent = parentBus;
+        while (currentParent) {
+          if (currentParent.isFolded) return false;
+          if (currentParent.busId) {
+            currentParent = tracks.find(p => String(p.id) === String(currentParent!.busId));
+          } else {
+            break;
+          }
+        }
       }
       return true;
     });
+
+    // 2. Ordonner hiérarchiquement de gauche à droite
+    const visited = new Set<number>();
+    const ordered: TrackGroup[] = [];
+
+    const isRoot = (t: TrackGroup) => {
+      const isAlfSlave = t.linkedToTrackId && 
+        (instrumentsConfig[t.instrumentIdx]?.id === 'meiao' || 
+         instrumentsConfig[t.instrumentIdx]?.id === 'repique' || 
+         (instrumentsConfig[t.instrumentIdx]?.id === 'marcante' && !t.isLinkMaster));
+      if (isAlfSlave) return false;
+
+      if (t.linkedToTrackId && !t.isLinkMaster && !t.isLinkFolder) {
+        return false;
+      }
+
+      const busIdStr = t.busId;
+      if (!busIdStr) return true;
+
+      const hasParent = filtered.some(p => String(p.id) === String(busIdStr));
+      return !hasParent;
+    };
+
+    const roots = filtered.filter(isRoot);
+
+    const visit = (track: TrackGroup) => {
+      if (visited.has(track.id)) return;
+      visited.add(track.id);
+      ordered.push(track);
+
+      // Trouver les enfants directs (par busId ou par linkedToTrackId)
+      const children = filtered.filter(t => {
+        if (visited.has(t.id)) return false;
+        const isChildByBus = t.busId && String(t.busId) === String(track.id);
+        const isChildByLink = t.linkedToTrackId && String(t.linkedToTrackId) === String(track.id);
+        return isChildByBus || isChildByLink;
+      });
+
+      // Trier les enfants : dossiers de bus/liens en premier
+      children.sort((a, b) => {
+        const aScore = a.isBusFolder ? 1 : 0;
+        const bScore = b.isBusFolder ? 1 : 0;
+        return bScore - aScore;
+      });
+
+      children.forEach(visit);
+    };
+
+    roots.forEach(visit);
+
+    // Ajouter les orphelins éventuels
+    filtered.forEach(t => {
+      if (!visited.has(t.id)) {
+        ordered.push(t);
+      }
+    });
+
+    return ordered;
   }, [tracks]);
   const displayedTrackIds = useMemo(() => displayedTracks.map(t => `track-${t.id}`), [displayedTracks]);
+
+  const [activeDragTrackId, setActiveDragTrackId] = React.useState<number | null>(null);
+  const [overDragTrackId, setOverDragTrackId] = React.useState<number | null>(null);
   
   const setTracks = useSequencerStore(state => state.setTracks);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
@@ -433,7 +521,30 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     })
   );
 
+  const handleDragStart = React.useCallback((event: any) => {
+    const activeId = String(event.active.id);
+    if (activeId.startsWith('track-')) {
+      setActiveDragTrackId(parseInt(activeId.replace('track-', ''), 10));
+    }
+  }, []);
+
+  const handleDragOver = React.useCallback((event: any) => {
+    const overId = event.over ? String(event.over.id) : null;
+    if (overId && overId.startsWith('track-')) {
+      setOverDragTrackId(parseInt(overId.replace('track-', ''), 10));
+    } else {
+      setOverDragTrackId(null);
+    }
+  }, []);
+
+  const handleDragCancel = React.useCallback(() => {
+    setActiveDragTrackId(null);
+    setOverDragTrackId(null);
+  }, []);
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragTrackId(null);
+    setOverDragTrackId(null);
     const { active, over } = event;
     if (over && active.id !== over.id) {
       const activeId = String(active.id);
@@ -623,27 +734,75 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       style={{ display: isActive ? 'flex' : 'none' }}
     >
       <div ref={scrollRef} className="flex-grow flex overflow-x-auto pt-4 pb-4 pl-4 pr-0 custom-scrollbar">
-        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={pointerWithin}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
           <SortableContext items={displayedTrackIds} strategy={horizontalListSortingStrategy}>
             {displayedTracks.map((track, index) => {
               const trackId = track.id;
-
-              const group = track.isBusFolder || track.isLinkFolder
-                ? String(track.id) 
-                : (track.busId ? String(track.busId) : (track.linkedToTrackId ? String(track.linkedToTrackId) : null));
               const prevTrack = index > 0 ? displayedTracks[index - 1] : null;
               const nextTrack = index < displayedTracks.length - 1 ? displayedTracks[index + 1] : null;
 
-              const prevGroup = prevTrack ? (prevTrack.isBusFolder || prevTrack.isLinkFolder ? String(prevTrack.id) : (prevTrack.busId ? String(prevTrack.busId) : (prevTrack.linkedToTrackId ? String(prevTrack.linkedToTrackId) : null))) : null;
-              const nextGroup = nextTrack ? (nextTrack.isBusFolder || nextTrack.isLinkFolder ? String(nextTrack.id) : (nextTrack.busId ? String(nextTrack.busId) : (nextTrack.linkedToTrackId ? String(nextTrack.linkedToTrackId) : null))) : null;
+              const isDragOverBus = activeDragTrackId !== null && 
+                                    overDragTrackId === trackId && 
+                                    activeDragTrackId !== trackId && 
+                                    track.isBusFolder &&
+                                    !tracks.find(t => t.id === activeDragTrackId)?.isBusFolder;
+
+              let dropIndicator: 'left' | 'right' | null = null;
+              if (activeDragTrackId !== null && overDragTrackId === trackId && activeDragTrackId !== trackId) {
+                const activeTrack = tracks.find(t => t.id === activeDragTrackId);
+                const isRouting = track.isBusFolder && activeTrack && !activeTrack.isBusFolder && activeTrack.busId !== String(trackId);
+                if (!isRouting) {
+                  const activeIdx = displayedTracks.findIndex(t => t.id === activeDragTrackId);
+                  const overIdx = displayedTracks.findIndex(t => t.id === trackId);
+                  if (activeIdx !== -1 && overIdx !== -1) {
+                    dropIndicator = activeIdx < overIdx ? 'right' : 'left';
+                  }
+                }
+              }
+
+              const parentBusId = getTopParentBusId(track, tracks);
+              const prevParentBusId = prevTrack ? getTopParentBusId(prevTrack, tracks) : null;
+              const nextParentBusId = nextTrack ? getTopParentBusId(nextTrack, tracks) : null;
 
               let busPosition: 'first' | 'middle' | 'last' | 'none' = 'none';
-              if (group) {
-                const hasPrev = group === prevGroup;
-                const hasNext = group === nextGroup;
+              if (parentBusId) {
+                const hasPrev = parentBusId === prevParentBusId;
+                const hasNext = parentBusId === nextParentBusId;
                 if (!hasPrev && hasNext) busPosition = 'first';
                 else if (hasPrev && hasNext) busPosition = 'middle';
                 else if (hasPrev && !hasNext) busPosition = 'last';
+              }
+
+              const linkGroupId = track.isLinkFolder
+                ? String(track.id)
+                : (track.linkedToTrackId ? String(track.linkedToTrackId) : null);
+              
+              const prevLinkGroupId = prevTrack
+                ? (prevTrack.isLinkFolder
+                    ? String(prevTrack.id)
+                    : (prevTrack.linkedToTrackId ? String(prevTrack.linkedToTrackId) : null))
+                : null;
+              
+              const nextLinkGroupId = nextTrack
+                ? (nextTrack.isLinkFolder
+                    ? String(nextTrack.id)
+                    : (nextTrack.linkedToTrackId ? String(nextTrack.linkedToTrackId) : null))
+                : null;
+
+              let linkPosition: 'first' | 'middle' | 'last' | 'none' = 'none';
+              if (linkGroupId) {
+                const hasPrev = linkGroupId === prevLinkGroupId;
+                const hasNext = linkGroupId === nextLinkGroupId;
+                if (!hasPrev && hasNext) linkPosition = 'first';
+                else if (hasPrev && hasNext) linkPosition = 'middle';
+                else if (hasPrev && !hasNext) linkPosition = 'last';
               }
 
               if (track.isBusFolder) {
@@ -659,6 +818,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                       canPaste={copiedPattern !== null}
                       isActive={isActive}
                       busPosition={busPosition}
+                      linkPosition={linkPosition}
+                      isDragOver={isDragOverBus}
+                      dropIndicator={dropIndicator}
                     />
                   );
                 }
@@ -669,6 +831,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     index={index}
                     isActive={isActive}
                     busPosition={busPosition}
+                    linkPosition={linkPosition}
+                    isDragOver={isDragOverBus}
+                    dropIndicator={dropIndicator}
                   />
                 );
               }
@@ -682,6 +847,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     onOpenDetailEditor={onOpenDetailEditor}
                     isActive={isActive}
                     busPosition={busPosition}
+                    linkPosition={linkPosition}
+                    dropIndicator={dropIndicator}
                   />
                 );
               }
@@ -697,6 +864,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   canPaste={!!copiedPattern}
                   isActive={isActive}
                   busPosition={busPosition}
+                  linkPosition={linkPosition}
+                  dropIndicator={dropIndicator}
                 />
               );
             })}

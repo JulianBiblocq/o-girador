@@ -3,11 +3,28 @@
  * to dynamically colorize the bus connection outlines.
  */
 export function getBusColor(busId: string, tracks: any[], instrumentsConfig: any[]): string {
-  // Extraction des enfants directs du bus
-  const children = tracks.filter((t: any) => 
-    (String(t.busId) === String(busId) || String(t.linkedToTrackId) === String(busId)) && 
-    !t.isBusFolder
-  );
+  const visited = new Set<string>();
+
+  const collectIndividualTracks = (currentId: string): any[] => {
+    if (visited.has(currentId)) return [];
+    visited.add(currentId);
+
+    const directChildren = tracks.filter((t: any) =>
+      String(t.busId) === String(currentId) || String(t.linkedToTrackId) === String(currentId)
+    );
+
+    let results: any[] = [];
+    directChildren.forEach((t: any) => {
+      if (!t.isBusFolder) {
+        results.push(t);
+      } else {
+        results = results.concat(collectIndividualTracks(String(t.id)));
+      }
+    });
+    return results;
+  };
+
+  const children = collectIndividualTracks(busId);
 
   if (children.length === 0) return '#bdc3c7';
 
@@ -43,10 +60,28 @@ export function getBusColor(busId: string, tracks: any[], instrumentsConfig: any
 }
 
 export function getBusNoteColor(busId: string, visualState: string, tracks: any[], instrumentsConfig: any[]): string {
-  const children = tracks.filter((t: any) => 
-    (String(t.busId) === String(busId) || String(t.linkedToTrackId) === String(busId)) && 
-    !t.isBusFolder
-  );
+  const visited = new Set<string>();
+
+  const collectIndividualTracks = (currentId: string): any[] => {
+    if (visited.has(currentId)) return [];
+    visited.add(currentId);
+
+    const directChildren = tracks.filter((t: any) =>
+      String(t.busId) === String(currentId) || String(t.linkedToTrackId) === String(currentId)
+    );
+
+    let results: any[] = [];
+    directChildren.forEach((t: any) => {
+      if (!t.isBusFolder) {
+        results.push(t);
+      } else {
+        results = results.concat(collectIndividualTracks(String(t.id)));
+      }
+    });
+    return results;
+  };
+
+  const children = collectIndividualTracks(busId);
 
   if (children.length === 0) return '#bdc3c7';
 
@@ -94,4 +129,32 @@ export function getContrastColor(hexcolor: string): string {
     }
   }
   return '#1a1a1a';
+}
+
+export function getTopParentBusId(track: any, allTracks: any[]): string | null {
+  // If it's a root parent bus (isBusFolder && !isLinkFolder), it's its own root bus
+  if (track.isBusFolder && !track.isLinkFolder) {
+    return String(track.id);
+  }
+
+  let current = track;
+  const visited = new Set<string>();
+
+  while (current) {
+    if (visited.has(String(current.id))) break;
+    visited.add(String(current.id));
+
+    if (current.isBusFolder && !current.isLinkFolder) {
+      return String(current.id);
+    }
+
+    const nextParentId = current.busId || current.linkedToTrackId;
+    if (nextParentId) {
+      current = allTracks.find((t: any) => String(t.id) === String(nextParentId));
+    } else {
+      break;
+    }
+  }
+
+  return null;
 }

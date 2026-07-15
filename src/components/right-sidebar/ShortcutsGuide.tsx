@@ -2,6 +2,9 @@ import React from 'react';
 import DOMPurify from 'dompurify';
 import { Language } from '../../types';
 import { instrumentsConfig } from '../../data';
+import { audioEngine } from '../../hooks/useAudioSync';
+import { useSequencerStore } from '../../stores/useSequencerStore';
+import * as Tone from 'tone';
 
 interface ShortcutsGuideProps {
   lang: Language;
@@ -25,6 +28,27 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
   const shouldShowSection = (instIds: string[]) => {
     if (!activeStrokesByInstrument) return true;
     return instIds.some(id => (activeStrokesByInstrument[id] || []).length > 0);
+  };
+
+  /* CPU / Audio justification: Asynchronous Tone.js one-shot preview triggered directly on user click.
+     Uses native GPU-accelerated transition scale animations (CSS transition/transform) to ensure zero impact
+     on React render cycles, layout Reflow, or audio transport clock scheduling. */
+  const playPreview = (instrumentIds: string[], strokeSymbol: string) => {
+    try {
+      if (!audioEngine) return;
+      const state = useSequencerStore.getState();
+      const tracks = state.tracks;
+      
+      const matchingTrack = tracks.find(t => {
+        const inst = instrumentsConfig[t.instrumentIdx];
+        return inst && instrumentIds.includes(inst.id);
+      });
+      
+      const targetId = matchingTrack ? matchingTrack.id : instrumentIds[0];
+      audioEngine.playNote(targetId, strokeSymbol, Tone.now(), 1.0, 1.0);
+    } catch (err) {
+      console.error("Preview play failed:", err);
+    }
   };
 
   return (
@@ -113,37 +137,37 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
             {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['D', 'd']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)]">D / d</span>
+                <span onClick={() => playPreview(['marcante', 'meiao', 'repique'], 'D')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">D / d</span>
                 <span>{t('mainDroite')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['E', 'e']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)]">E / e</span>
+                <span onClick={() => playPreview(['marcante', 'meiao', 'repique'], 'E')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">E / e</span>
                 <span>{t('mainGauche')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['X', 'x']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#8c7b7b] text-[#f4ecd8]">X / x</span>
+                <span onClick={() => playPreview(['marcante', 'meiao', 'repique'], 'X')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#8c7b7b] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">X / x</span>
                 <span>{t('legendAlfaiaCerclage')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['I', 'i']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#ff8da1] text-[#1a1a1a]">I / i</span>
+                <span onClick={() => playPreview(['marcante', 'meiao', 'repique'], 'I')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#ff8da1] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">I / i</span>
                 <span>{t('legendAlfaiaIguarassu')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['C', 'c']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a89f91] text-[#1a1a1a]">C / c</span>
+                <span onClick={() => playPreview(['marcante', 'meiao', 'repique'], 'c')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a89f91] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">C / c</span>
                 <span>{t('legendTarolClick')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['B', 'b']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4c1c1c] text-[#f4ecd8]">B / b</span>
+                <span onClick={() => playPreview(['marcante', 'meiao', 'repique'], 'B')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4c1c1c] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">B / b</span>
                 <span>{t('legendAlfaiaBarulho')}</span>
               </div>
             )}
@@ -164,50 +188,50 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
             {isStrokeActiveForInstruments(['caixa', 'tarol'], ['D', 'd']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)]">D / d</span>
+                <span onClick={() => playPreview(['caixa', 'tarol'], 'D')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">D / d</span>
                 <span>{t('mainDroite')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['caixa', 'tarol'], ['E', 'e']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)]">E / e</span>
+                <span onClick={() => playPreview(['caixa', 'tarol'], 'E')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">E / e</span>
                 <span>{t('mainGauche')}</span>
               </div>
             )}
             <div className="w-full h-px bg-[var(--cordel-border)]/10 my-1"></div>
             {isStrokeActiveForInstruments(['caixa', 'tarol'], ['R']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a855f7] text-[#f4ecd8]">R</span>
+                <span onClick={() => playPreview(['caixa', 'tarol'], 'R')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a855f7] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">R</span>
                 <span>{t('legendCaixaRufadaD')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['caixa', 'tarol'], ['r']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#d8b4fe] text-[#1a1a1a]">r</span>
+                <span onClick={() => playPreview(['caixa', 'tarol'], 'r')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#d8b4fe] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">r</span>
                 <span>{t('legendCaixaRufadaG')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['caixa', 'tarol'], ['F', 'f']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#d946ef] text-[#f4ecd8]">F / f</span>
+                <span onClick={() => playPreview(['caixa', 'tarol'], 'F')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#d946ef] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">F / f</span>
                 <span>{t('legendCaixaFla')} {lang === 'fr' ? '(Caixa : F / f, Tarol : F / f en bleu)' : '(Caixa: F / f, Tarol: F / f em azul)'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['caixa', 'tarol'], ['X', 'x']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#7e7b8c] text-[#f4ecd8]">X / x</span>
+                <span onClick={() => playPreview(['caixa', 'tarol'], 'X')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#7e7b8c] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">X / x</span>
                 <span>{t('legendCaixaCerclage')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['caixa', 'tarol'], ['C', 'c']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a89f91] text-[#1a1a1a]">C / c</span>
+                <span onClick={() => playPreview(['caixa', 'tarol'], 'c')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a89f91] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">C / c</span>
                 <span>{t('legendTarolClick')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['caixa', 'tarol'], ['B', 'b']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4a044e] text-[#f4ecd8]">B / b</span>
+                <span onClick={() => playPreview(['caixa', 'tarol'], 'B')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4a044e] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">B / b</span>
                 <span>{lang === 'fr' ? 'Barulho / Tremblement (Caixa : Violet foncé, Tarol : Bleu)' : 'Barulho (Caixa: Violeta escuro, Tarol: Azul)'}</span>
               </div>
             )}
@@ -228,55 +252,55 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
             {isStrokeActiveForInstruments(['timbal'], ['G', 'g']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#92400e] text-[#f4ecd8]">G / g</span>
+                <span onClick={() => playPreview(['timbal'], 'G')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#92400e] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">G / g</span>
                 <span>{lang === 'fr' ? 'Basse (baixo) - Main forte / faible' : 'Baixo - Mão forte / fraca'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['A', 'a']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#d97706] text-[#f4ecd8]">A / a</span>
+                <span onClick={() => playPreview(['timbal'], 'A')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#d97706] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">A / a</span>
                 <span>{lang === 'fr' ? 'Ouvert (aberto) - Main forte / faible' : 'Aberto - Mão forte / fraca'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['S', 's']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fbbf24] text-[#1a1a1a]">S / s</span>
+                <span onClick={() => playPreview(['timbal'], 'S')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fbbf24] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">S / s</span>
                 <span>{lang === 'fr' ? 'Claqué (slap) - Main forte / faible' : 'Slap - Mão forte / fraca'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['D', 'd']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fde047] text-[#1a1a1a]">D / d</span>
+                <span onClick={() => playPreview(['timbal'], 'D')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fde047] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">D / d</span>
                 <span>{lang === 'fr' ? 'Fantôme (dedilhado) - Main forte / faible' : 'Dedilhado - Mão forte / fraca'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['P', 'p']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#5c2205] text-[#f4ecd8]">P / p</span>
+                <span onClick={() => playPreview(['timbal'], 'P')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#5c2205] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">P / p</span>
                 <span>{lang === 'fr' ? 'Fermé (preso) - Main forte / faible' : 'Abafado / Preso - Mão forte / fraca'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['F', 'f']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#ea580c] text-[#f4ecd8]">F / f</span>
+                <span onClick={() => playPreview(['timbal'], 'F')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#ea580c] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">F / f</span>
                 <span>{lang === 'fr' ? 'Fla ouvert (aberto)' : 'Fla aberto'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['V', 'v']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#f97316] text-[#f4ecd8]">V / v</span>
+                <span onClick={() => playPreview(['timbal'], 'V')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#f97316] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">V / v</span>
                 <span>{lang === 'fr' ? 'Fla claqué (slap)' : 'Fla slap'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['C', 'c']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fdba74] text-[#1a1a1a]">C / c</span>
+                <span onClick={() => playPreview(['timbal'], 'C')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fdba74] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">C / c</span>
                 <span>{lang === 'fr' ? 'Clap (mains) - Deux mains l\'une contre l\'autre' : 'Clap (mãos) - Duas mãos uma contra a outra'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['B', 'b']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#291002] text-[#f4ecd8]">B / b</span>
+                <span onClick={() => playPreview(['timbal'], 'B')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#291002] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">B / b</span>
                 <span>{lang === 'fr' ? 'Tremblement (Barulho)' : 'Barulho'}</span>
               </div>
             )}
@@ -297,25 +321,25 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
             {isStrokeActiveForInstruments(['gongue'], ['G', 'g']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)]">G / g</span>
+                <span onClick={() => playPreview(['gongue'], 'G')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">G / g</span>
                 <span>{t('gongueGrave')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['gongue'], ['A', 'a']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)]">A / a</span>
+                <span onClick={() => playPreview(['gongue'], 'A')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">A / a</span>
                 <span>{t('gongueAigu')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['gongue'], ['X', 'x']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#7f8c8d] text-[#f4ecd8]">X / x</span>
+                <span onClick={() => playPreview(['gongue'], 'X')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#7f8c8d] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">X / x</span>
                 <span>{t('legendGongueBord')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['gongue'], ['B', 'b']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#6d4c41] text-[#f4ecd8]">B / b</span>
+                <span onClick={() => playPreview(['gongue'], 'B')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#6d4c41] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">B / b</span>
                 <span>{t('gongueBarulho')}</span>
               </div>
             )}
@@ -336,31 +360,31 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
             {isStrokeActiveForInstruments(['agbe'], ['E', 'e']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)]">E / e</span>
+                <span onClick={() => playPreview(['agbe'], 'E')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">E / e</span>
                 <span>{t('agbeG')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['agbe'], ['D', 'd']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)]">D / d</span>
+                <span onClick={() => playPreview(['agbe'], 'D')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">D / d</span>
                 <span>{t('agbeD')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['agbe'], ['S', 's']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#dcfce7] text-[#1a1a1a]">S / s</span>
+                <span onClick={() => playPreview(['agbe'], 'S')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#dcfce7] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">S / s</span>
                 <span>{t('legendAgbeSaut')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['agbe'], ['V', 'v']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a7f3d0] text-[#1a1a1a]">V / v</span>
+                <span onClick={() => playPreview(['agbe'], 'V')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a7f3d0] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">V / v</span>
                 <span>{t('legendAgbeVolta')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['agbe'], ['B', 'b']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#052e16] text-[#f4ecd8]">B / b</span>
+                <span onClick={() => playPreview(['agbe'], 'B')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#052e16] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">B / b</span>
                 <span>{t('legendAgbeBarulho')}</span>
               </div>
             )}
@@ -381,25 +405,25 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
             {isStrokeActiveForInstruments(['mineiro'], ['P', 'p']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)]">P / p</span>
+                <span onClick={() => playPreview(['mineiro'], 'P')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">P / p</span>
                 <span>{t('mineiroP')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['mineiro'], ['T', 't']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)]">T / t</span>
+                <span onClick={() => playPreview(['mineiro'], 'T')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">T / t</span>
                 <span>{t('mineiroT')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['mineiro'], ['L', 'l']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#f59e0b] text-[#1a1a1a]">L / l</span>
+                <span onClick={() => playPreview(['mineiro'], 'L')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#f59e0b] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">L / l</span>
                 <span>{t('mineiroL')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['mineiro'], ['B', 'b']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#78350f] text-[#f4ecd8]">B / b</span>
+                <span onClick={() => playPreview(['mineiro'], 'B')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#78350f] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">B / b</span>
                 <span>{t('mineiroB')}</span>
               </div>
             )}
@@ -420,13 +444,13 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
             {isStrokeActiveForInstruments(['apito'], ['W']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#eab308] text-[#1a1a1a]">W</span>
+                <span onClick={() => playPreview(['apito'], 'W')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#eab308] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">W</span>
                 <span>{t('apitoLong')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['apito'], ['w']) && (
               <div className="flex items-center gap-2">
-                <span className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fef08a] text-[#1a1a1a]">w</span>
+                <span onClick={() => playPreview(['apito'], 'w')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fef08a] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">w</span>
                 <span>{t('apitoShort')}</span>
               </div>
             )}

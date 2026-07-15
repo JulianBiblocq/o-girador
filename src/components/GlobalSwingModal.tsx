@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { GlobalSwing, Language } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface GlobalSwingModalProps {
   globalSwing: GlobalSwing;
@@ -15,11 +16,47 @@ export const GlobalSwingModal: React.FC<GlobalSwingModalProps> = ({
   lang
 }) => {
   const [localSwing, setLocalSwing] = useState<GlobalSwing>(globalSwing);
+  const { userProfile, updateUserProfileField } = useAuth();
+  const isMestre = userProfile && (userProfile.role === 'mestre' || userProfile.role === 'admin');
 
   // Sync state if it changes outside
   useEffect(() => {
     setLocalSwing(globalSwing);
   }, [globalSwing]);
+
+  const handleIntensityChange = (val: number) => {
+    const newSwing = { ...localSwing, swingIntensity: val };
+    setLocalSwing(newSwing);
+    setGlobalSwing(newSwing);
+  };
+
+  const handleSaveSwingToFirebase = async () => {
+    if (updateUserProfileField) {
+      try {
+        await updateUserProfileField('customSwingOffsets', localSwing.customOffsets);
+        await updateUserProfileField('customSwingIntensity', localSwing.swingIntensity ?? 100);
+        alert(lang === 'fr' ? 'Balanço personnalisé sauvegardé avec succès !' : 'Balanço personalizado salvo com sucesso!');
+      } catch (e) {
+        console.error(e);
+        alert(lang === 'fr' ? 'Erreur lors de la sauvegarde.' : 'Erro ao salvar.');
+      }
+    }
+  };
+
+  const handleLoadSwingFromFirebase = () => {
+    if (userProfile && userProfile.customSwingOffsets) {
+      const savedOffsets = userProfile.customSwingOffsets;
+      const savedIntensity = userProfile.customSwingIntensity !== undefined ? userProfile.customSwingIntensity : 100;
+      const newSwing = {
+        mode: 'custom' as const,
+        customOffsets: savedOffsets,
+        swingIntensity: savedIntensity
+      };
+      setLocalSwing(newSwing);
+      setGlobalSwing(newSwing);
+      alert(lang === 'fr' ? 'Balanço personnalisé chargé avec succès !' : 'Balanço personalizado carregado com sucesso!');
+    }
+  };
 
   const handleModeChange = (mode: 'maracatu' | 'custom' | 'off') => {
     const newSwing = { ...localSwing, mode };
@@ -87,18 +124,63 @@ export const GlobalSwingModal: React.FC<GlobalSwingModalProps> = ({
           </div>
         </div>
 
+        {/* Actions Firebase Mestre */}
+        {isMestre && (
+          <div className="flex gap-2 border-t border-[#1a1a1a]/10 pt-2 flex-wrap">
+            {localSwing.mode === 'custom' && (
+              <button
+                onClick={handleSaveSwingToFirebase}
+                className="px-3 py-1 bg-[#8b2a1a] text-[#f4ecd8] border border-[#1a1a1a] text-xs font-bold hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer flex items-center gap-1"
+              >
+                💾 {lang === 'fr' ? 'Sauvegarder mon balanço' : 'Salvar meu balanço'}
+              </button>
+            )}
+            {userProfile?.customSwingOffsets && (
+              <button
+                onClick={handleLoadSwingFromFirebase}
+                className="px-3 py-1 bg-white text-[#1a1a1a] border border-[#1a1a1a] text-xs font-bold hover:bg-[#1a1a1a] hover:text-white transition-colors cursor-pointer flex items-center gap-1"
+              >
+                📂 {lang === 'fr' ? 'Importer mon balanço' : 'Importar meu balanço'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Curseur d'intensité (uniquement en mode maracatu ou personnalisé) */}
+        {localSwing.mode !== 'off' && (
+          <div className="flex flex-col gap-2 bg-[#eaddcf] p-4 cordel-border-sm">
+            <div className="flex justify-between items-center mb-1">
+              <span className="font-bold text-[#1a1a1a] text-sm flex items-center gap-1">
+                🎚️ {lang === 'fr' ? 'Intensité du Balanço :' : 'Intensidade do Balanço :'}
+              </span>
+              <span className="font-bold text-[#8b2a1a] text-sm">
+                {localSwing.swingIntensity !== undefined ? localSwing.swingIntensity : 100}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={localSwing.swingIntensity !== undefined ? localSwing.swingIntensity : 100}
+              onChange={(e) => handleIntensityChange(parseInt(e.target.value))}
+              className="w-full h-2 bg-[#1a1a1a]/20 rounded-full appearance-none cursor-pointer outline-none slider-horizontal"
+              style={{ accentColor: '#8b2a1a' }}
+            />
+          </div>
+        )}
+
         {/* Custom blocks */}
         {localSwing.mode === 'custom' && (
           <div className="flex flex-col gap-6 bg-[#eaddcf] p-4 cordel-border-sm">
-            <div className="flex justify-between items-center mb-2">
+            <div className="flex justify-between items-center mb-2 flex-wrap gap-2">
               <span className="font-bold text-[#1a1a1a] text-sm">
                 {lang === 'fr' ? 'Micro-timing des 4 doubles croches' : 'Micro-timing das 4 semicolcheias'}
               </span>
               <button
                 onClick={handleResetCustom}
-                className="px-3 py-1 bg-white border border-[#1a1a1a] text-[#1a1a1a] text-xs font-bold hover:bg-[#1a1a1a] hover:text-white transition-colors"
+                className="px-3 py-1 bg-white border border-[#1a1a1a] text-[#1a1a1a] text-xs font-bold hover:bg-[#1a1a1a] hover:text-white transition-colors cursor-pointer"
               >
-                {lang === 'fr' ? 'Réinitialiser (Maracatu)' : 'Redefinir (Maracatu)'}
+                {lang === 'fr' ? 'Réinitialiser' : 'Redefinir'}
               </button>
             </div>
             

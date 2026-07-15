@@ -20,6 +20,9 @@ import { TouchStrokeSelector } from './components/TouchStrokeSelector';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MainWorkspaceLayout } from './components/MainWorkspaceLayout';
 import { GlobalModalsLayout } from './components/GlobalModalsLayout';
+import { useWizardStore } from './stores/useWizardStore';
+import { NewSongIntroModal } from './components/NewSongIntroModal';
+import { WizardOverlay } from './components/WizardOverlay';
 
 import { Home } from './components/Home';
 const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
@@ -36,14 +39,21 @@ import { useAppAudio } from './hooks/useAppAudio';
 import { useGlobalKeyboardShortcuts } from './hooks/useGlobalKeyboardShortcuts';
 import { useViewRouter } from './hooks/useViewRouter';
 import { useThemeManager } from './hooks/useThemeManager';
+import { useMidiController } from './hooks/useMidiController';
 
 export default function App() {
   // 1. Core hook extraction setup
   const { deferredPrompt, handleInstallClick } = useAppUpdate();
   const { presetFiles, localPresets, isSavedIndicatorVisible, refreshLocalPresets } = useAppAudio();
   useGlobalKeyboardShortcuts();
+  useMidiController();
 
   const isSettingsOpen = useSequencerSettingsStore((state) => state.isSettingsOpen);
+
+  const isIntroModalOpen = useWizardStore((state) => state.isIntroModalOpen);
+  const isWizardOpen = useWizardStore((state) => state.isWizardOpen);
+  const setIntroModalOpen = useWizardStore((state) => state.setIntroModalOpen);
+  const setWizardOpen = useWizardStore((state) => state.setWizardOpen);
 
   // Consume contexts
   const sequencer = useSequencer();
@@ -711,6 +721,28 @@ export default function App() {
         toastMessage={toastMessage}
         handleStepTouchStart={handleStepTouchStart}
       />
+
+      {isIntroModalOpen && (
+        <NewSongIntroModal
+          onClose={() => setIntroModalOpen(false)}
+          onClearSong={() => {
+            setIntroModalOpen(false);
+            sequencer.handleClear();
+          }}
+          onStartWizard={() => {
+            setIntroModalOpen(false);
+            setWizardOpen(true);
+          }}
+          lang={sequencer.lang}
+        />
+      )}
+
+      {isWizardOpen && (
+        <WizardOverlay
+          onClose={() => setWizardOpen(false)}
+          lang={sequencer.lang}
+        />
+      )}
 
       {isSettingsOpen && (
         <SettingsPage mestreSignals={mestreSignals} />

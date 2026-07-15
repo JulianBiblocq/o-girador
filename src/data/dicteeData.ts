@@ -81,7 +81,7 @@ export const dicteeLevels: DicteeLevel[] = [
       {
         id: 'g2-1',
         label: 'BUM',
-        instrument: { fr: 'Alfaia Marcante', pt: 'Alfaia Marcante' },
+        instrument: { fr: 'Marcante (alfaia)', pt: 'Marcante (alfaia)' },
         audioUrl: 'Mixdown/Alfaia meiao F 1.ogg',
         color: '#8a2b2b'
       },
@@ -95,7 +95,7 @@ export const dicteeLevels: DicteeLevel[] = [
       {
         id: 'g2-3',
         label: 'BUM',
-        instrument: { fr: 'Alfaia Marcante', pt: 'Alfaia Marcante' },
+        instrument: { fr: 'Marcante (alfaia)', pt: 'Marcante (alfaia)' },
         audioUrl: 'Mixdown/Alfaia meiao F 1.ogg',
         color: '#8a2b2b'
       },
@@ -179,7 +179,7 @@ export const dicteeLevels: DicteeLevel[] = [
       {
         id: 'g4-3',
         label: 'BUM',
-        instrument: { fr: 'Alfaia Marcante', pt: 'Alfaia Marcante' },
+        instrument: { fr: 'Marcante (alfaia)', pt: 'Marcante (alfaia)' },
         audioUrl: 'Mixdown/Alfaia meiao F 1.ogg',
         color: '#8a2b2b'
       },
