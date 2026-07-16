@@ -89,7 +89,7 @@ function audioBufferToWav(buffer: AudioBuffer): Blob {
 export const VocalValidationModal: React.FC = () => {
   const tempRecording = useAudioStore((state) => state.tempRecording);
   const setTempRecording = useAudioStore((state) => state.setTempRecording);
-  const { handleStop, handleTogglePlay } = useAudio();
+  const { handleStop, handleTogglePlay, handleTimelineNavigate } = useAudio();
   const sequencerStore = useSequencerStore();
 
   const [loading, setLoading] = useState(true);
@@ -116,6 +116,11 @@ export const VocalValidationModal: React.FC = () => {
     loopStart: any;
     loopEnd: any;
     seconds: number;
+    seqLoopStart: number | null;
+    seqLoopEnd: number | null;
+    seqLoopActive: boolean;
+    seqLooping: boolean;
+    seqCurrentMeasure: number;
   } | null>(null);
 
   // Find pattern and track metadata
@@ -342,18 +347,10 @@ export const VocalValidationModal: React.FC = () => {
     const player = new Tone.GrainPlayer(audioBuffer);
     player.grainSize = 0.09;
     player.overlap = 0.04;
-    player.volume.value = 0;
+    player.volume.value = 0; // Unity gain (0 dB)
     player.connect(Tone.Destination);
 
-    // 🚨 FIX : On détache la pré-écoute de l'horloge globale !
-    Tone.Transport.cancel();
-    Tone.Transport.loop = true;
-    Tone.Transport.loopStart = 0;
-    Tone.Transport.loopEnd = durationSec;
-    Tone.Transport.seconds = 0;
-
-    const preRollSec = getElapsedSeconds(initialMeasureIdx) - getElapsedSeconds(startMeasureIdx);
-    const playTimeOnTimeline = Math.max(0, preRollSec + (nVal / 1000));
+    const playTimeOnTimeline = getElapsedSeconds(initialMeasureIdx) + (nVal / 1000);
     const actualStartOffset = startOffsetSec + (nVal < 0 ? -nVal / 1000 : 0);
     const actualDuration = Math.max(0.1, durationSec - (nVal < 0 ? -nVal / 1000 : 0));
 
@@ -379,30 +376,59 @@ export const VocalValidationModal: React.FC = () => {
         localPlayerRef.current = null;
       }
 
-      // Restore original Transport settings
+      // Restore original Transport and Sequencer settings
       if (originalLoopSettingsRef.current) {
         Tone.Transport.loop = originalLoopSettingsRef.current.loop;
         Tone.Transport.loopStart = originalLoopSettingsRef.current.loopStart;
         Tone.Transport.loopEnd = originalLoopSettingsRef.current.loopEnd;
         Tone.Transport.seconds = originalLoopSettingsRef.current.seconds;
+
+        const seq = useSequencerStore.getState();
+        seq.setLoopStartMeasure(originalLoopSettingsRef.current.seqLoopStart);
+        seq.setLoopEndMeasure(originalLoopSettingsRef.current.seqLoopEnd);
+        seq.setIsLoopRegionActive(originalLoopSettingsRef.current.seqLoopActive);
+        seq.setIsLooping(originalLoopSettingsRef.current.seqLooping);
+        
+        handleTimelineNavigate(originalLoopSettingsRef.current.seqCurrentMeasure, 0);
         originalLoopSettingsRef.current = null;
       }
-      console.log('🎙️ [VOCAL DEBUG] Local preview stopped, Transport loop settings restored.');
+      console.log('🎙️ [VOCAL DEBUG] Local preview stopped, Transport and Sequencer loop settings restored.');
     } else {
       // START PREVIEW
       if (!audioBuffer) return;
 
+      const seq = useSequencerStore.getState();
       // Store original settings
       originalLoopSettingsRef.current = {
         loop: Tone.Transport.loop,
         loopStart: Tone.Transport.loopStart,
         loopEnd: Tone.Transport.loopEnd,
         seconds: Tone.Transport.seconds,
+        seqLoopStart: seq.loopStartMeasure,
+        seqLoopEnd: seq.loopEndMeasure,
+        seqLoopActive: seq.isLoopRegionActive,
+        seqLooping: seq.isLooping,
+        seqCurrentMeasure: seq.currentMeasure
       };
+
+      // Set sequencer loop exactly covering the preview range
+      seq.setLoopStartMeasure(startMeasureIdx);
+      seq.setLoopEndMeasure(initialMeasureIdx + patternMeasures - 1);
+      seq.setIsLoopRegionActive(true);
+      seq.setIsLooping(true);
+
+      // Match Tone.Transport loop boundaries
+      Tone.Transport.loop = true;
+      Tone.Transport.loopStart = getElapsedSeconds(startMeasureIdx);
+      Tone.Transport.loopEnd = getElapsedSeconds(initialMeasureIdx + patternMeasures);
+      
+      // Navigate to pre-roll measure
+      handleTimelineNavigate(startMeasureIdx, 0);
+      Tone.Transport.seconds = getElapsedSeconds(startMeasureIdx);
 
       handleRestartPreview(nudgeMs, trimStartMs, trimEndMs);
 
-      // Start transport
+      // Start transport and sequencer
       handleTogglePlay();
       setIsPlayingPreview(true);
     }
@@ -419,10 +445,19 @@ export const VocalValidationModal: React.FC = () => {
         Tone.Transport.loop = originalLoopSettingsRef.current.loop;
         Tone.Transport.loopStart = originalLoopSettingsRef.current.loopStart;
         Tone.Transport.loopEnd = originalLoopSettingsRef.current.loopEnd;
+        Tone.Transport.seconds = originalLoopSettingsRef.current.seconds;
+
+        const seq = useSequencerStore.getState();
+        seq.setLoopStartMeasure(originalLoopSettingsRef.current.seqLoopStart);
+        seq.setLoopEndMeasure(originalLoopSettingsRef.current.seqLoopEnd);
+        seq.setIsLoopRegionActive(originalLoopSettingsRef.current.seqLoopActive);
+        seq.setIsLooping(originalLoopSettingsRef.current.seqLooping);
+        handleTimelineNavigate(originalLoopSettingsRef.current.seqCurrentMeasure, 0);
+
         originalLoopSettingsRef.current = null;
       }
     };
-  }, []);
+  }, [handleTimelineNavigate]);
 
   // Save validated recording with crop/fade and offset compensation
   const handleValidate = async () => {
@@ -490,7 +525,9 @@ export const VocalValidationModal: React.FC = () => {
                     ...p,
                     vocalMode: 'micro',
                     vocalNudge: nudgeMs,
-                    vocalTrimStart: trimStartMs
+                    vocalTrimStart: trimStartMs,
+                    vocalBaseBpm: bpm, // Base BPM recorded
+                    vocalBpmSync: true // Sync BPM by default
                   };
                 }
                 return p;

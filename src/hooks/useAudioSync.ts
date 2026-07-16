@@ -437,6 +437,8 @@ export function useAudioSync({
 
   const hitTriggersRef = useRef<HitTriggerPool>(new HitTriggerPool());
   const engineTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  const activeSequencerVocalsRef = useRef<Map<number, { stop: () => void }>>(new Map());
+  const lastElapsedSecRef = useRef<number>(0);
   // We still keep tickScheduleRef for rendering static partition / export / pre-compilation
   const tickScheduleRef = useRef<Map<number, Map<number, ScheduledNote[]>>>(new Map());
 
@@ -1017,6 +1019,34 @@ export function useAudioSync({
 
         const currentMeasureIdx = measureCountRef.current;
 
+        // --- VOCAL PLAYBACK CONTINUITY CHECK ---
+        {
+          const bpm = useSequencerStore.getState().bpm;
+          const timeSig = measureTimeSigsRef.current[currentMeasureIdx % (totalMeasuresRef.current || 1)] || '4/4';
+          const beats = parseInt(timeSig.split('/')[0]) || 4;
+          const measureDurationSec = (beats * 60) / (useSequencerStore.getState().measureBpms[currentMeasureIdx] || bpm);
+          const stepCount = getMaxTicks(timeSig);
+          const elapsedInMeasure = (stepIdx / stepCount) * measureDurationSec;
+
+          let totalElapsedSec = 0;
+          for (let m = 0; m < currentMeasureIdx; m++) {
+            const mIdx = m % (useSequencerStore.getState().measureBpms.length || 1);
+            const mBpm = useSequencerStore.getState().measureBpms[mIdx] || bpm;
+            const mSig = useSequencerStore.getState().measureTimeSigs[mIdx] || '4/4';
+            const mBeats = parseInt(mSig.split('/')[0]) || 4;
+            totalElapsedSec += (mBeats * 60) / mBpm;
+          }
+          totalElapsedSec += elapsedInMeasure;
+
+          // Discontinuity seek/loop detection
+          if (totalElapsedSec < lastElapsedSecRef.current - 0.1 || totalElapsedSec > lastElapsedSecRef.current + 1.5) {
+            activeSequencerVocalsRef.current.forEach(v => v.stop());
+            activeSequencerVocalsRef.current.clear();
+          }
+          lastElapsedSecRef.current = totalElapsedSec;
+        }
+        // ---------------------------------------
+
         if (audioEngine) {
           audioEngine.schedulingStep = stepIdx;
           audioEngine.schedulingMeasure = currentMeasureIdx;
@@ -1059,7 +1089,8 @@ export function useAudioSync({
               audioEngine.currentMeasure = _measureForUI;
             }
 
-            if (_stepForUI === 0) {
+            const prevMeasure = useSequencerStore.getState().currentMeasure;
+            if (_stepForUI === 0 || _measureForUI !== prevMeasure) {
               setCurrentMeasure(_measureForUI);
               const expanded = getExpandedMeasures(totalMeasuresRef.current, songSectionsRef.current);
               if (expanded.length > 0) {
@@ -1158,6 +1189,8 @@ export function useAudioSync({
         // Parse trigger of step events
         let swingOffset = 0;
         let swingJitter = 0;
+        let posInGroup = 0;
+        let stepDurationSec = tick96nSec * 6; // one 16th note
         const globalMode = globalSwingRef.current.mode;
         
         if (globalMode !== 'off') {
@@ -1168,9 +1201,8 @@ export function useAudioSync({
           else if (timeSig === '12/8') beatsCount = 4;
 
           const ticksPerBeat = currentTicks / beatsCount;
-          const stepDurationSec = tick96nSec * 6; // one 16th note
           const posInBeat = ((stepIdx / ticksPerBeat) % 1) * 4;
-          const posInGroup = Math.round(posInBeat) % 4;
+          posInGroup = Math.round(posInBeat) % 4;
           
           swingJitter = (nextRandom() * 0.06 - 0.03) * stepDurationSec;
 
@@ -1248,7 +1280,30 @@ export function useAudioSync({
                       if (isTuplet) {
                         noteSwingOffset = swingJitter;
                       } else {
-                        noteSwingOffset = swingOffset;
+                        const trackSwingIntensity = liveTrack.swingIntensity !== undefined ? liveTrack.swingIntensity : 100;
+                        const trackSwingMultiplier = trackSwingIntensity / 100;
+
+                        if (trackSwingMultiplier === 1) {
+                          noteSwingOffset = swingOffset;
+                        } else {
+                          let baseSwingOffset = 0;
+                          const intensity = (globalSwingRef.current.swingIntensity !== undefined ? globalSwingRef.current.swingIntensity : 100) / 100;
+
+                          if (globalMode === 'maracatu') {
+                            if (posInGroup === 1) {
+                              baseSwingOffset = 0.04 * intensity * stepDurationSec;
+                            } else if (posInGroup === 2) {
+                              baseSwingOffset = -0.144 * intensity * stepDurationSec;
+                            } else if (posInGroup === 3) {
+                              baseSwingOffset = -0.292 * intensity * stepDurationSec;
+                            }
+                          } else if (globalMode === 'custom') {
+                            const customOffsetPct = globalSwingRef.current.customOffsets[posInGroup] || 0;
+                            baseSwingOffset = (customOffsetPct / 100) * stepDurationSec * 0.5 * intensity;
+                          }
+
+                          noteSwingOffset = (baseSwingOffset * trackSwingMultiplier) + swingJitter;
+                        }
                       }
                     }
 
@@ -1397,14 +1452,102 @@ export function useAudioSync({
             canPlay = hasSolo ? track.isSolo : !track.isMute;
           }
 
-          if (!canPlay) continue;
+          if (!canPlay) {
+            const safeId = Number(activePattern.id);
+            if (activeSequencerVocalsRef.current.has(safeId)) {
+              activeSequencerVocalsRef.current.get(safeId)?.stop();
+              activeSequencerVocalsRef.current.delete(safeId);
+            }
+            continue;
+          }
 
           const hasVocalBlob = useAudioStore.getState().vocalBlobs[Number(activePattern.id)];
           const hasVocalBuf = useAudioStore.getState().vocalBuffers[Number(activePattern.id)];
           const isMicroMode = activePattern.vocalMode === 'micro' || hasVocalBlob || hasVocalBuf;
 
           if (isMicroMode) {
-            // Audio is handled reactively by the useAudioSync useEffect, skip note tick triggers
+            const safeId = Number(activePattern.id);
+            const vocalBuf = useAudioStore.getState().vocalBuffers[safeId];
+            if (vocalBuf && activePattern.vocalMode === 'micro') {
+              const bpm = useSequencerStore.getState().bpm;
+              const currentMeasureIdx = measureCountRef.current;
+              const timeSig = measureTimeSigsRef.current[currentMeasureIdx % (totalMeasuresRef.current || 1)] || '4/4';
+              const beats = parseInt(timeSig.split('/')[0]) || 4;
+              const measureDurationSec = (beats * 60) / (useSequencerStore.getState().measureBpms[currentMeasureIdx] || bpm);
+              const stepCount = getMaxTicks(timeSig);
+              const elapsedInMeasure = (stepIdx / stepCount) * measureDurationSec;
+
+              const initialMeasureIdx = activePattern.measureAssignments.indexOf(true);
+              if (initialMeasureIdx !== -1) {
+                const startMeasureIdx = Math.max(0, initialMeasureIdx - 1);
+                
+                let consecutiveMeasures = 0;
+                for (let i = initialMeasureIdx; i < totalMeasuresRef.current; i++) {
+                  if (activePattern.measureAssignments[i]) {
+                    consecutiveMeasures++;
+                  } else {
+                    break;
+                  }
+                }
+                consecutiveMeasures = Math.max(1, consecutiveMeasures);
+                const endMeasureIdx = initialMeasureIdx + consecutiveMeasures;
+
+                const isInRange = currentMeasureIdx >= startMeasureIdx && currentMeasureIdx < endMeasureIdx;
+
+                if (isInRange) {
+                  let elapsedSec = 0;
+                  for (let m = startMeasureIdx; m < currentMeasureIdx; m++) {
+                    const mIdx = m % (useSequencerStore.getState().measureBpms.length || 1);
+                    const mBpm = useSequencerStore.getState().measureBpms[mIdx] || bpm;
+                    const mSig = useSequencerStore.getState().measureTimeSigs[mIdx] || '4/4';
+                    const mBeats = parseInt(mSig.split('/')[0]) || 4;
+                    elapsedSec += (mBeats * 60) / mBpm;
+                  }
+                  elapsedSec += elapsedInMeasure;
+
+                  const vocalStartSec = ((activePattern.vocalTrimStart || 0) + (activePattern.vocalNudge || 0)) / 1000;
+                  const elapsedSinceVocalStart = elapsedSec - vocalStartSec;
+
+                  const isAlreadyPlaying = activeSequencerVocalsRef.current.has(safeId);
+
+                  if (elapsedSinceVocalStart >= 0 && elapsedSinceVocalStart < vocalBuf.duration) {
+                    if (!isAlreadyPlaying) {
+                      const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
+                      const voiceInst = instrumentsConfig[track.instrumentIdx];
+                      const isCoroTrack = voiceInst?.id === 'coro';
+
+                      console.log(`🎙️ [VOCAL DEBUG] Triggering vocal for pattern ${safeId} at transport time ${time.toFixed(3)}s. Offset: ${elapsedSinceVocalStart.toFixed(3)}s`);
+                      const handle = vocalEngineService.playSequencerVocal(
+                        safeId,
+                        time,
+                        elapsedSinceVocalStart,
+                        outputNode,
+                        track.volumeVal ?? 100,
+                        isCoroTrack
+                      );
+                      if (handle) {
+                        activeSequencerVocalsRef.current.set(safeId, handle);
+                      }
+                    }
+                  } else {
+                    if (isAlreadyPlaying) {
+                      activeSequencerVocalsRef.current.get(safeId)?.stop();
+                      activeSequencerVocalsRef.current.delete(safeId);
+                    }
+                  }
+                } else {
+                  if (activeSequencerVocalsRef.current.has(safeId)) {
+                    activeSequencerVocalsRef.current.get(safeId)?.stop();
+                    activeSequencerVocalsRef.current.delete(safeId);
+                  }
+                }
+              }
+            } else {
+              if (activeSequencerVocalsRef.current.has(safeId)) {
+                activeSequencerVocalsRef.current.get(safeId)?.stop();
+                activeSequencerVocalsRef.current.delete(safeId);
+              }
+            }
             continue;
           } else {
             const stepCount = activePattern.steps;
@@ -1584,6 +1727,9 @@ export function useAudioSync({
       stopAllNativeOscillators();
 
       vocalEngineService.stopAllVocalPlayback();
+      activeSequencerVocalsRef.current.forEach(v => v.stop());
+      activeSequencerVocalsRef.current.clear();
+      lastElapsedSecRef.current = 0;
       setIsPlaying(false);
       setCurrentMeasure(measureCountRef.current);
 
@@ -1630,6 +1776,9 @@ export function useAudioSync({
     stopAllNativeOscillators();
 
     vocalEngineService.stopAllVocalPlayback();
+    activeSequencerVocalsRef.current.forEach(v => v.stop());
+    activeSequencerVocalsRef.current.clear();
+    lastElapsedSecRef.current = 0;
     setIsPlaying(false);
     currentStepIndexRef.current = -1;
     measureCountRef.current = 0;
@@ -1996,98 +2145,7 @@ export function useAudioSync({
     return unsub;
   }, [channels]);
 
-  useEffect(() => {
-    if (!isPlaying) return;
-    const players: Tone.Player[] = [];
-
-    const getMeasurePlayTimes = (targetIdx: number) => {
-      const sections = songSectionsRef.current || [];
-      const bpms = measureBpmsRef.current || [];
-      const timeSigs = measureTimeSigsRef.current || [];
-      const total = totalMeasuresRef.current || 1;
-      
-      const playTimes: number[] = [];
-      let currentTime = 0;
-      let currentMeasureIdx = 0;
-      let sectionIteration = 1;
-      
-      const maxSteps = 500;
-      let stepCount = 0;
-      
-      while (currentMeasureIdx < total && stepCount < maxSteps) {
-        if (currentMeasureIdx === targetIdx) {
-          playTimes.push(currentTime);
-        }
-        
-        const measureBpm = bpms[currentMeasureIdx] || bpm;
-        const measureTimeSig = timeSigs[currentMeasureIdx] || '4/4';
-        let beatsPerMeasure = 4;
-        let beatValue = 4;
-        
-        if (typeof measureTimeSig === 'string') {
-          const parts = measureTimeSig.split('/');
-          beatsPerMeasure = parseInt(parts[0]) || 4;
-          beatValue = parseInt(parts[1]) || 4;
-        } else if (Array.isArray(measureTimeSig)) {
-          beatsPerMeasure = measureTimeSig[0] || 4;
-          beatValue = measureTimeSig[1] || 4;
-        }
-        
-        const secondsPerBeat = 60 / measureBpm;
-        const measureDuration = beatsPerMeasure * secondsPerBeat * (4 / beatValue);
-        
-        currentTime += measureDuration;
-        stepCount++;
-        
-        let activeSection = null;
-        for (let i = 0; i < sections.length; i++) {
-          if (sections[i].endMeasure === currentMeasureIdx) {
-            activeSection = sections[i];
-            break;
-          }
-        }
-        
-        if (activeSection && sectionIteration < (activeSection.repeatCount || 1)) {
-          sectionIteration++;
-          currentMeasureIdx = activeSection.startMeasure;
-        } else {
-          if (activeSection) {
-            sectionIteration = 1;
-          }
-          currentMeasureIdx++;
-        }
-      }
-      
-      return playTimes;
-    };
-
-    tracks.forEach(track => {
-      track.patterns.forEach(pattern => {
-        const safeId = Number(pattern.id);
-        const vocalBuf = useAudioStore.getState().vocalBuffers[safeId];
-        if (vocalBuf && pattern.vocalMode === 'micro') {
-          const numMeasures = pattern.measureAssignments.length;
-          for (let mIdx = 0; mIdx < numMeasures; mIdx++) {
-            if (pattern.measureAssignments[mIdx]) {
-              const startMeasureIdx = Math.max(0, mIdx - 1);
-              const playTimes = getMeasurePlayTimes(startMeasureIdx);
-              
-              playTimes.forEach(startMeasureTime => {
-                const player = new Tone.Player(vocalBuf).toDestination();
-                const trackVol = track.volumeVal ?? 100;
-                player.volume.value = Tone.gainToDb(Math.pow(trackVol / 100, 2) || 0.0001);
-                
-                const playTime = startMeasureTime + ((pattern.vocalTrimStart || 0) / 1000) + ((pattern.vocalNudge || 0) / 1000);
-                player.sync().start(playTime);
-                players.push(player);
-              });
-            }
-          }
-        }
-      });
-    });
-    return () => { players.forEach(p => p.dispose()); };
-  }, [isPlaying, tracks, bpm]);
+  // The vocal playback scheduling has been migrated directly into the lookahead tick scheduler loop for sample-accuracy and looping support.
 
   return useMemo(() => ({
     isPlaying,

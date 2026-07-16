@@ -428,14 +428,40 @@ export const vocalEngineService = {
     return null;
   },
 
-  /**
-   * Deletes a vocal recording from IndexedDB and the store.
-   */
   async deleteVocalRecording(patternId: number) {
     try {
       await deleteVocalRecording(patternId);
       useAudioStore.getState().removeVocalBlob(patternId);
+      useAudioStore.getState().removeVocalBuffer(patternId);
       this.stopVocalPattern(patternId);
+
+      // Reset pattern vocalMode to 'synth' in sequencer store
+      const sequencerStore = useSequencerStore.getState();
+      const tracks = sequencerStore.tracks;
+      const newTracks = tracks.map((t) => {
+        const hasPattern = t.patterns.some((p) => Number(p.id) === Number(patternId));
+        if (hasPattern) {
+          return {
+            ...t,
+            patterns: t.patterns.map((p) => {
+              if (Number(p.id) === Number(patternId)) {
+                return {
+                  ...p,
+                  vocalMode: 'synth',
+                  vocalNudge: 0,
+                  vocalTrimStart: 0,
+                  vocalBaseBpm: undefined,
+                  vocalBpmSync: undefined
+                } as any;
+              }
+              return p;
+            })
+          };
+        }
+        return t;
+      });
+      sequencerStore.setTracks(newTracks);
+      console.log(`🎙️ [VOCAL DEBUG] Vocal recording deleted and pattern reset to synth for patternId: ${patternId}`);
     } catch (err) {
       console.error(`Failed to delete vocal recording for pattern ${patternId}:`, err);
     }
@@ -657,5 +683,103 @@ export const vocalEngineService = {
   async saveValidatedRecording(patternId: number, blob: Blob) {
     await saveVocalRecording(patternId, blob);
     useAudioStore.getState().addVocalBlob(patternId, blob);
+  },
+
+  /**
+   * Creates and plays a vocal buffer aligned with the sequencer timeline.
+   * Returns players and panners references for active tracking/cleanup.
+   */
+  playSequencerVocal(
+    patternId: number,
+    time: number,
+    elapsedSec: number,
+    outputNode: any,
+    trackVolPct: number,
+    isCoroTrack: boolean
+  ) {
+    const store = useAudioStore.getState();
+    const audioBuffer = store.vocalBuffers[patternId];
+    if (!audioBuffer) return null;
+
+    // Main player connected to the track's insert chain or channel strip
+    const mainPlayer = new Tone.GrainPlayer(audioBuffer);
+    mainPlayer.grainSize = 0.09;
+    mainPlayer.overlap = 0.04;
+    // Track volume and mute/solo are handled by the channel node. Main player has unity gain.
+    mainPlayer.volume.value = 0; 
+    mainPlayer.connect(outputNode);
+
+    // BPM Sync time stretching calculation
+    const sequencerStore = useSequencerStore.getState();
+    const voiceTrack = sequencerStore.tracks.find(t => t.patterns.some(p => Number(p.id) === Number(patternId)));
+    const ptnRef = voiceTrack?.patterns.find(p => Number(p.id) === Number(patternId));
+    
+    let playbackRate = 1.0;
+    const currentMeasureIdx = sequencerStore.currentMeasure || 0;
+    const measureBpm = sequencerStore.measureBpms[currentMeasureIdx] || sequencerStore.bpm;
+    if (ptnRef && ptnRef.vocalBpmSync && ptnRef.vocalBaseBpm) {
+      playbackRate = measureBpm / ptnRef.vocalBaseBpm;
+    }
+    mainPlayer.playbackRate = playbackRate;
+
+    const remainingDuration = Math.max(0, audioBuffer.duration - elapsedSec);
+    if (remainingDuration > 0) {
+      mainPlayer.start(time, elapsedSec, remainingDuration);
+    }
+
+    const chorusPlayers: Tone.GrainPlayer[] = [];
+    const panners: Tone.Panner[] = [];
+
+    const chorusDensity = isCoroTrack ? store.chorusDensity : 0;
+    if (chorusDensity > 0) {
+      // Chorister 1 (Left): detune -8 cents, delay +15ms, panner -0.5
+      const panner1 = new Tone.Panner(-0.5);
+      const player1 = new Tone.GrainPlayer(audioBuffer);
+      player1.grainSize = 0.09;
+      player1.overlap = 0.04;
+      player1.playbackRate = playbackRate;
+      player1.volume.value = Tone.gainToDb(chorusDensity || 0.0001);
+      
+      player1.connect(panner1);
+      panner1.connect(outputNode);
+      player1.detune = -8;
+
+      const remaining1 = Math.max(0, audioBuffer.duration - (elapsedSec + 0.015));
+      if (remaining1 > 0) {
+        player1.start(time + 0.015, elapsedSec + 0.015, remaining1);
+      }
+      chorusPlayers.push(player1);
+      panners.push(panner1);
+
+      // Chorister 2 (Right): detune +10 cents, delay +25ms, panner 0.5
+      const panner2 = new Tone.Panner(0.5);
+      const player2 = new Tone.GrainPlayer(audioBuffer);
+      player2.grainSize = 0.09;
+      player2.overlap = 0.04;
+      player2.playbackRate = playbackRate;
+      player2.volume.value = Tone.gainToDb(chorusDensity || 0.0001);
+      
+      player2.connect(panner2);
+      panner2.connect(outputNode);
+      player2.detune = 10;
+
+      const remaining2 = Math.max(0, audioBuffer.duration - (elapsedSec + 0.025));
+      if (remaining2 > 0) {
+        player2.start(time + 0.025, elapsedSec + 0.025, remaining2);
+      }
+      chorusPlayers.push(player2);
+      panners.push(panner2);
+    }
+
+    return {
+      mainPlayer,
+      chorusPlayers,
+      panners,
+      stop: () => {
+        try { mainPlayer.stop(); mainPlayer.dispose(); } catch (_) {}
+        chorusPlayers.forEach(p => { try { p.stop(); p.dispose(); } catch (_) {} });
+        panners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
+      }
+    };
   }
 };
