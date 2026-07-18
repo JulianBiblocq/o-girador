@@ -9,3 +9,5 @@ coverage/
 # /public/Mixdown/
 
 .scripts_dev/
+src_backup_pre_wizard/
+
