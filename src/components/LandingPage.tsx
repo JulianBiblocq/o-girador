@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase/config';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { GoogleLoginButton } from './GoogleLoginButton';
 import type * as ToneType from 'tone';
+import { useAudioStore } from '../stores/useAudioStore';
 import { loadTone, getTone } from '@/src/ToneLoader';
 
 function safeGetTone() {
@@ -24,8 +25,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
   const [editMsgContent, setEditMsgContent] = useState('');
   const [isSavingMsg, setIsSavingMsg] = useState(false);
 
+  const [isToneReady, setIsToneReady] = useState(false);
+  const [isUnlocking, setIsUnlocking] = useState(false);
+  const enterButtonRef = useRef<HTMLButtonElement>(null);
+
   // Détermine la langue du texte de présentation
-  const hasSavedLang = localStorage.getItem('o_girador_lang') !== null;
+  const hasSavedLang = localStorage.getItem('o_gridador_lang') !== null;
   const isBrowserFr = typeof navigator !== 'undefined' && navigator.language.startsWith('fr');
   const displayFr = hasSavedLang ? (lang === 'fr') : isBrowserFr;
 
@@ -72,13 +77,85 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
     }
   };
 
-  const handleEnter = async () => {
-    if (safeGetTone()?.context.state !== 'running') {
-      await loadTone();
-    await getTone().start();
-    }
-    onEnter();
-  };
+  useEffect(() => {
+    // Preload Tone.js in the background so it is available synchronously on button click
+    loadTone()
+      .then(() => {
+        setIsToneReady(true);
+      })
+      .catch(err => {
+        console.error("Error preloading Tone.js:", err);
+      });
+  }, []);
+
+  const [errors, setErrors] = useState<string[]>([]);
+
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      const errorMsg = `[Global Error] ${event.message} at ${event.filename}:${event.lineno}:${event.colno}`;
+      setErrors(prev => [...prev, errorMsg]);
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      const errorMsg = `[Unhandled Rejection] ${reason?.stack || reason?.message || String(reason)}`;
+      setErrors(prev => [...prev, errorMsg]);
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+
+  useEffect(() => {
+    const btn = enterButtonRef.current;
+    if (!btn || !isToneReady) return;
+
+    const unlockAudio = async (e: Event) => {
+      e.preventDefault();
+      
+      if (isUnlocking) return;
+      setIsUnlocking(true);
+
+      const Tone = safeGetTone();
+      if (!Tone) {
+        setIsUnlocking(false);
+        return;
+      }
+
+      try {
+        // 1. Déverrouille proprement le contexte par défaut de Tone.js
+        if (Tone.context.state !== 'running') {
+          await Tone.start();
+        }
+        
+        // 2. Vérification de sécurité
+        if (Tone.context.state === 'running') {
+          // 3. Autorise le chargement des instruments (Lazy Init) et change de page
+          useAudioStore.getState().unlockAudio();
+          onEnter();
+        } else {
+          console.error("Le contexte n'a pas pu démarrer.");
+          setIsUnlocking(false);
+        }
+      } catch (error) {
+        console.error("Erreur de déverrouillage Audio:", error);
+        setIsUnlocking(false);
+      }
+    };
+
+    btn.addEventListener('touchend', unlockAudio, { once: true });
+    btn.addEventListener('click', unlockAudio, { once: true });
+
+    return () => {
+      btn.removeEventListener('touchend', unlockAudio);
+      btn.removeEventListener('click', unlockAudio);
+    };
+  }, [isToneReady, onEnter, isUnlocking]);
 
   const frText = (
     <>
@@ -102,7 +179,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
   );
 
   const ptText = (
-    <p>O Maracatu de Baque Virado, poderosa percussão brasileira originária do Recife (Pernambuco), aprende-se no coração da roda pela transmissão oral das Nações. Nenhuma máquina substituirá os ensinamentos dos mestres. O Girador foi pensado com humildade para se somar a isso: é um caderno sonoro gratuito, um sequenciador interativo e uma bateria eletrônica online para criar, experimentar seus baques e vislumbrar as polirritmias secretas entre as alfaias, a caixa, o tarol, o gonguê, o agbê, o mineiro e as toadas, aguardando o próximo ensinamento vivo.</p>
+    <>
+      <p><strong>O Girador: O sequenciador dedicado ao Maracatu de Baque Virado</strong><br/>
+      O maracatu de baque virado é uma música tradicional forte em história, frequentemente repleta de uma grande espiritualidade e um poderoso símbolo de resistência. Esta tradição é transmitida oralmente na sua totalidade pelos mestres desde a sua origem.</p>
+
+      <p>O aplicativo O Girador não pretende, de forma alguma, substituir a transmissão dos mestres. Sua única vocação é ser uma ferramenta pedagógica e lúdica para compreender o ritmo e o entrelaçamento das percussões e das vozes.</p>
+
+      <p>Componha, esculpa o som e compartilhe seus arranjos:</p>
+
+      <p>
+        <strong>Composição e arranjos:</strong> o aplicativo foi projetado para compor e ouvir seus arranjos de maracatu de baque virado com a Alfaia, o Gonguê, a Caixa, o Tarol, o Mineiro, o Agbê, o Timbal e as vozes!!!<br/><br/>
+        <strong>Os samples:</strong> Aproveite um banco de sons com samples reais e a possibilidade de esculpir o som de cada passo do sequenciador com precisão.<br/><br/>
+        <strong>O "Balanço":</strong> O aplicativo integra um groove focado no maracatu que você pode modificar, acoplado a uma humanização para se aproximar da pulsação orgânica do maracatu.
+      </p>
+
+      <p>Usar em um computador ou em um dispositivo móvel recente permitirá aproveitar as melhores condições de uso.</p>
+
+      <p>Aproveite bem este aplicativo enquanto aguarda a próxima vivência!</p>
+    </>
   );
 
   return (
@@ -125,7 +219,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
             <path d="M 2 50 L 12 35 L 22 50 L 12 65 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.8" />
             <path d="M 16 16 L 30 10 L 40 22 L 26 30 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.8" />
           </svg>
-          <button id="entra-btn" className="lp-entra-btn" onClick={handleEnter}>ENTRA<br/>NA RODA</button>
+          <button 
+            ref={enterButtonRef}
+            id="entra-btn" 
+            className={`lp-entra-btn ${!isToneReady ? 'opacity-50 cursor-not-allowed' : ''}`} 
+            disabled={!isToneReady}
+          >
+            {isToneReady ? (
+              <>ENTRA<br/>NA RODA</>
+            ) : (
+              <span className="flex items-center justify-center animate-spin text-xl">⚙️</span>
+            )}
+          </button>
         </div>
         <h1 className="sr-only">O Girador - Séquenceur et Boîte à Rythmes de Maracatu de Baque Virado | Sequenciador Interativo</h1>
         <div className="lp-title">GIRADOR</div>

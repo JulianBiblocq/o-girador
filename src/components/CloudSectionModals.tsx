@@ -13,7 +13,7 @@ interface SaveSectionModalProps {
 }
 
 export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onClose, lang }) => {
-  const { userProfile } = useAuth();
+  const { userProfile, isAdmin } = useAuth();
   const sequencer = useSequencer();
   
   const [name, setName] = useState(section.name);
@@ -55,6 +55,7 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
           volumeVal: t.volumeVal,
           reverbVal: t.reverbVal,
           panVal: t.panVal,
+          swingIntensity: t.swingIntensity,
           patterns: sectionPatterns
         };
       }).filter(t => t.patterns.length > 0);
@@ -115,7 +116,7 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
             {userProfile?.role === 'mestre' && (
               <option value="mestre_group">{lang === 'fr' ? 'Mon groupe' : 'Meu grupo'}</option>
             )}
-            {userProfile?.role === 'admin' && (
+            {isAdmin && (
               <option value="admin_global">{lang === 'fr' ? 'Global (Tout le monde)' : 'Global (Todos)'}</option>
             )}
           </select>
@@ -148,7 +149,7 @@ interface LoadSectionModalProps {
 }
 
 export const LoadSectionModal: React.FC<LoadSectionModalProps> = ({ insertAtMeasure, onClose, lang }) => {
-  const { userProfile } = useAuth();
+  const { userProfile, isAdmin } = useAuth();
   const sequencer = useSequencer();
   
   const [sections, setSections] = useState<CloudSection[]>([]);
@@ -227,7 +228,7 @@ export const LoadSectionModal: React.FC<LoadSectionModalProps> = ({ insertAtMeas
                   >
                     {lang === 'fr' ? 'Insérer' : 'Inserir'}
                   </button>
-                  {(userProfile?.role === 'admin' || userProfile?.uid === sec.ownerId) && (
+                  {(isAdmin || userProfile?.uid === sec.ownerId) && (
                     <button
                       onClick={() => handleDelete(sec)}
                       className="p-1 hover:bg-[#1a1a1a]/10 rounded transition-colors text-xl"

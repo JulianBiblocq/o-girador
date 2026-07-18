@@ -6,8 +6,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { instrumentsConfig, isDarkText, getVisualStrokeSymbol } from '../data';
 import { Language } from '../types';
-import { getNextStepValue } from './InstrumentDetailEditor';
+import { getNextStepValue, getStrokesForInstrument } from '../utils/instrumentStrokes';
 import { useSequencer } from '../contexts/SequencerContext';
+import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
+import { getActiveStrokesForTrack, audioEngine } from '../hooks/useAudioSync';
 
 export interface TouchSelectorState {
   patternId: number;
@@ -18,6 +21,7 @@ export interface TouchSelectorState {
   currentVal: string | number;
   onSelect: (val: string) => void;
   isStickyDefault?: boolean;
+  trackId: number;
 }
 
 interface TouchStrokeSelectorProps {
@@ -33,6 +37,26 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
     return isPt ? 'Silêncio' : 'Silence';
   }
 
+  if (instId === 'timbal') {
+    switch (stroke) {
+      case 'G': return isPt ? 'Baixo (Forte - Mão Forte)' : 'Basse (Fort - Main Forte)';
+      case 'g': return isPt ? 'Baixo (Fraca - Mão Fraca)' : 'Basse (Faible - Main Faible)';
+      case 'A': return isPt ? 'Aberto (Forte - Mão Forte)' : 'Ouvert (Fort - Main Forte)';
+      case 'a': return isPt ? 'Aberto (Fraca - Mão Fraca)' : 'Ouvert (Faible - Main Faible)';
+      case 'S': return isPt ? 'Slap (Forte - Mão Forte)' : 'Claqué (Fort - Main Forte)';
+      case 's': return isPt ? 'Slap (Fraca - Mão Fraca)' : 'Claqué (Faible - Main Faible)';
+      case 'D': return isPt ? 'Dedilhado (Forte - Mão Forte)' : 'Fantôme (Fort - Main Forte)';
+      case 'd': return isPt ? 'Dedilhado (Fraca - Mão Fraca)' : 'Fantôme (Faible - Main Faible)';
+      case 'P': return isPt ? 'Preso (Forte - Mão Forte)' : 'Fermé (Fort - Main Forte)';
+      case 'p': return isPt ? 'Preso (Fraca - Mão Fraca)' : 'Fermé (Faible - Main Faible)';
+      case 'F': return isPt ? 'Fla aberto' : 'Fla ouvert';
+      case 'V': return isPt ? 'Fla slap' : 'Fla claqué';
+      case 'C': return isPt ? 'Clap (mãos)' : 'Clap (mains)';
+      case 'B': return isPt ? 'Barulho' : 'Tremblement';
+      default: return stroke;
+    }
+  }
+
   if (instId === 'caixa' || instId === 'tarol') {
     switch (stroke) {
       case 'D': return isPt ? 'Mão Direita (Forte)' : 'Main Droite (Fort)';
@@ -45,7 +69,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
       case 'F': return isPt ? 'Fla' : 'Fla';
       case 'C': return isPt ? 'Click' : 'Click';
-      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
+      case 'B': return isPt ? 'Barulho' : 'Tremblement';
       default: return stroke;
     }
   }
@@ -60,7 +84,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
       case 'C': return isPt ? 'Click' : 'Click';
       case 'I': return isPt ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Iguarassu)';
-      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
+      case 'B': return isPt ? 'Barulho' : 'Tremblement';
       default: return stroke;
     }
   }
@@ -72,7 +96,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'A': return isPt ? 'Agudo Forte' : 'Aigu Fort';
       case 'a': return isPt ? 'Agudo Fraco' : 'Aigu Faible';
       case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
-      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
+      case 'B': return isPt ? 'Barulho' : 'Tremblement';
       default: return stroke;
     }
   }
@@ -85,7 +109,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'd': return isPt ? 'Direita (Fraca)' : 'Droite (Faible)';
       case 'S': return isPt ? 'Salto' : 'Salto';
       case 'V': return isPt ? 'Volta' : 'Volta';
-      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
+      case 'B': return isPt ? 'Barulho' : 'Tremblement';
       default: return stroke;
     }
   }
@@ -97,7 +121,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'T': return isPt ? 'Pull (Forte)' : 'Tirer (Fort)';
       case 't': return isPt ? 'Pull (Fraco)' : 'Tirer (Faible)';
       case 'L': return isPt ? 'Lado' : 'Lado';
-      case 'B': return isPt ? 'Tremor (Barulho)' : 'Tremblement';
+      case 'B': return isPt ? 'Barulho' : 'Tremblement';
       default: return stroke;
     }
   }
@@ -113,7 +137,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
   return stroke;
 };
 
-export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
+const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
   selector,
   hoveredStroke,
   setHoveredStroke,
@@ -123,6 +147,17 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
   const hoveredStrokeRef = useRef<string | null>(null);
   const [isSticky, setIsSticky] = useState<boolean>(selector.isStickyDefault || false);
   const stickyTimeRef = useRef<number>(0);
+  
+  // Local UI states for expansion and lazy loading
+  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [loadingStroke, setLoadingStroke] = useState<string | null>(null);
+
+  const tracks = useSequencerStore(state => state.tracks);
+  const forcedStrokes = useSequencerSettingsStore(state => state.forcedStrokes) || {};
+  const setStrokeForcedState = useSequencerSettingsStore(state => state.setStrokeForcedState);
+
+  const track = tracks.find(t => t.id === selector.trackId);
+  const activeStrokes = track ? getActiveStrokesForTrack(track, tracks) : [];
 
   useEffect(() => {
     hoveredStrokeRef.current = hoveredStroke;
@@ -142,6 +177,15 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
   const instStrokes = Object.keys(inst.colors).filter((k) => k !== 'text');
   // Include "0" (silence) at the beginning of the list
   const allChoices = ['0', ...instStrokes];
+
+  // Filter choices based on project activity
+  const choicesToShow = allChoices.filter(stroke => {
+    if (isExpanded || stroke === '0') return true; // Always show silence
+    const forced = forcedStrokes[`${selector.trackId}:${stroke}`];
+    const isActive = forced !== undefined ? forced : activeStrokes.some(s => s.toLowerCase() === stroke.toLowerCase());
+    // Always keep currently selected step value visible in clean mode
+    return isActive || String(selector.currentVal) === String(stroke);
+  });
 
   useEffect(() => {
     if (isSticky) return; // Don't register drag tracking listeners if we are in sticky mode
@@ -171,8 +215,14 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
     const handleTouchEnd = () => {
       // If the user dragged to a DIFFERENT stroke, select it and close
       if (hoveredStrokeRef.current !== null && hoveredStrokeRef.current !== String(selector.currentVal)) {
-        selector.onSelect(hoveredStrokeRef.current);
-        onClose();
+        const isLoaded = hoveredStrokeRef.current === '0' || (audioEngine && audioEngine.isStrokeLoaded(inst.id, hoveredStrokeRef.current));
+        if (isLoaded) {
+          selector.onSelect(hoveredStrokeRef.current);
+          onClose();
+        } else {
+          // Force sticky mode so they can tap and trigger download
+          setIsSticky(true);
+        }
       } else {
         // Otherwise (tap or no drag change), enter sticky mode so they can view options and tap one
         setIsSticky(true);
@@ -183,8 +233,13 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
     const handleMouseUp = () => {
       // If the user dragged to a DIFFERENT stroke, select it and close
       if (hoveredStrokeRef.current !== null && hoveredStrokeRef.current !== String(selector.currentVal)) {
-        selector.onSelect(hoveredStrokeRef.current);
-        onClose();
+        const isLoaded = hoveredStrokeRef.current === '0' || (audioEngine && audioEngine.isStrokeLoaded(inst.id, hoveredStrokeRef.current));
+        if (isLoaded) {
+          selector.onSelect(hoveredStrokeRef.current);
+          onClose();
+        } else {
+          setIsSticky(true);
+        }
       } else {
         setIsSticky(true);
       }
@@ -222,6 +277,45 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
       window.removeEventListener('touchstart', handleOutsideClick);
     };
   }, [isSticky, onClose]);
+
+  // 4. Keyboard shortcuts listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const targetTag = (e.target as HTMLElement).tagName?.toLowerCase();
+      if (targetTag === 'input' || targetTag === 'textarea') return;
+
+      const key = e.key;
+
+      if (key === 'Escape') {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (key === '0' || key === 'Backspace' || key === 'Delete' || key === '-') {
+        e.preventDefault();
+        selector.onSelect('0');
+        onClose();
+        return;
+      }
+
+      const strokes = getStrokesForInstrument(inst.id, inst.type, lang, isLeftHanded);
+      const matched = strokes.find(
+        (s) => s.shortcut.toLowerCase() === key.toLowerCase() || s.symbol.toLowerCase() === key.toLowerCase()
+      );
+
+      if (matched) {
+        e.preventDefault();
+        selector.onSelect(matched.symbol);
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selector, onClose, inst, lang, isLeftHanded]);
 
   const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 360;
   const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 640;
@@ -270,10 +364,13 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
 
         {/* Choices container */}
         <div className="flex flex-wrap items-center justify-center gap-1.5 w-full">
-          {allChoices.map((stroke) => {
+          {choicesToShow.map((stroke) => {
             const isSilence = stroke === '0';
             const strokeVal = isSilence ? '0' : stroke;
             const isHovered = hoveredStroke === strokeVal;
+
+            const isLoaded = isSilence || (audioEngine && audioEngine.isStrokeLoaded(inst.id, stroke));
+            const isStrokeLoading = loadingStroke === strokeVal;
 
             const visualStroke = getVisualStrokeSymbol(stroke, isLeftHanded, inst.id);
             let bgColor = isSilence ? '#7f8c8d' : (inst.colors[visualStroke as string] || '#111');
@@ -288,11 +385,44 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
               displayLabel = 'Ø';
             }
 
-            const handleButtonSelect = (e: React.MouseEvent | React.TouchEvent) => {
+            const handleButtonSelect = async (e: React.MouseEvent | React.TouchEvent) => {
               e.preventDefault();
               e.stopPropagation();
+              if (loadingStroke) return;
+
+              if (isSilence) {
+                selector.onSelect(strokeVal);
+                onClose();
+                return;
+              }
+
+              const forced = forcedStrokes[`${selector.trackId}:${strokeVal}`];
+              const isActive = forced !== undefined ? forced : activeStrokes.some(s => s.toLowerCase() === strokeVal.toLowerCase());
+
+              if (!isLoaded && audioEngine) {
+                setLoadingStroke(strokeVal);
+                try {
+                  await audioEngine.loadStrokeSamples(inst.id, strokeVal);
+                  setStrokeForcedState(`${selector.trackId}:${strokeVal}`, true);
+                } catch (err) {
+                  console.error("Failed to load stroke sample:", err);
+                } finally {
+                  setLoadingStroke(null);
+                }
+              } else if (!isActive) {
+                // Force activation if already loaded but not currently active for the project
+                setStrokeForcedState(`${selector.trackId}:${strokeVal}`, true);
+              }
+
               selector.onSelect(strokeVal);
-              onClose();
+              
+              if (!isActive) {
+                // Auto-collapse (return to clean view) if the stroke was inactive
+                setIsExpanded(false);
+              } else {
+                // Fully close the selector if selecting an already active stroke
+                onClose();
+              }
             };
 
             return (
@@ -315,16 +445,35 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
                   isHovered
                     ? 'border-[#f1c40f] scale-110 shadow-[0_0_8px_#f1c40f] z-10'
                     : 'border-[#1a1a1a]'
-                }`}
+                } ${!isLoaded ? 'opacity-40 grayscale border-dashed shadow-none hover:opacity-75 hover:grayscale-0' : ''}`}
                 style={{
                   backgroundColor: bgColor,
                   color: textColor,
                 }}
               >
-                <span className="pointer-events-none">{displayLabel}</span>
+                {isStrokeLoading ? (
+                  <span className="animate-spin text-[10px] pointer-events-none">⏳</span>
+                ) : (
+                  <span className="pointer-events-none">{displayLabel}</span>
+                )}
               </div>
             );
           })}
+
+          {/* Xilogravura / Woodcut style Expand Button */}
+          {allChoices.length > choicesToShow.length && !isExpanded && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsExpanded(true);
+              }}
+              className="w-11 h-11 flex items-center justify-center font-cactus font-black text-lg border-2 border-[#1a1a1a] bg-[#f4ecd8] text-black shadow-[2px_2px_0px_#1a1a1a] hover:bg-black hover:text-[#f4ecd8] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer select-none"
+              title={lang === 'fr' ? 'Déplier' : 'Expandir'}
+            >
+              +
+            </button>
+          )}
         </div>
       </div>
 
@@ -341,3 +490,6 @@ export const TouchStrokeSelector: React.FC<TouchStrokeSelectorProps> = ({
     </div>
   );
 };
+
+export const TouchStrokeSelector = React.memo(TouchStrokeSelectorComponent);
+

@@ -21,12 +21,39 @@ interface UseInspecteurGameProps {
 }
 
 export function useInspecteurGame({ onSuccess, exerciseData }: UseInspecteurGameProps) {
-  const perfectAudio = exerciseData?.partition_parfaite || [];
-  const sabotagedAudio = exerciseData?.piste_sabotee || [];
-  const guiltyInstStr = exerciseData?.instrument_coupable || 'caixa';
-  const loopStart = exerciseData?.loop_start || 0;
-  const loopEnd = exerciseData?.loop_end || 0;
-  const bpm = exerciseData?.bpm || 83;
+  const effectiveExerciseData = useMemo(() => {
+    if (exerciseData && exerciseData.partition_parfaite && exerciseData.partition_parfaite.length > 0) {
+      return exerciseData;
+    }
+    return {
+      id: 'default_inspecteur_ex',
+      module: 'inspecteur',
+      folheto_titre: "L'Inspecteur",
+      bpm: 83,
+      loop_start: 0,
+      loop_end: 0,
+      instrument_coupable: 'caixa',
+      partition_parfaite: [
+        {
+          instrumentIdx: 3,
+          patterns: [{ activeSteps: [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0] }]
+        }
+      ],
+      piste_sabotee: [
+        {
+          instrumentIdx: 3,
+          patterns: [{ activeSteps: [1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0] }]
+        }
+      ]
+    };
+  }, [exerciseData]);
+
+  const perfectAudio = effectiveExerciseData?.partition_parfaite || [];
+  const sabotagedAudio = effectiveExerciseData?.piste_sabotee || [];
+  const guiltyInstStr = effectiveExerciseData?.instrument_coupable || 'caixa';
+  const loopStart = effectiveExerciseData?.loop_start || 0;
+  const loopEnd = effectiveExerciseData?.loop_end || 0;
+  const bpm = effectiveExerciseData?.bpm || 83;
   const totalMeasures = perfectAudio.length > 0 ? Math.max(...perfectAudio.map((t: any) => t.patterns?.length || 1)) : 1;
 
   const [isPlaying, setIsPlaying] = useState(false);

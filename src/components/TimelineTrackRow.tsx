@@ -1,34 +1,158 @@
 import React, { useContext } from 'react';
-import { useSequencerStore } from '../stores/useSequencerStore';
-import { useAudio } from '../contexts/AudioContext';
-import { instrumentsConfig, isDarkText, ASSETS_BASE_URL, getMaxTicks } from '../data';
-import { CompactPatternRenderer } from './CompactPatternRenderer';
+import { useSequencerStore, isToadaBus, isToadaChild, getEffectiveMuteState } from '../stores/useSequencerStore';
+import { useShallow } from 'zustand/react/shallow';
+import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
+import { TimelineMeasure } from './TimelineMeasure';
+import { useSequencer } from '../contexts/SequencerContext';
+import { getNextStepValue } from '../utils/instrumentStrokes';
+import { getTrackDisplayName } from '../utils/colorHelpers';
+import { Mic } from 'lucide-react';
+import { useAudioStore } from '../stores/useAudioStore';
 
 interface TimelineTrackRowProps {
   trackId: number;
+  visibleRange: { start: number; end: number };
+  currentMeasureW: number;
+  onStepTouchStart?: (
+    e: React.MouseEvent | React.TouchEvent,
+    patternId: number,
+    stepIdx: number,
+    instId: string,
+    currentVal: string | number,
+    onSelect: (val: string) => void
+  ) => void;
 }
 
-function getDisplayVal(val: string | number) {
-  if (val === 0 || val === '0' || !val) return '';
-  return String(val);
-}
-
-const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId }) => {
-  // 1. Contextes UI (injectés par TimelineSequencer pour éviter les props)
+const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ 
+  trackId, 
+  visibleRange = { start: 0, end: 8 },
+  currentMeasureW,
+  onStepTouchStart
+}) => {
   const uiContext = useContext(TimelineUIContext);
-  const [editingMeasureIdx, setEditingMeasureIdx] = React.useState<number | null>(null);
+  
+  if (!uiContext) return null;
+  const { 
+    HEADER_W, 
+    totalContentW, 
+    isMobile, 
+    isMacro, 
+    isMinZoom, 
+    isPanningActive, 
+    lang, 
+  } = uiContext;
 
-  // 2. Audio Context (Supprimé pour préserver le React.memo)
+  const tracks = useSequencerStore(state => state.tracks);
+  const dbTrack = tracks.find(t => t.id === trackId);
+  const trackInst = dbTrack ? instrumentsConfig[dbTrack.instrumentIdx] : null;
 
-  // 3. Zustand Selectors (Granulaires)
-  const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
+  const [isEditingName, setIsEditingName] = React.useState(false);
+  const [nameVal, setNameVal] = React.useState(dbTrack?.customName || (trackInst ? trackInst.name : ''));
+
+  const targetPatternId = useAudioStore((state) => state.targetPatternId);
+  const isArmedAtTrackLevel = dbTrack ? dbTrack.patterns.some(p => p.id === targetPatternId) : false;
+
+  const handleTrackArmClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isArmedAtTrackLevel) {
+      useAudioStore.getState().setTargetPatternId(null);
+      useAudioStore.getState().setTargetMeasureIdx(null);
+    } else if (dbTrack && dbTrack.patterns.length > 0) {
+      const patternIdToArm = dbTrack.selectedPatternId || dbTrack.patterns[0].id;
+      useAudioStore.getState().setTargetPatternId(patternIdToArm);
+      const assignedIdx = dbTrack.patterns.find(p => p.id === patternIdToArm)?.measureAssignments.indexOf(true) ?? 0;
+      useAudioStore.getState().setTargetMeasureIdx(assignedIdx !== -1 ? assignedIdx : 0);
+    }
+  };
+
+  React.useEffect(() => {
+    setNameVal(dbTrack?.customName || (trackInst ? trackInst.name : ''));
+  }, [dbTrack?.customName, trackInst?.name]);
+
+  const handleRenameSubmit = () => {
+    setIsEditingName(false);
+    if (!dbTrack) return;
+    useSequencerStore.getState().setTracks(prev => prev.map(t => 
+      t.id === trackId ? { ...t, customName: nameVal.trim() || undefined } : t
+    ));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleRenameSubmit();
+    } else if (e.key === 'Escape') {
+      setIsEditingName(false);
+      setNameVal(dbTrack?.customName || (inst ? inst.name : ''));
+    }
+  };
+
+  // Granular primitive selectors to avoid any reference instability or infinite loops
+  const instrumentIdx = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.instrumentIdx ?? 0);
+  const isMute = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.isMute ?? false);
+  const isSolo = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.isSolo ?? false);
+  const isMaster = useSequencerStore(state => state.tracks.some(t => String(t.linkedToTrackId) === String(trackId)));
+
+  // Subscribe to full track only in Macro mode (where compact preview must update on step changes)
+  const fullTrack = useSequencerStore(state => {
+    if (isMacro) {
+      return state.tracks.find(t => t.id === trackId);
+    }
+    return null;
+  });
+
+  // Stringified track structure to check for structural changes without subscribing to activeSteps/lyrics/etc.
+  const trackStructureJson = useSequencerStore(state => {
+    if (isMacro) return '';
+    const t = state.tracks.find(curr => curr.id === trackId);
+    if (!t) return '';
+    return JSON.stringify(t.patterns.map(p => ({
+      id: p.id,
+      name: p.name,
+      steps: p.steps,
+      vocalMode: p.vocalMode,
+      measureAssignments: p.measureAssignments,
+      measureAllowVariations: p.measureAllowVariations,
+      variationsCount: p.variations?.length || 0,
+    })));
+  });
+
+  // Re-generate the track object for rendering purposes (isolated from step updates)
+  const trackData = React.useMemo(() => {
+    if (isMacro) {
+      return fullTrack;
+    }
+    if (!trackStructureJson) return null;
+    return {
+      id: trackId,
+      instrumentIdx,
+      isMute,
+      isSolo,
+      isBusFolder: dbTrack?.isBusFolder,
+      isLinkFolder: dbTrack?.isLinkFolder,
+      isLinkMaster: dbTrack?.isLinkMaster,
+      customName: dbTrack?.customName,
+      patterns: JSON.parse(trackStructureJson),
+    };
+  }, [
+    isMacro, 
+    fullTrack, 
+    trackStructureJson, 
+    trackId, 
+    instrumentIdx, 
+    isMute, 
+    isSolo,
+    dbTrack?.isBusFolder,
+    dbTrack?.isLinkFolder,
+    dbTrack?.isLinkMaster,
+    dbTrack?.customName
+  ]);
+
   const trackIndex = useSequencerStore(state => state.tracks.findIndex(t => t.id === trackId));
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
   
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
-  const songSections = useSequencerStore(state => state.songSections);
-  const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
+  const songSections = useSequencerStore(useShallow(state => state.songSections));
   const loopStartMeasure = useSequencerStore(state => state.loopStartMeasure);
   const loopEndMeasure = useSequencerStore(state => state.loopEndMeasure);
   const isLoopRegionActive = useSequencerStore(state => state.isLoopRegionActive);
@@ -38,35 +162,104 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
   const onSoloToggle = useSequencerStore(state => state.handleTrackSoloToggle);
   const onPatternAssignForMeasure = useSequencerStore(state => state.handleTimelinePatternAssign);
   const onPatternVariationToggleForMeasure = useSequencerStore(state => state.handleTimelinePatternVariationToggle);
+  const onToggleFoldBus = useSequencerStore(state => state.handleToggleSequencerFoldBus);
 
-  if (!uiContext) return null;
-  const { MEASURE_W, HEADER_W, totalContentW, isMobile, isMacro, isMinZoom, isPanningActive, lang } = uiContext;
+  if (!trackData) return null;
 
-  if (!track) return null;
-
-  const inst = instrumentsConfig[track.instrumentIdx];
+  const inst = instrumentsConfig[trackData.instrumentIdx];
   if (!inst) return null;
-  const isMutedBySolo = hasSolo && !track.isSolo;
-  const canPlay = track.isSolo || (!track.isMute && !isMutedBySolo);
+
+  const slaves = tracks.filter(t => String(t.linkedToTrackId) === String(trackId));
+  const getPluralName = (name: string) => {
+    if (name.includes('Alfaia')) return 'Alfaias';
+    if (name === 'Caixa') return 'Caixas';
+    if (name === 'Tarol') return 'Tarols';
+    if (name === 'Agbê') return 'Agbês';
+    if (name === 'Mineiro') return 'Mineiros';
+    if (name === 'Gonguê') return 'Gonguês';
+    return name + 's';
+  };
+  const linkedSlavesTooltip = isMaster
+    ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${inst.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
+    : undefined;
+  const isLinkedChild = !!(dbTrack && dbTrack.linkedToTrackId && !dbTrack.isLinkFolder);
+  const isLinkedSlave = dbTrack && dbTrack.linkedToTrackId && !dbTrack.isLinkFolder && !dbTrack.isLinkMaster;
+  const isToada = isToadaBus(trackData);
+  const isToadaChildTrack = dbTrack && isToadaChild(dbTrack, tracks);
+  const isChild = isLinkedSlave || isToadaChildTrack;
+
+  const displayName = isToada
+    ? 'Toada'
+    : (isChild ? `↳ ${getTrackDisplayName(dbTrack, tracks)}` : getTrackDisplayName(dbTrack, tracks));
+  
+  const canPlay = !getEffectiveMuteState(tracks, trackId);
+
+  const sequencer = useSequencer();
+
+  const parentBus = React.useMemo(() => {
+    if (dbTrack?.isLinkMaster && dbTrack.linkedToTrackId) {
+      return tracks.find(p => String(p.id) === String(dbTrack.linkedToTrackId) && p.isLinkFolder);
+    }
+    return null;
+  }, [dbTrack?.isLinkMaster, dbTrack?.linkedToTrackId, tracks]);
+
+  const isCollapsed = React.useMemo(() => {
+    if (isToada) return dbTrack?.isSequencerFolded;
+    if (dbTrack?.isLinkMaster) return parentBus?.isSequencerFolded;
+    return false;
+  }, [isToada, dbTrack?.isSequencerFolded, dbTrack?.isLinkMaster, parentBus?.isSequencerFolded]);
+
+  const handleToggleFold = () => {
+    if (isToada) {
+      onToggleFoldBus(String(trackData.id));
+    } else if (dbTrack?.isLinkMaster && parentBus) {
+      onToggleFoldBus(String(parentBus.id));
+    }
+  };
+
+
+  const handleMeasureClick = (mIdx: number, steps: number, clickX: number) => {
+    const ratio = Math.max(0, Math.min(1, clickX / currentMeasureW));
+    const stepIdx = Math.floor(ratio * steps);
+    window.dispatchEvent(
+      new CustomEvent('o-girador-timeline-nav', {
+        detail: { mIdx, sIdx: stepIdx }
+      })
+    );
+  };
+
+  const leftSpacerWidth = Math.max(0, visibleRange.start) * currentMeasureW;
+  const rightSpacerCount = Math.max(0, totalMeasures - 1 - visibleRange.end);
+  const rightSpacerWidth = rightSpacerCount * currentMeasureW;
 
   return (
     <div
-      className={`flex border-b border-[var(--cordel-border)]/20 h-12 transition-opacity duration-150 ${
+      className={`flex border-b border-[var(--cordel-border)]/20 h-10 rounded-none transition-opacity duration-150 relative ${
         !canPlay ? 'opacity-50' : ''
       }`}
       style={{ 
         width: `${HEADER_W + totalContentW}px`,
-        contain: 'strict',
+        minWidth: `${HEADER_W + totalContentW}px`,
+        // Suppression du contain: 'strict' pour corriger définitivement le bug d'affichage (Culling) après C2
       }}
     >
       {/* ── Sticky track header ── */}
       <div
-        className={`sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] ${
-          isMobile ? 'px-1' : 'px-3'
+        className={`timeline-sticky-header sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] shrink-0 ${
+          isMobile ? (isChild ? 'pl-3 pr-1' : 'px-1') : (isChild ? 'pl-8 pr-3' : 'px-3')
         }`}
-        style={{ width: HEADER_W, minWidth: HEADER_W }}
+        style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
       >
         <div className={`flex items-center min-w-0 flex-grow ${isMobile ? 'gap-0.5' : 'gap-2'}`}>
+          {(dbTrack?.isLinkMaster || isToada) && (
+            <button
+              onClick={handleToggleFold}
+              className="p-0.5 hover:bg-[var(--cordel-text)]/10 rounded cursor-pointer text-[10px] font-bold mr-1 shrink-0 flex items-center justify-center w-4 h-4 border border-[var(--cordel-border)]/30 text-[var(--cordel-text)]"
+              title={isCollapsed ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar')}
+            >
+              {isCollapsed ? '▶' : '▼'}
+            </button>
+          )}
           {isMobile ? (
             <span className="font-mono text-[10px] text-[var(--cordel-text)]/60 shrink-0">
               #{trackIndex + 1}
@@ -79,324 +272,191 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ trackId })
               isMobile ? 'w-6 h-6' : 'w-8 h-8'
             }`}
           />
+          {inst.type === 'voice' && (
+            <button
+              onClick={handleTrackArmClick}
+              className={`p-1 rounded-full border cursor-pointer shrink-0 flex items-center justify-center transition-all ${
+                isArmedAtTrackLevel
+                  ? 'bg-red-600 text-white border-red-700 animate-pulse shadow-sm shadow-red-600/50'
+                  : 'bg-transparent hover:bg-gray-400/20 text-gray-400 border-gray-400/30'
+              }`}
+              style={{ width: '22px', height: '22px' }}
+              title={lang === 'fr' ? "Armer la piste pour enregistrement" : "Armar pista para gravação"}
+            >
+              <Mic className="w-3.5 h-3.5" />
+            </button>
+          )}
           {!isMobile ? (
-            <span className="track-header-name font-cactus text-sm font-bold truncate text-[var(--cordel-text)] tracking-wider">
-              {inst.name}
-            </span>
+            isEditingName ? (
+              <input
+                type="text"
+                value={nameVal}
+                onChange={e => setNameVal(e.target.value)}
+                onBlur={handleRenameSubmit}
+                onKeyDown={handleKeyDown}
+                className="font-cactus font-bold text-sm bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-1 py-0.5 outline-none max-w-[120px] text-left"
+                autoFocus
+                onClick={e => e.stopPropagation()}
+                onMouseDown={e => e.stopPropagation()}
+              />
+            ) : (
+              <span 
+                onDoubleClick={() => setIsEditingName(true)}
+                className="track-header-name font-cactus text-sm font-bold truncate text-[var(--cordel-text)] tracking-wider cursor-pointer hover:bg-[var(--cordel-text)]/5 rounded px-1"
+                title={lang === 'fr' ? 'Double-cliquer pour renommer' : 'Clique duplo para renomear'}
+              >
+                {displayName}
+              </span>
+            )
           ) : null}
-        </div>
-        <div className={`track-header-controls flex shrink-0 ${isMobile || isMacro ? 'flex-col gap-0.5' : 'flex-row gap-1'}`}>
-          <button
-            onClick={() => onMuteToggle(track.id)}
-            className={`flex items-center justify-center font-bold cordel-border-sm cursor-pointer transition-colors ${
-              isMobile ? 'w-5 h-5 text-[9px]' : 'w-6 h-6 text-[11px]'
-            } ${
-              (track.isMute && !track.isSolo) ? 'bg-red-600 text-white border-red-600' : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-            }`}
-            title="Mute"
-          >M</button>
-          <button
-            onClick={() => onSoloToggle(track.id)}
-            className={`flex items-center justify-center font-bold cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
-              isMobile ? 'w-5 h-5 text-[9px]' : 'w-6 h-6 text-[11px]'
-            } ${
-              track.isSolo ? 'bg-amber-500 text-black border-amber-500' : 'bg-transparent text-[var(--cordel-text)]'
-            }`}
-            title="Solo"
-          >S</button>
         </div>
       </div>
 
-      {/* ── Measure cells ── */}
-      {Array.from({ length: totalMeasures }).map((_, mIdx) => {
-        const activePattern = track.patterns.find(p => p.measureAssignments[mIdx]);
-        const steps = activePattern ? activePattern.steps : 16;
+      {/* Left spacer column */}
+      {visibleRange.start > 0 && (
+        <div style={{ width: `${leftSpacerWidth}px`, minWidth: `${leftSpacerWidth}px` }} className="shrink-0" />
+      )}
 
-        // Find if there is a section covering this measure
-        const measureSection = songSections.find(s => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
-        const isSectionStart = measureSection && mIdx === measureSection.startMeasure;
-        const isSectionEnd = measureSection && mIdx === measureSection.endMeasure;
-        const sectionColor = measureSection?.color || '';
+      {/* ── Measure cells (Isolés dans TimelineMeasure.tsx pour éviter le render thrashing) ── */}
+      {Array.from({ length: totalMeasures })
+        .map((_, mIdx) => ({ mIdx }))
+        .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
+        .map(({ mIdx }) => {
+          const puxTrack = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+          const coroTrack = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+          const isToada = isToadaBus(trackData);
 
-        return (
-          <div
-            key={mIdx}
-            className={`h-full relative cursor-pointer border-r ${
-              (mIdx + 1) % 4 === 0
-                ? 'border-r-2 border-r-blue-500/40 dark:border-r-blue-400/40 shadow-[1px_0_0_0_rgba(59,130,246,0.15)]'
-                : 'border-r-[var(--cordel-border)]/20'
-            } ${
-              loopStartMeasure !== null && loopEndMeasure !== null
-                ? (mIdx >= loopStartMeasure && mIdx <= loopEndMeasure ? (isLoopRegionActive ? 'bg-blue-600/[0.03]' : '') : (isLoopRegionActive ? 'bg-black/10 dark:bg-black/30 opacity-70' : ''))
-                : ''
-            } ${
-              measureSection ? 'cell-section-tint' : ''
-            } ${
-              isSectionStart ? 'cell-section-start' : ''
-            } ${
-              isSectionEnd ? 'cell-section-end' : ''
-            }`}
-            style={{ 
-              width: MEASURE_W, 
-              minWidth: MEASURE_W,
-              ...({ '--section-color': sectionColor } as React.CSSProperties)
-            }}
-            onClick={(e) => {
-              if (isPanningActive) return; // Prevent navigations when panning
-              const rect = e.currentTarget.getBoundingClientRect();
-              const clickX = e.clientX - rect.left;
-              const ratio = Math.max(0, Math.min(1, clickX / MEASURE_W));
-              const stepIdx = Math.floor(ratio * steps);
-              window.dispatchEvent(
-                new CustomEvent('o-girador-timeline-nav', {
-                  detail: { mIdx, sIdx: stepIdx }
-                })
-              );
-            }}
-          >
-            {/* Cell content (Detailed View) */}
-            {!isMacro && (
-              <div className="cell-detailed w-full h-full relative">
-              {/* Pattern selector */}
-              {editingMeasureIdx === mIdx ? (
-                <div
-                  className={`absolute top-1 left-1 z-20 ${isPanningActive ? 'pointer-events-none opacity-65' : ''}`}
-                  onClick={e => e.stopPropagation()}
-                  onMouseDown={e => e.stopPropagation()}
-                  onTouchStart={e => e.stopPropagation()}
-                >
-                  <select
-                    value={activePattern ? String(activePattern.id) : 'silence'}
-                    autoFocus
-                    onChange={e => {
-                      const v = e.target.value;
-                      onPatternAssignForMeasure(
-                        track.id,
-                        v === 'silence' ? null : Number(v),
-                        mIdx,
-                      );
-                      setEditingMeasureIdx(null);
-                    }}
-                    onBlur={() => setEditingMeasureIdx(null)}
-                    className="bg-[var(--cordel-bg)]/95 text-[var(--cordel-text)] text-[10px] font-cactus font-bold border border-[var(--cordel-border)]/50 rounded px-1 py-px outline-none cursor-pointer tracking-wider uppercase max-w-[125px] leading-tight"
-                    style={{ fontSize: '10px', height: '22px' }}
-                  >
-                    <option value="silence">
-                      {lang === 'fr' ? '— Silence' : '— Silêncio'}
-                    </option>
-                    {track.patterns.map((p, pidx) => (
-                      <option key={p.id} value={String(p.id)}>
-                        {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                  
-                  {/* Dice Toggle for Variations */}
-                  {activePattern && inst.type !== 'voice' && inst.id !== 'apito' && (activePattern.variations?.length || 0) > 0 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const isAllowed = activePattern.measureAllowVariations?.[mIdx] || false;
-                        onPatternVariationToggleForMeasure(track.id, activePattern.id, mIdx, !isAllowed);
-                      }}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      className={`ml-1 px-1 py-0.5 rounded text-[10px] border transition-colors ${
-                        activePattern.measureAllowVariations?.[mIdx] 
-                          ? 'bg-[#f1c40f] text-black border-yellow-600 shadow-[0_0_4px_rgba(241,196,15,0.6)]' 
-                          : 'bg-[#2a2a2a] text-white/90 border-black/50 hover:bg-[#3a3a3a] shadow-sm'
-                      }`}
-                      title={
-                        activePattern.measureAllowVariations?.[mIdx] 
-                          ? (lang === 'fr' ? 'Mode Improvisation activé' : 'Modo Improvisação ativado')
-                          : (lang === 'fr' ? 'Mode Strict (sans variation)' : 'Modo Estrito (sem variação)')
-                      }
-                    >
-                      🎲
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div
-                  className="absolute top-1 left-1 z-20 flex items-center gap-1 cursor-pointer bg-[var(--cordel-bg)]/80 hover:bg-[var(--cordel-bg)]/95 border border-[var(--cordel-border)]/20 hover:border-[var(--cordel-border)]/50 rounded px-1.5 py-px shadow-sm max-w-[125px]"
-                  onClick={e => {
-                    e.stopPropagation();
-                    setEditingMeasureIdx(mIdx);
-                  }}
-                >
-                  <span className="text-[10px] font-cactus font-bold tracking-wider uppercase truncate leading-tight select-none">
-                    {activePattern ? (activePattern.name || `${lang === 'fr' ? 'Motif' : 'Padrão'}`) : (lang === 'fr' ? 'Silence' : 'Silêncio')}
-                  </span>
-                  {activePattern && inst.type !== 'voice' && inst.id !== 'apito' && (activePattern.variations?.length || 0) > 0 && (
-                    <span className={`text-[9px] ${activePattern.measureAllowVariations?.[mIdx] ? 'text-yellow-600' : 'text-[var(--cordel-text)]/40'}`}>
-                      🎲
-                    </span>
-                  )}
-                </div>
-              )}
+          let activePattern = null;
+          let activeTrack = null;
+          let currentTrackId = trackData.id;
+          let currentInstrumentIdx = trackData.instrumentIdx;
+          let currentInst = inst;
+          let currentPatternsList = trackData.patterns;
+          let currentTrackIdx = trackIndex;
+          let isOverridden = false;
+          let isSilence = false;
 
-              {activePattern && activePattern.vocalMode === 'micro' && (
-                <div className="absolute bottom-1.5 right-1.5 bg-[#27ae60] text-white border border-black/20 font-sans font-bold text-[8px] px-1 py-px rounded-sm z-20 pointer-events-none select-none flex items-center gap-0.5 shadow-sm">
-                  🎙️ MIC
-                </div>
-              )}
+          if (isToada) {
+            const pPtn = puxTrack?.patterns.find(p => p.measureAssignments[mIdx]);
+            const cPtn = coroTrack?.patterns.find(p => p.measureAssignments[mIdx]);
+            if (cPtn) {
+              activePattern = cPtn;
+              activeTrack = coroTrack;
+              currentTrackIdx = tracks.findIndex(t => t.id === coroTrack!.id);
+            } else if (pPtn) {
+              activePattern = pPtn;
+              activeTrack = puxTrack;
+              currentTrackIdx = tracks.findIndex(t => t.id === puxTrack!.id);
+            }
 
-              {!activePattern ? (
-                /* Silence hatching */
-                <div
-                  className="w-full h-full opacity-15"
-                  style={{
-                    backgroundImage:
-                      'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
-                    backgroundSize: '10px 10px',
-                  }}
-                />
-              ) : (
-                /* Steps grid */
-                <div className="flex h-full w-full">
-                  {Array.from({ length: steps }).map((_, sIdx) => {
-                    const val = activePattern.activeSteps[sIdx];
-                    const display = getDisplayVal(val);
-                    const isActive = val !== 0 && val !== '';
-                    const timeSigStr = measureTimeSigs[mIdx] || '4/4';
-                    const mMaxTicks = getMaxTicks(timeSigStr);
-                    
-                    const defaultBeats = parseInt(timeSigStr.split('/')[0], 10);
-                    const beatRes = activePattern.beatResolutions || Array(defaultBeats).fill(Math.floor(steps / defaultBeats) || 4);
-                    let stepWidth = MEASURE_W / steps;
-                    let accumulated = 0;
-                    let accumulatedTicks = 0;
-                    const ticksPerBeat = mMaxTicks / defaultBeats;
-                    let currentTickIdx = 0;
-                    let currentStepRes = 4;
-                    for (let b = 0; b < beatRes.length; b++) {
-                      if (sIdx >= accumulated && sIdx < accumulated + beatRes[b]) {
-                        stepWidth = (MEASURE_W / defaultBeats) / beatRes[b];
-                        const stepInBeat = sIdx - accumulated;
-                        currentTickIdx = Math.round(accumulatedTicks + stepInBeat * (ticksPerBeat / beatRes[b]));
-                        currentStepRes = beatRes[b];
-                        break;
-                      }
-                      accumulated += beatRes[b];
-                      accumulatedTicks += ticksPerBeat;
-                    }
+            if (activeTrack) {
+              currentTrackId = activeTrack.id;
+              currentInstrumentIdx = activeTrack.instrumentIdx;
+              currentInst = instrumentsConfig[currentInstrumentIdx] || inst;
+            }
 
-                    let style: React.CSSProperties = {
-                      width: `${stepWidth}px`,
-                    };
+            const toadaPatternsList = [];
+            if (puxTrack) toadaPatternsList.push(...puxTrack.patterns);
+            if (coroTrack) toadaPatternsList.push(...coroTrack.patterns);
+            currentPatternsList = toadaPatternsList;
+          } else if (isLinkedChild && dbTrack) {
+            const parentBus = tracks.find(p => String(p.id) === String(dbTrack.linkedToTrackId) && p.isLinkFolder);
+            if (parentBus) {
+              const override = dbTrack.isLinkMaster ? undefined : dbTrack.patternOverrides?.[mIdx];
+              if (override === null) {
+                isSilence = true;
+                activePattern = null;
+                isOverridden = true;
+              } else if (override !== undefined) {
+                activePattern = parentBus.patterns.find(p => p.id === override) || null;
+                isOverridden = true;
+              } else {
+                activePattern = parentBus.patterns.find(p => p.measureAssignments[mIdx]) || null;
+                isOverridden = false;
+              }
+              activeTrack = parentBus;
+              currentPatternsList = parentBus.patterns;
+              currentTrackIdx = tracks.findIndex(t => t.id === parentBus.id);
+            }
+          } else {
+            activePattern = trackData.patterns.find(p => p.measureAssignments[mIdx]);
+            activeTrack = trackData;
+          }
 
-                    if (isActive) {
-                      const bg = inst.colors[val as string] || '#111';
-                      let fg = inst.colors.text || '#f4ecd8';
-                      if (isDarkText(inst.id, String(val))) {
-                        fg = '#1a1a1a';
-                      }
-                      style = { ...style, backgroundColor: bg, color: fg };
-                    }
+          const patternIdx = activePattern && activeTrack ? activeTrack.patterns.findIndex((p: any) => p.id === activePattern.id) : -1;
+          const steps = activePattern ? activePattern.steps : 16;
 
-                    return (
-                      <div
-                        key={sIdx}
-                        className="h-full border-r border-[var(--cordel-border)]/10 flex flex-col items-center justify-center text-center"
-                        style={style}
-                      >
-                        {inst.type === 'voice' ? (
-                          <div className="flex flex-col items-center justify-center leading-none px-0.5 overflow-hidden w-full h-full">
-                            <span className="text-[9px] font-bold uppercase opacity-75">
-                              {val === 'P' ? 'PUX' : val === 'C' ? 'CORO' : ''}
-                            </span>
-                            <span className="text-[11px] font-cactus font-bold truncate max-w-full">
-                              {activePattern.lyrics?.[sIdx] || ''}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-[13px] font-extrabold tracking-wide">
-                            {display}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            )}
+          // Find if there is a section covering this measure
+          const measureSection = songSections.find(s => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
+          const isSectionStart = measureSection && mIdx === measureSection.startMeasure;
+          const isSectionEnd = measureSection && mIdx === measureSection.endMeasure;
+          const sectionColor = measureSection?.color || '';
 
-            {/* Cell content (Macro View) */}
-            {isMacro && (
-              <div className="cell-macro w-full h-full p-1">
-              {!activePattern ? (
-                /* Faded silence hatched block */
-                <div
-                  className="w-full h-full opacity-[0.05] border border-dashed border-[var(--cordel-border)]/30 rounded"
-                  style={{
-                    backgroundImage:
-                      'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
-                    backgroundSize: '8px 8px',
-                  }}
-                />
-              ) : (
-                /* Merged continuous visual block */
-                <div
-                  className={`macro-pattern-block w-full h-full flex ${
-                    isMinZoom ? 'flex-row justify-center items-center p-1' : 'flex-col justify-between p-1.5'
-                  } border rounded-sm transition-all`}
-                  style={{
-                    backgroundColor: `${inst.mixerBg}cc`, // semi-transparent instrument background
-                    borderColor: `${inst.colors['D'] || inst.colors['E'] || 'var(--cordel-border)'}40`,
-                    borderLeftWidth: '3px',
-                    borderLeftColor: inst.colors['D'] || inst.colors['E'] || 'var(--cordel-border)',
-                  }}
-                  title={`${activePattern.name || (lang === 'fr' ? 'Motif' : 'Padrão')} (${inst.name})`}
-                >
-                  {/* Pattern Name */}
-                  {!isMinZoom && (
-                    <span className="font-cactus text-[9px] font-bold truncate tracking-wider uppercase text-[var(--cordel-text)] leading-none">
-                      {activePattern.vocalMode === 'micro' ? '🎙️ ' : ''}
-                      {activePattern.name || `${lang === 'fr' ? 'Motif' : 'Padrão'}`}
-                    </span>
-                  )}
+          const isInLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
+          const loopStatus = loopStartMeasure !== null && loopEndMeasure !== null
+            ? (isInLoop ? (isLoopRegionActive ? 'inside-active' as const : 'none' as const) : (isLoopRegionActive ? 'outside-active' as const : 'none' as const))
+            : 'none' as const;
 
-                  {/* Mini-beats density dots or Compact geometric shapes */}
-                  <div className={`flex items-center opacity-90 overflow-hidden w-full h-full pb-0.5`}>
-                    {isMinZoom ? (
-                      <div className="flex flex-wrap gap-[2px] justify-center w-full">
-                        {activePattern.activeSteps.map((val, sIdx) => {
-                          const isActive = val !== 0 && val !== '';
-                          if (!isActive) return null;
-                          const bg = inst.colors[val as string] || '#111';
-                          return (
-                            <span
-                              key={sIdx}
-                              className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: bg }}
-                              title={String(val)}
-                            />
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <CompactPatternRenderer
-                        pattern={activePattern}
-                        inst={inst}
-                        isLeftHanded={false}
-                        isEditable={false}
-                        isFluid={true}
-                        className="h-full"
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-            )}
-          </div>
-        );
-      })}
+          const hasChildOverrides = dbTrack?.isLinkFolder && tracks.some(child => 
+            String(child.linkedToTrackId) === String(dbTrack.id) && 
+            !child.isLinkFolder && 
+            child.patternOverrides?.[mIdx] !== undefined
+          );
+
+          return (
+            <TimelineMeasure
+              key={mIdx}
+              mIdx={mIdx}
+              trackId={isLinkedChild && dbTrack ? dbTrack.id : currentTrackId}
+              trackIdx={isLinkedChild && dbTrack ? trackIndex : currentTrackIdx}
+              instrumentIdx={isLinkedChild && dbTrack ? dbTrack.instrumentIdx : currentInstrumentIdx}
+              currentMeasureW={currentMeasureW}
+              patternId={activePattern ? activePattern.id : -1}
+              patternIdx={patternIdx}
+              steps={steps}
+              beatResolutions={activePattern?.beatResolutions}
+              sectionColor={sectionColor}
+              isSectionStart={isSectionStart}
+              isSectionEnd={isSectionEnd}
+              loopStatus={loopStatus}
+              isPanningActive={isPanningActive}
+              instId={isLinkedChild ? inst.id : currentInst.id}
+              instType={isLinkedChild ? inst.type : currentInst.type}
+              lang={lang}
+              activePatternName={isSilence ? (lang === 'fr' ? 'Silence' : 'Silêncio') : (activePattern ? activePattern.name : null)}
+              patternsList={currentPatternsList}
+              signalDropdownOpen={uiContext.signalDropdownOpen}
+              onPatternAssignForMeasure={onPatternAssignForMeasure}
+              onPatternVariationToggleForMeasure={onPatternVariationToggleForMeasure}
+              measureAllowVariations={activePattern?.measureAllowVariations?.[mIdx] || false}
+              variationsCount={activePattern?.variationsCount || 0}
+              isMacro={isMacro}
+              isMinZoom={isMinZoom}
+              instColors={isLinkedChild ? inst.colors : currentInst.colors}
+              instMixerBg={isLinkedChild ? inst.mixerBg : currentInst.mixerBg}
+              activePatternActiveSteps={activePattern?.activeSteps}
+              onMeasureClick={handleMeasureClick}
+              isLinkedChild={!!isLinkedChild}
+              isLinkMaster={!!dbTrack?.isLinkMaster}
+              isOverridden={isOverridden}
+              isSilence={isSilence}
+              hasChildOverrides={hasChildOverrides}
+              onStepTouchStart={onStepTouchStart}
+            />
+          );
+        })}
+
+      {/* Right spacer column */}
+      {rightSpacerCount > 0 && (
+        <div style={{ width: `${rightSpacerWidth}px`, minWidth: `${rightSpacerWidth}px` }} className="shrink-0" />
+      )}
     </div>
   );
 };
 
-export const TimelineTrackRow = React.memo(TimelineTrackRowComponent);
+export const TimelineTrackRow = React.memo(TimelineTrackRowComponent, (prev, next) => {
+  return prev.trackId === next.trackId &&
+         prev.currentMeasureW === next.currentMeasureW &&
+         prev.visibleRange.start === next.visibleRange.start &&
+         prev.visibleRange.end === next.visibleRange.end;
+});

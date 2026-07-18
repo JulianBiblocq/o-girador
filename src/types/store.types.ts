@@ -33,8 +33,15 @@ export interface Pattern {
   vocalBpmSync?: boolean;
   vocalAudioData?: string;
   vocalAudioUrl?: string;
+  vocalNudge?: number;
+  vocalTrimStart?: number;
   beatResolutions?: number[]; // Added for tuplet support
   variations?: PatternVariation[];
+  preRollActiveSteps?: (string | number)[];
+  preRollLyrics?: string[];
+  preRollNotes?: string[];
+  preRollVolumes?: number[];
+  preRollDecays?: number[];
 }
 
 export interface SavedPattern {
@@ -70,6 +77,27 @@ export interface TrackGroup {
   radius?: number; // visual radius in the roda
   reverbVal?: number;
   panVal?: number; // -100 to 100
+  pan?: number; // -100 to 100
+  swingIntensity?: number; // 0 to 100
+  fxSends?: {
+    reverb: number; // 0 to 100
+    distortion: number; // 0 to 100
+  };
+  linkedToTrackId?: string;
+  busId?: string;
+  isBusFolder?: boolean;
+  isLinkFolder?: boolean;
+  isLinkMaster?: boolean;
+  isFolded?: boolean;
+  isSequencerFolded?: boolean;
+  customName?: string;
+  patternOverrides?: Record<number, number | null>;
+  lowCut?: boolean;
+  eqBands?: {
+    low: { f: number; g: number };
+    mid: { f: number; g: number; q: 'wide' | 'narrow' };
+    high: { f: number; g: number };
+  };
 }
 
 export interface CatalogItem {
@@ -101,6 +129,12 @@ export interface SavedSectionTrack {
   volumeVal: number;
   reverbVal?: number;
   panVal?: number;
+  pan?: number;
+  swingIntensity?: number;
+  fxSends?: {
+    reverb: number;
+    distortion: number;
+  };
   patterns: Pattern[]; // Patterns mapped to the section's measures
 }
 
@@ -133,4 +167,17 @@ export interface CloudPreset {
   visibility: CatalogVisibility;
   targetUserId?: string;
   createdAt: number;
+}
+
+export interface MasterFX {
+  reverb: {
+    returnVolume: number;
+    time: number;
+    isMuted: boolean;
+  };
+  distortion: {
+    returnVolume: number;
+    drive: number;
+    isMuted: boolean;
+  };
 }

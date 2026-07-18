@@ -7,7 +7,12 @@ import React from 'react';
 import { Play, Square, SkipBack, Circle, Repeat, ArrowRightToLine, Loader2, Gauge } from 'lucide-react';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
+import { useTransportStore } from '../stores/useTransportStore';
+import { useShallow } from 'zustand/react/shallow';
 import { i18n } from '../data';
+import { DragNumberBox } from './DragNumberBox';
+import { metroChannel } from '../audio/effectsChain';
+import * as Tone from 'tone';
 
 interface TransportBarProps {
   viewMode: 'roda' | 'console' | 'timeline';
@@ -18,12 +23,25 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
   const audio = useAudio();
 
   const { lang, bpm, setBpm, isLeftHanded, setIsLeftHanded } = sequencer;
+  
+  const {
+    isMetroOn,
+    setIsMetroOn,
+    metroVolume,
+    setMetroVolume
+  } = useTransportStore(
+    useShallow((state) => ({
+      isMetroOn: state.isMetroOn,
+      setIsMetroOn: state.setIsMetroOn,
+      metroVolume: state.metroVolume,
+      setMetroVolume: state.setMetroVolume
+    }))
+  );
+
   const {
     isPlaying,
     isRecording,
     recordingSeconds = 0,
-    isMetroOn,
-    setIsMetroOn,
     handleTogglePlay,
     handleStop,
     handleAudioRecordingToggle,
@@ -66,33 +84,38 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
   }, [stopBpmChange]);
 
   return (
-    <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] flex flex-wrap items-center justify-between px-4 z-50 shrink-0">
+    <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] flex flex-wrap items-center justify-between px-4 z-[1000] shrink-0">
       
       {/* Left side: Metro, Swing, BPM */}
       <div className="flex items-center gap-4 flex-1">
-        <button
-          onClick={() => setIsMetroOn(!isMetroOn)}
-          className={`px-3 py-1 font-cactus font-bold text-sm flex items-center gap-1.5 cordel-border-sm cordel-button ${
-            isMetroOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
-          }`}
-          title={t('metroBtn')}
-        >
-          <svg
-            className="w-4 h-4"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        <div className="flex items-center bg-[var(--cordel-bg)] cordel-border-sm overflow-hidden h-[30px]">
+          <button
+            onClick={() => setIsMetroOn(!isMetroOn)}
+            className={`px-3 py-1 font-cactus font-bold text-sm flex items-center justify-center gap-2 h-full transition-colors cursor-pointer select-none ${
+              isMetroOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/5'
+            }`}
+            title={t('metroBtn')}
+            style={{ borderRadius: 0 }}
           >
-            <path d="M12 3L4 21h16L12 3z" />
-            <line x1="12" y1="18" x2="16" y2="7" />
-            <circle cx="15" cy="9.5" r="1.5" fill="currentColor" />
-            <circle cx="12" cy="18" r="1" fill="currentColor" />
-          </svg>
-          <span className="hidden lg:inline">{lang === 'pt' ? 'Metrônomo' : 'Métronome'}</span>
-        </button>
+            <svg
+              className="w-4 h-4 flex-shrink-0"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 3L4 21h16L12 3z" />
+              <line x1="12" y1="18" x2="16" y2="7" />
+              <circle cx="15" cy="9.5" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="18" r="1" fill="currentColor" />
+            </svg>
+            <span className="select-none hidden md:inline">
+              {lang === 'fr' ? 'Métronome' : lang === 'pt' ? 'Metrônomo' : 'Metronome'}
+            </span>
+          </button>
+        </div>
 
         <div className="flex items-center gap-1.5 bg-[var(--cordel-bg)] px-2 py-1 cordel-border-sm border-[var(--cordel-border)]">
           <Gauge className="w-4 h-4 text-[var(--cordel-text)] md:hidden" />

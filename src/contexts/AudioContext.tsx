@@ -55,6 +55,7 @@ export type AudioContextType = ReturnType<typeof useAudioSync> & {
   setActivePresetName: React.Dispatch<React.SetStateAction<string>>;
   handleTimeSigChange: (selectValue: TimeSignature) => Promise<void>;
   isCompiling: boolean;
+  isPresetLoading: boolean;
 };
 
 const AudioContext = createContext<AudioContextType | undefined>(undefined);
@@ -171,6 +172,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [activeKeyboardInstrumentId, setActiveKeyboardInstrumentId] = useState<string | null>(null);
 
   const [activePresetName, setActivePresetName] = useState<string>('');
+  const [isPresetLoading, setIsPresetLoading] = useState<boolean>(false);
 
   const [isRecording, setIsRecording] = useState<boolean>(false);
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
@@ -220,17 +222,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     songSectionsRef: sequencer.songSectionsRef,
     activeVariationsRef: sequencer.activeVariationsRef,
 
-    isRecordingVocal: sequencer.isRecordingVocal,
-    startVocalRecording: sequencer.startVocalRecording,
-    stopVocalRecording: sequencer.stopVocalRecording,
-    finishVocalRecording: sequencer.finishVocalRecording,
-    recordingVocalPatternIdRef: sequencer.recordingVocalPatternIdRef,
-    vocalRecordingStateRef: sequencer.vocalRecordingStateRef,
-    recordedMeasuresCountRef: sequencer.recordedMeasuresCountRef,
-    recordingDurationMeasuresRef: sequencer.recordingDurationMeasuresRef,
-    vocalPlayersRef: sequencer.vocalPlayersRef,
-    isVocalGuideEnabledRef: sequencer.isVocalGuideEnabledRef,
-    loadVocalRecording: sequencer.loadVocalRecording,
 
     isPlayingRef: sequencer.isPlayingRef,
     currentStepIndexRef: sequencer.currentStepIndexRef,
@@ -280,10 +271,53 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         p.measureAssignments.push(p.measureAssignments[0] || false);
       }
     }
+
+    if (!p.volumes || p.volumes.length !== p.steps) {
+      const existing = p.volumes || [];
+      p.volumes = Array(p.steps).fill(100);
+      for (let i = 0; i < Math.min(existing.length, p.steps); i++) {
+        const val = Number(existing[i]);
+        p.volumes[i] = isNaN(val) ? 100 : val;
+      }
+    } else {
+      for (let i = 0; i < p.steps; i++) {
+        const val = Number(p.volumes[i]);
+        p.volumes[i] = isNaN(val) ? 100 : val;
+      }
+    }
+
+    if (!p.decays || p.decays.length !== p.steps) {
+      const existing = p.decays || [];
+      p.decays = Array(p.steps).fill(100);
+      for (let i = 0; i < Math.min(existing.length, p.steps); i++) {
+        const val = Number(existing[i]);
+        p.decays[i] = isNaN(val) ? 100 : val;
+      }
+    } else {
+      for (let i = 0; i < p.steps; i++) {
+        const val = Number(p.decays[i]);
+        p.decays[i] = isNaN(val) ? 100 : val;
+      }
+    }
+
+    if (!p.microtimings || p.microtimings.length !== p.steps) {
+      const existing = p.microtimings || [];
+      p.microtimings = Array(p.steps).fill(0);
+      for (let i = 0; i < Math.min(existing.length, p.steps); i++) {
+        const val = Number(existing[i]);
+        p.microtimings[i] = isNaN(val) ? 0 : val;
+      }
+    } else {
+      for (let i = 0; i < p.steps; i++) {
+        const val = Number(p.microtimings[i]);
+        p.microtimings[i] = isNaN(val) ? 0 : val;
+      }
+    }
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const applyPreset = useCallback(async (p: any) => {
+    setIsPresetLoading(true);
     try {
       sequencer.clearHistory();
       sequencer.setLetras(p.letras || '');
@@ -509,10 +543,15 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       console.error("Failed to apply preset:", err);
       audioSync.setIsLoading(false);
       throw err;
+    } finally {
+      setTimeout(() => {
+        setIsPresetLoading(false);
+      }, 300);
     }
   }, []);
 
   const loadFallbackPreset = useCallback(async (name: string) => {
+    setIsPresetLoading(true);
     let p;
     if (name.startsWith('cloud:')) {
       const id = name.replace('cloud:', '');
@@ -547,6 +586,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [applyPreset]);
 
   const handlePresetSelect = async (value: string) => {
+    setIsPresetLoading(true);
     setActivePresetName(value);
     await loadFallbackPreset(value);
   };
@@ -774,12 +814,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           try {
             await Tone.context.resume();
           } catch (e) {
-            console.warn("AudioContext resume failed:", e);
+            // console.warn("AudioContext resume failed:", e);
           }
         }
         
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        isolatedRecordingContext = new AudioContextClass({ latencyHint: 'playback' });
+        try {
+          isolatedRecordingContext = new AudioContextClass({ latencyHint: 'playback', sampleRate: 44100 });
+        } catch (_) {
+          isolatedRecordingContext = new AudioContextClass({ latencyHint: 'playback' });
+        }
         
         const workletUrl = import.meta.env.BASE_URL + 'recorder-worklet.js';
         
@@ -896,7 +940,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     handleLoadLocalPreset,
     activePresetName,
     setActivePresetName,
-    handleTimeSigChange
+    handleTimeSigChange,
+    isPresetLoading
   }), [
     audioSync,
     masterVol,
@@ -917,7 +962,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     handleSaveToLocal,
     getCurrentPresetData,
     handleLoadLocalPreset,
-    handleTimeSigChange
+    handleTimeSigChange,
+    isPresetLoading
   ]);
 
   return (

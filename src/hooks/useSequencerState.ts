@@ -13,8 +13,11 @@ import { arrayMove } from '@dnd-kit/sortable';
 import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker } from '../types';
 import { instrumentsConfig, getMarkers, getVisualStrokeSymbol } from '../data';
 import { audioEngine } from './useAudioSync';
+import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useAuth } from '../contexts/AuthContext';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, isSequencerVisibleTrack } from '../stores/useSequencerStore';
+import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
+import { useSequencerHistory } from './useSequencerHistory';
 
 export function useSequencerState() {
   const { userProfile, updateUserPreference } = useAuth();
@@ -32,6 +35,8 @@ export function useSequencerState() {
   const measureSignals = useSequencerStore(state => state.measureSignals);
   const setMeasureSignals = (useSequencerStore as any)(state => state.setMeasureSignals) as any;
   const setSongMarkers = (useSequencerStore as any)(state => state.setSongMarkers) as any;
+  const totalMeasures = useSequencerStore(state => state.totalMeasures);
+  const songSections = useSequencerStore(state => state.songSections);
 
   const setLoopStartMeasure = (useSequencerStore as any)(state => state.setLoopStartMeasure) as any;
   const setLoopEndMeasure = (useSequencerStore as any)(state => state.setLoopEndMeasure) as any;
@@ -64,6 +69,11 @@ export function useSequencerState() {
   const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
   const setActiveAoVivoTrackId = useSequencerStore(state => state.setActiveAoVivoTrackId);
 
+  const vocalTransposeSteps = useSequencerStore(state => state.vocalTransposeSteps);
+  const setVocalTransposeSteps = useSequencerStore(state => state.setVocalTransposeSteps);
+  const incrementVocalTransposeSteps = useSequencerStore(state => state.incrementVocalTransposeSteps);
+  const decrementVocalTransposeSteps = useSequencerStore(state => state.decrementVocalTransposeSteps);
+
   // Sync local states to the store for autosave and global access
   useEffect(() => {
     useSequencerStore.setState({
@@ -94,27 +104,6 @@ export function useSequencerState() {
     }
   };
 
-  // History states
-  const [tracksHistory, setTracksHistory] = useState<TrackGroup[][]>([]);
-  const [tracksRedoHistory, setTracksRedoHistory] = useState<TrackGroup[][]>([]);
-  
-  const [songStructureHistory, setSongStructureHistory] = useState<{
-    measureTimeSigs: TimeSignature[];
-    measureBpms: number[];
-    measureBpmTransitions: ('immediate' | 'ramp')[];
-    measureVols: number[];
-    measureVolTransitions: ('immediate' | 'ramp')[];
-    songSections?: SongSection[];
-  }[]>([]);
-  const [songStructureRedoHistory, setSongStructureRedoHistory] = useState<{
-    measureTimeSigs: TimeSignature[];
-    measureBpms: number[];
-    measureBpmTransitions: ('immediate' | 'ramp')[];
-    measureVols: number[];
-    measureVolTransitions: ('immediate' | 'ramp')[];
-    songSections?: SongSection[];
-  }[]>([]);
-
   // Refs for audio scheduler and safe access
   const tracksRef = useRef<TrackGroup[]>([]);
   const totalMeasuresRef = useRef<number>(8);
@@ -126,16 +115,39 @@ export function useSequencerState() {
   const songSectionsRef = useRef<SongSection[]>([]);
   const songMarkersRef = useRef<SongMarker[]>([]);
   const measureSignalsRef = useRef<(string | null)[]>([]);
+  const pendingStructureActionRef = useRef<{ type: 'insert' | 'delete'; measureIdx: number } | null>(null);
 
   const loopStartRef = useRef<number | null>(null);
   const loopEndRef = useRef<number | null>(null);
   const isLoopRegionActiveRef = useRef<boolean>(true);
   const isLoopingRef = useRef<boolean>(true);
 
-  const tracksHistoryRef = useRef<TrackGroup[][]>([]);
-  const tracksRedoHistoryRef = useRef<TrackGroup[][]>([]);
-  const songStructureHistoryRef = useRef<any[]>([]);
-  const songStructureRedoHistoryRef = useRef<any[]>([]);
+  // Instantiation of the history hook
+  const {
+    tracksHistory,
+    tracksRedoHistory,
+    pushUndoState,
+    handleUndo,
+    handleRedo,
+    clearHistory,
+  } = useSequencerHistory({
+    tracksRef,
+    measureTimeSigsRef,
+    measureBpmsRef,
+    measureBpmTransitionsRef,
+    measureVolsRef,
+    measureVolTransitionsRef,
+    songSectionsRef,
+    songMarkersRef,
+    setTracks,
+    setMeasureTimeSigs,
+    setSongSections,
+    setSongMarkers,
+    setMeasureBpms,
+    setMeasureBpmTransitions,
+    setMeasureVols,
+    setMeasureVolTransitions,
+  });
 
   // Keep refs in sync
   useEffect(() => {
@@ -165,10 +177,6 @@ export function useSequencerState() {
     measureVolTransitionsRef.current = measureVolTransitions;
     measureSignalsRef.current = measureSignals;
     isLoopingRef.current = isLooping;
-    tracksHistoryRef.current = tracksHistory;
-    tracksRedoHistoryRef.current = tracksRedoHistory;
-    songStructureHistoryRef.current = songStructureHistory;
-    songStructureRedoHistoryRef.current = songStructureRedoHistory;
     return unsub;
   }, [
     measureBpms,
@@ -178,9 +186,7 @@ export function useSequencerState() {
     measureSignals,
     isLooping,
     activeVariationsRef,
-    tracksRef,
-    songStructureHistory,
-    songStructureRedoHistory
+    tracksRef
   ]);
 
   // Adjust measure arrays length when totalMeasures changes
@@ -245,177 +251,92 @@ export function useSequencerState() {
       }
       return arr;
     });
-
-    setMeasureSignals(prev => {
-      const arr = [...prev];
-      if (arr.length === totalMeasures) return prev;
-      while (arr.length < totalMeasures) {
-        arr.push(null);
-      }
-      if (arr.length > totalMeasures) {
-        arr.length = totalMeasures;
-      }
-      return arr;
-    });
   }, [timeSig, bpm]); // removed totalMeasures from deps since it's now tracked via ref/store
 
-  // Enforce Apito is always the last track in the list
+  // Synchroniser measureSignals avec les mesures étendues (compas globaux)
+  const lastExpandedRef = useRef<{ baseMeasure: number; iteration: number }[]>([]);
+
+  useEffect(() => {
+    const expanded = getExpandedMeasures(totalMeasures, songSections);
+    const prevExpanded = lastExpandedRef.current;
+
+    // Détecter s'il y a eu un ajustement structurel (insert/delete)
+    const action = pendingStructureActionRef.current;
+    pendingStructureActionRef.current = null; // consommé
+
+    let adjustedPrevExpanded = prevExpanded;
+    if (action) {
+      if (action.type === 'insert') {
+        adjustedPrevExpanded = prevExpanded.map(item => {
+          if (item.baseMeasure >= action.measureIdx) {
+            return { ...item, baseMeasure: item.baseMeasure + 1 };
+          }
+          return item;
+        });
+      } else if (action.type === 'delete') {
+        adjustedPrevExpanded = prevExpanded
+          .filter(item => item.baseMeasure !== action.measureIdx)
+          .map(item => {
+            if (item.baseMeasure > action.measureIdx) {
+              return { ...item, baseMeasure: item.baseMeasure - 1 };
+            }
+            return item;
+          });
+      }
+    }
+
+    lastExpandedRef.current = expanded;
+
+    if (measureSignals.length !== expanded.length) {
+      setMeasureSignals(prev => {
+        const nextSignals = expanded.map(item => {
+          // Si l'ancien format était physique (longueur de prev === ancienne valeur de totalMeasures et différent de adjustedPrevExpanded.length),
+          // on fait la correspondance par baseMeasure (physique) et iteration === 1
+          if (adjustedPrevExpanded.length === 0 || prev.length !== adjustedPrevExpanded.length) {
+            if (item.iteration === 1 && item.baseMeasure < prev.length) {
+              return prev[item.baseMeasure];
+            }
+            return null;
+          }
+
+          // Correspondance par baseMeasure et iteration
+          const oldIdx = adjustedPrevExpanded.findIndex(
+            oldItem => oldItem.baseMeasure === item.baseMeasure && oldItem.iteration === item.iteration
+          );
+          return oldIdx !== -1 ? prev[oldIdx] : null;
+        });
+        return nextSignals;
+      });
+    }
+  }, [totalMeasures, songSections, measureSignals, setMeasureSignals]);
+
+  // Keep tracksRef.current synchronized with the store
   useEffect(() => {
     const unsub = useSequencerStore.subscribe((state) => {
       tracksRef.current = state.tracks;
-
-      let needsSort = false;
-      let seenApito = false;
-      for (const t of state.tracks) {
-        const isApito = instrumentsConfig[t.instrumentIdx]?.id === 'apito';
-        if (isApito) {
-          seenApito = true;
-        } else if (seenApito) {
-          needsSort = true;
-          break;
-        }
-      }
-      
-      if (needsSort) {
-        const apitos = state.tracks.filter(t => instrumentsConfig[t.instrumentIdx]?.id === 'apito');
-        const others = state.tracks.filter(t => instrumentsConfig[t.instrumentIdx]?.id !== 'apito');
-        const sorted = [...others, ...apitos];
-        setTracks(applyRadii(sorted));
-      }
     });
     return unsub;
   }, []);
 
 
-  const pushUndoState = (customTracksState?: TrackGroup[]) => {
-    console.trace("🕵️ QUI A APPELÉ pushUndoState ?");
-    setTracksRedoHistory([]);
-    setSongStructureRedoHistory([]);
 
-    const stateToSave = customTracksState ? customTracksState : tracksRef.current;
-    setTracksHistory(prev => {
-      // Partage structurel : sauvegarde de la référence immuable directement
-      const next = [...prev, stateToSave];
-      if (next.length > 10) return next.slice(-10);
-      return next;
-    });
-
-    setSongStructureHistory(prev => {
-      const cloned = {
-        measureTimeSigs: measureTimeSigsRef.current,
-        measureBpms: measureBpmsRef.current,
-        measureBpmTransitions: measureBpmTransitionsRef.current,
-        measureVols: measureVolsRef.current,
-        measureVolTransitions: measureVolTransitionsRef.current,
-        songSections: songSectionsRef.current
-      };
-      const next = [...prev, cloned];
-      if (next.length > 10) return next.slice(-10);
-      return next;
-    });
-  };
-
-  const handleUndo = () => {
-    if (tracksHistoryRef.current.length === 0) return;
-
-    const currentTracks = tracksRef.current;
-    setTracksRedoHistory(prev => [...prev, currentTracks]);
-
-    const currentStructure = {
-      measureTimeSigs: measureTimeSigsRef.current,
-      measureBpms: measureBpmsRef.current,
-      measureBpmTransitions: measureBpmTransitionsRef.current,
-      measureVols: measureVolsRef.current,
-      measureVolTransitions: measureVolTransitionsRef.current,
-      songSections: songSectionsRef.current
-    };
-    setSongStructureRedoHistory(prev => [...prev, currentStructure]);
-
-    setTracksHistory(prev => {
-      const nextHistory = [...prev];
-      const previousState = nextHistory.pop();
-      if (previousState) {
-        setTracks(previousState);
-      }
-      return nextHistory;
-    });
-
-    if (songStructureHistoryRef.current.length > 0) {
-      setSongStructureHistory(prev => {
-        const nextHistory = [...prev];
-        const previousState = nextHistory.pop();
-        if (previousState) {
-          setMeasureTimeSigs(previousState.measureTimeSigs);
-          setMeasureBpms(previousState.measureBpms);
-          setMeasureBpmTransitions(previousState.measureBpmTransitions);
-          if (previousState.measureVols) setMeasureVols(previousState.measureVols);
-          if (previousState.measureVolTransitions) setMeasureVolTransitions(previousState.measureVolTransitions);
-          if (previousState.songSections) setSongSections(previousState.songSections);
-        }
-        return nextHistory;
-      });
-    }
-  };
-
-  const handleRedo = () => {
-    if (tracksRedoHistoryRef.current.length === 0) return;
-
-    const currentTracks = tracksRef.current;
-    setTracksHistory(prev => [...prev, currentTracks]);
-
-    const currentStructure = {
-      measureTimeSigs: measureTimeSigsRef.current,
-      measureBpms: measureBpmsRef.current,
-      measureBpmTransitions: measureBpmTransitionsRef.current,
-      measureVols: measureVolsRef.current,
-      measureVolTransitions: measureVolTransitionsRef.current,
-      songSections: songSectionsRef.current
-    };
-    setSongStructureHistory(prev => [...prev, currentStructure]);
-
-    setTracksRedoHistory(prev => {
-      const nextHistory = [...prev];
-      const nextState = nextHistory.pop();
-      if (nextState) {
-        setTracks(nextState);
-      }
-      return nextHistory;
-    });
-
-    if (songStructureRedoHistoryRef.current.length > 0) {
-      setSongStructureRedoHistory(prev => {
-        const nextHistory = [...prev];
-        const nextState = nextHistory.pop();
-        if (nextState) {
-          setMeasureTimeSigs(nextState.measureTimeSigs);
-          setMeasureBpms(nextState.measureBpms);
-          setMeasureBpmTransitions(nextState.measureBpmTransitions);
-          if (nextState.measureVols) setMeasureVols(nextState.measureVols);
-          if (nextState.measureVolTransitions) setMeasureVolTransitions(nextState.measureVolTransitions);
-          if (nextState.songSections) setSongSections(nextState.songSections);
-        }
-        return nextHistory;
-      });
-    }
-  };
-
-  const clearHistory = () => {
-    setTracksHistory([]);
-    setTracksRedoHistory([]);
-    setSongStructureHistory([]);
-    setSongStructureRedoHistory([]);
-  };
 
   // Dynamic layout radial positioning offsets
   const applyRadii = (list: TrackGroup[]): TrackGroup[] => {
-    const visibleList = list.filter((t) => !t.isHidden && instrumentsConfig[t.instrumentIdx]?.id !== 'apito');
-    const gap = visibleList.length > 1 ? (495 - 180) / (visibleList.length - 1) : 0;
+    const drawableTracks = list.filter(t => 
+      !t.isHidden && 
+      isSequencerVisibleTrack(t, list) && 
+      instrumentsConfig[t.instrumentIdx]?.id !== 'apito'
+    );
+
+    const gap = drawableTracks.length > 1 ? (495 - 180) / (drawableTracks.length - 1) : 0;
     
     return list.map(t => {
-      if (t.isHidden || instrumentsConfig[t.instrumentIdx]?.id === 'apito') return t;
-      const visibleIdx = visibleList.findIndex(vt => vt.id === t.id);
-      if (visibleIdx === -1) return t;
-      const newRadius = visibleList.length === 1 ? (180 + 495) / 2 : 180 + visibleIdx * gap;
+      const drawableIdx = drawableTracks.findIndex(dt => dt.id === t.id);
+      if (drawableIdx === -1) {
+        return t;
+      }
+      const newRadius = drawableTracks.length === 1 ? (180 + 495) / 2 : 180 + drawableIdx * gap;
       if (t.radius !== newRadius) {
         return { ...t, radius: newRadius };
       }
@@ -423,15 +344,7 @@ export function useSequencerState() {
     });
   };
 
-  const handleReorderTracksDnd = (oldIndex: number, newIndex: number) => {
-    if (oldIndex !== newIndex) {
-      pushUndoState();
-      setTracks((prev) => {
-        const newTracks = arrayMove(prev, oldIndex, newIndex) as TrackGroup[];
-        return applyRadii(newTracks);
-      });
-    }
-  };
+  const handleReorderTracksDnd = useSequencerStore(state => state.handleReorderTracksDnd);
 
   const handleTrackInstrumentIdxChange = (id: number, targetInstIdx: number) => {
     pushUndoState();
@@ -464,11 +377,7 @@ export function useSequencerState() {
   };
 
   const handleTrackDelete = (id: number) => {
-    pushUndoState();
-    setTracks(prev => {
-      const remaining = prev.filter((t) => t.id !== id);
-      return applyRadii(remaining);
-    });
+    useSequencerStore.getState().handleTrackDelete(id);
   };
 
   const handleTrackVolumeChange = (id: number, val: number) => {
@@ -669,6 +578,30 @@ export function useSequencerState() {
     setTracks(prev => prev.map((t) => (t.id === id ? { ...t, panVal: val } : t)));
   };
 
+  const handleTrackSwingChange = (id: number, val: number) => {
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, swingIntensity: val } : t)));
+  };
+
+  const handleVocalLatencyChange = (trackId: number, patternId: number, latencyMs: number) => {
+    pushUndoState();
+    setTracks(prev =>
+      prev.map((t) => {
+        if (t.id === trackId) {
+          return {
+            ...t,
+            patterns: t.patterns.map((p) => {
+              if (p.id === patternId) {
+                return { ...p, vocalLatency: latencyMs };
+              }
+              return p;
+            })
+          };
+        }
+        return t;
+      })
+    );
+  };
+
   const handleTrackStepsChange = (trackId: number, patternId: number, targetSteps: number) => {
     pushUndoState();
     setTracks(prev =>
@@ -820,46 +753,38 @@ export function useSequencerState() {
 
   const handleMeasureTimeSigChange = (measureIdx: number, val: TimeSignature) => {
     pushUndoState();
-    setMeasureTimeSigs((prev: any) => {
-      const arr = [...prev];
-      arr[measureIdx] = val;
-      measureTimeSigsRef.current = arr;
-      useSequencerStore.setState({ measureTimeSigs: arr });
-      return arr;
-    });
+    const arr = [...measureTimeSigsRef.current];
+    arr[measureIdx] = val;
+    setMeasureTimeSigs(arr);
+    measureTimeSigsRef.current = arr;
+    useSequencerStore.setState({ measureTimeSigs: arr });
   };
 
   const handleMeasureBpmChange = (measureIdx: number, val: number) => {
     pushUndoState();
-    setMeasureBpms(prev => {
-      const arr = [...prev];
-      arr[measureIdx] = val;
-      measureBpmsRef.current = arr;
-      useSequencerStore.setState({ measureBpms: arr });
-      return arr;
-    });
+    const arr = [...measureBpmsRef.current];
+    arr[measureIdx] = val;
+    setMeasureBpms(arr);
+    measureBpmsRef.current = arr;
+    useSequencerStore.setState({ measureBpms: arr });
   };
 
   const handleMeasureTransitionChange = (measureIdx: number, val: 'immediate' | 'ramp') => {
     pushUndoState();
-    setMeasureBpmTransitions(prev => {
-      const arr = [...prev];
-      arr[measureIdx] = val;
-      measureBpmTransitionsRef.current = arr;
-      useSequencerStore.setState({ measureBpmTransitions: arr });
-      return arr;
-    });
+    const arr = [...measureBpmTransitionsRef.current];
+    arr[measureIdx] = val;
+    setMeasureBpmTransitions(arr);
+    measureBpmTransitionsRef.current = arr;
+    useSequencerStore.setState({ measureBpmTransitions: arr });
   };
 
   const handleMeasureVolChange = (measureIdx: number, val: number) => {
     pushUndoState();
-    setMeasureVols(prev => {
-      const arr = [...prev];
-      arr[measureIdx] = val;
-      measureVolsRef.current = arr;
-      useSequencerStore.setState({ measureVols: arr });
-      return arr;
-    });
+    const arr = [...measureVolsRef.current];
+    arr[measureIdx] = val;
+    setMeasureVols(arr);
+    measureVolsRef.current = arr;
+    useSequencerStore.setState({ measureVols: arr });
   };
 
   const handleMeasureVolTransitionChange = (measureIdx: number, val: 'immediate' | 'ramp') => {
@@ -879,13 +804,13 @@ export function useSequencerState() {
   const handleDeleteMeasure = (measureIdx: number) => {
     pushUndoState();
     if (totalMeasuresRef.current <= 1) return;
+    pendingStructureActionRef.current = { type: 'delete', measureIdx };
     setTotalMeasures((prev: number) => prev - 1);
     setMeasureTimeSigs(prev => prev.filter((_, idx) => idx !== measureIdx));
     setMeasureBpms(prev => prev.filter((_, idx) => idx !== measureIdx));
     setMeasureBpmTransitions(prev => prev.filter((_, idx) => idx !== measureIdx));
     setMeasureVols(prev => prev.filter((_, idx) => idx !== measureIdx));
     setMeasureVolTransitions(prev => prev.filter((_, idx) => idx !== measureIdx));
-    setMeasureSignals(prev => prev.filter((_, idx) => idx !== measureIdx));
     setSongSections((prev: SongSection[]) => prev
       .filter((s: SongSection) => !(s.startMeasure === measureIdx && s.endMeasure === measureIdx))
       .map((s: SongSection) => {
@@ -908,6 +833,7 @@ export function useSequencerState() {
 
   const handleInsertMeasure = (measureIdx: number) => {
     pushUndoState();
+    pendingStructureActionRef.current = { type: 'insert', measureIdx };
     setTotalMeasures((prev: number) => prev + 1);
     const refSig = measureTimeSigsRef.current[measureIdx] || timeSig;
     const refBpm = measureBpms[measureIdx] || bpm;
@@ -936,11 +862,6 @@ export function useSequencerState() {
     setMeasureVolTransitions(prev => {
       const arr = [...prev];
       arr.splice(measureIdx, 0, 'immediate');
-      return arr;
-    });
-    setMeasureSignals(prev => {
-      const arr = [...prev];
-      arr.splice(measureIdx, 0, null);
       return arr;
     });
     setSongSections((prev: SongSection[]) => prev.map((s: SongSection) => {
@@ -1016,6 +937,11 @@ export function useSequencerState() {
                 decays: patternToPaste.decays ? [...patternToPaste.decays] : Array(firstP.steps).fill(100),
                 microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(firstP.steps).fill(0),
                 variations: patternToPaste.variations ? JSON.parse(JSON.stringify(patternToPaste.variations)) : undefined,
+                preRollActiveSteps: patternToPaste.preRollActiveSteps ? [...patternToPaste.preRollActiveSteps] : undefined,
+                preRollLyrics: patternToPaste.preRollLyrics ? [...patternToPaste.preRollLyrics] : undefined,
+                preRollNotes: patternToPaste.preRollNotes ? [...patternToPaste.preRollNotes] : undefined,
+                preRollVolumes: patternToPaste.preRollVolumes ? [...patternToPaste.preRollVolumes] : undefined,
+                preRollDecays: patternToPaste.preRollDecays ? [...patternToPaste.preRollDecays] : undefined,
               };
             }
             return p;
@@ -1039,6 +965,11 @@ export function useSequencerState() {
             decays: patternToPaste.decays ? [...patternToPaste.decays] : Array(firstP.steps).fill(100),
             microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(firstP.steps).fill(0),
             variations: patternToPaste.variations ? JSON.parse(JSON.stringify(patternToPaste.variations)) : undefined,
+            preRollActiveSteps: patternToPaste.preRollActiveSteps ? [...patternToPaste.preRollActiveSteps] : undefined,
+            preRollLyrics: patternToPaste.preRollLyrics ? [...patternToPaste.preRollLyrics] : undefined,
+            preRollNotes: patternToPaste.preRollNotes ? [...patternToPaste.preRollNotes] : undefined,
+            preRollVolumes: patternToPaste.preRollVolumes ? [...patternToPaste.preRollVolumes] : undefined,
+            preRollDecays: patternToPaste.preRollDecays ? [...patternToPaste.preRollDecays] : undefined,
           };
           while (pasted.activeSteps.length < firstP.steps) pasted.activeSteps.push(0);
           while (pasted.lyrics.length < firstP.steps) pasted.lyrics.push('');
@@ -1238,6 +1169,8 @@ export function useSequencerState() {
   ) => {
     pushUndoState();
     const tracks = useSequencerStore.getState().tracks;
+    const defaults = useSequencerSettingsStore.getState().strokeDefaults?.[`${trackId}:${newState}`];
+
     setTracks(tracks.map((t) => {
       if (t.id === trackId) {
         const nextPatterns = t.patterns.map(p => {
@@ -1246,6 +1179,14 @@ export function useSequencerState() {
             arrSteps[stepIdx] = newState;
             const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
             const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
+            
+            const arrVols = [...(p.volumes || Array(p.steps).fill(80))];
+            const arrDecays = [...(p.decays || Array(p.steps).fill(100))];
+
+            if (defaults) {
+              if (defaults.volume !== undefined) arrVols[stepIdx] = defaults.volume;
+              if (defaults.decay !== undefined) arrDecays[stepIdx] = defaults.decay;
+            }
 
             if (optLyric !== undefined) arrLyrics[stepIdx] = optLyric;
             if (optNote !== undefined) arrNotes[stepIdx] = optNote;
@@ -1255,6 +1196,8 @@ export function useSequencerState() {
               activeSteps: arrSteps,
               lyrics: arrLyrics,
               notes: arrNotes,
+              volumes: arrVols,
+              decays: arrDecays,
             };
           }
           return p;
@@ -1266,22 +1209,8 @@ export function useSequencerState() {
   };
 
   const handleVoiceTypeToggle = (trackId: number, patternId: number, stepIdx: number) => {
-    pushUndoState();
-    setTracks(prev => prev.map(t => {
-      if (t.id === trackId) {
-        const nextPatterns = t.patterns.map(p => {
-          if (p.id === patternId) {
-            const copySteps = [...p.activeSteps];
-            if (copySteps[stepIdx] === 0) return p;
-            copySteps[stepIdx] = copySteps[stepIdx] === 'P' ? 'C' : 'P';
-            return { ...p, activeSteps: copySteps };
-          }
-          return p;
-        });
-        return { ...t, patterns: nextPatterns };
-      }
-      return t;
-    }));
+    // Toggling voice type between P and C is disabled because tracks are separate.
+    return;
   };
 
   const handleVoiceSylChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
@@ -1298,16 +1227,21 @@ export function useSequencerState() {
             const copySteps = [...p.activeSteps];
             const arrLyrics = [...(p.lyrics || Array(p.steps).fill(''))];
             const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
+            const arrDecays = p.decays ? [...p.decays] : Array(p.steps).fill(10);
             arrLyrics[stepIdx] = val;
             if (val.trim() !== '') {
               if (copySteps[stepIdx] === 0) {
-                copySteps[stepIdx] = 'C';
+                const instId = instrumentsConfig[t.instrumentIdx]?.id;
+                copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
                 if (!arrNotes[stepIdx]) arrNotes[stepIdx] = 'C4';
+              }
+              if (arrDecays[stepIdx] === 100 || !arrDecays[stepIdx]) {
+                arrDecays[stepIdx] = 10;
               }
             } else {
               copySteps[stepIdx] = 0;
             }
-            return { ...p, activeSteps: copySteps, lyrics: arrLyrics, notes: arrNotes };
+            return { ...p, activeSteps: copySteps, lyrics: arrLyrics, notes: arrNotes, decays: arrDecays };
           }
           return p;
         });
@@ -1353,6 +1287,148 @@ export function useSequencerState() {
                 const arrNotes = [...(p.notes || Array(p.steps).fill(''))];
                 arrNotes[stepIdx] = completedNote;
                 return { ...p, notes: arrNotes };
+              }
+              return p;
+            });
+            return { ...t, patterns: nextPatterns };
+          }
+          return t;
+        }));
+      }
+    }
+  };
+
+  const handleVoicePreRollSylChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
+    const tracks = useSequencerStore.getState().tracks;
+    const activePattern = tracks.find(t => t.id === trackId)?.patterns.find(p => p.id === patternId);
+    const prevVal = activePattern?.preRollLyrics?.[stepIdx] || '';
+    if (prevVal === '' && val !== '') {
+      pushUndoState();
+    }
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const copySteps = p.preRollActiveSteps ? [...p.preRollActiveSteps] : Array(16).fill(0);
+            const arrLyrics = p.preRollLyrics ? [...p.preRollLyrics] : Array(16).fill('');
+            const arrNotes = p.preRollNotes ? [...p.preRollNotes] : Array(16).fill('');
+            const arrDecays = p.preRollDecays ? [...p.preRollDecays] : Array(16).fill(10);
+            const arrVolumes = p.preRollVolumes ? [...p.preRollVolumes] : Array(16).fill(100);
+            
+            arrLyrics[stepIdx] = val;
+            if (val.trim() !== '') {
+              if (copySteps[stepIdx] === 0) {
+                const instId = instrumentsConfig[t.instrumentIdx]?.id;
+                copySteps[stepIdx] = instId === 'puxador' ? 'P' : 'C';
+                if (!arrNotes[stepIdx]) arrNotes[stepIdx] = 'C4';
+              }
+              if (arrDecays[stepIdx] === 100 || !arrDecays[stepIdx]) {
+                arrDecays[stepIdx] = 10;
+              }
+            } else {
+              copySteps[stepIdx] = 0;
+            }
+            return { 
+              ...p, 
+              preRollActiveSteps: copySteps, 
+              preRollLyrics: arrLyrics, 
+              preRollNotes: arrNotes, 
+              preRollDecays: arrDecays,
+              preRollVolumes: arrVolumes
+            };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleDeletePatternMeasure = (trackId: number, patternId: number, measureIdx: number) => {
+    pushUndoState();
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            if (p.steps <= 16) return p; // Cannot delete the only measure
+            
+            const startIdx = measureIdx * 16;
+            const newSteps = p.steps - 16;
+
+            const newActiveSteps = [...p.activeSteps];
+            newActiveSteps.splice(startIdx, 16);
+
+            const newLyrics = p.lyrics ? [...p.lyrics] : Array(p.steps).fill('');
+            newLyrics.splice(startIdx, 16);
+
+            const newNotes = p.notes ? [...p.notes] : Array(p.steps).fill('');
+            newNotes.splice(startIdx, 16);
+
+            const newVolumes = p.volumes ? [...p.volumes] : Array(p.steps).fill(80);
+            newVolumes.splice(startIdx, 16);
+
+            const newDecays = p.decays ? [...p.decays] : Array(p.steps).fill(10);
+            newDecays.splice(startIdx, 16);
+
+            const newMicrotimings = p.microtimings ? [...p.microtimings] : Array(p.steps).fill(0);
+            newMicrotimings.splice(startIdx, 16);
+
+            return {
+              ...p,
+              steps: newSteps,
+              activeSteps: newActiveSteps,
+              lyrics: newLyrics,
+              notes: newNotes,
+              volumes: newVolumes,
+              decays: newDecays,
+              microtimings: newMicrotimings
+            };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleVoicePreRollNoteChange = (trackId: number, patternId: number, stepIdx: number, val: string) => {
+    const tracks = useSequencerStore.getState().tracks;
+    const activePattern = tracks.find(t => t.id === trackId)?.patterns.find(p => p.id === patternId);
+    const prevVal = activePattern?.preRollNotes?.[stepIdx] || '';
+    if (prevVal === '' && val !== '') {
+      pushUndoState();
+    }
+    setTracks(prev => prev.map(t => {
+      if (t.id === trackId) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const arrNotes = p.preRollNotes ? [...p.preRollNotes] : Array(16).fill('');
+            arrNotes[stepIdx] = val;
+            return { ...p, preRollNotes: arrNotes };
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    }));
+  };
+
+  const handleVoicePreRollNoteBlur = (trackId: number, patternId: number, stepIdx: number, val: string) => {
+    pushUndoState();
+    const trimmed = val.trim();
+    if (trimmed.length === 1 || (trimmed.length === 2 && (trimmed.includes('#') || trimmed.includes('b')))) {
+      if (/^[a-gA-G][#b]?$/.test(trimmed)) {
+        const completedNote = trimmed.toUpperCase() + '4';
+        setTracks(prev => prev.map(t => {
+          if (t.id === trackId) {
+            const nextPatterns = t.patterns.map(p => {
+              if (p.id === patternId) {
+                const arrNotes = p.preRollNotes ? [...p.preRollNotes] : Array(16).fill('');
+                arrNotes[stepIdx] = completedNote;
+                return { ...p, preRollNotes: arrNotes };
               }
               return p;
             });
@@ -1450,6 +1526,15 @@ export function useSequencerState() {
               else if (lowerChar === 'c') parsed = 'C';
               else if (['b', 't'].includes(lowerChar)) parsed = 'B';
               else if (['d', 'D', 'e', 'E', 'q', 'Q'].includes(cleanChar)) {
+                parsed = cleanChar;
+              }
+            } else if (inst.id === 'timbal') {
+              const lowerChar = cleanChar.toLowerCase();
+              if (lowerChar === 'f') parsed = 'F';
+              else if (lowerChar === 'v') parsed = 'V';
+              else if (lowerChar === 'b') parsed = 'B';
+              else if (lowerChar === 'c') parsed = 'C';
+              else if (['g', 'G', 'a', 'A', 's', 'S', 'd', 'D', 'p', 'P'].includes(cleanChar)) {
                 parsed = cleanChar;
               }
             } else if (inst.id === 'agbe') {
@@ -1585,8 +1670,17 @@ export function useSequencerState() {
     pushUndoState();
     setTracks([]);
     setLetras('');
-    setMeasureSignals(Array(totalMeasuresRef.current).fill(null));
+    setBpm(83);
+    setTimeSig('4/4');
+    setTotalMeasures(8);
+    setMeasureTimeSigs(Array(8).fill('4/4'));
+    setMeasureBpms(Array(8).fill(83));
+    setMeasureBpmTransitions(Array(8).fill('immediate'));
+    setMeasureVols(Array(8).fill(100));
+    setMeasureVolTransitions(Array(8).fill('immediate'));
+    setMeasureSignals(Array(8).fill(null));
     setSongSections([]);
+    setSongMarkers([]);
     setActiveAoVivoTrackId(null);
     setMetadata({ toada: '', nacao: '', compositor: '', ritmo: '', youtubeUrl: '', partitionImage: undefined, rhythmSignals: [] });
   };
@@ -1705,20 +1799,118 @@ export function useSequencerState() {
     if (inst) {
       audioEngine.loadInstrumentSamples(inst.id).catch(console.error);
     }
+
+    if (inst?.id === 'toada') {
+      const toadaBusId = Date.now() + Math.floor(Math.random() * 1000);
+      const puxTrackId = toadaBusId + 1;
+      const coroTrackId = toadaBusId + 2;
+
+      const puxInstIdx = instrumentsConfig.findIndex(c => c.id === 'puxador');
+      const coroInstIdx = instrumentsConfig.findIndex(c => c.id === 'coro');
+
+      const toadaBusTrack: TrackGroup = {
+        id: toadaBusId,
+        instrumentIdx: instIdx,
+        patterns: [],
+        isMute: false,
+        isSolo: false,
+        isHidden: false,
+        volumeVal: 100,
+        selectedPatternId: 0,
+        isBusFolder: true,
+        isFolded: false,
+        customName: 'Toada',
+        reverbVal: 0,
+        panVal: 0,
+        pan: 0,
+        fxSends: { reverb: 0, distortion: 0 }
+      };
+
+      const puxTrack: TrackGroup = {
+        id: puxTrackId,
+        instrumentIdx: puxInstIdx !== -1 ? puxInstIdx : 8,
+        busId: String(toadaBusId),
+        patterns: [
+          {
+            id: Date.now() + Math.floor(Math.random() * 1000) + 10,
+            name: lang === 'fr' ? 'Solo 1' : 'Solista 1',
+            steps: 16,
+            activeSteps: Array(16).fill(0),
+            lyrics: Array(16).fill(''),
+            notes: Array(16).fill(''),
+            measureAssignments: Array(totalMeasuresRef.current).fill(false),
+            volumes: Array(16).fill(80),
+            decays: Array(16).fill(10),
+            microtimings: Array(16).fill(0),
+          }
+        ],
+        isMute: false,
+        isSolo: false,
+        isHidden: false,
+        volumeVal: 100,
+        selectedPatternId: 0,
+        reverbVal: 0,
+        panVal: 0,
+        pan: 0,
+        fxSends: { reverb: 0, distortion: 0 }
+      };
+      puxTrack.selectedPatternId = puxTrack.patterns[0].id;
+      puxTrack.patterns[0].measureAssignments[currentMeasure] = true;
+
+      const coroTrack: TrackGroup = {
+        id: coroTrackId,
+        instrumentIdx: coroInstIdx !== -1 ? coroInstIdx : 9,
+        busId: String(toadaBusId),
+        patterns: [
+          {
+            id: Date.now() + Math.floor(Math.random() * 1000) + 20,
+            name: lang === 'fr' ? 'Chœur 1' : 'Coro 1',
+            steps: 16,
+            activeSteps: Array(16).fill(0),
+            lyrics: Array(16).fill(''),
+            notes: Array(16).fill(''),
+            measureAssignments: Array(totalMeasuresRef.current).fill(false),
+            volumes: Array(16).fill(80),
+            decays: Array(16).fill(10),
+            microtimings: Array(16).fill(0),
+          }
+        ],
+        isMute: false,
+        isSolo: false,
+        isHidden: false,
+        volumeVal: 100,
+        selectedPatternId: 0,
+        reverbVal: 0,
+        panVal: 0,
+        pan: 0,
+        fxSends: { reverb: 0, distortion: 0 }
+      };
+      coroTrack.selectedPatternId = coroTrack.patterns[0].id;
+
+      audioEngine.loadInstrumentSamples('puxador').catch(console.error);
+      audioEngine.loadInstrumentSamples('coro').catch(console.error);
+
+      setTracks(prev => {
+        const next = [...prev, toadaBusTrack, puxTrack, coroTrack];
+        return applyRadii(next);
+      });
+      return;
+    }
+
     const newTrack: TrackGroup = {
       id: Date.now() + Math.floor(Math.random() * 1000),
       instrumentIdx: instIdx,
       patterns: [
         {
           id: Date.now() + Math.floor(Math.random() * 1000) + 1,
-          name: 'Padrão 1',
+          name: lang === 'fr' ? 'Motif 1' : 'Padrão 1',
           steps: 16,
           activeSteps: Array(16).fill(0),
           lyrics: Array(16).fill(''),
           notes: Array(16).fill(''),
           measureAssignments: Array(totalMeasuresRef.current).fill(false),
           volumes: Array(16).fill(80),
-          decays: Array(16).fill(100),
+          decays: Array(16).fill(instrumentsConfig[instIdx]?.type === 'voice' ? 10 : 100),
           microtimings: Array(16).fill(0),
         },
       ],
@@ -1729,6 +1921,8 @@ export function useSequencerState() {
       selectedPatternId: 0,
       reverbVal: 0,
       panVal: 0,
+      pan: 0,
+      fxSends: { reverb: 0, distortion: 0 }
     };
     newTrack.selectedPatternId = newTrack.patterns[0].id;
     newTrack.patterns[0].measureAssignments[currentMeasure] = true;
@@ -1844,7 +2038,13 @@ export function useSequencerState() {
             volumeVal: loadedTrack.volumeVal,
             selectedPatternId: -1,
             reverbVal: loadedTrack.reverbVal,
-            panVal: loadedTrack.panVal
+            panVal: loadedTrack.panVal,
+            pan: loadedTrack.pan ?? loadedTrack.panVal ?? 0,
+            swingIntensity: loadedTrack.swingIntensity,
+            fxSends: loadedTrack.fxSends ?? {
+              reverb: loadedTrack.reverbVal ?? 0,
+              distortion: 0
+            }
           };
           newTracks.push(newTrack);
           existingTrackIdx = newTracks.length - 1;
@@ -1928,7 +2128,9 @@ export function useSequencerState() {
     handleVariationStepMicrotimingChange,
     handleResetTrackMicrotimings,
     handleTrackPanChange,
+    handleTrackSwingChange,
     handleTrackStepsChange,
+    handleVocalLatencyChange,
     handlePatternBeatResolutionChange,
     handleTimelinePatternAssign,
     handleTimelinePatternVariationToggle,
@@ -1962,6 +2164,10 @@ export function useSequencerState() {
     handleVoiceSylChange,
     handleVoiceNoteChange,
     handleVoiceNoteBlur,
+    handleVoicePreRollSylChange,
+    handleVoicePreRollNoteChange,
+    handleVoicePreRollNoteBlur,
+    handleDeletePatternMeasure,
     handleExtractLyrics,
     handleTrackStepValueChange,
     handleTrackStepKeyDown,
@@ -1974,6 +2180,10 @@ export function useSequencerState() {
     handleVariationStepValueChange,
     handleDeletePatternVariation,
     handleAddTrackInstrument,
-    activeVariationsRef
+    activeVariationsRef,
+    vocalTransposeSteps,
+    setVocalTransposeSteps,
+    incrementVocalTransposeSteps,
+    decrementVocalTransposeSteps
   };
 }

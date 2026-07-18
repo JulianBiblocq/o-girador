@@ -22,7 +22,7 @@ const getInstrumentLabel = (instId: string, isFirstBlock: boolean) => {
   }
 };
 
-const generateTablatureCore = (
+export const generateTablatureCore = (
   tracks: TrackGroup[],
   totalMeasures: number,
   songSections: SongSection[],
@@ -35,7 +35,7 @@ const generateTablatureCore = (
   // Filter out Apito and Voice tracks
   const filteredTracks = tracks.filter(t => {
     const conf = instrumentsConfig[t.instrumentIdx];
-    return conf && conf.id !== 'apito' && conf.id !== 'voice';
+    return conf && conf.id !== 'apito' && conf.type !== 'voice';
   });
 
   let currentChunk: number[] = [];
@@ -204,7 +204,7 @@ const generateTablatureCore = (
 
   for (let m = 0; m < totalMeasures; m++) {
     const sectionStart = songSections.find(s => s.startMeasure === m);
-    if (currentChunk.length > 0 && (currentChunk.length === 4 || sectionStart)) {
+    if (currentChunk.length > 0 && (currentChunk.length === 2 || sectionStart)) {
       flushChunk();
     }
     currentChunk.push(m);
@@ -218,7 +218,7 @@ const generateTablatureCore = (
   return output;
 };
 
-const generateAnnexTablature = (
+export const generateAnnexTablature = (
   tracks: TrackGroup[],
   annexTrackIds: Set<number>,
   isHtml: boolean = false
@@ -451,31 +451,36 @@ export const printLegendOnly = () => {
 };
 
 export const exportTablatureFile = (
-  tracks: TrackGroup[],
+  tracks: TrackGroup[] | string,
   annexTrackIds: Set<number>,
-  totalMeasures: number,
-  songSections: SongSection[],
+  totalMeasures?: number,
+  songSections?: SongSection[],
   metadata?: PresetMetadata,
   measureTimeSigs?: { [m: number]: string },
   measureBpms?: { [m: number]: number },
   letras?: string
 ) => {
-  const outputTxt = generateTablatureCore(tracks, totalMeasures, songSections, measureTimeSigs, measureBpms, false);
-  const annexTxt = generateAnnexTablature(tracks, annexTrackIds, false);
-  
   const title = metadata?.toada?.trim() || "O Girador Tablature";
-  
-  let finalTxt = `TITRE: ${title}\n`;
-  if (metadata?.compositor) finalTxt += `COMPOSITEUR: ${metadata.compositor}\n`;
-  if (metadata?.ritmo) finalTxt += `RYTHME: ${metadata.ritmo}\n`;
-  finalTxt += `\n${outputTxt}`;
-  if (annexTxt) finalTxt += annexTxt;
-  
-  if (letras && letras.trim() !== '') {
-    finalTxt += `\n--- VOIX / PAROLES ---\n${letras}\n`;
+  let finalTxt = "";
+
+  if (typeof tracks === 'string') {
+    finalTxt = tracks;
+  } else {
+    const outputTxt = generateTablatureCore(tracks, totalMeasures || 0, songSections || [], measureTimeSigs, measureBpms, false);
+    const annexTxt = generateAnnexTablature(tracks, annexTrackIds, false);
+    
+    finalTxt = `TITRE: ${title}\n`;
+    if (metadata?.compositor) finalTxt += `COMPOSITEUR: ${metadata.compositor}\n`;
+    if (metadata?.ritmo) finalTxt += `RYTHME: ${metadata.ritmo}\n`;
+    finalTxt += `\n${outputTxt}`;
+    if (annexTxt) finalTxt += annexTxt;
+    
+    if (letras && letras.trim() !== '') {
+      finalTxt += `\n--- VOIX / PAROLES ---\n${letras}\n`;
+    }
+    
+    finalTxt += `\n(Généré avec O Girador)\n`;
   }
-  
-  finalTxt += `\n(Généré avec O Girador)\n`;
 
   // Create blob and download
   const blob = new Blob([finalTxt], { type: 'text/plain;charset=utf-8' });
@@ -490,17 +495,55 @@ export const exportTablatureFile = (
 };
 
 export const printTablature = (
-  tracks: TrackGroup[],
+  tracks: TrackGroup[] | string,
   annexTrackIds: Set<number>,
-  totalMeasures: number,
-  songSections: SongSection[],
+  totalMeasures?: number,
+  songSections?: SongSection[],
   metadata?: PresetMetadata,
   measureTimeSigs?: { [m: number]: string },
   measureBpms?: { [m: number]: number },
-  letras?: string
+  letras?: string,
+  fontSize?: number
 ) => {
-  const outputHtml = generateTablatureCore(tracks, totalMeasures, songSections, measureTimeSigs, measureBpms, true);
-  const annexHtml = generateAnnexTablature(tracks, annexTrackIds, true);
+  const title = metadata?.toada?.trim() || "O Girador Tablature";
+  const composer = metadata?.compositor ? `Compositeur : ${metadata.compositor}` : "";
+  let innerContent = "";
+
+  if (typeof tracks === 'string') {
+    innerContent = `
+      <div class="tab-title">${title}</div>
+      ${composer ? `<div class="tab-subtitle">${composer}</div>` : ''}
+      <div class="tab-pre">${tracks}</div>
+    `;
+  } else {
+    const outputHtml = generateTablatureCore(tracks, totalMeasures || 0, songSections || [], measureTimeSigs, measureBpms, true);
+    const annexHtml = generateAnnexTablature(tracks, annexTrackIds, true);
+    
+    innerContent = `
+      <div class="tab-title">${title}</div>
+      ${composer ? `<div class="tab-subtitle">${composer}</div>` : ''}
+      <div class="tab-pre">${outputHtml}</div>
+    `;
+    
+    if (letras && letras.trim() !== '') {
+      innerContent += `
+        <div class="tab-letras">
+          <h3>Voix / Paroles</h3>
+          <div>${letras}</div>
+        </div>
+      `;
+    }
+    
+    if (annexHtml) {
+      innerContent += `
+        <div class="tab-pre">${annexHtml}</div>
+      `;
+    }
+  }
+
+  innerContent += `
+    <div class="tab-footer">Généré avec O Girador</div>
+  `;
   
   const printContainer = document.createElement('div');
   printContainer.id = 'print-tablature-area';
@@ -548,7 +591,7 @@ export const printTablature = (
       .tab-pre {
         white-space: pre;
         font-family: monospace;
-        font-size: 13px !important;
+        font-size: ${fontSize || 13}px !important;
         line-height: 1.3;
       }
       .tab-chunk {
@@ -576,34 +619,6 @@ export const printTablature = (
     }
   `;
   document.head.appendChild(styleBlock);
-  
-  const title = metadata?.toada?.trim() || "O Girador Tablature";
-  const composer = metadata?.compositor ? `Compositeur : ${metadata.compositor}` : "";
-  
-  let innerContent = `
-    <div class="tab-title">${title}</div>
-    ${composer ? `<div class="tab-subtitle">${composer}</div>` : ''}
-    <div class="tab-pre">${outputHtml}</div>
-  `;
-  
-  if (letras && letras.trim() !== '') {
-    innerContent += `
-      <div class="tab-letras">
-        <h3>Voix / Paroles</h3>
-        <div>${letras}</div>
-      </div>
-    `;
-  }
-  
-  if (annexHtml) {
-    innerContent += `
-      <div class="tab-pre">${annexHtml}</div>
-    `;
-  }
-
-  innerContent += `
-    <div class="tab-footer">Généré avec O Girador</div>
-  `;
   
   const htmlContent = `
     <table class="print-table">

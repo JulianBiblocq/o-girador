@@ -3,22 +3,28 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import type * as ToneType from 'tone';
-import { loadTone, getTone } from '@/src/ToneLoader';
+import { loadTone, getTone } from '../ToneLoader';
 
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
 }
-import { TrackGroup, Language, HitTrigger, TimeSignature, SongSection, SongMarker, CloudRhythmSignal } from '../types';
+import { TrackGroup, Language, HitTrigger, HitTriggerPool, TimeSignature, SongSection, SongMarker, CloudRhythmSignal } from '../types';
 import { instrumentsConfig, getMarkers, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol, i18n } from '../data';
-import { getNextStepValue } from './InstrumentDetailEditor';
+import { getNextStepValue } from '../utils/instrumentStrokes';
 import { useGameData } from '../contexts/GameDataContext';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, isSequencerVisibleTrack, isToadaBus, getEffectiveMuteState } from '../stores/useSequencerStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
+import { useTransportStore } from '../stores/useTransportStore';
+import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
+import { getExpandedMeasures } from '../utils/measureHelpers';
+import { getBusColor, getBusNoteColor } from '../utils/colorHelpers';
 
 interface CircleSequencerProps {
+  isActive?: boolean;
   lang?: Language;
   isLeftHanded?: boolean;
   tracks?: TrackGroup[];
@@ -35,14 +41,15 @@ interface CircleSequencerProps {
     stepIdx: number,
     instId: string,
     currentVal: string | number,
-    onSelect: (val: string) => void
+    onSelect: (val: string) => void,
+    trackId: number
   ) => void;
   langPromptVoiceText?: string;
   isMetroOn?: boolean;
   activeCircleIdByInst?: { [instIdx: number]: number | null };
   totalMeasures?: number;
   activePatternIdByTrack?: Record<number, number | null>;
-  hitTriggersRef?: React.MutableRefObject<HitTrigger[]>;
+  hitTriggersRef?: React.MutableRefObject<HitTriggerPool>;
   bpm?: number;
   measureBpms?: number[];
   measureVols?: number[];
@@ -60,7 +67,90 @@ interface CircleSequencerProps {
   trackId?: number;
 }
 
-export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
+const EMPTY_ARRAY: any[] = [];
+
+const isTracksStructureEqual = (prev: TrackGroup[], next: TrackGroup[]) => {
+  if (prev === next) return true;
+  if (!prev || !next) return false;
+  if (prev.length !== next.length) return false;
+  for (let i = 0; i < prev.length; i++) {
+    const p = prev[i];
+    const n = next[i];
+    if (p.id !== n.id ||
+        p.instrumentIdx !== n.instrumentIdx ||
+        p.isHidden !== n.isHidden ||
+        p.isMute !== n.isMute ||
+        p.isSolo !== n.isSolo ||
+        p.radius !== n.radius) {
+      return false;
+    }
+    if (p.patterns.length !== n.patterns.length) return false;
+    for (let j = 0; j < p.patterns.length; j++) {
+      const pp = p.patterns[j];
+      const np = n.patterns[j];
+      if (pp.id !== np.id || pp.steps !== np.steps) return false;
+      if (pp.measureAssignments.length !== np.measureAssignments.length) return false;
+      for (let m = 0; m < pp.measureAssignments.length; m++) {
+        if (pp.measureAssignments[m] !== np.measureAssignments[m]) return false;
+      }
+    }
+  }
+  return true;
+};
+
+function useTracksWithCustomEquality(isActive: boolean): TrackGroup[] {
+  const [tracks, setTracks] = useState<TrackGroup[]>(() => {
+    if (!isActive) return EMPTY_ARRAY;
+    return useSequencerStore.getState().tracks;
+  });
+
+  const lastTracksRef = useRef<TrackGroup[]>(tracks);
+
+  useEffect(() => {
+    if (!isActive) {
+      if (lastTracksRef.current !== EMPTY_ARRAY) {
+        lastTracksRef.current = EMPTY_ARRAY;
+        setTracks(EMPTY_ARRAY);
+      }
+      return;
+    }
+
+    const handleStoreChange = (state: any) => {
+      const nextTracks = state.tracks;
+      if (!isTracksStructureEqual(lastTracksRef.current, nextTracks)) {
+        lastTracksRef.current = nextTracks;
+        setTracks(nextTracks);
+      }
+    };
+
+    handleStoreChange(useSequencerStore.getState());
+
+    const unsubscribe = useSequencerStore.subscribe(handleStoreChange);
+    return unsubscribe;
+  }, [isActive]);
+
+  return tracks;
+}
+
+const MIN_RADIUS = 180;
+const MAX_RADIUS = 495;
+
+const getTrackRadius = (visibleIdx: number, totalTracks: number) => {
+  if (totalTracks <= 0) return 0;
+  if (totalTracks === 1) return (MIN_RADIUS + MAX_RADIUS) / 2;
+  if (totalTracks === 2) {
+    // spacing equivalent to position 2 and 4 out of 5 tracks
+    // gap = (495 - 180) / 4 = 78.75
+    // pos 2: 180 + 78.75 = 258.75
+    // pos 4: 180 + 3 * 78.75 = 416.25
+    return visibleIdx === 0 ? 258.75 : 416.25;
+  }
+  const gap = (MAX_RADIUS - MIN_RADIUS) / (totalTracks - 1);
+  return MIN_RADIUS + visibleIdx * gap;
+};
+
+const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
+  const { isActive = true } = props;
   const sequencer = useSequencer();
   const audio = useAudio();
 
@@ -71,8 +161,9 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
 
   const lang = props.lang !== undefined ? props.lang : sequencer.lang;
   const isLeftHanded = props.isLeftHanded !== undefined ? props.isLeftHanded : sequencer.isLeftHanded;
-  const tracksFromStore = useSequencerStore(state => state.tracks);
-  const tracks = props.tracks !== undefined ? props.tracks : tracksFromStore;
+  const tracksFromStore = useTracksWithCustomEquality(isActive);
+  const rawTracks = props.tracks !== undefined ? props.tracks : tracksFromStore;
+  const tracks = rawTracks.filter(t => isSequencerVisibleTrack(t, rawTracks));
   const totalMeasuresFromStore = useSequencerStore(state => state.totalMeasures);
   const totalMeasures = props.totalMeasures !== undefined ? props.totalMeasures : totalMeasuresFromStore;
   const bpm = props.bpm !== undefined ? props.bpm : sequencer.bpm;
@@ -85,21 +176,14 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
   const songMarkers = props.songMarkers !== undefined ? props.songMarkers : (songMarkersFromStore || []);
 
   const isPlaying = props.isPlaying !== undefined ? props.isPlaying : audio.isPlaying;
-  const currentStepRef = useRef<number>(-1);
-
-  useEffect(() => {
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number }>;
-      currentStepRef.current = customEvent.detail.step;
-    };
-    window.addEventListener('o-girador-tick', handleTick);
-    return () => window.removeEventListener('o-girador-tick', handleTick);
-  }, []);
-  const globalCurrentMeasure = useSequencerStore(state => state.currentMeasure);
+  const globalCurrentMeasure = useSequencerStore(state => isActive ? state.currentMeasure : 0);
+  const currentExpandedMeasureIdx = useSequencerStore(state => state.currentExpandedMeasureIdx);
   const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
   const currentMeasure = props.currentMeasure !== undefined ? props.currentMeasure : globalCurrentMeasure;
-  const isMetroOn = props.isMetroOn !== undefined ? props.isMetroOn : audio.isMetroOn;
-  const soloPatternPlayId = props.soloPatternPlayId !== undefined ? props.soloPatternPlayId : audio.soloPatternPlayId;
+  const storeIsMetroOn = useTransportStore(state => state.isMetroOn);
+  const storeSoloPatternPlayId = useTransportStore(state => state.soloPatternPlayId);
+  const isMetroOn = props.isMetroOn !== undefined ? props.isMetroOn : storeIsMetroOn;
+  const soloPatternPlayId = props.soloPatternPlayId !== undefined ? props.soloPatternPlayId : storeSoloPatternPlayId;
   const hitTriggersRef = props.hitTriggersRef !== undefined ? props.hitTriggersRef : audio.hitTriggersRef;
 
   const metadata = sequencer.metadata;
@@ -162,17 +246,35 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
   });
 
   const [isCenterShaking, setIsCenterShaking] = useState(false);
+  const [pendingTargetMeasure, setPendingTargetMeasure] = useState<number | null>(null);
+  const pendingTargetMeasureRef = useRef<number | null>(null);
+  const [pendingTargetExpandedIndex, setPendingTargetExpandedIndex] = useState<number | null>(null);
+  const pendingTargetExpandedIndexRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    setPendingTargetMeasure(null);
+    pendingTargetMeasureRef.current = null;
+    setPendingTargetExpandedIndex(null);
+    pendingTargetExpandedIndexRef.current = null;
+  }, [currentMeasure]);
+
+  const expandedRef = useRef<any[]>([]);
+
+  useEffect(() => {
+    expandedRef.current = getExpandedMeasures(totalMeasures, songSections);
+  }, [totalMeasures, songSections]);
 
   const livePlaybackRef = useRef({
     step: -1,
     measure: 0,
     maxTicks: 96,
     ratio: 0,
+    iteration: 1,
   });
 
   if (!tracks) return null;
 
-  const updateOverlay = (measureIdx: number) => {
+  const updateOverlay = (expandedMeasureIdx: number, baseMeasureIdx: number) => {
     const container = centerOverlayRef.current;
     if (!container) return;
 
@@ -184,7 +286,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     } = stateRef.current;
 
     // 1. Resolve active signal (visible only on the measure it's set)
-    const sigId = currentMeasureSignals?.[measureIdx] || null;
+    const sigId = currentMeasureSignals?.[expandedMeasureIdx] || null;
     let activeSig: { name: string; image: string } | null = null;
     if (sigId) {
       const cloudSig = currentMestreSignals?.find(s => s.id === sigId);
@@ -200,7 +302,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     let activeMarker: SongMarker | null = null;
     if (currentSongMarkers && currentSongMarkers.length > 0) {
       for (const marker of currentSongMarkers) {
-        if (marker.measure <= measureIdx) {
+        if (marker.measure <= baseMeasureIdx) {
           if (!activeMarker || marker.measure > activeMarker.measure) {
             activeMarker = marker;
           }
@@ -337,35 +439,82 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
   };
 
   useEffect(() => {
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number; time?: number }>;
-      const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+    if (!isActive) return;
+
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number; iteration?: number }) => {
+      const { step, measure, maxTicks, ratio = step / maxTicks, iteration = 1 } = detail;
       
       livePlaybackRef.current = {
         step,
         measure,
         maxTicks,
         ratio,
+        iteration,
       };
 
-      if (measureDisplayRef.current) {
-        measureDisplayRef.current.innerText = `${measure + 1} / ${totalMeasures}`;
+      const expanded = expandedRef.current;
+      let displayMeasure = 1;
+      const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
+ 
+      if (pendingTargetExpandedIndexRef.current !== null) {
+        displayMeasure = pendingTargetExpandedIndexRef.current + 1;
+      } else {
+        const activeRepIndex = expanded.findIndex(item => item.baseMeasure === measure && item.iteration === iteration);
+        displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : measure + 1;
       }
 
-      updateOverlay(measure);
+      if (measureDisplayRef.current) {
+        measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
+      }
+ 
+      updateOverlay(displayMeasure - 1, measure);
     };
-
-    window.addEventListener('o-girador-tick', handleTick);
+ 
+    const handleMeasureQueued = (e: Event) => {
+      const customEvent = e as CustomEvent<{ measure: number; iteration?: number }>;
+      const { measure, iteration = 1 } = customEvent.detail;
+      if (measureDisplayRef.current) {
+        const expanded = expandedRef.current;
+        let displayMeasure = 1;
+        const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
+ 
+        if (pendingTargetExpandedIndexRef.current !== null) {
+          displayMeasure = pendingTargetExpandedIndexRef.current + 1;
+        } else {
+          const activeRepIndex = expanded.findIndex(item => item.baseMeasure === measure && item.iteration === iteration);
+          displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : measure + 1;
+        }
+        measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
+      }
+    };
+ 
+    subscribeToTick(handleTick);
+    window.addEventListener('o-girador-measure-queued', handleMeasureQueued);
     return () => {
-      window.removeEventListener('o-girador-tick', handleTick);
+      unsubscribeFromTick(handleTick);
+      window.removeEventListener('o-girador-measure-queued', handleMeasureQueued);
     };
-  }, [totalMeasures]);
-
+  }, [totalMeasures, songSections, isActive]);
+ 
   useEffect(() => {
-    const live = livePlaybackRef.current;
-    const measureIdx = isPlaying && live.step >= 0 ? live.measure : currentMeasure;
-    updateOverlay(measureIdx);
-  }, [currentMeasure, isPlaying, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers]);
+    let expandedIdx = currentExpandedMeasureIdx;
+    let baseIdx = currentMeasure;
+    if (isPlaying) {
+      const live = livePlaybackRef.current;
+      baseIdx = live.measure;
+      const expanded = expandedRef.current;
+      const activeRepIndex = expanded.findIndex(item => item.baseMeasure === live.measure && item.iteration === (live.iteration || 1));
+      if (activeRepIndex !== -1) {
+        expandedIdx = activeRepIndex;
+      }
+    } else {
+      const expanded = expandedRef.current;
+      if (expanded && expanded[currentExpandedMeasureIdx]) {
+        baseIdx = expanded[currentExpandedMeasureIdx].baseMeasure;
+      }
+    }
+    updateOverlay(expandedIdx, baseIdx);
+  }, [currentExpandedMeasureIdx, currentMeasure, isPlaying, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers]);
 
   useEffect(() => {
     let timerId: any = null;
@@ -387,7 +536,37 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
   const getLiveActivePatternId = (track: TrackGroup): number | null => {
     const live = livePlaybackRef.current;
     const state = stateRef.current;
-    const measureIdx = (live && live.step >= 0) ? live.measure : currentMeasure;
+    const measureIdx = (live && live.step >= 0) ? live.measure : state.currentMeasure;
+
+    const isToada = isToadaBus(track);
+
+    if (isToada) {
+      const pux = state.rawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coro = state.rawTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+      
+      const soloPlayId = state.soloPatternPlayId;
+      if (soloPlayId !== undefined && soloPlayId !== null) {
+        if (pux && pux.patterns.some(p => p.id === soloPlayId)) return soloPlayId;
+        if (coro && coro.patterns.some(p => p.id === soloPlayId)) return soloPlayId;
+        return null;
+      }
+
+      if (coro) {
+        for (let i = 0; i < coro.patterns.length; i++) {
+          if (coro.patterns[i].measureAssignments[measureIdx]) {
+            return coro.patterns[i].id;
+          }
+        }
+      }
+      if (pux) {
+        for (let i = 0; i < pux.patterns.length; i++) {
+          if (pux.patterns[i].measureAssignments[measureIdx]) {
+            return pux.patterns[i].id;
+          }
+        }
+      }
+      return null;
+    }
 
     const soloPlayId = state.soloPatternPlayId;
     if (soloPlayId !== undefined && soloPlayId !== null) {
@@ -410,8 +589,8 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
   // Use refs in the animation loop to avoid stale closure issues
   const stateRef = useRef({
     tracks,
+    rawTracks,
     isPlaying,
-    currentStepIndex: currentStepRef.current,
     currentMeasure,
     maxTicks,
     timeSig,
@@ -431,13 +610,14 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     mestreSignals,
     songSections,
     isLeftHanded,
+    songMarkers,
   });
 
   useEffect(() => {
     stateRef.current = {
       tracks,
+      rawTracks,
       isPlaying,
-      currentStepIndex: currentStepRef.current,
       currentMeasure,
       maxTicks,
       timeSig,
@@ -459,7 +639,23 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       isLeftHanded,
       songMarkers
     };
-  }, [tracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded]);
+  }, [tracks, rawTracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded]);
+
+  useEffect(() => {
+    if (props.tracks !== undefined) return;
+    
+    // Keep filtered tracks in stateRef up to date imperatively
+    stateRef.current.tracks = useSequencerStore.getState().tracks.filter(t => isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
+    stateRef.current.rawTracks = useSequencerStore.getState().tracks;
+    
+    const unsubscribe = useSequencerStore.subscribe(
+      (state) => {
+        stateRef.current.tracks = state.tracks.filter(t => isSequencerVisibleTrack(t, state.tracks));
+        stateRef.current.rawTracks = state.tracks;
+      }
+    );
+    return unsubscribe;
+  }, [props.tracks]);
 
   // Handle click on canvas via Pointer Events (no touch latency)
   const handleCanvasPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -486,23 +682,48 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     }
 
     const currentTracks = stateRef.current.tracks;
+    const currentRawTracks = stateRef.current.rawTracks;
+
+    const activeVisibleTracksToDraw = currentTracks.filter(t => {
+      if (t.isHidden) return false;
+      if (!isSequencerVisibleTrack(t, currentTracks)) return false;
+      if (instrumentsConfig[t.instrumentIdx]?.id === 'apito') return false;
+
+      return !getEffectiveMuteState(currentRawTracks, t.id);
+    });
 
     // Detect click on any track
-    currentTracks.forEach((track) => {
-      const inst = instrumentsConfig[track.instrumentIdx];
-      if (!inst) return null;
-      if (track.isHidden || inst?.id === 'apito') return;
-      
-      const hasSolo = currentTracks.some(t => t.isSolo);
-      const isMutedOut = hasSolo ? !track.isSolo : track.isMute;
-      if (isMutedOut) return;
+    activeVisibleTracksToDraw.forEach((track, visibleIdx) => {
+      const isToada = isToadaBus(track);
+      let activePattern = null;
+      let ownerTrack = track;
       
       const activePatternId = getLiveActivePatternId(track);
       if (activePatternId === null) return;
-      const activePattern = track.patterns.find(p => p.id === activePatternId);
+      
+      if (isToada) {
+        const pux = currentTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+        const coro = currentTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+        
+        if (pux) {
+          activePattern = pux.patterns.find(p => p.id === activePatternId);
+          if (activePattern) ownerTrack = pux;
+        }
+        if (!activePattern && coro) {
+          activePattern = coro.patterns.find(p => p.id === activePatternId);
+          if (activePattern) ownerTrack = coro;
+        }
+      } else {
+        activePattern = track.patterns.find(p => p.id === activePatternId);
+      }
+      
       if (!activePattern) return;
+      const inst = instrumentsConfig[ownerTrack.instrumentIdx];
+      if (!inst) return null;
 
-      if (Math.abs(distance - (track.radius || 0)) < 18) {
+      const tRad = getTrackRadius(visibleIdx, activeVisibleTracksToDraw.length);
+
+      if (Math.abs(distance - tRad) < 18) {
         let clickAngle = Math.atan2(dy, dx) + Math.PI / 2;
         if (clickAngle < 0) clickAngle += Math.PI * 2;
 
@@ -515,8 +736,6 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
 
           // Inside target step hitbox
           if (angleDiff < stepAngleSize / 2) {
-            const inst = instrumentsConfig[track.instrumentIdx];
-      if (!inst) return null;
             const currentVal = activePattern.activeSteps[i];
 
             if (inst.type === 'voice') {
@@ -528,7 +747,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
               if (typed !== null) {
                 const trimmed = typed.trim();
                 if (trimmed === '') {
-                  onStepChange(track.id, activePattern.id, i, 0, '', '');
+                  onStepChange(ownerTrack.id, activePattern.id, i, 0, '', '');
                 } else {
                   let parsedNote = '';
                   let parsedSyllable = trimmed;
@@ -550,7 +769,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
                     parsedSyllable = parsedSyllable.substring(0, 15);
                   }
 
-                  onStepChange(track.id, activePattern.id, i, activeType, parsedSyllable, parsedNote.toUpperCase());
+                  onStepChange(ownerTrack.id, activePattern.id, i, activeType, parsedSyllable, parsedNote.toUpperCase());
                 }
               }
             } else {
@@ -562,14 +781,15 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
                   inst.id,
                   currentVal,
                   (nextVal) => {
-                    onStepChange(track.id, activePattern.id, i, nextVal);
-                  }
+                    onStepChange(ownerTrack.id, activePattern.id, i, nextVal);
+                  },
+                  ownerTrack.id
                 );
               } else {
                 const visualVal = getVisualStrokeSymbol(currentVal, stateRef.current.isLeftHanded || false, inst.id);
                 const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
                 const nextSemanticVal = getVisualStrokeSymbol(nextVisualVal, stateRef.current.isLeftHanded || false, inst.id);
-                onStepChange(track.id, activePattern.id, i, nextSemanticVal);
+                onStepChange(ownerTrack.id, activePattern.id, i, nextSemanticVal);
               }
             }
             return;
@@ -578,6 +798,19 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       }
     });
   };
+
+  // 🛡️ FIX (Performance): control requestAnimationFrame lifecycle based on visibility
+  const visibleRef = useRef(isActive);
+  const loopRunningRef = useRef(false);
+  const drawLoopRef = useRef<() => void>(() => {});
+
+  useEffect(() => {
+    visibleRef.current = isActive;
+    if (isActive && !loopRunningRef.current) {
+      loopRunningRef.current = true;
+      drawLoopRef.current();
+    }
+  }, [isActive]);
 
   // Canvas render animation loop
   useEffect(() => {
@@ -648,8 +881,19 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     let lastDrawTime = performance.now();
 
     const drawLoop = () => {
+      if ((window as any).oGiradorDetailEditorOpen) {
+        animId = requestAnimationFrame(drawLoop);
+        return;
+      }
+      if (!visibleRef.current) {
+        loopRunningRef.current = false;
+        return;
+      }
       const time = performance.now();
-      const isEco = !!(window as any).oGiradorEcoMode;
+      
+      const sequencerState = useSequencerStore.getState();
+      const isEco = sequencerState.ecoConfig?.disableAnimations ?? sequencerState.isEcoMode;
+      const storeTracks = sequencerState.tracks;
       const targetSize = isEco ? 600 : 1200;
       
       if (currentCanvasSize !== targetSize) {
@@ -673,7 +917,8 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       lastDrawTime = time;
 
       const { 
-        tracks: currentTracks, 
+        tracks, 
+        rawTracks: localRawTracks,
         isPlaying: localPlaying, 
         timeSig: localTimeSig,
         isMetroOn: localMetroOn, 
@@ -685,35 +930,65 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       const localStep = live.step;
       const localTicks = live.maxTicks || 96;
 
-      // Consume hit triggers to create ripples
-      if (localHitTriggers && localHitTriggers.current.length > 0) {
-        const hits = localHitTriggers.current.splice(0, localHitTriggers.current.length);
-        if (!isEco) {
-          hits.forEach(hit => {
-            const track = currentTracks.find(t => t.id === hit.trackId);
-          if (track && !track.isHidden && !track.isMute) {
-            const inst = instrumentsConfig[track.instrumentIdx];
-      if (!inst) return null;
-            const color = inst.colors[hit.state as any] || themeText;
-            const activePatternId = getLiveActivePatternId(track);
-            if (activePatternId === null) return;
-            const activePattern = track.patterns.find(p => p.id === activePatternId) || track.patterns[0];
-            const angle = -Math.PI / 2 + ((hit.stepIndex / activePattern.steps) * Math.PI * 2);
-            const radius = track.radius || 0;
-            const x = 600 + Math.cos(angle) * radius;
-            const y = 600 + Math.sin(angle) * radius;
+      // 2. Filtrer les pistes actives et visibles (non mutées, non masquées)
+      const activeVisibleTracks = tracks.filter(t => {
+        if (t.isHidden) return false;
+        if (!isSequencerVisibleTrack(t, tracks)) return false;
+        if (instrumentsConfig[t.instrumentIdx]?.id === 'apito') return false;
 
-            ripples.push({
-              x, y,
-              radius: 6,
-              maxRadius: 25 + (track.volumeVal / 100) * 15,
-              alpha: 0.6 * (track.volumeVal / 100),
-              color: color,
-              speed: 1.0 + Math.random() * 0.5
-            });
+        return !getEffectiveMuteState(localRawTracks, t.id);
+      });
+
+      // Consume hit triggers to create ripples
+      if (localHitTriggers && localHitTriggers.current) {
+        const pool = localHitTriggers.current;
+        if (!isEco) {
+          // Coût unique par trame de dessin : O(N) où N est le nombre de pistes
+          const tracksMap = new Map<number | string, any>();
+          const len = localRawTracks.length;
+          for (let i = 0; i < len; i++) {
+            const t = localRawTracks[i];
+            tracksMap.set(t.id, t);
+            tracksMap.set(String(t.id), t);
           }
-        });
-      }
+
+          while (pool.readIndex !== pool.writeIndex) {
+            const hit = pool.buffer[pool.readIndex];
+            pool.readIndex = (pool.readIndex + 1) % pool.size;
+            
+            let track = tracksMap.get(hit.trackId);
+            if (track && track.linkedToTrackId) {
+              track = tracksMap.get(track.linkedToTrackId) || tracksMap.get(Number(track.linkedToTrackId));
+            }
+            if (track && !track.isHidden && !track.isMute) {
+              const inst = instrumentsConfig[track.instrumentIdx];
+              if (!inst) continue;
+              const color = inst.colors[hit.state as any] || themeText;
+              const activePatternId = getLiveActivePatternId(track);
+              if (activePatternId === null) continue;
+              const activePattern = track.patterns.find(p => p.id === activePatternId) || track.patterns[0];
+              const angle = -Math.PI / 2 + ((hit.stepIndex / activePattern.steps) * Math.PI * 2);
+              
+              const visibleIdx = activeVisibleTracks.findIndex(vt => vt.id === track!.id);
+              if (visibleIdx !== -1) {
+                const radius = getTrackRadius(visibleIdx, activeVisibleTracks.length);
+                const x = 600 + Math.cos(angle) * radius;
+                const y = 600 + Math.sin(angle) * radius;
+
+                ripples.push({
+                  x, y,
+                  radius: 6,
+                  maxRadius: 25 + (track.volumeVal / 100) * 15,
+                  alpha: 0.6 * (track.volumeVal / 100),
+                  color: color,
+                  speed: 1.0 + Math.random() * 0.5
+                });
+              }
+            }
+          }
+        } else {
+          pool.readIndex = pool.writeIndex;
+        }
       }
 
       const centerX = 600;
@@ -868,13 +1143,13 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
 
           bgCtx.strokeStyle = themeBorder;
           if (isMainBeat) {
-            bgCtx.globalAlpha = 0.28;
-            bgCtx.lineWidth = 2.0;
+            bgCtx.globalAlpha = 0.60;
+            bgCtx.lineWidth = 3.0;
             bgCtx.setLineDash([]);
           } else {
-            bgCtx.globalAlpha = 0.12;
-            bgCtx.lineWidth = 1.0;
-            bgCtx.setLineDash([5, 5]);
+            bgCtx.globalAlpha = 0.22;
+            bgCtx.lineWidth = 1.5;
+            bgCtx.setLineDash([4, 4]);
           }
           bgCtx.stroke();
         }
@@ -928,21 +1203,16 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
         stickAngle = -Math.PI / 2;
       }
 
+      // 3. Dessiner la baguette avec la longueur maximale dynamique uniforme
+      const maxVisibleRadius = activeVisibleTracks.length > 0 
+        ? getTrackRadius(activeVisibleTracks.length - 1, activeVisibleTracks.length) 
+        : 120;
+      const stickLength = maxVisibleRadius + 35;
+
       ctx.save();
       ctx.translate(centerX, centerY);
       ctx.rotate(stickAngle);
-      let maxVisibleRadius = -1;
-      for (let i = 0; i < currentTracks.length; i++) {
-        const t = currentTracks[i];
-        if (!t.isHidden && instrumentsConfig[t.instrumentIdx]?.id !== 'apito') {
-          const r = t.radius || 0;
-          if (r > maxVisibleRadius) {
-            maxVisibleRadius = r;
-          }
-        }
-      }
-      if (maxVisibleRadius === -1) maxVisibleRadius = 120;
-      const stickLength = maxVisibleRadius + 35;
+
       ctx.beginPath();
       ctx.moveTo(0, -2);
       ctx.lineTo(stickLength - 10, -1);
@@ -960,8 +1230,8 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
 
       // Dynamic scale multiplier
       const maxTracks = 10;
-      const countClamped = Math.min(currentTracks.length, maxTracks);
-      const dynamicScale = currentTracks.length > 0 ? 1 + ((maxTracks - countClamped) * 0.08) : 1;
+      const countClamped = Math.min(activeVisibleTracks.length, maxTracks);
+      const dynamicScale = activeVisibleTracks.length > 0 ? 1 + ((maxTracks - countClamped) * 0.08) : 1;
 
       // Render Ripples (Ondes de choc)
       for (let i = ripples.length - 1; i >= 0; i--) {
@@ -982,24 +1252,16 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
         ctx.restore();
       }
 
-      let hasSoloTrack = false;
-      for (let i = 0; i < currentTracks.length; i++) {
-        if (currentTracks[i].isSolo) {
-          hasSoloTrack = true;
-          break;
-        }
-      }
-
       for (const key in instrumentTotals) delete instrumentTotals[key];
       for (const key in instrumentIndexes) delete instrumentIndexes[key];
 
-      for (let i = 0; i < currentTracks.length; i++) {
-        const idx = currentTracks[i].instrumentIdx;
+      for (let i = 0; i < activeVisibleTracks.length; i++) {
+        const idx = activeVisibleTracks[i].instrumentIdx;
         instrumentTotals[idx] = (instrumentTotals[idx] || 0) + 1;
       }
 
       // Render concentric sequencer tracks
-      currentTracks.forEach((track) => {
+      activeVisibleTracks.forEach((track, visibleIdx) => {
         const instIdx = track.instrumentIdx;
         const inst = instrumentsConfig[instIdx];
         
@@ -1009,21 +1271,44 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
 
         if (!inst || track.isHidden || inst.id === 'apito') return;
 
-        const isMutedOut = hasSoloTrack ? !track.isSolo : track.isMute;
+        const isMutedOut = getEffectiveMuteState(props.tracks !== undefined ? rawTracks : stateRef.current.rawTracks, track.id);
         if (isMutedOut) return;
 
         const activePatternId = getLiveActivePatternId(track);
         if (activePatternId === null) return;
         let activePattern = null;
-        for (let i = 0; i < track.patterns.length; i++) {
-          if (track.patterns[i].id === activePatternId) {
-            activePattern = track.patterns[i];
-            break;
+        let ownerTrack = track;
+
+        const isToada = isToadaBus(track);
+        if (isToada) {
+          const pux = (props.tracks !== undefined ? rawTracks : stateRef.current.rawTracks).find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+          const coro = (props.tracks !== undefined ? rawTracks : stateRef.current.rawTracks).find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+          
+          if (pux) {
+            activePattern = pux.patterns.find(p => p.id === activePatternId);
+            if (activePattern) ownerTrack = pux;
+          }
+          if (!activePattern && coro) {
+            activePattern = coro.patterns.find(p => p.id === activePatternId);
+            if (activePattern) ownerTrack = coro;
+          }
+        } else {
+          for (let i = 0; i < track.patterns.length; i++) {
+            if (track.patterns[i].id === activePatternId) {
+              activePattern = track.patterns[i];
+              break;
+            }
           }
         }
+
         if (!activePattern) return;
         
-        const activePlayingSteps = sequencer.activeVariationsRef?.current[track.id] || activePattern.activeSteps;
+        const currentInst = instrumentsConfig[ownerTrack.instrumentIdx] || inst;
+        const currentInstIdx = ownerTrack.instrumentIdx;
+        
+         const activePlayingSteps = (props.tracks === undefined && sequencer.activeVariationsRef?.current)
+          ? (sequencer.activeVariationsRef.current[track.id] || activePattern.activeSteps)
+          : activePattern.activeSteps;
         let hasAnyNotes = false;
         for (let sIdx = 0; sIdx < activePlayingSteps.length; sIdx++) {
           if (activePlayingSteps[sIdx] !== 0) {
@@ -1033,14 +1318,16 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
         }
         const isActiveState = hasAnyNotes;
 
+        const busColor = track.isLinkFolder ? getBusColor(String(track.id), localRawTracks, instrumentsConfig) : null;
+
         ctx.save();
         ctx.globalAlpha = isActiveState ? 1.0 : 0.25;
 
         // Standard dashed track line
         ctx.beginPath();
-        const tRad = track.radius || 0;
+        const tRad = getTrackRadius(visibleIdx, activeVisibleTracks.length);
         ctx.arc(centerX, centerY, tRad, 0, Math.PI * 2);
-        ctx.strokeStyle = themeBorder;
+        ctx.strokeStyle = busColor || themeBorder;
         ctx.lineWidth = 1.5;
         ctx.setLineDash([5, 5]);
         if (!track.isSolo) {
@@ -1055,57 +1342,217 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
 
         const currentStep = (localStep >= 0) ? Math.floor((localStep / localTicks) * activePattern.steps) : -1;
         const stepCount = activePattern.steps;
-
-        const stepAngles: number[] = [];
-        const beatRes = activePattern.beatResolutions || Array(4).fill(Math.floor(stepCount / 4) || 4);
-        const anglePerBeat = (Math.PI * 2) / beatRes.length;
-        let currentAngle = -Math.PI / 2;
-        for (let b = 0; b < beatRes.length; b++) {
-          const res = beatRes[b];
-          const anglePerStep = anglePerBeat / res;
-          for (let s = 0; s < res; s++) {
-            stepAngles.push(currentAngle + s * anglePerStep);
+        let stepAngles: number[] | null = null;
+        if (activePattern.beatResolutions) {
+          stepAngles = [];
+          const beatRes = activePattern.beatResolutions;
+          const anglePerBeat = (Math.PI * 2) / beatRes.length;
+          let currentAngle = -Math.PI / 2;
+          for (let b = 0; b < beatRes.length; b++) {
+            const res = beatRes[b];
+            const anglePerStep = anglePerBeat / res;
+            for (let s = 0; s < res; s++) {
+              stepAngles.push(currentAngle + s * anglePerStep);
+            }
+            currentAngle += anglePerBeat;
           }
-          currentAngle += anglePerBeat;
         }
 
         for (let i = 0; i < stepCount; i++) {
-          const stepAngle = stepAngles[i] || (-Math.PI / 2 + (i * (Math.PI * 2 / stepCount)));
+          const stepAngle = stepAngles ? stepAngles[i] : (-Math.PI / 2 + (i * (Math.PI * 2 / stepCount)));
           const x = centerX + Math.cos(stepAngle) * tRad;
           const y = centerY + Math.sin(stepAngle) * tRad;
 
-          const state = activePlayingSteps[i];
-          if (!state || state === 0) continue;
+          // ── DESSIN DES SATELLITES POUR VARIATIONS INDIVIDUELLES ──
+          let satellitesToDraw: Array<{
+            color: string;
+            text: string;
+            isDark: boolean;
+            childInstId: string;
+            childState: string | number;
+          }> = [];
 
-          const visualState = getVisualStrokeSymbol(state, localLeftHanded || false, inst.id);
-          let fillColor = 'rgba(255,255,255,0.2)';
-          let radiusSize = 6 * dynamicScale;
-          let isAccent = false;
-          let textSymbol = String(visualState);
+          const live = livePlaybackRef.current;
+          const stateVal = stateRef.current;
+          const measureIdx = (live && live.step >= 0) ? live.measure : (pendingTargetMeasureRef.current !== null ? pendingTargetMeasureRef.current : stateVal.currentMeasure);
 
-          if (visualState !== 0) {
-            radiusSize = 13 * dynamicScale;
-            if (inst.type === 'voice') {
-              radiusSize = 22 * dynamicScale;
-              fillColor = (visualState === 'P') ? inst.colors['P'] : inst.colors['C'];
-              let syl = activePattern.lyrics[i] || 'X';
-              textSymbol = String(syl).endsWith('-') ? String(syl).slice(0, -1) : String(syl);
-            } else {
-              const stateStr = String(visualState);
-              fillColor = (inst.colors && inst.colors[visualState]) ? inst.colors[visualState] : '#fff';
-              isAccent = (stateStr === stateStr.toUpperCase());
-              radiusSize = (isAccent ? 15 : 12) * dynamicScale;
-
-              if (inst.id === 'mineiro') {
-                if (stateStr.toLowerCase() === 'p') textSymbol = '↑';
-                else if (stateStr.toLowerCase() === 't') textSymbol = '↓';
-              } else if (inst.id === 'agbe') {
-                if (stateStr.toLowerCase() === 'e') textSymbol = '←';
-                else if (stateStr.toLowerCase() === 'd') textSymbol = '→';
-                else if (stateStr.toLowerCase() === 's') textSymbol = '↑';
-                else if (stateStr.toLowerCase() === 'v') textSymbol = '↓';
+          if (track.isLinkFolder) {
+            const children = (props.tracks !== undefined ? rawTracks : stateRef.current.rawTracks).filter((t: any) => 
+              String(t.linkedToTrackId) === String(track.id) && 
+              !t.isBusFolder &&
+              !t.isLinkMaster
+            );
+            
+            children.forEach((c: any) => {
+              const override = c.patternOverrides?.[measureIdx];
+              if (override !== undefined) {
+                if (override !== null) {
+                  const childPattern = track.patterns.find((p: any) => p.id === override);
+                  if (childPattern) {
+                    const childActivePlayingSteps = (props.tracks === undefined && sequencer.activeVariationsRef?.current)
+                      ? (sequencer.activeVariationsRef.current[c.id] || childPattern.activeSteps)
+                      : childPattern.activeSteps;
+                    const childState = childActivePlayingSteps[i] || 0;
+                    if (childState !== 0 && childState !== '') {
+                      const childInst = instrumentsConfig[c.instrumentIdx];
+                      if (childInst) {
+                        const childVisualState = getVisualStrokeSymbol(childState, localLeftHanded || false, childInst.id);
+                        if (childVisualState !== 0) {
+                          const childColor = (childInst.colors && childInst.colors[childVisualState]) || childInst.color || '#fff';
+                          const childText = String(childVisualState);
+                          satellitesToDraw.push({
+                            color: childColor,
+                            text: childText,
+                            isDark: isDarkText(childInst.id, String(childState)),
+                            childInstId: childInst.id,
+                            childState: childState
+                          });
+                        }
+                      }
+                    }
+                  }
+                }
               }
+            });
+          }
+          // ── RÉSOLUTION DES ÉVÉNEMENTS MASTER ET VARIATIONS ──
+          const masterState = activePlayingSteps[i];
+          const hasMasterEvent = masterState !== 0 && masterState !== '0' && masterState !== '' && masterState !== undefined && masterState !== null;
+          const hasVariationEvent = satellitesToDraw.length > 0;
+
+          if (!hasMasterEvent && !hasVariationEvent) {
+            continue; // Pas d'événement au pas i
+          }
+
+          // 1. Résoudre les détails du Master
+          let masterText = '';
+          let masterFillColor = 'rgba(255,255,255,0.2)';
+          let masterTxtColor = '#f4ecd8';
+          let masterIsAccent = false;
+          let masterRadiusSize = 6 * dynamicScale;
+
+          if (hasMasterEvent) {
+            const visualState = getVisualStrokeSymbol(masterState, localLeftHanded || false, currentInst.id);
+            const visualStateStr = String(visualState);
+            if (visualState !== 0 && visualState !== '0') {
+              masterRadiusSize = 13 * dynamicScale;
+              if (currentInst.type === 'voice') {
+                masterRadiusSize = 22 * dynamicScale;
+                masterFillColor = track.isLinkFolder
+                  ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
+                  : currentInst.color;
+                let syl = activePattern.lyrics[i] || String(visualState);
+                if (syl === '-') {
+                  masterText = '-';
+                  masterFillColor = '#ab5318'; // orange pour le silence
+                  masterTxtColor = '#1a1a1a';
+                } else {
+                  masterText = String(syl).endsWith('-') ? String(syl).slice(0, -1) : String(syl);
+                  masterTxtColor = '#000000';
+                }
+              } else {
+                const stateStr = String(visualState);
+                masterFillColor = track.isLinkFolder 
+                  ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
+                  : ((currentInst.colors && currentInst.colors[visualState]) ? currentInst.colors[visualState] : '#fff');
+                masterIsAccent = (stateStr === stateStr.toUpperCase());
+                masterRadiusSize = (masterIsAccent ? 15 : 12) * dynamicScale;
+
+                masterText = stateStr;
+                if (currentInst.id === 'mineiro') {
+                  if (stateStr.toLowerCase() === 'p') masterText = '↑';
+                  else if (stateStr.toLowerCase() === 't') masterText = '↓';
+                } else if (currentInst.id === 'agbe') {
+                  if (stateStr.toLowerCase() === 'e') masterText = '←';
+                  else if (stateStr.toLowerCase() === 'd') masterText = '→';
+                  else if (stateStr.toLowerCase() === 's') masterText = '↑';
+                  else if (stateStr.toLowerCase() === 'v') masterText = '↓';
+                }
+                
+                masterTxtColor = isDarkText(currentInst.id, String(masterState)) ? '#1a1a1a' : '#f4ecd8';
+              }
+            } else if (visualStateStr === '0' || visualStateStr === '-') {
+              masterRadiusSize = (currentInst.type === 'voice' ? 22 : 12) * dynamicScale;
+              masterFillColor = '#ab5318'; // orange pour le silence
+              masterText = '-';
+              masterTxtColor = '#1a1a1a';
             }
+          }
+
+          // 2. Décider de la forme du pas (Complet, Divisé ou Demi-cercle droit seul)
+          let isSplit = false;
+          let isRightHalfOnly = false;
+          let leftText = '';
+          let leftFillColor = 'rgba(255,255,255,0.2)';
+          let leftTxtColor = '#f4ecd8';
+          let leftIsAccent = false;
+
+          let rightText = '';
+          let rightFillColor = '';
+          let rightTxtColor = '#f4ecd8';
+
+          let radiusSize = 6 * dynamicScale;
+
+          if (hasMasterEvent && hasVariationEvent) {
+            // Master + Variation
+            isSplit = true;
+            leftText = masterText;
+            leftFillColor = masterFillColor;
+            leftTxtColor = masterTxtColor;
+            leftIsAccent = masterIsAccent;
+
+            const rightSat = satellitesToDraw[0];
+            rightText = rightSat.text;
+            rightFillColor = rightSat.color;
+            rightTxtColor = rightSat.isDark ? '#1a1a1a' : '#f4ecd8';
+
+            radiusSize = (currentInst.type === 'voice' ? 22 : (leftIsAccent ? 15 : 12)) * dynamicScale;
+          } else if (!hasMasterEvent && satellitesToDraw.length >= 2) {
+            // Deux variations ou plus sans Master (on utilise la première et la deuxième)
+            isSplit = true;
+            const leftSat = satellitesToDraw[0];
+            leftText = leftSat.text;
+            leftFillColor = leftSat.color;
+            leftTxtColor = leftSat.isDark ? '#1a1a1a' : '#f4ecd8';
+            leftIsAccent = false;
+
+            const rightSat = satellitesToDraw[1];
+            rightText = rightSat.text;
+            rightFillColor = rightSat.color;
+            rightTxtColor = rightSat.isDark ? '#1a1a1a' : '#f4ecd8';
+
+            radiusSize = (currentInst.type === 'voice' ? 22 : 12) * dynamicScale;
+          } else if (!hasMasterEvent && satellitesToDraw.length === 1) {
+            // Une seule Variation sans Master (Demi-cercle droit uniquement)
+            isRightHalfOnly = true;
+            const singleSat = satellitesToDraw[0];
+            rightText = singleSat.text;
+            rightFillColor = singleSat.color;
+            rightTxtColor = singleSat.isDark ? '#1a1a1a' : '#f4ecd8';
+
+            radiusSize = (currentInst.type === 'voice' ? 22 : 12) * dynamicScale;
+          } else {
+            // Master uniquement (Cercle Complet)
+            isSplit = false;
+            leftText = masterText;
+            leftFillColor = masterFillColor;
+            leftTxtColor = masterTxtColor;
+            leftIsAccent = masterIsAccent;
+            radiusSize = masterRadiusSize;
+          }
+
+          // 3. Calculer la couleur de la bordure active
+          let strokeColor = themeBorder;
+          let strokeWidth = 2.0;
+          if (hasMasterEvent) {
+            const visualState = getVisualStrokeSymbol(masterState, localLeftHanded || false, currentInst.id);
+            strokeColor = track.isLinkFolder 
+              ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
+              : ((currentInst && currentInst.color) ? currentInst.color : themeBorder);
+            strokeWidth = 2.5;
+          } else if (hasVariationEvent) {
+            strokeColor = themeBorder;
+            strokeWidth = 2.5;
           }
 
           // Highlight playhead match step
@@ -1118,7 +1565,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
           }
 
           // Accent ring decoration
-          if (isAccent) {
+          if (leftIsAccent) {
             ctx.beginPath();
             ctx.arc(x, y, radiusSize + 4, 0, Math.PI * 2);
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
@@ -1126,55 +1573,163 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
             ctx.stroke();
           }
 
-          ctx.beginPath();
-          ctx.arc(x, y, radiusSize, 0, Math.PI * 2);
-          ctx.fillStyle = fillColor;
-          ctx.fill();
+          // 4. Rendu graphique Canvas (Complet, Divisé ou Demi-cercle droit seul)
+          if (isRightHalfOnly) {
+            // Remplissage Moitié Droite uniquement
+            ctx.beginPath();
+            ctx.arc(x, y, radiusSize, Math.PI * 1.5, Math.PI * 0.5, false);
+            ctx.closePath();
+            ctx.fillStyle = rightFillColor;
+            ctx.fill();
 
-          const isHit = state !== 0 && state !== '0' && state !== '';
-          if (isHit) {
-            ctx.strokeStyle = (inst && inst.color) ? inst.color : themeBorder;
-            ctx.lineWidth = 2.5;
-          } else {
+            // Bordure du demi-cercle fermé
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = strokeWidth;
+            ctx.stroke();
+
+            // Dessin de la lettre décalée à droite
+            if (rightText) {
+              const rightFontSize = Math.max(8, Math.floor((rightText.length > 1 ? 11 : 15) * dynamicScale * 0.9));
+              ctx.font = `900 ${rightFontSize}px "Outfit", "Inter", sans-serif`;
+              ctx.fillStyle = rightTxtColor;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              const textX = x + radiusSize * 0.4;
+              const textY = y + 2;
+
+              if (['↑', '↓', '←', '→'].includes(rightText)) {
+                ctx.save();
+                ctx.strokeStyle = rightTxtColor;
+                ctx.lineWidth = 2.0;
+                ctx.strokeText(rightText, textX, textY);
+                ctx.restore();
+              }
+              ctx.fillText(rightText, textX, textY);
+            }
+          } else if (isSplit) {
+            // Remplissage Moitié Gauche
+            ctx.beginPath();
+            ctx.arc(x, y, radiusSize, Math.PI * 0.5, Math.PI * 1.5, false);
+            ctx.closePath();
+            ctx.fillStyle = leftFillColor;
+            ctx.fill();
+
+            // Remplissage Moitié Droite
+            ctx.beginPath();
+            ctx.arc(x, y, radiusSize, Math.PI * 1.5, Math.PI * 0.5, false);
+            ctx.closePath();
+            ctx.fillStyle = rightFillColor;
+            ctx.fill();
+
+            // Ligne verticale médiane de séparation
+            ctx.beginPath();
+            ctx.moveTo(x, y - radiusSize);
+            ctx.lineTo(x, y + radiusSize);
             ctx.strokeStyle = themeBorder;
-            ctx.lineWidth = 2;
-          }
-          ctx.stroke();
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
 
-          // Render letter/direction marker on top of step
-          if (state !== 0) {
-            let txtColor = '#f4ecd8'; // Cream by default
-            if (inst.type === 'voice' || isDarkText(inst.id, String(state))) {
-              txtColor = '#1a1a1a'; // Dark charcoal
+            // Bordure extérieure
+            ctx.beginPath();
+            ctx.arc(x, y, radiusSize, 0, Math.PI * 2);
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = strokeWidth;
+            ctx.stroke();
+
+            // Dessin des lettres décalées
+            if (leftText) {
+              const leftFontSize = Math.max(8, Math.floor((leftText.length > 1 ? 11 : 15) * dynamicScale * 0.9));
+              ctx.font = `900 ${leftFontSize}px "Outfit", "Inter", sans-serif`;
+              ctx.fillStyle = leftTxtColor;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              const textX = x - radiusSize * 0.4;
+              const textY = y + 2;
+
+              if (['↑', '↓', '←', '→'].includes(leftText)) {
+                ctx.save();
+                ctx.strokeStyle = leftTxtColor;
+                ctx.lineWidth = 2.0;
+                ctx.strokeText(leftText, textX, textY);
+                ctx.restore();
+              }
+              ctx.fillText(leftText, textX, textY);
             }
-            ctx.fillStyle = txtColor;
-            const fontSize = Math.max(10, Math.floor((textSymbol.length > 1 ? 15 : 20) * dynamicScale * 0.9));
-            ctx.font = `900 ${fontSize}px "Outfit", "Inter", sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
 
-            // Draw text outline for arrow symbols to make them extra bold/thick
-            if (['↑', '↓', '←', '→'].includes(textSymbol)) {
-              ctx.save();
-              ctx.strokeStyle = txtColor;
-              ctx.lineWidth = 2.5;
-              ctx.strokeText(textSymbol, x, y + 2);
-              ctx.restore();
+            if (rightText) {
+              const rightFontSize = Math.max(8, Math.floor((rightText.length > 1 ? 11 : 15) * dynamicScale * 0.9));
+              ctx.font = `900 ${rightFontSize}px "Outfit", "Inter", sans-serif`;
+              ctx.fillStyle = rightTxtColor;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              const textX = x + radiusSize * 0.4;
+              const textY = y + 2;
+
+              if (['↑', '↓', '←', '→'].includes(rightText)) {
+                ctx.save();
+                ctx.strokeStyle = rightTxtColor;
+                ctx.lineWidth = 2.0;
+                ctx.strokeText(rightText, textX, textY);
+                ctx.restore();
+              }
+              ctx.fillText(rightText, textX, textY);
             }
+          } else {
+            // Rendu Complet Traditionnel
+            ctx.beginPath();
+            ctx.arc(x, y, radiusSize, 0, Math.PI * 2);
+            ctx.fillStyle = leftFillColor;
+            ctx.fill();
 
-            ctx.fillText(textSymbol, x, y + 2);
+            // Bordure
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = strokeWidth;
+            ctx.stroke();
+
+            // Dessin du texte au centre
+            if (leftText) {
+              const fontSize = Math.max(10, Math.floor((leftText.length > 1 ? 15 : 20) * dynamicScale * 0.9));
+              ctx.font = `900 ${fontSize}px "Outfit", "Inter", sans-serif`;
+              ctx.fillStyle = leftTxtColor;
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              const textY = y + 2;
+
+              if (['↑', '↓', '←', '→'].includes(leftText)) {
+                ctx.save();
+                ctx.strokeStyle = leftTxtColor;
+                ctx.lineWidth = 2.5;
+                ctx.strokeText(leftText, x, textY);
+                ctx.restore();
+              }
+              ctx.fillText(leftText, x, textY);
+            }
           }
 
           // Name overlay on step 0
-          if (i === 0 && !(window as any).oGiradorEcoMode) {
+          if (i === 0 && !isEco) {
             ctx.save();
             ctx.globalAlpha = 1.0;
             ctx.fillStyle = themeText;
             ctx.font = 'bold 10px serif';
             ctx.textAlign = 'left';
-            let labelText = inst?.name || 'Instrument';
-            if (instrumentTotals[instIdx] > 1) {
-              labelText += ` ${instrumentIndexes[instIdx]}`;
+            const isMaster = storeTracks.some(t => String(t.linkedToTrackId) === String(track.id));
+            const getPluralName = (name: string) => {
+              if (name.includes('Alfaia')) return 'Alfaias';
+              if (name === 'Caixa') return 'Caixas';
+              if (name === 'Tarol') return 'Tarols';
+              if (name === 'Agbê') return 'Agbês';
+              if (name === 'Mineiro') return 'Mineiros';
+              if (name === 'Gonguê') return 'Gonguês';
+              return name + 's';
+            };
+            let labelText = track.customName
+              ? (isMaster ? `🔗 ${track.customName}` : track.customName)
+              : ((isMaster && currentInst) 
+                  ? `🔗 ${getPluralName(currentInst.name)}` 
+                  : (currentInst?.name || 'Instrument'));
+            if (!track.customName && !isMaster && instrumentTotals[currentInstIdx] > 1) {
+              labelText += ` ${instrumentIndexes[currentInstIdx]}`;
             }
             if (track.patterns.length > 1) {
               let patternIdx = -1;
@@ -1201,16 +1756,34 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
       animId = requestAnimationFrame(drawLoop);
     };
 
-    drawLoop();
+    drawLoopRef.current = drawLoop;
+
+    if (visibleRef.current) {
+      loopRunningRef.current = true;
+      drawLoop();
+    }
 
     return () => {
       cancelAnimationFrame(animId);
+      loopRunningRef.current = false;
       observer.disconnect();
     };
   }, []);
 
   const activeBpm = measureBpms[currentMeasure] || bpm;
   const activeVol = measureVols[currentMeasure] !== undefined ? measureVols[currentMeasure] : 100;
+
+  const expanded = useMemo(() => getExpandedMeasures(totalMeasures, songSections), [totalMeasures, songSections]);
+  let displayMeasure = 1;
+  const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
+
+  if (pendingTargetExpandedIndex !== null) {
+    displayMeasure = pendingTargetExpandedIndex + 1;
+  } else {
+    const activeMeasureForDisplay = currentMeasure;
+    const activeRepIndex = expanded.findIndex(item => item.baseMeasure === activeMeasureForDisplay);
+    displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : activeMeasureForDisplay + 1;
+  }
 
   return (
     <div
@@ -1221,6 +1794,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
+        display: isActive ? 'flex' : 'none',
       }}
     >
       {/* Dynamic Measure Information Widgets around the Roda */}
@@ -1230,8 +1804,34 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              const prev = (currentMeasure - 1 + totalMeasures) % totalMeasures;
-              onNavigateMeasure?.(prev);
+              const expanded = expandedRef.current;
+              if (expanded.length === 0) {
+                const activeMeasureForNavigation = pendingTargetMeasure !== null ? pendingTargetMeasure : currentMeasure;
+                const prev = (activeMeasureForNavigation - 1 + totalMeasures) % totalMeasures;
+                setPendingTargetMeasure(prev);
+                pendingTargetMeasureRef.current = prev;
+                onNavigateMeasure?.(prev);
+                return;
+              }
+
+              let currentIdx = 0;
+              if (pendingTargetExpandedIndexRef.current !== null) {
+                currentIdx = pendingTargetExpandedIndexRef.current;
+              } else {
+                const activeMeasureForNavigation = currentMeasure;
+                currentIdx = expanded.findIndex(item => item.baseMeasure === activeMeasureForNavigation);
+                if (currentIdx === -1) currentIdx = 0;
+              }
+
+              const prevIdx = (currentIdx - 1 + expanded.length) % expanded.length;
+              const prevBaseMeasure = expanded[prevIdx].baseMeasure;
+
+              setPendingTargetExpandedIndex(prevIdx);
+              pendingTargetExpandedIndexRef.current = prevIdx;
+              setPendingTargetMeasure(prevBaseMeasure);
+              pendingTargetMeasureRef.current = prevBaseMeasure;
+
+              onNavigateMeasure?.(prevBaseMeasure);
             }}
             className="w-6 h-6 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors rounded-sm active:scale-95"
             title={lang === 'pt' ? 'Compasso anterior' : 'Mesure précédente'}
@@ -1240,13 +1840,39 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
             &lt;
           </button>
           <span ref={measureDisplayRef} className="text-sm md:text-base font-cactus font-bold leading-none select-none flex-grow text-center">
-            {currentMeasure + 1} / {totalMeasures}
+            {displayMeasure} / {displayTotal}
           </span>
           <button
             onClick={(e) => {
               e.stopPropagation();
-              const next = (currentMeasure + 1) % totalMeasures;
-              onNavigateMeasure?.(next);
+              const expanded = expandedRef.current;
+              if (expanded.length === 0) {
+                const activeMeasureForNavigation = pendingTargetMeasure !== null ? pendingTargetMeasure : currentMeasure;
+                const next = (activeMeasureForNavigation + 1) % totalMeasures;
+                setPendingTargetMeasure(next);
+                pendingTargetMeasureRef.current = next;
+                onNavigateMeasure?.(next);
+                return;
+              }
+
+              let currentIdx = 0;
+              if (pendingTargetExpandedIndexRef.current !== null) {
+                currentIdx = pendingTargetExpandedIndexRef.current;
+              } else {
+                const activeMeasureForNavigation = currentMeasure;
+                currentIdx = expanded.findIndex(item => item.baseMeasure === activeMeasureForNavigation);
+                if (currentIdx === -1) currentIdx = 0;
+              }
+
+              const nextIdx = (currentIdx + 1) % expanded.length;
+              const nextBaseMeasure = expanded[nextIdx].baseMeasure;
+
+              setPendingTargetExpandedIndex(nextIdx);
+              pendingTargetExpandedIndexRef.current = nextIdx;
+              setPendingTargetMeasure(nextBaseMeasure);
+              pendingTargetMeasureRef.current = nextBaseMeasure;
+
+              onNavigateMeasure?.(nextBaseMeasure);
             }}
             className="w-6 h-6 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors rounded-sm active:scale-95"
             title={lang === 'pt' ? 'Próximo compasso' : 'Mesure suivante'}
@@ -1278,7 +1904,7 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
           width={1200}
           height={1200}
           onPointerDown={handleCanvasPointerDown}
-          className="max-w-full max-h-full aspect-square cursor-pointer block select-none"
+          className={`max-w-full max-h-full aspect-square cursor-pointer block select-none ${isPlaying ? 'pointer-events-none' : ''}`}
           style={{ touchAction: 'none' }}
           role="application"
           aria-label={lang === 'pt' ? 'Roda de maracatu — sequenciador circular' : 'Roda de maracatu — sequenciador circular'}
@@ -1333,3 +1959,6 @@ export const CircleSequencer: React.FC<CircleSequencerProps> = (props) => {
     </div>
   );
 };
+
+export const CircleSequencer = React.memo(CircleSequencerComponent);
+

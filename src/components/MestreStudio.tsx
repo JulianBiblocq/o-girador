@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Play, 
   Square, 
@@ -19,12 +19,54 @@ import {
   Cloud
 } from 'lucide-react';
 const CircleSequencer = React.lazy(() => import('./CircleSequencer').then(m => ({ default: m.CircleSequencer })));
+const CloudSaveModal = React.lazy(() => import('./mestre-studio/modals/CloudSaveModal').then(m => ({ default: m.CloudSaveModal })));
+const CopyModal = React.lazy(() => import('./mestre-studio/modals/CopyModal').then(m => ({ default: m.CopyModal })));
 import { TrackGroup, Language } from '../types';
+import {
+  MestreStudioProps,
+  GameSlot,
+  CordeRewardStudio,
+  CordeConfig,
+  TabType,
+  MIN_RADIUS,
+  MAX_RADIUS,
+  MIDDLE_RADIUS,
+  DEFAULT_BPM,
+  DEFAULT_INSTRUMENTS
+} from './MestreStudio.types';
+import {
+  createInitialTracks,
+  createInitialSingleTrack,
+  getInstrumentIdxFromName,
+  getActivePatternMap,
+  updateStepGeneric
+} from './MestreStudio.utils';
+import { RhythmGridHighlighter } from './mestre-studio/RhythmGridHighlighter';
 import { useGameData } from '../contexts/GameDataContext';
 import { useAuth } from '../contexts/AuthContext';
-import { saveExerciseToCloud, saveProgressionToCloud, GameType, CloudExercise, fetchAllMestreExercises } from '../cloudExercises';
+import { useSequencerStore } from '../stores/useSequencerStore';
+import { 
+  saveExerciseToCloud, 
+  saveProgressionToCloud, 
+  saveOrUpdateProgressionToCloud,
+  fetchMestreProgressions,
+  deleteProgressionFromCloud,
+  GameType, 
+  CloudExercise, 
+  CloudProgression,
+  fetchAllMestreExercises 
+} from '../cloudExercises';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase/config';
 import { instrumentsConfig } from '../data';
 import LZString from 'lz-string';
+import { getLocalLibrary } from '../library';
+import { QuizTab, QuizQuestionStudio } from './mestre-studio/QuizTab';
+import { DicteeTab } from './mestre-studio/DicteeTab';
+import { InspecteurTab } from './mestre-studio/InspecteurTab';
+import { SablierTab } from './mestre-studio/SablierTab';
+import { RythmeLiveTab } from './mestre-studio/RythmeLiveTab';
+import { VaralTab } from './mestre-studio/VaralTab';
 
 let sharedAudioCtx: AudioContext | null = null;
 const getSharedAudioCtx = () => {
@@ -33,65 +75,53 @@ const getSharedAudioCtx = () => {
   }
   return sharedAudioCtx;
 };
-interface MestreStudioProps {
-  lang: Language;
-  onExit: () => void;
-  presetFiles?: string[];
-  localPresets?: string[];
-}
 
-// 1. Config Varal Types
-export interface GameSlot {
-  id: string; // unique ID for React keys
-  source: 'cloud' | 'local' | 'empty';
-  cloudExerciseId?: string;
-  cloudExerciseName?: string;
-  localExerciseData?: any;
-  localExerciseName?: string;
-}
-
-export interface CordeRewardStudio {
-  text: string;
-  type: 'image' | 'video' | 'pdf' | 'json' | 'none';
-  url: string;
-  base64: string;
-}
-
-interface CordeConfig {
-  requiredCount: number;
-  games: GameSlot[];
-  reward: CordeRewardStudio;
-  oeuvreToniBraga: string; // Base64 (legacy fallback)
-  rewardData: string; // legacy fallback
-}
-
-// 2. Quiz Types
-interface QuizQuestionStudio {
-  id: string;
-  type: 'image' | 'audio';
-  questionTextFr: string;
-  questionTextPt: string;
-  mediaUrl: string;
-  mediaFile: string; // Base64
-  optionsFr: string[];
-  optionsPt: string[];
-  correctIndex: number;
-  explanationFr: string;
-  explanationPt: string;
-}
-
-export const MestreStudio: React.FC<MestreStudioProps> = ({ 
+const MestreStudioComponent: React.FC<MestreStudioProps> = ({ 
   lang, 
   onExit,
   presetFiles = [],
-  localPresets = []
+  localPresets = [],
+  isActive = true
 }) => {
-  // 7 Specialized Tabs
-  type TabType = 'varal' | 'quiz' | 'dictee' | 'inspecteur' | 'sablier' | 'rythmelive' | 'valise';
+  // 6 Specialized Tabs
   const [activeTab, setActiveTab] = useState<TabType>('varal');
   const [showCopyModal, setShowCopyModal] = useState(false);
   const { userProfile } = useAuth();
   const mestreUid = userProfile?.uid || 'local';
+
+  // Multi-Varal State
+  const [cloudProgressionsList, setCloudProgressionsList] = useState<CloudProgression[]>([]);
+  const [activeProgressionIds, setActiveProgressionIds] = useState<string[]>([]);
+  const [varalName, setVaralName] = useState('Mon Varal');
+  const [editingVaralId, setEditingVaralId] = useState<string | null>(null);
+
+  const loadProgressions = useCallback(() => {
+    if (mestreUid && mestreUid !== 'local') {
+      fetchMestreProgressions(mestreUid).then((res: any) => {
+        setCloudProgressionsList(res.progressions);
+        
+        const varalDocRef = doc(db, 'varals', `mestre_${mestreUid}`);
+        getDoc(varalDocRef).then(snap => {
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data.activeVarals && Array.isArray(data.activeVarals)) {
+              const activeIds = data.activeVarals.map((v: any) => v.id).filter(Boolean);
+              setActiveProgressionIds(activeIds);
+            }
+          }
+        });
+      }).catch((err: any) => {
+        console.error("Failed to fetch progressions:", err);
+        alert(lang === 'fr' ? "Erreur de connexion : Impossible de charger vos progressions depuis le Cloud." : "Erro de conexão: Não foi possível carregar seus progressos do Cloud.");
+      });
+    }
+  }, [mestreUid, lang]);
+
+  useEffect(() => {
+    if (isActive) {
+      loadProgressions();
+    }
+  }, [loadProgressions, isActive]);
 
   useEffect(() => {
     return () => {
@@ -104,10 +134,6 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
 
   // Cloud States
   const [cloudSaveModalOpen, setCloudSaveModalOpen] = useState(false);
-  const [cloudSaveName, setCloudSaveName] = useState('');
-  const [cloudSaveError, setCloudSaveError] = useState('');
-  const [isSavingCloud, setIsSavingCloud] = useState(false);
-  const [cloudSaveSuccess, setCloudSaveSuccess] = useState('');
 
   // Consume GameData Context
   const { loadVaralConfig, addExercise, removeExercise, clearAllData, customExercises } = useGameData();
@@ -144,100 +170,15 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
     });
   };
 
-  // Helper for generating initial tracks (Alfaia, Caixa, Gongue, Agbe)
-  function createInitialTracks(prefix = 'track'): TrackGroup[] {
-    const instruments = [
-      { idx: 0, name: 'Alfaia' },
-      { idx: 3, name: 'Caixa' },
-      { idx: 5, name: 'Gonguê' },
-      { idx: 6, name: 'Agbê' },
-    ];
-    const initial = instruments.map((inst, index) => {
-      const patternId = Date.now() + index * 100 + Math.floor(Math.random() * 50);
-      return {
-        id: index + 1,
-        instrumentIdx: inst.idx,
-        isMute: false,
-        isSolo: false,
-        isHidden: false,
-        volumeVal: 80,
-        selectedPatternId: patternId,
-        radius: 0,
-        reverbVal: 0,
-        panVal: 0,
-        patterns: [
-          {
-            id: patternId,
-            name: `${prefix}_${inst.name}`,
-            steps: 16,
-            activeSteps: Array(16).fill(0),
-            lyrics: Array(16).fill(''),
-            notes: Array(16).fill(''),
-            measureAssignments: [true],
-          }
-        ]
-      };
-    });
-
-    // Compute radii
-    const minRadius = 180;
-    const maxRadius = 495;
-    const gap = (maxRadius - minRadius) / (initial.length - 1);
-    initial.forEach((t, idx) => {
-      t.radius = minRadius + idx * gap;
-    });
-
-    return initial;
-  }
-
-  // Helper for generating single track (used for target/sabotaged tracks)
-  function createInitialSingleTrack(instIdx: number, label: string): TrackGroup[] {
-    const patternId = Date.now() + Math.floor(Math.random() * 1000);
-    return [
-      {
-        id: 1,
-        instrumentIdx: instIdx,
-        isMute: false,
-        isSolo: false,
-        isHidden: false,
-        volumeVal: 80,
-        selectedPatternId: patternId,
-        radius: 337, // middle radius (180 + 495) / 2
-        reverbVal: 0,
-        panVal: 0,
-        patterns: [
-          {
-            id: patternId,
-            name: label,
-            steps: 16,
-            activeSteps: Array(16).fill(0),
-            lyrics: Array(16).fill(''),
-            notes: Array(16).fill(''),
-            measureAssignments: [true],
-          }
-        ]
-      }
-    ];
-  }
-
-  // Instrument helpers
-  const getInstrumentIdxFromName = (name: string): number => {
-    if (name === 'alfaia') return 0;
-    if (name === 'caixa') return 3;
-    if (name === 'gongue') return 5;
-    if (name === 'agbe') return 6;
-    return 3;
-  };
-
   // --- STATE DECLARATIONS ---
 
   // 1. Config Varal State
   const [varalCordes, setVaralCordes] = useState<CordeConfig[]>([
-    { requiredCount: 3, games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
-    { requiredCount: 2, games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
-    { requiredCount: 1, games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
-    { requiredCount: 1, games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
-    { requiredCount: 1, games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+    { requiredCount: 3, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+    { requiredCount: 2, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+    { requiredCount: 1, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+    { requiredCount: 1, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
+    { requiredCount: 1, gameType: 'random', games: [], reward: { text: '', type: 'none', url: '', base64: '' }, oeuvreToniBraga: '', rewardData: '' },
   ]);
   
   const [diplomaText, setDiplomaText] = useState('');
@@ -247,12 +188,15 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   const [varalActiveCordesCount, setVaralActiveCordesCount] = useState<number>(5);
 
   useEffect(() => {
-    if (mestreUid && mestreUid !== 'local') {
-      fetchAllMestreExercises(mestreUid).then(exercises => {
-        setCloudExercisesList(exercises);
-      }).catch(err => console.error("Failed to fetch mestre exercises:", err));
+    if (isActive && mestreUid && mestreUid !== 'local') {
+      fetchAllMestreExercises(mestreUid).then(res => {
+        setCloudExercisesList(res.exercises || []);
+      }).catch(err => {
+        console.error("Failed to fetch mestre exercises:", err);
+        alert(lang === 'fr' ? "Erreur de connexion : Impossible de charger vos exercices depuis le Cloud." : "Erro de conexão: Não foi possível carregar seus exercícios do Cloud.");
+      });
     }
-  }, [mestreUid]);
+  }, [mestreUid, isActive, lang]);
 
   // 2. Quiz State
   const [quizTitle, setQuizTitle] = useState('');
@@ -279,19 +223,61 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   const [rythmeLiveRewardVideoUrl, setRythmeLiveRewardVideoUrl] = useState('');
   const [rythmeLiveCordeCible, setRythmeLiveCordeCible] = useState<number>(0);
   const [rythmeLiveTotalMeasures, setRythmeLiveTotalMeasures] = useState<number>(1);
-  const [dicteeBpm, setDicteeBpm] = useState(83);
+  const [dicteeBpm, setDicteeBpm] = useState(() => {
+    try {
+      const state = useSequencerStore.getState();
+      if (state && state.bpm) return state.bpm;
+    } catch (_) {}
+    return DEFAULT_BPM;
+  });
   const [dicteeBlocksCount, setDicteeBlocksCount] = useState<4 | 8 | 16>(4);
-  const [dicteeTotalMeasures, setDicteeTotalMeasures] = useState<number>(1);
-  const [dicteeTracks, setDicteeTracks] = useState<TrackGroup[]>(() => createInitialTracks('dictee'));
+  const [dicteeTotalMeasures, setDicteeTotalMeasures] = useState<number>(() => {
+    try {
+      const state = useSequencerStore.getState();
+      if (state && state.totalMeasures) return state.totalMeasures;
+    } catch (_) {}
+    return 1;
+  });
+  const [dicteeTracks, setDicteeTracks] = useState<TrackGroup[]>(() => {
+    try {
+      const state = useSequencerStore.getState();
+      if (state && state.tracks && state.tracks.length > 0) {
+        const cloned = JSON.parse(JSON.stringify(state.tracks));
+        return cloned.map((t: any) => {
+          const patterns = t.patterns || [];
+          return {
+            ...t,
+            patterns: patterns.map((p: any, idx: number) => {
+              const ma = Array(state.totalMeasures || 1).fill(false);
+              ma[idx] = true;
+              return {
+                ...p,
+                measureAssignments: ma
+              };
+            })
+          };
+        });
+      }
+    } catch (_) {}
+    return createInitialTracks('dictee');
+  });
   const [dicteeTargetInstrumentId, setDicteeTargetInstrumentId] = useState<string>('');
   const [dicteeCordeCible, setDicteeCordeCible] = useState<number>(0);
   const [dicteeMeasureIndex, setDicteeMeasureIndex] = useState<number>(0);
+  const [dicteeStartMeasure, setDicteeStartMeasure] = useState<number>(1);
+  const [dicteeEndMeasure, setDicteeEndMeasure] = useState<number>(() => {
+    try {
+      const state = useSequencerStore.getState();
+      if (state && state.totalMeasures) return Math.min(4, state.totalMeasures);
+    } catch (_) {}
+    return 4;
+  });
   const [dicteeBlockTags, setDicteeBlockTags] = useState<string[]>(Array(8).fill(''));
 
   // 4. L'Inspecteur State
   const [inspecteurTitle, setInspecteurTitle] = useState('');
   const [inspecteurDescription, setInspecteurDescription] = useState('');
-  const [inspecteurBpm, setInspecteurBpm] = useState(83);
+  const [inspecteurBpm, setInspecteurBpm] = useState(DEFAULT_BPM);
   const [inspecteurGuiltyInstrument, setInspecteurGuiltyInstrument] = useState<'alfaia' | 'caixa' | 'gongue' | 'agbe'>('caixa');
   const [inspecteurTotalMeasures, setInspecteurTotalMeasures] = useState<number>(1);
   const [inspecteurCordeCible, setInspecteurCordeCible] = useState<number>(0);
@@ -309,15 +295,23 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         const lastPattern = patterns[patterns.length - 1];
         patterns.push({
           id: Date.now() + Math.random(),
-          name: `${lastPattern.name}_copy`,
+          name: lastPattern ? `${lastPattern.name}_copy` : `Pattern ${patterns.length + 1}`,
           steps: 16,
-          activeSteps: [...lastPattern.activeSteps],
-          lyrics: [...lastPattern.lyrics],
-          notes: [...lastPattern.notes],
+          activeSteps: lastPattern ? [...lastPattern.activeSteps] : Array(16).fill(0),
+          lyrics: lastPattern ? [...lastPattern.lyrics] : Array(16).fill(''),
+          notes: lastPattern ? [...lastPattern.notes] : Array(16).fill(''),
           measureAssignments: [true]
         });
       }
-      return { ...t, patterns: patterns.slice(0, dicteeTotalMeasures) };
+      const updatedPatterns = patterns.slice(0, dicteeTotalMeasures).map((pat, idx) => {
+        const ma = Array(dicteeTotalMeasures).fill(false);
+        ma[idx] = true;
+        return {
+          ...pat,
+          measureAssignments: ma
+        };
+      });
+      return { ...t, patterns: updatedPatterns };
     }));
   }, [dicteeTotalMeasures]);
 
@@ -330,11 +324,11 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
           const lastPattern = patterns[patterns.length - 1];
           patterns.push({
             id: Date.now() + Math.random(),
-            name: `${lastPattern.name}_copy`,
+            name: lastPattern ? `${lastPattern.name}_copy` : `Pattern ${patterns.length + 1}`,
             steps: 16,
-            activeSteps: [...lastPattern.activeSteps],
-            lyrics: [...lastPattern.lyrics],
-            notes: [...lastPattern.notes],
+            activeSteps: lastPattern ? [...lastPattern.activeSteps] : Array(16).fill(0),
+            lyrics: lastPattern ? [...lastPattern.lyrics] : Array(16).fill(''),
+            notes: lastPattern ? [...lastPattern.notes] : Array(16).fill(''),
             measureAssignments: [true]
           });
         }
@@ -359,7 +353,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   // 5. Sablier du Mestre State
   const [sablierTitle, setSablierTitle] = useState('');
   const [sablierRewardVideoUrl, setSablierRewardVideoUrl] = useState('');
-  const [sablierBpm, setSablierBpm] = useState(83);
+  const [sablierBpm, setSablierBpm] = useState(DEFAULT_BPM);
   const [sablierCordeCible, setSablierCordeCible] = useState<number>(0);
   const [sablierMeasures, setSablierMeasures] = useState<1 | 2>(2);
   const [sablierTotalMeasures, setSablierTotalMeasures] = useState<number>(1);
@@ -385,7 +379,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   // 6. Rythme Live State
   const [rythmeLiveTitle, setRythmeLiveTitle] = useState('');
   const [rythmeLiveRewardSignatory, setRythmeLiveRewardSignatory] = useState('');
-  const [rythmeLiveBpm, setRythmeLiveBpm] = useState(83);
+  const [rythmeLiveBpm, setRythmeLiveBpm] = useState(DEFAULT_BPM);
   const [rythmeLiveLoopsRequired, setRythmeLiveLoopsRequired] = useState(2);
   const [rythmeLiveToleranceMs, setRythmeLiveToleranceMs] = useState<30 | 80>(80);
   const [rythmeLiveStudentInstrument, setRythmeLiveStudentInstrument] = useState<'alfaia' | 'caixa' | 'gongue' | 'agbe'>('caixa');
@@ -405,35 +399,10 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
     ...sablierSeqPiege3
   ], [dicteeTracks, inspecteurPerfectTracks, inspecteurSabotagedTracks, rythmeLivePlaybackTracks, rythmeLiveTargetTracks, sablierSeqFond, sablierSeqCible, sablierSeqPiege1, sablierSeqPiege2, sablierSeqPiege3]);
 
-  useEffect(() => {
-    let previousTick: number | null = null;
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number }>;
-      const { step } = customEvent.detail;
-      
-      if (previousTick !== null) {
-        const prevH = document.getElementsByClassName('step-active-highlight');
-        while (prevH.length > 0) prevH[0].classList.remove('step-active-highlight', 'border-[#8b2a1a]');
-        const prevV = document.getElementsByClassName('step-active-highlight-v');
-        while (prevV.length > 0) prevV[0].classList.remove('step-active-highlight-v', 'border-[#8b2a1a]');
-      }
-      
-      if (step >= 0) {
-        allStudioTracks.forEach(t => {
-          t.patterns.forEach(ptn => {
-            let el = document.getElementById(`step-cell-${t.id}-${ptn.id}-${step}`);
-            if (el) el.classList.add('step-active-highlight', 'border-[#8b2a1a]');
-            el = document.getElementById(`step-cell-v-${t.id}-${ptn.id}-${step}`);
-            if (el) el.classList.add('step-active-highlight-v', 'border-[#8b2a1a]');
-          });
-        });
-      }
-      
-      previousTick = step;
-    };
-    window.addEventListener('o-girador-tick', handleTick);
-    return () => window.removeEventListener('o-girador-tick', handleTick);
-  }, [allStudioTracks]);
+  const trackPatternIds = useMemo(() => 
+    allStudioTracks.flatMap(t => t.patterns.map(p => ({ trackId: t.id, patternId: p.id }))),
+    [allStudioTracks]
+  );
 
 
   // Sync rythme live target track type with selected student instrument
@@ -448,11 +417,11 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   }, [rythmeLiveStudentInstrument]);
 
 
-  // Clean play loop when leaving page or tab changes
+  // Clean play loop when leaving page, tab changes or component goes inactive
   useEffect(() => {
     setStudioPlaying(false);
     setStudioStep(-1);
-  }, [activeTab]);
+  }, [activeTab, isActive]);
 
   // Determine current active BPM based on active tab
   const activeBpm = useMemo(() => {
@@ -460,7 +429,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
     if (activeTab === 'inspecteur') return inspecteurBpm;
     if (activeTab === 'sablier') return sablierBpm;
     if (activeTab === 'rythmelive') return rythmeLiveBpm;
-    return 83;
+    return DEFAULT_BPM;
   }, [activeTab, dicteeBpm, inspecteurBpm, sablierBpm, rythmeLiveBpm]);
 
   // Determine active tracks list for play synth triggers
@@ -550,14 +519,6 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
 
   // --- SEQUENCER PROP HELPERS ---
 
-  const getActivePatternMap = (list: TrackGroup[]) => {
-    const map: Record<number, number | null> = {};
-    list.forEach(t => {
-      map[t.id] = t.selectedPatternId;
-    });
-    return map;
-  };
-
   const handleStepChangeGeneric = (
     list: TrackGroup[],
     setList: React.Dispatch<React.SetStateAction<TrackGroup[]>>,
@@ -568,29 +529,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
     lyric?: string,
     note?: string
   ) => {
-    setList(prev => prev.map(t => {
-      if (t.id === trackId) {
-        return {
-          ...t,
-          patterns: t.patterns.map(p => {
-            if (p.id === patternId) {
-              const activeSteps = [...p.activeSteps];
-              activeSteps[stepIdx] = newState;
-
-              const lyrics = [...(p.lyrics || Array(p.steps).fill(''))];
-              if (lyric !== undefined) lyrics[stepIdx] = lyric;
-
-              const notes = [...(p.notes || Array(p.steps).fill(''))];
-              if (note !== undefined) notes[stepIdx] = note;
-
-              return { ...p, activeSteps, lyrics, notes };
-            }
-            return p;
-          })
-        };
-      }
-      return t;
-    }));
+    setList(prev => updateStepGeneric(prev, trackId, patternId, stepIdx, newState, lyric, note));
   };
 
   // --- UPLOAD HELPERS ---
@@ -644,24 +583,27 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   const handleLoadPresetToGame = async (presetName: string, moduleName: string) => {
     if (!presetName) return;
     try {
-      let dataStr: string | null = null;
+      let presetData: any = null;
       if (presetName.endsWith('.json')) {
         const response = await fetch(`/presets/${presetName}`);
         if (response.ok) {
-          dataStr = await response.text();
+          const dataStr = await response.text();
+          presetData = JSON.parse(dataStr);
         }
       } else {
-        dataStr = localStorage.getItem(`o-girador-preset-${presetName}`);
+        const library = await getLocalLibrary();
+        presetData = library[presetName];
       }
 
-      if (!dataStr) {
+      if (!presetData) {
         alert('Impossible de charger le preset.');
         return;
       }
 
-      const presetData = JSON.parse(dataStr);
       const loadedTracks = presetData.tracks || [];
-      const bpm = presetData.measureBpms ? presetData.measureBpms[0] : 83;
+      const bpm = presetData.measureBpms && presetData.measureBpms.length > 0
+        ? presetData.measureBpms[0]
+        : (presetData.bpm || DEFAULT_BPM);
 
       if (moduleName === 'inspecteur') {
         setInspecteurBpm(bpm);
@@ -674,10 +616,36 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         }
       } else if (moduleName === 'dictee') {
         setDicteeBpm(bpm);
-        setDicteeTracks(loadedTracks);
+        const maxMeasures = loadedTracks.length > 0 ? (loadedTracks[0].patterns?.length || 1) : 1;
+        
+        // Sanitize loaded tracks to make sure each pattern is assigned to its index
+        const sanitizedTracks = loadedTracks.map((t: any) => {
+          const patterns = t.patterns || [];
+          return {
+            ...t,
+            patterns: patterns.map((p: any, idx: number) => {
+              const ma = Array(maxMeasures).fill(false);
+              ma[idx] = true;
+              return {
+                ...p,
+                measureAssignments: ma
+              };
+            })
+          };
+        });
+
+        setDicteeTotalMeasures(maxMeasures);
+        setDicteeStartMeasure(1);
+        setDicteeEndMeasure(Math.min(4, maxMeasures));
+        setDicteeMeasureIndex(0);
+        setDicteeTracks(sanitizedTracks);
       } else if (moduleName === 'rythme_live') {
         setRythmeLiveBpm(bpm);
         setRythmeLivePlaybackTracks(loadedTracks);
+      } else if (moduleName === 'sablier_mestre') {
+        setSablierBpm(bpm);
+        setSablierSeqFond(loadedTracks);
+        setSablierSeqFondName(presetName);
       }
     } catch (err) {
       console.error('Error loading preset:', err);
@@ -709,7 +677,12 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
           const formattedTracks = tracks.map((t: any, idx: number) => ({
              id: t.id || idx,
              instrumentIdx: t.instrumentIdx,
-             patterns: t.patterns ? t.patterns : [{ activeSteps: t.activeSteps || Array(16).fill(0) }]
+             patterns: t.patterns ? t.patterns : [{ activeSteps: t.activeSteps || Array(16).fill(0) }],
+             isMute: t.isMute || false,
+             isSolo: t.isSolo || false,
+             isHidden: t.isHidden || false,
+             volumeVal: t.volumeVal !== undefined ? t.volumeVal : 100,
+             selectedPatternId: t.selectedPatternId !== undefined ? t.selectedPatternId : 0
           }));
 
           const name = file.name;
@@ -740,40 +713,117 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
     e.target.value = '';
   };
 
-  const handleSaveToCloudSubmit = async () => {
-    if (!cloudSaveName.trim()) {
-      setCloudSaveError(lang === 'fr' ? "Veuillez entrer un nom." : "Por favor, insira um nome.");
+  const handleSaveToCloudSubmit = async (name: string) => {
+    if (activeTab === 'dictee') {
+      const source = dicteeMeasureIndex + 1;
+      if (source < dicteeStartMeasure || source > dicteeEndMeasure) {
+        const errorMsg = lang === 'fr'
+          ? `Erreur: La mesure source du pattern (compas ${source}) doit être comprise entre le compas de début (${dicteeStartMeasure}) et le compas de fin (${dicteeEndMeasure}).`
+          : `Erro: O compasso de origem do padrão (compasso ${source}) deve estar entre o compasso de início (${dicteeStartMeasure}) e o compasso de fim (${dicteeEndMeasure}).`;
+        alert(errorMsg);
+        throw new Error(errorMsg);
+      }
+    }
+    const exportData = getExportDataForCurrentTab(activeTab);
+    if (!exportData) throw new Error("No data");
+
+    if (activeTab === 'varal') {
+      await saveProgressionToCloud(name, exportData, mestreUid);
+    } else {
+      await saveExerciseToCloud(name, activeTab as GameType, exportData, mestreUid);
+    }
+  };
+
+  const handleSaveVaralToCloud = async () => {
+    if (!varalName.trim()) {
+      alert(lang === 'fr' ? "Veuillez entrer un nom pour le Varal." : "Por favor, insira um nome para o Varal.");
       return;
     }
-    
-    setIsSavingCloud(true);
-    setCloudSaveError('');
-    setCloudSaveSuccess('');
-    
     try {
-      const exportData = getExportDataForCurrentTab(activeTab);
+      const exportData = getExportDataForCurrentTab('varal');
       if (!exportData) throw new Error("No data");
 
-      if (activeTab === 'varal') {
-        await saveProgressionToCloud(cloudSaveName, exportData, mestreUid);
-      } else {
-        await saveExerciseToCloud(cloudSaveName, activeTab as GameType, exportData, mestreUid);
-      }
+      const savedId = await saveOrUpdateProgressionToCloud(editingVaralId, varalName, exportData, mestreUid);
+      setEditingVaralId(savedId);
+      alert(lang === 'fr' ? "Varal sauvegardé avec succès dans le Cloud !" : "Varal salvo com sucesso no Cloud !");
       
-      setCloudSaveSuccess(lang === 'fr' ? "Sauvegardé avec succès !" : "Salvo com sucesso !");
-      setTimeout(() => {
-        setCloudSaveModalOpen(false);
-        setCloudSaveName('');
-        setCloudSaveSuccess('');
-      }, 1500);
+      // Update local list
+      fetchMestreProgressions(mestreUid).then((res: any) => {
+        setCloudProgressionsList(res.progressions);
+        // If it was already active, update the active config in Firestore
+        if (activeProgressionIds.includes(savedId)) {
+          const updatedList = res.progressions;
+          updateActiveVaralsInFirestore(activeProgressionIds, updatedList);
+        }
+      });
     } catch (err: any) {
       if (err.message === 'NAME_EXISTS') {
-        setCloudSaveError(lang === 'fr' ? "Un élément avec ce nom existe déjà." : "Um item com este nome já existe.");
+        alert(lang === 'fr' ? "Un Varal avec ce nom existe déjà." : "Um Varal com este nome já existe.");
       } else {
-        setCloudSaveError(lang === 'fr' ? "Erreur de sauvegarde." : "Erro ao salvar.");
+        alert(lang === 'fr' ? "Erreur de sauvegarde." : "Erro ao salvar.");
       }
-    } finally {
-      setIsSavingCloud(false);
+    }
+  };
+
+  const handleDeleteVaral = async (id: string) => {
+    if (!window.confirm(lang === 'fr' ? "Voulez-vous vraiment supprimer ce Varal ?" : "Deseja realmente excluir este Varal ?")) return;
+    try {
+      await deleteProgressionFromCloud(id);
+      if (editingVaralId === id) {
+        setEditingVaralId(null);
+        setVaralName('Mon Varal');
+      }
+      const nextActiveIds = activeProgressionIds.filter(activeId => activeId !== id);
+      setActiveProgressionIds(nextActiveIds);
+      await updateActiveVaralsInFirestore(nextActiveIds, cloudProgressionsList.filter(p => p.id !== id));
+      
+      alert(lang === 'fr' ? "Varal supprimé." : "Varal excluído.");
+      loadProgressions();
+    } catch(e) {
+      alert("Erreur de suppression");
+    }
+  };
+
+  const handleToggleVaralActive = async (progId: string) => {
+    let nextActiveIds = [...activeProgressionIds];
+    if (nextActiveIds.includes(progId)) {
+      nextActiveIds = nextActiveIds.filter(id => id !== progId);
+    } else {
+      nextActiveIds.push(progId);
+    }
+    setActiveProgressionIds(nextActiveIds);
+    await updateActiveVaralsInFirestore(nextActiveIds, cloudProgressionsList);
+  };
+
+  const updateActiveVaralsInFirestore = async (newActiveIds: string[], updatedProgressions: CloudProgression[]) => {
+    try {
+      if (mestreUid === 'local') return;
+      const docRef = doc(db, 'varals', `mestre_${mestreUid}`);
+      
+      const activeConfigs = newActiveIds.map(id => {
+        const prog = updatedProgressions.find(p => p.id === id);
+        if (!prog) return null;
+        try {
+          const decompressed = LZString.decompressFromBase64(prog.data);
+          if (decompressed) {
+            const parsed = JSON.parse(decompressed);
+            return {
+              id: prog.id,
+              name: prog.name,
+              ...parsed
+            };
+          }
+        } catch(e) { console.error("Error parsing progression for activation:", e); }
+        return null;
+      }).filter(Boolean);
+      
+      await setDoc(docRef, {
+        activeVarals: activeConfigs,
+        lastUpdatedAt: Date.now()
+      }, { merge: true });
+      
+    } catch (err) {
+      console.error("Failed to update active varals in Firestore:", err);
     }
   };
 
@@ -802,6 +852,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
               if (loadedCorde) {
                 return {
                   requiredCount: loadedCorde.requiredCount || 1,
+                  gameType: loadedCorde.gameType || 'random',
                   games: loadedCorde.games || [],
                   reward: loadedCorde.reward || { text: '', type: 'none', url: '', base64: '' },
                   oeuvreToniBraga: loadedCorde.oeuvreToniBraga || '',
@@ -835,21 +886,38 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         } else if (moduleName === 'dictee') {
           setDicteeTitle(json.folheto_titre || '');
           setDicteeRewardVideoUrl(json.recompense_video_url || '');
-          setDicteeBpm(json.bpm || 83);
-          if (json.nombre_de_blocs) setDicteeBlocksCount(json.nombre_de_blocs as 4 | 8);
-          if (json.blocs_a_ordonner) {
-            setDicteeBlockTags(Array.from({length: 8}).map((_, i) => json.blocs_a_ordonner[i]?.label || ''));
-          }
+          setDicteeBpm(json.bpm || DEFAULT_BPM);
+          if (json.nombre_de_blocs) setDicteeBlocksCount(json.nombre_de_blocs as 4 | 8 | 16);
+          if (json.mesure_debut !== undefined) setDicteeStartMeasure(json.mesure_debut);
+          if (json.mesure_fin !== undefined) setDicteeEndMeasure(json.mesure_fin);
+          if (json.mesure_source !== undefined) setDicteeMeasureIndex(json.mesure_source - 1);
           if (json.sequence_audio && Array.isArray(json.sequence_audio)) {
+            const maxMeasures = json.sequence_audio.reduce((max: number, st: any) => {
+              const len = st.patterns?.length || 1;
+              return len > max ? len : max;
+            }, 1);
+            setDicteeTotalMeasures(maxMeasures);
+
             setDicteeTracks(prev => prev.map(t => {
                const saved = json.sequence_audio.find((st: any) => st.instrumentIdx === t.instrumentIdx);
                if (saved) {
-                 const savedActiveSteps = saved.patterns?.[0]?.activeSteps || saved.activeSteps || Array(16).fill(0);
-                 const savedLyrics = saved.patterns?.[0]?.lyrics || saved.lyrics || Array(16).fill('');
-                 const savedNotes = saved.patterns?.[0]?.notes || saved.notes || Array(16).fill('');
+                 const patterns = (saved.patterns || []).map((p: any) => ({
+                   activeSteps: p.activeSteps || Array(16).fill(0),
+                   lyrics: p.lyrics || Array(16).fill(''),
+                   notes: p.notes || Array(16).fill(''),
+                   volumes: p.volumes || Array(16).fill(80)
+                 }));
+                 while (patterns.length < maxMeasures) {
+                   patterns.push({
+                     activeSteps: Array(16).fill(0),
+                     lyrics: Array(16).fill(''),
+                     notes: Array(16).fill(''),
+                     volumes: Array(16).fill(80)
+                   });
+                 }
                  return {
                    ...t,
-                   patterns: [{ ...t.patterns[0], activeSteps: savedActiveSteps, lyrics: savedLyrics, notes: savedNotes }]
+                   patterns
                  };
                }
                return t;
@@ -858,7 +926,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         } else if (moduleName === 'inspecteur') {
           setInspecteurTitle(json.folheto_titre || '');
           setInspecteurDescription(json.description || '');
-          setInspecteurBpm(json.bpm || 83);
+          setInspecteurBpm(json.bpm || DEFAULT_BPM);
           setInspecteurGuiltyInstrument(json.instrument_coupable || 'caixa');
           if (json.partition_parfaite && Array.isArray(json.partition_parfaite)) {
              setInspecteurPerfectTracks(prev => prev.map(t => {
@@ -885,7 +953,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         } else if (moduleName === 'sablier_mestre') {
           setSablierTitle(json.folheto_titre || '');
           setSablierRewardVideoUrl(json.recompense_video_url || '');
-          setSablierBpm(json.bpm || 83);
+          setSablierBpm(json.bpm || DEFAULT_BPM);
           setSablierMeasures(json.nombre_de_mesures as 1 | 2 || 2);
           if (json.image_main) {
             if (json.image_main.startsWith('data:')) {
@@ -904,7 +972,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         } else if (moduleName === 'rythme_live') {
           setRythmeLiveTitle(json.folheto_titre || '');
           setRythmeLiveRewardSignatory(json.recompense_diplome_signataire || '');
-          setRythmeLiveBpm(json.bpm || 83);
+          setRythmeLiveBpm(json.bpm || DEFAULT_BPM);
           setRythmeLiveLoopsRequired(json.boucles_requises || 2);
           setRythmeLiveToleranceMs(json.tolerance_ms as 30 | 80 || 80);
           setRythmeLiveStudentInstrument(json.instrument_eleve || 'caixa');
@@ -1001,14 +1069,18 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
     if (tab === 'varal') {
       exportData = {
         module: 'varal_config',
+        id: editingVaralId || uniqueId,
+        name: varalName,
         diplomaText,
         diplomaSignature,
         cordes: varalCordes.slice(0, varalActiveCordesCount).map((c, idx) => ({
           cordeIndex: idx + 1,
           requiredCount: Number(c.requiredCount) || 1,
-          games: c.games.map(g => {
-            if (g.source === 'local' && g.localExerciseData) return g.localExerciseData;
-            if (g.source === 'cloud' && g.cloudExerciseId) {
+          gameType: c.gameType || 'random',
+          games: Array.from({ length: Number(c.requiredCount) || 1 }).map((_, slotIdx) => {
+            const g = c.games[slotIdx];
+            if (g && g.source === 'local' && g.localExerciseData) return g.localExerciseData;
+            if (g && g.source === 'cloud' && g.cloudExerciseId) {
               const ce = cloudExercisesList.find(x => x.id === g.cloudExerciseId);
               if (ce) {
                 try {
@@ -1017,7 +1089,13 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
                 } catch(e) { console.error("Failed to parse cloud data", e); }
               }
             }
-            return { module: 'random', _dummy: true }; // Fallback
+            const targetMod = c.gameType && c.gameType !== 'random' ? c.gameType : 'quiz';
+            return {
+              id: `random_${idx + 1}_${slotIdx + 1}_${Math.random().toString(36).substring(2, 9)}`,
+              module: targetMod,
+              folheto_titre: `Défi Aléatoire ${idx + 1}.${slotIdx + 1}`,
+              isRandom: true
+            };
           }),
           reward: c.reward,
           oeuvreToniBraga: c.oeuvreToniBraga,
@@ -1058,18 +1136,21 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         module: 'dictee',
         folheto_titre: dicteeTitle,
         recompense_video_url: dicteeRewardVideoUrl,
-        bpm: Number(dicteeBpm) || 83,
+        bpm: Number(dicteeBpm) || DEFAULT_BPM,
         nombre_de_blocs: Number(dicteeBlocksCount) || 4,
         instrument_cible: dicteeTargetInstrumentId,
+        mesure_debut: dicteeStartMeasure,
+        mesure_fin: dicteeEndMeasure,
+        mesure_source: dicteeMeasureIndex + 1,
         sequence_audio: dicteeTracks.map(t => ({
           id: t.id,
           instrumentIdx: t.instrumentIdx,
-          patterns: [{
-            activeSteps: t.patterns[dicteeMeasureIndex]?.activeSteps || t.patterns[0]?.activeSteps,
-            lyrics: t.patterns[dicteeMeasureIndex]?.lyrics || t.patterns[0]?.lyrics,
-            notes: t.patterns[dicteeMeasureIndex]?.notes || t.patterns[0]?.notes,
-            volumes: t.patterns[dicteeMeasureIndex]?.volumes || t.patterns[0]?.volumes
-          }]
+          patterns: t.patterns.map(p => ({
+            activeSteps: p.activeSteps,
+            lyrics: p.lyrics,
+            notes: p.notes,
+            volumes: p.volumes
+          }))
         }))
       };
     } else if (tab === 'inspecteur') {
@@ -1078,7 +1159,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         module: 'inspecteur',
         folheto_titre: inspecteurTitle,
         description: inspecteurDescription,
-        bpm: Number(inspecteurBpm) || 83,
+        bpm: Number(inspecteurBpm) || DEFAULT_BPM,
         loop_start: Math.max(0, inspecteurLoopStart - 1),
         loop_end: Math.max(0, inspecteurLoopEnd - 1),
         instrument_coupable: inspecteurGuiltyInstrument,
@@ -1100,7 +1181,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         id: uniqueId,
         module: 'sablier_mestre',
         folheto_titre: sablierTitle,
-        bpm: Number(sablierBpm) || 83,
+        bpm: Number(sablierBpm) || DEFAULT_BPM,
         nombre_de_mesures: Number(sablierMeasures) || 1,
         image_main: sablierHandImageType === 'upload' ? sablierHandImageFile : sablierHandImageUrl,
         sequence_fond: sablierSeqFond.map(exportTrack),
@@ -1115,7 +1196,7 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
         module: 'rythme_live',
         folheto_titre: rythmeLiveTitle,
         recompense_diplome_signataire: rythmeLiveRewardSignatory,
-        bpm: Number(rythmeLiveBpm) || 83,
+        bpm: Number(rythmeLiveBpm) || DEFAULT_BPM,
         boucles_requises: Number(rythmeLiveLoopsRequired) || 2,
         tolerance_ms: Number(rythmeLiveToleranceMs) || 80,
         instrument_eleve: rythmeLiveStudentInstrument,
@@ -1134,6 +1215,16 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
   };
 
   const handleGenerateExercise = () => {
+    if (activeTab === 'dictee') {
+      const source = dicteeMeasureIndex + 1;
+      if (source < dicteeStartMeasure || source > dicteeEndMeasure) {
+        alert(lang === 'fr'
+          ? `Erreur: La mesure source du pattern (compas ${source}) doit être comprise entre le compas de début (${dicteeStartMeasure}) et le compas de fin (${dicteeEndMeasure}).`
+          : `Erro: O compasso de origem do padrão (compasso ${source}) deve estar entre o compasso de início (${dicteeStartMeasure}) e o compasso de fim (${dicteeEndMeasure}).`
+        );
+        return;
+      }
+    }
     const exportData = getExportDataForCurrentTab(activeTab);
     if (!exportData) return;
 
@@ -1152,13 +1243,8 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     } catch (err) {
-      console.warn("Auto-download blocked, showing modal instead", err);
+      // console.warn("Auto-download blocked, showing modal instead", err);
     }
-  };
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(copiedJsonText);
-    alert(lang === 'fr' ? 'Copié dans le presse-papier !' : 'Copiado para a área de transferência !');
   };
 
   return (
@@ -1185,12 +1271,11 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
       <div className="flex flex-wrap gap-2 border-b-2 border-[var(--cordel-border)] pb-2 justify-center lg:justify-start">
         {[
           { id: 'varal', label: '1. Config Varal', icon: <Settings className="w-4 h-4" /> },
-          { id: 'quiz', label: '2. Corde 1 - Quiz', icon: <Sparkles className="w-4 h-4" /> },
-          { id: 'dictee', label: '3. Corde 2 - Dictée', icon: <Music className="w-4 h-4" /> },
-          { id: 'inspecteur', label: "4. Corde 3 - L'Inspecteur", icon: <Sliders className="w-4 h-4" /> },
-          { id: 'sablier', label: '5. Corde 4 - Sablier', icon: <HelpCircle className="w-4 h-4" /> },
-          { id: 'rythmelive', label: '6. Corde 5 - Live', icon: <Award className="w-4 h-4" /> },
-          { id: 'valise', label: '📥 La Valise', icon: <Download className="w-4 h-4" /> },
+          { id: 'quiz', label: '2. Quiz', icon: <Sparkles className="w-4 h-4" /> },
+          { id: 'dictee', label: '3. Dictée de blocs', icon: <Music className="w-4 h-4" /> },
+          { id: 'inspecteur', label: "4. L'Inspecteur", icon: <Sliders className="w-4 h-4" /> },
+          { id: 'sablier', label: '5. Sablier du Mestre', icon: <HelpCircle className="w-4 h-4" /> },
+          { id: 'rythmelive', label: '6. Rythme Live', icon: <Award className="w-4 h-4" /> },
         ].map((t) => (
           <button
             key={t.id}
@@ -1208,25 +1293,24 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
       </div>
 
       {/* Playback controls (visible on tabs containing sequencers) */}
-      {(activeTab === 'dictee' || activeTab === 'inspecteur' || activeTab === 'rythmelive') && (
+      {(activeTab === 'inspecteur' || activeTab === 'rythmelive') && (
         <div className="flex items-center gap-4 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] p-3 cordel-border-sm w-full max-w-sm self-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-xs uppercase tracking-wider text-[var(--cordel-text)]/70">Tempo:</span>
-            <input
-              type="number"
-              value={activeBpm}
-              min={50}
-              max={200}
-              onChange={(e) => {
-                const val = Math.max(50, Math.min(200, Number(e.target.value) || 83));
-                if (activeTab === 'dictee') setDicteeBpm(val);
-                if (activeTab === 'inspecteur') setInspecteurBpm(val);
-                if (activeTab === 'rythmelive') setRythmeLiveBpm(val);
-              }}
-              className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded w-16 text-center font-bold text-sm focus:outline-none"
-            />
-            <span className="font-bold text-xs text-[var(--cordel-text)]/50">BPM</span>
-          </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-xs uppercase tracking-wider text-[var(--cordel-text)]/70">Tempo:</span>
+              <input
+                type="number"
+                value={activeBpm}
+                min={50}
+                max={200}
+                onChange={(e) => {
+                  const val = Math.max(50, Math.min(200, Number(e.target.value) || DEFAULT_BPM));
+                  if (activeTab === 'inspecteur') setInspecteurBpm(val);
+                  if (activeTab === 'rythmelive') setRythmeLiveBpm(val);
+                }}
+                className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded w-16 text-center font-bold text-sm focus:outline-none"
+              />
+              <span className="font-bold text-xs text-[var(--cordel-text)]/50">BPM</span>
+            </div>
 
           <button
             onClick={() => setStudioPlaying(!studioPlaying)}
@@ -1246,1444 +1330,247 @@ export const MestreStudio: React.FC<MestreStudioProps> = ({
 
         {/* 1. CONFIG VARAL */}
         {activeTab === 'varal' && (
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col md:flex-row gap-6 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>📂 Charger une configuration Varal (.json)</span>
-                <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'varal_config')} className="text-[10px] cursor-pointer" />
-              </label>
-              
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>🔗 Nombre de cordes actives</span>
-                <select
-                  value={varalActiveCordesCount}
-                  onChange={(e) => setVaralActiveCordesCount(Number(e.target.value))}
-                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                >
-                  <option value={1}>1 Corde</option>
-                  <option value={2}>2 Cordes</option>
-                  <option value={3}>3 Cordes</option>
-                  <option value={4}>4 Cordes</option>
-                  <option value={5}>5 Cordes</option>
-                </select>
-              </label>
-            </div>
-
-            <p className="text-sm italic text-[var(--cordel-text)]/70 text-center">
-              {lang === 'fr' 
-                ? 'Configurez le parcours: jeux requis, récompenses par corde, et le diplôme final.'
-                : 'Configure o percurso: jogos exigidos, recompensas por corda, e o diploma final.'}
-            </p>
-
-            <div className="grid grid-cols-1 gap-8">
-              {Array.from({ length: varalActiveCordesCount }).map((_, idx) => (
-                <div key={idx} className="p-4 border-4 border-[var(--cordel-border)] bg-[var(--cordel-bg)] shadow-[4px_4px_0_var(--cordel-border)] flex flex-col gap-4">
-                  {/* Header Corde */}
-                  <div className="flex flex-col md:flex-row justify-between items-center border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-3">
-                    <div className="flex flex-col text-center md:text-left">
-                      <span className="font-cactus text-2xl font-black text-[var(--cordel-wood)]">Corde {idx + 1}</span>
-                      <span className="text-xs text-[var(--cordel-text)]/60 font-bold uppercase tracking-widest">
-                        {idx === 0 ? 'Débutant' : idx === 1 ? 'Initié' : idx === 2 ? "Confirmé" : idx === 3 ? 'Expert' : 'Mestre'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs font-black uppercase text-[var(--cordel-text)]/70">Nb. de jeux</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={10}
-                        required
-                        value={varalCordes[idx].requiredCount}
-                        onChange={(e) => {
-                          const val = Math.max(1, Math.min(10, Number(e.target.value) || 1));
-                          setVaralCordes(prev => prev.map((c, cIdx) => {
-                            if (cIdx !== idx) return c;
-                            const newGames = [...c.games];
-                            if (val > newGames.length) {
-                              for(let i=newGames.length; i<val; i++) newGames.push({ id: `slot_${Date.now()}_${i}`, source: 'empty' });
-                            } else {
-                              newGames.splice(val);
-                            }
-                            return { ...c, requiredCount: val, games: newGames };
-                          }));
-                        }}
-                        className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] p-1 rounded font-black text-center w-16"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Games Slots */}
-                  <div className="flex flex-col gap-3 pl-2 border-l-4 border-[var(--cordel-wood)]">
-                    <span className="text-xs font-black uppercase text-[var(--cordel-text)]/70">Séquence de jeux</span>
-                    {Array.from({ length: varalCordes[idx].requiredCount }).map((_, slotIdx) => {
-                      const slot = varalCordes[idx].games[slotIdx] || { id: `def_${slotIdx}`, source: 'empty' };
-                      return (
-                        <div key={slot.id || slotIdx} className="flex flex-col md:flex-row items-center gap-3 p-2 bg-black/5 rounded">
-                          <span className="font-bold text-sm text-[var(--cordel-wood)] w-6">{slotIdx + 1}.</span>
-                          <select 
-                            value={slot.source}
-                            onChange={(e) => {
-                              const s = e.target.value as 'empty'|'cloud'|'local';
-                              setVaralCordes(prev => prev.map((c, cIdx) => {
-                                if (cIdx !== idx) return c;
-                                const newGames = [...c.games];
-                                while (newGames.length <= slotIdx) {
-                                  newGames.push({ id: `slot_${Date.now()}_${newGames.length}`, source: 'empty' });
-                                }
-                                newGames[slotIdx] = { ...newGames[slotIdx], source: s };
-                                return { ...c, games: newGames };
-                              }));
-                            }}
-                            className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 text-xs font-bold rounded"
-                          >
-                            <option value="empty">Aléatoire (Auto)</option>
-                            <option value="cloud">Depuis le Cloud</option>
-                            <option value="local">Fichier Local (.json)</option>
-                          </select>
-
-                          {slot.source === 'cloud' && (
-                            <select
-                              value={slot.cloudExerciseId || ''}
-                              onChange={(e) => {
-                                const exId = e.target.value;
-                                const ex = cloudExercisesList.find(x => x.id === exId);
-                                setVaralCordes(prev => prev.map((c, cIdx) => {
-                                  if (cIdx !== idx) return c;
-                                  const newGames = [...c.games];
-                                  while (newGames.length <= slotIdx) {
-                                    newGames.push({ id: `slot_${Date.now()}_${newGames.length}`, source: 'empty' });
-                                  }
-                                  newGames[slotIdx] = { ...newGames[slotIdx], cloudExerciseId: exId, cloudExerciseName: ex?.name };
-                                  return { ...c, games: newGames };
-                                }));
-                              }}
-                              className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 text-xs font-bold rounded flex-1"
-                            >
-                              <option value="">-- Choisir un exercice --</option>
-                              {cloudExercisesList.map(ex => (
-                                <option key={ex.id} value={ex.id}>{ex.name} ({ex.gameType})</option>
-                              ))}
-                            </select>
-                          )}
-
-                          {slot.source === 'local' && (
-                            <div className="flex items-center gap-2 flex-1">
-                              {!(slot as any).localExerciseData ? (
-                                <input 
-                                  type="file" 
-                                  accept=".json"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (!file) return;
-                                    const reader = new FileReader();
-                                    reader.onload = (evt) => {
-                                      try {
-                                        const data = JSON.parse(evt.target?.result as string);
-                                        setVaralCordes(prev => prev.map((c, cIdx) => {
-                                          if (cIdx !== idx) return c;
-                                          const newGames = [...c.games];
-                                          while (newGames.length <= slotIdx) {
-                                            newGames.push({ id: `slot_${Date.now()}_${newGames.length}`, source: 'empty' });
-                                          }
-                                          newGames[slotIdx] = { ...newGames[slotIdx], localExerciseData: data, localExerciseName: file.name };
-                                          return { ...c, games: newGames };
-                                        }));
-                                      } catch(err) { alert("Invalid JSON"); }
-                                    };
-                                    reader.readAsText(file);
-                                  }}
-                                  className="text-[10px] cursor-pointer"
-                                />
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <span className="text-[10px] font-bold text-green-600 bg-green-100 px-2 py-1 rounded">✅ {(slot as any).localExerciseName || "Importé"}</span>
-                                  <button onClick={() => {
-                                    setVaralCordes(prev => prev.map((c, cIdx) => {
-                                      if (cIdx !== idx) return c;
-                                      const newGames = [...c.games];
-                                      if (newGames[slotIdx]) {
-                                        newGames[slotIdx] = { ...newGames[slotIdx], localExerciseData: undefined, localExerciseName: undefined };
-                                      }
-                                      return { ...c, games: newGames };
-                                    }));
-                                  }} className="text-[10px] text-red-500 hover:underline">Changer</button>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Reward Section */}
-                  <div className="mt-2 pt-3 border-t-2 border-dashed border-[var(--cordel-border)]/30 flex flex-col gap-3">
-                    <span className="text-xs font-black uppercase text-[var(--cordel-text)]/70">Récompense de Corde</span>
-                    
-                    <div className="flex flex-col md:flex-row gap-4">
-                      <div className="flex-1 flex flex-col gap-1">
-                        <label className="text-[10px] font-bold">Message de félicitations</label>
-                        <textarea
-                          placeholder="Ex: Bravo, tu as validé cette étape !"
-                          value={varalCordes[idx].reward?.text || ''}
-                          onChange={(e) => setVaralCordes(prev => prev.map((c, cIdx) => cIdx === idx ? { ...c, reward: { ...c.reward, text: e.target.value } } : c))}
-                          className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded text-xs font-bold w-full resize-none h-16"
-                        />
-                      </div>
-                      
-                      <div className="flex-1 flex flex-col gap-1">
-                        <label className="text-[10px] font-bold">Contenu lié (Optionnel)</label>
-                        <select
-                          value={varalCordes[idx].reward?.type || 'none'}
-                          onChange={(e) => setVaralCordes(prev => prev.map((c, cIdx) => cIdx === idx ? { ...c, reward: { ...c.reward, type: e.target.value as any } } : c))}
-                          className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 text-xs font-bold rounded mb-1"
-                        >
-                          <option value="none">Aucun lien</option>
-                          <option value="video">Vidéo YouTube (URL)</option>
-                          <option value="image">Image (Upload ou URL)</option>
-                          <option value="pdf">Fichier PDF (URL)</option>
-                          <option value="json">Configuration spéciale (.json)</option>
-                        </select>
-
-                        {(varalCordes[idx].reward?.type === 'video' || varalCordes[idx].reward?.type === 'pdf') && (
-                          <input
-                            type="text"
-                            placeholder="https://..."
-                            value={varalCordes[idx].reward?.url || ''}
-                            onChange={(e) => setVaralCordes(prev => prev.map((c, cIdx) => cIdx === idx ? { ...c, reward: { ...c.reward, url: e.target.value } } : c))}
-                            className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded text-xs w-full"
-                          />
-                        )}
-
-                        {varalCordes[idx].reward?.type === 'image' && (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                const reader = new FileReader();
-                                reader.onload = (evt) => {
-                                  setVaralCordes(prev => prev.map((c, cIdx) => cIdx === idx ? { ...c, reward: { ...c.reward, base64: evt.target?.result as string } } : c));
-                                };
-                                reader.readAsDataURL(file);
-                              }}
-                              className="text-[10px] max-w-[150px]"
-                            />
-                            {varalCordes[idx].reward?.base64 && <ImageIcon className="w-4 h-4 text-green-600 shrink-0" />}
-                          </div>
-                        )}
-                        {varalCordes[idx].reward?.type === 'json' && (
-                          <input
-                            type="file"
-                            accept=".json"
-                            onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                const reader = new FileReader();
-                                reader.onload = (evt) => {
-                                  setVaralCordes(prev => prev.map((c, cIdx) => cIdx === idx ? { ...c, reward: { ...c.reward, base64: evt.target?.result as string } } : c));
-                                };
-                                reader.readAsDataURL(file);
-                            }}
-                            className="text-[10px]"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-              ))}
-            </div>
-
-            {/* DIPLOMA SECTION */}
-            <div className="mt-8 p-6 border-4 border-[var(--cordel-wood)] bg-[var(--cordel-bg)] shadow-[6px_6px_0_var(--cordel-wood)] flex flex-col gap-4">
-              <div className="flex items-center gap-3 border-b-2 border-dashed border-[var(--cordel-wood)]/30 pb-2">
-                <Award className="w-8 h-8 text-[var(--cordel-wood)]" />
-                <h3 className="font-cactus text-3xl font-black text-[var(--cordel-wood)] uppercase tracking-widest">Diplôme Final</h3>
-              </div>
-              <p className="text-sm font-bold text-[var(--cordel-text)]/70">
-                {lang === 'fr' ? 'Ce diplôme sera remis à l\'élève une fois toutes les cordes validées.' : 'Este diploma será entregue ao aluno após validar todas as cordas.'}
-              </p>
-
-              <div className="flex flex-col md:flex-row gap-6 mt-2">
-                <div className="flex-1 flex flex-col gap-2">
-                  <label className="text-xs font-black uppercase text-[var(--cordel-text)]">Texte du diplôme</label>
-                  <textarea
-                    placeholder={lang === 'fr' ? "Félicitations pour avoir complété le parcours O Girador !" : "Parabéns por completar o percurso O Girador !"}
-                    value={diplomaText}
-                    onChange={(e) => setDiplomaText(e.target.value)}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] p-3 rounded font-bold w-full h-32 resize-none"
-                  />
-                </div>
-
-                <div className="flex-1 flex flex-col gap-2">
-                  <label className="text-xs font-black uppercase text-[var(--cordel-text)]">Signature Visuelle (Optionnel)</label>
-                  <p className="text-[10px] text-[var(--cordel-text)]/60">Upload de votre signature en image transparente (.png)</p>
-                  <div className="flex flex-col gap-3">
-                    <input
-                      type="file"
-                      accept="image/png, image/jpeg"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = (evt) => setDiplomaSignature(evt.target?.result as string);
-                        reader.readAsDataURL(file);
-                      }}
-                      className="text-xs file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-bold file:bg-[var(--cordel-wood)] file:text-[var(--cordel-bg)] hover:file:bg-[var(--cordel-wood)]/80 cursor-pointer"
-                    />
-                    {diplomaSignature && (
-                      <div className="border border-dashed border-[var(--cordel-border)]/50 p-2 flex items-center justify-center bg-black/5 rounded">
-                        <img src={diplomaSignature} alt="Signature preview" className="max-h-20 object-contain" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-          </div>
+          <VaralTab
+            lang={lang}
+            cloudProgressionsList={cloudProgressionsList}
+            activeProgressionIds={activeProgressionIds}
+            editingVaralId={editingVaralId}
+            setEditingVaralId={setEditingVaralId}
+            varalName={varalName}
+            setVaralName={setVaralName}
+            varalCordes={varalCordes}
+            setVaralCordes={setVaralCordes}
+            varalActiveCordesCount={varalActiveCordesCount}
+            setVaralActiveCordesCount={setVaralActiveCordesCount}
+            diplomaText={diplomaText}
+            setDiplomaText={setDiplomaText}
+            diplomaSignature={diplomaSignature}
+            setDiplomaSignature={setDiplomaSignature}
+            handleToggleVaralActive={handleToggleVaralActive}
+            handleDeleteVaral={handleDeleteVaral}
+            cloudExercisesList={cloudExercisesList}
+            handleLoadDraft={handleLoadDraft}
+            onSaveVaralToCloud={handleSaveVaralToCloud}
+            onGenerateLocal={handleGenerateExercise}
+          />
         )}
 
         {/* 2. CORDE 1: QUIZ */}
         {activeTab === 'quiz' && (
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-2 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1">
-                <span>📂 Charger un exercice pour le modifier (.json)</span>
-                <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'quiz')} className="text-[10px] cursor-pointer" />
-              </label>
-            </div>
-            <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
-              <span className="font-cactus text-lg font-black text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1">
-                Paramètres du Livret
-              </span>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Titre du Folheto</label>
-                  <input
-                    type="text"
-                    value={quizTitle}
-                    onChange={(e) => setQuizTitle(e.target.value)}
-                    placeholder="Ex: Origines du Maracatu"
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Texte Récompense Déverrouillage</label>
-                  <input
-                    type="text"
-                    value={quizRewardText}
-                    onChange={(e) => setQuizRewardText(e.target.value)}
-                    placeholder="Ex: Vous avez débloqué le livret historique !"
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Questions Editor */}
-            <div className="flex flex-col gap-8">
-              {quizQuestions.map((q, idx) => (
-                <div key={q.id} className="p-5 border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4 relative">
-                  <div className="flex items-center justify-between border-b border-dashed border-[var(--cordel-border)]/30 pb-2">
-                    <span className="font-cactus text-base font-bold text-[var(--cordel-wood)]">
-                      Question #{idx + 1}
-                    </span>
-                    <div className="flex items-center gap-4">
-                      <select
-                        value={q.type}
-                        onChange={(e) => updateQuestionField(idx, 'type', e.target.value)}
-                        className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/40 p-1 text-[10px] font-bold rounded"
-                      >
-                        <option value="image">Question Visuelle (Xilo)</option>
-                        <option value="audio">Question Auditive (Audio)</option>
-                      </select>
-                      {quizQuestions.length > 1 && (
-                        <button
-                          onClick={() => removeQuestion(idx)}
-                          className="p-1 text-[var(--cordel-wood)] hover:bg-[var(--cordel-wood)] hover:text-white rounded cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Intitulé Question (FR)</label>
-                      <input
-                        type="text"
-                        value={q.questionTextFr}
-                        onChange={(e) => updateQuestionField(idx, 'questionTextFr', e.target.value)}
-                        placeholder="Ex: Quel est cet instrument ?"
-                        className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Intitulé Question (PT)</label>
-                      <input
-                        type="text"
-                        value={q.questionTextPt}
-                        onChange={(e) => updateQuestionField(idx, 'questionTextPt', e.target.value)}
-                        placeholder="Ex: Qual é esse instrumento ?"
-                        className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Media uploads */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center border-t border-dashed border-[var(--cordel-border)]/20 pt-4">
-                    <div className="md:col-span-2 flex flex-col gap-2">
-                      <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Upload Média (Image/Audio)</label>
-                      <input
-                        type="file"
-                        accept={q.type === 'image' ? 'image/*' : 'audio/*'}
-                        onChange={(e) => handleQuizMediaUpload(idx, e)}
-                        className="text-[10px] font-bold text-[var(--cordel-text)] cursor-pointer"
-                      />
-                      <input
-                        type="text"
-                        value={q.mediaUrl}
-                        onChange={(e) => updateQuestionField(idx, 'mediaUrl', e.target.value)}
-                        placeholder="Ou coller un lien URL direct..."
-                        className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/30 p-1.5 rounded text-[10px] focus:outline-none"
-                      />
-                    </div>
-                    <div className="flex flex-col items-center justify-center border-2 border-[var(--cordel-border)] p-2 bg-white text-black min-h-[90px] rounded">
-                      <span className="text-[8px] font-bold uppercase text-gray-400 mb-1">Aperçu Xilo / Audio</span>
-                      {q.type === 'image' && (q.mediaFile || q.mediaUrl) ? (
-                        <img
-                          src={q.mediaFile ? q.mediaFile : q.mediaUrl}
-                          alt="xilo preview"
-                          style={{ filter: 'contrast(300%) grayscale(100%)' }}
-                          className="max-h-[60px] object-contain border border-black p-0.5"
-                        />
-                      ) : q.type === 'audio' && (q.mediaFile || q.mediaUrl) ? (
-                        <span className="text-[10px] text-green-700 font-bold">✓ Fichier Audio Raccordé</span>
-                      ) : (
-                        <span className="text-[9px] text-gray-300">Aucun média</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Options List */}
-                  <div className="border-t border-dashed border-[var(--cordel-border)]/20 pt-4 flex flex-col gap-2">
-                    <span className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Options de réponse (Cochez la bonne)</span>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {[0, 1, 2, 3].map((optIdx) => (
-                        <div key={optIdx} className="flex gap-2 items-start border border-[var(--cordel-border)]/20 p-2 bg-[var(--cordel-bg)]/20 rounded">
-                          <input
-                            type="radio"
-                            name={`quiz_correct_${q.id}`}
-                            checked={q.correctIndex === optIdx}
-                            onChange={() => updateQuestionField(idx, 'correctIndex', optIdx)}
-                            className="mt-2 accent-[var(--cordel-wood)] cursor-pointer"
-                          />
-                          <div className="flex-1 flex flex-col gap-1">
-                            <input
-                              type="text"
-                              value={q.optionsFr[optIdx]}
-                              onChange={(e) => updateQuestionOption(idx, optIdx, 'fr', e.target.value)}
-                              placeholder={`Option ${optIdx + 1} (FR)`}
-                              className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/40 p-1 text-[10px] rounded focus:outline-none"
-                            />
-                            <input
-                              type="text"
-                              value={q.optionsPt[optIdx]}
-                              onChange={(e) => updateQuestionOption(idx, optIdx, 'pt', e.target.value)}
-                              placeholder={`Opção ${optIdx + 1} (PT)`}
-                              className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/40 p-1 text-[10px] rounded focus:outline-none"
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Explanations */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-dashed border-[var(--cordel-border)]/20 pt-4">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-bold uppercase text-[var(--cordel-text)]/60">Explication de la réponse (FR)</label>
-                      <input
-                        type="text"
-                        value={q.explanationFr}
-                        onChange={(e) => updateQuestionField(idx, 'explanationFr', e.target.value)}
-                        placeholder="Ex: L'Alfaia est un tambour en bois joué avec des mailloches..."
-                        className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-[10px] w-full"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-[9px] font-bold uppercase text-[var(--cordel-text)]/60">Explicação da resposta (PT)</label>
-                      <input
-                        type="text"
-                        value={q.explanationPt}
-                        onChange={(e) => updateQuestionField(idx, 'explanationPt', e.target.value)}
-                        placeholder="Ex: A Alfaia é um tambor de madeira tocado com maçanetas..."
-                        className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-[10px] w-full"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {quizQuestions.length < 10 && (
-              <button
-                onClick={addQuestion}
-                className="flex items-center justify-center gap-1.5 py-2 px-4 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-2 border-[var(--cordel-border)] font-bold text-xs uppercase hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors self-center cordel-button cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                {lang === 'fr' ? 'Ajouter une question' : 'Adicionar pergunta'}
-              </button>
-            )}
-          </div>
+          <QuizTab
+            lang={lang}
+            quizTitle={quizTitle}
+            setQuizTitle={setQuizTitle}
+            quizRewardText={quizRewardText}
+            setQuizRewardText={setQuizRewardText}
+            quizQuestions={quizQuestions}
+            onLoadDraft={(e) => handleLoadDraft(e, 'quiz')}
+            addQuestion={addQuestion}
+            removeQuestion={removeQuestion}
+            updateQuestionField={updateQuestionField}
+            handleQuizMediaUpload={handleQuizMediaUpload}
+            updateQuestionOption={updateQuestionOption}
+          />
         )}
 
         {/* 3. CORDE 2: DICTÉE DE BLOCS */}
         {activeTab === 'dictee' && (
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col md:flex-row gap-6 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>📂 Charger un exercice pour le modifier (.json)</span>
-                <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'dictee')} className="text-[10px] cursor-pointer" />
-              </label>
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>🎵 Charger une piste depuis un Preset</span>
-                <select 
-                  onChange={(e) => {
-                    handleLoadPresetToGame(e.target.value, 'dictee');
-                    e.target.value = '';
-                  }} 
-                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded focus:outline-none text-xs font-bold"
-                >
-                  <option value="">Sélectionner un preset...</option>
-                  {presetFiles.map(p => <option key={p} value={p}>Catalogue: {p.replace('.json', '')}</option>)}
-                  {localPresets.map(p => <option key={p} value={p}>Local: {p}</option>)}
-                </select>
-              </label>
-            </div>
-            <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
-              <span className="font-cactus text-lg font-black text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1">
-                Paramètres du Défi
-              </span>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Corde Cible</label>
-                  <select
-                    value={dicteeCordeCible}
-                    onChange={(e) => setDicteeCordeCible(Number(e.target.value))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    <option value={1}>Corde 1</option>
-                    <option value={2}>Corde 2</option>
-                    <option value={3}>Corde 3</option>
-                    <option value={4}>Corde 4</option>
-                    <option value={5}>Corde 5</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Titre du Folheto</label>
-                  <input
-                    type="text"
-                    value={dicteeTitle}
-                    onChange={(e) => setDicteeTitle(e.target.value)}
-                    placeholder="Ex: Le Rythme du Maracatu"
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Lien Vidéo de Récompense (YouTube)</label>
-                  <input
-                    type="text"
-                    value={dicteeRewardVideoUrl}
-                    onChange={(e) => setDicteeRewardVideoUrl(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=..."
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Instrument Cible</label>
-                  <select
-                    value={dicteeTargetInstrumentId}
-                    onChange={(e) => setDicteeTargetInstrumentId(e.target.value)}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full border-[var(--cordel-wood)] border-2"
-                  >
-                    <option value="">Sélectionner...</option>
-                    {dicteeTracks.filter(t => !t.isMute && t.instrumentIdx !== -1).map(t => {
-                       const instName = instrumentsConfig[t.instrumentIdx]?.name || `Inst ${t.instrumentIdx}`;
-                       return <option key={t.id} value={t.id}>{instName}</option>
-                    })}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Total Mesures (Preset)</label>
-                  <select
-                    value={dicteeTotalMeasures}
-                    onChange={(e) => setDicteeTotalMeasures(Number(e.target.value))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    {[1,2,3,4,8,16].map(n => <option key={n} value={n}>{n} Mesure{n > 1 ? 's' : ''}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Tempo (BPM)</label>
-                  <input
-                    type="number"
-                    value={dicteeBpm}
-                    onChange={(e) => setDicteeBpm(Number(e.target.value) || 83)}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Découpage</label>
-                  <select
-                    value={dicteeBlocksCount}
-                    onChange={(e) => setDicteeBlocksCount(Number(e.target.value) as 4 | 8 | 16)}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    <option value={4}>4 Blocs (Standard)</option>
-                    <option value={8}>8 Blocs (Expert)</option>
-                    <option value={16}>16 Pas Vides (Saisie Clavier)</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Pagination for Dictée */}
-            {dicteeTotalMeasures > 1 && (
-              <div className="flex justify-center items-center gap-4 py-2 bg-[var(--cordel-bg)] border-y border-dashed border-[var(--cordel-border)]/30 mt-4 mb-2">
-                <button
-                  onClick={() => setDicteeMeasureIndex(prev => Math.max(0, prev - 1))}
-                  disabled={dicteeMeasureIndex === 0}
-                  className="px-3 py-1 bg-[var(--cordel-border)] text-white rounded disabled:opacity-30 hover:bg-[var(--cordel-wood)] transition-colors"
-                >
-                  &lt;
-                </button>
-                <span className="font-cactus font-bold text-lg text-[var(--cordel-wood)]">Mesure Cible : {dicteeMeasureIndex + 1} / {dicteeTotalMeasures}</span>
-                <button
-                  onClick={() => setDicteeMeasureIndex(prev => Math.min(dicteeTotalMeasures - 1, prev + 1))}
-                  disabled={dicteeMeasureIndex === dicteeTotalMeasures - 1}
-                  className="px-3 py-1 bg-[var(--cordel-border)] text-white rounded disabled:opacity-30 hover:bg-[var(--cordel-wood)] transition-colors"
-                >
-                  &gt;
-                </button>
-              </div>
-            )}
-
-            {/* Roda Sequencer for Audio Target */}
-            <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4 items-center mt-4">
-              <span className="font-cactus text-base font-bold text-[var(--cordel-wood)] text-center">
-                Séquence Audio<br/><span className="text-sm font-normal">La mesure sélectionnée sera automatiquement découpée en blocs.</span>
-              </span>
-              <div className="w-full max-w-[500px] py-4 bg-[var(--cordel-bg)]/25 rounded flex items-center justify-center">
-                <CircleSequencer
-                  lang={lang}
-                  tracks={dicteeTracks}
-                  isPlaying={studioPlaying}
-
-                  currentMeasure={dicteeMeasureIndex}
-                  maxTicks={16}
-                  timeSig="4/4"
-                  totalMeasures={dicteeTotalMeasures}
-                  onTogglePlay={() => setStudioPlaying(!studioPlaying)}
-                  onStepChange={(trId, ptId, stIdx, nSt, lyr, nt) => {
-                    handleStepChangeGeneric(dicteeTracks, setDicteeTracks, trId, ptId, stIdx, nSt, lyr, nt);
-                  }}
-                  langPromptVoiceText=""
-                  activePatternIdByTrack={getActivePatternMap(dicteeTracks)}
-                  bpm={dicteeBpm}
-                  measureBpms={[dicteeBpm]}
-                  measureVols={[80]}
-                  isMobile={window.innerWidth <= 768}
-                />
-              </div>
-            </div>
-
-
-          </div>
+          <DicteeTab
+            lang={lang}
+            dicteeTitle={dicteeTitle}
+            setDicteeTitle={setDicteeTitle}
+            dicteeRewardVideoUrl={dicteeRewardVideoUrl}
+            setDicteeRewardVideoUrl={setDicteeRewardVideoUrl}
+            dicteeTargetInstrumentId={dicteeTargetInstrumentId}
+            setDicteeTargetInstrumentId={setDicteeTargetInstrumentId}
+            dicteeTracks={dicteeTracks}
+            setDicteeTracks={setDicteeTracks}
+            dicteeTotalMeasures={dicteeTotalMeasures}
+            setDicteeTotalMeasures={setDicteeTotalMeasures}
+            dicteeBpm={dicteeBpm}
+            setDicteeBpm={setDicteeBpm}
+            dicteeBlocksCount={dicteeBlocksCount}
+            setDicteeBlocksCount={setDicteeBlocksCount}
+            dicteeMeasureIndex={dicteeMeasureIndex}
+            setDicteeMeasureIndex={setDicteeMeasureIndex}
+            dicteeStartMeasure={dicteeStartMeasure}
+            setDicteeStartMeasure={setDicteeStartMeasure}
+            dicteeEndMeasure={dicteeEndMeasure}
+            setDicteeEndMeasure={setDicteeEndMeasure}
+            presetFiles={presetFiles}
+            localPresets={localPresets}
+            handleLoadPresetToGame={handleLoadPresetToGame}
+            handleLoadDraft={handleLoadDraft}
+            studioPlaying={studioPlaying}
+            setStudioPlaying={setStudioPlaying}
+            handleStepChangeGeneric={handleStepChangeGeneric}
+            getActivePatternMap={getActivePatternMap}
+          />
         )}
 
         {/* 4. CORDE 3: L'INSPECTEUR */}
         {activeTab === 'inspecteur' && (
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col md:flex-row gap-6 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>📂 Charger un exercice pour le modifier (.json)</span>
-                <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'inspecteur')} className="text-[10px] cursor-pointer" />
-              </label>
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>🎵 Charger la partition parfaite depuis un Preset</span>
-                <select 
-                  onChange={(e) => {
-                    handleLoadPresetToGame(e.target.value, 'inspecteur');
-                    e.target.value = '';
-                  }} 
-                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded focus:outline-none text-xs font-bold"
-                >
-                  <option value="">Sélectionner un preset...</option>
-                  {presetFiles.map(p => <option key={p} value={p}>Catalogue: {p.replace('.json', '')}</option>)}
-                  {localPresets.map(p => <option key={p} value={p}>Local: {p}</option>)}
-                </select>
-              </label>
-            </div>
-            <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
-              <span className="font-cactus text-lg font-black text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1">
-                Paramètres de l'Enquête
-              </span>
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Corde Cible</label>
-                  <select
-                    value={inspecteurCordeCible}
-                    onChange={(e) => setInspecteurCordeCible(Number(e.target.value))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    <option value={1}>Corde 1</option>
-                    <option value={2}>Corde 2</option>
-                    <option value={3}>Corde 3</option>
-                    <option value={4}>Corde 4</option>
-                    <option value={5}>Corde 5</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Titre du Folheto</label>
-                  <input
-                    type="text"
-                    value={inspecteurTitle}
-                    onChange={(e) => setInspecteurTitle(e.target.value)}
-                    placeholder="Ex: Le Voleur de Caixa"
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Description / Indice</label>
-                  <input
-                    type="text"
-                    value={inspecteurDescription}
-                    onChange={(e) => setInspecteurDescription(e.target.value)}
-                    placeholder="Ex: Un intrus s'est glissé dans la caisse claire..."
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Instrument Coupable</label>
-                  <select
-                    value={inspecteurGuiltyInstrument}
-                    onChange={(e) => setInspecteurGuiltyInstrument(e.target.value as any)}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full uppercase"
-                  >
-                    <option value="caixa">Caixa (Caisse claire)</option>
-                    <option value="alfaia">Alfaia (Tambour)</option>
-                    <option value="gongue">Gonguê (Cloche)</option>
-                    <option value="agbe">Agbê (Chéquéré)</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Total Mesures</label>
-                  <select
-                    value={inspecteurTotalMeasures}
-                    onChange={(e) => setInspecteurTotalMeasures(Number(e.target.value))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Début Boucle</label>
-                  <select
-                    value={inspecteurLoopStart}
-                    onChange={(e) => setInspecteurLoopStart(Number(e.target.value))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    {Array.from({ length: inspecteurTotalMeasures }).map((_, i) => <option key={i} value={i + 1}>Mesure {i + 1}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Fin Boucle</label>
-                  <select
-                    value={inspecteurLoopEnd}
-                    onChange={(e) => setInspecteurLoopEnd(Number(e.target.value))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    {Array.from({ length: inspecteurTotalMeasures }).map((_, i) => <option key={i} value={i + 1}>Mesure {i + 1}</option>)}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Tempo (BPM)</label>
-                  <input
-                    type="number"
-                    value={inspecteurBpm}
-                    onChange={(e) => setInspecteurBpm(Number(e.target.value) || 83)}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Pagination */}
-            {inspecteurTotalMeasures > 1 && (
-              <div className="flex justify-center items-center gap-4 py-2 bg-[var(--cordel-bg)] border-y border-dashed border-[var(--cordel-border)]/30 mt-4 mb-2">
-                <button
-                  onClick={() => setInspecteurCurrentMeasure(prev => Math.max(0, prev - 1))}
-                  disabled={inspecteurCurrentMeasure === 0}
-                  className="px-3 py-1 bg-[var(--cordel-border)] text-white rounded disabled:opacity-30 hover:bg-[var(--cordel-wood)] transition-colors"
-                >
-                  &lt;
-                </button>
-                <span className="font-cactus font-bold text-lg text-[var(--cordel-wood)]">Mesure {inspecteurCurrentMeasure + 1} / {inspecteurTotalMeasures}</span>
-                <button
-                  onClick={() => setInspecteurCurrentMeasure(prev => Math.min(inspecteurTotalMeasures - 1, prev + 1))}
-                  disabled={inspecteurCurrentMeasure === inspecteurTotalMeasures - 1}
-                  className="px-3 py-1 bg-[var(--cordel-border)] text-white rounded disabled:opacity-30 hover:bg-[var(--cordel-wood)] transition-colors"
-                >
-                  &gt;
-                </button>
-              </div>
-            )}
-
-            {/* Double Circle Sequencer layouts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Sequencer 1: Partition Parfaite */}
-              <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-2 items-center">
-                <span className="font-cactus text-sm font-bold text-green-700 uppercase">
-                  😇 1. Partition Parfaite (Toute la Roda)
-                </span>
-                <div className="w-full max-w-[460px] py-2 flex items-center justify-center">
-                  <CircleSequencer
-                    lang={lang}
-                    tracks={inspecteurPerfectTracks}
-                    isPlaying={studioPlaying}
-
-                    currentMeasure={inspecteurCurrentMeasure}
-                    maxTicks={16}
-                    timeSig="4/4"
-                    totalMeasures={inspecteurTotalMeasures}
-                    onTogglePlay={() => setStudioPlaying(!studioPlaying)}
-                    onStepChange={(trId, ptId, stIdx, nSt, lyr, nt) => {
-                      handleStepChangeGeneric(inspecteurPerfectTracks, setInspecteurPerfectTracks, trId, ptId, stIdx, nSt, lyr, nt);
-                    }}
-                    langPromptVoiceText=""
-                    activePatternIdByTrack={getActivePatternMap(inspecteurPerfectTracks)}
-                    bpm={inspecteurBpm}
-                    measureBpms={[inspecteurBpm]}
-                    measureVols={[80]}
-                    isMobile={true}
-                  />
-                </div>
-              </div>
-
-              {/* Sequencer 2: Piste Sabotée (Only Guilty Instrument) */}
-              <div className="border-2 border-red-500/80 p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-2 items-center relative shadow-[0_0_8px_rgba(239,68,68,0.2)]">
-                <span className="font-cactus text-sm font-bold text-red-600 uppercase">
-                  😈 2. Piste Sabotée (Uniquement le coupable)
-                </span>
-                <div className="w-full max-w-[460px] py-2 flex items-center justify-center">
-                  <CircleSequencer
-                    lang={lang}
-                    tracks={inspecteurSabotagedTracks}
-                    isPlaying={studioPlaying}
-
-                    currentMeasure={inspecteurCurrentMeasure}
-                    maxTicks={16}
-                    timeSig="4/4"
-                    totalMeasures={inspecteurTotalMeasures}
-                    onTogglePlay={() => setStudioPlaying(!studioPlaying)}
-                    onStepChange={(trId, ptId, stIdx, nSt, lyr, nt) => {
-                      handleStepChangeGeneric(inspecteurSabotagedTracks, setInspecteurSabotagedTracks, trId, ptId, stIdx, nSt, lyr, nt);
-                    }}
-                    langPromptVoiceText=""
-                    activePatternIdByTrack={getActivePatternMap(inspecteurSabotagedTracks)}
-                    bpm={inspecteurBpm}
-                    measureBpms={[inspecteurBpm]}
-                    measureVols={[80]}
-                    isMobile={true}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          <InspecteurTab
+            lang={lang}
+            inspecteurCordeCible={inspecteurCordeCible}
+            setInspecteurCordeCible={setInspecteurCordeCible}
+            inspecteurTitle={inspecteurTitle}
+            setInspecteurTitle={setInspecteurTitle}
+            inspecteurDescription={inspecteurDescription}
+            setInspecteurDescription={setInspecteurDescription}
+            inspecteurGuiltyInstrument={inspecteurGuiltyInstrument}
+            setInspecteurGuiltyInstrument={setInspecteurGuiltyInstrument}
+            inspecteurTotalMeasures={inspecteurTotalMeasures}
+            setInspecteurTotalMeasures={setInspecteurTotalMeasures}
+            inspecteurBpm={inspecteurBpm}
+            setInspecteurBpm={setInspecteurBpm}
+            inspecteurCurrentMeasure={inspecteurCurrentMeasure}
+            setInspecteurCurrentMeasure={setInspecteurCurrentMeasure}
+            inspecteurPerfectTracks={inspecteurPerfectTracks}
+            setInspecteurPerfectTracks={setInspecteurPerfectTracks}
+            inspecteurSabotagedTracks={inspecteurSabotagedTracks}
+            setInspecteurSabotagedTracks={setInspecteurSabotagedTracks}
+            presetFiles={presetFiles}
+            localPresets={localPresets}
+            handleLoadPresetToGame={handleLoadPresetToGame}
+            handleLoadDraft={handleLoadDraft}
+            studioPlaying={studioPlaying}
+            setStudioPlaying={setStudioPlaying}
+            handleStepChangeGeneric={handleStepChangeGeneric}
+            getActivePatternMap={getActivePatternMap}
+          />
         )}
 
         {/* 5. CORDE 4: SABLIER DU MESTRE */}
         {activeTab === 'sablier' && (
-          <div className="flex flex-col gap-6 max-w-3xl mx-auto">
-            <div className="flex flex-col md:flex-row gap-6 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>📂 Charger un exercice pour le modifier (.json)</span>
-                <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'sablier_mestre')} className="text-[10px] cursor-pointer" />
-              </label>
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>🎵 Charger la Roda depuis un Preset</span>
-                <select 
-                  onChange={(e) => {
-                    handleLoadPresetToGame(e.target.value, 'sablier_mestre');
-                    e.target.value = '';
-                  }} 
-                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded focus:outline-none text-xs font-bold"
-                >
-                  <option value="">Sélectionner un preset...</option>
-                  {presetFiles.map(p => <option key={p} value={p}>Catalogue: {p.replace('.json', '')}</option>)}
-                  {localPresets.map(p => <option key={p} value={p}>Local: {p}</option>)}
-                </select>
-              </label>
-            </div>
-            <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
-              <span className="font-cactus text-lg font-black text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1">
-                Configuration du Sablier
-              </span>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Corde Cible</label>
-                  <select
-                    value={sablierCordeCible}
-                    onChange={(e) => setSablierCordeCible(Number(e.target.value))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    <option value={1}>Corde 1</option>
-                    <option value={2}>Corde 2</option>
-                    <option value={3}>Corde 3</option>
-                    <option value={4}>Corde 4</option>
-                    <option value={5}>Corde 5</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Titre du Folheto</label>
-                  <input
-                    type="text"
-                    value={sablierTitle}
-                    onChange={(e) => setSablierTitle(e.target.value)}
-                    placeholder="Ex: Le Sablier du Mestre"
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Durée du Sablier (Mesures)</label>
-                  <select
-                    value={sablierMeasures}
-                    onChange={(e) => setSablierMeasures(Number(e.target.value) as 1 | 2)}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    <option value={1}>1 Mesure</option>
-                    <option value={2}>2 Mesures (Standard)</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Tempo BPM</label>
-                  <input
-                    type="number"
-                    value={sablierBpm}
-                    min={50}
-                    max={200}
-                    onChange={(e) => setSablierBpm(Math.max(50, Math.min(200, Number(e.target.value) || 83)))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Mestre Sign/Image selection */}
-            <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-              <div className="md:col-span-2 flex flex-col gap-3">
-                <span className="font-cactus text-base font-bold text-[var(--cordel-wood)]">
-                  Signe Gestuel du Mestre (Image)
-                </span>
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-1.5 font-bold text-xs uppercase cursor-pointer">
-                    <input
-                      type="radio"
-                      checked={sablierHandImageType === 'url'}
-                      onChange={() => setSablierHandImageType('url')}
-                      className="accent-[var(--cordel-wood)]"
-                    />
-                    URL de l'image
-                  </label>
-                  <label className="flex items-center gap-1.5 font-bold text-xs uppercase cursor-pointer">
-                    <input
-                      type="radio"
-                      checked={sablierHandImageType === 'upload'}
-                      onChange={() => setSablierHandImageType('upload')}
-                      className="accent-[var(--cordel-wood)]"
-                    />
-                    Upload Fichier
-                  </label>
-                </div>
-                {sablierHandImageType === 'url' ? (
-                  <input
-                    type="text"
-                    value={sablierHandImageUrl}
-                    onChange={(e) => setSablierHandImageUrl(e.target.value)}
-                    placeholder="https://exemple.com/signe.jpg"
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded text-xs focus:outline-none w-full"
-                  />
-                ) : (
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleSablierImageUpload}
-                    className="text-xs font-bold text-[var(--cordel-text)] cursor-pointer"
-                  />
-                )}
-              </div>
-              <div className="flex flex-col items-center justify-center border-2 border-[var(--cordel-border)] p-2 bg-white text-black min-h-[100px] rounded">
-                <span className="text-[8px] font-bold uppercase text-gray-400 mb-1">Aperçu Xilo</span>
-                {(sablierHandImageType === 'url' ? sablierHandImageUrl : sablierHandImageFile) ? (
-                  <img
-                    src={sablierHandImageType === 'url' ? sablierHandImageUrl : sablierHandImageFile}
-                    alt="mestre sign preview"
-                    style={{ filter: 'contrast(300%) grayscale(100%)' }}
-                    className="max-h-[70px] object-contain border border-black p-0.5"
-                  />
-                ) : (
-                  <span className="text-[9px] text-gray-300">Aucun signe</span>
-                )}
-              </div>
-            </div>
-
-            {/* Séquences de Jeu */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
-              <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-2 relative">
-                <span className="font-cactus text-sm font-bold text-gray-700 uppercase">
-                  👈 Séquence Gauche (Fond)
-                </span>
-                <p className="text-[10px] text-[var(--cordel-text)]/70">Chargez le JSON contenant la base musicale (ex: Roda basique).</p>
-                <div className="flex flex-col gap-2 mt-2">
-                   <label className="text-xs font-bold bg-[var(--cordel-wood)] text-white px-3 py-2 text-center rounded cursor-pointer hover:bg-opacity-80 transition-colors">
-                     Importer JSON Gauche
-                     <input type="file" accept=".json" className="hidden" onChange={(e) => handleLoadSablierSequence(e, 'fond')} />
-                   </label>
-                   {sablierSeqFondName && <span className="text-[10px] font-bold text-green-700 text-center">✓ {sablierSeqFondName} chargé</span>}
-                </div>
-              </div>
-
-              <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-2 relative">
-                <span className="font-cactus text-sm font-bold text-green-700 uppercase">
-                  👉 Séquence Droite (Cible)
-                </span>
-                <p className="text-[10px] text-[var(--cordel-text)]/70">Chargez le JSON contenant la bonne réponse (ex: Virada).</p>
-                <div className="flex flex-col gap-2 mt-2">
-                   <label className="text-xs font-bold bg-green-700 text-white px-3 py-2 text-center rounded cursor-pointer hover:bg-opacity-80 transition-colors">
-                     Importer JSON Droite
-                     <input type="file" accept=".json" className="hidden" onChange={(e) => handleLoadSablierSequence(e, 'cible')} />
-                   </label>
-                   {sablierSeqCibleName && <span className="text-[10px] font-bold text-green-700 text-center">✓ {sablierSeqCibleName} chargé</span>}
-                </div>
-              </div>
-            </div>
-
-            {/* Séquences Pièges */}
-            <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4 mt-2">
-              <span className="font-cactus text-base font-bold text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1">
-                Séquences Pièges (Erreurs)
-              </span>
-              <p className="text-[10px] text-[var(--cordel-text)]/70">Chargez les 3 JSON contenant les mauvaises réponses qui s'afficheront à l'élève pour le piéger.</p>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                <div className="flex flex-col gap-2 p-3 border border-red-900/20 bg-red-900/5 rounded">
-                   <span className="text-xs font-bold text-red-800 uppercase text-center">Piège 1</span>
-                   <label className="text-[10px] font-bold bg-red-800 text-white px-2 py-1.5 text-center rounded cursor-pointer hover:bg-opacity-80 transition-colors">
-                     Importer JSON
-                     <input type="file" accept=".json" className="hidden" onChange={(e) => handleLoadSablierSequence(e, 'piege1')} />
-                   </label>
-                   {sablierSeqPiege1Name && <span className="text-[10px] font-bold text-red-800 text-center">✓ {sablierSeqPiege1Name}</span>}
-                </div>
-                
-                <div className="flex flex-col gap-2 p-3 border border-red-900/20 bg-red-900/5 rounded">
-                   <span className="text-xs font-bold text-red-800 uppercase text-center">Piège 2</span>
-                   <label className="text-[10px] font-bold bg-red-800 text-white px-2 py-1.5 text-center rounded cursor-pointer hover:bg-opacity-80 transition-colors">
-                     Importer JSON
-                     <input type="file" accept=".json" className="hidden" onChange={(e) => handleLoadSablierSequence(e, 'piege2')} />
-                   </label>
-                   {sablierSeqPiege2Name && <span className="text-[10px] font-bold text-red-800 text-center">✓ {sablierSeqPiege2Name}</span>}
-                </div>
-
-                <div className="flex flex-col gap-2 p-3 border border-red-900/20 bg-red-900/5 rounded">
-                   <span className="text-xs font-bold text-red-800 uppercase text-center">Piège 3</span>
-                   <label className="text-[10px] font-bold bg-red-800 text-white px-2 py-1.5 text-center rounded cursor-pointer hover:bg-opacity-80 transition-colors">
-                     Importer JSON
-                     <input type="file" accept=".json" className="hidden" onChange={(e) => handleLoadSablierSequence(e, 'piege3')} />
-                   </label>
-                   {sablierSeqPiege3Name && <span className="text-[10px] font-bold text-red-800 text-center">✓ {sablierSeqPiege3Name}</span>}
-                </div>
-              </div>
-            </div>
-          </div>
+          <SablierTab
+            lang={lang}
+            sablierCordeCible={sablierCordeCible}
+            setSablierCordeCible={setSablierCordeCible}
+            sablierTitle={sablierTitle}
+            setSablierTitle={setSablierTitle}
+            sablierMeasures={sablierMeasures}
+            setSablierMeasures={setSablierMeasures}
+            sablierBpm={sablierBpm}
+            setSablierBpm={setSablierBpm}
+            sablierSeqFondName={sablierSeqFondName}
+            sablierSeqCibleName={sablierSeqCibleName}
+            sablierSeqPiege1Name={sablierSeqPiege1Name}
+            sablierSeqPiege2Name={sablierSeqPiege2Name}
+            sablierSeqPiege3Name={sablierSeqPiege3Name}
+            sablierHandImageType={sablierHandImageType}
+            setSablierHandImageType={setSablierHandImageType}
+            sablierHandImageUrl={sablierHandImageUrl}
+            setSablierHandImageUrl={setSablierHandImageUrl}
+            sablierHandImageFile={sablierHandImageFile}
+            handleSablierImageUpload={handleSablierImageUpload}
+            handleLoadSablierSequence={handleLoadSablierSequence}
+            handleLoadDraft={handleLoadDraft}
+            handleLoadPresetToGame={handleLoadPresetToGame}
+            presetFiles={presetFiles}
+            localPresets={localPresets}
+          />
         )}
 
         {/* 6. CORDE 5: RYTHME LIVE */}
         {activeTab === 'rythmelive' && (
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col md:flex-row gap-6 border-b-2 border-dashed border-[var(--cordel-border)]/30 pb-4 mb-2">
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>📂 Charger un exercice pour le modifier (.json)</span>
-                <input type="file" accept=".json" onChange={(e) => handleLoadDraft(e, 'rythme_live')} className="text-[10px] cursor-pointer" />
-              </label>
-              <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70 flex flex-col gap-1 flex-1">
-                <span>🎵 Charger la base musicale depuis un Preset</span>
-                <select 
-                  onChange={(e) => {
-                    handleLoadPresetToGame(e.target.value, 'rythme_live');
-                    e.target.value = '';
-                  }} 
-                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 rounded focus:outline-none text-xs font-bold"
-                >
-                  <option value="">Sélectionner un preset...</option>
-                  {presetFiles.map(p => <option key={p} value={p}>Catalogue: {p.replace('.json', '')}</option>)}
-                  {localPresets.map(p => <option key={p} value={p}>Local: {p}</option>)}
-                </select>
-              </label>
-            </div>
-            <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
-              <span className="font-cactus text-lg font-black text-[var(--cordel-wood)] border-b border-dashed border-[var(--cordel-border)]/30 pb-1">
-                Paramètres de l'Examen Rythmique
-              </span>
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                <div className="flex flex-col gap-1 md:col-span-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Corde Cible</label>
-                  <select
-                    value={rythmeLiveCordeCible}
-                    onChange={(e) => setRythmeLiveCordeCible(Number(e.target.value))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    <option value={1}>Corde 1</option>
-                    <option value={2}>Corde 2</option>
-                    <option value={3}>Corde 3</option>
-                    <option value={4}>Corde 4</option>
-                    <option value={5}>Corde 5</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1 md:col-span-2">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Titre du Folheto</label>
-                  <input
-                    type="text"
-                    value={rythmeLiveTitle}
-                    onChange={(e) => setRythmeLiveTitle(e.target.value)}
-                    placeholder="Ex: L'Examen Final du Mestre"
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Boucles Requises</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={rythmeLiveLoopsRequired}
-                    onChange={(e) => setRythmeLiveLoopsRequired(Math.max(1, Number(e.target.value) || 2))}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Tolérance (Précision)</label>
-                  <select
-                    value={rythmeLiveToleranceMs}
-                    onChange={(e) => setRythmeLiveToleranceMs(Number(e.target.value) as 30 | 80)}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                  >
-                    <option value={80}>Moyen (+/- 80ms)</option>
-                    <option value={30}>Parfait (+/- 30ms)</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Instrument Joué</label>
-                  <select
-                    value={rythmeLiveStudentInstrument}
-                    onChange={(e) => setRythmeLiveStudentInstrument(e.target.value as any)}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full uppercase"
-                  >
-                    <option value="caixa">Caixa</option>
-                    <option value="alfaia">Alfaia</option>
-                    <option value="gongue">Gonguê</option>
-                    <option value="agbe">Agbê</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1 mt-1 border-t border-dashed border-[var(--cordel-border)]/20 pt-3">
-                <label className="text-[10px] font-bold uppercase text-[var(--cordel-text)]/70">Signataire du Diplôme (Récompense)</label>
-                <input
-                  type="text"
-                  value={rythmeLiveRewardSignatory}
-                  onChange={(e) => setRythmeLiveRewardSignatory(e.target.value)}
-                  placeholder="Ex: Mestre Vicente de Paula"
-                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-2 rounded focus:outline-none text-xs font-bold w-full"
-                />
-              </div>
-            </div>
-
-            {/* Double Circle Sequencer layouts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Sequencer 1: Playback Accompagnement */}
-              <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-2 items-center">
-                <span className="font-cactus text-sm font-bold text-blue-700 uppercase">
-                  🎵 1. Piste d'Accompagnement (Playback)
-                </span>
-                <div className="w-full max-w-[460px] py-2 flex items-center justify-center">
-                  <CircleSequencer
-                    lang={lang}
-                    tracks={rythmeLivePlaybackTracks}
-                    isPlaying={studioPlaying}
-
-                    currentMeasure={0}
-                    maxTicks={16}
-                    timeSig="4/4"
-                    totalMeasures={1}
-                    onTogglePlay={() => setStudioPlaying(!studioPlaying)}
-                    onStepChange={(trId, ptId, stIdx, nSt, lyr, nt) => {
-                      handleStepChangeGeneric(rythmeLivePlaybackTracks, setRythmeLivePlaybackTracks, trId, ptId, stIdx, nSt, lyr, nt);
-                    }}
-                    langPromptVoiceText=""
-                    activePatternIdByTrack={getActivePatternMap(rythmeLivePlaybackTracks)}
-                    bpm={rythmeLiveBpm}
-                    measureBpms={[rythmeLiveBpm]}
-                    measureVols={[80]}
-                    isMobile={true}
-                  />
-                </div>
-              </div>
-
-              {/* Sequencer 2: Target Partition required from student */}
-              <div className="border-2 border-green-600/80 p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-2 items-center relative shadow-[0_0_8px_rgba(34,197,94,0.15)]">
-                <span className="font-cactus text-sm font-bold text-green-700 uppercase">
-                  🎯 2. Partition Cible de l'Élève
-                </span>
-                <div className="w-full max-w-[460px] py-2 flex items-center justify-center">
-                  <CircleSequencer
-                    lang={lang}
-                    tracks={rythmeLiveTargetTracks}
-                    isPlaying={studioPlaying}
-
-                    currentMeasure={0}
-                    maxTicks={16}
-                    timeSig="4/4"
-                    totalMeasures={1}
-                    onTogglePlay={() => setStudioPlaying(!studioPlaying)}
-                    onStepChange={(trId, ptId, stIdx, nSt, lyr, nt) => {
-                      handleStepChangeGeneric(rythmeLiveTargetTracks, setRythmeLiveTargetTracks, trId, ptId, stIdx, nSt, lyr, nt);
-                    }}
-                    langPromptVoiceText=""
-                    activePatternIdByTrack={getActivePatternMap(rythmeLiveTargetTracks)}
-                    bpm={rythmeLiveBpm}
-                    measureBpms={[rythmeLiveBpm]}
-                    measureVols={[80]}
-                    isMobile={true}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
+          <RythmeLiveTab
+            lang={lang}
+            rythmeLiveCordeCible={rythmeLiveCordeCible}
+            setRythmeLiveCordeCible={setRythmeLiveCordeCible}
+            rythmeLiveTitle={rythmeLiveTitle}
+            setRythmeLiveTitle={setRythmeLiveTitle}
+            rythmeLiveLoopsRequired={rythmeLiveLoopsRequired}
+            setRythmeLiveLoopsRequired={setRythmeLiveLoopsRequired}
+            rythmeLiveToleranceMs={rythmeLiveToleranceMs}
+            setRythmeLiveToleranceMs={setRythmeLiveToleranceMs}
+            rythmeLiveStudentInstrument={rythmeLiveStudentInstrument}
+            setRythmeLiveStudentInstrument={setRythmeLiveStudentInstrument}
+            rythmeLiveRewardSignatory={rythmeLiveRewardSignatory}
+            setRythmeLiveRewardSignatory={setRythmeLiveRewardSignatory}
+            rythmeLivePlaybackTracks={rythmeLivePlaybackTracks}
+            setRythmeLivePlaybackTracks={setRythmeLivePlaybackTracks}
+            rythmeLiveTargetTracks={rythmeLiveTargetTracks}
+            setRythmeLiveTargetTracks={setRythmeLiveTargetTracks}
+            rythmeLiveBpm={rythmeLiveBpm}
+            setRythmeLiveBpm={setRythmeLiveBpm}
+            presetFiles={presetFiles}
+            localPresets={localPresets}
+            handleLoadPresetToGame={handleLoadPresetToGame}
+            handleLoadDraft={handleLoadDraft}
+            studioPlaying={studioPlaying}
+            setStudioPlaying={setStudioPlaying}
+            handleStepChangeGeneric={handleStepChangeGeneric}
+            getActivePatternMap={getActivePatternMap}
+          />
         )}
-
-        {/* 7. LA VALISE */}
-        {activeTab === 'valise' && (
-          <div className="flex flex-col gap-6 max-w-2xl mx-auto">
-            <p className="text-sm italic text-[var(--cordel-text)]/70 text-center">
-              {lang === 'fr'
-                ? "La Valise du Mestre : importez les fichiers JSON d'exercices et de configuration du Varal pour mettre à jour l'application hors-ligne."
-                : "A Mala do Mestre: importe os arquivos JSON de exercícios e configuração do Varal para atualizar o aplicativo offline."}
-            </p>
-
-            {/* Upload Area */}
-            <div className="border-4 border-dashed border-[var(--cordel-border)]/45 p-8 text-center flex flex-col items-center gap-4 bg-[var(--cordel-bg)]/20 hover:border-[var(--cordel-wood)] transition-colors rounded-sm cursor-pointer relative">
-              <input
-                type="file"
-                accept=".json"
-                multiple
-                onChange={handleImportFiles}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-              />
-              <Download className="w-12 h-12 text-[var(--cordel-wood)] animate-bounce" />
-              <span className="font-cactus font-bold text-sm">
-                {lang === 'fr' ? 'Sélecteur de fichiers .json (Multiples acceptés)' : 'Seletor de arquivos .json (Múltiplos aceitos)'}
-              </span>
-              <span className="text-[10px] text-[var(--cordel-text)]/50">
-                {lang === 'fr' ? 'Cliquez ou glissez-déposez vos fichiers JSON générés par le Studio ici.' : 'Clique ou arraste e solte seus arquivos JSON gerados pelo Estúdio aqui.'}
-              </span>
-            </div>
-
-            {/* Messages Log */}
-            {importMessages.length > 0 && (
-              <div className="border-2 border-[var(--cordel-border)] p-3 bg-black/10 flex flex-col gap-1 text-[11px] font-semibold text-left">
-                {importMessages.map((msg, mIdx) => (
-                  <div key={mIdx} className={msg.startsWith('Erreur') ? 'text-red-500' : 'text-green-500'}>
-                    {msg}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* List of Custom Exercises */}
-            <div className="border-2 border-[var(--cordel-border)] p-4 bg-[var(--cordel-bg)] cordel-border flex flex-col gap-4">
-              <div className="flex items-center justify-between border-b border-dashed border-[var(--cordel-border)]/30 pb-2">
-                <span className="font-cactus text-base font-bold text-[var(--cordel-wood)]">
-                  {lang === 'fr' ? `Exercices chargés en mémoire (${customExercises.length})` : `Exercícios na memória (${customExercises.length})`}
-                </span>
-                {customExercises.length > 0 && (
-                  <button
-                    onClick={clearAllData}
-                    className="px-3 py-1 bg-[var(--cordel-wood)] text-[var(--cordel-bg)] font-bold text-[10px] uppercase border border-[var(--cordel-border)] rounded cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cordel-button"
-                  >
-                    {lang === 'fr' ? 'Vider la mémoire' : 'Zerar memória'}
-                  </button>
-                )}
-              </div>
-
-              {customExercises.length === 0 ? (
-                <p className="text-xs italic text-[var(--cordel-text)]/50 text-center py-4">
-                  {lang === 'fr' ? 'Aucun exercice personnalisé importé.' : 'Nenhum exercício personalizado importado.'}
-                </p>
-              ) : (
-                <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
-                  {customExercises.map((ex) => (
-                    <div key={ex.id} className="flex items-center justify-between bg-[var(--cordel-bg)]/30 p-2.5 border border-[var(--cordel-border)]/15 rounded-sm">
-                      <div className="flex flex-col text-left">
-                        <span className="text-xs font-bold text-[var(--cordel-text)]">
-                          {ex.folheto_titre || `Exercice ${ex.module}`}
-                        </span>
-                        <div className="flex gap-2 items-center">
-                          <span className="text-[9px] uppercase font-bold text-gray-500">
-                            {lang === 'fr' ? `Module : ${ex.module}` : `Módulo: ${ex.module}`}
-                          </span>
-                          <span className="text-[9px] uppercase font-bold text-[var(--cordel-wood)]">
-                            (Corde {ex.corde_cible || '?'})
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => removeExercise(ex.id)}
-                        className="p-1 text-[var(--cordel-wood)] hover:bg-[var(--cordel-wood)] hover:text-white rounded cursor-pointer transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
       </div>
 
-      {activeTab !== 'valise' && (
+        {/* Sticky action bar */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-[var(--cordel-bg)] border-t-4 border-[var(--cordel-border)] shadow-[0_-8px_16px_rgba(0,0,0,0.2)] flex justify-center z-[100]">
           <div className="flex gap-4 max-w-xl w-full flex-wrap sm:flex-nowrap">
-            <button
-              onClick={() => setCloudSaveModalOpen(true)}
-              className="px-4 py-3.5 bg-blue-600 text-white border-2 border-blue-800 text-base font-black tracking-widest uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:bg-blue-500 transition-colors flex-1"
-            >
-              <Cloud className="w-5 h-5" />
-              Cloud
-            </button>
-
-            {activeTab === 'varal' && (
-              <button
-                onClick={() => {
-                  const exportData = getExportDataForCurrentTab('varal');
-                  if (exportData) {
-                    loadVaralConfig(exportData);
-                    alert(lang === 'fr' ? 'Varal mis en place avec succès !' : 'Varal ativado com sucesso !');
-                  }
-                }}
-                className="px-4 py-3.5 bg-green-600 text-white border-2 border-green-800 text-base font-black tracking-widest uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:bg-green-500 transition-colors flex-1"
-              >
-                <Play className="w-5 h-5" />
-                {lang === 'fr' ? 'Activer' : 'Ativar'}
-              </button>
+            {activeTab === 'varal' ? (
+              <>
+                <button
+                  onClick={handleSaveVaralToCloud}
+                  className="px-4 py-3.5 bg-blue-600 text-white border-2 border-blue-800 text-base font-black tracking-widest uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:bg-blue-500 transition-colors flex-1"
+                >
+                  <Cloud className="w-5 h-5" />
+                  {lang === 'fr' ? 'Sauvegarder dans le Cloud' : 'Salvar no Cloud'}
+                </button>
+                <button
+                  onClick={handleGenerateExercise}
+                  className="px-4 py-3.5 cordel-wood cordel-button text-base font-black tracking-widest uppercase flex items-center gap-2 cursor-pointer shadow-lg flex-1 justify-center transition-transform hover:scale-[1.02]"
+                >
+                  <Download className="w-5 h-5" />
+                  JSON
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setCloudSaveModalOpen(true)}
+                  className="px-4 py-3.5 bg-blue-600 text-white border-2 border-blue-800 text-base font-black tracking-widest uppercase flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:bg-blue-500 transition-colors flex-1"
+                >
+                  <Cloud className="w-5 h-5" />
+                  {lang === 'fr' ? 'Sauvegarder dans le Cloud' : 'Salvar no Cloud'}
+                </button>
+                <button
+                  onClick={handleGenerateExercise}
+                  className="px-4 py-3.5 cordel-wood cordel-button text-base font-black tracking-widest uppercase flex items-center gap-2 cursor-pointer shadow-lg flex-1 justify-center transition-transform hover:scale-[1.02]"
+                >
+                  <Download className="w-5 h-5" />
+                  JSON
+                </button>
+              </>
             )}
-            
-            <button
-              onClick={handleGenerateExercise}
-              className="px-4 py-3.5 cordel-wood cordel-button text-base font-black tracking-widest uppercase flex items-center gap-2 cursor-pointer shadow-lg flex-2 justify-center transition-transform hover:scale-[1.02]"
-            >
-              <Download className="w-5 h-5" />
-              {lang === 'fr' ? (activeTab === 'varal' ? 'Générer (JSON)' : 'Générer l\'exercice (JSON)') : (activeTab === 'varal' ? 'Gerar (JSON)' : 'Gerar exercício')}
-            </button>
           </div>
-        </div>
-      )}
-
       {/* Cloud Save Modal */}
-      {cloudSaveModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999]">
-          <div className="bg-[var(--cordel-bg)] border-4 border-[var(--cordel-border)] shadow-[8px_8px_0_var(--cordel-border)] w-full max-w-md p-6 relative flex flex-col gap-4">
-            <button onClick={() => setCloudSaveModalOpen(false)} className="absolute top-2 right-2 text-[var(--cordel-text)]/50 hover:text-[var(--cordel-text)]"><Trash2 className="w-5 h-5"/></button>
-            <h3 className="font-cactus text-2xl font-black text-[var(--cordel-wood)] text-center uppercase">
-              {lang === 'fr' ? 'Enregistrer sur le Cloud' : 'Salvar na Nuvem'}
-            </h3>
-            
-            <p className="text-sm text-center text-[var(--cordel-text)]/80 mb-4 font-bold">
-              {activeTab === 'varal' ? (lang === 'fr' ? 'Nommez cette progression (ex: "Débutant 2026")' : 'Nomeie esta progressão (ex: "Iniciante 2026")') : (lang === 'fr' ? 'Nommez cet exercice (ex: "Quiz Difficile")' : 'Nomeie este exercício (ex: "Quiz Difícil")')}
-            </p>
-
-            <input
-              type="text"
-              placeholder={lang === 'fr' ? 'Nom...' : 'Nome...'}
-              value={cloudSaveName}
-              onChange={(e) => setCloudSaveName(e.target.value)}
-              className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] p-3 rounded font-bold text-lg text-[var(--cordel-text)]"
-            />
-
-            {cloudSaveError && <p className="text-red-600 text-sm font-bold text-center">{cloudSaveError}</p>}
-            {cloudSaveSuccess && <p className="text-green-600 text-sm font-bold text-center">{cloudSaveSuccess}</p>}
-
-            <button
-              onClick={handleSaveToCloudSubmit}
-              disabled={isSavingCloud}
-              className="w-full bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-black uppercase tracking-widest py-3 mt-2 flex justify-center items-center gap-2 hover:bg-[var(--cordel-wood)] transition-colors disabled:opacity-50"
-            >
-              {isSavingCloud ? <Square className="w-4 h-4 animate-spin"/> : <Cloud className="w-5 h-5" />}
-              {lang === 'fr' ? 'Valider' : 'Confirmar'}
-            </button>
-          </div>
-        </div>
-      )}
+      <React.Suspense fallback={null}>
+        <CloudSaveModal
+          isOpen={cloudSaveModalOpen}
+          onClose={() => setCloudSaveModalOpen(false)}
+          lang={lang}
+          activeTab={activeTab}
+          onSave={handleSaveToCloudSubmit}
+        />
+      </React.Suspense>
 
       {/* Copy Modal */}
-      {showCopyModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999]">
-          <div className="bg-[var(--cordel-bg)] border-4 border-[var(--cordel-border)] shadow-[8px_8px_0_var(--cordel-border)] w-full max-w-2xl p-6 relative flex flex-col gap-4">
-            <h3 className="font-cactus text-2xl font-black text-[var(--cordel-wood)]">
-              {lang === 'fr' ? 'Exercice JSON Généré !' : 'Exercício JSON Gerado !'}
-            </h3>
-            
-            <p className="text-xs text-[var(--cordel-text)]/70">
-              {lang === 'fr'
-                ? 'Le téléchargement a été lancé automatiquement. Si ce n\'est pas le cas, copiez le contenu ci-dessous :'
-                : 'O download foi iniciado automaticamente. Caso não tenha começado, copie o conteúdo abaixo:'}
-            </p>
-
-            <textarea
-              readOnly
-              value={copiedJsonText}
-              className="bg-black/35 text-green-400 font-mono text-[10px] p-3 border-2 border-[var(--cordel-border)]/50 rounded h-64 resize-none overflow-y-auto"
-            />
-
-            <div className="flex gap-2 justify-end mt-2">
-              <button
-                onClick={copyToClipboard}
-                className="flex items-center gap-1.5 px-4 py-2 border-2 border-[var(--cordel-border)] bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-xs uppercase cursor-pointer hover:bg-[var(--cordel-bg)] hover:text-[var(--cordel-text)] transition-colors cordel-button"
-              >
-                <Clipboard className="w-4 h-4" />
-                {lang === 'fr' ? 'Copier' : 'Copiar'}
-              </button>
-              <button
-                onClick={() => setShowCopyModal(false)}
-                className="px-4 py-2 border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-bold text-xs uppercase cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cordel-button"
-              >
-                {lang === 'fr' ? 'Fermer' : 'Fechar'}
-              </button>
-            </div>
-          </div>
+      <React.Suspense fallback={null}>
+        <CopyModal
+          isOpen={showCopyModal}
+          onClose={() => setShowCopyModal(false)}
+          lang={lang}
+          copiedJsonText={copiedJsonText}
+        />
+      </React.Suspense>
+      <RhythmGridHighlighter trackPatternIds={trackPatternIds} />
         </div>
-      )}
       </div>
     </div>
   );
 };
+
+export const MestreStudio = React.memo(MestreStudioComponent);
+

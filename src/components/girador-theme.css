@@ -1,0 +1,218 @@
+/* Thème Xilogravura & Literatura de Cordel */
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@700&family=Special+Elite&display=swap');
+
+:root {
+  --color-wood-black: #1a1a1a;
+  --color-paper-beige: #fbf9f4;
+  --color-paper-shadow: #e5dfd3;
+  --border-width-thick: 3px;
+  --font-xilogravura: 'Courier Prime', 'Special Elite', Courier, monospace;
+}
+
+/* Grille et Mise en Page */
+.sequencer-track-list {
+  background-color: var(--color-paper-beige);
+  border: var(--border-width-thick) solid var(--color-wood-black);
+  padding: 16px;
+  box-shadow: 6px 6px 0px var(--color-wood-black);
+  font-family: var(--font-xilogravura);
+}
+
+.sequencer-track {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 2px dashed var(--color-wood-black);
+  padding: 12px 0;
+}
+
+.sequencer-track:last-child {
+  border-bottom: none;
+}
+
+.track-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.track-name {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--color-wood-black);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.track-mute-btn {
+  background: transparent;
+  border: 2px solid var(--color-wood-black);
+  color: var(--color-wood-black);
+  padding: 4px 12px;
+  cursor: pointer;
+  font-weight: bold;
+  text-transform: uppercase;
+  font-family: var(--font-xilogravura);
+  transition: all 0.2s ease;
+}
+
+.track-mute-btn.is-active,
+.track-mute-btn:hover {
+  background-color: var(--color-wood-black);
+  color: var(--color-paper-beige);
+}
+
+/* Grille Mobile-First (8 pas par ligne max) */
+.track-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 8px;
+  max-width: 100%;
+}
+
+/* Le Pas Séquence (Style bloc de bois gravé) */
+.sequencer-step {
+  aspect-ratio: 1;
+  border: var(--border-width-thick) solid var(--color-wood-black);
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.1s ease;
+  box-shadow: 2px 2px 0px var(--color-wood-black);
+}
+
+/* Pas Actif : Tampon d'encre noire */
+.sequencer-step.is-active {
+  box-shadow: none;
+}
+
+/* Tête de Lecture : Effet de relief négatif (double bordure ou couleur contrastée) */
+.sequencer-step.playhead-active::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  border: 2px solid #ff3333;
+}
+
+.sequencer-step.is-active.playhead-active::after {
+  border-color: #ffdd00;
+}
+
+/* Barre de Transport */
+.sequencer-transport-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background-color: var(--color-paper-beige);
+  border: var(--border-width-thick) solid var(--color-wood-black);
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 6px 6px 0px var(--color-wood-black);
+  font-family: var(--font-xilogravura);
+}
+
+@media (min-width: 600px) {
+  .sequencer-transport-bar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.transport-play-btn {
+  background-color: var(--color-wood-black);
+  color: var(--color-paper-beige);
+  border: var(--border-width-thick) solid var(--color-wood-black);
+  padding: 10px 24px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-family: var(--font-xilogravura);
+  box-shadow: 4px 4px 0px var(--color-paper-shadow);
+  transition: all 0.1s ease;
+}
+
+.transport-play-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}
+
+.transport-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.transport-label {
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  color: var(--color-wood-black);
+}
+
+.transport-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 8px;
+  background: var(--color-paper-shadow);
+  border: 2px solid var(--color-wood-black);
+  outline: none;
+}
+
+.transport-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  background: var(--color-wood-black);
+  border: 2px solid var(--color-paper-beige);
+  cursor: pointer;
+}
+
+/* Mestre Studio Module */
+.mestre-studio-container {
+  background-color: var(--color-paper-beige);
+  border: var(--border-width-thick) solid var(--color-wood-black);
+  padding: 16px;
+  margin-top: 20px;
+  box-shadow: 6px 6px 0px var(--color-wood-black);
+  font-family: var(--font-xilogravura);
+}
+
+.mestre-studio-title {
+  font-size: 1.3rem;
+  font-weight: bold;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--color-wood-black);
+  padding-bottom: 6px;
+  color: var(--color-wood-black);
+}
+
+.mestre-studio-description {
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+  line-height: 1.4;
+  color: var(--color-wood-black);
+}
+
+.mestre-studio-export-btn {
+  background-color: var(--color-paper-beige);
+  border: var(--border-width-thick) solid var(--color-wood-black);
+  color: var(--color-wood-black);
+  padding: 10px 20px;
+  font-weight: bold;
+  cursor: pointer;
+  text-transform: uppercase;
+  font-family: var(--font-xilogravura);
+  box-shadow: 4px 4px 0px var(--color-wood-black);
+  transition: all 0.1s ease;
+}
+
+.mestre-studio-export-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: none;
+}

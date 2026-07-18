@@ -11,6 +11,7 @@ export interface UserProfile {
   displayName: string | null;
   photoURL: string | null;
   role: UserRole;
+  dbRole?: string | null;
   createdAt: number;
   isDarkMode?: boolean;
   isLeftHanded?: boolean;
@@ -20,6 +21,8 @@ export interface UserProfile {
   mestreMessage?: string;
   signatureUrl?: string;
   instrument?: string;
+  customSwingOffsets?: [number, number, number, number];
+  customSwingIntensity?: number;
 }
 
 interface AuthContextType {
@@ -31,6 +34,7 @@ interface AuthContextType {
   hasAccess: (requiredRole: UserRole) => boolean;
   updateUserPreference: (key: 'isDarkMode' | 'isLeftHanded', value: boolean) => Promise<void>;
   updateUserProfileField: (key: string, value: any) => Promise<void>;
+  isAdmin: boolean;
 }
 
 const roleLevels: Record<UserRole, number> = {
@@ -38,6 +42,12 @@ const roleLevels: Record<UserRole, number> = {
   eleve: 1,
   mestre: 2,
   admin: 3
+};
+
+export const checkIsAdmin = (profile: UserProfile | null | undefined): boolean => {
+  if (!profile) return false;
+  const actualRole = profile.dbRole || profile.role;
+  return actualRole === 'admin' || actualRole === 'mestre' || actualRole === 'mestri';
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -49,6 +59,7 @@ const AuthContext = createContext<AuthContextType>({
   hasAccess: () => false,
   updateUserPreference: async () => {},
   updateUserProfileField: async () => {},
+  isAdmin: false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -96,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           
           // OVERRIDE FOR STANDBY MODE: Everyone gets mestre access
-          const profileForUI = { ...profile };
+          const profileForUI = { ...profile, dbRole: profile.dbRole || profile.role };
           if (profileForUI.role !== 'admin') {
             profileForUI.role = 'mestre';
           }
@@ -142,7 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await setDoc(userRef, newProfile);
           
           // OVERRIDE FOR STANDBY MODE: Everyone gets mestre access
-          const profileForUI = { ...newProfile };
+          const profileForUI = { ...newProfile, dbRole: newProfile.dbRole || newProfile.role };
           if (profileForUI.role !== 'admin') {
             profileForUI.role = 'mestre';
           }
@@ -178,7 +189,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const hasAccess = (requiredRole: UserRole): boolean => {
     if (requiredRole === 'admin') {
-      return userProfile?.role === 'admin';
+      return checkIsAdmin(userProfile);
     }
     return true; // TEMPORAIRE: Désactivation des autres restrictions
   };
@@ -214,7 +225,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout,
       hasAccess,
       updateUserPreference,
-      updateUserProfileField
+      updateUserProfileField,
+      isAdmin: checkIsAdmin(userProfile),
     }}>
       {!loading && children}
     </AuthContext.Provider>

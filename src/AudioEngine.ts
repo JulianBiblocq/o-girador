@@ -16,6 +16,9 @@
 import type * as ToneType from 'tone';
 import { getTone } from './ToneLoader';
 import { instrumentAudioConfigs, StrokeMapping, InstrumentAudioConfig } from './data/audioConfig';
+import { useSequencerStore } from './stores/useSequencerStore';
+import { instrumentsConfig } from './data';
+import { TrackGroup } from './types';
 
 interface ActiveVoice {
   source: AudioBufferSourceNode;
@@ -25,7 +28,14 @@ interface ActiveVoice {
   instrumentId: string;
 }
 
+export interface ActiveInstrumentData {
+  id: string;
+  activeStrokes: string[];
+}
+
 const HUMANIZED_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
+const ALFAIA_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
+const HUMANIZED_INSTRUMENTS_SET = new Set(['marcante', 'meiao', 'repique', 'caixa', 'tarol']);
 
 export class AudioEngine {
   private audioContext: AudioContext;
@@ -39,21 +49,38 @@ export class AudioEngine {
   
   // Math Anchors for Drift Elimination
   private anchorTime: number = 0.0;
-  private anchorTickCount: number = 0;
-  private lastTickDuration: number = 0.0;
+
+  // Diffusion index (UI)
+  public currentStep: number = 0;
+  public currentMeasure: number = 0;
+
+  // Internal scheduling indexes
+  public schedulingStep: number = 0;
+  public schedulingMeasure: number = 0;
+
+  // Math Anchors for Measure Hard Sync
+  private anchorNoteTime: number = 0.0;
+  private anchorStep: number = 0;
+  private lastSchedulingMeasure: number = -1;
+  private mustReanchor: boolean = false;
 
   // Timer handlers
   private clockNode: AudioWorkletNode | null = null;
   private fallbackTimerId: number | null = null;
+  private isInitializingWorklet: boolean = false;
+  private stateChangeListener: (() => void) | null = null;
 
   // Callbacks
   private onTick: (time: number) => void;
   private getTickDuration: () => number;
+  private getTicksPerMeasure: (measureIdx: number) => number;
 
   // Sampler State & Buffers
   private bufferPool = new Map<string, ToneType.ToneAudioBuffer>(); // Maps absolute path -> ToneAudioBuffer (Sample Pooling)
+  private loadingPromises = new Map<string, Promise<void>>(); // Cache to prevent concurrent duplicate loading tasks
   private lastPlayedIndices = new Map<string, Map<string, number>>(); // Maps instrumentId -> strokeSymbol -> last played index (Round-Robin)
-  private instrumentChannels = new Map<string, any>(); // Maps instrumentId -> Tone.Channel
+  private instrumentChannels = new Map<string, any>(); // Maps trackId -> Tone.Channel
+  private defaultInstrumentChannels = new Map<string, any>(); // Maps instrumentId -> Tone.Channel
   private activeBarulhoNodes = new Map<string, AudioBufferSourceNode>(); // Maps instrumentId -> active looping BufferSource
   private activeBarulhoGains = new Map<string, GainNode>(); // Maps instrumentId -> GainNode of active Barulho
   private scheduledHits = new Set<AudioBufferSourceNode>();
@@ -63,6 +90,27 @@ export class AudioEngine {
 
   // O(1) lookup cache for instrument configurations (built once in constructor)
   private readonly configMap: Map<string, InstrumentAudioConfig>;
+
+  // O(1) lookup map for strokes per instrument: maps instrumentId -> (normalizedSymbol -> StrokeMapping)
+  private strokesMaps = new Map<string, Map<string, StrokeMapping>>();
+
+  // O(1) lookup map for tracks: maps trackId (as string) -> TrackGroup
+  private trackLookupMap = new Map<string, TrackGroup>();
+  private timeStrokeIndicesUsed = new Map<string, number[]>();
+  private lastTracksRef: TrackGroup[] | null = null;
+  private unsubscribeTracks: (() => void) | null = null;
+
+  private updateTrackLookupMap(tracks: TrackGroup[]): void {
+    if (this.lastTracksRef === tracks) return;
+    this.lastTracksRef = tracks;
+    
+    this.trackLookupMap.clear();
+    const len = tracks.length;
+    for (let i = 0; i < len; i++) {
+      const track = tracks[i];
+      this.trackLookupMap.set(String(track.id), track);
+    }
+  }
 
   // Pre-allocated object pools to avoid runtime dynamic allocations in the hot path
   private gainNodeMappingPool: { instrumentId: string; gainNode: GainNode | null; expectedEnd: number }[] = [];
@@ -88,6 +136,23 @@ export class AudioEngine {
     obj.velocity = velocity;
     obj.instrumentId = instrumentId;
     return obj;
+  }
+
+  private removeActiveVoice(instrumentId: string, source: AudioBufferSourceNode): void {
+    const currentVoices = this.instrumentVoices.get(instrumentId);
+    if (currentVoices) {
+      const len = currentVoices.length;
+      for (let i = 0; i < len; i++) {
+        if (currentVoices[i].source === source) {
+          const voice = currentVoices[i];
+          voice.source = null as any;
+          voice.gainNode = null as any;
+          voice.instrumentId = '';
+          currentVoices.splice(i, 1);
+          break;
+        }
+      }
+    }
   }
 
   private handleVisibilityChange = () => {
@@ -127,20 +192,7 @@ export class AudioEngine {
               this.activeBarulhoNodes.delete(instrumentId);
               this.activeBarulhoGains.delete(instrumentId);
             }
-            
-            const currentVoices = this.instrumentVoices.get(instrumentId);
-            if (currentVoices) {
-              for (let vIdx = 0; vIdx < currentVoices.length; vIdx++) {
-                if (currentVoices[vIdx].source === source) {
-                  const voice = currentVoices[vIdx];
-                  voice.source = null as any;
-                  voice.gainNode = null as any;
-                  voice.instrumentId = '';
-                  currentVoices.splice(vIdx, 1);
-                  break;
-                }
-              }
-            }
+            this.removeActiveVoice(instrumentId, source);
           }
         }
       }
@@ -151,15 +203,18 @@ export class AudioEngine {
    * @param {AudioContext} audioContext - Native AudioContext to drive the clock and play samples
    * @param {Function} onTick - Callback fired when a tick is reached: (time: number) => void
    * @param {Function} getTickDuration - Callback returning the duration of a single tick in seconds
+   * @param {Function} [getTicksPerMeasure] - Callback returning ticks count per measure
    */
   constructor(
     audioContext: AudioContext,
     onTick: (time: number) => void,
-    getTickDuration: () => number
+    getTickDuration: () => number,
+    getTicksPerMeasure?: (measureIdx: number) => number
   ) {
     this.audioContext = audioContext;
     this.onTick = onTick;
     this.getTickDuration = getTickDuration;
+    this.getTicksPerMeasure = getTicksPerMeasure || (() => 96);
 
     this.updateSchedulingParameters();
 
@@ -169,6 +224,30 @@ export class AudioEngine {
 
     // Pre-build O(1) config lookup map (avoids Array.find() on every note played)
     this.configMap = new Map(instrumentAudioConfigs.map(c => [c.id, c]));
+
+    // Pre-build O(1) strokes maps (avoids config.strokes.find() in playNote())
+    for (const config of instrumentAudioConfigs) {
+      const map = new Map<string, StrokeMapping>();
+      for (const stroke of config.strokes) {
+        map.set(stroke.symbol, stroke);
+        const upper = stroke.symbol.toUpperCase();
+        if (!map.has(upper)) {
+          map.set(upper, stroke);
+        }
+      }
+      this.strokesMaps.set(config.id, map);
+    }
+
+    // Initialize trackLookupMap and subscribe to updates
+    this.updateTrackLookupMap(useSequencerStore.getState().tracks);
+    this.unsubscribeTracks = useSequencerStore.subscribe((state) => {
+      this.updateTrackLookupMap(state.tracks);
+    });
+
+    // Pre-populate instrument voices map to avoid runtime array allocations
+    instrumentAudioConfigs.forEach(config => {
+      this.instrumentVoices.set(config.id, []);
+    });
 
     // Pre-populate object pools to avoid runtime dynamic allocations in the hot path
     for (let i = 0; i < 512; i++) {
@@ -188,14 +267,38 @@ export class AudioEngine {
       (audioContext as any)._context ||
       audioContext;
 
-    if (typeof nativeContext.audioWorklet === 'undefined') {
-      console.warn("AudioEngine: AudioWorklet not supported. Falling back to setInterval timer.");
+    const isSecure = typeof window !== 'undefined' ? (window.isSecureContext !== false) : true;
+
+    if (!isSecure || typeof nativeContext.audioWorklet === 'undefined') {
+      console.warn("AudioEngine: Secure context is false or AudioWorklet not supported. Forcing setInterval fallback.");
       this.initFallbackTimer();
     } else {
-      this.initClockWorklet().catch(err => {
-        console.error("AudioEngine: Error initializing clock worklet:", err);
+      if (nativeContext.state === 'running') {
+        this.initClockWorklet().catch(err => {
+          console.error("AudioEngine: Error initializing clock worklet:", err);
+          this.initFallbackTimer();
+        });
+      } else {
+        // Enregistrer la minuterie de secours par défaut sur mobile/tablette (où le contexte commence suspended)
         this.initFallbackTimer();
-      });
+        
+        // Attendre que le contexte passe en 'running' pour initialiser le Worklet en toute sécurité
+        this.stateChangeListener = () => {
+          if (nativeContext.state === 'running' && !this.clockNode && !this.isInitializingWorklet) {
+            this.isInitializingWorklet = true;
+            this.initClockWorklet()
+              .then(() => {
+                this.isInitializingWorklet = false;
+              })
+              .catch(err => {
+                console.error("AudioEngine: Error initializing clock worklet on statechange:", err);
+                this.isInitializingWorklet = false;
+                this.initFallbackTimer();
+              });
+          }
+        };
+        nativeContext.addEventListener('statechange', this.stateChangeListener);
+      }
     }
   }
 
@@ -206,9 +309,12 @@ export class AudioEngine {
 
     const hwLatency = (this.audioContext.baseLatency || 0.05) + ((this.audioContext as any).outputLatency || 0.05);
 
-    this.SCHEDULE_AHEAD_TIME = Math.max(0.150, hwLatency + 0.050);
+    // Augmenter drastiquement l'anticipation pour les processeurs lents
+    const baseAheadTime = isMobile ? 1.0 : 0.5; // 1 seconde d'avance sur mobile !
+    this.SCHEDULE_AHEAD_TIME = Math.max(baseAheadTime, hwLatency + 0.150);
 
-    this.LOOKAHEAD_INTERVAL = isDesktopActive ? 15.0 : 25.0;
+    // Augmenter légèrement l'intervalle de réveil pour économiser la batterie
+    this.LOOKAHEAD_INTERVAL = isDesktopActive ? 25.0 : 50.0;
 
     // Dynamically update interval of fallback timer if active and playing
     if (this.isPlaying && !this.clockNode && this.fallbackTimerId !== null) {
@@ -234,7 +340,13 @@ export class AudioEngine {
         (this.audioContext as any)._context ||
         this.audioContext;
 
-      await nativeContext.audioWorklet.addModule(workletUrl);
+      // Wrap addModule with a timeout of 1.5s to prevent hanging on untrusted SSL / iOS bugs
+      const addModulePromise = nativeContext.audioWorklet.addModule(workletUrl);
+      const timeoutPromise = new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error("AudioWorklet addModule timed out after 1.5s")), 1500)
+      );
+
+      await Promise.race([addModulePromise, timeoutPromise]);
       
       this.clockNode = new AudioWorkletNode(nativeContext, 'clock-processor');
       this.clockNode.port.onmessage = () => {
@@ -243,6 +355,12 @@ export class AudioEngine {
         }
       };
       this.clockNode.connect(nativeContext.destination);
+
+      // Nettoyer la minuterie de secours puisque le Worklet tourne désormais
+      if (this.fallbackTimerId !== null) {
+        window.clearInterval(this.fallbackTimerId);
+        this.fallbackTimerId = null;
+      }
     } catch (err) {
       console.warn("AudioEngine: Failed to initialize clock AudioWorklet. Falling back to setInterval clock.", err);
       this.initFallbackTimer();
@@ -268,9 +386,14 @@ export class AudioEngine {
 
     // Initialize timing markers
     this.nextTickTime = this.audioContext.currentTime;
-    this.anchorTime = this.nextTickTime;
-    this.anchorTickCount = 0;
-    this.lastTickDuration = this.getTickDuration();
+    
+    // Hard Sync initialization
+    this.schedulingStep = this.currentStep;
+    this.schedulingMeasure = this.currentMeasure;
+    this.anchorNoteTime = this.nextTickTime;
+    this.anchorStep = this.schedulingStep;
+    this.lastSchedulingMeasure = -1; // Force re-anchor on first tick
+    this.mustReanchor = false;
 
     this.isPlaying = true;
   }
@@ -323,34 +446,32 @@ export class AudioEngine {
     if (!this.isPlaying) return;
 
     const currentTime = this.audioContext.currentTime;
+    const lookaheadWindow = 0.025; // 25ms de fenêtre minimale
+    const safetyMargin = 0.010;    // 10ms de marge de sécurité
 
-    // Clock Drift Recovery
-    if (this.nextTickTime < currentTime) {
-      const drift = currentTime - this.nextTickTime;
-      if (drift > 1.0) {
-        // En cas de longue suspension (veille/arrière-plan), on réinitialise l'horloge
-        this.nextTickTime = currentTime;
-        this.anchorTime = currentTime;
-        this.anchorTickCount = 0;
-      }
-      // En cas de micro-lag (< 1.0s), on laisse la boucle while rattraper naturellement
-      // les ticks pour préserver l'alignement du step index.
+    // Resynchronisation matérielle de sécurité (lag massif / changement de rythme)
+    if (this.nextTickTime < currentTime + lookaheadWindow) {
+      this.nextTickTime = currentTime + lookaheadWindow + safetyMargin;
+      this.mustReanchor = true;
     }
 
     // Schedule events in advance
     while (this.nextTickTime < currentTime + this.SCHEDULE_AHEAD_TIME) {
+      // 1. Exécution du callback de planification (qui met à jour schedulingStep/Measure de façon synchrone)
       this.onTick(this.nextTickTime);
 
       const tickDuration = this.getTickDuration();
 
-      if (Math.abs(tickDuration - this.lastTickDuration) > 1e-6) {
-        this.anchorTime = this.nextTickTime;
-        this.anchorTickCount = 0;
-        this.lastTickDuration = tickDuration;
+      // 2. Détection du début de mesure (Hard Sync) ou re-ancrage forcé de sécurité
+      if (this.schedulingStep === 0 || this.schedulingMeasure !== this.lastSchedulingMeasure || this.mustReanchor) {
+        this.anchorNoteTime = this.nextTickTime;
+        this.anchorStep = this.schedulingStep;
+        this.lastSchedulingMeasure = this.schedulingMeasure;
+        this.mustReanchor = false; // Drapeau consommé
       }
 
-      this.anchorTickCount++;
-      this.nextTickTime = this.anchorTime + (this.anchorTickCount * tickDuration);
+      // 3. Calcul absolu du pas suivant sans accumulation (parfaitement aligné)
+      this.nextTickTime = this.anchorNoteTime + ((this.schedulingStep + 1 - this.anchorStep) * tickDuration);
     }
   }
 
@@ -360,51 +481,74 @@ export class AudioEngine {
    */
   private async loadPath(path: string): Promise<void> {
     if (this.bufferPool.has(path)) return;
-    const Tone = getTone();
-    try {
-      let fetchPath = path;
-      if (path.includes('Mixdown/') || path.includes('mixdown/')) {
-        const filename = path.substring(path.lastIndexOf('/') + 1);
-        // @ts-ignore
-        fetchPath = `${import.meta.env.BASE_URL || '/'}Mixdown/${filename}`;
-      } else {
-        const cleanPath = path.startsWith('/') ? path : '/' + path;
-        // @ts-ignore
-        const baseUrl = import.meta.env.BASE_URL || '/';
-        fetchPath = baseUrl.endsWith('/') ? baseUrl + cleanPath.slice(1) : baseUrl + cleanPath;
-      }
-      const encodedFetchPath = fetchPath.split('/').map(segment => encodeURIComponent(segment)).join('/');
-      
-      let response = await fetch(encodedFetchPath);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      let arrayBuffer = await response.arrayBuffer();
-      
-      try {
-        const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-        const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
-        this.bufferPool.set(path, toneBuffer);
-      } catch (decodeErr) {
-        console.warn(`AudioEngine: Safari/iOS fallback triggered for ${path}. Attempting .m4a`);
-        const fallbackPath = encodedFetchPath.replace(/\.ogg$/, '.m4a');
+    
+    let promise = this.loadingPromises.get(path);
+    if (!promise) {
+      promise = (async () => {
+        const Tone = getTone();
         try {
-          response = await fetch(fallbackPath);
-          if (!response.ok) {
-            console.warn(`AudioEngine: Fallback .m4a not found or failed to load for ${path} (status: ${response.status})`);
-            return;
+          let fetchPath = path;
+          if (path.includes('Mixdown/') || path.includes('mixdown/')) {
+            const filename = path.substring(path.lastIndexOf('/') + 1);
+            // @ts-ignore
+            fetchPath = `${import.meta.env.BASE_URL || '/'}Mixdown/${filename}`;
+          } else {
+            const cleanPath = path.startsWith('/') ? path : '/' + path;
+            // @ts-ignore
+            const baseUrl = import.meta.env.BASE_URL || '/';
+            fetchPath = baseUrl.endsWith('/') ? baseUrl + cleanPath.slice(1) : baseUrl + cleanPath;
           }
-          arrayBuffer = await response.arrayBuffer();
-          const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-          const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
-          this.bufferPool.set(path, toneBuffer);
-        } catch (fallbackErr) {
-          console.warn(`AudioEngine: Failed to load fallback .m4a for ${path}:`, fallbackErr);
+          const encodedFetchPath = fetchPath.split('/').map(segment => encodeURIComponent(segment)).join('/');
+          let response: Response | null = null;
+          let attempts = 3;
+          let delayMs = 300;
+          for (let attempt = 1; attempt <= attempts; attempt++) {
+            try {
+              response = await fetch(encodedFetchPath);
+              if (response.ok) break;
+              throw new Error(`HTTP status ${response.status}`);
+            } catch (fetchErr) {
+              if (attempt === attempts) throw fetchErr;
+              console.warn(`AudioEngine: Fetch attempt ${attempt} failed for ${path}. Retrying in ${delayMs}ms...`, fetchErr);
+              await new Promise(resolve => setTimeout(resolve, delayMs));
+              delayMs *= 2;
+            }
+          }
+          if (!response || !response.ok) {
+            throw new Error(`HTTP error! status: ${response ? response.status : 'unknown'}`);
+          }
+          let arrayBuffer = await response.arrayBuffer();
+          
+          try {
+            const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+            const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
+            this.bufferPool.set(path, toneBuffer);
+          } catch (decodeErr) {
+            console.warn(`AudioEngine: Safari/iOS fallback triggered for ${path}. Attempting .m4a`);
+            const fallbackPath = encodedFetchPath.replace(/\.ogg$/, '.m4a');
+            try {
+              response = await fetch(fallbackPath);
+              if (!response.ok) {
+                console.warn(`AudioEngine: Fallback .m4a not found or failed to load for ${path} (status: ${response.status})`);
+                return;
+              }
+              arrayBuffer = await response.arrayBuffer();
+              const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+              const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
+              this.bufferPool.set(path, toneBuffer);
+            } catch (fallbackErr) {
+              console.warn(`AudioEngine: Failed to load fallback .m4a for ${path}:`, fallbackErr);
+            }
+          }
+        } catch (err) {
+          console.error(`AudioEngine: Failed to load sample: ${path}`, err);
+        } finally {
+          this.loadingPromises.delete(path);
         }
-      }
-    } catch (err) {
-      console.error(`AudioEngine: Failed to load sample: ${path}`, err);
+      })();
+      this.loadingPromises.set(path, promise);
     }
+    return promise;
   }
 
   public async loadAllSamples(): Promise<void> {
@@ -423,15 +567,30 @@ export class AudioEngine {
    * Dynamically unloads unused instrument buffers to save RAM.
    * Useful for mobile devices where holding all samples in memory can cause crashes.
    */
-  public async syncActiveInstrumentsMemory(activeIds: string[]): Promise<void> {
+  public async syncActiveInstrumentsMemory(activeInstruments: ActiveInstrumentData[]): Promise<void> {
     const requiredPaths = new Set<string>();
 
-    for (const id of activeIds) {
-      const config = this.configMap.get(id);
+    for (const activeInst of activeInstruments) {
+      const config = this.configMap.get(activeInst.id);
       if (config) {
+        const activeStrokes = activeInst.activeStrokes;
         for (const stroke of config.strokes) {
-          for (const file of stroke.files) {
-            requiredPaths.add(file);
+          // Filtrage intelligent :
+          // Si aucun stroke n'est programmé dans la partition pour cette piste (activeStrokes est vide),
+          // on précharge par défaut le tout premier stroke configuré de l'instrument.
+          // Sinon, on ne charge que les strokes présents dans activeStrokes.
+          const isStrokeActive = activeStrokes.length === 0
+            ? config.strokes[0] === stroke
+            : activeStrokes.some(as => 
+                stroke.caseSensitive === false 
+                  ? as.toUpperCase() === stroke.symbol.toUpperCase()
+                  : as === stroke.symbol
+              );
+
+          if (isStrokeActive) {
+            for (const file of stroke.files) {
+              requiredPaths.add(file);
+            }
           }
         }
       }
@@ -477,12 +636,46 @@ export class AudioEngine {
   }
 
   /**
+   * Checks if all samples for a specific stroke symbol of an instrument are loaded in the buffer pool.
+   */
+  public isStrokeLoaded(instrumentId: string, strokeSymbol: string): boolean {
+    const config = this.configMap.get(instrumentId);
+    if (!config) return true; // If instrument has no config (e.g. voice), consider it loaded by default
+    const norm = strokeSymbol.trim();
+    const stroke = config.strokes.find(s => 
+      s.caseSensitive === false 
+        ? s.symbol.toUpperCase() === norm.toUpperCase()
+        : s.symbol === norm
+    );
+    if (!stroke) return true;
+    return stroke.files.every(p => this.bufferPool.has(p));
+  }
+
+  /**
+   * Dynamically loads and decodes the samples associated with a specific stroke of an instrument.
+   */
+  public async loadStrokeSamples(instrumentId: string, strokeSymbol: string): Promise<void> {
+    const config = this.configMap.get(instrumentId);
+    if (!config) return;
+    const norm = strokeSymbol.trim();
+    const stroke = config.strokes.find(s => 
+      s.caseSensitive === false 
+        ? s.symbol.toUpperCase() === norm.toUpperCase()
+        : s.symbol === norm
+    );
+    if (!stroke) return;
+    await Promise.all(stroke.files.map(p => this.loadPath(p)));
+  }
+
+
+  /**
    * Register output destination / channel for an instrument ID
    * and initialize its dedicated GainNode pool.
    */
-  public setInstrumentChannel(instrumentId: string, channel: any): void {
-    this.instrumentChannels.set(instrumentId, channel);
-    const Tone = getTone();
+  public setInstrumentChannel(trackId: number | string, instrumentId: string, channel: any): void {
+    const normalizedId = String(trackId);
+    this.instrumentChannels.set(normalizedId, channel);
+    this.defaultInstrumentChannels.set(instrumentId, channel);
     
     if (!this.gainNodePools.has(instrumentId)) {
       const pool: GainNode[] = [];
@@ -490,7 +683,6 @@ export class AudioEngine {
         const gainNode = this.audioContext.createGain();
         (gainNode as any)._isReleased = true;
         gainNode.gain.value = 0;
-        Tone.connect(gainNode, channel);
         pool.push(gainNode);
       }
       this.gainNodePools.set(instrumentId, pool);
@@ -501,46 +693,66 @@ export class AudioEngine {
    * Retourne la limite de polyphonie d'un instrument en mode éco.
    */
   private getPolyphonyLimit(instrumentId: string): number {
-    switch (instrumentId) {
-      case 'caixa':
-      case 'tarol':
-      case 'agbe':
-      case 'mineiro':
-      case 'apito':
-        return 1;
-      case 'marcante':
-      case 'meiao':
-      case 'repique':
-      case 'gongue':
-        return 2;
-      default:
-        return 2;
+    const isEco = useSequencerStore.getState().isEcoMode;
+    if (isEco) {
+      switch (instrumentId) {
+        case 'caixa':
+        case 'tarol':
+        case 'timbal':
+        case 'agbe':
+        case 'mineiro':
+        case 'apito':
+          return 1;
+        default:
+          return 2;
+      }
+    } else {
+      switch (instrumentId) {
+        case 'agbe':
+        case 'mineiro':
+          return 3; // Capped to 3 to prevent high-frequency overlap/phasing build-up
+        case 'caixa':
+        case 'tarol':
+        case 'timbal':
+        case 'apito':
+          return 4;
+        default:
+          return 6;
+      }
     }
   }
 
-  private getGainNode(instrumentId: string): GainNode {
+  private getGainNode(trackId: number | string | null, instrumentId: string): GainNode {
     const Tone = getTone();
+    let gainNode: GainNode;
+
     const pool = this.gainNodePools.get(instrumentId);
     if (pool && pool.length > 0) {
-      const gainNode = pool.pop()!;
+      gainNode = pool.pop()!;
       (gainNode as any)._isReleased = false;
-      return gainNode;
+    } else {
+      // Fallback dynamique
+      gainNode = this.audioContext.createGain();
+      (gainNode as any)._isReleased = false;
+      gainNode.gain.value = 0;
     }
-    // Fallback dynamique
-    const gainNode = this.audioContext.createGain();
-    (gainNode as any)._isReleased = false;
-    gainNode.gain.value = 0;
-    const channel = this.instrumentChannels.get(instrumentId);
+
+    // Connexion dynamique au canal propre à la piste trackId ou par défaut à l'instrumentId
+    const channel = (trackId !== null && trackId !== undefined)
+      ? this.instrumentChannels.get(String(trackId))
+      : this.defaultInstrumentChannels.get(instrumentId);
+      
     if (channel) {
       Tone.connect(gainNode, channel);
     } else {
-      Tone.connect(gainNode, Tone.Destination);
+      Tone.connect(gainNode, Tone.getDestination());
     }
+
     return gainNode;
   }
 
   /**
-   * Nettoie strictement le nœud de volume et le rend à la piscine.
+   * Nettoie strictement le nœud de volume, le déconnecte et le rend à la piscine.
    */
   private releaseGainNode(instrumentId: string, gainNode: GainNode): void {
     if ((gainNode as any)._isReleased) return;
@@ -552,6 +764,11 @@ export class AudioEngine {
       gainNode.gain.setValueAtTime(0, currentTime);
     } catch (_) {}
     
+    // Déconnexion dynamique pour éviter les fuites stéréo et conflits
+    try {
+      gainNode.disconnect();
+    } catch (_) {}
+
     const pool = this.gainNodePools.get(instrumentId);
     if (pool && pool.length < this.MAX_POOL_SIZE) {
       pool.push(gainNode);
@@ -562,12 +779,24 @@ export class AudioEngine {
    * Plays a specific stroke for an instrument with velocity, decay, round-robin, and pitching.
    */
   public playNote(
-    instrumentId: string,
+    trackIdOrInstrumentId: number | string,
     strokeSymbol: string,
     time: number,
     velocity: number,
     decayMultiplier: number
   ): void {
+    let trackId: number | null = null;
+    let instrumentId = '';
+    
+    // Find the track dynamically (handles string vs number IDs robustly)
+    const track = this.trackLookupMap.get(String(trackIdOrInstrumentId));
+    if (track) {
+      trackId = track.id;
+      instrumentId = instrumentsConfig[track.instrumentIdx].id;
+    } else {
+      instrumentId = String(trackIdOrInstrumentId);
+    }
+
     // 1. Find the configuration for this instrument — O(1) Map lookup instead of O(n) Array.find()
     const config = this.configMap.get(instrumentId);
     if (!config) {
@@ -579,7 +808,7 @@ export class AudioEngine {
 
     // Normalizations for legacy sequencer symbol compatibilities
     // Note: G→E normalization for Alfaias removed — symbols are now canonical and unambiguous.
-    if (['marcante', 'meiao', 'repique', 'caixa', 'tarol'].includes(instrumentId)) {
+    if (HUMANIZED_INSTRUMENTS_SET.has(instrumentId)) {
       if (normSymbol === 't' || normSymbol === 'T') normSymbol = 'B';
       else if (normSymbol === 'C') normSymbol = 'c';
     } else if (instrumentId === 'agbe') {
@@ -589,25 +818,30 @@ export class AudioEngine {
     }
 
     // 2. Find the stroke mapping
-    const stroke = config.strokes.find(s => s.symbol === normSymbol);
-    if (!stroke || stroke.files.length === 0) {
-      // Fallback matching if symbol casing differs (for case-insensitive actions)
-      const fallbackStroke = config.strokes.find(s => s.symbol.toUpperCase() === normSymbol.toUpperCase());
-      if (!fallbackStroke || fallbackStroke.files.length === 0) {
-        console.warn(`AudioEngine: No stroke mapped for symbol "${strokeSymbol}" (normalized: "${normSymbol}") on instrument "${instrumentId}"`);
-        return;
-      }
-      this.playStroke(instrumentId, config, fallbackStroke, time, velocity, decayMultiplier);
+    const strokesMap = this.strokesMaps.get(instrumentId);
+    if (!strokesMap) {
+      console.warn(`AudioEngine: No strokes map found for instrument: ${instrumentId}`);
       return;
     }
 
-    this.playStroke(instrumentId, config, stroke, time, velocity, decayMultiplier);
+    let stroke = strokesMap.get(normSymbol);
+    if (!stroke || stroke.files.length === 0) {
+      // Fallback matching if symbol casing differs (for case-insensitive actions)
+      stroke = strokesMap.get(normSymbol.toUpperCase());
+      if (!stroke || stroke.files.length === 0) {
+        console.warn(`AudioEngine: No stroke mapped for symbol "${strokeSymbol}" (normalized: "${normSymbol}") on instrument "${instrumentId}"`);
+        return;
+      }
+    }
+
+    this.playStroke(trackId, instrumentId, config, stroke, time, velocity, decayMultiplier);
   }
 
   /**
    * Helper to perform play and pitching of a specific stroke mapping
    */
   private playStroke(
+    trackId: number | null,
     instrumentId: string,
     config: InstrumentAudioConfig,
     stroke: StrokeMapping,
@@ -616,6 +850,8 @@ export class AudioEngine {
     decayMultiplier: number
   ): void {
     const Tone = getTone();
+    const isEco = useSequencerStore.getState().isEcoMode;
+
     // If it's a Barulho stroke and already looping, just adjust volume and continue seamlessly
     if (stroke.isBarulho && this.activeBarulhoNodes.has(instrumentId)) {
       const activeGain = this.activeBarulhoGains.get(instrumentId);
@@ -634,7 +870,7 @@ export class AudioEngine {
       this.stopBarulho(instrumentId, time);
     }
 
-    // 1. Round-Robin Index Selection
+    // 1. Round-Robin Index Selection with Anti-Collision
     const numFiles = stroke.files.length;
     let chosenIdx = 0;
 
@@ -644,15 +880,52 @@ export class AudioEngine {
       this.lastPlayedIndices.set(instrumentId, instMap);
     }
 
+    // Time slot key (approx. 3ms window to group simultaneous hits)
+    const timeSlot = Math.round(time * 333);
+    const timeKey = `${timeSlot}_${instrumentId}_${stroke.symbol}`;
+    if (!this.timeStrokeIndicesUsed.has(timeKey)) {
+      if (this.timeStrokeIndicesUsed.size > 2000) {
+        this.timeStrokeIndicesUsed.clear(); // Safety cleanup
+      }
+      this.timeStrokeIndicesUsed.set(timeKey, []);
+    }
+    const usedIndices = this.timeStrokeIndicesUsed.get(timeKey)!;
+
     if (numFiles > 1) {
       const lastIdx = instMap.has(stroke.symbol) ? instMap.get(stroke.symbol)! : -1;
-      // Zero-allocation round-robin: pick random index from [0, numFiles-1] excluding lastIdx
-      const availableCount = numFiles - (lastIdx >= 0 ? 1 : 0);
-      let rawIdx = Math.floor(Math.random() * availableCount);
-      if (lastIdx >= 0 && rawIdx >= lastIdx) rawIdx++;
-      chosenIdx = rawIdx;
+      
+      // Try to find indices that are neither in usedIndices (this step) nor lastIdx (previous step)
+      const candidates: number[] = [];
+      for (let i = 0; i < numFiles; i++) {
+        if (!usedIndices.includes(i) && i !== lastIdx) {
+          candidates.push(i);
+        }
+      }
+      
+      // Fallback 1: Allow lastIdx if all other samples are taken by simultaneous channels
+      if (candidates.length === 0) {
+        for (let i = 0; i < numFiles; i++) {
+          if (!usedIndices.includes(i)) {
+            candidates.push(i);
+          }
+        }
+      }
+      
+      // Fallback 2: Allow all if more simultaneous channels play than files available
+      if (candidates.length === 0) {
+        for (let i = 0; i < numFiles; i++) {
+          candidates.push(i);
+        }
+      }
+      
+      const randIdx = Math.floor(Math.random() * candidates.length);
+      chosenIdx = candidates[randIdx];
+      
+      usedIndices.push(chosenIdx);
       instMap.set(stroke.symbol, chosenIdx);
     } else {
+      chosenIdx = 0;
+      usedIndices.push(0);
       instMap.set(stroke.symbol, 0);
     }
 
@@ -664,27 +937,77 @@ export class AudioEngine {
       return;
     }
 
-    // Voice Stealing (Choke Groups) in Eco Mode
-    const isEco = typeof window !== 'undefined' && !!(window as any).oGiradorEcoMode;
-    if (isEco) {
+    // Voice Stealing (Choke Groups) - Always active for precise polyphony capping
+    const isAlfaia = ALFAIA_INSTRUMENTS.has(instrumentId);
+    if (isAlfaia) {
+      // Zero-allocation voice stealing: count active Alfaia voices.
+      let totalVoices = 0;
+      for (const id of ALFAIA_INSTRUMENTS) {
+        const voices = this.instrumentVoices.get(id);
+        if (voices) {
+          totalVoices += voices.length;
+        }
+      }
+
+      if (totalVoices >= 16) {
+        let oldestVoice: ActiveVoice | null = null;
+        let oldestVoiceIdx = -1;
+        let oldestVoiceInstrumentId = '';
+
+        for (const id of ALFAIA_INSTRUMENTS) {
+          const voices = this.instrumentVoices.get(id);
+          if (voices) {
+            const len = voices.length;
+            for (let i = 0; i < len; i++) {
+              const voice = voices[i];
+              if (!oldestVoice || voice.time < oldestVoice.time) {
+                oldestVoice = voice;
+                oldestVoiceIdx = i;
+                oldestVoiceInstrumentId = id;
+              }
+            }
+          }
+        }
+
+        if (oldestVoice) {
+          // Steal/stop the oldest voice
+          try {
+            const gainParam = oldestVoice.gainNode.gain;
+            gainParam.cancelScheduledValues(time);
+            gainParam.setValueAtTime(gainParam.value, time); // Anchoring current gain value to prevent clicks
+            gainParam.linearRampToValueAtTime(0, time + 0.010); // 10ms linear ramp to 0
+            oldestVoice.source.stop(time + 0.010);
+          } catch (e) {
+            try { oldestVoice.source.stop(time); } catch (_) {}
+          }
+
+          // Remove the stolen voice from its specific instrument's active voices list
+          const origVoices = this.instrumentVoices.get(oldestVoiceInstrumentId);
+          if (origVoices && oldestVoiceIdx !== -1) {
+            origVoices.splice(oldestVoiceIdx, 1);
+          }
+
+          oldestVoice.source = null as any;
+          oldestVoice.gainNode = null as any;
+          oldestVoice.instrumentId = '';
+        }
+      }
+    } else {
+      // Standard Voice Stealing for non-Alfaia instruments
       const limit = this.getPolyphonyLimit(instrumentId);
       const voices = this.instrumentVoices.get(instrumentId) || [];
       while (voices.length >= limit) {
         const oldestVoice = voices.shift();
         if (oldestVoice) {
-          const fadeOutTime = 0.01; // 10ms fade out
+          const fadeOutTime = 0.012; // 12ms fade out
           try {
             const gainParam = oldestVoice.gainNode.gain;
-            if (typeof gainParam.cancelAndHoldAtTime === 'function') {
-              gainParam.cancelAndHoldAtTime(time);
-            } else {
-              gainParam.cancelScheduledValues(time);
-              gainParam.setValueAtTime(gainParam.value, time);
-            }
-            gainParam.setTargetAtTime(0, time, fadeOutTime / 3);
+            gainParam.cancelScheduledValues(time);
+            gainParam.setValueAtTime(gainParam.value, time); // Anchoring current gain value to prevent clicks
+            gainParam.linearRampToValueAtTime(0, time + fadeOutTime);
             oldestVoice.source.stop(time + fadeOutTime);
           } catch (e) {
-            try { oldestVoice.source.stop(); } catch (_) {}
+            try { oldestVoice.source.stop(time); } catch (_) {}
           }
           oldestVoice.source = null as any;
           oldestVoice.gainNode = null as any;
@@ -715,12 +1038,11 @@ export class AudioEngine {
     source.playbackRate.value = calculatedPitch;
 
     // 5. Utiliser un GainNode de la piscine
-    const gainNode = this.getGainNode(instrumentId);
+    const gainNode = this.getGainNode(trackId, instrumentId);
     gainNode.gain.cancelScheduledValues(time);
     gainNode.gain.setValueAtTime(velocity, time);
 
     source.connect(gainNode);
-
 
     // 6. Handle play duration and looping
     if (stroke.isBarulho) {
@@ -739,19 +1061,7 @@ export class AudioEngine {
           mapping.instrumentId = '';
         }
         this.activeGainNodes.delete(source);
-        const currentVoices = this.instrumentVoices.get(instrumentId);
-        if (currentVoices) {
-          for (let i = 0; i < currentVoices.length; i++) {
-            if (currentVoices[i].source === source) {
-              const voice = currentVoices[i];
-              voice.source = null as any;
-              voice.gainNode = null as any;
-              voice.instrumentId = '';
-              currentVoices.splice(i, 1);
-              break;
-            }
-          }
-        }
+        this.removeActiveVoice(instrumentId, source);
       };
 
       if (isEco) {
@@ -761,14 +1071,24 @@ export class AudioEngine {
       }
     } else {
       this.scheduledHits.add(source);
-      const duration = buffer.duration * decayMultiplier;
-      const expectedEnd = time + (decayMultiplier < 1.0 ? duration : buffer.duration);
+      
+      const originalBufferDuration = buffer.duration;
+      // In Web Audio API, source.start(time, offset, duration) expects duration in buffer timeline seconds.
+      const bufferPlayDuration = originalBufferDuration * decayMultiplier;
+      // The real-world time duration is bufferPlayDuration / calculatedPitch.
+      const realWorldDuration = bufferPlayDuration / calculatedPitch;
+      const expectedEnd = time + realWorldDuration;
+      
       this.activeGainNodes.set(source, this.getGainNodeMapping(instrumentId, gainNode, expectedEnd));
+
+      // Apply linear fade-out to prevent clicks/aliasing transients at the end of playback
+      const fadeTime = Math.min(0.015, realWorldDuration / 2);
+      gainNode.gain.setValueAtTime(velocity, time);
+      gainNode.gain.setValueAtTime(velocity, time + realWorldDuration - fadeTime);
+      gainNode.gain.linearRampToValueAtTime(0, time + realWorldDuration);
+
       if (decayMultiplier < 1.0) {
-        const fadeTime = Math.min(0.015, duration / 2);
-        gainNode.gain.setValueAtTime(velocity, time + duration - fadeTime);
-        gainNode.gain.linearRampToValueAtTime(0, time + duration);
-        source.start(time, 0, duration);
+        source.start(time, 0, bufferPlayDuration);
       } else {
         source.start(time);
       }
@@ -783,26 +1103,13 @@ export class AudioEngine {
           mapping.instrumentId = '';
         }
         this.activeGainNodes.delete(source);
-        const currentVoices = this.instrumentVoices.get(instrumentId);
-        if (currentVoices) {
-          for (let i = 0; i < currentVoices.length; i++) {
-            if (currentVoices[i].source === source) {
-              const voice = currentVoices[i];
-              voice.source = null as any;
-              voice.gainNode = null as any;
-              voice.instrumentId = '';
-              currentVoices.splice(i, 1);
-              break;
-            }
-          }
-        }
+        this.removeActiveVoice(instrumentId, source);
       };
 
-      if (isEco) {
-        const voices = this.instrumentVoices.get(instrumentId) || [];
-        voices.push(this.getActiveVoice(source, gainNode, time, velocity, instrumentId));
-        this.instrumentVoices.set(instrumentId, voices);
-      }
+      // Track active voice for voice stealing
+      const voices = this.instrumentVoices.get(instrumentId) || [];
+      voices.push(this.getActiveVoice(source, gainNode, time, velocity, instrumentId));
+      this.instrumentVoices.set(instrumentId, voices);
     }
 
     if (instrumentId === 'apito') {
@@ -821,19 +1128,7 @@ export class AudioEngine {
     
     if (activeNode && activeGain) {
       // Synchronously remove from instrumentVoices to prevent redundant voice stealing checks
-      const currentVoices = this.instrumentVoices.get(instrumentId);
-      if (currentVoices) {
-        for (let i = 0; i < currentVoices.length; i++) {
-          if (currentVoices[i].source === activeNode) {
-            const voice = currentVoices[i];
-            voice.source = null as any;
-            voice.gainNode = null as any;
-            voice.instrumentId = '';
-            currentVoices.splice(i, 1);
-            break;
-          }
-        }
-      }
+      this.removeActiveVoice(instrumentId, activeNode);
       try {
         const fadeTime = 0.015; // 15ms fade out to avoid clicks
         activeGain.gain.setValueAtTime(activeGain.gain.value, time);
@@ -872,12 +1167,30 @@ export class AudioEngine {
   public dispose(): void {
     this.stopAllBarulho();
 
+    if (this.unsubscribeTracks) {
+      this.unsubscribeTracks();
+      this.unsubscribeTracks = null;
+    }
+
+    if (this.stateChangeListener && this.audioContext) {
+      const nativeContext =
+        (this.audioContext as any)._nativeContext ||
+        (this.audioContext as any).rawContext ||
+        (this.audioContext as any)._context ||
+        this.audioContext;
+      try {
+        nativeContext.removeEventListener('statechange', this.stateChangeListener);
+      } catch (_) {}
+      this.stateChangeListener = null;
+    }
+
     if (typeof document !== 'undefined') {
       document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     }
     
     if (this.clockNode) {
       try {
+        this.clockNode.port.onmessage = null;
         this.clockNode.disconnect();
       } catch (_) {}
       this.clockNode = null;
@@ -888,15 +1201,10 @@ export class AudioEngine {
       this.fallbackTimerId = null;
     }
     
-    if (this.audioContext && this.audioContext.state !== 'closed') {
-      try {
-        this.audioContext.close();
-      } catch (e) {
-        console.warn("Failed to close AudioContext during dispose:", e);
-      }
-    }
+
     
     this.bufferPool.clear();
+    this.loadingPromises.clear();
     this.activeBarulhoNodes.clear();
     this.activeBarulhoGains.clear();
     this.scheduledHits.clear();

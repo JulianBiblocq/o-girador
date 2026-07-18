@@ -20,7 +20,7 @@ export const mestreRounds: MestreRound[] = [
     id: 1,
     signSymbol: '⚡',
     signName: {
-      fr: 'La Virada (Transition)',
+      fr: 'Virada (Transition)',
       pt: 'A Virada (Transição)'
     },
     options: {
@@ -36,7 +36,7 @@ export const mestreRounds: MestreRound[] = [
     id: 2,
     signSymbol: '✋',
     signName: {
-      fr: 'La Parada (Arrêt)',
+      fr: 'Parada (Arrêt)',
       pt: 'A Parada (Parar)'
     },
     options: {
@@ -52,7 +52,7 @@ export const mestreRounds: MestreRound[] = [
     id: 3,
     signSymbol: '⏩',
     signName: {
-      fr: 'Acelerar (Accélérer)',
+      fr: 'Acelerar (Accélération)',
       pt: 'Acelerar (Acelerar)'
     },
     options: {

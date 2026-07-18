@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pattern } from '../types';
-import { getVisualStrokeSymbol, isDarkText } from '../data';
+import { getVisualStrokeSymbol, isDarkText, instrumentsConfig, NEWTON_NOTE_COLORS } from '../data';
+import { getBusNoteColor, getContrastColor } from '../utils/colorHelpers';
 
 interface CompactPatternRendererProps {
   pattern: Pattern;
@@ -20,6 +21,8 @@ interface CompactPatternRendererProps {
   onStepMouseEnter?: (stepIdx: number) => void;
   selectedStepIndices?: number[];
   trackId?: string;
+  isLinkFolder?: boolean;
+  tracks?: any[];
 }
 
 export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
@@ -39,7 +42,9 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
   registerStepRef,
   onStepMouseEnter,
   selectedStepIndices = [],
-  trackId
+  trackId,
+  isLinkFolder = false,
+  tracks = []
 }) => {
   const defaultBeats = 4;
   const beatRes = pattern.beatResolutions || Array(Math.ceil(pattern.steps / defaultBeats)).fill(defaultBeats);
@@ -73,7 +78,13 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
             {group.map((stepIdx, indexInGroup) => {
               const val = pattern.activeSteps[stepIdx];
               const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
-              let displayVal = visualVal === 0 ? '' : String(visualVal);
+              const isVoice = inst.type === 'voice';
+
+              const note = isVoice ? (pattern.notes?.[stepIdx] || '') : '';
+              const noteLetter = note ? note.charAt(0).toUpperCase() : '';
+              const noteColor = noteLetter ? (NEWTON_NOTE_COLORS[noteLetter] || '#1a1a1a') : '#1a1a1a';
+
+              let displayVal = visualVal === 0 ? '' : (isVoice ? noteLetter : String(visualVal));
 
               const isActive = val !== 0 && val !== '';
               const isSelected = selectedStepIndices.includes(stepIdx);
@@ -82,14 +93,19 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
 
               let colorStyle: React.CSSProperties = {};
               if (isActive) {
-                const bgColor = inst.colors[visualVal as string] || '#111';
-                let txtColor = inst.colors.text || '#f4ecd8';
-                if (isDarkText(inst.id, visualVal as string)) {
+                const bgColor = isLinkFolder && trackId
+                  ? getBusNoteColor(String(trackId), String(visualVal), tracks, instrumentsConfig)
+                  : (isVoice ? inst.color : (inst.colors[visualVal as string] || '#111'));
+                let txtColor = isVoice ? noteColor : (inst.colors.text || '#f4ecd8');
+                if (isLinkFolder) {
+                  txtColor = getContrastColor(bgColor);
+                } else if (!isVoice && isDarkText(inst.id, visualVal as string)) {
                   txtColor = '#1a1a1a';
                 }
                 colorStyle = {
                   backgroundColor: bgColor,
                   color: txtColor,
+                  textShadow: isVoice ? '0 1px 2px rgba(0, 0, 0, 0.4)' : undefined,
                   border: isSextuplet || isTriplet ? 'none' : `1px solid ${bgColor}`
                 };
               } else {
@@ -142,7 +158,7 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
                   <div key={stepIdx} id={cellId} className={`${wrapperClasses} ${isSelected ? 'shadow-[0_0_8px_#f1c40f]' : ''}`} style={wrapperStyle}>
                     <input
                       type="text"
-                      maxLength={['caixa', 'tarol'].includes(inst.id) ? 2 : 1}
+                      maxLength={['caixa', 'tarol', 'timbal'].includes(inst.id) ? 2 : 1}
                       value={displayVal}
                       readOnly={readOnly}
                       className={`w-full h-full text-center text-[9px] font-bold outline-none m-0 p-0 transition-all ${

@@ -15,18 +15,27 @@ interface VaralCordelProps {
 
 export const VaralCordel: React.FC<VaralCordelProps> = ({ lang, onExit, onLaunchExercise }) => {
   const { 
+    activeVarals,
     varalConfig, 
     completedExerciseIds, 
     pendingVaralUpdate,
     applyPendingVaralUpdate,
-    ignorePendingVaralUpdate
+    ignorePendingVaralUpdate,
+    setSelectedVaral
   } = useGameData();
 
+  const [viewingList, setViewingList] = useState<boolean>(() => activeVarals.length > 1 && !localStorage.getItem('oGirador_selected_varal_id'));
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showDiploma, setShowDiploma] = useState(false);
   const [hasShownDiploma, setHasShownDiploma] = useState(false);
   const [previouslyCompletedCordes, setPreviouslyCompletedCordes] = useState<number[]>([]);
   const containerRef = React.useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    if (activeVarals.length > 1 && !localStorage.getItem('oGirador_selected_varal_id')) {
+      setViewingList(true);
+    }
+  }, [activeVarals]);
   
   // To avoid scrolling repeatedly on the same view, we do it once
   const [hasAutoScrolled, setHasAutoScrolled] = useState(false);
@@ -116,6 +125,62 @@ export const VaralCordel: React.FC<VaralCordelProps> = ({ lang, onExit, onLaunch
     }
   }[lang];
 
+  if (viewingList && activeVarals.length > 1) {
+    return (
+      <div className="w-full max-w-5xl mx-auto p-4 flex flex-col gap-6 cordel-bg select-none h-full overflow-y-auto pb-16 custom-scrollbar">
+        <div className="flex items-center justify-between border-b-4 border-[var(--cordel-border)] pb-3 shrink-0">
+          <div className="flex flex-col">
+            <h2 className="font-cactus text-xl uppercase tracking-wide text-[var(--cordel-text)] font-bold">
+              🪢 {lang === 'fr' ? 'Choisissez votre parcours' : 'Escolha seu percurso'}
+            </h2>
+            <span className="text-[10px] text-[var(--cordel-text)]/70 font-semibold">
+              {lang === 'fr' ? 'Sélectionnez un Varal disponible' : 'Selecione um Varal disponível'}
+            </span>
+          </div>
+          <button
+            onClick={onExit}
+            className="px-3 py-1.5 border-2 border-[var(--cordel-border)] bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-xs font-bold uppercase cursor-pointer cordel-button"
+          >
+            {lang === 'fr' ? 'Retour' : 'Voltar'}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 py-6">
+          {activeVarals.map((v) => {
+            const ropesCount = v.cordes?.length || 0;
+            return (
+              <div
+                key={v.id || v.name}
+                onClick={() => {
+                  setSelectedVaral(v);
+                  setViewingList(false);
+                }}
+                className="p-6 border-4 border-[var(--cordel-border)] bg-[#fdfaf2] shadow-lg cursor-pointer transform hover:scale-[1.02] hover:-translate-y-1 transition duration-200 flex flex-col justify-between h-48"
+              >
+                <div className="flex flex-col gap-2">
+                  <span className="text-xs uppercase font-bold text-[var(--cordel-wood)]">
+                    {lang === 'fr' ? 'Parcours' : 'Percurso'}
+                  </span>
+                  <h3 className="font-cactus text-2xl font-black text-[var(--cordel-text)] line-clamp-2">
+                    {v.name || (lang === 'fr' ? 'Varal sans nom' : 'Varal sem nome')}
+                  </h3>
+                </div>
+                <div className="flex justify-between items-center border-t border-dashed border-[var(--cordel-border)]/20 pt-3 mt-auto">
+                  <span className="text-xs font-bold opacity-70">
+                    🪢 {ropesCount} {ropesCount > 1 ? (lang === 'fr' ? 'Cordes' : 'Cordas') : (lang === 'fr' ? 'Corde' : 'Corda')}
+                  </span>
+                  <span className="text-xs font-black text-[#e67e22] uppercase tracking-wider">
+                    {lang === 'fr' ? 'Commencer' : 'Começar'} →
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div ref={containerRef} className="w-full max-w-5xl mx-auto p-4 flex flex-col gap-6 cordel-bg select-none h-full overflow-y-auto pb-16 custom-scrollbar">
       {/* SVG handcarved paper noise filter */}
@@ -158,6 +223,14 @@ export const VaralCordel: React.FC<VaralCordelProps> = ({ lang, onExit, onLaunch
             >
               <Award className="w-4 h-4" />
               {lang === 'fr' ? 'Mon Diplôme' : 'Meu Diploma'}
+            </button>
+          )}
+          {activeVarals.length > 1 && (
+            <button
+              onClick={() => setViewingList(true)}
+              className="px-3 py-1.5 border-2 border-[var(--cordel-wood)] bg-[var(--cordel-bg)] text-[var(--cordel-wood)] text-xs font-bold uppercase cursor-pointer cordel-button mr-2"
+            >
+              {lang === 'fr' ? 'Changer de Varal' : 'Mudar de Varal'}
             </button>
           )}
           <button
@@ -234,7 +307,7 @@ export const VaralCordel: React.FC<VaralCordelProps> = ({ lang, onExit, onLaunch
           const exercises = corde.games && corde.games.length > 0 
             ? corde.games 
             : [{
-                id: `default_${corde.cordeIndex}`,
+                id: `default_${varalConfig.id || varalConfig.name || 'default'}_${corde.cordeIndex}`,
                 module: corde.gameType || 'quiz',
                 folheto_titre: `Défi par défaut Corde ${corde.cordeIndex}`
               }];

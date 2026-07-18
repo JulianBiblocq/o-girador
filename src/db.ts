@@ -92,6 +92,8 @@ export async function getVocalRecording(patternId: number): Promise<Blob | null>
       }
     };
     request.onerror = () => reject(request.error || new Error('Failed to get vocal recording'));
+    transaction.onerror = () => reject(transaction.error || new Error('Read transaction failed'));
+    transaction.onabort = () => reject(new Error('Read transaction aborted'));
   });
 }
 
@@ -152,6 +154,8 @@ export async function getAutosave(): Promise<any | null> {
       else resolve(null);
     };
     request.onerror = () => reject(request.error || new Error('Failed to get autosave'));
+    transaction.onerror = () => reject(transaction.error || new Error('Autosave read transaction failed'));
+    transaction.onabort = () => reject(new Error('Autosave read transaction aborted'));
   });
 
   // 2. If empty, check localStorage for migration
@@ -166,7 +170,7 @@ export async function getAutosave(): Promise<any | null> {
         return data;
       }
     } catch (e) {
-      console.warn('Failed to migrate autosave from localStorage:', e);
+      // console.warn('Failed to migrate autosave from localStorage:', e);
     }
   }
 
@@ -197,12 +201,16 @@ export async function getLocalLibrary(): Promise<LocalLibrary> {
     request.onsuccess = () => {
       const results = request.result || [];
       const library: LocalLibrary = {};
-      results.forEach((item: any) => {
+      const len = results.length;
+      for (let i = 0; i < len; i++) {
+        const item = results[i];
         library[item.name] = item;
-      });
+      }
       resolve(library);
     };
     request.onerror = () => reject(request.error || new Error('Failed to get local library'));
+    transaction.onerror = () => reject(transaction.error || new Error('Library read transaction failed'));
+    transaction.onabort = () => reject(new Error('Library read transaction aborted'));
   });
 
   // 2. If empty, check localStorage for migration
@@ -211,14 +219,32 @@ export async function getLocalLibrary(): Promise<LocalLibrary> {
       const raw = localStorage.getItem('oGirador_personal_library');
       if (raw) {
         const localLib = JSON.parse(raw);
-        for (const name of Object.keys(localLib)) {
-          await savePresetToLibrary(name, localLib[name]);
-          dbLibrary[name] = localLib[name];
+        const keys = Object.keys(localLib);
+        if (keys.length > 0) {
+          await new Promise<void>((resolve, reject) => {
+            const transaction = db.transaction(LIB_STORE_NAME, 'readwrite');
+            const store = transaction.objectStore(LIB_STORE_NAME);
+            
+            for (let i = 0; i < keys.length; i++) {
+              const name = keys[i];
+              const preset = localLib[name];
+              const data = {
+                ...preset,
+                name,
+              };
+              store.put(data);
+              dbLibrary[name] = data;
+            }
+            
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error || new Error('Migration transaction failed'));
+            transaction.onabort = () => reject(new Error('Migration transaction aborted'));
+          });
+          localStorage.removeItem('oGirador_personal_library');
         }
-        localStorage.removeItem('oGirador_personal_library');
       }
     } catch (e) {
-      console.warn('Failed to migrate library from localStorage:', e);
+      // console.warn('Failed to migrate library from localStorage:', e);
     }
   }
 

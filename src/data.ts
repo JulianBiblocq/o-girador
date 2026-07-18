@@ -11,7 +11,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
   {
     id: 'marcante',
     iconImg: 'icones/alfaia.svg',
-    name: 'Alfaia Marcante',
+    name: 'Marcante (alfaia)',
     type: 'hands',
     mixerBg: '#3a1010',
     path: 'Alfaia/Marcante',
@@ -21,7 +21,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
   {
     id: 'meiao',
     iconImg: 'icones/alfaia.svg',
-    name: 'Alfaia Meião',
+    name: 'Meião (alfaia)',
     type: 'hands',
     mixerBg: '#3a2010',
     path: 'Alfaia/Meiao',
@@ -31,7 +31,7 @@ export const instrumentsConfig: InstrumentConfig[] = [
   {
     id: 'repique',
     iconImg: 'icones/alfaia.svg',
-    name: 'Alfaia Repique',
+    name: 'Repique (alfaia)',
     type: 'hands',
     mixerBg: '#3a3010',
     path: 'Alfaia/Repique',
@@ -83,10 +83,36 @@ export const instrumentsConfig: InstrumentConfig[] = [
     iconImg: 'icones/mineiro.svg',
     name: 'Mineiro',
     type: 'shake',
-    mixerBg: '#3a1a10',
+    mixerBg: '#192e1b',
     path: 'Mineiro',
-    colors: { 'p': '#ea580c', 'P': '#c2410c', 't': '#fdba74', 'T': '#f97316', 'L': '#f59e0b', 'B': '#78350f', text: '#f4ecd8' },
-    color: '#ea580c'
+    colors: { 'p': '#606c38', 'P': '#283618', 't': '#a3b18a', 'T': '#52796f', 'L': '#dad7cd', 'B': '#1b4332', text: '#f4ecd8' },
+    color: '#588157'
+  },
+  {
+    id: 'timbal',
+    iconImg: 'icones/timbal.svg',
+    name: 'Timbal',
+    type: 'hands',
+    mixerBg: '#302008',
+    path: 'Timbal',
+    colors: {
+      'g': '#78350f',
+      'G': '#92400e',
+      'a': '#b45309',
+      'A': '#d97706',
+      's': '#f59e0b',
+      'S': '#fbbf24',
+      'd': '#fef08a',
+      'D': '#fde047',
+      'p': '#451a03',
+      'P': '#5c2205',
+      'F': '#ea580c',
+      'V': '#f97316',
+      'C': '#fdba74',
+      'B': '#291002',
+      text: '#f4ecd8'
+    },
+    color: '#d97706'
   },
   {
     id: 'apito',
@@ -99,28 +125,58 @@ export const instrumentsConfig: InstrumentConfig[] = [
     color: '#e74c3c'
   },
   {
-    id: 'voice',
+    id: 'puxador',
     iconImg: 'icones/micro.svg',
-    name: 'Vocal / Toada',
+    name: 'Puxador',
+    type: 'voice',
+    mixerBg: '#5c3a1c',
+    path: 'internal',
+    colors: { 'P': '#e9cca8', text: '#f4ecd8' },
+    color: '#e9cca8'
+  },
+  {
+    id: 'coro',
+    iconImg: 'icones/micro.svg',
+    name: 'Coro',
     type: 'voice',
     mixerBg: '#114a4a',
     path: 'internal',
-    colors: { 'C': '#449c9c', 'P': '#c4864b', text: '#f4ecd8' },
-    color: '#449c9c'
+    colors: { 'C': '#b3dcd8', text: '#f4ecd8' },
+    color: '#b3dcd8'
+  },
+  {
+    id: 'toada',
+    iconImg: 'icones/micro.svg',
+    name: 'Toada',
+    type: 'voice',
+    mixerBg: '#392416',
+    path: 'internal',
+    colors: { 'P': '#e9cca8', 'C': '#b3dcd8', text: '#f4ecd8' },
+    color: '#e9cca8'
   }
 ];
+
+export const NEWTON_NOTE_COLORS: Record<string, string> = {
+  'C': '#a83232', // Rouge brique
+  'D': '#ab5c23', // Terracotta
+  'E': '#ab8f1b', // Moutarde
+  'F': '#287545', // Vert forêt doux
+  'G': '#1e6280', // Bleu ardoise
+  'A': '#3e4d80', // Bleu indigo patiné
+  'B': '#6e3b75', // Prune/Violet sourd
+};
 
 export const i18n = {
   pt: {
     loading: "Carregando vozes...",
     mixer: "🎛️ Misturador",
-    legend: "📖 Legenda",
+    legend: "Legenda",
     seqLegendTitle: "⌨️ Controles e Gestos",
     seqDesktopTitle: "Computador :",
     seqDesktopKeys: "• Espaço / Setas : Avançar / Navegar<br>• C / V (ou botões) : Copiar / Colar padrão<br>• Delete / Backspace : Limpar célula",
     seqMobileTitle: "Celular e Tablet :",
     seqMobileKeys: "• Toque curto : Abre o seletor de notas (toque fora para fechar)<br>• Arraste e solte : Escolhe a nota deslizando o dedo<br>• Timeline : Arraste a régua superior para rolar; toque no compasso para mover a reprodução",
-    voiceLegendTitle: "🎤 Vozes / Coro",
+    voiceLegendTitle: "Vozes / Coro",
     voiceLegend1: "Clique no topo da caixa (PUX/CORO) para alterar quem canta.",
     voiceLegend2: "Puxador: Laranja (Agudo). Coro: Ciano (Grave).",
     alfaiaCaixa: "🥁 Alfaia & Caixa",
@@ -133,32 +189,32 @@ export const i18n = {
     legendCaixaBarulho: "Barulho",
     legendTarolCerclage: "Toque no aro",
     legendTarolFla: "Fla",
-    legendTarolClick: "Click (baguetas)",
+    legendTarolClick: "Click (baquetas)",
     legendTarolTremer: "Barulho",
     legendAlfaiaBarulho: "Barulho",
     legendAlfaiaCerclage: "Toque no aro",
     legendAlfaiaIguarassu: "Bacalhau (iguarassu)",
-    gongueLegend: "🔔 Gonguê",
+    gongueLegend: "Gonguê",
     gongueGrave: "Grave Forte / Fraco",
     gongueAigu: "Agudo Forte / Fraco",
     gongueBarulho: "Barulho",
     legendGongueBord: "Toque na borda",
-    agbeLegend: "🌾 Agbê",
+    agbeLegend: "Agbê",
     agbeG: "Esquerda (Forte / Fraco)",
     agbeD: "Direita (Forte / Fraco)",
     legendAgbeBarulho: "Barulho",
-    legendAgbeSaut: "Salto / Lançamento (saut)",
-    legendAgbeVolta: "Volta / Retorno (volta)",
-    mineiroLegend: "🌾 Mineiro",
+    legendAgbeSaut: "Salto / Lançamento",
+    legendAgbeVolta: "Volta / Retorno",
+    mineiroLegend: "Mineiro",
     mineiroP: "Cima (Forte / Fraco)",
     mineiroT: "Baixo (Forte / Fraco)",
     mineiroL: "Toque lateral (lado)",
     mineiroB: "Barulho",
-    apitoLegend: "🪈 Apito",
+    apitoLegend: "Apito",
     apitoLong: "Sopro longo (W)",
     apitoShort: "Sopro curto (w)",
     addInst: "adicionar",
-    clear: "Limpar a Roda",
+    clear: "Criar uma roda",
     save: "Salvar",
     load: "Carregar",
     stepsNum: "Passos:",
@@ -195,26 +251,35 @@ export const i18n = {
     wavExportDesc: "• Clique no botão 🔴 REC para gravar a reprodução em tempo real.<br>• Clique novamente para parar e baixar um arquivo <b>.wav</b> (16-bit PCM estéreo sem perdas, compatível com iPhone e WhatsApp).",
     pwaOfflineTitle: "📶 Modo Offline (PWA)",
     pwaOfflineDesc: "• Este aplicativo funciona 100% offline para ensaios na rua.<br>• Uma vez carregado, as telas, sons e ritmos ficam guardados no aparelho mesmo sem internet.",
-    feedbackBtn: "Feedback & Fórum",
-    feedbackTitle: "💬 Contato & Feedback"
+    feedbackBtn: "Dar sua Opinião",
+    feedbackTitle: "💬 Opinião & Feedback",
+    eqTitle: "EQ 3 BANDAS",
+    eqLow: "LOW",
+    eqMid: "MID",
+    eqHigh: "HIGH",
+    compTitle: "COMPRESSOR",
+    compThreshold: "THRESH.",
+    compRatio: "RATIO",
+    expandSteps: "Mostrar passos",
+    collapseSteps: "Ocultar passos"
   },
   fr: {
     loading: "Chargement des voix...",
     mixer: "🎛️ Mixeur",
-    legend: "📖 Légende",
+    legend: "Légende",
     seqLegendTitle: "⌨️ Commandes & Gestes",
     seqDesktopTitle: "Ordinateur :",
     seqDesktopKeys: "• Espace / Flèches : Avancer / Naviguer<br>• C / V (ou boutons) : Copier / Coller motif<br>• Suppr / Retour arrière : Vider une case",
     seqMobileTitle: "Mobile & Tablette :",
     seqMobileKeys: "• Appui court : Ouvre le sélecteur de notes (tapez en dehors pour fermer)<br>• Glisser-déposer : Choisit la note en glissant le doigt<br>• Timeline : Glissez la règle supérieure pour faire défiler; tapez pour déplacer la tête de lecture",
-    voiceLegendTitle: "🎤 Voix / Chœur",
+    voiceLegendTitle: "Voix / Chœur",
     voiceLegend1: "Cliquez en haut de la case (PUX/CORO) pour changer qui chante.",
-    voiceLegend2: "Puxador: Orange (Aigu). Chœur: Cyan (Grave).",
+    voiceLegend2: "Puxador (Meneur / Soliste) : Orange (Aigu). Chœur : Cyan (Grave).",
     alfaiaCaixa: "🥁 Alfaia & Caixa",
     mainDroite: "Main Droite",
     mainGauche: "Main Gauche",
-    legendCaixaRufadaD: "Roulement main droite (Rufada)",
-    legendCaixaRufadaG: "Roulement main gauche (Rufada)",
+    legendCaixaRufadaD: "Rufada (Roulement main droite)",
+    legendCaixaRufadaG: "Rufada (Roulement main gauche)",
     legendCaixaCerclage: "Coup sur le cerclage",
     legendCaixaFla: "Fla",
     legendCaixaBarulho: "Barulho",
@@ -224,28 +289,28 @@ export const i18n = {
     legendTarolTremer: "Barulho",
     legendAlfaiaBarulho: "Barulho",
     legendAlfaiaCerclage: "Coup sur le cerclage",
-    legendAlfaiaIguarassu: "Bacalhau (iguarassu)",
-    gongueLegend: "🔔 Gonguê",
+    legendAlfaiaIguarassu: "Bacalhau (Coup sur le bois / Iguarassu)",
+    gongueLegend: "Gonguê",
     gongueGrave: "Grave Fort / Faible",
     gongueAigu: "Aigu Fort / Faible",
     gongueBarulho: "Barulho",
     legendGongueBord: "Coup sur le bord",
-    agbeLegend: "🌾 Agbê",
+    agbeLegend: "Agbê",
     agbeG: "Gauche (Fort / Faible)",
     agbeD: "Droite (Fort / Faible)",
     legendAgbeBarulho: "Barulho",
-    legendAgbeSaut: "Saut / Lancer (saut)",
-    legendAgbeVolta: "Retour / Atterrissage (volta)",
-    mineiroLegend: "🌾 Mineiro",
+    legendAgbeSaut: "Salto (Lancer)",
+    legendAgbeVolta: "Volta (Retour)",
+    mineiroLegend: "Mineiro",
     mineiroP: "Haut (Fort / Faible)",
     mineiroT: "Bas (Fort / Faible)",
     mineiroL: "Coup sur le côté (lado)",
     mineiroB: "Barulho",
-    apitoLegend: "🪈 Apito",
+    apitoLegend: "Apito",
     apitoLong: "Souffle long (W)",
     apitoShort: "Souffle court (w)",
     addInst: "Ajouter",
-    clear: "Vider la Roda",
+    clear: "Créer une roda",
     save: "Sauvegarder",
     load: "Charger",
     stepsNum: "Pas:",
@@ -282,8 +347,17 @@ export const i18n = {
     wavExportDesc: "• Cliquez sur le bouton 🔴 REC pour enregistrer le rendu en temps réel.<br>• Cliquez de nouveau pour arrêter et télécharger un fichier <b>.wav</b> (16-bit PCM stéréo sans perte, compatible iPhone et WhatsApp).",
     pwaOfflineTitle: "📶 Mode Hors-Ligne (PWA)",
     pwaOfflineDesc: "• Cette application fonctionne à 100% hors-ligne pour vos répétitions de rue.<br>• Une fois chargée, les visuels, sons et rythmes restent accessibles sans connexion internet.",
-    feedbackBtn: "Feedback & Forum",
-    feedbackTitle: "💬 Contact & Forum"
+    feedbackBtn: "Donner votre avis",
+    feedbackTitle: "💬 Donner votre avis",
+    eqTitle: "EQ 3 BANDES",
+    eqLow: "GRAVES",
+    eqMid: "MÉDIUMS",
+    eqHigh: "AIGUS",
+    compTitle: "COMPRESSEUR",
+    compThreshold: "SEUIL",
+    compRatio: "RATIO",
+    expandSteps: "Déplier les pas",
+    collapseSteps: "Replier les pas"
   }
 };
 
@@ -470,6 +544,7 @@ export function isDarkText(instId: string, strokeVal: string): boolean {
   if (instId === 'gongue' && (strokeVal === 'A' || strokeVal === 'a')) return true;
   if (instId === 'agbe' && ['s', 'S', 'd', 'D', 'e', 'E', 'v', 'V'].includes(strokeVal)) return true;
   if (instId === 'caixa' && ['r', 'R'].includes(strokeVal)) return true;
+  if (instId === 'timbal' && ['s', 'S', 'd', 'D', 'c', 'C'].includes(strokeVal)) return true;
   if (instId === 'mineiro' && ['t', 'T', 'L'].includes(strokeVal)) return true;
   if (instId === 'tarol' && ['C', 'e', 'F'].includes(strokeVal)) return true;
   if (['marcante', 'meiao', 'repique'].includes(instId) && ['c', 'C'].includes(strokeVal)) return true;

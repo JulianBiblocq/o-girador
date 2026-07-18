@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { channels } from '../hooks/useAudioSync';
+import React, { useEffect, useRef } from 'react';
+import { channels, busChannels } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { instrumentsConfig } from '../data';
 
@@ -8,69 +8,74 @@ interface PanKnobProps {
   value: number; // -100 to 100
   onChange: (val: number) => void;
   label?: string;
+  showLabels?: boolean;
 }
 
-export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, label = "Pan" }) => {
-  const [localVal, setLocalVal] = useState(value);
-  const throttleTimeoutRef = useRef<any>(null);
+export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, label = "Pan", showLabels = true }) => {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const isDraggingRef = useRef(false);
+  const lastAudioUpdateTimeRef = useRef(0);
+  const THROTTLE_MS = 25; // 40 Hz limit
+
+  const inputRef = useRef<HTMLInputElement>(null);
+  const rotationGroupRef = useRef<SVGGElement>(null);
+  const valueLabelRef = useRef<HTMLSpanElement>(null);
+
+  const updateVisuals = (val: number) => {
+    if (rotationGroupRef.current) {
+      const angle = val * 1.35;
+      rotationGroupRef.current.setAttribute('transform', `rotate(${angle} 16 16)`);
+    }
+    if (inputRef.current) {
+      inputRef.current.title = `Pan: ${val === 0 ? 'Centro' : val > 0 ? 'D' + val : 'E' + Math.abs(val)}`;
+    }
+  };
 
   useEffect(() => {
-    // Si l'utilisateur est en train de glisser sous son doigt,
-    // on ignore les mises à jour descendantes de Zustand pour éviter le saut visuel.
     if (!isDraggingRef.current) {
-      setLocalVal(value);
+      if (inputRef.current) {
+        inputRef.current.value = String(value);
+      }
+      updateVisuals(value);
     }
   }, [value]);
 
-  useEffect(() => {
-    return () => {
-      if (throttleTimeoutRef.current) {
-        clearTimeout(throttleTimeoutRef.current);
-      }
-    };
-  }, []);
+  const updateAudio = (val: number, force = false) => {
+    const now = performance.now();
+    if (!force && now - lastAudioUpdateTimeRef.current < THROTTLE_MS) {
+      return;
+    }
+    lastAudioUpdateTimeRef.current = now;
 
-  // Écrit dans Zustand au maximum toutes les 60ms pour protéger l'Event Loop
-  const throttledUpdate = (val: number) => {
-    if (!throttleTimeoutRef.current) {
-      throttleTimeoutRef.current = setTimeout(() => {
-        throttleTimeoutRef.current = null;
-        React.startTransition(() => {
-          onChangeRef.current(val);
-        });
-      }, 60);
+    if (trackId !== undefined) {
+      const track = useSequencerStore.getState().tracks.find(t => t.id === trackId);
+      if (track) {
+        const targetPan = val / 100;
+        if (track.isBusFolder) {
+          if (busChannels && busChannels[track.id]) {
+            busChannels[track.id].pan.rampTo(targetPan, 0.05);
+          }
+        } else {
+          if (channels && channels[track.id]) {
+            channels[track.id].pan.rampTo(targetPan, 0.05);
+          }
+        }
+      }
     }
   };
 
   const handleDrag = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value, 10);
-    setLocalVal(val);
-
-    if (trackId !== undefined) {
-      const track = useSequencerStore.getState().tracks.find(t => t.id === trackId);
-      if (track) {
-        const inst = instrumentsConfig[track.instrumentIdx];
-        if (inst && channels[inst.id]) {
-          // Règle 1 : Mutation Audio Directe immédiate (Direct-to-WebAudio) avec 0.05s de lissage
-          channels[inst.id].pan.rampTo(val / 100, 0.05);
-        }
-      }
-    }
-
-    throttledUpdate(val);
+    updateVisuals(val);
+    updateAudio(val, false);
   };
 
-  // Commit final pour s'assurer que la valeur est synchronisée dans Zustand
   const handleCommit = (e: React.SyntheticEvent) => {
     const val = parseInt((e.target as HTMLInputElement).value, 10);
     isDraggingRef.current = false;
-    if (throttleTimeoutRef.current) {
-      clearTimeout(throttleTimeoutRef.current);
-      throttleTimeoutRef.current = null;
-    }
+    updateVisuals(val);
+    updateAudio(val, true);
     React.startTransition(() => {
       onChangeRef.current(val);
     });
@@ -80,8 +85,7 @@ export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, labe
     isDraggingRef.current = true;
   };
 
-  // Map value (-100 to 100) to rotation angle in degrees (-135 to 135)
-  const angle = localVal * 1.35;
+  const initialAngle = value * 1.35;
 
   return (
     <div className="flex flex-col items-center gap-0.5 select-none shrink-0">
@@ -98,32 +102,33 @@ export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, labe
           <line x1="30" y1="16" x2="28" y2="16" stroke="var(--cordel-border)" strokeWidth="1.5" opacity="0.3" />
           
           {/* Rotatable indicator pointer */}
-          <g transform={`rotate(${angle} 16 16)`}>
+          <g ref={rotationGroupRef} transform={`rotate(${initialAngle} 16 16)`}>
             <line x1="16" y1="16" x2="16" y2="5" stroke="var(--cordel-border)" strokeWidth="2.5" strokeLinecap="round" />
             <circle cx="16" cy="5" r="1.5" fill="var(--cordel-wood)" />
           </g>
         </svg>
 
-        {/* Hidden native slider overlay to capture drag gestures cleanly on desktop & mobile */}
+        {/* Hidden native slider overlay with touch-none to prevent default scrolling on mobile */}
         <input
+          ref={inputRef}
           type="range"
           min="-100"
           max="100"
-          value={localVal}
+          defaultValue={value}
           onChange={handleDrag}
           onPointerDown={handlePointerDown}
           onPointerUp={handleCommit}
           onKeyUp={handleCommit}
           onBlur={handleCommit}
-          className="absolute inset-0 opacity-0 cursor-ew-resize w-full h-full"
-          title={`Pan: ${localVal === 0 ? 'C' : localVal > 0 ? 'R' + localVal : 'L' + Math.abs(localVal)}`}
+          className="absolute inset-0 opacity-0 cursor-ew-resize w-full h-full touch-none"
         />
       </div>
-      <div className="flex justify-between w-full px-1 text-[8px] font-bold opacity-60">
-        <span>L</span>
-        <span>{value === 0 ? 'C' : value > 0 ? `R${value}` : `L${Math.abs(value)}`}</span>
-        <span>R</span>
-      </div>
+      {showLabels && (
+        <div className="flex justify-between w-full px-1.5 text-[8px] font-bold opacity-60">
+          <span>E</span>
+          <span>D</span>
+        </div>
+      )}
     </div>
   );
 };

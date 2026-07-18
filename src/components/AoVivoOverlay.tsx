@@ -1,239 +1,60 @@
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useShallow } from 'zustand/react/shallow';
+import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import React, { useEffect, useState, useRef } from 'react';
 import { useSequencer } from '../contexts/SequencerContext';
 import { instrumentsConfig } from '../data';
 
-// --- WAAPI Keyframe Constants ---
-// Alfaia Keyframes (easing: cubic-bezier(0.15, 1.15, 0.3, 1))
-const KEYFRAMES_ALFAIA_STRONG = [
-  { transform: 'translateY(0px) rotateX(0deg)', easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
-  { transform: 'translateY(-280px) rotateX(60deg)', offset: 0.3, easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
-  { transform: 'translateY(0px) rotateX(0deg)' }
-];
-const KEYFRAMES_ALFAIA_NORMAL = [
-  { transform: 'translateY(0px) rotateX(0deg) scale(1)', easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
-  { transform: 'translateY(-180px) rotateX(40deg) scale(0.9)', offset: 0.3, easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
-  { transform: 'translateY(0px) rotateX(0deg) scale(1)' }
-];
-const KEYFRAMES_ALFAIA_WEAK = [
-  { transform: 'translateY(0px) rotateX(0deg) scale(1)', easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
-  { transform: 'translateY(-130px) rotateX(25deg) scale(0.95)', offset: 0.3, easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
-  { transform: 'translateY(0px) rotateX(0deg) scale(1)' }
-];
-const KEYFRAMES_ALFAIA_MICRO = [
-  { transform: 'translateY(0px) rotateX(0deg)', easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
-  { transform: 'translateY(-60px) rotateX(15deg)', offset: 0.3, easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
-  { transform: 'translateY(0px) rotateX(0deg)' }
-];
+// Import SVG components
+import {
+  AlfaiaMacaneta,
+  AlfaiaBacalhau,
+  DrumStick,
+  TimbalHandLeft,
+  TimbalHandRight,
+  GongueStick,
+  MineiroStick,
+} from './AoVivo/InstrumentGraphics';
 
-// Drum Keyframes (Caixa/Tarol) (easing: cubic-bezier(0.1, 2.0, 0.3, 1))
-const KEYFRAMES_DRUM_STRONG = KEYFRAMES_ALFAIA_STRONG;
-const KEYFRAMES_DRUM_NORMAL = [
-  { transform: 'translateY(0px) rotateX(0deg) scale(1)', easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
-  { transform: 'translateY(-180px) rotateX(40deg) scale(0.9)', offset: 0.3, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
-  { transform: 'translateY(0px) rotateX(0deg) scale(1)' }
-];
-const KEYFRAMES_DRUM_WEAK = KEYFRAMES_ALFAIA_WEAK;
-const KEYFRAMES_DRUM_MICRO = [
-  { transform: 'translateY(0px) rotateX(0deg)', easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
-  { transform: 'translateY(-60px) rotateX(15deg)', offset: 0.3, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
-  { transform: 'translateY(0px) rotateX(0deg)' }
-];
+import {
+  generateAlfaiaKeyframes,
+  generateDrumKeyframes,
+  generateGongueKeyframes,
+  generateMineiroKeyframes,
+  generateAgbeKeyframes,
+  KEYFRAMES_TIMBAL_G,
+  KEYFRAMES_TIMBAL_A,
+  KEYFRAMES_TIMBAL_S,
+  KEYFRAMES_TIMBAL_S_WEAK,
+  KEYFRAMES_TIMBAL_D,
+  KEYFRAMES_TIMBAL_P,
+  KEYFRAMES_AGBE_STRETCH_Y_STRONG,
+  KEYFRAMES_AGBE_STRETCH_Y_WEAK,
+  KEYFRAMES_AGBE_STRETCH_X_STRONG,
+  KEYFRAMES_AGBE_STRETCH_X_WEAK,
+  KEYFRAMES_AGBE_SHAKE,
+  KEYFRAMES_HALO,
+} from './AoVivo/animationGenerators';
 
-const KEYFRAMES_GONGUE_STRONG = [
-  { transform: 'translateY(0px) rotateX(0deg)', easing: 'cubic-bezier(0.1, 0.9, 0.2, 1)' },
-  { transform: 'translateY(-40px) rotateX(8deg)', offset: 0.3, easing: 'cubic-bezier(0.1, 0.9, 0.2, 1)' },
-  { transform: 'translateY(0px) rotateX(0deg)' }
-];
-const KEYFRAMES_GONGUE_MICRO = [
-  { transform: 'translateY(0px) rotateX(0deg)', easing: 'cubic-bezier(0.1, 0.9, 0.2, 1)' },
-  { transform: 'translateY(-15px) rotateX(3deg)', offset: 0.3, easing: 'cubic-bezier(0.1, 0.9, 0.2, 1)' },
-  { transform: 'translateY(0px) rotateX(0deg)' }
-];
+const EMPTY_ARRAY: any[] = [];
 
-const KEYFRAMES_CROSS_LEFT = [
-  { transform: 'translateY(0px) rotateZ(0deg)', easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
-  { transform: 'translateY(-150px) rotateZ(16deg)', offset: 0.3, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
-  { transform: 'translateY(0px) rotateZ(0deg)' }
-];
-const KEYFRAMES_CROSS_RIGHT = [
-  { transform: 'translateY(0px) rotateZ(0deg)', easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
-  { transform: 'translateY(-150px) rotateZ(-16deg)', offset: 0.3, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
-  { transform: 'translateY(0px) rotateZ(0deg)' }
-];
-const KEYFRAMES_OUT_LEFT = [
-  { transform: 'translateY(0px) rotateZ(0deg)', easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
-  { transform: 'translateY(-100px) rotateZ(-16deg)', offset: 0.3, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
-  { transform: 'translateY(0px) rotateZ(0deg)' }
-];
-const KEYFRAMES_OUT_RIGHT = [
-  { transform: 'translateY(0px) rotateZ(0deg)', easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
-  { transform: 'translateY(-100px) rotateZ(16deg)', offset: 0.3, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
-  { transform: 'translateY(0px) rotateZ(0deg)' }
-];
+// Inner animation component.
+// Only mounted when isEco is false and activeAoVivoTrackId is not null.
+// This guarantees that no animation hooks are executed when animations are inactive.
+const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = ({ activeAoVivoTrackId }) => {
+  const { isLeftHanded, activeVariationsRef, lang } = useSequencer();
+  const tracks = useSequencerStore(useShallow(state => {
+    return state.tracks.filter(t => t.id === activeAoVivoTrackId);
+  }));
 
-const KEYFRAMES_SHAKE = [
-  { transform: 'translateX(0) translateY(0) rotateZ(0deg)', easing: 'ease-in-out' },
-  { transform: 'translateX(-18px) translateY(-18px) rotateZ(-5deg)', offset: 0.25, easing: 'ease-in-out' },
-  { transform: 'translateX(18px) translateY(18px) rotateZ(5deg)', offset: 0.5, easing: 'ease-in-out' },
-  { transform: 'translateX(-18px) translateY(18px) rotateZ(-5deg)', offset: 0.75, easing: 'ease-in-out' },
-  { transform: 'translateX(0) translateY(0) rotateZ(0deg)' }
-];
+  const activeTrack = tracks.find(t => t.id === activeAoVivoTrackId);
+  const inst = activeTrack ? instrumentsConfig[activeTrack.instrumentIdx] : undefined;
 
-const KEYFRAMES_RUFADA = [
-  { transform: 'translateY(0px) rotateZ(0deg)', easing: 'linear' },
-  { transform: 'translateY(-16px) rotateZ(-3deg)', offset: 0.16, easing: 'linear' },
-  { transform: 'translateY(12px) rotateZ(2.5deg)', offset: 0.33, easing: 'linear' },
-  { transform: 'translateY(-12px) rotateZ(-2deg)', offset: 0.5, easing: 'linear' },
-  { transform: 'translateY(8px) rotateZ(1.5deg)', offset: 0.66, easing: 'linear' },
-  { transform: 'translateY(-4px) rotateZ(-1deg)', offset: 0.83, easing: 'linear' },
-  { transform: 'translateY(0px) rotateZ(0deg)' }
-];
-
-const KEYFRAMES_MINEIRO_PUSH_STRONG = [
-  { transform: 'translate(0, 0) scale(1)' },
-  { transform: 'translate(0, -50px) scale(0.6)', offset: 0.3 },
-  { transform: 'translate(0, 0) scale(1)' }
-];
-const KEYFRAMES_MINEIRO_PUSH_WEAK = [
-  { transform: 'translate(0, 0) scale(1)' },
-  { transform: 'translate(0, -20px) scale(0.85)', offset: 0.3 },
-  { transform: 'translate(0, 0) scale(1)' }
-];
-const KEYFRAMES_MINEIRO_PULL_STRONG = [
-  { transform: 'translate(0, 0) scale(1)' },
-  { transform: 'translate(0, 50px) scale(1.6)', offset: 0.3 },
-  { transform: 'translate(0, 0) scale(1)' }
-];
-const KEYFRAMES_MINEIRO_PULL_WEAK = [
-  { transform: 'translate(0, 0) scale(1)' },
-  { transform: 'translate(0, 20px) scale(1.2)', offset: 0.3 },
-  { transform: 'translate(0, 0) scale(1)' }
-];
-const KEYFRAMES_MINEIRO_LEFT = [
-  { transform: 'translate(0, 0) scale(1)' },
-  { transform: 'translate(-200px, 0) scale(1)', offset: 0.3 },
-  { transform: 'translate(0, 0) scale(1)' }
-];
-const KEYFRAMES_MINEIRO_SHAKE = [
-  { transform: 'translate(0, 0) scale(1)' },
-  { transform: 'translate(-15px, 0) scale(1)', offset: 0.1 },
-  { transform: 'translate(15px, 0) scale(1)', offset: 0.2 },
-  { transform: 'translate(-15px, 0) scale(1)', offset: 0.3 },
-  { transform: 'translate(15px, 0) scale(1)', offset: 0.4 },
-  { transform: 'translate(-15px, 0) scale(1)', offset: 0.5 },
-  { transform: 'translate(15px, 0) scale(1)', offset: 0.6 },
-  { transform: 'translate(-15px, 0) scale(1)', offset: 0.7 },
-  { transform: 'translate(15px, 0) scale(1)', offset: 0.8 },
-  { transform: 'translate(-15px, 0) scale(1)', offset: 0.9 },
-  { transform: 'translate(0, 0) scale(1)' }
-];
-
-const KEYFRAMES_AGBE_STRETCH_Y_STRONG = [
-  { transform: 'scaleY(1)' },
-  { transform: 'scaleY(1.15)', offset: 0.3 },
-  { transform: 'scaleY(1)' }
-];
-const KEYFRAMES_AGBE_STRETCH_Y_WEAK = [
-  { transform: 'scaleY(1)' },
-  { transform: 'scaleY(1.08)', offset: 0.3 },
-  { transform: 'scaleY(1)' }
-];
-const KEYFRAMES_AGBE_STRETCH_X_STRONG = [
-  { transform: 'scaleX(1)' },
-  { transform: 'scaleX(1.15)', offset: 0.3 },
-  { transform: 'scaleX(1)' }
-];
-const KEYFRAMES_AGBE_STRETCH_X_WEAK = [
-  { transform: 'scaleX(1)' },
-  { transform: 'scaleX(1.08)', offset: 0.3 },
-  { transform: 'scaleX(1)' }
-];
-const KEYFRAMES_AGBE_SHAKE = [
-  { transform: 'translate(0, 0) scale(1)' },
-  { transform: 'translate(-10px, -5px) scale(0.98)', offset: 0.1 },
-  { transform: 'translate(10px, 5px) scale(1.02)', offset: 0.2 },
-  { transform: 'translate(-10px, -5px) scale(0.98)', offset: 0.3 },
-  { transform: 'translate(10px, 5px) scale(1.02)', offset: 0.4 },
-  { transform: 'translate(-10px, -5px) scale(0.98)', offset: 0.5 },
-  { transform: 'translate(10px, 5px) scale(1.02)', offset: 0.6 },
-  { transform: 'translate(-10px, -5px) scale(0.98)', offset: 0.7 },
-  { transform: 'translate(10px, 5px) scale(1.02)', offset: 0.8 },
-  { transform: 'translate(-10px, -5px) scale(0.98)', offset: 0.9 },
-  { transform: 'translate(0, 0) scale(1)' }
-];
-
-const KEYFRAMES_HALO = [
-  { opacity: 0, transform: 'scale(0.6)' },
-  { opacity: 1, transform: 'scale(1.05)', offset: 0.3 },
-  { opacity: 0, transform: 'scale(1.2)' }
-];
-
-// --- forwardRef SVG Components ---
-const AlfaiaMacaneta = React.forwardRef<SVGSVGElement, { style?: React.CSSProperties }>((props, ref) => (
-  <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.7)] origin-bottom" style={props.style} viewBox="0 0 100 800" preserveAspectRatio="xMidYMin meet">
-    <rect x="25" y="45" width="50" height="755" fill="#7A3B12" rx="20" />
-    <circle cx="50" cy="45" r="45" fill="#D2B48C" stroke="#5C3A21" strokeWidth="4" />
-    <line x1="40" y1="90" x2="40" y2="800" stroke="#5C3A21" strokeWidth="4" strokeDasharray="30 20" opacity="0.4" />
-    <line x1="60" y1="120" x2="60" y2="800" stroke="#5C3A21" strokeWidth="2" strokeDasharray="15 25" opacity="0.3" />
-  </svg>
-));
-AlfaiaMacaneta.displayName = 'AlfaiaMacaneta';
-
-const AlfaiaBacalhau = React.forwardRef<SVGSVGElement, { style?: React.CSSProperties }>((props, ref) => (
-  <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.7)] origin-bottom" style={props.style} viewBox="0 0 100 800" preserveAspectRatio="xMidYMin meet">
-    <rect x="25" y="0" width="50" height="800" fill="#DEB887" rx="10" />
-    <line x1="40" y1="0" x2="40" y2="800" stroke="#8B4513" strokeWidth="4" strokeDasharray="35 15" opacity="0.3" />
-    <line x1="60" y1="20" x2="60" y2="800" stroke="#8B4513" strokeWidth="2" strokeDasharray="20 20" opacity="0.2" />
-  </svg>
-));
-AlfaiaBacalhau.displayName = 'AlfaiaBacalhau';
-
-const DrumStick = React.forwardRef<SVGSVGElement, { style?: React.CSSProperties }>((props, ref) => (
-  <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.5)] origin-bottom" style={props.style} viewBox="0 0 100 800" preserveAspectRatio="xMidYMin meet">
-    <rect x="35" y="20" width="30" height="780" fill="#E6C280" rx="15" />
-    <rect x="55" y="20" width="10" height="780" fill="#C49B5A" rx="5" />
-    <path d="M40 100 Q45 150 40 200 T45 300 T38 400 T42 500 T38 600 T45 700" stroke="#C49B5A" strokeWidth="2" fill="none" opacity="0.6" />
-    <path d="M50 50 Q55 120 48 180 T52 280 T48 380 T55 480 T49 580 T52 750" stroke="#D9AE6B" strokeWidth="2" fill="none" opacity="0.5" />
-    <circle cx="50" cy="20" r="20" fill="#E6C280" />
-    <path d="M64 6 A 20 20 0 0 1 50 40 A 20 20 0 0 0 64 6" fill="#C49B5A" />
-  </svg>
-));
-DrumStick.displayName = 'DrumStick';
-
-const GongueStick = React.forwardRef<SVGSVGElement, { style?: React.CSSProperties }>((props, ref) => (
-  <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.5)] origin-bottom" style={props.style} viewBox="0 0 100 800" preserveAspectRatio="xMidYMin meet">
-    <rect x="30" y="0" width="40" height="800" fill="#F8F9FA" rx="4" />
-    <rect x="38" y="0" width="10" height="800" fill="#FFFFFF" rx="2" />
-  </svg>
-));
-GongueStick.displayName = 'GongueStick';
-
-const MineiroStick = React.forwardRef<SVGSVGElement, { style?: React.CSSProperties }>((props, ref) => (
-  <svg ref={ref} className="drop-shadow-[0_20px_40px_rgba(0,0,0,0.6)] w-full h-full" style={props.style} viewBox="0 0 600 120" preserveAspectRatio="xMidYMid meet">
-    <rect x="20" y="10" width="560" height="100" fill="#B0BEC5" rx="10" />
-    <rect x="20" y="30" width="560" height="20" fill="#FFFFFF" opacity="0.7" rx="5" />
-    <line x1="20" y1="20" x2="580" y2="20" stroke="#78909C" strokeWidth="2" opacity="0.5" />
-    <line x1="20" y1="50" x2="580" y2="50" stroke="#78909C" strokeWidth="2" opacity="0.5" />
-    <line x1="20" y1="70" x2="580" y2="70" stroke="#78909C" strokeWidth="2" opacity="0.5" />
-    <line x1="20" y1="90" x2="580" y2="90" stroke="#78909C" strokeWidth="2" opacity="0.5" />
-    <rect x="10" y="5" width="20" height="110" fill="#455A64" rx="5" />
-    <rect x="570" y="5" width="20" height="110" fill="#455A64" rx="5" />
-  </svg>
-));
-MineiroStick.displayName = 'MineiroStick';
-
-export const AoVivoOverlay: React.FC = () => {
-  const { activeAoVivoTrackId, isLeftHanded, activeVariationsRef, lang } = useSequencer();
-  const tracks = useSequencerStore(state => state.tracks);
-
-  const [isEco, setIsEco] = useState<boolean>(() => !!(window as any).oGiradorEcoMode);
-  
   // Lower frequency React states (only update when the pattern structure changes at measure boundaries)
   const [currentPatternId, setCurrentPatternId] = useState<number | null>(null);
   const [currentMeasureIdx, setCurrentMeasureIdx] = useState<number>(-1);
 
-  // References to static DOM elements to avoid React re-renders
+  // References to static DOM elements to avoid React re-renders (Zero Render Thrashing)
   const leftWrapperRef = useRef<HTMLDivElement>(null);
   const rightWrapperRef = useRef<HTMLDivElement>(null);
   const mineiroWrapperRef = useRef<HTMLDivElement>(null);
@@ -252,7 +73,7 @@ export const AoVivoOverlay: React.FC = () => {
   const gongueStickRef = useRef<SVGSVGElement>(null);
   const haloRef = useRef<HTMLDivElement>(null);
 
-  // Layout target position and geometry cache
+  // Layout target position and geometry cache (Zero Layout Thrashing)
   const geometryRef = useRef({ targetX: 0, targetY: 0, width: 0, height: 0 });
 
   // Sync refs for the o-girador-tick event listener closure
@@ -260,16 +81,11 @@ export const AoVivoOverlay: React.FC = () => {
   const currentMeasureIdxRef = useRef<number>(-1);
   const lastVuStepRef = useRef<number>(-1);
 
-  useEffect(() => {
-    const handleEcoChange = () => setIsEco(!!(window as any).oGiradorEcoMode);
-    window.addEventListener('eco-mode-changed', handleEcoChange);
-    return () => window.removeEventListener('eco-mode-changed', handleEcoChange);
-  }, []);
+  // Early return if active track or instrument config is missing, after hooks are declared
+  if (!activeTrack || !inst) return null;
 
   // --- PASSIVE RESIZE OBSERVER (0 LAYOUT THRASHING) ---
   useEffect(() => {
-    if (isEco || activeAoVivoTrackId === null) return;
-
     const updateGeometry = () => {
       const panel = document.getElementById('circle-sequencer-panel');
       if (!panel) return;
@@ -289,8 +105,11 @@ export const AoVivoOverlay: React.FC = () => {
       // Apply wrapper dimensions directly to DOM elements
       const handSpread = Math.min(width * 0.45, 550);
 
+      const isTimbal = activeTrack.instrumentIdx !== undefined && instrumentsConfig[activeTrack.instrumentIdx]?.id === 'timbal';
+      const xOffset = isTimbal ? 30 : 160;
+
       if (leftWrapperRef.current) {
-        const leftX = targetX - 160;
+        const leftX = targetX - xOffset;
         const leftY = targetY;
         const originLeftX = width / 2 - handSpread;
         const originLeftY = height + 350;
@@ -305,7 +124,7 @@ export const AoVivoOverlay: React.FC = () => {
       }
 
       if (rightWrapperRef.current) {
-        const rightX = targetX + 160;
+        const rightX = targetX + xOffset;
         const rightY = targetY;
         const originRightX = width / 2 + handSpread;
         const originRightY = height + 350;
@@ -365,32 +184,33 @@ export const AoVivoOverlay: React.FC = () => {
       resizeObserver.disconnect();
       window.removeEventListener('resize', updateGeometry);
     };
-  }, [isEco, activeAoVivoTrackId, isLeftHanded]);
+  }, [activeAoVivoTrackId, isLeftHanded, activeTrack]);
 
   // --- AUDIO TICK LISTENERS AND GPU ANIMATIONS (WAAPI) ---
   useEffect(() => {
-    if (isEco || activeAoVivoTrackId === null) return;
-    const activeTrack = tracks.find(t => t.id === activeAoVivoTrackId);
-    if (!activeTrack) return;
-
-    const inst = instrumentsConfig[activeTrack.instrumentIdx];
-    if (!inst) return;
-
-    const handleTick = (e: Event) => {
-      const customEvent = e as CustomEvent<{ step: number; measure: number; maxTicks: number; ratio?: number }>;
-      const { step, measure, maxTicks, ratio = step / maxTicks } = customEvent.detail;
+    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number }) => {
+      const { step, measure, maxTicks, ratio = step / maxTicks } = detail;
       
       if (step < 0) {
         lastVuStepRef.current = -1;
         // Clean highlights on stop
-        if (inst.id === 'voice' && voiceWrapperRef.current) {
+        if (inst.type === 'voice' && voiceWrapperRef.current) {
           const stepSpans = voiceWrapperRef.current.querySelectorAll('[data-step-idx]');
           stepSpans.forEach(el => el.classList.remove('underline', 'decoration-4', 'underline-offset-4'));
           const wordSpans = voiceWrapperRef.current.querySelectorAll('[data-word-idx]');
-          wordSpans.forEach(el => {
+          wordSpans.forEach(wordEl => {
+            const el = wordEl as HTMLElement;
             el.classList.add('opacity-40');
-            el.classList.remove('text-[#8b2a1a]', 'scale-110', 'transform');
+            el.classList.remove('scale-110', 'transform');
+            el.style.color = '';
           });
+        }
+        if (inst.id === 'agbe' && agbeWholeRef.current && agbeLeftRef.current && agbeRightRef.current && agbeTopRef.current && agbeBottomRef.current) {
+          agbeWholeRef.current.style.display = 'block';
+          agbeLeftRef.current.style.display = 'none';
+          agbeRightRef.current.style.display = 'none';
+          agbeTopRef.current.style.display = 'none';
+          agbeBottomRef.current.style.display = 'none';
         }
         return;
       }
@@ -412,7 +232,7 @@ export const AoVivoOverlay: React.FC = () => {
       const targetStep = Math.floor(ratio * currentLivePattern.steps);
 
       // Highlight active steps for Voice (Karaoke) via Vanilla DOM mutations
-      if (inst.id === 'voice' && voiceWrapperRef.current) {
+      if (inst.type === 'voice' && voiceWrapperRef.current) {
         const stepSpans = voiceWrapperRef.current.querySelectorAll('[data-step-idx]');
         stepSpans.forEach((spanEl) => {
           const el = spanEl as HTMLElement;
@@ -430,10 +250,12 @@ export const AoVivoOverlay: React.FC = () => {
           const hasActiveStep = el.querySelector(`[data-step-idx="${targetStep}"]`) !== null;
           if (hasActiveStep) {
             el.classList.remove('opacity-40');
-            el.classList.add('text-[#8b2a1a]', 'scale-110', 'transform');
+            el.classList.add('scale-110', 'transform');
+            el.style.color = inst.color || '#000000';
           } else {
             el.classList.add('opacity-40');
-            el.classList.remove('text-[#8b2a1a]', 'scale-110', 'transform');
+            el.classList.remove('scale-110', 'transform');
+            el.style.color = '';
           }
         });
       }
@@ -451,44 +273,44 @@ export const AoVivoOverlay: React.FC = () => {
 
             // --- 1. Alfaia Sticks ---
             if (['marcante', 'meiao', 'repique'].includes(inst.id)) {
-              let keyframesLeft: Keyframe[] = KEYFRAMES_ALFAIA_NORMAL;
-              let keyframesRight: Keyframe[] = KEYFRAMES_ALFAIA_NORMAL;
+              let keyframesLeft: Keyframe[] | null = null;
+              let keyframesRight: Keyframe[] | null = null;
               let triggerLeft = false;
               let triggerRight = false;
               let animHalo = false;
               let animHaloOffsetY = 0;
 
               if (isVibrate) {
-                keyframesLeft = KEYFRAMES_SHAKE;
-                keyframesRight = KEYFRAMES_SHAKE;
+                keyframesLeft = generateAlfaiaKeyframes(stroke, true);
+                keyframesRight = generateAlfaiaKeyframes(stroke, false);
                 triggerLeft = true;
                 triggerRight = true;
               } else {
                 if (stroke === 'D') {
-                  if (isLeftHanded) { keyframesLeft = KEYFRAMES_ALFAIA_STRONG; triggerLeft = true; }
-                  else { keyframesRight = KEYFRAMES_ALFAIA_STRONG; triggerRight = true; }
+                  if (isLeftHanded) { keyframesLeft = generateAlfaiaKeyframes('D', true); triggerLeft = true; }
+                  else { keyframesRight = generateAlfaiaKeyframes('D', false); triggerRight = true; }
                 } else if (stroke === 'd') {
-                  if (isLeftHanded) { keyframesLeft = KEYFRAMES_ALFAIA_NORMAL; triggerLeft = true; }
-                  else { keyframesRight = KEYFRAMES_ALFAIA_NORMAL; triggerRight = true; }
+                  if (isLeftHanded) { keyframesLeft = generateAlfaiaKeyframes('d', true); triggerLeft = true; }
+                  else { keyframesRight = generateAlfaiaKeyframes('d', false); triggerRight = true; }
                 } else if (stroke === 'E') {
-                  if (isLeftHanded) { keyframesRight = KEYFRAMES_ALFAIA_STRONG; triggerRight = true; }
-                  else { keyframesLeft = KEYFRAMES_ALFAIA_STRONG; triggerLeft = true; }
+                  if (isLeftHanded) { keyframesRight = generateAlfaiaKeyframes('E', false); triggerRight = true; }
+                  else { keyframesLeft = generateAlfaiaKeyframes('E', true); triggerLeft = true; }
                 } else if (stroke === 'e') {
-                  if (isLeftHanded) { keyframesRight = KEYFRAMES_ALFAIA_NORMAL; triggerRight = true; }
-                  else { keyframesLeft = KEYFRAMES_ALFAIA_NORMAL; triggerLeft = true; }
+                  if (isLeftHanded) { keyframesRight = generateAlfaiaKeyframes('e', false); triggerRight = true; }
+                  else { keyframesLeft = generateAlfaiaKeyframes('e', true); triggerLeft = true; }
                 } else if (stroke === 'i' || stroke === 'I') {
-                  if (isLeftHanded) { keyframesRight = KEYFRAMES_ALFAIA_WEAK; triggerRight = true; }
-                  else { keyframesLeft = KEYFRAMES_ALFAIA_WEAK; triggerLeft = true; }
+                  if (isLeftHanded) { keyframesRight = generateAlfaiaKeyframes(stroke, false); triggerRight = true; }
+                  else { keyframesLeft = generateAlfaiaKeyframes(stroke, true); triggerLeft = true; }
                 } else if (stroke === 'x' || stroke === 'X') {
-                  keyframesLeft = KEYFRAMES_OUT_LEFT;
-                  keyframesRight = KEYFRAMES_OUT_RIGHT;
+                  keyframesLeft = generateAlfaiaKeyframes(stroke, true);
+                  keyframesRight = generateAlfaiaKeyframes(stroke, false);
                   triggerLeft = true;
                   triggerRight = true;
                   animHalo = true;
                   animHaloOffsetY = -100;
                 } else if (stroke === 'c' || stroke === 'C') {
-                  keyframesLeft = KEYFRAMES_CROSS_LEFT;
-                  keyframesRight = KEYFRAMES_CROSS_RIGHT;
+                  keyframesLeft = generateAlfaiaKeyframes(stroke, true);
+                  keyframesRight = generateAlfaiaKeyframes(stroke, false);
                   triggerLeft = true;
                   triggerRight = true;
                   animHalo = true;
@@ -496,14 +318,14 @@ export const AoVivoOverlay: React.FC = () => {
                 }
               }
 
-              if (triggerLeft && leftStickRef.current) {
+              if (triggerLeft && leftStickRef.current && keyframesLeft) {
                 leftStickRef.current.animate(keyframesLeft, {
                   duration: isVibrate ? 100 : 350,
                   iterations: isVibrate ? Infinity : 1,
                   easing: isVibrate ? 'linear' : undefined
                 });
               }
-              if (triggerRight && rightStickRef.current) {
+              if (triggerRight && rightStickRef.current && keyframesRight) {
                 rightStickRef.current.animate(keyframesRight, {
                   duration: isVibrate ? 100 : 350,
                   iterations: isVibrate ? Infinity : 1,
@@ -520,56 +342,145 @@ export const AoVivoOverlay: React.FC = () => {
 
             // --- 2. Caixa / Tarol ---
             else if (['caixa', 'tarol'].includes(inst.id)) {
-              let keyframesLeft: Keyframe[] = KEYFRAMES_DRUM_NORMAL;
-              let keyframesRight: Keyframe[] = KEYFRAMES_DRUM_NORMAL;
+              let keyframesLeft: Keyframe[] | null = null;
+              let keyframesRight: Keyframe[] | null = null;
               let triggerLeft = false;
               let triggerRight = false;
               let animHalo = false;
               let animHaloOffsetY = 0;
 
               if (isVibrate) {
-                keyframesLeft = KEYFRAMES_SHAKE;
-                keyframesRight = KEYFRAMES_SHAKE;
+                keyframesLeft = generateDrumKeyframes(stroke, true);
+                keyframesRight = generateDrumKeyframes(stroke, false);
                 triggerLeft = true;
                 triggerRight = true;
               } else {
                 if (stroke === 'D') {
-                  if (isLeftHanded) { keyframesLeft = KEYFRAMES_DRUM_NORMAL; triggerLeft = true; }
-                  else { keyframesRight = KEYFRAMES_DRUM_NORMAL; triggerRight = true; }
+                  if (isLeftHanded) { keyframesLeft = generateDrumKeyframes('D', true); triggerLeft = true; }
+                  else { keyframesRight = generateDrumKeyframes('D', false); triggerRight = true; }
                 } else if (stroke === 'd') {
-                  if (isLeftHanded) { keyframesLeft = KEYFRAMES_DRUM_MICRO; triggerLeft = true; }
-                  else { keyframesRight = KEYFRAMES_DRUM_MICRO; triggerRight = true; }
+                  if (isLeftHanded) { keyframesLeft = generateDrumKeyframes('d', true); triggerLeft = true; }
+                  else { keyframesRight = generateDrumKeyframes('d', false); triggerRight = true; }
                 } else if (stroke === 'E') {
-                  if (isLeftHanded) { keyframesRight = KEYFRAMES_DRUM_NORMAL; triggerRight = true; }
-                  else { keyframesLeft = KEYFRAMES_DRUM_NORMAL; triggerLeft = true; }
+                  if (isLeftHanded) { keyframesRight = generateDrumKeyframes('E', false); triggerRight = true; }
+                  else { keyframesLeft = generateDrumKeyframes('E', true); triggerLeft = true; }
                 } else if (stroke === 'e') {
-                  if (isLeftHanded) { keyframesRight = KEYFRAMES_DRUM_MICRO; triggerRight = true; }
-                  else { keyframesLeft = KEYFRAMES_DRUM_MICRO; triggerLeft = true; }
-                } else if (stroke === 'R') {
-                  if (isLeftHanded) { keyframesLeft = KEYFRAMES_RUFADA; triggerLeft = true; }
-                  else { keyframesRight = KEYFRAMES_RUFADA; triggerRight = true; }
-                } else if (stroke === 'r') {
-                  if (isLeftHanded) { keyframesRight = KEYFRAMES_RUFADA; triggerRight = true; }
-                  else { keyframesLeft = KEYFRAMES_RUFADA; triggerLeft = true; }
+                  if (isLeftHanded) { keyframesRight = generateDrumKeyframes('e', false); triggerRight = true; }
+                  else { keyframesLeft = generateDrumKeyframes('e', true); triggerLeft = true; }
+                } else if (stroke === 'R' || stroke === 'r') {
+                  if (isLeftHanded) { keyframesLeft = generateDrumKeyframes(stroke, true); triggerLeft = true; }
+                  else { keyframesRight = generateDrumKeyframes(stroke, false); triggerRight = true; }
                 } else if (stroke === 'f' || stroke === 'F') {
-                  keyframesLeft = KEYFRAMES_CROSS_LEFT;
-                  keyframesRight = KEYFRAMES_CROSS_RIGHT;
+                  keyframesLeft = generateDrumKeyframes(stroke, true);
+                  keyframesRight = generateDrumKeyframes(stroke, false);
                   triggerLeft = true;
                   triggerRight = true;
                 } else if (stroke === 'x' || stroke === 'X') {
-                  keyframesLeft = KEYFRAMES_OUT_LEFT;
-                  keyframesRight = KEYFRAMES_OUT_RIGHT;
+                  keyframesLeft = generateDrumKeyframes(stroke, true);
+                  keyframesRight = generateDrumKeyframes(stroke, false);
                   triggerLeft = true;
                   triggerRight = true;
                   animHalo = true;
                   animHaloOffsetY = -100;
                 } else if (stroke === 'c' || stroke === 'C') {
-                  keyframesLeft = KEYFRAMES_CROSS_LEFT;
-                  keyframesRight = KEYFRAMES_CROSS_RIGHT;
+                  keyframesLeft = generateDrumKeyframes(stroke, true);
+                  keyframesRight = generateDrumKeyframes(stroke, false);
                   triggerLeft = true;
                   triggerRight = true;
                   animHalo = true;
                   animHaloOffsetY = -150;
+                }
+              }
+
+              if (triggerLeft && leftStickRef.current && keyframesLeft) {
+                leftStickRef.current.animate(keyframesLeft, {
+                  duration: isVibrate ? 100 : 350,
+                  iterations: isVibrate ? Infinity : 1,
+                  easing: isVibrate ? 'linear' : undefined
+                });
+              }
+              if (triggerRight && rightStickRef.current && keyframesRight) {
+                rightStickRef.current.animate(keyframesRight, {
+                  duration: isVibrate ? 100 : 350,
+                  iterations: isVibrate ? Infinity : 1,
+                  easing: isVibrate ? 'linear' : undefined
+                });
+              }
+              if (animHalo && haloRef.current) {
+                const { targetX, targetY } = geometryRef.current;
+                haloRef.current.style.left = `${targetX}px`;
+                haloRef.current.style.top = `${targetY + animHaloOffsetY}px`;
+                haloRef.current.animate(KEYFRAMES_HALO, { duration: 400, easing: 'ease-out' });
+              }
+            }
+
+            // --- 2.5 Timbal ---
+            else if (inst.id === 'timbal') {
+              let keyframesLeft: Keyframe[] = KEYFRAMES_TIMBAL_A;
+              let keyframesRight: Keyframe[] = KEYFRAMES_TIMBAL_A;
+              let triggerLeft = false;
+              let triggerRight = false;
+              let animHalo = false;
+              let animHaloOffsetY = 0;
+
+              if (isVibrate) {
+                keyframesLeft = generateAlfaiaKeyframes(stroke, true); // Fallback to shake
+                keyframesRight = generateAlfaiaKeyframes(stroke, false);
+                triggerLeft = true;
+                triggerRight = true;
+              } else {
+                const isForte = ['G', 'A', 'S', 'D', 'P'].includes(stroke);
+                const isFaible = ['g', 'a', 's', 'd', 'p'].includes(stroke);
+
+                let selectedKeyframes = KEYFRAMES_TIMBAL_A;
+                if (stroke === 'G' || stroke === 'g') {
+                  selectedKeyframes = KEYFRAMES_TIMBAL_G;
+                } else if (stroke === 'A' || stroke === 'a') {
+                  selectedKeyframes = KEYFRAMES_TIMBAL_A;
+                } else if (stroke === 'S') {
+                  selectedKeyframes = KEYFRAMES_TIMBAL_S;
+                } else if (stroke === 's') {
+                  selectedKeyframes = KEYFRAMES_TIMBAL_S_WEAK;
+                } else if (stroke === 'D' || stroke === 'd') {
+                  selectedKeyframes = KEYFRAMES_TIMBAL_D;
+                } else if (stroke === 'P' || stroke === 'p') {
+                  selectedKeyframes = KEYFRAMES_TIMBAL_P;
+                }
+
+                if (isForte) {
+                  if (isLeftHanded) { keyframesLeft = selectedKeyframes; triggerLeft = true; }
+                  else { keyframesRight = selectedKeyframes; triggerRight = true; }
+                } else if (isFaible) {
+                  if (isLeftHanded) { keyframesRight = selectedKeyframes; triggerRight = true; }
+                  else { keyframesLeft = selectedKeyframes; triggerLeft = true; }
+                } else if (stroke === 'F' || stroke === 'f') {
+                  keyframesLeft = KEYFRAMES_TIMBAL_A;
+                  keyframesRight = KEYFRAMES_TIMBAL_A;
+                  triggerLeft = true;
+                  triggerRight = true;
+                  animHalo = true;
+                  animHaloOffsetY = -80;
+                } else if (stroke === 'V') {
+                  keyframesLeft = KEYFRAMES_TIMBAL_S;
+                  keyframesRight = KEYFRAMES_TIMBAL_S;
+                  triggerLeft = true;
+                  triggerRight = true;
+                  animHalo = true;
+                  animHaloOffsetY = -50;
+                } else if (stroke === 'v') {
+                  keyframesLeft = KEYFRAMES_TIMBAL_S_WEAK;
+                  keyframesRight = KEYFRAMES_TIMBAL_S_WEAK;
+                  triggerLeft = true;
+                  triggerRight = true;
+                  animHalo = true;
+                  animHaloOffsetY = -50;
+                } else if (stroke === 'C' || stroke === 'c') {
+                  keyframesLeft = generateAlfaiaKeyframes('c', true); // Fallback cross
+                  keyframesRight = generateAlfaiaKeyframes('c', false);
+                  triggerLeft = true;
+                  triggerRight = true;
+                  animHalo = true;
+                  animHaloOffsetY = -100;
                 }
               }
 
@@ -597,52 +508,35 @@ export const AoVivoOverlay: React.FC = () => {
 
             // --- 3. Mineiro ---
             else if (inst.id === 'mineiro') {
-              let keyframes = KEYFRAMES_MINEIRO_PUSH_WEAK;
-              if (stroke === 'P') keyframes = KEYFRAMES_MINEIRO_PUSH_STRONG;
-              else if (stroke === 'p') keyframes = KEYFRAMES_MINEIRO_PUSH_WEAK;
-              else if (stroke === 'T') keyframes = KEYFRAMES_MINEIRO_PULL_STRONG;
-              else if (stroke === 't') keyframes = KEYFRAMES_MINEIRO_PULL_WEAK;
-              else if (stroke === 'L' || stroke === 'l') keyframes = KEYFRAMES_MINEIRO_LEFT;
-              else if (stroke === 'B' || stroke === 'b') keyframes = KEYFRAMES_MINEIRO_SHAKE;
+              const keyframes = generateMineiroKeyframes(stroke);
 
               if (mineiroStickRef.current) {
                 mineiroStickRef.current.animate(keyframes, {
-                  duration: 350,
-                  easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)'
+                  duration: 300,
+                  fill: 'forwards'
                 });
               }
             }
 
             // --- 4. Agbê ---
             else if (inst.id === 'agbe') {
-              const isShake = stroke === 'B' || stroke === 'b';
-              const isLeftRight = ['D', 'd', 'E', 'e'].includes(stroke);
-              const isTopBottom = ['S', 's', 'V', 'v'].includes(stroke);
-
               if (agbeWholeRef.current && agbeLeftRef.current && agbeRightRef.current && agbeTopRef.current && agbeBottomRef.current) {
-                if (isShake) {
-                  agbeWholeRef.current.style.display = 'block';
-                  agbeLeftRef.current.style.display = 'none';
-                  agbeRightRef.current.style.display = 'none';
+                const isLeftRight = ['D', 'd', 'E', 'e'].includes(stroke);
+                const isTopBottom = ['S', 's', 'V', 'v'].includes(stroke);
+
+                if (isLeftRight) {
+                  agbeWholeRef.current.style.display = 'none';
                   agbeTopRef.current.style.display = 'none';
                   agbeBottomRef.current.style.display = 'none';
-                  
-                  agbeWholeRef.current.animate(KEYFRAMES_AGBE_SHAKE, { duration: 350, easing: 'linear' });
-                } else if (isLeftRight) {
-                  agbeWholeRef.current.style.display = 'none';
                   agbeLeftRef.current.style.display = 'block';
                   agbeRightRef.current.style.display = 'block';
-                  agbeTopRef.current.style.display = 'none';
-                  agbeBottomRef.current.style.display = 'none';
 
-                  if (stroke === 'D') {
-                    agbeRightRef.current.animate(KEYFRAMES_AGBE_STRETCH_X_STRONG, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
-                  } else if (stroke === 'd') {
-                    agbeRightRef.current.animate(KEYFRAMES_AGBE_STRETCH_X_WEAK, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
-                  } else if (stroke === 'E') {
-                    agbeLeftRef.current.animate(KEYFRAMES_AGBE_STRETCH_X_STRONG, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
-                  } else if (stroke === 'e') {
-                    agbeLeftRef.current.animate(KEYFRAMES_AGBE_STRETCH_X_WEAK, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
+                  if (stroke === 'E' || stroke === 'e') {
+                    const keyframes = stroke === 'E' ? KEYFRAMES_AGBE_STRETCH_X_STRONG : KEYFRAMES_AGBE_STRETCH_X_WEAK;
+                    agbeLeftRef.current.animate(keyframes, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
+                  } else {
+                    const keyframes = stroke === 'D' ? KEYFRAMES_AGBE_STRETCH_X_STRONG : KEYFRAMES_AGBE_STRETCH_X_WEAK;
+                    agbeRightRef.current.animate(keyframes, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
                   }
                 } else if (isTopBottom) {
                   agbeWholeRef.current.style.display = 'none';
@@ -651,14 +545,12 @@ export const AoVivoOverlay: React.FC = () => {
                   agbeTopRef.current.style.display = 'block';
                   agbeBottomRef.current.style.display = 'block';
 
-                  if (stroke === 'S') {
-                    agbeTopRef.current.animate(KEYFRAMES_AGBE_STRETCH_Y_STRONG, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
-                  } else if (stroke === 's') {
-                    agbeTopRef.current.animate(KEYFRAMES_AGBE_STRETCH_Y_WEAK, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
-                  } else if (stroke === 'V') {
-                    agbeBottomRef.current.animate(KEYFRAMES_AGBE_STRETCH_Y_STRONG, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
-                  } else if (stroke === 'v') {
-                    agbeBottomRef.current.animate(KEYFRAMES_AGBE_STRETCH_Y_WEAK, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
+                  if (stroke === 'S' || stroke === 's') {
+                    const keyframes = stroke === 'S' ? KEYFRAMES_AGBE_STRETCH_Y_STRONG : KEYFRAMES_AGBE_STRETCH_Y_WEAK;
+                    agbeTopRef.current.animate(keyframes, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
+                  } else {
+                    const keyframes = stroke === 'V' ? KEYFRAMES_AGBE_STRETCH_Y_STRONG : KEYFRAMES_AGBE_STRETCH_Y_WEAK;
+                    agbeBottomRef.current.animate(keyframes, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
                   }
                 } else {
                   agbeWholeRef.current.style.display = 'block';
@@ -667,7 +559,8 @@ export const AoVivoOverlay: React.FC = () => {
                   agbeTopRef.current.style.display = 'none';
                   agbeBottomRef.current.style.display = 'none';
 
-                  agbeWholeRef.current.animate(KEYFRAMES_AGBE_STRETCH_Y_WEAK, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
+                  const keyframes = KEYFRAMES_AGBE_SHAKE;
+                  agbeWholeRef.current.animate(keyframes, { duration: 350, easing: 'linear' });
                 }
               }
             }
@@ -678,8 +571,11 @@ export const AoVivoOverlay: React.FC = () => {
               const handSpread = Math.min(width * 0.45, 550);
               const offset = isLeftHanded ? -handSpread : handSpread;
               
+              const isAlternated = targetStep % 2 === 0;
+              const alternateX = isAlternated ? -25 : 25;
+
               const hitTargetY = (stroke === 'G' || stroke === 'g') ? targetY - 200 : (stroke === 'A' || stroke === 'a') ? targetY + 120 : targetY - 30;
-              const hitTargetX = targetX;
+              const hitTargetX = targetX + (offset * 0.4) + alternateX;
 
               const originX = width / 2 + offset;
               const originY = height + 350;
@@ -695,15 +591,13 @@ export const AoVivoOverlay: React.FC = () => {
                 gongueWrapperRef.current.style.transform = `translateX(-50%) rotate(${angle}deg)`;
               }
 
-              let keyframes: Keyframe[] = KEYFRAMES_GONGUE_MICRO;
-              if (stroke === 'G' || stroke === 'A') keyframes = KEYFRAMES_GONGUE_STRONG;
-              else if (stroke === 'g' || stroke === 'a') keyframes = KEYFRAMES_GONGUE_MICRO;
-              else if (isVibrate) keyframes = KEYFRAMES_SHAKE;
+              const keyframes = generateGongueKeyframes(stroke);
 
               if (gongueStickRef.current) {
                 gongueStickRef.current.animate(keyframes, {
-                  duration: 150,
-                  easing: 'linear'
+                  duration: isVibrate ? 100 : 300,
+                  iterations: isVibrate ? Infinity : 1,
+                  easing: isVibrate ? 'linear' : undefined
                 });
               }
             }
@@ -712,24 +606,16 @@ export const AoVivoOverlay: React.FC = () => {
       }
     };
 
-    window.addEventListener('o-girador-tick', handleTick);
+    subscribeToTick(handleTick);
     return () => {
-      window.removeEventListener('o-girador-tick', handleTick);
+      unsubscribeFromTick(handleTick);
     };
-  }, [isEco, activeAoVivoTrackId, isLeftHanded, tracks]);
-
-  if (isEco || activeAoVivoTrackId === null) return null;
-
-  const activeTrack = tracks.find(t => t.id === activeAoVivoTrackId);
-  if (!activeTrack) return null;
-
-  const inst = instrumentsConfig[activeTrack.instrumentIdx];
-  if (!inst) return null;
+  }, [activeAoVivoTrackId, isLeftHanded, activeTrack, inst]);
 
   // static helper for Agbê net rendering
   const renderNet = () => {
     const numPoints = 80;
-    const radius = 450;
+    const radius = 340;
     const amplitude = 30;
     
     const outerZigZag = [];
@@ -786,16 +672,16 @@ export const AoVivoOverlay: React.FC = () => {
             </div>
             <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center' }}>
               {isLeftHanded ? (
-                <AlfaiaMacaneta ref={leftStickRef} style={{ height: '100%', width: '100%' }} />
+                <AlfaiaMacaneta ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)' }} />
               ) : (
-                <AlfaiaBacalhau ref={leftStickRef} style={{ height: '100%', width: '100%' }} />
+                <AlfaiaBacalhau ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)' }} />
               )}
             </div>
             <div ref={rightWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center' }}>
               {isLeftHanded ? (
-                <AlfaiaBacalhau ref={rightStickRef} style={{ height: '100%', width: '100%' }} />
+                <AlfaiaBacalhau ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)' }} />
               ) : (
-                <AlfaiaMacaneta ref={rightStickRef} style={{ height: '100%', width: '100%' }} />
+                <AlfaiaMacaneta ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)' }} />
               )}
             </div>
           </>
@@ -817,10 +703,33 @@ export const AoVivoOverlay: React.FC = () => {
               <div className="w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] rounded-full border-[8px] border-[#f4ecd8] shadow-[0_0_80px_rgba(255,255,255,1)]" />
             </div>
             <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center' }}>
-              <DrumStick ref={leftStickRef} style={{ height: '100%', width: '100%' }} />
+              <DrumStick ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(25deg)' }} />
             </div>
             <div ref={rightWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center' }}>
-              <DrumStick ref={rightStickRef} style={{ height: '100%', width: '100%' }} />
+              <DrumStick ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(25deg)' }} />
+            </div>
+          </>
+        );
+      }
+
+      case 'timbal': {
+        return (
+          <>
+            <div 
+              ref={haloRef} 
+              className="absolute pointer-events-none opacity-0"
+              style={{
+                transform: 'translate(-50%, -50%) scale(0.6)',
+                zIndex: 5
+              }}
+            >
+              <div className="w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] rounded-full border-[8px] border-[#f4ecd8] shadow-[0_0_80px_rgba(255,255,255,1)]" />
+            </div>
+            <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '600px', transformOrigin: 'bottom center' }}>
+              <TimbalHandLeft ref={leftStickRef} style={{ height: '100%', width: '100%' }} />
+            </div>
+            <div ref={rightWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '600px', transformOrigin: 'bottom center' }}>
+              <TimbalHandRight ref={rightStickRef} style={{ height: '100%', width: '100%' }} />
             </div>
           </>
         );
@@ -861,12 +770,14 @@ export const AoVivoOverlay: React.FC = () => {
       case 'gongue': {
         return (
           <div ref={gongueWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center' }}>
-            <GongueStick ref={gongueStickRef} style={{ height: '100%', width: '100%' }} />
+            <GongueStick ref={gongueStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(4deg)' }} />
           </div>
         );
       }
 
-      case 'voice': {
+      case 'voice':
+      case 'puxador':
+      case 'coro': {
         const currentLivePattern = currentMeasureIdx >= 0
           ? activeTrack.patterns.find(p => p.measureAssignments[currentMeasureIdx])
           : activeTrack.patterns[0];
@@ -899,7 +810,7 @@ export const AoVivoOverlay: React.FC = () => {
               transform: 'translate(-50%, -50%)',
             }}
           >
-            <div className="bg-[#ece4d0]/80 backdrop-blur-[2px] text-[#1a1a1a] border-4 border-[#1a1a1a] shadow-[8px_8px_0_#1a1a1a] p-6 w-full flex flex-col gap-2 font-sans select-none cordel-border">
+            <div className="bg-[#ece4d0]/80 backdrop-blur-[2px] text-[#000000] border-4 border-[#1a1a1a] shadow-[8px_8px_0_#1a1a1a] p-6 w-full flex flex-col gap-2 font-sans select-none cordel-border">
               <div className="text-lg opacity-60 mb-0.5">
                 🎙️
               </div>
@@ -946,4 +857,17 @@ export const AoVivoOverlay: React.FC = () => {
       {renderInstruments()}
     </div>
   );
+};
+
+export const AoVivoOverlay: React.FC = () => {
+  const isEco = useSequencerStore(state => state.isEcoMode);
+  const { activeAoVivoTrackId } = useSequencer();
+
+  // If eco mode is enabled or no track is active for Ao Vivo,
+  // return null immediately, avoiding any animation hook execution (Zero Cost basis).
+  if (isEco || activeAoVivoTrackId === null) {
+    return null;
+  }
+
+  return <AoVivoOverlayInner activeAoVivoTrackId={activeAoVivoTrackId} />;
 };

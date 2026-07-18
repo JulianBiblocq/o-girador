@@ -14,7 +14,11 @@
   --cordel-text: #f4ecd8;
   --cordel-border: #f4ecd8;
   --cordel-wood: #8b2a1a;
+  /* --cordel-master-bg: #121212; -- Old charcoal tint */
+  --cordel-master-bg: #251c1a; /* Deeper earth-red tinted dark background (10% #8b2a1a) */
   --cordel-shadow-color: rgba(0, 0, 0, 0.55); /* Ombre sombre douce en mode nuit */
+  --title-text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  --title-drop-shadow: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
 }
 
 [data-theme='light'] {
@@ -22,7 +26,11 @@
   --cordel-text: #1a1a1a;
   --cordel-border: #1a1a1a;
   --cordel-wood: #8b2a1a;
+  /* --cordel-master-bg: #eae1cd; -- Old antique beige */
+  --cordel-master-bg: #e7d5c1; /* Deeper earth-red tinted light background (12% #8b2a1a) */
   --cordel-shadow-color: rgba(26, 26, 26, 0.25); /* Ombre sombre classique */
+  --title-text-shadow: none;
+  --title-drop-shadow: none;
 }
 
 body {
@@ -58,7 +66,11 @@ body {
   letter-spacing: 2px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  text-shadow: var(--title-text-shadow);
+}
+
+#header-title-text {
+  filter: var(--title-drop-shadow);
 }
 
 .font-cactus {
@@ -127,6 +139,26 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
+  background: #eaddcf;
+}
+
+/* Specific wider scrollbar for the linear sequencer instrument tracks */
+#timeline-scroll-container::-webkit-scrollbar {
+  width: 16px;
+  height: 10px;
+}
+
+#timeline-scroll-container::-webkit-scrollbar-track {
+  background: #181310;
+}
+
+#timeline-scroll-container::-webkit-scrollbar-thumb {
+  background: #3e332c;
+  border: 2px solid #eaddcf;
+  border-radius: 4px;
+}
+
+#timeline-scroll-container::-webkit-scrollbar-thumb:hover {
   background: #eaddcf;
 }
 
@@ -249,30 +281,40 @@ body {
   appearance: none;
   writing-mode: vertical-lr;
   direction: rtl;
-  width: 28px;
-  height: 180px;
+  width: 24px;
+  height: 100%;
   outline: none;
   background: transparent;
 }
 .vertical-fader::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 38px;
+  width: 32px;
   height: 20px;
   background: var(--fader-thumb-bg, var(--cordel-border));
-  border: 3px solid var(--fader-thumb-border, var(--cordel-bg));
+  border: 2.5px solid var(--fader-thumb-border, var(--cordel-bg));
   box-shadow: 0 2px 5px var(--cordel-shadow-color);
   cursor: pointer;
   border-radius: 0;
 }
 .vertical-fader::-moz-range-thumb {
-  width: 38px;
+  width: 32px;
   height: 20px;
   background: var(--fader-thumb-bg, var(--cordel-border));
-  border: 3px solid var(--fader-thumb-border, var(--cordel-bg));
+  border: 2.5px solid var(--fader-thumb-border, var(--cordel-bg));
   box-shadow: 0 2px 5px var(--cordel-shadow-color);
   cursor: pointer;
   border-radius: 0;
+}
+.fader-reverb::-webkit-slider-thumb {
+  width: 24px !important;
+  height: 16px !important;
+  border-width: 2.5px !important;
+}
+.fader-reverb::-moz-range-thumb {
+  width: 24px !important;
+  height: 16px !important;
+  border-width: 2.5px !important;
 }
 .vertical-fader::-webkit-slider-runnable-track {
   background: transparent;
@@ -725,3 +767,323 @@ body.eco-mode #center-afficheur {
   filter: none !important;
   box-shadow: none !important;
 }
+
+/* --- iOS Safari Auto-Zoom Prevention --- */
+/* 🛡️ FIX (Audit P2): Prevent iOS Safari from zooming in on input focus
+   when font-size is < 16px. Uses @supports for iOS-only targeting. */
+@supports (-webkit-touch-callout: none) {
+  /* Step grid inputs (pattern cells) — keep visual size but prevent zoom */
+  .step-boxes input[type="text"],
+  .v-card input[type="text"] {
+    font-size: 16px !important;
+    /* Scale down visually to preserve the compact layout */
+    transform: scale(0.625);
+    transform-origin: center center;
+    width: 160% !important;
+    height: 160% !important;
+    margin: -30% !important;
+  }
+
+  /* Number inputs (steps count, BPM, etc.) */
+  input[type="number"] {
+    font-size: 16px !important;
+  }
+}
+
+.will-change-transform {
+  will-change: transform, background-color, border-color;
+  transform: translateZ(0);
+}
+
+/* Styles pour la timeline d'affichage rythmique pure (ConsoleMixer) */
+.visual-timeline-grid {
+  display: grid;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  pointer-events: none;
+  background-color: color-mix(in srgb, var(--cordel-text) 3%, transparent);
+  padding: 6px;
+  border: 1.5px solid var(--cordel-border, #1a1a1a);
+  box-shadow: 2px 2px 0px var(--cordel-shadow-color);
+}
+
+.visual-timeline-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  height: auto;
+  user-select: none;
+  pointer-events: none;
+  background-color: color-mix(in srgb, var(--cordel-text) 3%, transparent);
+  padding: 6px;
+  border: 1.5px solid var(--cordel-border, #1a1a1a);
+  box-shadow: 2px 2px 0px var(--cordel-shadow-color);
+}
+
+.visual-step-led {
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 14px;
+  background-color: color-mix(in srgb, var(--cordel-text) 10%, transparent);
+  border-radius: 1px;
+  transition: background-color 0.08s ease, transform 0.08s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.visual-step-led.has-hit {
+  border: 1.5px solid var(--cordel-border, #1a1a1a);
+}
+
+.visual-step-led.is-active {
+  background-color: var(--color-wood-red, #8b2a1a) !important;
+  transform: scale(1.2);
+  box-shadow: 0 0 6px var(--color-wood-red, #8b2a1a);
+}
+
+.visual-step-symbol {
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 1;
+  font-family: var(--font-cactus, monospace);
+  color: inherit;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* GPU Accelerated Fade-in View Animation */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* GPU Accelerated Fade-out View Animation */
+@keyframes fadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.fade-in-view {
+  animation: fadeIn 0.25s ease-out forwards;
+  will-change: opacity;
+}
+
+.fade-in-view-slow {
+  animation: fadeIn 0.35s ease-out forwards;
+  will-change: opacity;
+}
+
+.fade-out-view {
+  animation: fadeOut 0.12s ease-in forwards;
+  will-change: opacity;
+}
+
+/* Xilogravura Feedback module styles */
+.xilo-feedback-container {
+  /* Force light theme variables locally so all nested elements match the light-paper aesthetic in dark mode */
+  --cordel-bg: #f4ecd8;
+  --cordel-text: #1a1a1a;
+  --cordel-border: #1a1a1a;
+  --cordel-shadow-color: rgba(26, 26, 26, 0.25);
+
+  border: 4px solid var(--cordel-border);
+  border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  background-color: var(--cordel-bg);
+  color: var(--cordel-text);
+  box-shadow: 4px 6px 0px 0px rgba(0, 0, 0, 0.85);
+  padding: 1.25rem;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.xilo-rating-group {
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  gap: 0.375rem;
+}
+
+.xilo-mandala {
+  display: inline-block;
+  width: 2.25rem;
+  height: 2.25rem;
+  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.xilo-mandala svg .mandala-bg {
+  fill: transparent;
+  stroke: var(--cordel-border, #1a1a1a);
+  stroke-width: 3.5px;
+  transition: fill 0.2s ease, stroke 0.2s ease;
+}
+
+.xilo-mandala svg .mandala-details {
+  stroke: var(--cordel-border, #1a1a1a);
+  stroke-width: 2px;
+  fill: none;
+  transition: stroke 0.2s ease, fill 0.2s ease;
+}
+
+/* Selected state: Filled with ink */
+.xilo-mandala.is-active svg .mandala-bg {
+  fill: var(--cordel-border, #1a1a1a);
+}
+
+.xilo-mandala.is-active svg .mandala-details {
+  stroke: var(--cordel-bg, #f4ecd8);
+}
+
+/* Pure CSS Hover state: hover highlighting itself and all previous (visually left, HTML sibling-after) mandalas */
+.xilo-mandala:hover {
+  transform: scale(1.18);
+}
+
+.xilo-mandala:hover svg .mandala-bg,
+.xilo-mandala:hover ~ .xilo-mandala svg .mandala-bg {
+  fill: var(--cordel-border, #1a1a1a) !important;
+}
+
+.xilo-mandala:hover svg .mandala-details,
+.xilo-mandala:hover ~ .xilo-mandala svg .mandala-details {
+  stroke: var(--cordel-bg, #f4ecd8) !important;
+}
+
+/* Uncontrolled Paper-colored Textarea */
+.xilo-textarea {
+  background-color: #fcf9f2;
+  color: var(--cordel-border, #1a1a1a);
+  border: 3px solid var(--cordel-border, #1a1a1a);
+  border-radius: 8px 12px 6px 10px / 10px 6px 12px 8px;
+  font-family: inherit;
+  font-size: 0.825rem;
+  line-height: 1.25rem;
+  outline: none;
+  padding: 0.5rem;
+  resize: none;
+  width: 100%;
+  box-shadow: inset 1px 1.5px 3px rgba(0, 0, 0, 0.12);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.xilo-textarea:focus {
+  border-color: var(--color-wood-red, #8b2a1a);
+  box-shadow: inset 2px 2px 4px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--color-wood-red, #8b2a1a);
+}
+
+/* Carved Wood submit block button */
+.xilo-submit-btn {
+  background-color: var(--cordel-border, #1a1a1a);
+  color: var(--cordel-bg, #f4ecd8);
+  border: 3px solid var(--cordel-border, #1a1a1a);
+  border-radius: 4px 6px 3px 5px / 5px 3px 6px 4px;
+  font-family: var(--font-cactus, monospace);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.65rem 1rem;
+  box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.85);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.xilo-submit-btn:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 3px 3px 0px 0px rgba(0, 0, 0, 0.85);
+}
+
+.xilo-submit-btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0.85);
+}
+
+/* Digital Fader (DragNumberBox with fill gauge) */
+.digital-fader {
+  position: relative;
+  background-color: transparent !important;
+  border: 2px solid var(--fader-border-color, var(--cordel-border, #1a1a1a));
+  color: var(--fader-text-color, var(--cordel-text, #1a1a1a));
+  box-shadow: 1px 1px 0 var(--fader-border-color, var(--cordel-border, #1a1a1a));
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+/* Pseudo-element for fill gauge */
+.digital-fader::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--fill-left, 0%);
+  width: var(--fill-width, 0%);
+  background-color: var(--fader-fill-color, currentColor);
+  opacity: 0.12;
+  transition: opacity 0.15s ease;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Active fill gauge state during drag */
+.digital-fader.is-dragging::before {
+  opacity: 0.30;
+}
+
+/* Center vertical line for bipolar mode */
+.digital-fader::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--zero-pos, 50%);
+  width: 2px;
+  background-color: var(--fader-border-color, currentColor);
+  opacity: 0.2;
+  z-index: 1;
+  pointer-events: none;
+  display: var(--show-center-line, none);
+}
+
+/* Ensure child text content sits on top of absolute pseudo-elements */
+.digital-fader > span {
+  position: relative;
+  z-index: 2;
+}
+
+
+/* Master Volume Fader Visual Thumb with Gravure double-border */
+.master-fader-thumb {
+  border: 4px double var(--cordel-border, #1a1a1a) !important;
+  box-shadow: 1px 1px 0 var(--cordel-border, #1a1a1a) !important;
+}
+
+/* Master console strip double border frame & custom background */
+.cordel-master-strip {
+  border: 5px double var(--cordel-border, #1a1a1a);
+  background-color: var(--cordel-master-bg, var(--cordel-bg));
+  box-shadow: 0 4px 10px var(--cordel-shadow-color);
+  border-radius: 3px;
+}
+
+/* Eliminate 300ms click delay on mobile/tablet devices by disabling double-tap zoom */
+button,
+[role="button"],
+.cursor-pointer,
+select,
+input,
+textarea {
+  touch-action: manipulation;
+}
+
+
+
+
+

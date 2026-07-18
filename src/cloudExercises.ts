@@ -161,6 +161,37 @@ export async function saveProgressionToCloud(
   return docRef.id;
 }
 
+export async function saveOrUpdateProgressionToCloud(
+  id: string | null,
+  name: string,
+  progressionData: any,
+  ownerId: string
+): Promise<string> {
+  const dataString = LZString.compressToBase64(JSON.stringify(progressionData));
+
+  if (id) {
+    const docRef = doc(db, PROGRESSIONS_COLLECTION, id);
+    await updateDoc(docRef, {
+      name,
+      data: dataString,
+      lastUpdatedAt: Date.now()
+    });
+    return id;
+  } else {
+    const exists = await checkProgressionNameExists(ownerId, name);
+    if (exists) {
+      throw new Error('NAME_EXISTS');
+    }
+    const docRef = await addDoc(collection(db, PROGRESSIONS_COLLECTION), {
+      name,
+      data: dataString,
+      ownerId,
+      createdAt: Date.now()
+    });
+    return docRef.id;
+  }
+}
+
 export async function fetchMestreProgressions(ownerId: string, lastVisibleDoc?: any): Promise<{ progressions: CloudProgression[], lastDoc: any }> {
   // 🛡️ FIX (Audit): Added pagination support with startAfter
   let q = query(

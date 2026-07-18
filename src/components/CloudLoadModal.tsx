@@ -25,10 +25,10 @@ export function CloudLoadModal({ isOpen, onClose, ownerId, activeTab, onLoadExer
       try {
         if (activeTab === 'cordes' || activeTab === 'varal') {
           const progressions = await fetchMestreProgressions(ownerId);
-          setItems(progressions);
+          setItems(progressions.progressions || []);
         } else {
           const exercises = await fetchMestreExercises(ownerId, activeTab as GameType);
-          setItems(exercises);
+          setItems(exercises.exercises || []);
         }
       } catch (err) {
         console.error("Error fetching cloud items", err);

@@ -31,21 +31,68 @@ function buildFlatSongSchedule(
     const maxTicks = beats * (96 / beatUnit);
 
     tracks.forEach((track: any, trackIdx: number) => {
+      if (track.isBusFolder) return;
+
       const inst = instConfig[track.instrumentIdx];
       if (!inst || inst.type === 'voice') return;
 
       let activePattern: any = null;
       let canPlay = false;
 
-      if (isSoloPlayActive) {
-        const isTargetSoloTrack = track.patterns.some((p: any) => p.id === soloPatternPlayId);
-        if (isTargetSoloTrack) {
-          activePattern = track.patterns.find((p: any) => p.id === soloPatternPlayId);
-          canPlay = true;
+      const isLinkedChild = track.linkedToTrackId && !track.isLinkFolder;
+
+      if (isLinkedChild) {
+        const master = tracks.find((t: any) => String(t.id) === String(track.linkedToTrackId));
+        if (master) {
+          if (isSoloPlayActive) {
+            const pattern = master.patterns.find((p: any) => p.id === soloPatternPlayId);
+            if (pattern) {
+              activePattern = pattern;
+              canPlay = true;
+            }
+          } else {
+            const override = track.isLinkMaster ? undefined : track.patternOverrides?.[measureIdx];
+            if (override === null) {
+              activePattern = null;
+              canPlay = false;
+            } else if (override !== undefined) {
+              activePattern = master.patterns.find((p: any) => p.id === override);
+              canPlay = true;
+            } else {
+              activePattern = master.patterns.find((p: any) => p.measureAssignments[measureIdx]);
+              canPlay = true;
+            }
+          }
         }
       } else {
-        activePattern = track.patterns.find((p: any) => p.measureAssignments[measureIdx]);
-        canPlay = hasSolo ? track.isSolo : !track.isMute;
+        let sourceTrack = track;
+        if (track.linkedToTrackId) {
+          const master = tracks.find((t: any) => String(t.id) === String(track.linkedToTrackId));
+          if (master) {
+            sourceTrack = master;
+          }
+        }
+
+        if (isSoloPlayActive) {
+          let patternIdx = track.patterns.findIndex((p: any) => p.id === soloPatternPlayId);
+          if (patternIdx === -1 && sourceTrack !== track) {
+            patternIdx = sourceTrack.patterns.findIndex((p: any) => p.id === soloPatternPlayId);
+          }
+          if (patternIdx !== -1) {
+            activePattern = sourceTrack.patterns[patternIdx] || sourceTrack.patterns[0];
+            canPlay = true;
+          } else {
+            const hasSoloPattern = track.patterns.some((p: any) => p.id === soloPatternPlayId) || 
+                                   sourceTrack.patterns.some((p: any) => p.id === soloPatternPlayId);
+            if (hasSoloPattern) {
+              activePattern = sourceTrack.patterns.find((p: any) => p.id === soloPatternPlayId) || sourceTrack.patterns[0];
+              canPlay = true;
+            }
+          }
+        } else {
+          activePattern = sourceTrack.patterns.find((p: any) => p.measureAssignments[measureIdx]);
+          canPlay = true;
+        }
       }
 
       if (!activePattern || !canPlay) return;
@@ -126,13 +173,22 @@ function buildFlatSongSchedule(
           if (targetKey === 't') targetKey = 'B';
         }
 
-        const baseVol = effectiveVolumes?.[step] ?? 80;
+        let baseVol = effectiveVolumes?.[step] ?? 80;
+        if (baseVol === null || isNaN(baseVol)) baseVol = 80;
         const volVariation = (nextRandom() * 2 - 1) * (baseVol * 0.15);
         let finalVol = Math.max(0, Math.min(100, baseVol + volVariation));
+        if (isNaN(finalVol)) finalVol = 80;
 
         const stepVolMultiplier = finalVol / 100;
-        const stepDecayMultiplier = (effectiveDecays?.[step] ?? 100) / 100;
-        const microtimingPct = effectiveMicrotimings?.[step] ?? 0;
+
+        let rawDecay = effectiveDecays?.[step] ?? 100;
+        if (rawDecay === null || isNaN(rawDecay)) rawDecay = 100;
+        let stepDecayMultiplier = rawDecay / 100;
+        if (isNaN(stepDecayMultiplier) || stepDecayMultiplier < 0) stepDecayMultiplier = 1.0;
+
+        let rawMicro = effectiveMicrotimings?.[step] ?? 0;
+        if (rawMicro === null || isNaN(rawMicro)) rawMicro = 0;
+        const microtimingPct = rawMicro;
 
         const isTuplet = stepIsTupletMap[step] || false;
         const absoluteTick = accumulatedTicks + tickIdx;

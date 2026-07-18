@@ -43,11 +43,13 @@ export interface CustomExercise {
 }
 
 interface GameDataContextType {
+  activeVarals: VaralConfigData[];
   varalConfig: VaralConfigData;
   customExercises: CustomExercise[];
   completedExerciseIds: string[];
   pendingVaralUpdate: VaralConfigData | null;
   loadVaralConfig: (data: VaralConfigData) => void;
+  setSelectedVaral: (data: VaralConfigData) => void;
   addExercise: (data: any) => void;
   removeExercise: (id: string) => void;
   clearAllData: () => void;
@@ -61,6 +63,7 @@ const GameDataContext = createContext<GameDataContextType | undefined>(undefined
 export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { userProfile, loading } = useAuth();
   
+  const [activeVarals, setActiveVarals] = useState<VaralConfigData[]>([]);
   const [varalConfig, setVaralConfig] = useState<VaralConfigData>(() => {
     try {
       const saved = localStorage.getItem('oGirador_varal');
@@ -101,7 +104,28 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const docSnap = await getDoc(docRef);
         
         if (docSnap.exists()) {
-          const fetchedData = docSnap.data() as VaralConfigData;
+          const fetchedData = docSnap.data();
+          let varalList: VaralConfigData[] = [];
+          if (fetchedData.activeVarals && Array.isArray(fetchedData.activeVarals)) {
+            varalList = fetchedData.activeVarals;
+          } else {
+            // Legacy single configuration
+            varalList = [fetchedData as VaralConfigData];
+          }
+          setActiveVarals(varalList);
+
+          // Find saved selected varal or default to first
+          const savedSelectedId = localStorage.getItem('oGirador_selected_varal_id');
+          let selected = varalList.find(v => v.id === savedSelectedId) || null;
+          if (!selected && varalList.length > 0) {
+            selected = varalList[0];
+          }
+
+          if (selected) {
+            setVaralConfig(selected);
+            localStorage.setItem('oGirador_varal', JSON.stringify(selected));
+          }
+
           const ignoredVersionStr = localStorage.getItem('oGirador_ignored_varal_version');
           const ignoredVersion = ignoredVersionStr ? parseInt(ignoredVersionStr, 10) : 0;
           
@@ -120,14 +144,11 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
           // Vérification de la version si on a une progression
           const hasProgress = currentProgress.length > 0;
-          const isNewerVersion = fetchedData.versionId && varalConfig.versionId && fetchedData.versionId > varalConfig.versionId;
+          const isNewerVersion = selected && fetchedData.versionId && selected.versionId && fetchedData.versionId > selected.versionId;
           const isNotIgnored = !fetchedData.versionId || fetchedData.versionId > ignoredVersion;
           
           if (hasProgress && isNewerVersion && isNotIgnored) {
-            setPendingVaralUpdate(fetchedData);
-          } else {
-            setVaralConfig(fetchedData);
-            localStorage.setItem('oGirador_varal', JSON.stringify(fetchedData));
+            setPendingVaralUpdate(fetchedData as VaralConfigData);
           }
         }
       } catch (err) {
@@ -140,7 +161,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const customExercises = useMemo(() => {
     const exercises: CustomExercise[] = [];
-    if (varalConfig.cordes) {
+    if (varalConfig && varalConfig.cordes) {
       varalConfig.cordes.forEach(corde => {
         if (corde.games && Array.isArray(corde.games)) {
           corde.games.forEach(game => {
@@ -157,12 +178,21 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     localStorage.setItem('oGirador_varal', JSON.stringify(data));
   };
 
+  const setSelectedVaral = (data: VaralConfigData) => {
+    setVaralConfig(data);
+    localStorage.setItem('oGirador_varal', JSON.stringify(data));
+    if (data.id) {
+      localStorage.setItem('oGirador_selected_varal_id', data.id);
+    }
+  };
+
   const addExercise = (data: any) => {};
   const removeExercise = (id: string) => {};
 
   const clearAllData = () => {
     setVaralConfig(defaultVaralConfig as VaralConfigData);
     localStorage.removeItem('oGirador_varal');
+    localStorage.removeItem('oGirador_selected_varal_id');
   };
 
   const completeExercise = (id: string) => {
@@ -195,19 +225,18 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const ignorePendingVaralUpdate = () => {
     if (pendingVaralUpdate && pendingVaralUpdate.versionId) {
       localStorage.setItem('oGirador_ignored_varal_version', pendingVaralUpdate.versionId.toString());
-      // We don't discard the pending update entirely, we keep it in state so the student can update later via the UI button
-      // But they've actively chosen to ignore it for now. Actually, if we keep it in state, the prompt might re-appear.
-      // Wait, let's keep it in state, but the UI component will use `ignorePendingVaralUpdate` to just dismiss the modal.
     }
   };
 
   return (
     <GameDataContext.Provider value={{ 
+      activeVarals,
       varalConfig, 
       customExercises, 
       completedExerciseIds,
       pendingVaralUpdate,
       loadVaralConfig, 
+      setSelectedVaral,
       addExercise, 
       removeExercise, 
       clearAllData,

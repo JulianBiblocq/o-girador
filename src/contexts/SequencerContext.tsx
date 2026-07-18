@@ -5,7 +5,6 @@
 
 import React, { createContext, useContext, useRef, useState } from 'react';
 import { useSequencerState } from '../hooks/useSequencerState';
-import { useVocalRecorder } from '../hooks/useVocalRecorder';
 import { audioEngine, channels, masterVolumeNode } from '../hooks/useAudioSync';
 
 import { useSequencerStore } from '../stores/useSequencerStore';
@@ -19,8 +18,7 @@ export interface CustomDialogState {
   onResolve: (value: any) => void;
 }
 
-export type SequencerContextType = ReturnType<typeof useSequencerState> &
-  ReturnType<typeof useVocalRecorder> & {
+export type SequencerContextType = ReturnType<typeof useSequencerState> & {
     isPlayingRef: React.MutableRefObject<boolean>;
     currentStepIndexRef: React.MutableRefObject<number>;
     measureCountRef: React.MutableRefObject<number>;
@@ -32,6 +30,24 @@ export type SequencerContextType = ReturnType<typeof useSequencerState> &
     alertAsync: (message: string) => Promise<void>;
     confirmAsync: (message: string, confirmLabel?: string, cancelLabel?: string) => Promise<boolean>;
     promptAsync: (message: string, defaultValue?: string) => Promise<string | null>;
+    isRecordingVocal?: boolean;
+    recordingVocalPatternId?: number | null;
+    recordedPatternIds?: number[];
+    startVocalRecording?: any;
+    stopVocalRecording?: any;
+    handleVocalModeChange?: any;
+    handleDeleteVocalRecording?: any;
+    handleVocalLatencyChange?: any;
+    audioDevices?: any[];
+    selectedAudioDeviceId?: string;
+    handleAudioDeviceChange?: any;
+    handleImportVocalFile?: any;
+    isVocalGuideEnabled?: boolean;
+    setIsVocalGuideEnabled?: any;
+    handleVocalBpmSyncToggle?: any;
+    activeVariationsRef?: any;
+    runAutoCalibration?: any;
+    vocalCalibrationLatencyMs?: number;
   };
 
 const SequencerContext = createContext<SequencerContextType | undefined>(undefined);
@@ -68,24 +84,8 @@ export const SequencerProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   };
 
-  const vocalRecorder = useVocalRecorder({
-    pushUndoState: sequencerState.pushUndoState,
-    bpm: sequencerState.bpm,
-    measureBpms: sequencerState.measureBpms,
-    totalMeasures: totalMeasures,
-    audioEngine,
-    setIsPlaying: (val) => setIsPlayingRef.current(val),
-    channels,
-    masterVolumeNode,
-    isPlayingRef,
-    measureCountRef,
-    currentStepIndexRef,
-    lastPlayedSignalIdRef,
-  });
-
   const value: SequencerContextType = {
     ...sequencerState,
-    ...vocalRecorder,
     isPlayingRef,
     currentStepIndexRef,
     measureCountRef,

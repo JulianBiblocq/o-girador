@@ -40,13 +40,15 @@ async function optimizeFile(filePath) {
   // Pour le reste, 32 kHz permet de garder la brillance des aigus sans saturer le main thread au décodage.
   const fileNameOrPath = filePath.toLowerCase();
   const isBassInstrument = fileNameOrPath.includes('alfaia') || fileNameOrPath.includes('surdo');
-  const targetFrequency = isBassInstrument ? 22050 : 32000;
+  const isHighFreq = fileNameOrPath.includes('agbe') || fileNameOrPath.includes('timbal');
+  const targetFrequency = isBassInstrument ? 22050 : (isHighFreq ? 44100 : 32000);
+  const targetBitrate = isHighFreq ? '128k' : '64k';
   
   return new Promise((resolve, reject) => {
     ffmpeg(filePath)
       .audioFrequency(targetFrequency)
       .audioChannels(1) // Force mono (1 canal)
-      .audioBitrate('64k') // Bitrate mono optimisé pour format OGG
+      .audioBitrate(targetBitrate) // Bitrate mono optimisé pour format OGG
       .output(tempPath)
       .on('end', () => {
         try {

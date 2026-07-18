@@ -1,130 +1,232 @@
-import React, { useState, useEffect, useRef } from 'react';
-import type * as ToneType from 'tone';
-import { loadTone, getTone } from '@/src/ToneLoader';
-import { channels, reverbSends, masterVolumeNode, masterEQNode, masterCompressorNode, metroChannel, masterReverbVolumeNode } from '../hooks/useAudioSync';
-import { useSequencerStore } from '../stores/useSequencerStore';
-import { instrumentsConfig } from '../data';
+import React, { useEffect, useRef } from 'react';
+import { getTone } from '@/src/ToneLoader';
+import { channels, reverbSends, masterVolumeNode, masterEQNode, masterCompressorNode, metroChannel, masterReverbVolumeNode, reverbNode } from '../hooks/useAudioSync';
 
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
 }
 
-interface AudioFaderProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
+interface AudioFaderProps {
   value: number;
   onChange: (val: number) => void;
-  audioTarget?: 'trackVolume' | 'trackPan' | 'trackReverb' | 'masterVolume' | 'metroVolume' | 'eqLow' | 'eqMid' | 'eqHigh' | 'compThreshold' | 'compRatio' | 'masterReverbVol';
+  audioTarget?: 'trackVolume' | 'trackPan' | 'trackReverb' | 'masterVolume' | 'metroVolume' | 'eqLow' | 'eqMid' | 'eqHigh' | 'compThreshold' | 'compRatio' | 'masterReverbVol' | 'reverbDecay';
   trackId?: number;
+  min?: string | number;
+  max?: string | number;
+  step?: string | number;
+  className?: string;
+  style?: React.CSSProperties;
 }
 
-export const AudioFader: React.FC<AudioFaderProps> = ({ value, onChange, audioTarget, trackId, ...props }) => {
-  const [localVal, setLocalVal] = useState(value);
-  const throttleTimeoutRef = useRef<any>(null);
+export const AudioFader: React.FC<AudioFaderProps> = ({ 
+  value, 
+  onChange, 
+  audioTarget, 
+  trackId, 
+  min = 0, 
+  max = 100, 
+  step = 1, 
+  className, 
+  style 
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const visualThumbRef = useRef<HTMLDivElement>(null);
+  
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const isDraggingRef = useRef(false);
+  const rectRef = useRef<DOMRect | null>(null);
+  const lastAudioUpdateTimeRef = useRef(0);
+  const THROTTLE_MS = 25; // 40 Hz limit
 
-  useEffect(() => {
-    // Si l'utilisateur est en train de glisser sous son doigt,
-    // on ignore les mises à jour descendantes de Zustand pour éviter le saut visuel.
-    if (!isDraggingRef.current) {
-      setLocalVal(value);
+  const numMin = parseFloat(String(min));
+  const numMax = parseFloat(String(max));
+  const numStep = parseFloat(String(step));
+
+  const getPercentage = (val: number) => {
+    if (numMax === numMin) return 0;
+    return ((val - numMin) / (numMax - numMin)) * 100;
+  };
+
+  const updateLabelText = (val: number) => {
+    const containerEl = containerRef.current;
+    if (!containerEl) return;
+    let label = containerEl.parentElement?.querySelector('.fader-val-label');
+    if (!label && containerEl.parentElement?.parentElement) {
+      label = containerEl.parentElement.parentElement.querySelector('.fader-val-label');
     }
-  }, [value]);
-
-  useEffect(() => {
-    return () => {
-      if (throttleTimeoutRef.current) {
-        clearTimeout(throttleTimeoutRef.current);
+    if (label) {
+      if (audioTarget === 'masterReverbVol' || audioTarget === 'masterVolume') {
+        label.textContent = val === -40 ? 'Mute' : `${val > 0 ? '+' : ''}${val} dB`;
+      } else if (audioTarget === 'trackVolume' || audioTarget === 'metroVolume') {
+        label.textContent = `${Math.round(val)}%`;
+      } else if (audioTarget === 'trackReverb') {
+        label.textContent = `${Math.round(val)}`;
+      } else if (audioTarget === 'eqLow' || audioTarget === 'eqMid' || audioTarget === 'eqHigh') {
+        label.textContent = `${val > 0 ? '+' : ''}${val} dB`;
+      } else if (audioTarget === 'compThreshold') {
+        label.textContent = `${val} dB`;
+      } else if (audioTarget === 'compRatio') {
+        label.textContent = `${val.toFixed(1)}:1`;
+      } else if (audioTarget === 'reverbDecay') {
+        label.textContent = `${val.toFixed(1)} s`;
       }
-    };
-  }, []);
-
-  // Écrit dans Zustand au maximum toutes les 60ms pour protéger l'Event Loop
-  const throttledUpdate = (val: number) => {
-    if (!throttleTimeoutRef.current) {
-      throttleTimeoutRef.current = setTimeout(() => {
-        throttleTimeoutRef.current = null;
-        React.startTransition(() => {
-          onChangeRef.current(val);
-        });
-      }, 60);
     }
   };
 
-  const handleDrag = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    setLocalVal(val);
-
-    let instId: string | null = null;
-    if (trackId !== undefined) {
-      const track = useSequencerStore.getState().tracks.find(t => t.id === trackId);
-      if (track) {
-        const inst = instrumentsConfig[track.instrumentIdx];
-        if (inst) {
-          instId = inst.id;
-        }
-      }
+  const updateAudio = (val: number, force = false) => {
+    const now = performance.now();
+    if (!force && now - lastAudioUpdateTimeRef.current < THROTTLE_MS) {
+      return;
     }
+    lastAudioUpdateTimeRef.current = now;
 
-    // Règle 1 : Mutation Audio Directe immédiate (Direct-to-WebAudio) avec 0.05s de lissage
-    if (audioTarget === 'trackVolume' && instId && channels[instId]) {
+    // Direct-to-WebAudio with 0.05s smoothing
+    if (audioTarget === 'trackVolume' && trackId !== undefined && channels[trackId]) {
       const gain = Math.max(0.00001, val / 100);
       const db = val === 0 ? -Infinity : safeGetTone()!.gainToDb(gain);
-      channels[instId].volume.rampTo(db, 0.05);
-    } else if (audioTarget === 'trackPan' && instId && channels[instId]) {
-      channels[instId].pan.rampTo(val / 100, 0.05);
-    } else if (audioTarget === 'trackReverb' && instId && reverbSends[instId]) {
+      channels[trackId].volume.rampTo(db, 0.05);
+    } else if (audioTarget === 'trackPan' && trackId !== undefined && channels[trackId]) {
+      channels[trackId].pan.rampTo(val / 100, 0.05);
+    } else if (audioTarget === 'trackReverb' && trackId !== undefined && reverbSends[trackId]) {
       const gain = Math.max(0.00001, val / 100);
-      reverbSends[instId].gain.rampTo(val === 0 ? 0 : safeGetTone()!.dbToGain(safeGetTone()!.gainToDb(gain)), 0.05);
+      const targetDb = val === 0 ? -Infinity : safeGetTone()!.gainToDb(gain);
+      try {
+        if (reverbSends[trackId].gain.units === 'decibels') {
+          reverbSends[trackId].gain.rampTo(targetDb, 0.05);
+        } else {
+          reverbSends[trackId].gain.rampTo(val === 0 ? 0 : gain, 0.05);
+        }
+      } catch (err) {
+        console.warn("Could not set fader reverb level:", err);
+      }
     } else if (audioTarget === 'masterVolume' && masterVolumeNode) {
       masterVolumeNode.gain.rampTo(safeGetTone()?.dbToGain(val === -40 ? -Infinity : val), 0.05);
     } else if (audioTarget === 'metroVolume' && metroChannel) {
       const gain = Math.max(0.00001, val / 100);
       metroChannel.volume.rampTo(val === 0 ? -Infinity : safeGetTone()!.gainToDb(gain), 0.05);
     } else if (audioTarget === 'eqLow' && masterEQNode) {
-      masterEQNode.low.rampTo(val, 0.05);
+      masterEQNode.low.linearRampToValueAtTime(val, (safeGetTone()?.now() ?? 0) + 0.05);
     } else if (audioTarget === 'eqMid' && masterEQNode) {
-      masterEQNode.mid.rampTo(val, 0.05);
+      masterEQNode.mid.linearRampToValueAtTime(val, (safeGetTone()?.now() ?? 0) + 0.05);
     } else if (audioTarget === 'eqHigh' && masterEQNode) {
-      masterEQNode.high.rampTo(val, 0.05);
+      masterEQNode.high.linearRampToValueAtTime(val, (safeGetTone()?.now() ?? 0) + 0.05);
     } else if (audioTarget === 'compThreshold' && masterCompressorNode) {
-      masterCompressorNode.threshold.rampTo(val, 0.05);
+      masterCompressorNode.threshold.linearRampToValueAtTime(val, (safeGetTone()?.now() ?? 0) + 0.05);
     } else if (audioTarget === 'compRatio' && masterCompressorNode) {
-      masterCompressorNode.ratio.rampTo(val, 0.05);
+      masterCompressorNode.ratio.linearRampToValueAtTime(val, (safeGetTone()?.now() ?? 0) + 0.05);
     } else if (audioTarget === 'masterReverbVol' && masterReverbVolumeNode) {
       masterReverbVolumeNode.gain.rampTo(safeGetTone()?.dbToGain(val === -40 ? -Infinity : val), 0.05);
+    } else if (audioTarget === 'reverbDecay' && reverbNode) {
+      try {
+        reverbNode.decay = val;
+      } catch (err) {
+        console.warn("Error setting reverb decay:", err);
+      }
     }
-
-    throttledUpdate(val);
   };
 
-  // Commit final pour s'assurer que la valeur est synchronisée dans Zustand
-  const handleCommit = (e: React.SyntheticEvent) => {
-    const val = parseFloat((e.target as HTMLInputElement).value);
-    isDraggingRef.current = false;
-    if (throttleTimeoutRef.current) {
-      clearTimeout(throttleTimeoutRef.current);
-      throttleTimeoutRef.current = null;
+  useEffect(() => {
+    if (!isDraggingRef.current) {
+      const pct = getPercentage(value);
+      if (visualThumbRef.current) {
+        visualThumbRef.current.style.left = `${pct}%`;
+      }
+      updateLabelText(value);
+      updateAudio(value, true);
     }
-    React.startTransition(() => {
-      onChangeRef.current(val);
-    });
+  }, [value, audioTarget, trackId]);
+
+  const calculateValueFromPointer = (clientX: number) => {
+    const rect = rectRef.current;
+    if (!rect) return value;
+    const relativeX = clientX - rect.left;
+    
+    let ratio = relativeX / rect.width;
+    ratio = Math.min(1, Math.max(0, ratio));
+    
+    let val = numMin + ratio * (numMax - numMin);
+    
+    // Align with step
+    const steps = Math.round((val - numMin) / numStep);
+    val = numMin + steps * numStep;
+    
+    val = Math.min(numMax, Math.max(numMin, val));
+    return val;
   };
 
-  const handlePointerDown = () => {
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
     isDraggingRef.current = true;
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch (_) {}
+
+    if (containerRef.current) {
+      rectRef.current = containerRef.current.getBoundingClientRect();
+    }
+
+    const val = calculateValueFromPointer(e.clientX);
+    
+    // Direct DOM updates
+    const pct = getPercentage(val);
+    if (visualThumbRef.current) {
+      visualThumbRef.current.style.left = `${pct}%`;
+    }
+    updateLabelText(val);
+    updateAudio(val, true);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    e.preventDefault();
+    
+    const val = calculateValueFromPointer(e.clientX);
+
+    // Direct DOM updates
+    const pct = getPercentage(val);
+    if (visualThumbRef.current) {
+      visualThumbRef.current.style.left = `${pct}%`;
+    }
+    updateLabelText(val);
+    updateAudio(val, false);
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+
+    const val = calculateValueFromPointer(e.clientX);
+    updateAudio(val, true);
+    onChange(val);
   };
 
   return (
-    <input
-      type="range"
-      value={localVal}
-      onChange={handleDrag}
+    <div
+      ref={containerRef}
       onPointerDown={handlePointerDown}
-      onPointerUp={handleCommit}
-      onKeyUp={handleCommit}
-      onBlur={handleCommit}
-      {...props}
-    />
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      className={`relative select-none touch-none cursor-pointer ${className || ''}`}
+      style={{
+        ...style,
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center'
+      }}
+    >
+      {/* Visual thumb inside the rail */}
+      <div
+        ref={visualThumbRef}
+        className="absolute w-3 h-4 bg-[var(--cordel-border)] border border-[var(--cordel-bg)] -translate-x-1/2 -translate-y-1/2 top-1/2 pointer-events-none"
+        style={{
+          left: `${getPercentage(value)}%`
+        }}
+      />
+    </div>
   );
 };

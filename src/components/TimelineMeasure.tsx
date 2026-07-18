@@ -1,0 +1,457 @@
+import React from 'react';
+import { TimelineStep } from './TimelineStep';
+import { Trash2, Mic } from 'lucide-react';
+import { useAudioStore } from '../stores/useAudioStore';
+import { vocalEngineService } from '../audio/vocalEngineService';
+
+interface TimelineMeasureProps {
+  mIdx: number;
+  trackId: number;
+  trackIdx: number;
+  instrumentIdx: number;
+  currentMeasureW: number;
+  patternId: number;
+  patternIdx: number;
+  steps: number;
+  beatResolutions?: number[];
+  sectionColor: string;
+  isSectionStart: boolean;
+  isSectionEnd: boolean;
+  loopStatus: 'inside-active' | 'outside-active' | 'none';
+  isPanningActive: boolean;
+  instId: string;
+  instType: string;
+  lang: string;
+  activePatternName: string | null;
+  patternsList: Array<{ id: number; name: string; vocalMode?: string }>;
+  signalDropdownOpen: number | null;
+  onPatternAssignForMeasure: (trackId: number, patternId: number | null | undefined, mIdx: number) => void;
+  onPatternVariationToggleForMeasure: (trackId: number, patternId: number, mIdx: number, value: boolean) => void;
+  measureAllowVariations: boolean;
+  variationsCount: number;
+  isMacro: boolean;
+  isMinZoom: boolean;
+  instColors: Record<string, string>;
+  instMixerBg: string;
+  activePatternActiveSteps?: any[];
+  onMeasureClick: (mIdx: number, steps: number, clickX: number) => void;
+  isLinkedChild?: boolean;
+  isLinkMaster?: boolean;
+  isOverridden?: boolean;
+  isSilence?: boolean;
+  hasChildOverrides?: boolean;
+  onStepTouchStart?: (
+    e: React.MouseEvent | React.TouchEvent,
+    patternId: number,
+    stepIdx: number,
+    instId: string,
+    currentVal: string | number,
+    onSelect: (val: string) => void
+  ) => void;
+}
+
+const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
+  mIdx,
+  trackId,
+  trackIdx,
+  instrumentIdx,
+  currentMeasureW,
+  patternId,
+  patternIdx,
+  steps,
+  beatResolutions,
+  sectionColor,
+  isSectionStart,
+  isSectionEnd,
+  loopStatus,
+  isPanningActive,
+  instId,
+  instType,
+  lang,
+  activePatternName,
+  patternsList,
+  signalDropdownOpen,
+  onPatternAssignForMeasure,
+  onPatternVariationToggleForMeasure,
+  measureAllowVariations,
+  variationsCount,
+  isMacro,
+  isMinZoom,
+  instColors,
+  instMixerBg,
+  activePatternActiveSteps,
+  onMeasureClick,
+  isLinkedChild,
+  isLinkMaster,
+  isOverridden,
+  isSilence,
+  hasChildOverrides,
+  onStepTouchStart,
+}) => {
+  const hasAudio = useAudioStore((state) => !!state.vocalBlobs[patternId]);
+  const targetPatternId = useAudioStore((state) => state.targetPatternId);
+  const isArmed = targetPatternId === patternId;
+
+  const handleMicroClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newArmed = !isArmed;
+    console.log(`🎙️ [VOCAL DEBUG] 1. Bouton Arm cliqué. targetPatternId: ${patternId}, measureIdx: ${mIdx}, isArmed: ${newArmed}`);
+    if (isArmed) {
+      useAudioStore.getState().setTargetPatternId(null);
+      useAudioStore.getState().setTargetMeasureIdx(null);
+    } else {
+      useAudioStore.getState().setTargetPatternId(patternId);
+      useAudioStore.getState().setTargetMeasureIdx(mIdx);
+    }
+  };
+
+  const handleCellClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isPanningActive) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    onMeasureClick(mIdx, steps, clickX);
+
+    if (instType === 'voice' && patternId !== -1) {
+      useAudioStore.getState().setSelectedVocalPatternId(patternId);
+    }
+  };
+
+  const loopBgClass = loopStatus === 'inside-active' 
+    ? 'bg-blue-600/[0.03]' 
+    : loopStatus === 'outside-active' 
+      ? 'bg-black/10 dark:bg-black/30 opacity-70' 
+      : '';
+
+  const isSlave = isLinkedChild && !isLinkMaster;
+  const isFollowingMaster = isSlave && !isOverridden;
+
+  return (
+    <div
+      className={`h-full cursor-pointer border-r shrink-0 ${
+        (mIdx + 1) % 4 === 0
+          ? 'border-r-2 border-r-blue-500/40 dark:border-r-blue-400/40 shadow-[1px_0_0_0_rgba(59,130,246,0.15)]'
+          : 'border-r-[var(--cordel-border)]/20'
+      } ${loopBgClass} ${
+        sectionColor ? 'cell-section-tint' : ''
+      } ${
+        isSectionStart ? 'cell-section-start' : ''
+      } ${
+        isSectionEnd ? 'cell-section-end' : ''
+      }`}
+      style={{ 
+        width: currentMeasureW, 
+        minWidth: currentMeasureW,
+        contain: 'layout paint style',
+        opacity: isFollowingMaster ? 0.45 : 1.0,
+        ...({ '--section-color': sectionColor } as React.CSSProperties)
+      }}
+      onClick={handleCellClick}
+    >
+      {/* Detailed View */}
+      {!isMacro && (
+        <div className="cell-detailed w-full h-full relative">
+          <div 
+            className={`absolute top-1 left-1 z-20 flex items-center gap-1 ${isPanningActive ? 'pointer-events-none opacity-65' : ''}`}
+            onClick={e => e.stopPropagation()}
+            onMouseDown={e => e.stopPropagation()}
+            onTouchStart={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-1 bg-[var(--cordel-bg)]/80 hover:bg-[var(--cordel-bg)]/95 border border-[var(--cordel-border)]/20 hover:border-[var(--cordel-border)]/50 rounded px-1.5 py-px shadow-sm max-w-[125px] relative h-[20px]">
+              <span className="text-[10px] font-cactus font-bold tracking-wider uppercase truncate leading-tight select-none pr-2.5">
+                {isFollowingMaster && <span className="mr-0.5 opacity-60">🔗</span>}
+                {activePatternName || (lang === 'fr' ? 'Silence' : 'Silêncio')}
+                {hasChildOverrides && <span className="text-amber-500 ml-1 font-sans" title={lang === 'fr' ? 'Variation individuelle active' : 'Variação individual activa'}>✦</span>}
+              </span>
+              <span className="text-[7px] opacity-50 absolute right-1 top-1/2 -translate-y-1/2">▼</span>
+              
+              <select
+                value={isSlave && !isOverridden ? 'follow' : (patternId !== -1 && !isSilence ? String(patternId) : 'silence')}
+                onChange={e => {
+                  const v = e.target.value;
+                  onPatternAssignForMeasure(
+                    trackId,
+                    v === 'follow' ? undefined : (v === 'silence' ? null : Number(v)),
+                    mIdx,
+                  );
+                }}
+                className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
+                title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
+              >
+                {isSlave && (
+                  <option value="follow" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                    {lang === 'fr' ? '🔗 Suivre le maître' : '🔗 Seguir mestre'}
+                  </option>
+                )}
+                <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                  {lang === 'fr' ? '— Silence' : '— Silêncio'}
+                </option>
+                {patternsList.map((p, pidx) => (
+                  <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                    {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {patternId !== -1 && instType !== 'voice' && instId !== 'apito' && variationsCount > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPatternVariationToggleForMeasure(trackId, patternId, mIdx, !measureAllowVariations);
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className={`px-1 py-px rounded text-[10px] border transition-colors flex items-center justify-center h-[20px] ${
+                  measureAllowVariations 
+                    ? 'bg-[#f1c40f] text-black border-yellow-600 shadow-[0_0_4px_rgba(241,196,15,0.6)]' 
+                    : 'bg-[#2a2a2a] text-white/90 border-black/50 hover:bg-[#3a3a3a]'
+                }`}
+                title={
+                  measureAllowVariations 
+                    ? (lang === 'fr' ? 'Mode Improvisation activé' : 'Modo Improvisação ativado')
+                    : (lang === 'fr' ? 'Mode Strict (sans variation)' : 'Modo Estrito (sem variação)')
+                }
+              >
+                🎲
+              </button>
+            )}
+          </div>
+
+          {patternId !== -1 && instType === 'voice' && (
+            <div className="absolute bottom-1.5 right-1.5 bg-[#27ae60] text-white border border-black/20 font-sans font-bold text-[8px] px-1 py-px rounded-sm z-20 pointer-events-none select-none flex items-center gap-0.5 shadow-sm">
+              🎙️ MIC
+            </div>
+          )}
+
+          {patternId === -1 ? (
+            <div
+              className="w-full h-full opacity-15"
+              style={{
+                backgroundImage: 'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
+                backgroundSize: '10px 10px',
+              }}
+            />
+          ) : (
+            <div className="flex h-full w-full pointer-events-none">
+              {Array.from({ length: steps }).map((_, sIdx) => (
+                <TimelineStep
+                  key={sIdx}
+                  trackId={trackId}
+                  patternId={patternId}
+                  measureIdx={mIdx}
+                  stepIdx={sIdx}
+                  stepsCount={steps}
+                  trackIdx={trackIdx}
+                  patternIdx={patternIdx}
+                  instrumentIdx={instrumentIdx}
+                  beatResolutions={beatResolutions}
+                  onStepTouchStart={onStepTouchStart}
+                />
+              ))}
+
+              {instType === 'voice' && !hasAudio && (
+                <button
+                  onClick={handleMicroClick}
+                  className={`absolute right-1.5 bottom-1.5 p-1 rounded-sm border transition-colors cursor-pointer z-20 ${
+                    isArmed 
+                      ? 'bg-red-600 text-white border-red-700 animate-pulse shadow-sm shadow-red-600/50' 
+                      : 'bg-gray-400/20 hover:bg-gray-400/40 text-gray-500 hover:text-gray-700 dark:text-gray-400 border-gray-400/30'
+                  }`}
+                  title={lang === 'fr' ? "Armer pour l'enregistrement vocal" : "Armar para gravação de voz"}
+                >
+                  <Mic className="w-3 h-3" />
+                </button>
+              )}
+
+              {instType === 'voice' && hasAudio && (
+                <div 
+                  className="absolute inset-0 z-10 flex items-center justify-between px-3 border border-[#1a1a1a]/40 pointer-events-none"
+                  style={{
+                    backgroundColor: instId === 'coro' ? 'rgba(179, 220, 216, 0.2)' : 'rgba(233, 204, 168, 0.2)',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08' /%3E%3C/svg%3E")`,
+                  }}
+                >
+                  <div 
+                    className="flex-grow flex items-center justify-center pointer-events-auto cursor-pointer opacity-85 hover:opacity-100 transition-opacity"
+                    title={lang === 'fr' ? "Ajuster la latence et le calage" : "Ajuster latência e calagem"}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      let blob = useAudioStore.getState().vocalBlobs[patternId];
+                      if (!blob) {
+                        blob = await vocalEngineService.loadVocalRecording(patternId) || undefined;
+                      }
+                      if (blob) {
+                        useAudioStore.getState().setTempRecording({ patternId, blob });
+                      }
+                    }}
+                  >
+                    <svg className="w-full h-8 max-w-[120px]" viewBox="0 0 100 30" fill="none" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M 5,15 Q 12,5 18,15 T 30,15 T 42,28 T 55,10 T 68,22 T 80,15 T 95,15" />
+                      <path d="M 8,15 Q 15,22 22,12 T 35,18 T 48,5 T 62,25 T 75,10 T 88,18" opacity="0.6" strokeWidth="1.5" />
+                    </svg>
+                  </div>
+                  <button
+                    onClick={handleMicroClick}
+                    className={`p-1 rounded-sm border transition-colors cursor-pointer z-20 pointer-events-auto mr-1 ${
+                      isArmed 
+                        ? 'bg-red-600 text-white border-red-700 animate-pulse shadow-sm shadow-red-600/50' 
+                        : 'bg-gray-400/20 hover:bg-gray-400/40 text-gray-500 hover:text-gray-700 dark:text-gray-400 border-gray-400/30'
+                    }`}
+                    title={lang === 'fr' ? "Armer pour réenregistrer" : "Armar para regravar"}
+                  >
+                    <Mic className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(lang === 'fr' ? "Supprimer l'enregistrement audio ?" : "Excluir a gravação de áudio?")) {
+                        vocalEngineService.deleteVocalRecording(patternId);
+                      }
+                    }}
+                    className="p-1 hover:bg-[#8b2a1a]/15 text-[#8b2a1a] rounded transition-colors z-20 border border-transparent hover:border-[#8b2a1a]/30 cursor-pointer pointer-events-auto"
+                    title={lang === 'fr' ? "Supprimer l'audio" : "Excluir áudio"}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Macro View */}
+      {isMacro && (
+        <div className="cell-macro w-full h-full p-1 relative">
+          {patternId === -1 ? (
+            <>
+              <div
+                className="w-full h-full opacity-[0.05] border border-dashed border-[var(--cordel-border)]/30 rounded"
+                style={{
+                  backgroundImage: 'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
+                  backgroundSize: '8px 8px',
+                }}
+              />
+              {!isMinZoom && (
+                <select
+                  value="silence"
+                  onChange={e => {
+                    const v = e.target.value;
+                    onPatternAssignForMeasure(
+                      trackId,
+                      v === 'silence' ? null : Number(v),
+                      mIdx,
+                    );
+                  }}
+                  className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
+                  title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
+                >
+                  <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                    {lang === 'fr' ? '— Silence' : '— Silêncio'}
+                  </option>
+                  {patternsList.map((p, pidx) => (
+                    <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                      {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </>
+          ) : (
+            <div
+              className={`macro-pattern-block w-full h-full flex ${
+                isMinZoom ? 'flex-row justify-center items-center p-1' : 'flex-col justify-center p-1.5'
+              } border rounded-sm transition-all relative`}
+              style={{
+                backgroundColor: `${instMixerBg}cc`,
+                borderColor: `${instColors['D'] || instColors['E'] || 'var(--cordel-border)'}40`,
+                borderLeftWidth: '3px',
+                borderLeftColor: instColors['D'] || instColors['E'] || 'var(--cordel-border)',
+              }}
+              title={`${activePatternName || (lang === 'fr' ? 'Motif' : 'Padrão')} (${instColors['text']})`}
+            >
+              {!isMinZoom && (
+                <>
+                  <span className="font-cactus text-[9px] font-bold truncate tracking-wider uppercase text-[var(--cordel-text)] pr-3">
+                    {activePatternName}
+                  </span>
+                  <span className="text-[6px] opacity-40 absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none">▼</span>
+                  
+                  <select
+                    value={patternId !== -1 ? String(patternId) : 'silence'}
+                    onChange={e => {
+                      const v = e.target.value;
+                      onPatternAssignForMeasure(
+                        trackId,
+                        v === 'silence' ? null : Number(v),
+                        mIdx,
+                      );
+                    }}
+                    className="absolute inset-0 w-full h-full bg-transparent text-transparent border-none cursor-pointer z-10 appearance-none outline-none"
+                    title={lang === 'fr' ? 'Choisir un motif' : 'Escolher um padrão'}
+                  >
+                    <option value="silence" className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                      {lang === 'fr' ? '— Silence' : '— Silêncio'}
+                    </option>
+                    {patternsList.map((p, pidx) => (
+                      <option key={p.id} value={String(p.id)} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-sans font-bold">
+                        {p.vocalMode === 'micro' ? '🎙️ ' : ''}{p.name || `${lang === 'fr' ? 'Motif' : 'Padrão'} ${pidx + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+
+              {isMinZoom && (
+                <div className="flex items-center opacity-90 overflow-hidden w-full h-full pb-0.5">
+                  <div className="flex flex-wrap gap-[2px] justify-center w-full">
+                    {activePatternActiveSteps?.map((val: any, sIdx: number) => {
+                      const isActive = val !== 0 && val !== '';
+                      if (!isActive) return null;
+                      const bg = instColors[val as string] || '#111';
+                      return (
+                        <span
+                          key={sIdx}
+                          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: bg }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export const TimelineMeasure = React.memo(TimelineMeasureComponent, (prev, next) => {
+  return prev.mIdx === next.mIdx &&
+         prev.trackId === next.trackId &&
+         prev.trackIdx === next.trackIdx &&
+         prev.instrumentIdx === next.instrumentIdx &&
+         prev.currentMeasureW === next.currentMeasureW &&
+         prev.patternId === next.patternId &&
+         prev.patternIdx === next.patternIdx &&
+         prev.steps === next.steps &&
+         prev.sectionColor === next.sectionColor &&
+         prev.isSectionStart === next.isSectionStart &&
+         prev.isSectionEnd === next.isSectionEnd &&
+         prev.loopStatus === next.loopStatus &&
+         prev.isPanningActive === next.isPanningActive &&
+         prev.lang === next.lang &&
+         prev.activePatternName === next.activePatternName &&
+         prev.measureAllowVariations === next.measureAllowVariations &&
+         prev.signalDropdownOpen === next.signalDropdownOpen &&
+         prev.isMacro === next.isMacro &&
+         prev.isMinZoom === next.isMinZoom &&
+         prev.activePatternActiveSteps === next.activePatternActiveSteps &&
+         prev.isLinkedChild === next.isLinkedChild &&
+         prev.isLinkMaster === next.isLinkMaster &&
+         prev.isOverridden === next.isOverridden;
+});

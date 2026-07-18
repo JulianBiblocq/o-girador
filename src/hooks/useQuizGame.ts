@@ -62,7 +62,7 @@ export function useQuizGame({ lang, onSuccess, exerciseData }: UseQuizGameProps)
     setIsPlayingAudio(true);
     
     audio.play().catch((err) => {
-      console.warn("Audio playback blocked or failed:", err);
+      // console.warn("Audio playback blocked or failed:", err);
       setIsPlayingAudio(false);
     });
 

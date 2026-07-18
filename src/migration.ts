@@ -59,6 +59,8 @@ export function migrateCirclesToTracks(circles: Circle[], totalMeasures: number)
       radius: groupCircles[0].radius,
       reverbVal: 0,
       panVal: 0,
+      pan: 0,
+      fxSends: { reverb: 0, distortion: 0 }
     };
     tracks.push(track);
   });
