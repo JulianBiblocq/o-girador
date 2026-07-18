@@ -5,7 +5,7 @@ import { useAuth, UserProfile, UserRole } from '../contexts/AuthContext';
 import { Shield, ShieldAlert, CheckCircle, Search, User as UserIcon } from 'lucide-react';
 
 export const AdminPanel: React.FC = () => {
-  const { userProfile } = useAuth();
+  const { userProfile, isAdmin } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -81,7 +81,7 @@ export const AdminPanel: React.FC = () => {
     user.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (userProfile?.role !== 'admin') {
+  if (!isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8 text-center text-[var(--cordel-text)]">
         <ShieldAlert size={64} className="mb-4 text-[#8b2a1a]" />

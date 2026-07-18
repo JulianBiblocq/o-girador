@@ -87,8 +87,8 @@ interface MainWorkspaceLayoutProps {
     currentVal: string | number,
     onSelect: (val: string) => void
   ) => void;
-  activeRightPanel: 'legend' | 'letras' | 'info' | 'feedback' | null;
-  onToggleRightPanel: (panel: 'legend' | 'letras' | 'info' | 'feedback', force?: boolean) => void;
+  activeRightPanel: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais' | null;
+  onToggleRightPanel: (panel: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais', force?: boolean) => void;
 }
 
 export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
@@ -157,6 +157,7 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
                   onStepTouchStart={onStepTouchStart}
                   isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'mixer')}
                   setEditingTrackId={handleSetEditingTrackId}
+                  isMobile={isMobile}
                 />
               )}
             </ErrorBoundary>

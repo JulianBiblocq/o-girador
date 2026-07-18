@@ -53,13 +53,17 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    function clickOutside(e: MouseEvent) {
+    function clickOutside(e: MouseEvent | TouchEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setInstDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', clickOutside);
-    return () => document.removeEventListener('mousedown', clickOutside);
+    document.addEventListener('touchstart', clickOutside);
+    return () => {
+      document.removeEventListener('mousedown', clickOutside);
+      document.removeEventListener('touchstart', clickOutside);
+    };
   }, []);
 
   const {

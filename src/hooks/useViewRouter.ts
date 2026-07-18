@@ -24,7 +24,7 @@ export type ViewMode =
 
 interface UseViewRouterOptions {
   audio: AudioContextType;
-  setActiveRightPanel: (panel: 'legend' | 'letras' | 'info' | null) => void;
+  setActiveRightPanel: (panel: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais' | null) => void;
 }
 
 export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptions) {

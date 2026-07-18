@@ -2,10 +2,13 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Eye, EyeOff, GripVertical } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
+import { i18n, instrumentsConfig, ASSETS_BASE_URL, getVisualStrokeSymbol, isDarkText } from '../data';
 import { useSequencerStore, isToadaBus } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
 import { XiloChisel } from './XiloIcons';
+import { CompactPatternRenderer } from './CompactPatternRenderer';
+import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
+import { getNextStepValue } from '../utils/instrumentStrokes';
 
 interface TrackMixerProps {
   trackId: number;
@@ -15,6 +18,16 @@ interface TrackMixerProps {
   isActive?: boolean;
   isDragOver?: boolean;
   dropIndicator?: 'top' | 'bottom' | null;
+  isMobile?: boolean;
+  onStepTouchStart?: (
+    e: React.MouseEvent | React.TouchEvent,
+    patternId: number,
+    stepIdx: number,
+    instId: string,
+    currentVal: string | number,
+    onSelect: (val: string) => void,
+    trackId?: number
+  ) => void;
 }
 
 const TrackMixerComponent: React.FC<TrackMixerProps> = ({
@@ -25,6 +38,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   isActive = true,
   isDragOver = false,
   dropIndicator = null,
+  isMobile = false,
+  onStepTouchStart,
 }) => {
   const lang = useSequencerStore(state => state.lang);
   const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
@@ -32,6 +47,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
   const tracks = useSequencerStore(state => state.tracks);
   const isMaster = useSequencerStore(state => state.tracks.some(t => String(t.linkedToTrackId) === String(trackId)));
+  const isTracksCollapsed = useSequencerStore(state => state.isTracksCollapsed);
+  const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
+  const isPlaying = useSequencerStore(state => state.isPlaying);
+  const currentMeasure = useSequencerStore(state => state.currentMeasure);
 
   const onInstrumentChange = (instIdx: number) => {
     useSequencerStore.getState().handleTrackInstrumentIdxChange(trackId, instIdx);
@@ -56,13 +75,17 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: MouseEvent | TouchEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setInstDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   const isToada = track ? isToadaBus(track) : false;
@@ -78,7 +101,6 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       if (coro && coro.patterns.some(p => p.id === globalSelectedId)) return coro;
     }
     
-    const currentMeasure = useSequencerStore.getState().currentMeasure;
     const coroPtn = coro?.patterns.find(p => p.measureAssignments[currentMeasure]);
     if (coroPtn) return coro;
     
@@ -86,10 +108,106 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     if (puxPtn) return pux;
     
     return coro || pux || null;
-  }, [isToada, tracks]);
+  }, [isToada, tracks, currentMeasure]);
 
   const effectiveTrack = isToada ? (activeChildTrack || track) : track;
   const inst = effectiveTrack ? instrumentsConfig[effectiveTrack.instrumentIdx] : null;
+
+  const activePattern = useMemo(() => {
+    if (!effectiveTrack) return null;
+    const override = effectiveTrack.patternOverrides?.[currentMeasure];
+    if (override === null) return null;
+    if (override !== undefined) {
+      return effectiveTrack.patterns?.find(p => p.id === override) || null;
+    }
+    return effectiveTrack.patterns?.find(p => p.measureAssignments?.[currentMeasure]) || effectiveTrack.patterns?.[0] || null;
+  }, [effectiveTrack, currentMeasure]);
+
+  const cellRefs = useRef<Record<number, HTMLInputElement>>({});
+  const lastActiveStepRef = useRef<number>(-1);
+
+  const registerStepRef = (stepIdx: number, el: HTMLInputElement | null) => {
+    if (el) {
+      cellRefs.current[stepIdx] = el;
+    } else {
+      delete cellRefs.current[stepIdx];
+    }
+  };
+
+  useEffect(() => {
+    if (isTracksCollapsed || !isMobile) {
+      if (lastActiveStepRef.current !== -1) {
+        const lastIdx = lastActiveStepRef.current;
+        if (cellRefs.current[lastIdx]) {
+          const el = cellRefs.current[lastIdx];
+          el.style.boxShadow = '';
+          el.style.borderColor = '';
+        }
+        lastActiveStepRef.current = -1;
+      }
+      return;
+    }
+
+    const handleTick = (detail: { step: number; ratio?: number }) => {
+      const ratio = detail.ratio ?? 0;
+      if (!activePattern) return;
+      const targetStep = Math.floor(ratio * activePattern.steps);
+      const lastStep = lastActiveStepRef.current;
+
+      if (targetStep === lastStep) return;
+
+      if (lastStep !== -1 && cellRefs.current[lastStep]) {
+        const prevEl = cellRefs.current[lastStep];
+        prevEl.style.boxShadow = '';
+        prevEl.style.borderColor = '';
+      }
+
+      if (cellRefs.current[targetStep]) {
+        const newEl = cellRefs.current[targetStep];
+        newEl.style.boxShadow = '0 0 10px #b23b25';
+        newEl.style.borderColor = '#b23b25';
+      }
+
+      lastActiveStepRef.current = targetStep;
+    };
+
+    subscribeToTick(handleTick);
+    return () => {
+      unsubscribeFromTick(handleTick);
+      if (lastActiveStepRef.current !== -1) {
+        const lastIdx = lastActiveStepRef.current;
+        if (cellRefs.current[lastIdx]) {
+          const el = cellRefs.current[lastIdx];
+          el.style.boxShadow = '';
+          el.style.borderColor = '';
+        }
+      }
+    };
+  }, [isTracksCollapsed, isMobile, activePattern]);
+
+  const handleStepClick = (e: React.MouseEvent | React.TouchEvent, stepIdx: number, val: string | number) => {
+    e.stopPropagation();
+    if (!activePattern || !inst || !track) return;
+    const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
+    
+    if (onStepTouchStart) {
+      onStepTouchStart(
+        e,
+        activePattern.id,
+        stepIdx,
+        inst.id,
+        visualVal,
+        (newVal) => {
+          useSequencerStore.getState().handleTrackStepValueChange(track.id, activePattern.id, stepIdx, newVal);
+        },
+        track.id
+      );
+    } else {
+      const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
+      const nextSemanticVal = getVisualStrokeSymbol(nextVisualVal, isLeftHanded, inst.id);
+      useSequencerStore.getState().handleTrackStepValueChange(track.id, activePattern.id, stepIdx, String(nextSemanticVal));
+    }
+  };
 
   const slaves = tracks.filter(t => String(t.linkedToTrackId) === String(trackId));
   const getPluralName = (name: string) => {
@@ -133,10 +251,14 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
   if (!track || !inst) return null;
 
+  const isUnfolded = isMobile && !isTracksCollapsed;
+
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col relative transition-all duration-300 w-full justify-center h-[76px] min-h-[76px] border-b-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] px-3 py-1 ${
+      className={`flex flex-col relative transition-all duration-300 w-full justify-center border-b-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] px-3 ${
+        isUnfolded ? 'h-auto min-h-[156px] py-2' : 'h-[76px] min-h-[76px] py-1'
+      } ${
         isDragOver ? 'ring-4 ring-[var(--cordel-wood)] shadow-[0_0_20px_var(--cordel-wood)] z-30 scale-[1.01] border-[var(--cordel-wood)]' : ''
       }`}
       style={{
@@ -358,6 +480,30 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
           )}
         </div>
       </div>
+
+      {isUnfolded && activePattern && (
+        <div className="mt-2 w-full select-none relative z-[2]">
+          <CompactPatternRenderer
+            pattern={activePattern}
+            inst={inst}
+            isLeftHanded={isLeftHanded}
+            isEditable={true}
+            isFluid={true}
+            className="w-full mb-0"
+            isLinkFolder={track.isLinkFolder}
+            tracks={tracks}
+            trackId={String(track.id)}
+            readOnly={false}
+            registerStepRef={registerStepRef}
+            onStepClick={(e, stepIdx, val) => handleStepClick(e, stepIdx, val)}
+            onStepValueChange={(stepIdx, val) => {
+              if (activePattern) {
+                useSequencerStore.getState().handleTrackStepValueChange(track.id, activePattern.id, stepIdx, val);
+              }
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };

@@ -149,6 +149,18 @@ export const VocalValidationModal: React.FC = () => {
     return secs;
   }, [measureBpms, measureTimeSigs, bpm]);
 
+  const storeTargetMeasureIdx = useAudioStore((state) => state.targetMeasureIdx);
+  const initialMeasureIdx = storeTargetMeasureIdx !== null
+    ? storeTargetMeasureIdx
+    : (targetPattern && targetPattern.measureAssignments.indexOf(true) !== -1
+        ? targetPattern.measureAssignments.indexOf(true)
+        : 0);
+
+  const startMeasureIdx = Math.max(0, initialMeasureIdx - 1);
+  const recordingStartTimelineSec = useAudioStore((state) => state.recordingStartTimelineSec);
+  const recordingStartSec = recordingStartTimelineSec ?? getElapsedSeconds(startMeasureIdx);
+  const preRollDurationSec = getElapsedSeconds(initialMeasureIdx) - recordingStartSec;
+
   // Decode audio data on mount
   useEffect(() => {
     if (!tempRecording) return;
@@ -156,7 +168,6 @@ export const VocalValidationModal: React.FC = () => {
     let active = true;
     setLoading(true);
     setAudioBuffer(null);
-    setNudgeMs(0);
 
     const decode = async () => {
       try {
@@ -166,13 +177,79 @@ export const VocalValidationModal: React.FC = () => {
         const buffer = await rawCtx.decodeAudioData(arrayBuffer);
         if (active) {
           setAudioBuffer(buffer);
-          setTrimStartMs(0);
+          
+          let startTrimVal = 0;
+          let initialNudgeVal = 0;
+
+          // @ts-ignore
+          const hasExistingRecording = targetPattern?.vocalMode === 'micro' && targetPattern?.vocalNudge !== undefined;
+          
+          if (hasExistingRecording) {
+            // @ts-ignore
+            startTrimVal = targetPattern.vocalTrimStart || 0;
+            // @ts-ignore
+            initialNudgeVal = targetPattern.vocalNudge || 0;
+            console.log(`🎙️ [VOCAL DEBUG] Reopened existing recording. Initializing nudge: ${initialNudgeVal} ms, trimStart: ${startTrimVal} ms`);
+          } else {
+            // BRAND NEW RECORDING -> AUTO-SNAP (threshold detection)
+            // 1. Detect onset (first amplitude peak >= 0.015 over 10ms window)
+            const threshold = 0.015;
+            const windowSizeMs = 10;
+            const channelData = buffer.getChannelData(0);
+            const sampleRate = buffer.sampleRate;
+            const windowSizeSamples = Math.floor((windowSizeMs / 1000) * sampleRate);
+            
+            let firstAudioOnsetSec = 0;
+            for (let i = 0; i < channelData.length; i += windowSizeSamples) {
+              let maxVal = 0;
+              const end = Math.min(channelData.length, i + windowSizeSamples);
+              for (let j = i; j < end; j++) {
+                const absVal = Math.abs(channelData[j]);
+                if (absVal > maxVal) maxVal = absVal;
+              }
+              if (maxVal >= threshold) {
+                firstAudioOnsetSec = i / sampleRate;
+                break;
+              }
+            }
+            
+            console.log(`🎙️ [VOCAL DEBUG] Detected voice onset at: ${firstAudioOnsetSec.toFixed(3)}s`);
+            
+            // Set trim start to 100ms before onset to avoid cutting the breath/attack
+            startTrimVal = Math.max(0, (firstAudioOnsetSec - 0.1) * 1000);
+            
+            // 2. Align first audio onset with first note in the pattern
+            const storeTargetMeasureIdx = useAudioStore.getState().targetMeasureIdx;
+            const initialMeasureIdx = storeTargetMeasureIdx !== null
+              ? storeTargetMeasureIdx
+              : (targetPattern && targetPattern.measureAssignments.indexOf(true) !== -1
+                  ? targetPattern.measureAssignments.indexOf(true)
+                  : 0);
+            
+            const startMeasureIdx = Math.max(0, initialMeasureIdx - 1);
+            
+            // Get exact recording start timeline second from the store
+            const recordingStartSec = useAudioStore.getState().recordingStartTimelineSec ?? getElapsedSeconds(startMeasureIdx);
+            
+            const preRollDurationSec = getElapsedSeconds(initialMeasureIdx) - recordingStartSec;
+            
+            const patternBpm = measureBpms[initialMeasureIdx] || bpm;
+            const firstNoteOffsetSec = vocalEngineService.getPatternFirstNoteOffset(targetPattern!, patternBpm);
+            
+            const firstNoteTimeInRecordingSec = preRollDurationSec + firstNoteOffsetSec;
+            
+            initialNudgeVal = (firstNoteTimeInRecordingSec - firstAudioOnsetSec) * 1000;
+            console.log(`🎙️ [VOCAL DEBUG] Auto-snap calibration: recordingStartSec: ${recordingStartSec.toFixed(3)}s, preRollDurationSec: ${preRollDurationSec.toFixed(3)}s, firstNoteTimeInRecordingSec: ${firstNoteTimeInRecordingSec.toFixed(3)}s, autoNudge: ${initialNudgeVal.toFixed(1)} ms, trimStart: ${startTrimVal.toFixed(1)} ms`);
+          }
+
+          setNudgeMs(initialNudgeVal);
+          setTrimStartMs(startTrimVal);
           setTrimEndMs(buffer.duration * 1000);
           setLoading(false);
-          console.log(`ðï¸ [VOCAL DEBUG] Audio decoded successfully. Duration: ${buffer.duration.toFixed(2)}s`);
+          console.log(`🎙️ [VOCAL DEBUG] Audio decoded successfully. Duration: ${buffer.duration.toFixed(2)}s`);
         }
       } catch (err) {
-        console.error('ðï¸ [VOCAL DEBUG] Error decoding temporary recording:', err);
+        console.error('🎙️ [VOCAL DEBUG] Error decoding temporary recording:', err);
         if (active) setLoading(false);
       }
     };
@@ -184,7 +261,7 @@ export const VocalValidationModal: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [tempRecording, handleStop]);
+  }, [tempRecording, handleStop, targetPattern, bpm, measureBpms, getElapsedSeconds]);
 
   // Draw waveform on canvas with Trim overlay visual guides
   useEffect(() => {
@@ -208,17 +285,17 @@ export const VocalValidationModal: React.FC = () => {
       ctx.fillRect(x, 0, 1, height);
     }
 
-    // Pre-roll zone visual guide (first 500ms is pre-roll, so t = 0 to 0.5s)
+    // Pre-roll zone visual guide (dynamic pre-roll)
     ctx.fillStyle = 'rgba(42, 93, 78, 0.08)'; // Cactus green tint
-    ctx.fillRect(0, 0, 0.5 * PIXELS_PER_SECOND, height);
+    ctx.fillRect(0, 0, preRollDurationSec * PIXELS_PER_SECOND, height);
 
-    // Vertical line at note trigger point (t = 0.5s)
+    // Vertical line at note trigger point
     ctx.strokeStyle = '#2a5d4e';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
-    ctx.moveTo(0.5 * PIXELS_PER_SECOND, 0);
-    ctx.lineTo(0.5 * PIXELS_PER_SECOND, height);
+    ctx.moveTo(preRollDurationSec * PIXELS_PER_SECOND, 0);
+    ctx.lineTo(preRollDurationSec * PIXELS_PER_SECOND, height);
     ctx.stroke();
     ctx.setLineDash([]);
 
@@ -262,19 +339,9 @@ export const VocalValidationModal: React.FC = () => {
     ctx.moveTo(trimEndLeft, 0);
     ctx.lineTo(trimEndLeft, height);
     ctx.stroke();
-  }, [audioBuffer, trimStartMs, trimEndMs]);
+  }, [audioBuffer, trimStartMs, trimEndMs, preRollDurationSec]);
 
   if (!tempRecording || !targetPattern || !voiceTrack) return null;
-
-  const storeTargetMeasureIdx = useAudioStore((state) => state.targetMeasureIdx);
-  const initialMeasureIdx = storeTargetMeasureIdx !== null
-    ? storeTargetMeasureIdx
-    : (targetPattern.measureAssignments.indexOf(true) !== -1
-        ? targetPattern.measureAssignments.indexOf(true)
-        : 0);
-
-  const startMeasureIdx = Math.max(0, initialMeasureIdx - 1);
-  const preRollDurationSec = getElapsedSeconds(initialMeasureIdx) - getElapsedSeconds(startMeasureIdx);
 
   const patternBpm = measureBpms[initialMeasureIdx] || bpm;
   const timeSig = measureTimeSigs[initialMeasureIdx] || '4/4';
@@ -292,6 +359,92 @@ export const VocalValidationModal: React.FC = () => {
     }
   }
   patternMeasures = Math.max(1, patternMeasures);
+
+  // Drag state (ref-only for 60 FPS performance, bypassing React renders)
+  const isDraggingRef = useRef(false);
+  const dragStartXPxRef = useRef(0);
+  const dragStartNudgeMsRef = useRef(0);
+
+  const handleDragMove = useCallback((e: MouseEvent | TouchEvent) => {
+    if (!isDraggingRef.current) return;
+
+    // Prevent scrolling/pinch zoom on mobile touch gestures during calibration
+    if (e.cancelable) {
+      e.preventDefault();
+    }
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const deltaPx = clientX - dragStartXPxRef.current;
+    
+    // Scale: 200px = 1 second (1000ms), so 1px = 5ms.
+    const deltaMs = deltaPx * (1000 / PIXELS_PER_SECOND);
+    
+    // Bound nudgeMs between -1000 and 1000
+    let targetNudgeMs = dragStartNudgeMsRef.current + deltaMs;
+    targetNudgeMs = Math.max(-1000, Math.min(1000, targetNudgeMs));
+
+    // Zero Render Thrashing: Mutate DOM directly
+    const shiftPx = (targetNudgeMs / 1000) * PIXELS_PER_SECOND;
+    if (waveformContainerRef.current) {
+      waveformContainerRef.current.style.transform = `translateX(${shiftPx}px)`;
+    }
+    if (nudgeValueLabelRef.current) {
+      nudgeValueLabelRef.current.textContent = `${targetNudgeMs > 0 ? '+' : ''}${targetNudgeMs.toFixed(0)} ms`;
+    }
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+
+    // Remove window event listeners
+    window.removeEventListener('mousemove', handleDragMove);
+    window.removeEventListener('mouseup', handleDragEnd);
+    window.removeEventListener('touchmove', handleDragMove);
+    window.removeEventListener('touchend', handleDragEnd);
+
+    // Retrieve current nudge value directly from the DOM style/transform or label
+    if (nudgeValueLabelRef.current) {
+      const text = nudgeValueLabelRef.current.textContent || '0 ms';
+      const parsedVal = parseFloat(text.replace(' ms', '')) || 0;
+      setNudgeMs(parsedVal);
+      console.log(`🎙️ [VOCAL DEBUG] Interactive drag ended. Final nudge: ${parsedVal} ms`);
+      if (isPlayingPreview) {
+        handleRestartPreview(parsedVal, trimStartMs, trimEndMs);
+      }
+    }
+  }, [isPlayingPreview, trimStartMs, trimEndMs, handleDragMove]);
+
+  const handleDragStart = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    isDraggingRef.current = true;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    dragStartXPxRef.current = clientX;
+    dragStartNudgeMsRef.current = nudgeMs; // start from current React state value
+
+    // Add global mousemove/mouseup listeners to handle dragging outside the panel
+    if (!('touches' in e)) {
+      window.addEventListener('mousemove', handleDragMove);
+      window.addEventListener('mouseup', handleDragEnd);
+    } else {
+      window.addEventListener('touchmove', handleDragMove, { passive: false });
+      window.addEventListener('touchend', handleDragEnd);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('mousemove', handleDragMove);
+      window.removeEventListener('mouseup', handleDragEnd);
+      window.removeEventListener('touchmove', handleDragMove);
+      window.removeEventListener('touchend', handleDragEnd);
+    };
+  }, [handleDragMove, handleDragEnd]);
+
+  useEffect(() => {
+    if (nudgeValueLabelRef.current) {
+      nudgeValueLabelRef.current.textContent = `${nudgeMs > 0 ? '+' : ''}${nudgeMs.toFixed(0)} ms`;
+    }
+  }, [nudgeMs]);
 
   // 60 FPS Nudge Slider change handler - directly updates CSS transforms to avoid React re-renders
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -588,7 +741,11 @@ export const VocalValidationModal: React.FC = () => {
           <div className="flex flex-col gap-6">
             
             {/* Timeline & Waveform Panel */}
-            <div className="relative border-4 border-[#1a1a1a] bg-[#e2d8be] rounded-sm overflow-hidden min-h-[220px]">
+            <div 
+              onMouseDown={handleDragStart}
+              onTouchStart={handleDragStart}
+              className="relative border-4 border-[#1a1a1a] bg-[#e2d8be] rounded-sm overflow-hidden min-h-[220px] cursor-ew-resize select-none"
+            >
               
               {/* Target Notes Timeline Ruler */}
               <div className="h-12 bg-[#d7cbaf] border-b-2 border-[#1a1a1a] relative overflow-hidden">
@@ -711,9 +868,7 @@ export const VocalValidationModal: React.FC = () => {
                   <span 
                     ref={nudgeValueLabelRef} 
                     className="text-lg font-black bg-[#ece4d0] px-3 py-1 border-2 border-[#1a1a1a] rounded-sm text-[#1a1a1a]"
-                  >
-                    {nudgeMs > 0 ? '+' : ''}{nudgeMs.toFixed(0)} ms
-                  </span>
+                  />
                   <button
                     onClick={handleResetNudge}
                     className="p-1.5 hover:bg-[#8b2a1a] hover:text-[#fdfaf2] border-2 border-[#1a1a1a] bg-[#ece4d0] transition-colors cursor-pointer rounded-sm"

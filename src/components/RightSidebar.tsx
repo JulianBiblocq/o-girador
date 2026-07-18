@@ -22,8 +22,8 @@ const CloudLibraryTab = React.lazy(() => import('./right-sidebar/CloudLibraryTab
 const FeedbackSection = React.lazy(() => import('./right-sidebar/FeedbackSection').then(m => ({ default: m.FeedbackSection })));
 
 interface RightSidebarProps {
-  activePanel: 'legend' | 'letras' | 'info' | 'feedback' | null;
-  onTogglePanel: (panel: 'legend' | 'letras' | 'info' | 'feedback', force?: boolean) => void;
+  activePanel: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais' | null;
+  onTogglePanel: (panel: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais', force?: boolean) => void;
   isMobile: boolean;
   mestreSignals?: CloudRhythmSignal[];
   refreshMestreSignals?: () => void;
@@ -126,13 +126,17 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: MouseEvent | TouchEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   React.useEffect(() => {
@@ -178,6 +182,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
       if (activePanel === 'legend') setSubTab('legendes');
       else if (activePanel === 'letras') setSubTab('toada');
       else if (activePanel === 'info') setSubTab('info');
+      else if (activePanel === 'sinais') setSubTab('sinais');
       else if (activePanel === 'feedback') setSubTab('feedback');
     }
   }, [activePanel]);  const getYouTubeEmbedUrl = (url: string) => {
@@ -332,7 +337,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                         const lyric = ptn.lyrics[i];
                         if (!state || state === 0 || !lyric || lyric.trim() === '') continue;
                         const isPux = state === 'P';
-                        const color = isPux ? inst.colors['P'] : inst.colors['C'];
+                        const color = inst && inst.colors ? (isPux ? inst.colors['P'] || '' : inst.colors['C'] || '') : '';
                         
                         // Respect user's explicit trailing spaces
                         const hasSpace = lyric.endsWith(' ');
@@ -559,12 +564,14 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
               </div>
 
               <React.Suspense fallback={null}>
-                <PresetManagerSection
-                  metadata={metadata!}
-                  onMetadataChange={onMetadataChange!}
-                  lang={lang}
-                  userProfile={userProfile}
-                />
+                {metadata && (
+                  <PresetManagerSection
+                    metadata={metadata}
+                    onMetadataChange={onMetadataChange!}
+                    lang={lang}
+                    userProfile={userProfile}
+                  />
+                )}
               </React.Suspense>
 
               <React.Suspense fallback={null}>

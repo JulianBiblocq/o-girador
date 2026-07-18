@@ -31,6 +31,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useSortable } from '@dnd-kit/sortable';
 import { Pattern, RhythmSignal, CloudPattern, CatalogVisibility, Language, GlobalSwing } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, NEWTON_NOTE_COLORS } from '../data';
+import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchCloudPatterns, savePatternToCloud, deleteCloudPattern } from '../cloudPatterns';
 import { useGameData } from '../contexts/GameDataContext';
@@ -54,6 +55,18 @@ const getPatternUsage = (patternId: number, parentBusTrack: any, allTracks: any[
   if (!pattern) return [];
 
   const totalMeasures = pattern.measureAssignments.length;
+  const songSections = useSequencerStore.getState().songSections;
+  const expanded = getExpandedMeasures(totalMeasures, songSections);
+
+  // Map each logical base measure index (0-based) to the list of visual measure numbers (1-based)
+  const vizMeasuresMap: Record<number, number[]> = {};
+  expanded.forEach((item, index) => {
+    if (!vizMeasuresMap[item.baseMeasure]) {
+      vizMeasuresMap[item.baseMeasure] = [];
+    }
+    vizMeasuresMap[item.baseMeasure].push(index + 1);
+  });
+
   const usage: Array<{
     trackName: string;
     trackId: number;
@@ -65,9 +78,11 @@ const getPatternUsage = (patternId: number, parentBusTrack: any, allTracks: any[
     const measures: number[] = [];
     for (let m = 0; m < totalMeasures; m++) {
       if (pattern.measureAssignments[m]) {
-        measures.push(m + 1);
+        const visualMs = vizMeasuresMap[m] || [m + 1];
+        measures.push(...visualMs);
       }
     }
+    measures.sort((a, b) => a - b);
     if (measures.length > 0) {
       usage.push({
         trackName: parentBusTrack.customName || instrumentsConfig[parentBusTrack.instrumentIdx]?.name || 'Instrument',
@@ -88,9 +103,11 @@ const getPatternUsage = (patternId: number, parentBusTrack: any, allTracks: any[
     const masterMeasures: number[] = [];
     for (let m = 0; m < totalMeasures; m++) {
       if (pattern.measureAssignments[m]) {
-        masterMeasures.push(m + 1);
+        const visualMs = vizMeasuresMap[m] || [m + 1];
+        masterMeasures.push(...visualMs);
       }
     }
+    masterMeasures.sort((a, b) => a - b);
     if (masterMeasures.length > 0) {
       usage.push({
         trackName: masterTrack.customName || instrumentsConfig[masterTrack.instrumentIdx]?.name || 'Master',
@@ -107,11 +124,14 @@ const getPatternUsage = (patternId: number, parentBusTrack: any, allTracks: any[
     for (let m = 0; m < totalMeasures; m++) {
       const override = slave.patternOverrides?.[m];
       if (override === patternId) {
-        slaveMeasures.push(m + 1);
+        const visualMs = vizMeasuresMap[m] || [m + 1];
+        slaveMeasures.push(...visualMs);
       } else if (override === undefined && pattern.measureAssignments[m]) {
-        slaveMeasures.push(m + 1);
+        const visualMs = vizMeasuresMap[m] || [m + 1];
+        slaveMeasures.push(...visualMs);
       }
     }
+    slaveMeasures.sort((a, b) => a - b);
     if (slaveMeasures.length > 0) {
       usage.push({
         trackName: slave.customName || instrumentsConfig[slave.instrumentIdx]?.name || (lang === 'fr' ? 'Esclave' : 'Escravo'),
@@ -945,6 +965,28 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                 </button>
               </div>
             )}
+
+            {/* Swing/Balanço Controller for non-vocal tracks */}
+            {inst.type !== 'voice' && (
+              <div className="flex items-center gap-3 bg-[#f4ecd8] px-3 py-1 rounded border-[2px] border-[#1a1a1a] text-xs font-bold ml-6 select-none text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]">
+                <span>{lang === 'fr' ? 'Balanço :' : 'Balanço :'}</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={track.swingIntensity !== undefined ? track.swingIntensity : 100}
+                  onChange={(e) => {
+                    const val = Number(e.target.value);
+                    sequencer.handleTrackSwingChange(trackId, val);
+                  }}
+                  className="w-24 h-2 bg-[#1a1a1a]/20 rounded-full appearance-none cursor-pointer outline-none"
+                  style={{ accentColor: '#8b2a1a' }}
+                />
+                <span className="w-8 text-right font-cactus text-sm">
+                  {track.swingIntensity !== undefined ? track.swingIntensity : 100}%
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Solo */}
@@ -1524,7 +1566,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                        title={`${symbol} : ${stroke.label} (${isActive ? (lang === 'fr' ? 'Actif' : 'Ativo') : (lang === 'fr' ? 'Inactif' : 'Inativo')})`}
                      >
                        <div
-                         onClick={(e) => {
+                         onPointerDown={(e) => {
+                           e.preventDefault();
                            e.stopPropagation();
                            if (isMidiLearnActive) {
                              setWaitingForMidiStroke({

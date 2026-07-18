@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { CloudRhythmSignal, Language } from '../../types';
 import { uploadMestreSignal, deleteMestreSignal } from '../../cloudSignals';
 import { CordelImageEditor } from '../CordelImageEditor';
+import { checkIsAdmin } from '../../contexts/AuthContext';
 
 interface CloudLibraryTabProps {
   mestreSignals: CloudRhythmSignal[];
@@ -418,7 +419,7 @@ export const CloudLibraryTab: React.FC<CloudLibraryTabProps> = ({
               }}
               autoFocus
             />
-            {userProfile?.role === 'admin' && (
+            {checkIsAdmin(userProfile) && (
               <label className="flex items-center gap-2 cursor-pointer mt-1">
                 <input
                   type="checkbox"

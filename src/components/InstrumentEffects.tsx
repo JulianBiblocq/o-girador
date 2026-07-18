@@ -50,10 +50,13 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
   } = useSequencer();
 
   const globalSwing = useTransportStore(state => state.globalSwing);
+  const trackSwingIntensity = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.swingIntensity);
 
   /* Compute global swing offset for a step index */
   const getStepSwingPercent = (stepIdx: number, steps: number, beatResolutions?: number[]) => {
     if (globalSwing.mode === 'off') return 0;
+
+    const trackSwingMultiplier = (trackSwingIntensity !== undefined ? trackSwingIntensity : 100) / 100;
 
     let posInGroup = 0;
     if (beatResolutions && beatResolutions.length > 0) {
@@ -71,7 +74,7 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
       posInGroup = Math.round(posInBeat) % 4;
     }
 
-    const intensity = (globalSwing.swingIntensity !== undefined ? globalSwing.swingIntensity : 100) / 100;
+    const intensity = (globalSwing.swingIntensity !== undefined ? globalSwing.swingIntensity : 100) / 100 * trackSwingMultiplier;
 
     if (globalSwing.mode === 'custom') {
       return (globalSwing.customOffsets[posInGroup] || 0) * intensity;

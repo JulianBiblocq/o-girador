@@ -86,14 +86,18 @@ export const StepEditorPopup: React.FC = () => {
   useEffect(() => {
     if (!activeStepKey) return;
 
-    const handleMouseDown = (e: MouseEvent) => {
+    const handleMouseDown = (e: MouseEvent | TouchEvent) => {
       if (popupRef.current && !popupRef.current.contains(e.target as Node)) {
         closeEditor();
       }
     };
 
     window.addEventListener('mousedown', handleMouseDown);
-    return () => window.removeEventListener('mousedown', handleMouseDown);
+    window.addEventListener('touchstart', handleMouseDown);
+    return () => {
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('touchstart', handleMouseDown);
+    };
   }, [activeStepKey, closeEditor]);
 
   if (!activeStepKey || !anchorRect || trackId === null || patternId === null || measureIdx === null || stepIdx === null) {

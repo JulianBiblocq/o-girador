@@ -8,7 +8,7 @@ import { useGameData } from './contexts/GameDataContext';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from './contexts/SequencerContext';
 import { useAudio } from './contexts/AudioContext';
-import { useAuth } from './contexts/AuthContext';
+import { useAuth, checkIsAdmin } from './contexts/AuthContext';
 import { i18n, instrumentsConfig } from './data';
 import { Header } from './components/Header';
 import { TransportBar } from './components/TransportBar';
@@ -101,7 +101,7 @@ export default function App() {
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
   const [selectedExportTracks, setSelectedExportTracks] = useState<Set<number>>(new Set());
   const [selectedAnnexTracks, setSelectedAnnexTracks] = useState<Set<number>>(new Set());
-  const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | 'info' | 'feedback' | null>(
+  const [activeRightPanel, setActiveRightPanel] = useState<'legend' | 'letras' | 'info' | 'feedback' | 'sinais' | null>(
     'info'
   );
 
@@ -487,7 +487,7 @@ export default function App() {
         let visibility: 'admin_global' | 'mestre_group' | 'specific_user' = 'mestre_group';
         let targetUserId: string | undefined = undefined;
 
-        if (profile.role === 'admin') {
+        if (checkIsAdmin(profile)) {
           const makeGlobal = await confirmAsyncRef.current(
             isPt ? 'Tornar global (visível para todos)?' : 'Rendre global (visible par tous) ?',
             isPt ? 'Sim (Global)' : 'Oui (Global)',
@@ -533,7 +533,7 @@ export default function App() {
   const handleAddTrackInstrument = React.useCallback((instIdx: number) => sequencerRef.current.handleAddTrackInstrument(instIdx, useSequencerStore.getState().currentMeasure), []);
 
   const handleAdminClick = React.useCallback(() => changeViewMode('admin'), [changeViewMode]);
-  const handleToggleRightPanel = React.useCallback((p: 'legend' | 'letras' | 'info' | 'feedback', force?: boolean) => {
+  const handleToggleRightPanel = React.useCallback((p: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais', force?: boolean) => {
     setActiveRightPanel(prev => (prev === p && !force) ? null : p);
   }, []);
 

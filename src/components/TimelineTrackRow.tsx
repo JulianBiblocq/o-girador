@@ -7,6 +7,8 @@ import { TimelineMeasure } from './TimelineMeasure';
 import { useSequencer } from '../contexts/SequencerContext';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { getTrackDisplayName } from '../utils/colorHelpers';
+import { Mic } from 'lucide-react';
+import { useAudioStore } from '../stores/useAudioStore';
 
 interface TimelineTrackRowProps {
   trackId: number;
@@ -47,6 +49,22 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
 
   const [isEditingName, setIsEditingName] = React.useState(false);
   const [nameVal, setNameVal] = React.useState(dbTrack?.customName || (trackInst ? trackInst.name : ''));
+
+  const targetPatternId = useAudioStore((state) => state.targetPatternId);
+  const isArmedAtTrackLevel = dbTrack ? dbTrack.patterns.some(p => p.id === targetPatternId) : false;
+
+  const handleTrackArmClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isArmedAtTrackLevel) {
+      useAudioStore.getState().setTargetPatternId(null);
+      useAudioStore.getState().setTargetMeasureIdx(null);
+    } else if (dbTrack && dbTrack.patterns.length > 0) {
+      const patternIdToArm = dbTrack.selectedPatternId || dbTrack.patterns[0].id;
+      useAudioStore.getState().setTargetPatternId(patternIdToArm);
+      const assignedIdx = dbTrack.patterns.find(p => p.id === patternIdToArm)?.measureAssignments.indexOf(true) ?? 0;
+      useAudioStore.getState().setTargetMeasureIdx(assignedIdx !== -1 ? assignedIdx : 0);
+    }
+  };
 
   React.useEffect(() => {
     setNameVal(dbTrack?.customName || (trackInst ? trackInst.name : ''));
@@ -254,6 +272,20 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               isMobile ? 'w-6 h-6' : 'w-8 h-8'
             }`}
           />
+          {inst.type === 'voice' && (
+            <button
+              onClick={handleTrackArmClick}
+              className={`p-1 rounded-full border cursor-pointer shrink-0 flex items-center justify-center transition-all ${
+                isArmedAtTrackLevel
+                  ? 'bg-red-600 text-white border-red-700 animate-pulse shadow-sm shadow-red-600/50'
+                  : 'bg-transparent hover:bg-gray-400/20 text-gray-400 border-gray-400/30'
+              }`}
+              style={{ width: '22px', height: '22px' }}
+              title={lang === 'fr' ? "Armer la piste pour enregistrement" : "Armar pista para gravação"}
+            >
+              <Mic className="w-3.5 h-3.5" />
+            </button>
+          )}
           {!isMobile ? (
             isEditingName ? (
               <input

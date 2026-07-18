@@ -130,6 +130,7 @@ export interface SavedSectionTrack {
   reverbVal?: number;
   panVal?: number;
   pan?: number;
+  swingIntensity?: number;
   fxSends?: {
     reverb: number;
     distortion: number;

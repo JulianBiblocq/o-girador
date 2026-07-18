@@ -273,12 +273,36 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.08' /%3E%3C/svg%3E")`,
                   }}
                 >
-                  <div className="flex-grow flex items-center justify-center pointer-events-none opacity-85">
+                  <div 
+                    className="flex-grow flex items-center justify-center pointer-events-auto cursor-pointer opacity-85 hover:opacity-100 transition-opacity"
+                    title={lang === 'fr' ? "Ajuster la latence et le calage" : "Ajuster latência e calagem"}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      let blob = useAudioStore.getState().vocalBlobs[patternId];
+                      if (!blob) {
+                        blob = await vocalEngineService.loadVocalRecording(patternId) || undefined;
+                      }
+                      if (blob) {
+                        useAudioStore.getState().setTempRecording({ patternId, blob });
+                      }
+                    }}
+                  >
                     <svg className="w-full h-8 max-w-[120px]" viewBox="0 0 100 30" fill="none" stroke="#1a1a1a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M 5,15 Q 12,5 18,15 T 30,15 T 42,28 T 55,10 T 68,22 T 80,15 T 95,15" />
                       <path d="M 8,15 Q 15,22 22,12 T 35,18 T 48,5 T 62,25 T 75,10 T 88,18" opacity="0.6" strokeWidth="1.5" />
                     </svg>
                   </div>
+                  <button
+                    onClick={handleMicroClick}
+                    className={`p-1 rounded-sm border transition-colors cursor-pointer z-20 pointer-events-auto mr-1 ${
+                      isArmed 
+                        ? 'bg-red-600 text-white border-red-700 animate-pulse shadow-sm shadow-red-600/50' 
+                        : 'bg-gray-400/20 hover:bg-gray-400/40 text-gray-500 hover:text-gray-700 dark:text-gray-400 border-gray-400/30'
+                    }`}
+                    title={lang === 'fr' ? "Armer pour réenregistrer" : "Armar para regravar"}
+                  >
+                    <Mic className="w-3.5 h-3.5" />
+                  </button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

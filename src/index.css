@@ -1073,6 +1073,17 @@ body.eco-mode #center-afficheur {
   border-radius: 3px;
 }
 
+/* Eliminate 300ms click delay on mobile/tablet devices by disabling double-tap zoom */
+button,
+[role="button"],
+.cursor-pointer,
+select,
+input,
+textarea {
+  touch-action: manipulation;
+}
+
+
 
 
 

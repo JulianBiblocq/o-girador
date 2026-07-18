@@ -15,7 +15,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   lang = 'pt',
   onAdminClick,
 }) => {
-  const { currentUser, userProfile, signInWithGoogle, logout, loading, updateUserProfileField } = useAuth();
+  const { currentUser, userProfile, signInWithGoogle, logout, loading, updateUserProfileField, isAdmin } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -23,13 +23,17 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
 
   // Handle click outside to close dropdown
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: MouseEvent | TouchEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,7 +147,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
               <div>
                 <span className="text-xs font-cactus font-bold text-[var(--cordel-text)] truncate flex items-center gap-1">
                   {userProfile.displayName}
-                  {userProfile.role === 'admin' && <span title="Administrateur"><Shield size={12} className="text-[#8b2a1a]" /></span>}
+                  {isAdmin && <span title="Administrateur"><Shield size={12} className="text-[#8b2a1a]" /></span>}
                 </span>
                 <span className="text-[10px] font-sans text-[var(--cordel-text)] opacity-60 truncate block">
                   {userProfile.email}
@@ -167,7 +171,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
                 </select>
               </div>
             </div>
-            {userProfile.role === 'admin' && onAdminClick && (
+            {isAdmin && onAdminClick && (
               <button
                 onClick={() => {
                   setDropdownOpen(false);
@@ -180,7 +184,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
               </button>
             )}
 
-            {(userProfile.role === 'mestre' || userProfile.role === 'admin') && (
+            {(userProfile.role === 'mestre' || isAdmin) && (
               <>
                 <button
                   onClick={() => {

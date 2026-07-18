@@ -578,6 +578,10 @@ export function useSequencerState() {
     setTracks(prev => prev.map((t) => (t.id === id ? { ...t, panVal: val } : t)));
   };
 
+  const handleTrackSwingChange = (id: number, val: number) => {
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, swingIntensity: val } : t)));
+  };
+
   const handleVocalLatencyChange = (trackId: number, patternId: number, latencyMs: number) => {
     pushUndoState();
     setTracks(prev =>
@@ -2036,6 +2040,7 @@ export function useSequencerState() {
             reverbVal: loadedTrack.reverbVal,
             panVal: loadedTrack.panVal,
             pan: loadedTrack.pan ?? loadedTrack.panVal ?? 0,
+            swingIntensity: loadedTrack.swingIntensity,
             fxSends: loadedTrack.fxSends ?? {
               reverb: loadedTrack.reverbVal ?? 0,
               distortion: 0
@@ -2123,6 +2128,7 @@ export function useSequencerState() {
     handleVariationStepMicrotimingChange,
     handleResetTrackMicrotimings,
     handleTrackPanChange,
+    handleTrackSwingChange,
     handleTrackStepsChange,
     handleVocalLatencyChange,
     handlePatternBeatResolutionChange,

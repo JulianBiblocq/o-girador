@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Mic, Square, ChevronUp, ChevronDown, Play, Trash2 } from 'lucide-react';
+import { Mic, Square, ChevronUp, ChevronDown, Play, Trash2, Sliders } from 'lucide-react';
 import { useAudioStore } from '../stores/useAudioStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { vocalEngineService } from '../audio/vocalEngineService';
@@ -202,6 +202,19 @@ export const VocalRecordingBar: React.FC = () => {
       : "Tem certeza de que deseja excluir esta gravação?";
     if (window.confirm(confirmMsg)) {
       await vocalEngineService.deleteVocalRecording(selectedPatternId);
+    }
+  };
+
+  const handleOpenValidationModal = async () => {
+    if (!selectedPatternId) return;
+    let blob = useAudioStore.getState().vocalBlobs[selectedPatternId];
+    if (!blob) {
+      blob = await vocalEngineService.loadVocalRecording(selectedPatternId) || undefined;
+    }
+    if (blob) {
+      useAudioStore.getState().setTempRecording({ patternId: selectedPatternId, blob });
+    } else {
+      alert(lang === 'fr' ? "Aucun enregistrement trouvé." : "Nenhuma gravação encontrada.");
     }
   };
 
@@ -467,6 +480,20 @@ export const VocalRecordingBar: React.FC = () => {
               <Play className="w-4 h-4 fill-current" />
             )}
             <span>{isPlayingPreview ? t('stopPreview') : t('playPreview')}</span>
+          </button>
+        )}
+
+        {recordingStatus === 'inactive' && hasRecording && (
+          <button
+            onClick={handleOpenValidationModal}
+            disabled={isPlaying}
+            className={`cordel-btn px-4.5 py-2.5 font-bold text-sm bg-[#b89f74] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] rounded-sm flex items-center gap-2 cursor-pointer hover:opacity-95 transition-colors ${
+              isPlaying ? 'opacity-40 cursor-not-allowed' : ''
+            }`}
+            title={lang === 'fr' ? "Ajuster la latence et le calage" : "Ajustar latência e calagem"}
+          >
+            <Sliders className="w-4 h-4" />
+            <span>{lang === 'fr' ? "Ajuster" : "Ajustar"}</span>
           </button>
         )}
 

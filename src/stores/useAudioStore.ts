@@ -12,6 +12,7 @@ export interface AudioState {
   isVocalRecordingBarExpanded: boolean;
   selectedVocalPatternId: number | null;
   isAudioUnlocked: boolean;
+  recordingStartTimelineSec: number | null;
 
   setRecordingStatus: (status: 'inactive' | 'arming' | 'countdown' | 'recording') => void;
   setTargetPatternId: (id: number | null) => void;
@@ -26,6 +27,7 @@ export interface AudioState {
   setIsVocalRecordingBarExpanded: (expanded: boolean) => void;
   setSelectedVocalPatternId: (id: number | null) => void;
   unlockAudio: () => void;
+  setRecordingStartTimelineSec: (sec: number | null) => void;
 }
 
 export const useAudioStore = create<AudioState>((set) => ({
@@ -40,6 +42,7 @@ export const useAudioStore = create<AudioState>((set) => ({
   isVocalRecordingBarExpanded: false,
   selectedVocalPatternId: null,
   isAudioUnlocked: false,
+  recordingStartTimelineSec: null,
 
   setRecordingStatus: (status) => set({ recordingStatus: status }),
   setTargetPatternId: (id) => set({ targetPatternId: id }),
@@ -50,6 +53,7 @@ export const useAudioStore = create<AudioState>((set) => ({
   setIsVocalRecordingBarExpanded: (expanded) => set({ isVocalRecordingBarExpanded: expanded }),
   setSelectedVocalPatternId: (id) => set({ selectedVocalPatternId: id }),
   unlockAudio: () => set({ isAudioUnlocked: true }),
+  setRecordingStartTimelineSec: (sec) => set({ recordingStartTimelineSec: sec }),
   addVocalBlob: (patternId, blob) =>
     set((state) => ({
       vocalBlobs: { ...state.vocalBlobs, [patternId]: blob },

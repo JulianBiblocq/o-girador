@@ -48,12 +48,14 @@ interface MixerProps {
   ) => void;
   isActive?: boolean;
   setEditingTrackId: (id: number | null) => void;
+  isMobile?: boolean;
 }
 
 const MixerComponent: React.FC<MixerProps> = ({
   onStepTouchStart,
   isActive = true,
   setEditingTrackId,
+  isMobile = false,
 }) => {
   const sequencer = useSequencer();
 
@@ -104,13 +106,17 @@ const MixerComponent: React.FC<MixerProps> = ({
   const addDropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: MouseEvent | TouchEvent) {
       if (addDropRef.current && !addDropRef.current.contains(e.target as Node)) {
         setAddDropOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   const sensors = useSensors(
@@ -259,6 +265,8 @@ const MixerComponent: React.FC<MixerProps> = ({
                     isActive={isActive}
                     isDragOver={isDragOverBus}
                     dropIndicator={dropIndicator}
+                    isMobile={isMobile}
+                    onStepTouchStart={onStepTouchStart}
                   />
                 );
               })}

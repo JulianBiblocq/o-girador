@@ -261,6 +261,7 @@ export const vocalEngineService = {
           try {
             mediaRecorder.start();
             console.log("🎙️ [VOCAL DEBUG] mediaRecorder.start() executed successfully (immediate mode). State:", mediaRecorder.state);
+            store.setRecordingStartTimelineSec(Tone.Transport.seconds);
             store.setRecordingStatus('recording');
             console.log("🎙️ [VOCAL DEBUG] Punch-in triggered! Status set to recording.");
           } catch (e) {
@@ -301,6 +302,7 @@ export const vocalEngineService = {
             try {
               mediaRecorder.start();
               console.log("🎙️ [VOCAL DEBUG] mediaRecorder.start() executed successfully. State:", mediaRecorder.state);
+              store.setRecordingStartTimelineSec(Tone.Transport.seconds);
               store.setRecordingStatus('recording');
               console.log("🎙️ [VOCAL DEBUG] Punch-in triggered! Status set to recording.");
             } catch (e) {

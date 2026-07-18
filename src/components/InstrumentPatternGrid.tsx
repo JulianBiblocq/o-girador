@@ -471,6 +471,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   } = useSequencer();
 
   const globalSwing = useTransportStore(state => state.globalSwing);
+  const trackSwingIntensity = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.swingIntensity);
   const { soloPatternPlayIdRef } = useAudio();
 
   const gridRef = useRef<HTMLDivElement>(null);
@@ -489,6 +490,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   const getStepSwingPercent = (stepIdx: number, steps: number, beatResolutions?: number[]) => {
     if (globalSwing?.mode === 'off') return 0;
 
+    const trackSwingMultiplier = (trackSwingIntensity !== undefined ? trackSwingIntensity : 100) / 100;
+
     let posInGroup = 0;
     if (beatResolutions && beatResolutions.length > 0) {
       let accumulated = 0;
@@ -505,7 +508,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       posInGroup = Math.round(posInBeat) % 4;
     }
 
-    const intensity = (globalSwing?.swingIntensity !== undefined ? globalSwing.swingIntensity : 100) / 100;
+    const intensity = (globalSwing?.swingIntensity !== undefined ? globalSwing.swingIntensity : 100) / 100 * trackSwingMultiplier;
 
     if (globalSwing?.mode === 'custom') {
       return (globalSwing?.customOffsets?.[posInGroup] || 0) * intensity;
@@ -827,9 +830,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     initialTouchIndexRef.current = null;
   };
 
-  const handleStepMouseDownMulti = (e: React.MouseEvent, index: number) => {
+  const handleStepMouseDownMulti = (e: React.MouseEvent | React.TouchEvent, index: number) => {
     if (!isMultiSelectActive) return;
-    if (e.button !== 0) return;
+    if ('button' in e && e.button !== 0) return;
     isSelectingRef.current = true;
     hasDraggedRef.current = false;
     initialTouchIndexRef.current = index;

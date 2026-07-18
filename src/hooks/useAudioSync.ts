@@ -1386,8 +1386,8 @@ export function useAudioSync({
                   consecutiveMeasures = Math.max(1, consecutiveMeasures);
                   const endMeasureIdx = initialMeasureIdx + consecutiveMeasures + 1;
 
-                  // 1. Punch-in check: exact start of startMeasureIdx
-                  if (recordingStatus === 'inactive' && currentMeasureIdx === startMeasureIdx && stepIdx === 0 && !hasTriggeredPunchInRef.current) {
+                  // 1. Punch-in check: starts immediately when playhead enters or is in the pre-roll measure
+                  if (recordingStatus === 'inactive' && currentMeasureIdx === startMeasureIdx && !hasTriggeredPunchInRef.current) {
                     console.log(`🎙️ [VOCAL DEBUG] useAudioSync.ts - Punch-in measure reached: ${currentMeasureIdx}. Calling startRecording()`);
                     hasTriggeredPunchInRef.current = true;
                     useAudioStore.getState().setRecordingStatus('arming');

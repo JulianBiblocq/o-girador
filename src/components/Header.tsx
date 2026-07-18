@@ -88,8 +88,8 @@ interface HeaderProps {
   isMobile: boolean;
   mobileTab?: 'roda' | 'mixer' | 'toada';
   onMobileTabToggle?: (tab: 'roda' | 'mixer' | 'toada') => void;
-  activeRightPanel?: 'legend' | 'letras' | 'info' | 'feedback' | null;
-  onToggleRightPanel: (panel: 'legend' | 'letras' | 'info' | 'feedback') => void;
+  activeRightPanel?: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais' | null;
+  onToggleRightPanel: (panel: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais') => void;
   version?: string | number;
   onExportTablature?: () => void;
   showInstallButton?: boolean;
@@ -119,7 +119,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
-  const { hasAccess, userProfile } = useAuth();
+  const { hasAccess, userProfile, isAdmin } = useAuth();
   const toggleSettings = useSequencerSettingsStore((state) => state.toggleSettings);
 
   const {
@@ -199,9 +199,11 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const [infoDropOpen, setInfoDropOpen] = useState(false);
+  const infoDropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
+    function handleClickOutside(e: MouseEvent | TouchEvent) {
       if (addDropRef.current && !addDropRef.current.contains(e.target as Node)) {
         setAddDropOpen(false);
       }
@@ -214,9 +216,16 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target as Node)) {
         setMobileMenuOpen(false);
       }
+      if (infoDropRef.current && !infoDropRef.current.contains(e.target as Node)) {
+        setInfoDropOpen(false);
+      }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, [jogoDropOpen]);
 
   if (isMobile) {
@@ -342,12 +351,12 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
                     <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Tablatura' : 'Tablature'}
                   </button>
-                  {userProfile?.role === 'admin' && (
+                  {isAdmin && (
                     <button onClick={() => { fileInputRef.current?.click(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
                       <Upload className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Importar' : 'Importer'}
                     </button>
                   )}
-                  <button onClick={() => { onSave(); setMobileMenuOpen(false); }} className={`flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full ${userProfile?.role !== 'admin' ? 'col-span-2' : ''}`}>
+                  <button onClick={() => { onSave(); setMobileMenuOpen(false); }} className={`flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full ${!isAdmin ? 'col-span-2' : ''}`}>
                     <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar' : 'Sauvegarder'}
                   </button>
                 </div>
@@ -367,71 +376,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                     <RedoIcon className="w-4 h-4" /> {lang === 'pt' ? 'Refazer' : 'Rétablir'}
                   </button>
                 </div>
-
-                <div className="flex items-center justify-between mt-1">
-                  <span className="text-xs font-cactus font-bold text-[var(--cordel-text)]">Mesures</span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => onTotalMeasuresChange(Math.max(1, totalMeasures - 1))}
-                      className="w-6 h-6 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
-                    >-</button>
-                    <input
-                      type="number"
-                      min={1}
-                      max={64}
-                      value={totalMeasures}
-                      onChange={(e) => {
-                        const val = Math.max(1, Math.min(64, parseInt(e.target.value) || 1));
-                        onTotalMeasuresChange(val);
-                      }}
-                      className="w-10 text-center bg-transparent text-[var(--cordel-text)] font-cactus text-xs font-bold outline-none border border-[var(--cordel-border)] rounded-sm"
-                      style={{ height: '24px' }}
-                    />
-                    <button
-                      onClick={() => onTotalMeasuresChange(Math.min(64, totalMeasures + 1))}
-                      className="w-6 h-6 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)] font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
-                    >+</button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-cactus font-bold text-[var(--cordel-text)]">{t('tsLabel')}</span>
-                  <select
-                    value={timeSig}
-                    onChange={(e) => onTimeSigChange(e.target.value as any)}
-                    className="bg-transparent text-[var(--cordel-text)] font-cactus text-xs font-bold outline-none cursor-pointer cordel-border-sm px-1.5 py-0.5"
-                  >
-                    <option value="4/4" className="bg-[var(--cordel-bg)]">4/4</option>
-                    <option value="3/4" className="bg-[var(--cordel-bg)]">3/4</option>
-                    <option value="2/4" className="bg-[var(--cordel-bg)]">2/4</option>
-                    <option value="6/8" className="bg-[var(--cordel-bg)]">6/8</option>
-                    <option value="12/8" className="bg-[var(--cordel-bg)]">12/8</option>
-                  </select>
-                </div>
               </div>
-
-              {/* 🎛️ OPTIONS AUDIO */}
-              <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
-                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
-                  🎛️ {lang === 'pt' ? 'Áudio' : 'Audio'}
-                </span>
-                
-                {/* Master Volume */}
-                <div className="flex flex-col gap-1 mt-1">
-                  <span className="text-[9px] font-bold text-[var(--cordel-text)]/60 uppercase tracking-wider">Volume Général</span>
-                  <AudioFader
-                    min="-40"
-                    max="6"
-                    step="0.5"
-                    audioTarget="masterVolume"
-                    value={masterVol}
-                    onChange={(val) => onMasterVolChange(val)}
-                    className="w-full h-2 bg-[var(--cordel-text)] border border-[var(--cordel-border)] rounded-none outline-none cursor-pointer"
-                    style={{ accentColor: 'var(--cordel-text)' }}
-                  />
-                </div>
-
-                </div>
 
               {/* 👁️ AFFICHAGE & LANGUE */}
               <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
@@ -446,13 +391,79 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   <button onClick={() => { onLangToggle(); setMobileMenuOpen(false); }} className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer">
                     🌐 {lang === 'pt' ? 'FR' : 'PT'}
                   </button>
-                  <button onClick={() => { onToggleRightPanel('legend'); setMobileMenuOpen(false); }} className={`px-2 py-1.5 cordel-border-sm text-xs font-bold font-cactus cursor-pointer ${activeRightPanel === 'legend' ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'}`}>
-                    📖 {t('legend')}
+                  
+                  {/* Information dropdown for mobile / tablet */}
+                  <div className="relative col-span-2" ref={infoDropRef}>
+                    <button
+                      onClick={() => setInfoDropOpen(!infoDropOpen)}
+                      className="w-full px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer flex items-center justify-between gap-1 h-[28px]"
+                    >
+                      <span className="truncate">ℹ️ {(() => {
+                        if (mobileTab === 'toada') {
+                          if (activeRightPanel === 'info') return lang === 'pt' ? 'Informações' : 'Informations';
+                          if (activeRightPanel === 'letras') return 'Toada';
+                          if (activeRightPanel === 'sinais') return lang === 'pt' ? 'Sinais' : 'Signes';
+                          if (activeRightPanel === 'legend') return lang === 'pt' ? 'Legenda' : 'Légende';
+                          if (activeRightPanel === 'feedback') return lang === 'pt' ? 'Nota & Opinião' : 'Note & Avis';
+                        }
+                        return lang === 'pt' ? 'Informações' : 'Information';
+                      })()}</span>
+                      <span className="text-[10px] shrink-0">▼</span>
+                    </button>
+                    
+                    {infoDropOpen && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] z-[100] flex flex-col py-1">
+                        <button
+                          onClick={() => { onToggleRightPanel('info'); onMobileTabToggle?.('toada'); setInfoDropOpen(false); setMobileMenuOpen(false); }}
+                          className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                            mobileTab === 'toada' && activeRightPanel === 'info' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                          }`}
+                        >
+                          ℹ️ {lang === 'pt' ? 'Informações' : 'Informations'}
+                        </button>
+                        <button
+                          onClick={() => { onToggleRightPanel('letras'); onMobileTabToggle?.('toada'); setInfoDropOpen(false); setMobileMenuOpen(false); }}
+                          className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                            mobileTab === 'toada' && activeRightPanel === 'letras' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                          }`}
+                        >
+                          📝 Toada
+                        </button>
+                        <button
+                          onClick={() => { onToggleRightPanel('sinais'); onMobileTabToggle?.('toada'); setInfoDropOpen(false); setMobileMenuOpen(false); }}
+                          className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                            mobileTab === 'toada' && activeRightPanel === 'sinais' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                          }`}
+                        >
+                          🖐️ {lang === 'pt' ? 'Sinais' : 'Signes'}
+                        </button>
+                        <button
+                          onClick={() => { onToggleRightPanel('legend'); onMobileTabToggle?.('toada'); setInfoDropOpen(false); setMobileMenuOpen(false); }}
+                          className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                            mobileTab === 'toada' && activeRightPanel === 'legend' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                          }`}
+                        >
+                          📖 {lang === 'pt' ? 'Legenda' : 'Légende'}
+                        </button>
+                        <button
+                          onClick={() => { onToggleRightPanel('feedback'); onMobileTabToggle?.('toada'); setInfoDropOpen(false); setMobileMenuOpen(false); }}
+                          className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
+                            mobileTab === 'toada' && activeRightPanel === 'feedback' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
+                          }`}
+                        >
+                          💬 {lang === 'pt' ? 'Nota & Opinião' : 'Note & Avis'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Atelier button for mobile / tablet */}
+                  <button
+                    onClick={() => { toggleSettings(); setMobileMenuOpen(false); }}
+                    className="px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer flex items-center justify-center gap-1 col-span-2"
+                  >
+                    ⚙️ {lang === 'fr' ? "L'Atelier" : 'A Oficina'}
                   </button>
-                  <button onClick={() => { onToggleRightPanel('letras'); setMobileMenuOpen(false); }} className={`px-2 py-1.5 cordel-border-sm text-xs font-bold font-cactus cursor-pointer ${activeRightPanel === 'letras' ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'}`}>
-                    📝 TOADA
-                  </button>
-
                 </div>
               </div>
 
@@ -730,12 +741,12 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   <button onClick={() => { onExportTablature?.(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">
                     <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Tablatura' : 'Tablature'}
                   </button>
-                  {userProfile?.role === 'admin' && (
+                  {isAdmin && (
                     <button onClick={() => { fileInputRef.current?.click(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">
                       <Upload className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Importar' : 'Importer'}
                     </button>
                   )}
-                  <button onClick={() => { onSave(); setProjectDropOpen(false); }} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full ${userProfile?.role !== 'admin' ? 'col-span-2' : ''}`}>
+                  <button onClick={() => { onSave(); setProjectDropOpen(false); }} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full ${!isAdmin ? 'col-span-2' : ''}`}>
                     <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar' : 'Sauvegarder'}
                   </button>
                 </div>
