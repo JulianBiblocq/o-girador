@@ -10,6 +10,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { subscribeToTick, unsubscribeFromTick, getActiveStrokesForTrack, audioEngine } from '../hooks/useAudioSync';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useMidiStore } from '../stores/useMidiStore';
+import { useAudioStore } from '../stores/useAudioStore';
+import { vocalEngineService } from '../audio/vocalEngineService';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getStrokesForInstrument, STEP_OPTIONS } from '../utils/instrumentStrokes';
 import { createPortal } from 'react-dom';
@@ -432,6 +434,25 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const track = useSequencerStore(
     React.useCallback(state => state.tracks.find(t => t.id === trackId), [trackId])
   );
+  const activePattern = track?.patterns.find(p => p.id === track?.selectedPatternId);
+  const hasVocalRecording = useAudioStore(
+    useShallow(state => !!activePattern && !!state.vocalBlobs[activePattern.id])
+  );
+
+  const handleOpenAlignment = React.useCallback(async () => {
+    if (!activePattern) return;
+    let blob = useAudioStore.getState().vocalBlobs[activePattern.id];
+    if (!blob) {
+      blob = await vocalEngineService.loadVocalRecording(activePattern.id) || undefined;
+    }
+    if (blob) {
+      useAudioStore.getState().setTargetPatternId(activePattern.id);
+      useAudioStore.getState().setTempRecording({ patternId: activePattern.id, blob });
+    } else {
+      alert(lang === 'fr' ? "Aucun enregistrement vocal trouvé pour ce motif." : "Nenhuma gravação de voz encontrada para este padrão.");
+    }
+  }, [activePattern, lang]);
+
   const allTracks = useSequencerStore(state => state.tracks);
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
   const inst = track ? instrumentsConfig[track.instrumentIdx] : { id: '', name: '', type: 'percussion', iconImg: '', colors: { text: '' }, mixerBg: '' };
@@ -946,23 +967,34 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
             {/* Pitch Shift Controller for Vocal/Toada tracks */}
             {inst.type === 'voice' && (
-              <div className="flex items-center gap-2 bg-[#f4ecd8] px-3 py-1.5 rounded border-[2px] border-[#1a1a1a] text-xs font-bold ml-6 select-none text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]">
-                <span>{lang === 'fr' ? 'Transposition :' : 'Transposição :'}</span>
-                <button
-                  onClick={() => sequencer.decrementVocalTransposeSteps()}
-                  className="w-5 h-5 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
-                >
-                  -
-                </button>
-                <span className="w-8 text-center font-cactus text-sm">
-                  {sequencer.vocalTransposeSteps > 0 ? `+${sequencer.vocalTransposeSteps}` : sequencer.vocalTransposeSteps}
-                </span>
-                <button
-                  onClick={() => sequencer.incrementVocalTransposeSteps()}
-                  className="w-5 h-5 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
-                >
-                  +
-                </button>
+              <div className="flex items-center gap-2 select-none">
+                <div className="flex items-center gap-2 bg-[#f4ecd8] px-3 py-1.5 rounded border-[2px] border-[#1a1a1a] text-xs font-bold ml-6 text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]">
+                  <span>{lang === 'fr' ? 'Transposition :' : 'Transposição :'}</span>
+                  <button
+                    onClick={() => sequencer.decrementVocalTransposeSteps()}
+                    className="w-5 h-5 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
+                  >
+                    -
+                  </button>
+                  <span className="w-8 text-center font-cactus text-sm">
+                    {sequencer.vocalTransposeSteps > 0 ? `+${sequencer.vocalTransposeSteps}` : sequencer.vocalTransposeSteps}
+                  </span>
+                  <button
+                    onClick={() => sequencer.incrementVocalTransposeSteps()}
+                    className="w-5 h-5 flex items-center justify-center bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 border border-[#1a1a1a]/20 rounded text-center cursor-pointer transition-colors font-bold text-sm"
+                  >
+                    +
+                  </button>
+                </div>
+
+                {activePattern && hasVocalRecording && (
+                  <button
+                    onClick={handleOpenAlignment}
+                    className="flex items-center gap-1.5 bg-[#b89f74] hover:bg-[#1a1a1a] hover:text-[#ece4d0] px-3 py-1.5 rounded border-[2px] border-[#1a1a1a] text-xs font-bold font-cactus uppercase ml-4 cursor-pointer text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a] transition-all"
+                  >
+                    ✏️ {lang === 'fr' ? 'Ajuster le calage' : 'Ajustar o calado'}
+                  </button>
+                )}
               </div>
             )}
 

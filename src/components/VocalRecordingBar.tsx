@@ -1,13 +1,19 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Mic, Square, ChevronUp, ChevronDown, Play, Trash2, Sliders } from 'lucide-react';
+import { Mic, Square, ChevronUp, ChevronDown, Play, Trash2, Sliders, FolderOpen } from 'lucide-react';
 import { useAudioStore } from '../stores/useAudioStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { vocalEngineService } from '../audio/vocalEngineService';
 import { instrumentsConfig } from '../data';
 import { useAudio } from '../contexts/AudioContext';
+import { useAudioDevices } from '../hooks/useAudioDevices';
 import * as Tone from 'tone';
 
 export const VocalRecordingBar: React.FC = () => {
+  const selectedDeviceId = useAudioStore((state) => state.selectedDeviceId);
+  const availableDevices = useAudioStore((state) => state.availableDevices);
+  const setSelectedDeviceId = useAudioStore((state) => state.setSelectedDeviceId);
+  const refreshAudioDevices = useAudioStore((state) => state.refreshAudioDevices);
+
   const recordingStatus = useAudioStore((state) => state.recordingStatus);
   const targetPatternId = useAudioStore((state) => state.targetPatternId);
   const isVocalGuideEnabled = useAudioStore((state) => state.isVocalGuideEnabled);
@@ -23,6 +29,21 @@ export const VocalRecordingBar: React.FC = () => {
   const { isPlaying, handleTogglePlay, handleStop } = useAudio();
   const iconRef = useRef<SVGSVGElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Early permission request & device population
+  const handleRequestPermissionAndPopulateDevices = async () => {
+    try {
+      console.log("🎙️ [AUDIO PERMISSIONS] Early getUserMedia request...");
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      console.log("🎙️ [AUDIO PERMISSIONS] Permission granted! Refreshing device labels...");
+      await refreshAudioDevices();
+    } catch (err: any) {
+      console.warn("🎙️ [AUDIO PERMISSIONS] Error requesting audio permissions:", err);
+      alert(lang === 'fr' ? "Erreur d'accès micro : " + err.message : "Erro de acesso ao mic: " + err.message);
+    }
+  };
 
   // Auto-expand bar when recording status goes active
   useEffect(() => {
@@ -149,6 +170,26 @@ export const VocalRecordingBar: React.FC = () => {
     return dict[lang]?.[key] || dict['fr'][key];
   };
 
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedPatternId) return;
+
+    try {
+      const blob = new Blob([await file.arrayBuffer()], { type: file.type });
+      
+      // Bypasses live recording start context: set timeline start to null
+      useAudioStore.getState().setRecordingStartTimelineSec(null);
+      
+      // Inject directly as a temporary recording to open validation modal
+      useAudioStore.getState().setTempRecording({ patternId: selectedPatternId, blob });
+      
+      // Reset input value to allow selecting same file again
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (err: any) {
+      alert("Erreur lors de l'import : " + err.message);
+    }
+  };
+
   const handleStartRec = () => {
     // 🛡️ SYNC CHECK: Resume context synchronously inside user gesture to bypass Safari/Chrome autoplay blocks
     try {
@@ -168,6 +209,7 @@ export const VocalRecordingBar: React.FC = () => {
     }
 
     vocalEngineService.startRecording(selectedPatternId, {
+      deviceId: selectedDeviceId || undefined,
       onStartSequencer: () => {
         if (!isPlaying) {
           handleTogglePlay();
@@ -436,6 +478,32 @@ export const VocalRecordingBar: React.FC = () => {
                   {activePattern ? activePattern.name : ''}
                 </span>
               )}
+
+              {/* Cordel Audio Hardware Configuration Panel (Pre-recording) */}
+              <div className="flex items-center gap-2 bg-[#ece4d0] border-2 border-[#1a1a1a] p-1.5 rounded-sm shadow-[2px_2px_0px_#1a1a1a] ml-2">
+                <button
+                  onClick={handleRequestPermissionAndPopulateDevices}
+                  className="px-2.5 py-1 bg-[#b89f74] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#fdfaf2] font-cactus font-bold text-[11px] border border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] rounded-sm transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+                  title="Autoriser l'accès micro et lister toutes les cartes son dédiées"
+                >
+                  <Mic className="w-3.5 h-3.5" />
+                  <span>{lang === 'fr' ? "Activer / Lister Cartes Son" : "Ativar / Listar Placas"}</span>
+                </button>
+
+                {availableDevices.length > 0 && (
+                  <select
+                    value={selectedDeviceId || ''}
+                    onChange={(e) => setSelectedDeviceId(e.target.value || null)}
+                    className="bg-[#fdfaf2] border border-[#1a1a1a] font-mono font-bold text-xs px-2 py-1 rounded-sm shadow-[1px_1px_0px_#1a1a1a] focus:outline-none cursor-pointer text-[#1a1a1a] max-w-[180px] truncate"
+                  >
+                    {availableDevices.map((d) => (
+                      <option key={d.deviceId} value={d.deviceId}>
+                        {d.label || `Carte Son / Micro (${d.deviceId.slice(0, 6)})`}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
           ) : (
             <span className="text-sm font-bold tracking-wide font-cactus uppercase">
@@ -512,13 +580,30 @@ export const VocalRecordingBar: React.FC = () => {
         )}
 
         {recordingStatus === 'inactive' ? (
-          <button
-            onClick={handleStartRec}
-            className="cordel-btn px-6 py-2.5 bg-[#8b2a1a] text-[#fdfaf2] font-bold text-sm border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] rounded-sm flex items-center gap-2 hover:opacity-95 cursor-pointer"
-          >
-            <Mic className="w-4 h-4" />
-            {t('rec')}
-          </button>
+          <>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="audio/*"
+              className="hidden"
+              onChange={handleFileImport}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="cordel-btn px-4.5 py-2.5 font-bold text-sm bg-[#b89f74] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] rounded-sm flex items-center gap-2 cursor-pointer hover:opacity-95 transition-colors"
+              title={lang === 'fr' ? "Importer un fichier audio externe" : "Importar arquivo de áudio"}
+            >
+              <FolderOpen className="w-4 h-4" />
+              <span>{lang === 'fr' ? "Importer" : "Importar"}</span>
+            </button>
+            <button
+              onClick={handleStartRec}
+              className="cordel-btn px-6 py-2.5 bg-[#8b2a1a] text-[#fdfaf2] font-bold text-sm border-2 border-[#1a1a1a] shadow-[3px_3px_0px_#1a1a1a] rounded-sm flex items-center gap-2 hover:opacity-95 cursor-pointer"
+            >
+              <Mic className="w-4 h-4" />
+              {t('rec')}
+            </button>
+          </>
         ) : (
           <button
             onClick={handleStopRec}

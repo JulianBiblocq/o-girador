@@ -58,6 +58,29 @@ export function useAppAudio() {
     const tryLoadQueryOrHash = async () => {
       try {
         const urlParams = new URLSearchParams(window.location.search);
+        
+        // 1. Interception du paramètre ?file= pour chargement dynamique JSON distant (Firebase Storage / Deep Link)
+        const fileUrl = urlParams.get('file');
+        if (fileUrl) {
+          try {
+            const response = await fetch(fileUrl);
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            const presetData = await response.json();
+            await audio.applyPreset(presetData);
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return true;
+          } catch (err) {
+            console.error('[O Girador] Échec du téléchargement du fichier JSON distant via ?file=:', err);
+            if (sequencer.alertAsync) {
+              sequencer.alertAsync('Impossible de télécharger le fichier distant. Le rythme par défaut a été chargé.');
+            }
+            window.history.replaceState({}, document.title, window.location.pathname);
+            return false;
+          }
+        }
+
         const baqueParam = urlParams.get('baque');
         if (baqueParam) {
           const decompressed = LZString.decompressFromEncodedURIComponent(baqueParam);

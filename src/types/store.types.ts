@@ -35,6 +35,7 @@ export interface Pattern {
   vocalAudioUrl?: string;
   vocalNudge?: number;
   vocalTrimStart?: number;
+  vocalClip?: VocalClipMeta;
   beatResolutions?: number[]; // Added for tuplet support
   variations?: PatternVariation[];
   preRollActiveSteps?: (string | number)[];
@@ -42,6 +43,14 @@ export interface Pattern {
   preRollNotes?: string[];
   preRollVolumes?: number[];
   preRollDecays?: number[];
+}
+
+export interface VocalClipMeta {
+  offsetStart: number;      // Seconds to skip from buffer start (trim offset)
+  startTimeDelay: number;   // Delay in seconds for player trigger (nudge offset)
+  baseBpm: number;          // Original BPM when recorded/imported
+  bpmSync: boolean;         // Enable automatic BPM synchronization
+  offsetEnd?: number;       // Seconds from buffer start where playback should stop
 }
 
 export interface SavedPattern {

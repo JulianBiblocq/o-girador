@@ -583,8 +583,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             <XiloTimeline size={16} />
           </button>
 
+          {/* TODO: Réactiver le Studio des Jeux plus tard */}
           {/* STUDIO DO MESTRE (Mobile) */}
-          {hasAccess('admin') && (
+          {/* {hasAccess('admin') && (
             <button
               onClick={() => onViewModeToggle('studio')}
               className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
@@ -596,7 +597,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             >
               <XiloMestre size={16} />
             </button>
-          )}
+          )} */}
 
           {/* JOGO DROPDOWN (MOBILE) */}
           {hasAccess('admin') && (
@@ -860,8 +861,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           <XiloTimeline size={14} className="shrink-0" /> {lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR'}
         </button>
 
+        {/* TODO: Réactiver le Studio des Jeux plus tard */}
         {/* STUDIO DO MESTRE (Standalone Desktop) */}
-        {hasAccess('admin') && (
+        {/* {hasAccess('admin') && (
           <button
             onClick={() => onViewModeToggle('studio')}
             className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${
@@ -873,7 +875,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           >
             <XiloMestre size={14} className="shrink-0" /> {lang === 'pt' ? 'ESTÚDIO' : 'STUDIO'}
           </button>
-        )}
+        )} */}
 
         {/* JOGOS DROPDOWN (DESKTOP) */}
         <div className="relative font-sans" ref={jogoDropRef}>

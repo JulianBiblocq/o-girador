@@ -5,6 +5,7 @@
 
 import React, { Suspense, lazy, useMemo } from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useAudioStore } from '../stores/useAudioStore';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -22,7 +23,8 @@ const InspecteurEngine = lazy(() => import('./InspecteurEngine').then(m => ({ de
 const MestreEngine = lazy(() => import('./MestreEngine').then(m => ({ default: m.MestreEngine })));
 const RythmeLiveEngine = lazy(() => import('./RythmeLiveEngine').then(m => ({ default: m.RythmeLiveEngine })));
 const VaralCordel = lazy(() => import('./VaralCordel').then(m => ({ default: m.VaralCordel })));
-const MestreStudio = lazy(() => import('./MestreStudio').then(m => ({ default: m.MestreStudio })));
+// TODO: Réactiver le Studio des Jeux plus tard
+// const MestreStudio = lazy(() => import('./MestreStudio').then(m => ({ default: m.MestreStudio })));
 const AdminPanel = lazy(() => import('./AdminPanel').then(m => ({ default: m.AdminPanel })));
 
 const renderFallback = (labelFr: string, labelPt: string) => {
@@ -131,6 +133,7 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
   const editingTrackId = useSequencerStore(state => state.editingTrackId);
   const setEditingTrackId = useSequencerStore(state => state.setEditingTrackId);
   const isTracksCollapsed = useSequencerStore(state => state.isTracksCollapsed);
+  const isFocusMode = useAudioStore(state => state.isFocusRecordingMode);
 
   const handleSetEditingTrackId = React.useCallback((id: number | null) => {
     setEditingTrackId(id);
@@ -142,7 +145,11 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
   }, []);
 
   return (
-    <div id="main-workspace" className="flex flex-grow min-h-0 overflow-hidden relative w-full mobile-stack cordel-bg">
+    <div 
+      id="main-workspace" 
+      className="flex flex-grow min-h-0 overflow-hidden relative w-full mobile-stack cordel-bg"
+      style={{ visibility: isFocusMode ? 'hidden' : 'visible' }}
+    >
       <Suspense fallback={<XiloLoadingSpinner lang={lang} />}>
         {/* 1. RODA VIEW */}
         <div 
@@ -313,8 +320,8 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
           </ErrorBoundary>
         )}
 
-        {/* 5. DASHBOARDS & ADMIN */}
-        {hasVisitedStudio && (
+        {/* TODO: Réactiver le Studio des Jeux plus tard */}
+        {/* {hasVisitedStudio && (
           <div 
             className="flex-1 w-full h-full overflow-hidden flex flex-col relative z-20"
             style={{ display: viewMode === 'studio' ? 'flex' : 'none' }}
@@ -329,7 +336,7 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
               />
             </ErrorBoundary>
           </div>
-        )}
+        )} */}
 
         {viewMode === 'admin' && (
           <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">

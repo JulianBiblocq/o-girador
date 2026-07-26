@@ -9,6 +9,8 @@ import { XiloChisel } from './XiloIcons';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
 import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { getNextStepValue } from '../utils/instrumentStrokes';
+import { useAudio } from '../contexts/AudioContext';
+import { useSequencer } from '../contexts/SequencerContext';
 
 interface TrackMixerProps {
   trackId: number;
@@ -41,6 +43,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   isMobile = false,
   onStepTouchStart,
 }) => {
+  const { isPlaying } = useAudio();
+  const { handleTrackStepValueChange } = useSequencer();
   const lang = useSequencerStore(state => state.lang);
   const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
   const setActiveAoVivoTrackId = useSequencerStore(state => state.setActiveAoVivoTrackId);
@@ -49,7 +53,6 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const isMaster = useSequencerStore(state => state.tracks.some(t => String(t.linkedToTrackId) === String(trackId)));
   const isTracksCollapsed = useSequencerStore(state => state.isTracksCollapsed);
   const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
-  const isPlaying = useSequencerStore(state => state.isPlaying);
   const currentMeasure = useSequencerStore(state => state.currentMeasure);
 
   const onInstrumentChange = (instIdx: number) => {
@@ -198,14 +201,14 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         inst.id,
         visualVal,
         (newVal) => {
-          useSequencerStore.getState().handleTrackStepValueChange(track.id, activePattern.id, stepIdx, newVal);
+          handleTrackStepValueChange(track.id, activePattern.id, stepIdx, newVal);
         },
         track.id
       );
     } else {
       const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
       const nextSemanticVal = getVisualStrokeSymbol(nextVisualVal, isLeftHanded, inst.id);
-      useSequencerStore.getState().handleTrackStepValueChange(track.id, activePattern.id, stepIdx, String(nextSemanticVal));
+      handleTrackStepValueChange(track.id, activePattern.id, stepIdx, String(nextSemanticVal));
     }
   };
 
@@ -498,7 +501,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
             onStepClick={(e, stepIdx, val) => handleStepClick(e, stepIdx, val)}
             onStepValueChange={(stepIdx, val) => {
               if (activePattern) {
-                useSequencerStore.getState().handleTrackStepValueChange(track.id, activePattern.id, stepIdx, val);
+                handleTrackStepValueChange(track.id, activePattern.id, stepIdx, val);
               }
             }}
           />

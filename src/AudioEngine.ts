@@ -384,8 +384,8 @@ export class AudioEngine {
   public start(): void {
     if (this.isPlaying) return;
 
-    // Initialize timing markers
-    this.nextTickTime = this.audioContext.currentTime;
+    // Initialize timing markers with 25ms pre-roll buffer for seamless AudioContext startup & UI sync
+    this.nextTickTime = this.audioContext.currentTime + 0.025;
     
     // Hard Sync initialization
     this.schedulingStep = this.currentStep;
@@ -1022,7 +1022,7 @@ export class AudioEngine {
     
     // Organically vary the playback rate unless it is a Barulho or Gonguê
     let microPitch = 1.0;
-    if (!stroke.isBarulho && instrumentId !== 'gongue') {
+    if (!stroke.isBarulho && instrumentId !== 'gongue' && instrumentId !== 'timbal') {
       if (HUMANIZED_INSTRUMENTS.has(instrumentId)) {
         microPitch = 0.993 + Math.random() * 0.014; // Subtle +/- 0.7% variation
       } else {

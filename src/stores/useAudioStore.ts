@@ -13,8 +13,13 @@ export interface AudioState {
   selectedVocalPatternId: number | null;
   isAudioUnlocked: boolean;
   recordingStartTimelineSec: number | null;
-
+  isFocusRecordingMode: boolean;
+  selectedDeviceId: string | null;
+  availableDevices: Array<{ deviceId: string; label: string }>;
+  setSelectedDeviceId: (id: string | null) => void;
+  refreshAudioDevices: () => Promise<void>;
   setRecordingStatus: (status: 'inactive' | 'arming' | 'countdown' | 'recording') => void;
+  setIsFocusRecordingMode: (focus: boolean) => void;
   setTargetPatternId: (id: number | null) => void;
   setTargetMeasureIdx: (idx: number | null) => void;
   setTempRecording: (temp: { patternId: number; blob: Blob } | null) => void;
@@ -32,6 +37,7 @@ export interface AudioState {
 
 export const useAudioStore = create<AudioState>((set) => ({
   recordingStatus: 'inactive',
+  isFocusRecordingMode: false,
   targetPatternId: null,
   targetMeasureIdx: null,
   vocalBlobs: {},
@@ -44,7 +50,32 @@ export const useAudioStore = create<AudioState>((set) => ({
   isAudioUnlocked: false,
   recordingStartTimelineSec: null,
 
-  setRecordingStatus: (status) => set({ recordingStatus: status }),
+  selectedDeviceId: null,
+  availableDevices: [],
+  setSelectedDeviceId: (id) => set({ selectedDeviceId: id }),
+  refreshAudioDevices: async () => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices
+        .filter((d) => d.kind === 'audioinput')
+        .map((d) => ({
+          deviceId: d.deviceId,
+          label: d.label || `Micro / Carte Son (${d.deviceId.slice(0, 5)}...)`,
+        }));
+      set({ availableDevices: audioInputs });
+      if (audioInputs.length > 0 && !useAudioStore.getState().selectedDeviceId) {
+        set({ selectedDeviceId: audioInputs[0].deviceId });
+      }
+    } catch (err) {
+      console.warn("🎙️ [AUDIO DEVICES] Error enumerating audio devices:", err);
+    }
+  },
+  setRecordingStatus: (status) => set({
+    recordingStatus: status,
+    isFocusRecordingMode: status !== 'inactive'
+  }),
+  setIsFocusRecordingMode: (focus) => set({ isFocusRecordingMode: focus }),
   setTargetPatternId: (id) => set({ targetPatternId: id }),
   setTargetMeasureIdx: (idx) => set({ targetMeasureIdx: idx }),
   setTempRecording: (temp) => set({ tempRecording: temp }),

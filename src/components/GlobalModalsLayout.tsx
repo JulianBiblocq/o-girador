@@ -11,6 +11,7 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { ExportMenuModal } from './ExportMenuModal';
 import { useAudioStore } from '../stores/useAudioStore';
 import { VocalValidationModal } from './VocalValidationModal';
+import { VocalRecordingFocusOverlay } from './VocalRecordingFocusOverlay';
 
 // Lazy loaded modals for bundle size optimization
 const SaveSectionModal = lazy(() => import('./CloudSectionModals').then(m => ({ default: m.SaveSectionModal })));
@@ -196,6 +197,9 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
           {toastMessage}
         </div>
       )}
+
+      {/* Focus Mode Overlay for CPU Isolation during Vocal Recording */}
+      <VocalRecordingFocusOverlay />
 
       {/* Vocal Validation Interception Modal */}
       {tempRecording !== null && (

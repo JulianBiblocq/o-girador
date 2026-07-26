@@ -85,8 +85,9 @@ export const Home: React.FC<HomeProps> = ({ onEnter, lang }) => {
             </button>
           )}
 
+          {/* TODO: Réactiver le Studio des Jeux plus tard */}
           {/* Studio */}
-          {hasAccess('admin') && (
+          {/* {hasAccess('admin') && (
             <button
               onClick={() => handleEnter('studio')}
               className="bg-[#8e44ad] text-[#1a1a1a] cordel-border flex flex-col items-center justify-center py-6 px-4 cursor-pointer hover:-translate-y-1 transition-transform"
@@ -99,7 +100,7 @@ export const Home: React.FC<HomeProps> = ({ onEnter, lang }) => {
                 {isFr ? 'Arrangements avancés' : 'Arranjos avançados'}
               </span>
             </button>
-          )}
+          )} */}
 
         </div>
 

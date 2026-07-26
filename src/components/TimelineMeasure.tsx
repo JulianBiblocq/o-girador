@@ -220,7 +220,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
           </div>
 
           {patternId !== -1 && instType === 'voice' && (
-            <div className="absolute bottom-1.5 right-1.5 bg-[#27ae60] text-white border border-black/20 font-sans font-bold text-[8px] px-1 py-px rounded-sm z-20 pointer-events-none select-none flex items-center gap-0.5 shadow-sm">
+            <div className="absolute top-1.5 left-1/2 -translate-x-1/2 bg-[#27ae60] text-white border border-black/20 font-sans font-bold text-[8px] px-1 py-px rounded-sm z-20 pointer-events-none select-none flex items-center gap-0.5 shadow-sm">
               🎙️ MIC
             </div>
           )}

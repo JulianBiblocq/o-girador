@@ -19,7 +19,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useTransportStore } from '../stores/useTransportStore';
-import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
+import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../hooks/useAudioSync';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { getBusColor, getBusNoteColor } from '../utils/colorHelpers';
 
@@ -270,6 +270,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     maxTicks: 96,
     ratio: 0,
     iteration: 1,
+    time: 0,
   });
 
   if (!tracks) return null;
@@ -442,7 +443,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     if (!isActive) return;
 
     const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number; iteration?: number }) => {
-      const { step, measure, maxTicks, ratio = step / maxTicks, iteration = 1 } = detail;
+      const { step, measure, maxTicks, ratio = step / maxTicks, time = 0, iteration = 1 } = detail;
       
       livePlaybackRef.current = {
         step,
@@ -450,6 +451,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         maxTicks,
         ratio,
         iteration,
+        time,
       };
 
       const expanded = expandedRef.current;
@@ -1196,37 +1198,35 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         flashAlpha -= 0.05;
       }
 
-      // Rotate Drumstick indicating active play head step
-      if (localStep !== -1) {
-        stickAngle = -Math.PI / 2 + ((localStep / localTicks) * Math.PI * 2);
+      // Rotate Drumstick indicating active play head step with real-time temporal interpolation
+      const isCurrentlyPlaying = localPlaying || (audioEngine ? audioEngine.getIsPlaying() : false);
+
+      if (isCurrentlyPlaying && localStep !== -1) {
+        let currentRatio = live.ratio || 0;
+        
+        // Extrapolate ratio within the current measure using Web Audio API context time
+        const toneInst = safeGetTone();
+        const currentCtxTime = audioEngine ? audioEngine.getCurrentTime() : (toneInst ? (toneInst.getContext().rawContext as AudioContext).currentTime : 0);
+        const liveTime = live.time;
+        
+        if (liveTime !== undefined && liveTime >= 0 && currentCtxTime >= liveTime) {
+          const elapsedCtx = currentCtxTime - liveTime;
+          const timeSigOfMeasure = stateRef.current.timeSig || '4/4';
+          const beats = parseInt(timeSigOfMeasure.split('/')[0], 10) || 4;
+          const measureDuration = (beats * 60) / (stateRef.current.bpm || 120);
+          
+          if (measureDuration > 0) {
+            currentRatio = (live.ratio + (elapsedCtx / measureDuration)) % 1;
+          }
+        }
+        stickAngle = -Math.PI / 2 + (currentRatio * Math.PI * 2);
+      } else if (localStep !== -1) {
+        // Paused: freeze the needle at the last received ratio
+        stickAngle = -Math.PI / 2 + ((live.ratio || 0) * Math.PI * 2);
       } else {
+        // Stopped: reset to default starting angle (-90 deg, pointing straight up)
         stickAngle = -Math.PI / 2;
       }
-
-      // 3. Dessiner la baguette avec la longueur maximale dynamique uniforme
-      const maxVisibleRadius = activeVisibleTracks.length > 0 
-        ? getTrackRadius(activeVisibleTracks.length - 1, activeVisibleTracks.length) 
-        : 120;
-      const stickLength = maxVisibleRadius + 35;
-
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.rotate(stickAngle);
-
-      ctx.beginPath();
-      ctx.moveTo(0, -2);
-      ctx.lineTo(stickLength - 10, -1);
-      ctx.lineTo(stickLength - 10, 1);
-      ctx.lineTo(0, 2);
-      ctx.closePath();
-      ctx.fillStyle = themeBorder;
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.ellipse(stickLength - 5, 0, 5, 3, 0, 0, Math.PI * 2);
-      ctx.fillStyle = themeBorder;
-      ctx.fill();
-      ctx.restore();
 
       // Dynamic scale multiplier
       const maxTracks = 10;
@@ -1749,6 +1749,63 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         }
         ctx.restore();
       });
+
+      // 3. Dessiner la baguette de Maracatu (Needle / Playhead) par-dessus les pistes pour une visibilité maximale
+      const maxVisibleRadius = activeVisibleTracks.length > 0 
+        ? getTrackRadius(activeVisibleTracks.length - 1, activeVisibleTracks.length) 
+        : 120;
+      const stickLength = maxVisibleRadius + 40;
+
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(stickAngle);
+
+      // Ombre portée sous la baguette pour détacher l'aiguille des pistes et du fond
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
+
+      // Corps de la baguette (Bois étiré haute visibilité avec bordure d'encre Cordel)
+      ctx.beginPath();
+      ctx.moveTo(0, -3.5);
+      ctx.lineTo(stickLength - 12, -2);
+      ctx.lineTo(stickLength - 12, 2);
+      ctx.lineTo(0, 3.5);
+      ctx.closePath();
+      ctx.fillStyle = themeWood;
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = themeBorder;
+      ctx.stroke();
+
+      // Filet doré de finition le long de la baguette
+      ctx.beginPath();
+      ctx.moveTo(12, 0);
+      ctx.lineTo(stickLength - 15, 0);
+      ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Tête de la baguette (Goutte/Tête d'olive dorée haute visibilité)
+      ctx.beginPath();
+      ctx.ellipse(stickLength - 6, 0, 7, 4.5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#f59e0b';
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = themeBorder;
+      ctx.stroke();
+
+      // Pivot central (Bouton d'axe au centre de la Roda)
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, 0, Math.PI * 2);
+      ctx.fillStyle = themeWood;
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = themeBorder;
+      ctx.stroke();
+
+      ctx.restore();
 
       // Restore the ctx scale applied after drawImage
       ctx.restore();

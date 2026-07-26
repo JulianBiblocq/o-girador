@@ -22,7 +22,11 @@ export const fetchMestreSignals = async (mestreId: string, lastVisibleDoc?: any)
       lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1] || null
     };
   } catch (err) {
-    console.error('Error fetching mestre signals:', err);
+    if (err && ((err as any).code === 'permission-denied' || String(err).includes('permission'))) {
+      console.warn("Cloud features disabled: Missing or insufficient Firebase permissions for mestre signals.");
+    } else {
+      console.error('Error fetching mestre signals:', err);
+    }
     return { signals: [], lastDoc: null };
   }
 };

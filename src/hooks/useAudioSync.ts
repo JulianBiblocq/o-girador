@@ -1479,7 +1479,7 @@ export function useAudioSync({
 
               const initialMeasureIdx = activePattern.measureAssignments.indexOf(true);
               if (initialMeasureIdx !== -1) {
-                const startMeasureIdx = Math.max(0, initialMeasureIdx - 1);
+                const startMeasureIdx = initialMeasureIdx;
                 
                 let consecutiveMeasures = 0;
                 for (let i = initialMeasureIdx; i < totalMeasuresRef.current; i++) {
@@ -1492,31 +1492,42 @@ export function useAudioSync({
                 consecutiveMeasures = Math.max(1, consecutiveMeasures);
                 const endMeasureIdx = initialMeasureIdx + consecutiveMeasures;
 
-                const isInRange = currentMeasureIdx >= startMeasureIdx && currentMeasureIdx < endMeasureIdx;
+                // Support anacrouse note triggering 1 measure before initialMeasureIdx
+                const isAnacrousePreRollMeasure = (currentMeasureIdx === Math.max(0, initialMeasureIdx - 1)) && (initialMeasureIdx > 0);
+                const isInRange = (currentMeasureIdx >= startMeasureIdx && currentMeasureIdx < endMeasureIdx) || isAnacrousePreRollMeasure;
 
                 if (isInRange) {
                   let elapsedSec = 0;
-                  for (let m = startMeasureIdx; m < currentMeasureIdx; m++) {
-                    const mIdx = m % (useSequencerStore.getState().measureBpms.length || 1);
-                    const mBpm = useSequencerStore.getState().measureBpms[mIdx] || bpm;
-                    const mSig = useSequencerStore.getState().measureTimeSigs[mIdx] || '4/4';
-                    const mBeats = parseInt(mSig.split('/')[0]) || 4;
-                    elapsedSec += (mBeats * 60) / mBpm;
+                  if (isAnacrousePreRollMeasure) {
+                    elapsedSec = elapsedInMeasure - measureDurationSec;
+                  } else {
+                    for (let m = startMeasureIdx; m < currentMeasureIdx; m++) {
+                      const mIdx = m % (useSequencerStore.getState().measureBpms.length || 1);
+                      const mBpm = useSequencerStore.getState().measureBpms[mIdx] || bpm;
+                      const mSig = useSequencerStore.getState().measureTimeSigs[mIdx] || '4/4';
+                      const mBeats = parseInt(mSig.split('/')[0]) || 4;
+                      elapsedSec += (mBeats * 60) / mBpm;
+                    }
+                    elapsedSec += elapsedInMeasure;
                   }
-                  elapsedSec += elapsedInMeasure;
 
-                  const vocalStartSec = ((activePattern.vocalTrimStart || 0) + (activePattern.vocalNudge || 0)) / 1000;
-                  const elapsedSinceVocalStart = elapsedSec - vocalStartSec;
+                  const clip = activePattern.vocalClip;
+                  const offsetStart = clip ? (clip.offsetStart || 0) : ((activePattern.vocalTrimStart || 0) / 1000);
+                  const startTimeDelay = clip ? (clip.startTimeDelay || 0) : ((activePattern.vocalNudge || 0) / 1000);
+                  const offsetEnd = clip && clip.offsetEnd !== undefined ? clip.offsetEnd : vocalBuf.duration;
+
+                  // Unified non-destructive buffer playback offset calculation
+                  const elapsedSinceVocalStart = elapsedSec - startTimeDelay + offsetStart;
 
                   const isAlreadyPlaying = activeSequencerVocalsRef.current.has(safeId);
 
-                  if (elapsedSinceVocalStart >= 0 && elapsedSinceVocalStart < vocalBuf.duration) {
+                  if (elapsedSinceVocalStart >= offsetStart && elapsedSinceVocalStart < offsetEnd) {
                     if (!isAlreadyPlaying) {
                       const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
                       const voiceInst = instrumentsConfig[track.instrumentIdx];
                       const isCoroTrack = voiceInst?.id === 'coro';
 
-                      console.log(`🎙️ [VOCAL DEBUG] Triggering vocal for pattern ${safeId} at transport time ${time.toFixed(3)}s. Offset: ${elapsedSinceVocalStart.toFixed(3)}s`);
+                      console.log(`🎙️ [VOCAL DEBUG] Triggering vocal for pattern ${safeId} at transport time ${time.toFixed(3)}s. Buffer Offset: ${elapsedSinceVocalStart.toFixed(3)}s`);
                       const handle = vocalEngineService.playSequencerVocal(
                         safeId,
                         time,
