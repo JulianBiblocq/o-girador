@@ -370,7 +370,7 @@
         .lp-title { font-size: 3.5rem; }
       }
     </style>
-    <script type="module" crossorigin src="/o-girador/assets/index-Du8ueK2h.js"></script>
+    <script type="module" crossorigin src="/o-girador/assets/index-yNQPwibn.js"></script>
     <link rel="modulepreload" crossorigin href="/o-girador/assets/react-JKNcUEMz.js">
     <link rel="modulepreload" crossorigin href="/o-girador/assets/firebase-BWqiR47N.js">
     <link rel="modulepreload" crossorigin href="/o-girador/assets/dnd-kit-BKsdao4f.js">
@@ -423,36 +423,12 @@
       if ('serviceWorker' in navigator) {
         const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         if (isLocalhost) {
-          // Unregister any active service worker on localhost to prevent dev caching issues
+          // Quietly unregister active service workers on localhost without forcing continuous reloads
           navigator.serviceWorker.getRegistrations().then(registrations => {
-            let unregistered = false;
-            const promises = registrations.map(registration =>
-              registration.unregister().then(() => {
-                // console.log('Service Worker unregistered on localhost');
-                unregistered = true;
-              })
-            );
-            Promise.all(promises).then(() => {
-              if (unregistered) {
-                // Clear caches as well to force loading fresh files
-                if ('caches' in window) {
-                  caches.keys().then(keys => {
-                    Promise.all(keys.map(key => caches.delete(key))).then(() => {
-                      window.location.reload();
-                    });
-                  });
-                } else {
-                  window.location.reload();
-                }
-              }
-            });
+            for (const registration of registrations) {
+              registration.unregister();
+            }
           });
-          // Also clear caches immediately in case
-          if ('caches' in window) {
-            caches.keys().then(keys => {
-              keys.forEach(key => caches.delete(key));
-            });
-          }
         } else {
           window.addEventListener('load', () => {
             const base = window.location.pathname.startsWith('/o-girador') ? '/o-girador/' : '/';
