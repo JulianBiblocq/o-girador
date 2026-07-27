@@ -264,7 +264,16 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     expandedRef.current = getExpandedMeasures(totalMeasures, songSections);
   }, [totalMeasures, songSections]);
 
-  const livePlaybackRef = useRef({
+  const livePlaybackRef = useRef<{
+    step: number;
+    measure: number;
+    maxTicks: number;
+    ratio: number;
+    iteration: number;
+    time: number;
+    measureStartTime?: number;
+    measureDuration?: number;
+  }>({
     step: -1,
     measure: 0,
     maxTicks: 96,
@@ -442,8 +451,17 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   useEffect(() => {
     if (!isActive) return;
 
-    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number; iteration?: number }) => {
-      const { step, measure, maxTicks, ratio = step / maxTicks, time = 0, iteration = 1 } = detail;
+    const handleTick = (detail: {
+      step: number;
+      measure: number;
+      maxTicks: number;
+      ratio?: number;
+      time?: number;
+      iteration?: number;
+      measureStartTime?: number;
+      measureDuration?: number;
+    }) => {
+      const { step, measure, maxTicks, ratio = step / maxTicks, time = 0, iteration = 1, measureStartTime, measureDuration } = detail;
       
       livePlaybackRef.current = {
         step,
@@ -452,6 +470,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         ratio,
         iteration,
         time,
+        measureStartTime: measureStartTime ?? livePlaybackRef.current.measureStartTime,
+        measureDuration: measureDuration ?? livePlaybackRef.current.measureDuration,
       };
 
       const expanded = expandedRef.current;
@@ -1198,25 +1218,31 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         flashAlpha -= 0.05;
       }
 
-      // Rotate Drumstick indicating active play head step with real-time temporal interpolation
+      // Rotate Drumstick indicating active play head step with real-time continuous 60 FPS interpolation
       const isCurrentlyPlaying = localPlaying || (audioEngine ? audioEngine.getIsPlaying() : false);
 
       if (isCurrentlyPlaying && localStep !== -1) {
         let currentRatio = live.ratio || 0;
         
-        // Extrapolate ratio within the current measure using Web Audio API context time
         const toneInst = safeGetTone();
         const currentCtxTime = audioEngine ? audioEngine.getCurrentTime() : (toneInst ? (toneInst.getContext().rawContext as AudioContext).currentTime : 0);
-        const liveTime = live.time;
-        
-        if (liveTime !== undefined && liveTime >= 0 && currentCtxTime >= liveTime) {
-          const elapsedCtx = currentCtxTime - liveTime;
-          const timeSigOfMeasure = stateRef.current.timeSig || '4/4';
-          const beats = parseInt(timeSigOfMeasure.split('/')[0], 10) || 4;
-          const measureDuration = (beats * 60) / (stateRef.current.bpm || 120);
-          
-          if (measureDuration > 0) {
-            currentRatio = (live.ratio + (elapsedCtx / measureDuration)) % 1;
+        const mStart = live.measureStartTime;
+        const mDur = live.measureDuration;
+
+        if (mStart !== undefined && mStart > 0 && mDur !== undefined && mDur > 0 && currentCtxTime >= mStart) {
+          const elapsedCtx = currentCtxTime - mStart;
+          currentRatio = (elapsedCtx / mDur) % 1;
+        } else {
+          const liveTime = live.time;
+          if (liveTime !== undefined && liveTime >= 0 && currentCtxTime >= liveTime) {
+            const elapsedCtx = currentCtxTime - liveTime;
+            const timeSigOfMeasure = stateRef.current.timeSig || '4/4';
+            const beats = parseInt(timeSigOfMeasure.split('/')[0], 10) || 4;
+            const measureDuration = (beats * 60) / (stateRef.current.bpm || 120);
+            
+            if (measureDuration > 0) {
+              currentRatio = (live.ratio + (elapsedCtx / measureDuration)) % 1;
+            }
           }
         }
         stickAngle = -Math.PI / 2 + (currentRatio * Math.PI * 2);

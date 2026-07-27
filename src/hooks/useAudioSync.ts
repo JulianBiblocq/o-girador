@@ -380,7 +380,18 @@ export function useAudioSync({
   const tracks = useSequencerStore((state) => state.tracks);
 
   // 🛡️ FIX (Audit): Rapatrie instanciation à l'intérieur du hook React via des useRef
-  const tickEventDetailRef = useRef({
+  const tickEventDetailRef = useRef<{
+    step: number;
+    measure: number;
+    maxTicks: number;
+    ratio: number;
+    visualStep16: number;
+    visualStep12: number;
+    time: number;
+    iteration: number;
+    measureStartTime?: number;
+    measureDuration?: number;
+  }>({
     step: 0,
     measure: 0,
     maxTicks: 96,
@@ -388,7 +399,9 @@ export function useAudioSync({
     visualStep16: 0,
     visualStep12: 0,
     time: 0,
-    iteration: 1
+    iteration: 1,
+    measureStartTime: 0,
+    measureDuration: 2.0,
   });
   const isAudioInitializedRef = useRef(false);
   const onTickRef = useRef<(time: number) => void>(() => {});
@@ -1078,9 +1091,17 @@ export function useAudioSync({
         const ratioVal = _stepForUI / _currentTicks;
 
         const rawCtx = Tone.getContext().rawContext as AudioContext;
-        // Compensate for hardware output latency on mobile devices so visuals match sound
-        const visualDelay = rawCtx.outputLatency || 0.050; // Fallback to 50ms if not supported
+        // Use native outputLatency if provided by browser, else 0 (Tone.Draw already aligns with Web Audio context time)
+        const visualDelay = (typeof rawCtx.outputLatency === 'number' && !isNaN(rawCtx.outputLatency)) ? rawCtx.outputLatency : 0;
         const drawTime = time + visualDelay;
+
+        // Calculate continuous measure baseline parameters for smooth animation interpolation
+        const timeSigOfMeasure = measureTimeSigsRef.current[_measureForUI % (totalMeasuresRef.current || 1)] || '4/4';
+        const beatsInMeasure = parseInt(timeSigOfMeasure.split('/')[0], 10) || 4;
+        const currentMeasureBpmRaw = measureBpmsRef.current[_measureForUI % (totalMeasuresRef.current || 1)];
+        const currentMeasureBpm = isNaN(currentMeasureBpmRaw) || currentMeasureBpmRaw <= 0 ? 100 : currentMeasureBpmRaw;
+        const measureDurationSec = (beatsInMeasure * 60) / currentMeasureBpm;
+        const measureStartTimeSec = time - (ratioVal * measureDurationSec);
 
         if (!isDocHidden) {
           Tone.Draw.schedule(() => {
@@ -1114,6 +1135,8 @@ export function useAudioSync({
             detail.visualStep12 = Math.floor(ratioVal * 12);
             detail.time = time;
             detail.iteration = sectionIterationRef.current;
+            detail.measureStartTime = measureStartTimeSec;
+            detail.measureDuration = measureDurationSec;
 
             tickSubscribers.forEach((cb) => {
               try { cb(detail); } catch (err) { console.error(err); }
