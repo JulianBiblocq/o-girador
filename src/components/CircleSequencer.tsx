@@ -1261,11 +1261,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           if (diff > Math.PI) diff -= Math.PI * 2;
           if (diff < -Math.PI) diff += Math.PI * 2;
           targetAngle += diff;
-
-          // Frame-rate independent exponential lerp for glass-smooth motion
-          const dt = Math.max(0.001, Math.min(0.05, (time - lastDrawTime) / 1000));
-          const lerpFactor = 1 - Math.exp(-25 * dt);
-          smoothedAngle += (targetAngle - smoothedAngle) * lerpFactor;
+          // Direct 1:1 hardware sound card clock synchronization (Zero phase lag, zero startup delay)
+          smoothedAngle = targetAngle;
         }
         stickAngle = smoothedAngle;
       } else if (localStep !== -1) {
