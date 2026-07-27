@@ -877,8 +877,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           </button>
         )} */}
 
-        {/* JOGOS DROPDOWN (DESKTOP) */}
-        <div className="relative font-sans" ref={jogoDropRef}>
+        {/* TODO: Réactiver l'onglet JOGOS / JEUX plus tard */}
+        {/* JOGOS DROPDOWN (DESKTOP) - TEMPORARILY HIDDEN */}
+        {/* <div className="relative font-sans" ref={jogoDropRef}>
           {hasAccess('admin') && (
             <button
               onClick={() => setJogoDropOpen(!jogoDropOpen)}
@@ -905,7 +906,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               </button>
             </div>
           )}
-        </div>
+        </div> */}
 
 
       </div>
