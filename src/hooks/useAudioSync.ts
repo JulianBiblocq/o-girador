@@ -1120,7 +1120,7 @@ export function useAudioSync({
         const currentMeasureBpmRaw = measureBpmsRef.current[_measureForUI % (totalMeasuresRef.current || 1)];
         const currentMeasureBpm = isNaN(currentMeasureBpmRaw) || currentMeasureBpmRaw <= 0 ? 100 : currentMeasureBpmRaw;
         const measureDurationSec = (beatsInMeasure * 60) / currentMeasureBpm;
-        const measureStartTimeSec = time - (ratioVal * measureDurationSec);
+        const measureStartTimeSec = drawTime - (ratioVal * measureDurationSec);
 
         if (!isDocHidden) {
           Tone.Draw.schedule(() => {
