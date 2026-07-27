@@ -522,6 +522,192 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     return 0;
   };
 
+  // Pre-calculate step swing offsets in a memoized array (Zero calculation thrashing)
+  const swingOffsets = React.useMemo(() => {
+    const stepsCount = pattern?.steps ?? 16;
+    const resArr = pattern?.beatResolutions;
+    const offsets = new Float32Array(stepsCount);
+    for (let i = 0; i < stepsCount; i++) {
+      offsets[i] = getStepSwingPercent(i, stepsCount, resArr);
+    }
+    return offsets;
+  }, [pattern?.steps, pattern?.beatResolutions, globalSwing, trackSwingIntensity]);
+
+  const handleStepTouchStartMulti = React.useCallback((e: React.MouseEvent | React.TouchEvent, index: number) => {
+    if (!isMultiSelectActive) return;
+    isSelectingRef.current = true;
+    hasDraggedRef.current = false;
+    initialTouchIndexRef.current = index;
+
+    if ('touches' in e && e.touches.length > 0) {
+      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+
+    const wasSel = selectedStepIndices.includes(index);
+    wasSelectedRef.current = wasSel;
+
+    if (e.ctrlKey || e.metaKey || e.shiftKey) {
+      if (!wasSel) {
+        setSelectedStepIndices(prev => [...prev, index]);
+      }
+    } else {
+      setSelectedStepIndices([index]);
+    }
+  }, [isMultiSelectActive, selectedStepIndices, setSelectedStepIndices]);
+
+  const handleStepMouseDownMulti = React.useCallback((e: React.MouseEvent | React.TouchEvent, index: number) => {
+    if (!isMultiSelectActive) return;
+    if ('button' in e && e.button !== 0) return;
+    isSelectingRef.current = true;
+    hasDraggedRef.current = false;
+    initialTouchIndexRef.current = index;
+
+    const wasSel = selectedStepIndices.includes(index);
+    wasSelectedRef.current = wasSel;
+
+    if (e.ctrlKey || e.metaKey || e.shiftKey) {
+      if (!wasSel) {
+        setSelectedStepIndices(prev => [...prev, index]);
+      }
+    } else {
+      setSelectedStepIndices([index]);
+    }
+  }, [isMultiSelectActive, selectedStepIndices, setSelectedStepIndices]);
+
+  const handleStepMouseEnterMulti = React.useCallback((index: number) => {
+    if (!isMultiSelectActive || !isSelectingRef.current) return;
+    hasDraggedRef.current = true;
+    setSelectedStepIndices(prev => {
+      if (prev.includes(index)) return prev;
+      return [...prev, index];
+    });
+  }, [isMultiSelectActive, setSelectedStepIndices]);
+
+  const handleStart = React.useCallback((e: React.MouseEvent | React.TouchEvent, stepIdx: number, currentVal: string | number) => {
+    if ('shiftKey' in e && e.shiftKey) return;
+    if (onStepTouchStart) {
+      onStepTouchStart(e, pattern.id, stepIdx, instrument.id, currentVal, (newVal) => {
+        if (selectedVariationId) {
+          handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, stepIdx, newVal);
+        } else {
+          handleTrackStepValueChange(trackId, pattern.id, stepIdx, newVal);
+        }
+      }, trackId);
+    }
+  }, [onStepTouchStart, pattern.id, instrument.id, selectedVariationId, trackId, handleVariationStepValueChange, handleTrackStepValueChange]);
+
+  // Stable callbacks for step cell events (Zero inline closure allocations)
+  const handleCellMouseDown = React.useCallback((e: React.MouseEvent<HTMLInputElement>, idx: number, value: string | number) => {
+    e.stopPropagation();
+    if (e.button !== 0) return;
+    setSelectedPatternId(pattern.id);
+    setSelectedVariationId(null);
+
+    if (isMultiSelectActive) {
+      handleStepMouseDownMulti(e, idx);
+      return;
+    }
+
+    if (e.altKey) {
+      isMouseDownRef.current = true;
+      const nextVal = getNextStepValue(instrument?.id, instrument?.type, value);
+      paintValueRef.current = nextVal;
+      if (selectedVariationId) {
+        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, String(nextVal));
+      } else {
+        handleTrackStepValueChange(trackId, pattern.id, idx, String(nextVal));
+      }
+      return;
+    }
+
+    if (e.shiftKey) {
+      e.preventDefault();
+      if (selectedStepIdx !== null) {
+        const start = Math.min(selectedStepIdx, idx);
+        const end = Math.max(selectedStepIdx, idx);
+        const rangeIndices = Array.from({ length: end - start + 1 }, (_, k) => start + k);
+        setSelectedStepIndices(rangeIndices);
+        setSelectedStepIdx(idx);
+      }
+      return;
+    }
+
+    setSelectedStepIdx(idx);
+    setSelectedStepIndices([idx]);
+    isMouseDownRef.current = true;
+    if (onStepTouchStart) {
+      handleStart(e, idx, value);
+    } else {
+      const nextVal = getNextStepValue(instrument?.id, instrument?.type, value);
+      paintValueRef.current = nextVal;
+      if (selectedVariationId) {
+        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, String(nextVal));
+      } else {
+        handleTrackStepValueChange(trackId, pattern.id, idx, String(nextVal));
+      }
+    }
+  }, [pattern.id, selectedVariationId, isMultiSelectActive, instrument?.id, instrument?.type, trackId, selectedStepIdx, onStepTouchStart, handleStart, handleStepMouseDownMulti, handleVariationStepValueChange, handleTrackStepValueChange, setSelectedPatternId, setSelectedVariationId, setSelectedStepIndices, setSelectedStepIdx]);
+
+  const handleCellMouseEnter = React.useCallback((idx: number) => {
+    if (isMultiSelectActive) {
+      handleStepMouseEnterMulti(idx);
+      return;
+    }
+    if (isMouseDownRef.current) {
+      if (selectedVariationId) {
+        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, String(paintValueRef.current));
+      } else {
+        handleTrackStepValueChange(trackId, pattern.id, idx, String(paintValueRef.current));
+      }
+    }
+  }, [isMultiSelectActive, handleStepMouseEnterMulti, selectedVariationId, trackId, pattern.id, handleVariationStepValueChange, handleTrackStepValueChange]);
+
+  const handleCellTouchStart = React.useCallback((e: React.TouchEvent<HTMLInputElement>, idx: number, value: string | number) => {
+    e.stopPropagation();
+    if (isMultiSelectActive) {
+      handleStepTouchStartMulti(e as any, idx);
+      return;
+    }
+    handleStart(e, idx, value);
+  }, [isMultiSelectActive, handleStepTouchStartMulti, handleStart]);
+
+  const handleCellChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
+    const newVal = e.target.value;
+    if (selectedVariationId) {
+      handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, newVal);
+    } else {
+      handleTrackStepValueChange(trackId, pattern.id, idx, newVal);
+    }
+  }, [selectedVariationId, trackId, pattern.id, handleVariationStepValueChange, handleTrackStepValueChange]);
+
+  const handleCellKeyDown = React.useCallback((e: React.KeyboardEvent<HTMLInputElement>, idx: number) => {
+    const inputEl = e.currentTarget as HTMLInputElement;
+    handleTrackStepKeyDown(trackId, pattern.id, idx, e.key, inputEl.value, inputEl);
+  }, [handleTrackStepKeyDown, trackId, pattern.id]);
+
+  const handleVoiceTouchStart = React.useCallback((e: React.TouchEvent<HTMLDivElement>, idx: number) => {
+    if (isMultiSelectActive) {
+      handleStepTouchStartMulti(e as any, idx);
+    }
+  }, [isMultiSelectActive, handleStepTouchStartMulti]);
+
+  const handleVoiceMouseDown = React.useCallback((e: React.MouseEvent<HTMLDivElement>, idx: number) => {
+    if (isMultiSelectActive) {
+      handleStepMouseDownMulti(e as any, idx);
+    }
+  }, [isMultiSelectActive, handleStepMouseDownMulti]);
+
+  const handleVoiceMouseEnter = React.useCallback((idx: number) => {
+    if (isMultiSelectActive) {
+      handleStepMouseEnterMulti(idx);
+    }
+  }, [isMultiSelectActive, handleStepMouseEnterMulti]);
+
+  const handleVoiceFocusStep = React.useCallback((idx: number) => {
+    setSelectedStepIdx(idx);
+    setSelectedPatternId(pattern.id);
+  }, [setSelectedStepIdx, setSelectedPatternId, pattern.id]);
+
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
   // Sync clipboard status
@@ -754,15 +940,6 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   const trackExists = useSequencerStore(state => state.tracks.some(t => t.id === trackId));
   if (!trackExists || !pattern || !instrument) return null;
 
-  const handleStepTouchStartMulti = (e: React.TouchEvent, index: number) => {
-    if (!isMultiSelectActive) return;
-    const touch = e.touches[0];
-    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
-    isSelectingRef.current = true;
-    hasDraggedRef.current = false;
-    initialTouchIndexRef.current = index;
-  };
-
   const handleGridTouchMove = (e: React.TouchEvent) => {
     if (!isMultiSelectActive || !isSelectingRef.current || !touchStartPos.current) return;
 
@@ -830,34 +1007,6 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     initialTouchIndexRef.current = null;
   };
 
-  const handleStepMouseDownMulti = (e: React.MouseEvent | React.TouchEvent, index: number) => {
-    if (!isMultiSelectActive) return;
-    if ('button' in e && e.button !== 0) return;
-    isSelectingRef.current = true;
-    hasDraggedRef.current = false;
-    initialTouchIndexRef.current = index;
-
-    const wasSel = selectedStepIndices.includes(index);
-    wasSelectedRef.current = wasSel;
-
-    if (e.ctrlKey || e.metaKey || e.shiftKey) {
-      if (!wasSel) {
-        setSelectedStepIndices(prev => [...prev, index]);
-      }
-    } else {
-      setSelectedStepIndices([index]);
-    }
-  };
-
-  const handleStepMouseEnterMulti = (index: number) => {
-    if (!isMultiSelectActive || !isSelectingRef.current) return;
-    hasDraggedRef.current = true;
-    setSelectedStepIndices(prev => {
-      if (prev.includes(index)) return prev;
-      return [...prev, index];
-    });
-  };
-
   const handleCopyRelative = (ptn: any) => {
     if (selectedStepIndices.length === 0) return;
     const sorted = [...selectedStepIndices].sort((a, b) => a - b);
@@ -899,19 +1048,6 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         handleTrackStepValueChange(trackId, ptn.id, destIndices, destValues, destLyrics, destNotes);
       }
       setSelectedStepIndices([]);
-    }
-  };
-
-  const handleStart = (e: React.MouseEvent | React.TouchEvent, stepIdx: number, currentVal: string | number) => {
-    if ('shiftKey' in e && e.shiftKey) return;
-    if (onStepTouchStart) {
-      onStepTouchStart(e, pattern.id, stepIdx, instrument.id, currentVal, (newVal) => {
-        if (selectedVariationId) {
-          handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, stepIdx, newVal);
-        } else {
-          handleTrackStepValueChange(trackId, pattern.id, stepIdx, newVal);
-        }
-      }, trackId);
     }
   };
 
@@ -1164,9 +1300,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       const note = pattern?.notes?.[i] || '';
                       const isSelected = selectedStepIndices.includes(i);
 
-                      // Calculate total micro-timing shift (manual + global swing)
+                      // Calculate total micro-timing shift (manual + pre-calculated global swing)
                       const manualMicro = pattern?.microtimings?.[i] ?? 0;
-                      const swingOffset = getStepSwingPercent(i, pattern?.steps ?? 16, pattern?.beatResolutions);
+                      const swingOffset = swingOffsets[i] || 0;
                       const totalShift = Math.max(-100, Math.min(100, manualMicro + swingOffset));
                       const shiftPx = (totalShift / 100) * 8; // Max 8px shift
 
@@ -1190,29 +1326,14 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                           isLinked={isLinked}
                           volume={pattern.volumes?.[i] ?? 100}
                           decay={pattern.decays?.[i] ?? 10}
-                          onTouchStart={(e) => {
-                            if (isMultiSelectActive) {
-                              handleStepTouchStartMulti(e as any, i);
-                            }
-                          }}
-                          onMouseDown={(e) => {
-                            if (isMultiSelectActive) {
-                              handleStepMouseDownMulti(e as any, i);
-                            }
-                          }}
-                          onMouseEnter={(idx) => {
-                            if (isMultiSelectActive) {
-                              handleStepMouseEnterMulti(idx);
-                            }
-                          }}
+                          onTouchStart={handleVoiceTouchStart}
+                          onMouseDown={handleVoiceMouseDown}
+                          onMouseEnter={handleVoiceMouseEnter}
                           onVoiceTypeToggle={handleVoiceTypeToggle}
                           onVoiceSylChange={handleVoiceSylChange}
                           onVoiceNoteChange={handleVoiceNoteChange}
                           onVoiceNoteBlur={handleVoiceNoteBlur}
-                          onFocusStep={(idx) => {
-                            setSelectedStepIdx(idx);
-                            setSelectedPatternId(pattern.id);
-                          }}
+                          onFocusStep={handleVoiceFocusStep}
                           onNoteSelectorTarget={setNoteSelectorTarget}
                           onVoiceNav={handleVoiceNav}
                         />
@@ -1376,9 +1497,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                         };
                       }
 
-                      // Calculate total micro-timing shift (manual + global swing)
+                      // Calculate total micro-timing shift (manual + pre-calculated global swing)
                       const manualMicro = pattern?.microtimings?.[i] ?? 0;
-                      const swingOffset = getStepSwingPercent(i, pattern?.steps ?? 16, pattern?.beatResolutions);
+                      const swingOffset = swingOffsets[i] || 0;
                       const totalShift = Math.max(-100, Math.min(100, manualMicro + swingOffset));
                       const shiftPx = (totalShift / 100) * 8; // Max 8px shift
 
@@ -1420,168 +1541,11 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                             indexInGroup={indexInGroup}
                             totalShift={totalShift}
                             trackId={trackId}
-                            onMouseDown={(e, idx, value) => {
-                              e.stopPropagation();
-                              if (e.button !== 0) return;
-                              setSelectedPatternId(pattern.id);
-                              setSelectedVariationId(null);
-
-                              if (isMultiSelectActive) {
-                                handleStepMouseDownMulti(e, idx);
-                                return;
-                              }
-
-                              // 1. Alt Key Paint Editing
-                              if (e.altKey) {
-                                isMouseDownRef.current = true;
-                                const nextVal = getNextStepValue(instrument?.id, instrument?.type, value);
-                                paintValueRef.current = nextVal;
-                                if (selectedVariationId) {
-                                  handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, String(nextVal));
-                                } else {
-                                  handleTrackStepValueChange(trackId, pattern.id, idx, String(nextVal));
-                                }
-                                return;
-                              }
-
-                              // 2. Shift + Clic (Selection Range)
-                              if (e.shiftKey) {
-                                e.preventDefault();
-                                if (selectedStepIdx !== null) {
-                                  const start = Math.min(selectedStepIdx, idx);
-                                  const end = Math.max(selectedStepIdx, idx);
-                                  const rangeIndices = Array.from({ length: end - start + 1 }, (_, k) => start + k);
-                                  setSelectedStepIndices(rangeIndices);
-                                  setSelectedStepIdx(idx);
-                                }
-                                return;
-                              }
-
-                               // 3. Regular selection & painting
-                              setSelectedStepIdx(idx);
-                              setSelectedStepIndices([idx]);
-                              isMouseDownRef.current = true;
-                              if (onStepTouchStart) {
-                                handleStart(e, idx, value);
-                              } else {
-                                const nextVal = getNextStepValue(instrument?.id, instrument?.type, value);
-                                paintValueRef.current = nextVal;
-                                if (selectedVariationId) {
-                                  handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, String(nextVal));
-                                } else {
-                                  handleTrackStepValueChange(trackId, pattern.id, idx, String(nextVal));
-                                }
-                              }
-                            }}
-                            onMouseEnter={(idx) => {
-                              if (isMultiSelectActive) {
-                                handleStepMouseEnterMulti(idx);
-                              } else {
-                                if (isMouseDownRef.current) {
-                                  if (selectedVariationId) {
-                                    handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, String(paintValueRef.current));
-                                  } else {
-                                    handleTrackStepValueChange(trackId, pattern.id, idx, String(paintValueRef.current));
-                                  }
-                                }
-                              }
-                            }}
-                            onTouchStart={(e, idx, value) => {
-                              e.stopPropagation();
-                              setSelectedPatternId(pattern.id);
-                              setSelectedVariationId(null);
-                              if (isMultiSelectActive) {
-                                handleStepTouchStartMulti(e, idx);
-                              } else {
-                                setSelectedStepIdx(idx);
-                                setSelectedStepIndices([idx]);
-                                handleStart(e, idx, value);
-                              }
-                            }}
-                            onChange={(e, idx) => {
-                              if (selectedVariationId) {
-                                handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, e.target.value);
-                              } else {
-                                handleTrackStepValueChange(trackId, pattern.id, idx, e.target.value);
-                              }
-                            }}
-                            onKeyDown={(e, idx) => {
-                              if (e.key === 'Tab' || e.key === 'Enter') e.preventDefault();
-                              
-                              const isCtrlOrMeta = e.ctrlKey || e.metaKey;
-                              if (isCtrlOrMeta && e.key.toLowerCase() === 'c') {
-                                e.preventDefault();
-                                if (selectedStepIndices.length > 0) {
-                                  handleCopyRelative(pattern);
-                                } else {
-                                  onCopyPattern && onCopyPattern(pattern);
-                                }
-                                return;
-                              }
-                              if (isCtrlOrMeta && e.key.toLowerCase() === 'v') {
-                                e.preventDefault();
-                                if (hasClipboard) {
-                                  handlePasteRelative(pattern, idx);
-                                } else {
-                                  if (canPaste && onPastePattern) {
-                                    onPastePattern(pattern.id);
-                                  }
-                                }
-                                return;
-                              }
-                              if (e.key === 'Delete' || e.key === 'Backspace' || e.key === ' ') {
-                                e.preventDefault();
-                                if (selectedStepIndices.length > 1) {
-                                  if (selectedVariationId) {
-                                    handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, selectedStepIndices, '0');
-                                  } else {
-                                    handleTrackStepValueChange(trackId, pattern.id, selectedStepIndices, '0');
-                                  }
-                                  setSelectedStepIndices([]);
-                                } else {
-                                  if (selectedVariationId) {
-                                    handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, '0');
-                                  } else {
-                                    handleTrackStepValueChange(trackId, pattern.id, idx, '0');
-                                  }
-                                  if (e.key === 'Backspace') {
-                                    const inputEl = e.currentTarget as HTMLInputElement;
-                                    handleTrackStepKeyDown(trackId, pattern.id, idx, e.key, '', inputEl);
-                                  }
-                                }
-                                return;
-                              }
-                              
-                              if (e.key.length === 1 && /^[a-zA-Z0-9]$/.test(e.key)) {
-                                e.preventDefault();
-                                if (selectedStepIndices.length > 1) {
-                                  if (selectedVariationId) {
-                                    handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, selectedStepIndices, e.key);
-                                  } else {
-                                    handleTrackStepValueChange(trackId, pattern.id, selectedStepIndices, e.key);
-                                  }
-                                  setSelectedStepIndices([]);
-                                } else {
-                                  if (selectedVariationId) {
-                                    handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, e.key);
-                                  } else {
-                                    handleTrackStepValueChange(trackId, pattern.id, idx, e.key);
-                                  }
-                                  const inputEl = e.currentTarget as HTMLInputElement;
-                                  if (inputEl.parentElement?.nextElementSibling) {
-                                    const nextInput = inputEl.parentElement.nextElementSibling.querySelector('input');
-                                    if (nextInput) {
-                                      nextInput.focus();
-                                      nextInput.select();
-                                    }
-                                  }
-                                }
-                                return;
-                              }
-
-                              const inputEl = e.currentTarget as HTMLInputElement;
-                              handleTrackStepKeyDown(trackId, pattern.id, idx, e.key, inputEl.value, inputEl);
-                            }}
+                            onMouseDown={handleCellMouseDown}
+                            onMouseEnter={handleCellMouseEnter}
+                            onTouchStart={handleCellTouchStart}
+                            onChange={handleCellChange}
+                            onKeyDown={handleCellKeyDown}
                           />
                         </div>
                       );

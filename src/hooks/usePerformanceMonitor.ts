@@ -18,12 +18,9 @@ export function usePerformanceMonitor() {
   const rafIdRef = useRef<number | null>(null);
 
   useEffect(() => {
-    // 1. Récupération statique des informations matérielles (avec fallbacks pour Safari/iOS)
-    const ram = (navigator as any).deviceMemory; // Retourne undefined si indisponible (Safari/iOS)
-    const cores = navigator.hardwareConcurrency; // Supporté sur la majorité des navigateurs modernes, peut retourner undefined dans certains bacs à sable
-    
+    // 1. Détection matérielle et initialisation du LOD
     const store = usePerformanceStore.getState();
-    store.setHardwareInfo(ram, cores);
+    store.detectAndInitHardware();
 
     const lowFpsCountRef = { current: 0 };
     const highFpsCountRef = { current: 0 };
@@ -46,14 +43,18 @@ export function usePerformanceMonitor() {
           highFpsCountRef.current = 0;
           if (lowFpsCountRef.current >= 3 && !store.isCPUSurcharged) {
             store.setCPUSurcharged(true);
-            console.warn("⚠️ CPU overload detected, enabling Dynamic CPU Throttling (FPS < 45 for 3s)");
+            const currentLOD = store.lodLevel;
+            if (currentLOD < 4) {
+              store.setLODLevel((currentLOD + 1) as any);
+            }
+            console.warn(`⚠️ CPU overload detected, escalating LOD Level to ${store.lodLevel}`);
           }
         } else if (fps >= 54) {
           highFpsCountRef.current += 1;
           lowFpsCountRef.current = 0;
           if (highFpsCountRef.current >= 5 && store.isCPUSurcharged) {
             store.setCPUSurcharged(false);
-            console.log("ℹ️ CPU load normalized, disabling Dynamic CPU Throttling (FPS >= 54 for 5s)");
+            console.log("ℹ️ CPU load normalized");
           }
         } else {
           lowFpsCountRef.current = 0;

@@ -309,12 +309,21 @@ export const vocalEngineService = {
         clearScheduledEvents();
 
         // -------------------------------------------------------------
-        // ÉTAPE B : DECOMPTE (COUNT-IN) 4 TEMPS SYNCHRONISE SUR TEMPS ABSOLU
+        // ÉTAPE B : DECOMPTE (COUNT-IN) 4 TEMPS - DEMARRAGE DU MICRO AU BEAT 1 (PRE-ROLL CAPTURE)
         // -------------------------------------------------------------
-        // Beat 1
+        // Beat 1 (Start MediaRecorder immediately for early pre-roll capture)
         const idB1 = Tone.Transport.schedule((time) => {
           store.setRecordingStatus('countdown');
           playNativeMetroClick(time, true, 'synth', 0.85);
+
+          if (mediaRecorder && mediaRecorder.state === 'inactive') {
+            try {
+              mediaRecorder.start();
+              console.log(`🎙️ [VOCAL ENGINE] MediaRecorder started early at count-in (time: ${time.toFixed(3)}s) for pre-roll capture`);
+            } catch (e) {
+              console.error("🎙️ [VOCAL ENGINE] Error starting MediaRecorder at count-in:", e);
+            }
+          }
         }, countInStartSec);
 
         // Beat 2
@@ -333,28 +342,22 @@ export const vocalEngineService = {
         }, countInStartSec + (3 * targetBeatDurationSec));
 
         // -------------------------------------------------------------
-        // ÉTAPE C : PUNCH-IN (START RECORDING + RODA BACKING TRACK)
+        // ÉTAPE C : PUNCH-IN VISUEL & DU SEQUENCEUR (START RODA BACKING TRACK)
         // -------------------------------------------------------------
         const idPunchIn = Tone.Transport.schedule((time) => {
-          console.log(`🎙️ [VOCAL ENGINE] Punch-in triggered at absolute time ${time.toFixed(3)}s`);
-          if (mediaRecorder && mediaRecorder.state === 'inactive') {
-            try {
-              mediaRecorder.start();
-              store.setRecordingStartTimelineSec(time);
-              store.setRecordingStatus('recording');
+          console.log(`🎙️ [VOCAL ENGINE] Visual Punch-in triggered at absolute time ${time.toFixed(3)}s`);
+          
+          store.setRecordingStartTimelineSec(time);
+          store.setRecordingStatus('recording');
 
-              // Launch Roda sequencer backing track
-              if (options.onStartSequencer) {
-                options.onStartSequencer();
-              }
-            } catch (e) {
-              console.error("🎙️ [VOCAL ENGINE] Error starting MediaRecorder at Punch-in:", e);
-            }
+          // Launch Roda sequencer backing track
+          if (options.onStartSequencer) {
+            options.onStartSequencer();
           }
         }, punchInTimeSec);
 
         // -------------------------------------------------------------
-        // ÉTAPE D : PUNCH-OUT (STOP RECORDING AT ABSOLUTE LOOP END)
+        // ÉTAPE D : PUNCH-OUT (STRICT AUTO-STOP RECORDING AT LOOP END)
         // -------------------------------------------------------------
         const idPunchOut = Tone.Transport.schedule((time) => {
           console.log(`🎙️ [VOCAL ENGINE] Punch-out triggered at absolute time ${time.toFixed(3)}s`);

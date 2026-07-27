@@ -6,6 +6,7 @@
 import * as Tone from 'tone';
 import { instrumentsConfig } from '../data';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { usePerformanceStore } from '../stores/usePerformanceStore';
 
 /*
  * JUSTIFICATION DES CHOIX TECHNIQUES (Performance & Horloge Audio) :
@@ -339,15 +340,42 @@ export function syncTrackInsertChain(trackId: number, track: any) {
     currentEQ.high.gain.value = eq.high?.g ?? 0;
   }
 
-  // Connect the active chain (Smart Bypass)
+  // Check LOD Performance Store for clean physical node bypass
+  const perfState = usePerformanceStore.getState();
+  const isEQBypassed = perfState.bypassEQ;
+  const isReverbBypassed = perfState.bypassReverbFX;
+
+  if (isEQBypassed) {
+    if (lowCutNodes[trackId]) {
+      try { lowCutNodes[trackId].disconnect(); } catch (_) {}
+    }
+    if (eqNodes[trackId]) {
+      try {
+        eqNodes[trackId].low.disconnect();
+        eqNodes[trackId].mid.disconnect();
+        eqNodes[trackId].high.disconnect();
+      } catch (_) {}
+    }
+  }
+
+  if (isReverbBypassed) {
+    if (reverbSends[trackId]) {
+      try { reverbSends[trackId].disconnect(); } catch (_) {}
+    }
+    if (distortionSends[trackId]) {
+      try { distortionSends[trackId].disconnect(); } catch (_) {}
+    }
+  }
+
+  // Connect the active chain (Clean Physical Bypass LOD)
   let lastNode: any = inputNode;
 
-  if (hasLowCut && currentLowCut) {
+  if (!isEQBypassed && hasLowCut && currentLowCut) {
     lastNode.connect(currentLowCut);
     lastNode = currentLowCut;
   }
 
-  if (hasEQ && currentEQ) {
+  if (!isEQBypassed && hasEQ && currentEQ) {
     lastNode.connect(currentEQ.low);
     currentEQ.low.connect(currentEQ.mid);
     currentEQ.mid.connect(currentEQ.high);
