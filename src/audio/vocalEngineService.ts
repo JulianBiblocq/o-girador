@@ -929,17 +929,24 @@ export const vocalEngineService = {
       panners.push(panner2);
     }
 
+    const handleStop = () => {
+      try { mainPlayer.onstop = null; } catch (_) {}
+      try { mainPlayer.stop(); mainPlayer.dispose(); } catch (_) {}
+      try { mainGain.disconnect(); mainGain.dispose(); } catch (_) {}
+      chorusPlayers.forEach(p => { try { p.stop(); p.dispose(); } catch (_) {} });
+      chorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
+      panners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
+    };
+
+    mainPlayer.onstop = () => {
+      handleStop();
+    };
+
     return {
       mainPlayer,
       chorusPlayers,
       panners,
-      stop: () => {
-        try { mainPlayer.stop(); mainPlayer.dispose(); } catch (_) {}
-        try { mainGain.disconnect(); mainGain.dispose(); } catch (_) {}
-        chorusPlayers.forEach(p => { try { p.stop(); p.dispose(); } catch (_) {} });
-        chorusGains.forEach(g => { try { g.disconnect(); g.dispose(); } catch (_) {} });
-        panners.forEach(pan => { try { pan.disconnect(); pan.dispose(); } catch (_) {} });
-      }
+      stop: handleStop
     };
   }
 };

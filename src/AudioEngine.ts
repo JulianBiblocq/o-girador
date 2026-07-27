@@ -1209,10 +1209,22 @@ export class AudioEngine {
     this.activeBarulhoGains.clear();
     this.scheduledHits.clear();
     for (const [_, mapping] of this.activeGainNodes) {
+      if (mapping.gainNode) {
+        try { mapping.gainNode.disconnect(); } catch (_) {}
+      }
       mapping.gainNode = null as any;
       mapping.instrumentId = '';
     }
     this.activeGainNodes.clear();
+    
+    for (const [_, pool] of this.gainNodePools) {
+      pool.forEach((gainNode) => {
+        try {
+          gainNode.gain.cancelScheduledValues(0);
+          gainNode.disconnect();
+        } catch (_) {}
+      });
+    }
     this.gainNodePools.clear();
     this.instrumentVoices.clear();
   }

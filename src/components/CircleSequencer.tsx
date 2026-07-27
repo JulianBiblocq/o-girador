@@ -854,6 +854,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     let animId: number;
     let flashAlpha = 0;
     let stickAngle = -Math.PI / 2;
+    let smoothedAngle = -Math.PI / 2;
+    let targetAngle = -Math.PI / 2;
+    let isFirstAngleFrame = true;
     let lastFlashBeat = -1;
 
     const instrumentTotals: Record<number, number> = {};
@@ -1218,7 +1221,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         flashAlpha -= 0.05;
       }
 
-      // Rotate Drumstick indicating active play head step with real-time continuous 60 FPS interpolation
+      // Rotate Drumstick indicating active play head step with real-time continuous 60 FPS interpolation & angle unwrapping lerp
       const isCurrentlyPlaying = localPlaying || (audioEngine ? audioEngine.getIsPlaying() : false);
 
       if (isCurrentlyPlaying && localStep !== -1) {
@@ -1245,13 +1248,39 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             }
           }
         }
-        stickAngle = -Math.PI / 2 + (currentRatio * Math.PI * 2);
+
+        const desiredRaw = -Math.PI / 2 + (currentRatio * Math.PI * 2);
+
+        if (isFirstAngleFrame) {
+          smoothedAngle = desiredRaw;
+          targetAngle = desiredRaw;
+          isFirstAngleFrame = false;
+        } else {
+          // Unwrap target angle to ensure shortest forward path across 2*PI boundary
+          let diff = (desiredRaw - targetAngle) % (Math.PI * 2);
+          if (diff > Math.PI) diff -= Math.PI * 2;
+          if (diff < -Math.PI) diff += Math.PI * 2;
+          targetAngle += diff;
+
+          // Frame-rate independent exponential lerp for glass-smooth motion
+          const dt = Math.max(0.001, Math.min(0.05, (time - lastDrawTime) / 1000));
+          const lerpFactor = 1 - Math.exp(-25 * dt);
+          smoothedAngle += (targetAngle - smoothedAngle) * lerpFactor;
+        }
+        stickAngle = smoothedAngle;
       } else if (localStep !== -1) {
         // Paused: freeze the needle at the last received ratio
-        stickAngle = -Math.PI / 2 + ((live.ratio || 0) * Math.PI * 2);
+        const pauseAngle = -Math.PI / 2 + ((live.ratio || 0) * Math.PI * 2);
+        smoothedAngle = pauseAngle;
+        targetAngle = pauseAngle;
+        stickAngle = pauseAngle;
+        isFirstAngleFrame = true;
       } else {
         // Stopped: reset to default starting angle (-90 deg, pointing straight up)
+        smoothedAngle = -Math.PI / 2;
+        targetAngle = -Math.PI / 2;
         stickAngle = -Math.PI / 2;
+        isFirstAngleFrame = true;
       }
 
       // Dynamic scale multiplier

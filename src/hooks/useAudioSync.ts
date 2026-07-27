@@ -169,7 +169,9 @@ import {
   reverbBusReceive,
   distortionBusReceive,
   trackInputs,
-  syncTrackInsertChain
+  syncTrackInsertChain,
+  disposeTrackNodes,
+  disposeAllTrackNodes
 } from '../audio/effectsChain';
 
 export {
@@ -423,11 +425,28 @@ export function useAudioSync({
   const totalMeasuresRefInternal = useRef(useSequencerStore.getState().totalMeasures);
   const measureTimeSigsRefInternal = useRef(useSequencerStore.getState().measureTimeSigs);
 
-  // Background subscriber to keep refs in sync with store
+  const cachedExpandedMeasuresRef = useRef<any[]>([]);
+
+  // Background subscriber to keep refs in sync with store and cleanup deleted tracks
   useEffect(() => {
+    cachedExpandedMeasuresRef.current = getExpandedMeasures(
+      useSequencerStore.getState().totalMeasures,
+      useSequencerStore.getState().songSections
+    );
+
     const unsub = useSequencerStore.subscribe((state) => {
       totalMeasuresRefInternal.current = state.totalMeasures;
       measureTimeSigsRefInternal.current = state.measureTimeSigs;
+      cachedExpandedMeasuresRef.current = getExpandedMeasures(state.totalMeasures, state.songSections);
+
+      // Cleanup audio nodes of tracks that have been deleted
+      const currentTrackIds = new Set(state.tracks.map((t) => t.id));
+      Object.keys(channels).forEach((idStr) => {
+        const idNum = Number(idStr);
+        if (!currentTrackIds.has(idNum)) {
+          disposeTrackNodes(idNum);
+        }
+      });
     });
     return unsub;
   }, []);
@@ -1066,7 +1085,7 @@ export function useAudioSync({
         }
 
         if (stepIdx === 0) {
-          const expanded = getExpandedMeasures(totalMeasuresRef.current, songSectionsRef.current);
+          const expanded = cachedExpandedMeasuresRef.current;
           let sigId: string | null = null;
           if (expanded.length > 0) {
             const currentExpandedIdx = expanded.findIndex(
@@ -1113,7 +1132,7 @@ export function useAudioSync({
             const prevMeasure = useSequencerStore.getState().currentMeasure;
             if (_stepForUI === 0 || _measureForUI !== prevMeasure) {
               setCurrentMeasure(_measureForUI);
-              const expanded = getExpandedMeasures(totalMeasuresRef.current, songSectionsRef.current);
+              const expanded = cachedExpandedMeasuresRef.current;
               if (expanded.length > 0) {
                 const currentExpandedIdx = expanded.findIndex(
                   item => item.baseMeasure === _measureForUI && item.iteration === sectionIterationRef.current
