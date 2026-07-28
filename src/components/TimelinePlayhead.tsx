@@ -23,6 +23,20 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
     speed: 0, // Pixels per second
   });
   
+  const livePlaybackRef = useRef<{
+    step: number;
+    measure: number;
+    ratio: number;
+    measureStartTime?: number;
+    measureDuration?: number;
+  }>({
+    step: -1,
+    measure: 0,
+    ratio: 0,
+    measureStartTime: 0,
+    measureDuration: 0,
+  });
+  
   const layoutCache = useRef({ 
     vw: 0, 
     lastScrollX: 0 
@@ -99,14 +113,23 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
     };
     scrollEl.addEventListener('scroll', handleScroll, { passive: true });
 
-    const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number }) => {
-      const { step, measure, maxTicks, ratio = step / maxTicks, time = 0 } = detail;
+    const handleTick = (detail: {
+      step: number;
+      measure: number;
+      maxTicks: number;
+      ratio?: number;
+      time?: number;
+      measureStartTime?: number;
+      measureDuration?: number;
+    }) => {
+      const { step, measure, maxTicks, ratio = step / maxTicks, time = 0, measureStartTime, measureDuration } = detail;
       const el = playheadRef.current;
       
       if (!el) return;
 
       // --- 1. GESTION DE L'ARRÊT ---
       if (step < 0) {
+        livePlaybackRef.current = { step: -1, measure: 0, ratio: 0, measureStartTime: 0, measureDuration: 0 };
         anchorRef.current = { exactX: 0, time: 0, speed: 0 };
         lastExactXRef.current = -1;
         el.style.transition = 'none';
@@ -120,20 +143,23 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
         el.style.display = 'block';
       }
 
+      livePlaybackRef.current = {
+        step,
+        measure,
+        ratio,
+        measureStartTime: measureStartTime ?? livePlaybackRef.current.measureStartTime,
+        measureDuration: measureDuration ?? livePlaybackRef.current.measureDuration,
+      };
+
       const currentMEASURE_W = measureWRef.current;
 
       // Position mathématique absolue
       const exactX = measure * currentMEASURE_W + ratio * currentMEASURE_W;
-      
-      // Calculer la vitesse en pixels par seconde de l'AudioContext
-      const timeSigOfMeasure = measureTimeSigsRef.current[measure] || '4/4';
-      const beats = parseInt(timeSigOfMeasure.split('/')[0], 10) || 4;
-      const speed = (currentMEASURE_W / beats) * (bpmRef.current / 60);
 
       anchorRef.current = {
         exactX,
         time,
-        speed
+        speed: 0
       };
 
       // Détection de rupture (Loop, Seek ou saut au début de la boucle) pour le scroll immédiat
@@ -260,23 +286,18 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
         }
       }
 
-      const toneInst = safeGetTone();
-      const transport = toneInst ? toneInst.Transport : null;
-      const isTransportPlaying = transport ? transport.state === 'started' : audio.isPlaying;
+      const live = livePlaybackRef.current;
+      const ctxTime = audioEngine ? audioEngine.getCurrentTime() : 0;
+      const mStart = live.measureStartTime;
+      const mDur = live.measureDuration;
 
-      if (!shouldSkipVisualUpdate && isTransportPlaying && transport) {
+      if (!shouldSkipVisualUpdate && audio.isPlaying && mStart !== undefined && mDur !== undefined && mDur > 0 && ctxTime >= mStart) {
         const currentMEASURE_W = measureWRef.current;
-        const currentTicks = transport.ticks;
-        
-        const timeSig = '4/4';
-        const [beatsStr, denomStr] = timeSig.split('/');
-        const beats = parseInt(beatsStr, 10) || 4;
-        const denom = parseInt(denomStr, 10) || 4;
-        const quarterNotesPerMeasure = beats * (4 / denom);
-        const toneTicksPerMeasure = quarterNotesPerMeasure * (transport.PPQ || 192);
-        
-        // Continuous Absolute Clock position (0 Jitter, 0 Extrapolation, 0 Snapping)
-        const currentX = (currentTicks / toneTicksPerMeasure) * currentMEASURE_W;
+        const elapsed = Math.max(0, ctxTime - mStart);
+        const ratioInMeasure = (elapsed / mDur) % 1;
+
+        // Position X exacte dans la timeline
+        const currentX = (live.measure + ratioInMeasure) * currentMEASURE_W;
 
         if (playheadRef.current) {
           playheadRef.current.style.transform = `translate3d(${HEADER_W + currentX}px, 0, 0)`;
