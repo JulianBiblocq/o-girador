@@ -462,7 +462,27 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       measureDuration?: number;
     }) => {
       const { step, measure, maxTicks, ratio = step / maxTicks, time = 0, iteration = 1, measureStartTime, measureDuration } = detail;
-      
+
+      if (step < 0) {
+        livePlaybackRef.current = {
+          step: -1,
+          measure: 0,
+          maxTicks,
+          ratio: 0,
+          iteration: 1,
+          time: 0,
+          measureStartTime: 0,
+          measureDuration: 0,
+        };
+        const expanded = expandedRef.current;
+        const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
+        if (measureDisplayRef.current) {
+          measureDisplayRef.current.innerText = `1 / ${displayTotal}`;
+        }
+        updateOverlay(0, 0);
+        return;
+      }
+
       livePlaybackRef.current = {
         step,
         measure,
@@ -1238,11 +1258,11 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       const mStart = live.measureStartTime;
       const mDur = live.measureDuration;
 
-      if (isCurrentlyPlaying && mStart !== undefined && mDur !== undefined && mDur > 0 && ctxTime >= mStart) {
+      if (isCurrentlyPlaying && live.step >= 0 && mStart !== undefined && mStart > 0 && mDur !== undefined && mDur > 0 && ctxTime >= mStart) {
         const elapsed = ctxTime - mStart;
         const currentRatio = (elapsed / mDur) % 1;
         stickAngle = -Math.PI / 2 + (currentRatio * Math.PI * 2);
-      } else if (isCurrentlyPlaying && live.ratio !== undefined && live.ratio > 0) {
+      } else if (isCurrentlyPlaying && live.step >= 0 && live.ratio !== undefined && live.ratio > 0) {
         stickAngle = -Math.PI / 2 + (live.ratio * Math.PI * 2);
       } else {
         stickAngle = -Math.PI / 2;

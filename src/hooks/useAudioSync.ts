@@ -1847,6 +1847,8 @@ export function useAudioSync({
     detail.visualStep12 = 0;
     detail.time = 0;
     detail.iteration = 1;
+    detail.measureStartTime = 0;
+    detail.measureDuration = 0;
 
     tickSubscribers.forEach((cb) => {
       try { cb(detail); } catch (err) { console.error(err); }

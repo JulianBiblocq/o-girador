@@ -133,6 +133,7 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
         anchorRef.current = { exactX: 0, time: 0, speed: 0 };
         lastExactXRef.current = -1;
         el.style.transition = 'none';
+        el.style.transform = `translate3d(${HEADER_W}px, 0, 0)`;
         el.style.display = 'none';
         if (scrollEl) scrollEl.scrollLeft = 0;
         layoutCache.current.lastScrollX = 0;
@@ -291,7 +292,7 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       const mStart = live.measureStartTime;
       const mDur = live.measureDuration;
 
-      if (!shouldSkipVisualUpdate && audio.isPlaying && mStart !== undefined && mDur !== undefined && mDur > 0 && ctxTime >= mStart) {
+      if (!shouldSkipVisualUpdate && audio.isPlaying && live.step >= 0 && mStart !== undefined && mStart > 0 && mDur !== undefined && mDur > 0 && ctxTime >= mStart) {
         const currentMEASURE_W = measureWRef.current;
         const elapsed = Math.max(0, ctxTime - mStart);
         const ratioInMeasure = (elapsed / mDur) % 1;

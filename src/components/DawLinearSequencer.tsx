@@ -136,7 +136,25 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
     }
 
     const handleTick = (detail: { step: number; ratio?: number }) => {
-      const ratio = detail.ratio ?? 0;
+      const { step, ratio = 0 } = detail;
+
+      // 1. GESTION DU STOP (step < 0) - Nettoyage complet des cases rouges
+      if (step < 0) {
+        if (lastActiveStepRef.current !== -1) {
+          const lastIdx = lastActiveStepRef.current;
+          Object.keys(cellRefs.current).forEach((tId) => {
+            const steps = cellRefs.current[tId];
+            if (steps[lastIdx]) {
+              const el = steps[lastIdx];
+              el.classList.remove('playhead-active');
+              el.classList.remove('!border-[#b23b25]', '!bg-[#b23b25]/20', 'shadow-[0_0_8px_#b23b25]');
+            }
+          });
+          lastActiveStepRef.current = -1;
+        }
+        return;
+      }
+
       const targetStep = Math.floor(ratio * 16);
       const lastStep = lastActiveStepRef.current;
 
