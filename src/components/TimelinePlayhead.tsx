@@ -288,11 +288,22 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       }
 
       const live = livePlaybackRef.current;
-      const ctxTime = audioEngine ? audioEngine.getCurrentTime() : 0;
+      const getAudioTime = () => {
+        if (audioEngine && typeof audioEngine.getCurrentTime === 'function') {
+          return audioEngine.getCurrentTime();
+        }
+        const toneInst = safeGetTone();
+        if (toneInst && toneInst.context) {
+          return (toneInst.context.rawContext as AudioContext).currentTime;
+        }
+        return 0;
+      };
+
+      const ctxTime = getAudioTime();
       const mStart = live.measureStartTime;
       const mDur = live.measureDuration;
 
-      if (!shouldSkipVisualUpdate && audio.isPlaying && live.step >= 0 && mStart !== undefined && mStart > 0 && mDur !== undefined && mDur > 0 && ctxTime >= mStart) {
+      if (!shouldSkipVisualUpdate && audio.isPlaying && live.step >= 0 && mStart !== undefined && mStart >= 0 && mDur !== undefined && mDur > 0 && ctxTime >= mStart) {
         const currentMEASURE_W = measureWRef.current;
         const elapsed = Math.max(0, ctxTime - mStart);
         const ratioInMeasure = (elapsed / mDur) % 1;

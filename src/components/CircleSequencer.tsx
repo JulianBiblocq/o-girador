@@ -718,6 +718,10 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
     // Toggle Play when clicking center area
     if (distance < 55) {
+      const toneInst = safeGetTone();
+      if (toneInst && toneInst.context && toneInst.context.state !== 'running') {
+        try { toneInst.context.resume(); } catch (_) {}
+      }
       if (audio.isLoading) return;
       onTogglePlay();
       return;
@@ -858,6 +862,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     if (isActive && !loopRunningRef.current) {
       loopRunningRef.current = true;
       drawLoopRef.current();
+    } else if (!isActive) {
+      loopRunningRef.current = false;
     }
   }, [isActive]);
 
@@ -1253,16 +1259,27 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       // Rotate Drumstick indicating active play head step with real-time continuous 60 FPS 1:1 hardware clock sync
       const isCurrentlyPlaying = localPlaying || (audioEngine ? audioEngine.getIsPlaying() : false);
 
-      // --- Alignement sur l'Horloge AudioContext par mesure (BPM dynamique & 0 Jitter) ---
-      const ctxTime = audioEngine ? audioEngine.getCurrentTime() : 0;
+      // --- Alignement sur l'Horloge AudioContext par mesure (BPM dynamique & 0 Jitter & Mobile Unblocked) ---
+      const getAudioTime = () => {
+        if (audioEngine && typeof audioEngine.getCurrentTime === 'function') {
+          return audioEngine.getCurrentTime();
+        }
+        const toneInst = safeGetTone();
+        if (toneInst && toneInst.context) {
+          return (toneInst.context.rawContext as AudioContext).currentTime;
+        }
+        return 0;
+      };
+
+      const ctxTime = getAudioTime();
       const mStart = live.measureStartTime;
       const mDur = live.measureDuration;
 
-      if (isCurrentlyPlaying && live.step >= 0 && mStart !== undefined && mStart > 0 && mDur !== undefined && mDur > 0 && ctxTime >= mStart) {
+      if (isCurrentlyPlaying && live.step >= 0 && mStart !== undefined && mStart >= 0 && mDur !== undefined && mDur > 0 && ctxTime >= mStart) {
         const elapsed = ctxTime - mStart;
         const currentRatio = (elapsed / mDur) % 1;
         stickAngle = -Math.PI / 2 + (currentRatio * Math.PI * 2);
-      } else if (isCurrentlyPlaying && live.step >= 0 && live.ratio !== undefined && live.ratio > 0) {
+      } else if (isCurrentlyPlaying && live.step >= 0 && live.ratio !== undefined && live.ratio >= 0) {
         stickAngle = -Math.PI / 2 + (live.ratio * Math.PI * 2);
       } else {
         stickAngle = -Math.PI / 2;
