@@ -267,10 +267,16 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       if (!shouldSkipVisualUpdate && isTransportPlaying && transport) {
         const currentMEASURE_W = measureWRef.current;
         const currentTicks = transport.ticks;
-        const measureTicks = 96; // Ticks standards par mesure
+        
+        const timeSig = '4/4';
+        const [beatsStr, denomStr] = timeSig.split('/');
+        const beats = parseInt(beatsStr, 10) || 4;
+        const denom = parseInt(denomStr, 10) || 4;
+        const quarterNotesPerMeasure = beats * (4 / denom);
+        const toneTicksPerMeasure = quarterNotesPerMeasure * (transport.PPQ || 192);
         
         // Continuous Absolute Clock position (0 Jitter, 0 Extrapolation, 0 Snapping)
-        const currentX = (currentTicks / measureTicks) * currentMEASURE_W;
+        const currentX = (currentTicks / toneTicksPerMeasure) * currentMEASURE_W;
 
         if (playheadRef.current) {
           playheadRef.current.style.transform = `translate3d(${HEADER_W + currentX}px, 0, 0)`;

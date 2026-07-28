@@ -1233,15 +1233,21 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       // Rotate Drumstick indicating active play head step with real-time continuous 60 FPS 1:1 hardware clock sync
       const isCurrentlyPlaying = localPlaying || (audioEngine ? audioEngine.getIsPlaying() : false);
 
-      // --- Calcul de stickAngle sur l'Horloge Continuous Absolue (Tone.Transport.ticks) ---
+      // --- Calcul de stickAngle sur l'Horloge Continuous Absolue (Tone.Transport.ticks avec VRAI PPQ) ---
       const toneInst = safeGetTone();
       const transport = toneInst ? toneInst.Transport : null;
       const isTransportStarted = transport ? transport.state === 'started' : isCurrentlyPlaying;
 
       if (isTransportStarted && transport) {
         const continuousTicks = transport.ticks;
-        const measureTicks = localTicks > 0 ? localTicks : 96;
-        const currentRatio = ((continuousTicks % measureTicks) + measureTicks) % measureTicks / measureTicks;
+        const timeSig = localTimeSig || '4/4';
+        const [beatsStr, denomStr] = timeSig.split('/');
+        const beats = parseInt(beatsStr, 10) || 4;
+        const denom = parseInt(denomStr, 10) || 4;
+        const quarterNotesPerMeasure = beats * (4 / denom);
+        const toneTicksPerMeasure = quarterNotesPerMeasure * (transport.PPQ || 192);
+
+        const currentRatio = ((continuousTicks % toneTicksPerMeasure) + toneTicksPerMeasure) % toneTicksPerMeasure / toneTicksPerMeasure;
         stickAngle = -Math.PI / 2 + (currentRatio * Math.PI * 2);
       } else if (isCurrentlyPlaying && live.ratio !== undefined && live.ratio > 0) {
         stickAngle = -Math.PI / 2 + (live.ratio * Math.PI * 2);
