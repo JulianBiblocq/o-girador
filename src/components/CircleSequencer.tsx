@@ -1233,38 +1233,19 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       // Rotate Drumstick indicating active play head step with real-time continuous 60 FPS 1:1 hardware clock sync
       const isCurrentlyPlaying = localPlaying || (audioEngine ? audioEngine.getIsPlaying() : false);
 
-      if (isCurrentlyPlaying) {
-        let currentRatio = live.ratio || 0;
-        
-        const toneInst = safeGetTone();
-        const currentCtxTime = audioEngine ? audioEngine.getCurrentTime() : (toneInst ? (toneInst.getContext().rawContext as AudioContext).currentTime : 0);
-        const mStart = live.measureStartTime;
-        const mDur = live.measureDuration;
+      // --- Calcul de stickAngle sur l'Horloge Continuous Absolue (Tone.Transport.ticks) ---
+      const toneInst = safeGetTone();
+      const transport = toneInst ? toneInst.Transport : null;
+      const isTransportStarted = transport ? transport.state === 'started' : isCurrentlyPlaying;
 
-        if (mStart !== undefined && mStart > 0 && mDur !== undefined && mDur > 0 && currentCtxTime >= mStart) {
-          const elapsedCtx = currentCtxTime - mStart;
-          currentRatio = (elapsedCtx / mDur) % 1;
-        } else {
-          const liveTime = live.time;
-          if (liveTime !== undefined && liveTime >= 0 && currentCtxTime >= liveTime) {
-            const elapsedCtx = currentCtxTime - liveTime;
-            const timeSigOfMeasure = stateRef.current.timeSig || '4/4';
-            const beats = parseInt(timeSigOfMeasure.split('/')[0], 10) || 4;
-            const measureDuration = (beats * 60) / (stateRef.current.bpm || 120);
-            
-            if (measureDuration > 0) {
-              currentRatio = ((live.ratio || 0) + (elapsedCtx / measureDuration)) % 1;
-            }
-          }
-        }
-
-        // Direct 1:1 hardware sound card clock angle projection (Zero lag, zero freeze)
+      if (isTransportStarted && transport) {
+        const continuousTicks = transport.ticks;
+        const measureTicks = localTicks > 0 ? localTicks : 96;
+        const currentRatio = ((continuousTicks % measureTicks) + measureTicks) % measureTicks / measureTicks;
         stickAngle = -Math.PI / 2 + (currentRatio * Math.PI * 2);
-      } else if (live.ratio !== undefined && live.ratio > 0) {
-        // Paused: freeze the needle at the last received ratio
+      } else if (isCurrentlyPlaying && live.ratio !== undefined && live.ratio > 0) {
         stickAngle = -Math.PI / 2 + (live.ratio * Math.PI * 2);
       } else {
-        // Stopped: reset to default starting angle (-90 deg, pointing straight up)
         stickAngle = -Math.PI / 2;
       }
 

@@ -3,6 +3,11 @@ import { TimelineUIContext } from '../contexts/TimelineUIContext';
 import { useAudio } from '../contexts/AudioContext';
 import { audioEngine, subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { getTone } from '../ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 
 const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
   const uiContext = useContext(TimelineUIContext);
@@ -255,30 +260,33 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
         }
       }
 
-      if (!shouldSkipVisualUpdate && audioEngine && anchor.time > 0 && anchor.speed > 0) {
-        const ctxTime = audioEngine.getCurrentTime();
-        const elapsedCtx = Math.max(0, ctxTime - anchor.time);
+      const toneInst = safeGetTone();
+      const transport = toneInst ? toneInst.Transport : null;
+      const isTransportPlaying = transport ? transport.state === 'started' : audio.isPlaying;
 
-        // Extrapoler la position de la tête de lecture à partir du dernier tick
-        if (elapsedCtx < 2.0) {
-          const currentX = anchor.exactX + elapsedCtx * anchor.speed;
-          
-          if (playheadRef.current) {
-            playheadRef.current.style.transform = `translate3d(${HEADER_W + currentX}px, 0, 0)`;
-          }
+      if (!shouldSkipVisualUpdate && isTransportPlaying && transport) {
+        const currentMEASURE_W = measureWRef.current;
+        const currentTicks = transport.ticks;
+        const measureTicks = 96; // Ticks standards par mesure
+        
+        // Continuous Absolute Clock position (0 Jitter, 0 Extrapolation, 0 Snapping)
+        const currentX = (currentTicks / measureTicks) * currentMEASURE_W;
 
-          // --- AUTO-SCROLL (Pagination douce) ---
-          const { vw, lastScrollX } = layoutCache.current;
-          if (vw > 0 && scrollEl) {
-            const currentScroll = lastScrollX; // Zéro lecture synchrone de scrollEl.scrollLeft !
-            const playheadScreenX = currentX - currentScroll;
+        if (playheadRef.current) {
+          playheadRef.current.style.transform = `translate3d(${HEADER_W + currentX}px, 0, 0)`;
+        }
 
-            // Tourne la page uniquement quand on arrive à 95% de l'écran visible
-            if (playheadScreenX > vw * 0.95) {
-              const nextScroll = currentScroll + (vw * 0.90);
-              scrollEl.scrollLeft = nextScroll;
-              layoutCache.current.lastScrollX = nextScroll;
-            }
+        // --- AUTO-SCROLL (Pagination douce) ---
+        const { vw, lastScrollX } = layoutCache.current;
+        if (vw > 0 && scrollEl) {
+          const currentScroll = lastScrollX; // Zéro lecture synchrone de scrollEl.scrollLeft !
+          const playheadScreenX = currentX - currentScroll;
+
+          // Tourne la page uniquement quand on arrive à 95% de l'écran visible
+          if (playheadScreenX > vw * 0.95) {
+            const nextScroll = currentScroll + (vw * 0.90);
+            scrollEl.scrollLeft = nextScroll;
+            layoutCache.current.lastScrollX = nextScroll;
           }
         }
       }
