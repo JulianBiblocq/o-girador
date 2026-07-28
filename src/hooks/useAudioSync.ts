@@ -1124,13 +1124,18 @@ export function useAudioSync({
 
         if (!isDocHidden) {
           Tone.Draw.schedule(() => {
+            const rawCtx = Tone.getContext().rawContext as AudioContext;
+            const nowCtx = rawCtx ? rawCtx.currentTime : 0;
+            // 🛡️ ANTI-BURST: Détecter si le tick a été retardé de >150ms par un freeze du Main Thread
+            const isStaleBurst = nowCtx > 0 && (nowCtx - drawTime > 0.150);
+
             if (audioEngine) {
               audioEngine.currentStep = _stepForUI;
               audioEngine.currentMeasure = _measureForUI;
             }
 
             const prevMeasure = useSequencerStore.getState().currentMeasure;
-            if (_stepForUI === 0 || _measureForUI !== prevMeasure) {
+            if ((_stepForUI === 0 || _measureForUI !== prevMeasure) && !isStaleBurst) {
               setCurrentMeasure(_measureForUI);
               const expanded = cachedExpandedMeasuresRef.current;
               if (expanded.length > 0) {
@@ -1761,6 +1766,19 @@ export function useAudioSync({
     }
     if (!isPlayingRef.current) {
       lastPlayedSignalIdRef.current = null;
+
+      // 🛡️ COLD START SAFETY: Attendre la fin du décodage de tous les buffers audio RAM avant de démarrer le Transport
+      setIsLoading(true);
+      try {
+        if (Tone.loaded) {
+          await Tone.loaded();
+        }
+      } catch (err) {
+        console.warn("Tone.loaded() error or timeout:", err);
+      } finally {
+        setIsLoading(false);
+      }
+
       if (Tone.Transport.state !== 'started') {
         Tone.Transport.start();
       }
