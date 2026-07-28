@@ -405,7 +405,12 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     bgOpacity = 0;
   }
 
+  const isEcoMode = useSequencerStore(state => state.isEcoMode);
+  const isMobileDevice = (typeof window !== 'undefined' && window.innerWidth <= 768);
+  const disableHeavyEffects = isEcoMode || isMobileDevice;
+
   const accentClass = stepData.leftIsAccent ? 'scale-120 border border-white/60' : 'border border-black/10';
+  const heavyEffectClass = disableHeavyEffects ? '' : 'transition-transform duration-75 ease-out shadow-sm';
 
   return (
     <div
@@ -420,7 +425,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     >
       {hasBackground ? (
         <div 
-          className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-xs transition-transform duration-75 ease-out shadow-sm ${accentClass}`}
+          className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-xs ${heavyEffectClass} ${accentClass}`}
           style={{
             background: (stepData.isSplit || stepData.isRightHalfOnly) ? stepBg : undefined,
             backgroundColor: (stepData.isSplit || stepData.isRightHalfOnly) ? undefined : stepBg,

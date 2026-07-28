@@ -304,10 +304,14 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
 
   if (!uiContext) return null;
 
+  const isEcoMode = useSequencerStore.getState().isEcoMode;
+  const isMobileDevice = (typeof window !== 'undefined' && window.innerWidth <= 768);
+  const disableHeavyShadow = isEcoMode || isMobileDevice;
+
   return (
     <div
       ref={playheadRef}
-      className="absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-30 shadow-[0_0_10px_rgba(220,38,38,0.7)]"
+      className={`absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-30 ${disableHeavyShadow ? '' : 'shadow-[0_0_10px_rgba(220,38,38,0.7)]'}`}
       style={{
         left: 0,
         display: 'none',

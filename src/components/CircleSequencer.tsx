@@ -703,6 +703,13 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       return;
     }
 
+    // Étape 1 (React Bypass Mobile) : Bloquer l'édition tactile des pas pendant la lecture sur mobile
+    const isCurrentlyPlaying = stateRef.current.isPlaying;
+    const isCurrentlyMobile = stateRef.current.isMobile || (typeof window !== 'undefined' && window.innerWidth <= 768);
+    if (isCurrentlyPlaying && isCurrentlyMobile) {
+      return;
+    }
+
     const currentTracks = stateRef.current.tracks;
     const currentRawTracks = stateRef.current.rawTracks;
 
@@ -964,10 +971,12 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         return !getEffectiveMuteState(localRawTracks, t.id);
       });
 
-      // Consume hit triggers to create ripples
+      const isHeavyEffectsDisabled = isEco || stateRef.current.isMobile || (typeof window !== 'undefined' && window.innerWidth <= 768);
+
+      // Consume hit triggers to create ripples (désactivé sur mobile/mode éco pour préserver le GPU)
       if (localHitTriggers && localHitTriggers.current) {
         const pool = localHitTriggers.current;
-        if (!isEco) {
+        if (!isHeavyEffectsDisabled) {
           // Coût unique par trame de dessin : O(N) où N est le nombre de pistes
           const tracksMap = new Map<number | string, any>();
           const len = localRawTracks.length;
@@ -1791,11 +1800,13 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       ctx.translate(centerX, centerY);
       ctx.rotate(stickAngle);
 
-      // Ombre portée sous la baguette pour détacher l'aiguille des pistes et du fond
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-      ctx.shadowBlur = 6;
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 2;
+      // Ombre portée sous la baguette (désactivée sur mobile/mode éco)
+      if (!isHeavyEffectsDisabled) {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 6;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+      }
 
       // Corps de la baguette (Bois étiré haute visibilité avec bordure d'encre Cordel)
       ctx.beginPath();

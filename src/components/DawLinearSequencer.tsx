@@ -16,6 +16,7 @@ import { getBusNoteColor, getContrastColor, getTrackDisplayName } from '../utils
 import { XiloChisel } from './XiloIcons';
 import { CompassoSelector } from './CompassoSelector';
 import { useSequencer } from '../contexts/SequencerContext';
+import { useAudio } from '../contexts/AudioContext';
 
 interface DawLinearSequencerProps {
   isActive: boolean;
@@ -28,6 +29,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
   onStepTouchStart,
 }) => {
   const sequencer = useSequencer();
+  const audio = useAudio();
   const lang = useSequencerStore(state => state.lang);
   const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
   const currentMeasure = useSequencerStore(state => state.currentMeasure);
@@ -181,6 +183,12 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
   // Handle clicking step cells to open TouchStrokeSelector or StepEditorPopup
   const handleStepClick = (e: React.MouseEvent, trackId: number, activePattern: any, inst: any, stepIdx: number, currentVal: any) => {
     e.stopPropagation();
+    
+    // Étape 1 (React Bypass Mobile) : Bloquer l'édition des pas pendant la lecture sur mobile
+    const isMobileDevice = (typeof window !== 'undefined' && window.innerWidth <= 768);
+    if (audio.isPlaying && isMobileDevice) {
+      return;
+    }
     
     if (onStepTouchStart) {
       onStepTouchStart(
