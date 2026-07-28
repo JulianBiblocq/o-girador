@@ -605,15 +605,6 @@ export default function App() {
         <Home onEnter={handleHomeEnter} lang={sequencer.lang} />
       ) : (
         <div className="flex flex-col h-dvh text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
-      {/* Visual buffer loader loading overlay */}
-      {audio.isLoading && (
-        <div id="loading-overlay" className="absolute inset-0 bg-[#121212]/90 flex flex-col items-center justify-center z-[9999] gap-2.5">
-          <span className="text-3xl">🌿</span>
-          <span className="text-xl font-bold font-cactus tracking-wider text-[#f1c40f]">
-            {t('loading')}
-          </span>
-        </div>
-      )}
 
       {/* Retractable Audio Source Configuration Bar (Right above Navigation Header) */}
       <AudioSourceBar />

@@ -161,6 +161,19 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       // Position mathématique absolue
       const exactX = measure * currentMEASURE_W + ratio * currentMEASURE_W;
 
+      // 🚀 GPU CSS TRANSITION MODEL: Déclencher la transition CSS 60 FPS native au niveau du GPU par mesure
+      if (isNewMeasure && measureDuration && measureDuration > 0) {
+        const startX = HEADER_W + exactX;
+        const endX = HEADER_W + (measure + 1) * currentMEASURE_W;
+        const remDuration = Math.max(0.1, (1 - ratio) * measureDuration);
+
+        el.style.transition = 'none';
+        el.style.transform = `translate3d(${startX}px, 0, 0)`;
+        void el.offsetHeight; // Force DOM reflow
+        el.style.transition = `transform ${remDuration}s linear`;
+        el.style.transform = `translate3d(${endX}px, 0, 0)`;
+      }
+
       anchorRef.current = {
         exactX,
         time,
@@ -311,14 +324,7 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
         const currentMEASURE_W = measureWRef.current;
         const elapsed = Math.max(0, ctxTime - mStart);
         const ratioInMeasure = (elapsed / mDur) % 1;
-
-        // Position X exacte dans la timeline
         const currentX = (live.measure + ratioInMeasure) * currentMEASURE_W;
-
-        if (playheadRef.current) {
-          playheadRef.current.style.transform = `translate3d(${HEADER_W + currentX}px, 0, 0)`;
-        }
-        (livePlaybackRef.current as any).frozenX = currentX;
 
         // --- AUTO-SCROLL (Pagination douce) ---
         const { vw, lastScrollX } = layoutCache.current;
@@ -333,11 +339,15 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
             layoutCache.current.lastScrollX = nextScroll;
           }
         }
-      } else if (!audio.isPlaying && live.step >= 0 && (livePlaybackRef.current as any).frozenX !== undefined) {
-        const currentX = (livePlaybackRef.current as any).frozenX;
-        if (playheadRef.current) {
-          playheadRef.current.style.transform = `translate3d(${HEADER_W + currentX}px, 0, 0)`;
-        }
+      } else if (!audio.isPlaying && live.step >= 0 && playheadRef.current) {
+        // 🚀 PAUSE FREEZE: Capturer la position exacte GPU et la figer
+        try {
+          const computedStyle = window.getComputedStyle(playheadRef.current);
+          const matrix = new WebKitCSSMatrix(computedStyle.transform);
+          const pausedX = matrix.m41;
+          playheadRef.current.style.transition = 'none';
+          playheadRef.current.style.transform = `translate3d(${pausedX}px, 0, 0)`;
+        } catch (_) {}
       }
 
       // 4. Comportement de la boucle RAF selon le mode éco

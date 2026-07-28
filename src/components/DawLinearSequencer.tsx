@@ -17,6 +17,11 @@ import { XiloChisel } from './XiloIcons';
 import { CompassoSelector } from './CompassoSelector';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
+import { getTone } from '../ToneLoader';
+
+function safeGetTone() {
+  try { return getTone(); } catch { return null; }
+}
 
 interface DawLinearSequencerProps {
   isActive: boolean;
@@ -135,8 +140,8 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
       return;
     }
 
-    const handleTick = (detail: { step: number; ratio?: number }) => {
-      const { step, ratio = 0 } = detail;
+    const handleTick = (detail: { step: number; ratio?: number; time?: number }) => {
+      const { step, ratio = 0, time = 0 } = detail;
 
       // 1. GESTION DU STOP (step < 0) - Nettoyage complet des cases rouges
       if (step < 0) {
@@ -160,25 +165,34 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
 
       if (targetStep === lastStep) return;
 
-      Object.keys(cellRefs.current).forEach((tId) => {
-        const steps = cellRefs.current[tId];
+      const applyDomUpdate = () => {
+        Object.keys(cellRefs.current).forEach((tId) => {
+          const steps = cellRefs.current[tId];
 
-        // 1. Remove playhead indicators from the previous active step
-        if (lastStep !== -1 && steps[lastStep]) {
-          const prevEl = steps[lastStep];
-          prevEl.classList.remove('playhead-active');
-          prevEl.classList.remove('!border-[#b23b25]', '!bg-[#b23b25]/20', 'shadow-[0_0_8px_#b23b25]');
-        }
+          // 1. Remove playhead indicators from the previous active step
+          if (lastStep !== -1 && steps[lastStep]) {
+            const prevEl = steps[lastStep];
+            prevEl.classList.remove('playhead-active');
+            prevEl.classList.remove('!border-[#b23b25]', '!bg-[#b23b25]/20', 'shadow-[0_0_8px_#b23b25]');
+          }
 
-        // 2. Add playhead indicators to the new active step (subtle clay red organic glow)
-        if (steps[targetStep]) {
-          const newEl = steps[targetStep];
-          newEl.classList.add('playhead-active');
-          newEl.classList.add('!border-[#b23b25]', '!bg-[#b23b25]/20', 'shadow-[0_0_8px_#b23b25]');
-        }
-      });
+          // 2. Add playhead indicators to the new active step (subtle clay red organic glow)
+          if (steps[targetStep]) {
+            const newEl = steps[targetStep];
+            newEl.classList.add('playhead-active');
+            newEl.classList.add('!border-[#b23b25]', '!bg-[#b23b25]/20', 'shadow-[0_0_8px_#b23b25]');
+          }
+        });
 
-      lastActiveStepRef.current = targetStep;
+        lastActiveStepRef.current = targetStep;
+      };
+
+      const toneInst = safeGetTone();
+      if (toneInst && toneInst.Draw && typeof time === 'number' && time > 0) {
+        toneInst.Draw.schedule(applyDomUpdate, time);
+      } else {
+        applyDomUpdate();
+      }
     };
 
     subscribeToTick(handleTick);
