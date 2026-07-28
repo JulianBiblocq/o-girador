@@ -144,12 +144,16 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
         el.style.display = 'block';
       }
 
+      const currentLive = livePlaybackRef.current;
+      const isNewMeasure = currentLive.measure !== measure || currentLive.step < 0 || !currentLive.measureStartTime;
+      const updatedStartTime = isNewMeasure ? (measureStartTime || currentLive.measureStartTime) : (currentLive.measureStartTime || measureStartTime);
+
       livePlaybackRef.current = {
         step,
         measure,
         ratio,
-        measureStartTime: measureStartTime ?? livePlaybackRef.current.measureStartTime,
-        measureDuration: measureDuration ?? livePlaybackRef.current.measureDuration,
+        measureStartTime: updatedStartTime,
+        measureDuration: measureDuration ?? currentLive.measureDuration,
       };
 
       const currentMEASURE_W = measureWRef.current;
@@ -314,6 +318,7 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
         if (playheadRef.current) {
           playheadRef.current.style.transform = `translate3d(${HEADER_W + currentX}px, 0, 0)`;
         }
+        (livePlaybackRef.current as any).frozenX = currentX;
 
         // --- AUTO-SCROLL (Pagination douce) ---
         const { vw, lastScrollX } = layoutCache.current;
@@ -327,6 +332,11 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
             scrollEl.scrollLeft = nextScroll;
             layoutCache.current.lastScrollX = nextScroll;
           }
+        }
+      } else if (!audio.isPlaying && live.step >= 0 && (livePlaybackRef.current as any).frozenX !== undefined) {
+        const currentX = (livePlaybackRef.current as any).frozenX;
+        if (playheadRef.current) {
+          playheadRef.current.style.transform = `translate3d(${HEADER_W + currentX}px, 0, 0)`;
         }
       }
 

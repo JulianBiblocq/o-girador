@@ -1793,7 +1793,7 @@ export function useAudioSync({
       const ratioVal = pausedMaxTicks > 0 ? (pausedStep >= 0 ? pausedStep : 0) / pausedMaxTicks : 0;
 
       const detail = tickEventDetailRef.current;
-      detail.step = pausedStep;
+      detail.step = pausedStep >= 0 ? pausedStep : 0;
       detail.measure = pausedMeasure;
       detail.maxTicks = pausedMaxTicks;
       detail.ratio = ratioVal;
@@ -1801,6 +1801,7 @@ export function useAudioSync({
       detail.visualStep12 = Math.floor(ratioVal * 12);
       detail.time = Tone.context.currentTime;
       detail.iteration = 1;
+      (detail as any).isPaused = true;
 
       tickSubscribers.forEach((cb) => {
         try { cb(detail); } catch (err) { console.error(err); }
