@@ -1767,12 +1767,13 @@ export function useAudioSync({
     if (!isPlayingRef.current) {
       lastPlayedSignalIdRef.current = null;
 
-      // 🛡️ COLD START SAFETY: Attendre la fin du décodage de tous les buffers audio RAM avant de démarrer le Transport
+      // 🛡️ COLD START SAFETY: Attendre la fin du décodage de tous les buffers audio RAM + 300ms de respiration pour stabiliser le Main Thread mobile
       setIsLoading(true);
       try {
         if (Tone.loaded) {
           await Tone.loaded();
         }
+        await new Promise(resolve => setTimeout(resolve, 300));
       } catch (err) {
         console.warn("Tone.loaded() error or timeout:", err);
       } finally {
@@ -1912,6 +1913,18 @@ export function useAudioSync({
     setCurrentMeasure(0);
     Tone.Transport.seconds = 0;
     lastPlayedSignalIdRef.current = null;
+
+    setIsLoading(true);
+    try {
+      if (Tone.loaded) {
+        await Tone.loaded();
+      }
+      await new Promise(resolve => setTimeout(resolve, 300));
+    } catch (err) {
+      console.warn("Tone.loaded() error or timeout:", err);
+    } finally {
+      setIsLoading(false);
+    }
 
     if (Tone.Transport.state !== 'started') {
       Tone.Transport.start();
