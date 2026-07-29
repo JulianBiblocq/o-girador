@@ -27,6 +27,7 @@ import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { vocalEngineService, workerSetTimeout } from '../audio/vocalEngineService';
+import { pushVisualTick, pushVisualHitTrigger, startVisualLoop, stopVisualLoop, flushVisualBuffers } from '../audio/visualTickBuffer';
 
 interface ScheduledNote {
   time: number;
@@ -1131,52 +1132,19 @@ export function useAudioSync({
         const measureStartTimeSec = anchoredMeasureStartSecRef.current;
 
         if (!isDocHidden) {
-          Tone.Draw.schedule(() => {
-            // 🛡️ PHASE 4: Guard Ghost Ticks (si la lecture est stoppée ou en pause, ignorer le tick résiduel)
-            if (!isPlayingRef.current) return;
-
-            const rawCtx = Tone.getContext().rawContext as AudioContext;
-            const nowCtx = rawCtx ? rawCtx.currentTime : 0;
-            // 🛡️ ANTI-BURST: Détecter si le tick a été retardé de >150ms par un freeze du Main Thread
-            const isStaleBurst = nowCtx > 0 && (nowCtx - drawTime > 0.150);
-
-            if (audioEngine) {
-              audioEngine.currentStep = _stepForUI;
-              audioEngine.currentMeasure = _measureForUI;
-            }
-
-            const prevMeasure = useSequencerStore.getState().currentMeasure;
-            if ((_stepForUI === 0 || _measureForUI !== prevMeasure) && !isStaleBurst) {
-              setCurrentMeasure(_measureForUI);
-              const expanded = cachedExpandedMeasuresRef.current;
-              if (expanded.length > 0) {
-                const currentExpandedIdx = expanded.findIndex(
-                  item => item.baseMeasure === _measureForUI && item.iteration === sectionIterationRef.current
-                );
-                if (currentExpandedIdx !== -1) {
-                  setCurrentExpandedMeasureIdx(currentExpandedIdx);
-                }
-              } else {
-                setCurrentExpandedMeasureIdx(_measureForUI);
-              }
-            }
-
-            const detail = tickEventDetailRef.current;
-            detail.step = _stepForUI;
-            detail.measure = _measureForUI;
-            detail.maxTicks = _currentTicks;
-            detail.ratio = ratioVal;
-            detail.visualStep16 = Math.floor(ratioVal * 16);
-            detail.visualStep12 = Math.floor(ratioVal * 12);
-            detail.time = time;
-            detail.iteration = sectionIterationRef.current;
-            detail.measureStartTime = measureStartTimeSec;
-            detail.measureDuration = measureDurationSec;
-
-            tickSubscribers.forEach((cb) => {
-              try { cb(detail); } catch (err) { console.error(err); }
-            });
-          }, drawTime);
+          pushVisualTick({
+            drawTime,
+            step: _stepForUI,
+            measure: _measureForUI,
+            maxTicks: _currentTicks,
+            ratio: ratioVal,
+            visualStep16: Math.floor(ratioVal * 16),
+            visualStep12: Math.floor(ratioVal * 12),
+            time,
+            iteration: sectionIterationRef.current,
+            measureStartTime: measureStartTimeSec,
+            measureDuration: measureDurationSec,
+          });
         }
 
         // Pré-calculer la durée d'un 96n une seule fois par tick
@@ -1384,9 +1352,7 @@ export function useAudioSync({
 
                     // Visual hit trigger
                     if (!isDocHidden) {
-                      Tone.Draw.schedule(() => {
-                        hitTriggersRef.current.push(liveTrack.id, circleStepIdx, strokeCharCode);
-                      }, triggerTime);
+                      pushVisualHitTrigger(liveTrack.id, circleStepIdx, strokeCharCode, triggerTime);
                     }
                   }
                 }
@@ -1650,9 +1616,7 @@ export function useAudioSync({
                 }
 
                 if (!isDocHidden) {
-                  Tone.Draw.schedule(() => {
-                    hitTriggersRef.current.push(track.id, cellIdx, state);
-                  }, triggerTime);
+                  pushVisualHitTrigger(track.id, cellIdx, state, triggerTime);
                 }
               }
             }
@@ -1687,13 +1651,14 @@ export function useAudioSync({
           }
         }
       });
+      startVisualLoop(rawCtx, hitTriggersRef);
       } catch (err) {
         console.error("❌ Critical error during initAudio:", err);
       } finally {
         if (audioEngine) {
           const isMobileDevice = window.innerWidth <= 768 || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
           if (!isMobileDevice) {
-            audioEngine.loadAllSamples().catch(e => { /* console.warn("Background load samples failed:", e); */ });
+            audioEngine.loadAllSamples().catch(e => { /* consolewarn("Background load samples failed:", e); */ });
           }
         }
         // ALWAYS unblock the UI.
@@ -1704,6 +1669,7 @@ export function useAudioSync({
     initAudio();
 
     return () => {
+      stopVisualLoop();
       // Pour le Strict Mode React 18, nous ne fermons plus et ne détruisons plus le singleton global AudioEngine.
       // Cela évite de réinstancier le graphe audio sur un contexte fermé lors du remontage immédiat.
       if (audioEngine) {
@@ -1803,6 +1769,7 @@ export function useAudioSync({
       }
       audioEngine?.stop();
       Tone.Draw.cancel();
+      flushVisualBuffers();
       hitTriggersRef.current.clear();
       console.log("🎙️ [VOCAL DEBUG] useAudioSync.ts - handleTogglePlay stop. Calling stopRecording() unconditionally.");
       vocalEngineService.stopRecording();
@@ -1851,6 +1818,7 @@ export function useAudioSync({
     }
     audioEngine?.stop();
     Tone.Draw.cancel();
+    flushVisualBuffers();
     hitTriggersRef.current.clear();
     lastPlayedPatternRef.current = {};
     Tone.Transport.stop();
