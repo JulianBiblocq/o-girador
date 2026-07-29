@@ -187,12 +187,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
         lastActiveStepRef.current = targetStep;
       };
 
-      const toneInst = safeGetTone();
-      if (toneInst && toneInst.Draw && typeof time === 'number' && time > 0) {
-        toneInst.Draw.schedule(applyDomUpdate, time);
-      } else {
-        applyDomUpdate();
-      }
+      applyDomUpdate();
     };
 
     subscribeToTick(handleTick);

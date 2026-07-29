@@ -234,6 +234,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const centerOverlayTextRef = useRef<HTMLSpanElement>(null);
 
   const lastOverlayTextRef = useRef<string>('');
+  const frozenStickAngleRef = useRef<number>(-Math.PI / 2);
   const lastOverlayStateRef = useRef({
     opacity: '',
     bgColor: '',
@@ -1283,9 +1284,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         const elapsed = ctxTime - mStart;
         const currentRatio = (elapsed / mDur) % 1;
         stickAngle = -Math.PI / 2 + (currentRatio * Math.PI * 2);
-        (livePlaybackRef.current as any).frozenAngle = stickAngle;
-      } else if (!isCurrentlyPlaying && live.step >= 0 && (livePlaybackRef.current as any).frozenAngle !== undefined) {
-        stickAngle = (livePlaybackRef.current as any).frozenAngle;
+        frozenStickAngleRef.current = stickAngle;
+      } else if (!isCurrentlyPlaying && live.step >= 0 && frozenStickAngleRef.current !== undefined) {
+        stickAngle = frozenStickAngleRef.current;
       } else if (live.step >= 0 && live.ratio !== undefined && live.ratio >= 0) {
         stickAngle = -Math.PI / 2 + (live.ratio * Math.PI * 2);
       } else {
