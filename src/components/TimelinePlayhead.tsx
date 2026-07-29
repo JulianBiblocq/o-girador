@@ -124,9 +124,12 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
 
         el.style.transition = 'none';
         el.style.transform = `translate3d(${startX}px, 0, 0)`;
-        void el.offsetHeight; // Force DOM reflow
-        el.style.transition = `transform ${remDuration}s linear`;
-        el.style.transform = `translate3d(${endX}px, 0, 0)`;
+        requestAnimationFrame(() => {
+          if (el) {
+            el.style.transition = `transform ${remDuration}s linear`;
+            el.style.transform = `translate3d(${endX}px, 0, 0)`;
+          }
+        });
       }
 
       // Détection de rupture (Loop, Seek ou saut au début de la boucle) pour le scroll immédiat

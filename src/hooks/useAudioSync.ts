@@ -482,6 +482,8 @@ export function useAudioSync({
   const lastAbsoluteTickRef = useRef<number>(-1);
   const currentMeasureStartTickRef = useRef<number>(0);
   const lastActiveInstrumentIdsRef = useRef<string>('');
+  const anchoredMeasureStartSecRef = useRef<number>(0);
+  const anchoredMeasureIdxRef = useRef<number>(-1);
 
   // Subscribe to useTransportStore to keep refs and metroChannel in sync non-reactively
   useEffect(() => {
@@ -1120,10 +1122,19 @@ export function useAudioSync({
         const currentMeasureBpmRaw = measureBpmsRef.current[_measureForUI % (totalMeasuresRef.current || 1)];
         const currentMeasureBpm = isNaN(currentMeasureBpmRaw) || currentMeasureBpmRaw <= 0 ? 100 : currentMeasureBpmRaw;
         const measureDurationSec = (beatsInMeasure * 60) / currentMeasureBpm;
-        const measureStartTimeSec = drawTime - (ratioVal * measureDurationSec);
+        // 🚀 PHASE 1: Ancrage immuable de mesure (calculé UNE SEULE FOIS au pas 0 ou changement de mesure)
+        const isNewMeasureSync = _stepForUI === 0 || _measureForUI !== anchoredMeasureIdxRef.current || anchoredMeasureStartSecRef.current <= 0;
+        if (isNewMeasureSync) {
+          anchoredMeasureStartSecRef.current = drawTime - (ratioVal * measureDurationSec);
+          anchoredMeasureIdxRef.current = _measureForUI;
+        }
+        const measureStartTimeSec = anchoredMeasureStartSecRef.current;
 
         if (!isDocHidden) {
           Tone.Draw.schedule(() => {
+            // 🛡️ PHASE 4: Guard Ghost Ticks (si la lecture est stoppée ou en pause, ignorer le tick résiduel)
+            if (!isPlayingRef.current) return;
+
             const rawCtx = Tone.getContext().rawContext as AudioContext;
             const nowCtx = rawCtx ? rawCtx.currentTime : 0;
             // 🛡️ ANTI-BURST: Détecter si le tick a été retardé de >150ms par un freeze du Main Thread
@@ -1853,6 +1864,8 @@ export function useAudioSync({
     activeSequencerVocalsRef.current.clear();
     lastElapsedSecRef.current = 0;
     setIsPlaying(false);
+    anchoredMeasureStartSecRef.current = 0;
+    anchoredMeasureIdxRef.current = -1;
     currentStepIndexRef.current = -1;
     measureCountRef.current = 0;
     setCurrentMeasure(0);

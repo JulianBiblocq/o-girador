@@ -462,7 +462,11 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       measureStartTime?: number;
       measureDuration?: number;
     }) => {
-      const { step, measure, maxTicks, ratio = step / maxTicks, time = 0, iteration = 1, measureStartTime, measureDuration } = detail;
+      const { step, measure, maxTicks, ratio = step / maxTicks, time = 0, iteration = 1, measureStartTime, measureDuration, isPaused } = detail as any;
+
+      if (isPaused) {
+        return;
+      }
 
       if (step < 0) {
         livePlaybackRef.current = {
