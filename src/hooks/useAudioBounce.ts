@@ -39,6 +39,8 @@ export function useAudioBounce() {
       }
 
       // 2. Rendu Hors-ligne
+      const symbolToNoteMap = new Map<string, string>();
+
       const bufferHorsLigne = await Tone.Offline(async () => {
         // Chargement des instruments nécessaires
         const samplers = new Map<string, Tone.Sampler>();
@@ -55,14 +57,17 @@ export function useAudioBounce() {
           // Création du Sampler
           if (!samplers.has(conf.id)) {
             const urls: Record<string, string> = {};
-            conf.strokes.forEach(stroke => {
+            const baseMidi = 60; // Commence à C4
+            conf.strokes.forEach((stroke, i) => {
               // Prend le premier fichier de chaque stroke pour simplifier (pas de round-robin ici)
               if (stroke.files && stroke.files.length > 0) {
                 let path = stroke.files[0];
                 if (!path.startsWith('http')) {
                   path = path.startsWith('/') ? `${ASSETS_BASE_URL}${path.slice(1)}` : `${ASSETS_BASE_URL}${path}`;
                 }
-                urls[stroke.symbol] = path;
+                const noteName = Tone.Frequency(baseMidi + i, "midi").toNote();
+                urls[noteName] = path;
+                symbolToNoteMap.set(`${conf.id}_${stroke.symbol}`, noteName);
               }
             });
             const sampler = new Tone.Sampler({ urls }).toDestination();
@@ -140,8 +145,11 @@ export function useAudioBounce() {
                 if (note === 't') note = 'B';
               }
 
+              const mappedNote = symbolToNoteMap.get(`${conf.id}_${note}`);
+              if (!mappedNote) continue;
+
               const volume = (patternActif.volumes?.[s] ?? 80) / 100;
-              sampler.triggerAttack(note, tempsNote, volume);
+              sampler.triggerAttack(mappedNote, tempsNote, volume);
             }
           }
           tempsCumule += dureeMesureSec;

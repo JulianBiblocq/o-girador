@@ -15,7 +15,7 @@ export interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
-export const CURRENT_VERSION = "4.0.3"; // Matches version.json
+export const CURRENT_VERSION = "4.0.4"; // Matches version.json
 export const HAS_SEEN_UPDATE_KEY = `has_seen_update_${CURRENT_VERSION}`;
 
 export function useAppUpdate() {
