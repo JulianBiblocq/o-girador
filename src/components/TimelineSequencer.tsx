@@ -443,6 +443,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const [hoveredPasteMeasure, setHoveredPasteMeasure] = React.useState<number | null>(null);
   const [signalDropdownOpen, setSignalDropdownOpen] = React.useState<number | null>(null);
   const [activeRepeatDropdownSectionId, setActiveRepeatDropdownSectionId] = useState<string | null>(null);
+  const [snapDropdownOpen, setSnapDropdownOpen] = useState<boolean>(false);
+  const snapDropdownRef = useRef<HTMLDivElement>(null);
 
   // States for Click & Drag section creation (Proposal 2)
   const [isDraggingRange, setIsDraggingRange] = React.useState<boolean>(false);
@@ -514,6 +516,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   useEffect(() => {
     const handleGlobalClick = () => {
       setActiveRepeatDropdownSectionId(null);
+      setSnapDropdownOpen(false);
     };
     window.addEventListener('click', handleGlobalClick);
     return () => window.removeEventListener('click', handleGlobalClick);
@@ -1291,65 +1294,104 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
               width: `${HEADER_W + totalContentW + 150}px`, 
               minWidth: `${HEADER_W + totalContentW + 150}px`,
               height: `${32 + (Math.max(0, ...songSections.map(s => s.level || 0)) * 26)}px`,
-              zIndex: activeRepeatDropdownSectionId !== null ? 60 : undefined
+              zIndex: (activeRepeatDropdownSectionId !== null || snapDropdownOpen) ? 60 : undefined
             }}
           >
             {/* Sticky header */}
             <div
               className={`sticky left-0 z-40 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between font-cactus text-[11px] font-bold uppercase shrink-0 ${
-                isMobile ? 'px-1' : 'px-2'
+                isMobile ? 'px-1.5' : 'px-2'
               }`}
               style={{ width: HEADER_W, minWidth: HEADER_W }}
             >
-              <div className="flex items-center gap-1">
-                <XiloMagnet size={11} className="text-[var(--cordel-text)]/70 shrink-0 hidden md:inline-block" />
-                <div className="flex cordel-border-sm overflow-hidden select-none h-[22px]">
+              {/* Titre "SECTIONS" harmonisé avec "REPÈRES" */}
+              <span className="text-[9px] font-cactus font-bold uppercase text-[var(--cordel-text)]/60 truncate select-none">
+                {isMobile ? 'Sect.' : (lang === 'fr' ? 'Sections' : 'Seções')}
+              </span>
+
+              <div className="flex items-center gap-1 shrink-0">
+                {/* Aimant compact avec menu déroulant */}
+                <div className="relative" ref={snapDropdownRef}>
                   <button
-                    onClick={() => setSnapMode('measure')}
-                    className={`px-1.5 py-0.5 text-[9px] font-cactus uppercase font-bold cursor-pointer transition-colors leading-none flex items-center justify-center ${
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSnapDropdownOpen(!snapDropdownOpen);
+                    }}
+                    className={`w-5 h-5 flex items-center justify-center rounded cordel-border-sm cursor-pointer transition-colors ${
+                      snapMode !== 'none'
+                        ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                        : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'
+                    }`}
+                    title={
                       snapMode === 'measure'
-                        ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-extrabold'
-                        : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/10'
-                    }`}
-                    title={lang === 'fr' ? 'Attraction à la mesure' : 'Atração ao compasso'}
+                        ? (lang === 'fr' ? 'Magnétisme : Mesure' : 'Atração : Compasso')
+                        : snapMode === 'beat'
+                        ? (lang === 'fr' ? 'Magnétisme : Temps' : 'Atração : Tempo')
+                        : (lang === 'fr' ? 'Magnétisme : Libre' : 'Atração : Livre')
+                    }
                   >
-                    {isMobile ? (lang === 'fr' ? 'Mes.' : 'Comp.') : (lang === 'fr' ? 'Mesure' : 'Compasso')}
+                    <XiloMagnet size={11} className={snapMode === 'none' ? 'opacity-40' : ''} />
                   </button>
-                  <button
-                    onClick={() => setSnapMode('beat')}
-                    className={`px-1.5 py-0.5 text-[9px] font-cactus uppercase font-bold cursor-pointer transition-colors border-l border-[var(--cordel-border)] leading-none flex items-center justify-center ${
-                      snapMode === 'beat'
-                        ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-extrabold'
-                        : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/10'
-                    }`}
-                    title={lang === 'fr' ? 'Attraction au temps' : 'Atração ao tempo'}
-                  >
-                    {lang === 'fr' ? 'Temps' : 'Tempos'}
-                  </button>
-                  <button
-                    onClick={() => setSnapMode('none')}
-                    className={`px-1.5 py-0.5 text-[9px] font-cactus uppercase font-bold cursor-pointer transition-colors border-l border-[var(--cordel-border)] leading-none flex items-center justify-center ${
-                      snapMode === 'none'
-                        ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-extrabold'
-                        : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/10'
-                    }`}
-                    title={lang === 'fr' ? 'Mouvement libre' : 'Movimento livre'}
-                  >
-                    {lang === 'fr' ? 'Libre' : 'Livre'}
-                  </button>
+
+                  {/* Dropdown Menu */}
+                  {snapDropdownOpen && (
+                    <div
+                      className="absolute top-full left-0 mt-1 z-[100] bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm shadow-[3px_3px_0px_rgba(0,0,0,1)] py-1 min-w-[115px] flex flex-col gap-0.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={() => {
+                          setSnapMode('measure');
+                          setSnapDropdownOpen(false);
+                        }}
+                        className={`px-2.5 py-1 text-[10px] font-cactus font-bold uppercase text-left flex items-center justify-between hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer transition-colors ${
+                          snapMode === 'measure' ? 'bg-[var(--cordel-text)]/15 font-extrabold' : ''
+                        }`}
+                      >
+                        <span>{lang === 'fr' ? 'Mesure' : 'Compasso'}</span>
+                        {snapMode === 'measure' && <span className="font-bold">✓</span>}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSnapMode('beat');
+                          setSnapDropdownOpen(false);
+                        }}
+                        className={`px-2.5 py-1 text-[10px] font-cactus font-bold uppercase text-left flex items-center justify-between hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer transition-colors ${
+                          snapMode === 'beat' ? 'bg-[var(--cordel-text)]/15 font-extrabold' : ''
+                        }`}
+                      >
+                        <span>{lang === 'fr' ? 'Temps' : 'Tempos'}</span>
+                        {snapMode === 'beat' && <span className="font-bold">✓</span>}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSnapMode('none');
+                          setSnapDropdownOpen(false);
+                        }}
+                        className={`px-2.5 py-1 text-[10px] font-cactus font-bold uppercase text-left flex items-center justify-between hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer transition-colors ${
+                          snapMode === 'none' ? 'bg-[var(--cordel-text)]/15 font-extrabold' : ''
+                        }`}
+                      >
+                        <span>{lang === 'fr' ? 'Libre' : 'Livre'}</span>
+                        {snapMode === 'none' && <span className="font-bold">✓</span>}
+                      </button>
+                    </div>
+                  )}
                 </div>
+
+                {/* Bouton Créer Section */}
+                <button
+                  onClick={() => {
+                    setEditingSection(null);
+                    setSectionModalOpen(true);
+                  }}
+                  className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] px-1.5 py-0.5 rounded cordel-border-sm hover:opacity-80 transition-opacity cursor-pointer flex items-center justify-center gap-0.5 h-5"
+                  title={lang === 'fr' ? 'Créer une section' : 'Criar seção'}
+                >
+                  <span>➕</span>
+                  {!isMobile && <span>{lang === 'fr' ? 'Sect.' : 'Seção'}</span>}
+                </button>
               </div>
-              <button
-                onClick={() => {
-                  setEditingSection(null);
-                  setSectionModalOpen(true);
-                }}
-                className="bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold text-[10px] px-1 py-0.5 rounded cordel-border-sm hover:opacity-80 transition-opacity cursor-pointer flex items-center justify-center gap-0.5"
-                title={lang === 'fr' ? 'Créer une section' : 'Criar seção'}
-              >
-                <span>➕</span>
-                {!isMobile && <span>{lang === 'fr' ? 'Sect.' : 'Seção'}</span>}
-              </button>
             </div>
 
             {/* Space where sections will render */}

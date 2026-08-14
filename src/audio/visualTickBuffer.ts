@@ -20,6 +20,7 @@ export interface VisualTickEvent {
   iteration: number;
   measureStartTime?: number;
   measureDuration?: number;
+  targetStartTime?: number;
 }
 
 export interface VisualHitTriggerEvent {
@@ -45,6 +46,7 @@ const tickQueue: VisualTickEvent[] = Array.from({ length: TICK_QUEUE_SIZE }, () 
   iteration: 1,
   measureStartTime: 0,
   measureDuration: 0,
+  targetStartTime: 0,
 }));
 
 const hitQueue: VisualHitTriggerEvent[] = Array.from({ length: HIT_QUEUE_SIZE }, () => ({
@@ -67,6 +69,12 @@ let rafId: number | null = null;
 let audioContextRef: AudioContext | null = null;
 let hitTriggersPoolRef: { current: { push: (trackId: number, stepIdx: number, strokeCode: number) => void } } | null = null;
 
+let lastAudibleTick: VisualTickEvent | null = null;
+
+export function getLastAudibleTick(): VisualTickEvent | null {
+  return lastAudibleTick;
+}
+
 export function pushVisualTick(event: VisualTickEvent): void {
   const slot = tickQueue[tickWriteIdx];
   slot.drawTime = event.drawTime;
@@ -80,8 +88,14 @@ export function pushVisualTick(event: VisualTickEvent): void {
   slot.iteration = event.iteration;
   slot.measureStartTime = event.measureStartTime;
   slot.measureDuration = event.measureDuration;
+  slot.targetStartTime = event.targetStartTime;
 
   tickWriteIdx = (tickWriteIdx + 1) % TICK_QUEUE_SIZE;
+}
+
+export function purgeVisualTickBuffer(): void {
+  tickReadIdx = tickWriteIdx;
+  hitReadIdx = hitWriteIdx;
 }
 
 export function pushVisualHitTrigger(trackId: number, stepIdx: number, strokeCode: number, triggerTime: number): void {
@@ -134,6 +148,7 @@ function processVisualLoop(): void {
     }
 
     if (shouldDispatch) {
+      lastAudibleTick = { ...evt }; // Mémoriser le tick audible de référence
       tickSubscribers.forEach((cb) => {
         try {
           cb(evt);

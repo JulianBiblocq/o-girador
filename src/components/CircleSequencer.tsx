@@ -22,6 +22,7 @@ import { useTransportStore } from '../stores/useTransportStore';
 import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../hooks/useAudioSync';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { getBusColor, getBusNoteColor } from '../utils/colorHelpers';
+import { usePerformanceStore } from '../stores/usePerformanceStore';
 
 interface CircleSequencerProps {
   isActive?: boolean;
@@ -1268,7 +1269,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       // Rotate Drumstick indicating active play head step with real-time continuous 60 FPS 1:1 hardware clock sync
       const isCurrentlyPlaying = localPlaying || (audioEngine ? audioEngine.getIsPlaying() : false);
 
-      // --- Alignement sur l'Horloge AudioContext par mesure (BPM dynamique & 0 Jitter & Mobile Unblocked) ---
+      // --- VERROUILLAGE DE PHASE (Phase-Lock) SUR LES TICKS AUDIO ---
       const getAudioTime = () => {
         if (audioEngine && typeof audioEngine.getCurrentTime === 'function') {
           return audioEngine.getCurrentTime();
@@ -1281,13 +1282,27 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       };
 
       const ctxTime = getAudioTime();
-      const mStart = live.measureStartTime;
-      const mDur = live.measureDuration;
+      const isUltraEco = usePerformanceStore.getState().disablePlayheadRAF;
 
-      if (isCurrentlyPlaying && live.step >= 0 && mStart !== undefined && mStart >= 0 && mDur !== undefined && mDur > 0 && ctxTime >= mStart) {
-        const elapsed = ctxTime - mStart;
-        const currentRatio = (elapsed / mDur) % 1;
-        stickAngle = -Math.PI / 2 + (currentRatio * Math.PI * 2);
+      if (isCurrentlyPlaying && live.step >= 0 && live.ratio !== undefined && live.time !== undefined && live.measureDuration && live.measureDuration > 0) {
+        if (isUltraEco || isEco) {
+          // Hard-lock absolu sur le tick (sans interpolation GPU)
+          stickAngle = -Math.PI / 2 + (live.ratio * Math.PI * 2);
+        } else {
+          // Phase-Locked Interpolation
+          const elapsedSinceTick = Math.max(0, ctxTime - live.time);
+          
+          // Resync Protection (Hard Sync) : 
+          // Si l'horloge locale dévie trop (ex: > 100ms) par rapport au temps du tick (ex: reprise de pause),
+          // on force le retour exact sur le ratio du séquenceur pour empêcher un bond de phase.
+          if (elapsedSinceTick > 0.1) {
+            stickAngle = -Math.PI / 2 + (live.ratio * Math.PI * 2);
+          } else {
+            const ratioProgression = elapsedSinceTick / live.measureDuration;
+            const currentRatio = (live.ratio + ratioProgression) % 1;
+            stickAngle = -Math.PI / 2 + (currentRatio * Math.PI * 2);
+          }
+        }
         frozenStickAngleRef.current = stickAngle;
       } else if (!isCurrentlyPlaying && live.step >= 0 && frozenStickAngleRef.current !== undefined) {
         stickAngle = frozenStickAngleRef.current;

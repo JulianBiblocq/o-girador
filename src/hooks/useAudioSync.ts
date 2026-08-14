@@ -27,7 +27,7 @@ import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { vocalEngineService, workerSetTimeout } from '../audio/vocalEngineService';
-import { pushVisualTick, pushVisualHitTrigger, startVisualLoop, stopVisualLoop, flushVisualBuffers } from '../audio/visualTickBuffer';
+import { pushVisualTick, pushVisualHitTrigger, startVisualLoop, stopVisualLoop, flushVisualBuffers, purgeVisualTickBuffer, getLastAudibleTick } from '../audio/visualTickBuffer';
 
 interface ScheduledNote {
   time: number;
@@ -394,6 +394,7 @@ export function useAudioSync({
     iteration: number;
     measureStartTime?: number;
     measureDuration?: number;
+    targetStartTime?: number;
   }>({
     step: 0,
     measure: 0,
@@ -1759,6 +1760,27 @@ export function useAudioSync({
 
       if (Tone.Transport.state !== 'started') {
         Tone.Transport.start();
+        
+        // 🚀 RESUME ANCHOR FIX : Compensation synchrone de l'offset temporel à la reprise
+        if (anchoredMeasureStartSecRef.current === -1) {
+          const detail = tickEventDetailRef.current;
+          const ratioVal = detail.ratio || 0;
+          const targetStartTime = Tone.context.currentTime + Tone.context.lookAhead;
+          const measureDurationSec = Tone.Time('1m').toSeconds();
+          
+          const newAnchor = targetStartTime - (ratioVal * measureDurationSec);
+          anchoredMeasureStartSecRef.current = newAnchor;
+          
+          detail.measureStartTime = newAnchor;
+          detail.measureDuration = measureDurationSec;
+          detail.targetStartTime = targetStartTime;
+          detail.time = targetStartTime;
+          (detail as any).isPaused = false;
+          
+          tickSubscribers.forEach((cb) => {
+            try { cb(detail); } catch (err) { console.error(err); }
+          });
+        }
       }
       if (import.meta.env.DEV) {
       }
@@ -1768,8 +1790,11 @@ export function useAudioSync({
       if (import.meta.env.DEV) {
       }
       audioEngine?.stop();
+      Tone.Transport.pause();
+      anchoredMeasureStartSecRef.current = -1;
       Tone.Draw.cancel();
       flushVisualBuffers();
+      purgeVisualTickBuffer();
       hitTriggersRef.current.clear();
       console.log("🎙️ [VOCAL DEBUG] useAudioSync.ts - handleTogglePlay stop. Calling stopRecording() unconditionally.");
       vocalEngineService.stopRecording();
@@ -1784,10 +1809,30 @@ export function useAudioSync({
       setCurrentMeasure(measureCountRef.current);
 
 
-      const pausedStep = currentStepIndexRef.current;
-      const pausedMeasure = measureCountRef.current;
-      const pausedMaxTicks = maxTicksRef.current;
-      const ratioVal = pausedMaxTicks > 0 ? (pausedStep >= 0 ? pausedStep : 0) / pausedMaxTicks : 0;
+      const audibleTick = getLastAudibleTick();
+      const pausedStep = audibleTick ? audibleTick.step : 0;
+      const pausedMeasure = audibleTick ? audibleTick.measure : measureCountRef.current;
+      const pausedMaxTicks = audibleTick ? audibleTick.maxTicks : maxTicksRef.current;
+      const ratioVal = audibleTick ? audibleTick.ratio : 0;
+
+      // ⏳ Audible Time Rewind: On recale le moteur Tone.js sur le temps réellement entendu
+      if (audibleTick && audibleTick.measureDuration && audibleTick.measureDuration > 0) {
+        const measureDurationSec = audibleTick.measureDuration;
+        const audibleTransportSeconds = (pausedMeasure * measureDurationSec) + (ratioVal * measureDurationSec);
+        Tone.Transport.seconds = audibleTransportSeconds;
+        
+        // Fixer le scheduler interne du moteur
+        if (audioEngine) {
+          audioEngine.currentStep = pausedStep;
+          audioEngine.currentMeasure = pausedMeasure;
+        }
+        
+        // Recaler le tracker local de useAudioSync pour éviter le saut au Resume
+        currentStepIndexRef.current = pausedStep;
+        
+        // Mettre à jour l'UI avec l'état audible
+        setCurrentMeasure(pausedMeasure);
+      }
 
       const detail = tickEventDetailRef.current;
       detail.step = pausedStep >= 0 ? pausedStep : 0;
@@ -1797,7 +1842,7 @@ export function useAudioSync({
       detail.visualStep16 = Math.floor(ratioVal * 16);
       detail.visualStep12 = Math.floor(ratioVal * 12);
       detail.time = Tone.context.currentTime;
-      detail.iteration = 1;
+      detail.iteration = audibleTick ? audibleTick.iteration : 1;
       (detail as any).isPaused = true;
 
       tickSubscribers.forEach((cb) => {
@@ -1819,6 +1864,7 @@ export function useAudioSync({
     audioEngine?.stop();
     Tone.Draw.cancel();
     flushVisualBuffers();
+    purgeVisualTickBuffer();
     hitTriggersRef.current.clear();
     lastPlayedPatternRef.current = {};
     Tone.Transport.stop();
@@ -1838,6 +1884,10 @@ export function useAudioSync({
     measureCountRef.current = 0;
     setCurrentMeasure(0);
     Tone.Transport.seconds = 0;
+    if (audioEngine) {
+      audioEngine.currentMeasure = 0;
+      audioEngine.currentStep = 0;
+    }
     lastPlayedSignalIdRef.current = null;
     const detail = tickEventDetailRef.current;
     detail.step = -1;
@@ -1850,6 +1900,7 @@ export function useAudioSync({
     detail.iteration = 1;
     detail.measureStartTime = 0;
     detail.measureDuration = 0;
+    (detail as any).isPaused = false;
 
     tickSubscribers.forEach((cb) => {
       try { cb(detail); } catch (err) { console.error(err); }

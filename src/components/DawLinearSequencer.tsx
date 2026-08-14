@@ -383,17 +383,26 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
               ? 'Toada'
               : (isChild ? `↳ ${getTrackDisplayName(track, tracks)}` : getTrackDisplayName(track, tracks));
 
+            const isDropdownOpen = dropdownOpenTrackId === track.id;
+
             return (
               <div
                 key={track.id}
-                className="flex items-center w-full h-auto min-h-[116px] xl:h-[76px] xl:min-h-[76px] justify-start shrink-0 text-[#1a1a1a] overflow-hidden border-b-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] px-3 py-1"
+                className={`flex items-center w-full h-auto min-h-[116px] xl:h-[76px] xl:min-h-[76px] justify-start shrink-0 text-[#1a1a1a] border-b-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] px-3 py-1 relative ${
+                  isDropdownOpen ? 'overflow-visible z-[60]' : 'overflow-hidden z-[1]'
+                }`}
+                style={{
+                  zIndex: isDropdownOpen ? 60 : 1,
+                }}
               >
                 {/* A. Left Side: Integrated Instrument Mixer Controls (w-[360px] fixed width) */}
                 <div 
-                  className={`flex items-center justify-between gap-2 w-[360px] min-w-[360px] h-[76px] min-h-[76px] shrink-0 border-r border-[#1a1a1a]/20 pr-3 relative z-[2] ${
+                  className={`flex items-center justify-between gap-2 w-[360px] min-w-[360px] h-[76px] min-h-[76px] shrink-0 border-r border-[#1a1a1a]/20 pr-3 relative ${
+                    isDropdownOpen ? 'z-[60]' : 'z-[2]'
+                  } ${
                     isChild ? 'pl-8' : 'pl-3'
                   }`}
-                  ref={dropdownOpenTrackId === track.id ? dropdownRef : undefined}
+                  ref={isDropdownOpen ? dropdownRef : undefined}
                 >
                   <div className="flex items-center gap-2">
                     {/* Sortable drag grip (pure aesthetic in DAW view but maintains Mixer visual layout) */}
@@ -404,7 +413,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                     {/* Instrument Selector Button */}
                     <div className="relative flex items-center">
                       <button
-                        onClick={() => setDropdownOpenTrackId(dropdownOpenTrackId === track.id ? null : track.id)}
+                        onClick={() => setDropdownOpenTrackId(isDropdownOpen ? null : track.id)}
                         className="flex items-center justify-between gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-[10px] cursor-pointer transition-colors w-[180px] sm:w-[190px]"
                         style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
                       >
@@ -423,8 +432,8 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                       </button>
 
                       {/* Instrument Selector Dropdown popup */}
-                      {dropdownOpenTrackId === track.id && (
-                        <div className="absolute top-9 left-0 bg-[#f4ecd8] text-[#1a1a1a] cordel-border cordel-shadow min-w-[180px] max-h-[220px] overflow-y-auto z-[99]">
+                      {isDropdownOpen && (
+                        <div className="absolute top-9 left-0 bg-[#f4ecd8] text-[#1a1a1a] cordel-border cordel-shadow min-w-[180px] max-h-[220px] overflow-y-auto z-[9999]">
                           {instrumentsConfig.map((opt, oIdx) => (
                             <div
                               key={opt.id}

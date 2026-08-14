@@ -13,12 +13,14 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
     step: number;
     measure: number;
     ratio: number;
+    iteration: number;
     measureStartTime?: number;
     measureDuration?: number;
   }>({
     step: -1,
     measure: 0,
     ratio: 0,
+    iteration: 1,
     measureStartTime: 0,
     measureDuration: 0,
   });
@@ -66,22 +68,23 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       maxTicks: number;
       ratio?: number;
       time?: number;
+      iteration?: number;
       isPaused?: boolean;
       measureStartTime?: number;
       measureDuration?: number;
     }) => {
-      const { step, measure, maxTicks, ratio = step / maxTicks, isPaused = false, measureStartTime, measureDuration } = detail;
+      const { step, measure, maxTicks, ratio = step / maxTicks, iteration = 1, isPaused = false, measureStartTime, measureDuration } = detail;
       const el = playheadRef.current;
 
       if (!el) return;
 
       // 1. GESTION DU STOP (step < 0)
       if (step < 0) {
-        livePlaybackRef.current = { step: -1, measure: 0, ratio: 0, measureStartTime: 0, measureDuration: 0 };
+        livePlaybackRef.current = { step: -1, measure: 0, ratio: 0, iteration: 1, measureStartTime: 0, measureDuration: 0 };
         lastExactXRef.current = -1;
         el.style.transition = 'none';
         el.style.transform = `translate3d(${HEADER_W}px, 0, 0)`;
-        el.style.display = 'none';
+        el.style.display = 'block';
         if (scrollEl) scrollEl.scrollLeft = 0;
         layoutCache.current.lastScrollX = 0;
         return;
@@ -104,13 +107,14 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       }
 
       const currentLive = livePlaybackRef.current;
-      const isNewMeasure = currentLive.measure !== measure || currentLive.step < 0 || !currentLive.measureStartTime;
+      const isNewMeasure = currentLive.measure !== measure || currentLive.iteration !== iteration || currentLive.step < 0 || !currentLive.measureStartTime;
       const updatedStartTime = isNewMeasure ? (measureStartTime || currentLive.measureStartTime) : (currentLive.measureStartTime || measureStartTime);
 
       livePlaybackRef.current = {
         step,
         measure,
         ratio,
+        iteration,
         measureStartTime: updatedStartTime,
         measureDuration: measureDuration ?? currentLive.measureDuration,
       };
@@ -174,7 +178,7 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
   return (
     <div
       ref={playheadRef}
-      className={`absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-30 ${disableHeavyShadow ? '' : 'shadow-[0_0_10px_rgba(220,38,38,0.7)]'}`}
+      className={`absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-[55] ${disableHeavyShadow ? '' : 'shadow-[0_0_10px_rgba(220,38,38,0.7)]'}`}
       style={{
         left: 0,
         display: 'none',

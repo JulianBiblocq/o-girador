@@ -12,6 +12,7 @@ import {
   Download,
   Upload
 } from 'lucide-react';
+import { BoutonExportDanse } from './BoutonExportDanse';
 import { AudioFader } from './AudioFader';
 import { GlobalSwingModal } from './GlobalSwingModal';
 import { Language } from '../types';
@@ -359,6 +360,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   <button onClick={() => { onSave(); setMobileMenuOpen(false); }} className={`flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full ${!isAdmin ? 'col-span-2' : ''}`}>
                     <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar' : 'Sauvegarder'}
                   </button>
+                  <div className="col-span-2 mt-1">
+                    <BoutonExportDanse />
+                  </div>
                 </div>
               </div>
 
@@ -750,6 +754,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   <button onClick={() => { onSave(); setProjectDropOpen(false); }} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full ${!isAdmin ? 'col-span-2' : ''}`}>
                     <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar' : 'Sauvegarder'}
                   </button>
+                  <div className="col-span-2 mt-1">
+                    <BoutonExportDanse />
+                  </div>
                 </div>
               </div>
 
