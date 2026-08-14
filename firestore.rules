@@ -15,5 +15,10 @@ service cloud.firestore {
       allow update, delete: if request.auth != null 
                             && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.uid);
     }
+    
+    // Exception pour les choregraphies (O Girador Dança)
+    match /choregraphies/{document=**} {
+      allow read, write: if true;
+    }
   }
 }

@@ -175,7 +175,7 @@ export const FeedbackSection: React.FC = () => {
         targetCollection,
         data: {
           appSource: 'sequenceur',
-          appVersion: '4.0.4', // Since CURRENT_VERSION might not be imported here, using standard package version
+          appVersion: '4.0.5', // Since CURRENT_VERSION might not be imported here, using standard package version
           pageUrl: window.location.href,
           userAgent: navigator.userAgent,
           timestamp: Date.now(),
