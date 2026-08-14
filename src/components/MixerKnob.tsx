@@ -151,15 +151,76 @@ export const MixerKnob: React.FC<MixerKnobProps> = ({
     onChangeRef.current(val);
   };
 
+  const knobContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = knobContainerRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        e.preventDefault();
+        isDraggingRef.current = true;
+        startYRef.current = e.touches[0].clientY;
+        startValueRef.current = value;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isDraggingRef.current && e.touches.length > 0) {
+        e.preventDefault();
+        const diffY = startYRef.current - e.touches[0].clientY;
+        const sweepRange = 150;
+        const range = max - min;
+        let val = startValueRef.current + (diffY / sweepRange) * range;
+        val = Math.min(max, Math.max(min, val));
+        if (unit === 'dB' && Math.abs(val) < 0.8) {
+          val = 0;
+        }
+        updateVisuals(val);
+        if (onAudioDragRef.current) {
+          onAudioDragRef.current(val);
+        }
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (isDraggingRef.current) {
+        e.preventDefault();
+        isDraggingRef.current = false;
+        let val = parseFloat(inputRef.current?.value || String(value));
+        if (unit === 'dB' && Math.abs(val) < 0.8) {
+          val = 0;
+        }
+        React.startTransition(() => {
+          onChangeRef.current(val);
+        });
+      }
+    };
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [min, max, value, unit]);
+
   const initialAngle = getAngle(value);
 
   return (
-    <div className="flex flex-col items-center select-none shrink-0" style={{ width: `${size + 12}px` }}>
+    <div className="flex flex-col items-center select-none shrink-0 touch-none" style={{ width: `${size + 12}px` }}>
       <span className="text-[7px] font-black uppercase tracking-wider text-[var(--cordel-text)]/40 text-center truncate w-full leading-none mb-0.5">
         {label}
       </span>
       <div 
-        className="relative flex items-center justify-center cursor-pointer" 
+        ref={knobContainerRef}
+        className="relative flex items-center justify-center cursor-pointer touch-none" 
         style={{ width: `${size}px`, height: `${size}px` }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}

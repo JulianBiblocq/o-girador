@@ -172,6 +172,71 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
     onChange(val);
   };
 
+  // Native non-passive Touch listener fallback for strict mobile browser gesture blocking
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        e.preventDefault();
+        isDraggingRef.current = true;
+        rectRef.current = el.getBoundingClientRect();
+        const touch = e.touches[0];
+        const val = calculateValueFromPointer(touch.clientY);
+        const topPx = getTopPosition(val);
+        if (visualThumbRef.current) {
+          visualThumbRef.current.style.top = `${topPx}px`;
+        }
+        if (valueTextRef.current) {
+          valueTextRef.current.textContent = String(val);
+        }
+        updateAudioNode(val);
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isDraggingRef.current && e.touches.length > 0) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const val = calculateValueFromPointer(touch.clientY);
+        const topPx = getTopPosition(val);
+        if (visualThumbRef.current) {
+          visualThumbRef.current.style.top = `${topPx}px`;
+        }
+        if (valueTextRef.current) {
+          valueTextRef.current.textContent = String(val);
+        }
+        updateAudioNode(val);
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (isDraggingRef.current) {
+        e.preventDefault();
+        isDraggingRef.current = false;
+        const touch = e.changedTouches[0] || e.touches[0];
+        if (touch) {
+          const val = calculateValueFromPointer(touch.clientY);
+          updateAudioNode(val);
+          onChange(val);
+        }
+      }
+    };
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [containerHeight]);
+
   // Synchronisation lorsque la valeur change depuis l'extérieur (ex: presets)
   useEffect(() => {
     if (!isDraggingRef.current) {

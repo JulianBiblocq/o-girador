@@ -102,3 +102,24 @@ export async function renameCloudPattern(patternId: string, newName: string): Pr
     }
   }
 }
+
+export async function getCloudPattern(patternId: string): Promise<CloudPattern | null> {
+  const docRef = doc(db, CLOUD_PATTERNS_COLLECTION, patternId);
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    const jsonStr = LZString.decompressFromBase64(data.data);
+    if (jsonStr) {
+      const parsedPattern = JSON.parse(jsonStr) as SavedPattern;
+      return {
+        ...parsedPattern,
+        id: docSnap.id,
+        ownerId: data.ownerId,
+        visibility: data.visibility,
+        mestreId: data.mestreId
+      };
+    }
+  }
+  return null;
+}

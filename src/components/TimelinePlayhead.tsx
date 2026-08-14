@@ -3,6 +3,8 @@ import { TimelineUIContext } from '../contexts/TimelineUIContext';
 import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 
+import { usePerformanceStore } from '../stores/usePerformanceStore';
+
 const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
   const uiContext = useContext(TimelineUIContext);
   const playheadRef = useRef<HTMLDivElement>(null);
@@ -116,8 +118,14 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       const currentMEASURE_W = measureWRef.current;
       const exactX = measure * currentMEASURE_W + ratio * currentMEASURE_W;
 
-      // 🚀 GPU CSS TRANSITION MODEL: Déclencher la transition CSS 60 FPS native au niveau du GPU par mesure
-      if (isNewMeasure && measureDuration && measureDuration > 0) {
+      const isUltraEco = usePerformanceStore.getState().disablePlayheadRAF;
+
+      if (isUltraEco) {
+        // Mode Tier 3 (Beat Jump) : Saut de position instantané sans transition CSS
+        el.style.transition = 'none';
+        el.style.transform = `translate3d(${HEADER_W + exactX}px, 0, 0)`;
+      } else if (isNewMeasure && measureDuration && measureDuration > 0) {
+        // 🚀 GPU CSS TRANSITION MODEL: Déclencher la transition CSS 60 FPS native au niveau du GPU par mesure
         const startX = HEADER_W + exactX;
         const endX = HEADER_W + (measure + 1) * currentMEASURE_W;
         const remDuration = Math.max(0.1, (1 - ratio) * measureDuration);

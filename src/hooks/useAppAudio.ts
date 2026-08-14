@@ -91,8 +91,68 @@ export function useAppAudio() {
             return true;
           }
         }
+
+        const loadPresetId = urlParams.get('loadPreset');
+        if (loadPresetId) {
+          try {
+            const { getCloudPreset } = await import('../cloudLibrary');
+            const cloudPreset = await getCloudPreset(loadPresetId);
+            if (cloudPreset) {
+              await audio.applyPreset(cloudPreset);
+              window.history.replaceState({}, document.title, window.location.pathname);
+              return true;
+            }
+          } catch (e) {
+            console.error('Failed to load preset from URL', e);
+          }
+        }
+
+        const loadPatternId = urlParams.get('loadPattern');
+        if (loadPatternId) {
+          try {
+            const { getCloudPattern } = await import('../cloudPatterns');
+            const cloudPattern = await getCloudPattern(loadPatternId);
+            if (cloudPattern) {
+              const instConf = instrumentsConfig.find(i => i.id === cloudPattern.instrumentId) || instrumentsConfig[0];
+              const instIdx = instrumentsConfig.indexOf(instConf);
+              const pId = Date.now();
+              const preset = {
+                version: 3,
+                bpm: 100,
+                timeSig: '4/4',
+                totalMeasures: 1,
+                tracks: [
+                  {
+                    id: 1,
+                    instrumentIdx: instIdx !== -1 ? instIdx : 0,
+                    customName: cloudPattern.name,
+                    patterns: [
+                      {
+                        ...cloudPattern,
+                        id: pId,
+                        measureAssignments: [true]
+                      }
+                    ],
+                    selectedPatternId: pId,
+                    volume: 80,
+                    pan: 0,
+                    reverbLevel: 20,
+                    isMuted: false,
+                    isSoloed: false,
+                    isHidden: false
+                  }
+                ]
+              };
+              await audio.applyPreset(preset);
+              window.history.replaceState({}, document.title, window.location.pathname);
+              return true;
+            }
+          } catch (e) {
+            console.error('Failed to load pattern from URL', e);
+          }
+        }
       } catch (err) {
-        // console.warn('[O Girador] Failed to decode URL query param (?ogirador=):', err);
+        // console.warn('[O Girador] Failed to decode URL query param:', err);
       }
 
       if (hash && hash.length > 1) {

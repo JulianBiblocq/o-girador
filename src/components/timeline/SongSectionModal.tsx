@@ -84,11 +84,15 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
           if (!isAssigned) return null;
 
           // Règle d'audit : ne garder que si le pattern contient des notes actives
-          const hasActiveNotes = p.activeSteps.some(step => step !== 0 && step !== "" && step !== null && step !== undefined);
+          const hasActiveNotes = (p.activeSteps || []).some((step: any) => step !== 0 && step !== "" && step !== null && step !== undefined);
           if (!hasActiveNotes) return null;
 
           const newAssignments = p.measureAssignments.slice(start, end + 1);
-          return { ...p, measureAssignments: newAssignments };
+          return { 
+            ...p, 
+            measureAssignments: newAssignments,
+            vocalAudioData: undefined
+          };
         }).filter(Boolean) as any[];
 
         return {

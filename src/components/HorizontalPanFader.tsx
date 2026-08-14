@@ -67,15 +67,81 @@ export const HorizontalPanFader: React.FC<HorizontalPanFaderProps> = ({
     }
   };
 
+  const isDraggingRef = useRef(false);
+
+  const calculateValFromX = (clientX: number) => {
+    const track = trackRef.current;
+    if (!track) return currentValRef.current;
+    const rect = track.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const width = rect.width;
+    const percent = Math.max(0, Math.min(100, (x / width) * 100));
+    let val = Math.round((percent / 100) * 200 - 100);
+    if (Math.abs(val) < 8) val = 0;
+    return val;
+  };
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        e.preventDefault();
+        isDraggingRef.current = true;
+        const touch = e.touches[0];
+        const val = calculateValFromX(touch.clientX);
+        currentValRef.current = val;
+        updateVisuals(val);
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isDraggingRef.current && e.touches.length > 0) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const val = calculateValFromX(touch.clientX);
+        currentValRef.current = val;
+        updateVisuals(val);
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (isDraggingRef.current) {
+        e.preventDefault();
+        isDraggingRef.current = false;
+        const touch = e.changedTouches[0] || e.touches[0];
+        if (touch) {
+          const val = calculateValFromX(touch.clientX);
+          currentValRef.current = val;
+          updateVisuals(val);
+        }
+        onChange(currentValRef.current);
+      }
+    };
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, []);
+
   return (
-    <div className={`flex items-center w-full select-none ${className}`}>
+    <div className={`flex items-center w-full select-none touch-none ${className}`}>
       {/* Track container */}
       <div
         ref={trackRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        className="flex-grow h-4 flex items-center relative cursor-col-resize"
+        className="flex-grow h-4 flex items-center relative cursor-col-resize touch-none"
       >
         {/* Horizontal Line */}
         <div className="w-full h-1 bg-[var(--cordel-border)] border border-[var(--cordel-bg)] pointer-events-none"></div>

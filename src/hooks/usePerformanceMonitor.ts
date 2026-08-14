@@ -41,13 +41,17 @@ export function usePerformanceMonitor() {
         if (fps < 45) {
           lowFpsCountRef.current += 1;
           highFpsCountRef.current = 0;
-          if (lowFpsCountRef.current >= 3 && !store.isCPUSurcharged) {
-            store.setCPUSurcharged(true);
-            const currentLOD = store.lodLevel;
-            if (currentLOD < 4) {
-              store.setLODLevel((currentLOD + 1) as any);
+          if (lowFpsCountRef.current >= 3) {
+            if (!store.isCPUSurcharged) {
+              store.setCPUSurcharged(true);
             }
-            console.warn(`⚠️ CPU overload detected, escalating LOD Level to ${store.lodLevel}`);
+            if (fps < 30 && !store.isUltraEcoMode) {
+              store.setUltraEcoMode(true);
+              console.warn(`⚡ Severe FPS drop detected (${fps} FPS). Escalating to Tier 3 Ultra-Eco Mode.`);
+            } else if (store.lodLevel < 3 && !store.isUltraEcoMode) {
+              store.setLODLevel((store.lodLevel + 1) as any);
+              console.warn(`⚠️ CPU overload detected, escalating LOD Level to ${store.lodLevel}`);
+            }
           }
         } else if (fps >= 54) {
           highFpsCountRef.current += 1;

@@ -85,12 +85,36 @@ export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, labe
     isDraggingRef.current = true;
   };
 
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      isDraggingRef.current = true;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isDraggingRef.current) {
+        e.preventDefault();
+      }
+    };
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: false });
+    el.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      el.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, []);
+
   const initialAngle = value * 1.35;
 
   return (
-    <div className="flex flex-col items-center gap-0.5 select-none shrink-0">
+    <div className="flex flex-col items-center gap-0.5 select-none shrink-0 touch-none">
       <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">{label}</span>
-      <div className="relative w-11 h-11 flex items-center justify-center cursor-pointer">
+      <div className="relative w-11 h-11 flex items-center justify-center cursor-pointer touch-none">
         {/* SVG dial representing the potentiometer */}
         <svg width="38" height="38" viewBox="0 0 32 32" className="transition-transform duration-100">
           {/* Dial body */}

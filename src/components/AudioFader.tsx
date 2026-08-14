@@ -126,17 +126,6 @@ export const AudioFader: React.FC<AudioFaderProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (!isDraggingRef.current) {
-      const pct = getPercentage(value);
-      if (visualThumbRef.current) {
-        visualThumbRef.current.style.left = `${pct}%`;
-      }
-      updateLabelText(value);
-      updateAudio(value, true);
-    }
-  }, [value, audioTarget, trackId]);
-
   const calculateValueFromPointer = (clientX: number) => {
     const rect = rectRef.current;
     if (!rect) return value;
@@ -154,6 +143,78 @@ export const AudioFader: React.FC<AudioFaderProps> = ({
     val = Math.min(numMax, Math.max(numMin, val));
     return val;
   };
+
+  useEffect(() => {
+    if (!isDraggingRef.current) {
+      const pct = getPercentage(value);
+      if (visualThumbRef.current) {
+        visualThumbRef.current.style.left = `${pct}%`;
+      }
+      updateLabelText(value);
+      updateAudio(value, true);
+    }
+  }, [value, audioTarget, trackId]);
+
+  // Native non-passive Touch listener fallback for strict mobile browser gesture blocking
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        e.preventDefault();
+        isDraggingRef.current = true;
+        rectRef.current = el.getBoundingClientRect();
+        const touch = e.touches[0];
+        const val = calculateValueFromPointer(touch.clientX);
+        const pct = getPercentage(val);
+        if (visualThumbRef.current) {
+          visualThumbRef.current.style.left = `${pct}%`;
+        }
+        updateLabelText(val);
+        updateAudio(val, true);
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (isDraggingRef.current && e.touches.length > 0) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const val = calculateValueFromPointer(touch.clientX);
+        const pct = getPercentage(val);
+        if (visualThumbRef.current) {
+          visualThumbRef.current.style.left = `${pct}%`;
+        }
+        updateLabelText(val);
+        updateAudio(val, false);
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (isDraggingRef.current) {
+        e.preventDefault();
+        isDraggingRef.current = false;
+        const touch = e.changedTouches[0] || e.touches[0];
+        if (touch) {
+          const val = calculateValueFromPointer(touch.clientX);
+          updateAudio(val, true);
+          onChangeRef.current(val);
+        }
+      }
+    };
+
+    el.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd, { passive: false });
+    window.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+
+    return () => {
+      el.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [numMin, numMax, numStep]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();

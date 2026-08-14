@@ -71,6 +71,35 @@ export class TopLevelErrorBoundary extends React.Component<{ children: React.Rea
 
   componentDidCatch(error: Error, errorInfo: any) {
     console.error("TopLevelErrorBoundary caught an error:", error, errorInfo);
+    
+    // Send telemetry to Hub
+    try {
+      const hubUrl = import.meta.env.VITE_OGIRADOR_HUB_URL || 'https://hub.ogirador.com';
+      const apiKey = import.meta.env.VITE_OGIRADOR_HUB_API_KEY || '';
+      fetch(`${hubUrl}/api/telemetry/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey
+        },
+        body: JSON.stringify({
+          targetCollection: 'hub_system_errors',
+          data: {
+            appSource: 'sequenceur',
+            appVersion: '4.0.0',
+            pageUrl: window.location.href,
+            userAgent: navigator.userAgent,
+            timestamp: Date.now(),
+            errorType: 'ReactBoundary',
+            message: error.message,
+            stack: error.stack,
+            componentStack: errorInfo?.componentStack
+          }
+        })
+      }).catch(e => console.error('Failed to send crash telemetry:', e));
+    } catch (e) {
+      // Ignore telemetry failure
+    }
   }
 
   render() {
@@ -124,12 +153,47 @@ export const GlobalErrorListener: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    const handleError = (e: ErrorEvent) => {
-      setErrorMsg(`[Global Error] ${e.message} at ${e.filename}:${e.lineno}:${e.colno}\n${e.error?.stack || ''}`);
+    const sendTelemetry = (type: string, message: string, stack?: string) => {
+      try {
+        const hubUrl = import.meta.env.VITE_OGIRADOR_HUB_URL || 'https://hub.ogirador.com';
+        const apiKey = import.meta.env.VITE_OGIRADOR_HUB_API_KEY || '';
+        fetch(`${hubUrl}/api/telemetry/submit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey
+          },
+          body: JSON.stringify({
+            targetCollection: 'hub_system_errors',
+            data: {
+              appSource: 'sequenceur',
+              appVersion: '4.0.0',
+              pageUrl: window.location.href,
+              userAgent: navigator.userAgent,
+              timestamp: Date.now(),
+              errorType: type,
+              message,
+              stack
+            }
+          })
+        }).catch(e => console.error('Failed to send telemetry:', e));
+      } catch (e) {
+        // Ignore telemetry failure
+      }
     };
+
+    const handleError = (e: ErrorEvent) => {
+      const msg = `[Global Error] ${e.message} at ${e.filename}:${e.lineno}:${e.colno}\n${e.error?.stack || ''}`;
+      setErrorMsg(msg);
+      sendTelemetry('GlobalError', e.message, e.error?.stack);
+    };
+    
     const handleRejection = (e: PromiseRejectionEvent) => {
       const reason = e.reason;
-      setErrorMsg(`[Promise Rejection] ${reason?.stack || reason?.message || String(reason)}`);
+      const stack = reason?.stack || reason?.message || String(reason);
+      const msg = `[Promise Rejection] ${stack}`;
+      setErrorMsg(msg);
+      sendTelemetry('UnhandledRejection', String(reason?.message || reason), stack);
     };
 
     window.addEventListener('error', handleError);

@@ -3,8 +3,6 @@ import { Share2 } from 'lucide-react';
 import { useSequencer } from '../../contexts/SequencerContext';
 import { useAudio } from '../../contexts/AudioContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../../firebase/config';
 
 const MandacaruIcon: React.FC = () => (
   <svg viewBox="0 0 100 100" className="w-full h-full select-none pointer-events-none">
@@ -159,17 +157,56 @@ export const FeedbackSection: React.FC = () => {
       return;
     }
 
+    // Anti-spam verification: limit to 1 per day per user
+    const lastSubmit = localStorage.getItem('ogirador_last_feedback_date');
+    const today = new Date().toISOString().split('T')[0];
+    if (lastSubmit === today) {
+      alertAsync(lang === 'pt' ? 'Você já enviou um feedback hoje. Obrigado!' : 'Vous avez déjà envoyé un feedback aujourd\'hui. Merci !');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, 'feedbacks'), {
-        audioRating,
-        usabilityRating,
-        comment,
-        createdAt: new Date().toISOString(),
-        userId: userProfile?.uid || 'anonymous',
-        userEmail: userProfile?.email || 'anonymous',
-        userName: userProfile?.displayName || 'anonymous',
+      // Calcul de la note globale (moyenne arrondie à l'inférieur pour être stricte, ou juste la plus basse)
+      const globalRating = Math.min(audioRating, usabilityRating);
+      const targetCollection = globalRating >= 4 ? 'hub_reviews' : 'hub_tickets';
+
+      const payload = {
+        targetCollection,
+        data: {
+          appSource: 'sequenceur',
+          appVersion: '4.0.0', // Since CURRENT_VERSION might not be imported here, using standard package version
+          pageUrl: window.location.href,
+          userAgent: navigator.userAgent,
+          timestamp: Date.now(),
+          audioRating,
+          usabilityRating,
+          globalRating,
+          comment,
+          createdAt: new Date().toISOString(),
+          userId: userProfile?.uid || 'anonymous',
+          userEmail: userProfile?.email || 'anonymous',
+          userName: userProfile?.displayName || 'anonymous',
+        }
+      };
+
+      const hubUrl = import.meta.env.VITE_OGIRADOR_HUB_URL || 'https://hub.ogirador.com';
+      const apiKey = import.meta.env.VITE_OGIRADOR_HUB_API_KEY || '';
+
+      const response = await fetch(`${hubUrl}/api/telemetry/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey
+        },
+        body: JSON.stringify(payload)
       });
+
+      if (!response.ok) {
+        throw new Error('Hub API request failed');
+      }
+
+      localStorage.setItem('ogirador_last_feedback_date', today);
 
       alertAsync(t.success);
 

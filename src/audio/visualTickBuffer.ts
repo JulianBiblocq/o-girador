@@ -6,6 +6,7 @@
 
 import { tickSubscribers, audioEngine } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { usePerformanceStore } from '../stores/usePerformanceStore';
 
 export interface VisualTickEvent {
   drawTime: number;
@@ -59,6 +60,9 @@ let tickReadIdx = 0;
 let hitWriteIdx = 0;
 let hitReadIdx = 0;
 
+let lastDispatchedBeatStep = -1;
+let lastDispatchedMeasure = -1;
+
 let rafId: number | null = null;
 let audioContextRef: AudioContext | null = null;
 let hitTriggersPoolRef: { current: { push: (trackId: number, stepIdx: number, strokeCode: number) => void } } | null = null;
@@ -94,6 +98,7 @@ function processVisualLoop(): void {
   if (!audioContextRef) return;
 
   const currentTime = audioContextRef.currentTime;
+  const isUltraEco = usePerformanceStore.getState().disablePlayheadRAF;
 
   // 1. Process pending tick events up to current audio time (never expire/drop)
   while (tickReadIdx !== tickWriteIdx) {
@@ -112,13 +117,31 @@ function processVisualLoop(): void {
       useSequencerStore.getState().setCurrentMeasure(evt.measure);
     }
 
-    tickSubscribers.forEach((cb) => {
-      try {
-        cb(evt);
-      } catch (err) {
-        console.error('Error in tick subscriber callback:', err);
+    // In Ultra-Eco (Tier 3), filter ticks to fire ONLY on beat boundaries (every 4th 16th-note step)
+    // or when stopping (step < 0) or changing measure
+    let shouldDispatch = true;
+    if (isUltraEco && evt.step >= 0) {
+      const isBeatBoundary = evt.visualStep16 % 4 === 0;
+      const isNewBeatStep = evt.visualStep16 !== lastDispatchedBeatStep || evt.measure !== lastDispatchedMeasure;
+      shouldDispatch = isBeatBoundary && isNewBeatStep;
+      if (shouldDispatch) {
+        lastDispatchedBeatStep = evt.visualStep16;
+        lastDispatchedMeasure = evt.measure;
       }
-    });
+    } else if (evt.step < 0) {
+      lastDispatchedBeatStep = -1;
+      lastDispatchedMeasure = -1;
+    }
+
+    if (shouldDispatch) {
+      tickSubscribers.forEach((cb) => {
+        try {
+          cb(evt);
+        } catch (err) {
+          console.error('Error in tick subscriber callback:', err);
+        }
+      });
+    }
 
     tickReadIdx = (tickReadIdx + 1) % TICK_QUEUE_SIZE;
   }

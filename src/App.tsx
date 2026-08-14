@@ -41,6 +41,7 @@ import { useGlobalKeyboardShortcuts } from './hooks/useGlobalKeyboardShortcuts';
 import { useViewRouter } from './hooks/useViewRouter';
 import { useThemeManager } from './hooks/useThemeManager';
 import { useMidiController } from './hooks/useMidiController';
+import { startSession, endSession } from './utils/O-Girador-Tracker';
 
 export default function App() {
   // 1. Core hook extraction setup
@@ -95,7 +96,35 @@ export default function App() {
   React.useEffect(() => { promptAsyncRef.current = promptAsync; }, [promptAsync]);
   React.useEffect(() => { setCustomDialogRef.current = setCustomDialog; }, [setCustomDialog]);
 
+  // Session Tracking
+  React.useEffect(() => {
+    const appId = 'o-girador-sequenceur';
 
+    if (userProfile) {
+      startSession(userProfile, appId);
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        endSession(appId, undefined, userProfile?.uid);
+      } else if (document.visibilityState === 'visible' && userProfile) {
+        startSession(userProfile, appId);
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      endSession(appId, undefined, userProfile?.uid);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      endSession(appId, undefined, userProfile?.uid);
+    };
+  }, [userProfile]);
 
 
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 1024);
