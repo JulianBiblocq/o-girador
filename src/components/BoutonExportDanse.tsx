@@ -19,6 +19,7 @@ export const BoutonExportDanse: React.FC = () => {
   const { publierMasterAudio, estEnCoursPublication } = usePublierVersDanca();
   
   const [statut, setStatut] = useState<'repos' | 'calcul' | 'envoi' | 'succes' | 'erreur'>('repos');
+  const [messageErreurUI, setMessageErreurUI] = useState<string>('');
 
   // Extraction optimisée des données nécessaires du store
   const { bpm, totalMesures, timeSig, metadata } = useSequencerStore(
@@ -33,6 +34,7 @@ export const BoutonExportDanse: React.FC = () => {
   const gererExport = async () => {
     try {
       setStatut('calcul');
+      setMessageErreurUI('');
       const blob = await genererBounce();
       
       setStatut('envoi');
@@ -52,10 +54,23 @@ export const BoutonExportDanse: React.FC = () => {
       
       setStatut('succes');
       setTimeout(() => setStatut('repos'), 3000); // Retour au repos après 3s
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      
+      const errMsg = err.message || '';
+      if (errMsg.includes('Erreur Audio Render')) {
+        setMessageErreurUI('Erreur Render');
+      } else if (errMsg.includes('Firebase Permission')) {
+        setMessageErreurUI('Erreur Permission');
+      } else {
+        setMessageErreurUI('Erreur Serveur');
+      }
+
       setStatut('erreur');
-      setTimeout(() => setStatut('repos'), 4000);
+      setTimeout(() => {
+        setStatut('repos');
+        setMessageErreurUI('');
+      }, 5000);
     }
   };
 
@@ -104,7 +119,7 @@ export const BoutonExportDanse: React.FC = () => {
       )}
 
       {statut === 'erreur' && (
-        <span>Erreur</span>
+        <span>{messageErreurUI || 'Erreur'}</span>
       )}
     </button>
   );

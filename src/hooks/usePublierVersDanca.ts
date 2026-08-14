@@ -40,7 +40,7 @@ export function usePublierVersDanca() {
       const cheminFichier = `exports_danse/${tenantId}/${morceauId}.wav`;
       const storageRef = ref(storage, cheminFichier);
       
-      console.log(`[Export Danse] Upload du fichier vers ${cheminFichier}...`);
+      console.log(`[Export Danse] ÉTAPE 3: Upload Firebase Storage vers ${cheminFichier}...`);
       await uploadBytes(storageRef, blob, { contentType: 'audio/wav' });
       
       // 2. Récupération de l'URL publique
@@ -48,6 +48,7 @@ export function usePublierVersDanca() {
       console.log(`[Export Danse] Fichier uploadé avec succès: ${audioUrl}`);
       
       // 3. Mise à jour de Firestore
+      console.log(`[Export Danse] ÉTAPE 4: Écriture Firestore (document ${tenantId}_${morceauId})...`);
       const documentRef = doc(db, 'choregraphies', `${tenantId}_${morceauId}`);
       await setDoc(documentRef, {
         ...metadonnees,
@@ -55,16 +56,23 @@ export function usePublierVersDanca() {
         derniereMiseAJour: new Date().toISOString()
       }, { merge: true });
       
-      console.log(`[Export Danse] Métadonnées publiées dans Firestore.`);
+      console.log(`[Export Danse] Métadonnées publiées dans Firestore avec succès.`);
       
       setEstEnCours(false);
       return audioUrl;
       
     } catch (err: any) {
       console.error('[Export Danse] Erreur lors de la publication:', err);
-      setErreur(err.message || 'Une erreur est survenue lors de la publication.');
+      // Différencie si c'est Firebase Permission, etc.
+      let messageErreur = 'Une erreur est survenue lors de la publication.';
+      if (err.code && err.code.includes('permission-denied')) {
+        messageErreur = 'Erreur Firebase Permission';
+      } else if (err.message) {
+        messageErreur = err.message;
+      }
+      setErreur(messageErreur);
       setEstEnCours(false);
-      throw err;
+      throw new Error(messageErreur); // Repropage l'erreur formatée
     }
   };
 

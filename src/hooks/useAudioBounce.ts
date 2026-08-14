@@ -33,6 +33,11 @@ export function useAudioBounce() {
       }
       dureeTotaleSec += 1.5; // Marge pour la réverbe/queue
 
+      console.log(`[Export Danse] ÉTAPE 1: Démarrage Tone.Offline... Durée calculée = ${dureeTotaleSec}s`);
+      if (isNaN(dureeTotaleSec) || !isFinite(dureeTotaleSec) || dureeTotaleSec <= 0) {
+        throw new Error(`Erreur Audio Render: Durée invalide (${dureeTotaleSec}s)`);
+      }
+
       // 2. Rendu Hors-ligne
       const bufferHorsLigne = await Tone.Offline(async () => {
         // Chargement des instruments nécessaires
@@ -143,12 +148,14 @@ export function useAudioBounce() {
         }
       }, dureeTotaleSec);
 
+      console.log("[Export Danse] ÉTAPE 2: Encodage WAV...");
       // 4. Encodage non-bloquant
       const blob = await encoderWav(bufferHorsLigne.get() as AudioBuffer);
       setEstEnCalcul(false);
       return blob;
 
     } catch (err) {
+      console.error("[Export Danse] Erreur bloquante durant le calcul audio :", err);
       setEstEnCalcul(false);
       throw err;
     }
