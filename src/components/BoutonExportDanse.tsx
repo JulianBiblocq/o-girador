@@ -23,12 +23,13 @@ export const BoutonExportDanse: React.FC = () => {
   const [messageErreurUI, setMessageErreurUI] = useState<string>('');
 
   // Extraction optimisée des données nécessaires du store
-  const { bpm, totalMesures, timeSig, metadata } = useSequencerStore(
+  const { bpm, totalMesures, timeSig, metadata, mestreSignals } = useSequencerStore(
     useShallow(state => ({
       bpm: state.bpm,
       totalMesures: state.totalMeasures,
       timeSig: state.timeSig,
-      metadata: state.metadata
+      metadata: state.metadata,
+      mestreSignals: state.mestreSignals
     }))
   );
   
@@ -47,13 +48,19 @@ export const BoutonExportDanse: React.FC = () => {
       const titre = metadata?.toada || 'Nouvelle Toada';
       
       await publierMasterAudio(blob, {
+        id: morceauId,
         tenantId,
-        morceauId,
-        titre,
+        nom: titre,
         bpm,
         totalMesures,
-        signature: timeSig || '4/4',
-        dateExport: Date.now()
+        sinaisDoMestre: mestreSignals || [],
+        toada: metadata?.toada,
+        nacao: metadata?.nacao,
+        compositor: metadata?.compositor,
+        ritmo: metadata?.ritmo,
+        videoUrl: metadata?.youtubeUrl || (metadata as any)?.link,
+        timeSig: timeSig,
+        mestreId: (metadata as any)?.mestreId
       });
       
       setStatut('succes');

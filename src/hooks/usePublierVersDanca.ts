@@ -6,16 +6,22 @@
 import { useState } from 'react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc } from 'firebase/firestore';
-import { storage, db } from '../firebase/config';
+import { storage, db, auth } from '../firebase/config';
 
 export interface MetadonneesDanse {
+  id: string;
   tenantId: string;
-  morceauId: string;
+  nom: string;
   bpm: number;
   totalMesures: number;
-  signature: string;
-  titre: string;
-  dateExport: number;
+  sinaisDoMestre: any[];
+  toada?: string;
+  nacao?: string;
+  compositor?: string;
+  ritmo?: string;
+  videoUrl?: string;
+  timeSig?: string;
+  mestreId?: string;
 }
 
 /**
@@ -34,26 +40,29 @@ export function usePublierVersDanca() {
     setErreur(null);
 
     try {
-      const { tenantId, morceauId } = metadonnees;
+      const { id, tenantId } = metadonnees;
+      
+      // Détermine l'extension selon le type MIME du blob
+      const ext = blob.type.includes('webm') ? 'webm' : (blob.type.includes('mp4') ? 'mp4' : 'wav');
       
       // 1. Upload vers Storage
-      const cheminFichier = `exports_danse/${tenantId}/${morceauId}.wav`;
+      const cheminFichier = `exports_danse/${tenantId}/${id}.${ext}`;
       const storageRef = ref(storage, cheminFichier);
       
       console.log(`[Export Danse] ÉTAPE 3: Upload Firebase Storage vers ${cheminFichier}...`);
-      await uploadBytes(storageRef, blob, { contentType: 'audio/wav' });
+      await uploadBytes(storageRef, blob, { contentType: blob.type || 'audio/webm' });
       
       // 2. Récupération de l'URL publique
       const audioUrl = await getDownloadURL(storageRef);
       console.log(`[Export Danse] Fichier uploadé avec succès: ${audioUrl}`);
       
-      // 3. Mise à jour de Firestore
-      console.log(`[Export Danse] ÉTAPE 4: Écriture Firestore (document ${tenantId}_${morceauId})...`);
-      const documentRef = doc(db, 'choregraphies', `${tenantId}_${morceauId}`);
+      // 3. Mise à jour de Firestore (collection audio_masters)
+      console.log(`[Export Danse] ÉTAPE 4: Écriture Firestore (document ${tenantId}_${id})...`);
+      const documentRef = doc(db, 'audio_masters', `${tenantId}_${id}`);
       await setDoc(documentRef, {
         ...metadonnees,
         audioUrl,
-        derniereMiseAJour: new Date().toISOString()
+        createdAt: new Date().toISOString()
       }, { merge: true });
       
       console.log(`[Export Danse] Métadonnées publiées dans Firestore avec succès.`);
@@ -63,16 +72,21 @@ export function usePublierVersDanca() {
       
     } catch (err: any) {
       console.error('[Export Danse] Erreur lors de la publication:', err);
-      // Différencie si c'est Firebase Permission, etc.
       let messageErreur = 'Une erreur est survenue lors de la publication.';
       if (err.code && err.code.includes('permission-denied')) {
-        messageErreur = 'Erreur Firebase Permission';
+        messageErreur = auth.currentUser 
+          ? 'Erreur Firebase Permission (Règles non propagées ?)' 
+          : 'Vous devez être connecté (Profil > Login) pour exporter.';
+      } else if (err.code && err.code.includes('unauthorized')) {
+        messageErreur = auth.currentUser 
+          ? 'Erreur Firebase Non-Autorisé' 
+          : 'Connexion requise pour exporter.';
       } else if (err.message) {
         messageErreur = err.message;
       }
       setErreur(messageErreur);
       setEstEnCours(false);
-      throw new Error(messageErreur); // Repropage l'erreur formatée
+      throw new Error(messageErreur);
     }
   };
 

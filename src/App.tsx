@@ -11,7 +11,6 @@ import { useAudio } from './contexts/AudioContext';
 import { useAuth, checkIsAdmin } from './contexts/AuthContext';
 import { i18n, instrumentsConfig } from './data';
 import { Header } from './components/Header';
-import { AudioSourceBar } from './components/AudioSourceBar';
 import { TransportBar } from './components/TransportBar';
 import { useSequencerStore } from './stores/useSequencerStore';
 import { useSequencerSettingsStore } from './stores/useSequencerSettingsStore';
@@ -634,9 +633,6 @@ export default function App() {
         <Home onEnter={handleHomeEnter} lang={sequencer.lang} />
       ) : (
         <div className="flex flex-col h-dvh text-[var(--cordel-text)] bg-[var(--cordel-bg)] overflow-hidden select-none font-sans relative">
-
-      {/* Retractable Audio Source Configuration Bar (Right above Navigation Header) */}
-      <AudioSourceBar />
 
       {/* Header controls bar */}
       <Header

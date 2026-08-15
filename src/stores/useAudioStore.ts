@@ -15,8 +15,11 @@ export interface AudioState {
   recordingStartTimelineSec: number | null;
   isFocusRecordingMode: boolean;
   selectedDeviceId: string | null;
+  selectedOutputDeviceId: string | null;
   availableDevices: Array<{ deviceId: string; label: string }>;
+  availableOutputDevices: Array<{ deviceId: string; label: string }>;
   setSelectedDeviceId: (id: string | null) => void;
+  setSelectedOutputDeviceId: (id: string | null) => void;
   refreshAudioDevices: () => Promise<void>;
   setRecordingStatus: (status: 'inactive' | 'arming' | 'countdown' | 'recording') => void;
   setIsFocusRecordingMode: (focus: boolean) => void;
@@ -51,21 +54,55 @@ export const useAudioStore = create<AudioState>((set) => ({
   recordingStartTimelineSec: null,
 
   selectedDeviceId: null,
+  selectedOutputDeviceId: null,
   availableDevices: [],
+  availableOutputDevices: [],
   setSelectedDeviceId: (id) => set({ selectedDeviceId: id }),
+  setSelectedOutputDeviceId: async (id) => {
+    set({ selectedOutputDeviceId: id });
+    if (id !== null) {
+      // Applique le setSinkId si l'API est disponible
+      try {
+        const Tone = await import('tone');
+        const ctx = Tone.getContext().rawContext as any;
+        if (typeof ctx.setSinkId === 'function') {
+          await ctx.setSinkId(id);
+          console.log(`🎙️ [AUDIO DEVICES] Sink ID set to: ${id}`);
+        }
+      } catch (err) {
+        console.warn('🎙️ [AUDIO DEVICES] setSinkId not supported or failed', err);
+      }
+    }
+  },
   refreshAudioDevices: async () => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
       const devices = await navigator.mediaDevices.enumerateDevices();
+      
       const audioInputs = devices
         .filter((d) => d.kind === 'audioinput')
         .map((d) => ({
           deviceId: d.deviceId,
-          label: d.label || `Micro / Carte Son (${d.deviceId.slice(0, 5)}...)`,
+          label: d.label || `Entrée (${d.deviceId.slice(0, 5)}...)`,
         }));
-      set({ availableDevices: audioInputs });
+        
+      const audioOutputs = devices
+        .filter((d) => d.kind === 'audiooutput')
+        .map((d) => ({
+          deviceId: d.deviceId,
+          label: d.label || `Sortie (${d.deviceId.slice(0, 5)}...)`,
+        }));
+        
+      set({ 
+        availableDevices: audioInputs,
+        availableOutputDevices: audioOutputs
+      });
+      
       if (audioInputs.length > 0 && !useAudioStore.getState().selectedDeviceId) {
         set({ selectedDeviceId: audioInputs[0].deviceId });
+      }
+      if (audioOutputs.length > 0 && !useAudioStore.getState().selectedOutputDeviceId) {
+        set({ selectedOutputDeviceId: audioOutputs[0].deviceId });
       }
     } catch (err) {
       console.warn("🎙️ [AUDIO DEVICES] Error enumerating audio devices:", err);
