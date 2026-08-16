@@ -57,15 +57,26 @@ export function usePublierVersDanca() {
       console.log(`[Export Danse] Fichier uploadé avec succès: ${audioUrl}`);
       
       // 3. Mise à jour de Firestore (collection audio_masters)
-      console.log(`[Export Danse] ÉTAPE 4: Écriture Firestore (document ${tenantId}_${id})...`);
-      const documentRef = doc(db, 'audio_masters', `${tenantId}_${id}`);
-      await setDoc(documentRef, {
-        ...metadonnees,
-        audioUrl,
-        createdAt: new Date().toISOString()
-      }, { merge: true });
+      const safeTenantId = tenantId || "tenant_local";
+      const documentId = `${safeTenantId}_${id}`;
+      console.log(`[Export Danse] ÉTAPE 4: Écriture Firestore (document ${documentId})...`);
+      const documentRef = doc(db, 'audio_masters', documentId);
       
-      console.log(`[Export Danse] Métadonnées publiées dans Firestore avec succès.`);
+      try {
+        const payload = {
+          ...metadonnees,
+          tenantId: safeTenantId,
+          audioUrl,
+          createdAt: new Date().toISOString()
+        };
+        console.log("Tentative d'écriture Firestore...", payload);
+        
+        await setDoc(documentRef, payload, { merge: true });
+        console.log(`[Export Danse] Métadonnées publiées dans Firestore avec succès.`);
+      } catch (firestoreError: any) {
+        console.error("ÉCHEC Écriture Firestore :", firestoreError);
+        throw firestoreError;
+      }
       
       setEstEnCours(false);
       return audioUrl;

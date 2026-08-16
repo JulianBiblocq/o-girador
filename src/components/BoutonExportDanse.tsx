@@ -10,6 +10,7 @@ import { usePublierVersDanca } from '../hooks/usePublierVersDanca';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
+import { getExpandedMeasures } from '../utils/measureHelpers';
 
 /**
  * Composant de la barre d'outils permettant d'exporter la séquence 
@@ -23,13 +24,16 @@ export const BoutonExportDanse: React.FC = () => {
   const [messageErreurUI, setMessageErreurUI] = useState<string>('');
 
   // Extraction optimisée des données nécessaires du store
-  const { bpm, totalMesures, timeSig, metadata, mestreSignals } = useSequencerStore(
+  const { bpm, measureBpms, totalMesures, timeSig, metadata, mestreSignals, songSections, measureSignals } = useSequencerStore(
     useShallow(state => ({
       bpm: state.bpm,
+      measureBpms: state.measureBpms,
       totalMesures: state.totalMeasures,
       timeSig: state.timeSig,
       metadata: state.metadata,
-      mestreSignals: state.mestreSignals
+      mestreSignals: state.mestreSignals,
+      songSections: state.songSections,
+      measureSignals: state.measureSignals
     }))
   );
   
@@ -44,16 +48,39 @@ export const BoutonExportDanse: React.FC = () => {
       
       setStatut('envoi');
       const tenantId = (metadata as any)?.tenantId || 'tenant_local';
-      const morceauId = (metadata as any)?.morceauId || `brouillon_${Date.now()}`;
       const titre = metadata?.toada || 'Nouvelle Toada';
       
-      await publierMasterAudio(blob, {
+      // Utiliser le titre pour le nom de fichier/document (formatage URL-safe)
+      const titreFormate = titre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+      const idFallback = titreFormate ? titreFormate : `brouillon_${Date.now()}`;
+      const morceauId = (metadata as any)?.morceauId || idFallback;
+      
+      const expandedMeasures = getExpandedMeasures(totalMesures, songSections || []);
+      const sinaisDoMestreAbsolus: any[] = [];
+      
+      expandedMeasures.forEach((measureInfo, absoluteIndex) => {
+        const signalId = measureSignals?.[measureInfo.baseMeasure];
+        if (signalId) {
+          const mestreSignal = mestreSignals?.find(s => s.id === signalId);
+          if (mestreSignal) {
+            sinaisDoMestreAbsolus.push({
+              mesure: absoluteIndex,
+              type: mestreSignal.name
+            });
+          }
+        }
+      });
+      
+      const bpmReel = expandedMeasures.length > 0 ? (measureBpms[expandedMeasures[0].baseMeasure] || bpm) : bpm;
+
+      // Filtrer les valeurs undefined pour Firestore
+      const payloadBrut = {
         id: morceauId,
         tenantId,
         nom: titre,
-        bpm,
-        totalMesures,
-        sinaisDoMestre: mestreSignals || [],
+        bpm: bpmReel,
+        totalMesures: expandedMeasures.length,
+        sinaisDoMestre: sinaisDoMestreAbsolus,
         toada: metadata?.toada,
         nacao: metadata?.nacao,
         compositor: metadata?.compositor,
@@ -61,7 +88,13 @@ export const BoutonExportDanse: React.FC = () => {
         videoUrl: metadata?.youtubeUrl || (metadata as any)?.link,
         timeSig: timeSig,
         mestreId: (metadata as any)?.mestreId
-      });
+      };
+      
+      const payloadPropre = Object.fromEntries(
+        Object.entries(payloadBrut).filter(([_, v]) => v !== undefined)
+      );
+
+      await publierMasterAudio(blob, payloadPropre as any);
       
       setStatut('succes');
       setTimeout(() => setStatut('repos'), 3000); // Retour au repos après 3s

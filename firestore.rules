@@ -9,15 +9,26 @@ service cloud.firestore {
       
       // Création : l'utilisateur doit être connecté et s'assigner comme propriétaire
       allow create: if request.auth != null 
-                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.authorId || request.auth.uid == request.resource.data.uid);
+                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.authorId || request.auth.uid == request.resource.data.uid || request.auth.uid == request.resource.data.mestreId);
                     
       // Modification/Suppression : l'utilisateur doit être le propriétaire existant du document
       allow update, delete: if request.auth != null 
-                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.uid);
+                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.uid || request.auth.uid == resource.data.mestreId);
     }
     
     // Exception pour les choregraphies (O Girador Dança)
     match /choregraphies/{document=**} {
+      allow read, write: if true;
+    }
+    
+    // Exception pour la télémétrie
+    match /hub_telemetry_daily/{document=**} {
+      allow create: if true;
+      allow read, update, delete: if false;
+    }
+    
+    // Exception pour les exports audio (O Girador Dança)
+    match /audio_masters/{document=**} {
       allow read, write: if true;
     }
   }

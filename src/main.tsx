@@ -74,7 +74,9 @@ export class TopLevelErrorBoundary extends React.Component<{ children: React.Rea
     
     // Send telemetry to Hub
     try {
-      const hubUrl = import.meta.env.VITE_OGIRADOR_HUB_URL || 'https://hub.ogirador.com';
+      const hubUrl = import.meta.env.VITE_OGIRADOR_HUB_URL;
+      if (!hubUrl) return; // Ignore if no valid HUB URL
+      
       const apiKey = import.meta.env.VITE_OGIRADOR_HUB_API_KEY || '';
       fetch(`${hubUrl}/api/telemetry/submit`, {
         method: 'POST',
@@ -155,7 +157,9 @@ export const GlobalErrorListener: React.FC = () => {
   useEffect(() => {
     const sendTelemetry = (type: string, message: string, stack?: string) => {
       try {
-        const hubUrl = import.meta.env.VITE_OGIRADOR_HUB_URL || 'https://hub.ogirador.com';
+        const hubUrl = import.meta.env.VITE_OGIRADOR_HUB_URL;
+        if (!hubUrl) return; // Ignore if no valid HUB URL
+        
         const apiKey = import.meta.env.VITE_OGIRADOR_HUB_API_KEY || '';
         fetch(`${hubUrl}/api/telemetry/submit`, {
           method: 'POST',

@@ -190,7 +190,10 @@ export const FeedbackSection: React.FC = () => {
         }
       };
 
-      const hubUrl = import.meta.env.VITE_OGIRADOR_HUB_URL || 'https://hub.ogirador.com';
+      const hubUrl = import.meta.env.VITE_OGIRADOR_HUB_URL;
+      if (!hubUrl) {
+        throw new Error("Impossible d'envoyer le feedback : l'URL du Hub n'est pas configurée.");
+      }
       const apiKey = import.meta.env.VITE_OGIRADOR_HUB_API_KEY || '';
 
       const response = await fetch(`${hubUrl}/api/telemetry/submit`, {

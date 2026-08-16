@@ -6,26 +6,30 @@
 import { useState } from 'react';
 import * as Tone from 'tone';
 import { useSequencerStore } from '../stores/useSequencerStore';
-import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
-import { instrumentAudioConfigs } from '../data/audioConfig';
-import { encoderWav } from '../utils/encodeurWav';
+import { getExpandedMeasures } from '../utils/measureHelpers';
+import { useAudio } from '../contexts/AudioContext';
 
 /**
- * Hook pour le rendu hors-ligne (Bounce) de la séquence active via OfflineAudioContext.
- * Respecte les contraintes de non-blocage (Tone.Offline + Web Worker pour l'encodage).
+ * Hook pour le rendu Temps-Réel (Bounce) de la séquence active.
+ * Utilise Tone.Recorder connecté à la sortie Master et joue la séquence
+ * en direct pour capturer tous les effets, eq, compression, et swing.
  */
 export function useAudioBounce() {
   const [estEnCalcul, setEstEnCalcul] = useState(false);
+  const audio = useAudio();
 
   const genererBounce = async (): Promise<Blob> => {
     setEstEnCalcul(true);
     try {
       const state = useSequencerStore.getState();
-      const { tracks, totalMeasures, measureBpms, measureTimeSigs, bpm, timeSig } = state;
+      const { totalMeasures, measureBpms, measureTimeSigs, bpm, timeSig, songSections } = state;
+
+      const expandedMeasures = getExpandedMeasures(totalMeasures, songSections);
 
       // 1. Calcul de la durée totale
       let dureeTotaleSec = 0;
-      for (let m = 0; m < totalMeasures; m++) {
+      for (let i = 0; i < expandedMeasures.length; i++) {
+        const m = expandedMeasures[i].baseMeasure;
         const mBpm = measureBpms[m] || bpm;
         const mTimeSig = measureTimeSigs[m] || timeSig || '4/4';
         const beats = parseInt(mTimeSig.split('/')[0], 10);
@@ -33,137 +37,45 @@ export function useAudioBounce() {
       }
       dureeTotaleSec += 1.5; // Marge pour la réverbe/queue
 
-      console.log(`[Export Danse] ÉTAPE 1: Démarrage Tone.Offline... Durée calculée = ${dureeTotaleSec}s`);
+      console.log(`[Export Danse] ÉTAPE 1: Démarrage Enregistrement Temps-Réel... Durée calculée = ${dureeTotaleSec}s`);
       if (isNaN(dureeTotaleSec) || !isFinite(dureeTotaleSec) || dureeTotaleSec <= 0) {
         throw new Error(`Erreur Audio Render: Durée invalide (${dureeTotaleSec}s)`);
       }
 
-      // 2. Rendu Hors-ligne
-      const symbolToNoteMap = new Map<string, string>();
+      // Arrêt préalable du séquenceur au cas où il serait en lecture
+      if (audio.isPlaying) {
+        audio.handleStop();
+        await new Promise(r => setTimeout(r, 100)); // Attendre l'arrêt
+      } else {
+        audio.handleStop(); // Remise à zéro au début
+      }
 
-      const bufferHorsLigne = await Tone.Offline(async () => {
-        // Chargement des instruments nécessaires
-        const samplers = new Map<string, Tone.Sampler>();
+      // 2. Initialisation de l'enregistreur
+      const recorder = new Tone.Recorder();
+      Tone.getDestination().connect(recorder);
+      recorder.start();
 
-        for (const track of tracks) {
-          if (track.isMute || track.isBusFolder || !track.patterns) continue;
-          
-          const uiConf = instrumentsConfig[track.instrumentIdx];
-          if (!uiConf || uiConf.type === 'voice') continue;
-          
-          const conf = instrumentAudioConfigs.find(c => c.id === uiConf.id);
-          if (!conf) continue;
+      // 3. Démarrage de la lecture
+      await audio.handleTogglePlay();
 
-          // Création du Sampler
-          if (!samplers.has(conf.id)) {
-            const urls: Record<string, string> = {};
-            const baseMidi = 60; // Commence à C4
-            conf.strokes.forEach((stroke, i) => {
-              // Prend le premier fichier de chaque stroke pour simplifier (pas de round-robin ici)
-              if (stroke.files && stroke.files.length > 0) {
-                let path = stroke.files[0];
-                if (!path.startsWith('http')) {
-                  path = path.startsWith('/') ? `${ASSETS_BASE_URL}${path.slice(1)}` : `${ASSETS_BASE_URL}${path}`;
-                }
-                const noteName = Tone.Frequency(baseMidi + i, "midi").toNote();
-                urls[noteName] = path;
-                symbolToNoteMap.set(`${conf.id}_${stroke.symbol}`, noteName);
-              }
-            });
-            const sampler = new Tone.Sampler({ urls }).toDestination();
-            sampler.volume.value = -6; // Headroom
-            samplers.set(conf.id, sampler);
-          }
-        }
+      // 4. Attente automatique (blocage asynchrone non-bloquant pour le UI)
+      await new Promise(resolve => setTimeout(resolve, dureeTotaleSec * 1000));
 
-        await Tone.loaded();
+      // 5. Fin de l'enregistrement
+      const blob = await recorder.stop();
+      
+      // Nettoyage
+      Tone.getDestination().disconnect(recorder);
+      recorder.dispose();
+      audio.handleStop();
 
-        // 3. Planification des notes
-        let tempsCumule = 0;
-        for (let m = 0; m < totalMeasures; m++) {
-          const mBpm = measureBpms[m] || bpm;
-          const mTimeSig = measureTimeSigs[m] || timeSig || '4/4';
-          const parts = mTimeSig.split('/');
-          const beats = parseInt(parts[0], 10);
-          const beatUnit = parseInt(parts[1], 10);
-          const ticksParMesure = beats * (96 / beatUnit);
-          const dureeMesureSec = (60 / mBpm) * beats;
-
-          for (const track of tracks) {
-            if (track.isMute || track.isBusFolder || !track.patterns) continue;
-            const uiConf = instrumentsConfig[track.instrumentIdx];
-            if (!uiConf || uiConf.type === 'voice') continue;
-            
-            const conf = instrumentAudioConfigs.find(c => c.id === uiConf.id);
-            if (!conf) continue;
-
-            const sampler = samplers.get(conf.id);
-            if (!sampler) continue;
-
-            // Trouve le pattern assigné
-            let patternActif = null;
-            if (track.linkedToTrackId && !track.isLinkFolder) {
-              const parent = tracks.find(t => String(t.id) === String(track.linkedToTrackId));
-              if (parent) {
-                patternActif = parent.patterns.find(p => p.measureAssignments[m]);
-              }
-            } else {
-              patternActif = track.patterns.find(p => p.measureAssignments[m]);
-            }
-
-            if (!patternActif || !patternActif.activeSteps) continue;
-
-            const resArray = patternActif.beatResolutions || Array(beats).fill(patternActif.steps / beats);
-            let ticksCumulesStep = 0;
-            const carteTicks: number[] = [];
-
-            for (let b = 0; b < beats; b++) {
-              const res = resArray[b] || (patternActif.steps / beats);
-              const ticksParStep = (ticksParMesure / beats) / res;
-              for (let r = 0; r < res; r++) {
-                carteTicks.push(Math.round(ticksCumulesStep + r * ticksParStep));
-              }
-              ticksCumulesStep += (ticksParMesure / beats);
-            }
-
-            const stepCount = patternActif.steps;
-            for (let s = 0; s < stepCount; s++) {
-              const coup = patternActif.activeSteps[s];
-              if (!coup || coup === 0 || coup === '0') continue;
-
-              const tick = carteTicks[s] !== undefined ? carteTicks[s] : Math.floor((s * ticksParMesure) / stepCount);
-              const ratioSec = tick / ticksParMesure;
-              const tempsNote = tempsCumule + (ratioSec * dureeMesureSec);
-
-              let note = typeof coup === 'string' ? coup : String(coup);
-              
-              // Normalisation minimale
-              if (['marcante', 'meiao', 'repique', 'caixa', 'tarol'].includes(conf.id)) {
-                if (note === 't' || note === 'T') note = 'B';
-                else if (note === 'C') note = 'c';
-              } else if (conf.id === 'agbe' || conf.id === 'gongue') {
-                if (note === 't') note = 'B';
-              }
-
-              const mappedNote = symbolToNoteMap.get(`${conf.id}_${note}`);
-              if (!mappedNote) continue;
-
-              const volume = (patternActif.volumes?.[s] ?? 80) / 100;
-              sampler.triggerAttack(mappedNote, tempsNote, volume);
-            }
-          }
-          tempsCumule += dureeMesureSec;
-        }
-      }, dureeTotaleSec);
-
-      console.log("[Export Danse] ÉTAPE 2: Encodage WAV...");
-      // 4. Encodage non-bloquant
-      const blob = await encoderWav(bufferHorsLigne.get() as AudioBuffer);
+      console.log("[Export Danse] ÉTAPE 2: Enregistrement terminé !");
       setEstEnCalcul(false);
       return blob;
 
     } catch (err) {
-      console.error("[Export Danse] Erreur bloquante durant le calcul audio :", err);
+      console.error("[Export Danse] Erreur bloquante durant l'enregistrement :", err);
+      audio.handleStop(); // Sécurité
       setEstEnCalcul(false);
       throw err;
     }
