@@ -5,6 +5,8 @@
 
 import { InstrumentConfig, Preset, TimeSignature } from './types';
 
+import { MARACATU_THEME, buildInstrumentColors } from './theme/colorMap';
+
 export const ASSETS_BASE_URL = (import.meta as any).env.BASE_URL;
 
 export const instrumentsConfig: InstrumentConfig[] = [
@@ -13,146 +15,130 @@ export const instrumentsConfig: InstrumentConfig[] = [
     iconImg: 'icones/alfaia.svg',
     name: 'Marcante (alfaia)',
     type: 'hands',
-    mixerBg: '#3a1010',
+    mixerBg: MARACATU_THEME.marcante.mixerBg,
     path: 'Alfaia/Marcante',
-    colors: { 'd': '#632b2b', 'D': '#8a2b2b', 'e': '#b55a5a', 'E': '#c74c4c', 'B': '#4c1c1c', 'X': '#8c7b7b', 'I': '#ff8da1', 'C': '#a89f91', text: '#f4ecd8' },
-    color: '#8a2b2b'
+    colors: buildInstrumentColors(MARACATU_THEME, 'marcante'),
+    color: MARACATU_THEME.marcante.color
   },
   {
     id: 'meiao',
     iconImg: 'icones/alfaia.svg',
     name: 'Meião (alfaia)',
     type: 'hands',
-    mixerBg: '#3a2010',
+    mixerBg: MARACATU_THEME.meiao.mixerBg,
     path: 'Alfaia/Meiao',
-    colors: { 'd': '#8c502b', 'D': '#ab5318', 'e': '#c79c3e', 'E': '#c98124', 'B': '#4c2c16', 'X': '#9c8476', 'I': '#ffb74d', 'C': '#a89f91', text: '#f4ecd8' },
-    color: '#ab5318'
+    colors: buildInstrumentColors(MARACATU_THEME, 'meiao'),
+    color: MARACATU_THEME.meiao.color
   },
   {
     id: 'repique',
     iconImg: 'icones/alfaia.svg',
     name: 'Repique (alfaia)',
     type: 'hands',
-    mixerBg: '#3a3010',
+    mixerBg: MARACATU_THEME.repique.mixerBg,
     path: 'Alfaia/Repique',
-    colors: { 'd': '#947f2b', 'D': '#c9a724', 'e': '#d4cca1', 'E': '#d4c492', 'B': '#4d441c', 'X': '#9c9984', 'I': '#fff59d', 'C': '#a89f91', text: '#f4ecd8' },
-    color: '#c9a724'
+    colors: buildInstrumentColors(MARACATU_THEME, 'repique'),
+    color: MARACATU_THEME.repique.color
   },
   {
     id: 'caixa',
     iconImg: 'icones/caixa.svg',
     name: 'Caixa',
     type: 'hands',
-    mixerBg: '#2a103a',
+    mixerBg: MARACATU_THEME.caixa.mixerBg,
     path: 'Caixa',
-    colors: { 'd': '#3f255e', 'D': '#4c267a', 'e': '#925c9c', 'E': '#7a3187', 'R': '#a855f7', 'r': '#d8b4fe', 'X': '#7e7b8c', 'F': '#d946ef', 'B': '#4a044e', 'C': '#a89f91', text: '#f4ecd8' },
-    color: '#7a3187'
+    colors: buildInstrumentColors(MARACATU_THEME, 'caixa'),
+    color: MARACATU_THEME.caixa.color
   },
   {
     id: 'tarol',
     iconImg: 'icones/caixa.svg',
     name: 'Tarol',
     type: 'hands',
-    mixerBg: '#102a3a',
+    mixerBg: MARACATU_THEME.tarol.mixerBg,
     path: 'Tarol',
-    colors: { 'd': '#3b82f6', 'D': '#1e3a8a', 'e': '#93c5fd', 'E': '#2563eb', 'R': '#312e81', 'r': '#818cf8', 'X': '#3a506b', 'F': '#60a5fa', 'C': '#bfdbfe', 'B': '#0284c7', text: '#f4ecd8' },
-    color: '#2563eb'
+    colors: buildInstrumentColors(MARACATU_THEME, 'tarol'),
+    color: MARACATU_THEME.tarol.color
   },
   {
     id: 'gongue',
     iconImg: 'icones/gongue.svg',
     name: 'Gonguê',
     type: 'gongue',
-    mixerBg: '#1a1a1a',
+    mixerBg: MARACATU_THEME.gongue.mixerBg,
     path: 'Gongue',
-    colors: { 'g': '#444444', 'G': '#222222', 'a': '#7f8c8d', 'A': '#bdc3c7', 'B': '#6d4c41', 'X': '#7f8c8d', text: '#f4ecd8' },
-    color: '#bdc3c7'
+    colors: buildInstrumentColors(MARACATU_THEME, 'gongue'),
+    color: MARACATU_THEME.gongue.color
   },
   {
     id: 'agbe',
     iconImg: 'icones/agbe.svg',
     name: 'Agbê',
     type: 'shake',
-    mixerBg: '#103a20',
+    mixerBg: MARACATU_THEME.agbe.mixerBg,
     path: 'Agbe',
-    colors: { 'e': '#22c55e', 'E': '#15803d', 'd': '#86efac', 'D': '#4ade80', 'S': '#dcfce7', 'V': '#a7f3d0', 'B': '#052e16', text: '#f4ecd8' },
-    color: '#22c55e'
+    colors: buildInstrumentColors(MARACATU_THEME, 'agbe'),
+    color: MARACATU_THEME.agbe.color
   },
   {
     id: 'mineiro',
     iconImg: 'icones/mineiro.svg',
     name: 'Mineiro',
     type: 'shake',
-    mixerBg: '#192e1b',
+    mixerBg: MARACATU_THEME.mineiro.mixerBg,
     path: 'Mineiro',
-    colors: { 'p': '#606c38', 'P': '#283618', 't': '#a3b18a', 'T': '#52796f', 'L': '#dad7cd', 'B': '#1b4332', text: '#f4ecd8' },
-    color: '#588157'
+    colors: buildInstrumentColors(MARACATU_THEME, 'mineiro'),
+    color: MARACATU_THEME.mineiro.color
   },
   {
     id: 'timbal',
     iconImg: 'icones/timbal.svg',
     name: 'Timbal',
     type: 'hands',
-    mixerBg: '#302008',
+    mixerBg: MARACATU_THEME.timbal.mixerBg,
     path: 'Timbal',
-    colors: {
-      'g': '#78350f',
-      'G': '#92400e',
-      'a': '#b45309',
-      'A': '#d97706',
-      's': '#f59e0b',
-      'S': '#fbbf24',
-      'd': '#fef08a',
-      'D': '#fde047',
-      'p': '#451a03',
-      'P': '#5c2205',
-      'F': '#ea580c',
-      'V': '#f97316',
-      'C': '#fdba74',
-      'B': '#291002',
-      text: '#f4ecd8'
-    },
-    color: '#d97706'
+    colors: buildInstrumentColors(MARACATU_THEME, 'timbal'),
+    color: MARACATU_THEME.timbal.color
   },
   {
     id: 'apito',
     iconImg: 'icones/apito.svg',
     name: 'Apito',
     type: 'hands',
-    mixerBg: '#3c3a10',
+    mixerBg: MARACATU_THEME.apito.mixerBg,
     path: 'Apito',
-    colors: { 'W': '#e74c3c', 'w': '#f1c40f', text: '#f4ecd8' },
-    color: '#e74c3c'
+    colors: buildInstrumentColors(MARACATU_THEME, 'apito'),
+    color: MARACATU_THEME.apito.color
   },
   {
     id: 'puxador',
     iconImg: 'icones/micro.svg',
     name: 'Puxador',
     type: 'voice',
-    mixerBg: '#5c3a1c',
+    mixerBg: MARACATU_THEME.puxador.mixerBg,
     path: 'internal',
-    colors: { 'P': '#e9cca8', text: '#f4ecd8' },
-    color: '#e9cca8'
+    colors: buildInstrumentColors(MARACATU_THEME, 'puxador'),
+    color: MARACATU_THEME.puxador.color
   },
   {
     id: 'coro',
     iconImg: 'icones/micro.svg',
     name: 'Coro',
     type: 'voice',
-    mixerBg: '#114a4a',
+    mixerBg: MARACATU_THEME.coro.mixerBg,
     path: 'internal',
-    colors: { 'C': '#b3dcd8', text: '#f4ecd8' },
-    color: '#b3dcd8'
+    colors: buildInstrumentColors(MARACATU_THEME, 'coro'),
+    color: MARACATU_THEME.coro.color
   },
   {
     id: 'toada',
     iconImg: 'icones/micro.svg',
     name: 'Toada',
     type: 'voice',
-    mixerBg: '#392416',
+    mixerBg: MARACATU_THEME.toada.mixerBg,
     path: 'internal',
-    colors: { 'P': '#e9cca8', 'C': '#b3dcd8', text: '#f4ecd8' },
-    color: '#e9cca8'
+    colors: buildInstrumentColors(MARACATU_THEME, 'toada'),
+    color: MARACATU_THEME.toada.color
   }
 ];
 
@@ -182,6 +168,8 @@ export const i18n = {
     alfaiaCaixa: "🥁 Alfaia & Caixa",
     mainDroite: "Mão Direita",
     mainGauche: "Mão Esquerda",
+    strokeStrongGroup: "Forte (Direita / Esquerda)",
+    strokeWeakGroup: "Fraca (Direita / Esquerda)",
     legendCaixaRufadaD: "Rufada mão direita (Rufada Direita)",
     legendCaixaRufadaG: "Rufada mão esquerda (Rufada Esquerda)",
     legendCaixaCerclage: "Toque no aro",
@@ -278,6 +266,8 @@ export const i18n = {
     alfaiaCaixa: "🥁 Alfaia & Caixa",
     mainDroite: "Main Droite",
     mainGauche: "Main Gauche",
+    strokeStrongGroup: "Coup Fort (Droite / Gauche)",
+    strokeWeakGroup: "Coup Faible (Droite / Gauche)",
     legendCaixaRufadaD: "Rufada (Roulement main droite)",
     legendCaixaRufadaG: "Rufada (Roulement main gauche)",
     legendCaixaCerclage: "Coup sur le cerclage",
@@ -543,11 +533,11 @@ export function isDarkText(instId: string, strokeVal: string): boolean {
   if (instId === 'apito' && strokeVal === 'w') return true;
   if (instId === 'gongue' && (strokeVal === 'A' || strokeVal === 'a')) return true;
   if (instId === 'agbe' && ['s', 'S', 'd', 'D', 'e', 'E', 'v', 'V'].includes(strokeVal)) return true;
-  if (instId === 'caixa' && ['r', 'R'].includes(strokeVal)) return true;
+  if (instId === 'caixa' && ['r', 'R', 'd', 'e', 'c', 'C'].includes(strokeVal)) return true;
   if (instId === 'timbal' && ['s', 'S', 'd', 'D', 'c', 'C'].includes(strokeVal)) return true;
-  if (instId === 'mineiro' && ['t', 'T', 'L'].includes(strokeVal)) return true;
-  if (instId === 'tarol' && ['C', 'e', 'F'].includes(strokeVal)) return true;
-  if (['marcante', 'meiao', 'repique'].includes(instId) && ['c', 'C'].includes(strokeVal)) return true;
+  if (instId === 'mineiro' && ['t', 'p', 'L'].includes(strokeVal)) return true;
+  if (instId === 'tarol' && ['c', 'C', 'd', 'e', 'F'].includes(strokeVal)) return true;
+  if (['marcante', 'meiao', 'repique'].includes(instId) && ['c', 'C', 'd', 'e'].includes(strokeVal)) return true;
   return false;
 }
 

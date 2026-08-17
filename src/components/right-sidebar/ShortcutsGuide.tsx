@@ -1,7 +1,7 @@
 import React from 'react';
 import DOMPurify from 'dompurify';
 import { Language } from '../../types';
-import { instrumentsConfig } from '../../data';
+import { instrumentsConfig, isDarkText } from '../../data';
 import { audioEngine } from '../../hooks/useAudioSync';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import * as Tone from 'tone';
@@ -30,6 +30,24 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
     return instIds.some(id => (activeStrokesByInstrument[id] || []).length > 0);
   };
 
+  const renderBadge = (instIds: string[], strokes: string[], display: string) => {
+    const mainInst = instIds[0];
+    const mainStroke = strokes[0];
+    const inst = instrumentsConfig.find(i => i.id === mainInst);
+    const bg = inst ? (inst.colors[mainStroke] || '#111') : '#111';
+    const color = isDarkText(mainInst, mainStroke) ? '#1a1a1a' : '#f4ecd8';
+    
+    return (
+      <span 
+        onClick={() => playPreview(instIds, mainStroke)} 
+        className="inline-flex items-center justify-center min-w-[44px] px-1 h-[18px] text-[9px] font-bold border-[1.5px] border-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90"
+        style={{ backgroundColor: bg, color: color }}
+      >
+        {display}
+      </span>
+    );
+  };
+
   /* CPU / Audio justification: Asynchronous Tone.js one-shot preview triggered directly on user click.
      Uses native GPU-accelerated transition scale animations (CSS transition/transform) to ensure zero impact
      on React render cycles, layout Reflow, or audio transport clock scheduling. */
@@ -52,7 +70,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 pr-1 flex-grow overflow-y-auto custom-scrollbar min-h-0 content-start">
+    <div className="flex flex-col gap-y-3 pr-1 flex-grow overflow-y-auto custom-scrollbar min-h-0">
       
       {/* Shortcuts & Gestures */}
       <details className="group bg-[var(--cordel-bg)] cordel-border-sm mb-1">
@@ -135,39 +153,39 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
             <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
           </summary>
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
-            {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['D', 'd']) && (
-              <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['marcante', 'meiao', 'repique'], 'D')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">D / d</span>
-                <span>{t('mainDroite')}</span>
-              </div>
-            )}
-            {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['E', 'e']) && (
-              <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['marcante', 'meiao', 'repique'], 'E')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">E / e</span>
-                <span>{t('mainGauche')}</span>
-              </div>
+            {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['D', 'd', 'E', 'e']) && (
+              <>
+                <div className="flex items-center gap-2">
+                  {renderBadge(['marcante', 'meiao', 'repique'], ['D'], 'D / E')}
+                  <span>{t('strokeStrongGroup')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {renderBadge(['marcante', 'meiao', 'repique'], ['d'], 'd / e')}
+                  <span>{t('strokeWeakGroup')}</span>
+                </div>
+              </>
             )}
             {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['X', 'x']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['marcante', 'meiao', 'repique'], 'X')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#8c7b7b] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">X / x</span>
+                {renderBadge(['marcante', 'meiao', 'repique'], ['X'], 'X / x')}
                 <span>{t('legendAlfaiaCerclage')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['I', 'i']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['marcante', 'meiao', 'repique'], 'I')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#ff8da1] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">I / i</span>
+                {renderBadge(['marcante', 'meiao', 'repique'], ['I'], 'I / i')}
                 <span>{t('legendAlfaiaIguarassu')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['C', 'c']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['marcante', 'meiao', 'repique'], 'c')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a89f91] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">C / c</span>
+                {renderBadge(['marcante', 'meiao', 'repique'], ['C'], 'C / c')}
                 <span>{t('legendTarolClick')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['marcante', 'meiao', 'repique'], ['B', 'b']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['marcante', 'meiao', 'repique'], 'B')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4c1c1c] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">B / b</span>
+                {renderBadge(['marcante', 'meiao', 'repique'], ['B'], 'B / b')}
                 <span>{t('legendAlfaiaBarulho')}</span>
               </div>
             )}
@@ -186,53 +204,53 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
             <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
           </summary>
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
-            {isStrokeActiveForInstruments(['caixa', 'tarol'], ['D', 'd']) && (
-              <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['caixa', 'tarol'], 'D')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">D / d</span>
-                <span>{t('mainDroite')}</span>
-              </div>
-            )}
-            {isStrokeActiveForInstruments(['caixa', 'tarol'], ['E', 'e']) && (
-              <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['caixa', 'tarol'], 'E')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">E / e</span>
-                <span>{t('mainGauche')}</span>
-              </div>
+            {isStrokeActiveForInstruments(['caixa', 'tarol'], ['D', 'd', 'E', 'e']) && (
+              <>
+                <div className="flex items-center gap-2">
+                  {renderBadge(['caixa', 'tarol'], ['D'], 'D / E')}
+                  <span>{t('strokeStrongGroup')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {renderBadge(['caixa', 'tarol'], ['d'], 'd / e')}
+                  <span>{t('strokeWeakGroup')}</span>
+                </div>
+              </>
             )}
             <div className="w-full h-px bg-[var(--cordel-border)]/10 my-1"></div>
             {isStrokeActiveForInstruments(['caixa', 'tarol'], ['R']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['caixa', 'tarol'], 'R')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a855f7] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">R</span>
+                {renderBadge(['caixa', 'tarol'], ['R'], 'R')}
                 <span>{t('legendCaixaRufadaD')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['caixa', 'tarol'], ['r']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['caixa', 'tarol'], 'r')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#d8b4fe] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">r</span>
+                {renderBadge(['caixa', 'tarol'], ['r'], 'r')}
                 <span>{t('legendCaixaRufadaG')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['caixa', 'tarol'], ['F', 'f']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['caixa', 'tarol'], 'F')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#d946ef] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">F / f</span>
-                <span>{t('legendCaixaFla')} {lang === 'fr' ? '(Caixa : F / f, Tarol : F / f en bleu)' : '(Caixa: F / f, Tarol: F / f em azul)'}</span>
+                {renderBadge(['caixa', 'tarol'], ['F'], 'F / f')}
+                <span>{t('legendCaixaFla')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['caixa', 'tarol'], ['X', 'x']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['caixa', 'tarol'], 'X')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#7e7b8c] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">X / x</span>
+                {renderBadge(['caixa', 'tarol'], ['X'], 'X / x')}
                 <span>{t('legendCaixaCerclage')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['caixa', 'tarol'], ['C', 'c']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['caixa', 'tarol'], 'c')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a89f91] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">C / c</span>
+                {renderBadge(['caixa', 'tarol'], ['C'], 'C / c')}
                 <span>{t('legendTarolClick')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['caixa', 'tarol'], ['B', 'b']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['caixa', 'tarol'], 'B')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#4a044e] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">B / b</span>
-                <span>{lang === 'fr' ? 'Barulho / Tremblement (Caixa : Violet foncé, Tarol : Bleu)' : 'Barulho (Caixa: Violeta escuro, Tarol: Azul)'}</span>
+                {renderBadge(['caixa', 'tarol'], ['B'], 'B / b')}
+                <span>{t('legendAlfaiaBarulho')}</span>
               </div>
             )}
           </div>
@@ -252,55 +270,55 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
             {isStrokeActiveForInstruments(['timbal'], ['G', 'g']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['timbal'], 'G')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#92400e] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">G / g</span>
-                <span>{lang === 'fr' ? 'Basse (baixo) - Main forte / faible' : 'Baixo - Mão forte / fraca'}</span>
+                {renderBadge(['timbal'], ['G'], 'G / g')}
+                <span>{lang === 'fr' ? 'Basse (baixo)' : 'Baixo'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['A', 'a']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['timbal'], 'A')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#d97706] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">A / a</span>
-                <span>{lang === 'fr' ? 'Ouvert (aberto) - Main forte / faible' : 'Aberto - Mão forte / fraca'}</span>
+                {renderBadge(['timbal'], ['A'], 'A / a')}
+                <span>{lang === 'fr' ? 'Ouvert (aberto)' : 'Aberto'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['S', 's']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['timbal'], 'S')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fbbf24] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">S / s</span>
-                <span>{lang === 'fr' ? 'Claqué (slap) - Main forte / faible' : 'Slap - Mão forte / fraca'}</span>
+                {renderBadge(['timbal'], ['S'], 'S / s')}
+                <span>{lang === 'fr' ? 'Claqué (slap)' : 'Slap'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['D', 'd']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['timbal'], 'D')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fde047] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">D / d</span>
-                <span>{lang === 'fr' ? 'Fantôme (dedilhado) - Main forte / faible' : 'Dedilhado - Mão forte / fraca'}</span>
+                {renderBadge(['timbal'], ['D'], 'D / d')}
+                <span>{lang === 'fr' ? 'Fantôme (dedilhado)' : 'Dedilhado'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['P', 'p']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['timbal'], 'P')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#5c2205] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">P / p</span>
-                <span>{lang === 'fr' ? 'Fermé (preso) - Main forte / faible' : 'Abafado / Preso - Mão forte / fraca'}</span>
+                {renderBadge(['timbal'], ['P'], 'P / p')}
+                <span>{lang === 'fr' ? 'Fermé (preso)' : 'Abafado / Preso'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['F', 'f']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['timbal'], 'F')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#ea580c] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">F / f</span>
+                {renderBadge(['timbal'], ['F'], 'F / f')}
                 <span>{lang === 'fr' ? 'Fla ouvert (aberto)' : 'Fla aberto'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['V', 'v']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['timbal'], 'V')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#f97316] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">V / v</span>
+                {renderBadge(['timbal'], ['V'], 'V / v')}
                 <span>{lang === 'fr' ? 'Fla claqué (slap)' : 'Fla slap'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['C', 'c']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['timbal'], 'C')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fdba74] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">C / c</span>
-                <span>{lang === 'fr' ? 'Clap (mains) - Deux mains l\'une contre l\'autre' : 'Clap (mãos) - Duas mãos uma contra a outra'}</span>
+                {renderBadge(['timbal'], ['C'], 'C / c')}
+                <span>{lang === 'fr' ? 'Clap (mains)' : 'Clap (mãos)'}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['B', 'b']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['timbal'], 'B')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#291002] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">B / b</span>
+                {renderBadge(['timbal'], ['B'], 'B / b')}
                 <span>{lang === 'fr' ? 'Tremblement (Barulho)' : 'Barulho'}</span>
               </div>
             )}
@@ -321,25 +339,25 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
             {isStrokeActiveForInstruments(['gongue'], ['G', 'g']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['gongue'], 'G')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">G / g</span>
+                {renderBadge(['gongue'], ['G'], 'G / g')}
                 <span>{t('gongueGrave')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['gongue'], ['A', 'a']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['gongue'], 'A')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">A / a</span>
+                {renderBadge(['gongue'], ['A'], 'A / a')}
                 <span>{t('gongueAigu')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['gongue'], ['X', 'x']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['gongue'], 'X')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#7f8c8d] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">X / x</span>
+                {renderBadge(['gongue'], ['X'], 'X / x')}
                 <span>{t('legendGongueBord')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['gongue'], ['B', 'b']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['gongue'], 'B')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#6d4c41] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">B / b</span>
+                {renderBadge(['gongue'], ['B'], 'B / b')}
                 <span>{t('gongueBarulho')}</span>
               </div>
             )}
@@ -358,33 +376,33 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
             <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
           </summary>
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
-            {isStrokeActiveForInstruments(['agbe'], ['E', 'e']) && (
-              <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['agbe'], 'E')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">E / e</span>
-                <span>{t('agbeG')}</span>
-              </div>
-            )}
-            {isStrokeActiveForInstruments(['agbe'], ['D', 'd']) && (
-              <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['agbe'], 'D')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">D / d</span>
-                <span>{t('agbeD')}</span>
-              </div>
+            {isStrokeActiveForInstruments(['agbe'], ['D', 'd', 'E', 'e']) && (
+              <>
+                <div className="flex items-center gap-2">
+                  {renderBadge(['agbe'], ['D'], 'D / E')}
+                  <span>{t('strokeStrongGroup')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {renderBadge(['agbe'], ['d'], 'd / e')}
+                  <span>{t('strokeWeakGroup')}</span>
+                </div>
+              </>
             )}
             {isStrokeActiveForInstruments(['agbe'], ['S', 's']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['agbe'], 'S')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#dcfce7] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">S / s</span>
+                {renderBadge(['agbe'], ['S'], 'S / s')}
                 <span>{t('legendAgbeSaut')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['agbe'], ['V', 'v']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['agbe'], 'V')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#a7f3d0] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">V / v</span>
+                {renderBadge(['agbe'], ['V'], 'V / v')}
                 <span>{t('legendAgbeVolta')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['agbe'], ['B', 'b']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['agbe'], 'B')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#052e16] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">B / b</span>
+                {renderBadge(['agbe'], ['B'], 'B / b')}
                 <span>{t('legendAgbeBarulho')}</span>
               </div>
             )}
@@ -405,25 +423,25 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
             {isStrokeActiveForInstruments(['mineiro'], ['P', 'p']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['mineiro'], 'P')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[var(--cordel-text)] text-[var(--cordel-bg)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">P / p</span>
+                {renderBadge(['mineiro'], ['P'], 'P / p')}
                 <span>{t('mineiroP')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['mineiro'], ['T', 't']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['mineiro'], 'T')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-transparent border-[2px] border-[var(--cordel-border)] text-[var(--cordel-text)] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">T / t</span>
+                {renderBadge(['mineiro'], ['T'], 'T / t')}
                 <span>{t('mineiroT')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['mineiro'], ['L', 'l']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['mineiro'], 'L')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#f59e0b] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">L / l</span>
+                {renderBadge(['mineiro'], ['L'], 'L / l')}
                 <span>{t('mineiroL')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['mineiro'], ['B', 'b']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['mineiro'], 'B')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#78350f] text-[#f4ecd8] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">B / b</span>
+                {renderBadge(['mineiro'], ['B'], 'B / b')}
                 <span>{t('mineiroB')}</span>
               </div>
             )}
@@ -444,13 +462,13 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <div className="p-2 border-t border-[var(--cordel-border)]/20 flex flex-col gap-1 text-[11px] text-[var(--cordel-text)]">
             {isStrokeActiveForInstruments(['apito'], ['W']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['apito'], 'W')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#eab308] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">W</span>
+                {renderBadge(['apito'], ['W'], 'W')}
                 <span>{t('apitoLong')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['apito'], ['w']) && (
               <div className="flex items-center gap-2">
-                <span onClick={() => playPreview(['apito'], 'w')} className="inline-flex items-center justify-center w-11 h-[18px] text-[9px] font-bold bg-[#fef08a] text-[#1a1a1a] cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90">w</span>
+                {renderBadge(['apito'], ['w'], 'w')}
                 <span>{t('apitoShort')}</span>
               </div>
             )}
