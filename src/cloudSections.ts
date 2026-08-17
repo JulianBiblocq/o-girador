@@ -13,20 +13,33 @@ export async function saveSectionToCloud(
   sectionData: SavedSectionData,
   ownerId: string,
   visibility: CatalogVisibility,
-  mestreId?: string
+  mestreId?: string,
+  existingDocId?: string
 ): Promise<string> {
+  if (!ownerId) throw new Error("Utilisateur non connecté");
+
   const dataString = LZString.compressToBase64(JSON.stringify(sectionData));
   
-  const docRef = await addDoc(collection(db, CLOUD_SECTIONS_COLLECTION), {
+  const payload = {
     name,
     data: dataString, // Contains the full SavedSectionData
     ownerId,
     visibility,
     mestreId: mestreId || null,
-    createdAt: Date.now()
-  });
-  
-  return docRef.id;
+    updatedAt: Date.now()
+  };
+
+  if (existingDocId) {
+    const docRef = doc(db, CLOUD_SECTIONS_COLLECTION, existingDocId);
+    await updateDoc(docRef, payload);
+    return existingDocId;
+  } else {
+    const docRef = await addDoc(collection(db, CLOUD_SECTIONS_COLLECTION), {
+      ...payload,
+      createdAt: Date.now()
+    });
+    return docRef.id;
+  }
 }
 
 /**
@@ -42,30 +55,34 @@ export async function fetchCloudSections(
   const sectionsRef = collection(db, CLOUD_SECTIONS_COLLECTION);
   
   try {
-    // 🛡️ FIX (Audit): Secure query with where and orderBy, remove JS filtering
+    // We use a simple query by date to avoid requiring composite indexes for complex OR conditions
+    // The filtering is done in JS to ensure all visibility rules (admin_global, mestre_group) are correctly applied
     const q = query(
       sectionsRef,
-      or(
-        where('ownerId', '==', userUid),
-        where('visibility', '==', 'public'),
-        where('targetUserId', '==', userUid)
-      ),
       orderBy('createdAt', 'desc'),
-      limit(50)
+      limit(200)
     );
     const snapshot = await getDocs(q);
     
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
-      sections.push({
-        id: docSnap.id,
-        name: data.name,
-        ownerId: data.ownerId,
-        visibility: data.visibility,
-        mestreId: data.mestreId,
-        createdAt: data.createdAt,
-        data: data.data // Keep compressed
-      });
+      const isOwner = data.ownerId === userUid;
+      const isAdminGlobal = data.visibility === 'admin_global';
+      const isMestreGroup = data.visibility === 'mestre_group' && data.mestreId === mestreId;
+      const isSysAdmin = userRole === 'admin';
+      
+      if (isOwner || isAdminGlobal || isMestreGroup || isSysAdmin) {
+        sections.push({
+          id: docSnap.id,
+          name: data.name,
+          ownerId: data.ownerId,
+          visibility: data.visibility,
+          mestreId: data.mestreId,
+          createdAt: data.createdAt,
+          audioUrl: data.audioUrl,
+          data: data.data // Keep compressed
+        });
+      }
     });
     
   } catch (err) {

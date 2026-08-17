@@ -53,12 +53,22 @@ export const VUMeter: React.FC<VUMeterProps> = ({
           if (typeof (meterNode as any).getValue === 'function') {
             const data = (meterNode as any).getValue();
             if (data instanceof Float32Array) {
-              let sum = 0;
+              let peak = 0;
               for (let i = 0; i < data.length; i++) {
-                sum += data[i] * data[i];
+                const abs = Math.abs(data[i]);
+                if (abs > peak) peak = abs;
               }
-              const rms = Math.sqrt(sum / data.length);
-              db = rms > 0.00001 ? 20 * Math.log10(rms) : -80;
+              db = peak > 0.00001 ? 20 * Math.log10(peak) : -80;
+            } else if (Array.isArray(data) && data[0] instanceof Float32Array) {
+              let peak = 0;
+              for (let c = 0; c < data.length; c++) {
+                const channelData = data[c];
+                for (let i = 0; i < channelData.length; i++) {
+                  const abs = Math.abs(channelData[i]);
+                  if (abs > peak) peak = abs;
+                }
+              }
+              db = peak > 0.00001 ? 20 * Math.log10(peak) : -80;
             } else if (typeof data === 'number') {
               db = data;
             }
@@ -74,7 +84,8 @@ export const VUMeter: React.FC<VUMeterProps> = ({
           if (targetScale > currentScale) {
             currentScale = targetScale; // instant attack
           } else {
-            currentScale = currentScale * 0.90 + targetScale * 0.10; // smooth decay
+            // Slower, smoother decay (was 0.90 / 0.10)
+            currentScale = currentScale * 0.97 + targetScale * 0.03; 
           }
           lastLevelRef.current = currentScale;
           

@@ -1,35 +1,449 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Règle par défaut pour toutes les collections
-    match /{document=**} {
-      // Lecture publique : tout le monde peut lire
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdminOrMestre() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+          getUserData().role == 'mestre' || 
+          getUserData().role == 'super-admin' || 
+          getUserData().role == 'admin' ||
+          getUserData().role == 'bureau' ||
+          getUserData().role == 'ca' ||
+          getUserData().isSystemAdmin == true ||
+          (getUserData().keys().hasAny(['hasAccessLogistique']) && getUserData().hasAccessLogistique == true) ||
+          (getUserData().keys().hasAny(['tags']) && getUserData().tags.hasAny([
+            'Bureau', 'Président', 'Présidente', 'Présidence', 'CA', 'Direction', 'Admin', 'Modérateur'
+          ]))
+        );
+    }
+
+    function hasAnyTag(tagList) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        getUserData().keys().hasAny(['tags']) &&
+        getUserData().tags.hasAny(tagList);
+    }
+
+    function canManageEvents() {
+      return isAdminOrMestre() || hasAnyTag([
+        'Agenda', 'Agenda & Événements', 'Bureau', 'Président', 'Présidente', 'CA', 'Direction', 'Admin'
+      ]);
+    }
+
+    function canManageInventory() {
+      return isAdminOrMestre() || hasAnyTag([
+        'Inventaire', 'Logistique', 'Matériel', 'Instruments', 'Commandes', 'Bureau', 'CA', 'Direction'
+      ]);
+    }
+
+    function canManageTreasury() {
+      return isAdminOrMestre() || hasAnyTag([
+        'Trésorerie', 'Trésorier', 'Trésorière', 'Comptable', 'Finance', 'Bureau', 'CA', 'Direction'
+      ]);
+    }
+
+    function canManageDocs() {
+      return isAdminOrMestre() || hasAnyTag([
+        'Secrétariat', 'Comptes-Rendus', 'Studio', 'Communication', 'Bureau', 'CA', 'Direction'
+      ]);
+    }
+
+    function isModerator() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+          getUserData().role == 'mestre' || 
+          getUserData().role == 'super-admin' || 
+          getUserData().isSystemAdmin == true ||
+          getUserData().role == 'moderator' ||
+          (getUserData().keys().hasAny(['tags']) && 
+           getUserData().tags.hasAny(['Modérateur', 'Modérateur Forum']))
+        );
+    }
+
+    function getChannelData(channelId) {
+      return get(/databases/$(database)/documents/forum_channels/$(channelId)).data;
+    }
+
+    function hasChannelReadAccess(channelId) {
+      return isAuthenticated() && (
+        isAdminOrMestre() ||
+        isModerator() ||
+        (
+          channelId != null &&
+          exists(/databases/$(database)/documents/forum_channels/$(channelId)) &&
+          getUserData().groupId == getChannelData(channelId).groupId &&
+          (
+            getChannelData(channelId).isTransparent == true ||
+            getChannelData(channelId).readRoles == null ||
+            getChannelData(channelId).readRoles.size() == 0 ||
+            getChannelData(channelId).readRoles.hasAny(['all']) ||
+            (getChannelData(channelId).keys().hasAny(['allowedRoles']) && getChannelData(channelId).allowedRoles.hasAny(['all'])) ||
+            getChannelData(channelId).readRoles.hasAny([getUserData().role]) ||
+            (getUserData().keys().hasAny(['tags']) && getUserData().tags.hasAny(getChannelData(channelId).readRoles))
+          )
+        )
+      );
+    }
+
+    function hasChannelWriteAccess(channelId) {
+      return isAuthenticated() && (
+        isAdminOrMestre() ||
+        isModerator() ||
+        (
+          channelId != null &&
+          exists(/databases/$(database)/documents/forum_channels/$(channelId)) &&
+          getUserData().groupId == getChannelData(channelId).groupId &&
+          (!getChannelData(channelId).keys().hasAny(['readOnlyForMembers']) || getChannelData(channelId).readOnlyForMembers != true) &&
+          (
+            getChannelData(channelId).writeRoles == null ||
+            getChannelData(channelId).writeRoles.size() == 0 ||
+            getChannelData(channelId).writeRoles.hasAny(['all']) ||
+            (getChannelData(channelId).keys().hasAny(['allowedRoles']) && getChannelData(channelId).allowedRoles.hasAny(['all'])) ||
+            getChannelData(channelId).writeRoles.hasAny([getUserData().role]) ||
+            (getUserData().keys().hasAny(['tags']) && getUserData().tags.hasAny(getChannelData(channelId).writeRoles))
+          )
+        )
+      );
+    }
+
+    // --- RÈGLES TÉLÉMÉTRIE & BUGS ---
+    match /hub_system_errors/{errorId} {
+      allow create: if request.resource.data.keys().hasAll(['appId', 'timestamp', 'errorMessage']);
+      allow read, update, delete: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    match /hub_telemetry_daily/{eventId} {
+      allow create: if request.resource.data.keys().hasAll(['appId', 'timestamp', 'eventName']);
+      allow read, update, delete: if request.auth != null && request.auth.token.admin == true;
+    }
+
+    // Collection Rules
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (
+        isAdminOrMestre() || (
+          request.auth.uid == userId && (
+            (!request.resource.data.keys().hasAny(['isSystemAdmin']) || request.resource.data.isSystemAdmin == false) &&
+            (!request.resource.data.keys().hasAny(['hasAccessLogistique']) || request.resource.data.hasAccessLogistique == false) &&
+            (!request.resource.data.keys().hasAny(['paymentStatus']) || request.resource.data.paymentStatus == 'unpaid') &&
+            (!request.resource.data.keys().hasAny(['role']) || request.resource.data.role == 'membre') &&
+            (!request.resource.data.keys().hasAny(['statutActuel']) || request.resource.data.statutActuel == 'active') &&
+            (!request.resource.data.keys().hasAny(['adhesionBase']) || request.resource.data.adhesionBase == true) &&
+            (!request.resource.data.keys().hasAny(['selectedOptions']) || request.resource.data.selectedOptions.size() == 0) &&
+            (!request.resource.data.keys().hasAny(['tags']) || request.resource.data.tags.size() == 0)
+          )
+        ) || (
+          request.resource.data.isDependent == true &&
+          request.resource.data.managedBy == request.auth.uid && (
+            (!request.resource.data.keys().hasAny(['isSystemAdmin']) || request.resource.data.isSystemAdmin == false) &&
+            (!request.resource.data.keys().hasAny(['hasAccessLogistique']) || request.resource.data.hasAccessLogistique == false) &&
+            (!request.resource.data.keys().hasAny(['role']) || request.resource.data.role == 'membre') &&
+            (!request.resource.data.keys().hasAny(['statutActuel']) || request.resource.data.statutActuel == 'active') &&
+            (!request.resource.data.keys().hasAny(['tags']) || request.resource.data.tags.size() == 0)
+          )
+        )
+      );
+      allow update: if isAuthenticated() && (
+        isAdminOrMestre() || (
+          request.auth.uid == userId && (
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'paymentStatus', 'role', 'isSystemAdmin', 'hasAccessLogistique', 'groupId', 'adhesionBase', 'selectedOptions', 'tags', 'statutActuel', 'isNew'
+            ])
+          )
+        ) || (
+          resource.data.managedBy == request.auth.uid &&
+          resource.data.isDependent == true && (
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'paymentStatus', 'role', 'isSystemAdmin', 'hasAccessLogistique', 'groupId', 'adhesionBase', 'selectedOptions', 'tags', 'statutActuel', 'managedBy', 'isDependent', 'isNew'
+            ])
+          )
+        )
+      );
+      allow delete: if isAdminOrMestre() || (
+        isAuthenticated() &&
+        resource.data.managedBy == request.auth.uid &&
+        resource.data.isDependent == true
+      );
+    }
+
+    match /inventory/{item} {
+      allow read: if isAuthenticated();
+      allow write: if canManageInventory();
+    }
+
+    match /associations/{assocId} {
       allow read: if true;
-      
-      // Création : l'utilisateur doit être connecté et s'assigner comme propriétaire
-      allow create: if request.auth != null 
-                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.authorId || request.auth.uid == request.resource.data.uid || request.auth.uid == request.resource.data.mestreId);
-                    
-      // Modification/Suppression : l'utilisateur doit être le propriétaire existant du document
-      allow update, delete: if request.auth != null 
-                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.authorId || request.auth.uid == resource.data.uid || request.auth.uid == resource.data.mestreId);
+      allow write: if isAdminOrMestre() || hasAnyTag(['Vitrine', 'Webmaster', 'Bureau', 'Président', 'Présidente', 'CA']);
+
+      match /private_settings/credentials {
+        allow read, write: if isAdminOrMestre() && getUserData().groupId == assocId;
+      }
+
+      match /contacts_diffusion/{contactId} {
+        allow read, write: if isAuthenticated() && getUserData().groupId == assocId;
+      }
+
+      match /blocNotes/{noteId} {
+        allow read, write: if isAdminOrMestre() && getUserData().groupId == assocId;
+      }
+
+      match /rhythmMetadata/{rhythmId} {
+        allow read, write: if isAdminOrMestre() && getUserData().groupId == assocId;
+      }
     }
-    
-    // Exception pour les choregraphies (O Girador Dança)
-    match /choregraphies/{document=**} {
-      allow read, write: if true;
+
+    match /announcements/{announcement} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrMestre();
     }
-    
-    // Exception pour la télémétrie
-    match /hub_telemetry_daily/{document=**} {
+
+    match /documents/{document} {
+      allow read: if isAuthenticated();
+      allow write: if canManageDocs();
+    }
+
+    match /reunions/{reunion} {
+      allow read: if isAuthenticated();
+      allow write: if canManageDocs();
+    }
+
+    match /wardrobeInventory/{item} {
+      allow read: if isAuthenticated();
+      allow write: if canManageInventory();
+    }
+
+    match /costumes/{costume} {
+      allow read: if isAuthenticated();
+      allow write: if canManageInventory();
+    }
+
+    match /coutureProjects/{project} {
+      allow read: if isAuthenticated();
+      allow write: if canManageInventory();
+    }
+
+    match /rhythms/{rhythm} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrMestre();
+    }
+
+    match /workshops/{workshop} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrMestre();
+    }
+
+    match /notifications_queue/{notif} {
+      allow create: if isAuthenticated();
+      allow read, update, delete: if isAdminOrMestre();
+    }
+
+    match /campaigns/{campaign} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrMestre();
+    }
+
+    match /events/{event} {
+      allow read: if isAuthenticated() || (resource != null && resource.data.isPublic == true);
+      allow create, delete: if canManageEvents();
+      allow update: if isAuthenticated() && (
+        canManageEvents() || 
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['inscriptions', 'invitesExternes']))
+      );
+
+      match /comments/{commentId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.resource.data.auteurId == request.auth.uid;
+        allow update, delete: if isAuthenticated() && (
+          resource.data.auteurId == request.auth.uid ||
+          canManageEvents() ||
+          isModerator()
+        );
+      }
+    }
+
+    match /transactions/{transaction} {
+      allow read, write: if (canManageTreasury() || isAdminOrMestre()) && (
+        resource == null || getUserData().groupId == resource.data.groupId
+      );
+    }
+
+    match /forum_channels/{channelId} {
+      allow read: if isAuthenticated() && (
+        isAdminOrMestre() ||
+        (
+          getUserData().groupId == resource.data.groupId &&
+          (
+            resource.data.isTransparent == true ||
+            resource.data.readRoles == null ||
+            resource.data.readRoles.size() == 0 ||
+            resource.data.readRoles.hasAny(['all']) ||
+            (resource.data.keys().hasAny(['allowedRoles']) && resource.data.allowedRoles.hasAny(['all'])) ||
+            (resource.data.keys().hasAny(['allowedRoles']) && resource.data.allowedRoles.hasAny([getUserData().role])) ||
+            resource.data.readRoles.hasAny([getUserData().role]) ||
+            (getUserData().keys().hasAny(['tags']) && getUserData().tags.hasAny(resource.data.readRoles))
+          )
+        )
+      );
+      allow create: if isAuthenticated() && request.resource.data.groupId == getUserData().groupId;
+      allow update, delete: if isAdminOrMestre();
+    }
+
+    match /forum/{thread} {
+      allow read: if isAuthenticated() && (
+        isAdminOrMestre() ||
+        isModerator() ||
+        hasChannelReadAccess(resource.data.channelId)
+      );
+      allow create: if isAuthenticated() && (
+        hasChannelWriteAccess(request.resource.data.channelId)
+      );
+      allow update: if isAuthenticated() && (
+        isAdminOrMestre() ||
+        isModerator() ||
+        (
+          resource.data.authorId == request.auth.uid &&
+          (hasChannelWriteAccess(resource.data.channelId) || !resource.data.keys().hasAny(['channelId'])) &&
+          (!request.resource.data.keys().hasAny(['channelId']) || request.resource.data.channelId == resource.data.channelId)
+        ) ||
+        (
+          hasChannelWriteAccess(resource.data.channelId) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reponses', 'derniereModification', 'poll'])
+        )
+      );
+      allow delete: if isAdminOrMestre() || isModerator() || (isAuthenticated() && resource.data.authorId == request.auth.uid);
+    }
+
+    match /campaignRequests/{req} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || canManageInventory()
+      );
+    }
+
+    match /private_messages/{messageId} {
+      allow read: if isAuthenticated() && (
+        resource.data.senderId == request.auth.uid || 
+        resource.data.recipientId == request.auth.uid
+      );
+      allow create: if isAuthenticated() && (
+        request.resource.data.senderId == request.auth.uid
+      );
+      allow update: if isAuthenticated() && (
+        resource.data.recipientId == request.auth.uid &&
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']))
+      );
+      allow delete: if false;
+    }
+
+    match /invoices/{invoice} {
+      allow read: if isAuthenticated();
+      allow write: if canManageTreasury();
+    }
+
+    match /gigs_pipeline/{gig} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrMestre() || hasAnyTag(['Diffusion', 'Booking', 'Bureau', 'CA', 'Communication']);
+    }
+
+    match /pending_payments/{email} {
+      allow read, write: if isAdminOrMestre();
+    }
+
+    match /newsletter_subscribers/{subscriberDoc} {
       allow create: if true;
-      allow read, update, delete: if false;
+      allow read, update, delete: if isAdminOrMestre();
+    }
+
+    match /qr_sessions/{sessionId} {
+      allow create: if true;
+      allow read: if true;
+      allow delete: if isAuthenticated();
+      allow update: if false;
+    }
+
+    match /audio_masters/{document} {
+      allow read: if request.auth != null; 
+      allow write: if request.auth != null; 
+    }
+
+    match /formations_catalogue/{document} {
+      allow read, write: if request.auth != null; 
     }
     
-    // Exception pour les exports audio (O Girador Dança)
-    match /audio_masters/{document=**} {
-      allow read, write: if true;
+    match /events/{document=**} {
+      allow read: if request.auth != null;
     }
+    
+    match /users/{document=**} {
+      allow read: if request.auth != null;
+    }
+
+    match /choreographies/{choreoId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // --- O GIRADOR: SÉQUENCEUR ---
+    match /patterns/{patternId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null 
+                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.mestreId);
+      allow update, delete: if request.auth != null 
+                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.mestreId);
+    }
+    match /sections/{sectionId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null 
+                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.mestreId);
+      allow update, delete: if request.auth != null 
+                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.mestreId);
+    }
+    match /presets/{presetId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null 
+                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.mestreId);
+      allow update, delete: if request.auth != null 
+                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.mestreId);
+    }
+    match /exercises/{exerciseId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null 
+                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.mestreId);
+      allow update, delete: if request.auth != null 
+                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.mestreId);
+    }
+    match /progressions/{progressionId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null 
+                            && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.mestreId);
+    }
+    match /mestre_signals/{signalId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.mestreId;
+      allow update, delete: if request.auth != null && request.auth.uid == resource.data.mestreId;
+    }
+    match /varals/{varalId} {
+      allow read: if true;
+      allow write: if isAdminOrMestre();
+    }
+    match /hub_telemetry_daily/{docId} {
+      allow read: if isAdminOrMestre();
+      allow create: if true;
+      allow update, delete: if isAdminOrMestre();
+    }
+    
   }
 }

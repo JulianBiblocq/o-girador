@@ -12,22 +12,37 @@ export async function savePatternToCloud(
   pattern: SavedPattern,
   ownerId: string,
   visibility: CatalogVisibility,
-  mestreId?: string
+  mestreId?: string,
+  existingDocId?: string
 ): Promise<string> {
+  if (!ownerId) throw new Error("Utilisateur non connecté");
+
   const dataString = LZString.compressToBase64(JSON.stringify(pattern));
   
-  const docRef = await addDoc(collection(db, CLOUD_PATTERNS_COLLECTION), {
+  const payload = {
     instrumentId: pattern.instrumentId,
     name: pattern.name,
     folder: pattern.folder,
     data: dataString, // Contains the full SavedPattern
     ownerId,
+    authorId: ownerId, // Fallback for rules
+    uid: ownerId, // Fallback for rules
     visibility,
     mestreId: mestreId || null,
-    createdAt: Date.now()
-  });
-  
-  return docRef.id;
+    updatedAt: Date.now()
+  };
+
+  if (existingDocId) {
+    const docRef = doc(db, CLOUD_PATTERNS_COLLECTION, existingDocId);
+    await updateDoc(docRef, payload);
+    return existingDocId;
+  } else {
+    const docRef = await addDoc(collection(db, CLOUD_PATTERNS_COLLECTION), {
+      ...payload,
+      createdAt: Date.now()
+    });
+    return docRef.id;
+  }
 }
 
 /**
@@ -43,31 +58,35 @@ export async function fetchCloudPatterns(
   const patternsRef = collection(db, CLOUD_PATTERNS_COLLECTION);
   
   try {
-    // 🛡️ FIX (Audit): Secure query with where and orderBy, remove JS filtering
+    // We use a simple query by date to avoid requiring composite indexes for complex OR conditions
+    // The filtering is done in JS to ensure all visibility rules are correctly applied
     const q = query(
       patternsRef,
-      or(
-        where('ownerId', '==', userUid),
-        where('visibility', '==', 'public'),
-        where('targetUserId', '==', userUid)
-      ),
       orderBy('createdAt', 'desc'),
-      limit(50)
+      limit(200)
     );
     const snapshot = await getDocs(q);
     
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
-      const jsonStr = LZString.decompressFromBase64(data.data);
-      if (jsonStr) {
-        const parsedPattern = JSON.parse(jsonStr) as SavedPattern;
-        patterns.push({
-          ...parsedPattern,
-          id: docSnap.id,
-          ownerId: data.ownerId,
-          visibility: data.visibility,
-          mestreId: data.mestreId
-        });
+      const isOwner = data.ownerId === userUid;
+      const isAdminGlobal = data.visibility === 'admin_global';
+      const isMestreGroup = data.visibility === 'mestre_group' && data.mestreId === mestreId;
+      const isSysAdmin = userRole === 'admin';
+      
+      if (isOwner || isAdminGlobal || isMestreGroup || isSysAdmin) {
+        const jsonStr = LZString.decompressFromBase64(data.data);
+        if (jsonStr) {
+          const parsedPattern = JSON.parse(jsonStr) as SavedPattern;
+          patterns.push({
+            ...parsedPattern,
+            id: docSnap.id,
+            ownerId: data.ownerId,
+            visibility: data.visibility,
+            mestreId: data.mestreId,
+            audioUrl: data.audioUrl
+          });
+        }
       }
     });
     
@@ -117,7 +136,8 @@ export async function getCloudPattern(patternId: string): Promise<CloudPattern |
         id: docSnap.id,
         ownerId: data.ownerId,
         visibility: data.visibility,
-        mestreId: data.mestreId
+        mestreId: data.mestreId,
+        audioUrl: data.audioUrl
       };
     }
   }

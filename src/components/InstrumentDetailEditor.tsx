@@ -45,6 +45,7 @@ import { PatternVariationsEditor } from './instrument-editor/PatternVariationsEd
 import { InstrumentEffects } from './InstrumentEffects';
 import { InstrumentPatternGrid } from './InstrumentPatternGrid';
 import { XiloChisel, XiloMegaphone } from './XiloIcons';
+import { useCloudAudioBounce } from '../hooks/useCloudAudioBounce';
 
 const SortablePatternWrapper = ({ id, children, className, style: propStyle }: any) => {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id });
@@ -176,6 +177,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   setEditingTrackId,
 }) => {
 
+  const { genererEtUploaderCloudBounce, isBouncingCloud } = useCloudAudioBounce();
+  const [bouncingPatternId, setBouncingPatternId] = useState<string | null>(null);
+
   const sequencer = useSequencer();
   const audio = useAudio();
 
@@ -184,6 +188,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const currentMeasure = useSequencerStore(state => state.currentMeasure);
+  const currentBpm = useSequencerStore(state => state.measureBpms[0] || 100);
+  const currentTimeSig = useSequencerStore(state => state.measureTimeSigs[0] || '4/4');
 
   // Audio states
   const isPlaying = audio.isPlaying;
@@ -686,19 +692,35 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [saveModalPatternId, setSaveModalPatternId] = useState<number | null>(null);
   const [savePatternName, setSavePatternName] = useState('');
   const [savePatternFolder, setSavePatternFolder] = useState('');
+  const [autoGeneratePatternAudio, setAutoGeneratePatternAudio] = useState(true);
   const [loadModalPatternId, setLoadModalPatternId] = useState<number | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const handleSavePatternToLibrary = async () => {
-    if (saveModalPatternId === null || !savePatternName.trim() || !userProfile) return;
+    if (!userProfile) {
+      alert(lang === 'fr' ? 'Vous devez être connecté pour sauvegarder un pattern sur le Cloud.' : 'Você deve estar logado para salvar um padrão no Cloud.');
+      return;
+    }
+    if (saveModalPatternId === null || !savePatternName.trim()) return;
     const ptn = track.patterns.find(p => p.id === saveModalPatternId);
     if (!ptn) return;
+
+    const existingPattern = existingLibraryPatterns.find(p => p.name.trim() === savePatternName.trim() && p.ownerId === userProfile.uid);
+    let targetDocId: string | undefined = undefined;
+
+    if (existingPattern) {
+      const confirmReplace = confirm(lang === 'fr' ? `Le pattern "${savePatternName.trim()}" existe déjà. Voulez-vous le remplacer ?` : `O padrão "${savePatternName.trim()}" já existe. Deseja substituí-lo?`);
+      if (!confirmReplace) {
+        return;
+      }
+      targetDocId = existingPattern.id;
+    }
 
     setIsSavingPattern(true);
     try {
       const savedPattern = {
-        id: crypto.randomUUID(),
+        id: Date.now().toString(36) + Math.random().toString(36).substring(2),
         instrumentId: inst.id,
         name: savePatternName.trim(),
         folder: savePatternFolder.trim() || 'Général',
@@ -710,17 +732,26 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         createdAt: Date.now()
       };
 
-      await savePatternToCloud(savedPattern, userProfile.uid, savePatternVisibility, userProfile.mestreId || undefined);
+      const docId = await savePatternToCloud(savedPattern, userProfile.uid, savePatternVisibility, userProfile.mestreId || undefined, targetDocId);
       
+      if (autoGeneratePatternAudio) {
+        try {
+          // Note: docId is the firestore ID. savedPattern is the data.
+          await genererEtUploaderCloudBounce(docId, savedPattern, currentBpm, currentTimeSig);
+        } catch (audioErr) {
+          console.error("Audio generation failed after save", audioErr);
+        }
+      }
+
       const updatedPatterns = await fetchCloudPatterns(userProfile.uid, userProfile.role, userProfile.mestreId || null);
       setCloudPatterns(updatedPatterns);
 
       setSaveModalPatternId(null);
       setToastMessage(lang === 'fr' ? 'Sauvegardé !' : 'Salvo !');
       setTimeout(() => setToastMessage(null), 3000);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert(lang === 'fr' ? 'Erreur lors de la sauvegarde.' : 'Erro ao salvar.');
+      alert((lang === 'fr' ? 'Erreur lors de la sauvegarde: ' : 'Erro ao salvar: ') + (err.message || String(err)));
     } finally {
       setIsSavingPattern(false);
     }
@@ -1790,10 +1821,36 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                           {folderPatterns.map(libPtn => (
                             <div key={libPtn.id} className="flex items-center justify-between p-3 hover:bg-white/50 transition-colors">
                               <div className="flex flex-col">
-                                <span className="font-bold text-[#1a1a1a]">{libPtn.name}</span>
+                                <span className="font-bold text-[#1a1a1a] flex items-center gap-2">
+                                  {libPtn.name}
+                                  {libPtn.audioUrl && (
+                                    <span title={lang === 'fr' ? 'Audio généré' : 'Áudio gerado'} className="text-sm">🔊</span>
+                                  )}
+                                </span>
                                 <span className="text-xs text-[#666]">{new Date(libPtn.createdAt).toLocaleDateString()}</span>
                               </div>
                               <div className="flex items-center gap-2">
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (isBouncingCloud) return;
+                                    setBouncingPatternId(libPtn.id);
+                                    try {
+                                      const newAudioUrl = await genererEtUploaderCloudBounce(libPtn.id, libPtn as any, currentBpm, currentTimeSig);
+                                      setCloudPatterns(prev => prev.map(p => p.id === libPtn.id ? { ...p, audioUrl: newAudioUrl } : p));
+                                      alert(lang === 'fr' ? 'Audio généré avec succès !' : 'Áudio gerado com sucesso!');
+                                    } catch(err) {
+                                      alert((lang === 'fr' ? 'Erreur lors de la génération audio: ' : 'Erro na geração de áudio: ') + (err.message || String(err)));
+                                    } finally {
+                                      setBouncingPatternId(null);
+                                    }
+                                  }}
+                                  disabled={isBouncingCloud}
+                                  className={`px-3 py-1 font-bold text-xs transition-colors cordel-border-sm flex items-center justify-center min-w-[70px] ${isBouncingCloud && bouncingPatternId === libPtn.id ? 'bg-amber-500 text-black' : (libPtn.audioUrl ? 'bg-[#3b82f6] text-white hover:bg-[#2563eb]' : 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]')}`}
+                                  title={lang === 'fr' ? "Générer l'audio pour révisions" : "Gerar áudio para revisões"}
+                                >
+                                  {isBouncingCloud && bouncingPatternId === libPtn.id ? '⏳...' : (libPtn.audioUrl ? '🔄 Audio' : '☁️ Audio')}
+                                </button>
                                 <button
                                   onClick={() => handleLoadPatternFromLibrary(libPtn.id)}
                                   className="px-3 py-1 bg-[#8b2a1a] text-[#f4ecd8] font-bold text-xs hover:bg-[#6b1e11] transition-colors cordel-border-sm"
@@ -1891,20 +1948,43 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               </select>
             </div>
 
+            <div className="mb-6 flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="autoGeneratePatternAudio"
+                checked={autoGeneratePatternAudio}
+                onChange={(e) => setAutoGeneratePatternAudio(e.target.checked)}
+                disabled={isSavingPattern || isBouncingCloud}
+                className="w-4 h-4 accent-[#8b2a1a]"
+              />
+              <label htmlFor="autoGeneratePatternAudio" className="text-sm font-bold text-[#1a1a1a] cursor-pointer">
+                {lang === 'fr' ? 'Générer l\'aperçu audio (☁️)' : 'Gerar áudio (☁️)'}
+              </label>
+            </div>
+
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setSaveModalPatternId(null)}
                 className="px-4 py-2 border border-[#1a1a1a] text-[#1a1a1a] font-bold text-sm hover:bg-[#eaddcf] transition-colors"
-                disabled={isSavingPattern}
+                disabled={isSavingPattern || isBouncingCloud}
               >
                 {lang === 'fr' ? 'Annuler' : 'Cancelar'}
               </button>
               <button
                 onClick={handleSavePatternToLibrary}
-                disabled={!savePatternName.trim() || isSavingPattern}
-                className="px-4 py-2 bg-[#8b2a1a] text-[#f4ecd8] font-bold text-sm disabled:opacity-50 hover:bg-[#6b1e11] transition-colors shadow-[2px_2px_0px_rgba(0,0,0,1)]"
+                disabled={!savePatternName.trim() || isSavingPattern || isBouncingCloud || !userProfile}
+                className="px-4 py-2 bg-[#8b2a1a] text-[#f4ecd8] font-bold text-sm disabled:opacity-50 hover:bg-[#6b1e11] transition-colors shadow-[2px_2px_0px_rgba(0,0,0,1)] flex items-center justify-center min-w-[120px]"
+                title={!userProfile ? (lang === 'fr' ? 'Connectez-vous pour sauvegarder' : 'Conecte-se para salvar') : ''}
               >
-                {isSavingPattern ? '...' : (lang === 'fr' ? 'Enregistrer' : 'Salvar')}
+                {(isSavingPattern || isBouncingCloud) ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {lang === 'fr' ? 'En cours...' : 'Salvando...'}
+                  </span>
+                ) : (lang === 'fr' ? 'Enregistrer' : 'Salvar')}
               </button>
             </div>
           </div>

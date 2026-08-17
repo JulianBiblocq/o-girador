@@ -2097,7 +2097,7 @@ export function useAudioSync({
 
               busChannels[t.id] = channelNode;
               
-              busMeters[t.id] = new Tone.Analyser("waveform", 256) as any;
+              busMeters[t.id] = new Tone.Analyser({ type: "waveform", size: 1024, channels: 2 }) as any;
               channelNode.connect(busMeters[t.id]);
             }
 
@@ -2174,7 +2174,7 @@ export function useAudioSync({
               channels[t.id].channelCount = 2;
               channels[t.id].channelCountMode = "explicit";
             } catch (_) {}
-            meters[t.id] = new Tone.Analyser("waveform", 256) as any;
+            meters[t.id] = new Tone.Analyser({ type: "waveform", size: 1024, channels: 2 }) as any;
             channels[t.id].connect(meters[t.id]);
 
             const isEco = state.isEcoMode;

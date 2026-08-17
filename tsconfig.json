@@ -30,6 +30,7 @@
     "index-live.js",
     "index-live-lines.js",
     "node_modules",
-    "dist"
+    "dist",
+    "src_backup_pre_wizard"
   ]
 }

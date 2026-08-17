@@ -714,23 +714,29 @@ const MestreStudioComponent: React.FC<MestreStudioProps> = ({
   };
 
   const handleSaveToCloudSubmit = async (name: string) => {
-    if (activeTab === 'dictee') {
-      const source = dicteeMeasureIndex + 1;
-      if (source < dicteeStartMeasure || source > dicteeEndMeasure) {
-        const errorMsg = lang === 'fr'
-          ? `Erreur: La mesure source du pattern (compas ${source}) doit être comprise entre le compas de début (${dicteeStartMeasure}) et le compas de fin (${dicteeEndMeasure}).`
-          : `Erro: O compasso de origem do padrão (compasso ${source}) deve estar entre o compasso de início (${dicteeStartMeasure}) e o compasso de fim (${dicteeEndMeasure}).`;
-        alert(errorMsg);
-        throw new Error(errorMsg);
+    try {
+      if (activeTab === 'dictee') {
+        const source = dicteeMeasureIndex + 1;
+        if (source < dicteeStartMeasure || source > dicteeEndMeasure) {
+          const errorMsg = lang === 'fr'
+            ? `Erreur: La mesure source du pattern (compas ${source}) doit être comprise entre le compas de début (${dicteeStartMeasure}) et le compas de fin (${dicteeEndMeasure}).`
+            : `Erro: O compasso de origem do padrão (compasso ${source}) deve estar entre o compasso de início (${dicteeStartMeasure}) e o compasso de fim (${dicteeEndMeasure}).`;
+          alert(errorMsg);
+          return;
+        }
       }
-    }
-    const exportData = getExportDataForCurrentTab(activeTab);
-    if (!exportData) throw new Error("No data");
+      const exportData = getExportDataForCurrentTab(activeTab);
+      if (!exportData) throw new Error("No data");
 
-    if (activeTab === 'varal') {
-      await saveProgressionToCloud(name, exportData, mestreUid);
-    } else {
-      await saveExerciseToCloud(name, activeTab as GameType, exportData, mestreUid);
+      if (activeTab === 'varal') {
+        await saveProgressionToCloud(name, exportData, mestreUid);
+      } else {
+        await saveExerciseToCloud(name, activeTab as GameType, exportData, mestreUid);
+      }
+      alert(lang === 'fr' ? 'Sauvegardé avec succès !' : 'Salvo com sucesso!');
+    } catch (err: any) {
+      console.error(err);
+      alert((lang === 'fr' ? 'Erreur lors de la sauvegarde: ' : 'Erro ao salvar: ') + (err.message || String(err)));
     }
   };
 

@@ -50,6 +50,7 @@ export async function saveExerciseToCloud(
   exerciseData: any,
   ownerId: string
 ): Promise<string> {
+  if (!ownerId) throw new Error("Utilisateur non connecté");
   // 🛡️ FIX (Audit): Wrap check and creation in runTransaction to avoid race condition
   return await runTransaction(db, async (transaction) => {
     const docId = `${ownerId}_${name}`;
@@ -144,6 +145,8 @@ export async function saveProgressionToCloud(
   progressionData: any,
   ownerId: string
 ): Promise<string> {
+  if (!ownerId) throw new Error("Utilisateur non connecté");
+
   const exists = await checkProgressionNameExists(ownerId, name);
   if (exists) {
     throw new Error('NAME_EXISTS');
@@ -167,6 +170,8 @@ export async function saveOrUpdateProgressionToCloud(
   progressionData: any,
   ownerId: string
 ): Promise<string> {
+  if (!ownerId) throw new Error("Utilisateur non connecté");
+
   const dataString = LZString.compressToBase64(JSON.stringify(progressionData));
 
   if (id) {

@@ -72,6 +72,7 @@ export interface CloudPattern extends SavedPattern {
   ownerId: string;
   visibility: CatalogVisibility;
   mestreId?: string;
+  audioUrl?: string;
 }
 
 export interface TrackGroup {
@@ -166,6 +167,7 @@ export interface CloudSection {
   mestreId?: string;
   createdAt: number;
   data: string; // LZString compressed JSON of SavedSectionData
+  audioUrl?: string;
 }
 
 export interface CloudPreset {

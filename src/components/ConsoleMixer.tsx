@@ -362,7 +362,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           if (targetLeftScale > currentLeftScale) {
             currentLeftScale = targetLeftScale; // instant attack
           } else {
-            currentLeftScale = currentLeftScale * 0.90 + targetLeftScale * 0.10; // smooth decay
+            currentLeftScale = currentLeftScale * 0.97 + targetLeftScale * 0.03; // smooth decay
           }
           lastMasterLeftRef.current = currentLeftScale;
 
@@ -372,7 +372,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           if (targetRightScale > currentRightScale) {
             currentRightScale = targetRightScale; // instant attack
           } else {
-            currentRightScale = currentRightScale * 0.90 + targetRightScale * 0.10; // smooth decay
+            currentRightScale = currentRightScale * 0.97 + targetRightScale * 0.03; // smooth decay
           }
           lastMasterRightRef.current = currentRightScale;
 
