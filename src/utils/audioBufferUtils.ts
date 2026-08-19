@@ -46,7 +46,7 @@ export function analyzeVocalTransient(
   const preRollSec = preRollMs / 1000;
   const offsetStart = Math.max(0, firstOnsetSec - preRollSec);
 
-  console.log(`🎙️ [AUTO-TRIM TRANSIENT] threshold=${threshold}, firstOnsetSec=${firstOnsetSec.toFixed(3)}s, offsetStart=${offsetStart.toFixed(3)}s (preRoll=50ms)`);
+
 
   return {
     firstOnsetSec,
@@ -70,7 +70,7 @@ export function calculateVocalClipMeta(
   // Align onset with `firstNoteOffsetSec` in target measure.
   const startTimeDelay = firstNoteOffsetSec - (firstOnsetSec - offsetStart);
 
-  console.log(`🎙️ [VOCAL CLIP META] firstOnsetSec=${firstOnsetSec.toFixed(3)}s, offsetStart=${offsetStart.toFixed(3)}s, firstNoteOffsetSec=${firstNoteOffsetSec.toFixed(3)}s, startTimeDelay=${startTimeDelay.toFixed(3)}s`);
+
 
   return {
     offsetStart,

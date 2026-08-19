@@ -145,9 +145,9 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       const startTime = Tone.context.currentTime + triggerDelay;
       player.start(startTime, actualStartOffset, actualDuration);
       localPlayerRef.current = player;
-      console.log(`🎙️ [GRAINPLAYER PREVIEW ACTIVE] state=${player.state}, volume=${player.volume.value}dB, startTime=${startTime.toFixed(3)}s, triggerDelay=${triggerDelay.toFixed(3)}s, actualStartOffset=${actualStartOffset.toFixed(3)}s, actualDuration=${actualDuration.toFixed(3)}s, bufferDuration=${audioBuffer.duration.toFixed(3)}s`);
+
     } else {
-      console.warn(`🎙️ [GRAINPLAYER PREVIEW WARNING] actualDuration <= 0 (${actualDuration.toFixed(3)}s)`);
+
     }
   }, [audioBuffer, preRollDurationSec, pattern, bpm, isImported]);
 
@@ -380,7 +380,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       const parsedVal = parseFloat(text.replace(' ms', '')) || 0;
       setNudgeMs(parsedVal);
       nudgeMsRef.current = parsedVal;
-      console.log(`🎙️ [VOCAL DEBUG] Interactive drag ended. Final nudge: ${parsedVal} ms`);
+
       restartPreviewLoop();
     }
   }, [handleDragMove, restartPreviewLoop]);
@@ -431,7 +431,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     const val = parseFloat(e.currentTarget.value);
     setNudgeMs(val);
     nudgeMsRef.current = val;
-    console.log(`🎙️ [VOCAL DEBUG] Latency nudge updated: ${val} ms`);
+
     restartPreviewLoop();
   };
 
@@ -472,7 +472,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
         localPlayerRef.current = null;
       }
       handleStop();
-      console.log('🎙️ [VOCAL ENGINE] Preview mixé arrêté.');
+
     } else {
       // START PREVIEW SYNCHRONISÉ (Voix + Backing Track Roda)
       if (!audioBuffer) return;
@@ -515,7 +515,7 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
     const firstNoteOffsetSec = vocalEngineService.getPatternFirstNoteOffset(pattern, bpm);
     const finalStartTimeDelay = (isImported ? preRollDurationSec : firstNoteOffsetSec) + (nudgeMs / 1000);
 
-    console.log(`🎙️ [VOCAL SAVE METADATA] isImported=${isImported}, firstNoteOffsetSec=${firstNoteOffsetSec.toFixed(3)}s, nudgeMs=${nudgeMs}ms, finalStartTimeDelay=${finalStartTimeDelay.toFixed(3)}s`);
+
 
     onSave({
       offsetStart: trimStartMs / 1000,

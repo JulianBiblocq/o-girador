@@ -92,7 +92,7 @@ export async function fetchCloudPatterns(
     
   } catch (err) {
     if (err && ((err as any).code === 'permission-denied' || String(err).includes('permission'))) {
-      console.warn("Cloud features disabled: Missing or insufficient Firebase permissions for cloud patterns.");
+
     } else {
       console.error("Error fetching cloud patterns:", err);
     }

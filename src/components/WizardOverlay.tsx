@@ -1080,7 +1080,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
     checkAndLinkDoubles(gongues, 'GONGUÊS');
 
     // Log final de validation
-    console.log("Configuration de la Roda finale générée :", useSequencerStore.getState());
+
     alert(t[wizardLang].consacree);
 
     // 6. Clôture

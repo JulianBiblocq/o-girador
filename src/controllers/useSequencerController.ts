@@ -94,7 +94,7 @@ export function useSequencerController() {
             sourceNode.connect(gainNode);
             sourceNode.start(preciseTime);
           } else {
-            console.warn(`Buffer not loaded yet for instrument: ${track.name}`);
+
           }
         }
       });

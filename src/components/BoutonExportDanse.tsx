@@ -41,7 +41,7 @@ export const BoutonExportDanse: React.FC = () => {
 
   const gererExport = async () => {
     try {
-      console.log("[Export Danse] Clic sur le bouton d'export !");
+
       setStatut('calcul');
       setMessageErreurUI('');
       const blob = await genererBounce();

@@ -34,13 +34,13 @@ export const VocalRecordingBar: React.FC = () => {
   // Early permission request & device population
   const handleRequestPermissionAndPopulateDevices = async () => {
     try {
-      console.log("🎙️ [AUDIO PERMISSIONS] Early getUserMedia request...");
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((track) => track.stop());
-      console.log("🎙️ [AUDIO PERMISSIONS] Permission granted! Refreshing device labels...");
+
       await refreshAudioDevices();
     } catch (err: any) {
-      console.warn("🎙️ [AUDIO PERMISSIONS] Error requesting audio permissions:", err);
+
       alert(lang === 'fr' ? "Erreur d'accès micro : " + err.message : "Erro de acesso ao mic: " + err.message);
     }
   };
@@ -197,14 +197,14 @@ export const VocalRecordingBar: React.FC = () => {
         Tone.context.resume();
       }
       Tone.start();
-      console.log("🎙️ [VOCAL DEBUG] Tone.start() invoked on user gesture click.");
+
     } catch (e) {
-      console.warn("🎙️ [VOCAL DEBUG] Tone.start failed on gesture:", e);
+
     }
 
     // Stop the sequencer if it was playing to ensure start from beginning
     if (isPlaying) {
-      console.log("🎙️ [VOCAL DEBUG] Sequencer was playing. Stopping it before arming recording.");
+
       handleStop();
     }
 

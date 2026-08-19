@@ -19,7 +19,7 @@ export const useMidiController = () => {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !navigator.requestMIDIAccess) {
-      console.warn('Web MIDI API is not supported in this browser.');
+
       return;
     }
 

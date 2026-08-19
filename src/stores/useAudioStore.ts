@@ -67,10 +67,10 @@ export const useAudioStore = create<AudioState>((set) => ({
         const ctx = Tone.getContext().rawContext as any;
         if (typeof ctx.setSinkId === 'function') {
           await ctx.setSinkId(id);
-          console.log(`🎙️ [AUDIO DEVICES] Sink ID set to: ${id}`);
+
         }
       } catch (err) {
-        console.warn('🎙️ [AUDIO DEVICES] setSinkId not supported or failed', err);
+
       }
     }
   },
@@ -105,7 +105,7 @@ export const useAudioStore = create<AudioState>((set) => ({
         set({ selectedOutputDeviceId: audioOutputs[0].deviceId });
       }
     } catch (err) {
-      console.warn("🎙️ [AUDIO DEVICES] Error enumerating audio devices:", err);
+
     }
   },
   setRecordingStatus: (status) => set({

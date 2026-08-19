@@ -270,7 +270,7 @@ export class AudioEngine {
     const isSecure = typeof window !== 'undefined' ? (window.isSecureContext !== false) : true;
 
     if (!isSecure || typeof nativeContext.audioWorklet === 'undefined') {
-      console.warn("AudioEngine: Secure context is false or AudioWorklet not supported. Forcing setInterval fallback.");
+
       this.initFallbackTimer();
     } else {
       if (nativeContext.state === 'running') {
@@ -362,7 +362,7 @@ export class AudioEngine {
         this.fallbackTimerId = null;
       }
     } catch (err) {
-      console.warn("AudioEngine: Failed to initialize clock AudioWorklet. Falling back to setInterval clock.", err);
+
       this.initFallbackTimer();
     }
   }
@@ -509,7 +509,7 @@ export class AudioEngine {
               throw new Error(`HTTP status ${response.status}`);
             } catch (fetchErr) {
               if (attempt === attempts) throw fetchErr;
-              console.warn(`AudioEngine: Fetch attempt ${attempt} failed for ${path}. Retrying in ${delayMs}ms...`, fetchErr);
+
               await new Promise(resolve => setTimeout(resolve, delayMs));
               delayMs *= 2;
             }
@@ -524,12 +524,12 @@ export class AudioEngine {
             const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
             this.bufferPool.set(path, toneBuffer);
           } catch (decodeErr) {
-            console.warn(`AudioEngine: Safari/iOS fallback triggered for ${path}. Attempting .m4a`);
+
             const fallbackPath = encodedFetchPath.replace(/\.ogg$/, '.m4a');
             try {
               response = await fetch(fallbackPath);
               if (!response.ok) {
-                console.warn(`AudioEngine: Fallback .m4a not found or failed to load for ${path} (status: ${response.status})`);
+
                 return;
               }
               arrayBuffer = await response.arrayBuffer();
@@ -537,7 +537,7 @@ export class AudioEngine {
               const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
               this.bufferPool.set(path, toneBuffer);
             } catch (fallbackErr) {
-              console.warn(`AudioEngine: Failed to load fallback .m4a for ${path}:`, fallbackErr);
+
             }
           }
         } catch (err) {
@@ -800,7 +800,7 @@ export class AudioEngine {
     // 1. Find the configuration for this instrument — O(1) Map lookup instead of O(n) Array.find()
     const config = this.configMap.get(instrumentId);
     if (!config) {
-      console.warn(`AudioEngine: Unknown instrument ID: ${instrumentId}`);
+
       return;
     }
 
@@ -820,7 +820,7 @@ export class AudioEngine {
     // 2. Find the stroke mapping
     const strokesMap = this.strokesMaps.get(instrumentId);
     if (!strokesMap) {
-      console.warn(`AudioEngine: No strokes map found for instrument: ${instrumentId}`);
+
       return;
     }
 
@@ -829,7 +829,7 @@ export class AudioEngine {
       // Fallback matching if symbol casing differs (for case-insensitive actions)
       stroke = strokesMap.get(normSymbol.toUpperCase());
       if (!stroke || stroke.files.length === 0) {
-        console.warn(`AudioEngine: No stroke mapped for symbol "${strokeSymbol}" (normalized: "${normSymbol}") on instrument "${instrumentId}"`);
+
         return;
       }
     }
@@ -933,7 +933,7 @@ export class AudioEngine {
     const buffer = this.bufferPool.get(filePath);
 
     if (!buffer) {
-      console.warn(`AudioEngine: Buffer not loaded for path: ${filePath}`);
+
       return;
     }
 

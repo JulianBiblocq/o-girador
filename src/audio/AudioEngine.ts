@@ -52,10 +52,7 @@ export class AudioEngine {
         }
       };
     } catch (error) {
-      console.warn(
-        "Web Worker clock initialization failed (likely blocked by Content Security Policy). Falling back to window.setInterval.",
-        error
-      );
+
       this.initFallbackTimer();
     }
   }
@@ -108,7 +105,7 @@ export class AudioEngine {
   }
 
   private scheduleNote(tick: number, time: number): void {
-    console.log("Scheduling tick", tick, "at", time);
+
   }
 
   public async start(): Promise<void> {

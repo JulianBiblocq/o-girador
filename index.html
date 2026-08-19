@@ -384,6 +384,16 @@
           '<p>' + message + '</p>' + 
           '<pre>' + (error && error.stack ? error.stack : '') + '</pre>' + 
           '</div>';
+          
+        // Auto-recover from module load errors (MIME type / cache issues)
+        if (message && message.toString().toLowerCase().includes('module script')) {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+              for (let reg of regs) { reg.unregister(); }
+              window.location.reload();
+            });
+          }
+        }
       };
     </script>
 
@@ -447,7 +457,17 @@
                       if (installingWorker.state === 'installed') {
                         if (navigator.serviceWorker.controller) {
                           // A new service worker has been installed and is ready to activate
-                          // console.log('New content is available; prompting refresh.');
+                          
+                          // If the app is broken (e.g., React failed to mount due to old JS missing), 
+                          // automatically skip waiting and reload to break the deadlock
+                          const appRoot = document.getElementById('root');
+                          if (!appRoot || appRoot.innerHTML.trim() === '') {
+                            console.warn('App not mounted. Forcing SW update to recover.');
+                            reg.waiting && reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+                            window.location.reload();
+                            return;
+                          }
+
                           window.dispatchEvent(new CustomEvent('sw-update-available', { detail: reg }));
                         }
                       }

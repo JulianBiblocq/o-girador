@@ -24,7 +24,7 @@ export function useAudioDevices() {
           });
         }
       } catch (err) {
-        console.warn('🎙️ [VOCAL DEBUG] Error enumerating audio devices:', err);
+
       }
     };
 

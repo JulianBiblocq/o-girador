@@ -153,7 +153,7 @@ export const GameDataProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       } catch (err) {
         if (err && ((err as any).code === 'permission-denied' || String(err).includes('permission'))) {
-          console.warn("Cloud features disabled: Missing or insufficient Firebase permissions for varal data.");
+
         } else {
           console.error("Error fetching varal from Firebase:", err);
         }

@@ -157,6 +157,17 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
         }
       } else {
         lastExactXRef.current = exactX;
+        
+        // Auto-scroll (page-turn) lorsque l'aiguille sort de l'écran à droite ou à gauche
+        const currentScrollX = layoutCache.current.lastScrollX;
+        const vw = layoutCache.current.vw;
+        // On déclenche le scroll si on approche à 95% du bord droit, ou si on est avant le bord gauche
+        if (vw > 0 && scrollEl && (exactX > currentScrollX + vw * 0.95 || exactX < currentScrollX)) {
+          // Recale l'aiguille à 10% de l'écran pour la suite de la lecture
+          const targetScroll = Math.max(0, exactX - vw * 0.1);
+          scrollEl.scrollLeft = targetScroll;
+          layoutCache.current.lastScrollX = targetScroll;
+        }
       }
     };
 

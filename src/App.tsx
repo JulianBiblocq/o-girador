@@ -23,6 +23,7 @@ import { GlobalModalsLayout } from './components/GlobalModalsLayout';
 import { useWizardStore } from './stores/useWizardStore';
 import { NewSongIntroModal } from './components/NewSongIntroModal';
 import { WizardOverlay } from './components/WizardOverlay';
+import { SEO } from './components/SEO';
 
 import { Home } from './components/Home';
 const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
@@ -625,6 +626,7 @@ export default function App() {
 
   return (
     <>
+      <SEO />
       {viewMode === 'landing' ? (
         <Suspense fallback={<div className="min-h-screen bg-[var(--cordel-bg)] flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
           <LandingPage onEnter={handleLandingEnter} lang={sequencer.lang} />

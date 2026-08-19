@@ -17,7 +17,7 @@
             <path d="M -6,-266 L -6,-238" stroke="#333333" stroke-width="1.5" />
         </g>
     </defs>
-    <rect width="600" height="600" fill="#121315" rx="100" />
+    <circle cx="300" cy="300" r="270" fill="#121315" />
     <g stroke="#ffffff" stroke-opacity="0.15" stroke-width="2" stroke-dasharray="6,6" fill="none">
         <circle cx="300" cy="300" r="70" />
         <circle cx="300" cy="300" r="135" />

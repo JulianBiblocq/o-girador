@@ -8,6 +8,7 @@ import * as Tone from 'tone';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, updateDoc } from 'firebase/firestore';
 import { storage, db } from '../firebase/config';
+import { telemetryService } from '../services/telemetryService';
 import { SavedPattern, TimeSignature, SavedSectionData } from '../types';
 import { encoderWav } from '../utils/encodeurWav';
 import { CLOUD_PATTERNS_COLLECTION } from '../cloudPatterns';
@@ -29,7 +30,7 @@ export function useCloudAudioBounce() {
     setBounceError(null);
 
     try {
-      console.log(`[Cloud Bounce] Démarrage de l'export pour le pattern ${patternId}`);
+
       
       const beats = parseInt(timeSig.split('/')[0], 10);
       const beatUnit = parseInt(timeSig.split('/')[1], 10);
@@ -44,7 +45,7 @@ export function useCloudAudioBounce() {
         throw new Error(`Configuration audio introuvable pour l'instrument: ${patternData.instrumentId}`);
       }
 
-      console.log(`[Cloud Bounce] Rendu Tone.Offline de ${durationSec.toFixed(2)}s...`);
+
       
       const audioBuffer = await Tone.Offline(async (ctx) => {
         // Chargement des players
@@ -130,20 +131,20 @@ export function useCloudAudioBounce() {
         }
       }, durationSec);
       
-      console.log(`[Cloud Bounce] Encodage MediaRecorder...`);
+
       // L'encodage MediaRecorder va jouer le buffer en temps réel (silencieusement)
       const nativeBuffer = audioBuffer.get();
       if (!nativeBuffer) throw new Error("Le rendu Tone.Offline n'a généré aucun buffer valide.");
       const webmBlob = await encoderWav(nativeBuffer);
       
-      console.log(`[Cloud Bounce] Upload Storage bounces/${patternId}.webm...`);
+
       const storageRef = ref(storage, `bounces/${patternId}.webm`);
       await uploadBytes(storageRef, webmBlob, { contentType: 'audio/webm' });
       
       const audioUrl = await getDownloadURL(storageRef);
-      console.log(`[Cloud Bounce] Fichier uploadé avec succès: ${audioUrl}`);
+
       
-      console.log(`[Cloud Bounce] Mise à jour Firestore...`);
+
       const documentRef = doc(db, CLOUD_PATTERNS_COLLECTION, patternId);
       await updateDoc(documentRef, { audioUrl });
       
@@ -151,6 +152,7 @@ export function useCloudAudioBounce() {
       return audioUrl;
     } catch (err: any) {
       console.error('[Cloud Bounce] Erreur:', err);
+      telemetryService.logError(err, 'useCloudAudioBounce_Pattern');
       setBounceError(err.message || 'Erreur lors de la génération audio cloud');
       setIsBouncingCloud(false);
       throw err;
@@ -166,7 +168,7 @@ export function useCloudAudioBounce() {
     setBounceError(null);
 
     try {
-      console.log(`[Cloud Bounce] Démarrage de l'export pour la section ${sectionId}`);
+
       
       let dureeTotaleSec = 0;
       const measureStartTimes: number[] = [];
@@ -184,7 +186,7 @@ export function useCloudAudioBounce() {
       }
       const durationSec = dureeTotaleSec + 3.0; // tail for reverb
 
-      console.log(`[Cloud Bounce] Rendu Tone.Offline de ${durationSec.toFixed(2)}s...`);
+
       
       const audioBuffer = await Tone.Offline(async (ctx) => {
         const playersToLoad: Promise<void>[] = [];
@@ -338,19 +340,19 @@ export function useCloudAudioBounce() {
         }
       }, durationSec);
       
-      console.log(`[Cloud Bounce] Encodage MediaRecorder (Section)...`);
+
       const nativeBuffer = audioBuffer.get();
       if (!nativeBuffer) throw new Error("Le rendu Tone.Offline n'a généré aucun buffer valide.");
       const webmBlob = await encoderWav(nativeBuffer);
       
-      console.log(`[Cloud Bounce] Upload Storage bounces/sections/${sectionId}.webm...`);
+
       const storageRef = ref(storage, `bounces/sections/${sectionId}.webm`);
       await uploadBytes(storageRef, webmBlob, { contentType: 'audio/webm' });
       
       const audioUrl = await getDownloadURL(storageRef);
-      console.log(`[Cloud Bounce] Fichier uploadé avec succès: ${audioUrl}`);
+
       
-      console.log(`[Cloud Bounce] Mise à jour Firestore...`);
+
       const documentRef = doc(db, CLOUD_SECTIONS_COLLECTION, sectionId);
       await updateDoc(documentRef, { audioUrl });
       
@@ -358,6 +360,7 @@ export function useCloudAudioBounce() {
       return audioUrl;
     } catch (err: any) {
       console.error('[Cloud Bounce] Erreur:', err);
+      telemetryService.logError(err, 'useCloudAudioBounce_Section');
       setBounceError(err.message || 'Erreur lors de la génération audio cloud (Section)');
       setIsBouncingCloud(false);
       throw err;

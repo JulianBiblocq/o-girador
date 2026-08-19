@@ -74,7 +74,7 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
   const editingTrackId = useSequencerStore(state => state.editingTrackId);
   const setEditingTrackId = useSequencerStore(state => state.setEditingTrackId);
   const tempRecording = useAudioStore(state => state.tempRecording);
-  console.log("🎙️ [VOCAL DEBUG] GlobalModalsLayout rendering. tempRecording:", tempRecording);
+
 
   const handleCloseDetailEditor = React.useCallback(() => {
     setEditingTrackId(null);

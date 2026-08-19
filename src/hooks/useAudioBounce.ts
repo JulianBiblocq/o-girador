@@ -8,6 +8,7 @@ import * as Tone from 'tone';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useAudio } from '../contexts/AudioContext';
+import { telemetryService } from '../services/telemetryService';
 
 /**
  * Hook pour le rendu Temps-Réel (Bounce) de la séquence active.
@@ -37,7 +38,7 @@ export function useAudioBounce() {
       }
       dureeTotaleSec += 1.5; // Marge pour la réverbe/queue
 
-      console.log(`[Export Danse] ÉTAPE 1: Démarrage Enregistrement Temps-Réel... Durée calculée = ${dureeTotaleSec}s`);
+
       if (isNaN(dureeTotaleSec) || !isFinite(dureeTotaleSec) || dureeTotaleSec <= 0) {
         throw new Error(`Erreur Audio Render: Durée invalide (${dureeTotaleSec}s)`);
       }
@@ -69,12 +70,13 @@ export function useAudioBounce() {
       recorder.dispose();
       audio.handleStop();
 
-      console.log("[Export Danse] ÉTAPE 2: Enregistrement terminé !");
+
       setEstEnCalcul(false);
       return blob;
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("[Export Danse] Erreur bloquante durant l'enregistrement :", err);
+      telemetryService.logError(err, 'useAudioBounce');
       audio.handleStop(); // Sécurité
       setEstEnCalcul(false);
       throw err;

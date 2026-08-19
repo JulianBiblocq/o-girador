@@ -47,10 +47,10 @@ export function usePerformanceMonitor() {
             }
             if (fps < 30 && !store.isUltraEcoMode) {
               store.setUltraEcoMode(true);
-              console.warn(`⚡ Severe FPS drop detected (${fps} FPS). Escalating to Tier 3 Ultra-Eco Mode.`);
+
             } else if (store.lodLevel < 3 && !store.isUltraEcoMode) {
               store.setLODLevel((store.lodLevel + 1) as any);
-              console.warn(`⚠️ CPU overload detected, escalating LOD Level to ${store.lodLevel}`);
+
             }
           }
         } else if (fps >= 54) {
@@ -58,7 +58,7 @@ export function usePerformanceMonitor() {
           lowFpsCountRef.current = 0;
           if (highFpsCountRef.current >= 5 && store.isCPUSurcharged) {
             store.setCPUSurcharged(false);
-            console.log("ℹ️ CPU load normalized");
+
           }
         } else {
           lowFpsCountRef.current = 0;

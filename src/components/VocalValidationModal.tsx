@@ -77,13 +77,13 @@ export const VocalValidationModal: React.FC = () => {
             startTrimSec = targetPattern.vocalClip.offsetStart;
             initialNudgeSec = targetPattern.vocalClip.startTimeDelay;
             endTrimSec = targetPattern.vocalClip.offsetEnd ?? buffer.duration;
-            console.log(`🎙️ [VOCAL DEBUG] Reopened existing recording. Initializing nudge: ${initialNudgeSec * 1000} ms, trimStart: ${startTrimSec * 1000} ms`);
+
           } else if (isImportedFile) {
             // IMPORTED FILE -> start flat (no pre-roll timing alignment context)
             startTrimSec = 0;
             initialNudgeSec = 0;
             endTrimSec = buffer.duration;
-            console.log(`🎙️ [VOCAL DEBUG] Imported audio file setup: startTrim: 0s, nudge: 0s, duration: ${buffer.duration}s`);
+
           } else {
             // BRAND NEW RECORDING -> AUTO-SNAP (threshold detection)
             const storeTargetMeasureIdx = useAudioStore.getState().targetMeasureIdx;
@@ -104,7 +104,7 @@ export const VocalValidationModal: React.FC = () => {
             initialNudgeSec = 0; // Nudge initial est 0 car clipMeta a déjà calé l'attaque exactement sur firstNoteOffsetSec
             endTrimSec = clipMeta.offsetEnd;
 
-            console.log(`🎙️ [VOCAL AUTO-TRIM & SNAP OK] offsetStart: ${startTrimSec.toFixed(3)}s, firstNoteOffsetSec: ${firstNoteOffsetSec.toFixed(3)}s, startTimeDelay: ${clipMeta.startTimeDelay.toFixed(3)}s`);
+
           }
 
           setInitialOffsetStart(startTrimSec);
@@ -131,7 +131,7 @@ export const VocalValidationModal: React.FC = () => {
 
   const handleCancel = () => {
     handleStop();
-    console.log('🎙️ [VOCAL DEBUG] Discarding temporary recording.');
+
     useAudioStore.getState().setTargetPatternId(null);
     setTempRecording(null);
   };
@@ -141,7 +141,7 @@ export const VocalValidationModal: React.FC = () => {
     setLoading(true);
     handleStop();
 
-    console.log(`🎙️ [VOCAL DEBUG] Non-destructive save. Clip alignment metadata:`, meta);
+
 
     try {
       // Save permanently the original raw blob to IndexedDB

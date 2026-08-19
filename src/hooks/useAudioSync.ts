@@ -659,7 +659,7 @@ export function useAudioSync({
             const reverbDb = percentToDb(disableFx ? 0 : reverbPct);
             reverbSends[t.id].gain.value = reverbDb;
           } catch (err) {
-            console.warn(`Could not set reverb send level for track ${t.id} in eco mode update:`, err);
+
           }
         }
       });
@@ -670,7 +670,7 @@ export function useAudioSync({
         try {
           syncTrackInsertChain(t.id, t);
         } catch (err) {
-          console.warn(`Could not sync track insert chain for track ${t.id}:`, err);
+
         }
       });
     };
@@ -1413,7 +1413,7 @@ export function useAudioSync({
 
                   // 1. Punch-in check: starts immediately when playhead enters or is in the pre-roll measure
                   if (recordingStatus === 'inactive' && currentMeasureIdx === startMeasureIdx && !hasTriggeredPunchInRef.current) {
-                    console.log(`🎙️ [VOCAL DEBUG] useAudioSync.ts - Punch-in measure reached: ${currentMeasureIdx}. Calling startRecording()`);
+
                     hasTriggeredPunchInRef.current = true;
                     useAudioStore.getState().setRecordingStatus('arming');
                     
@@ -1432,7 +1432,7 @@ export function useAudioSync({
                     if (!hasTriggeredAutoStopRef.current) {
                       hasTriggeredAutoStopRef.current = true;
                       const stopDelayMs = Math.max(0, (time + tick96nSec - Tone.context.rawContext.currentTime) * 1000) + 1000;
-                      console.log(`🎙️ [VOCAL DEBUG] useAudioSync.ts - Auto-stop measure reached: ${currentMeasureIdx}. Scheduling stopRecording and handleStop in ${stopDelayMs.toFixed(1)} ms`);
+
                       workerSetTimeout(() => {
                         vocalEngineService.stopRecording();
                         handleStop();
@@ -1552,7 +1552,7 @@ export function useAudioSync({
                       const voiceInst = instrumentsConfig[track.instrumentIdx];
                       const isCoroTrack = voiceInst?.id === 'coro';
 
-                      console.log(`🎙️ [VOCAL DEBUG] Triggering vocal for pattern ${safeId} at transport time ${time.toFixed(3)}s. Buffer Offset: ${elapsedSinceVocalStart.toFixed(3)}s`);
+
                       const handle = vocalEngineService.playSequencerVocal(
                         safeId,
                         time,
@@ -1753,7 +1753,7 @@ export function useAudioSync({
         }
         await new Promise(resolve => setTimeout(resolve, 300));
       } catch (err) {
-        console.warn("Tone.loaded() error or timeout:", err);
+
       } finally {
         setIsLoading(false);
       }
@@ -1796,7 +1796,7 @@ export function useAudioSync({
       flushVisualBuffers();
       purgeVisualTickBuffer();
       hitTriggersRef.current.clear();
-      console.log("🎙️ [VOCAL DEBUG] useAudioSync.ts - handleTogglePlay stop. Calling stopRecording() unconditionally.");
+
       vocalEngineService.stopRecording();
       audioEngine?.stopAllBarulho();
       stopAllNativeOscillators();
@@ -1868,7 +1868,7 @@ export function useAudioSync({
     hitTriggersRef.current.clear();
     lastPlayedPatternRef.current = {};
     Tone.Transport.stop();
-    console.log("🎙️ [VOCAL DEBUG] useAudioSync.ts - handleStop. Calling stopRecording() unconditionally.");
+
     vocalEngineService.stopRecording();
     audioEngine?.stopAllBarulho();
     stopAllNativeOscillators();
@@ -1929,7 +1929,7 @@ export function useAudioSync({
         // console.warn("AudioContext resume failed:", e);
       }
     }
-    console.log("🎙️ [VOCAL DEBUG] useAudioSync.ts - handleStartSoloPattern. Calling stopRecording() unconditionally.");
+
     vocalEngineService.stopRecording();
     audioEngine?.stop();
     Tone.Transport.stop();
@@ -1953,7 +1953,7 @@ export function useAudioSync({
       }
       await new Promise(resolve => setTimeout(resolve, 300));
     } catch (err) {
-      console.warn("Tone.loaded() error or timeout:", err);
+
     } finally {
       setIsLoading(false);
     }

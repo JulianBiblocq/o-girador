@@ -169,7 +169,7 @@ export const vocalEngineService = {
     } = {}
   ) {
     const numPatternId = Number(patternId);
-    console.log(`🎙️ [VOCAL ENGINE] startRecording() invoqué avec Tone.Transport timing. patternId: ${numPatternId}`);
+
 
     const store = useAudioStore.getState();
     const sequencerStore = useSequencerStore.getState();
@@ -184,7 +184,7 @@ export const vocalEngineService = {
 
     try {
       const targetDeviceId = options.deviceId || store.selectedDeviceId;
-      console.log(`🎙️ [VOCAL RAW AUDIO] Starting stream with deviceId: ${targetDeviceId || 'default (RAW filters OFF)'}`);
+
 
       audioStream = await navigator.mediaDevices.getUserMedia({
         audio: targetDeviceId ? {
@@ -210,12 +210,12 @@ export const vocalEngineService = {
       };
 
       mediaRecorder.onstop = async () => {
-        console.log(`🎙️ [VOCAL ENGINE] mediaRecorder.onstop event. patternId: ${numPatternId}, recordedChunks: ${recordedChunks.length}`);
+
         try {
           const blob = new Blob(recordedChunks, {
             type: mediaRecorder?.mimeType || 'audio/webm',
           });
-          console.log(`🎙️ [VOCAL ENGINE] Raw Blob size: ${blob.size} bytes`);
+
 
           // Store temporary recording in store for validation modal
           useAudioStore.getState().setTempRecording({ patternId: numPatternId, blob });
@@ -290,7 +290,7 @@ export const vocalEngineService = {
         punchOutTimeSec = punchInTimeSec + loopDurationSec;
       }
 
-      console.log(`🎙️ [VOCAL ENGINE ABSOLUTE SCHEDULING] initialMeasureIdx: ${initialMeasureIdx}, absoluteStartSec: ${absoluteStartSec.toFixed(3)}s, countInStartSec: ${countInStartSec.toFixed(3)}s, punchInTimeSec: ${punchInTimeSec.toFixed(3)}s, punchOutTimeSec: ${punchOutTimeSec.toFixed(3)}s, loopDurationSec: ${loopDurationSec.toFixed(3)}s`);
+
 
       if (options.immediate) {
         if (mediaRecorder && mediaRecorder.state === 'inactive') {
@@ -319,7 +319,7 @@ export const vocalEngineService = {
           if (mediaRecorder && mediaRecorder.state === 'inactive') {
             try {
               mediaRecorder.start();
-              console.log(`🎙️ [VOCAL ENGINE] MediaRecorder started early at count-in (time: ${time.toFixed(3)}s) for pre-roll capture`);
+
             } catch (e) {
               console.error("🎙️ [VOCAL ENGINE] Error starting MediaRecorder at count-in:", e);
             }
@@ -345,7 +345,7 @@ export const vocalEngineService = {
         // ÉTAPE C : PUNCH-IN VISUEL & DU SEQUENCEUR (START RODA BACKING TRACK)
         // -------------------------------------------------------------
         const idPunchIn = Tone.Transport.schedule((time) => {
-          console.log(`🎙️ [VOCAL ENGINE] Visual Punch-in triggered at absolute time ${time.toFixed(3)}s`);
+
           
           store.setRecordingStartTimelineSec(time);
           store.setRecordingStatus('recording');
@@ -360,7 +360,7 @@ export const vocalEngineService = {
         // ÉTAPE D : PUNCH-OUT (STRICT AUTO-STOP RECORDING AT LOOP END)
         // -------------------------------------------------------------
         const idPunchOut = Tone.Transport.schedule((time) => {
-          console.log(`🎙️ [VOCAL ENGINE] Punch-out triggered at absolute time ${time.toFixed(3)}s`);
+
           if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             try {
               mediaRecorder.stop();
@@ -392,7 +392,7 @@ export const vocalEngineService = {
    * Stops the active recording process.
    */
   stopRecording() {
-    console.log("🎙️ [VOCAL ENGINE] stopRecording() requested.");
+
     this.cleanupTimers();
     Tone.Transport.stop();
     const store = useAudioStore.getState();
@@ -485,7 +485,7 @@ export const vocalEngineService = {
       const firstNoteOffsetSec = this.getPatternFirstNoteOffset(targetPattern, bpm);
       const meta = calculateVocalClipMeta(audioBuffer, firstNoteOffsetSec, preRollDurationSec, bpm);
 
-      console.log(`🎙️ [VOCAL ENGINE] Phase 3 Auto-Trim & Calage calculés:`, meta);
+
       return { buffer: audioBuffer, meta };
     } catch (err) {
       console.error(`🎙️ [VOCAL ENGINE] Erreur lors du calcul Auto-Trim pour le pattern ${patternId}:`, err);
@@ -553,7 +553,7 @@ export const vocalEngineService = {
         return t;
       });
       sequencerStore.setTracks(newTracks);
-      console.log(`🎙️ [VOCAL DEBUG] Vocal recording deleted and pattern reset to synth for patternId: ${patternId}`);
+
     } catch (err) {
       console.error(`Failed to delete vocal recording for pattern ${patternId}:`, err);
     }
@@ -658,7 +658,7 @@ export const vocalEngineService = {
         }
       };
 
-      console.log(`🎙️ [VOCAL DEBUG] playVocalPattern - patternId: ${patternId}, triggerTime: ${triggerTime.toFixed(3)}s, now: ${now.toFixed(3)}s, startOffset: ${startOffset.toFixed(3)}s, startPlayTime: ${startPlayTime.toFixed(3)}s, remainingDuration: ${remainingDuration.toFixed(3)}s`);
+
 
       if (remainingDuration > 0) {
         mainPlayer.start(startPlayTime, startOffset, remainingDuration);
@@ -819,10 +819,10 @@ export const vocalEngineService = {
     const store = useAudioStore.getState();
     const audioBuffer = store.vocalBuffers[patternId];
     
-    console.log(`🎙️ [VOCAL ENGINE] playSequencerVocal query: patternId=${patternId}, elapsedSec=${elapsedSec.toFixed(3)}s, trackVolPct=${trackVolPct}`);
+
 
     if (!audioBuffer) {
-      console.warn(`🎙️ [VOCAL ENGINE] Playback aborted: No audioBuffer found in store for patternId=${patternId}`);
+
       return null;
     }
 
@@ -858,7 +858,7 @@ export const vocalEngineService = {
     const offsetEnd = clip && clip.offsetEnd !== undefined ? clip.offsetEnd : audioBuffer.duration;
     const remainingDuration = Math.max(0, offsetEnd - elapsedSec);
 
-    console.log(`🎙️ [VOCAL ENGINE] Playing vocal buffer: duration=${audioBuffer.duration.toFixed(3)}s, remainingDuration=${remainingDuration.toFixed(3)}s, playbackRate=${playbackRate.toFixed(3)}`);
+
 
     if (remainingDuration > 0) {
       mainPlayer.start(time, elapsedSec, remainingDuration);

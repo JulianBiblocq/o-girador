@@ -96,7 +96,7 @@ export function initMasterEffectsChain(
     masterVolumeNode.channelCount = 2;
     masterVolumeNode.channelCountMode = "explicit";
   } catch (err) {
-    console.warn("Could not set channelCount / channelCountMode on masterVolumeNode:", err);
+
   }
   masterVolumeNode.connect(masterEQNode);
   masterEQNode.connect(masterCompressorNode);
@@ -127,7 +127,7 @@ export function initMasterEffectsChain(
     Tone.Destination.channelCount = 2;
     Tone.Destination.channelCountMode = "explicit";
   } catch (err) {
-    console.warn("Could not set channelCount / channelCountMode on Tone.Destination:", err);
+
   }
   masterLimiterNode.toDestination();
   
@@ -223,7 +223,7 @@ export function ensureReverbConnected() {
         }
       }
     } catch (e) {
-      console.warn("Error reconnecting reverbNode:", e);
+
     }
   }
 
@@ -247,7 +247,7 @@ export function handleReverbEcoToggle(isEco: boolean, isPlaying: boolean) {
             try {
               reverbNode.disconnect();
             } catch (e) {
-              console.warn("Error disconnecting reverbNode:", e);
+
             }
           }
         }, 15);
@@ -255,7 +255,7 @@ export function handleReverbEcoToggle(isEco: boolean, isPlaying: boolean) {
         try {
           reverbNode.disconnect();
         } catch (e) {
-          console.warn("Error disconnecting reverbNode:", e);
+
         }
       }
     }

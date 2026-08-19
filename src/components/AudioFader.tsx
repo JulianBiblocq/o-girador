@@ -98,7 +98,7 @@ export const AudioFader: React.FC<AudioFaderProps> = ({
           reverbSends[trackId].gain.rampTo(val === 0 ? 0 : gain, 0.05);
         }
       } catch (err) {
-        console.warn("Could not set fader reverb level:", err);
+
       }
     } else if (audioTarget === 'masterVolume' && masterVolumeNode) {
       masterVolumeNode.gain.rampTo(safeGetTone()?.dbToGain(val === -40 ? -Infinity : val), 0.05);
@@ -121,7 +121,7 @@ export const AudioFader: React.FC<AudioFaderProps> = ({
       try {
         reverbNode.decay = val;
       } catch (err) {
-        console.warn("Error setting reverb decay:", err);
+
       }
     }
   };

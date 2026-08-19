@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, setDoc } from 'firebase/firestore';
 import { storage, db, auth } from '../firebase/config';
+import { telemetryService } from '../services/telemetryService';
 
 export interface MetadonneesDanse {
   id: string;
@@ -49,17 +50,17 @@ export function usePublierVersDanca() {
       const cheminFichier = `exports_danse/${tenantId}/${id}.${ext}`;
       const storageRef = ref(storage, cheminFichier);
       
-      console.log(`[Export Danse] ÉTAPE 3: Upload Firebase Storage vers ${cheminFichier}...`);
+
       await uploadBytes(storageRef, blob, { contentType: blob.type || 'audio/webm' });
       
       // 2. Récupération de l'URL publique
       const audioUrl = await getDownloadURL(storageRef);
-      console.log(`[Export Danse] Fichier uploadé avec succès: ${audioUrl}`);
+
       
       // 3. Mise à jour de Firestore (collection audio_masters)
       const safeTenantId = tenantId || "tenant_local";
       const documentId = `${safeTenantId}_${id}`;
-      console.log(`[Export Danse] ÉTAPE 4: Écriture Firestore (document ${documentId})...`);
+
       const documentRef = doc(db, 'audio_masters', documentId);
       
       try {
@@ -69,10 +70,10 @@ export function usePublierVersDanca() {
           audioUrl,
           createdAt: new Date().toISOString()
         };
-        console.log("Tentative d'écriture Firestore...", payload);
+
         
         await setDoc(documentRef, payload, { merge: true });
-        console.log(`[Export Danse] Métadonnées publiées dans Firestore avec succès.`);
+
       } catch (firestoreError: any) {
         console.error("ÉCHEC Écriture Firestore :", firestoreError);
         throw firestoreError;
@@ -83,6 +84,7 @@ export function usePublierVersDanca() {
       
     } catch (err: any) {
       console.error('[Export Danse] Erreur lors de la publication:', err);
+      telemetryService.logError(err, 'usePublierVersDanca', auth.currentUser?.uid);
       let messageErreur = 'Une erreur est survenue lors de la publication.';
       if (err.code && err.code.includes('permission-denied')) {
         messageErreur = auth.currentUser 

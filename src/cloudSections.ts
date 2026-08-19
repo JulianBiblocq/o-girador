@@ -87,7 +87,7 @@ export async function fetchCloudSections(
     
   } catch (err) {
     if (err && ((err as any).code === 'permission-denied' || String(err).includes('permission'))) {
-      console.warn("Cloud features disabled: Missing or insufficient Firebase permissions for cloud sections.");
+
     } else {
       console.error("Error fetching cloud sections:", err);
     }

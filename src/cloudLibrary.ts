@@ -92,7 +92,7 @@ export async function fetchCloudPresets(
     
   } catch (err) {
     if (err && ((err as any).code === 'permission-denied' || String(err).includes('permission'))) {
-      console.warn("Cloud features disabled: Missing or insufficient Firebase permissions for cloud presets.");
+
     } else {
       console.error("Error fetching cloud presets:", err);
     }

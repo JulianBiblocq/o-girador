@@ -4,10 +4,12 @@ import {GameDataProvider} from './contexts/GameDataContext.tsx';
 import {SequencerProvider} from './contexts/SequencerContext.tsx';
 import {AudioProvider} from './contexts/AudioContext.tsx';
 import App from './App.tsx';
+import { HelmetProvider } from 'react-helmet-async';
 import { AuthProvider } from './contexts/AuthContext.tsx';
 import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { indexedDBPersister } from './queryPersister';
+import { telemetryService } from './services/telemetryService';
 import './index.css';
 
 // Filtrer les logs de debug vocal (VOCAL DEBUG) et de scheduler pour ne pas encombrer la console F12
@@ -74,31 +76,7 @@ export class TopLevelErrorBoundary extends React.Component<{ children: React.Rea
     
     // Send telemetry to Hub
     try {
-      const hubUrl = import.meta.env.VITE_OGIRADOR_HUB_URL;
-      if (!hubUrl) return; // Ignore if no valid HUB URL
-      
-      const apiKey = import.meta.env.VITE_OGIRADOR_HUB_API_KEY || '';
-      fetch(`${hubUrl}/api/telemetry/submit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey
-        },
-        body: JSON.stringify({
-          targetCollection: 'hub_system_errors',
-          data: {
-            appSource: 'sequenceur',
-            appVersion: '4.0.0',
-            pageUrl: window.location.href,
-            userAgent: navigator.userAgent,
-            timestamp: Date.now(),
-            errorType: 'ReactBoundary',
-            message: error.message,
-            stack: error.stack,
-            componentStack: errorInfo?.componentStack
-          }
-        })
-      }).catch(e => console.error('Failed to send crash telemetry:', e));
+      telemetryService.logError(error, 'ReactBoundary');
     } catch (e) {
       // Ignore telemetry failure
     }
@@ -157,30 +135,9 @@ export const GlobalErrorListener: React.FC = () => {
   useEffect(() => {
     const sendTelemetry = (type: string, message: string, stack?: string) => {
       try {
-        const hubUrl = import.meta.env.VITE_OGIRADOR_HUB_URL;
-        if (!hubUrl) return; // Ignore if no valid HUB URL
-        
-        const apiKey = import.meta.env.VITE_OGIRADOR_HUB_API_KEY || '';
-        fetch(`${hubUrl}/api/telemetry/submit`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey
-          },
-          body: JSON.stringify({
-            targetCollection: 'hub_system_errors',
-            data: {
-              appSource: 'sequenceur',
-              appVersion: '4.0.0',
-              pageUrl: window.location.href,
-              userAgent: navigator.userAgent,
-              timestamp: Date.now(),
-              errorType: type,
-              message,
-              stack
-            }
-          })
-        }).catch(e => console.error('Failed to send telemetry:', e));
+        const errorObj = new Error(message);
+        if (stack) errorObj.stack = stack;
+        telemetryService.logError(errorObj, type);
       } catch (e) {
         // Ignore telemetry failure
       }
@@ -268,16 +225,18 @@ export const GlobalErrorListener: React.FC = () => {
 createRoot(document.getElementById('root')!).render(
   <TopLevelErrorBoundary>
     <GlobalErrorListener />
-    <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: indexedDBPersister }}>
-      <AuthProvider>
-        <GameDataProvider>
-          <SequencerProvider>
-            <AudioProvider>
-              <App />
-            </AudioProvider>
-          </SequencerProvider>
-        </GameDataProvider>
-      </AuthProvider>
-    </PersistQueryClientProvider>
+    <HelmetProvider>
+      <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: indexedDBPersister }}>
+        <AuthProvider>
+          <GameDataProvider>
+            <SequencerProvider>
+              <AudioProvider>
+                <App />
+              </AudioProvider>
+            </SequencerProvider>
+          </GameDataProvider>
+        </AuthProvider>
+      </PersistQueryClientProvider>
+    </HelmetProvider>
   </TopLevelErrorBoundary>
 );

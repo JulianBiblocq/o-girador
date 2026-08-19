@@ -1,0 +1,13 @@
+{
+  "projects": {},
+  "targets": {
+    "o-girador-7828c": {
+      "hosting": {
+        "sequenceur": [
+          "o-girador-sequenciador"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

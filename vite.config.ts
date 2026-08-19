@@ -43,7 +43,7 @@ const pwaRuntimeCaching = [
 export default defineConfig(({ command, mode }) => {
   const isPreview = mode === 'production' && command === 'serve';
   return {
-    base: command === 'build' || isPreview ? '/o-girador/' : '/',
+    base: '/',
     build: {
       rollupOptions: {
         output: {
