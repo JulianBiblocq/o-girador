@@ -658,7 +658,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       }
       
       onStepTouchStart(e, pattern.id, stepIdx, instrument.id, valToEdit as string | number, (newVal) => {
-        let finalVal: string | [string, string] = String(newVal);
+        let finalVal: string | [string, string] = Array.isArray(newVal) ? newVal as [string, string] : String(newVal);
         if (subIndex !== undefined && Array.isArray(currentVal)) {
           finalVal = [...currentVal] as [string, string];
           finalVal[subIndex] = String(newVal);
