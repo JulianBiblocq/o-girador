@@ -80,9 +80,9 @@ interface PercussionStepCellProps {
   totalShift: number;
   trackId: number;
   
-  onMouseDown: (e: React.MouseEvent<HTMLInputElement>, index: number, value: string | number) => void;
+  onMouseDown: (e: React.MouseEvent<HTMLInputElement>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
   onMouseEnter: (index: number) => void;
-  onTouchStart: (e: React.TouchEvent<HTMLInputElement>, index: number, value: string | number) => void;
+  onTouchStart: (e: React.TouchEvent<HTMLInputElement>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
   onChange: (e: React.ChangeEvent<HTMLInputElement>, index: number) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, index: number) => void;
 }
@@ -113,40 +113,103 @@ const PercussionStepCell = React.memo(({
 }: PercussionStepCellProps) => {
   return (
     <div key={i} className="flex flex-col items-center select-none" style={{ width: isSextuplet || isTriplet || isOcto ? 'auto' : '36px', flex: isSextuplet || isTriplet || isOcto ? '1' : 'none' }}>
-      <input
-        type="text"
-        value={val === 0 ? '' : val}
-        readOnly={isMultiSelectActive}
-        onMouseDown={(e) => onMouseDown(e, i, val)}
-        onMouseEnter={() => onMouseEnter(i)}
-        onTouchStart={(e) => onTouchStart(e, i, val)}
-        onChange={(e) => onChange(e, i)}
-        onKeyDown={(e) => onKeyDown(e, i)}
-        className={`text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
-          val === 0
-            ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
-            : ''
-        } ${
-          isMultiSelected
-            ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-            : isFocused
-              ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-              : 'outline-none'
-        }`}
-        style={{
-          ...colorStyle,
-          width: isSextuplet || isTriplet || isOcto ? '100%' : '36px',
-          height: isSextuplet || isTriplet ? '48px' : '36px',
-          transform: `translateX(${shiftPx}px)`,
-          clipPath: isSextuplet 
-            ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
-            : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
-          borderStyle: isSextuplet || isTriplet ? 'none' : undefined,
-          borderRadius: isSextuplet || isTriplet ? '0' : undefined
-        }}
-        data-track-id={trackId}
-        data-step-index={i}
-      />
+      {Array.isArray(val) ? (
+        <div className="flex w-full h-full gap-[1px]">
+          <input
+            type="text"
+            value={val[0] === '0' || val[0] === 0 ? '' : val[0]}
+            readOnly={isMultiSelectActive}
+            onMouseDown={(e) => onMouseDown(e, i, val, 0)}
+            onMouseEnter={() => onMouseEnter(i)}
+            onTouchStart={(e) => onTouchStart(e, i, val, 0)}
+            onChange={(e) => onChange(e, i)}
+            onKeyDown={(e) => onKeyDown(e, i)}
+            className={`w-1/2 text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
+              val[0] === '0' || val[0] === 0
+                ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
+                : ''
+            } ${
+              isMultiSelected
+                ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+                : isFocused
+                  ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+                  : 'outline-none'
+            }`}
+            style={{
+              ...colorStyle,
+              height: isSextuplet || isTriplet ? '48px' : '36px',
+              borderStyle: isSextuplet || isTriplet ? 'none' : undefined,
+              borderRadius: isSextuplet || isTriplet ? '0' : undefined
+            }}
+            data-track-id={trackId}
+            data-step-index={i}
+          />
+          <input
+            type="text"
+            value={val[1] === '0' || val[1] === 0 ? '' : val[1]}
+            readOnly={isMultiSelectActive}
+            onMouseDown={(e) => onMouseDown(e, i, val, 1)}
+            onMouseEnter={() => onMouseEnter(i)}
+            onTouchStart={(e) => onTouchStart(e, i, val, 1)}
+            onChange={(e) => onChange(e, i)}
+            onKeyDown={(e) => onKeyDown(e, i)}
+            className={`w-1/2 text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
+              val[1] === '0' || val[1] === 0
+                ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
+                : ''
+            } ${
+              isMultiSelected
+                ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+                : isFocused
+                  ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+                  : 'outline-none'
+            }`}
+            style={{
+              ...colorStyle,
+              height: isSextuplet || isTriplet ? '48px' : '36px',
+              borderStyle: isSextuplet || isTriplet ? 'none' : undefined,
+              borderRadius: isSextuplet || isTriplet ? '0' : undefined
+            }}
+            data-track-id={trackId}
+            data-step-index={i}
+          />
+        </div>
+      ) : (
+        <input
+          type="text"
+          value={val === 0 ? '' : val}
+          readOnly={isMultiSelectActive}
+          onMouseDown={(e) => onMouseDown(e, i, val)}
+          onMouseEnter={() => onMouseEnter(i)}
+          onTouchStart={(e) => onTouchStart(e, i, val)}
+          onChange={(e) => onChange(e, i)}
+          onKeyDown={(e) => onKeyDown(e, i)}
+          className={`text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
+            val === 0
+              ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
+              : ''
+          } ${
+            isMultiSelected
+              ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+              : isFocused
+                ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+                : 'outline-none'
+          }`}
+          style={{
+            ...colorStyle,
+            width: isSextuplet || isTriplet || isOcto ? '100%' : '36px',
+            height: isSextuplet || isTriplet ? '48px' : '36px',
+            transform: `translateX(${shiftPx}px)`,
+            clipPath: isSextuplet 
+              ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
+              : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
+            borderStyle: isSextuplet || isTriplet ? 'none' : undefined,
+            borderRadius: isSextuplet || isTriplet ? '0' : undefined
+          }}
+          data-track-id={trackId}
+          data-step-index={i}
+        />
+      )}
       {/* Sculpting micro-bars */}
       <div className="w-full flex flex-col gap-[2px] mt-1 z-10 relative">
         {/* Volume bar (Green) */}
