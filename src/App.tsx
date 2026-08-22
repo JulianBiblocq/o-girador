@@ -453,8 +453,8 @@ export default function App() {
     patternId: number,
     stepIdx: number,
     instId: string,
-    currentVal: string | number,
-    onSelect: (val: string) => void,
+    currentVal: string | number | [string, string],
+    onSelect: (val: string | [string, string]) => void,
     trackId: number
   ) => {
     if ('button' in e && e.button !== 0) return;

@@ -83,8 +83,8 @@ interface PercussionStepCellProps {
   onMouseDown: (e: React.MouseEvent<HTMLInputElement>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
   onMouseEnter: (index: number) => void;
   onTouchStart: (e: React.TouchEvent<HTMLInputElement>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>, index: number) => void;
-  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, index: number) => void;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
 }
 
 const PercussionStepCell = React.memo(({
@@ -122,8 +122,8 @@ const PercussionStepCell = React.memo(({
             onMouseDown={(e) => onMouseDown(e, i, val, 0)}
             onMouseEnter={() => onMouseEnter(i)}
             onTouchStart={(e) => onTouchStart(e, i, val, 0)}
-            onChange={(e) => onChange(e, i)}
-            onKeyDown={(e) => onKeyDown(e, i)}
+            onChange={(e) => onChange(e, i, val, 0)}
+            onKeyDown={(e) => onKeyDown(e, i, val, 0)}
             className={`w-1/2 text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
               val[0] === '0' || val[0] === 0
                 ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
@@ -151,8 +151,8 @@ const PercussionStepCell = React.memo(({
             onMouseDown={(e) => onMouseDown(e, i, val, 1)}
             onMouseEnter={() => onMouseEnter(i)}
             onTouchStart={(e) => onTouchStart(e, i, val, 1)}
-            onChange={(e) => onChange(e, i)}
-            onKeyDown={(e) => onKeyDown(e, i)}
+            onChange={(e) => onChange(e, i, val, 1)}
+            onKeyDown={(e) => onKeyDown(e, i, val, 1)}
             className={`w-1/2 text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
               val[1] === '0' || val[1] === 0
                 ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
@@ -182,8 +182,8 @@ const PercussionStepCell = React.memo(({
           onMouseDown={(e) => onMouseDown(e, i, val)}
           onMouseEnter={() => onMouseEnter(i)}
           onTouchStart={(e) => onTouchStart(e, i, val)}
-          onChange={(e) => onChange(e, i)}
-          onKeyDown={(e) => onKeyDown(e, i)}
+          onChange={(e) => onChange(e, i, val)}
+          onKeyDown={(e) => onKeyDown(e, i, val)}
           className={`text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
             val === 0
               ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
@@ -649,21 +649,31 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     });
   }, [isMultiSelectActive, setSelectedStepIndices]);
 
-  const handleStart = React.useCallback((e: React.MouseEvent | React.TouchEvent, stepIdx: number, currentVal: string | number) => {
+  const handleStart = React.useCallback((e: React.MouseEvent | React.TouchEvent, stepIdx: number, currentVal: string | number | [string, string], subIndex?: 0 | 1) => {
     if ('shiftKey' in e && e.shiftKey) return;
     if (onStepTouchStart) {
-      onStepTouchStart(e, pattern.id, stepIdx, instrument.id, currentVal, (newVal) => {
+      let valToEdit = currentVal;
+      if (Array.isArray(currentVal)) {
+        valToEdit = subIndex !== undefined ? currentVal[subIndex] : currentVal[0];
+      }
+      
+      onStepTouchStart(e, pattern.id, stepIdx, instrument.id, valToEdit as string | number, (newVal) => {
+        let finalVal: string | [string, string] = String(newVal);
+        if (subIndex !== undefined && Array.isArray(currentVal)) {
+          finalVal = [...currentVal] as [string, string];
+          finalVal[subIndex] = String(newVal);
+        }
+        
         if (selectedVariationId) {
-          handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, stepIdx, newVal);
+          handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, stepIdx, finalVal);
         } else {
-          handleTrackStepValueChange(trackId, pattern.id, stepIdx, newVal);
+          handleTrackStepValueChange(trackId, pattern.id, stepIdx, finalVal);
         }
       }, trackId);
     }
   }, [onStepTouchStart, pattern.id, instrument.id, selectedVariationId, trackId, handleVariationStepValueChange, handleTrackStepValueChange]);
 
-  // Stable callbacks for step cell events (Zero inline closure allocations)
-  const handleCellMouseDown = React.useCallback((e: React.MouseEvent<HTMLInputElement>, idx: number, value: string | number) => {
+  const handleCellMouseDown = React.useCallback((e: React.MouseEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
     e.stopPropagation();
     if (e.button !== 0) return;
     setSelectedPatternId(pattern.id);
@@ -676,12 +686,23 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
     if (e.altKey) {
       isMouseDownRef.current = true;
-      const nextVal = getNextStepValue(instrument?.id, instrument?.type, value);
+      let valToCycle = value;
+      if (Array.isArray(value)) {
+        valToCycle = subIndex !== undefined ? value[subIndex] : value[0];
+      }
+      const nextVal = getNextStepValue(instrument?.id, instrument?.type, valToCycle as string | number);
       paintValueRef.current = nextVal;
+      
+      let finalVal: string | [string, string] = String(nextVal);
+      if (subIndex !== undefined && Array.isArray(value)) {
+        finalVal = [...value] as [string, string];
+        finalVal[subIndex] = String(nextVal);
+      }
+      
       if (selectedVariationId) {
-        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, String(nextVal));
+        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
       } else {
-        handleTrackStepValueChange(trackId, pattern.id, idx, String(nextVal));
+        handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
       }
       return;
     }
@@ -702,14 +723,25 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     setSelectedStepIndices([idx]);
     isMouseDownRef.current = true;
     if (onStepTouchStart) {
-      handleStart(e, idx, value);
+      handleStart(e, idx, value, subIndex);
     } else {
-      const nextVal = getNextStepValue(instrument?.id, instrument?.type, value);
+      let valToCycle = value;
+      if (Array.isArray(value)) {
+        valToCycle = subIndex !== undefined ? value[subIndex] : value[0];
+      }
+      const nextVal = getNextStepValue(instrument?.id, instrument?.type, valToCycle as string | number);
       paintValueRef.current = nextVal;
+      
+      let finalVal: string | [string, string] = String(nextVal);
+      if (subIndex !== undefined && Array.isArray(value)) {
+        finalVal = [...value] as [string, string];
+        finalVal[subIndex] = String(nextVal);
+      }
+      
       if (selectedVariationId) {
-        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, String(nextVal));
+        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
       } else {
-        handleTrackStepValueChange(trackId, pattern.id, idx, String(nextVal));
+        handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
       }
     }
   }, [pattern.id, selectedVariationId, isMultiSelectActive, instrument?.id, instrument?.type, trackId, selectedStepIdx, onStepTouchStart, handleStart, handleStepMouseDownMulti, handleVariationStepValueChange, handleTrackStepValueChange, setSelectedPatternId, setSelectedVariationId, setSelectedStepIndices, setSelectedStepIdx]);
@@ -728,28 +760,52 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
   }, [isMultiSelectActive, handleStepMouseEnterMulti, selectedVariationId, trackId, pattern.id, handleVariationStepValueChange, handleTrackStepValueChange]);
 
-  const handleCellTouchStart = React.useCallback((e: React.TouchEvent<HTMLInputElement>, idx: number, value: string | number) => {
+  const handleCellTouchStart = React.useCallback((e: React.TouchEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
     e.stopPropagation();
     if (isMultiSelectActive) {
       handleStepTouchStartMulti(e as any, idx);
       return;
     }
-    handleStart(e, idx, value);
+    handleStart(e, idx, value, subIndex);
   }, [isMultiSelectActive, handleStepTouchStartMulti, handleStart]);
 
-  const handleCellChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>, idx: number) => {
+  const handleCellChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
     const newVal = e.target.value;
+    let finalVal: string | [string, string] = String(newVal);
+    if (subIndex !== undefined && Array.isArray(value)) {
+      finalVal = [...value] as [string, string];
+      finalVal[subIndex] = String(newVal);
+    }
     if (selectedVariationId) {
-      handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, newVal);
+      handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
     } else {
-      handleTrackStepValueChange(trackId, pattern.id, idx, newVal);
+      handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
     }
   }, [selectedVariationId, trackId, pattern.id, handleVariationStepValueChange, handleTrackStepValueChange]);
 
-  const handleCellKeyDown = React.useCallback((e: React.KeyboardEvent<HTMLInputElement>, idx: number) => {
+  const handleCellKeyDown = React.useCallback((e: React.KeyboardEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
     const inputEl = e.currentTarget as HTMLInputElement;
-    handleTrackStepKeyDown(trackId, pattern.id, idx, e.key, inputEl.value, inputEl);
-  }, [handleTrackStepKeyDown, trackId, pattern.id]);
+    if (subIndex !== undefined && Array.isArray(value)) {
+      // Temporarily bypass handleTrackStepKeyDown for subIndex because it doesn't support arrays yet
+      const finalVal = [...value] as [string, string];
+      if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+        finalVal[subIndex] = '0';
+      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        finalVal[subIndex] = e.key;
+      } else {
+        return; // Ignore other keys
+      }
+      
+      e.preventDefault();
+      if (selectedVariationId) {
+        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
+      } else {
+        handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
+      }
+    } else {
+      handleTrackStepKeyDown(trackId, pattern.id, idx, e.key, inputEl.value, inputEl);
+    }
+  }, [handleTrackStepKeyDown, trackId, pattern.id, selectedVariationId, handleVariationStepValueChange, handleTrackStepValueChange]);
 
   const handleVoiceTouchStart = React.useCallback((e: React.TouchEvent<HTMLDivElement>, idx: number) => {
     if (isMultiSelectActive) {
