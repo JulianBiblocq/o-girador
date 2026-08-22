@@ -173,8 +173,9 @@ const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
   const inst = instrumentsConfig.find((i) => i.id === selector.instId);
   if (!inst) return null;
 
-  // Extract strokes excluding 'text' key
-  const instStrokes = Object.keys(inst.colors).filter((k) => k !== 'text');
+  // Extract strokes for this specific instrument
+  const strokeDefs = getStrokesForInstrument(inst.id, inst.type, lang, isLeftHanded);
+  const instStrokes = strokeDefs.map(s => s.symbol);
   // Include "0" (silence) at the beginning of the list
   const allChoices = ['0', ...instStrokes];
 
