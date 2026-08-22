@@ -1282,12 +1282,13 @@ export function useAudioSync({
               const velocity = flatArray[ptr + 2];
               const microtimingPct = flatArray[ptr + 3];
 
-              // Decode packedData: trackIdx (8 bits), circleStepIdx (5 bits), strokeCharCode (7 bits), decayPct (7 bits), isTuplet (1 bit)
-              const trackIdx = (packedData >> 20) & 0xFF;
-              const circleStepIdx = (packedData >> 15) & 0x1F;
-              const strokeCharCode = (packedData >> 8) & 0x7F;
-              const decayPct = (packedData >> 1) & 0x7F;
-              const isTuplet = (packedData & 1) === 1;
+              // Decode packedData: trackIdx (10 bits), step (6 bits), strokeCharCode (7 bits), decayPct (7 bits), isTuplet (1 bit), isSecondStroke (1 bit)
+              const trackIdx = (packedData >> 22) & 0x3FF;
+              const circleStepIdx = (packedData >> 16) & 0x3F;
+              const strokeCharCode = (packedData >> 9) & 0x7F;
+              const decayPct = (packedData >> 2) & 0x7F;
+              const isTuplet = ((packedData >> 1) & 1) === 1;
+              const isSecondStroke = (packedData & 1) === 1;
 
               const liveTrack = tracksRef.current[trackIdx];
               if (liveTrack) {
@@ -1347,7 +1348,11 @@ export function useAudioSync({
                     const stepDurSec = tick96nSec * (currentTicks / stepCount);
                     const microOffset = (microtimingPct / 100) * stepDurSec * 0.5;
 
-                    const triggerTime = time + noteSwingOffset + microOffset;
+                    let triggerTime = time + noteSwingOffset + microOffset;
+                    
+                    if (isSecondStroke) {
+                      triggerTime += Tone.Time("32n").toSeconds();
+                    }
 
                     audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
 

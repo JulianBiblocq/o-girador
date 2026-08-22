@@ -22,6 +22,22 @@ import {
   generateGongueKeyframes,
   generateMineiroKeyframes,
   generateAgbeKeyframes,
+  generateTimbalKeyframes,
+  getTotalDuration,
+  PHYSICS_ALFAIA,
+  PHYSICS_DRUM,
+  PHYSICS_TIMBAL,
+  PHYSICS_GONGUE,
+  PHYSICS_MINEIRO,
+  PHYSICS_AGBE,
+  generateTimbalKeyframes,
+  getTotalDuration,
+  PHYSICS_ALFAIA,
+  PHYSICS_DRUM,
+  PHYSICS_TIMBAL,
+  PHYSICS_GONGUE,
+  PHYSICS_MINEIRO,
+  PHYSICS_AGBE,
   KEYFRAMES_TIMBAL_G,
   KEYFRAMES_TIMBAL_A,
   KEYFRAMES_TIMBAL_S,
@@ -364,15 +380,17 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
               }
 
               if (triggerLeft && leftStickRef.current && keyframesLeft) {
+                const isStrong = ['D', 'E', 'I', 'X', 'C'].includes(stroke);
                 leftStickRef.current.animate(keyframesLeft, {
-                  duration: isVibrate ? 100 : 350,
+                  duration: isVibrate ? 100 : getTotalDuration(PHYSICS_ALFAIA, isStrong),
                   iterations: isVibrate ? Infinity : 1,
                   easing: isVibrate ? 'linear' : undefined
                 });
               }
               if (triggerRight && rightStickRef.current && keyframesRight) {
+                const isStrong = ['D', 'E', 'I', 'X', 'C'].includes(stroke);
                 rightStickRef.current.animate(keyframesRight, {
-                  duration: isVibrate ? 100 : 350,
+                  duration: isVibrate ? 100 : getTotalDuration(PHYSICS_ALFAIA, isStrong),
                   iterations: isVibrate ? Infinity : 1,
                   easing: isVibrate ? 'linear' : undefined
                 });
@@ -439,15 +457,17 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
               }
 
               if (triggerLeft && leftStickRef.current && keyframesLeft) {
+                const isStrong = ['D', 'E', 'I', 'X', 'C'].includes(stroke);
                 leftStickRef.current.animate(keyframesLeft, {
-                  duration: isVibrate ? 100 : 350,
+                  duration: isVibrate ? 100 : getTotalDuration(PHYSICS_ALFAIA, isStrong),
                   iterations: isVibrate ? Infinity : 1,
                   easing: isVibrate ? 'linear' : undefined
                 });
               }
               if (triggerRight && rightStickRef.current && keyframesRight) {
+                const isStrong = ['D', 'E', 'I', 'X', 'C'].includes(stroke);
                 rightStickRef.current.animate(keyframesRight, {
-                  duration: isVibrate ? 100 : 350,
+                  duration: isVibrate ? 100 : getTotalDuration(PHYSICS_ALFAIA, isStrong),
                   iterations: isVibrate ? Infinity : 1,
                   easing: isVibrate ? 'linear' : undefined
                 });
@@ -462,8 +482,8 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
             // --- 2.5 Timbal ---
             else if (inst.id === 'timbal') {
-              let keyframesLeft: Keyframe[] = KEYFRAMES_TIMBAL_A;
-              let keyframesRight: Keyframe[] = KEYFRAMES_TIMBAL_A;
+              let keyframesLeft: Keyframe[] | null = null;
+              let keyframesRight: Keyframe[] | null = null;
               let triggerLeft = false;
               let triggerRight = false;
               let animHalo = false;
@@ -478,44 +498,29 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
                 const isForte = ['G', 'A', 'S', 'D', 'P'].includes(stroke);
                 const isFaible = ['g', 'a', 's', 'd', 'p'].includes(stroke);
 
-                let selectedKeyframes = KEYFRAMES_TIMBAL_A;
-                if (stroke === 'G' || stroke === 'g') {
-                  selectedKeyframes = KEYFRAMES_TIMBAL_G;
-                } else if (stroke === 'A' || stroke === 'a') {
-                  selectedKeyframes = KEYFRAMES_TIMBAL_A;
-                } else if (stroke === 'S') {
-                  selectedKeyframes = KEYFRAMES_TIMBAL_S;
-                } else if (stroke === 's') {
-                  selectedKeyframes = KEYFRAMES_TIMBAL_S_WEAK;
-                } else if (stroke === 'D' || stroke === 'd') {
-                  selectedKeyframes = KEYFRAMES_TIMBAL_D;
-                } else if (stroke === 'P' || stroke === 'p') {
-                  selectedKeyframes = KEYFRAMES_TIMBAL_P;
-                }
-
                 if (isForte) {
-                  if (isLeftHanded) { keyframesLeft = selectedKeyframes; triggerLeft = true; }
-                  else { keyframesRight = selectedKeyframes; triggerRight = true; }
+                  if (isLeftHanded) { keyframesLeft = generateTimbalKeyframes(stroke, true).keyframes; triggerLeft = true; }
+                  else { keyframesRight = generateTimbalKeyframes(stroke, false).keyframes; triggerRight = true; }
                 } else if (isFaible) {
-                  if (isLeftHanded) { keyframesRight = selectedKeyframes; triggerRight = true; }
-                  else { keyframesLeft = selectedKeyframes; triggerLeft = true; }
+                  if (isLeftHanded) { keyframesRight = generateTimbalKeyframes(stroke, false).keyframes; triggerRight = true; }
+                  else { keyframesLeft = generateTimbalKeyframes(stroke, true).keyframes; triggerLeft = true; }
                 } else if (stroke === 'F' || stroke === 'f') {
-                  keyframesLeft = KEYFRAMES_TIMBAL_A;
-                  keyframesRight = KEYFRAMES_TIMBAL_A;
+                  keyframesLeft = generateTimbalKeyframes('A', true).keyframes;
+                  keyframesRight = generateTimbalKeyframes('A', false).keyframes;
                   triggerLeft = true;
                   triggerRight = true;
                   animHalo = true;
                   animHaloOffsetY = -80;
                 } else if (stroke === 'V') {
-                  keyframesLeft = KEYFRAMES_TIMBAL_S;
-                  keyframesRight = KEYFRAMES_TIMBAL_S;
+                  keyframesLeft = generateTimbalKeyframes('S', true).keyframes;
+                  keyframesRight = generateTimbalKeyframes('S', false).keyframes;
                   triggerLeft = true;
                   triggerRight = true;
                   animHalo = true;
                   animHaloOffsetY = -50;
                 } else if (stroke === 'v') {
-                  keyframesLeft = KEYFRAMES_TIMBAL_S_WEAK;
-                  keyframesRight = KEYFRAMES_TIMBAL_S_WEAK;
+                  keyframesLeft = generateTimbalKeyframes('s', true).keyframes;
+                  keyframesRight = generateTimbalKeyframes('s', false).keyframes;
                   triggerLeft = true;
                   triggerRight = true;
                   animHalo = true;
@@ -531,15 +536,17 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
               }
 
               if (triggerLeft && leftStickRef.current) {
+                const isStrong = ['G', 'A', 'S', 'D', 'P'].includes(stroke);
                 leftStickRef.current.animate(keyframesLeft, {
-                  duration: isVibrate ? 100 : 350,
+                  duration: isVibrate ? 100 : getTotalDuration(PHYSICS_TIMBAL, isStrong),
                   iterations: isVibrate ? Infinity : 1,
                   easing: isVibrate ? 'linear' : undefined
                 });
               }
               if (triggerRight && rightStickRef.current) {
+                const isStrong = ['G', 'A', 'S', 'D', 'P'].includes(stroke);
                 rightStickRef.current.animate(keyframesRight, {
-                  duration: isVibrate ? 100 : 350,
+                  duration: isVibrate ? 100 : getTotalDuration(PHYSICS_TIMBAL, isStrong),
                   iterations: isVibrate ? Infinity : 1,
                   easing: isVibrate ? 'linear' : undefined
                 });
@@ -557,8 +564,10 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
               const keyframes = generateMineiroKeyframes(stroke);
 
               if (mineiroStickRef.current) {
+                const normalizedStroke = (stroke === 'F' || stroke === 'f') ? 'D' : stroke;
+                const isStrong = ['D', 'P', 'T', 'L', 'B'].includes(normalizedStroke);
                 mineiroStickRef.current.animate(keyframes, {
-                  duration: 300,
+                  duration: stroke.lower() == 'b' ? 150 : getTotalDuration(PHYSICS_MINEIRO, isStrong),
                   fill: 'forwards'
                 });
               }
@@ -579,10 +588,12 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
                   if (stroke === 'E' || stroke === 'e') {
                     const keyframes = stroke === 'E' ? KEYFRAMES_AGBE_STRETCH_X_STRONG : KEYFRAMES_AGBE_STRETCH_X_WEAK;
-                    agbeLeftRef.current.animate(keyframes, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
+                    const isStrong = ['D', 'E', 'S', 'V', 'B'].includes(stroke);
+                    agbeLeftRef.current.animate(keyframes, { duration: getTotalDuration(PHYSICS_AGBE, isStrong) });
                   } else {
                     const keyframes = stroke === 'D' ? KEYFRAMES_AGBE_STRETCH_X_STRONG : KEYFRAMES_AGBE_STRETCH_X_WEAK;
-                    agbeRightRef.current.animate(keyframes, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
+                    const isStrong = ['D', 'E', 'S', 'V', 'B'].includes(stroke);
+                    agbeRightRef.current.animate(keyframes, { duration: getTotalDuration(PHYSICS_AGBE, isStrong) });
                   }
                 } else if (isTopBottom) {
                   agbeWholeRef.current.style.display = 'none';
@@ -593,10 +604,12 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
                   if (stroke === 'S' || stroke === 's') {
                     const keyframes = stroke === 'S' ? KEYFRAMES_AGBE_STRETCH_Y_STRONG : KEYFRAMES_AGBE_STRETCH_Y_WEAK;
-                    agbeTopRef.current.animate(keyframes, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
+                    const isStrong = ['D', 'E', 'S', 'V', 'B'].includes(stroke);
+                    agbeTopRef.current.animate(keyframes, { duration: getTotalDuration(PHYSICS_AGBE, isStrong) });
                   } else {
                     const keyframes = stroke === 'V' ? KEYFRAMES_AGBE_STRETCH_Y_STRONG : KEYFRAMES_AGBE_STRETCH_Y_WEAK;
-                    agbeBottomRef.current.animate(keyframes, { duration: 350, easing: 'cubic-bezier(0.2, 0.8, 0.4, 1)' });
+                    const isStrong = ['D', 'E', 'S', 'V', 'B'].includes(stroke);
+                    agbeBottomRef.current.animate(keyframes, { duration: getTotalDuration(PHYSICS_AGBE, isStrong) });
                   }
                 } else {
                   agbeWholeRef.current.style.display = 'block';
@@ -606,7 +619,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
                   agbeBottomRef.current.style.display = 'none';
 
                   const keyframes = KEYFRAMES_AGBE_SHAKE;
-                  agbeWholeRef.current.animate(keyframes, { duration: 350, easing: 'linear' });
+                  agbeWholeRef.current.animate(keyframes, { duration: getTotalDuration(PHYSICS_AGBE, False) });
                 }
               }
             }
@@ -640,8 +653,9 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
               const keyframes = generateGongueKeyframes(stroke);
 
               if (gongueStickRef.current) {
+                const isStrong = ['G', 'A'].includes(stroke);
                 gongueStickRef.current.animate(keyframes, {
-                  duration: isVibrate ? 100 : 300,
+                  duration: isVibrate ? 100 : getTotalDuration(PHYSICS_GONGUE, isStrong),
                   iterations: isVibrate ? Infinity : 1,
                   easing: isVibrate ? 'linear' : undefined
                 });

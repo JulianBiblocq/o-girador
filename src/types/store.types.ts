@@ -6,7 +6,7 @@
 export interface PatternVariation {
   id: string;
   name: string;
-  steps: (string | number)[];
+  steps: (string | number | [string, string])[];
   probability: number;
   volumes?: number[];
   decays?: number[];
@@ -19,7 +19,7 @@ export interface Pattern {
   id: number;
   name: string;
   steps: number;
-  activeSteps: (string | number)[];
+  activeSteps: (string | number | [string, string])[];
   lyrics: string[];
   notes: string[];
   measureAssignments: boolean[];
@@ -38,7 +38,7 @@ export interface Pattern {
   vocalClip?: VocalClipMeta;
   beatResolutions?: number[]; // Added for tuplet support
   variations?: PatternVariation[];
-  preRollActiveSteps?: (string | number)[];
+  preRollActiveSteps?: (string | number | [string, string])[];
   preRollLyrics?: string[];
   preRollNotes?: string[];
   preRollVolumes?: number[];
@@ -58,7 +58,7 @@ export interface SavedPattern {
   instrumentId: string;
   name: string;
   folder: string;
-  steps: (string | number)[];
+  steps: (string | number | [string, string])[];
   variations: PatternVariation[];
   volumes?: number[];
   decays?: number[];

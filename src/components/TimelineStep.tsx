@@ -309,20 +309,38 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
         const val = pattern?.activeSteps?.[stepIdx] ?? 0;
         resolvedVal = val;
         resolvedNote = pattern?.notes?.[stepIdx] ?? '';
-        const hasEvent = val !== 0 && val !== '';
+        const hasEvent = val !== 0 && val !== '' && !(Array.isArray(val) && val.length === 0);
 
         if (hasEvent) {
-          const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
-          leftState = val;
-          leftInstId = inst.id;
+          if (Array.isArray(val) && val.length === 2) {
+             isSplit = true;
+             
+             const visualValLeft = getVisualStrokeSymbol(val[0], isLeftHanded, inst.id);
+             leftState = val[0];
+             leftInstId = inst.id;
+             leftText = String(visualValLeft);
+             leftFillColor = inst.colors?.[visualValLeft as string] || inst.color || '#111';
+             leftTxtColor = isDarkText(inst.id, String(val[0])) ? '#1a1a1a' : '#f4ecd8';
 
-          if (isVoice) {
-            leftText = ''; // Géré par noteLetter en dehors du flux texte standard
-            leftFillColor = inst.color || '#111';
+             const visualValRight = getVisualStrokeSymbol(val[1], isLeftHanded, inst.id);
+             rightState = val[1];
+             rightInstId = inst.id;
+             rightText = String(visualValRight);
+             rightFillColor = inst.colors?.[visualValRight as string] || inst.color || '#111';
+             rightTxtColor = isDarkText(inst.id, String(val[1])) ? '#1a1a1a' : '#f4ecd8';
           } else {
-            leftText = String(visualVal);
-            leftFillColor = inst.colors?.[visualVal as string] || inst.color || '#111';
-            leftTxtColor = isDarkText(inst.id, String(val)) ? '#1a1a1a' : '#f4ecd8';
+            const visualVal = getVisualStrokeSymbol(val as string | number, isLeftHanded, inst.id);
+            leftState = val as string | number;
+            leftInstId = inst.id;
+
+            if (isVoice) {
+              leftText = ''; // Géré par noteLetter en dehors du flux texte standard
+              leftFillColor = inst.color || '#111';
+            } else {
+              leftText = String(visualVal);
+              leftFillColor = inst.colors?.[visualVal as string] || inst.color || '#111';
+              leftTxtColor = isDarkText(inst.id, String(val)) ? '#1a1a1a' : '#f4ecd8';
+            }
           }
         }
       }

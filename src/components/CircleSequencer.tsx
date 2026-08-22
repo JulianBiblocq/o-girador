@@ -1500,7 +1500,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             });
           }
           // ── RÉSOLUTION DES ÉVÉNEMENTS MASTER ET VARIATIONS ──
-          const masterState = activePlayingSteps[i];
+          const rawMasterState = activePlayingSteps[i];
+          const isRas = Array.isArray(rawMasterState) && rawMasterState.length === 2;
+          const masterState = isRas ? rawMasterState[0] : rawMasterState;
           const hasMasterEvent = masterState !== 0 && masterState !== '0' && masterState !== '' && masterState !== undefined && masterState !== null;
           const hasVariationEvent = satellitesToDraw.length > 0;
 
@@ -1829,6 +1831,71 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             }
             ctx.fillText(labelText, x + 20, y + 3);
             ctx.restore();
+          }
+
+          // --- DRAW SECOND STROKE (RAS) ---
+          if (isRas) {
+             const secondState = rawMasterState[1];
+             if (secondState !== 0 && secondState !== '' && secondState !== '0') {
+               const anglePerStep = stepAngles ? (stepAngles[1] - stepAngles[0]) : (Math.PI * 2 / stepCount);
+               const finalAngle = stepAngle + 0.5 * anglePerStep;
+               const secondX = centerX + Math.cos(finalAngle) * tRad;
+               const secondY = centerY + Math.sin(finalAngle) * tRad;
+               
+               const visualState = getVisualStrokeSymbol(secondState, localLeftHanded || false, currentInst.id);
+               const visualStateStr = String(visualState);
+               
+               let fillColor = ((currentInst.colors && currentInst.colors[visualState]) ? currentInst.colors[visualState] : '#fff');
+               let txtColor = isDarkText(currentInst.id, String(secondState)) ? '#1a1a1a' : '#f4ecd8';
+               let isAccent = (visualStateStr === visualStateStr.toUpperCase());
+               let radiusSize = (currentInst.type === 'voice' ? 22 : (isAccent ? 13 : 10)) * dynamicScale;
+               
+               let text = visualStateStr;
+               if (currentInst.id === 'mineiro') {
+                 if (visualStateStr.toLowerCase() === 'p') text = '↑';
+                 else if (visualStateStr.toLowerCase() === 't') text = '↓';
+               } else if (currentInst.id === 'agbe') {
+                 if (visualStateStr.toLowerCase() === 'e') text = '←';
+                 else if (visualStateStr.toLowerCase() === 'd') text = '→';
+                 else if (visualStateStr.toLowerCase() === 's') text = '↑';
+                 else if (visualStateStr.toLowerCase() === 'v') text = '↓';
+               }
+
+               ctx.beginPath();
+               ctx.arc(secondX, secondY, radiusSize, 0, Math.PI * 2);
+               ctx.fillStyle = fillColor;
+               ctx.fill();
+
+               ctx.strokeStyle = themeBorder;
+               ctx.lineWidth = 2.0;
+               ctx.stroke();
+               
+               if (!isEco && i === currentStep) {
+                 ctx.beginPath();
+                 ctx.arc(secondX, secondY, radiusSize + 3, 0, Math.PI * 2);
+                 ctx.strokeStyle = themeWood;
+                 ctx.lineWidth = 1.5;
+                 ctx.stroke();
+               }
+
+               if (text) {
+                 const fontSize = Math.max(9, Math.floor((text.length > 1 ? 13 : 17) * dynamicScale * 0.9));
+                 ctx.font = `900 ${fontSize}px "Outfit", "Inter", sans-serif`;
+                 ctx.fillStyle = txtColor;
+                 ctx.textAlign = 'center';
+                 ctx.textBaseline = 'middle';
+                 const textY = secondY + 2;
+
+                 if (['↑', '↓', '←', '→'].includes(text)) {
+                   ctx.save();
+                   ctx.strokeStyle = txtColor;
+                   ctx.lineWidth = 2.5;
+                   ctx.strokeText(text, secondX, textY);
+                   ctx.restore();
+                 }
+                 ctx.fillText(text, secondX, textY);
+               }
+             }
           }
         }
         ctx.restore();

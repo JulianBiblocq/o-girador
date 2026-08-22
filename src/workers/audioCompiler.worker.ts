@@ -144,12 +144,18 @@ function buildFlatSongSchedule(
       }
 
       for (let step = 0; step < stepCount; step++) {
-        const state = stepsToPlay[step];
-        if (!state || state === 0 || state === '0') continue;
+        const rawState = stepsToPlay[step];
+        if (!rawState || rawState === 0 || rawState === '0') continue;
 
         const tickIdx = stepTickMap[step] !== undefined ? stepTickMap[step] : Math.floor((step * maxTicks) / stepCount);
-        let targetKey: string | null = typeof state === 'string' ? state : String(state);
-        let isStrong = false;
+        const statesToProcess = Array.isArray(rawState) ? rawState : [rawState];
+
+        for (let strokeIndex = 0; strokeIndex < statesToProcess.length; strokeIndex++) {
+          const state = statesToProcess[strokeIndex];
+          if (!state || state === 0 || state === '0') continue;
+
+          let targetKey: string | null = typeof state === 'string' ? state : String(state);
+          let isStrong = false;
 
         if (inst.type === 'gongue') {
           if (state === 'G' || state === 'A') isStrong = true;
@@ -193,13 +199,15 @@ function buildFlatSongSchedule(
         const isTuplet = stepIsTupletMap[step] || false;
         const absoluteTick = accumulatedTicks + tickIdx;
 
-        // Pack data: trackIdx (3 bits), circleStepIdx (5 bits), strokeCharCode (7 bits), decayPct (7 bits), isTuplet (1 bit)
+        // Pack data: trackIdx (10 bits), step (6 bits), strokeCharCode (7 bits), decayPct (7 bits), isTuplet (1 bit), isSecondStroke (1 bit)
         const strokeCharCode = targetKey.charCodeAt(0);
         const decayPct = Math.round(stepDecayMultiplier * 100);
         const isTupletBit = isTuplet ? 1 : 0;
-        const packedData = (trackIdx << 20) | (step << 15) | (strokeCharCode << 8) | (decayPct << 1) | isTupletBit;
+        const isSecondStrokeBit = strokeIndex > 0 ? 1 : 0;
+        const packedData = (trackIdx << 22) | (step << 16) | (strokeCharCode << 9) | (decayPct << 2) | (isTupletBit << 1) | isSecondStrokeBit;
 
         notesList.push(absoluteTick, packedData, stepVolMultiplier, microtimingPct);
+        }
       }
     });
 

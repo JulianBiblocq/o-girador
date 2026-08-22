@@ -36,15 +36,16 @@ export const StepEditorPopup: React.FC = () => {
   // Local UI states for expansion and lazy loading
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   const [loadingStroke, setLoadingStroke] = useState<string | null>(null);
-
-  const forcedStrokes = useSequencerSettingsStore(state => state.forcedStrokes) || {};
-  const setStrokeForcedState = useSequencerSettingsStore(state => state.setStrokeForcedState);
+  const [isSplitMode, setIsSplitMode] = useState<boolean>(false);
+  const [editingHalf, setEditingHalf] = useState<0 | 1>(0);
 
   // Reset local states when active step changes
   useEffect(() => {
     setIsExpanded(false);
     setLoadingStroke(null);
-  }, [activeStepKey]);
+    setIsSplitMode(Array.isArray(currentVal));
+    setEditingHalf(0);
+  }, [activeStepKey, currentVal]);
 
   // Support du clavier pour Escape, Silence et raccourcis de coups
   useEffect(() => {
@@ -110,19 +111,39 @@ export const StepEditorPopup: React.FC = () => {
 
   const activeStrokesForTrack = track ? getActiveStrokesForTrack(track, tracks) : [];
 
+  const forcedStrokes = useSequencerSettingsStore(state => state.forcedStrokes) || {};
+  const setStrokeForcedState = useSequencerSettingsStore(state => state.setStrokeForcedState);
+
   // Filter strokes shown by default
   const choicesToShow = allowedStrokes.filter(stroke => {
     if (isExpanded) return true;
     const forced = forcedStrokes[`${trackId}:${stroke}`];
     const isActive = forced !== undefined ? forced : activeStrokesForTrack.some(s => s.toLowerCase() === stroke.toLowerCase());
-    // Keep currently selected step value visible in clean mode
-    return isActive || String(currentVal) === String(stroke);
+    
+    // Keep currently selected step value(s) visible in clean mode
+    if (Array.isArray(currentVal)) {
+      if (String(currentVal[0]) === String(stroke) || String(currentVal[1]) === String(stroke)) return true;
+    } else {
+      if (String(currentVal) === String(stroke)) return true;
+    }
+    return isActive;
   });
 
   const handleSelectStroke = async (stroke: string | number) => {
     if (stroke === 0 || stroke === '0') {
-      sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, '0');
-      closeEditor();
+      if (isSplitMode) {
+        const newVal = [...(Array.isArray(currentVal) ? currentVal : [currentVal, currentVal])];
+        newVal[editingHalf] = '0';
+        if (newVal[0] === '0' && newVal[1] === '0') {
+          sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, '0');
+          closeEditor();
+        } else {
+          sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, newVal);
+        }
+      } else {
+        sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, '0');
+        closeEditor();
+      }
       return;
     }
 
@@ -143,18 +164,25 @@ export const StepEditorPopup: React.FC = () => {
         setLoadingStroke(null);
       }
     } else if (!isActive) {
-      // Force activation if already loaded but not currently active for the project
       setStrokeForcedState(`${trackId}:${strokeStr}`, true);
     }
 
-    sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, strokeStr);
-    
-    if (!isActive) {
-      // Auto-collapse (return to clean view) if the stroke was inactive
-      setIsExpanded(false);
+    if (isSplitMode) {
+      const newVal = Array.isArray(currentVal) ? [...currentVal] : [currentVal || strokeStr, strokeStr];
+      newVal[editingHalf] = strokeStr;
+      sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, newVal);
+      if (editingHalf === 0) {
+        setEditingHalf(1);
+      } else {
+        closeEditor();
+      }
     } else {
-      // Fully close the popup if selecting an already active stroke
-      closeEditor();
+      sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, strokeStr);
+      if (!isActive) {
+        setIsExpanded(false);
+      } else {
+        closeEditor();
+      }
     }
   };
 
@@ -167,13 +195,71 @@ export const StepEditorPopup: React.FC = () => {
         left: `${left}px`,
       }}
     >
-      <div className="text-[9px] font-bold text-center border-b border-black pb-1 uppercase tracking-wider text-black/60">
-        Golpes / Coups
+      <div className="flex justify-between items-center border-b border-black pb-1 mb-1">
+        <div className="text-[9px] font-bold uppercase tracking-wider text-black/60">
+          Golpes / Coups
+        </div>
+        <button 
+          onClick={() => {
+            if (isSplitMode) {
+              setIsSplitMode(false);
+              sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, Array.isArray(currentVal) ? currentVal[0] : currentVal);
+            } else {
+              setIsSplitMode(true);
+              const defaultStroke = allowedStrokes[0];
+              sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, [currentVal || defaultStroke, defaultStroke]);
+            }
+          }}
+          className={`text-[8px] font-bold border border-black px-1.5 py-0.5 transition-colors cursor-pointer ${isSplitMode ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a]' : 'bg-transparent text-black hover:bg-black/10'}`}
+          title={sequencer.lang === 'pt' ? 'Dividir em semicolcheias' : 'Diviser en triples croches'}
+        >
+          RAS (1/32)
+        </button>
       </div>
+
+      {isSplitMode && (
+        <div className="flex gap-1 mb-1">
+          {[0, 1].map((halfIdx) => {
+            const val = Array.isArray(currentVal) ? currentVal[halfIdx] : (halfIdx === 0 ? currentVal : allowedStrokes[0]);
+            
+            let bgColor = 'transparent';
+            let textColor = '#000';
+            
+            if (inst && val !== 0 && val !== '0') {
+              const visualStroke = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
+              bgColor = inst.colors[visualStroke as string] || '#111';
+              textColor = inst.colors.text || '#fff';
+              if (isDarkText(inst.id, String(visualStroke))) {
+                textColor = '#1a1a1a';
+              }
+            } else if (val === 0 || val === '0') {
+              bgColor = '#8b2a1a';
+              textColor = '#f4ecd8';
+            }
+            
+            return (
+              <button 
+                key={halfIdx}
+                className={`flex-1 h-7 border font-black text-xs flex items-center justify-center cursor-pointer transition-all ${editingHalf === halfIdx ? 'border-2 border-black scale-105 shadow-sm z-10' : 'border-black/30 opacity-70 hover:opacity-100'}`}
+                onClick={() => setEditingHalf(halfIdx as 0 | 1)}
+                style={{ backgroundColor: bgColor, color: textColor }}
+              >
+                {val === 0 || val === '0' ? '-' : (inst ? getVisualStrokeSymbol(val, isLeftHanded, inst.id) : val)}
+              </button>
+            );
+          })}
+        </div>
+      )}
       
       <div className="grid grid-cols-3 gap-1">
         {choicesToShow.map((stroke) => {
-          const isSelected = String(currentVal) === String(stroke);
+          let isSelected = false;
+          if (isSplitMode) {
+            const currentHalfVal = Array.isArray(currentVal) ? currentVal[editingHalf] : currentVal;
+            isSelected = String(currentHalfVal) === String(stroke);
+          } else {
+            isSelected = String(currentVal) === String(stroke);
+          }
           const isLoaded = inst && audioEngine ? audioEngine.isStrokeLoaded(inst.id, String(stroke)) : true;
           const isStrokeLoading = loadingStroke === String(stroke);
           
@@ -226,7 +312,7 @@ export const StepEditorPopup: React.FC = () => {
         <button
           onClick={() => handleSelectStroke(0)}
           className={`col-span-3 h-8 font-black text-[10px] border border-black uppercase flex items-center justify-center cursor-pointer transition-colors ${
-            currentVal === 0 || currentVal === '0' || !currentVal
+            (isSplitMode ? (Array.isArray(currentVal) && (currentVal[editingHalf] === 0 || currentVal[editingHalf] === '0')) : (currentVal === 0 || currentVal === '0' || !currentVal))
               ? 'bg-[#8b2a1a] text-[#f4ecd8]' 
               : 'bg-transparent text-[#8b2a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]'
           }`}
