@@ -769,6 +769,7 @@ export default function App() {
       {isSettingsOpen && (
         <SettingsPage mestreSignals={mestreSignals} />
       )}
+
     </div>
       )}
     </>

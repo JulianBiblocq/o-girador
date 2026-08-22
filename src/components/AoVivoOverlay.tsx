@@ -34,6 +34,9 @@ import {
   KEYFRAMES_AGBE_STRETCH_X_WEAK,
   KEYFRAMES_AGBE_SHAKE,
   KEYFRAMES_HALO,
+  KEYFRAMES_FLASH_STRONG,
+  KEYFRAMES_FLASH_WEAK,
+  KEYFRAMES_FLASH_VIBRATE,
 } from './AoVivo/animationGenerators';
 
 const EMPTY_ARRAY: any[] = [];
@@ -72,6 +75,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
   const agbeBottomRef = useRef<SVGGElement>(null);
   const gongueStickRef = useRef<SVGSVGElement>(null);
   const haloRef = useRef<HTMLDivElement>(null);
+  const flashRef = useRef<HTMLDivElement>(null);
 
   // Layout target position and geometry cache (Zero Layout Thrashing)
   const geometryRef = useRef({ targetX: 0, targetY: 0, width: 0, height: 0 });
@@ -89,11 +93,11 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
     const updateGeometry = () => {
       const panel = document.getElementById('circle-sequencer-panel');
       if (!panel) return;
-      
+
       const rect = panel.getBoundingClientRect();
       const centerX = rect.left + rect.width / 2;
       const centerY = rect.top + rect.height / 2;
-      
+
       const targetX = centerX;
       const targetY = centerY + 20;
 
@@ -105,8 +109,10 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
       // Apply wrapper dimensions directly to DOM elements
       const handSpread = Math.min(width * 0.45, 550);
 
-      const isTimbal = activeTrack.instrumentIdx !== undefined && instrumentsConfig[activeTrack.instrumentIdx]?.id === 'timbal';
-      const xOffset = isTimbal ? 30 : 160;
+      const instId = activeTrack.instrumentIdx !== undefined ? instrumentsConfig[activeTrack.instrumentIdx]?.id : null;
+      const isTimbal = instId === 'timbal';
+      const isDrum = instId === 'caixa' || instId === 'tarol';
+      const xOffset = (isTimbal || isDrum) ? 30 : 160;
 
       if (leftWrapperRef.current) {
         const leftX = targetX - xOffset;
@@ -146,7 +152,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
       if (agbeWrapperRef.current) {
         agbeWrapperRef.current.style.left = `${targetX}px`;
-        agbeWrapperRef.current.style.top = `${targetY - 30}px`;
+        agbeWrapperRef.current.style.top = `${targetY - 20}px`;
       }
 
       if (voiceWrapperRef.current) {
@@ -154,8 +160,14 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
         voiceWrapperRef.current.style.top = `${targetY}px`;
       }
 
+      if (flashRef.current) {
+        flashRef.current.style.left = `${targetX}px`;
+        flashRef.current.style.top = `${targetY}px`;
+      }
+
       if (gongueWrapperRef.current) {
-        const offset = isLeftHanded ? -handSpread : handSpread;
+        const gongueSpread = Math.min(width * 0.15, 200);
+        const offset = isLeftHanded ? -gongueSpread : gongueSpread;
         const originX = width / 2 + offset;
         const originY = height + 350;
         const dx = targetX - originX;
@@ -190,7 +202,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
   useEffect(() => {
     const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number }) => {
       const { step, measure, maxTicks, ratio = step / maxTicks } = detail;
-      
+
       if (step < 0) {
         lastVuStepRef.current = -1;
         // Clean highlights on stop
@@ -266,10 +278,43 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
           const activePlayingSteps = activeVariationsRef?.current[activeTrack.id] || currentLivePattern.activeSteps;
           const val = activePlayingSteps[targetStep];
           const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
-          
+
           if (isHit) {
             const stroke = String(val);
             const isVibrate = stroke === 'b' || stroke === 'B';
+
+            // Flash effect for all drum hits
+            if (flashRef.current && ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal', 'gongue'].includes(inst.id)) {
+              let flashType: 'strong' | 'weak' | 'vibrate' = (stroke === stroke.toUpperCase() && !['b', 'B', 'V', 'v'].includes(stroke)) ? 'strong' : 'weak';
+              if (['R', 'r'].includes(stroke)) flashType = 'vibrate';
+
+              let keyframes = KEYFRAMES_FLASH_WEAK;
+              let duration = 150;
+
+              if (flashType === 'strong') {
+                keyframes = KEYFRAMES_FLASH_STRONG;
+                duration = 250;
+              } else if (flashType === 'vibrate') {
+                keyframes = KEYFRAMES_FLASH_VIBRATE;
+                duration = 400;
+              }
+
+              if (inst.id === 'gongue') {
+                const isGrave = ['G', 'g'].includes(stroke);
+                // Grave hits flash the top half (-100% moves the center to the top edge)
+                // Aigu hits flash the bottom half (0% moves the center to the bottom edge)
+                const yOffset = isGrave ? '-100%' : '0%';
+                keyframes = keyframes.map(kf => ({
+                  ...kf,
+                  transform: (kf.transform as string).replace('-50%)', `${yOffset})`)
+                }));
+              }
+
+              flashRef.current.animate(
+                keyframes,
+                { duration, easing: 'ease-out' }
+              );
+            }
 
             // --- 1. Alfaia Sticks ---
             if (['marcante', 'meiao', 'repique'].includes(inst.id)) {
@@ -371,8 +416,9 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
                   if (isLeftHanded) { keyframesLeft = generateDrumKeyframes(stroke, true); triggerLeft = true; }
                   else { keyframesRight = generateDrumKeyframes(stroke, false); triggerRight = true; }
                 } else if (stroke === 'f' || stroke === 'F') {
-                  keyframesLeft = generateDrumKeyframes(stroke, true);
-                  keyframesRight = generateDrumKeyframes(stroke, false);
+                  const isRightStrong = stroke === 'F';
+                  keyframesLeft = generateDrumKeyframes(isRightStrong ? 'fla-weak' : 'fla-strong', true);
+                  keyframesRight = generateDrumKeyframes(isRightStrong ? 'fla-strong' : 'fla-weak', false);
                   triggerLeft = true;
                   triggerRight = true;
                 } else if (stroke === 'x' || stroke === 'X') {
@@ -568,9 +614,9 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
             // --- 5. Gonguê ---
             else if (inst.id === 'gongue') {
               const { targetX, targetY, width, height } = geometryRef.current;
-              const handSpread = Math.min(width * 0.45, 550);
-              const offset = isLeftHanded ? -handSpread : handSpread;
-              
+              const gongueSpread = Math.min(width * 0.15, 200);
+              const offset = isLeftHanded ? -gongueSpread : gongueSpread;
+
               const isAlternated = targetStep % 2 === 0;
               const alternateX = isAlternated ? -25 : 25;
 
@@ -615,9 +661,9 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
   // static helper for Agbê net rendering
   const renderNet = () => {
     const numPoints = 80;
-    const radius = 340;
+    const radius = 390; // Increased radius again per user request
     const amplitude = 30;
-    
+
     const outerZigZag = [];
     const innerZigZag = [];
     const beads = [];
@@ -625,20 +671,20 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
     for (let i = 0; i <= numPoints; i++) {
       const angle1 = (i / numPoints) * Math.PI * 2;
       const angle2 = ((i + 0.5) / numPoints) * Math.PI * 2;
-      
-      outerZigZag.push(`${i === 0 ? 'M' : 'L'} ${500 + Math.cos(angle1)*(radius-amplitude)} ${500 + Math.sin(angle1)*(radius-amplitude)}`);
-      outerZigZag.push(`L ${500 + Math.cos(angle2)*(radius+amplitude)} ${500 + Math.sin(angle2)*(radius+amplitude)}`);
-      
-      innerZigZag.push(`${i === 0 ? 'M' : 'L'} ${500 + Math.cos(angle1)*(radius+amplitude)} ${500 + Math.sin(angle1)*(radius+amplitude)}`);
-      innerZigZag.push(`L ${500 + Math.cos(angle2)*(radius-amplitude)} ${500 + Math.sin(angle2)*(radius-amplitude)}`);
-      
+
+      outerZigZag.push(`${i === 0 ? 'M' : 'L'} ${500 + Math.cos(angle1) * (radius - amplitude)} ${500 + Math.sin(angle1) * (radius - amplitude)}`);
+      outerZigZag.push(`L ${500 + Math.cos(angle2) * (radius + amplitude)} ${500 + Math.sin(angle2) * (radius + amplitude)}`);
+
+      innerZigZag.push(`${i === 0 ? 'M' : 'L'} ${500 + Math.cos(angle1) * (radius + amplitude)} ${500 + Math.sin(angle1) * (radius + amplitude)}`);
+      innerZigZag.push(`L ${500 + Math.cos(angle2) * (radius - amplitude)} ${500 + Math.sin(angle2) * (radius - amplitude)}`);
+
       if (i < numPoints) {
-         beads.push({ cx: 500 + Math.cos(angle2)*(radius+amplitude), cy: 500 + Math.sin(angle2)*(radius+amplitude), r: 8 });
-         beads.push({ cx: 500 + Math.cos(angle1)*(radius-amplitude), cy: 500 + Math.sin(angle1)*(radius-amplitude), r: 8 });
-         const angleMid1 = ((i + 0.25) / numPoints) * Math.PI * 2;
-         beads.push({ cx: 500 + Math.cos(angleMid1)*radius, cy: 500 + Math.sin(angleMid1)*radius, r: 10 });
-         const angleMid2 = ((i + 0.75) / numPoints) * Math.PI * 2;
-         beads.push({ cx: 500 + Math.cos(angleMid2)*radius, cy: 500 + Math.sin(angleMid2)*radius, r: 10 });
+        beads.push({ cx: 500 + Math.cos(angle2) * (radius + amplitude), cy: 500 + Math.sin(angle2) * (radius + amplitude), r: 8 });
+        beads.push({ cx: 500 + Math.cos(angle1) * (radius - amplitude), cy: 500 + Math.sin(angle1) * (radius - amplitude), r: 8 });
+        const angleMid1 = ((i + 0.25) / numPoints) * Math.PI * 2;
+        beads.push({ cx: 500 + Math.cos(angleMid1) * radius, cy: 500 + Math.sin(angleMid1) * radius, r: 10 });
+        const angleMid2 = ((i + 0.75) / numPoints) * Math.PI * 2;
+        beads.push({ cx: 500 + Math.cos(angleMid2) * radius, cy: 500 + Math.sin(angleMid2) * radius, r: 10 });
       }
     }
 
@@ -660,8 +706,8 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
       case 'repique': {
         return (
           <>
-            <div 
-              ref={haloRef} 
+            <div
+              ref={haloRef}
               className="absolute pointer-events-none opacity-0"
               style={{
                 transform: 'translate(-50%, -50%) scale(0.6)',
@@ -670,18 +716,18 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
             >
               <div className="w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] rounded-full border-[8px] border-[#f4ecd8] shadow-[0_0_80px_rgba(255,255,255,1)]" />
             </div>
-            <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center' }}>
+            <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px' }}>
               {isLeftHanded ? (
-                <AlfaiaMacaneta ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)' }} />
+                <AlfaiaMacaneta ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(0deg)', transformOrigin: 'bottom center' }} />
               ) : (
-                <AlfaiaBacalhau ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)' }} />
+                <AlfaiaBacalhau ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(0deg)', transformOrigin: 'bottom center' }} />
               )}
             </div>
-            <div ref={rightWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center' }}>
+            <div ref={rightWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px' }}>
               {isLeftHanded ? (
-                <AlfaiaBacalhau ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)' }} />
+                <AlfaiaBacalhau ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(0deg)', transformOrigin: 'bottom center' }} />
               ) : (
-                <AlfaiaMacaneta ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)' }} />
+                <AlfaiaMacaneta ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(0deg)', transformOrigin: 'bottom center' }} />
               )}
             </div>
           </>
@@ -692,8 +738,8 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
       case 'tarol': {
         return (
           <>
-            <div 
-              ref={haloRef} 
+            <div
+              ref={haloRef}
               className="absolute pointer-events-none opacity-0"
               style={{
                 transform: 'translate(-50%, -50%) scale(0.6)',
@@ -702,11 +748,11 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
             >
               <div className="w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] rounded-full border-[8px] border-[#f4ecd8] shadow-[0_0_80px_rgba(255,255,255,1)]" />
             </div>
-            <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center' }}>
-              <DrumStick ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(25deg)' }} />
+            <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px' }}>
+              <DrumStick ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(0deg)', transformOrigin: 'bottom center' }} />
             </div>
-            <div ref={rightWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center' }}>
-              <DrumStick ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(25deg)' }} />
+            <div ref={rightWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px' }}>
+              <DrumStick ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(0deg)', transformOrigin: 'bottom center' }} />
             </div>
           </>
         );
@@ -715,8 +761,8 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
       case 'timbal': {
         return (
           <>
-            <div 
-              ref={haloRef} 
+            <div
+              ref={haloRef}
               className="absolute pointer-events-none opacity-0"
               style={{
                 transform: 'translate(-50%, -50%) scale(0.6)',
@@ -769,8 +815,8 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
       case 'gongue': {
         return (
-          <div ref={gongueWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center' }}>
-            <GongueStick ref={gongueStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(4deg)' }} />
+          <div ref={gongueWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px' }}>
+            <GongueStick ref={gongueStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(0deg)' }} />
           </div>
         );
       }
@@ -803,7 +849,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
         }
 
         return (
-          <div 
+          <div
             ref={voiceWrapperRef}
             className="absolute z-50 pointer-events-none flex flex-col items-center justify-center w-full max-w-2xl px-6 text-center"
             style={{
@@ -829,8 +875,8 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
                       >
                         {word.map((item, sIdx) => {
                           return (
-                            <span 
-                              key={sIdx} 
+                            <span
+                              key={sIdx}
                               data-step-idx={item.index}
                             >
                               {item.text}
@@ -854,6 +900,13 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
   return (
     <div className="absolute inset-0 z-[10] overflow-hidden pointer-events-none perspective-[1000px]">
+      <div
+        ref={flashRef}
+        className="absolute pointer-events-none opacity-0 mix-blend-screen"
+        style={{ transform: 'translate(-50%, -50%)', zIndex: 4 }}
+      >
+        <div className="w-[120px] h-[120px] sm:w-[200px] sm:h-[200px] rounded-full bg-[#fbbf24] blur-xl" />
+      </div>
       {renderInstruments()}
     </div>
   );

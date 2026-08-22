@@ -177,28 +177,61 @@ export function generateDrumKeyframes(stroke: string, isLeft: boolean): Keyframe
 
 // Gonguê Keyframes Generator (Impact -> Repos)
 export function generateGongueKeyframes(stroke: string): Keyframe[] {
-  const randY = randomSign() * randomRange(1, 3);
+  const randX = 0; // Removed horizontal drift per user request
   const randRot = randomSign() * randomRange(0.5, 1.5);
   const isVibrate = stroke === 'b' || stroke === 'B';
 
   const isStrong = ['G', 'A'].includes(stroke);
-  const reposRotX = isStrong ? 4 : 8;
-  const hitTargetY = isStrong ? -40 : -15; // Amplitude minimal
+
+  const reposRotX = 0; // Stick flat on the bell at rest
+
+  // Windup: lift tip strongly towards camera (negative rotateX makes it grow and go up)
+  const windUpRotX = isStrong ? -45 : -25;
+
+  // Impact: Always hit perfectly flat (rotateX = 0) so the tip size is identical
+  const hitTargetRotX = 0; 
 
   if (isVibrate) {
     return [
-      { transform: `translateY(0px) rotateX(${reposRotX}deg) scale(1)`, easing: 'ease-in-out' },
-      { transform: `translateX(${-10 + randY * 0.2}px) translateY(${-10 + randY * 0.2}px) rotateZ(${-3 + randRot * 0.5}deg) scale(1)`, offset: 0.25, easing: 'ease-in-out' },
-      { transform: `translateX(${10 - randY * 0.2}px) translateY(${10 - randY * 0.2}px) rotateZ(${3 - randRot * 0.5}deg) scale(1)`, offset: 0.5, easing: 'ease-in-out' },
-      { transform: `translateX(${-10 + randY * 0.2}px) translateY(${10 - randY * 0.2}px) rotateZ(${-3 + randRot * 0.5}deg) scale(1)`, offset: 0.75, easing: 'ease-in-out' },
-      { transform: `translateY(0px) rotateX(${reposRotX}deg) scale(1)` }
+      { transform: `translate3d(0px, 0px, 0px) rotateX(${reposRotX}deg)`, easing: 'ease-in-out' },
+      { transform: `translate3d(${-5 + randX}px, 0px, 0px) rotateZ(${-2 + randRot}deg)`, offset: 0.25, easing: 'ease-in-out' },
+      { transform: `translate3d(${5 - randX}px, 0px, 0px) rotateZ(${2 - randRot}deg)`, offset: 0.5, easing: 'ease-in-out' },
+      { transform: `translate3d(${-5 + randX}px, 0px, 0px) rotateZ(${-2 + randRot}deg)`, offset: 0.75, easing: 'ease-in-out' },
+      { transform: `translate3d(0px, 0px, 0px) rotateX(${reposRotX}deg)` }
     ];
   }
 
+  // Total duration passed by AoVivoOverlay is 350ms
+  const windUpDuration = 100;
+  const impactDuration = 30; // Snappy hit
+  
+  const windUpOffset = windUpDuration / 350;
+  const impactOffset = (windUpDuration + impactDuration) / 350;
+
+  const finalX = randX;
+  const finalRotX = hitTargetRotX + randRot;
+
   return [
-    { transform: `translateY(0px) rotateX(${reposRotX}deg) scale(1)`, easing: 'cubic-bezier(0.1, 0.9, 0.2, 1)' },
-    { transform: `translateY(${hitTargetY}px) rotateX(0deg) scale(1)`, offset: 0.3, easing: 'cubic-bezier(0.1, 0.9, 0.2, 1)' },
-    { transform: `translateY(0px) rotateX(${reposRotX}deg) scale(1)` }
+    { 
+      transform: `translate3d(0px, 0px, 0px) rotateX(${reposRotX}deg)`,
+      offset: 0,
+      easing: 'ease-out' 
+    },
+    { 
+      transform: `translate3d(0px, 0px, 0px) rotateX(${windUpRotX}deg)`,
+      offset: windUpOffset,
+      easing: 'cubic-bezier(0.5, 0, 0.8, 1)' 
+    },
+    { 
+      transform: `translate3d(${finalX}px, 0px, 0px) rotateX(${finalRotX}deg)`,
+      offset: impactOffset,
+      easing: 'linear' // Direct hit
+    },
+    { 
+      // Hold the stick flat on the bell until the animation finishes (no rebound at all)
+      transform: `translate3d(0px, 0px, 0px) rotateX(${reposRotX}deg)`,
+      offset: 1
+    }
   ];
 }
 
@@ -207,54 +240,56 @@ export function generateGongueKeyframes(stroke: string): Keyframe[] {
 export function generateMineiroKeyframes(stroke: string): Keyframe[] {
   const randOffset = randomSign() * randomRange(2, 4); // minime random Y offset
 
-  if (stroke === 'P') {
-    // Poussé Fort: translateY(-15px) scale(0.95) -> translateY(0) scale(1)
+  if (stroke === 'P' || stroke === 'p') {
+    const isStrong = stroke === 'P';
+    const distY = isStrong ? -35 : -15;
+    const scaleFactor = isStrong ? 0.9 : 0.96;
+
     return [
-      { transform: `translateY(${-15 + randOffset}px) scale(0.95)`, easing: 'ease-in-out' },
-      { transform: 'translateY(0px) scale(1)' }
+      { transform: 'translateY(0px) scale(1)', offset: 0, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' }, // Élan fluide
+      { transform: `translateY(${distY + randOffset}px) scale(${scaleFactor})`, offset: 0.35, easing: 'ease-out' }, // Apogée / Impact des graines
+      { transform: `translateY(${distY * 0.3}px) scale(${1 - (1 - scaleFactor) * 0.3})`, offset: 0.55, easing: 'ease-in-out' }, // Rebond / Inertie
+      { transform: 'translateY(0px) scale(1)', offset: 1 } // Retour fluide au centre
     ];
-  } else if (stroke === 'p') {
-    // Rebond Graines: translateY(-5px) scale(0.98)
+  }
+
+  if (stroke === 'T' || stroke === 't') {
+    const isStrong = stroke === 'T';
+    const distY = isStrong ? 35 : 15;
+    const scaleFactor = isStrong ? 1.1 : 1.04;
+
     return [
-      { transform: `translateY(${-5 + randOffset}px) scale(0.98)`, easing: 'ease-in-out' },
-      { transform: 'translateY(0px) scale(1)' }
+      { transform: 'translateY(0px) scale(1)', offset: 0, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
+      { transform: `translateY(${distY + randOffset}px) scale(${scaleFactor})`, offset: 0.35, easing: 'ease-out' },
+      { transform: `translateY(${distY * 0.3}px) scale(${1 + (scaleFactor - 1) * 0.3})`, offset: 0.55, easing: 'ease-in-out' },
+      { transform: 'translateY(0px) scale(1)', offset: 1 }
     ];
-  } else if (stroke === 'T') {
-    // Tiré Fort: translateY(20px) scale(1.05)
+  }
+
+  if (stroke === 'L' || stroke === 'l') {
     return [
-      { transform: `translateY(${20 + randOffset}px) scale(1.05)`, easing: 'ease-in-out' },
-      { transform: 'translateY(0px) scale(1)' }
+      { transform: 'translateX(0px) scale(1)', offset: 0, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
+      { transform: `translateX(${-80 + randOffset}px) scale(1)`, offset: 0.35, easing: 'ease-out' },
+      { transform: `translateX(${-20}px) scale(1)`, offset: 0.55, easing: 'ease-in-out' },
+      { transform: 'translateX(0px) scale(1)', offset: 1 }
     ];
-  } else if (stroke === 't') {
-    // Rebond Graines: translateY(5px) scale(1.02)
+  }
+
+  if (stroke === 'B' || stroke === 'b') {
+    const amp = 8;
     return [
-      { transform: `translateY(${5 + randOffset}px) scale(1.02)`, easing: 'ease-in-out' },
-      { transform: 'translateY(0px) scale(1)' }
-    ];
-  } else if (stroke === 'L' || stroke === 'l') {
-    return [
-      { transform: `translate(${-200 + randOffset}px, 0)`, easing: 'ease-in-out' },
-      { transform: 'translate(0, 0)' }
-    ];
-  } else if (stroke === 'B' || stroke === 'b') {
-    // Shake
-    return [
-      { transform: 'translate(0, 0)', easing: 'ease-in-out' },
-      { transform: `translate(${-15 + randOffset * 0.5}px, 0)`, offset: 0.1, easing: 'ease-in-out' },
-      { transform: `translate(${15 - randOffset * 0.5}px, 0)`, offset: 0.2, easing: 'ease-in-out' },
-      { transform: `translate(${-15 + randOffset * 0.5}px, 0)`, offset: 0.3, easing: 'ease-in-out' },
-      { transform: `translate(${15 - randOffset * 0.5}px, 0)`, offset: 0.4, easing: 'ease-in-out' },
-      { transform: `translate(${-15 + randOffset * 0.5}px, 0)`, offset: 0.5, easing: 'ease-in-out' },
-      { transform: `translate(${15 - randOffset * 0.5}px, 0)`, offset: 0.6, easing: 'ease-in-out' },
-      { transform: `translate(${-15 + randOffset * 0.5}px, 0)`, offset: 0.7, easing: 'ease-in-out' },
-      { transform: `translate(${15 - randOffset * 0.5}px, 0)`, offset: 0.8, easing: 'ease-in-out' },
-      { transform: `translate(${-15 + randOffset * 0.5}px, 0)`, offset: 0.9, easing: 'ease-in-out' },
-      { transform: 'translate(0, 0)' }
+      { transform: 'translateX(0px)', offset: 0, easing: 'ease-out' },
+      { transform: `translateX(${-amp + randOffset}px)`, offset: 0.15 },
+      { transform: `translateX(${amp - randOffset}px)`, offset: 0.35 },
+      { transform: `translateX(${-amp + randOffset}px)`, offset: 0.55 },
+      { transform: `translateX(${amp - randOffset}px)`, offset: 0.75 },
+      { transform: 'translateX(0px)', offset: 1 }
     ];
   }
 
   return [
-    { transform: 'translate(0, 0)' }
+    { transform: 'translate(0, 0)', offset: 0 },
+    { transform: 'translate(0, 0)', offset: 1 }
   ];
 }
 
@@ -277,14 +312,11 @@ export function generateAgbeKeyframes(stroke: string): Keyframe[] {
     const rebY = -18 * scaleFactor + randY * 0.8;
     const rebRot = 23 * scaleFactor + randRot * 0.8;
 
-    const endX = 10 * scaleFactor;
-    const endY = 10 * scaleFactor;
-    const endRot = 2 * scaleFactor;
-
     return [
-      { transform: `translateX(${startX}px) translateY(${startY}px) rotateZ(${startRot}deg)`, easing: 'ease-out' },
-      { transform: `translateX(${rebX}px) translateY(${rebY}px) rotateZ(${rebRot}deg)`, offset: 0.15, easing: 'ease-in-out' },
-      { transform: `translateX(${endX}px) translateY(${endY}px) rotateZ(${endRot}deg)` }
+      { transform: 'translateX(0px) translateY(0px) rotateZ(0deg)', offset: 0, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' }, // Windup organique
+      { transform: `translateX(${startX}px) translateY(${startY}px) rotateZ(${startRot}deg)`, offset: 0.3, easing: 'ease-out' }, // Impact / Apogée
+      { transform: `translateX(${rebX}px) translateY(${rebY}px) rotateZ(${rebRot}deg)`, offset: 0.45, easing: 'ease-in-out' }, // Rebond des graines
+      { transform: 'translateX(0px) translateY(0px) rotateZ(0deg)', offset: 1 } // Retour
     ];
   }
 
@@ -297,14 +329,11 @@ export function generateAgbeKeyframes(stroke: string): Keyframe[] {
     const rebY = -18 * scaleFactor + randY * 0.8;
     const rebRot = -23 * scaleFactor + randRot * 0.8;
 
-    const endX = -10 * scaleFactor;
-    const endY = 10 * scaleFactor;
-    const endRot = -2 * scaleFactor;
-
     return [
-      { transform: `translateX(${startX}px) translateY(${startY}px) rotateZ(${startRot}deg)`, easing: 'ease-out' },
-      { transform: `translateX(${rebX}px) translateY(${rebY}px) rotateZ(${rebRot}deg)`, offset: 0.15, easing: 'ease-in-out' },
-      { transform: `translateX(${endX}px) translateY(${endY}px) rotateZ(${endRot}deg)` }
+      { transform: 'translateX(0px) translateY(0px) rotateZ(0deg)', offset: 0, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
+      { transform: `translateX(${startX}px) translateY(${startY}px) rotateZ(${startRot}deg)`, offset: 0.3, easing: 'ease-out' },
+      { transform: `translateX(${rebX}px) translateY(${rebY}px) rotateZ(${rebRot}deg)`, offset: 0.45, easing: 'ease-in-out' },
+      { transform: 'translateX(0px) translateY(0px) rotateZ(0deg)', offset: 1 }
     ];
   }
 
@@ -317,9 +346,10 @@ export function generateAgbeKeyframes(stroke: string): Keyframe[] {
     const rebRotX = 35 * scaleFactor + randRot * 0.8;
 
     return [
-      { transform: `translateY(${startY}px) rotateX(${startRotX}deg)`, easing: 'ease-out' },
-      { transform: `translateY(${rebY}px) rotateX(${rebRotX}deg)`, offset: 0.15, easing: 'ease-in-out' },
-      { transform: 'translateY(0px) rotateX(0deg)' }
+      { transform: 'translateY(0px) rotateX(0deg)', offset: 0, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
+      { transform: `translateY(${startY}px) rotateX(${startRotX}deg)`, offset: 0.3, easing: 'ease-out' },
+      { transform: `translateY(${rebY}px) rotateX(${rebRotX}deg)`, offset: 0.45, easing: 'ease-in-out' },
+      { transform: 'translateY(0px) rotateX(0deg)', offset: 1 }
     ];
   }
 
@@ -331,9 +361,10 @@ export function generateAgbeKeyframes(stroke: string): Keyframe[] {
     const rebRotX = -35 * scaleFactor + randRot * 0.8;
 
     return [
-      { transform: `translateY(${startY}px) rotateX(${startRotX}deg)`, easing: 'ease-out' },
-      { transform: `translateY(${rebY}px) rotateX(${rebRotX}deg)`, offset: 0.15, easing: 'ease-in-out' },
-      { transform: 'translateY(0px) rotateX(0deg)' }
+      { transform: 'translateY(0px) rotateX(0deg)', offset: 0, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' },
+      { transform: `translateY(${startY}px) rotateX(${startRotX}deg)`, offset: 0.3, easing: 'ease-out' },
+      { transform: `translateY(${rebY}px) rotateX(${rebRotX}deg)`, offset: 0.45, easing: 'ease-in-out' },
+      { transform: 'translateY(0px) rotateX(0deg)', offset: 1 }
     ];
   }
 
@@ -343,7 +374,7 @@ export function generateAgbeKeyframes(stroke: string): Keyframe[] {
     const ampRot = 5 * scaleFactor;
 
     return [
-      { transform: 'translate(0, 0) rotate(0deg)', easing: 'ease-out' },
+      { transform: 'translate(0, 0) rotate(0deg)', offset: 0, easing: 'ease-out' },
       { transform: `translateX(${-ampX + randX}px) rotateZ(${-ampRot + randRot}deg)`, offset: 0.1 },
       { transform: `translateX(${ampX - randX}px) rotateZ(${ampRot - randRot}deg)`, offset: 0.2 },
       { transform: `translateX(${-ampX + randX}px) rotateZ(${-ampRot + randRot}deg)`, offset: 0.3 },
@@ -353,12 +384,13 @@ export function generateAgbeKeyframes(stroke: string): Keyframe[] {
       { transform: `translateX(${-ampX + randX}px) rotateZ(${-ampRot + randRot}deg)`, offset: 0.7 },
       { transform: `translateX(${ampX - randX}px) rotateZ(${ampRot - randRot}deg)`, offset: 0.8 },
       { transform: `translateX(${-ampX * 0.6 + randX * 0.5}px) rotateZ(${-ampRot * 0.6 + randRot * 0.5}deg)`, offset: 0.9 },
-      { transform: 'translate(0, 0) rotate(0deg)' }
+      { transform: 'translate(0, 0) rotate(0deg)', offset: 1 }
     ];
   }
 
   return [
-    { transform: 'translate(0, 0)' }
+    { transform: 'translate(0, 0)', offset: 0 },
+    { transform: 'translate(0, 0)', offset: 1 }
   ];
 }
 
@@ -449,7 +481,25 @@ export const KEYFRAMES_AGBE_SHAKE = [
 ];
 
 export const KEYFRAMES_HALO = [
-  { opacity: 0, transform: 'scale(0.6)' },
-  { opacity: 1, transform: 'scale(1.05)', offset: 0.3 },
-  { opacity: 0, transform: 'scale(1.2)' }
+  { opacity: 0.8, transform: 'translate(-50%, -50%) scale(0.6)' },
+  { opacity: 0, transform: 'translate(-50%, -50%) scale(1.2)' }
+];
+
+export const KEYFRAMES_FLASH_STRONG: Keyframe[] = [
+  { opacity: 0.4, transform: 'translate(-50%, -50%) scale(1)' },
+  { opacity: 0, transform: 'translate(-50%, -50%) scale(1.2)' }
+];
+
+export const KEYFRAMES_FLASH_WEAK: Keyframe[] = [
+  { opacity: 0.1, transform: 'translate(-50%, -50%) scale(0.8)' },
+  { opacity: 0, transform: 'translate(-50%, -50%) scale(0.9)' }
+];
+
+export const KEYFRAMES_FLASH_VIBRATE: Keyframe[] = [
+  { opacity: 0.5, transform: 'translate(-50%, -50%) scale(1)' },
+  { opacity: 0.1, transform: 'translate(-50%, -50%) scale(1.1)', offset: 0.2 },
+  { opacity: 0.4, transform: 'translate(-50%, -50%) scale(1.05)', offset: 0.4 },
+  { opacity: 0.1, transform: 'translate(-50%, -50%) scale(1.1)', offset: 0.6 },
+  { opacity: 0.3, transform: 'translate(-50%, -50%) scale(1.02)', offset: 0.8 },
+  { opacity: 0, transform: 'translate(-50%, -50%) scale(1.2)' }
 ];
