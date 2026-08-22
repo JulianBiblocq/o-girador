@@ -19,7 +19,7 @@ export interface TouchSelectorState {
   x: number;
   y: number;
   currentVal: string | number;
-  onSelect: (val: string) => void;
+  onSelect: (val: string | [string, string]) => void;
   isStickyDefault?: boolean;
   trackId: number;
 }
@@ -475,6 +475,21 @@ const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
               +
             </button>
           )}
+
+          {/* Split Button (Scissors) */}
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const defaultStroke = allChoices[0];
+              selector.onSelect([defaultStroke, defaultStroke]);
+              onClose();
+            }}
+            className="w-11 h-11 flex items-center justify-center font-cactus font-black text-lg border-2 border-[#1a1a1a] bg-[#f1c40f] text-black shadow-[2px_2px_0px_#1a1a1a] hover:bg-black hover:text-[#f1c40f] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer select-none"
+            title={lang === 'fr' ? 'Diviser en triples croches' : 'Dividir em semicolcheias'}
+          >
+            ✂️
+          </button>
         </div>
       </div>
 

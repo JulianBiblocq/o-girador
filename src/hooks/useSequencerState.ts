@@ -1471,7 +1471,7 @@ export function useSequencerState() {
     trackId: number,
     patternId: number,
     stepIdx: number | number[],
-    val: string | string[],
+    val: string | string[] | [string, string],
     lyrics?: string[],
     notes?: string[]
   ) => {
@@ -1572,9 +1572,11 @@ export function useSequencerState() {
                 }
               });
             } else {
-              const currentVal = Array.isArray(val) ? val[0] : val;
-              const newVal = parseVal(currentVal);
-              copySteps[stepIdx] = newVal;
+              if (Array.isArray(val)) {
+                copySteps[stepIdx] = [String(parseVal(val[0])), String(parseVal(val[1]))];
+              } else {
+                copySteps[stepIdx] = parseVal(val);
+              }
               if (lyrics && lyrics[0] !== undefined) {
                 arrLyrics[stepIdx] = lyrics[0];
               }
@@ -1746,7 +1748,7 @@ export function useSequencerState() {
     }));
   };
 
-  const handleVariationStepValueChange = (trackId: number, patternId: number, variationId: string, stepIdx: number | number[], val: string | string[]) => {
+  const handleVariationStepValueChange = (trackId: number, patternId: number, variationId: string, stepIdx: number | number[], val: string | string[] | [string, string]) => {
     pushUndoState();
     setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
@@ -1760,7 +1762,11 @@ export function useSequencerState() {
                     nextSteps[idx] = Array.isArray(val) ? val[i] : val;
                   });
                 } else {
-                  nextSteps[stepIdx] = val as string;
+                  if (Array.isArray(val)) {
+                    nextSteps[stepIdx] = [String(val[0]), String(val[1])];
+                  } else {
+                    nextSteps[stepIdx] = val as string;
+                  }
                 }
                 return { ...v, steps: nextSteps };
               }
