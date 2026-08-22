@@ -75,6 +75,7 @@ interface PercussionStepCellProps {
   isMultiSelectActive: boolean;
   isSextuplet: boolean;
   isTriplet: boolean;
+  isOcto: boolean;
   indexInGroup: number;
   totalShift: number;
   trackId: number;
@@ -100,6 +101,7 @@ const PercussionStepCell = React.memo(({
   isMultiSelectActive,
   isSextuplet,
   isTriplet,
+  isOcto,
   indexInGroup,
   totalShift,
   trackId,
@@ -110,7 +112,7 @@ const PercussionStepCell = React.memo(({
   onKeyDown
 }: PercussionStepCellProps) => {
   return (
-    <div key={i} className="flex flex-col items-center select-none" style={{ width: isSextuplet || isTriplet ? 'auto' : '36px', flex: isSextuplet || isTriplet ? '1' : 'none' }}>
+    <div key={i} className="flex flex-col items-center select-none" style={{ width: isSextuplet || isTriplet || isOcto ? 'auto' : '36px', flex: isSextuplet || isTriplet || isOcto ? '1' : 'none' }}>
       <input
         type="text"
         value={val === 0 ? '' : val}
@@ -120,7 +122,7 @@ const PercussionStepCell = React.memo(({
         onTouchStart={(e) => onTouchStart(e, i, val)}
         onChange={(e) => onChange(e, i)}
         onKeyDown={(e) => onKeyDown(e, i)}
-        className={`text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${
+        className={`text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
           val === 0
             ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
             : ''
@@ -133,7 +135,7 @@ const PercussionStepCell = React.memo(({
         }`}
         style={{
           ...colorStyle,
-          width: isSextuplet || isTriplet ? '100%' : '36px',
+          width: isSextuplet || isTriplet || isOcto ? '100%' : '36px',
           height: isSextuplet || isTriplet ? '48px' : '36px',
           transform: `translateX(${shiftPx}px)`,
           clipPath: isSextuplet 
@@ -188,6 +190,7 @@ const PercussionStepCell = React.memo(({
     prevProps.isMultiSelectActive === nextProps.isMultiSelectActive &&
     prevProps.isSextuplet === nextProps.isSextuplet &&
     prevProps.isTriplet === nextProps.isTriplet &&
+    prevProps.isOcto === nextProps.isOcto &&
     prevProps.indexInGroup === nextProps.indexInGroup &&
     prevProps.trackId === nextProps.trackId
   );
@@ -1458,6 +1461,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
             return groups.map((group, groupIdx) => {
               const isTriplet = group.length === 3;
               const isSextuplet = group.length === 6;
+              const isOcto = group.length === 8;
               
               return (
                 <div key={groupIdx} className="flex flex-col gap-1 shrink-0">
@@ -1471,10 +1475,11 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                         <option value="3">3 (Triolet)</option>
                         <option value="4">4 (D.Croches)</option>
                         <option value="6">6 (Sextolet)</option>
+                        <option value="8">8 (Fusas)</option>
                       </select>
                     </div>
                   )}
-                  <div className={`p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm relative ${isSextuplet ? 'h-[72px]' : isTriplet ? 'flex justify-between' : 'flex gap-4'}`} style={{ width: '204px' }}>
+                  <div className={`p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm relative ${isSextuplet ? 'h-[72px]' : isTriplet ? 'flex justify-between' : isOcto ? 'flex gap-1' : 'flex gap-4'}`} style={{ width: '204px' }}>
                     {group.map((i, indexInGroup) => {
                       const val = pattern?.activeSteps?.[i];
                       const displayVal = getDisplayVal(val);
@@ -1516,6 +1521,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                         };
                       } else if (isTriplet) {
                         wrapperStyle = { width: '48px' };
+                      } else if (isOcto) {
+                        wrapperStyle = { width: '18px' };
                       }
 
                       return (
@@ -1538,6 +1545,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                             isMultiSelectActive={isMultiSelectActive}
                             isSextuplet={isSextuplet}
                             isTriplet={isTriplet}
+                            isOcto={isOcto}
                             indexInGroup={indexInGroup}
                             totalShift={totalShift}
                             trackId={trackId}
