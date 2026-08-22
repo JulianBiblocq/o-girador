@@ -33,7 +33,7 @@ export function generateAlfaiaKeyframes(stroke: string, isLeft: boolean): Keyfra
   // --- Strong Hits (E, D) with 3D wind-up (scale 1.15) and whipped impact (scale 0.85) ---
   if (stroke === 'D' || stroke === 'E') {
     const finalY = -280 + randY;
-    const finalRotX = 60 + randRot;
+    const finalRotX = 0; // Flat at impact
     return [
       { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)`, easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
       { transform: `translate(0px, 20px) rotateX(${reposRotX - 10}deg) scale(1.15)`, offset: 0.1, easing: 'cubic-bezier(0.15, 1.15, 0.3, 1)' },
@@ -65,7 +65,7 @@ export function generateAlfaiaKeyframes(stroke: string, isLeft: boolean): Keyfra
   }
 
   const finalY = targetY + randY;
-  const finalRotX = targetRotX + randRot;
+  const finalRotX = 0 + randRot; // Flat on impact
   const finalRotZ = targetRotZ + randRot;
 
   if (useZ) {
@@ -111,7 +111,7 @@ export function generateDrumKeyframes(stroke: string, isLeft: boolean): Keyframe
   // --- Strong Hits (E, D) with 3D wind-up (scale 1.15) and whipped impact (scale 0.85) ---
   if (stroke === 'D' || stroke === 'E') {
     const finalY = -180 + randY;
-    const finalRotX = 55 + randRot;
+    const finalRotX = 0; // Flat at impact
     return [
       { transform: `translate(0px, ${reposY}px) rotateX(${reposRotX}deg) scale(1)`, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
       { transform: `translate(0px, 20px) rotateX(${reposRotX - 8}deg) scale(1.15)`, offset: 0.1, easing: 'cubic-bezier(0.1, 2.0, 0.3, 1)' },
@@ -157,7 +157,7 @@ export function generateDrumKeyframes(stroke: string, isLeft: boolean): Keyframe
   }
 
   const finalY = targetY + randY;
-  const finalRotX = targetRotX + randRot;
+  const finalRotX = 0 + randRot; // Flat on impact
   const finalRotZ = targetRotZ + randRot;
 
   if (useZ) {
@@ -240,8 +240,8 @@ export function generateGongueKeyframes(stroke: string): Keyframe[] {
 export function generateMineiroKeyframes(stroke: string): Keyframe[] {
   const randOffset = randomSign() * randomRange(2, 4); // minime random Y offset
 
-  if (stroke === 'P' || stroke === 'p') {
-    const isStrong = stroke === 'P';
+  if (stroke === 'P' || stroke === 'p' || stroke === 'F' || stroke === 'f') {
+    const isStrong = stroke === 'P' || stroke === 'F';
     const distY = isStrong ? -35 : -15;
     const scaleFactor = isStrong ? 0.9 : 0.96;
 
