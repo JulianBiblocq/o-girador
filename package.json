@@ -1,7 +1,6 @@
-{
   "name": "ogirador",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.0.5",
   "type": "module",
   "scripts": {
     "predev": "node scripts/updatePresets.js && node scripts/copyAudio.js && node scripts/optimize-audio.js",

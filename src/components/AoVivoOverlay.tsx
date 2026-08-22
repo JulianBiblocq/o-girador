@@ -718,16 +718,16 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
             </div>
             <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px' }}>
               {isLeftHanded ? (
-                <AlfaiaMacaneta ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(0deg)', transformOrigin: 'bottom center' }} />
+                <AlfaiaMacaneta ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)', transformOrigin: 'bottom center' }} />
               ) : (
-                <AlfaiaBacalhau ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(0deg)', transformOrigin: 'bottom center' }} />
+                <AlfaiaBacalhau ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)', transformOrigin: 'bottom center' }} />
               )}
             </div>
             <div ref={rightWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px' }}>
               {isLeftHanded ? (
-                <AlfaiaBacalhau ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(0deg)', transformOrigin: 'bottom center' }} />
+                <AlfaiaBacalhau ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)', transformOrigin: 'bottom center' }} />
               ) : (
-                <AlfaiaMacaneta ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(0deg)', transformOrigin: 'bottom center' }} />
+                <AlfaiaMacaneta ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)', transformOrigin: 'bottom center' }} />
               )}
             </div>
           </>
@@ -749,10 +749,10 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
               <div className="w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] rounded-full border-[8px] border-[#f4ecd8] shadow-[0_0_80px_rgba(255,255,255,1)]" />
             </div>
             <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px' }}>
-              <DrumStick ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(0deg)', transformOrigin: 'bottom center' }} />
+              <DrumStick ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(25deg)', transformOrigin: 'bottom center' }} />
             </div>
             <div ref={rightWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px' }}>
-              <DrumStick ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(0deg)', transformOrigin: 'bottom center' }} />
+              <DrumStick ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(25deg)', transformOrigin: 'bottom center' }} />
             </div>
           </>
         );
@@ -816,7 +816,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
       case 'gongue': {
         return (
           <div ref={gongueWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px' }}>
-            <GongueStick ref={gongueStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(0deg)' }} />
+            <GongueStick ref={gongueStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(4deg)' }} />
           </div>
         );
       }
