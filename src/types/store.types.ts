@@ -37,6 +37,7 @@ export interface Pattern {
   vocalTrimStart?: number;
   vocalClip?: VocalClipMeta;
   beatResolutions?: number[]; // Added for tuplet support
+  swingIntensity?: number;
   variations?: PatternVariation[];
   preRollActiveSteps?: (string | number | [string, string])[];
   preRollLyrics?: string[];

@@ -202,6 +202,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const vocalCalibrationLatencyMs = useSequencerStore(state => state.vocalCalibrationLatencyMs);
   const setTracks = useSequencerStore(state => state.setTracks);
   const pushUndoState = useSequencerStore(state => state.pushUndoState);
+  const handlePatternSwingChange = useSequencerStore(state => state.handlePatternSwingChange);
 
   // Settings Store hooks for global stroke controls
   const forcedStrokes = useSequencerSettingsStore(state => state.forcedStrokes) || {};
@@ -1256,6 +1257,25 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               >
                                 📥 {lang === 'fr' ? 'Coller' : 'Colar'}
                               </button>
+                            </div>
+
+                            {/* Pattern Swing Slider (Compact) */}
+                            <div className="hidden md:flex items-center gap-1.5 bg-[#f4ecd8] px-2 py-0.5 rounded border-[1px] border-[#1a1a1a] text-[10px] font-bold ml-4 select-none text-[#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a]" title={lang === 'fr' ? "Multiplicateur de balanço pour ce motif" : "Multiplicador de balanço para este padrão"}>
+                              <span>〰️ {lang === 'fr' ? 'Balanço :' : 'Balanço :'}</span>
+                              <input
+                                type="range"
+                                min="0"
+                                max="100"
+                                value={ptn.swingIntensity !== undefined ? ptn.swingIntensity : 100}
+                                onChange={(e) => {
+                                  handlePatternSwingChange(trackId, ptn.id, parseInt(e.target.value));
+                                }}
+                                className="w-16 h-1.5 bg-[#1a1a1a]/20 rounded-full appearance-none cursor-pointer outline-none"
+                                style={{ accentColor: '#8b2a1a' }}
+                              />
+                              <span className="w-6 text-right font-cactus text-[11px]">
+                                {ptn.swingIntensity !== undefined ? ptn.swingIntensity : 100}%
+                              </span>
                             </div>
 
                             {/* Steps selector */}

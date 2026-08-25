@@ -28,6 +28,7 @@ export interface TrackSlice {
   handleTrackReverbChange: (id: number, val: number) => void;
   handleTrackPanChange: (id: number, val: number) => void;
   handleTrackSwingChange: (id: number, val: number) => void;
+  handlePatternSwingChange: (trackId: number, patternId: number, val: number) => void;
   setTrackFxSend: (trackId: number, fxType: 'reverb' | 'distortion', value: number) => void;
   setTrackPan: (trackId: number, value: number) => void;
   handleLinkTrack: (trackId: number, linkedToTrackId: string | null) => void;
@@ -471,6 +472,20 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   handleTrackSwingChange: (id, val) => {
     set((state) => ({
       tracks: state.tracks.map((t) => t.id === id ? { ...t, swingIntensity: val } : t)
+    }));
+  },
+
+  handlePatternSwingChange: (trackId, patternId, val) => {
+    set((state) => ({
+      tracks: state.tracks.map((t) => {
+        if (t.id === trackId) {
+          return {
+            ...t,
+            patterns: t.patterns.map((p) => (p.id === patternId ? { ...p, swingIntensity: val } : p))
+          };
+        }
+        return t;
+      })
     }));
   },
 

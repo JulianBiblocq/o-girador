@@ -1302,6 +1302,17 @@ export function useAudioSync({
                     const strokeSymbol = String.fromCharCode(strokeCharCode);
                     const decayMultiplier = decayPct / 100;
 
+                    // Find active pattern for current measure
+                    let activePattern = null;
+                    const patterns = liveTrack.patterns;
+                    const numPatterns = patterns.length;
+                    for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+                      if (patterns[pIdx].measureAssignments[currentMeasureIdx]) {
+                        activePattern = patterns[pIdx];
+                        break;
+                      }
+                    }
+
                     // Calculate real-time swing and microtiming offsets
                     let noteSwingOffset = 0;
                     if (globalMode !== 'off') {
@@ -1310,8 +1321,11 @@ export function useAudioSync({
                       } else {
                         const trackSwingIntensity = liveTrack.swingIntensity !== undefined ? liveTrack.swingIntensity : 100;
                         const trackSwingMultiplier = trackSwingIntensity / 100;
+                        const patternSwingIntensity = activePattern?.swingIntensity !== undefined ? activePattern.swingIntensity : 100;
+                        const patternSwingMultiplier = patternSwingIntensity / 100;
+                        const totalSwingMultiplier = trackSwingMultiplier * patternSwingMultiplier;
 
-                        if (trackSwingMultiplier === 1) {
+                        if (totalSwingMultiplier === 1) {
                           noteSwingOffset = swingOffset;
                         } else {
                           let baseSwingOffset = 0;
@@ -1330,18 +1344,8 @@ export function useAudioSync({
                             baseSwingOffset = (customOffsetPct / 100) * stepDurationSec * 0.5 * intensity;
                           }
 
-                          noteSwingOffset = (baseSwingOffset * trackSwingMultiplier) + swingJitter;
+                          noteSwingOffset = (baseSwingOffset * totalSwingMultiplier) + swingJitter;
                         }
-                      }
-                    }
-
-                    let activePattern = null;
-                    const patterns = liveTrack.patterns;
-                    const numPatterns = patterns.length;
-                    for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
-                      if (patterns[pIdx].measureAssignments[currentMeasureIdx]) {
-                        activePattern = patterns[pIdx];
-                        break;
                       }
                     }
                     const stepCount = activePattern ? activePattern.steps : 16;
