@@ -23,7 +23,7 @@ function buildFlatSongSchedule(
   const isSoloPlayActive = soloPatternPlayId !== null;
 
   let accumulatedTicks = 0;
-  const patternPlayCounts = new Map<number, number>();
+  const patternPlayCounts = new Map<string, number>();
 
   for (let measureIdx = 0; measureIdx < totalMeasures; measureIdx++) {
     const timeSig = measureTimeSigs[measureIdx] || '4/4';
@@ -99,8 +99,9 @@ function buildFlatSongSchedule(
 
       if (!activePattern || !canPlay) return;
 
-      const currentPlayCount = patternPlayCounts.get(activePattern.id) || 0;
-      patternPlayCounts.set(activePattern.id, currentPlayCount + 1);
+      const trackPatternKey = `${track.id}-${activePattern.id}`;
+      const currentPlayCount = patternPlayCounts.get(trackPatternKey) || 0;
+      patternPlayCounts.set(trackPatternKey, currentPlayCount + 1);
 
       let stepsToPlay = activePattern.activeSteps;
       let effectiveVolumes = activePattern.volumes;

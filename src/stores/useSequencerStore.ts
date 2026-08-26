@@ -1097,11 +1097,6 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   handleTimelinePatternVariationToggle: (trackId, patternId, measureIdx, val) => {
     get().pushUndoState();
     set(state => {
-      if (state.maxMeasuresAllowed !== null && state.totalMeasures + 1 > state.maxMeasuresAllowed) {
-        alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
-        return state;
-      }
-      
       const ownerTrack = state.tracks.find(t => t.patterns.some(p => p.id === patternId));
       const targetTrackId = ownerTrack ? ownerTrack.id : trackId;
       return {
