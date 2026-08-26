@@ -72,26 +72,6 @@ export function workerSetTimeout(callback: () => void, delay: number): number {
   return id;
 }
 
-export function workerClearTimeout(id: number) {
-  pendingCallbacks.delete(id);
-  try {
-    getTimerWorker().postMessage({ type: 'clearTimeout', id });
-  } catch (_) {}
-}
-
-export function workerSetInterval(callback: () => void, delay: number): number {
-  const id = nextTimerId++;
-  pendingCallbacks.set(id, callback);
-  getTimerWorker().postMessage({ type: 'setInterval', id, delay });
-  return id;
-}
-
-export function workerClearInterval(id: number) {
-  pendingCallbacks.delete(id);
-  try {
-    getTimerWorker().postMessage({ type: 'clearInterval', id });
-  } catch (_) {}
-}
 
 interface ActiveVocal {
   mainPlayer: Tone.GrainPlayer;

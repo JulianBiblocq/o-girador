@@ -1,7 +1,6 @@
 import { Preset } from './types';
-import { getLocalLibrary, savePresetToLibrary, deletePresetFromLibrary, LocalLibrary } from './db';
+import { getLocalLibrary, savePresetToLibrary } from './db';
 
 export const LIBRARY_STORAGE_KEY = 'oGirador_personal_library';
 
-export { getLocalLibrary, savePresetToLibrary, deletePresetFromLibrary };
-export type { LocalLibrary };
+export { getLocalLibrary, savePresetToLibrary };
