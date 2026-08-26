@@ -751,8 +751,9 @@ export function useAudioSync({
   // Recompile tick schedule when state changes (Async Worker)
   useEffect(() => {
     let lastSoloPatternPlayId = useTransportStore.getState().soloPatternPlayId;
+    let lastSoloPatternVariationId = useTransportStore.getState().soloPatternVariationId;
 
-    const compile = (stateTracks: any, totalM: number, mTimeSigs: any, soloId: number | null) => {
+    const compile = (stateTracks: any, totalM: number, mTimeSigs: any, soloId: number | null, soloVarId: string | null) => {
       const worker = compilerWorkerRef.current;
       if (!worker) return;
 
@@ -764,13 +765,14 @@ export function useAudioSync({
         totalMeasures: totalM,
         measureTimeSigs: mTimeSigs,
         instConfig: instrumentsConfig,
-        soloPatternPlayId: soloId
+        soloPatternPlayId: soloId,
+        soloPatternVariationId: soloVarId
       });
     };
 
     // Initial compile
     const initialState = useSequencerStore.getState();
-    compile(initialState.tracks, initialState.totalMeasures, initialState.measureTimeSigs, lastSoloPatternPlayId);
+    compile(initialState.tracks, initialState.totalMeasures, initialState.measureTimeSigs, lastSoloPatternPlayId, lastSoloPatternVariationId);
 
     // Initial Active Instruments Cache Population (Stroke-level lazy loading)
     const initialActiveInstruments = initialState.tracks.map((t: any) => {
@@ -789,7 +791,7 @@ export function useAudioSync({
     // Subscribe to Zustand for store changes (using tracksVersion)
     const unsubSeq = useSequencerStore.subscribe((state, prevState) => {
       if (state.tracksVersion !== prevState.tracksVersion) {
-        compile(state.tracks, state.totalMeasures, state.measureTimeSigs, lastSoloPatternPlayId);
+        compile(state.tracks, state.totalMeasures, state.measureTimeSigs, lastSoloPatternPlayId, lastSoloPatternVariationId);
       }
       
       if (audioEngine && state.tracks !== prevState.tracks) {
@@ -815,12 +817,13 @@ export function useAudioSync({
       }
     });
 
-    // Subscribe to useTransportStore for soloPatternPlayId changes
+    // Subscribe to useTransportStore for soloPatternPlayId and variation changes
     const unsubTransport = useTransportStore.subscribe((state) => {
-      if (state.soloPatternPlayId !== lastSoloPatternPlayId) {
+      if (state.soloPatternPlayId !== lastSoloPatternPlayId || state.soloPatternVariationId !== lastSoloPatternVariationId) {
         lastSoloPatternPlayId = state.soloPatternPlayId;
+        lastSoloPatternVariationId = state.soloPatternVariationId;
         const seqState = useSequencerStore.getState();
-        compile(seqState.tracks, seqState.totalMeasures, seqState.measureTimeSigs, lastSoloPatternPlayId);
+        compile(seqState.tracks, seqState.totalMeasures, seqState.measureTimeSigs, lastSoloPatternPlayId, lastSoloPatternVariationId);
       }
     });
 

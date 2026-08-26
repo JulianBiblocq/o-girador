@@ -69,7 +69,10 @@ export default function App() {
   const audio = useAudio();
   const { hasAccess, userProfile, updateUserPreference } = useAuth();
 
-
+  React.useEffect(() => {
+    const isFree = !userProfile || (userProfile.role !== 'mestre' && userProfile.role !== 'admin');
+    useSequencerStore.getState().setMaxMeasuresAllowed(isFree ? 30 : null);
+  }, [userProfile]);
 
   // Context and unstable state Refs to maximize callback stabilization
   const sequencerRef = React.useRef(sequencer);

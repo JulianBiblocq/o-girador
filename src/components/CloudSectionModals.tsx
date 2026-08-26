@@ -5,6 +5,7 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { SongSection, SavedSectionData, CatalogVisibility, CloudSection, TrackGroup, Pattern } from '../types';
 import { saveSectionToCloud, fetchCloudSections, deleteCloudSection, getCloudSectionData } from '../cloudSections';
 import { SubscriptionModal } from './SubscriptionModal';
+import { VisitorAuthModal } from './VisitorAuthModal';
 import { useCloudAudioBounce } from '../hooks/useCloudAudioBounce';
 
 interface SaveSectionModalProps {
@@ -21,13 +22,14 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
   const [visibility, setVisibility] = useState<CatalogVisibility>('private');
   const [isSaving, setIsSaving] = useState(false);
   const [autoGenerateAudio, setAutoGenerateAudio] = useState(true);
+  const [showVisitorModal, setShowVisitorModal] = useState(false);
 
   const { genererEtUploaderSectionCloudBounce, isBouncingCloud } = useCloudAudioBounce();
 
   const handleSave = async () => {
     if (!name.trim()) return;
     if (!userProfile) {
-      alert(lang === 'fr' ? 'Vous devez être connecté pour sauvegarder.' : 'Você deve estar logado para salvar.');
+      setShowVisitorModal(true);
       return;
     }
     setIsSaving(true);
@@ -96,7 +98,8 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
         userProfile.uid,
         visibility,
         userProfile.mestreId || undefined,
-        targetDocId
+        targetDocId,
+        userProfile.role
       );
 
       if (autoGenerateAudio) {
@@ -135,25 +138,21 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
             disabled={isSaving || isBouncingCloud}
           />
         </div>
-        <div className="mb-4">
-          <label className="block text-sm font-bold text-[#1a1a1a] mb-1">
-            {lang === 'fr' ? 'Visibilité' : 'Visibilidade'}
-          </label>
-          <select
-            value={visibility}
-            onChange={(e) => setVisibility(e.target.value as CatalogVisibility)}
-            className="w-full bg-[#eaddcf] border border-[#1a1a1a] p-2 text-sm font-bold text-[#1a1a1a] outline-none focus:ring-2 focus:ring-[#8b2a1a]"
-            disabled={isSaving || isBouncingCloud}
-          >
-            <option value="private">{lang === 'fr' ? 'Privé (Uniquement moi)' : 'Privado (Somente eu)'}</option>
-            {userProfile?.role === 'mestre' && (
-              <option value="mestre_group">{lang === 'fr' ? 'Mon groupe' : 'Meu grupo'}</option>
-            )}
-            {isAdmin && (
-              <option value="admin_global">{lang === 'fr' ? 'Global (Tout le monde)' : 'Global (Todos)'}</option>
-            )}
-          </select>
-        </div>
+        {(userProfile?.role === 'mestre' || isAdmin) && (
+          <div className="mb-4 flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="visibilityGlobal"
+              checked={visibility === 'admin_global'}
+              onChange={(e) => setVisibility(e.target.checked ? 'admin_global' : 'private')}
+              disabled={isSaving || isBouncingCloud}
+              className="w-4 h-4 accent-[#8b2a1a]"
+            />
+            <label htmlFor="visibilityGlobal" className="text-sm font-bold text-[#1a1a1a] cursor-pointer">
+              {lang === 'fr' ? 'Partager dans le catalogue public' : 'Compartilhar no catálogo público'}
+            </label>
+          </div>
+        )}
         <div className="mb-6 flex items-center gap-2">
           <input
             type="checkbox"
@@ -193,6 +192,9 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
           </button>
         </div>
       </div>
+      {showVisitorModal && (
+        <VisitorAuthModal lang={lang} onClose={() => setShowVisitorModal(false)} />
+      )}
     </div>
   );
 };

@@ -106,12 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             sessionStorage.removeItem('o-girador-invite');
           }
           
-          // OVERRIDE FOR STANDBY MODE: Everyone gets mestre access
-          const profileForUI = { ...profile, dbRole: profile.dbRole || profile.role };
-          if (profileForUI.role !== 'admin') {
-            profileForUI.role = 'mestre';
-          }
-          setUserProfile(profileForUI);
+          setUserProfile({ ...profile, dbRole: profile.dbRole || profile.role });
         } else {
           let initialRole: UserRole = 'visiteur';
           let initialMestreId: string | undefined = undefined;
@@ -152,12 +147,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
           await setDoc(userRef, newProfile);
           
-          // OVERRIDE FOR STANDBY MODE: Everyone gets mestre access
-          const profileForUI = { ...newProfile, dbRole: newProfile.dbRole || newProfile.role };
-          if (profileForUI.role !== 'admin') {
-            profileForUI.role = 'mestre';
-          }
-          setUserProfile(profileForUI);
+          setUserProfile({ ...newProfile, dbRole: newProfile.dbRole || newProfile.role });
         }
       } else {
         setUserProfile(null);

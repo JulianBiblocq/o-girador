@@ -21,8 +21,8 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({ onClose, l
         <div className="bg-[#eaddcf] border-2 border-[#1a1a1a] p-4 text-center font-bold text-[#1a1a1a] flex flex-col gap-2">
           <p>
             {lang === 'fr' 
-              ? 'Vous avez atteint la limite de 20 mesures de la version gratuite.' 
-              : 'Você atingiu o limite de 20 compassos da versão gratuita.'}
+              ? 'Vous avez atteint la limite de 30 mesures de la version gratuite.' 
+              : 'Você atingiu o limite de 30 compassos da versão gratuita.'}
           </p>
           <p className="text-[#8b2a1a]">
             {lang === 'fr'

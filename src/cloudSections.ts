@@ -1,5 +1,5 @@
 import { db } from './firebase/config';
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc , query, limit, where, orderBy, or } from 'firebase/firestore';
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc , query, limit, where, orderBy, or, getCountFromServer } from 'firebase/firestore';
 import { CloudSection, CatalogVisibility, SavedSectionData } from './types';
 import LZString from 'lz-string';
 
@@ -14,9 +14,20 @@ export async function saveSectionToCloud(
   ownerId: string,
   visibility: CatalogVisibility,
   mestreId?: string,
-  existingDocId?: string
+  existingDocId?: string,
+  userRole?: string
 ): Promise<string> {
   if (!ownerId) throw new Error("Utilisateur non connecté");
+
+  // Vérification de la limite pour les comptes gratuits (visiteur, eleve) s'il s'agit d'une nouvelle création
+  if (!existingDocId && (!userRole || userRole === 'visiteur' || userRole === 'eleve')) {
+    const collRef = collection(db, CLOUD_SECTIONS_COLLECTION);
+    const q = query(collRef, where('ownerId', '==', ownerId));
+    const snapshot = await getCountFromServer(q);
+    if (snapshot.data().count >= 2) {
+      throw new Error("Vous avez atteint la limite de 2 morceaux gratuits");
+    }
+  }
 
   const dataString = LZString.compressToBase64(JSON.stringify(sectionData));
   

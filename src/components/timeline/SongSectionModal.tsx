@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { SongSection, Language } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
+import { VisitorAuthModal } from '../VisitorAuthModal';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { saveSectionToCloud } from '../../cloudSections';
 import { useAudio } from '../../contexts/AudioContext';
@@ -34,6 +35,7 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
   onLoadCloudSection,
 }) => {
   const { userProfile } = useAuth();
+  const [showVisitorModal, setShowVisitorModal] = useState(false);
   const [sectionFormName, setSectionFormName] = useState<string>('');
   const [sectionFormStart, setSectionFormStart] = useState<number | string>(1);
   const [sectionFormEnd, setSectionFormEnd] = useState<number | string>(4);
@@ -144,9 +146,6 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
               const newEndMeasure = editingSection.endMeasure + (copiesCount * sectionLength);
               
               duplicateSectionBlock(editingSection.startMeasure, editingSection.endMeasure, editingSection.endMeasure + 1, copiesCount);
-              // Set repeatCount back to 1 is handled inside handleUpdateSongSection if we provided it, but the signature doesn't take repeatCount.
-              // Wait, handleUpdateSongSection does not take repeatCount. We might need to reset it explicitly, or handleUpdateSongSection preserves it?
-              // Let's call useSequencerStore.getState().handleUpdateSectionRepeat to set it to 1, then update section.
               useSequencerStore.getState().handleUpdateSectionRepeat(editingSection.id, 1);
               onUpdateSection(editingSection.id, editingSection.name, editingSection.startMeasure, newEndMeasure, editingSection.color || '#f19066', editingSection.level || 0);
               onClose();
@@ -164,14 +163,13 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
               <button
                 onClick={() => {
                   if (!userProfile) {
-                    alert(lang === 'fr' ? 'Vous devez être connecté pour sauvegarder.' : 'Você deve estar logado para salvar.');
+                    setShowVisitorModal(true);
                     return;
                   }
                   onSaveCloudSection(editingSection);
                   onClose();
                 }}
-                disabled={!userProfile}
-                className="px-3 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[#6b1e11] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[#6b1e11]"
                 title={!userProfile ? (lang === 'fr' ? 'Connectez-vous pour sauvegarder' : 'Conecte-se para salvar') : (lang === 'fr' ? 'Sauvegarder dans le Cloud' : 'Salvar na Nuvem')}
               >
                 ☁️ {lang === 'fr' ? 'Sauvegarder' : 'Salvar'}
@@ -193,6 +191,9 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
           </button>
         </div>
       </div>
+      {showVisitorModal && (
+        <VisitorAuthModal lang={lang} onClose={() => setShowVisitorModal(false)} />
+      )}
     </div>
   );
 };

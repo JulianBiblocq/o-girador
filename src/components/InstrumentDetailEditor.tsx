@@ -15,7 +15,7 @@ import { vocalEngineService } from '../audio/vocalEngineService';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getStrokesForInstrument, STEP_OPTIONS } from '../utils/instrumentStrokes';
 import { createPortal } from 'react-dom';
-import { Play, Square, GripVertical } from 'lucide-react';
+import { Play, Square, GripVertical, RotateCcw } from 'lucide-react';
 import {
   DndContext,
   pointerWithin,
@@ -33,6 +33,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useSortable } from '@dnd-kit/sortable';
 import { Pattern, RhythmSignal, CloudPattern, CatalogVisibility, Language, GlobalSwing } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, NEWTON_NOTE_COLORS } from '../data';
+import { VisitorAuthModal } from './VisitorAuthModal';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchCloudPatterns, savePatternToCloud, deleteCloudPattern } from '../cloudPatterns';
@@ -203,6 +204,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const setTracks = useSequencerStore(state => state.setTracks);
   const pushUndoState = useSequencerStore(state => state.pushUndoState);
   const handlePatternSwingChange = useSequencerStore(state => state.handlePatternSwingChange);
+  const handleResetPatternMicrotimings = useSequencerStore(state => state.handleResetPatternMicrotimings);
 
   // Settings Store hooks for global stroke controls
   const forcedStrokes = useSequencerSettingsStore(state => state.forcedStrokes) || {};
@@ -697,10 +699,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [loadModalPatternId, setLoadModalPatternId] = useState<number | null>(null);
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [showVisitorModal, setShowVisitorModal] = useState(false);
 
   const handleSavePatternToLibrary = async () => {
     if (!userProfile) {
-      alert(lang === 'fr' ? 'Vous devez être connecté pour sauvegarder un pattern sur le Cloud.' : 'Você deve estar logado para salvar um padrão no Cloud.');
+      setShowVisitorModal(true);
       return;
     }
     if (saveModalPatternId === null || !savePatternName.trim()) return;
@@ -733,7 +736,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         createdAt: Date.now()
       };
 
-      const docId = await savePatternToCloud(savedPattern, userProfile.uid, savePatternVisibility, userProfile.mestreId || undefined, targetDocId);
+      const docId = await savePatternToCloud(savedPattern, userProfile.uid, savePatternVisibility, userProfile.mestreId || undefined, targetDocId, userProfile.role);
       
       if (autoGeneratePatternAudio) {
         try {
@@ -965,6 +968,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         {isClosing && (
           <div className="absolute inset-0 bg-[#f4ecd8]/20 backdrop-blur-[0.5px] z-[99999] pointer-events-auto" />
         )}
+        {showVisitorModal && (
+            <VisitorAuthModal lang={lang} onClose={() => setShowVisitorModal(false)} />
+          )}
         {/* ═══════════════════ HEADER BAR ═══════════════════ */}
         <div
           className="flex items-center gap-3 px-5 py-3 border-b-[3px] border-[#1a1a1a] shrink-0"
@@ -1261,7 +1267,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
                             {/* Pattern Swing Slider (Compact) */}
                             <div className="hidden md:flex items-center gap-1.5 bg-[#f4ecd8] px-2 py-0.5 rounded border-[1px] border-[#1a1a1a] text-[10px] font-bold ml-4 select-none text-[#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a]" title={lang === 'fr' ? "Multiplicateur de balanço pour ce motif" : "Multiplicador de balanço para este padrão"}>
-                              <span>〰️ {lang === 'fr' ? 'Balanço :' : 'Balanço :'}</span>
+                              <span>⚖️ {lang === 'fr' ? 'Balanço :' : 'Balanço :'}</span>
                               <input
                                 type="range"
                                 min="0"
@@ -1276,6 +1282,17 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               <span className="w-6 text-right font-cactus text-[11px]">
                                 {ptn.swingIntensity !== undefined ? ptn.swingIntensity : 100}%
                               </span>
+                              <button
+                                onClick={() => {
+                                  if (confirm(lang === 'fr' ? "Réinitialiser les microtimings de ce motif (remettre les pas droits) ?" : "Redefinir microtimings deste padrão (endireitar passos)?")) {
+                                    handleResetPatternMicrotimings(trackId, ptn.id);
+                                  }
+                                }}
+                                className="ml-1 text-[#8b2a1a] hover:text-[#a63d2d] transition-colors p-0.5 hover:bg-[#8b2a1a]/10 rounded cursor-pointer"
+                                title={lang === 'fr' ? "Réinitialiser les microtimings" : "Redefinir microtimings"}
+                              >
+                                <RotateCcw className="w-3 h-3" />
+                              </button>
                             </div>
 
                             {/* Steps selector */}

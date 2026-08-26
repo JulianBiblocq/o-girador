@@ -29,6 +29,7 @@ export interface TrackSlice {
   handleTrackPanChange: (id: number, val: number) => void;
   handleTrackSwingChange: (id: number, val: number) => void;
   handlePatternSwingChange: (trackId: number, patternId: number, val: number) => void;
+  handleResetPatternMicrotimings: (trackId: number, patternId: number) => void;
   setTrackFxSend: (trackId: number, fxType: 'reverb' | 'distortion', value: number) => void;
   setTrackPan: (trackId: number, value: number) => void;
   handleLinkTrack: (trackId: number, linkedToTrackId: string | null) => void;
@@ -482,6 +483,32 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
           return {
             ...t,
             patterns: t.patterns.map((p) => (p.id === patternId ? { ...p, swingIntensity: val } : p))
+          };
+        }
+        return t;
+      })
+    }));
+  },
+
+  handleResetPatternMicrotimings: (trackId, patternId) => {
+    set((state) => ({
+      tracks: state.tracks.map((t) => {
+        if (t.id === trackId) {
+          return {
+            ...t,
+            patterns: t.patterns.map((p) => {
+              if (p.id === patternId) {
+                return {
+                  ...p,
+                  microtimings: Array(p.steps).fill(0),
+                  variations: p.variations?.map(v => ({
+                    ...v,
+                    microtimings: Array(v.steps.length).fill(0)
+                  }))
+                };
+              }
+              return p;
+            })
           };
         }
         return t;
@@ -1069,7 +1096,12 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
 
   handleTimelinePatternVariationToggle: (trackId, patternId, measureIdx, val) => {
     get().pushUndoState();
-    set((state) => {
+    set(state => {
+      if (state.maxMeasuresAllowed !== null && state.totalMeasures + 1 > state.maxMeasuresAllowed) {
+        alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+        return state;
+      }
+      
       const ownerTrack = state.tracks.find(t => t.patterns.some(p => p.id === patternId));
       const targetTrackId = ownerTrack ? ownerTrack.id : trackId;
       return {
@@ -1269,6 +1301,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
 // ---------------------------------------------------------
 export interface StructureSlice {
   totalMeasures: number;
+  maxMeasuresAllowed: number | null;
   bpm: number;
   timeSig: TimeSignature;
   
@@ -1283,6 +1316,7 @@ export interface StructureSlice {
   mestreSignals: CloudRhythmSignal[];
   
   setTotalMeasures: (val: number | ((prev: number) => number)) => void;
+  setMaxMeasuresAllowed: (val: number | null) => void;
   setBpm: (bpm: number) => void;
   setTimeSig: (sig: TimeSignature) => void;
   setMeasureSignals: (updater: (string | null)[] | ((prev: (string | null)[]) => (string | null)[])) => void;
@@ -1314,6 +1348,7 @@ export interface StructureSlice {
 
 const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice> = (set, get) => ({
   totalMeasures: 8,
+  maxMeasuresAllowed: null,
   bpm: 83,
   timeSig: '4/4',
   measureTimeSigs: Array(8).fill('4/4'),
@@ -1333,10 +1368,18 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
  
   setBpm: (bpm) => set({ bpm }),
   setTimeSig: (sig) => set({ timeSig: sig }),
-  setTotalMeasures: (updater) => set(state => ({ 
-    totalMeasures: typeof updater === 'function' ? updater(state.totalMeasures) : updater,
-    tracksVersion: state.tracksVersion + 1
-  })),
+  setTotalMeasures: (updater) => set(state => {
+    let nextVal = typeof updater === 'function' ? updater(state.totalMeasures) : updater;
+    if (state.maxMeasuresAllowed !== null && nextVal > state.maxMeasuresAllowed) {
+      alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+      return state;
+    }
+    return {
+      totalMeasures: nextVal,
+      tracksVersion: state.tracksVersion + 1
+    };
+  }),
+  setMaxMeasuresAllowed: (val) => set({ maxMeasuresAllowed: val }),
   
   setMeasureSignals: (updater) => set((state) => ({
     measureSignals: typeof updater === 'function' ? updater(state.measureSignals) : updater
@@ -1351,6 +1394,11 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
   handleTotalMeasuresChange: (val) => {
     get().pushUndoState();
     set((state) => {
+      if (val === state.totalMeasures) return state;
+      if (state.maxMeasuresAllowed !== null && val > state.totalMeasures && val > state.maxMeasuresAllowed) {
+        alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+        return state;
+      }
       const expandArray = <T>(arr: T[], fillValue: T): T[] => {
         if (arr.length === val) return arr;
         if (arr.length > val) return arr.slice(0, val);
@@ -1436,6 +1484,11 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
 
       const totalNewMeasures = copiesCount * blockSize;
       const newTotalMeasures = Math.max(state.totalMeasures, targetIdx + totalNewMeasures);
+      
+      if (state.maxMeasuresAllowed !== null && newTotalMeasures > state.maxMeasuresAllowed) {
+        alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+        return state;
+      }
 
       const expandArray = <T>(arr: T[], fillValue: T, targetLength: number): T[] => {
         if (!arr) return [];
@@ -1631,6 +1684,11 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
   handleInsertMeasure: (measureIdx) => {
     get().pushUndoState();
     set((state) => {
+      if (state.maxMeasuresAllowed !== null && state.totalMeasures + 1 > state.maxMeasuresAllowed) {
+        alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+        return state;
+      }
+
       const refSig = state.measureTimeSigs[measureIdx] || state.timeSig;
       const refBpm = state.measureBpms[measureIdx] || state.bpm;
       const refVol = state.measureVols[measureIdx] !== undefined ? state.measureVols[measureIdx] : 100;
@@ -1970,7 +2028,12 @@ const createClipboardSlice: StateCreator<SequencerStore, [], [], ClipboardSlice>
       const updates: Partial<SequencerStore> = {};
       
       if (end >= prev.totalMeasures) {
-        updates.totalMeasures = end + 1;
+        const proposedTotal = end + 1;
+        if (prev.maxMeasuresAllowed !== null && proposedTotal > prev.maxMeasuresAllowed) {
+          alert(`Limite de ${prev.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+          return prev;
+        }
+        updates.totalMeasures = proposedTotal;
       }
 
       updates.tracks = prev.tracks.map(t => {

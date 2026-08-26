@@ -557,6 +557,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     if (globalSwing?.mode === 'off') return 0;
 
     const trackSwingMultiplier = (trackSwingIntensity !== undefined ? trackSwingIntensity : 100) / 100;
+    const patternSwingMultiplier = (pattern?.swingIntensity !== undefined ? pattern.swingIntensity : 100) / 100;
+    const totalSwingMultiplier = trackSwingMultiplier * patternSwingMultiplier;
 
     let posInGroup = 0;
     if (beatResolutions && beatResolutions.length > 0) {
@@ -574,7 +576,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       posInGroup = Math.round(posInBeat) % 4;
     }
 
-    const intensity = (globalSwing?.swingIntensity !== undefined ? globalSwing.swingIntensity : 100) / 100 * trackSwingMultiplier;
+    const intensity = (globalSwing?.swingIntensity !== undefined ? globalSwing.swingIntensity : 100) / 100 * totalSwingMultiplier;
 
     if (globalSwing?.mode === 'custom') {
       return (globalSwing?.customOffsets?.[posInGroup] || 0) * intensity;
@@ -597,7 +599,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       offsets[i] = getStepSwingPercent(i, stepsCount, resArr);
     }
     return offsets;
-  }, [pattern?.steps, pattern?.beatResolutions, globalSwing, trackSwingIntensity]);
+  }, [pattern?.steps, pattern?.beatResolutions, globalSwing, trackSwingIntensity, pattern?.swingIntensity]);
 
   const handleStepTouchStartMulti = React.useCallback((e: React.MouseEvent | React.TouchEvent, index: number) => {
     if (!isMultiSelectActive) return;

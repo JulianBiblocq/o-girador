@@ -15,13 +15,15 @@ function buildFlatSongSchedule(
   totalMeasures: number,
   measureTimeSigs: string[],
   instConfig: any[],
-  soloPatternPlayId: number | null
+  soloPatternPlayId: number | null,
+  soloPatternVariationId: string | null
 ): Float32Array {
   const notesList: number[] = [];
   const hasSolo = tracks.some((t: any) => t.isSolo);
   const isSoloPlayActive = soloPatternPlayId !== null;
 
   let accumulatedTicks = 0;
+  const patternPlayCounts = new Map<number, number>();
 
   for (let measureIdx = 0; measureIdx < totalMeasures; measureIdx++) {
     const timeSig = measureTimeSigs[measureIdx] || '4/4';
@@ -97,31 +99,62 @@ function buildFlatSongSchedule(
 
       if (!activePattern || !canPlay) return;
 
+      const currentPlayCount = patternPlayCounts.get(activePattern.id) || 0;
+      patternPlayCounts.set(activePattern.id, currentPlayCount + 1);
+
       let stepsToPlay = activePattern.activeSteps;
       let effectiveVolumes = activePattern.volumes;
       let effectiveDecays = activePattern.decays;
       let effectiveMicrotimings = activePattern.microtimings;
 
       // Resolve variations for this measure
-      if (activePattern.variations && activePattern.variations.length > 0 && activePattern.measureAllowVariations?.[measureIdx]) {
-        const validVariations = activePattern.variations.filter((v: any) => !v.playFirstTimeOnly);
-        if (validVariations.length > 0) {
-          const rand = nextRandom() * 100;
-          let sum = 0;
-          let matchedVariation = null;
-          for (const variation of validVariations) {
-            if (rand >= sum && rand < sum + variation.probability) {
-              matchedVariation = variation;
-              break;
+      if (activePattern.variations && activePattern.variations.length > 0) {
+        let matchedVariation = null;
+
+        // 0. Si le mode solo vise spécifiquement une variation
+        if (isSoloPlayActive && soloPatternPlayId === activePattern.id && soloPatternVariationId && soloPatternVariationId !== 'base' && soloPatternVariationId !== 'ensemble') {
+          matchedVariation = activePattern.variations.find((v: any) => v.id === soloPatternVariationId);
+        }
+        // Si le mode solo vise la base, on ignore les variations
+        else if (isSoloPlayActive && soloPatternPlayId === activePattern.id && soloPatternVariationId === 'base') {
+          matchedVariation = null;
+        }
+        else {
+          const isFirstTime = currentPlayCount === 0;
+
+          // 1. Les variations 'playFirstTimeOnly' sont toujours lues la première fois qu'on rencontre le pattern (Levée), peu importe le mode Improvisation
+          if (isFirstTime) {
+            const firstTimeVariations = activePattern.variations.filter((v: any) => v.playFirstTimeOnly);
+            if (firstTimeVariations.length > 0) {
+              matchedVariation = firstTimeVariations[0];
             }
-            sum += variation.probability;
           }
-          if (matchedVariation) {
-            stepsToPlay = matchedVariation.steps;
-            if (matchedVariation.volumes) effectiveVolumes = matchedVariation.volumes;
-            if (matchedVariation.decays) effectiveDecays = matchedVariation.decays;
-            if (matchedVariation.microtimings) effectiveMicrotimings = matchedVariation.microtimings;
+
+          // 2. Si pas de Levée correspondante, on évalue les probabilités UNIQUEMENT SI l'improvisation est autorisée (ou si on lit un pattern en solo)
+          if (!matchedVariation) {
+            const allowImprov = isSoloPlayActive || (activePattern.measureAllowVariations && activePattern.measureAllowVariations[measureIdx]);
+            if (allowImprov) {
+              const validVariations = activePattern.variations.filter((v: any) => !v.playFirstTimeOnly);
+              if (validVariations.length > 0) {
+                const rand = nextRandom() * 100;
+                let sum = 0;
+                for (const variation of validVariations) {
+                  if (rand >= sum && rand < sum + variation.probability) {
+                    matchedVariation = variation;
+                    break;
+                  }
+                  sum += variation.probability;
+                }
+              }
+            }
           }
+        }
+
+        if (matchedVariation) {
+          stepsToPlay = matchedVariation.steps;
+          if (matchedVariation.volumes) effectiveVolumes = matchedVariation.volumes;
+          if (matchedVariation.decays) effectiveDecays = matchedVariation.decays;
+          if (matchedVariation.microtimings) effectiveMicrotimings = matchedVariation.microtimings;
         }
       }
 
@@ -233,14 +266,15 @@ function buildFlatSongSchedule(
 
 self.onmessage = (e: MessageEvent<any>) => {
   try {
-    const { action, tracks, totalMeasures, measureTimeSigs, instConfig, soloPatternPlayId } = e.data;
+    const { action, tracks, totalMeasures, measureTimeSigs, instConfig, soloPatternPlayId, soloPatternVariationId } = e.data;
     if (action === 'compileSong') {
       const flatArray = buildFlatSongSchedule(
         tracks,
         totalMeasures,
         measureTimeSigs,
         instConfig,
-        soloPatternPlayId
+        soloPatternPlayId,
+        soloPatternVariationId
       );
       // @ts-ignore
       self.postMessage({ success: true, action: 'compileSong', data: flatArray }, [flatArray.buffer]);
