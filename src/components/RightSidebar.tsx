@@ -175,8 +175,6 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   };
 
 
-  if (isMobile && !activePanel) return null;
-
   React.useEffect(() => {
     if (activePanel) {
       if (activePanel === 'legend') setSubTab('legendes');
@@ -185,7 +183,11 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
       else if (activePanel === 'sinais') setSubTab('sinais');
       else if (activePanel === 'feedback') setSubTab('feedback');
     }
-  }, [activePanel]);  const getYouTubeEmbedUrl = (url: string) => {
+  }, [activePanel]);
+
+  if (isMobile && !activePanel) return null;
+
+  const getYouTubeEmbedUrl = (url: string) => {
     if (!url) return '';
     const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/);
     const videoId = match ? match[1] : null;

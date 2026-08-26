@@ -10,9 +10,9 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 export interface StructureSnapshot {
   measureTimeSigs: TimeSignature[];
   measureBpms: number[];
-  measureBpmTransitions: ('immediate' | 'ramp')[];
+  measureBpmTransitions: ('immediate' | 'ramp' | 'bezier')[];
   measureVols: number[];
-  measureVolTransitions: ('immediate' | 'ramp')[];
+  measureVolTransitions: ('immediate' | 'ramp' | 'bezier')[];
   songSections?: SongSection[];
   songMarkers?: SongMarker[];
 }
@@ -21,9 +21,9 @@ export interface UseSequencerHistoryOptions {
   tracksRef: React.MutableRefObject<TrackGroup[]>;
   measureTimeSigsRef: React.MutableRefObject<TimeSignature[]>;
   measureBpmsRef: React.MutableRefObject<number[]>;
-  measureBpmTransitionsRef: React.MutableRefObject<('immediate' | 'ramp')[]>;
+  measureBpmTransitionsRef: React.MutableRefObject<('immediate' | 'ramp' | 'bezier')[]>;
   measureVolsRef: React.MutableRefObject<number[]>;
-  measureVolTransitionsRef: React.MutableRefObject<('immediate' | 'ramp')[]>;
+  measureVolTransitionsRef: React.MutableRefObject<('immediate' | 'ramp' | 'bezier')[]>;
   songSectionsRef: React.MutableRefObject<SongSection[]>;
   songMarkersRef: React.MutableRefObject<SongMarker[]>;
 
@@ -32,9 +32,9 @@ export interface UseSequencerHistoryOptions {
   setSongSections: (sections: SongSection[]) => void;
   setSongMarkers: (markers: SongMarker[]) => void;
   setMeasureBpms: React.Dispatch<React.SetStateAction<number[]>>;
-  setMeasureBpmTransitions: React.Dispatch<React.SetStateAction<('immediate' | 'ramp')[]>>;
+  setMeasureBpmTransitions: React.Dispatch<React.SetStateAction<('immediate' | 'ramp' | 'bezier')[]>>;
   setMeasureVols: React.Dispatch<React.SetStateAction<number[]>>;
-  setMeasureVolTransitions: React.Dispatch<React.SetStateAction<('immediate' | 'ramp')[]>>;
+  setMeasureVolTransitions: React.Dispatch<React.SetStateAction<('immediate' | 'ramp' | 'bezier')[]>>;
 }
 
 export function useSequencerHistory({

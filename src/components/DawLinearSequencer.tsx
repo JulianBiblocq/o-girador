@@ -313,7 +313,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
         </div>
 
         {/* 2. Scrollable DAW Tracks list */}
-        <div className="flex flex-col gap-3 flex-grow">
+        <div className="flex flex-col gap-0 flex-grow">
           {visibleTracks.map((track, trackIdx) => {
             const isToada = isToadaBus(track);
 

@@ -1274,9 +1274,9 @@ export interface StructureSlice {
   
   measureTimeSigs: TimeSignature[];
   measureBpms: number[];
-  measureBpmTransitions: ('immediate' | 'ramp')[];
+  measureBpmTransitions: ('immediate' | 'ramp' | 'bezier')[];
   measureVols: number[];
-  measureVolTransitions: ('immediate' | 'ramp')[];
+  measureVolTransitions: ('immediate' | 'ramp' | 'bezier')[];
   measureSignals: (string | null)[];
   songSections: SongSection[];
   songMarkers: SongMarker[];
@@ -1288,18 +1288,18 @@ export interface StructureSlice {
   setMeasureSignals: (updater: (string | null)[] | ((prev: (string | null)[]) => (string | null)[])) => void;
   setMeasureBpms: (updater: number[] | ((prev: number[]) => number[])) => void;
   setMeasureTimeSigs: (updater: TimeSignature[] | ((prev: TimeSignature[]) => TimeSignature[])) => void;
-  setMeasureBpmTransitions: (updater: ('immediate' | 'ramp')[] | ((prev: ('immediate' | 'ramp')[]) => ('immediate' | 'ramp')[])) => void;
+  setMeasureBpmTransitions: (updater: ('immediate' | 'ramp' | 'bezier')[] | ((prev: ('immediate' | 'ramp' | 'bezier')[]) => ('immediate' | 'ramp' | 'bezier')[])) => void;
   setMeasureVols: (updater: number[] | ((prev: number[]) => number[])) => void;
-  setMeasureVolTransitions: (updater: ('immediate' | 'ramp')[] | ((prev: ('immediate' | 'ramp')[]) => ('immediate' | 'ramp')[])) => void;
+  setMeasureVolTransitions: (updater: ('immediate' | 'ramp' | 'bezier')[] | ((prev: ('immediate' | 'ramp' | 'bezier')[]) => ('immediate' | 'ramp' | 'bezier')[])) => void;
   setSongSections: (updater: SongSection[] | ((prev: SongSection[]) => SongSection[])) => void;
   setSongMarkers: (updater: SongMarker[] | ((prev: SongMarker[]) => SongMarker[])) => void;
   setMestreSignals: (signals: CloudRhythmSignal[]) => void;
   handleTotalMeasuresChange: (val: number) => void;
   handleMeasureTimeSigChange: (measureIdx: number, val: TimeSignature) => void;
   handleMeasureBpmChange: (measureIdx: number, val: number) => void;
-  handleMeasureTransitionChange: (measureIdx: number, val: 'immediate' | 'ramp') => void;
+  handleMeasureTransitionChange: (measureIdx: number, val: 'immediate' | 'ramp' | 'bezier') => void;
   handleMeasureVolChange: (measureIdx: number, val: number) => void;
-  handleMeasureVolTransitionChange: (measureIdx: number, val: 'immediate' | 'ramp') => void;
+  handleMeasureVolTransitionChange: (measureIdx: number, val: 'immediate' | 'ramp' | 'bezier') => void;
   handleCreateSongSection: (name: string, start: number, end: number, color?: string, repeatCount?: number, level?: number) => void;
   handleUpdateSongSection: (id: string, name: string, start: number, end: number, color?: string, level?: number) => void;
   handleUpdateSectionRepeat: (id: string, count: number) => void;
@@ -1309,6 +1309,7 @@ export interface StructureSlice {
   handleDeleteSongMarker: (id: string) => void;
   handleDeleteMeasure: (measureIdx: number) => void;
   handleInsertMeasure: (measureIdx: number) => void;
+  duplicateSectionBlock: (startIdx: number, endIdx: number, targetIdx: number, copiesCount: number) => void;
 }
 
 const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice> = (set, get) => ({
@@ -1424,6 +1425,102 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
       const arr = [...state.measureVolTransitions];
       arr[idx] = val;
       return { measureVolTransitions: arr };
+    });
+  },
+
+  duplicateSectionBlock: (startIdx, endIdx, targetIdx, copiesCount) => {
+    get().pushUndoState();
+    set((state) => {
+      const blockSize = endIdx - startIdx + 1;
+      if (blockSize <= 0 || copiesCount <= 0) return {};
+
+      const totalNewMeasures = copiesCount * blockSize;
+      const newTotalMeasures = Math.max(state.totalMeasures, targetIdx + totalNewMeasures);
+
+      const expandArray = <T>(arr: T[], fillValue: T, targetLength: number): T[] => {
+        if (!arr) return [];
+        if (arr.length >= targetLength) return arr;
+        const next = [...arr];
+        while (next.length < targetLength) next.push(fillValue);
+        return next;
+      };
+
+      // Expand arrays
+      const nextTimeSigs = expandArray(state.measureTimeSigs, state.timeSig, newTotalMeasures);
+      const nextBpms = expandArray(state.measureBpms, state.bpm, newTotalMeasures);
+      const nextBpmTransitions = expandArray(state.measureBpmTransitions, 'immediate', newTotalMeasures);
+      const nextVols = expandArray(state.measureVols, 100, newTotalMeasures);
+      const nextVolTransitions = expandArray(state.measureVolTransitions, 'immediate', newTotalMeasures);
+      const nextSignals = expandArray(state.measureSignals, null, newTotalMeasures);
+
+      // Copy values for each copy
+      for (let copy = 0; copy < copiesCount; copy++) {
+        for (let i = 0; i < blockSize; i++) {
+          const src = startIdx + i;
+          const dest = targetIdx + (copy * blockSize) + i;
+          nextTimeSigs[dest] = nextTimeSigs[src];
+          nextBpms[dest] = nextBpms[src];
+          nextBpmTransitions[dest] = nextBpmTransitions[src];
+          nextVols[dest] = nextVols[src];
+          nextVolTransitions[dest] = nextVolTransitions[src];
+          nextSignals[dest] = nextSignals[src];
+        }
+      }
+
+      // Copy track assignments and overrides
+      const nextTracks = state.tracks.map(t => {
+        const nextOverrides = t.patternOverrides ? { ...t.patternOverrides } : {};
+        
+        for (let copy = 0; copy < copiesCount; copy++) {
+          for (let i = 0; i < blockSize; i++) {
+            const src = startIdx + i;
+            const dest = targetIdx + (copy * blockSize) + i;
+            if (nextOverrides[src] !== undefined) {
+              nextOverrides[dest] = nextOverrides[src];
+            } else {
+              delete nextOverrides[dest];
+            }
+          }
+        }
+
+        return {
+          ...t,
+          patternOverrides: nextOverrides,
+          patterns: t.patterns.map(p => {
+            const nextAssignments = expandArray(p.measureAssignments || [], false, newTotalMeasures);
+            const nextVariations = p.measureAllowVariations ? expandArray(p.measureAllowVariations, false, newTotalMeasures) : undefined;
+            
+            for (let copy = 0; copy < copiesCount; copy++) {
+              for (let i = 0; i < blockSize; i++) {
+                const src = startIdx + i;
+                const dest = targetIdx + (copy * blockSize) + i;
+                nextAssignments[dest] = nextAssignments[src];
+                if (nextVariations) {
+                  nextVariations[dest] = nextVariations[src];
+                }
+              }
+            }
+            
+            return {
+              ...p,
+              measureAssignments: nextAssignments,
+              measureAllowVariations: nextVariations
+            };
+          })
+        };
+      });
+
+      return {
+        totalMeasures: newTotalMeasures,
+        measureTimeSigs: nextTimeSigs,
+        measureBpms: nextBpms,
+        measureBpmTransitions: nextBpmTransitions,
+        measureVols: nextVols,
+        measureVolTransitions: nextVolTransitions,
+        measureSignals: nextSignals,
+        tracks: nextTracks,
+        tracksVersion: state.tracksVersion + 1
+      };
     });
   },
 

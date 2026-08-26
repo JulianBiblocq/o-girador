@@ -138,6 +138,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const tracksRedoHistory = useSequencerStore(state => state.tracksRedoHistory);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const metadata = useSequencerStore(state => state.metadata);
+  const isTracksCollapsed = useSequencerStore(state => state.isTracksCollapsed);
 
   const {
     globalSwing,
@@ -521,9 +522,14 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         </div>
 
         {/* Center: App Title */}
-        <span id="header-title-text-mobile" className="font-cactus text-[var(--cordel-text)] text-base font-bold tracking-wide uppercase select-none cursor-default whitespace-nowrap">
-          O Girador
-        </span>
+        <div className="flex flex-col items-end select-none cursor-default">
+          <span id="header-title-text-mobile" className="font-cactus text-[var(--cordel-text)] text-base font-bold tracking-wide uppercase whitespace-nowrap leading-none mt-1">
+            O Girador
+          </span>
+          <span className="text-[8px] font-bold font-sans uppercase tracking-widest opacity-80 leading-none mt-0 text-[var(--cordel-wood)]">
+            Sequenciador
+          </span>
+        </div>
 
         {/* Right: Quick actions (View Switcher and Add Instrument) */}
         <div className="flex items-center gap-2">
@@ -586,54 +592,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           >
             <XiloTimeline size={16} />
           </button>
-
-          {/* TODO: Réactiver le Studio des Jeux plus tard */}
-          {/* STUDIO DO MESTRE (Mobile) */}
-          {/* {hasAccess('admin') && (
-            <button
-              onClick={() => onViewModeToggle('studio')}
-              className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
-                viewMode === 'studio'
-                  ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                  : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-              }`}
-              title={lang === 'pt' ? 'Estúdio do Mestre' : 'Studio du Mestre'}
-            >
-              <XiloMestre size={16} />
-            </button>
-          )} */}
-
-          {/* JOGO DROPDOWN (MOBILE) */}
-          {hasAccess('admin') && (
-            <div className="relative font-sans" ref={jogoDropRef}>
-              <button
-                onClick={() => setJogoDropOpen(!jogoDropOpen)}
-                className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
-                  viewMode === 'quiz' || viewMode === 'dictee' || viewMode === 'inspecteur' || viewMode === 'mestre' || viewMode === 'rythmelive'
-                    ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                    : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-                }`}
-                title={lang === 'pt' ? 'Jogos' : 'Jeux'}
-              >
-                <XiloGame size={16} />
-              </button>
-              
-              {jogoDropOpen && (
-              <div className="absolute top-10 right-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] min-w-[160px] z-[100] flex flex-col py-1">
-                <button
-                  onClick={() => { onViewModeToggle('varal'); setJogoDropOpen(false); }}
-                  className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
-                    viewMode === 'varal' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
-                  }`}
-                >
-                  🪢 {lang === 'pt' ? 'Varal (Progresso)' : 'Varal (Progression)'}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-
         </div>
 
       </div>
@@ -649,13 +607,20 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       className="w-full min-h-[70px] bg-[var(--cordel-bg)] border-b-2 border-[var(--cordel-border)] flex flex-wrap items-center justify-between px-5 py-2.5 gap-2 z-50 relative select-none shrink-0"
     >
       <div className="flex-1 flex items-center gap-3">
-
-        <span
-          id="header-title-text"
-          className="font-cactus text-[var(--cordel-text)] text-3xl font-medium tracking-widest uppercase select-none cursor-default"
-        >
-          O Girador {version && <span className="text-xs lowercase opacity-50 ml-1 font-sans">v{version}</span>}
-        </span>
+        <div className="flex items-start select-none cursor-default">
+          <div className="flex flex-col items-end">
+            <span
+              id="header-title-text"
+              className="font-cactus text-[var(--cordel-text)] text-3xl font-medium tracking-widest uppercase leading-none"
+            >
+              O Girador
+            </span>
+            <span className="text-[10px] font-bold font-sans uppercase tracking-[0.2em] opacity-80 leading-none mt-0 text-[var(--cordel-wood)]">
+              Sequenciador
+            </span>
+          </div>
+          {version && <span className="text-xs lowercase opacity-50 ml-1 font-sans pt-1">v{version}</span>}
+        </div>
         
         <div className="relative ml-2" ref={projectDropRef}>
           <button
@@ -831,15 +796,34 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       <div className="flex items-center justify-center gap-4">
         {/* RODA */}
         <button
-          onClick={() => onViewModeToggle('roda')}
+          onClick={() => {
+            onViewModeToggle('roda');
+            useSequencerStore.setState({ isTracksCollapsed: true });
+          }}
           className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${
-            viewMode === 'roda'
+            viewMode === 'roda' && isTracksCollapsed
               ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
               : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
           }`}
-          title="Vue Roda / Séquenceur circulaire"
+          title={lang === 'fr' ? 'Vue Roda / Séquenceur circulaire' : 'Visão Roda / Sequenciador circular'}
         >
           <XiloRoda size={14} className="shrink-0" /> RODA
+        </button>
+
+        {/* PISTES / DAW LINEAIRE */}
+        <button
+          onClick={() => {
+            onViewModeToggle('roda');
+            useSequencerStore.setState({ isTracksCollapsed: false });
+          }}
+          className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${
+            viewMode === 'roda' && !isTracksCollapsed
+              ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+          }`}
+          title={lang === 'fr' ? 'Vue Pistes / Séquenceur linéaire' : 'Visão Pistas / Sequenciador linear'}
+        >
+          <XiloDrum size={14} className="shrink-0" /> {lang === 'fr' ? 'PISTES' : 'PISTAS'}
         </button>
 
         {/* MIXER */}
@@ -867,53 +851,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         >
           <XiloTimeline size={14} className="shrink-0" /> {lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR'}
         </button>
-
-        {/* TODO: Réactiver le Studio des Jeux plus tard */}
-        {/* STUDIO DO MESTRE (Standalone Desktop) */}
-        {/* {hasAccess('admin') && (
-          <button
-            onClick={() => onViewModeToggle('studio')}
-            className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${
-              viewMode === 'studio'
-                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-            }`}
-            title={lang === 'pt' ? 'Estúdio do Mestre' : 'Studio du Mestre'}
-          >
-            <XiloMestre size={14} className="shrink-0" /> {lang === 'pt' ? 'ESTÚDIO' : 'STUDIO'}
-          </button>
-        )} */}
-
-        {/* TODO: Réactiver l'onglet JOGOS / JEUX plus tard */}
-        {/* JOGOS DROPDOWN (DESKTOP) - TEMPORARILY HIDDEN */}
-        {/* <div className="relative font-sans" ref={jogoDropRef}>
-          {hasAccess('admin') && (
-            <button
-              onClick={() => setJogoDropOpen(!jogoDropOpen)}
-              className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${
-                viewMode === 'quiz' || viewMode === 'dictee' || viewMode === 'inspecteur' || viewMode === 'mestre' || viewMode === 'rythmelive'
-                  ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-                  : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-              }`}
-              title={lang === 'pt' ? 'Jogos' : 'Jeux'}
-            >
-              <XiloGame size={14} className="shrink-0" /> {lang === 'pt' ? 'JOGOS' : 'JEUX'} <span className="text-[10px] ml-1">▼</span>
-            </button>
-          )}
-          
-          {jogoDropOpen && hasAccess('admin') && (
-            <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] min-w-[200px] z-[100] flex flex-col py-1">
-              <button
-                onClick={() => { onViewModeToggle('varal'); setJogoDropOpen(false); }}
-                className={`flex items-center gap-2 px-4 py-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-left w-full transition-colors cursor-pointer text-xs ${
-                  viewMode === 'varal' ? 'bg-[var(--cordel-text)]/10 text-[var(--cordel-wood)] font-black' : 'text-[var(--cordel-text)]'
-                }`}
-              >
-                🪢 {lang === 'pt' ? 'Varal (Progresso)' : 'Varal (Progression)'}
-              </button>
-            </div>
-          )}
-        </div> */}
 
 
       </div>

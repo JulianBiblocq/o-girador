@@ -8,6 +8,7 @@ import { SongSection, Language } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { saveSectionToCloud } from '../../cloudSections';
+import { useAudio } from '../../contexts/AudioContext';
 
 interface SongSectionModalProps {
   isOpen: boolean;
@@ -38,6 +39,9 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
   const [sectionFormEnd, setSectionFormEnd] = useState<number | string>(4);
   const [sectionFormColor, setSectionFormColor] = useState<string>('#f19066');
   const [sectionFormLevel, setSectionFormLevel] = useState<number>(0);
+  
+  const { isPlaying } = useAudio();
+  const duplicateSectionBlock = useSequencerStore(state => state.duplicateSectionBlock);
   
   useEffect(() => {
     if (isOpen) {
@@ -126,6 +130,32 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
             ))}
           </div>
         </div>
+
+        {/* Bouton de conversion pour rétro-compatibilité */}
+        {editingSection && editingSection.repeatCount && editingSection.repeatCount > 1 && (
+          <button
+            onClick={() => {
+              if (isPlaying) {
+                alert(lang === 'fr' ? 'Arrêtez la lecture avant de convertir la section (protection audio).' : 'Pare a reprodução antes de converter a seção (proteção de áudio).');
+                return;
+              }
+              const sectionLength = editingSection.endMeasure - editingSection.startMeasure + 1;
+              const copiesCount = editingSection.repeatCount! - 1;
+              const newEndMeasure = editingSection.endMeasure + (copiesCount * sectionLength);
+              
+              duplicateSectionBlock(editingSection.startMeasure, editingSection.endMeasure, editingSection.endMeasure + 1, copiesCount);
+              // Set repeatCount back to 1 is handled inside handleUpdateSongSection if we provided it, but the signature doesn't take repeatCount.
+              // Wait, handleUpdateSongSection does not take repeatCount. We might need to reset it explicitly, or handleUpdateSongSection preserves it?
+              // Let's call useSequencerStore.getState().handleUpdateSectionRepeat to set it to 1, then update section.
+              useSequencerStore.getState().handleUpdateSectionRepeat(editingSection.id, 1);
+              onUpdateSection(editingSection.id, editingSection.name, editingSection.startMeasure, newEndMeasure, editingSection.color || '#f19066', editingSection.level || 0);
+              onClose();
+            }}
+            className="w-full px-4 py-2 mt-1 bg-[#f5cd79] text-[#1a1a1a] border-2 border-[#1a1a1a] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[#e0b965] flex items-center justify-center gap-2"
+          >
+            <span>🪄</span> {lang === 'fr' ? 'Convertir en copies physiques' : 'Converter para cópias físicas'}
+          </button>
+        )}
 
         {/* Pied de page et boutons d'action */}
         <div className="flex flex-wrap justify-end gap-2.5 mt-2 border-t border-[var(--cordel-border)]/30 pt-3">

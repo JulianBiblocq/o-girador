@@ -4,6 +4,7 @@
  */
 
 import { useSequencerStore, isLinearDAWVisibleTrack, isToadaBus } from '../stores/useSequencerStore';
+import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useShallow } from 'zustand/react/shallow';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import type * as ToneType from 'tone';
@@ -17,7 +18,6 @@ import { ASSETS_BASE_URL, instrumentsConfig, getMaxTicks, getMarkers, isDarkText
 import { CompactPatternRenderer } from './CompactPatternRenderer';
 import { TimelineTrackRow } from './TimelineTrackRow';
 import { TimelinePlayhead } from './TimelinePlayhead';
-import { CompassoSelector } from './CompassoSelector';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { StepEditorPopup } from './StepEditorPopup';
 import { useTimelineEditStore } from '../stores/useTimelineEditStore';
@@ -34,6 +34,7 @@ import { SongMarkerModal } from './timeline/SongMarkerModal';
 import { RhythmSignalsRow } from './timeline/RhythmSignalsRow';
 import { VocalRecordingBar } from './VocalRecordingBar';
 import { XiloChisel, XiloMagnet } from './XiloIcons';
+import { AutomationTrack } from './AutomationTrack';
 
 interface TimelineSequencerProps {
   isMobile: boolean;
@@ -55,6 +56,7 @@ interface TimelineSequencerProps {
 }
 
 const HEADER_W = 180;
+
 
 function getDisplayVal(val: string | number) {
   if (val === 0 || val === '0' || !val) return '';
@@ -98,6 +100,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const loopEndMeasure = useSequencerStore(state => state.loopEndMeasure);
   const isLoopRegionActive = useSequencerStore(state => state.isLoopRegionActive);
   const measureSignals = useSequencerStore(useShallow(state => state.measureSignals || []));
+  const enabledSignalIds = useSequencerSettingsStore(state => state.enabledSignalIds);
 
   const {
     lang,
@@ -127,6 +130,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     handleClearLoop: onClearLoop,
     handleDeleteMeasure: onDeleteMeasure,
     handleInsertMeasure: onInsertMeasure,
+    duplicateSectionBlock,
   } = sequencer;
   const trackIds = useSequencerStore(useShallow(state => {
     const visibleTrackIds: number[] = [];
@@ -1100,6 +1104,23 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     const startX = e.clientX;
     const startMeasure = section.startMeasure;
     const endMeasure = section.endMeasure;
+    const sectionLength = endMeasure - startMeasure + 1;
+
+    let currentCopies = 0;
+    let ghost: HTMLDivElement | null = null;
+
+    if (edge === 'right') {
+      ghost = document.createElement('div');
+      ghost.style.position = 'absolute';
+      ghost.style.top = el.style.top;
+      ghost.style.height = el.style.height;
+      ghost.style.pointerEvents = 'none';
+      ghost.style.zIndex = '50';
+      ghost.style.display = 'flex';
+      const startLeft = (endMeasure + 1) * MEASURE_W;
+      ghost.style.left = `${startLeft}px`;
+      el.parentElement?.appendChild(ghost);
+    }
 
     const handlePointerMove = (moveEv: PointerEvent) => {
       const dx = moveEv.clientX - startX;
@@ -1123,19 +1144,23 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         el.style.left = `${currentLeft}px`;
         el.style.width = `${currentWidth - 8}px`;
       } else {
-        const proposedEnd = endMeasure + measureDelta;
-        let snappedEnd = endMeasure;
-        if (snapMode === 'measure') {
-          snappedEnd = Math.round(proposedEnd);
-        } else if (snapMode === 'beat') {
-          snappedEnd = Math.round(proposedEnd * 4) / 4;
-        } else {
-          snappedEnd = proposedEnd;
+        // Right edge drag -> Ghost clones
+        currentCopies = Math.max(0, Math.round(measureDelta / sectionLength));
+        
+        if (ghost) {
+          ghost.innerHTML = ''; 
+          for(let i = 0; i < currentCopies; i++) {
+            const block = document.createElement('div');
+            block.style.width = `${sectionLength * MEASURE_W - 8}px`;
+            block.style.height = '100%';
+            block.style.backgroundColor = section.color || '#eaddcf';
+            block.style.opacity = '0.5';
+            block.style.borderRadius = '0.25rem';
+            block.style.border = '1.5px solid #1a1a1a';
+            block.style.marginRight = '8px';
+            ghost.appendChild(block);
+          }
         }
-
-        snappedEnd = Math.max(startMeasure, Math.min(totalMeasures - 1, snappedEnd));
-        const currentWidth = (snappedEnd - startMeasure + 1) * MEASURE_W;
-        el.style.width = `${currentWidth - 8}px`;
       }
     };
 
@@ -1145,17 +1170,36 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       }
       if (dragAbortControllerRef.current) dragAbortControllerRef.current.abort();
 
-      const currentLeft = parseFloat(el.style.left) || (section.startMeasure * MEASURE_W);
-      const currentWidth = (parseFloat(el.style.width) || 0) + 8;
+      if (ghost && ghost.parentElement) {
+        ghost.parentElement.removeChild(ghost);
+      }
 
-      const finalStart = Math.max(0, Math.min(totalMeasures - 1, Math.round(currentLeft / MEASURE_W)));
-      const finalEnd = Math.max(finalStart, Math.min(totalMeasures - 1, finalStart + Math.round(currentWidth / MEASURE_W) - 1));
+      if (edge === 'left') {
+        const currentLeft = parseFloat(el.style.left) || (section.startMeasure * MEASURE_W);
+        const finalStart = Math.max(0, Math.min(totalMeasures - 1, Math.round(currentLeft / MEASURE_W)));
 
-      if (finalStart !== section.startMeasure || finalEnd !== section.endMeasure) {
-        onUpdateSection(section.id, section.name, finalStart, finalEnd, section.color, section.level);
+        if (finalStart !== section.startMeasure) {
+          onUpdateSection(section.id, section.name, finalStart, section.endMeasure, section.color, section.level);
+        } else {
+          el.style.left = `${section.startMeasure * MEASURE_W}px`;
+          el.style.width = `${(section.endMeasure - section.startMeasure + 1) * MEASURE_W - 8}px`;
+        }
       } else {
-        el.style.left = `${section.startMeasure * MEASURE_W}px`;
-        el.style.width = `${(section.endMeasure - section.startMeasure + 1) * MEASURE_W - 8}px`;
+        if (currentCopies > 0) {
+          if (isPlaying) {
+            console.warn("Impossible d'étirer une section pendant la lecture (Zero Render Thrashing / Audio Sync rule).");
+            // Optionally, add a toast here if there is a toast system.
+            return;
+          }
+          
+          const finalEnd = endMeasure + (currentCopies * sectionLength);
+          
+          // Execute physical cloning in Zustand store
+          duplicateSectionBlock(startMeasure, endMeasure, endMeasure + 1, currentCopies);
+          
+          // Update section boundaries to cover the new clones
+          onUpdateSection(section.id, section.name, startMeasure, finalEnd, section.color, section.level);
+        }
       }
     };
 
@@ -1769,11 +1813,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                }`}
                style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
              >
-               {isMobile ? (
-                 <span className="font-cactus text-sm font-bold uppercase">Inst.</span>
-               ) : (
-                 <CompassoSelector className="w-full max-w-[180px] shadow-[2px_2px_0px_rgba(0,0,0,1)]" />
-               )}
+               {/* Empty corner spacer */}
              </div>
 
             {/* Left spacer column */}
@@ -1882,62 +1922,89 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                         <option value="12/8">12/8</option>
                       </select>
                     </div>
-
-                    {/* Tempo (BPM) */}
-                    <div className="ruler-detailed flex items-center gap-1">
-                      <input
-                        type="number"
-                        min={40}
-                        max={240}
-                        value={mBpm}
-                        onChange={e => onMeasureBpmChange(mIdx, Math.max(40, Math.min(240, Math.round(Number(e.target.value)))))}
-                        className="w-10 bg-[var(--cordel-bg)] text-[9px] font-bold border border-[var(--cordel-border)]/50 rounded px-0.5 py-px text-center outline-none"
-                        style={{ height: '18px' }}
-                      />
-                      <span className="text-[8px] opacity-75">bpm</span>
-                      
-                      <button
-                        onClick={() => onMeasureTransitionChange(mIdx, mTransition === 'immediate' ? 'ramp' : 'immediate')}
-                        className={`px-1 py-px text-[9px] font-extrabold border rounded transition-colors cursor-pointer flex items-center justify-center`}
-                        style={{ height: '18px', minWidth: '18px' }}
-                      >
-                        {mTransition === 'ramp' ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-black">↗</span>
-                        ) : (
-                          <span className="opacity-60">→</span>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Section Volume */}
-                    <div className="ruler-detailed flex items-center gap-1">
-                      <span className="text-[9px] opacity-75">🔊</span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={mVol}
-                        onChange={e => onMeasureVolChange(mIdx, Math.max(0, Math.min(100, Math.round(Number(e.target.value)))))}
-                        className="w-10 bg-[var(--cordel-bg)] text-[9px] font-bold border border-[var(--cordel-border)]/50 rounded px-0.5 py-px text-center outline-none"
-                        style={{ height: '18px' }}
-                      />
-                      <span className="text-[8px] opacity-75">%</span>
-                      
-                      <button
-                        onClick={() => onMeasureVolTransitionChange(mIdx, mVolTransition === 'immediate' ? 'ramp' : 'immediate')}
-                        className={`px-1 py-px text-[9px] font-extrabold border rounded transition-colors cursor-pointer flex items-center justify-center`}
-                        style={{ height: '18px', minWidth: '18px' }}
-                      >
-                        {mVolTransition === 'ramp' ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 font-black">↗</span>
-                        ) : (
-                          <span className="opacity-60">→</span>
-                        )}
-                      </button>
-                    </div>
                   </div>
 
-                  <div className="flex w-full opacity-50 text-[8px] pb-0.5">
+                  {/* Rhythm Signal */}
+                  {(() => {
+                    const sigId = measureSignals[mIdx] ?? null;
+                    const activeSig = rhythmSignals.find(s => s.id === sigId) || null;
+                    return (
+                      <div className="flex items-center w-full mt-1 mb-0.5 relative px-1">
+                        {activeSig ? (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSignalDropdownOpen(signalDropdownOpen === mIdx ? null : mIdx);
+                            }}
+                            className="flex items-center gap-1 px-1 py-0.5 bg-[var(--cordel-border)]/10 hover:bg-[var(--cordel-border)]/20 transition-colors rounded text-[9px] font-bold text-[var(--cordel-text)] w-full justify-center shadow-sm border border-[var(--cordel-border)]/20"
+                            title={activeSig.name}
+                          >
+                            {activeSig.image ? (
+                              <img src={activeSig.image} alt={activeSig.name} className="w-4 h-4 object-contain flex-shrink-0" />
+                            ) : (
+                              <span className="text-[10px] flex-shrink-0 leading-none">📢</span>
+                            )}
+                            <span className="ruler-detailed truncate">{activeSig.name}</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSignalDropdownOpen(signalDropdownOpen === mIdx ? null : mIdx);
+                            }}
+                            className="w-full h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)]/40 border border-dashed border-[var(--cordel-border)]/30 rounded text-[9px] font-bold hover:bg-[var(--cordel-border)]/30 hover:text-[var(--cordel-text)] transition-colors cursor-pointer"
+                            title={lang === 'fr' ? 'Assigner un signal' : 'Atribuir um sinal'}
+                          >
+                            + {lang === 'fr' ? 'Signal' : 'Sinal'}
+                          </button>
+                        )}
+                        
+                        {/* Dropdown */}
+                        {signalDropdownOpen === mIdx && (
+                          <div
+                            className="absolute top-full left-0 z-[100] bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] cordel-shadow min-w-[140px] flex flex-col py-1"
+                            style={{ marginTop: 2 }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <button
+                              onClick={() => {
+                                onMeasureSignalChange?.(mIdx, null);
+                                setSignalDropdownOpen(null);
+                              }}
+                              className="flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] hover:bg-[var(--cordel-border)]/20 cursor-pointer text-left"
+                            >
+                              <span className="text-xs opacity-50">✕</span>
+                              <span className="opacity-70">{lang === 'fr' ? 'Aucun' : 'Nenhum'}</span>
+                            </button>
+                            <div className="border-t border-[var(--cordel-border)]/20 my-0.5" />
+                            {rhythmSignals
+                              .filter(sig => enabledSignalIds === null || enabledSignalIds.includes(sig.id))
+                              .map(sig => (
+                              <button
+                                key={sig.id}
+                                onClick={() => {
+                                  onMeasureSignalChange?.(mIdx, sig.id);
+                                  setSignalDropdownOpen(null);
+                                }}
+                                className={`flex items-center gap-2 px-3 py-1.5 text-[10px] font-bold text-[var(--cordel-text)] hover:bg-[var(--cordel-border)]/20 cursor-pointer text-left ${
+                                  sigId === sig.id ? 'bg-[var(--cordel-border)]/30' : ''
+                                }`}
+                              >
+                                {sig.image ? (
+                                  <img src={sig.image} alt={sig.name} className="w-6 h-6 object-contain flex-shrink-0" />
+                                ) : (
+                                  <span className="text-[12px] w-6 h-6 flex items-center justify-center bg-black/10 rounded flex-shrink-0 leading-none">📢</span>
+                                )}
+                                <span className="truncate">{sig.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
+                  <div className="flex w-full opacity-50 text-[8px] pb-0.5 mt-auto">
                     {Array.from({ length: localBeats }).map((_, b) => (
                       <span
                         key={b}
@@ -1993,6 +2060,36 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             onMeasureSignalChange={onMeasureSignalChange}
             visibleRange={visibleRange}
           /> */}
+
+          {/* ══════════ AUTOMATION TRACKS ══════════ */}
+          <AutomationTrack
+            type="tempo"
+            totalMeasures={totalMeasures}
+            measureWidth={MEASURE_W}
+            values={measureBpms}
+            transitions={measureBpmTransitions}
+            onChangeValue={onMeasureBpmChange}
+            onChangeTransition={onMeasureTransitionChange}
+            min={40}
+            max={240}
+            color="#f19066"
+            lang={lang}
+            headerWidth={HEADER_W}
+          />
+          <AutomationTrack
+            type="volume"
+            totalMeasures={totalMeasures}
+            measureWidth={MEASURE_W}
+            values={measureVols}
+            transitions={measureVolTransitions}
+            onChangeValue={onMeasureVolChange}
+            onChangeTransition={onMeasureVolTransitionChange}
+            min={0}
+            max={100}
+            color="#55efc4"
+            lang={lang}
+            headerWidth={HEADER_W}
+          />
 
           {/* ══════════ TRACK ROWS ══════════ */}
           {trackIds.map(trackId => (

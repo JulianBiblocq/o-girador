@@ -294,9 +294,9 @@ interface UseAudioSyncProps {
   measureTimeSigsRef: React.MutableRefObject<TimeSignature[]>;
   measureBpms: number[];
   measureBpmsRef: React.MutableRefObject<number[]>;
-  measureBpmTransitionsRef: React.MutableRefObject<('immediate' | 'ramp')[]>;
+  measureBpmTransitionsRef: React.MutableRefObject<('immediate' | 'ramp' | 'bezier')[]>;
   measureVolsRef: React.MutableRefObject<number[]>;
-  measureVolTransitionsRef: React.MutableRefObject<('immediate' | 'ramp')[]>;
+  measureVolTransitionsRef: React.MutableRefObject<('immediate' | 'ramp' | 'bezier')[]>;
   measureSignalsRef: React.MutableRefObject<(string | null)[]>;
   loopStartRef: React.MutableRefObject<number | null>;
   loopEndRef: React.MutableRefObject<number | null>;
@@ -1169,6 +1169,11 @@ export function useAudioSync({
                 Tone.Transport.bpm.cancelScheduledValues(time);
                 Tone.Transport.bpm.setValueAtTime(startBpm, time);
                 Tone.Transport.bpm.linearRampToValueAtTime(targetBpm, time + measureDurationSec);
+              } else if (transition === 'bezier') {
+                const measureDurationSec = currentTicks * tick96nSec;
+                Tone.Transport.bpm.cancelScheduledValues(time);
+                Tone.Transport.bpm.setValueAtTime(startBpm, time);
+                Tone.Transport.bpm.exponentialRampToValueAtTime(targetBpm, time + measureDurationSec);
               } else {
                 Tone.Transport.bpm.cancelScheduledValues(time);
                 Tone.Transport.bpm.setValueAtTime(targetBpm, time);
@@ -1194,6 +1199,12 @@ export function useAudioSync({
                 Tone.Destination.volume.cancelScheduledValues(time);
                 Tone.Destination.volume.setValueAtTime(Tone.gainToDb(startGain === 0 ? 0.0001 : startGain), time);
                 Tone.Destination.volume.linearRampToValueAtTime(Tone.gainToDb(endGain === 0 ? 0.0001 : endGain), time + measureDurationSec);
+              } else if (volTransition === 'bezier') {
+                const measureDurationSec = currentTicks * tick96nSec;
+                Tone.Destination.volume.cancelScheduledValues(time);
+                Tone.Destination.volume.setValueAtTime(Tone.gainToDb(startGain === 0 ? 0.0001 : startGain), time);
+                // dB being logarithmic, an exponential ramp on dB makes a very smooth curve
+                Tone.Destination.volume.exponentialRampToValueAtTime(Tone.gainToDb(endGain === 0 ? 0.0001 : endGain), time + measureDurationSec);
               } else {
                 Tone.Destination.volume.cancelScheduledValues(time);
                 Tone.Destination.volume.setValueAtTime(Tone.gainToDb(endGain === 0 ? 0.0001 : endGain), time);

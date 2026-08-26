@@ -44,7 +44,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   onStepTouchStart,
 }) => {
   const { isPlaying } = useAudio();
-  const { handleTrackStepValueChange } = useSequencer();
+  const { handleTrackStepValueChange, alertAsync } = useSequencer();
   const lang = useSequencerStore(state => state.lang);
   const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
   const setActiveAoVivoTrackId = useSequencerStore(state => state.setActiveAoVivoTrackId);
@@ -230,10 +230,13 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     : (inst ? (isMaster ? `🔗 ${getPluralName(inst.name)}` : inst.name) : 'Instrument');
 
   const isAoVivo = track ? activeAoVivoTrackId === track.id : false;
-  const toggleAoVivo = () => {
+  const toggleAoVivo = async () => {
     if (!track) return;
     if (useSequencerStore.getState().isEcoMode) {
-      alert("Mode Éco activé : Les animations d'instruments (AoVivo) ont été désactivées pour préserver les performances.");
+      const msg = lang === 'pt' 
+        ? "Modo de economia ativado: As animações (AoVivo) foram desativadas para preservar o desempenho."
+        : "Mode éco activé : Les animations (AoVivo) ont été désactivées pour préserver les performances.";
+      await alertAsync(msg);
       return;
     }
     setActiveAoVivoTrackId(isAoVivo ? null : track.id);

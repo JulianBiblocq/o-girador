@@ -28,9 +28,9 @@ export function useSequencerState() {
 
   const setMeasureTimeSigs = (useSequencerStore as any)(state => state.setMeasureTimeSigs) as any;
   const [measureBpms, setMeasureBpms] = useState<number[]>(() => Array(8).fill(83));
-  const [measureBpmTransitions, setMeasureBpmTransitions] = useState<('immediate' | 'ramp')[]>(() => Array(8).fill('immediate'));
+  const [measureBpmTransitions, setMeasureBpmTransitions] = useState<('immediate' | 'ramp' | 'bezier')[]>(() => Array(8).fill('immediate'));
   const [measureVols, setMeasureVols] = useState<number[]>(() => Array(8).fill(100));
-  const [measureVolTransitions, setMeasureVolTransitions] = useState<('immediate' | 'ramp')[]>(() => Array(8).fill('immediate'));
+  const [measureVolTransitions, setMeasureVolTransitions] = useState<('immediate' | 'ramp' | 'bezier')[]>(() => Array(8).fill('immediate'));
   const setSongSections = (useSequencerStore as any)(state => state.setSongSections) as any;
   const measureSignals = useSequencerStore(state => state.measureSignals);
   const setMeasureSignals = (useSequencerStore as any)(state => state.setMeasureSignals) as any;
@@ -109,9 +109,9 @@ export function useSequencerState() {
   const totalMeasuresRef = useRef<number>(8);
   const measureTimeSigsRef = useRef<TimeSignature[]>([]);
   const measureBpmsRef = useRef<number[]>([]);
-  const measureBpmTransitionsRef = useRef<('immediate' | 'ramp')[]>([]);
+  const measureBpmTransitionsRef = useRef<('immediate' | 'ramp' | 'bezier')[]>([]);
   const measureVolsRef = useRef<number[]>([]);
-  const measureVolTransitionsRef = useRef<('immediate' | 'ramp')[]>([]);
+  const measureVolTransitionsRef = useRef<('immediate' | 'ramp' | 'bezier')[]>([]);
   const songSectionsRef = useRef<SongSection[]>([]);
   const songMarkersRef = useRef<SongMarker[]>([]);
   const measureSignalsRef = useRef<(string | null)[]>([]);
@@ -769,7 +769,18 @@ export function useSequencerState() {
     useSequencerStore.setState({ measureBpms: arr });
   };
 
-  const handleMeasureTransitionChange = (measureIdx: number, val: 'immediate' | 'ramp') => {
+  const handleMeasureBpmChangeCascade = (measureIdx: number, val: number) => {
+    pushUndoState();
+    const arr = [...measureBpmsRef.current];
+    for (let i = measureIdx; i < arr.length; i++) {
+      arr[i] = val;
+    }
+    setMeasureBpms(arr);
+    measureBpmsRef.current = arr;
+    useSequencerStore.setState({ measureBpms: arr });
+  };
+
+  const handleMeasureTransitionChange = (measureIdx: number, val: 'immediate' | 'ramp' | 'bezier') => {
     pushUndoState();
     const arr = [...measureBpmTransitionsRef.current];
     arr[measureIdx] = val;
@@ -787,7 +798,7 @@ export function useSequencerState() {
     useSequencerStore.setState({ measureVols: arr });
   };
 
-  const handleMeasureVolTransitionChange = (measureIdx: number, val: 'immediate' | 'ramp') => {
+  const handleMeasureVolTransitionChange = (measureIdx: number, val: 'immediate' | 'ramp' | 'bezier') => {
     pushUndoState();
     setMeasureVolTransitions(prev => {
       const arr = [...prev];
@@ -1973,7 +1984,7 @@ export function useSequencerState() {
     });
 
     setMeasureBpmTransitions(prev => {
-      const newTrans = Array(n).fill('immediate') as ('immediate' | 'ramp')[];
+      const newTrans = Array(n).fill('immediate') as ('immediate' | 'ramp' | 'bezier')[];
       return [
         ...prev.slice(0, insertAtMeasure),
         ...newTrans,
@@ -2142,6 +2153,7 @@ export function useSequencerState() {
     handleTimelinePatternVariationToggle,
     handleMeasureTimeSigChange,
     handleMeasureBpmChange,
+    handleMeasureBpmChangeCascade,
     handleMeasureTransitionChange,
     handleMeasureVolChange,
     handleMeasureVolTransitionChange,

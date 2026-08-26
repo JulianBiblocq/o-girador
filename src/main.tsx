@@ -1,6 +1,5 @@
 import React, { StrictMode, useState, useEffect } from 'react';
 import {createRoot} from 'react-dom/client';
-import {GameDataProvider} from './contexts/GameDataContext.tsx';
 import {SequencerProvider} from './contexts/SequencerContext.tsx';
 import {AudioProvider} from './contexts/AudioContext.tsx';
 import App from './App.tsx';
@@ -228,13 +227,11 @@ createRoot(document.getElementById('root')!).render(
     <HelmetProvider>
       <PersistQueryClientProvider client={queryClient} persistOptions={{ persister: indexedDBPersister }}>
         <AuthProvider>
-          <GameDataProvider>
-            <SequencerProvider>
-              <AudioProvider>
-                <App />
-              </AudioProvider>
-            </SequencerProvider>
-          </GameDataProvider>
+          <SequencerProvider>
+            <AudioProvider>
+              <App />
+            </AudioProvider>
+          </SequencerProvider>
         </AuthProvider>
       </PersistQueryClientProvider>
     </HelmetProvider>

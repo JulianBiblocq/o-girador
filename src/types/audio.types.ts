@@ -101,9 +101,9 @@ export interface Preset {
   metadata?: PresetMetadata;
   measureTimeSigs?: TimeSignature[];
   measureBpms?: number[];
-  measureBpmTransitions?: ('immediate' | 'ramp')[];
+  measureBpmTransitions?: ('immediate' | 'ramp' | 'bezier')[];
   measureVols?: number[];
-  measureVolTransitions?: ('immediate' | 'ramp')[];
+  measureVolTransitions?: ('immediate' | 'ramp' | 'bezier')[];
   songSections?: SongSection[];
   songMarkers?: SongMarker[];
   measureSignals?: (string | null)[]; // signal id par mesure

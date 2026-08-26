@@ -13,13 +13,6 @@ export type ViewMode =
   | 'roda'
   | 'console'
   | 'timeline'
-  | 'quiz'
-  | 'dictee'
-  | 'inspecteur'
-  | 'mestre'
-  | 'rythmelive'
-  | 'varal'
-  | 'studio'
   | 'admin';
 
 interface UseViewRouterOptions {
@@ -33,7 +26,6 @@ export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptio
   const [viewMode, setViewMode] = useState<ViewMode>('landing');
   const [renderedView, setRenderedView] = useState<ViewMode | null>('landing');
   const [isFadingIn, setIsFadingIn] = useState<boolean>(true);
-  const [hasVisitedStudio, setHasVisitedStudio] = useState<boolean>(false);
 
   // Latest Ref pattern to stabilize audio and external state references
   const audioRef = useRef<AudioContextType>(audio);
@@ -60,23 +52,17 @@ export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptio
     return () => clearTimeout(timer);
   }, [viewMode]);
 
-  // Track studio visits
-  useEffect(() => {
-    if (viewMode === 'studio') {
-      setHasVisitedStudio(true);
-    }
-  }, [viewMode]);
 
   // Security gate redirection
   useEffect(() => {
-    if ((viewMode === 'studio' || viewMode === 'admin') && !hasAccessRef.current('admin')) {
+    if (viewMode === 'admin' && !hasAccessRef.current('admin')) {
       setViewMode('roda');
     }
   }, [viewMode]);
 
   // Change view mode safely by checking if audio needs to stop
   const changeViewMode = useCallback((targetView: ViewMode) => {
-    const isHeavyView = ['studio', 'quiz', 'dictee', 'inspecteur', 'mestre', 'rythmelive', 'admin'].includes(targetView);
+    const isHeavyView = ['admin'].includes(targetView);
 
     const applyViewChange = () => {
       setViewMode(targetView);
@@ -103,7 +89,6 @@ export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptio
     viewMode,
     renderedView,
     isFadingIn,
-    hasVisitedStudio,
     changeViewMode,
     setViewMode,
   };

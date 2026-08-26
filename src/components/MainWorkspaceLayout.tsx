@@ -17,12 +17,7 @@ const ConsoleMixer = lazy(() => import('./ConsoleMixer').then(m => ({ default: m
 const CircleSequencer = lazy(() => import('./CircleSequencer').then(m => ({ default: m.CircleSequencer })));
 const DawLinearSequencer = lazy(() => import('./DawLinearSequencer').then(m => ({ default: m.DawLinearSequencer })));
 const TimelineSequencer = lazy(() => import('./TimelineSequencer').then(m => ({ default: m.TimelineSequencer })));
-const QuizEngine = lazy(() => import('./QuizEngine').then(m => ({ default: m.QuizEngine })));
-const DicteeEngine = lazy(() => import('./DicteeEngine').then(m => ({ default: m.DicteeEngine })));
-const InspecteurEngine = lazy(() => import('./InspecteurEngine').then(m => ({ default: m.InspecteurEngine })));
-const MestreEngine = lazy(() => import('./MestreEngine').then(m => ({ default: m.MestreEngine })));
-const RythmeLiveEngine = lazy(() => import('./RythmeLiveEngine').then(m => ({ default: m.RythmeLiveEngine })));
-const VaralCordel = lazy(() => import('./VaralCordel').then(m => ({ default: m.VaralCordel })));
+
 // TODO: Réactiver le Studio des Jeux plus tard
 // const MestreStudio = lazy(() => import('./MestreStudio').then(m => ({ default: m.MestreStudio })));
 const AdminPanel = lazy(() => import('./AdminPanel').then(m => ({ default: m.AdminPanel })));
@@ -71,14 +66,7 @@ interface MainWorkspaceLayoutProps {
   unlockedFolhetos: any[];
   justUnlockedBookletId: any;
   onClearJustUnlocked: () => void;
-  onLaunchExercise: (ex: any) => void;
-  onGameExit: () => void;
-  onQuizSuccess: () => void;
-  onDicteeSuccess: () => void;
-  onInspecteurSuccess: () => void;
-  onMestreSuccess: () => void;
-  onRythmeLiveSuccess: () => void;
-  onVaralExit: () => void;
+
   presetFiles: any[];
   localPresets: any[];
   onStepTouchStart?: (
@@ -114,14 +102,7 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
   unlockedFolhetos,
   justUnlockedBookletId,
   onClearJustUnlocked,
-  onLaunchExercise,
-  onGameExit,
-  onQuizSuccess,
-  onDicteeSuccess,
-  onInspecteurSuccess,
-  onMestreSuccess,
-  onRythmeLiveSuccess,
-  onVaralExit,
+
   presetFiles,
   localPresets,
   onStepTouchStart,
@@ -139,10 +120,6 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
     setEditingTrackId(id);
   }, [setEditingTrackId]);
 
-  const activeVaralExercise = useMemo(() => {
-    // Stub or resolver logic if needed for varal exercise
-    return null;
-  }, []);
 
   return (
     <div 
@@ -249,94 +226,7 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
           )}
         </div>
 
-        {/* 4. GAME & EXERCISE ENGINES */}
-        {viewMode === 'quiz' && (
-          <ErrorBoundary fallback={renderFallback('Quiz', 'Questionário')}>
-            <QuizEngine
-              lang={sequencer.lang}
-              onExit={onGameExit}
-              onSuccess={onQuizSuccess}
-              exerciseData={activeVaralExercise}
-            />
-          </ErrorBoundary>
-        )}
 
-        {viewMode === 'dictee' && (
-          <ErrorBoundary fallback={renderFallback('Dictée Rythmique', 'Ditado Rítmico')}>
-            <DicteeEngine
-              lang={sequencer.lang}
-              onExit={onGameExit}
-              onSuccess={onDicteeSuccess}
-              exerciseData={activeVaralExercise}
-            />
-          </ErrorBoundary>
-        )}
-
-        {viewMode === 'inspecteur' && (
-          <ErrorBoundary fallback={renderFallback('Inspecteur', 'Inspetor')}>
-            <InspecteurEngine
-              lang={sequencer.lang}
-              onExit={onGameExit}
-              exerciseData={activeVaralExercise}
-              onSuccess={onInspecteurSuccess}
-            />
-          </ErrorBoundary>
-        )}
-
-        {viewMode === 'mestre' && (
-          <ErrorBoundary fallback={renderFallback('Mestre', 'Mestre')}>
-            <MestreEngine
-              lang={sequencer.lang}
-              onExit={onGameExit}
-              rhythmState={mestreRhythmState}
-              setRhythmState={setMestreRhythmState}
-              onSuccess={onMestreSuccess}
-              exerciseData={activeVaralExercise}
-            />
-          </ErrorBoundary>
-        )}
-
-        {viewMode === 'rythmelive' && (
-          <ErrorBoundary fallback={renderFallback('Rythme Live', 'Ritmo Live')}>
-            <RythmeLiveEngine
-              lang={sequencer.lang}
-              onExit={onGameExit}
-              onSuccess={onRythmeLiveSuccess}
-              exerciseData={activeVaralExercise}
-            />
-          </ErrorBoundary>
-        )}
-
-        {viewMode === 'varal' && (
-          <ErrorBoundary fallback={renderFallback('Varal de Cordel', 'Varal de Cordel')}>
-            <VaralCordel
-              lang={sequencer.lang}
-              onExit={onVaralExit}
-              unlockedFolhetos={unlockedFolhetos}
-              justUnlockedBookletId={justUnlockedBookletId}
-              onClearJustUnlocked={onClearJustUnlocked}
-              onLaunchExercise={onLaunchExercise}
-            />
-          </ErrorBoundary>
-        )}
-
-        {/* TODO: Réactiver le Studio des Jeux plus tard */}
-        {/* {hasVisitedStudio && (
-          <div 
-            className="flex-1 w-full h-full overflow-hidden flex flex-col relative z-20"
-            style={{ display: viewMode === 'studio' ? 'flex' : 'none' }}
-          >
-            <ErrorBoundary fallback={renderFallback('Studio Mestre', 'Estúdio Mestre')}>
-              <MestreStudio
-                isActive={viewMode === 'studio'}
-                lang={sequencer.lang}
-                onExit={onVaralExit}
-                presetFiles={presetFiles}
-                localPresets={localPresets}
-              />
-            </ErrorBoundary>
-          </div>
-        )} */}
 
         {viewMode === 'admin' && (
           <div className="flex-1 min-w-0 flex flex-col h-full overflow-hidden relative">

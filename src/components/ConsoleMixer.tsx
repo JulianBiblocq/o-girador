@@ -298,7 +298,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     }
   };
 
-  const [isMasterCollapsed, setIsMasterCollapsed] = useState(false);
+  const [isMasterCollapsed, setIsMasterCollapsed] = useState(isMobile);
 
   const vuMeterLeftRef = useRef<HTMLDivElement>(null);
   const vuMeterRightRef = useRef<HTMLDivElement>(null);

@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo, lazy, Suspense, useTransition } from 'react';
-import { useGameData } from './contexts/GameDataContext';
+
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from './contexts/SequencerContext';
 import { useAudio } from './contexts/AudioContext';
@@ -68,8 +68,8 @@ export default function App() {
   } = sequencer;
   const audio = useAudio();
   const { hasAccess, userProfile, updateUserPreference } = useAuth();
-  const { completeExercise } = useGameData();
-  const [activeVaralExercise, setActiveVaralExercise] = useState<any>(null);
+
+
 
   // Context and unstable state Refs to maximize callback stabilization
   const sequencerRef = React.useRef(sequencer);
@@ -77,8 +77,8 @@ export default function App() {
   const userProfileRef = React.useRef(userProfile);
   const updateUserPreferenceRef = React.useRef(updateUserPreference);
   const contextHasAccessRef = React.useRef(hasAccess);
-  const activeVaralExerciseRef = React.useRef(activeVaralExercise);
-  const completeExerciseRef = React.useRef(completeExercise);
+
+
   const alertAsyncRef = React.useRef(alertAsync);
   const confirmAsyncRef = React.useRef(confirmAsync);
   const promptAsyncRef = React.useRef(promptAsync);
@@ -89,8 +89,8 @@ export default function App() {
   React.useEffect(() => { userProfileRef.current = userProfile; }, [userProfile]);
   React.useEffect(() => { updateUserPreferenceRef.current = updateUserPreference; }, [updateUserPreference]);
   React.useEffect(() => { contextHasAccessRef.current = hasAccess; }, [hasAccess]);
-  React.useEffect(() => { activeVaralExerciseRef.current = activeVaralExercise; }, [activeVaralExercise]);
-  React.useEffect(() => { completeExerciseRef.current = completeExercise; }, [completeExercise]);
+
+
   React.useEffect(() => { alertAsyncRef.current = alertAsync; }, [alertAsync]);
   React.useEffect(() => { confirmAsyncRef.current = confirmAsync; }, [confirmAsync]);
   React.useEffect(() => { promptAsyncRef.current = promptAsync; }, [promptAsync]);
@@ -308,25 +308,7 @@ export default function App() {
     });
   }, [changeViewMode]);
 
-  const handleGameSuccess = React.useCallback((moduleName: string) => {
-    const normalizedName = moduleName === 'rythme_live' ? 'rythmelive' : (moduleName === 'sablier_mestre' ? 'mestre' : moduleName);
-    unlockBooklet(`folheto_${normalizedName}`);
-    const activeVaralExercise = activeVaralExerciseRef.current;
-    if (activeVaralExercise) {
-      completeExerciseRef.current(activeVaralExercise.id);
-      changeViewMode('varal');
-      setActiveVaralExercise(null);
-    }
-  }, [unlockBooklet, changeViewMode]);
 
-  const handleGameExit = React.useCallback(() => {
-    if (activeVaralExerciseRef.current) {
-      changeViewMode('varal');
-      setActiveVaralExercise(null);
-    } else {
-      changeViewMode('roda');
-    }
-  }, [changeViewMode]);
 
   // Touch selector Bubble states
   const [touchSelector, setTouchSelector] = useState<any | null>(null);
@@ -575,27 +557,11 @@ export default function App() {
     setHideGlobalSignals(prev => !prev);
   }, []);
 
-  const handleVaralExit = React.useCallback(() => changeViewMode('roda'), [changeViewMode]);
   const handleClearJustUnlocked = React.useCallback(() => setJustUnlockedBookletId(null), []);
-  
-  const handleLaunchExercise = React.useCallback((ex: any, cordeIndex: number) => {
-    setActiveVaralExercise(ex);
-    setActiveCordeIndex(cordeIndex);
-    if (ex.module === 'quiz') changeViewMode('quiz');
-    else if (ex.module === 'dictee') changeViewMode('dictee');
-    else if (ex.module === 'inspecteur') changeViewMode('inspecteur');
-    else if (ex.module === 'rythme_live') changeViewMode('rythmelive');
-    else if (ex.module === 'sablier_mestre') changeViewMode('mestre');
-  }, [changeViewMode]);
 
   const handleHomeEnter = React.useCallback((mode: string) => changeViewMode(mode as any), [changeViewMode]);
   const handleLandingEnter = React.useCallback(() => changeViewMode('roda'), [changeViewMode]);
 
-  const handleQuizSuccess = React.useCallback(() => handleGameSuccess('quiz'), [handleGameSuccess]);
-  const handleDicteeSuccess = React.useCallback(() => handleGameSuccess('dictee'), [handleGameSuccess]);
-  const handleInspecteurSuccess = React.useCallback(() => handleGameSuccess('inspecteur'), [handleGameSuccess]);
-  const handleMestreSuccess = React.useCallback(() => handleGameSuccess('sablier_mestre'), [handleGameSuccess]);
-  const handleRythmeLiveSuccess = React.useCallback(() => handleGameSuccess('rythme_live'), [handleGameSuccess]);
 
   const handleExportTablature = React.useCallback(() => {
     const tracks = useSequencerStore.getState().tracks;
@@ -679,14 +645,7 @@ export default function App() {
         unlockedFolhetos={unlockedFolhetos}
         justUnlockedBookletId={justUnlockedBookletId}
         onClearJustUnlocked={handleClearJustUnlocked}
-        onLaunchExercise={(ex) => handleLaunchExercise(ex, 0)}
-        onGameExit={handleGameExit}
-        onQuizSuccess={handleQuizSuccess}
-        onDicteeSuccess={handleDicteeSuccess}
-        onInspecteurSuccess={handleInspecteurSuccess}
-        onMestreSuccess={handleMestreSuccess}
-        onRythmeLiveSuccess={handleRythmeLiveSuccess}
-        onVaralExit={handleVaralExit}
+
         presetFiles={presetFiles}
         localPresets={localPresets}
         onStepTouchStart={(e, pId, sIdx, iId, cur, onSel, tId?: number) => handleStepTouchStart(e, pId, sIdx, iId, cur, onSel, tId !== undefined ? tId : 0)}
