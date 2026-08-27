@@ -15,6 +15,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { PresetMetadata, CloudRhythmSignal } from '../types';
 import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { XiloInfo, XiloScroll, XiloHand, XiloBook, XiloChat } from './XiloIcons';
+import { LyricsAuthorshipModal } from './LyricsAuthorshipModal';
+import { Feather } from 'lucide-react';
 
 const ShortcutsGuide = React.lazy(() => import('./right-sidebar/ShortcutsGuide').then(m => ({ default: m.ShortcutsGuide })));
 const PresetManagerSection = React.lazy(() => import('./right-sidebar/PresetManagerSection').then(m => ({ default: m.PresetManagerSection })));
@@ -56,7 +58,9 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
     if (!visible) return EMPTY_ARRAY;
     return state.tracks;
   });
-  const { userProfile } = useAuth();
+  const { userProfile, hasAccess } = useAuth();
+  
+  const [showAuthorshipModal, setShowAuthorshipModal] = React.useState(false);
   const [currentStepIndex, setCurrentStepIndex] = React.useState<number>(-1);
   React.useEffect(() => {
     if (!visible) return;
@@ -279,9 +283,19 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
           )}
 {subTab === 'toada' && (
             <div className="flex flex-col flex-grow overflow-hidden min-h-0">
-              <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus mb-1 shrink-0 text-left">
-                {lang === 'fr' ? 'Paroles de la Toada' : 'Letra da Toada'}
-              </span>
+              <div className="flex items-center justify-between mb-1 shrink-0">
+                <span className="text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus text-left">
+                  {lang === 'fr' ? 'Paroles de la Toada' : 'Letra da Toada'}
+                </span>
+                
+                <button 
+                  onClick={() => setShowAuthorshipModal(true)}
+                  className="flex items-center gap-1 opacity-60 hover:opacity-100 text-[var(--cordel-text)] transition-opacity"
+                  title="C'est votre texte ?"
+                >
+                  <Feather size={14} />
+                </button>
+              </div>
               
               <div className="xilo-feedback-container flex flex-col flex-grow overflow-hidden min-h-0 p-4 gap-2 mb-1">
                 <textarea

@@ -739,7 +739,7 @@ export function useSequencerState() {
       if (t.id === trackId) {
         const nextPatterns = t.patterns.map(p => {
           if (p.id === patternId) {
-            const currentAllow = p.measureAllowVariations ? [...p.measureAllowVariations] : Array(totalMeasuresRef.current).fill(false);
+            const currentAllow = p.measureAllowVariations ? [...p.measureAllowVariations] : Array(totalMeasuresRef.current).fill(true);
             currentAllow[measureIdx] = val;
             return { ...p, measureAllowVariations: currentAllow };
           }
@@ -971,7 +971,7 @@ export function useSequencerState() {
             activeSteps: [...patternToPaste.activeSteps],
             lyrics: [...patternToPaste.lyrics],
             notes: [...patternToPaste.notes],
-            measureAssignments: Array(totalMeasuresRef.current).fill(false),
+            measureAssignments: Array(totalMeasuresRef.current).fill(true),
             volumes: patternToPaste.volumes ? [...patternToPaste.volumes] : Array(firstP.steps).fill(80),
             decays: patternToPaste.decays ? [...patternToPaste.decays] : Array(firstP.steps).fill(100),
             microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(firstP.steps).fill(0),
@@ -1709,7 +1709,8 @@ export function useSequencerState() {
               id: Date.now().toString(),
               name: `Var ${currentVariations.length + 1}`,
               steps: [...p.activeSteps],
-              probability: 30
+              probability: 30,
+              playFirstTimeOnly: currentVariations.length === 0
             };
             return { ...p, variations: [...currentVariations, newVar] };
           }
@@ -1855,7 +1856,7 @@ export function useSequencerState() {
             activeSteps: Array(16).fill(0),
             lyrics: Array(16).fill(''),
             notes: Array(16).fill(''),
-            measureAssignments: Array(totalMeasuresRef.current).fill(false),
+            measureAssignments: Array(totalMeasuresRef.current).fill(true),
             volumes: Array(16).fill(80),
             decays: Array(16).fill(10),
             microtimings: Array(16).fill(0),
@@ -1886,7 +1887,7 @@ export function useSequencerState() {
             activeSteps: Array(16).fill(0),
             lyrics: Array(16).fill(''),
             notes: Array(16).fill(''),
-            measureAssignments: Array(totalMeasuresRef.current).fill(false),
+            measureAssignments: Array(totalMeasuresRef.current).fill(true),
             volumes: Array(16).fill(80),
             decays: Array(16).fill(10),
             microtimings: Array(16).fill(0),
@@ -1925,7 +1926,7 @@ export function useSequencerState() {
           activeSteps: Array(16).fill(0),
           lyrics: Array(16).fill(''),
           notes: Array(16).fill(''),
-          measureAssignments: Array(totalMeasuresRef.current).fill(false),
+          measureAssignments: Array(totalMeasuresRef.current).fill(true),
           volumes: Array(16).fill(80),
           decays: Array(16).fill(instrumentsConfig[instIdx]?.type === 'voice' ? 10 : 100),
           microtimings: Array(16).fill(0),

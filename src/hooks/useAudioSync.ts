@@ -1782,6 +1782,13 @@ export function useAudioSync({
       }
 
       if (Tone.Transport.state !== 'started') {
+        if (useSequencerStore.getState().isPreviewMode) {
+          Tone.Transport.scheduleOnce((time) => {
+            Tone.Transport.stop(time);
+            useTransportStore.getState().setPlaying(false);
+            window.dispatchEvent(new CustomEvent('show-visitor-auth-mandatory'));
+          }, '4:0:0');
+        }
         Tone.Transport.start();
         
         // 🚀 RESUME ANCHOR FIX : Compensation synchrone de l'offset temporel à la reprise

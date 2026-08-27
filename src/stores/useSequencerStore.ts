@@ -1106,7 +1106,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
               ...t,
               patterns: t.patterns.map(p => {
                 if (p.id === patternId) {
-                  const currentAllow = p.measureAllowVariations ? [...p.measureAllowVariations] : Array(state.totalMeasures).fill(false);
+                  const currentAllow = p.measureAllowVariations ? [...p.measureAllowVariations] : Array(state.totalMeasures).fill(true);
                   currentAllow[measureIdx] = val;
                   return { ...p, measureAllowVariations: currentAllow };
                 }
@@ -1415,7 +1415,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
           patterns: t.patterns.map(p => ({
             ...p,
             measureAssignments: expandArray(p.measureAssignments || [], false),
-            measureAllowVariations: p.measureAllowVariations ? expandArray(p.measureAllowVariations, false) : undefined
+            measureAllowVariations: p.measureAllowVariations ? expandArray(p.measureAllowVariations, true) : undefined
           }))
         })),
         tracksVersion: state.tracksVersion + 1
@@ -1536,7 +1536,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
           patternOverrides: nextOverrides,
           patterns: t.patterns.map(p => {
             const nextAssignments = expandArray(p.measureAssignments || [], false, newTotalMeasures);
-            const nextVariations = p.measureAllowVariations ? expandArray(p.measureAllowVariations, false, newTotalMeasures) : undefined;
+            const nextVariations = p.measureAllowVariations ? expandArray(p.measureAllowVariations, true, newTotalMeasures) : undefined;
             
             for (let copy = 0; copy < copiesCount; copy++) {
               for (let i = 0; i < blockSize; i++) {
@@ -1721,7 +1721,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
           patterns: t.patterns.map(p => ({
             ...p,
             measureAssignments: spliceArray(p.measureAssignments, false),
-            measureAllowVariations: p.measureAllowVariations ? spliceArray(p.measureAllowVariations, false) : undefined
+            measureAllowVariations: p.measureAllowVariations ? spliceArray(p.measureAllowVariations, true) : undefined
           }))
         })),
         tracksVersion: state.tracksVersion + 1
@@ -2090,6 +2090,7 @@ export interface ProjectSettingsSlice {
   editingTrackId: number | null;
   vocalTransposeSteps: number;
   isTracksCollapsed: boolean;
+  isPreviewMode: boolean;
 
   setLetras: (letras: string) => void;
   setMetadata: (metadata: PresetMetadata) => void;
@@ -2104,6 +2105,7 @@ export interface ProjectSettingsSlice {
   incrementVocalTransposeSteps: () => void;
   decrementVocalTransposeSteps: () => void;
   toggleTracksCollapsed: () => void;
+  setIsPreviewMode: (val: boolean) => void;
 }
 
 const detectEcoMode = (): boolean => {
@@ -2134,6 +2136,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   editingTrackId: null,
   vocalTransposeSteps: 0,
   isTracksCollapsed: true,
+  isPreviewMode: false,
 
   setLetras: (letras) => set({ letras }),
   setMetadata: (metadata) => set({ metadata }),
@@ -2216,7 +2219,8 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
     });
 
     set({ letras: htmlArr.join('\n\n') });
-  }
+  },
+  setIsPreviewMode: (val) => set({ isPreviewMode: val })
 });
 
 // ---------------------------------------------------------

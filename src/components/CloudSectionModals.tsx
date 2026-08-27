@@ -84,7 +84,7 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
       let targetDocId: string | undefined = undefined;
 
       if (existingSection) {
-        const confirmReplace = confirm(lang === 'fr' ? `La section "${name.trim()}" existe déjà. Voulez-vous la remplacer ?` : `A seção "${name.trim()}" já existe. Deseja substituí-la?`);
+        const confirmReplace = await sequencer.confirmAsync(lang === 'fr' ? `La section "${name.trim()}" existe déjà. Voulez-vous la remplacer ?` : `A seção "${name.trim()}" já existe. Deseja substituí-la?`);
         if (!confirmReplace) {
           setIsSaving(false);
           return;
@@ -244,7 +244,7 @@ export const LoadSectionModal: React.FC<LoadSectionModalProps> = ({ insertAtMeas
   };
 
   const handleDelete = async (sectionInfo: CloudSection) => {
-    if (confirm(lang === 'fr' ? 'Supprimer définitivement cette section ?' : 'Excluir permanentemente esta seção?')) {
+    if (await sequencer.confirmAsync(lang === 'fr' ? 'Supprimer définitivement cette section ?' : 'Excluir permanentemente esta seção?')) {
       try {
         await deleteCloudSection(sectionInfo.id);
         setSections(prev => prev.filter(s => s.id !== sectionInfo.id));

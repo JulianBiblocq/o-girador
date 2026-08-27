@@ -105,7 +105,7 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
             <div className="font-cactus font-bold text-base border-b-2 border-[var(--cordel-border)] pb-2 select-none">
               {customDialog.type === 'alert' ? '📢 Info' : customDialog.type === 'confirm' ? '❓' : '📝'} {customDialog.type === 'alert' ? (sequencer.lang === 'pt' ? 'Aviso' : 'Information') : customDialog.type === 'confirm' ? (sequencer.lang === 'pt' ? 'Confirmação' : 'Confirmation') : (sequencer.lang === 'pt' ? 'Entrada' : 'Saisie')}
             </div>
-            <p className="text-xs leading-relaxed">{customDialog.message}</p>
+            <p className="text-xs leading-relaxed whitespace-pre-wrap">{customDialog.message}</p>
             {customDialog.type === 'prompt' && (
               <input
                 id="custom-prompt-input"

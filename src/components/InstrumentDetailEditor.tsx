@@ -714,7 +714,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     let targetDocId: string | undefined = undefined;
 
     if (existingPattern) {
-      const confirmReplace = confirm(lang === 'fr' ? `Le pattern "${savePatternName.trim()}" existe déjà. Voulez-vous le remplacer ?` : `O padrão "${savePatternName.trim()}" já existe. Deseja substituí-lo?`);
+      const confirmReplace = await sequencer.confirmAsync(lang === 'fr' ? `Le pattern "${savePatternName.trim()}" existe déjà. Voulez-vous le remplacer ?` : `O padrão "${savePatternName.trim()}" já existe. Deseja substituí-lo?`);
       if (!confirmReplace) {
         return;
       }
@@ -761,12 +761,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     }
   };
 
-  const handleLoadPatternFromLibrary = (libraryPatternId: string) => {
+  const handleLoadPatternFromLibrary = async (libraryPatternId: string) => {
     if (loadModalPatternId === null) return;
     const libPtn = existingLibraryPatterns.find(p => p.id === libraryPatternId);
     if (!libPtn) return;
     
-    if (confirm(lang === 'fr' ? 'Attention, cela remplacera la phrase en cours. Continuer ?' : 'Atenção, isso substituirá o padrão atual. Continuar?')) {
+    if (await sequencer.confirmAsync(lang === 'fr' ? 'Attention, cela remplacera la phrase en cours. Continuer ?' : 'Atenção, isso substituirá o padrão atual. Continuar?')) {
       if (onLoadLibraryPattern) {
         onLoadLibraryPattern(loadModalPatternId, libPtn);
       }
@@ -1283,8 +1283,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 {ptn.swingIntensity !== undefined ? ptn.swingIntensity : 100}%
                               </span>
                               <button
-                                onClick={() => {
-                                  if (confirm(lang === 'fr' ? "Réinitialiser les microtimings de ce motif (remettre les pas droits) ?" : "Redefinir microtimings deste padrão (endireitar passos)?")) {
+                                onClick={async () => {
+                                  if (await sequencer.confirmAsync(lang === 'fr' ? "Réinitialiser les microtimings de ce motif (remettre les pas droits) ?" : "Redefinir microtimings deste padrão (endireitar passos)?")) {
                                     handleResetPatternMicrotimings(trackId, ptn.id);
                                   }
                                 }}
@@ -1480,7 +1480,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           </div>
 
           {/* ─── Right sidebar: Stroke legend ─── */}
-          <div className="border-t-[3px] md:border-t-0 md:border-l-[3px] border-[#1a1a1a] bg-[#ece4d0] p-4 shrink-0 flex flex-col gap-4 w-full md:w-[320px] md:overflow-y-auto">
+          <div className="border-t-[3px] md:border-t-0 md:border-l-[3px] border-[#1a1a1a] bg-[#ece4d0] p-4 shrink-0 flex flex-col gap-4 w-full md:w-[220px] lg:w-[280px] xl:w-[320px] md:overflow-y-auto">
             <div className="border-b-[2px] border-[#1a1a1a] pb-2">
               <h3 className="font-cactus font-bold text-sm uppercase tracking-wide">
                 {t('legend')}
@@ -1894,19 +1894,19 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 >
                                   {lang === 'fr' ? 'Charger' : 'Carregar'}
                                 </button>
-                                <button
-                                  onClick={async () => {
-                                    if (confirm(lang === 'fr' ? 'Supprimer définitivement cette phrase du catalogue ?' : 'Excluir permanentemente este padrão do catálogo?')) {
-                                      try {
-                                        const pId = libPtn.id;
-                                        await deleteCloudPattern(pId);
-                                        setCloudPatterns(prev => prev.filter(p => p.id !== pId));
-                                      } catch (err) {
-                                        console.error(err);
-                                        alert(lang === 'fr' ? 'Erreur lors de la suppression.' : 'Erro ao excluir.');
+                                  <button
+                                    onClick={async () => {
+                                      if (await sequencer.confirmAsync(lang === 'fr' ? 'Supprimer définitivement cette phrase du catalogue ?' : 'Excluir permanentemente este padrão do catálogo?')) {
+                                        try {
+                                          const pId = libPtn.id;
+                                          await deleteCloudPattern(pId);
+                                          setCloudPatterns(prev => prev.filter(p => p.id !== pId));
+                                        } catch (err) {
+                                          console.error(err);
+                                          alert(lang === 'fr' ? 'Erreur lors de la suppression.' : 'Erro ao excluir.');
+                                        }
                                       }
-                                    }
-                                  }}
+                                    }}
                                   className="p-1 hover:bg-[#1a1a1a]/10 rounded transition-colors text-xl"
                                   title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
                                 >

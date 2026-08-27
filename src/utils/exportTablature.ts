@@ -136,7 +136,7 @@ export const generateTablatureCore = (
         const activePattern = track.patterns.find(p => p.measureAssignments[m]);
         if (activePattern) {
           hasDataInChunk = true;
-          if (activePattern.measureAllowVariations?.[m] && activePattern.variations && activePattern.variations.length > 0) {
+          if ((activePattern.measureAllowVariations?.[m] ?? true) && activePattern.variations && activePattern.variations.length > 0) {
             hasVariationsInChunk = true;
           }
           let measureHtml = "";

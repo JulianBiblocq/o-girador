@@ -42,6 +42,7 @@ import { useViewRouter } from './hooks/useViewRouter';
 import { useThemeManager } from './hooks/useThemeManager';
 import { useMidiController } from './hooks/useMidiController';
 import { startSession, endSession } from './utils/O-Girador-Tracker';
+import { VisitorAuthModal } from './components/VisitorAuthModal';
 
 export default function App() {
   // 1. Core hook extraction setup
@@ -72,7 +73,23 @@ export default function App() {
   React.useEffect(() => {
     const isFree = !userProfile || (userProfile.role !== 'mestre' && userProfile.role !== 'admin');
     useSequencerStore.getState().setMaxMeasuresAllowed(isFree ? 30 : null);
+    
+    // Mode aperçu pour les visiteurs avec un lien partagé
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasPreset = !!urlParams.get('loadPreset');
+    const isPreview = hasPreset && !userProfile;
+    useSequencerStore.getState().setIsPreviewMode(isPreview);
   }, [userProfile]);
+
+  const [showMandatoryVisitorModal, setShowMandatoryVisitorModal] = useState(false);
+
+  React.useEffect(() => {
+    const handleShowAuth = () => {
+      setShowMandatoryVisitorModal(true);
+    };
+    window.addEventListener('show-visitor-auth-mandatory', handleShowAuth);
+    return () => window.removeEventListener('show-visitor-auth-mandatory', handleShowAuth);
+  }, []);
 
   // Context and unstable state Refs to maximize callback stabilization
   const sequencerRef = React.useRef(sequencer);
@@ -479,13 +496,28 @@ export default function App() {
   const handlePresetSelect = React.useCallback((val: string) => audioRef.current.handlePresetSelect(val), []);
   const handleShare = React.useCallback(() => audioRef.current.handleShare(), []);
   const handleSaveState = React.useCallback(() => audioRef.current.handleSaveState(), []);
+  const handleCloudSave = React.useCallback(() => {
+    const state = useSequencerStore.getState();
+    const metadata = sequencerRef.current?.metadata;
+    setSectionToSave({
+      id: `full-${Date.now()}`,
+      name: metadata?.toada?.trim() || 'Morceau complet',
+      startMeasure: 1,
+      endMeasure: state.totalMeasures,
+      color: '#8b2a1a',
+      isLooping: false,
+      isMuted: false
+    });
+  }, []);
   const handleLoadState = React.useCallback((file: File) => audioRef.current.handleLoadState(file), []);
   const handleSaveToLocal = React.useCallback(async () => {
     const profile = userProfileRef.current;
     if (profile?.role === 'mestre' || profile?.role === 'admin') {
       const isPt = sequencerRef.current.lang === 'pt';
       const wantCloud = await confirmAsyncRef.current(
-        isPt ? 'Onde você deseja salvar esta composição?' : 'Où souhaitez-vous sauvegarder cette composition ?',
+        isPt 
+          ? 'Onde você deseja fazer ressoar este ritmo?\n\n💡 Ao publicá-lo no catálogo público, você enriquece a grande Roda. Transmita seu conhecimento e ganhe pontos de Axé para desbloquear novos conteúdos!' 
+          : 'Où souhaitez-vous faire résonner ce rythme ?\n\n💡 En le publiant sur le catalogue public, vous enrichissez la grande Roda. Transmettez votre savoir et gagnez des points d\'Axé pour débloquer de nouveaux contenus !',
         isPt ? '☁️ Nuvem (Catálogo)' : '☁️ Cloud (Catalogue)',
         isPt ? '💾 Local (Meu PC)' : '💾 Local (Mon PC)'
       );
@@ -618,6 +650,7 @@ export default function App() {
         cloudPresets={cloudPresets}
         activeRightPanel={activeRightPanel}
         onToggleRightPanel={handleToggleRightPanel}
+        onCloudSave={handleCloudSave}
         viewMode={viewMode as any}
         onViewModeToggle={changeViewMode}
         isMobile={isMobile}
@@ -718,6 +751,14 @@ export default function App() {
             setWizardOpen(true);
           }}
           lang={sequencer.lang}
+        />
+      )}
+
+      {showMandatoryVisitorModal && (
+        <VisitorAuthModal 
+          lang={sequencer.lang} 
+          onClose={() => setShowMandatoryVisitorModal(false)}
+          isMandatory={true}
         />
       )}
 

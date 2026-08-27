@@ -133,7 +133,7 @@ function buildFlatSongSchedule(
 
           // 2. Si pas de Levée correspondante, on évalue les probabilités UNIQUEMENT SI l'improvisation est autorisée (ou si on lit un pattern en solo)
           if (!matchedVariation) {
-            const allowImprov = isSoloPlayActive || (activePattern.measureAllowVariations && activePattern.measureAllowVariations[measureIdx]);
+            const allowImprov = isSoloPlayActive || (activePattern.measureAllowVariations ? activePattern.measureAllowVariations[measureIdx] : true);
             if (allowImprov) {
               const validVariations = activePattern.variations.filter((v: any) => !v.playFirstTimeOnly);
               if (validVariations.length > 0) {
