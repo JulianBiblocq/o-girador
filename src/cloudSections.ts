@@ -79,10 +79,11 @@ export async function fetchCloudSections(
       const data = docSnap.data();
       const isOwner = data.ownerId === userUid;
       const isAdminGlobal = data.visibility === 'admin_global';
+      const isPublic = data.visibility === 'public';
       const isMestreGroup = data.visibility === 'mestre_group' && data.mestreId === mestreId;
       const isSysAdmin = userRole === 'admin';
       
-      if (isOwner || isAdminGlobal || isMestreGroup || isSysAdmin) {
+      if (isOwner || isAdminGlobal || isPublic || isMestreGroup || isSysAdmin) {
         sections.push({
           id: docSnap.id,
           name: data.name,

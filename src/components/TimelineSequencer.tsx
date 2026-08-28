@@ -1893,9 +1893,9 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                           ➕
                         </button>
                         <button
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            if (window.confirm(lang === 'fr' ? `Supprimer la mesure ${mIdx + 1} ?` : `Excluir o compasso ${mIdx + 1} ?`)) {
+                            if (await sequencer.confirmAsync(lang === 'fr' ? `Supprimer la mesure ${mIdx + 1} ?` : `Excluir o compasso ${mIdx + 1} ?`)) {
                               onDeleteMeasure && onDeleteMeasure(mIdx);
                             }
                           }}

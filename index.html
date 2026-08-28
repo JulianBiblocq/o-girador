@@ -1,13 +1,13 @@
-<!doctype html>
-<html lang="pt-BR">
+﻿<!doctype html>
+<html lang="pt-BR" translate="no"><meta name="google" content="notranslate" />
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
     <!-- Primary SEO -->
     <title>O Girador | Sequenciador dedicado ao Maracatu de Baque Virado</title>
-    <meta name="description" content="Découvrez O Girador, l'application et séquenceur dédié au Maracatu de Baque Virado. Samples haute qualidade, balanço, humanisation et partage d'arrangements." />
-    <meta name="keywords" content="maracatu, baque virado, séquenceur, boîte à rythmes, sequenciador, ritmo, alfaia, caixa, gonguê, agbê, mineiro, percussão, percussion brésilienne, recife, pernambuco, nação, bloco, toada, drum machine, o-girador, roda de maracatu" />
+    <meta name="description" content="DÃ©couvrez O Girador, l'application et sÃ©quenceur dÃ©diÃ© au Maracatu de Baque Virado. Samples haute qualidade, balanÃ§o, humanisation et partage d'arrangements." />
+    <meta name="keywords" content="maracatu, baque virado, sÃ©quenceur, boÃ®te Ã  rythmes, sequenciador, ritmo, alfaia, caixa, gonguÃª, agbÃª, mineiro, percussÃ£o, percussion brÃ©silienne, recife, pernambuco, naÃ§Ã£o, bloco, toada, drum machine, o-girador, roda de maracatu" />
     <meta name="author" content="Julian Biblocq" />
     <meta name="robots" content="index, follow" />
     <meta name="theme-color" content="#0a0807" />
@@ -24,7 +24,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://julianbiblocq.github.io/o-girador/" />
     <meta property="og:title" content="O Girador - Sequenciador de Maracatu de Baque Virado" />
-    <meta property="og:description" content="Boîte à rythmes en ligne et séquenceur interactif pour créer et écouter des patterns de Maracatu de Baque Virado. Ferramenta gratuite de percussão." />
+    <meta property="og:description" content="BoÃ®te Ã  rythmes en ligne et sÃ©quenceur interactif pour crÃ©er et Ã©couter des patterns de Maracatu de Baque Virado. Ferramenta gratuite de percussÃ£o." />
     <meta property="og:image" content="https://julianbiblocq.github.io/o-girador/og-image.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -35,7 +35,7 @@
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="O Girador - Sequenciador de Maracatu de Baque Virado" />
-    <meta name="twitter:description" content="Créez et écoutez des rythmes de Maracatu de Baque Virado. Séquenceur gratuit et interactif." />
+    <meta name="twitter:description" content="CrÃ©ez et Ã©coutez des rythmes de Maracatu de Baque Virado. SÃ©quenceur gratuit et interactif." />
     <meta name="twitter:image" content="https://julianbiblocq.github.io/o-girador/og-image.jpg" />
 
     <!-- Schema.org Structured Data (JSON-LD) -->
@@ -45,7 +45,7 @@
       "@type": "WebApplication",
       "name": "O Girador",
       "url": "https://julianbiblocq.github.io/o-girador/",
-      "description": "Séquenceur interactif et boîte à rythmes en ligne de Maracatu de Baque Virado. Sequenciador interativo de ritmos. Crie, visualize e escute padrões rítmicos de alfaia, caixa, gonguê, agbê e mineiro.",
+      "description": "SÃ©quenceur interactif et boÃ®te Ã  rythmes en ligne de Maracatu de Baque Virado. Sequenciador interativo de ritmos. Crie, visualize e escute padrÃµes rÃ­tmicos de alfaia, caixa, gonguÃª, agbÃª e mineiro.",
       "applicationCategory": "MultimediaApplication",
       "operatingSystem": "Web",
       "offers": {
@@ -59,7 +59,7 @@
       },
       "inLanguage": ["pt-BR", "fr-FR"],
       "genre": "Maracatu de Baque Virado",
-      "keywords": "maracatu, baque virado, sequenciador, ritmo, alfaia, caixa, gonguê, agbê, mineiro, percussão brasileira"
+      "keywords": "maracatu, baque virado, sequenciador, ritmo, alfaia, caixa, gonguÃª, agbÃª, mineiro, percussÃ£o brasileira"
     }
     </script>
 
@@ -79,7 +79,7 @@
       #landing-page {
         position: fixed;
         inset: 0;
-        background-color: #f4ecd8; /* Papier brut texturé */
+        background-color: #f4ecd8; /* Papier brut texturÃ© */
         color: #1a1a1a;
         z-index: 9999;
         display: flex;
@@ -436,7 +436,7 @@
           });
         } else {
           window.addEventListener('load', () => {
-            const base = window.location.pathname.startsWith('/o-girador') ? '/o-girador/' : '/';
+            const base = '%BASE_URL%';
             navigator.serviceWorker.register(base + 'sw.js')
               .then(reg => {
                 // console.log('Service Worker registered:', reg.scope);

@@ -11,6 +11,7 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
 import { getExpandedMeasures } from '../utils/measureHelpers';
+import { useAuth } from '../contexts/AuthContext';
 
 /**
  * Composant de la barre d'outils permettant d'exporter la séquence 
@@ -37,10 +38,24 @@ export const BoutonExportDanse: React.FC = () => {
     }))
   );
   
-  const { lang } = useSequencer();
+  const { lang, alertAsync, confirmAsync } = useSequencer();
+  const { userProfile, isAdmin } = useAuth();
 
   const gererExport = async () => {
     try {
+      const hasAccess = isAdmin || userProfile?.hasDancaAccess;
+      
+      if (!hasAccess) {
+        const wantToSubscribe = await confirmAsync(
+          lang === 'fr' 
+            ? "Pour envoyer cette musique vers l'application O Girador Dança, vous devez activer le pont entre les deux applications. Souhaitez-vous souscrire à cette option ?"
+            : "Para enviar esta música para o aplicativo O Girador Dança, você deve ativar a ponte entre os dois aplicativos. Deseja assinar esta opção?"
+        );
+        if (wantToSubscribe) {
+          window.open('https://orquestrador.o-girador.com', '_blank');
+        }
+        return;
+      }
 
       setStatut('calcul');
       setMessageErreurUI('');

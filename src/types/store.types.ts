@@ -67,7 +67,7 @@ export interface SavedPattern {
   createdAt: number;
 }
 
-export type CatalogVisibility = 'admin_global' | 'mestre_group' | 'private' | 'specific_user';
+export type CatalogVisibility = 'admin_global' | 'mestre_group' | 'private' | 'specific_user' | 'public';
 
 export interface CloudPattern extends SavedPattern {
   ownerId: string;

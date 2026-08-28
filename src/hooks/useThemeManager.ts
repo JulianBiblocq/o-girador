@@ -15,7 +15,11 @@ export function useThemeManager({ lang }: UseThemeManagerOptions) {
   const { userProfile, updateUserPreference } = useAuth();
   
   // 1. Eco Mode alignment from sequencer store
-  const isEcoMode = useSequencerStore(state => state.isEcoMode);
+  const [isEcoMode, setIsEcoMode] = useState(() => { try { return useSequencerStore.getState().isEcoMode; } catch(e) { return false; } });
+  useEffect(() => {
+    const unsub = useSequencerStore.subscribe((state) => setIsEcoMode(state.isEcoMode));
+    return unsub;
+  }, []);
   
   // 2. Local/Media Query Theme initialization
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {

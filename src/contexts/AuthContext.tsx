@@ -23,6 +23,8 @@ export interface UserProfile {
   instrument?: string;
   customSwingOffsets?: [number, number, number, number];
   customSwingIntensity?: number;
+  hasDancaAccess?: boolean;
+  groupName?: string;
 }
 
 interface AuthContextType {

@@ -170,6 +170,21 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
                   <option value="timbal">Timbal</option>
                 </select>
               </div>
+
+              {(userProfile.role === 'mestre' || isAdmin) && (
+                <div className="flex flex-col gap-1 mt-1">
+                  <label className="text-[9px] font-bold uppercase text-[var(--cordel-text)]/70">
+                    {lang === 'fr' ? 'Nom du Groupe / Association' : 'Nome do Grupo / Associação'}
+                  </label>
+                  <input
+                    type="text"
+                    value={userProfile.groupName || ''}
+                    onChange={(e) => updateUserProfileField('groupName', e.target.value)}
+                    placeholder={lang === 'fr' ? 'Ex: Samambaia' : 'Ex: Nação'}
+                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 text-xs font-bold w-full rounded outline-none"
+                  />
+                </div>
+              )}
             </div>
             {isAdmin && onAdminClick && (
               <button

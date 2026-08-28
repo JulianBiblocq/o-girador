@@ -15,7 +15,9 @@ export async function savePresetToCloud(
   presetData: Preset,
   ownerId: string,
   visibility: CatalogVisibility,
-  targetUserId?: string
+  targetUserId?: string,
+  audioUrl?: string,
+  targetPresetId?: string
 ): Promise<string> {
   // Deep copy presetData to avoid modifying active app state
   const presetToSave = JSON.parse(JSON.stringify(presetData));
@@ -43,16 +45,24 @@ export async function savePresetToCloud(
 
   const dataString = LZString.compressToBase64(JSON.stringify(presetToSave));
   
-  const docRef = await addDoc(collection(db, CLOUD_PRESETS_COLLECTION), {
+  const docData: any = {
     name,
     data: dataString,
     ownerId,
     visibility,
     targetUserId: targetUserId || null,
-    createdAt: Date.now()
-  });
+    updatedAt: Date.now()
+  };
+  if (audioUrl) docData.audioUrl = audioUrl;
   
-  return docRef.id;
+  if (targetPresetId) {
+    await updateDoc(doc(db, CLOUD_PRESETS_COLLECTION, targetPresetId), docData);
+    return targetPresetId;
+  } else {
+    docData.createdAt = Date.now();
+    const docRef = await addDoc(collection(db, CLOUD_PRESETS_COLLECTION), docData);
+    return docRef.id;
+  }
 }
 
 /**
@@ -72,23 +82,51 @@ export async function fetchCloudPresets(
   const presetsRef = collection(db, CLOUD_PRESETS_COLLECTION);
   
   try {
-    // 🛡️ FIX (Audit): Secure query with where and orderBy, remove JS filtering
-    const q = query(
-      presetsRef,
-      or(
-        where('ownerId', '==', userUid),
-        where('visibility', '==', 'public'),
-        where('targetUserId', '==', userUid)
-      ),
-      orderBy('createdAt', 'desc'),
-      limit(50)
-    );
-    const snapshot = await getDocs(q);
-    
-    snapshot.forEach(doc => {
-      const data = doc.data() as Omit<CloudPreset, 'id'>;
-      presets.push({ id: doc.id, ...data });
-    });
+    if (userRole === 'admin') {
+      // Les admins chargent tout avec une limite généreuse
+      const q = query(presetsRef, orderBy('createdAt', 'desc'), limit(1000));
+      const snapshot = await getDocs(q);
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data() as Omit<CloudPreset, 'id'>;
+        presets.push({ id: docSnap.id, ...data });
+      });
+    } else {
+      // Pour éviter les index composites et ne pas rater de vieux presets avec une limite globale,
+      // on lance plusieurs requêtes simples en parallèle et on fusionne les résultats.
+      const queries = [
+        getDocs(query(presetsRef, where('ownerId', '==', userUid))),
+        getDocs(query(presetsRef, where('visibility', '==', 'admin_global'))),
+        getDocs(query(presetsRef, where('visibility', '==', 'public'))),
+        getDocs(query(presetsRef, where('targetUserId', '==', userUid)))
+      ];
+      
+      if (mestreId) {
+        queries.push(getDocs(query(presetsRef, where('ownerId', '==', mestreId))));
+      }
+
+      const snapshots = await Promise.all(queries);
+      const uniqueIds = new Set<string>();
+      
+      snapshots.forEach(snapshot => {
+        snapshot.forEach(docSnap => {
+          if (!uniqueIds.has(docSnap.id)) {
+            const data = docSnap.data() as Omit<CloudPreset, 'id'>;
+            const isOwner = data.ownerId === userUid;
+            const isAdminGlobal = data.visibility === 'admin_global';
+            const isPublic = data.visibility === 'public';
+            const isTarget = data.targetUserId === userUid;
+            const isMestreGroup = data.visibility === 'mestre_group' && (userRole === 'mestre' ? data.ownerId === userUid : data.ownerId === mestreId);
+
+            if (isOwner || isAdminGlobal || isPublic || isTarget || isMestreGroup) {
+              uniqueIds.add(docSnap.id);
+              presets.push({ id: docSnap.id, ...data });
+            }
+          }
+        });
+      });
+      
+      presets.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    }
     
   } catch (err) {
     if (err && ((err as any).code === 'permission-denied' || String(err).includes('permission'))) {
@@ -106,9 +144,16 @@ export async function getCloudPreset(presetId: string): Promise<Preset | null> {
   const docSnap = await getDoc(doc(db, CLOUD_PRESETS_COLLECTION, presetId));
   if (docSnap.exists()) {
     const dataString = docSnap.data().data;
-    const jsonStr = LZString.decompressFromBase64(dataString);
-    if (jsonStr) {
-      return JSON.parse(jsonStr) as Preset;
+    try {
+      if (dataString.startsWith('{')) {
+        return JSON.parse(dataString) as Preset;
+      }
+      const jsonStr = LZString.decompressFromBase64(dataString);
+      if (jsonStr) {
+        return JSON.parse(jsonStr) as Preset;
+      }
+    } catch (e) {
+      console.error("Error parsing preset data:", e);
     }
   }
   return null;

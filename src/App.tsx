@@ -20,6 +20,9 @@ import { TouchStrokeSelector } from './components/TouchStrokeSelector';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MainWorkspaceLayout } from './components/MainWorkspaceLayout';
 import { GlobalModalsLayout } from './components/GlobalModalsLayout';
+import { AudioCompilerProvider } from './contexts/AudioCompilerContext';
+import { CustomPromptModal } from './components/CustomPromptModal';
+import { SavePresetModal } from './components/SavePresetModal';
 import { useWizardStore } from './stores/useWizardStore';
 import { NewSongIntroModal } from './components/NewSongIntroModal';
 import { WizardOverlay } from './components/WizardOverlay';
@@ -236,7 +239,8 @@ export default function App() {
 
   const refreshMestreSignals = React.useCallback(async () => {
     const profile = userProfileRef.current;
-    const isMestreAdmin = profile?.role === 'mestre' || profile?.role === 'admin';
+    const actualRole1 = profile?.dbRole || profile?.role;
+    const isMestreAdmin = actualRole1 === 'mestre' || actualRole1 === 'admin';
     const isEleve = contextHasAccessRef.current ? contextHasAccessRef.current('eleve') : false;
     
     let targetMestreId = null;
@@ -510,71 +514,15 @@ export default function App() {
     });
   }, []);
   const handleLoadState = React.useCallback((file: File) => audioRef.current.handleLoadState(file), []);
+  
+  const [showSavePresetModal, setShowSavePresetModal] = useState(false);
+  const [presetDataToSave, setPresetDataToSave] = useState<any>(null);
+
   const handleSaveToLocal = React.useCallback(async () => {
-    const profile = userProfileRef.current;
-    if (profile?.role === 'mestre' || profile?.role === 'admin') {
-      const isPt = sequencerRef.current.lang === 'pt';
-      const wantCloud = await confirmAsyncRef.current(
-        isPt 
-          ? 'Onde você deseja fazer ressoar este ritmo?\n\n💡 Ao publicá-lo no catálogo público, você enriquece a grande Roda. Transmita seu conhecimento e ganhe pontos de Axé para desbloquear novos conteúdos!' 
-          : 'Où souhaitez-vous faire résonner ce rythme ?\n\n💡 En le publiant sur le catalogue public, vous enrichissez la grande Roda. Transmettez votre savoir et gagnez des points d\'Axé pour débloquer de nouveaux contenus !',
-        isPt ? '☁️ Nuvem (Catálogo)' : '☁️ Cloud (Catalogue)',
-        isPt ? '💾 Local (Meu PC)' : '💾 Local (Mon PC)'
-      );
-      if (wantCloud) {
-        const presetData = audioRef.current.getCurrentPresetData();
-        let name = presetData.metadata?.toada?.trim() || '';
-        if (!name) {
-          const inputName = await promptAsyncRef.current(isPt ? 'Nome do ritmo:' : 'Nom du rythme :');
-          if (!inputName) return;
-          name = inputName.trim();
-          presetData.metadata = { ...presetData.metadata, toada: name } as any;
-        }
-
-        let visibility: 'admin_global' | 'mestre_group' | 'specific_user' = 'mestre_group';
-        let targetUserId: string | undefined = undefined;
-
-        if (checkIsAdmin(profile)) {
-          const makeGlobal = await confirmAsyncRef.current(
-            isPt ? 'Tornar global (visível para todos)?' : 'Rendre global (visible par tous) ?',
-            isPt ? 'Sim (Global)' : 'Oui (Global)',
-            isPt ? 'Não (Restrito)' : 'Non (Restreint)'
-          );
-          if (makeGlobal) {
-            visibility = 'admin_global';
-          } else {
-            const specificTarget = await promptAsyncRef.current(
-              isPt ? 'Digite o UID de um visitante/Mestre alvo (ou deixe vazio pour você mesmo):' : 'Entrez l\'UID du visiteur privilégié ou du Mestre (laissez vide pour vous-même) :'
-            );
-            if (specificTarget && specificTarget.trim() !== '') {
-              visibility = 'specific_user';
-              targetUserId = specificTarget.trim();
-            }
-          }
-        }
-
-        const { savePresetToCloud } = await import('./cloudLibrary');
-        try {
-          await savePresetToCloud(name, presetData, profile.uid, visibility, targetUserId);
-          await alertAsyncRef.current(isPt ? '✅ Salvo na nuvem!' : '✅ Sauvegardé dans le cloud !');
-          queryClient.invalidateQueries({ queryKey: ['cloudPresets'] });
-        } catch (err) {
-          console.error(err);
-          if (!navigator.onLine) {
-            const msg = isPt
-              ? 'Salvo localmente, sincronização pendente'
-              : 'Sauvegardé localement, synchronisation en attente';
-            setToastMessage(msg);
-            setTimeout(() => setToastMessage(null), 4000);
-          } else {
-            await alertAsyncRef.current('Error saving to cloud');
-          }
-        }
-        return;
-      }
-    }
-    audioRef.current.handleSaveToLocal();
-  }, [queryClient]);
+    const presetData = audioRef.current.getCurrentPresetData();
+    setPresetDataToSave(presetData);
+    setShowSavePresetModal(true);
+  }, []);
 
   const handleLoadLocalPreset = React.useCallback((name: string) => audioRef.current.handleLoadLocalPreset(name), []);
   const handleAddTrackInstrument = React.useCallback((instIdx: number) => sequencerRef.current.handleAddTrackInstrument(instIdx, useSequencerStore.getState().currentMeasure), []);
@@ -650,7 +598,7 @@ export default function App() {
         cloudPresets={cloudPresets}
         activeRightPanel={activeRightPanel}
         onToggleRightPanel={handleToggleRightPanel}
-        onCloudSave={handleCloudSave}
+        onCloudSave={handleSaveToLocal}
         viewMode={viewMode as any}
         onViewModeToggle={changeViewMode}
         isMobile={isMobile}
@@ -738,6 +686,15 @@ export default function App() {
         toastMessage={toastMessage}
         handleStepTouchStart={handleStepTouchStart}
       />
+
+      {showSavePresetModal && presetDataToSave && (
+        <SavePresetModal
+          presetData={presetDataToSave}
+          defaultName={presetDataToSave.metadata?.toada || ''}
+          onClose={() => setShowSavePresetModal(false)}
+          lang={sequencer.lang}
+        />
+      )}
 
       {isIntroModalOpen && (
         <NewSongIntroModal

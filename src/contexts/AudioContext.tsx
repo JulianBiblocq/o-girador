@@ -13,7 +13,7 @@ import { getLocalLibrary, savePresetToLibrary } from '../library';
 import { vouVadiarPreset, baqueDeImalePreset, ASSETS_BASE_URL, i18n, instrumentsConfig } from '../data';
 import { Preset, Pattern, TrackGroup, TimeSignature } from '../types';
 import { migrateCirclesToTracks } from '../migration';
-
+import { useAuth } from './AuthContext';
 // Web Audio recording variables
 let wavRecordingBuffersL: Float32Array[] = [];
 let wavRecordingBuffersR: Float32Array[] = [];
@@ -154,6 +154,7 @@ function writeString(view: DataView, offset: number, string: string) {
 }
 
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { userProfile } = useAuth();
   const sequencer = useSequencer();
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
@@ -781,8 +782,21 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const handleSaveToLocal = async () => {
     try {
-      const dataToSave = getCurrentPresetData();
       const name = sequencer.metadata?.toada?.trim() || 'Sem Título';
+      
+      const isFree = !userProfile || (userProfile.role !== 'mestre' && userProfile.role !== 'admin');
+      if (isFree) {
+        const library = await getLocalLibrary();
+        const existingCount = Object.keys(library).length;
+        if (existingCount >= 3 && !library[name]) {
+          await sequencer.alertAsync(sequencer.lang === 'fr' 
+            ? 'Vous avez atteint la limite de 3 morceaux locaux pour un compte gratuit. Mettez à niveau votre compte via Orchestrador pour sauvegarder en illimité.' 
+            : 'Você atingiu o limite de 3 músicas locais para uma conta gratuita. Atualize sua conta via Orchestrador para salvar ilimitado.');
+          return;
+        }
+      }
+
+      const dataToSave = getCurrentPresetData();
       await savePresetToLibrary(name, dataToSave);
       window.alert(t('presetSavedLocal') || 'Saved locally!');
     } catch (err) {

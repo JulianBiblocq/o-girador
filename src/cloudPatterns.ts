@@ -82,10 +82,11 @@ export async function fetchCloudPatterns(
       const data = docSnap.data();
       const isOwner = data.ownerId === userUid;
       const isAdminGlobal = data.visibility === 'admin_global';
+      const isPublic = data.visibility === 'public';
       const isMestreGroup = data.visibility === 'mestre_group' && data.mestreId === mestreId;
       const isSysAdmin = userRole === 'admin';
       
-      if (isOwner || isAdminGlobal || isMestreGroup || isSysAdmin) {
+      if (isOwner || isAdminGlobal || isPublic || isMestreGroup || isSysAdmin) {
         const jsonStr = LZString.decompressFromBase64(data.data);
         if (jsonStr) {
           const parsedPattern = JSON.parse(jsonStr) as SavedPattern;

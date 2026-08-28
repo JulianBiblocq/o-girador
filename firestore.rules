@@ -22,7 +22,7 @@ service cloud.firestore {
           getUserData().isSystemAdmin == true ||
           (getUserData().keys().hasAny(['hasAccessLogistique']) && getUserData().hasAccessLogistique == true) ||
           (getUserData().keys().hasAny(['tags']) && getUserData().tags.hasAny([
-            'Bureau', 'Président', 'Présidente', 'Présidence', 'CA', 'Direction', 'Admin', 'Modérateur'
+            'Bureau', 'PrÃ©sident', 'PrÃ©sidente', 'PrÃ©sidence', 'CA', 'Direction', 'Admin', 'ModÃ©rateur'
           ]))
         );
     }
@@ -36,25 +36,25 @@ service cloud.firestore {
 
     function canManageEvents() {
       return isAdminOrMestre() || hasAnyTag([
-        'Agenda', 'Agenda & Événements', 'Bureau', 'Président', 'Présidente', 'CA', 'Direction', 'Admin'
+        'Agenda', 'Agenda & Ã‰vÃ©nements', 'Bureau', 'PrÃ©sident', 'PrÃ©sidente', 'CA', 'Direction', 'Admin'
       ]);
     }
 
     function canManageInventory() {
       return isAdminOrMestre() || hasAnyTag([
-        'Inventaire', 'Logistique', 'Matériel', 'Instruments', 'Commandes', 'Bureau', 'CA', 'Direction'
+        'Inventaire', 'Logistique', 'MatÃ©riel', 'Instruments', 'Commandes', 'Bureau', 'CA', 'Direction'
       ]);
     }
 
     function canManageTreasury() {
       return isAdminOrMestre() || hasAnyTag([
-        'Trésorerie', 'Trésorier', 'Trésorière', 'Comptable', 'Finance', 'Bureau', 'CA', 'Direction'
+        'TrÃ©sorerie', 'TrÃ©sorier', 'TrÃ©soriÃ¨re', 'Comptable', 'Finance', 'Bureau', 'CA', 'Direction'
       ]);
     }
 
     function canManageDocs() {
       return isAdminOrMestre() || hasAnyTag([
-        'Secrétariat', 'Comptes-Rendus', 'Studio', 'Communication', 'Bureau', 'CA', 'Direction'
+        'SecrÃ©tariat', 'Comptes-Rendus', 'Studio', 'Communication', 'Bureau', 'CA', 'Direction'
       ]);
     }
 
@@ -66,7 +66,7 @@ service cloud.firestore {
           getUserData().isSystemAdmin == true ||
           getUserData().role == 'moderator' ||
           (getUserData().keys().hasAny(['tags']) && 
-           getUserData().tags.hasAny(['Modérateur', 'Modérateur Forum']))
+           getUserData().tags.hasAny(['ModÃ©rateur', 'ModÃ©rateur Forum']))
         );
     }
 
@@ -116,7 +116,7 @@ service cloud.firestore {
       );
     }
 
-    // --- RÈGLES TÉLÉMÉTRIE & BUGS ---
+    // --- RÃˆGLES TÃ‰LÃ‰MÃ‰TRIE & BUGS ---
     match /hub_system_errors/{errorId} {
       allow create: if request.resource.data.keys().hasAll(['appId', 'timestamp', 'errorMessage']);
       allow read, update, delete: if request.auth != null && request.auth.token.admin == true;
@@ -128,6 +128,11 @@ service cloud.firestore {
     }
 
     // Collection Rules
+
+    match /settings/{document} {
+      allow read: if isAuthenticated();
+      allow write: if isAdminOrMestre();
+    }
 
     match /users/{userId} {
       allow read: if isAuthenticated();
@@ -184,7 +189,7 @@ service cloud.firestore {
 
     match /associations/{assocId} {
       allow read: if true;
-      allow write: if isAdminOrMestre() || hasAnyTag(['Vitrine', 'Webmaster', 'Bureau', 'Président', 'Présidente', 'CA']);
+      allow write: if isAdminOrMestre() || hasAnyTag(['Vitrine', 'Webmaster', 'Bureau', 'PrÃ©sident', 'PrÃ©sidente', 'CA']);
 
       match /private_settings/credentials {
         allow read, write: if isAdminOrMestre() && getUserData().groupId == assocId;
@@ -405,7 +410,7 @@ service cloud.firestore {
       allow write: if isAdminOrMestre() && (resource == null || getUserData().groupId == resource.data.tenantId || getUserData().groupId == request.resource.data.tenantId);
     }
 
-    // --- O GIRADOR: SÉQUENCEUR ---
+    // --- O GIRADOR: SÃ‰QUENCEUR ---
     match /patterns/{patternId} {
       allow read: if request.auth != null && (
         resource.data.visibility == 'admin_global' || 
@@ -467,3 +472,4 @@ service cloud.firestore {
     
   }
 }
+
