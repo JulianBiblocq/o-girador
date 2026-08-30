@@ -51,6 +51,9 @@ export function usePublierVersDanca() {
       let mimeType = blob.type || 'audio/webm';
       if (mimeType.includes('video/webm')) mimeType = 'audio/webm';
       if (mimeType.includes('video/mp4')) mimeType = 'audio/mp4';
+      if (!mimeType.startsWith('audio/') && !mimeType.startsWith('video/')) {
+        mimeType = 'audio/webm'; // Fallback forcé pour passer les règles Firebase
+      }
       
       // 1. Upload vers Storage
       const cheminFichier = `exports_danse/${tenantId}/${id}.${ext}`;

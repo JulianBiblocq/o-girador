@@ -1,0 +1,405 @@
+      @font-face {
+
+            font-family: 'Cactus';
+
+            src: url('Cactus Regular.otf') format('opentype');
+
+            /* Fallback en cas d'erreur de lien vers le .otf */
+
+        }
+
+
+
+        :root {
+
+            --bg-dark: #121212; --panel-bg: #1e1e1e; --control-bg: #252525;
+
+            --text-main: #f5f5f5; --text-muted: #888;
+
+            --accent-gold: #eaddcf; /* Couleur Parchemin de Xilographura Craie/Crème / Cordel */
+
+            --accent-green: #2ecc71; --accent-red: #8b0000;
+
+        }
+
+
+
+        body {
+
+            margin: 0; background-color: var(--bg-dark); color: var(--text-main);
+
+            font-family: 'Segoe UI', Roboto, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+
+        }
+
+
+
+        /* --- BARRE GLOBALE DU HAUT --- */
+
+        #top-bar { 
+
+            width: 100%; height: auto; min-height: 70px; background-color: var(--panel-bg); 
+
+            border-bottom: 2px solid #000; display: flex; align-items: center; justify-content: space-between; 
+
+            padding: 10px 20px; box-sizing: border-box; z-index: 20; flex-wrap: wrap; gap: 10px;
+
+        }
+
+        .topbar-group { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+        
+
+        #header-title-text { 
+
+            font-family: 'Cactus', 'Cactus Classical Serif', serif; 
+
+            font-size: 40px; 
+
+            color: var(--accent-gold); 
+
+            letter-spacing: 2px; 
+
+            margin: 0; padding: 0; 
+
+            text-shadow: 2px 2px 0px #000, 3px 3px 0px var(--accent-red); /* Féroce & Boisé */
+
+        }
+
+
+
+        #main-workspace { display: flex; flex-grow: 1; overflow: hidden; position: relative; width: 100%; }
+
+
+
+        /* PLANCHES EN BOIS FONCÉ POUR PANNEAUX LATERAUX */
+
+        #left-panel, #right-sidebar { background: linear-gradient(135deg, #1c1815 0%, #120e0c 100%); }
+
+
+
+        #left-panel { width: 440px; min-width: 440px; border-right: 3px solid #000; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; z-index: 10; height: 100%; transition: margin-left 0.35s cubic-bezier(0.4, 0.0, 0.2, 1); }
+
+        #left-panel.collapsed { margin-left: -440px; }
+
+
+
+        #right-sidebar { width: 360px; min-width: 360px; border-left: 3px solid #000; display: flex; flex-direction: column; box-sizing: border-box; z-index: 10; height: 100%; transition: margin-right 0.35s cubic-bezier(0.4, 0.0, 0.2, 1); }
+
+        #right-sidebar.collapsed { margin-right: -360px; }
+
+
+
+        .sidebar-section { display: none; flex-direction: column; padding: 20px; height: 100%; overflow-y: auto; }
+
+        .sidebar-section.active { display: flex; }
+
+
+
+        /* HEADER GRAVE BOIS STYLIQUE - TYPE CORDEL */
+
+        .panel-header-cordel { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--accent-gold); padding-bottom: 8px; margin-bottom: 24px; position:relative; }
+
+        .panel-header-cordel::after { content: ''; position: absolute; left: 0; right: 0; bottom: -5px; height: 1px; background-color: var(--accent-gold); }
+
+        .panel-title { font-size: 26px; font-family: 'Cactus', 'Cactus Classical Serif', serif; color: var(--accent-gold); font-weight: normal; text-transform: uppercase; letter-spacing: 2px; margin: 0; text-shadow: 2px 2px 0px rgba(0,0,0,0.8); }
+
+
+
+        #mixer-section { flex-grow: 1; overflow-y: auto; padding-right: 15px; }
+
+
+
+        /* --- EFFET BLOCK DESIGN XYLOGRAVURA RIGIDE - LIGNES DROITES !! --- */
+
+        .track-mixer { 
+
+            position: relative; border: 3px solid var(--accent-gold); border-radius: 0; 
+
+            padding: 16px; margin-bottom: 24px; box-shadow: 4px 4px 0px rgba(0,0,0,0.9);
+
+            background-color: #1a1511; transition: background 0.3s;
+
+            /* Légères hachures bois / cordel sur le bloc mixer */
+
+            background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(234, 221, 207, 0.03) 2px, rgba(234, 221, 207, 0.03) 4px);
+
+        }
+
+        .track-mixer::before { content: ''; position: absolute; top: 5px; left: 5px; right: 5px; bottom: 5px; border: 1px solid var(--accent-gold); pointer-events: none; z-index: 1; opacity: 0.6; }
+
+
+
+        .track-mixer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; position: relative; z-index: 2; border-bottom: 1px dashed rgba(234, 221, 207, 0.4); padding-bottom: 8px;}
+
+        .track-order-btns { display: flex; flex-direction: column; gap: 2px; margin-right: 10px; }
+
+        .order-btn { background: #111; color: var(--accent-gold); border: 1px solid var(--accent-gold); cursor: pointer; font-size: 8px; padding: 2px 6px; border-radius: 0; font-family:monospace;}
+
+        .order-btn:hover:not(:disabled) { background: var(--accent-gold); color: #000; font-weight:bold; }
+
+        .order-btn:disabled { opacity: 0.3; cursor: not-allowed; border-color: #555; }
+
+        .track-name { font-size: 14px; font-weight: bold; display: flex; align-items: center; gap: 6px; color: var(--accent-gold); text-shadow: 1px 1px 1px #000; text-transform:uppercase; font-family:serif;}
+
+
+
+        /* DROPDOWNS CACHÉS (SANS RONDEURS / STYLE XILOGRAPHIE) */
+
+        .custom-dropdown { position: relative; outline: none; }
+
+        .dropdown-list { display: none; position: absolute; top: 100%; left: 0; background: #1a1511; border: 2px solid var(--accent-gold); border-radius: 0; z-index: 100; min-width: 180px; box-shadow: 4px 4px 0px rgba(0,0,0,0.8); max-height: 250px; overflow-y: auto;}
+
+        .dropdown-list.show { display: block; }
+
+        .dropdown-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; cursor: pointer; font-size: 14px; color: var(--accent-gold); border-bottom: 1px dashed #333; font-weight:bold; font-family:serif; text-transform:uppercase; letter-spacing:1px; }
+
+        .dropdown-item:hover { background: var(--accent-gold); color: #1a1511; }
+
+        .dropdown-item img { width: 22px; height: 22px; object-fit: contain; }
+
+        .dropdown-selected { display: flex; align-items: center; gap: 8px; background: #0c0806; border: 2px solid #555; padding: 4px 8px; font-size: 12px; font-family:monospace; cursor: pointer; color: var(--text-main); box-shadow: inset 1px 1px 3px rgba(0,0,0,0.8); border-radius:0; font-weight:bold;}
+
+        .dropdown-selected img { width: 16px; height: 16px; object-fit: contain; }
+
+
+
+        .track-mute-solo { display: flex; gap: 4px; z-index: 2; position: relative;}
+
+        .btn-mute-solo { width: 28px; height: 26px; background-color: #222; color: #fff; border: 1px solid var(--accent-gold); font-family: monospace; border-radius: 0; font-weight: bold; font-size: 12px; cursor: pointer; box-shadow: 2px 2px 0px #000; transition: transform 0.1s;}
+
+        .btn-mute-solo:active { transform: translate(2px, 2px); box-shadow: 0px 0px 0px #111; }
+
+        .btn-mute-solo.mute-on { background-color: var(--accent-red); border-color: #fff;}
+
+        .btn-mute-solo.solo-on { background-color: #f1c40f; color: #000; border-color: #fff;}
+
+        .btn-mute-solo.hidden-on { background-color: #4a4a4a; color: #888; border-color: #333;}
+
+        .btn-delete { background-color: #1a0808; color:var(--accent-gold); border: 1px solid var(--accent-red);} .btn-delete:hover { background-color: var(--accent-red); color:#fff; }
+
+
+
+        .fader-group { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; position: relative; z-index: 2;}
+
+        .fader { flex-grow: 1; -webkit-appearance: none; height: 10px; border-radius: 0; background: #0c0806; border: 1px solid var(--accent-gold); outline: none; width: 70px; box-shadow: inset 2px 2px 4px #000; }
+
+        .fader::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 22px; border-radius: 0; background: var(--accent-gold); cursor: pointer; border:1px solid #000; box-shadow: 2px 2px 0px rgba(0,0,0,0.8); }
+
+
+
+        .vol-meter-bg { width: 35px; height: 12px; background-color: #000; border-radius: 0; position: relative; overflow: hidden; border:1px solid var(--accent-gold);}
+
+        .vol-meter-bar { height: 100%; background-color: var(--accent-green); width: 0%; transition: width 0.05s; }
+
+
+
+        .steps-config { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight:bold; color: var(--accent-gold); border-top: 1px dashed rgba(234, 221, 207, 0.4); padding-top: 8px; position: relative; z-index: 2;}
+
+        .steps-config input { width: 44px; background: #0c0806; border: 1px solid var(--accent-gold); color: var(--text-main); padding: 2px; border-radius: 0; text-align: center; font-weight: bold; font-family: monospace;}
+
+        .steps-config-right { display: flex; align-items: center; gap: 6px; text-transform:uppercase;}
+
+
+
+        .pattern-row { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; padding-top: 8px; position: relative; z-index: 2;}
+
+        .step-boxes { display: flex; gap: 6px; flex-wrap: wrap; flex-grow: 1; align-items: center; justify-content: flex-start; margin-top: 6px;}
+
+        
+
+        .step-box { 
+
+            width: 26px; height: 26px; background: #0c0806; border: 1px solid var(--accent-gold); 
+
+            color: var(--accent-gold); font-family: monospace; font-size: 15px; font-weight: bold; 
+
+            text-align: center; border-radius: 0; outline: none; padding: 0; box-sizing: border-box; 
+
+            transition: all 0.1s; box-shadow: inset 1px 1px 4px #000; cursor:text;
+
+        }
+
+        .step-box:focus { border-color: #fff !important; background: #1c1511; transform: scale(1.05); position: relative; z-index: 5;}
+
+        
+
+        /* --- CARTES VOIX (Chant Paroles Blockies DURS) --- */
+
+        .v-card { display: flex; flex-direction: column; width: 48px; background: #0c0806; border: 1px solid var(--accent-gold); border-radius: 0; overflow: hidden; margin-right: 4px; margin-bottom: 4px; box-shadow: 2px 2px 0px rgba(0,0,0,0.8);}
+
+        .v-type { font-size: 9px; font-weight: bold; text-align: center; cursor: pointer; padding: 4px 0; color: #fff; user-select: none; border-bottom: 1px solid #111; letter-spacing:1px; text-transform:uppercase;}
+
+        .v-type.empty { background: #333; color: #888; cursor: default; }
+
+        .v-type.pux { background: #2980b9; color:#fff; }
+
+        .v-type.coro { background: #00d2d3; color:#121212; }
+
+        .v-card.inactive .v-syl, .v-card.inactive .v-note { color: #444; }
+
+        .v-syl { width: 100%; border: none; border-bottom: 1px dashed rgba(234, 221, 207, 0.4); background: transparent; color: var(--text-main); text-align: center; font-size: 14px; padding: 6px 0; outline: none; font-weight: bold; font-family:serif;}
+
+        .v-note { width: 100%; border: none; background: transparent; color: var(--accent-gold); text-align: center; font-size: 11px; padding: 4px 0; outline: none; text-transform: uppercase; font-weight:bold; font-family:monospace;}
+
+
+
+        /* LÉGENDE SCROLLABLE Cordel Design Gravure !!! */
+
+        .legend-container { display: flex; flex-direction: column; gap: 8px; padding-right: 5px; flex-grow: 1; }
+
+        .legend-group { display: flex; flex-direction: column; gap: 6px; background: transparent; padding: 12px; border: 2px solid var(--accent-gold); border-radius: 0; box-shadow: 3px 3px 0px rgba(0,0,0,0.6); position:relative;}
+
+        .legend-group::before { content: ''; position:absolute; top:3px;left:3px;right:3px;bottom:3px; border:1px dotted var(--accent-gold); pointer-events:none; opacity:0.3;}
+
+        .legend-group-title { font-family: 'Cactus', 'Cactus Classical Serif', serif; color: var(--accent-gold); margin-bottom: 4px; font-size: 16px; text-transform: uppercase; border-bottom: 1px solid var(--accent-gold); padding-bottom: 6px; text-shadow: 1px 1px 1px #000; letter-spacing:1px; z-index:1; }
+
+        .legend-item { display: flex; align-items: center; gap: 8px; color: var(--text-main); font-size: 12px; line-height: 1.4; font-family:serif; letter-spacing: 0.5px; font-weight:normal; z-index:1;}
+
+        .legend-badge { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 18px; font-size: 10px; font-weight: bold; border-radius: 0; text-align: center; border: 1px solid var(--accent-gold); box-sizing: border-box; flex-shrink: 0; font-family:monospace;}
+
+
+
+        /* --- ZONE LETRAS KARAOKE CORDEL : Pas de padding, syllables fondues ! --- */
+
+        #letras-textarea {
+
+            width: 100%; flex-grow: 1; background: #0c0806; border: 2px solid var(--accent-gold); border-radius: 0; 
+
+            padding: 16px; box-sizing: border-box; overflow-y: auto; font-size: 18px; line-height: 2.0; 
+
+            font-family: serif; color: var(--accent-gold); text-shadow: 1px 1px 1px rgba(0,0,0,1); box-shadow: inset 2px 2px 6px #000; outline:none; white-space: pre-wrap; word-wrap: break-word; position:relative;
+
+        }
+
+        #letras-textarea:empty:before { content: attr(data-placeholder); color: #555; pointer-events: none; display: block; font-style:italic;}
+
+        #letras-textarea:focus { border-color: #fff; outline: none; }
+
+        
+
+        /* KARAOKE Merveilleux CSS (Pas de margins sur les parties du même mot ! Fluidité 100% ) */
+
+        .lyric-word { display: inline; transition: color 0.1s ease, text-shadow 0.1s ease; margin:0; padding: 0 1px; }
+
+        .lyric-word.highlight { 
+
+            color: #fff !important; 
+
+            text-shadow: 0 0 8px #fff, 0 0 15px var(--accent-gold); 
+
+        }
+
+
+
+        /* --- INTERFACE CENTRALE ET RODA --- */
+
+        #canvas-container { 
+
+            flex-grow: 1; display: flex; align-items: center; justify-content: center; 
+
+            background-color: var(--bg-dark); 
+
+            background-image: url('Pictures/atelier.png'); 
+
+            background-size: cover; background-position: center; background-repeat: no-repeat; 
+
+            padding: 10px; box-sizing: border-box; overflow: hidden; position: relative;
+
+        }
+
+        canvas { max-width: 100%; max-height: 100%; aspect-ratio: 1 / 1; cursor: pointer; z-index: 5;}
+
+        
+
+        .preset-select { background-color: #1a1511; color: var(--accent-gold); border: 2px solid var(--accent-gold); padding: 6px 10px; border-radius: 0; font-size: 13px; font-weight: bold; cursor:pointer;}
+
+        .preset-select option { font-family: serif;}
+
+
+
+        button.control-btn { background-color: #222; color: var(--accent-gold); border: 2px solid var(--accent-gold); padding: 8px 16px; border-radius: 0; cursor: pointer; font-size: 14px; font-weight: bold; font-family:'Cactus', 'Cactus Classical Serif', serif; letter-spacing:1px; transition: all 0.1s; display: flex; align-items: center; justify-content: center; box-shadow: 2px 2px 0px #000;}
+
+        button.control-btn:hover { background-color: #333; transform:translate(-1px,-1px); box-shadow: 3px 3px 0px #000; color: #fff;}
+
+        button.control-btn:active { transform:translate(2px,2px); box-shadow: 0px 0px 0px #000; }
+
+        
+
+        button#metroBtn.metro-on { background-color: var(--accent-gold); color: #000; border-color: var(--accent-gold); }
+
+        .icon-btn { font-size: 20px !important; padding: 4px 12px !important; line-height: 1; }
+
+
+
+        @keyframes pulse-red { 0% { box-shadow: 3px 3px 0px rgba(231, 76, 60, 0.7); } 50% { box-shadow: 0 0 15px rgba(231, 76, 60, 0.9); } 100% { box-shadow: 3px 3px 0px rgba(231, 76, 60, 0.7); } }
+
+        #recordBtn.recording { background-color: var(--accent-red) !important; color:#fff !important; border-color: var(--accent-red)!important; animation: pulse-red 1.5s infinite; }
+
+
+
+        /* BOUTON REWIND RODA |<< COULEUR CHAUDE ROUGE FONCE*/
+
+        #rewindBtn {
+
+            width: 44px; height: 44px; padding: 0 !important; border-radius: 50%;
+
+            background-color: #8b0000; border: 3px solid #111; color: #111; display:flex; align-items:center;justify-content:center;
+
+            box-shadow: 0 5px 10px rgba(0,0,0,0.8); margin-right: 12px; cursor:pointer;
+
+        }
+
+        #rewindBtn:hover { background-color: #600000; }
+
+        #rewindBtn:active { transform: translateY(2px); box-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+
+
+
+        .control-separator { width: 2px; height: 28px; background-color: #111; border-right:1px solid #333; margin: 0 8px; }
+
+        label.control-label { font-size: 14px; display: flex; align-items: center; gap: 8px; color: var(--accent-gold); font-family:serif; text-transform:uppercase; font-weight: bold; letter-spacing:1px; text-shadow:1px 1px 1px #000;}
+
+        #bpm { width: 56px; background-color: #0c0806; color: var(--text-main); border: 2px solid var(--accent-gold); padding: 4px; border-radius: 0; text-align: center; font-size: 16px; font-weight:bold; font-family:monospace;}
+
+
+
+        #fileInput { display: none; }
+
+        
+
+        /* Loading sécurisé & Outil qui disparaitra proprement même sans toutes les ressources */
+
+        #loading-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(18,18,18,0.96); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; font-size: 28px; font-family: 'Cactus', 'Cactus Classical Serif', serif; color: var(--accent-gold); text-shadow: 3px 3px 0px #000; letter-spacing: 2px;}
+
+
+
+        @media (max-width: 1100px) {
+
+            body { overflow-y: auto; height: auto; min-height: 100vh; }
+
+            #main-workspace { flex-direction: column; height: auto; overflow: visible; }
+
+            #left-panel { order: 1; min-width: 100%; width: 100%; border: none; border-bottom: 4px solid #000; height: auto; margin-left: 0 !important; }
+
+            #left-panel.collapsed { display: none; } 
+
+            #canvas-container { order: 2; width: 100%; min-height:400px;}
+
+            #right-sidebar { order: 3; min-width: 100%; width: 100%; border: none; border-top: 4px solid #000; height: auto; margin-right: 0 !important; }
+
+            #right-sidebar.collapsed { display: none; }
+
+            #top-bar { flex-direction: column; align-items: stretch; padding: 15px; gap: 15px; }
+
+            .topbar-group { display: flex; flex-wrap: wrap; justify-content: center; width: 100%; gap: 10px; }
+
+            #header-main { width: 100%; justify-content: center; position: relative; margin-bottom: 12px;}
+
+            #toggleLeftBtn { position: absolute; left: 0; top: 50%; transform: translateY(-50%); margin: 0;}
+
+            .control-separator { display: none; }
+
+            #header-title-text { display: none; } 
+
+        }

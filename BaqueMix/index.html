@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>BaqueMix - Roda de Samambaia</title>
+    
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cactus+Classical+Serif&display=swap" rel="stylesheet">
+    
+    <meta name="description" content="BaqueMix: Application web interactive pour composer, apprendre e jogar os ritmos de Maracatu de Baque Virado.">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/baquemix.js" defer></script>
+</head>
+<body>
+
+    <div id="loading-overlay">🌿 <span id="loading-text">Carregando vozes...</span></div>
+
+    <div id="top-bar">
+        <div class="topbar-group" id="header-main">
+            <button id="toggleLeftBtn" class="control-btn icon-btn" title="Mostrar Misturador" onclick="toggleLeft()" style="display: none; background: #0c0806; border-color:var(--accent-gold); color:var(--accent-gold);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+            <span id="header-title-text">BaqueMix</span>
+        </div>
+        
+        <div class="topbar-group">
+            <label class="control-label">
+                <span id="tsLabel">Compasso:</span> 
+                <select id="timeSigSelect" class="preset-select" onchange="app_changeSig(this.value, false)">
+                    <option value="4/4" selected>4/4</option><option value="3/4">3/4</option><option value="2/4">2/4</option>
+                    <option value="6/8">6/8</option><option value="12/8">12/8</option>
+                </select>
+            </label>
+            <div class="control-separator"></div>
+            <label class="control-label">BPM: <input type="number" id="bpmInput" value="83" min="40" max="240" step="1"></label>
+            <div class="control-separator"></div>
+            <label class="control-label">Vol: <input type="range" id="volFader" class="master-vol-fader" min="-40" max="6" value="-6"></label>
+            <div class="control-separator"></div>
+            
+            <button id="metroBtn" class="control-btn icon-btn" title="Metrônomo">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="12 2 5 22 19 22"></polygon><circle cx="12" cy="16" r="2" fill="currentColor"></circle><line x1="12" y1="16" x2="7" y2="7"></line>
+                </svg>
+            </button>
+            
+            <button id="rewindBtn" title="Parar e Voltar ao início / Stop & Rewind">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="#000" stroke="#000" stroke-width="2" stroke-linejoin="round" style="margin-left:-2px;">
+                    <polygon points="18 19 9 12 18 5 18 19"></polygon><line x1="6" y1="19" x2="6" y2="5" stroke-width="4"></line>
+                </svg>
+            </button>
+            
+            <select id="presetDropdown" class="preset-select" onchange="app_loadPresetFileSafe(this.value)">
+                <option value="vou-vadiar" selected>Vou vadiar carnaval</option>
+                <option value="baque-de-imale">Baque de Imale</option>
+            </select>
+        </div>
+
+        <div class="topbar-group">
+            <button id="langToggleBtn" class="control-btn icon-btn" onclick="app_langSwap()" style="color:var(--accent-gold); border-color:var(--accent-gold);" title="Mudar Idioma">🇫🇷</button>
+            <button id="helpTutorialBtn" class="control-btn icon-btn" title="Ajuda/Video" onclick="window.open('https://www.youtube.com/results?search_query=maracatu+tutorial', '_blank')" style="color:var(--accent-gold); border-color:var(--accent-gold);">📺</button>
+            <div class="control-separator"></div>
+            
+            <div class="custom-dropdown" id="dropdownAddCont" tabindex="0" onblur="app_dropdownCloseSafe('dropdownAddCont')">
+                <button class="control-btn" style="background-color: var(--accent-gold); color: #0c0806;" onclick="app_dropdownTog('listDropInst')"><span id="lblAdd">+ Instrumento</span></button>
+                <div class="dropdown-list" id="listDropInst" style="right:0; left:auto; top:45px; max-height:300px;"></div>
+            </div>
+            
+            <button id="recordBtn" class="control-btn icon-btn" title="Gravar/Record" style="color:var(--accent-red);" onclick="toggleRecordAudioMixToWebmFormatOut()">🔴</button>
+
+            <button id="delAllBtn" class="control-btn icon-btn" title="Limpar tudo" style="color:var(--text-main);" onclick="if(confirm(t('clear'))) {circles=[]; document.getElementById('textLivro').innerHTML=''; AppReconstructMixHtmlDOMObjUI();} ">🗑️</button>
+            <button id="savFlBtn" class="control-btn icon-btn" title="Baixar/Sauver" style="color:var(--accent-gold);" onclick="triggerDirectSaveDLFileJSONMethodEventApp();">💾</button>
+            <button id="lodFlBtn" class="control-btn icon-btn" title="Carregar JSON" style="color:var(--accent-gold);" onclick="document.getElementById('hidLoadInp').click()">📂</button>
+            <input type="file" id="hidLoadInp" accept=".json">
+
+            <div class="control-separator"></div>
+            <button id="btgLegend" class="control-btn icon-btn" title="Legenda" onclick="toggleRightSide('legend')" style="margin-right:6px;">📖</button>
+            <button id="btgLetras" class="control-btn icon-btn" title="Letras Karaoké" onclick="toggleRightSide('letras')">📝</button>
+        </div>
+    </div>
+
+    <div id="main-workspace">
+        <div id="left-panel">
+            <div class="panel-header-cordel">
+                <span class="panel-title" id="lblPanMixer">Misturador</span>
+                <button class="control-btn icon-btn" onclick="toggleLeft()" style="font-size: 16px !important; padding:4px 10px !important;">◀</button>
+            </div>
+            <div id="mixer-section"><div id="tracks-mixer-container"></div></div>
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="appWheelDraw" width="1200" height="1200"></canvas>
+        </div>
+
+        <div id="right-sidebar" class="collapsed">
+            
+            <div id="blkLegend" class="sidebar-section">
+                <div class="panel-header-cordel">
+                    <span class="panel-title" id="lblPanLegenda">Legenda</span>
+                    <button class="control-btn icon-btn" onclick="toggleRightSide('legend')" style="font-size: 16px !important; padding:4px 10px !important;">▶</button>
+                </div>
+                <div class="legend-container">
+                    <div class="legend-group"><span class="legend-group-title" id="txtL1tit">⌨️ DICAS</span><div class="legend-item" id="txtL1_1"><span><strong>Espaço</strong> avança / silêncio.</span></div><div class="legend-item" id="txtL1_2"><span><strong>Setas</strong> cruzam.</span></div></div>
+                    <div class="legend-group"><span class="legend-group-title" id="txtL2tit">🎤 VOZES / CORO</span><div class="legend-item" id="txtL2_1"><span>Ex: <strong>*Hei</strong> (Puxador, Laranja/Agudo). Ex: <strong>Hei</strong> (Coro, Azul Claro).</span></div><div class="legend-item" id="txtL2_2"><span>As sílabas atreladas (Ex: <strong>va-</strong>) irão se agrupar!</span></div></div>
+                    <div style="font-size: 11px; margin-top: 8px; margin-bottom: 4px; color: var(--accent-cordel); line-height: 1.35;" id="txtRLgGold">💡 Regra de ouro:<br>• Maiúscula = Forte. Minúscula = Fraco</div>
+                    <div class="legend-group"><span class="legend-group-title" id="txtL4tit">🥁 Alfaia & Caixa</span><div class="legend-item"><span class="legend-badge">D / d</span> <span id="txtDnd1">Direita</span></div><div class="legend-item"><span class="legend-badge">G / g</span> <span id="txtEsq1">Esquerda</span></div></div>
+                    <div class="legend-group"><span class="legend-group-title" id="txtL5tit">🔔 Gonguê</span><div class="legend-item"><span class="legend-badge">G / g</span> <span id="txtGrv1">Grave (Fort/Frac)</span></div><div class="legend-item"><span class="legend-badge">A / a</span> <span id="txtAgud1">Agudo</span></div></div>
+                    <div class="legend-group"><span class="legend-group-title" id="txtL3tit">🌾 Agbê & Mineiro</span><div class="legend-item"><span class="legend-badge">G(Ag) P(Min)</span> <span id="txtSh1">Movimentações / Esquerdas e Altas.</span></div></div>
+                </div>
+            </div>
+
+            <div id="blkLetras" class="sidebar-section">
+                <div class="panel-header-cordel">
+                    <span class="panel-title" id="lblPanLetras">Letras (Karaokê)</span>
+                    <button class="control-btn icon-btn" onclick="toggleRightSide('letras')" style="font-size: 16px !important; padding:4px 10px !important;">▶</button>
+                </div>
+                <button class="control-btn" id="btGenerateWords" onclick="extractLyricsToCordelZoneArrayStringsBuilderAppMngtUI()" style="margin-bottom: 20px; width: 100%; border:2px solid var(--accent-gold); color:#121212; background-color:var(--accent-gold); font-size:15px; letter-spacing:0.5px;">⬇ Extrair e Sincronizar o Karaokê!</button>
+                <div id="textLivro" contenteditable="true" data-placeholder="Vazio no momento. Extrair suas falas para animá-las.."></div>
+            </div>
+        </div>
+    </div> 
+</body>
+</html>

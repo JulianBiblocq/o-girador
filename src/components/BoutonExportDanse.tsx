@@ -62,7 +62,7 @@ export const BoutonExportDanse: React.FC = () => {
       const blob = await genererBounce();
       
       setStatut('envoi');
-      const tenantId = (metadata as any)?.tenantId || 'tenant_local';
+      const tenantId = (metadata as any)?.tenantId || userProfile?.groupId || 'tenant_local';
       const titre = metadata?.toada || 'Nouvelle Toada';
       
       // Utiliser le titre pour le nom de fichier/document (formatage URL-safe)

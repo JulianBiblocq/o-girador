@@ -25,6 +25,7 @@ export interface UserProfile {
   customSwingIntensity?: number;
   hasDancaAccess?: boolean;
   groupName?: string;
+  groupId?: string;
 }
 
 interface AuthContextType {

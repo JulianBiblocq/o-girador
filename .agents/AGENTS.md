@@ -19,3 +19,7 @@ Par conséquent :
 4. **Zustand "ID-Only"** : Un composant parent affichant une liste ne doit récupérer QUE les IDs via `useShallow`. Il ne passe aucun callback de mutation en props. Chaque composant enfant récupère ses propres données et actions depuis le store via son ID.
 
 Si du code est généré ou modifié, ces règles doivent être strictement respectées avec une brève justification de l'impact des choix sur le CPU (Reflow/Paint) et le Thread audio.
+
+## 5. Déploiement (Pense-bête)
+
+**Rappel Important** : N'oublie pas de TOUJOURS faire un build et déployer sur Firebase Hosting (via la commande `npm run deploy`) après avoir commité et pushé des modifications liées au séquenceur.
