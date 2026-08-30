@@ -46,12 +46,18 @@ export function usePublierVersDanca() {
       // Détermine l'extension selon le type MIME du blob
       const ext = blob.type.includes('webm') ? 'webm' : (blob.type.includes('mp4') ? 'mp4' : 'wav');
       
+      // Force le content-type en audio pour respecter les règles Firebase (Storage)
+      // Chrome MediaRecorder génère souvent du video/webm même pour de l'audio.
+      let mimeType = blob.type || 'audio/webm';
+      if (mimeType.includes('video/webm')) mimeType = 'audio/webm';
+      if (mimeType.includes('video/mp4')) mimeType = 'audio/mp4';
+      
       // 1. Upload vers Storage
       const cheminFichier = `exports_danse/${tenantId}/${id}.${ext}`;
       const storageRef = ref(storage, cheminFichier);
       
 
-      await uploadBytes(storageRef, blob, { contentType: blob.type || 'audio/webm' });
+      await uploadBytes(storageRef, blob, { contentType: mimeType });
       
       // 2. Récupération de l'URL publique
       const audioUrl = await getDownloadURL(storageRef);
