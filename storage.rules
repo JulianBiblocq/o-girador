@@ -15,9 +15,9 @@ service firebase.storage {
     // Autorisation spécifique pour l'export "Danse"
     match /exports_danse/{allPaths=**} {
       allow read: if true;
-      // On autorise l'écriture publique pour O Girador Dança, avec limite à 20Mo pour les WAV
+      // On autorise l'écriture publique pour O Girador Dança, avec limite à 20Mo pour les WAV/WEBM
       allow write: if request.resource.size < 20 * 1024 * 1024 
-                   && request.resource.contentType.matches('audio/.*');
+                   && request.resource.contentType.matches('(audio|video)/.*');
     }
   }
 }
