@@ -25,7 +25,7 @@ export const BoutonExportDanse: React.FC = () => {
   const [messageErreurUI, setMessageErreurUI] = useState<string>('');
 
   // Extraction optimisée des données nécessaires du store
-  const { bpm, measureBpms, totalMesures, timeSig, metadata, mestreSignals, songSections, measureSignals } = useSequencerStore(
+  const { bpm, measureBpms, totalMesures, timeSig, metadata, mestreSignals, songSections, measureSignals, measureTimeSigs, measureBpmTransitions } = useSequencerStore(
     useShallow(state => ({
       bpm: state.bpm,
       measureBpms: state.measureBpms,
@@ -34,7 +34,9 @@ export const BoutonExportDanse: React.FC = () => {
       metadata: state.metadata,
       mestreSignals: state.mestreSignals,
       songSections: state.songSections,
-      measureSignals: state.measureSignals
+      measureSignals: state.measureSignals,
+      measureTimeSigs: state.measureTimeSigs,
+      measureBpmTransitions: state.measureBpmTransitions
     }))
   );
   
@@ -86,7 +88,11 @@ export const BoutonExportDanse: React.FC = () => {
         }
       });
       
-      const bpmReel = expandedMeasures.length > 0 ? (measureBpms[expandedMeasures[0].baseMeasure] || bpm) : bpm;
+      const measureBpmsAbsolus = expandedMeasures.map(measureInfo => measureBpms[measureInfo.baseMeasure] || bpm);
+      const measureBpmTransitionsAbsolus = expandedMeasures.map(measureInfo => measureBpmTransitions[measureInfo.baseMeasure] || 'immediate');
+      const measureTimeSigsAbsolus = expandedMeasures.map(measureInfo => measureTimeSigs[measureInfo.baseMeasure] || timeSig);
+      
+      const bpmReel = measureBpmsAbsolus.length > 0 ? measureBpmsAbsolus[0] : bpm;
 
       // Filtrer les valeurs undefined pour Firestore
       const payloadBrut = {
@@ -94,6 +100,9 @@ export const BoutonExportDanse: React.FC = () => {
         tenantId,
         nom: titre,
         bpm: bpmReel,
+        measureBpms: measureBpmsAbsolus,
+        measureBpmTransitions: measureBpmTransitionsAbsolus,
+        measureTimeSigs: measureTimeSigsAbsolus,
         totalMesures: expandedMeasures.length,
         sinaisDoMestre: sinaisDoMestreAbsolus,
         toada: metadata?.toada,

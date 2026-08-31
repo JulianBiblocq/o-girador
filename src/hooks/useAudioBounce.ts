@@ -27,17 +27,27 @@ export function useAudioBounce() {
 
       const expandedMeasures = getExpandedMeasures(totalMeasures, songSections);
 
-      // 1. Calcul de la durée totale
+      // 1. Calcul de la durée totale (avec prise en compte des rampes de BPM)
       let dureeTotaleSec = 0;
       for (let i = 0; i < expandedMeasures.length; i++) {
         const m = expandedMeasures[i].baseMeasure;
-        const mBpm = measureBpms[m] || bpm;
-        const mTimeSig = measureTimeSigs[m] || timeSig || '4/4';
-        const beats = parseInt(mTimeSig.split('/')[0], 10);
-        dureeTotaleSec += (60 / mBpm) * beats;
+        const currentMeasureBpm = measureBpms[m] || bpm || 120;
+        
+        // Obtenir le BPM de la mesure suivante (pour la formule de rampe)
+        const nextM = (i + 1 < expandedMeasures.length) ? expandedMeasures[i + 1].baseMeasure : m;
+        const nextMeasureBpm = measureBpms[nextM] || currentMeasureBpm;
+        
+        const transition = measureBpmTransitions[m] || 'immediate';
+        const timeSigStr = measureTimeSigs[m] || timeSig || '4/4';
+        const beatsPerMeasure = parseInt(timeSigStr.split('/')[0], 10) || 4;
+        
+        if (transition === 'immediate' || currentMeasureBpm === nextMeasureBpm) {
+          dureeTotaleSec += (60 / currentMeasureBpm) * beatsPerMeasure;
+        } else {
+          dureeTotaleSec += (120 * beatsPerMeasure) / (currentMeasureBpm + nextMeasureBpm);
+        }
       }
       dureeTotaleSec += 1.5; // Marge pour la réverbe/queue
-
 
       if (isNaN(dureeTotaleSec) || !isFinite(dureeTotaleSec) || dureeTotaleSec <= 0) {
         throw new Error(`Erreur Audio Render: Durée invalide (${dureeTotaleSec}s)`);
@@ -51,10 +61,19 @@ export function useAudioBounce() {
         audio.handleStop(); // Remise à zéro au début
       }
 
+      // Désactivation de la boucle pour l'export (pour ne pas enregistrer le début d'un 2ème cycle)
+      const previousIsLooping = state.isLooping;
+      if (previousIsLooping) {
+        state.setIsLooping(false);
+      }
+
       // 2. Initialisation de l'enregistreur
       const recorder = new Tone.Recorder();
       Tone.getDestination().connect(recorder);
       recorder.start();
+      
+      // Laisser l'enregistreur s'initialiser et capter le premier transitoire
+      await new Promise(r => setTimeout(r, 100));
 
       // 3. Démarrage de la lecture
       await audio.handleTogglePlay();
@@ -69,7 +88,11 @@ export function useAudioBounce() {
       Tone.getDestination().disconnect(recorder);
       recorder.dispose();
       audio.handleStop();
-
+      
+      // Restauration de l'état de boucle
+      if (previousIsLooping) {
+        state.setIsLooping(true);
+      }
 
       setEstEnCalcul(false);
       return blob;
