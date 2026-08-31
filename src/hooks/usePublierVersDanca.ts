@@ -16,6 +16,9 @@ export interface MetadonneesDanse {
   bpm: number;
   totalMesures: number;
   sinaisDoMestre: any[];
+  measureBpms?: number[];
+  measureBpmTransitions?: ('immediate' | 'ramp' | 'bezier')[];
+  measureTimeSigs?: string[];
   toada?: string;
   nacao?: string;
   compositor?: string;

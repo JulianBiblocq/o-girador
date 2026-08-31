@@ -23,7 +23,15 @@ export function useAudioBounce() {
     setEstEnCalcul(true);
     try {
       const state = useSequencerStore.getState();
-      const { totalMeasures, measureBpms, measureTimeSigs, bpm, timeSig, songSections } = state;
+      const { 
+        totalMeasures, 
+        measureBpms, 
+        measureTimeSigs, 
+        bpm, 
+        timeSig, 
+        songSections, 
+        measureBpmTransitions 
+      } = state;
 
       const expandedMeasures = getExpandedMeasures(totalMeasures, songSections);
 
@@ -47,7 +55,6 @@ export function useAudioBounce() {
           dureeTotaleSec += (120 * beatsPerMeasure) / (currentMeasureBpm + nextMeasureBpm);
         }
       }
-      dureeTotaleSec += 1.5; // Marge pour la réverbe/queue
 
       if (isNaN(dureeTotaleSec) || !isFinite(dureeTotaleSec) || dureeTotaleSec <= 0) {
         throw new Error(`Erreur Audio Render: Durée invalide (${dureeTotaleSec}s)`);

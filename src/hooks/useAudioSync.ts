@@ -468,6 +468,7 @@ export function useAudioSync({
   const soloPatternVariationIdRef = useRef<string | null>(null);
   const pendingMeasureRef = useRef<number | null>(null);
   const pendingIterationRef = useRef<number | null>(null);
+  const hasFinishedRef = useRef<boolean>(false);
 
   const hitTriggersRef = useRef<HitTriggerPool>(new HitTriggerPool());
   const engineTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
@@ -972,6 +973,8 @@ export function useAudioSync({
 
       // Stable 96-tick sequencing loop using our AudioEngine
       onTickRef.current = (time) => {
+        if (hasFinishedRef.current) return;
+        
         const isDocHidden = typeof document !== 'undefined' && document.hidden;
         let currentTicks = maxTicksRef.current;
         let stepIdx = currentStepIndexRef.current;
@@ -980,6 +983,7 @@ export function useAudioSync({
         let nextStepIdx = stepIdx + 1;
 
         if (stepIdx === -1) {
+          hasFinishedRef.current = false;
           nextStepIdx = 0;
           if (soloPatternPlayIdRef.current !== null) {
             measureCountRef.current = 0;
@@ -1025,10 +1029,11 @@ export function useAudioSync({
               // Global boundary logic wins
               sectionIterationRef.current = 1;
               if (!isLoopingRef.current) {
+                hasFinishedRef.current = true;
                 setTimeout(() => {
                   handleStop();
-                }, 0);
-                measureCountRef.current = (isLoopRegionActiveRef.current && loopStartRef.current !== null) ? loopStartRef.current : 0;
+                }, 2000);
+                return;
               } else {
                 measureCountRef.current = (isLoopRegionActiveRef.current && loopStartRef.current !== null) ? loopStartRef.current : 0;
               }
@@ -1911,6 +1916,7 @@ export function useAudioSync({
     anchoredMeasureStartSecRef.current = 0;
     anchoredMeasureIdxRef.current = -1;
     currentStepIndexRef.current = -1;
+    hasFinishedRef.current = false;
     measureCountRef.current = 0;
     setCurrentMeasure(0);
     Tone.Transport.seconds = 0;
@@ -2026,6 +2032,7 @@ export function useAudioSync({
     sectionIterationRef.current = iteration;
     setCurrentMeasure(targetMeasure);
     currentStepIndexRef.current = tickIdx - 1; // -1 so the next loop cycle increments to tickIdx
+    hasFinishedRef.current = false;
     maxTicksRef.current = currentTicks;
 
     if (audioEngine) {
