@@ -88,8 +88,23 @@ export const BoutonExportDanse: React.FC = () => {
         }
       });
       
-      const measureBpmsAbsolus = expandedMeasures.map(measureInfo => measureBpms[measureInfo.baseMeasure] || bpm);
-      const measureBpmTransitionsAbsolus = expandedMeasures.map(measureInfo => measureBpmTransitions[measureInfo.baseMeasure] || 'immediate');
+      let lastSeenBpm = bpm;
+      let lastSeenTransition = 'immediate';
+      
+      const measureBpmsAbsolus = expandedMeasures.map(measureInfo => {
+        if (measureBpms[measureInfo.baseMeasure] !== undefined) {
+          lastSeenBpm = measureBpms[measureInfo.baseMeasure];
+        }
+        return lastSeenBpm;
+      });
+
+      const measureBpmTransitionsAbsolus = expandedMeasures.map(measureInfo => {
+        if (measureBpmTransitions[measureInfo.baseMeasure] !== undefined) {
+          lastSeenTransition = measureBpmTransitions[measureInfo.baseMeasure];
+        }
+        return lastSeenTransition;
+      });
+
       const measureTimeSigsAbsolus = expandedMeasures.map(measureInfo => measureTimeSigs[measureInfo.baseMeasure] || timeSig);
       
       const bpmReel = measureBpmsAbsolus.length > 0 ? measureBpmsAbsolus[0] : bpm;
