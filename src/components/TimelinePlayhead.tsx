@@ -8,6 +8,7 @@ import { usePerformanceStore } from '../stores/usePerformanceStore';
 const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive = true }) => {
   const uiContext = useContext(TimelineUIContext);
   const playheadRef = useRef<HTMLDivElement>(null);
+  const measureHighlightRef = useRef<HTMLDivElement>(null);
 
   const livePlaybackRef = useRef<{
     step: number;
@@ -78,13 +79,13 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
 
       if (!el) return;
 
-      // 1. GESTION DU STOP (step < 0)
       if (step < 0) {
         livePlaybackRef.current = { step: -1, measure: 0, ratio: 0, iteration: 1, measureStartTime: 0, measureDuration: 0 };
         lastExactXRef.current = -1;
         el.style.transition = 'none';
         el.style.transform = `translate3d(${HEADER_W}px, 0, 0)`;
         el.style.display = 'block';
+        if (measureHighlightRef.current) measureHighlightRef.current.style.display = 'none';
         if (scrollEl) scrollEl.scrollLeft = 0;
         layoutCache.current.lastScrollX = 0;
         return;
@@ -104,6 +105,16 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
 
       if (el.style.display !== 'block') {
         el.style.display = 'block';
+      }
+      
+      if (measureHighlightRef.current) {
+        if (measureHighlightRef.current.style.display !== 'block') {
+          measureHighlightRef.current.style.display = 'block';
+        }
+        // Discretely highlight the current measure column
+        const highlightX = HEADER_W + measure * measureWRef.current;
+        measureHighlightRef.current.style.transform = `translate3d(${highlightX}px, 0, 0)`;
+        measureHighlightRef.current.style.width = `${measureWRef.current}px`;
       }
 
       const currentLive = livePlaybackRef.current;
@@ -187,15 +198,26 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
   const disableHeavyShadow = isEcoMode || isMobileDevice;
 
   return (
-    <div
-      ref={playheadRef}
-      className={`absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-[55] ${disableHeavyShadow ? '' : 'shadow-[0_0_10px_rgba(220,38,38,0.7)]'}`}
-      style={{
-        left: 0,
-        display: 'none',
-        willChange: 'transform',
-      }}
-    />
+    <>
+      <div
+        ref={measureHighlightRef}
+        className="absolute top-0 bottom-0 pointer-events-none z-[10] bg-[rgba(255,255,255,0.08)] mix-blend-screen"
+        style={{
+          left: 0,
+          display: 'none',
+          willChange: 'transform',
+        }}
+      />
+      <div
+        ref={playheadRef}
+        className={`absolute top-0 bottom-0 border-l-2 border-red-600 pointer-events-none z-[55] ${disableHeavyShadow ? '' : 'shadow-[0_0_10px_rgba(220,38,38,0.7)]'}`}
+        style={{
+          left: 0,
+          display: 'none',
+          willChange: 'transform',
+        }}
+      />
+    </>
   );
 };
 

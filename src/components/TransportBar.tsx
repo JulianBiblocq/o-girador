@@ -83,6 +83,21 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
     return stopBpmChange;
   }, [stopBpmChange]);
 
+  const [displayBpm, setDisplayBpm] = React.useState(bpm);
+  React.useEffect(() => {
+    let animationFrameId: number;
+    const updateBpm = () => {
+      if (isPlaying) {
+        setDisplayBpm(Math.round(Tone.Transport.bpm.value));
+      } else {
+        setDisplayBpm(bpm);
+      }
+      animationFrameId = requestAnimationFrame(updateBpm);
+    };
+    updateBpm();
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [isPlaying, bpm]);
+
   return (
     <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] flex flex-wrap items-center justify-between px-4 z-[1000] shrink-0">
       
@@ -122,7 +137,10 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
           <span className="font-cactus font-bold text-[var(--cordel-text)] text-sm select-none hidden md:inline">
             {lang === 'fr' ? 'Vitesse' : lang === 'pt' ? 'Velocidade' : 'Tempo'}
           </span>
-          <div className="flex items-center gap-1">
+          <span className="font-mono font-bold text-[var(--cordel-text)] text-xs ml-1 w-7 text-center">
+            {displayBpm}
+          </span>
+          <div className="flex items-center gap-1 ml-1">
             <button
               onPointerDown={(e) => { e.preventDefault(); startBpmChange(-1); }}
               onPointerUp={(e) => { e.preventDefault(); stopBpmChange(); }}
