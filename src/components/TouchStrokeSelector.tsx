@@ -146,6 +146,7 @@ const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
   onClose,
 }) => {
   const { lang, isLeftHanded = false } = useSequencer();
+  const currentWindow = useWindow();
   const hoveredStrokeRef = useRef<string | null>(null);
   const [isSticky, setIsSticky] = useState<boolean>(selector.isStickyDefault || false);
   const stickyTimeRef = useRef<number>(0);

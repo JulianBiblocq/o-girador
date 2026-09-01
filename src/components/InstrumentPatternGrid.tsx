@@ -541,6 +541,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   const globalSwing = useTransportStore(state => state.globalSwing);
   const trackSwingIntensity = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.swingIntensity);
   const { soloPatternPlayIdRef } = useAudio();
+  const currentWindow = useWindow();
 
   const gridRef = useRef<HTMLDivElement>(null);
   const [hasClipboard, setHasClipboard] = useState(false);

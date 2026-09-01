@@ -87,6 +87,10 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
               <p>• <b>Clic simple</b> pour insérer une frappe faible.</p>
               <p>• <b>Molette souris</b> (ou glisser haut/bas) sur une cellule pour changer la frappe/nuance.</p>
               <p>• <b>Ctrl + Clic</b> (ou appui long) sur l'entête d'une ligne pour couper le son (mute) de l'instrument.</p>
+              <div className="w-full h-px bg-[var(--cordel-border)]/10 my-1"></div>
+              <p>• <b>Espace</b> : Lecture / Pause.</p>
+              <p>• <b>Ctrl+Z / Ctrl+Y</b> : Annuler / Rétablir.</p>
+              <p>• <b>C / V</b> : Copier / Coller la mesure.</p>
             </>
           ) : (
             <>
@@ -94,6 +98,10 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
               <p>• <b>Clique simples</b> para inserir uma batida fraca.</p>
               <p>• <b>Roda do mouse</b> (ou deslizar para cima/baixo) em uma célula para mudar a batida/nuance.</p>
               <p>• <b>Ctrl + Clique</b> (ou toque longo) no cabeçalho de uma linha para silenciar (mute) o instrumento.</p>
+              <div className="w-full h-px bg-[var(--cordel-border)]/10 my-1"></div>
+              <p>• <b>Espaço</b> : Reproduzir / Pausar.</p>
+              <p>• <b>Ctrl+Z / Ctrl+Y</b> : Desfazer / Refazer.</p>
+              <p>• <b>C / V</b> : Copiar / Colar compasso.</p>
             </>
           )}
         </div>

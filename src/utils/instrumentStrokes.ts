@@ -251,3 +251,42 @@ export function getNextStepValue(instId: string, instType: string, currentVal: s
   if (norm === 'e') return 'E';
   return 0;
 }
+
+export function isStrokeActiveByDefault(instId: string, stroke: string): boolean {
+  const norm = typeof stroke === 'string' ? stroke.trim() : stroke;
+  
+  if (['marcante', 'meiao', 'repique', 'caixa', 'tarol'].includes(instId)) {
+    return ['D', 'E', 'd', 'e'].includes(norm);
+  }
+  
+  if (instId === 'gongue') {
+    return ['G', 'A'].includes(norm);
+  }
+  
+  if (instId === 'agbe') {
+    return ['D', 'E', 'd', 'e'].includes(norm);
+  }
+  
+  if (instId === 'mineiro') {
+    return ['P', 'T', 'p', 't'].includes(norm);
+  }
+  
+  if (instId === 'timbal') {
+    return ['G', 'g', 'A', 'a', 'S', 's'].includes(norm);
+  }
+  
+  if (instId === 'apito') {
+    return ['W', 'w'].includes(norm);
+  }
+  
+  if (instId === 'puxador') {
+    return ['P'].includes(norm);
+  }
+  
+  if (instId === 'coro') {
+    return ['C'].includes(norm);
+  }
+  
+  return false;
+}
+

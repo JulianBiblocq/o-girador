@@ -665,6 +665,10 @@
           <span lang="fr">13. Optimisation & Mode Éco</span>
           <span lang="pt">13. Otimização & Modo Eco</span>
         </a>
+        <a href="#atelier" class="index-link">
+          <span lang="fr">14. L'Atelier (A Oficina) & Clavier MIDI</span>
+          <span lang="pt">14. A Oficina & Teclado MIDI</span>
+        </a>
       </nav>
     </aside>
 
@@ -766,7 +770,7 @@
               <ul>
                 <li><strong>Invite Vocale (Prompt)</strong> : Cliquez sur un pas de l'anneau vocal pour ouvrir une boîte de saisie.</li>
                 <li><strong>Format de saisie</strong> : Saisissez sous la forme <kbd>Note:Syllabe</kbd> (par exemple <kbd>G4:di</kbd>). La note (ex: G4, C4) définit la hauteur chantée, et la syllabe le texte prononcé.</li>
-                <li><strong>Chant Solo vs Chœur</strong> : Ajoutez un astérisque devant la syllabe (ex: <kbd>C4:*Va</kbd>) pour assigner le rôle au **Puxador** (Chanteur principal). Sans astérisque, la note sera chantée par le **Coro** (Chœur).</li>
+                <li><strong>Chant Solo vs Chœur</strong> : Ajoutez une piste dédiée <strong>Puxador</strong> pour le chant principal, ou une piste <strong>Coro</strong> pour les chœurs, afin de répartir facilement les voix sans symboles supplémentaires.</li>
               </ul>
             </div>
             <div lang="pt">
@@ -774,7 +778,7 @@
               <ul>
                 <li><strong>Prompt Vocal</strong> : Clique em um passo do anel de voz para abrir uma janela de digitação.</li>
                 <li><strong>Formato de escrita</strong> : Digite no formato <kbd>Nota:Sílaba</kbd> (ex: <kbd>G4:di</kbd>). A nota (ex: G4, C4) define o tom cantado, e a sílaba define a palavra pronunciada.</li>
-                <li><strong>Solo vs Coro</strong> : Adicione um asterisco antes da sílaba (ex: <kbd>C4:*Va</kbd>) para atribuir o canto ao **Puxador**. Sem o asterisco, o passo será cantado pelo **Coro**.</li>
+                <li><strong>Solo vs Coro</strong> : Adicione uma faixa dedicada <strong>Puxador</strong> para a voz principal, ou uma faixa <strong>Coro</strong> para as respostas, distribuindo facilmente as vozes sem símbolos adicionais.</li>
               </ul>
             </div>
           </div>
@@ -1770,6 +1774,38 @@
           <ul>
             <li><strong>🌱 Modo Eco (On/Off)</strong> : Esta opção, no menu principal, desativa todas as animações pesadas (como a rotação contínua da baguete). Isso alivia o processador, focando os recursos no áudio. <strong>Muito recomendado para celulares e tablets antigos.</strong></li>
             <li><strong>Isolamento do Thread de Áudio</strong> : O motor de som e os relógios do sequenciador rodam em processos paralelos (Audio Worklet) para garantir estabilidade e sincronia constante, independente do que acontece na tela.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ========== SECTION 14: ATELIER & MIDI ========== -->
+      <section id="atelier" class="section">
+        <h2 lang="fr">14. L'Atelier (A Oficina) & Clavier MIDI</h2>
+        <h2 lang="pt">14. A Oficina & Teclado MIDI</h2>
+        
+        <div lang="fr">
+          <p>O Girador propose des outils de paramétrage avancés, accessibles via le menu principal sous l'appellation <strong>Atelier (A Oficina)</strong>.</p>
+          <ul>
+            <li><strong>Alignement Audio (Calibration)</strong> : Permet de corriger la latence entre le moment où le métronome tape et l'audio est enregistré, indispensable si vous enregistrez votre propre voix par-dessus la Roda.</li>
+            <li><strong>Support du Clavier Maître MIDI</strong> : L'application reconnaît automatiquement votre clavier MIDI connecté en USB ou Bluetooth (si votre navigateur le supporte). Vous pouvez utiliser les touches de votre piano MIDI pour :
+              <ul>
+                <li>Entrer des frappes en temps réel ou pas à pas.</li>
+                <li>Jouer les percussions comme une batterie électronique (le mapping assigne différents "toques" à différentes notes du clavier).</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+        
+        <div lang="pt">
+          <p>O Girador oferece ferramentas de configuração avançadas, acessíveis através do menu principal sob o nome <strong>Atelier (A Oficina)</strong>.</p>
+          <ul>
+            <li><strong>Alinhamento de Áudio (Calibração)</strong> : Permite corrigir a latência entre o momento em que o metrônomo toca e o áudio é gravado, essencial se você gravar sua própria voz sobre a Roda.</li>
+            <li><strong>Suporte a Teclado Controlador MIDI</strong> : O aplicativo reconhece automaticamente seu teclado MIDI conectado via USB ou Bluetooth (se suportado pelo navegador). Você pode usar as teclas do seu piano MIDI para:
+              <ul>
+                <li>Inserir batidas em tempo real ou passo a passo.</li>
+                <li>Tocar as percussões como uma bateria eletrônica (o mapeamento atribui diferentes "toques" a notas específicas do teclado).</li>
+              </ul>
+            </li>
           </ul>
         </div>
       </section>

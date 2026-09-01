@@ -8,6 +8,7 @@ import * as Tone from 'tone';
 import { AudioEngine, ActiveInstrumentData } from '../AudioEngine';
 import { InputManager } from '../InputManager';
 import { TrackGroup, TimeSignature, HitTrigger, HitTriggerPool, SongSection, GlobalSwing } from '../types';
+import { isStrokeActiveByDefault } from '../utils/instrumentStrokes';
 
 // Pub/Sub system for high-performance visual tick updates
 export const tickSubscribers = new Set<(detail: any) => void>();
@@ -128,12 +129,15 @@ export function getActiveStrokesForTrack(t: any, allTracks?: any[]): string[] {
     }
   }
 
-  // Inclure les coups forcés via l'Atelier (forcedStrokes)
+  // Inclure les coups forcés via l'Atelier (forcedStrokes) ou les valeurs par défaut
   const forcedStrokes = useSequencerSettingsStore.getState().forcedStrokes || {};
   if (inst && inst.colors) {
     Object.keys(inst.colors).forEach((stroke) => {
-      if (stroke !== 'text' && forcedStrokes[`${t.id}:${stroke}`] === true) {
-        strokes.add(getNormalizedStroke(inst.id, stroke));
+      if (stroke !== 'text') {
+        const forced = forcedStrokes[`${t.id}:${stroke}`];
+        if (forced === true || (forced === undefined && isStrokeActiveByDefault(inst.id, stroke))) {
+          strokes.add(getNormalizedStroke(inst.id, stroke));
+        }
       }
     });
   }
