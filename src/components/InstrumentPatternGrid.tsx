@@ -505,7 +505,7 @@ const areVoicePropsEqual = (prev: VoiceStepCellProps, next: VoiceStepCellProps) 
 
 const VoiceStepCell = React.memo(VoiceStepCellComponent, areVoicePropsEqual);
 
-export const InstrumentPatternGrid: React.FC<InstrumentPatternGridProps> = ({
+const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   trackId,
   pattern,
   instrument,
