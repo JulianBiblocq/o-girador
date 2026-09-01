@@ -33,6 +33,13 @@ export const StepEditorPopup: React.FC = () => {
 
   const tracks = useSequencerStore(state => state.tracks);
   const track = tracks.find(t => t.id === trackId);
+  const pattern = track?.patterns.find(p => p.id === patternId);
+  
+  // Use live currentVal from store if available to prevent stale state bugs
+  const liveCurrentVal = (pattern && stepIdx !== null && pattern.steps[stepIdx] !== undefined) 
+    ? pattern.steps[stepIdx] 
+    : currentVal;
+
   const inst = track ? instrumentsConfig[track.instrumentIdx] : null;
   const isLeftHanded = useSequencerStore(state => state.isLeftHanded) || false;
 
@@ -46,9 +53,9 @@ export const StepEditorPopup: React.FC = () => {
   useEffect(() => {
     setIsExpanded(false);
     setLoadingStroke(null);
-    setIsSplitMode(Array.isArray(currentVal));
+    setIsSplitMode(Array.isArray(liveCurrentVal));
     setEditingHalf(0);
-  }, [activeStepKey, currentVal]);
+  }, [activeStepKey]); // Remove currentVal from deps so it doesn't reset while typing
 
   // Support du clavier pour Escape, Silence et raccourcis de coups
   useEffect(() => {
@@ -126,10 +133,10 @@ export const StepEditorPopup: React.FC = () => {
     const isActive = forced !== undefined ? forced : activeStrokesForTrack.some(s => s.toLowerCase() === stroke.toLowerCase());
     
     // Keep currently selected step value(s) visible in clean mode
-    if (Array.isArray(currentVal)) {
-      if (String(currentVal[0]) === String(stroke) || String(currentVal[1]) === String(stroke)) return true;
+    if (Array.isArray(liveCurrentVal)) {
+      if (String(liveCurrentVal[0]) === String(stroke) || String(liveCurrentVal[1]) === String(stroke)) return true;
     } else {
-      if (String(currentVal) === String(stroke)) return true;
+      if (String(liveCurrentVal) === String(stroke)) return true;
     }
     return isActive;
   });
@@ -137,7 +144,7 @@ export const StepEditorPopup: React.FC = () => {
   const handleSelectStroke = async (stroke: string | number) => {
     if (stroke === 0 || stroke === '0') {
       if (isSplitMode) {
-        const newVal = [...(Array.isArray(currentVal) ? currentVal : [currentVal, currentVal])];
+        const newVal = [...(Array.isArray(liveCurrentVal) ? liveCurrentVal : [liveCurrentVal, liveCurrentVal])];
         newVal[editingHalf] = '0';
         if (newVal[0] === '0' && newVal[1] === '0') {
           sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, '0');
@@ -173,7 +180,7 @@ export const StepEditorPopup: React.FC = () => {
     }
 
     if (isSplitMode) {
-      const newVal = Array.isArray(currentVal) ? [...currentVal] : [currentVal || strokeStr, strokeStr];
+      const newVal = Array.isArray(liveCurrentVal) ? [...liveCurrentVal] : [liveCurrentVal || strokeStr, strokeStr];
       newVal[editingHalf] = strokeStr;
       sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, newVal);
       if (editingHalf === 0) {
@@ -208,11 +215,11 @@ export const StepEditorPopup: React.FC = () => {
           onClick={() => {
             if (isSplitMode) {
               setIsSplitMode(false);
-              sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, Array.isArray(currentVal) ? currentVal[0] : currentVal);
+              sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, Array.isArray(liveCurrentVal) ? liveCurrentVal[0] : liveCurrentVal);
             } else {
               setIsSplitMode(true);
               const defaultStroke = allowedStrokes[0];
-              sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, [currentVal || defaultStroke, defaultStroke]);
+              sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, [liveCurrentVal || defaultStroke, defaultStroke]);
             }
           }}
           className={`flex items-center gap-1 text-[9px] font-bold border border-black px-1.5 py-0.5 transition-colors cursor-pointer ${isSplitMode ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a]' : 'bg-transparent text-black hover:bg-black/10'}`}
@@ -226,7 +233,7 @@ export const StepEditorPopup: React.FC = () => {
       {isSplitMode && (
         <div className="flex gap-1 mb-1">
           {[0, 1].map((halfIdx) => {
-            const val = Array.isArray(currentVal) ? currentVal[halfIdx] : (halfIdx === 0 ? currentVal : allowedStrokes[0]);
+            const val = Array.isArray(liveCurrentVal) ? liveCurrentVal[halfIdx] : (halfIdx === 0 ? liveCurrentVal : allowedStrokes[0]);
             
             let bgColor = 'transparent';
             let textColor = '#000';
@@ -261,10 +268,10 @@ export const StepEditorPopup: React.FC = () => {
         {choicesToShow.map((stroke) => {
           let isSelected = false;
           if (isSplitMode) {
-            const currentHalfVal = Array.isArray(currentVal) ? currentVal[editingHalf] : currentVal;
+            const currentHalfVal = Array.isArray(liveCurrentVal) ? liveCurrentVal[editingHalf] : liveCurrentVal;
             isSelected = String(currentHalfVal) === String(stroke);
           } else {
-            isSelected = String(currentVal) === String(stroke);
+            isSelected = String(liveCurrentVal) === String(stroke);
           }
           const isLoaded = inst && audioEngine ? audioEngine.isStrokeLoaded(inst.id, String(stroke)) : true;
           const isStrokeLoading = loadingStroke === String(stroke);
@@ -318,7 +325,7 @@ export const StepEditorPopup: React.FC = () => {
         <button
           onClick={() => handleSelectStroke(0)}
           className={`col-span-3 h-8 font-black text-[10px] border border-black uppercase flex items-center justify-center cursor-pointer transition-colors ${
-            (isSplitMode ? (Array.isArray(currentVal) && (currentVal[editingHalf] === 0 || currentVal[editingHalf] === '0')) : (currentVal === 0 || currentVal === '0' || !currentVal))
+            (isSplitMode ? (Array.isArray(liveCurrentVal) && (liveCurrentVal[editingHalf] === 0 || liveCurrentVal[editingHalf] === '0')) : (liveCurrentVal === 0 || liveCurrentVal === '0' || !liveCurrentVal))
               ? 'bg-[#8b2a1a] text-[#f4ecd8]' 
               : 'bg-transparent text-[#8b2a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]'
           }`}
