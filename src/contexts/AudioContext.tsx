@@ -47,7 +47,7 @@ export type AudioContextType = ReturnType<typeof useAudioSync> & {
   handlePresetSelect: (value: string) => Promise<void>;
   handleSaveState: () => Promise<void>;
   handleLoadState: (file: File) => void;
-  handleShare: () => Promise<void>;
+
   handleSaveToLocal: () => Promise<void>;
   getCurrentPresetData: () => Preset;
   handleLoadLocalPreset: (name: string) => Promise<void>;
@@ -724,20 +724,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     reader.readAsText(file);
   };
 
-  const handleShare = async () => {
-    const isPt = sequencer.lang === 'pt';
-    const textStr = isPt 
-      ? "Descubra O Girador, o sequenciador interativo de Maracatu! https://ogirador.web.app" 
-      : "Découvrez O Girador, le séquenceur de Maracatu interactif ! https://ogirador.web.app";
-    
-    try {
-      await navigator.clipboard.writeText(textStr);
-      window.alert(isPt ? 'Link copiado para a área de transferência!' : 'Lien copié dans le presse-papier !');
-    } catch (err) {
-      console.error("Clipboard write failed:", err);
-      window.prompt(isPt ? "Copie este texto:" : "Copiez ce texte :", textStr);
-    }
-  };
+
 
   const getCurrentPresetData = (): Preset => {
     const tracksCopy = JSON.parse(JSON.stringify(useSequencerStore.getState().tracks));
@@ -948,7 +935,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     handlePresetSelect,
     handleSaveState,
     handleLoadState,
-    handleShare,
+
     handleSaveToLocal,
     getCurrentPresetData,
     handleLoadLocalPreset,
@@ -972,7 +959,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     handlePresetSelect,
     handleSaveState,
     handleLoadState,
-    handleShare,
     handleSaveToLocal,
     getCurrentPresetData,
     handleLoadLocalPreset,

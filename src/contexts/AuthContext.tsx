@@ -112,7 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserProfile({ ...profile, dbRole: profile.dbRole || profile.role });
         } else {
           let initialRole: UserRole = 'visiteur';
-          let initialMestreId: string | undefined = undefined;
+          let initialMestreId: string | null = null;
           
           // Check for pending invite
           const pendingInvite = sessionStorage.getItem('o-girador-invite');

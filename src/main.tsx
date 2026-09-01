@@ -221,6 +221,23 @@ export const GlobalErrorListener: React.FC = () => {
   );
 };
 
+import { auth as fbAuth, db as fbDb } from './firebase/config';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc as fbDoc, setDoc as fbSetDoc } from 'firebase/firestore';
+
+// @ts-ignore
+window.firebaseAuth = fbAuth;
+// @ts-ignore
+window.firebaseDb = fbDb;
+// @ts-ignore
+window.createUserWithEmailAndPassword = createUserWithEmailAndPassword;
+// @ts-ignore
+window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+// @ts-ignore
+window.setDoc = fbSetDoc;
+// @ts-ignore
+window.doc = fbDoc;
+
 createRoot(document.getElementById('root')!).render(
   <TopLevelErrorBoundary>
     <GlobalErrorListener />

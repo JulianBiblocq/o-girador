@@ -110,8 +110,6 @@ export const FeedbackSection: React.FC = () => {
   
   const lang = sequencer.lang;
   const alertAsync = sequencer.alertAsync;
-  const handleShare = audio.handleShare;
-
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -269,9 +267,19 @@ export const FeedbackSection: React.FC = () => {
           </button>
 
           {/* Share button: Replicates the main menu's graphism (same red color & padding) */}
-          <button
-            onClick={() => { if (handleShare) handleShare(); }}
-            className="flex items-center justify-center gap-1.5 px-2 py-2 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer w-full"
+          <button 
+            onClick={async () => {
+              const textStr = lang === 'pt'
+                ? "Descubra O Girador, o sequenciador interativo de Maracatu! https://ogirador.web.app"
+                : "Découvrez O Girador, le séquenceur de Maracatu interactif ! https://ogirador.web.app";
+              try {
+                await navigator.clipboard.writeText(textStr);
+                alertAsync(lang === 'pt' ? 'Link copiado para a área de transferência!' : 'Lien copié dans le presse-papier !', "O Girador");
+              } catch (err) {
+                console.error("Clipboard write failed:", err);
+              }
+            }}
+            className="flex-1 px-3 py-2 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-[var(--cordel-border)] shadow-[3px_3px_0_var(--cordel-border)] text-[10px] md:text-xs font-bold font-cactus uppercase hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] transition-all cursor-pointer flex items-center justify-center gap-1.5"
           >
             <Share2 className="w-3.5 h-3.5 shrink-0" />
             <span>{t.shareBtn}</span>

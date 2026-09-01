@@ -98,7 +98,8 @@ export default defineConfig(({ command, mode }) => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,json,woff2,otf}'],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
-          runtimeCaching: pwaRuntimeCaching
+          runtimeCaching: pwaRuntimeCaching,
+          navigateFallbackDenylist: [/^\/tutorial\.html$/]
         }
       }),
 

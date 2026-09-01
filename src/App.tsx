@@ -500,7 +500,20 @@ export default function App() {
   }, []);
 
   const handlePresetSelect = React.useCallback((val: string) => audioRef.current.handlePresetSelect(val), []);
-  const handleShare = React.useCallback(() => audioRef.current.handleShare(), []);
+  const handleShare = React.useCallback(async () => {
+    const isPt = sequencer.lang === 'pt';
+    const textStr = isPt 
+      ? "Descubra O Girador, o sequenciador interativo de Maracatu! https://ogirador.web.app" 
+      : "Découvrez O Girador, le séquenceur de Maracatu interactif ! https://ogirador.web.app";
+    try {
+      await navigator.clipboard.writeText(textStr);
+      setToastMessage(isPt ? 'Link copiado para a área de transferência!' : 'Lien copié dans le presse-papier !');
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (err) {
+      console.error("Clipboard write failed:", err);
+      window.prompt(isPt ? "Copie este texto:" : "Copiez ce texte :", textStr);
+    }
+  }, [sequencer.lang]);
   const handleSaveState = React.useCallback(() => audioRef.current.handleSaveState(), []);
   const handleCloudSave = React.useCallback(() => {
     const state = useSequencerStore.getState();
