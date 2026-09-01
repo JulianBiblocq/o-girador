@@ -730,7 +730,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
   return (
     <div 
-      className={`flex-1 flex flex-col h-full overflow-hidden transition-opacity duration-200 ${isPresetLoading ? 'pointer-events-none opacity-80' : ''}`}
+      className={`flex-1 flex flex-col h-full overflow-hidden transition-opacity duration-200 relative ${isPresetLoading ? 'pointer-events-none opacity-80' : ''}`}
       style={{ display: isActive ? 'flex' : 'none' }}
     >
       <div ref={scrollRef} className="flex-grow flex overflow-x-auto pt-4 pb-4 pl-4 pr-0 custom-scrollbar">

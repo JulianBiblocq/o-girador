@@ -11,10 +11,12 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { getActiveStrokesForTrack, audioEngine } from '../hooks/useAudioSync';
 import { instrumentsConfig, isDarkText, getVisualStrokeSymbol } from '../data';
+import { useWindow } from '../contexts/WindowContext';
 
 export const StepEditorPopup: React.FC = () => {
   const popupRef = useRef<HTMLDivElement>(null);
   const sequencer = useSequencer();
+  const currentWindow = useWindow();
   
   const {
     activeStepKey,
@@ -79,9 +81,9 @@ export const StepEditorPopup: React.FC = () => {
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeStepKey, trackId, patternId, stepIdx, allowedStrokes, sequencer, closeEditor]);
+    currentWindow.addEventListener('keydown', handleKeyDown);
+    return () => currentWindow.removeEventListener('keydown', handleKeyDown);
+  }, [activeStepKey, trackId, patternId, stepIdx, allowedStrokes, sequencer, closeEditor, currentWindow]);
 
   // Fermeture lors d'un clic à l'extérieur
   useEffect(() => {
@@ -93,13 +95,13 @@ export const StepEditorPopup: React.FC = () => {
       }
     };
 
-    window.addEventListener('mousedown', handleMouseDown);
-    window.addEventListener('touchstart', handleMouseDown);
+    currentWindow.addEventListener('mousedown', handleMouseDown);
+    currentWindow.addEventListener('touchstart', handleMouseDown);
     return () => {
-      window.removeEventListener('mousedown', handleMouseDown);
-      window.removeEventListener('touchstart', handleMouseDown);
+      currentWindow.removeEventListener('mousedown', handleMouseDown);
+      currentWindow.removeEventListener('touchstart', handleMouseDown);
     };
-  }, [activeStepKey, closeEditor]);
+  }, [activeStepKey, closeEditor, currentWindow]);
 
   if (!activeStepKey || !anchorRect || trackId === null || patternId === null || measureIdx === null || stepIdx === null) {
     return null;

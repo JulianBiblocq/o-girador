@@ -11,6 +11,7 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { getActiveStrokesForTrack, audioEngine } from '../hooks/useAudioSync';
+import { useWindow } from '../contexts/WindowContext';
 
 export interface TouchSelectorState {
   patternId: number;
@@ -248,20 +249,20 @@ const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
     };
 
     // Use passive: false to allow e.preventDefault() to freeze background scrolling
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleTouchEnd);
-    window.addEventListener('mouseup', handleMouseUp);
+    currentWindow.addEventListener('touchmove', handleTouchMove, { passive: false });
+    currentWindow.addEventListener('touchend', handleTouchEnd);
+    currentWindow.addEventListener('mouseup', handleMouseUp);
 
     return () => {
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-      window.removeEventListener('mouseup', handleMouseUp);
+      currentWindow.removeEventListener('touchmove', handleTouchMove);
+      currentWindow.removeEventListener('touchend', handleTouchEnd);
+      currentWindow.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [selector, onClose, setHoveredStroke, inst, isSticky]);
+  }, [selector, onClose, setHoveredStroke, inst, isSticky, currentWindow]);
 
   // 3. Sticky outside click handler
   useEffect(() => {
-    if (!isSticky) return;
+    if (!isSticky || !currentWindow) return;
     const handleOutsideClick = (e: MouseEvent | TouchEvent) => {
       // Cooldown of 400ms to ignore emulated mouse events after touch release
       if (Date.now() - stickyTimeRef.current < 400) {
@@ -272,16 +273,17 @@ const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
         onClose();
       }
     };
-    window.addEventListener('mousedown', handleOutsideClick);
-    window.addEventListener('touchstart', handleOutsideClick);
+    currentWindow.addEventListener('mousedown', handleOutsideClick);
+    currentWindow.addEventListener('touchstart', handleOutsideClick);
     return () => {
-      window.removeEventListener('mousedown', handleOutsideClick);
-      window.removeEventListener('touchstart', handleOutsideClick);
+      currentWindow.removeEventListener('mousedown', handleOutsideClick);
+      currentWindow.removeEventListener('touchstart', handleOutsideClick);
     };
-  }, [isSticky, onClose]);
+  }, [isSticky, onClose, currentWindow]);
 
   // 4. Keyboard shortcuts listener
   useEffect(() => {
+    if (!currentWindow) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       const targetTag = (e.target as HTMLElement).tagName?.toLowerCase();
       if (targetTag === 'input' || targetTag === 'textarea') return;
@@ -313,11 +315,11 @@ const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
+    currentWindow.addEventListener('keydown', handleKeyDown);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown);
+      currentWindow.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selector, onClose, inst, lang, isLeftHanded]);
+  }, [selector, onClose, inst, lang, isLeftHanded, currentWindow]);
 
   const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 360;
   const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 640;

@@ -25,6 +25,7 @@ import { meters } from '../hooks/useAudioSync';
 import { useSequencerStore, isSequencerVisibleTrack, isToadaBus, isToadaChild } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { Pattern, TrackGroup } from '../types';
+import { useWindow } from '../contexts/WindowContext';
 
 const trackListCache = new Map<string, { id: number; isHidden: boolean; isSolo: boolean; isMute: boolean }>();
 const getCachedTrack = (id: number, isHidden: boolean, isSolo: boolean, isMute: boolean) => {
@@ -102,6 +103,8 @@ const MixerComponent: React.FC<MixerProps> = ({
     setEditingTrackId(id);
   }, [setEditingTrackId]);
 
+  const currentWindow = useWindow();
+  
   const [addDropOpen, setAddDropOpen] = useState(false);
   const addDropRef = useRef<HTMLDivElement>(null);
 
@@ -111,13 +114,16 @@ const MixerComponent: React.FC<MixerProps> = ({
         setAddDropOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
+    
+    if (addDropOpen) {
+      currentWindow.document.addEventListener('mousedown', handleClickOutside);
+      currentWindow.document.addEventListener('touchstart', handleClickOutside);
+    }
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
+      currentWindow.document.removeEventListener('mousedown', handleClickOutside);
+      currentWindow.document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, []);
+  }, [addDropOpen, currentWindow]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -178,12 +184,13 @@ const MixerComponent: React.FC<MixerProps> = ({
           className="bg-transparent border border-[#444] px-3 py-2 text-sm font-extrabold cursor-pointer text-[#eaddcf] hover:bg-[#eaddcf] hover:text-black transition-colors flex-shrink-0"
           title={isTracksCollapsed ? t('expandSteps') : t('collapseSteps')}
         >
-          {isTracksCollapsed ? '▼' : '▲'}
+          {isTracksCollapsed ? '▶' : '◀'}
         </button>
+
         <div className="relative flex-1" ref={addDropRef}>
           <button
             onClick={() => setAddDropOpen(!addDropOpen)}
-            className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button px-3 py-2 text-xs font-bold font-cactus uppercase transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
+            className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button px-3 py-2 text-xs font-bold font-cactus uppercase transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 hover:opacity-80"
           >
             ➕ {t('addInst')} <span className="text-[8px] opacity-60">▼</span>
           </button>

@@ -11,6 +11,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Mixer } from './Mixer';
 import { RightSidebar } from './RightSidebar';
+import { WindowPortal } from './WindowPortal';
 
 // Lazy load views for optimal bundle splitting (Time-to-Interactive reduction)
 const ConsoleMixer = lazy(() => import('./ConsoleMixer').then(m => ({ default: m.ConsoleMixer })));
@@ -116,6 +117,15 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
   const isTracksCollapsed = useSequencerStore(state => state.isTracksCollapsed);
   const isFocusMode = useAudioStore(state => state.isFocusRecordingMode);
 
+  const isLinearDawDetached = useSequencerStore(state => state.isLinearDawDetached);
+  const isCircleSequencerDetached = useSequencerStore(state => state.isCircleSequencerDetached);
+  const isConsoleDetached = useSequencerStore(state => state.isConsoleDetached);
+  const isTimelineDetached = useSequencerStore(state => state.isTimelineDetached);
+  const toggleLinearDawDetached = useSequencerStore(state => state.toggleLinearDawDetached);
+  const toggleCircleSequencerDetached = useSequencerStore(state => state.toggleCircleSequencerDetached);
+  const toggleConsoleDetached = useSequencerStore(state => state.toggleConsoleDetached);
+  const toggleTimelineDetached = useSequencerStore(state => state.toggleTimelineDetached);
+
   const handleSetEditingTrackId = React.useCallback((id: number | null) => {
     setEditingTrackId(id);
   }, [setEditingTrackId]);
@@ -133,41 +143,90 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
           style={{ display: viewMode === 'roda' ? 'flex' : 'none' }}
           className={`flex flex-1 min-h-0 min-w-0 w-full h-full mobile-stack ${isFadingIn && renderedView === 'roda' ? 'fade-in-view' : ''}`}
         >
-          {/* Left column tracks mixers */}
-          <div style={{ display: (!isMobile || mobileTab === 'mixer') ? 'contents' : 'none' }}>
-            <ErrorBoundary fallback={renderFallback('Mixeur', 'Mixador')}>
-              {(!isMobile && !isTracksCollapsed) ? null : (
-                <Mixer
+          {/* Linear DAW detached Window */}
+          {isLinearDawDetached ? (
+            <WindowPortal onClose={toggleLinearDawDetached} title="Pistes - o-girador" width={1024} height={768}>
+              <div className="w-full h-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden flex flex-col cordel-bg">
+                <DawLinearSequencer
+                  isActive={true}
+                  mestreSignals={filteredMestreSignals}
                   onStepTouchStart={onStepTouchStart}
-                  isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'mixer')}
-                  setEditingTrackId={handleSetEditingTrackId}
-                  isMobile={isMobile}
                 />
-              )}
-            </ErrorBoundary>
-          </div>
+              </div>
+            </WindowPortal>
+          ) : null}
 
-          {/* Center circle visual canvas engine */}
-          <div style={{ display: (!isMobile || mobileTab === 'roda') ? 'contents' : 'none' }}>
-            <ErrorBoundary fallback={renderFallback('Séquenceur', 'Sequenciador')}>
-              {renderedView === 'roda' && (
-                (!isMobile && !isTracksCollapsed) ? (
-                  <DawLinearSequencer
-                    isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')}
-                    mestreSignals={filteredMestreSignals}
-                    onStepTouchStart={onStepTouchStart}
-                  />
+          {/* Circle Sequencer detached Window */}
+          {isCircleSequencerDetached ? (
+            <WindowPortal onClose={toggleCircleSequencerDetached} title="Roda - o-girador" width={1024} height={768}>
+              <div className="w-full h-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden flex flex-col cordel-bg">
+                <CircleSequencer
+                  isMobile={false}
+                  mestreSignals={filteredMestreSignals}
+                  onStepTouchStart={onStepTouchStart}
+                  isActive={true}
+                />
+              </div>
+            </WindowPortal>
+          ) : null}
+
+          {/* RODA VIEW MAIN WINDOW CONTENTS */}
+          {(!isMobile && !isTracksCollapsed) ? (
+            /* --- LINEAR DAW MODE (PISTES) --- */
+            <>
+              <div style={{ display: (!isMobile || mobileTab === 'roda') ? 'contents' : 'none' }}>
+                {!isLinearDawDetached ? (
+                  <ErrorBoundary fallback={renderFallback('Séquenceur', 'Sequenciador')}>
+                    <DawLinearSequencer
+                      isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')}
+                      mestreSignals={filteredMestreSignals}
+                      onStepTouchStart={onStepTouchStart}
+                    />
+                  </ErrorBoundary>
                 ) : (
-                  <CircleSequencer
-                    isMobile={isMobile}
-                    mestreSignals={filteredMestreSignals}
+                  <div className="flex-1 min-w-0 flex flex-col justify-center items-center p-4">
+                    <p className="mb-4 text-center">{lang === 'fr' ? 'Les pistes sont détachées dans une autre fenêtre.' : 'As pistas estão separadas em outra janela.'}</p>
+                    <button onClick={toggleLinearDawDetached} className="btn-cordel px-4 py-2 border-2 border-[var(--cordel-text)] rounded shadow-[4px_4px_0_var(--cordel-text)] font-bold bg-[var(--cordel-bg)] text-[var(--cordel-text)] transition-colors hover:opacity-80">
+                      {lang === 'fr' ? 'Rattacher' : 'Reanexar'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            /* --- CIRCLE SEQUENCER MODE (RODA) --- */
+            <>
+              <div style={{ display: (!isMobile || mobileTab === 'mixer') ? 'contents' : 'none' }}>
+                <ErrorBoundary fallback={renderFallback('Mixeur', 'Mixador')}>
+                  <Mixer
                     onStepTouchStart={onStepTouchStart}
-                    isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')}
+                    isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'mixer')}
+                    setEditingTrackId={handleSetEditingTrackId}
+                    isMobile={isMobile}
                   />
-                )
-              )}
-            </ErrorBoundary>
-          </div>
+                </ErrorBoundary>
+              </div>
+              <div style={{ display: (!isMobile || mobileTab === 'roda') ? 'contents' : 'none' }}>
+                {!isCircleSequencerDetached ? (
+                  <ErrorBoundary fallback={renderFallback('Séquenceur', 'Sequenciador')}>
+                    <CircleSequencer
+                      isMobile={isMobile}
+                      mestreSignals={filteredMestreSignals}
+                      onStepTouchStart={onStepTouchStart}
+                      isActive={viewMode === 'roda' && (!isMobile || mobileTab === 'roda')}
+                    />
+                  </ErrorBoundary>
+                ) : (
+                  <div className="flex-1 min-w-0 flex flex-col justify-center items-center p-4">
+                    <p className="mb-4 text-center">{lang === 'fr' ? 'La Roda est détachée dans une autre fenêtre.' : 'A Roda está separada em outra janela.'}</p>
+                    <button onClick={toggleCircleSequencerDetached} className="btn-cordel px-4 py-2 border-2 border-[var(--cordel-text)] rounded shadow-[4px_4px_0_var(--cordel-text)] font-bold bg-[var(--cordel-bg)] text-[var(--cordel-text)] transition-colors hover:opacity-80">
+                      {lang === 'fr' ? 'Rattacher' : 'Reanexar'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Right drawer sidebar context panel */}
           <div style={{ display: (!isMobile || mobileTab === 'toada') ? 'contents' : 'none' }}>
@@ -188,41 +247,109 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
 
         {/* 2. MIXER CONSOLE VIEW */}
         <div 
-          className={`flex-1 min-w-0 flex flex-col h-full overflow-hidden ${isFadingIn && renderedView === 'console' ? 'fade-in-view' : ''}`}
-          style={{ display: viewMode === 'console' ? 'flex' : 'none' }}
+          style={{ display: (!isMobile || mobileTab === 'console') && (viewMode === 'console' || isConsoleDetached) ? 'contents' : 'none' }}
         >
-          {renderedView === 'console' && (
-            <ErrorBoundary fallback={renderFallback('Mixeur Console', 'Mesa de Som')}>
-              <ConsoleMixer
-                isMobile={isMobile}
-                onStepTouchStart={onStepTouchStart}
-                isActive={viewMode === 'console'}
-                editingTrackId={editingTrackId}
-                setEditingTrackId={handleSetEditingTrackId}
-              />
-            </ErrorBoundary>
+          {isConsoleDetached ? (
+            <WindowPortal onClose={toggleConsoleDetached} title="Console - o-girador">
+              <div className="w-full h-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden flex flex-col cordel-bg">
+                <ConsoleMixer
+                  isMobile={false}
+                  onStepTouchStart={onStepTouchStart}
+                  isActive={true}
+                  editingTrackId={editingTrackId}
+                  setEditingTrackId={handleSetEditingTrackId}
+                />
+              </div>
+            </WindowPortal>
+          ) : null}
+          
+          {!isConsoleDetached && (
+            <div 
+              className={`flex-1 min-w-0 flex flex-col h-full overflow-hidden ${isFadingIn && renderedView === 'console' ? 'fade-in-view' : ''}`}
+              style={{ display: viewMode === 'console' ? 'flex' : 'none' }}
+            >
+              {renderedView === 'console' && (
+                <ErrorBoundary fallback={renderFallback('Mixeur Console', 'Mesa de Som')}>
+                  <ConsoleMixer
+                    isMobile={isMobile}
+                    onStepTouchStart={onStepTouchStart}
+                    isActive={viewMode === 'console'}
+                    editingTrackId={editingTrackId}
+                    setEditingTrackId={handleSetEditingTrackId}
+                  />
+                </ErrorBoundary>
+              )}
+            </div>
+          )}
+
+          {isConsoleDetached && viewMode === 'console' && (
+            <div 
+              className={`flex-1 min-w-0 flex flex-col h-full overflow-hidden items-center justify-center ${isFadingIn && renderedView === 'console' ? 'fade-in-view' : ''}`}
+              style={{ display: viewMode === 'console' ? 'flex' : 'none' }}
+            >
+               <p className="mb-4 text-center text-lg">{lang === 'fr' ? 'La console est détachée dans une autre fenêtre.' : 'A mesa de som está separada em outra janela.'}</p>
+               <button onClick={toggleConsoleDetached} className="btn-cordel px-4 py-2 border-2 border-[var(--cordel-text)] rounded shadow-[4px_4px_0_var(--cordel-text)] font-bold bg-white text-black hover:bg-gray-100 transition-colors">
+                  {lang === 'fr' ? 'Rattacher' : 'Reanexar'}
+               </button>
+            </div>
           )}
         </div>
 
         {/* 3. TIMELINE VIEW */}
         <div 
-          style={{ display: viewMode === 'timeline' ? 'flex' : 'none', flex: 1, minWidth: 0, flexDirection: 'column', height: '100%' }}
-          className={isFadingIn && renderedView === 'timeline' ? 'fade-in-view-slow' : ''}
+          style={{ display: (!isMobile || mobileTab === 'timeline') && (viewMode === 'timeline' || isTimelineDetached) ? 'contents' : 'none' }}
         >
-          {renderedView === 'timeline' && (
-            <ErrorBoundary fallback={renderFallback('Linha do Tempo / Timeline', 'Linha do Tempo')}>
-              <TimelineSequencer
-                isMobile={isMobile}
-                measureWidth={measureWidth}
-                onMeasureWidthChange={setMeasureWidth}
-                onExportTablature={() => {}}
-                onSaveCloudSection={setSectionToSave}
-                onLoadCloudSection={setLoadSectionInsertMeasure}
-                mestreSignals={filteredMestreSignals}
-                isActive={viewMode === 'timeline'}
-                onStepTouchStart={onStepTouchStart}
-              />
-            </ErrorBoundary>
+          {isTimelineDetached ? (
+            <WindowPortal onClose={toggleTimelineDetached} title="Timeline - o-girador">
+              <div className="w-full h-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden flex flex-col cordel-bg">
+                <TimelineSequencer
+                  isMobile={false}
+                  measureWidth={measureWidth}
+                  onMeasureWidthChange={setMeasureWidth}
+                  onExportTablature={() => {}}
+                  onSaveCloudSection={setSectionToSave}
+                  onLoadCloudSection={setLoadSectionInsertMeasure}
+                  mestreSignals={filteredMestreSignals}
+                  isActive={true}
+                  onStepTouchStart={onStepTouchStart}
+                />
+              </div>
+            </WindowPortal>
+          ) : null}
+
+          {!isTimelineDetached && (
+            <div 
+              style={{ display: viewMode === 'timeline' ? 'flex' : 'none', flex: 1, minWidth: 0, flexDirection: 'column', height: '100%' }}
+              className={isFadingIn && renderedView === 'timeline' ? 'fade-in-view-slow' : ''}
+            >
+              {renderedView === 'timeline' && (
+                <ErrorBoundary fallback={renderFallback('Linha do Tempo / Timeline', 'Linha do Tempo')}>
+                  <TimelineSequencer
+                    isMobile={isMobile}
+                    measureWidth={measureWidth}
+                    onMeasureWidthChange={setMeasureWidth}
+                    onExportTablature={() => {}}
+                    onSaveCloudSection={setSectionToSave}
+                    onLoadCloudSection={setLoadSectionInsertMeasure}
+                    mestreSignals={filteredMestreSignals}
+                    isActive={viewMode === 'timeline'}
+                    onStepTouchStart={onStepTouchStart}
+                  />
+                </ErrorBoundary>
+              )}
+            </div>
+          )}
+
+          {isTimelineDetached && viewMode === 'timeline' && (
+            <div 
+              className={`flex-1 min-w-0 flex flex-col h-full overflow-hidden items-center justify-center ${isFadingIn && renderedView === 'timeline' ? 'fade-in-view-slow' : ''}`}
+              style={{ display: viewMode === 'timeline' ? 'flex' : 'none' }}
+            >
+               <p className="mb-4 text-center text-lg">{lang === 'fr' ? 'Le séquenceur est détaché dans une autre fenêtre.' : 'O sequenciador está separado em outra janela.'}</p>
+               <button onClick={toggleTimelineDetached} className="btn-cordel px-4 py-2 border-2 border-[var(--cordel-text)] rounded shadow-[4px_4px_0_var(--cordel-text)] font-bold bg-white text-black hover:bg-gray-100 transition-colors">
+                  {lang === 'fr' ? 'Rattacher' : 'Reanexar'}
+               </button>
+            </div>
           )}
         </div>
 

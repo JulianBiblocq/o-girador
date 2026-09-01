@@ -10,6 +10,7 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { storage, db } from '../firebase/config';
 import { telemetryService } from '../services/telemetryService';
 import { SavedPattern, TimeSignature, SavedSectionData, Preset } from '../types';
+import { getEffectiveVolume } from '../stores/useSequencerStore';
 import { encoderWav } from '../utils/encodeurWav';
 import { CLOUD_PATTERNS_COLLECTION } from '../cloudPatterns';
 import { CLOUD_SECTIONS_COLLECTION } from '../cloudSections';
@@ -210,8 +211,9 @@ export function useCloudAudioBounce() {
           if (!audioConfig) continue;
           
           // Channel setup
+          const effectiveVol = getEffectiveVolume(sectionData.tracks, track.id);
           const channel = new Tone.Channel({
-            volume: 40 * Math.log10(Math.max(0.0001, track.volumeVal / 100)),
+            volume: 40 * Math.log10(Math.max(0.0001, effectiveVol / 100)),
             pan: track.panVal !== undefined ? track.panVal / 100 : (track.pan !== undefined ? track.pan / 100 : 0)
           }).connect(masterEQ);
           
@@ -418,8 +420,9 @@ export function useCloudAudioBounce() {
           if (!audioConfig) continue;
           
           // Channel setup
+          const effectiveVol = getEffectiveVolume(presetData.tracks || [], track.id);
           const channel = new Tone.Channel({
-            volume: 40 * Math.log10(Math.max(0.0001, track.volumeVal / 100)),
+            volume: 40 * Math.log10(Math.max(0.0001, effectiveVol / 100)),
             pan: track.panVal !== undefined ? track.panVal / 100 : (track.pan !== undefined ? track.pan / 100 : 0)
           }).connect(masterEQ);
           

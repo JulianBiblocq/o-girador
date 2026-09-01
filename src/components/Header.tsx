@@ -10,7 +10,8 @@ import {
   SlidersHorizontal,
   MessageSquare,
   Download,
-  Upload
+  Upload,
+  ExternalLink
 } from 'lucide-react';
 import { BoutonExportDanse } from './BoutonExportDanse';
 import { AudioFader } from './AudioFader';
@@ -799,64 +800,98 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       {/* CENTER: Main Core Actions */}
       <div className="flex items-center justify-center gap-4">
         {/* RODA */}
-        <button
-          onClick={() => {
-            onViewModeToggle('roda');
-            useSequencerStore.setState({ isTracksCollapsed: true });
-          }}
-          className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${
-            viewMode === 'roda' && isTracksCollapsed
-              ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-          }`}
-          title={lang === 'fr' ? 'Vue Roda / Séquenceur circulaire' : 'Visão Roda / Sequenciador circular'}
-        >
-          <XiloRoda size={14} className="shrink-0" /> RODA
-        </button>
+        <div className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+          <button
+            onClick={() => {
+              onViewModeToggle('roda');
+              useSequencerStore.setState({ isTracksCollapsed: true });
+            }}
+            className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+              viewMode === 'roda' && isTracksCollapsed
+                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+            }`}
+            title={lang === 'fr' ? 'Vue Roda / Séquenceur circulaire' : 'Visão Roda / Sequenciador circular'}
+          >
+            <XiloRoda size={14} className="shrink-0" /> RODA
+          </button>
+          <button
+            onClick={() => useSequencerStore.getState().toggleCircleSequencerDetached()}
+            className="flex items-center justify-center px-2 border-l-2 border-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer h-full"
+            title={lang === 'fr' ? 'Détacher' : 'Separar'}
+          >
+            <ExternalLink size={14} />
+          </button>
+        </div>
 
         {/* PISTES / DAW LINEAIRE */}
-        <button
-          onClick={() => {
-            onViewModeToggle('roda');
-            useSequencerStore.setState({ isTracksCollapsed: false });
-          }}
-          className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${
-            viewMode === 'roda' && !isTracksCollapsed
-              ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-          }`}
-          title={lang === 'fr' ? 'Vue Pistes / Séquenceur linéaire' : 'Visão Pistas / Sequenciador linear'}
-        >
-          <XiloDrum size={14} className="shrink-0" /> {lang === 'fr' ? 'PISTES' : 'PISTAS'}
-        </button>
+        <div className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+          <button
+            onClick={() => {
+              onViewModeToggle('roda');
+              useSequencerStore.setState({ isTracksCollapsed: false });
+            }}
+            className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+              viewMode === 'roda' && !isTracksCollapsed
+                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+            }`}
+            title={lang === 'fr' ? 'Vue Pistes / Séquenceur linéaire' : 'Visão Pistas / Sequenciador linear'}
+          >
+            <XiloDrum size={14} className="shrink-0" /> {lang === 'fr' ? 'PISTES' : 'PISTAS'}
+          </button>
+          <button
+            onClick={() => useSequencerStore.getState().toggleLinearDawDetached()}
+            className="flex items-center justify-center px-2 border-l-2 border-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer h-full"
+            title={lang === 'fr' ? 'Détacher' : 'Separar'}
+          >
+            <ExternalLink size={14} />
+          </button>
+        </div>
 
         {/* MIXER */}
-        <button
-          onClick={() => onViewModeToggle('console')}
-          className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${
-            viewMode === 'console'
-              ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-          }`}
-          title="Vue Console / Mixeur vertical"
-        >
-          <XiloConsole size={14} className="shrink-0" /> {lang === 'fr' ? 'MIXEUR' : 'MIXADOR'}
-        </button>
+        <div className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+          <button
+            onClick={() => onViewModeToggle('console')}
+            className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+              viewMode === 'console'
+                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+            }`}
+            title="Vue Console / Mixeur vertical"
+          >
+            <XiloConsole size={14} className="shrink-0" /> {lang === 'fr' ? 'MIXEUR' : 'MIXADOR'}
+          </button>
+          <button
+            onClick={() => useSequencerStore.getState().toggleConsoleDetached()}
+            className="flex items-center justify-center px-2 border-l-2 border-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer h-full"
+            title={lang === 'fr' ? 'Détacher' : 'Separar'}
+          >
+            <ExternalLink size={14} />
+          </button>
+        </div>
 
         {/* TIMELINE */}
-        <button
-          onClick={() => onViewModeToggle('timeline')}
-          className={`flex items-center justify-center gap-1.5 h-[36px] px-4 font-cactus uppercase font-bold cordel-border cordel-button cursor-pointer ${
-            viewMode === 'timeline'
-              ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
-              : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-          }`}
-          title={lang === 'fr' ? 'Vue Séquenceur / Ligne temporelle' : 'Visualização do Sequenciador / Linha do tempo'}
-        >
-          <XiloTimeline size={14} className="shrink-0" /> {lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR'}
-        </button>
-
-
+        <div className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+          <button
+            onClick={() => onViewModeToggle('timeline')}
+            className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+              viewMode === 'timeline'
+                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+            }`}
+            title={lang === 'fr' ? 'Vue Séquenceur / Ligne temporelle' : 'Visualização do Sequenciador / Linha do tempo'}
+          >
+            <XiloTimeline size={14} className="shrink-0" /> {lang === 'fr' ? 'SÉQUENCEUR' : 'SEQUENCIADOR'}
+          </button>
+          <button
+            onClick={() => useSequencerStore.getState().toggleTimelineDetached()}
+            className="flex items-center justify-center px-2 border-l-2 border-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer h-full"
+            title={lang === 'fr' ? 'Détacher' : 'Separar'}
+          >
+            <ExternalLink size={14} />
+          </button>
+        </div>
       </div>
 
       {/* RIGHT: Auxiliary */}

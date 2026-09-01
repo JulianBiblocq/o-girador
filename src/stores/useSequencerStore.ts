@@ -2226,7 +2226,32 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
 // ---------------------------------------------------------
 // STORE PRINCIPAL EXPORTÉ
 // ---------------------------------------------------------
-export type SequencerStore = TrackSlice & StructureSlice & PlaybackSlice & HistorySlice & ClipboardSlice & ProjectSettingsSlice;
+// ---------------------------------------------------------
+// 7. UI SLICE
+// ---------------------------------------------------------
+export interface UISlice {
+  isLinearDawDetached: boolean;
+  isCircleSequencerDetached: boolean;
+  isConsoleDetached: boolean;
+  isTimelineDetached: boolean;
+  toggleLinearDawDetached: () => void;
+  toggleCircleSequencerDetached: () => void;
+  toggleConsoleDetached: () => void;
+  toggleTimelineDetached: () => void;
+}
+
+export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set) => ({
+  isLinearDawDetached: false,
+  isCircleSequencerDetached: false,
+  isConsoleDetached: false,
+  isTimelineDetached: false,
+  toggleLinearDawDetached: () => set((state) => ({ isLinearDawDetached: !state.isLinearDawDetached })),
+  toggleCircleSequencerDetached: () => set((state) => ({ isCircleSequencerDetached: !state.isCircleSequencerDetached })),
+  toggleConsoleDetached: () => set((state) => ({ isConsoleDetached: !state.isConsoleDetached })),
+  toggleTimelineDetached: () => set((state) => ({ isTimelineDetached: !state.isTimelineDetached })),
+});
+
+export type SequencerStore = TrackSlice & StructureSlice & PlaybackSlice & HistorySlice & ClipboardSlice & ProjectSettingsSlice & UISlice;
 
 export const useSequencerStore = create<SequencerStore>((...a) => ({
   ...createTrackSlice(...a),
@@ -2235,6 +2260,7 @@ export const useSequencerStore = create<SequencerStore>((...a) => ({
   ...createHistorySlice(...a),
   ...createClipboardSlice(...a),
   ...createProjectSettingsSlice(...a),
+  ...createUISlice(...a),
 }));
 
 export const getEffectiveMuteState = (tracks: TrackGroup[], trackId: number): boolean => {
@@ -2339,4 +2365,33 @@ export const getEffectiveMuteState = (tracks: TrackGroup[], trackId: number): bo
   const isParentMuted = isAnyParentMuted(track);
 
   return !isAllowedToPlayBySolo || isSelfMuted || isParentMuted;
+};
+
+export const getEffectiveVolume = (tracks: TrackGroup[], trackId: number): number => {
+  const track = tracks.find(t => t.id === trackId);
+  if (!track) return 100;
+  
+  let effectiveVolume = track.volumeVal ?? 100;
+  
+  // Recursively multiply by parent volumes
+  let current: TrackGroup | undefined = track;
+  const visited = new Set<number>();
+  while (current) {
+    if (visited.has(current.id)) break;
+    visited.add(current.id);
+    
+    const parentId = current.busId || current.linkedToTrackId;
+    if (!parentId) break;
+    
+    const parent = tracks.find(t => String(t.id) === String(parentId));
+    if (parent) {
+      const parentVol = parent.volumeVal ?? 100;
+      effectiveVolume = (effectiveVolume * parentVol) / 100;
+      current = parent;
+    } else {
+      break;
+    }
+  }
+  
+  return effectiveVolume;
 };

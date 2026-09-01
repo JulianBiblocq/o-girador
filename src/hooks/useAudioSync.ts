@@ -19,7 +19,7 @@ export function subscribeToTick(callback: (detail: any) => void): void {
 export function unsubscribeFromTick(callback: (detail: any) => void): void {
   tickSubscribers.delete(callback);
 }
-import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencerStore';
+import { useSequencerStore, getEffectiveMuteState, getEffectiveVolume } from '../stores/useSequencerStore';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { loadTone } from '../ToneLoader';
 import { useAudioStore } from '../stores/useAudioStore';
@@ -925,8 +925,9 @@ export function useAudioSync({
           // Always sync the channel mapping with audioEngine using the start of the insert chain
           audioEngine?.setInstrumentChannel(t.id, inst.id, trackInputs[t.id] || channels[t.id]);
 
-          const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
-          const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
+          const effectiveVol = getEffectiveVolume(tracksRef.current, t.id);
+          const gain = Math.max(0.00001, effectiveVol / 100);
+          const db = effectiveVol === 0 ? -Infinity : Tone.gainToDb(gain);
           channels[t.id].volume.value = db;
           channels[t.id].pan.value = (t.pan ?? t.panVal ?? 0) / 100;
           channels[t.id].mute = getEffectiveMuteState(tracksRef.current, t.id);
@@ -1313,7 +1314,7 @@ export function useAudioSync({
               if (liveTrack) {
                 const inst = instrumentsConfig[liveTrack.instrumentIdx];
                 if (inst) {
-                  const trackVolPct = liveTrack.volumeVal ?? 100;
+                  const trackVolPct = getEffectiveVolume(tracksRef.current, liveTrack.id);
                   const isMuted = getEffectiveMuteState(tracksRef.current, liveTrack.id);
                   if (trackVolPct > 0 && !isMuted) {
                     const trackVolLinear = Math.pow(trackVolPct / 100, 2);
@@ -1586,7 +1587,7 @@ export function useAudioSync({
                         time,
                         elapsedSinceVocalStart,
                         outputNode,
-                        track.volumeVal ?? 100,
+                        getEffectiveVolume(tracks, track.id),
                         isCoroTrack
                       );
                       if (handle) {
@@ -1621,7 +1622,7 @@ export function useAudioSync({
               if (state && state !== 0) {
                 const triggerTime = swingTime;
                 const liveTrack = tracks[trackIdx];
-                const trackVolPct = liveTrack ? (liveTrack.volumeVal ?? 100) : 100;
+                const trackVolPct = liveTrack ? getEffectiveVolume(tracks, liveTrack.id) : 100;
                 if (trackVolPct > 0) {
                   const trackVolLinear = Math.pow(trackVolPct / 100, 2);
                   const noteVal = activePattern.notes?.[cellIdx] || 'C4';
@@ -2138,8 +2139,9 @@ export function useAudioSync({
               channelNode.connect(busMeters[t.id]);
             }
 
-            const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
-            const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
+            const effectiveVol = getEffectiveVolume(tracks, t.id);
+            const gain = Math.max(0.00001, effectiveVol / 100);
+            const db = effectiveVol === 0 ? -Infinity : Tone.gainToDb(gain);
             const pan = (t.panVal || 0) / 100;
             const reverb = t.fxSends?.reverb ?? 0;
             const distortion = t.fxSends?.distortion ?? 0;
@@ -2230,8 +2232,9 @@ export function useAudioSync({
           const gainNode = trackInputs[t.id] || channels[t.id];
           audioEngine?.setInstrumentChannel(t.id, inst.id, gainNode);
 
-          const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
-          const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);
+          const effectiveVol = getEffectiveVolume(tracks, t.id);
+          const gain = Math.max(0.00001, effectiveVol / 100);
+          const db = effectiveVol === 0 ? -Infinity : Tone.gainToDb(gain);
           const pan = (t.pan ?? t.panVal ?? 0) / 100;
           const reverb = t.fxSends?.reverb ?? t.reverbVal ?? 0;
           const distortion = t.fxSends?.distortion ?? 0;

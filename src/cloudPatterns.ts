@@ -18,8 +18,8 @@ export async function savePatternToCloud(
 ): Promise<string> {
   if (!ownerId) throw new Error("Utilisateur non connecté");
 
-  // Vérification de la limite pour les comptes gratuits (visiteur, eleve) s'il s'agit d'une nouvelle création
-  if (!existingDocId && (!userRole || userRole === 'visiteur' || userRole === 'eleve')) {
+  // Vérification de la limite pour les comptes gratuits (visiteur uniquement) s'il s'agit d'une nouvelle création
+  if (!existingDocId && (!userRole || userRole === 'visiteur')) {
     const collRef = collection(db, CLOUD_PATTERNS_COLLECTION);
     const q = query(collRef, where('ownerId', '==', ownerId));
     const snapshot = await getCountFromServer(q);
@@ -83,7 +83,7 @@ export async function fetchCloudPatterns(
       const isOwner = data.ownerId === userUid;
       const isAdminGlobal = data.visibility === 'admin_global';
       const isPublic = data.visibility === 'public';
-      const isMestreGroup = data.visibility === 'mestre_group' && data.mestreId === mestreId;
+      const isMestreGroup = data.visibility === 'mestre_group' && (data.mestreId === mestreId || data.ownerId === mestreId);
       const isSysAdmin = userRole === 'admin';
       
       if (isOwner || isAdminGlobal || isPublic || isMestreGroup || isSysAdmin) {

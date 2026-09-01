@@ -15,6 +15,7 @@ import { XiloChisel } from './XiloIcons';
 import { CompassoSelector } from './CompassoSelector';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
+import { useWindow } from '../contexts/WindowContext';
 import { getTone } from '../ToneLoader';
 
 function safeGetTone() {
@@ -49,20 +50,25 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
     );
   }, []);
 
-  // Close dropdown on click outside
+  const currentWindow = useWindow();
+
+  // Handle click outside for dropdown
   useEffect(() => {
     function handleClickOutside(e: MouseEvent | TouchEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpenTrackId(null);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
+
+    if (dropdownOpenTrackId !== null) {
+      currentWindow.document.addEventListener('mousedown', handleClickOutside);
+      currentWindow.document.addEventListener('touchstart', handleClickOutside);
+    }
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
+      currentWindow.document.removeEventListener('mousedown', handleClickOutside);
+      currentWindow.document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, []);
+  }, [dropdownOpenTrackId, currentWindow]);
 
   // Filter visible tracks to show on the DAW grid (matching left Mixer panel list)
   const visibleTracks = useMemo(() => {

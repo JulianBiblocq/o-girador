@@ -14,6 +14,7 @@ import { Pattern } from '../types';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { Trash2 } from 'lucide-react';
 import { isDarkText, instrumentsConfig, NEWTON_NOTE_COLORS } from '../data';
+import { useWindow } from '../contexts/WindowContext';
 
 interface InstrumentPatternGridProps {
   trackId: number;
@@ -966,10 +967,10 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         }
       }
       isMouseDownRef.current = false;
-    };
-    window.addEventListener('mouseup', handleGlobalMouseUp);
-    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
-  }, [isMultiSelectActive, setSelectedStepIndices]);
+      };
+    currentWindow.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => currentWindow.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [isMultiSelectActive, setSelectedStepIndices, currentWindow]);
 
   // Global keydown deletions & values entries in multi-select mode
   useEffect(() => {
@@ -1008,9 +1009,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       }
     };
 
-    window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [isMultiSelectActive, selectedStepIndices, pattern?.id, selectedVariationId, trackId, handleTrackStepValueChange, handleVariationStepValueChange, setSelectedStepIndices]);
+    currentWindow.addEventListener('keydown', handleGlobalKeyDown);
+    return () => currentWindow.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isMultiSelectActive, selectedStepIndices, pattern?.id, selectedVariationId, trackId, handleTrackStepValueChange, handleVariationStepValueChange, setSelectedStepIndices, currentWindow]);
 
   // Keyboard and Copy/Paste listeners specifically related to pattern actions
   useEffect(() => {

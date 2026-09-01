@@ -11,6 +11,7 @@ import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { useAudio } from '../contexts/AudioContext';
 import { useSequencer } from '../contexts/SequencerContext';
+import { useWindow } from '../contexts/WindowContext';
 
 interface TrackMixerProps {
   trackId: number;
@@ -76,20 +77,24 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
   const [instDropdownOpen, setInstDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const currentWindow = useWindow();
 
+  // Close dropdown on click outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent | TouchEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setInstDropdownOpen(false);
       }
     }
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
+    if (instDropdownOpen) {
+      currentWindow.document.addEventListener('mousedown', handleClickOutside);
+      currentWindow.document.addEventListener('touchstart', handleClickOutside);
+    }
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
+      currentWindow.document.removeEventListener('mousedown', handleClickOutside);
+      currentWindow.document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, []);
+  }, [instDropdownOpen, currentWindow]);
 
   const isToada = track ? isToadaBus(track) : false;
 
