@@ -6,6 +6,7 @@ import { savePresetToCloud, fetchCloudPresets } from '../cloudLibrary';
 import { VisitorAuthModal } from './VisitorAuthModal';
 import { useCloudAudioBounce } from '../hooks/useCloudAudioBounce';
 import { useQueryClient } from '@tanstack/react-query';
+import { useSequencerStore } from '../stores/useSequencerStore';
 
 interface SavePresetModalProps {
   presetData: Preset;
@@ -79,7 +80,8 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
         finalVisibility,
         undefined,
         undefined,
-        targetDocId
+        targetDocId,
+        userProfile.mestreId || undefined
       );
 
       if (autoGenerateAudio) {
@@ -93,19 +95,26 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
             finalVisibility,
             undefined,
             audioUrl,
-            presetId // pass presetId to overwrite with audio URL
+            presetId, // pass presetId to overwrite with audio URL
+            userProfile.mestreId || undefined
           );
         } catch (audioErr) {
           console.error("Audio generation failed after save", audioErr);
         }
       }
 
+      // Mettre à jour le store courant avec le nouveau nom et le nouvel ID
+      useSequencerStore.getState().setMetadata({
+        ...finalPresetData.metadata,
+        morceauId: presetId
+      });
+
       queryClient.invalidateQueries({ queryKey: ['cloudPresets'] });
       await sequencer.alertAsync(lang === 'pt' ? '✅ Salvo na nuvem!' : '✅ Sauvegardé dans le cloud !');
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert(lang === 'fr' ? 'Erreur lors de la sauvegarde.' : 'Erro ao salvar.');
+      alert((lang === 'fr' ? 'Erreur lors de la sauvegarde : ' : 'Erro ao salvar : ') + (err.message || String(err)));
     } finally {
       setIsSaving(false);
     }

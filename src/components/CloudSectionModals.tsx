@@ -112,9 +112,9 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
       }
 
       onClose();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert(lang === 'fr' ? 'Erreur lors de la sauvegarde.' : 'Erro ao salvar.');
+      alert((lang === 'fr' ? 'Erreur lors de la sauvegarde : ' : 'Erro ao salvar : ') + (err.message || String(err)));
     } finally {
       setIsSaving(false);
     }

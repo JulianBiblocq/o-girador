@@ -17,7 +17,8 @@ export async function savePresetToCloud(
   visibility: CatalogVisibility,
   targetUserId?: string,
   audioUrl?: string,
-  targetPresetId?: string
+  targetPresetId?: string,
+  mestreId?: string
 ): Promise<string> {
   // Deep copy presetData to avoid modifying active app state
   const presetToSave = JSON.parse(JSON.stringify(presetData));
@@ -51,6 +52,7 @@ export async function savePresetToCloud(
     ownerId,
     visibility,
     targetUserId: targetUserId || null,
+    mestreId: mestreId || null,
     updatedAt: Date.now()
   };
   if (audioUrl) docData.audioUrl = audioUrl;
