@@ -487,7 +487,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     return instName;
   }, [track, inst, allTracks, trackId]);
 
-  if (!track) return null;
 
   // 1. Calculer les moyennes réelles (volume et decay) pour une frappe donnée sur la piste en cours
   const getStrokeAverages = (stroke: string) => {
@@ -670,7 +669,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     }
   };
 
-  const patternIds = useMemo(() => track.patterns.map(p => p.id), [track.patterns]);
+  const patternIds = useMemo(() => track?.patterns?.map(p => p.id) || [], [track?.patterns]);
 
   // --- Pattern Cloud Logic ---
   const { userProfile } = useAuth();
@@ -886,7 +885,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         }
       }
     };
-  }, [track.id, isPlaying, currentMeasure]);
+  }, [track?.id, isPlaying, currentMeasure]);
 
   const handleSave = (patternId: number) => {
     if (onPatternNameChange) {
@@ -900,18 +899,18 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [selectedStepIdx, setSelectedStepIdx] = useState<number | null>(null);
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
   const [selectedStepIndices, setSelectedStepIndices] = useState<number[]>([]);
-  const [selectedPatternId, setSelectedPatternId] = useState<number>(track.patterns[0]?.id || 0);
+  const [selectedPatternId, setSelectedPatternId] = useState<number>(track?.patterns?.[0]?.id || 0);
   const [isTupletEditMode, setIsTupletEditMode] = useState(false);
   const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState<boolean>(false);
 
   useEffect(() => {
-    setSelectedPatternId(track.selectedPatternId);
+    setSelectedPatternId(track?.selectedPatternId || 0);
     setSelectedStepIndices([]);
     setSelectedStepIdx(null);
     setSelectedVariationId(null);
     setIsMultiSelectActive(false);
-  }, [track.id, track.selectedPatternId]);
+  }, [track?.id, track?.selectedPatternId]);
 
   const strokes = getStrokesForInstrument(inst.id, inst.type, lang, isLeftHanded);
 
@@ -949,6 +948,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [handleClose, onKeyDown]);
+
+  if (!track) return null;
 
   return createPortal(
     <div
