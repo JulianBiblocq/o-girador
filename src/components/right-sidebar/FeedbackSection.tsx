@@ -169,10 +169,10 @@ export const FeedbackSection: React.FC = () => {
     try {
       // Calcul de la note globale (moyenne arrondie à l'inférieur pour être stricte, ou juste la plus basse)
       const globalRating = Math.min(audioRating, usabilityRating);
-      const targetCollection = globalRating >= 4 ? 'hub_reviews' : 'hub_tickets';
+      const collectionType = globalRating >= 4 ? 'review' : 'ticket';
 
       const payload = {
-        targetCollection,
+        collectionType,
         data: {
           appSource: 'sequenceur',
           appVersion: '4.0.5', // Since CURRENT_VERSION might not be imported here, using standard package version
@@ -196,7 +196,7 @@ export const FeedbackSection: React.FC = () => {
       }
       const apiKey = import.meta.env.VITE_OGIRADOR_HUB_API_KEY || '';
 
-      const response = await fetch(`${hubUrl}/api/telemetry/submit`, {
+      const response = await fetch(hubUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

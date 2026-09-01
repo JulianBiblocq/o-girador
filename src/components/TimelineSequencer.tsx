@@ -130,8 +130,9 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     handleClearLoop: onClearLoop,
     handleDeleteMeasure: onDeleteMeasure,
     handleInsertMeasure: onInsertMeasure,
-    duplicateSectionBlock,
   } = sequencer;
+  
+  const duplicateSectionBlock = useSequencerStore(state => state.duplicateSectionBlock);
   const trackIds = useSequencerStore(useShallow(state => {
     const visibleTrackIds: number[] = [];
     state.tracks.forEach(t => {
