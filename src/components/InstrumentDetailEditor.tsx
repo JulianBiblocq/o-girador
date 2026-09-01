@@ -1407,6 +1407,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             trackId={track.id}
                             pattern={ptn}
                             instrument={inst}
+                            selectedPatternId={selectedPatternId}
                             selectedStepIdx={selectedStepIdx}
                             selectedStepIndices={selectedStepIndices}
                             selectedVariationId={selectedVariationId}

@@ -170,6 +170,7 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                             value={displayVal}
                             readOnly={false}
                             inputMode={isTouchDevice ? 'none' : undefined}
+                            className="step-input-cell w-full text-center font-bold outline-none p-0 box-border z-10 relative transition-all duration-200 text-sm bg-transparent"
                             onClick={(e) => e.stopPropagation()}
                             onFocus={(e) => {
                               if (!isTouchDevice) {

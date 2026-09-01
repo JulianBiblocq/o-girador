@@ -37,15 +37,18 @@ export function useGlobalKeyboardShortcuts() {
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((window as any).oGiradorDetailEditorOpen) return;
-      if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement ||
-        (e.target as HTMLElement).isContentEditable
-      ) {
-        return;
+      const target = e.target as HTMLElement;
+      const isInput = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable;
+      const isModifier = e.ctrlKey || e.metaKey;
+
+      if (isInput) {
+        if (target.classList.contains('step-input-cell') && isModifier) {
+          // allow through to grid-shortcut logic
+        } else {
+          return;
+        }
       }
 
-      const isModifier = e.ctrlKey || e.metaKey;
       if (!isModifier) return;
 
       const key = e.key.toLowerCase();

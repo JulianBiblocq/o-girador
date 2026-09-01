@@ -25,6 +25,7 @@ interface InstrumentPatternGridProps {
     colors: Record<string, string>;
     [key: string]: any;
   };
+  selectedPatternId: number;
   selectedStepIdx: number | null;
   selectedStepIndices: number[];
   selectedVariationId: string | null;
@@ -126,7 +127,7 @@ const PercussionStepCell = React.memo(({
             onTouchStart={(e) => onTouchStart(e, i, val, 0)}
             onChange={(e) => onChange(e, i, val, 0)}
             onKeyDown={(e) => onKeyDown(e, i, val, 0)}
-            className={`w-1/2 text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
+            className={`step-input-cell w-1/2 text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
               val[0] === '0' || val[0] === 0
                 ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
                 : ''
@@ -155,7 +156,7 @@ const PercussionStepCell = React.memo(({
             onTouchStart={(e) => onTouchStart(e, i, val, 1)}
             onChange={(e) => onChange(e, i, val, 1)}
             onKeyDown={(e) => onKeyDown(e, i, val, 1)}
-            className={`w-1/2 text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
+            className={`step-input-cell w-1/2 text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
               val[1] === '0' || val[1] === 0
                 ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
                 : ''
@@ -186,7 +187,7 @@ const PercussionStepCell = React.memo(({
           onTouchStart={(e) => onTouchStart(e, i, val)}
           onChange={(e) => onChange(e, i, val)}
           onKeyDown={(e) => onKeyDown(e, i, val)}
-          className={`text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
+          className={`step-input-cell w-full text-center font-bold cordel-border outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
             val === 0
               ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
               : ''
@@ -347,6 +348,7 @@ const VoiceStepCellComponent = ({
   };
 
   const { letter: noteLetterOnly, octave, color: noteColor } = getTransposedNoteDetails();
+  const txtColor = isDarkText(cardBg) ? '#1a1a1a' : '#f4ecd8';
 
   return (
     <div className="relative" style={{ width: '56px' }}>
@@ -389,7 +391,10 @@ const VoiceStepCellComponent = ({
           readOnly={isMultiSelectActive}
           onChange={(e) => onVoiceSylChange(trackId, patternId, i, e.target.value)}
           placeholder="-"
-          className="v-syl w-full text-center text-xs font-bold py-1 bg-transparent border-0 border-b border-[#1a1a1a]/30 text-black outline-none"
+          className={`step-input-cell v-syl w-full text-center outline-none border-b border-[#00000020] bg-transparent pb-0.5 ${syl ? 'font-bold' : ''}`}
+          style={{ 
+            color: isMultiSelectActive && isSelected ? 'transparent' : txtColor,
+          }}
           onFocus={() => {
             if (!isMultiSelectActive) {
               onFocusStep(i);
@@ -417,9 +422,10 @@ const VoiceStepCellComponent = ({
               setIsNoteFocused(false);
             }}
             placeholder="C4"
-            className={`v-note w-full h-full text-center text-[10px] py-1 bg-transparent border-0 uppercase outline-none transition-opacity ${
-              isNoteFocused ? 'opacity-100 z-10 text-black font-bold' : 'opacity-0 z-0'
-            }`}
+            className={`step-input-cell v-note w-full text-center font-bold outline-none bg-transparent pt-0.5`}
+            style={{
+              color: isMultiSelectActive && isSelected ? 'transparent' : txtColor,
+            }}
             onFocus={(e) => {
               if (!isMultiSelectActive) {
                 onFocusStep(i);
@@ -499,10 +505,11 @@ const areVoicePropsEqual = (prev: VoiceStepCellProps, next: VoiceStepCellProps) 
 
 const VoiceStepCell = React.memo(VoiceStepCellComponent, areVoicePropsEqual);
 
-const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
+export const InstrumentPatternGrid: React.FC<InstrumentPatternGridProps> = ({
   trackId,
   pattern,
   instrument,
+  selectedPatternId,
   selectedStepIdx,
   selectedStepIndices,
   selectedVariationId,
@@ -1042,6 +1049,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       const { key } = customEvent.detail;
       const activePtn = pattern;
       if (!activePtn) return;
+      if (activePtn.id !== selectedPatternId) return;
 
       if (key === 'a') {
         setIsMultiSelectActive(true);
@@ -1084,7 +1092,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
     window.addEventListener('grid-shortcut', handleGridShortcut);
     return () => window.removeEventListener('grid-shortcut', handleGridShortcut);
-  }, [pattern, selectedVariationId, isMultiSelectActive, selectedStepIndices, selectedStepIdx, onCopyPattern, onPastePattern, canPaste, trackId]);
+  }, [pattern, selectedPatternId, selectedVariationId, isMultiSelectActive, selectedStepIndices, selectedStepIdx, onCopyPattern, onPastePattern, canPaste, trackId]);
 
   // Guard Clauses for store state and props
   const trackExists = useSequencerStore(state => state.tracks.some(t => t.id === trackId));
