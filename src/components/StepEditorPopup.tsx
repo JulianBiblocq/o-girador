@@ -48,13 +48,14 @@ export const StepEditorPopup: React.FC = () => {
   const [loadingStroke, setLoadingStroke] = useState<string | null>(null);
   const [isSplitMode, setIsSplitMode] = useState<boolean>(false);
   const [editingHalf, setEditingHalf] = useState<0 | 1>(0);
+  const subIndex = useTimelineEditStore(s => s.subIndex);
 
   // Reset local states when active step changes
   useEffect(() => {
     setIsExpanded(false);
     setLoadingStroke(null);
     setIsSplitMode(Array.isArray(liveCurrentVal));
-    setEditingHalf(0);
+    setEditingHalf(subIndex !== null ? subIndex : 0);
   }, [activeStepKey]); // Remove currentVal from deps so it doesn't reset while typing
 
   // Support du clavier pour Escape, Silence et raccourcis de coups

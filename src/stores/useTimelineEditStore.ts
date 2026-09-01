@@ -14,6 +14,7 @@ interface TimelineEditState {
   patternId: number | null;
   measureIdx: number | null;
   stepIdx: number | null;
+  subIndex: 0 | 1 | null;
   openEditor: (params: {
     activeStepKey: string;
     anchorRect: DOMRect;
@@ -23,6 +24,7 @@ interface TimelineEditState {
     patternId: number;
     measureIdx: number;
     stepIdx: number;
+    subIndex?: 0 | 1;
   }) => void;
   closeEditor: () => void;
 }
@@ -36,6 +38,7 @@ export const useTimelineEditStore = create<TimelineEditState>((set) => ({
   patternId: null,
   measureIdx: null,
   stepIdx: null,
+  subIndex: null,
   openEditor: (params) => set({
     activeStepKey: params.activeStepKey,
     anchorRect: params.anchorRect,
@@ -45,6 +48,7 @@ export const useTimelineEditStore = create<TimelineEditState>((set) => ({
     patternId: params.patternId,
     measureIdx: params.measureIdx,
     stepIdx: params.stepIdx,
+    subIndex: params.subIndex ?? null,
   }),
   closeEditor: () => set({
     activeStepKey: null,

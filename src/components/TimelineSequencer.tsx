@@ -51,7 +51,8 @@ interface TimelineSequencerProps {
     stepIdx: number,
     instId: string,
     currentVal: string | number,
-    onSelect: (val: string) => void
+    onSelect: (val: string) => void,
+    subIndex?: 0 | 1
   ) => void;
 }
 

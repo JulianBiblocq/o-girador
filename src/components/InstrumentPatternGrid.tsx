@@ -702,7 +702,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         } else {
           handleTrackStepValueChange(trackId, pattern.id, stepIdx, finalVal);
         }
-      }, trackId, Array.isArray(currentVal));
+      }, trackId, Array.isArray(currentVal), subIndex);
     }
   }, [onStepTouchStart, pattern.id, instrument.id, selectedVariationId, trackId, handleVariationStepValueChange, handleTrackStepValueChange]);
 
