@@ -154,7 +154,7 @@ function writeString(view: DataView, offset: number, string: string) {
 }
 
 export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { userProfile } = useAuth();
+  const { userProfile, isAdmin } = useAuth();
   const sequencer = useSequencer();
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const measureTimeSigs = useSequencerStore(state => state.measureTimeSigs);
@@ -771,7 +771,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const name = sequencer.metadata?.toada?.trim() || 'Sem Título';
       
-      const isFree = !userProfile || (userProfile.role !== 'mestre' && userProfile.role !== 'admin');
+      const isFree = !userProfile || (!isAdmin && userProfile.role !== 'mestre');
       if (isFree) {
         const library = await getLocalLibrary();
         const existingCount = Object.keys(library).length;

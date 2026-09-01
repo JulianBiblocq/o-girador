@@ -71,10 +71,10 @@ export default function App() {
     promptAsync,
   } = sequencer;
   const audio = useAudio();
-  const { hasAccess, userProfile, updateUserPreference } = useAuth();
+  const { hasAccess, userProfile, updateUserPreference, isAdmin } = useAuth();
 
   React.useEffect(() => {
-    const isFree = !userProfile || (userProfile.role !== 'mestre' && userProfile.role !== 'admin');
+    const isFree = !userProfile || (!isAdmin && userProfile.role !== 'mestre');
     useSequencerStore.getState().setMaxMeasuresAllowed(isFree ? 30 : null);
     
     // Mode aperçu pour les visiteurs avec un lien partagé

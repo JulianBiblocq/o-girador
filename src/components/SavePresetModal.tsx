@@ -41,7 +41,7 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
       const existingPresets = await fetchCloudPresets(userProfile.uid, userProfile.role, userProfile.mestreId || null);
       const existingPreset = existingPresets.find(p => p.name.trim() === presetName && p.ownerId === userProfile.uid);
       
-      const isFree = !userProfile || (userProfile.role !== 'mestre' && userProfile.role !== 'admin');
+      const isFree = !userProfile || (!isAdmin && userProfile.role !== 'mestre');
       if (isFree && !existingPreset) {
         const ownedCount = existingPresets.filter(p => p.ownerId === userProfile.uid).length;
         if (ownedCount >= 3) {
