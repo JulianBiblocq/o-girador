@@ -142,7 +142,7 @@ service cloud.firestore {
             (!request.resource.data.keys().hasAny(['isSystemAdmin']) || request.resource.data.isSystemAdmin == false) &&
             (!request.resource.data.keys().hasAny(['hasAccessLogistique']) || request.resource.data.hasAccessLogistique == false) &&
             (!request.resource.data.keys().hasAny(['paymentStatus']) || request.resource.data.paymentStatus == 'unpaid') &&
-            (!request.resource.data.keys().hasAny(['role']) || request.resource.data.role == 'membre') &&
+            (!request.resource.data.keys().hasAny(['role']) || request.resource.data.role == 'membre' || request.resource.data.role == 'visiteur' || request.resource.data.role == 'eleve') &&
             (!request.resource.data.keys().hasAny(['statutActuel']) || request.resource.data.statutActuel == 'active') &&
             (!request.resource.data.keys().hasAny(['adhesionBase']) || request.resource.data.adhesionBase == true) &&
             (!request.resource.data.keys().hasAny(['selectedOptions']) || request.resource.data.selectedOptions.size() == 0) &&
@@ -153,7 +153,7 @@ service cloud.firestore {
           request.resource.data.managedBy == request.auth.uid && (
             (!request.resource.data.keys().hasAny(['isSystemAdmin']) || request.resource.data.isSystemAdmin == false) &&
             (!request.resource.data.keys().hasAny(['hasAccessLogistique']) || request.resource.data.hasAccessLogistique == false) &&
-            (!request.resource.data.keys().hasAny(['role']) || request.resource.data.role == 'membre') &&
+            (!request.resource.data.keys().hasAny(['role']) || request.resource.data.role == 'membre' || request.resource.data.role == 'visiteur' || request.resource.data.role == 'eleve') &&
             (!request.resource.data.keys().hasAny(['statutActuel']) || request.resource.data.statutActuel == 'active') &&
             (!request.resource.data.keys().hasAny(['tags']) || request.resource.data.tags.size() == 0)
           )

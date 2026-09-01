@@ -1815,7 +1815,7 @@ export function useSequencerState() {
     pushUndoState();
     const inst = instrumentsConfig[instIdx];
     if (inst) {
-      audioEngine.loadInstrumentSamples(inst.id).catch(console.error);
+      audioEngine?.loadInstrumentSamples(inst.id).catch(console.error);
     }
 
     if (inst?.id === 'toada') {
@@ -1905,8 +1905,9 @@ export function useSequencerState() {
       };
       coroTrack.selectedPatternId = coroTrack.patterns[0].id;
 
-      audioEngine.loadInstrumentSamples('puxador').catch(console.error);
-      audioEngine.loadInstrumentSamples('coro').catch(console.error);
+      // Also start preloading voice samples since they might be used immediately
+      audioEngine?.loadInstrumentSamples('puxador').catch(console.error);
+      audioEngine?.loadInstrumentSamples('coro').catch(console.error);
 
       setTracks(prev => {
         const next = [...prev, toadaBusTrack, puxTrack, coroTrack];
