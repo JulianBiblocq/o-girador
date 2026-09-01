@@ -122,7 +122,7 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-4">
-      <div className="bg-[#f4ecd8] border-4 border-[#1a1a1a] shadow-[8px_8px_0px_rgba(0,0,0,1)] p-6 max-w-md w-full flex flex-col gap-6 relative">
+      <div className="bg-[#f4ecd8] text-[#1a1a1a] border-4 border-[#1a1a1a] shadow-[8px_8px_0px_rgba(0,0,0,1)] p-6 max-w-md w-full flex flex-col gap-6 relative">
         {/* Header */}
         <div className="flex justify-between items-start">
           <div>
@@ -150,7 +150,7 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ex: Opanijé"
-              className="w-full bg-white border-2 border-[#1a1a1a] px-3 py-2 text-sm font-bold outline-none focus:bg-[#1a1a1a]/5"
+              className="w-full bg-white text-[#1a1a1a] border-2 border-[#1a1a1a] px-3 py-2 text-sm font-bold outline-none focus:bg-[#1a1a1a]/5"
             />
           </div>
 
@@ -170,7 +170,7 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
                   onChange={() => setVisibility('mestre_group')}
                   className="accent-[#8b2a1a]"
                 />
-                <span className="text-sm font-bold">
+                <span className="text-sm font-bold text-[#1a1a1a]">
                   {lang === 'fr' ? `Catalogue ${userProfile?.groupName || userProfile?.displayName || 'Cloud'} (Privé)` : `Catálogo ${userProfile?.groupName || userProfile?.displayName || 'Cloud'} (Privado)`}
                 </span>
               </label>
@@ -186,7 +186,7 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
                     disabled={!isAdmin && userProfile?.role !== 'mestre'}
                     className="accent-[#8b2a1a]"
                   />
-                  <span className="text-sm font-bold">
+                  <span className="text-sm font-bold text-[#1a1a1a]">
                     {lang === 'fr' ? 'Catalogue O Girador (Public)' : 'Catálogo O Girador (Público)'}
                   </span>
                 </label>
