@@ -6,6 +6,7 @@ async function globalSetup(config: FullConfig) {
   const page = await browser.newPage();
   
   await page.goto(baseURL!);
+  await page.waitForFunction(() => 'firebaseAuth' in window);
 
   await page.evaluate(async () => {
     // @ts-ignore
