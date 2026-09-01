@@ -415,39 +415,39 @@ service cloud.firestore {
       allow read: if request.auth != null && (
         resource.data.visibility == 'admin_global' || 
         resource.data.ownerId == request.auth.uid || 
-        resource.data.mestreId == request.auth.uid || 
+        resource.data.get('mestreId', '') == request.auth.uid || 
         resource.data.visibility == 'mestre_group'
       );
       allow create: if request.auth != null 
-                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.mestreId);
+                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.get('mestreId', ''));
       allow update, delete: if request.auth != null 
-                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.mestreId);
+                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.get('mestreId', ''));
     }
     match /sections/{sectionId} {
       allow read: if request.auth != null && (
         resource.data.visibility == 'admin_global' || 
         resource.data.ownerId == request.auth.uid || 
-        resource.data.mestreId == request.auth.uid || 
+        resource.data.get('mestreId', '') == request.auth.uid || 
         resource.data.visibility == 'mestre_group'
       );
       allow create: if request.auth != null 
-                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.mestreId);
+                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.get('mestreId', ''));
       allow update, delete: if request.auth != null 
-                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.mestreId);
+                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.get('mestreId', ''));
     }
     match /presets/{presetId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null 
-                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.mestreId);
+                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.get('mestreId', ''));
       allow update, delete: if request.auth != null 
-                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.mestreId);
+                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.get('mestreId', ''));
     }
     match /exercises/{exerciseId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null 
-                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.mestreId);
+                    && (request.auth.uid == request.resource.data.ownerId || request.auth.uid == request.resource.data.get('mestreId', ''));
       allow update, delete: if request.auth != null 
-                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.mestreId);
+                            && (request.auth.uid == resource.data.ownerId || request.auth.uid == resource.data.get('mestreId', ''));
     }
     match /progressions/{progressionId} {
       allow read: if true;
@@ -468,6 +468,14 @@ service cloud.firestore {
       allow read: if isAdminOrMestre();
       allow create: if true;
       allow update, delete: if isAdminOrMestre();
+    }
+    match /hub_reviews/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /premium_packs/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdminOrMestre();
     }
     
   }
