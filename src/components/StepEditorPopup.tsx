@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import { Scissors, Droplet } from 'lucide-react';
 import { useTimelineEditStore } from '../stores/useTimelineEditStore';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
@@ -214,10 +215,11 @@ export const StepEditorPopup: React.FC = () => {
               sequencer.handleTrackStepValueChange(trackId, patternId, stepIdx, [currentVal || defaultStroke, defaultStroke]);
             }
           }}
-          className={`text-[8px] font-bold border border-black px-1.5 py-0.5 transition-colors cursor-pointer ${isSplitMode ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a]' : 'bg-transparent text-black hover:bg-black/10'}`}
-          title={sequencer.lang === 'pt' ? 'Dividir em semicolcheias' : 'Diviser en triples croches'}
+          className={`flex items-center gap-1 text-[9px] font-bold border border-black px-1.5 py-0.5 transition-colors cursor-pointer ${isSplitMode ? 'bg-[#8b2a1a] text-[#f4ecd8] border-[#8b2a1a]' : 'bg-transparent text-black hover:bg-black/10'}`}
+          title={sequencer.lang === 'pt' ? (isSplitMode ? 'Colar (juntar)' : 'Dividir (tesoura)') : (isSplitMode ? 'Recoller (joindre)' : 'Diviser (ciseau)')}
         >
-          RAS (1/32)
+          {isSplitMode ? <Droplet size={10} className="fill-current" /> : <Scissors size={10} />}
+          {isSplitMode ? (sequencer.lang === 'pt' ? 'COLAR' : 'COLLER') : (sequencer.lang === 'pt' ? 'DIVIDIR' : 'DIVISER')}
         </button>
       </div>
 
