@@ -52,8 +52,9 @@ export const WindowPortal: React.FC<WindowPortalProps> = ({
     };
     copyStyles();
 
-    // Copy tailwind/darkmode class from documentElement
+    // Copy tailwind/darkmode class and data-theme from documentElement
     newWindow.document.documentElement.className = document.documentElement.className;
+    newWindow.document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') || '');
     // Copy the style attribute to sync CSS variables
     newWindow.document.documentElement.setAttribute('style', document.documentElement.getAttribute('style') || '');
 
@@ -68,11 +69,12 @@ export const WindowPortal: React.FC<WindowPortalProps> = ({
       });
       // Sync document element attributes if needed
       newWindow.document.documentElement.className = document.documentElement.className;
+      newWindow.document.documentElement.setAttribute('data-theme', document.documentElement.getAttribute('data-theme') || '');
       newWindow.document.documentElement.setAttribute('style', document.documentElement.getAttribute('style') || '');
     });
     
     observer.observe(document.head, { childList: true });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] });
 
     // Handle closing the new window by the user
     newWindow.addEventListener('beforeunload', () => {
