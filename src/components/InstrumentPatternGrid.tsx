@@ -626,8 +626,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
   }, [isMultiSelectActive, selectedStepIndices, setSelectedStepIndices]);
 
-  const handleStepMouseDownMulti = React.useCallback((e: React.MouseEvent | React.TouchEvent, index: number) => {
-    if (!isMultiSelectActive) return;
+  const handleStepMouseDownMulti = React.useCallback((e: React.MouseEvent | React.TouchEvent, index: number, forceActive = false) => {
+    if (!isMultiSelectActive && !forceActive) return;
     if ('button' in e && e.button !== 0) return;
     isSelectingRef.current = true;
     hasDraggedRef.current = false;
@@ -636,14 +636,33 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     const wasSel = selectedStepIndices.includes(index);
     wasSelectedRef.current = wasSel;
 
-    if (e.ctrlKey || e.metaKey || e.shiftKey) {
-      if (!wasSel) {
+    if (e.shiftKey) {
+      if (selectedStepIdx !== null) {
+        const start = Math.min(selectedStepIdx, index);
+        const end = Math.max(selectedStepIdx, index);
+        const rangeIndices = Array.from({ length: end - start + 1 }, (_, k) => start + k);
+        
+        if (e.ctrlKey || e.metaKey) {
+          setSelectedStepIndices(prev => Array.from(new Set([...prev, ...rangeIndices])));
+        } else {
+          setSelectedStepIndices(rangeIndices);
+        }
+      } else {
+        setSelectedStepIndices([index]);
+        setSelectedStepIdx(index);
+      }
+    } else if (e.ctrlKey || e.metaKey) {
+      if (wasSel) {
+        setSelectedStepIndices(prev => prev.filter(i => i !== index));
+      } else {
         setSelectedStepIndices(prev => [...prev, index]);
       }
+      setSelectedStepIdx(index);
     } else {
       setSelectedStepIndices([index]);
+      setSelectedStepIdx(index);
     }
-  }, [isMultiSelectActive, selectedStepIndices, setSelectedStepIndices]);
+  }, [isMultiSelectActive, selectedStepIndices, selectedStepIdx, setSelectedStepIndices, setSelectedStepIdx]);
 
   const handleStepMouseEnterMulti = React.useCallback((index: number) => {
     if (!isMultiSelectActive || !isSelectingRef.current) return;
@@ -686,8 +705,20 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     setSelectedPatternId(pattern.id);
     setSelectedVariationId(null);
 
+    const isModifier = e.shiftKey || e.ctrlKey || e.metaKey;
+
+    if (isModifier) {
+      if (!isMultiSelectActive) {
+        setIsMultiSelectActive(true);
+      }
+      handleStepMouseDownMulti(e, idx, true);
+      return;
+    }
+
     if (isMultiSelectActive) {
-      handleStepMouseDownMulti(e, idx);
+      setIsMultiSelectActive(false);
+      setSelectedStepIndices([idx]);
+      setSelectedStepIdx(idx);
       return;
     }
 
@@ -710,18 +741,6 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
       } else {
         handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
-      }
-      return;
-    }
-
-    if (e.shiftKey) {
-      e.preventDefault();
-      if (selectedStepIdx !== null) {
-        const start = Math.min(selectedStepIdx, idx);
-        const end = Math.max(selectedStepIdx, idx);
-        const rangeIndices = Array.from({ length: end - start + 1 }, (_, k) => start + k);
-        setSelectedStepIndices(rangeIndices);
-        setSelectedStepIdx(idx);
       }
       return;
     }
@@ -985,6 +1004,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       ) {
         return;
       }
+
+      if (e.ctrlKey || e.metaKey) return;
 
       const key = e.key;
 
