@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "predev": "node scripts/updatePresets.js && node scripts/copyAudio.js && node scripts/optimize-audio.js",
-    "dev": "vite --port=5173 --host=0.0.0.0",
+    "dev": "vite --port=5174 --host=0.0.0.0",
     "prebuild": "node scripts/updatePresets.js && node scripts/copyAudio.js && node scripts/optimize-audio.js",
     "build": "vite build",
     "preview": "vite preview",

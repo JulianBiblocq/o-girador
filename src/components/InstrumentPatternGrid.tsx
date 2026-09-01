@@ -46,8 +46,9 @@ interface InstrumentPatternGridProps {
     stepIdx: number,
     instId: string,
     currentVal: string | number,
-    onSelect: (val: string) => void,
-    trackId: number
+    onSelect: (val: string, merge?: boolean) => void,
+    trackId: number,
+    isSplit?: boolean
   ) => void;
   onCopyPattern?: (pattern: any) => void;
   onPastePattern?: (patternId: number) => void;
@@ -659,9 +660,11 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         valToEdit = subIndex !== undefined ? currentVal[subIndex] : currentVal[0];
       }
       
-      onStepTouchStart(e, pattern.id, stepIdx, instrument.id, valToEdit as string | number, (newVal) => {
+      onStepTouchStart(e, pattern.id, stepIdx, instrument.id, valToEdit as string | number, (newVal, merge?: boolean) => {
         let finalVal: string | [string, string] = Array.isArray(newVal) ? newVal as [string, string] : String(newVal);
-        if (subIndex !== undefined && Array.isArray(currentVal)) {
+        if (merge) {
+          finalVal = String(newVal);
+        } else if (subIndex !== undefined && Array.isArray(currentVal)) {
           finalVal = [...currentVal] as [string, string];
           finalVal[subIndex] = String(newVal);
         }
@@ -671,7 +674,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         } else {
           handleTrackStepValueChange(trackId, pattern.id, stepIdx, finalVal);
         }
-      }, trackId);
+      }, trackId, Array.isArray(currentVal));
     }
   }, [onStepTouchStart, pattern.id, instrument.id, selectedVariationId, trackId, handleVariationStepValueChange, handleTrackStepValueChange]);
 
@@ -1107,11 +1110,15 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       if (selectedStepIndices.includes(tappedIdx) && selectedStepIndices.length > 0) {
         const stepVal = pattern?.activeSteps?.[tappedIdx];
         if (onStepTouchStart) {
-          onStepTouchStart(e, pattern.id, tappedIdx, instrument.id, stepVal, (newVal) => {
+          onStepTouchStart(e, pattern.id, tappedIdx, instrument.id, stepVal as string | number, (newVal, merge?: boolean) => {
+            let finalVal = newVal;
+            if (merge) {
+              finalVal = String(newVal);
+            }
             if (selectedVariationId) {
-              handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, selectedStepIndices, newVal);
+              handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, selectedStepIndices, finalVal);
             } else {
-              handleTrackStepValueChange(trackId, pattern.id, selectedStepIndices, newVal);
+              handleTrackStepValueChange(trackId, pattern.id, selectedStepIndices, finalVal);
             }
             setSelectedStepIndices([]);
           }, trackId);

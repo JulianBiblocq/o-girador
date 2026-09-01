@@ -198,7 +198,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     if (el) {
       // 🛡️ Performance / CPU impact check: Clamping scrollLeft programmatically 
       // avoids layout shifts, double-commit loops and layout thrashing (Reflow/Paint)
-      const maxScrollLeft = Math.max(0, totalMeasures * currentMeasureW - (el.clientWidth - HEADER_W));
+      const maxScrollLeft = Math.max(0, totalMeasures * currentMeasureW + 150 - (el.clientWidth - HEADER_W));
       if (el.scrollLeft > maxScrollLeft) {
         el.scrollLeft = maxScrollLeft;
       }
@@ -2034,17 +2034,6 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             >
               <button
                 onClick={() => {
-                  const newTotal = Math.max(1, totalMeasures - 1);
-                  onTotalMeasuresChange(newTotal);
-                }}
-                className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] flex items-center justify-center gap-1 w-1/2"
-                title={lang === 'fr' ? 'Retirer une mesure' : 'Remover compasso'}
-                style={{ height: '28px' }}
-              >
-                <span>➖</span>
-              </button>
-              <button
-                onClick={() => {
                   const newTotal = Math.min(64, totalMeasures + 1);
                   if (newTotal > 20 && !hasAccess('mestre')) {
                     setShowSubModal(true);
@@ -2052,7 +2041,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                     onTotalMeasuresChange(newTotal);
                   }
                 }}
-                className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] flex items-center justify-center gap-1 w-1/2"
+                className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] flex items-center justify-center gap-1 w-full"
                 title={lang === 'fr' ? 'Ajouter une mesure' : 'Adicionar compasso'}
                 style={{ height: '28px' }}
               >

@@ -45,6 +45,7 @@ interface WizardState {
   selectedSignIds: string[]; // Multi-selection array of Signes/Blasons
   songInfo: SongInfo;
   bpm: number;
+  timeSig: string;
   
   setIntroModalOpen: (open: boolean) => void;
   setWizardOpen: (open: boolean) => void;
@@ -64,6 +65,7 @@ interface WizardState {
   setSelectedBasePatternId: (id: string | null) => void;
   updateSongInfo: (field: keyof SongInfo, value: string) => void;
   setBpm: (bpm: number) => void;
+  setTimeSig: (timeSig: string) => void;
   
   resetWizard: () => void;
 }
@@ -98,6 +100,7 @@ export const useWizardStore = create<WizardState>((set) => ({
     youtubeUrl: '',
   },
   bpm: 100,
+  timeSig: '4/4',
   
   setIntroModalOpen: (isIntroModalOpen) => set({ isIntroModalOpen }),
   setWizardOpen: (isWizardOpen) => set({ isWizardOpen }),
@@ -145,6 +148,7 @@ export const useWizardStore = create<WizardState>((set) => ({
     }
   })),
   setBpm: (bpm) => set({ bpm }),
+  setTimeSig: (timeSig) => set({ timeSig }),
   
   resetWizard: () => set({
     isIntroModalOpen: false,
@@ -174,5 +178,6 @@ export const useWizardStore = create<WizardState>((set) => ({
       youtubeUrl: '',
     },
     bpm: 100,
+    timeSig: '4/4',
   }),
 }));

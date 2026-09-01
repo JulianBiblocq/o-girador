@@ -296,10 +296,27 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
 
           <div className="relative flex items-center" ref={dropdownRef}>
             <button
-              onClick={() => setInstDropdownOpen(!instDropdownOpen)}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (track.isBusFolder && !isToada && !track.isLinkFolder && !track.linkedToTrackId) {
+                  useSequencerStore.getState().handleToggleFoldBus(String(track.id));
+                  return;
+                }
+                let targetId = track.id;
+                if (track.isLinkFolder || (track.linkedToTrackId && !track.isLinkFolder)) {
+                   const masterTrack = track.isLinkFolder
+                     ? tracks.find(t => String(t.linkedToTrackId) === String(track.id) && t.isLinkMaster)
+                     : (track.linkedToTrackId ? tracks.find(t => t.id === parseInt(track.linkedToTrackId!, 10)) : null);
+                   if (masterTrack) targetId = masterTrack.id;
+                } else if (isToada) {
+                   const coro = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+                   if (coro) targetId = coro.id;
+                }
+                onOpenDetailEditor(targetId);
+              }}
               className="flex items-center justify-between gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-[11px] cursor-pointer transition-colors w-[110px] sm:w-[120px]"
               style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
-              title={linkedSlavesTooltip}
+              title={lang === 'pt' ? 'Editar instrumento' : 'Éditer l\'instrument'}
             >
               <img
                 src={`${ASSETS_BASE_URL}${inst.iconImg}`}
@@ -313,79 +330,43 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                 {index + 1}. {displayName.split(' ')[0]}
                 {displayName.indexOf(' ') !== -1 && <><br/>{displayName.substring(displayName.indexOf(' ') + 1)}</>}
               </span>
-              <span className="text-[8px] flex-shrink-0">▼</span>
+              {(!track.isBusFolder || isToada || track.isLinkFolder) && (
+                <span className="flex-shrink-0 opacity-70"><XiloChisel size={11} /></span>
+              )}
             </button>
-            {/* 1. Éditeur détaillé pour les pistes normales (non esclaves, hors Toada) */}
-            {onOpenDetailEditor && !track.isBusFolder && !track.linkedToTrackId && !isToada && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenDetailEditor(track.id); 
-                }}
-                className="ml-1 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]"
-                title={lang === 'pt' ? 'Editor detalhado' : 'Éditeur détaillé'}
-              >
-                <XiloChisel size={13} />
-              </button>
-            )}
-
-            {/* 2. Éditeur Master pour les pistes esclaves ou dossiers de liens */}
-            {(track.isLinkFolder || (track.linkedToTrackId && !track.isLinkFolder)) && (() => {
-              const masterTrack = track.isLinkFolder
-                ? tracks.find(t => String(t.linkedToTrackId) === String(track.id) && t.isLinkMaster)
-                : (track.linkedToTrackId ? tracks.find(t => t.id === parseInt(track.linkedToTrackId!, 10)) : null);
-              const masterId = masterTrack?.id;
-              if (masterId === undefined) return null;
-
-              return (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onOpenDetailEditor(masterId);
-                  }}
-                  className="ml-1 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]"
-                  title={lang === 'pt' ? 'Editar instrument principal (Master)' : 'Éditer l\'instrument maître (Master)'}
-                >
-                  <XiloChisel size={13} />
-                </button>
-              );
-            })()}
-
-            {/* 3. Exception Toada -> Ouvre l'éditeur de la piste 'Coro' */}
-            {isToada && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const coro = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-                  if (coro) {
-                    onOpenDetailEditor(coro.id);
-                  }
-                }}
-                className="ml-1 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]"
-                title={lang === 'pt' ? 'Editor de vozes (Coro)' : 'Éditeur de voix (Chœur)'}
-              >
-                <XiloChisel size={13} />
-              </button>
-            )}
-
-            {/* 4. Bouton plier/déplier pour les dossiers de bus normaux (hors Toada, hors dossiers de liens) */}
-            {track.isBusFolder && !isToada && !track.isLinkFolder && !track.linkedToTrackId && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setTimeout(() => {
-                    useSequencerStore.getState().handleToggleFoldBus(String(track.id));
-                  }, 10);
-                }}
-                className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] font-bold text-xs"
-                title={track.isFolded ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar')}
-              >
-                {track.isFolded ? '▼' : '▶'}
-              </button>
-            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setInstDropdownOpen(!instDropdownOpen);
+              }}
+              className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]"
+              title={lang === 'pt' ? 'Mudar instrumento' : 'Changer d\'instrument'}
+            >
+              ▼
+            </button>
 
             {instDropdownOpen && (
               <div className="absolute top-7 left-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-shadow min-w-[180px] max-h-[220px] overflow-y-auto z-[99]">
+                <div
+                  onClick={() => {
+                    const isBus = track.isBusFolder;
+                    const childTracks = tracks.filter(t => String(t.busId) === String(trackId));
+                    if (isBus && childTracks.length > 0) {
+                      const confirmMsg = lang === 'fr' 
+                        ? "Attention, si vous supprimez ce bus, toutes les pistes audio qui sont à l'intérieur seront supprimées également. Voulez-vous continuer ?" 
+                        : lang === 'pt'
+                        ? "Atenção: se você excluir este bus, todas as pistas de áudio dentro dele também serão excluídas. Deseja continuar?"
+                        : "Warning: if you delete this bus, all audio tracks inside will also be deleted. Do you want to continue?";
+                      if (!window.confirm(confirmMsg)) return;
+                    }
+                    onDelete();
+                    setInstDropdownOpen(false);
+                  }}
+                  className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold text-[#8b2a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]"
+                >
+                  <span className="w-5 text-center">🗑️</span>
+                  <span>{lang === 'fr' ? 'Supprimer la piste' : lang === 'pt' ? 'Excluir pista' : 'Delete track'}</span>
+                </div>
                 {instrumentsConfig.map((opt, oIdx) => (
                   <div
                     key={opt.id}
@@ -406,26 +387,6 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                     <span>{opt.name}</span>
                   </div>
                 ))}
-                <div
-                  onClick={() => {
-                    const isBus = track.isBusFolder;
-                    const childTracks = tracks.filter(t => String(t.busId) === String(trackId));
-                    if (isBus && childTracks.length > 0) {
-                      const confirmMsg = lang === 'fr' 
-                        ? "Attention, si vous supprimez ce bus, toutes les pistes audio qui sont à l'intérieur seront supprimées également. Voulez-vous continuer ?" 
-                        : lang === 'pt'
-                        ? "Atenção: se você excluir este bus, todas as pistas de áudio dentro dele também serão excluídas. Deseja continuar?"
-                        : "Warning: if you delete this bus, all audio tracks inside will also be deleted. Do you want to continue?";
-                      if (!window.confirm(confirmMsg)) return;
-                    }
-                    onDelete();
-                    setInstDropdownOpen(false);
-                  }}
-                  className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold text-[#8b2a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]"
-                >
-                  <span className="w-5 text-center">✕</span>
-                  <span>{lang === 'fr' ? 'Supprimer la piste' : lang === 'pt' ? 'Excluir pista' : 'Delete track'}</span>
-                </div>
               </div>
             )}
           </div>

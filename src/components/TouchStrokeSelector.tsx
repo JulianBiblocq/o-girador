@@ -19,9 +19,10 @@ export interface TouchSelectorState {
   x: number;
   y: number;
   currentVal: string | number;
-  onSelect: (val: string | [string, string]) => void;
+  onSelect: (val: string | [string, string], merge?: boolean) => void;
   isStickyDefault?: boolean;
   trackId: number;
+  isSplit?: boolean;
 }
 
 interface TouchStrokeSelectorProps {
@@ -322,8 +323,15 @@ const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
   const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 640;
   const bubbleWidth = Math.min(270, screenWidth - 24);
   const bubbleHeight = 150; // approximate height of the bubble
-  const leftPos = Math.max(bubbleWidth / 2 + 12, Math.min(screenWidth - bubbleWidth / 2 - 12, selector.x));
-  const arrowOffset = selector.x - leftPos;
+  
+  // Bring the popup slightly closer to the center of the screen to avoid edge awkwardness
+  const idealX = (selector.x * 0.6) + (screenWidth * 0.4); 
+  const leftPos = Math.max(bubbleWidth / 2 + 12, Math.min(screenWidth - bubbleWidth / 2 - 12, idealX));
+  
+  // Clamp the arrow offset so it never detaches from the bubble
+  const maxArrowOffset = bubbleWidth / 2 - 20; // 20px from edge
+  const rawArrowOffset = selector.x - leftPos;
+  const arrowOffset = Math.max(-maxArrowOffset, Math.min(maxArrowOffset, rawArrowOffset));
 
   // Collision detection for top of screen
   const isTooHigh = selector.y - bubbleHeight - 15 < 0;
@@ -354,7 +362,8 @@ const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
       {/* Popover Bubble Container */}
       <div 
         id="touch-stroke-selector-bubble"
-        className="flex flex-col gap-1.5 p-2 bg-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[4px_4px_0_#1a1a1a] pointer-events-auto select-none rounded-none max-w-[270px] min-w-[210px] items-center"
+        className="flex flex-col gap-1.5 p-2 bg-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[4px_4px_0_#1a1a1a] pointer-events-auto select-none rounded-none items-center"
+        style={{ width: `${bubbleWidth}px` }}
       >
         {/* Helper translation header */}
         <span className="text-[10px] font-bold border-b border-[#1a1a1a]/25 pb-1 mb-1 text-center text-[#1a1a1a] uppercase tracking-wider font-cactus w-full">
@@ -476,20 +485,36 @@ const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
             </button>
           )}
 
-          {/* Split Button (Scissors) */}
-          <button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const defaultStroke = allChoices[0];
-              selector.onSelect([defaultStroke, defaultStroke]);
-              onClose();
-            }}
-            className="w-11 h-11 flex items-center justify-center font-cactus font-black text-lg border-2 border-[#1a1a1a] bg-[#f1c40f] text-black shadow-[2px_2px_0px_#1a1a1a] hover:bg-black hover:text-[#f1c40f] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer select-none"
-            title={lang === 'fr' ? 'Diviser en triples croches' : 'Dividir em semicolcheias'}
-          >
-            ✂️
-          </button>
+          {/* Split / Glue Button */}
+          {selector.isSplit ? (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                // We pass merge = true
+                selector.onSelect(selector.currentVal, true);
+                onClose();
+              }}
+              className="w-11 h-11 flex items-center justify-center font-cactus font-black text-lg border-2 border-[#1a1a1a] bg-[#3498db] text-white shadow-[2px_2px_0px_#1a1a1a] hover:bg-black hover:text-[#3498db] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer select-none"
+              title={lang === 'fr' ? 'Recoller en croche' : 'Juntar em colcheia'}
+            >
+              💧
+            </button>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const defaultStroke = allChoices[0];
+                selector.onSelect([defaultStroke, defaultStroke]);
+                onClose();
+              }}
+              className="w-11 h-11 flex items-center justify-center font-cactus font-black text-lg border-2 border-[#1a1a1a] bg-[#f1c40f] text-black shadow-[2px_2px_0px_#1a1a1a] hover:bg-black hover:text-[#f1c40f] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer select-none"
+              title={lang === 'fr' ? 'Diviser en doubles croches' : 'Dividir em semicolcheias'}
+            >
+              ✂️
+            </button>
+          )}
         </div>
       </div>
 

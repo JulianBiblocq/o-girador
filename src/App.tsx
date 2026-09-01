@@ -460,8 +460,9 @@ export default function App() {
     stepIdx: number,
     instId: string,
     currentVal: string | number | [string, string],
-    onSelect: (val: string | [string, string]) => void,
-    trackId: number
+    onSelect: (val: string | [string, string], merge?: boolean) => void,
+    trackId: number,
+    isSplit?: boolean
   ) => {
     if ('button' in e && e.button !== 0) return;
     
@@ -489,10 +490,11 @@ export default function App() {
       instId,
       x: clickX,
       y: clickY,
-      currentVal,
+      currentVal: currentVal as string | number,
       onSelect,
       isStickyDefault: e.type !== 'touchstart',
-      trackId
+      trackId,
+      isSplit
     });
     setHoveredStroke(String(currentVal));
   }, []);
@@ -632,7 +634,7 @@ export default function App() {
 
         presetFiles={presetFiles}
         localPresets={localPresets}
-        onStepTouchStart={(e, pId, sIdx, iId, cur, onSel, tId?: number) => handleStepTouchStart(e, pId, sIdx, iId, cur, onSel, tId !== undefined ? tId : 0)}
+        onStepTouchStart={(e, pId, sIdx, iId, cur, onSel, tId?: number, isSplit?: boolean) => handleStepTouchStart(e, pId, sIdx, iId, cur, onSel, tId !== undefined ? tId : 0, isSplit)}
         activeRightPanel={activeRightPanel}
         onToggleRightPanel={handleToggleRightPanel}
       />

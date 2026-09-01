@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useTransportStore } from '../stores/useTransportStore';
@@ -22,6 +22,41 @@ const getVoiceDurationLabel = (val: number, lang: string): string => {
   if (val <= 80) return lang === 'fr' ? '1 blanche (2 temps)' : '1 mínima (2 tempos)';
   if (val <= 90) return lang === 'fr' ? '3 temps (12 pas)' : '3 tempos';
   return lang === 'fr' ? '1 ronde (4 temps)' : '1 semibreve (4 tempos)';
+};
+
+const EditableNumber = ({ value, suffix = "", min = 0, max = 100, onChange, className = "" }: any) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempVal, setTempVal] = useState(String(value));
+
+  if (isEditing) {
+    return (
+      <input
+        type="number"
+        value={tempVal}
+        autoFocus
+        onChange={e => setTempVal(e.target.value)}
+        onBlur={() => {
+          let num = parseInt(tempVal);
+          if (!isNaN(num)) onChange(Math.max(min, Math.min(max, num)));
+          setIsEditing(false);
+        }}
+        onKeyDown={e => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+          if (e.key === 'Escape') setIsEditing(false);
+        }}
+        className={`w-12 text-right bg-[#eaddcf] border border-[#1a1a1a] text-[#1a1a1a] outline-none text-[10px] p-0 rounded-sm shadow-inner font-bold ${className}`}
+      />
+    );
+  }
+  return (
+    <span 
+      onClick={() => { setTempVal(String(value)); setIsEditing(true); }} 
+      className={`cursor-pointer hover:underline decoration-dashed underline-offset-2 ${className}`}
+      title="Tap to edit"
+    >
+      {value > 0 && min < 0 ? `+${value}` : value}{suffix}
+    </span>
+  );
 };
 
 interface InstrumentEffectsProps {
@@ -140,9 +175,21 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
             const currVol = effectiveVolumes?.[selectedStepIdx] ?? 80;
             return (
               <>
-                <div className="flex justify-between text-[10px] font-bold">
+                <div className="flex justify-between text-[10px] font-bold items-center">
                   <span>🔊 Volume</span>
-                  <span>{currVol}%</span>
+                  <EditableNumber 
+                    value={currVol} 
+                    suffix="%" 
+                    min={0} 
+                    max={100} 
+                    onChange={(val: number) => {
+                      if (selectedVariationId) {
+                        handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, val);
+                      } else {
+                        handleTrackStepVolumeChange(trackId, pattern.id, targets, val);
+                      }
+                    }} 
+                  />
                 </div>
                 <input 
                   type="range"
@@ -177,16 +224,28 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
             const currDecay = effectiveDecays?.[selectedStepIdx] ?? (isVoice ? 10 : 100);
             return (
               <>
-                <div className="flex justify-between text-[10px] font-bold">
+                <div className="flex justify-between text-[10px] font-bold items-center">
                   {isVoice ? (
                     <>
-                      <span>⏳ {lang === 'fr' ? 'Durée de la note' : 'Duração da nota'}</span>
+                      <span>⏱️ {lang === 'fr' ? 'Durée de la note' : 'Duração da nota'}</span>
                       <span>{getVoiceDurationLabel(currDecay, lang)}</span>
                     </>
                   ) : (
                     <>
-                      <span>⏳ {lang === 'fr' ? 'Résonance' : 'Ressonância'} (Decay)</span>
-                      <span>{currDecay}%</span>
+                      <span>🎛️ {lang === 'fr' ? 'Résonance' : 'Ressonância'} (Decay)</span>
+                      <EditableNumber 
+                        value={currDecay} 
+                        suffix="%" 
+                        min={10} 
+                        max={100} 
+                        onChange={(val: number) => {
+                          if (selectedVariationId) {
+                            handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, val);
+                          } else {
+                            handleTrackStepDecayChange(trackId, pattern.id, targets, val);
+                          }
+                        }} 
+                      />
                     </>
                   )}
                 </div>
@@ -223,11 +282,23 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
 
             return (
               <>
-                <div className="flex justify-between text-[10px] font-bold">
+                <div className="flex justify-between text-[10px] font-bold items-center">
                   <span>⏱️ Micro-timing ({lang === 'fr' ? 'Décalage' : 'Desvio'})</span>
-                  <span>
-                    {totalVal > 0 ? `+${totalVal}` : totalVal}%
-                  </span>
+                  <EditableNumber 
+                    value={totalVal} 
+                    suffix="%" 
+                    min={-100} 
+                    max={100} 
+                    onChange={(newTotal: number) => {
+                      const newManual = newTotal - swingOffset;
+                      const clampedManual = Math.max(-100, Math.min(100, newManual));
+                      if (selectedVariationId) {
+                        handleVariationStepMicrotimingChange?.(trackId, pattern.id, selectedVariationId, targets, clampedManual);
+                      } else {
+                        handleTrackStepMicrotimingChange(trackId, pattern.id, targets, clampedManual);
+                      }
+                    }} 
+                  />
                 </div>
                 <div className="flex items-center gap-2 relative h-6">
                   <span className="text-[8px] font-bold opacity-60 shrink-0">-100%</span>

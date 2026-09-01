@@ -52,6 +52,7 @@ const t = {
     congedier: "Congédier",
     fondation: "1. La Fondation Rythmique",
     rythmeClassique: "Démarrer avec un rythme classique :",
+    signatureRythmique: "Signature Rythmique :",
     vierge: "Aucun (Roda vierge)",
     jeuAlfaias: "2. Le Jeu des Alfaias",
     commentAlfaias: "Comment jouent les Alfaias ?",
@@ -107,6 +108,7 @@ const t = {
     congedier: "Dispensar",
     fondation: "1. A Fundação Rítmica",
     rythmeClassique: "Iniciar com um ritmo clássico :",
+    signatureRythmique: "Fórmula de Compasso :",
     vierge: "Nenhum (Roda vazia)",
     jeuAlfaias: "2. O Jogo das Alfaias",
     commentAlfaias: "Como as Alfaias devem tocar ?",
@@ -187,6 +189,8 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
   const updateSongInfo = useWizardStore((state) => state.updateSongInfo);
   const bpm = useWizardStore((state) => state.bpm);
   const setBpm = useWizardStore((state) => state.setBpm);
+  const timeSig = useWizardStore((state) => state.timeSig);
+  const setTimeSig = useWizardStore((state) => state.setTimeSig);
 
   const sequencer = useSequencer();
 
@@ -684,6 +688,9 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
     sequencer.pushUndoState();
     sequencer.handleClear();
     sequencer.setBpm(bpm);
+    if (sequencer.setTimeSig) {
+      sequencer.setTimeSig(timeSig as any);
+    }
 
     const cleanMetadata = {
       toada: songInfo.toadaName,
@@ -1246,7 +1253,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
             <h3 className="font-cactus text-lg md:text-xl font-bold text-[#8b2a1a] uppercase tracking-wider border-b border-[#1a1a1a]/20 pb-1">
               {t[wizardLang].fondation}
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] md:text-xs font-cactus font-bold uppercase text-[#1a1a1a]/70">
                   {t[wizardLang].rythmeClassique}
@@ -1260,6 +1267,23 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
                   <option value="luanda">Baque Luanda</option>
                   <option value="trovao">Baque Trovão</option>
                   <option value="martelo">Baque Martelo</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] md:text-xs font-cactus font-bold uppercase text-[#1a1a1a]/70">
+                  {t[wizardLang].signatureRythmique}
+                </label>
+                <select
+                  value={timeSig}
+                  onChange={(e) => setTimeSig(e.target.value)}
+                  className="w-full bg-[#ece4d0] border-2 border-[#1a1a1a] p-2.5 font-cactus font-bold text-xs uppercase tracking-wider text-[#1a1a1a] focus:outline-none focus:border-[#8b2a1a] shadow-[2px_2px_0_rgba(0,0,0,1)] cursor-pointer"
+                >
+                  <option value="4/4">4/4</option>
+                  <option value="3/4">3/4</option>
+                  <option value="2/4">2/4</option>
+                  <option value="6/8">6/8</option>
+                  <option value="12/8">12/8</option>
                 </select>
               </div>
 
@@ -1335,8 +1359,8 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
               </label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 {[
-                  { id: 'maracatu', name: 'Balanço Maracatu' },
-                  { id: 'custom', name: 'Balanço Custom' },
+                  { id: 'maracatu', name: wizardLang === 'fr' ? 'Swing Maracatu' : 'Balanço Maracatu' },
+                  { id: 'custom', name: wizardLang === 'fr' ? 'Swing Personnalisé' : 'Balanço Custom' },
                   { id: 'off', name: wizardLang === 'fr' ? 'Sans Swing (Droit)' : 'Sem Balanço' },
                 ].map((sw) => (
                   <button

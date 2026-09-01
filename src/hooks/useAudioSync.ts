@@ -2172,30 +2172,28 @@ export function useAudioSync({
                 try { distortionSends[t.id].gain.value = targetDistDb; } catch (_) {}
               }
 
-              // Reconnecter la sortie du bus de dossier (post-fader)
+              lastAppliedTracksParamsRef.current[t.id] = paramHash;
+            }
+
+            // Always ensure routing is correct (outside of paramHash check)
+            const currentBusId = t.busId || null;
+            if (lastAppliedBussesRef.current[t.id] !== currentBusId) {
               busChannels[t.id].disconnect();
               
-              const currentBusId = t.busId || null;
               if (currentBusId && busChannels[currentBusId]) {
                 busChannels[t.id].connect(busChannels[currentBusId]);
               } else {
                 busChannels[t.id].connect(masterVolumeNode!);
               }
               
-              busChannels[t.id].connect(busMeters[t.id]!);
-              if (reverbSends[t.id]) {
-                busChannels[t.id].connect(reverbSends[t.id]);
-              }
-              if (distortionSends[t.id]) {
-                busChannels[t.id].connect(distortionSends[t.id]);
-              }
-
-              lastAppliedTracksParamsRef.current[t.id] = paramHash;
+              if (reverbSends[t.id]) busChannels[t.id].connect(reverbSends[t.id]);
+              if (distortionSends[t.id]) busChannels[t.id].connect(distortionSends[t.id]);
+              if (busMeters[t.id]) busChannels[t.id].connect(busMeters[t.id]!);
+              
+              lastAppliedBussesRef.current[t.id] = currentBusId;
             }
           }
         });
-
-
 
         // 2. Synchroniser les pistes normales et leur routage vers les Bus
         tracks.forEach((t) => {
@@ -2229,7 +2227,8 @@ export function useAudioSync({
           }
 
           // Always sync the channel mapping with audioEngine using the start of the insert chain
-          audioEngine?.setInstrumentChannel(t.id, inst.id, trackInputs[t.id] || channels[t.id]);
+          const gainNode = trackInputs[t.id] || channels[t.id];
+          audioEngine?.setInstrumentChannel(t.id, inst.id, gainNode);
 
           const gain = Math.max(0.00001, (t.volumeVal ?? 100) / 100);
           const db = t.volumeVal === 0 ? -Infinity : Tone.gainToDb(gain);

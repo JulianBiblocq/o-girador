@@ -1793,7 +1793,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               const delta = val - avgDecay;
                               applyMacroDecayDelta(symbol, delta, val);
                             }}
-                            className="w-full accent-[#8b2a1a] cursor-pointer h-1.5 bg-black/10"
+                            className="w-full accent-amber-500 cursor-pointer h-1.5 bg-black/10"
                           />
                         </div>
                       </div>

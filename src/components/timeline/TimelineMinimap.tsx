@@ -59,7 +59,7 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
     const sliderEl = minimapSliderRef.current;
     const containerEl = minimapContainerRef.current;
     
-    const totalContentWidth = totalMeasures * MEASURE_W;
+    const totalContentWidth = totalMeasures * MEASURE_W + 150;
     const viewportWidth = scrollEl.clientWidth - HEADER_W;
     const minimapWidth = containerEl.clientWidth;
     
@@ -106,7 +106,7 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
     const clickX = clientX - rect.left;
     const minimapWidth = rect.width;
     
-    const totalContentWidth = totalMeasures * MEASURE_W;
+    const totalContentWidth = totalMeasures * MEASURE_W + 150;
     if (totalContentWidth <= 0) return;
     const ratio = minimapWidth / totalContentWidth;
     if (ratio <= 0) return;
@@ -174,7 +174,7 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
       const clampedW = Math.max(120, Math.min(960, newW));
       
       React.startTransition(() => {
-        const newC = HEADER_W + totalMeasures * clampedW;
+        const newC = HEADER_W + totalMeasures * clampedW + 150;
         const newScrollLeft = (initialL / M) * newC;
         pendingScrollLeftRef.current = newScrollLeft;
         if (scrollRef.current) {
@@ -248,7 +248,7 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
       const clampedW = Math.max(120, Math.min(960, newW));
       
       React.startTransition(() => {
-        const newC = HEADER_W + totalMeasures * clampedW;
+        const newC = HEADER_W + totalMeasures * clampedW + 150;
         const newScrollLeft = (targetL / M) * newC;
         pendingScrollLeftRef.current = newScrollLeft;
         if (scrollRef.current) {

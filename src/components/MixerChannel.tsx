@@ -399,13 +399,17 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           >
             <GripHorizontal size={18} />
           </div>
-          <button
-            onClick={() => onOpenDetailEditor(trackId)}
-            className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-sm"
-            title={track?.isLinkFolder ? (lang === 'fr' ? 'Éditer les patterns du groupe' : 'Editar padrões do groupe') : 'Éditeur détaillé'}
-          >
-            <XiloChisel size={12} />
-          </button>
+          {track?.isLinkFolder ? null : (
+            <button
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); setInstDropdownOpen(!instDropdownOpen); }}
+              className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-sm"
+              title={lang === 'fr' ? 'Changer d\'instrument' : 'Mudar instrumento'}
+            >
+              ▼
+            </button>
+          )}
           <button 
             onClick={onDelete} 
             className="w-6 h-6 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-sm"
@@ -441,12 +445,15 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
             )
           ) : (
             <div 
-              onClick={() => setInstDropdownOpen(!instDropdownOpen)} 
-              className="flex items-center gap-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-1 py-1 cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors w-full justify-center"
+              onClick={() => onOpenDetailEditor(trackId)} 
+              className="flex items-center gap-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-1 py-1 cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors w-full justify-between"
               title={linkedSlavesTooltip || displayName}
             >
-              <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-4 h-4 object-contain flex-shrink-0" />
-              <span className="font-cactus font-bold text-[9px] truncate">{displayName}</span>
+              <div className="flex items-center gap-1 flex-1 min-w-0">
+                <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-4 h-4 object-contain flex-shrink-0" />
+                <span className="font-cactus font-bold text-[9px] truncate">{displayName}</span>
+              </div>
+              <XiloChisel size={10} className="opacity-70 flex-shrink-0" />
             </div>
           )}
 

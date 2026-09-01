@@ -105,9 +105,11 @@ export const StepEditorPopup: React.FC = () => {
     return null;
   }
 
-  // Calcul du positionnement de la popup (juste sous la cellule, centré ou calé à gauche)
+  // Calcul du positionnement de la popup (juste sous la cellule, centré ou ramené légèrement vers le centre)
+  const popupWidth = 140;
   const top = anchorRect.bottom + window.scrollY + 6;
-  const left = Math.max(10, Math.min(window.innerWidth - 180, anchorRect.left + window.scrollX));
+  const idealX = (anchorRect.left + window.scrollX) * 0.7 + (window.innerWidth / 2 - popupWidth / 2) * 0.3;
+  const left = Math.max(10, Math.min(window.innerWidth - popupWidth - 10, idealX));
 
   const activeStrokesForTrack = track ? getActiveStrokesForTrack(track, tracks) : [];
 

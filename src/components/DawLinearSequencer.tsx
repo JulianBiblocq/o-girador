@@ -6,8 +6,6 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { GripVertical } from 'lucide-react';
 import { useSequencerStore, isLinearDAWVisibleTrack, isToadaBus, isToadaChild } from '../stores/useSequencerStore';
-import { useTimelineEditStore } from '../stores/useTimelineEditStore';
-import { StepEditorPopup } from './StepEditorPopup';
 import { useAudioStore } from '../stores/useAudioStore';
 import { instrumentsConfig, ASSETS_BASE_URL, getVisualStrokeSymbol, NEWTON_NOTE_COLORS, isDarkText } from '../data';
 import { getNextStepValue } from '../utils/instrumentStrokes';
@@ -207,7 +205,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
     };
   }, [isActive, visibleTrackIds]);
 
-  // Handle clicking step cells to open TouchStrokeSelector or StepEditorPopup
+  // Handle clicking step cells to open InstrumentDetailEditor directly (avoids shared pattern confusion)
   const handleStepClick = (e: React.MouseEvent, trackId: number, activePattern: any, inst: any, stepIdx: number, currentVal: any) => {
     e.stopPropagation();
     
@@ -217,33 +215,9 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
       return;
     }
     
-    if (onStepTouchStart) {
-      onStepTouchStart(
-        e,
-        activePattern.id,
-        stepIdx,
-        inst.id,
-        currentVal,
-        (newVal) => {
-          sequencer.handleTrackStepValueChange(trackId, activePattern.id, stepIdx, newVal);
-        },
-        trackId
-      );
-    } else {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const allowedStrokes = Object.keys(inst.colors || {}).filter(k => k !== 'text');
-      
-      useTimelineEditStore.getState().openEditor({
-        activeStepKey: `${trackId}_${currentMeasure - 1}_${stepIdx}`,
-        anchorRect: rect,
-        allowedStrokes,
-        currentVal,
-        trackId,
-        patternId: activePattern.id,
-        measureIdx: currentMeasure - 1,
-        stepIdx
-      });
-    }
+    // NOUVEAU COMPORTEMENT: On ouvre toujours l'éditeur détaillé pour éviter 
+    // la confusion sur les patterns partagés.
+    useSequencerStore.getState().setEditingTrackId(trackId);
   };
 
   // Helper names formatting
@@ -410,12 +384,22 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                       <GripVertical size={16} />
                     </div>
 
-                    {/* Instrument Selector Button */}
+                    {/* Instrument Button (Now opens Editor) */}
                     <div className="relative flex items-center">
                       <button
-                        onClick={() => setDropdownOpenTrackId(isDropdownOpen ? null : track.id)}
+                        onClick={() => {
+                          if (track.isBusFolder && !isToada && !track.isLinkFolder) {
+                            useSequencerStore.getState().handleToggleSequencerFoldBus(String(track.id));
+                            return;
+                          }
+                          const targetTrack = isToada
+                            ? (activeChildTrack || tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador') || track)
+                            : track;
+                          useSequencerStore.getState().setEditingTrackId(targetTrack.id);
+                        }}
                         className="flex items-center justify-between gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-[10px] cursor-pointer transition-colors w-[180px] sm:w-[190px]"
                         style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
+                        title={lang === 'pt' ? 'Editar instrumento' : 'Éditer l\'instrument'}
                       >
                         <img
                           src={`${ASSETS_BASE_URL}${inst.iconImg}`}
@@ -428,12 +412,24 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                         <span className="font-cactus font-bold text-center leading-normal flex-1 truncate">
                           {trackIdx + 1}. {displayName}
                         </span>
-                        <span className="text-[8px] flex-shrink-0">▼</span>
+                        {(!track.isBusFolder || isToada || track.isLinkFolder) && (
+                          <span className="flex-shrink-0 opacity-70"><XiloChisel size={11} /></span>
+                        )}
                       </button>
 
                       {/* Instrument Selector Dropdown popup */}
                       {isDropdownOpen && (
                         <div className="absolute top-9 left-0 bg-[#f4ecd8] text-[#1a1a1a] cordel-border cordel-shadow min-w-[180px] max-h-[220px] overflow-y-auto z-[9999]">
+                          <div
+                            onClick={() => {
+                              useSequencerStore.getState().handleTrackDelete(track.id);
+                              setDropdownOpenTrackId(null);
+                            }}
+                            className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold text-[#8b2a1a] border-b border-black/10 hover:bg-[#8b2a1a] hover:text-[#f4ecd8]"
+                          >
+                            <span className="w-5 text-center">🗑️</span>
+                            <span>{lang === 'fr' ? 'Supprimer la piste' : 'Excluir pista'}</span>
+                          </div>
                           {instrumentsConfig.map((opt, oIdx) => (
                             <div
                               key={opt.id}
@@ -454,35 +450,18 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                               <span>{opt.name}</span>
                             </div>
                           ))}
-                          <div
-                            onClick={() => {
-                              useSequencerStore.getState().handleTrackDelete(track.id);
-                              setDropdownOpenTrackId(null);
-                            }}
-                            className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold text-[#8b2a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]"
-                          >
-                            <span className="w-5 text-center">✕</span>
-                            <span>{lang === 'fr' ? 'Supprimer la piste' : 'Excluir pista'}</span>
-                          </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Detailed Editor Icon */}
-                    {(!track.isBusFolder || isToada || track.isLinkFolder) && (
-                      <button
-                        onClick={() => {
-                          const targetTrack = isToada
-                            ? (activeChildTrack || tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador') || track)
-                            : track;
-                          useSequencerStore.getState().setEditingTrackId(targetTrack.id);
-                        }}
-                        className="ml-1 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]"
-                        title={lang === 'pt' ? 'Editor detalhado' : 'Éditeur détaillé'}
-                      >
-                        <XiloChisel size={13} />
-                      </button>
-                    )}
+                    {/* Dropdown Toggle Icon */}
+                    <button
+                      onClick={() => setDropdownOpenTrackId(isDropdownOpen ? null : track.id)}
+                      className="ml-1 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]"
+                      title={lang === 'pt' ? 'Mudar instrumento' : 'Changer d\'instrument'}
+                    >
+                      ▼
+                    </button>
 
                     {(track.isLinkMaster || isToada) && (
                       <button
@@ -533,13 +512,14 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                         : '';
                       const noteLetter = note ? note.charAt(0).toUpperCase() : '';
 
-                      const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
+                      const visualVal = getVisualStrokeSymbol(Array.isArray(val) ? val[0] : val, isLeftHanded, inst.id);
                       
                       // Resolve lyrics or text symbol for voice track, percussions get letters
                       const syl = isGhostStep
                         ? (masterActivePattern?.lyrics?.[stepIdx] || (val !== 0 && val !== '' ? String(val) : ''))
                         : (activePattern?.lyrics?.[stepIdx] || (val !== 0 && val !== '' ? String(val) : ''));
-                      let displayVal = isVoice ? syl : (visualVal === 0 ? '' : String(visualVal));
+                      
+                      let displayVal = isVoice ? syl : (visualVal === 0 ? '' : (Array.isArray(val) ? val.map(v => getVisualStrokeSymbol(v, isLeftHanded, inst.id)).join('') : String(visualVal)));
 
                       // Zebra timing: alternate background color every 4 steps
                       const beatIndex = Math.floor(stepIdx / 4);
@@ -570,9 +550,10 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                           masterBg = voiceInst.color || '#f4ecd8';
                           masterTxt = '#1a1a1a';
                         } else {
-                          masterBg = inst.colors?.[visualVal as string] || '#111';
+                          const primaryVal = String(visualVal);
+                          masterBg = inst.colors?.[primaryVal] || inst.color || '#111';
                           masterTxt = inst.colors?.text || '#f4ecd8';
-                          if (isDarkText(inst.id, visualVal as string)) {
+                          if (isDarkText(inst.id, primaryVal)) {
                             masterTxt = '#1a1a1a';
                           }
                         }
@@ -686,15 +667,33 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                         }
                       } else {
                         // Normal, unlinked track
-                        isSplit = false;
-                        if (isActiveCell) {
-                          bgColor = masterBg;
-                          txtColor = masterTxt;
+                        if (Array.isArray(val) && val.length === 2) {
+                          isSplit = true;
                           borderStyle = '2px solid #1a1a1a';
-                        } else {
                           bgColor = emptyStepBg;
-                          txtColor = 'rgba(26, 26, 26, 0.4)';
-                          borderStyle = '2px solid rgba(26, 26, 26, 0.2)';
+
+                          const leftVal = getVisualStrokeSymbol(val[0], isLeftHanded, inst.id);
+                          leftBg = inst.colors?.[String(leftVal)] || inst.color || '#111';
+                          leftTxt = isDarkText(inst.id, String(leftVal)) ? '#1a1a1a' : (inst.colors?.text || '#f4ecd8');
+                          leftSym = leftVal === 0 ? '' : String(leftVal);
+                          if (leftVal === 0 || leftVal === '') { leftBg = emptyStepBg; leftTxt = 'transparent'; }
+
+                          const rightVal = getVisualStrokeSymbol(val[1], isLeftHanded, inst.id);
+                          rightBg = inst.colors?.[String(rightVal)] || inst.color || '#111';
+                          rightTxt = isDarkText(inst.id, String(rightVal)) ? '#1a1a1a' : (inst.colors?.text || '#f4ecd8');
+                          rightSym = rightVal === 0 ? '' : String(rightVal);
+                          if (rightVal === 0 || rightVal === '') { rightBg = emptyStepBg; rightTxt = 'transparent'; }
+                        } else {
+                          isSplit = false;
+                          if (isActiveCell) {
+                            bgColor = masterBg;
+                            txtColor = masterTxt;
+                            borderStyle = '2px solid #1a1a1a';
+                          } else {
+                            bgColor = emptyStepBg;
+                            txtColor = 'rgba(26, 26, 26, 0.4)';
+                            borderStyle = '2px solid rgba(26, 26, 26, 0.2)';
+                          }
                         }
                       }
 
@@ -790,7 +789,6 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
           })}
         </div>
       </div>
-      <StepEditorPopup />
     </div>
   );
 };
