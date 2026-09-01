@@ -1449,7 +1449,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             setSelectedStepIdx={setSelectedStepIdx}
                             setSelectedVariationId={setSelectedVariationId}
                             setSelectedStepIndices={setSelectedStepIndices}
-                            handleStepMouseDownMulti={() => {}}
+                            setIsMultiSelectActive={setIsMultiSelectActive}
                             getStepSwingPercent={() => 0}
                             onAddPatternVariation={onAddPatternVariation}
                           />

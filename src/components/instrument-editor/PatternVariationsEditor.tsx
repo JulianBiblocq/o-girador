@@ -32,7 +32,7 @@ interface PatternVariationsEditorProps {
   setSelectedStepIdx: (idx: number | null) => void;
   setSelectedVariationId: (id: string | null) => void;
   setSelectedStepIndices: (indices: number[]) => void;
-  handleStepMouseDownMulti: (e: any, i: number) => void;
+  setIsMultiSelectActive: (val: boolean) => void;
   getStepSwingPercent: (stepIdx: number, steps: number, beatResolutions?: number[]) => number;
   onAddPatternVariation?: (patternId: number) => void;
 }
@@ -59,7 +59,7 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
   setSelectedStepIdx,
   setSelectedVariationId,
   setSelectedStepIndices,
-  handleStepMouseDownMulti,
+  setIsMultiSelectActive,
   getStepSwingPercent,
   onAddPatternVariation,
 }) => {
@@ -182,10 +182,47 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                               e.stopPropagation();
                               if (e.button !== 0) return;
                               setSelectedPatternId(ptn.id);
-                              setSelectedStepIdx(i);
                               setSelectedVariationId(variation.id);
-                              setSelectedStepIndices([]);
-                              if ('shiftKey' in e && e.shiftKey) return;
+
+                              const isModifier = e.shiftKey || e.ctrlKey || e.metaKey;
+                              
+                              if (isModifier) {
+                                if (!isMultiSelectActive) {
+                                  setIsMultiSelectActive(true);
+                                }
+                                if (e.shiftKey) {
+                                  if (selectedStepIdx !== null) {
+                                    const start = Math.min(selectedStepIdx, i);
+                                    const end = Math.max(selectedStepIdx, i);
+                                    const rangeIndices = Array.from({ length: end - start + 1 }, (_, k) => start + k);
+                                    if (e.ctrlKey || e.metaKey) {
+                                      setSelectedStepIndices(Array.from(new Set([...selectedStepIndices, ...rangeIndices])));
+                                    } else {
+                                      setSelectedStepIndices(rangeIndices);
+                                    }
+                                  } else {
+                                    setSelectedStepIndices([i]);
+                                    setSelectedStepIdx(i);
+                                  }
+                                } else if (e.ctrlKey || e.metaKey) {
+                                  if (selectedStepIndices.includes(i)) {
+                                    setSelectedStepIndices(selectedStepIndices.filter(idx => idx !== i));
+                                  } else {
+                                    setSelectedStepIndices([...selectedStepIndices, i]);
+                                  }
+                                }
+                                return;
+                              }
+
+                              if (isMultiSelectActive) {
+                                setIsMultiSelectActive(false);
+                                setSelectedStepIndices([i]);
+                                setSelectedStepIdx(i);
+                                return;
+                              }
+
+                              setSelectedStepIdx(i);
+                              setSelectedStepIndices([i]);
                               if (onStepTouchStart) {
                                 onStepTouchStart(e, ptn.id, i, inst.id, val, (newVal) => {
                                   onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, newVal);
@@ -198,13 +235,17 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                               setSelectedVariationId(variation.id);
 
                               if (isMultiSelectActive) {
-                                handleStepMouseDownMulti(e as any, i);
+                                // Touch multi-select logic
+                                if (selectedStepIndices.includes(i)) {
+                                  setSelectedStepIndices(selectedStepIndices.filter(idx => idx !== i));
+                                } else {
+                                  setSelectedStepIndices([...selectedStepIndices, i]);
+                                }
                                 return;
                               }
 
                               setSelectedStepIdx(i);
-                              setSelectedStepIndices([]);
-                              if ('shiftKey' in e && e.shiftKey) return;
+                              setSelectedStepIndices([i]);
                               if (onStepTouchStart) {
                                 onStepTouchStart(e, ptn.id, i, inst.id, val, (newVal) => {
                                   onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, newVal);
