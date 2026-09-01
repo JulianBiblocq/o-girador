@@ -47,10 +47,10 @@ export async function savePresetToCloud(
   const dataString = LZString.compressToBase64(JSON.stringify(presetToSave));
   
   const docData: any = {
-    name,
+    name: name || "Preset Sans Nom",
     data: dataString,
-    ownerId,
-    visibility,
+    ownerId: ownerId || "",
+    visibility: visibility || "private",
     targetUserId: targetUserId || null,
     mestreId: mestreId || null,
     updatedAt: Date.now()

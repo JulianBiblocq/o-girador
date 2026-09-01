@@ -31,14 +31,14 @@ export async function savePatternToCloud(
   const dataString = LZString.compressToBase64(JSON.stringify(pattern));
   
   const payload = {
-    instrumentId: pattern.instrumentId,
-    name: pattern.name,
-    folder: pattern.folder,
+    instrumentId: pattern.instrumentId || "",
+    name: pattern.name || "Pattern Sans Nom",
+    folder: pattern.folder || "Général",
     data: dataString, // Contains the full SavedPattern
-    ownerId,
-    authorId: ownerId, // Fallback for rules
-    uid: ownerId, // Fallback for rules
-    visibility,
+    ownerId: ownerId || "",
+    authorId: ownerId || "", // Fallback for rules
+    uid: ownerId || "", // Fallback for rules
+    visibility: visibility || "private",
     mestreId: mestreId || null,
     updatedAt: Date.now()
   };

@@ -32,12 +32,12 @@ export async function saveSectionToCloud(
   const dataString = LZString.compressToBase64(JSON.stringify(sectionData));
   
   const payload = {
-    name,
-    data: dataString, // Contains the full SavedSectionData
-    ownerId,
-    authorId: ownerId, // Fallback for rules
-    uid: ownerId, // Fallback for rules
-    visibility,
+    name: name || "Section Sans Nom",
+    data: dataString,
+    ownerId: ownerId || "",
+    authorId: ownerId || "", // Fallback for rules
+    uid: ownerId || "", // Fallback for rules
+    visibility: visibility || "private",
     mestreId: mestreId || null,
     updatedAt: Date.now()
   };

@@ -11,14 +11,14 @@ export const telemetryService = {
   logError: async (error: Error | string, context: string = 'global', groupId: string = 'anonymous') => {
     try {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : null;
+      const errorStack = error instanceof Error ? (error.stack || null) : null;
 
       await addDoc(collection(db, 'hub_system_errors'), {
         appId: 'sequenceur',
-        groupId: groupId,
-        error: errorMsg,
+        groupId: groupId || 'anonymous',
+        error: errorMsg || 'Unknown error',
         stack: errorStack,
-        context: context,
+        context: context || 'global',
         timestamp: serverTimestamp(),
         resolved: false
       });
