@@ -53,6 +53,7 @@ export interface TrackSlice {
   handleTrackEQChange: (id: number, bands: Partial<TrackGroup['eqBands']>) => void;
   handleTrackEQReset: (id: number) => void;
   handleVocalLatencyChange: (trackId: number, patternId: number, latencyMs: number) => void;
+  setTrackTuning: (trackId: number, tuning: number) => void;
 }
 
 export const isToadaBus = (t: { isBusFolder?: boolean; customName?: string; id?: any }): boolean => {
@@ -94,6 +95,7 @@ export const ensureToadaBus = (list: TrackGroup[]): TrackGroup[] => {
       reverbVal: 0,
       panVal: 0,
       pan: 0,
+      tuning: 0,
       fxSends: { reverb: 0, distortion: 0 }
     };
 
@@ -1674,6 +1676,15 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
         tracksVersion: state.tracksVersion + 1
       };
     });
+  },
+
+  setTrackTuning: (trackId: number, tuning: number) => {
+    set((state) => ({
+      tracks: state.tracks.map(t => 
+        t.id === trackId ? { ...t, tuning } : t
+      ),
+      tracksVersion: state.tracksVersion + 1
+    }));
   },
 
   handleInsertMeasure: (measureIdx) => {

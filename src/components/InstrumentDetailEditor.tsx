@@ -44,6 +44,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { MelodicNoteSelector } from './MelodicNoteSelector';
 import { PatternVariationsEditor } from './instrument-editor/PatternVariationsEditor';
 import { InstrumentEffects } from './InstrumentEffects';
+import { PercussionTuningControl } from './PercussionTuningControl';
 import { InstrumentPatternGrid } from './InstrumentPatternGrid';
 import { XiloChisel, XiloMegaphone } from './XiloIcons';
 import { useCloudAudioBounce } from '../hooks/useCloudAudioBounce';
@@ -1487,6 +1488,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               </h3>
               <p className="text-[10px] text-[#666] mt-0.5">{trackDisplayName}</p>
             </div>
+
+            <PercussionTuningControl trackId={track.id} />
 
             {/* Sculpting Legend */}
             <div className="bg-[#f4ecd8] cordel-border-sm p-2.5 text-[10px] flex flex-col gap-1.5 text-[#1a1a1a]">

@@ -1030,7 +1030,16 @@ export class AudioEngine {
       }
     }
 
-    const calculatedPitch = macroPitch * microPitch;
+    let userTuning = 0;
+    if (trackId !== null) {
+      const t = this.trackLookupMap.get(String(trackId));
+      if (t) {
+        userTuning = t.tuning || 0;
+      }
+    }
+    const userPitchMultiplier = Math.pow(2, userTuning / 12);
+
+    const calculatedPitch = macroPitch * microPitch * userPitchMultiplier;
 
     // 4. Instantiation Native Web Audio API (Faster on slow devices)
     const source = this.audioContext.createBufferSource();

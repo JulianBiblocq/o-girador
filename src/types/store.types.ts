@@ -88,6 +88,7 @@ export interface TrackGroup {
   radius?: number; // visual radius in the roda
   reverbVal?: number;
   panVal?: number; // -100 to 100
+  tuning?: number; // Pitch offset in semitones (-12 to +12)
   pan?: number; // -100 to 100
   swingIntensity?: number; // 0 to 100
   fxSends?: {

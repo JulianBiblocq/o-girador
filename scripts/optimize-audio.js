@@ -10,6 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const TARGET_DIR = path.resolve(__dirname, '../public/Mixdown');
+const CACHE_FILE = path.resolve(TARGET_DIR, '.optimizer-cache.json');
 
 function getAudioFiles(dir, fileList = []) {
   if (!fs.existsSync(dir)) {
@@ -72,14 +73,33 @@ async function optimizeFile(filePath) {
 async function run() {
   console.log(`[AudioOptimizer] Scanning audio files in ${TARGET_DIR}...`);
   const files = getAudioFiles(TARGET_DIR);
-  console.log(`[AudioOptimizer] Found ${files.length} audio files to optimize.`);
+  console.log(`[AudioOptimizer] Found ${files.length} audio files.`);
+  
+  let optimizationCache = {};
+  if (fs.existsSync(CACHE_FILE)) {
+    try {
+      optimizationCache = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+    } catch(e) {}
+  }
   
   let successCount = 0;
+  let skippedCount = 0;
   let failCount = 0;
   
   for (const file of files) {
+    const stat = fs.statSync(file);
+    const cacheKey = `${stat.size}_${stat.mtimeMs}`;
+    const relativePath = path.relative(TARGET_DIR, file);
+    
+    if (optimizationCache[relativePath] === cacheKey) {
+      skippedCount++;
+      continue;
+    }
+    
     try {
       await optimizeFile(file);
+      const newStat = fs.statSync(file);
+      optimizationCache[relativePath] = `${newStat.size}_${newStat.mtimeMs}`;
       successCount++;
     } catch (err) {
       console.error(`[AudioOptimizer] Failed to optimize: ${path.basename(file)}`, err.message || err);
@@ -87,7 +107,8 @@ async function run() {
     }
   }
   
-  console.log(`[AudioOptimizer] Finished. Successfully optimized ${successCount} files. Failed: ${failCount}.`);
+  fs.writeFileSync(CACHE_FILE, JSON.stringify(optimizationCache, null, 2));
+  console.log(`[AudioOptimizer] Finished. Optimized: ${successCount}. Skipped: ${skippedCount}. Failed: ${failCount}.`);
 }
 
 run();

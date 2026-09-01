@@ -1610,7 +1610,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               </p>
                               
                               <button
-                                onClick={() => window.open('tutorial.html', '_blank')}
+                                onClick={() => window.open('/tutorial.html', '_blank')}
                                 className="w-full px-4 py-3 bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold uppercase cursor-pointer hover:bg-[#8b2a1a] hover:text-[#f4ecd8] shadow-[3px_3px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all text-center"
                               >
                                 {lang === 'fr' ? "Ouvrir le Mode d'Emploi" : 'Abrir o Manual'}
