@@ -2163,7 +2163,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           </div>
         </div>
       </div>
-      <div className="absolute top-1 md:top-2 left-1/2 -translate-x-1/2 text-[8px] md:text-[10px] text-[var(--cordel-text)]/70 pointer-events-none select-none font-medium tracking-wide w-full text-center z-20">
+      <div className="absolute top-2 md:top-4 left-1/2 -translate-x-1/2 text-[10px] md:text-[12px] opacity-70 text-[var(--cordel-text)] pointer-events-none select-none font-bold tracking-widest w-full text-center z-50 drop-shadow-md">
         {lang === 'pt' ? 'Criado por Julian Biblocq | Arte: Toni Braga' : 'Créé par Julian Biblocq | Art: Toni Braga'}
       </div>
     </div>
