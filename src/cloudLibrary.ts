@@ -95,6 +95,8 @@ export async function fetchCloudPresets(
     } else {
       // Pour éviter les index composites et ne pas rater de vieux presets avec une limite globale,
       // on lance plusieurs requêtes simples en parallèle et on fusionne les résultats.
+      const myGroupMestreId = userRole === 'mestre' ? userUid : mestreId;
+      
       const queries = [
         getDocs(query(presetsRef, where('ownerId', '==', userUid))),
         getDocs(query(presetsRef, where('visibility', '==', 'admin_global'))),
@@ -102,8 +104,11 @@ export async function fetchCloudPresets(
         getDocs(query(presetsRef, where('targetUserId', '==', userUid)))
       ];
       
-      if (mestreId) {
-        queries.push(getDocs(query(presetsRef, where('ownerId', '==', mestreId))));
+      if (myGroupMestreId) {
+        // Fetch presets owned by the Mestre (which might have mestre_group visibility without explicit mestreId)
+        queries.push(getDocs(query(presetsRef, where('ownerId', '==', myGroupMestreId))));
+        // Fetch presets created by students for this Mestre's group
+        queries.push(getDocs(query(presetsRef, where('mestreId', '==', myGroupMestreId))));
       }
 
       const snapshots = await Promise.all(queries);
@@ -117,7 +122,8 @@ export async function fetchCloudPresets(
             const isAdminGlobal = data.visibility === 'admin_global';
             const isPublic = data.visibility === 'public';
             const isTarget = data.targetUserId === userUid;
-            const isMestreGroup = data.visibility === 'mestre_group' && (userRole === 'mestre' ? data.ownerId === userUid : data.ownerId === mestreId);
+            const isMestreGroup = data.visibility === 'mestre_group' && 
+              (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId);
 
             if (isOwner || isAdminGlobal || isPublic || isTarget || isMestreGroup) {
               uniqueIds.add(docSnap.id);

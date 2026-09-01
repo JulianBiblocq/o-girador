@@ -80,10 +80,12 @@ export async function fetchCloudPatterns(
     
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
+      const myGroupMestreId = userRole === 'mestre' ? userUid : mestreId;
       const isOwner = data.ownerId === userUid;
       const isAdminGlobal = data.visibility === 'admin_global';
       const isPublic = data.visibility === 'public';
-      const isMestreGroup = data.visibility === 'mestre_group' && (data.mestreId === mestreId || data.ownerId === mestreId);
+      const isMestreGroup = data.visibility === 'mestre_group' && 
+        (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId);
       const isSysAdmin = userRole === 'admin';
       
       if (isOwner || isAdminGlobal || isPublic || isMestreGroup || isSysAdmin) {
