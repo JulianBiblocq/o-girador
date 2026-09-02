@@ -1739,7 +1739,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
              >
                 {/* Sélecteur de Zoom */}
-                <div className="flex items-center bg-[var(--cordel-text)]/5 rounded p-0.5 cordel-border-sm w-full max-w-[120px]">
+                <div className="flex items-center bg-[var(--cordel-text)]/5 rounded p-0.5 cordel-border-sm w-full max-w-[160px] pointer-events-auto">
                   <button 
                     onClick={() => {
                       const screenW = typeof window !== 'undefined' ? window.innerWidth : 1200;
@@ -1756,9 +1756,20 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                   >M</button>
                   <button 
                     onClick={() => handleZoom(120)} 
-                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W >= 120 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} cursor-pointer`}
+                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W >= 120 && MEASURE_W <= 240 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} cursor-pointer`}
                     title={lang === 'fr' ? 'Vue proche' : 'Visão próxima'}
                   >S</button>
+                  <button 
+                    onClick={() => {
+                      if (isPlaying) {
+                        alert(lang === 'fr' ? 'La vue macro n\'est pas disponible pendant la lecture pour préserver les performances audio.' : 'A visão macro não está disponível durante a reprodução para preservar o desempenho do áudio.');
+                        return;
+                      }
+                      handleZoom(320);
+                    }} 
+                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W > 240 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} ${isPlaying ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                    title={lang === 'fr' ? 'Vue détaillée (macro)' : 'Visão detalhada (macro)'}
+                  >XL</button>
                 </div>
              </div>
 
