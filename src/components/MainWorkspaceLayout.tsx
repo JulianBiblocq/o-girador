@@ -13,15 +13,17 @@ import { Mixer } from './Mixer';
 import { RightSidebar } from './RightSidebar';
 import { WindowPortal } from './WindowPortal';
 
-// Lazy load views for optimal bundle splitting (Time-to-Interactive reduction)
-const ConsoleMixer = lazy(() => import('./ConsoleMixer').then(m => ({ default: m.ConsoleMixer })));
-const CircleSequencer = lazy(() => import('./CircleSequencer').then(m => ({ default: m.CircleSequencer })));
-const DawLinearSequencer = lazy(() => import('./DawLinearSequencer').then(m => ({ default: m.DawLinearSequencer })));
-const TimelineSequencer = lazy(() => import('./TimelineSequencer').then(m => ({ default: m.TimelineSequencer })));
+import { lazyWithRetry } from '../utils/lazyWithRetry';
+
+// Lazy load views for optimal bundle splitting (Time-to-Interactive reduction) with auto-retry on deploy
+const ConsoleMixer = lazyWithRetry(() => import('./ConsoleMixer').then(m => ({ default: m.ConsoleMixer })), 'ConsoleMixer');
+const CircleSequencer = lazyWithRetry(() => import('./CircleSequencer').then(m => ({ default: m.CircleSequencer })), 'CircleSequencer');
+const DawLinearSequencer = lazyWithRetry(() => import('./DawLinearSequencer').then(m => ({ default: m.DawLinearSequencer })), 'DawLinearSequencer');
+const TimelineSequencer = lazyWithRetry(() => import('./TimelineSequencer').then(m => ({ default: m.TimelineSequencer })), 'TimelineSequencer');
 
 // TODO: Réactiver le Studio des Jeux plus tard
-// const MestreStudio = lazy(() => import('./MestreStudio').then(m => ({ default: m.MestreStudio })));
-const AdminPanel = lazy(() => import('./AdminPanel').then(m => ({ default: m.AdminPanel })));
+// const MestreStudio = lazyWithRetry(() => import('./MestreStudio').then(m => ({ default: m.MestreStudio })), 'MestreStudio');
+const AdminPanel = lazyWithRetry(() => import('./AdminPanel').then(m => ({ default: m.AdminPanel })), 'AdminPanel');
 
 const renderFallback = (labelFr: string, labelPt: string) => {
   return (

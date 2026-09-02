@@ -17,11 +17,12 @@ import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { XiloInfo, XiloScroll, XiloHand, XiloBook, XiloChat } from './XiloIcons';
 import { LyricsAuthorshipModal } from './LyricsAuthorshipModal';
 import { Feather } from 'lucide-react';
+import { lazyWithRetry } from '../utils/lazyWithRetry';
 
-const ShortcutsGuide = React.lazy(() => import('./right-sidebar/ShortcutsGuide').then(m => ({ default: m.ShortcutsGuide })));
-const PresetManagerSection = React.lazy(() => import('./right-sidebar/PresetManagerSection').then(m => ({ default: m.PresetManagerSection })));
-const CloudLibraryTab = React.lazy(() => import('./right-sidebar/CloudLibraryTab').then(m => ({ default: m.CloudLibraryTab })));
-const FeedbackSection = React.lazy(() => import('./right-sidebar/FeedbackSection').then(m => ({ default: m.FeedbackSection })));
+const ShortcutsGuide = lazyWithRetry(() => import('./right-sidebar/ShortcutsGuide').then(m => ({ default: m.ShortcutsGuide })), 'ShortcutsGuide');
+const PresetManagerSection = lazyWithRetry(() => import('./right-sidebar/PresetManagerSection').then(m => ({ default: m.PresetManagerSection })), 'PresetManagerSection');
+const CloudLibraryTab = lazyWithRetry(() => import('./right-sidebar/CloudLibraryTab').then(m => ({ default: m.CloudLibraryTab })), 'CloudLibraryTab');
+const FeedbackSection = lazyWithRetry(() => import('./right-sidebar/FeedbackSection').then(m => ({ default: m.FeedbackSection })), 'FeedbackSection');
 
 interface RightSidebarProps {
   activePanel: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais' | null;

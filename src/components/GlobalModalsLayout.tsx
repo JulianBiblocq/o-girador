@@ -13,11 +13,13 @@ import { useAudioStore } from '../stores/useAudioStore';
 import { VocalValidationModal } from './VocalValidationModal';
 import { VocalRecordingFocusOverlay } from './VocalRecordingFocusOverlay';
 
+import { lazyWithRetry } from '../utils/lazyWithRetry';
+
 // Lazy loaded modals for bundle size optimization
-const SaveSectionModal = lazy(() => import('./CloudSectionModals').then(m => ({ default: m.SaveSectionModal })));
-const LoadSectionModal = lazy(() => import('./CloudSectionModals').then(m => ({ default: m.LoadSectionModal })));
-const InstrumentDetailEditor = lazy(() => import('./InstrumentDetailEditor').then(m => ({ default: m.InstrumentDetailEditor })));
-const AoVivoOverlay = lazy(() => import('./AoVivoOverlay').then(m => ({ default: m.AoVivoOverlay })));
+const SaveSectionModal = lazyWithRetry(() => import('./CloudSectionModals').then(m => ({ default: m.SaveSectionModal })), 'SaveSectionModal');
+const LoadSectionModal = lazyWithRetry(() => import('./CloudSectionModals').then(m => ({ default: m.LoadSectionModal })), 'LoadSectionModal');
+const InstrumentDetailEditor = lazyWithRetry(() => import('./InstrumentDetailEditor').then(m => ({ default: m.InstrumentDetailEditor })), 'InstrumentDetailEditor');
+const AoVivoOverlay = lazyWithRetry(() => import('./AoVivoOverlay').then(m => ({ default: m.AoVivoOverlay })), 'AoVivoOverlay');
 
 interface GlobalModalsLayoutProps {
   showExportMenu: boolean;

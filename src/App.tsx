@@ -29,7 +29,8 @@ import { WizardOverlay } from './components/WizardOverlay';
 import { SEO } from './components/SEO';
 
 import { Home } from './components/Home';
-const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
+import { lazyWithRetry } from './utils/lazyWithRetry';
+const LandingPage = lazyWithRetry(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })), 'LandingPage');
 
 import { Pattern, SongSection, TimeSignature, CloudRhythmSignal } from './types';
 import { exportTablatureFile, printTablature, printLegendOnly } from './utils/exportTablature';
