@@ -61,30 +61,33 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
 
   React.useEffect(() => {
     // Zero-Render-Thrashing feedback for loop exit
-    const unsub = useSequencerStore.subscribe(
-      (state) => state.isLoopExitRequested,
-      (isRequested) => {
-        if (loopBtnRef.current) {
-          if (isRequested) {
-            loopBtnRef.current.classList.add('animate-pulse', 'bg-orange-500/60', 'text-white');
-            loopBtnRef.current.classList.remove('bg-[var(--cordel-wood)]', 'text-[#f4ecd8]', 'bg-[var(--cordel-bg)]', 'text-[var(--cordel-text)]');
-            loopBtnRef.current.querySelector('.icon-repeat')?.classList.add('hidden');
-            loopBtnRef.current.querySelector('.icon-arrow')?.classList.remove('hidden');
-            loopBtnRef.current.querySelector('.loop-count')?.classList.add('hidden');
+    // NOTE: The store does NOT use subscribeWithSelector middleware,
+    // so we must manually compare previous vs current value.
+    let prev = useSequencerStore.getState().isLoopExitRequested;
+    const unsub = useSequencerStore.subscribe((state) => {
+      const isRequested = state.isLoopExitRequested;
+      if (isRequested === prev) return;
+      prev = isRequested;
+      if (loopBtnRef.current) {
+        if (isRequested) {
+          loopBtnRef.current.classList.add('animate-pulse', 'bg-orange-500/60', 'text-white');
+          loopBtnRef.current.classList.remove('bg-[var(--cordel-wood)]', 'text-[#f4ecd8]', 'bg-[var(--cordel-bg)]', 'text-[var(--cordel-text)]');
+          loopBtnRef.current.querySelector('.icon-repeat')?.classList.add('hidden');
+          loopBtnRef.current.querySelector('.icon-arrow')?.classList.remove('hidden');
+          loopBtnRef.current.querySelector('.loop-count')?.classList.add('hidden');
+        } else {
+          loopBtnRef.current.classList.remove('animate-pulse', 'bg-orange-500/60', 'text-white');
+          loopBtnRef.current.querySelector('.icon-repeat')?.classList.remove('hidden');
+          loopBtnRef.current.querySelector('.icon-arrow')?.classList.add('hidden');
+          loopBtnRef.current.querySelector('.loop-count')?.classList.remove('hidden');
+          if (useSequencerStore.getState().isLooping) {
+            loopBtnRef.current.classList.add('bg-[var(--cordel-wood)]', 'text-[#f4ecd8]');
           } else {
-            loopBtnRef.current.classList.remove('animate-pulse', 'bg-orange-500/60', 'text-white');
-            loopBtnRef.current.querySelector('.icon-repeat')?.classList.remove('hidden');
-            loopBtnRef.current.querySelector('.icon-arrow')?.classList.add('hidden');
-            loopBtnRef.current.querySelector('.loop-count')?.classList.remove('hidden');
-            if (useSequencerStore.getState().isLooping) {
-              loopBtnRef.current.classList.add('bg-[var(--cordel-wood)]', 'text-[#f4ecd8]');
-            } else {
-              loopBtnRef.current.classList.add('bg-[var(--cordel-bg)]', 'text-[var(--cordel-text)]');
-            }
+            loopBtnRef.current.classList.add('bg-[var(--cordel-bg)]', 'text-[var(--cordel-text)]');
           }
         }
       }
-    );
+    });
     return unsub;
   }, []);
 
@@ -245,12 +248,13 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
           <button
             ref={loopBtnRef}
             onClick={() => {
-              if (isPlaying && sequencer.isLooping && !sequencer.isLoopExitRequested) {
-                useSequencerStore.getState().requestLoopExit();
+              const storeState = useSequencerStore.getState();
+              if (isPlaying && sequencer.isLooping && !storeState.isLoopExitRequested) {
+                storeState.requestLoopExit();
               } else {
                 sequencer.setIsLooping(!sequencer.isLooping);
-                if (sequencer.isLoopExitRequested) {
-                  useSequencerStore.getState().clearLoopExitRequest();
+                if (storeState.isLoopExitRequested) {
+                  storeState.clearLoopExitRequest();
                 }
               }
             }}
