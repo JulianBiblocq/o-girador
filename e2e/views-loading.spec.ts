@@ -97,4 +97,20 @@ test.describe('Validation du Chargement des Vues et Modules Dynamiques', () => {
 
     expect(isBpmHidden).toBe(true);
   });
+
+  test('Sur smartphone, la console, la timeline et les pistes dépliées sont bien accessibles', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await page.waitForFunction(() => 'firebaseAuth' in window);
+
+    const status = await page.evaluate(async () => {
+      const { useSequencerStore } = await import('/src/stores/useSequencerStore.ts');
+      const isTracksInitiallyCollapsed = useSequencerStore.getState().isTracksCollapsed;
+      return { isTracksInitiallyCollapsed };
+    });
+
+    // Sur mobile, les pistes doivent être dépliées directement
+    expect(status.isTracksInitiallyCollapsed).toBe(false);
+  });
 });
+

@@ -2167,7 +2167,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   },
   editingTrackId: null,
   vocalTransposeSteps: 0,
-  isTracksCollapsed: true,
+  isTracksCollapsed: typeof window !== 'undefined' && (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768) ? false : true,
   isPreviewMode: false,
 
   setLetras: (letras) => set({ letras }),

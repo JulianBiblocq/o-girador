@@ -249,7 +249,7 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
 
         {/* 2. MIXER CONSOLE VIEW */}
         <div 
-          style={{ display: (!isMobile || mobileTab === 'console') && (viewMode === 'console' || isConsoleDetached) ? 'contents' : 'none' }}
+          style={{ display: (viewMode === 'console' || isConsoleDetached) ? 'contents' : 'none' }}
         >
           {isConsoleDetached ? (
             <WindowPortal onClose={toggleConsoleDetached} title="Console - o-girador">
@@ -299,7 +299,7 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
 
         {/* 3. TIMELINE VIEW */}
         <div 
-          style={{ display: (!isMobile || mobileTab === 'timeline') && (viewMode === 'timeline' || isTimelineDetached) ? 'contents' : 'none' }}
+          style={{ display: (viewMode === 'timeline' || isTimelineDetached) ? 'contents' : 'none' }}
         >
           {isTimelineDetached ? (
             <WindowPortal onClose={toggleTimelineDetached} title="Timeline - o-girador">

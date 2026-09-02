@@ -555,19 +555,20 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             <XiloRoda size={16} />
           </button>
 
-          {/* MIXADOR (MOBILE ONLY TRACK MIXER) */}
+          {/* MIXADOR (MOBILE ONLY TRACK MIXER / DAW LINEAIRE) */}
           {isMobile && (
             <button
               onClick={() => {
                 onViewModeToggle('roda');
                 if (onMobileTabToggle) onMobileTabToggle('mixer');
+                useSequencerStore.setState({ isTracksCollapsed: false });
               }}
               className={`w-9 h-9 flex items-center justify-center font-bold text-base cordel-border-sm cordel-button cursor-pointer ${
                 viewMode === 'roda' && mobileTab === 'mixer'
                   ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
                   : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
               }`}
-              title="Mixador (Instruments)"
+              title={lang === 'fr' ? 'Pistes / Séquenceur' : 'Pistas / Sequenciador'}
             >
               <XiloDrum size={16} />
             </button>
