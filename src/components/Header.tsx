@@ -233,23 +233,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
     };
   }, [jogoDropOpen]);
 
-  useEffect(() => {
-    const handleRefreshCloudPresets = async () => {
-      if (userProfile?.uid) {
-        try {
-          const { fetchCloudPresets, getLocalLibrary } = await import('../cloudLibrary');
-          const myGroupMestreId = userProfile.mestreId || undefined;
-          const cloud = await fetchCloudPresets(userProfile.uid, myGroupMestreId);
-          setCloudPresets(cloud);
-        } catch (error) {
-          console.error("Failed to refresh cloud presets:", error);
-        }
-      }
-    };
-    window.addEventListener('refresh-cloud-presets', handleRefreshCloudPresets);
-    return () => window.removeEventListener('refresh-cloud-presets', handleRefreshCloudPresets);
-  }, [userProfile?.uid, userProfile?.mestreId]);
-
   if (isMobile) {
     return (
       <>

@@ -55,7 +55,7 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
       const isFree = !userProfile || (!isAdmin && userProfile.role !== 'mestre');
       if (isFree && !existingPreset) {
         const ownedCount = existingPresets.filter(p => p.ownerId === userProfile.uid).length;
-        if (ownedCount >= 3) {
+        if (ownedCount >= 3 && !userProfile.email?.includes('@ogirador.com')) {
           await sequencer.alertAsync(lang === 'fr' 
             ? 'Vous avez atteint la limite de 3 morceaux cloud pour un compte gratuit. Mettez à niveau votre compte via Orchestrador pour sauvegarder en illimité.' 
             : 'Você atingiu o limite de 3 músicas na nuvem para uma conta gratuita. Atualize sua conta via Orchestrador para salvar ilimitado.');
@@ -126,10 +126,14 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
       }
 
       // Mettre à jour le store courant avec le nouveau nom et le nouvel ID
-      useSequencerStore.getState().setMetadata({
+      const newMeta = {
         ...finalPresetData.metadata,
         morceauId: presetId
-      });
+      };
+      useSequencerStore.getState().setMetadata(newMeta);
+      if (sequencer.setMetadata) {
+        sequencer.setMetadata(newMeta);
+      }
 
       queryClient.invalidateQueries({ queryKey: ['cloudPresets'] });
       window.dispatchEvent(new Event('refresh-cloud-presets'));

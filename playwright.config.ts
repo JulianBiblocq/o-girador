@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   globalSetup: './e2e/global-setup.ts',
-  use: {
+  use: { screenshot: 'only-on-failure',
     baseURL: 'http://localhost:5174',
     trace: 'on-first-retry',
     storageState: 'e2e/storageState.json',
@@ -16,7 +16,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { screenshot: 'only-on-failure', ...devices['Desktop Chrome'] },
     },
   ],
   webServer: {

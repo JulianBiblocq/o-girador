@@ -22,35 +22,52 @@ async function globalSetup(config: FullConfig) {
     // @ts-ignore
     const doc = window.doc;
 
-    const email = 'playwright@ogirador.com';
-    const password = 'playwrighttest';
-
-    let userCredential;
-    try {
-      userCredential = await createUser(auth, email, password);
-    } catch (error: any) {
-      if (error.code === 'auth/email-already-in-use') {
-        userCredential = await signIn(auth, email, password);
-        console.log('Test user signed in');
-      } else {
-        throw error;
+    const createOrUpdateUser = async (email: string, password: string, displayName: string, role: string, mestreId: string | null = null) => {
+      let userCredential;
+      try {
+        userCredential = await createUser(auth, email, password);
+      } catch (error: any) {
+        if (error.code === 'auth/email-already-in-use') {
+          userCredential = await signIn(auth, email, password);
+        } else {
+          throw error;
+        }
       }
-    }
-    
-    // Always ensure the user document exists and has the correct role
-    if (userCredential && userCredential.user) {
-      await setDoc(doc(db, 'users', userCredential.user.uid), {
-        uid: userCredential.user.uid,
-        email: email,
-        displayName: 'Playwright Membre',
-        role: 'membre',
+      
+      const uid = userCredential.user.uid;
+      const docData: any = {
+        uid,
+        email,
+        displayName,
+        role,
         createdAt: Date.now(),
-      });
-      console.log('Test user doc updated');
-    }
+      };
+      if (mestreId) {
+        docData.mestreId = mestreId;
+      }
+      
+      await setDoc(doc(db, 'users', uid), docData);
+      return uid;
+    };
 
+    const password = 'playwrighttest';
     
-    // Wait for auth state to be persisted to IndexedDB (Firebase Auth does this automatically)
+    // 1. Mestre
+    const mestreUid = await createOrUpdateUser('mestre@ogirador.com', password, 'Playwright Mestre', 'mestre');
+    
+    // 2. Eleve Group
+    await createOrUpdateUser('eleve-group@ogirador.com', password, 'Playwright Eleve Group', 'eleve', mestreUid);
+    
+    // 3. Eleve Lambda
+    await createOrUpdateUser('eleve-lambda@ogirador.com', password, 'Playwright Eleve Lambda', 'eleve', 'fake_mestre_id_999');
+    
+    // 4. Free user (membre)
+    await createOrUpdateUser('free@ogirador.com', password, 'Playwright Membre Gratuit', 'membre');
+
+    // 5. Default user (keep for compatibility with existing tests)
+    await createOrUpdateUser('playwright@ogirador.com', password, 'Playwright Membre', 'membre');
+    
+    // Wait for auth state to be persisted to IndexedDB
     await new Promise(resolve => setTimeout(resolve, 2000));
   });
 
