@@ -423,13 +423,7 @@ service cloud.firestore {
     // --- O GIRADOR: SÉQUENCEUR ---
     // Group members (élèves with same mestreId) can read/write alongside the mestre.
     match /patterns/{patternId} {
-      allow read: if request.auth != null && (
-        resource.data.visibility == 'admin_global' || 
-        resource.data.ownerId == request.auth.uid || 
-        resource.data.get('mestreId', '') == request.auth.uid || 
-        resource.data.visibility == 'mestre_group' ||
-        isSameGroup(resource.data.get('mestreId', ''))
-      );
+      allow read: if request.auth != null;
       allow create: if request.auth != null 
                     && (request.auth.uid == request.resource.data.ownerId 
                         || request.auth.uid == request.resource.data.get('mestreId', '')
@@ -440,13 +434,7 @@ service cloud.firestore {
                                 || isSameGroup(resource.data.get('mestreId', '')));
     }
     match /sections/{sectionId} {
-      allow read: if request.auth != null && (
-        resource.data.visibility == 'admin_global' || 
-        resource.data.ownerId == request.auth.uid || 
-        resource.data.get('mestreId', '') == request.auth.uid || 
-        resource.data.visibility == 'mestre_group' ||
-        isSameGroup(resource.data.get('mestreId', ''))
-      );
+      allow read: if request.auth != null;
       allow create: if request.auth != null 
                     && (request.auth.uid == request.resource.data.ownerId 
                         || request.auth.uid == request.resource.data.get('mestreId', '')

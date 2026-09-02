@@ -1762,7 +1762,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                   <button 
                     onClick={() => {
                       if (isPlaying) {
-                        alert(lang === 'fr' ? 'La vue macro n\'est pas disponible pendant la lecture pour préserver les performances audio.' : 'A visão macro não está disponível durante a reprodução para preservar o desempenho do áudio.');
+                        sequencer.alertAsync(lang === 'fr' ? 'La vue macro n\'est pas disponible pendant la lecture pour préserver les performances audio.' : 'A visão macro não está disponível durante a reprodução para preservar o desempenho do áudio.');
                         return;
                       }
                       handleZoom(320);
