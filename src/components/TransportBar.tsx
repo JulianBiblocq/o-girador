@@ -155,7 +155,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
   }, [isPlaying, bpm]);
 
   return (
-    <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] flex flex-nowrap items-center justify-between px-2 sm:px-4 z-[1000] shrink-0 overflow-hidden">
+    <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] relative flex flex-nowrap items-center justify-between px-2 sm:px-4 z-[1000] shrink-0 overflow-hidden">
       
       {/* Left side: Metro, Swing, BPM */}
       <div className="flex items-center gap-2 sm:gap-4 shrink-0">
@@ -188,15 +188,16 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
           </button>
         </div>
 
-        <div className="mobile-portrait-hide-bpm flex items-center gap-1.5 bg-[var(--cordel-bg)] px-2 py-1 cordel-border-sm border-[var(--cordel-border)]">
+        {/* Bouton de vélocité : icône + boutons +/-, avec numéro masqué uniquement sur smartphone */}
+        <div className="flex items-center gap-1 sm:gap-1.5 bg-[var(--cordel-bg)] px-1.5 sm:px-2 py-1 cordel-border-sm border-[var(--cordel-border)]">
           <Gauge className="w-4 h-4 text-[var(--cordel-text)] md:hidden" />
           <span className="font-cactus font-bold text-[var(--cordel-text)] text-sm select-none hidden md:inline">
             {lang === 'fr' ? 'Vitesse' : lang === 'pt' ? 'Velocidade' : 'Tempo'}
           </span>
-          <span className="font-mono font-bold text-[var(--cordel-text)] text-xs ml-1 w-7 text-center">
+          <span className="font-mono font-bold text-[var(--cordel-text)] text-xs ml-1 w-7 text-center hidden sm:inline">
             {displayBpm}
           </span>
-          <div className="flex items-center gap-1 ml-1">
+          <div className="flex items-center gap-1 ml-0.5 sm:ml-1">
             <button
               onPointerDown={(e) => { e.preventDefault(); startBpmChange(-1); }}
               onPointerUp={(e) => { e.preventDefault(); stopBpmChange(); }}
@@ -223,8 +224,11 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
         </div>
       </div>
 
-      {/* Center/Right: Main Transport Controls */}
-      <div className="flex items-center justify-end sm:justify-center gap-1.5 sm:gap-3 flex-1 ml-auto shrink-0">
+      {/* Center/Right: Main Transport Controls
+          - Sur smartphone (<sm): calé à droite (ml-auto)
+          - Sur PC et tablette (>=sm): centrage absolu pile-poil avec jonction Lecture/Loop au milieu de l'écran
+      */}
+      <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 max-sm:ml-auto max-sm:justify-end sm:absolute sm:left-[calc(50%-9px)] sm:-translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2">
         <button
           onClick={handleStop}
           className="w-9 h-9 sm:w-10 sm:h-10 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors shrink-0"
@@ -334,8 +338,6 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
         </div>
       </div>
 
-      {/* Right side filler to keep center controls centered on larger screens */}
-      <div className="hidden md:block flex-1" />
     </div>
   );
 };
