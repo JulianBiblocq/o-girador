@@ -146,8 +146,6 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
         measureHighlightRef.current.style.width = `${measureWRef.current}px`;
       }
 
-      const currentLive = livePlaybackRef.current;
-      const isNewMeasure = currentLive.measure !== measure || currentLive.iteration !== iteration || currentLive.step < 0 || !currentLive.measureStartTime;
       const updatedStartTime = isNewMeasure ? (measureStartTime || currentLive.measureStartTime) : (currentLive.measureStartTime || measureStartTime);
 
       livePlaybackRef.current = {
