@@ -46,7 +46,11 @@ async function globalSetup(config: FullConfig) {
         docData.mestreId = mestreId;
       }
       
-      await setDoc(doc(db, 'users', uid), docData);
+      try {
+        await setDoc(doc(db, 'users', uid), docData);
+      } catch (e) {
+        console.warn('Could not set user doc for', email, e);
+      }
       return uid;
     };
 

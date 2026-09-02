@@ -33,6 +33,15 @@
         ]
       },
       {
+        "source": "/",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
         "source": "/(index.html|version.json|sw.js|manifest.json)",
         "headers": [
           {

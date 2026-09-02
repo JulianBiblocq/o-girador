@@ -5,16 +5,16 @@
       "origin": "http://localhost:5174",
       "localStorage": [
         {
-          "name": "oGirador_master_reverb_vol",
-          "value": "0"
-        },
-        {
           "name": "o-girador-theme",
           "value": "light"
         },
         {
+          "name": "oGirador_master_reverb_vol",
+          "value": "0"
+        },
+        {
           "name": "firestore_sequence_number_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "248"
+          "value": "245"
         },
         {
           "name": "oGirador_reverb_decay",
@@ -25,12 +25,12 @@
           "value": "[]"
         },
         {
-          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_fgT5dcx3gcuzudpfhJD6",
-          "value": "{\"activeTargetIds\":[],\"updateTimeMs\":1788363944508}"
+          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_MESc8SHjxKtG9XY8M5dE",
+          "value": "{\"activeTargetIds\":[],\"updateTimeMs\":1788388306586}"
         },
         {
           "name": "firestore_online_state_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "{\"clientId\":\"fgT5dcx3gcuzudpfhJD6\",\"onlineState\":\"Online\"}"
+          "value": "{\"clientId\":\"MESc8SHjxKtG9XY8M5dE\",\"onlineState\":\"Online\"}"
         }
       ]
     }
