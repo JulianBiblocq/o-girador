@@ -66,12 +66,20 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
       (isRequested) => {
         if (loopBtnRef.current) {
           if (isRequested) {
-            loopBtnRef.current.classList.add('animate-pulse', 'bg-orange-500', 'text-white');
-            loopBtnRef.current.classList.remove('bg-[var(--cordel-wood)]', 'text-[#f4ecd8]');
+            loopBtnRef.current.classList.add('animate-pulse', 'bg-orange-500/60', 'text-white');
+            loopBtnRef.current.classList.remove('bg-[var(--cordel-wood)]', 'text-[#f4ecd8]', 'bg-[var(--cordel-bg)]', 'text-[var(--cordel-text)]');
+            loopBtnRef.current.querySelector('.icon-repeat')?.classList.add('hidden');
+            loopBtnRef.current.querySelector('.icon-arrow')?.classList.remove('hidden');
+            loopBtnRef.current.querySelector('.loop-count')?.classList.add('hidden');
           } else {
-            loopBtnRef.current.classList.remove('animate-pulse', 'bg-orange-500', 'text-white');
+            loopBtnRef.current.classList.remove('animate-pulse', 'bg-orange-500/60', 'text-white');
+            loopBtnRef.current.querySelector('.icon-repeat')?.classList.remove('hidden');
+            loopBtnRef.current.querySelector('.icon-arrow')?.classList.add('hidden');
+            loopBtnRef.current.querySelector('.loop-count')?.classList.remove('hidden');
             if (useSequencerStore.getState().isLooping) {
               loopBtnRef.current.classList.add('bg-[var(--cordel-wood)]', 'text-[#f4ecd8]');
+            } else {
+              loopBtnRef.current.classList.add('bg-[var(--cordel-bg)]', 'text-[var(--cordel-text)]');
             }
           }
         }
@@ -248,18 +256,18 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
                 ? 'bg-orange-500 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]' // Bypassed: orange active state
                 : sequencer.isLooping 
                   ? sequencer.isLoopExitRequested
-                    ? 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] opacity-70 animate-pulse'
+                    ? 'bg-orange-500/60 text-white animate-pulse'
                     : 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-border)]'
                   : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] opacity-60 hover:opacity-100'
             }`}
             title={lang === 'fr' ? 'Activer/Désactiver la boucle' : 'Toggle Loop'}
           >
-            {(sequencer.isLooping && !isLoopBypassed && !sequencer.isLoopExitRequested) ? <Repeat className="w-6 h-6" /> : <ArrowRightToLine className="w-6 h-6" />}
-            {sequencer.isLooping && !isLoopBypassed && !sequencer.isLoopExitRequested && (
-              <span className="text-[9px] font-bold mt-[-2px]">
-                {loopMode === 'infinite' ? '∞' : Math.max(0, loopMode - currentLoopIteration + 1) + 'x'}
-              </span>
-            )}
+            <Repeat className={`w-6 h-6 icon-repeat ${(!sequencer.isLooping || isLoopBypassed || sequencer.isLoopExitRequested) ? 'hidden' : ''}`} />
+            <ArrowRightToLine className={`w-6 h-6 icon-arrow ${(sequencer.isLooping && !isLoopBypassed && !sequencer.isLoopExitRequested) ? 'hidden' : ''}`} />
+            
+            <span className={`text-[9px] font-bold mt-[-2px] loop-count ${(!sequencer.isLooping || isLoopBypassed || sequencer.isLoopExitRequested) ? 'hidden' : ''}`}>
+              {loopMode === 'infinite' ? '∞' : Math.max(0, loopMode - currentLoopIteration + 1) + 'x'}
+            </span>
           </button>
           
           <button
