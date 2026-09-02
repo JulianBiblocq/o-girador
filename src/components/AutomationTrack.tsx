@@ -311,7 +311,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
           <div className="flex items-center gap-2">
             <button 
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-xs font-bold text-gray-400 hover:text-white cursor-pointer"
+              className="text-xs font-bold text-gray-400 hover:text-white cursor-pointer pointer-events-auto"
             >
               {isExpanded ? '▼' : '▶'}
             </button>

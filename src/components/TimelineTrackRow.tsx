@@ -254,7 +254,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
           {(dbTrack?.isLinkMaster || isToada) && (
             <button
               onClick={handleToggleFold}
-              className="p-0.5 hover:bg-[var(--cordel-text)]/10 rounded cursor-pointer text-[10px] font-bold mr-1 shrink-0 flex items-center justify-center w-4 h-4 border border-[var(--cordel-border)]/30 text-[var(--cordel-text)]"
+              className="p-0.5 hover:bg-[var(--cordel-text)]/10 rounded cursor-pointer text-[10px] font-bold mr-1 shrink-0 flex items-center justify-center w-4 h-4 border border-[var(--cordel-border)]/30 text-[var(--cordel-text)] pointer-events-auto"
               title={isCollapsed ? (lang === 'fr' ? 'Déplier' : 'Desdobrar') : (lang === 'fr' ? 'Plier' : 'Dobrar')}
             >
               {isCollapsed ? '▶' : '▼'}
