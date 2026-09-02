@@ -37,7 +37,13 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
   const HEADER_W = uiContext ? uiContext.HEADER_W : 0;
 
   const measureWRef = useRef(MEASURE_W);
+  const isZoomingRef = useRef(false);
   useEffect(() => {
+    if (measureWRef.current !== MEASURE_W) {
+      isZoomingRef.current = true;
+      if (playheadRef.current) playheadRef.current.style.display = 'none';
+      if (measureHighlightRef.current) measureHighlightRef.current.style.display = 'none';
+    }
     measureWRef.current = MEASURE_W;
   }, [MEASURE_W]);
 
@@ -113,6 +119,17 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
           } catch (_) {}
         }
         return;
+      }
+
+      const currentLive = livePlaybackRef.current;
+      const isNewMeasure = currentLive.measure !== measure || currentLive.iteration !== iteration || currentLive.step < 0 || !currentLive.measureStartTime;
+
+      if (isZoomingRef.current) {
+        if (isNewMeasure) {
+          isZoomingRef.current = false;
+        } else {
+          return; // Skip drawing until the new measure to avoid jumping
+        }
       }
 
       if (el.style.display !== 'block') {

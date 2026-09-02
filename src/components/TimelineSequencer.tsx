@@ -1767,9 +1767,15 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       }
                       handleZoom(320);
                     }} 
-                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W > 240 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} ${isPlaying ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                    className={`flex flex-col items-center justify-center flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W > 240 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} ${isPlaying ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
                     title={lang === 'fr' ? 'Vue détaillée (macro)' : 'Visão detalhada (macro)'}
-                  >XL</button>
+                  >
+                    <svg viewBox="0 0 24 24" className="w-3.5 h-3.5" fill="currentColor">
+                      <path d="M12 2C10.5 4.5 10 7 12 9.5C14 7 13.5 4.5 12 2ZM12 22C13.5 19.5 14 17 12 14.5C10 17 10.5 19.5 12 22ZM2 12C4.5 13.5 7 14 9.5 12C7 10 4.5 10.5 2 12ZM22 12C19.5 10.5 17 10 14.5 12C17 14 19.5 13.5 22 12Z" />
+                      <path d="M4.9 4.9C6.7 6.7 8 7 9.5 9.5C8 7 6.7 8 4.9 4.9ZM19.1 19.1C17.3 17.3 16 17 14.5 14.5C16 17 17.3 16 19.1 19.1ZM19.1 4.9C17.3 6.7 17 8 14.5 9.5C17 8 16 6.7 19.1 4.9ZM4.9 19.1C6.7 17.3 7 16 9.5 14.5C7 16 8 17.3 4.9 19.1Z" />
+                      <circle cx="12" cy="12" r="2" fill="var(--cordel-bg)" />
+                    </svg>
+                  </button>
                 </div>
              </div>
 

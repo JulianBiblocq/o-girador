@@ -245,10 +245,13 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
           <button
             ref={loopBtnRef}
             onClick={() => {
-              if (isPlaying && sequencer.isLooping && loopMode === 'infinite') {
+              if (isPlaying && sequencer.isLooping && !sequencer.isLoopExitRequested) {
                 useSequencerStore.getState().requestLoopExit();
               } else {
                 sequencer.setIsLooping(!sequencer.isLooping);
+                if (sequencer.isLoopExitRequested) {
+                  useSequencerStore.getState().clearLoopExitRequest();
+                }
               }
             }}
             className={`w-14 h-14 cordel-border cordel-button flex flex-col items-center justify-center cursor-pointer transition-all relative ${
