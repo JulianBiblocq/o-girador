@@ -44,15 +44,22 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
 
 
 
+  const getVPadding = (h: number) => h > 40 ? 16 : 2;
+
   const getYFromValue = (val: number, height: number) => {
+    const pad = getVPadding(height);
     const clamped = Math.max(min, Math.min(max, val));
     const range = max - min;
     const percent = (clamped - min) / range;
-    return height - (percent * height); // Invert Y (0 is top)
+    const effectiveHeight = height - (pad * 2);
+    return height - pad - (percent * effectiveHeight);
   };
 
   const getValueFromY = (y: number, height: number) => {
-    const percent = 1 - (y / height);
+    const pad = getVPadding(height);
+    const effectiveHeight = height - (pad * 2);
+    let percent = 1 - ((y - pad) / effectiveHeight);
+    percent = Math.max(0, Math.min(1, percent));
     return min + percent * (max - min);
   };
 
