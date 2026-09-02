@@ -37,13 +37,12 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
   const localValuesRef = useRef<number[]>([...values]);
   const [isExpanded, setIsExpanded] = useState(true);
 
-  // Sync local ref when props change (only when not dragging)
-  useEffect(() => {
-    if (draggingIdxRef.current === null) {
-      localValuesRef.current = [...values];
-      renderSvg();
-    }
-  }, [values, transitions, totalMeasures, measureWidth, isExpanded]);
+  // Custom prompt modal states
+  const [promptOpen, setPromptOpen] = useState(false);
+  const [promptValue, setPromptValue] = useState("");
+  const [promptTargetIdx, setPromptTargetIdx] = useState<number | null>(null);
+
+
 
   const getYFromValue = (val: number, height: number) => {
     const clamped = Math.max(min, Math.min(max, val));
@@ -138,6 +137,7 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
         
         // Text label
         const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        text.dataset.idx = i.toString();
         text.setAttribute('x', (x + 8).toString());
         text.setAttribute('y', (y - 8).toString());
         text.setAttribute('fill', 'white');
@@ -188,6 +188,27 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
       }
     }
   }, [totalMeasures, measureWidth, transitions, min, max, color, isExpanded]);
+
+  const handlePromptSubmit = useCallback(() => {
+    if (promptTargetIdx !== null) {
+      let val = parseInt(promptValue, 10);
+      if (!isNaN(val)) {
+        val = Math.max(min, Math.min(max, val));
+        onChangeValue(promptTargetIdx, val);
+        localValuesRef.current[promptTargetIdx] = val;
+        renderSvg();
+      }
+    }
+    setPromptOpen(false);
+  }, [promptTargetIdx, promptValue, min, max, onChangeValue, renderSvg]);
+
+  // Sync local ref when props change (only when not dragging)
+  useEffect(() => {
+    if (draggingIdxRef.current === null) {
+      localValuesRef.current = [...values];
+      renderSvg();
+    }
+  }, [values, transitions, totalMeasures, measureWidth, isExpanded, renderSvg]);
 
   // Pointer Events for dragging
   useEffect(() => {
@@ -246,12 +267,25 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
       draggedIdx = -1;
     };
 
+    const handleDoubleClick = (e: MouseEvent) => {
+      const target = e.target as SVGElement;
+      if ((target.tagName === 'circle' || target.tagName === 'text') && target.dataset.idx) {
+        const idx = parseInt(target.dataset.idx, 10);
+        const currentVal = localValuesRef.current[idx];
+        setPromptValue(String(currentVal));
+        setPromptTargetIdx(idx);
+        setPromptOpen(true);
+      }
+    };
+
     svg.addEventListener('pointerdown', handlePointerDown);
+    svg.addEventListener('dblclick', handleDoubleClick);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
 
     return () => {
       svg.removeEventListener('pointerdown', handlePointerDown);
+      svg.removeEventListener('dblclick', handleDoubleClick);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
@@ -317,6 +351,51 @@ export const AutomationTrack: React.FC<AutomationTrackProps> = React.memo(({
           style={{ touchAction: 'none' }} // Prevent scrolling when dragging on mobile
         />
       </div>
+
+      {/* Custom Prompt Modal */}
+      {promptOpen && promptTargetIdx !== null && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+             onPointerDown={(e) => e.stopPropagation()} // Stop it from leaking
+        >
+          <div className="bg-[var(--cordel-wood)] text-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] rounded shadow-2xl p-6 w-[320px] animate-in fade-in zoom-in duration-200">
+            <h3 className="font-cactus text-xl mb-4 text-[#f4ecd8]">
+              {lang === 'fr' 
+                ? `Mesure ${promptTargetIdx + 1} - ${type === 'tempo' ? 'Tempo (BPM)' : 'Volume'}` 
+                : `Compasso ${promptTargetIdx + 1} - ${type === 'tempo' ? 'Andamento (BPM)' : 'Volume'}`}
+            </h3>
+            <p className="text-sm opacity-80 mb-2 text-[#f4ecd8]">
+              {lang === 'fr' ? `Valeur comprise entre ${min} et ${max} :` : `Valor entre ${min} e ${max}:`}
+            </p>
+            <input
+              type="number"
+              min={min}
+              max={max}
+              autoFocus
+              className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border mb-4 p-2 font-bold"
+              value={promptValue}
+              onChange={(e) => setPromptValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handlePromptSubmit();
+                if (e.key === 'Escape') setPromptOpen(false);
+              }}
+            />
+            <div className="flex justify-end gap-2">
+              <button 
+                onClick={() => setPromptOpen(false)}
+                className="px-4 py-2 text-sm cordel-border hover:bg-black/10 transition-colors rounded text-[#f4ecd8]"
+              >
+                {lang === 'fr' ? 'Annuler' : 'Cancelar'}
+              </button>
+              <button 
+                onClick={handlePromptSubmit}
+                className="px-4 py-2 text-sm bg-orange-600 hover:bg-orange-500 text-white cordel-border transition-colors rounded font-bold"
+              >
+                {lang === 'fr' ? 'Valider' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 });

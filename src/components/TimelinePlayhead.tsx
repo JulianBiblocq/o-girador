@@ -71,10 +71,11 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       time?: number;
       iteration?: number;
       isPaused?: boolean;
+      isNavigation?: boolean;
       measureStartTime?: number;
       measureDuration?: number;
     }) => {
-      const { step, measure, maxTicks, ratio = step / maxTicks, iteration = 1, isPaused = false, measureStartTime, measureDuration } = detail;
+      const { step, measure, maxTicks, ratio = step / maxTicks, iteration = 1, isPaused = false, isNavigation = false, measureStartTime, measureDuration } = detail;
       const el = playheadRef.current;
 
       if (!el) return;
@@ -93,13 +94,24 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
 
       // 2. GESTION DU PAUSE (isPaused === true)
       if (isPaused) {
-        try {
-          const computedStyle = window.getComputedStyle(el);
-          const matrix = new WebKitCSSMatrix(computedStyle.transform);
-          const pausedX = matrix.m41;
+        if (isNavigation) {
+          // Si on est en pause MAIS qu'on navigue manuellement (clic sur la règle)
+          // on veut que l'aiguille aille exactement à l'endroit cliqué, sans animation.
           el.style.transition = 'none';
-          el.style.transform = `translate3d(${pausedX}px, 0, 0)`;
-        } catch (_) {}
+          const exactX = measure * measureWRef.current + ratio * measureWRef.current;
+          el.style.transform = `translate3d(${HEADER_W + exactX}px, 0, 0)`;
+          lastExactXRef.current = exactX;
+        } else {
+          // Pause normale (bouton stop) : on fige l'animation en cours
+          try {
+            const computedStyle = window.getComputedStyle(el);
+            const matrix = new WebKitCSSMatrix(computedStyle.transform);
+            const pausedX = matrix.m41;
+            el.style.transition = 'none';
+            el.style.transform = `translate3d(${pausedX}px, 0, 0)`;
+            lastExactXRef.current = pausedX - HEADER_W;
+          } catch (_) {}
+        }
         return;
       }
 
@@ -169,13 +181,16 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       } else {
         lastExactXRef.current = exactX;
         
-        // Auto-scroll (page-turn) lorsque l'aiguille sort de l'écran à droite ou à gauche
+        // Auto-scroll (page-turn) avec "Look-ahead" pour anticiper sans casser l'audio
         const currentScrollX = layoutCache.current.lastScrollX;
         const vw = layoutCache.current.vw;
-        // On déclenche le scroll si on approche à 95% du bord droit, ou si on est avant le bord gauche
-        if (vw > 0 && scrollEl && (exactX > currentScrollX + vw * 0.95 || exactX < currentScrollX)) {
-          // Recale l'aiguille à 10% de l'écran pour la suite de la lecture
-          const targetScroll = Math.max(0, exactX - vw * 0.1);
+        // Marge de sécurité = 1.2 fois la largeur d'une mesure pour voir venir
+        const safetyMargin = currentMEASURE_W * 1.2;
+        
+        // On déclenche le scroll si on entre dans la marge de droite, ou si on est avant le bord gauche
+        if (vw > 0 && scrollEl && (exactX > currentScrollX + vw - safetyMargin || exactX < currentScrollX)) {
+          // Recale l'aiguille à 15% de l'écran pour la suite de la lecture
+          const targetScroll = Math.max(0, exactX - vw * 0.15);
           scrollEl.scrollLeft = targetScroll;
           layoutCache.current.lastScrollX = targetScroll;
         }

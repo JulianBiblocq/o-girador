@@ -356,17 +356,20 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
                     <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Tablatura' : 'Tablature'}
                   </button>
-                  {isAdmin && (
-                    <button onClick={() => { fileInputRef.current?.click(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
-                      <Upload className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Importar' : 'Importer'}
-                    </button>
-                  )}
-                  <button onClick={() => { onCloudSave ? onCloudSave() : onSave(); setMobileMenuOpen(false); }} className={`flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full ${!isAdmin ? 'col-span-2' : ''}`}>
-                    <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar' : 'Sauvegarder'}
+                  <button onClick={() => { fileInputRef.current?.click(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
+                    <Upload className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Import (PC)' : 'Import (PC)'}
                   </button>
-                  <div className="col-span-2 mt-1">
-                    <BoutonExportDanse />
-                  </div>
+                  <button onClick={() => { onSave(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
+                    <Download className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Export (PC)' : 'Export (PC)'}
+                  </button>
+                  <button onClick={() => { onCloudSave ? onCloudSave() : onSave(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full col-span-2 mt-1 border-none transition-colors">
+                    <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar (Cloud)' : 'Sauvegarder (Cloud)'}
+                  </button>
+                  {(isAdmin || userProfile?.role === 'mestre') && (
+                    <div className="col-span-2 mt-1">
+                      <BoutonExportDanse />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -714,13 +717,14 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   <button onClick={() => { onExportTablature?.(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">
                     <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Tablatura' : 'Tablature'}
                   </button>
-                  {isAdmin && (
-                    <button onClick={() => { fileInputRef.current?.click(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">
-                      <Upload className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Importar' : 'Importer'}
-                    </button>
-                  )}
-                  <button onClick={() => { onCloudSave ? onCloudSave() : onSave(); setProjectDropOpen(false); }} className={`flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full ${!isAdmin ? 'col-span-2' : ''}`}>
-                    <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar' : 'Sauvegarder'}
+                  <button onClick={() => { fileInputRef.current?.click(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">
+                    <Upload className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Import (PC)' : 'Import (PC)'}
+                  </button>
+                  <button onClick={() => { onSave(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">
+                    <Download className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Export (PC)' : 'Export (PC)'}
+                  </button>
+                  <button onClick={() => { onCloudSave ? onCloudSave() : onSave(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full col-span-2 mt-1 border-none transition-colors">
+                    <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar (Cloud)' : 'Sauvegarder (Cloud)'}
                   </button>
                   {(isAdmin || userProfile?.role === 'mestre') && (
                     <div className="col-span-2 mt-1">

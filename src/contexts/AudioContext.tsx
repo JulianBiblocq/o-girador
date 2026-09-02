@@ -219,6 +219,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     loopStartRef: sequencer.loopStartRef,
     loopEndRef: sequencer.loopEndRef,
     isLoopRegionActiveRef: sequencer.isLoopRegionActiveRef,
+    loopModeRef: sequencer.loopModeRef,
+    isLoopExitRequestedRef: sequencer.isLoopExitRequestedRef,
     isLoopingRef: sequencer.isLoopingRef,
     songSectionsRef: sequencer.songSectionsRef,
     activeVariationsRef: sequencer.activeVariationsRef,
@@ -686,6 +688,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       loopStartMeasure: storeState.loopStartMeasure,
       loopEndMeasure: storeState.loopEndMeasure,
       isLoopRegionActive: storeState.isLoopRegionActive,
+      loopMode: storeState.loopMode,
+      isLoopExitRequested: storeState.isLoopExitRequested,
       isLooping: sequencer.isLooping
     };
     const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
@@ -763,6 +767,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       loopStartMeasure: storeState.loopStartMeasure,
       loopEndMeasure: storeState.loopEndMeasure,
       isLoopRegionActive: storeState.isLoopRegionActive,
+      loopMode: storeState.loopMode,
+      isLoopExitRequested: storeState.isLoopExitRequested,
       isLooping: sequencer.isLooping
     };
   };

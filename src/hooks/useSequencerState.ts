@@ -120,6 +120,8 @@ export function useSequencerState() {
   const loopStartRef = useRef<number | null>(null);
   const loopEndRef = useRef<number | null>(null);
   const isLoopRegionActiveRef = useRef<boolean>(true);
+  const loopModeRef = useRef<'infinite' | number>('infinite');
+  const isLoopExitRequestedRef = useRef<boolean>(false);
   const isLoopingRef = useRef<boolean>(true);
 
   // Instantiation of the history hook
@@ -160,6 +162,9 @@ export function useSequencerState() {
       loopStartRef.current = state.loopStartMeasure;
       loopEndRef.current = state.loopEndMeasure;
       isLoopRegionActiveRef.current = state.isLoopRegionActive;
+      isLoopingRef.current = state.isLooping;
+      loopModeRef.current = state.loopMode;
+      isLoopExitRequestedRef.current = state.isLoopExitRequested;
     });
     // Init refs
     const state = useSequencerStore.getState();
@@ -170,13 +175,15 @@ export function useSequencerState() {
     loopStartRef.current = state.loopStartMeasure;
     loopEndRef.current = state.loopEndMeasure;
     isLoopRegionActiveRef.current = state.isLoopRegionActive;
+    isLoopingRef.current = state.isLooping;
+    loopModeRef.current = state.loopMode;
+    isLoopExitRequestedRef.current = state.isLoopExitRequested;
 
     measureBpmsRef.current = measureBpms;
     measureBpmTransitionsRef.current = measureBpmTransitions;
     measureVolsRef.current = measureVols;
     measureVolTransitionsRef.current = measureVolTransitions;
     measureSignalsRef.current = measureSignals;
-    isLoopingRef.current = isLooping;
     return unsub;
   }, [
     measureBpms,
@@ -842,44 +849,45 @@ export function useSequencerState() {
     })));
   };
 
-  const handleInsertMeasure = (measureIdx: number) => {
+  const handleInsertMeasure = (measureIdx: number, amount = 1) => {
     pushUndoState();
     pendingStructureActionRef.current = { type: 'insert', measureIdx };
-    setTotalMeasures((prev: number) => prev + 1);
-    const refSig = measureTimeSigsRef.current[measureIdx] || timeSig;
-    const refBpm = measureBpms[measureIdx] || bpm;
-    const refVol = measureVols[measureIdx] !== undefined ? measureVols[measureIdx] : 100;
+    setTotalMeasures((prev: number) => prev + amount);
+    const prevIdx = Math.max(0, measureIdx - 1);
+    const refSig = measureTimeSigsRef.current[prevIdx] || timeSig;
+    const refBpm = measureBpms[prevIdx] || bpm;
+    const refVol = measureVols[prevIdx] !== undefined ? measureVols[prevIdx] : 100;
 
     setMeasureTimeSigs(prev => {
       const arr = [...prev];
-      arr.splice(measureIdx, 0, refSig);
+      arr.splice(measureIdx, 0, ...Array(amount).fill(refSig));
       return arr;
     });
     setMeasureBpms(prev => {
       const arr = [...prev];
-      arr.splice(measureIdx, 0, refBpm);
+      arr.splice(measureIdx, 0, ...Array(amount).fill(refBpm));
       return arr;
     });
     setMeasureBpmTransitions(prev => {
       const arr = [...prev];
-      arr.splice(measureIdx, 0, 'immediate');
+      arr.splice(measureIdx, 0, ...Array(amount).fill('immediate'));
       return arr;
     });
     setMeasureVols(prev => {
       const arr = [...prev];
-      arr.splice(measureIdx, 0, refVol);
+      arr.splice(measureIdx, 0, ...Array(amount).fill(refVol));
       return arr;
     });
     setMeasureVolTransitions(prev => {
       const arr = [...prev];
-      arr.splice(measureIdx, 0, 'immediate');
+      arr.splice(measureIdx, 0, ...Array(amount).fill('immediate'));
       return arr;
     });
     setSongSections((prev: SongSection[]) => prev.map((s: SongSection) => {
       if (s.startMeasure >= measureIdx) {
-        return { ...s, startMeasure: s.startMeasure + 1, endMeasure: s.endMeasure + 1 };
+        return { ...s, startMeasure: s.startMeasure + amount, endMeasure: s.endMeasure + amount };
       } else if (s.endMeasure >= measureIdx) {
-        return { ...s, endMeasure: s.endMeasure + 1 };
+        return { ...s, endMeasure: s.endMeasure + amount };
       }
       return s;
     }));
@@ -887,7 +895,7 @@ export function useSequencerState() {
       ...t,
       patterns: t.patterns.map(p => {
         const arr = [...p.measureAssignments];
-        arr.splice(measureIdx, 0, false);
+        arr.splice(measureIdx, 0, ...Array(amount).fill(false));
         return { ...p, measureAssignments: arr };
       })
     })));
@@ -947,6 +955,7 @@ export function useSequencerState() {
                 volumes: patternToPaste.volumes ? [...patternToPaste.volumes] : Array(firstP.steps).fill(80),
                 decays: patternToPaste.decays ? [...patternToPaste.decays] : Array(firstP.steps).fill(100),
                 microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(firstP.steps).fill(0),
+                beatResolutions: patternToPaste.beatResolutions ? [...patternToPaste.beatResolutions] : undefined,
                 variations: patternToPaste.variations ? JSON.parse(JSON.stringify(patternToPaste.variations)) : undefined,
                 preRollActiveSteps: patternToPaste.preRollActiveSteps ? [...patternToPaste.preRollActiveSteps] : undefined,
                 preRollLyrics: patternToPaste.preRollLyrics ? [...patternToPaste.preRollLyrics] : undefined,
@@ -967,14 +976,15 @@ export function useSequencerState() {
             ...patternToPaste,
             id: Date.now() + Math.floor(Math.random() * 1000),
             name: `${patternToPaste.name} (Cópia)`,
-            steps: firstP.steps,
+            steps: patternToPaste.steps,
             activeSteps: [...patternToPaste.activeSteps],
             lyrics: [...patternToPaste.lyrics],
             notes: [...patternToPaste.notes],
             measureAssignments: Array(totalMeasuresRef.current).fill(true),
             volumes: patternToPaste.volumes ? [...patternToPaste.volumes] : Array(firstP.steps).fill(80),
             decays: patternToPaste.decays ? [...patternToPaste.decays] : Array(firstP.steps).fill(100),
-            microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(firstP.steps).fill(0),
+            microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(patternToPaste.steps).fill(0),
+            beatResolutions: patternToPaste.beatResolutions ? [...patternToPaste.beatResolutions] : undefined,
             variations: patternToPaste.variations ? JSON.parse(JSON.stringify(patternToPaste.variations)) : undefined,
             preRollActiveSteps: patternToPaste.preRollActiveSteps ? [...patternToPaste.preRollActiveSteps] : undefined,
             preRollLyrics: patternToPaste.preRollLyrics ? [...patternToPaste.preRollLyrics] : undefined,
@@ -982,19 +992,19 @@ export function useSequencerState() {
             preRollVolumes: patternToPaste.preRollVolumes ? [...patternToPaste.preRollVolumes] : undefined,
             preRollDecays: patternToPaste.preRollDecays ? [...patternToPaste.preRollDecays] : undefined,
           };
-          while (pasted.activeSteps.length < firstP.steps) pasted.activeSteps.push(0);
-          while (pasted.lyrics.length < firstP.steps) pasted.lyrics.push('');
-          while (pasted.notes.length < firstP.steps) pasted.notes.push('');
-          if (pasted.volumes) while (pasted.volumes.length < firstP.steps) pasted.volumes.push(80);
-          if (pasted.decays) while (pasted.decays.length < firstP.steps) pasted.decays.push(100);
-          if (pasted.microtimings) while (pasted.microtimings.length < firstP.steps) pasted.microtimings.push(0);
+          while (pasted.activeSteps.length < patternToPaste.steps) pasted.activeSteps.push(0);
+          while (pasted.lyrics.length < patternToPaste.steps) pasted.lyrics.push('');
+          while (pasted.notes.length < patternToPaste.steps) pasted.notes.push('');
+          if (pasted.volumes) while (pasted.volumes.length < patternToPaste.steps) pasted.volumes.push(80);
+          if (pasted.decays) while (pasted.decays.length < patternToPaste.steps) pasted.decays.push(100);
+          if (pasted.microtimings) while (pasted.microtimings.length < patternToPaste.steps) pasted.microtimings.push(0);
 
-          pasted.activeSteps.length = firstP.steps;
-          pasted.lyrics.length = firstP.steps;
-          pasted.notes.length = firstP.steps;
-          if (pasted.volumes) pasted.volumes.length = firstP.steps;
-          if (pasted.decays) pasted.decays.length = firstP.steps;
-          if (pasted.microtimings) pasted.microtimings.length = firstP.steps;
+          pasted.activeSteps.length = patternToPaste.steps;
+          pasted.lyrics.length = patternToPaste.steps;
+          pasted.notes.length = patternToPaste.steps;
+          if (pasted.volumes) pasted.volumes.length = patternToPaste.steps;
+          if (pasted.decays) pasted.decays.length = patternToPaste.steps;
+          if (pasted.microtimings) pasted.microtimings.length = patternToPaste.steps;
 
           return {
             ...t,
@@ -1181,6 +1191,10 @@ export function useSequencerState() {
     pushUndoState();
     const tracks = useSequencerStore.getState().tracks;
     const defaults = useSequencerSettingsStore.getState().strokeDefaults?.[`${trackId}:${newState}`];
+
+    if (typeof newState === 'string' && newState.trim() !== '' && newState !== '0') {
+      useSequencerSettingsStore.getState().setStrokeForcedState(`${trackId}:${newState}`, true);
+    }
 
     setTracks(tracks.map((t) => {
       if (t.id === trackId) {
@@ -2115,6 +2129,7 @@ export function useSequencerState() {
     setLoopStartMeasure, loopStartRef,
     setLoopEndMeasure, loopEndRef,
     setIsLoopRegionActive, isLoopRegionActiveRef,
+    loopModeRef, isLoopExitRequestedRef,
     isLooping, setIsLooping, isLoopingRef,
     letras, setLetras,
     metadata, setMetadata,

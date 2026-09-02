@@ -305,6 +305,8 @@ interface UseAudioSyncProps {
   loopStartRef: React.MutableRefObject<number | null>;
   loopEndRef: React.MutableRefObject<number | null>;
   isLoopRegionActiveRef: React.MutableRefObject<boolean>;
+  loopModeRef: React.MutableRefObject<'infinite' | number>;
+  isLoopExitRequestedRef: React.MutableRefObject<boolean>;
   isLoopingRef: React.MutableRefObject<boolean>;
   songSectionsRef: React.MutableRefObject<SongSection[]>;
   activeVariationsRef: React.MutableRefObject<Record<number, (string | number)[]>>;
@@ -364,6 +366,8 @@ export function useAudioSync({
   loopStartRef,
   loopEndRef,
   isLoopRegionActiveRef,
+  loopModeRef,
+  isLoopExitRequestedRef,
   isLoopingRef,
   songSectionsRef,
   activeVariationsRef,
@@ -487,6 +491,7 @@ export function useAudioSync({
   const absoluteTickCountRef = useRef<number>(0);
   const flatArrayPointerRef = useRef<number>(0);
   const lastAbsoluteTickRef = useRef<number>(-1);
+  const currentLoopIterationRef = useRef<number>(1);
   const currentMeasureStartTickRef = useRef<number>(0);
   const lastActiveInstrumentIdsRef = useRef<string>('');
   const anchoredMeasureStartSecRef = useRef<number>(0);
@@ -978,8 +983,6 @@ export function useAudioSync({
 
       // Stable 96-tick sequencing loop using our AudioEngine
       onTickRef.current = (time) => {
-        if (hasFinishedRef.current) return;
-        
         const isDocHidden = typeof document !== 'undefined' && document.hidden;
         let currentTicks = maxTicksRef.current;
         let stepIdx = currentStepIndexRef.current;
@@ -990,10 +993,11 @@ export function useAudioSync({
         if (stepIdx === -1) {
           hasFinishedRef.current = false;
           nextStepIdx = 0;
+          currentLoopIterationRef.current = 1;
+          useSequencerStore.getState().setCurrentLoopIteration(1);
+          useSequencerStore.getState().setIsLoopBypassed(false);
           if (soloPatternPlayIdRef.current !== null) {
             measureCountRef.current = 0;
-          } else if (isLoopRegionActiveRef.current && loopStartRef.current !== null && (measureCountRef.current < loopStartRef.current || (loopEndRef.current !== null && measureCountRef.current > loopEndRef.current))) {
-            measureCountRef.current = loopStartRef.current;
           } else {
             measureCountRef.current = measureCountRef.current % (totalMeasuresRef.current || 1);
           }
@@ -1038,14 +1042,42 @@ export function useAudioSync({
                 setTimeout(() => {
                   handleStop();
                 }, 2000);
-                return;
               } else {
-                measureCountRef.current = (isLoopRegionActiveRef.current && loopStartRef.current !== null) ? loopStartRef.current : 0;
+                // Live Arranger Logic (Mission 3) - Applies to both global and sub-loops
+                const shouldExit = isLoopExitRequestedRef.current || (loopModeRef.current !== 'infinite' && currentLoopIterationRef.current >= loopModeRef.current);
+                
+                if (shouldExit) {
+                  // Sortie de boucle : on continue linéairement, on réinitialise la demande
+                  if (isLoopExitRequestedRef.current) {
+                    useSequencerStore.getState().clearLoopExitRequest();
+                  }
+                  currentLoopIterationRef.current = 1; // Reset pour la prochaine fois
+                  useSequencerStore.getState().setCurrentLoopIteration(1);
+                  
+                  // Désactive la boucle globalement pour mettre à jour l'UI (icône flèche)
+                  useSequencerStore.getState().setIsLooping(false);
+                  useSequencerStore.getState().setIsLoopBypassed(true);
+                  
+                  measureCountRef.current++;
+                  if (measureCountRef.current >= (totalMeasuresRef.current || 1)) {
+                    hasFinishedRef.current = true;
+                    setTimeout(() => handleStop(), 2000);
+                  }
+                } else {
+                  // On boucle
+                  currentLoopIterationRef.current++;
+                  useSequencerStore.getState().setCurrentLoopIteration(currentLoopIterationRef.current);
+                  measureCountRef.current = (isLoopRegionActiveRef.current && loopStartRef.current !== null) ? loopStartRef.current : 0;
+                }
               }
             } else if (activeSection && sectionIterationRef.current < (activeSection.repeatCount || 1)) {
               // Local section jump
               sectionIterationRef.current++;
               measureCountRef.current = activeSection.startMeasure;
+            } else if (currentMeasureIdx >= (totalMeasuresRef.current || 1) - 1) {
+              // We reached the absolute end of the sequence (e.g. after exiting a loop)
+              hasFinishedRef.current = true;
+              setTimeout(() => handleStop(), 2000);
             } else {
               // Normal progression
               if (activeSection) {
@@ -2055,6 +2087,10 @@ export function useAudioSync({
     detail.visualStep12 = Math.floor(ratioVal * 12);
     detail.time = Tone.context.currentTime;
     detail.iteration = iteration;
+    
+    // Explicitly set these for manual navigation ticks
+    (detail as any).isPaused = !isPlayingRef.current;
+    (detail as any).isNavigation = true;
 
     tickSubscribers.forEach((cb) => {
       try { cb(detail); } catch (err) { console.error(err); }

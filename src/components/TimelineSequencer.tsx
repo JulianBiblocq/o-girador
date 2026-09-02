@@ -78,6 +78,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const sequencer = useSequencer();
   const { hasAccess } = useAuth();
   const [showSubModal, setShowSubModal] = React.useState(false);
+  const [insertMeasuresPrompt, setInsertMeasuresPrompt] = React.useState<{isOpen: boolean, targetIdx: number | null}>({isOpen: false, targetIdx: null});
+  const [insertAmountStr, setInsertAmountStr] = React.useState("1");
   const { isPlaying } = useAudio();
 
   // Replier automatiquement toutes les pistes de liens du séquenceur lors du montage (entrée sur la page)
@@ -176,11 +178,12 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       return arr;
     });
   };
-  const isMacro = measureWidth <= 240;
-  const isMinZoom = measureWidth <= 120;
-  const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-  const HEADER_W = isMobile ? 80 : (isMacro ? 200 : 230);
+
+  const HEADER_W = isMobile ? 80 : 200;
   const MEASURE_W = measureWidth;
+  const isMacro = MEASURE_W <= 240;
+  const isMinZoom = MEASURE_W <= 120;
+  const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
   // --- Horizontal measures virtualization ---
@@ -1128,40 +1131,21 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       const dx = moveEv.clientX - startX;
       const measureDelta = dx / MEASURE_W;
 
-      if (edge === 'left') {
-        const proposedStart = startMeasure + measureDelta;
-        let snappedStart = startMeasure;
-        if (snapMode === 'measure') {
-          snappedStart = Math.round(proposedStart);
-        } else if (snapMode === 'beat') {
-          snappedStart = Math.round(proposedStart * 4) / 4;
-        } else {
-          snappedStart = proposedStart;
-        }
-
-        snappedStart = Math.max(0, Math.min(endMeasure, snappedStart));
-        const currentLeft = snappedStart * MEASURE_W;
-        const currentWidth = (endMeasure - snappedStart + 1) * MEASURE_W;
-
-        el.style.left = `${currentLeft}px`;
-        el.style.width = `${currentWidth - 8}px`;
-      } else {
-        // Right edge drag -> Ghost clones
-        currentCopies = Math.max(0, Math.round(measureDelta / sectionLength));
-        
-        if (ghost) {
-          ghost.innerHTML = ''; 
-          for(let i = 0; i < currentCopies; i++) {
-            const block = document.createElement('div');
-            block.style.width = `${sectionLength * MEASURE_W - 8}px`;
-            block.style.height = '100%';
-            block.style.backgroundColor = section.color || '#eaddcf';
-            block.style.opacity = '0.5';
-            block.style.borderRadius = '0.25rem';
-            block.style.border = '1.5px solid #1a1a1a';
-            block.style.marginRight = '8px';
-            ghost.appendChild(block);
-          }
+      // Right edge drag -> Ghost clones
+      currentCopies = Math.max(0, Math.round(measureDelta / sectionLength));
+      
+      if (ghost) {
+        ghost.innerHTML = ''; 
+        for(let i = 0; i < currentCopies; i++) {
+          const block = document.createElement('div');
+          block.style.width = `${sectionLength * MEASURE_W - 8}px`;
+          block.style.height = '100%';
+          block.style.backgroundColor = section.color || '#eaddcf';
+          block.style.opacity = '0.5';
+          block.style.borderRadius = '0.25rem';
+          block.style.border = '1.5px solid #1a1a1a';
+          block.style.marginRight = '8px';
+          ghost.appendChild(block);
         }
       }
     };
@@ -1176,31 +1160,23 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         ghost.parentElement.removeChild(ghost);
       }
 
-      if (edge === 'left') {
-        const currentLeft = parseFloat(el.style.left) || (section.startMeasure * MEASURE_W);
-        const finalStart = Math.max(0, Math.min(totalMeasures - 1, Math.round(currentLeft / MEASURE_W)));
-
-        if (finalStart !== section.startMeasure) {
-          onUpdateSection(section.id, section.name, finalStart, section.endMeasure, section.color, section.level);
-        } else {
-          el.style.left = `${section.startMeasure * MEASURE_W}px`;
-          el.style.width = `${(section.endMeasure - section.startMeasure + 1) * MEASURE_W - 8}px`;
+      if (currentCopies > 0) {
+        // Mission 2: Sécurité Audio (Critique) - Bloquer si lecture en cours
+        const isPlaying = useAudioStore.getState().isPlaying;
+        if (isPlaying) {
+          console.warn("Impossible d'étirer une section pendant la lecture (Zero Render Thrashing / Audio Sync rule).");
+          return;
         }
-      } else {
-        if (currentCopies > 0) {
-          if (isPlaying) {
-            console.warn("Impossible d'étirer une section pendant la lecture (Zero Render Thrashing / Audio Sync rule).");
-            // Optionally, add a toast here if there is a toast system.
-            return;
-          }
-          
-          const finalEnd = endMeasure + (currentCopies * sectionLength);
-          
-          // Execute physical cloning in Zustand store
-          duplicateSectionBlock(startMeasure, endMeasure, endMeasure + 1, currentCopies);
-          
-          // Update section boundaries to cover the new clones
-          onUpdateSection(section.id, section.name, startMeasure, finalEnd, section.color, section.level);
+        
+        // Execute physical cloning of measures in Zustand store
+        duplicateSectionBlock(startMeasure, endMeasure, endMeasure + 1, currentCopies);
+        
+        // Clone the visual SongSection for each copy
+        const sectionLength = endMeasure - startMeasure + 1;
+        for (let i = 0; i < currentCopies; i++) {
+          const newStart = endMeasure + 1 + (i * sectionLength);
+          const newEnd = newStart + sectionLength - 1;
+          onCreateSection(section.name, newStart, newEnd, section.color, 1, section.level);
         }
       }
     };
@@ -1245,7 +1221,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
         scrollRef={scrollRef}
         pendingScrollLeftRef={pendingScrollLeft}
         totalMeasures={totalMeasures}
-        measureWidth={measureWidth}
+        measureWidth={MEASURE_W}
         onMeasureWidthChange={onMeasureWidthChange}
       />
 
@@ -1629,18 +1605,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       zIndex: activeRepeatDropdownSectionId === section.id ? 70 : 10
                     }}
                   >
-                    {/* Left resize handle */}
-                    <div
-                      className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize flex items-center justify-center hover:bg-black/15 select-none z-20 rounded-l"
-                      onPointerDown={(e) => handleResizePointerDown(e, section, 'left')}
-                      title={lang === 'fr' ? "Étendre à gauche" : "Estender para esquerda"}
-                    >
-                      <div className="flex gap-[0.5px]">
-                        <div className="w-[1px] h-2 bg-black/40" />
-                        <div className="w-[1px] h-2 bg-black/40" />
-                        <div className="w-[1px] h-2 bg-black/40" />
-                      </div>
-                    </div>
+                    {/* Left resize handle (REMOVED per Mission 1) */}
 
                     {/* Right resize handle */}
                     <div
@@ -1656,14 +1621,14 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                     </div>
 
                     <span 
-                      onClick={(e) => {
+                      onDoubleClick={(e) => {
                         e.stopPropagation();
                         setEditingSection(section);
                         setSectionModalOpen(true);
                       }}
                       onPointerDown={(e) => e.stopPropagation()}
                       className="truncate max-w-[65%] font-cactus uppercase tracking-wider cursor-pointer hover:underline z-10"
-                      title={lang === 'fr' ? 'Modifier la section' : 'Editar seção'}
+                      title={lang === 'fr' ? 'Double-cliquez pour modifier' : 'Duplo clique para editar'}
                     >
                       {section.name}
                     </span>
@@ -1810,12 +1775,36 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           >
              {/* Sticky corner */}
              <div
-               className={`timeline-sticky-header sticky left-0 z-60 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-center ${
+               className={`timeline-sticky-header sticky left-0 z-60 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex flex-col items-center justify-center gap-1 ${
                  isMobile ? 'px-1.5' : 'px-3'
                }`}
                style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
              >
-               {/* Empty corner spacer */}
+                {/* Sélecteur de Zoom */}
+                <div className="flex items-center bg-[var(--cordel-text)]/5 rounded p-0.5 cordel-border-sm w-full max-w-[120px]">
+                  <button 
+                    disabled={isPlaying}
+                    onClick={() => {
+                      const screenW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+                      const farWidth = Math.max(20, Math.floor((screenW - HEADER_W - 50) / totalMeasures));
+                      onMeasureWidthChange(farWidth);
+                    }} 
+                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W <= Math.max(20, Math.floor(((typeof window !== 'undefined' ? window.innerWidth : 1200) - HEADER_W - 50) / totalMeasures)) + 5 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} ${isPlaying ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                    title={lang === 'fr' ? 'Vue éloignée' : 'Visão distante'}
+                  >L</button>
+                  <button 
+                    disabled={isPlaying}
+                    onClick={() => onMeasureWidthChange(60)} 
+                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W > Math.max(20, Math.floor(((typeof window !== 'undefined' ? window.innerWidth : 1200) - HEADER_W - 50) / totalMeasures)) + 5 && MEASURE_W < 120 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} ${isPlaying ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                    title={lang === 'fr' ? 'Vue moyenne' : 'Visão média'}
+                  >M</button>
+                  <button 
+                    disabled={isPlaying}
+                    onClick={() => onMeasureWidthChange(120)} 
+                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W >= 120 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} ${isPlaying ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                    title={lang === 'fr' ? 'Vue proche' : 'Visão próxima'}
+                  >S</button>
+                </div>
              </div>
 
             {/* Left spacer column */}
@@ -1887,7 +1876,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            onInsertMeasure && onInsertMeasure(mIdx);
+                            setInsertAmountStr("1");
+                            setInsertMeasuresPrompt({ isOpen: true, targetIdx: mIdx });
                           }}
                           className="w-4 h-4 flex items-center justify-center rounded bg-emerald-600/10 text-emerald-700 hover:bg-emerald-700 hover:text-white border border-emerald-600/30 transition-colors font-bold text-[9px] cursor-pointer"
                           title={lang === 'fr' ? 'Insérer une mesure avant' : 'Inserir compasso antes'}
@@ -2036,12 +2026,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             >
               <button
                 onClick={() => {
-                  const newTotal = Math.min(64, totalMeasures + 1);
-                  if (newTotal > 20 && !hasAccess('mestre')) {
-                    setShowSubModal(true);
-                  } else {
-                    onTotalMeasuresChange(newTotal);
-                  }
+                  setInsertAmountStr("1");
+                  setInsertMeasuresPrompt({ isOpen: true, targetIdx: null });
                 }}
                 className="px-2 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] flex items-center justify-center gap-1 w-full"
                 title={lang === 'fr' ? 'Ajouter une mesure' : 'Adicionar compasso'}
@@ -2151,6 +2137,69 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       )}
       <VocalRecordingBar />
       <StepEditorPopup />
+      {/* ══════════ INSERT MEASURES PROMPT MODAL ══════════ */}
+      {insertMeasuresPrompt.isOpen && (
+        <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4">
+          <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-6 rounded cordel-border w-full max-w-sm cordel-shadow text-center font-cactus relative">
+            <h3 className="text-xl font-bold mb-4 uppercase tracking-wider">
+              {lang === 'fr' ? 'Ajouter des mesures' : 'Adicionar compassos'}
+            </h3>
+            <p className="mb-4 text-sm font-sans font-bold">
+              {lang === 'fr' ? 'Combien de mesures voulez-vous ajouter ?' : 'Quantos compassos deseja adicionar?'}
+            </p>
+            <input
+              type="number"
+              min="1"
+              max="64"
+              value={insertAmountStr}
+              onChange={(e) => setInsertAmountStr(e.target.value)}
+              className="w-24 text-center bg-[var(--cordel-border)]/10 border-2 border-[var(--cordel-border)] rounded px-2 py-1 mb-6 text-xl font-bold font-sans outline-none focus:border-emerald-600"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const amount = parseInt(insertAmountStr, 10);
+                  if (!isNaN(amount) && amount > 0) {
+                    const idx = insertMeasuresPrompt.targetIdx ?? totalMeasures;
+                    const newTotal = Math.min(64, totalMeasures + amount);
+                    if (newTotal > 20 && !hasAccess('mestre')) {
+                      setShowSubModal(true);
+                    } else {
+                      onInsertMeasure && onInsertMeasure(idx, newTotal - totalMeasures);
+                    }
+                    setInsertMeasuresPrompt({ isOpen: false, targetIdx: null });
+                  }
+                }
+              }}
+            />
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => setInsertMeasuresPrompt({ isOpen: false, targetIdx: null })}
+                className="px-4 py-2 cordel-border-sm cordel-button bg-[var(--cordel-wood)] text-[#f4ecd8] font-bold"
+              >
+                {lang === 'fr' ? 'Annuler' : 'Cancelar'}
+              </button>
+              <button
+                onClick={() => {
+                  const amount = parseInt(insertAmountStr, 10);
+                  if (!isNaN(amount) && amount > 0) {
+                    const idx = insertMeasuresPrompt.targetIdx ?? totalMeasures;
+                    const newTotal = Math.min(64, totalMeasures + amount);
+                    if (newTotal > 20 && !hasAccess('mestre')) {
+                      setShowSubModal(true);
+                    } else {
+                      onInsertMeasure && onInsertMeasure(idx, newTotal - totalMeasures);
+                    }
+                    setInsertMeasuresPrompt({ isOpen: false, targetIdx: null });
+                  }
+                }}
+                className="px-4 py-2 cordel-border-sm cordel-button bg-[var(--cordel-text)] text-[var(--cordel-bg)] font-bold hover:scale-105 transition-transform"
+              >
+                {lang === 'fr' ? 'Ajouter' : 'Adicionar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </TimelineUIContext.Provider>
   );

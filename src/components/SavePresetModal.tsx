@@ -39,7 +39,18 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
     try {
       const presetName = name.trim();
       const existingPresets = await fetchCloudPresets(userProfile.uid, userProfile.role, userProfile.mestreId || null);
-      const existingPreset = existingPresets.find(p => p.name.trim() === presetName && p.ownerId === userProfile.uid);
+      
+      // Look for existing preset: first check own presets, then group presets
+      const myGroupMestreId = userProfile.role === 'mestre' ? userProfile.uid : (userProfile.mestreId || null);
+      let existingPreset = existingPresets.find(p => p.name.trim() === presetName && p.ownerId === userProfile.uid);
+      
+      if (!existingPreset && myGroupMestreId) {
+        // Also check if a preset with the same name exists in the group catalogue
+        existingPreset = existingPresets.find(p => 
+          p.name.trim() === presetName && 
+          (p.mestreId === myGroupMestreId || p.ownerId === myGroupMestreId)
+        );
+      }
       
       const isFree = !userProfile || (!isAdmin && userProfile.role !== 'mestre');
       if (isFree && !existingPreset) {
@@ -56,7 +67,18 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
       let targetDocId: string | undefined = undefined;
 
       if (existingPreset) {
-        const confirmReplace = await sequencer.confirmAsync(lang === 'fr' ? `Le preset "${presetName}" existe déjà. Voulez-vous le remplacer ?` : `O preset "${presetName}" já existe. Deseja substituí-lo?`);
+        const isOwnPreset = existingPreset.ownerId === userProfile.uid;
+        let confirmMessage: string;
+        if (isOwnPreset) {
+          confirmMessage = lang === 'fr' 
+            ? `Le preset "${presetName}" existe déjà. Voulez-vous le remplacer ?` 
+            : `O preset "${presetName}" já existe. Deseja substituí-lo?`;
+        } else {
+          confirmMessage = lang === 'fr' 
+            ? `⚠️ Attention : Le preset "${presetName}" a été créé par quelqu'un d'autre (le Mestre ou un autre éditeur). Voulez-vous vraiment le modifier ? Cette action écrasera la version actuelle.` 
+            : `⚠️ Atenção: O preset "${presetName}" foi criado por outra pessoa (o Mestre ou outro editor). Deseja realmente modificá-lo? Esta ação substituirá a versão atual.`;
+        }
+        const confirmReplace = await sequencer.confirmAsync(confirmMessage);
         if (!confirmReplace) {
           setIsSaving(false);
           return;

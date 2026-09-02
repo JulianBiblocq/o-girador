@@ -133,6 +133,36 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
           </div>
         </div>
 
+        {/* Start / End Measures */}
+        <div className="flex gap-4">
+          <div className="flex flex-col gap-1.5 flex-1">
+            <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">
+              {lang === 'fr' ? 'Mesure début' : 'Medida inicial'}
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={totalMeasures}
+              value={sectionFormStart}
+              onChange={(e) => setSectionFormStart(e.target.value)}
+              className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-3 py-1.5 text-sm font-bold outline-none rounded-none focus:bg-[var(--cordel-border)]/10 text-[var(--cordel-text)]"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 flex-1">
+            <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">
+              {lang === 'fr' ? 'Mesure fin' : 'Medida final'}
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={totalMeasures}
+              value={sectionFormEnd}
+              onChange={(e) => setSectionFormEnd(e.target.value)}
+              className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-3 py-1.5 text-sm font-bold outline-none rounded-none focus:bg-[var(--cordel-border)]/10 text-[var(--cordel-text)]"
+            />
+          </div>
+        </div>
+
         {/* Bouton de conversion pour rétro-compatibilité */}
         {editingSection && editingSection.repeatCount && editingSection.repeatCount > 1 && (
           <button
@@ -145,9 +175,12 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
               const copiesCount = editingSection.repeatCount! - 1;
               const newEndMeasure = editingSection.endMeasure + (copiesCount * sectionLength);
               
+              // Only duplicate the block, the total measures expansion is handled inside `duplicateSectionBlock`
               duplicateSectionBlock(editingSection.startMeasure, editingSection.endMeasure, editingSection.endMeasure + 1, copiesCount);
+              
+              // We reset repeatCount to 1, but we DON'T extend the original section's endMeasure to cover the copies.
+              // The whole point of Mission 2 is that they are independent physical copies.
               useSequencerStore.getState().handleUpdateSectionRepeat(editingSection.id, 1);
-              onUpdateSection(editingSection.id, editingSection.name, editingSection.startMeasure, newEndMeasure, editingSection.color || '#f19066', editingSection.level || 0);
               onClose();
             }}
             className="w-full px-4 py-2 mt-1 bg-[#f5cd79] text-[#1a1a1a] border-2 border-[#1a1a1a] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[#e0b965] flex items-center justify-center gap-2"

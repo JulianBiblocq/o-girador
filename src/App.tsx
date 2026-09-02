@@ -433,7 +433,7 @@ export default function App() {
   const handleMeasureVolTransitionChange = React.useCallback((mIdx: number, val: 'immediate' | 'ramp') => sequencerRef.current.handleMeasureVolTransitionChange(mIdx, val), []);
   const handleTotalMeasuresChange = React.useCallback((val: number) => sequencerRef.current.handleTotalMeasuresChange(val), []);
   const handleDeleteMeasure = React.useCallback((mIdx: number) => sequencerRef.current.handleDeleteMeasure(mIdx), []);
-  const handleInsertMeasure = React.useCallback((mIdx: number) => sequencerRef.current.handleInsertMeasure(mIdx), []);
+  const handleInsertMeasure = React.useCallback((mIdx: number, amount: number = 1) => sequencerRef.current.handleInsertMeasure(mIdx, amount), []);
   const handleSetLoopStart = React.useCallback((mIdx: number) => sequencerRef.current.handleSetLoopStart(mIdx), []);
   const handleSetLoopEnd = React.useCallback((mIdx: number) => sequencerRef.current.handleSetLoopEnd(mIdx), []);
   const handleClearLoop = React.useCallback(() => sequencerRef.current.handleClearLoop(), []);
