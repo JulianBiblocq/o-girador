@@ -109,6 +109,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             sessionStorage.removeItem('o-girador-invite');
           }
           
+          // Auto-resolve Mestre for members belonging to an association/group (e.g. Samambaia)
+          if (!profile.mestreId && profile.groupId) {
+            try {
+              const mestreQ = query(
+                collection(db, 'users'),
+                where('groupId', 'in', [profile.groupId, profile.groupId.toLowerCase(), 'Samambaia', 'samambaia']),
+                where('role', '==', 'mestre')
+              );
+              const mestreSnap = await getDocs(mestreQ);
+              if (!mestreSnap.empty) {
+                const mestreDoc = mestreSnap.docs[0];
+                profile.mestreId = mestreDoc.id;
+                if (!profile.groupName && mestreDoc.data().groupName) {
+                  profile.groupName = mestreDoc.data().groupName;
+                }
+                updateDoc(userRef, { mestreId: mestreDoc.id }).catch(() => {});
+              }
+            } catch (err) {
+              console.warn("Could not resolve mestre for group:", err);
+            }
+          }
+
+          if ((profile.role === 'mestre' || (profile.dbRole as any) === 'mestre') && !profile.mestreId) {
+            profile.mestreId = user.uid;
+          }
+          
           setUserProfile({ ...profile, dbRole: profile.dbRole || profile.role });
         } else {
           let initialRole: UserRole = 'visiteur';

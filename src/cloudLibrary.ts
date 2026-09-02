@@ -18,7 +18,8 @@ export async function savePresetToCloud(
   targetUserId?: string,
   audioUrl?: string,
   targetPresetId?: string,
-  mestreId?: string
+  mestreId?: string,
+  groupId?: string
 ): Promise<string> {
   // Deep copy presetData to avoid modifying active app state
   const presetToSave = JSON.parse(JSON.stringify(presetData));
@@ -55,6 +56,7 @@ export async function savePresetToCloud(
     mestreId: mestreId || null,
     updatedAt: Date.now()
   };
+  if (groupId) docData.groupId = groupId;
   if (audioUrl) docData.audioUrl = audioUrl;
   
   if (targetPresetId) {
@@ -70,14 +72,15 @@ export async function savePresetToCloud(
 /**
  * Fetches all cloud presets the current user is allowed to see.
  * - Admin global presets (visible to everyone)
- * - Mestre group presets (visible if user is the Mestre, or if user is a student of this Mestre)
+ * - Mestre group presets (visible if user is the Mestre, or if user belongs to this Mestre's group)
  * - Private presets (visible if user is owner)
  * - Specific user presets (visible if user is targetUserId or owner)
  */
 export async function fetchCloudPresets(
   userUid: string | null,
-  userRole: 'admin' | 'mestre' | 'eleve' | 'visiteur',
-  mestreId: string | null
+  userRole: 'admin' | 'mestre' | 'eleve' | 'visiteur' | string,
+  mestreId: string | null,
+  groupId?: string | null
 ): Promise<CloudPreset[]> {
   const presets: CloudPreset[] = [];
   if (!userUid) return presets;
@@ -93,9 +96,24 @@ export async function fetchCloudPresets(
         presets.push({ id: docSnap.id, ...data });
       });
     } else {
-      // Pour éviter les index composites et ne pas rater de vieux presets avec une limite globale,
-      // on lance plusieurs requêtes simples en parallèle et on fusionne les résultats.
-      const myGroupMestreId = userRole === 'mestre' ? userUid : mestreId;
+      let myGroupMestreId = (userRole === 'mestre' || userRole === 'mestri') ? userUid : mestreId;
+
+      // Si mestreId est absent mais que l'utilisateur a un groupId, tenter de résoudre le Mestre du groupe
+      if (!myGroupMestreId && groupId) {
+        try {
+          const mestreQ = query(
+            collection(db, 'users'),
+            where('groupId', 'in', [groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']),
+            where('role', '==', 'mestre')
+          );
+          const mestreSnap = await getDocs(mestreQ);
+          if (!mestreSnap.empty) {
+            myGroupMestreId = mestreSnap.docs[0].id;
+          }
+        } catch (e) {
+          console.warn("Could not resolve mestre for group in fetchCloudPresets:", e);
+        }
+      }
       
       const queries = [
         getDocs(query(presetsRef, where('ownerId', '==', userUid))),
@@ -111,6 +129,10 @@ export async function fetchCloudPresets(
         queries.push(getDocs(query(presetsRef, where('mestreId', '==', myGroupMestreId))));
       }
 
+      if (groupId) {
+        queries.push(getDocs(query(presetsRef, where('groupId', 'in', [groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']))));
+      }
+
       const snapshots = await Promise.all(queries);
       const uniqueIds = new Set<string>();
       
@@ -122,8 +144,10 @@ export async function fetchCloudPresets(
             const isAdminGlobal = data.visibility === 'admin_global';
             const isPublic = data.visibility === 'public';
             const isTarget = data.targetUserId === userUid;
-            const isMestreGroup = data.visibility === 'mestre_group' && 
-              (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId);
+            const matchesMestre = myGroupMestreId && (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId);
+            const matchesGroup = groupId && (data as any).groupId && 
+              String((data as any).groupId).toLowerCase() === String(groupId).toLowerCase();
+            const isMestreGroup = data.visibility === 'mestre_group' && (matchesMestre || matchesGroup);
 
             if (isOwner || isAdminGlobal || isPublic || isTarget || isMestreGroup) {
               uniqueIds.add(docSnap.id);

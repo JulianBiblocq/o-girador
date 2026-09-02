@@ -682,7 +682,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     const loadPatterns = async () => {
       if (!userProfile) return;
       setIsLoadingPatterns(true);
-      const patterns = await fetchCloudPatterns(userProfile.uid, userProfile.role, userProfile.mestreId || null);
+      const patterns = await fetchCloudPatterns(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null);
       setCloudPatterns(patterns);
       setIsLoadingPatterns(false);
     };
@@ -736,7 +736,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         createdAt: Date.now()
       };
 
-      const docId = await savePatternToCloud(savedPattern, userProfile.uid, savePatternVisibility, userProfile.mestreId || undefined, targetDocId, userProfile.role);
+      const myGroupMestreId = (userProfile.role === 'mestre' || (userProfile.dbRole as any) === 'mestre')
+        ? userProfile.uid
+        : (userProfile.mestreId || undefined);
+      const myGroupId = userProfile.groupId || undefined;
+
+      const docId = await savePatternToCloud(savedPattern, userProfile.uid, savePatternVisibility, myGroupMestreId, targetDocId, userProfile.role, myGroupId);
       
       if (autoGeneratePatternAudio) {
         try {
@@ -747,7 +752,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         }
       }
 
-      const updatedPatterns = await fetchCloudPatterns(userProfile.uid, userProfile.role, userProfile.mestreId || null);
+      const updatedPatterns = await fetchCloudPatterns(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null);
       setCloudPatterns(updatedPatterns);
 
       setSaveModalPatternId(null);

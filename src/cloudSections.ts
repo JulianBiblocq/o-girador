@@ -13,9 +13,10 @@ export async function saveSectionToCloud(
   sectionData: SavedSectionData,
   ownerId: string,
   visibility: CatalogVisibility,
-  mestreId?: string,
+  userRole?: string,
   existingDocId?: string,
-  userRole?: string
+  mestreId?: string,
+  groupId?: string
 ): Promise<string> {
   if (!ownerId) throw new Error("Utilisateur non connecté");
 
@@ -30,6 +31,7 @@ export async function saveSectionToCloud(
   }
 
   const dataString = LZString.compressToBase64(JSON.stringify(sectionData));
+  const finalMestreId = (userRole === 'mestre' || userRole === 'mestri') ? ownerId : (mestreId || null);
   
   const payload = {
     name: name || "Section Sans Nom",
@@ -38,7 +40,8 @@ export async function saveSectionToCloud(
     authorId: ownerId || "", // Fallback for rules
     uid: ownerId || "", // Fallback for rules
     visibility: visibility || "private",
-    mestreId: mestreId || null,
+    mestreId: finalMestreId,
+    groupId: groupId || null,
     updatedAt: Date.now()
   };
 
@@ -60,14 +63,33 @@ export async function saveSectionToCloud(
  */
 export async function fetchCloudSections(
   userUid: string | null,
-  userRole: 'admin' | 'mestre' | 'eleve' | 'visiteur',
-  mestreId: string | null
+  userRole: 'admin' | 'mestre' | 'eleve' | 'visiteur' | string,
+  mestreId: string | null,
+  groupId?: string | null
 ): Promise<CloudSection[]> {
   const sections: CloudSection[] = [];
   if (!userUid) return sections;
   const sectionsRef = collection(db, CLOUD_SECTIONS_COLLECTION);
   
   try {
+    let myGroupMestreId = (userRole === 'mestre' || userRole === 'mestri') ? userUid : mestreId;
+
+    if (!myGroupMestreId && groupId) {
+      try {
+        const mestreQ = query(
+          collection(db, 'users'),
+          where('groupId', 'in', [groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']),
+          where('role', '==', 'mestre')
+        );
+        const mestreSnap = await getDocs(mestreQ);
+        if (!mestreSnap.empty) {
+          myGroupMestreId = mestreSnap.docs[0].id;
+        }
+      } catch (e) {
+        console.warn("Could not resolve mestre for group in fetchCloudSections:", e);
+      }
+    }
+
     // We use a simple query by date to avoid requiring composite indexes for complex OR conditions
     // The filtering is done in JS to ensure all visibility rules (admin_global, mestre_group) are correctly applied
     const q = query(
@@ -82,7 +104,9 @@ export async function fetchCloudSections(
       const isOwner = data.ownerId === userUid;
       const isAdminGlobal = data.visibility === 'admin_global';
       const isPublic = data.visibility === 'public';
-      const isMestreGroup = data.visibility === 'mestre_group' && (data.mestreId === mestreId || data.ownerId === mestreId);
+      const matchesMestre = myGroupMestreId && (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId);
+      const matchesGroup = groupId && data.groupId && String(data.groupId).toLowerCase() === String(groupId).toLowerCase();
+      const isMestreGroup = data.visibility === 'mestre_group' && (matchesMestre || matchesGroup);
       const isSysAdmin = userRole === 'admin';
       
       if (isOwner || isAdminGlobal || isPublic || isMestreGroup || isSysAdmin) {

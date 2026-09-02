@@ -325,7 +325,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                     </optgroup>
 
                     {cloudPresets.length > 0 && (
-                      <optgroup label={lang === 'pt' ? 'Catálogo Cloud' : 'Catalogue Cloud'}>
+                      <optgroup label={lang === 'pt' ? `Catálogo ${userProfile?.groupName || userProfile?.groupId || 'Cloud'}` : `Catalogue ${userProfile?.groupName || userProfile?.groupId || 'Cloud'}`}>
                         {cloudPresets.map((p) => (
                           <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
                             ☁️ {p.name}
@@ -690,7 +690,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   </optgroup>
 
                   {cloudPresets.length > 0 && (
-                    <optgroup label={lang === 'pt' ? `Catálogo ${userProfile?.groupName || userProfile?.displayName || 'Cloud'} (Privado)` : `Catalogue ${userProfile?.groupName || userProfile?.displayName || 'Cloud'} (Privé)`}>
+                    <optgroup label={lang === 'pt' ? `Catálogo ${userProfile?.groupName || userProfile?.groupId || userProfile?.displayName || 'Cloud'} (Privado)` : `Catalogue ${userProfile?.groupName || userProfile?.groupId || userProfile?.displayName || 'Cloud'} (Privé)`}>
                       {cloudPresets.map((p) => (
                         <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
                           ☁️ {p.name}

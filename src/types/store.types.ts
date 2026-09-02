@@ -179,6 +179,8 @@ export interface CloudPreset {
   ownerId: string;
   visibility: CatalogVisibility;
   targetUserId?: string;
+  mestreId?: string | null;
+  groupId?: string | null;
   createdAt: number;
 }
 

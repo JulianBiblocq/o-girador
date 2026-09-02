@@ -38,10 +38,14 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
     
     try {
       const presetName = name.trim();
-      const existingPresets = await fetchCloudPresets(userProfile.uid, userProfile.role, userProfile.mestreId || null);
+      const myGroupMestreId = (userProfile.role === 'mestre' || (userProfile.dbRole as any) === 'mestre')
+        ? userProfile.uid
+        : (userProfile.mestreId || null);
+      const myGroupId = userProfile.groupId || undefined;
+
+      const existingPresets = await fetchCloudPresets(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null);
       
       // Look for existing preset: first check own presets, then group presets
-      const myGroupMestreId = userProfile.role === 'mestre' ? userProfile.uid : (userProfile.mestreId || null);
       let existingPreset = existingPresets.find(p => p.name.trim() === presetName && p.ownerId === userProfile.uid);
       
       if (!existingPreset && myGroupMestreId) {
@@ -103,7 +107,8 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
         undefined,
         undefined,
         targetDocId,
-        userProfile.mestreId || undefined
+        myGroupMestreId || undefined,
+        myGroupId
       );
 
       if (autoGenerateAudio) {
@@ -118,7 +123,8 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
             undefined,
             audioUrl,
             presetId, // pass presetId to overwrite with audio URL
-            userProfile.mestreId || undefined
+            myGroupMestreId,
+            myGroupId
           );
         } catch (audioErr) {
           console.error("Audio generation failed after save", audioErr);
