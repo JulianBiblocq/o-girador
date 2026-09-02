@@ -476,6 +476,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (p.loopEndMeasure !== undefined) sequencer.setLoopEndMeasure(p.loopEndMeasure);
       if (p.isLoopRegionActive !== undefined) sequencer.setIsLoopRegionActive(p.isLoopRegionActive);
       if (p.isLooping !== undefined) sequencer.setIsLooping(p.isLooping);
+      if (p.loopMode !== undefined) useSequencerStore.getState().setLoopMode(p.loopMode);
 
       if (p.songSections && Array.isArray(p.songSections)) {
         sequencer.setSongSections(p.songSections);

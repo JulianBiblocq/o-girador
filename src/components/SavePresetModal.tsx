@@ -132,6 +132,7 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
       });
 
       queryClient.invalidateQueries({ queryKey: ['cloudPresets'] });
+      window.dispatchEvent(new Event('refresh-cloud-presets'));
       await sequencer.alertAsync(lang === 'pt' ? '✅ Salvo na nuvem!' : '✅ Sauvegardé dans le cloud !');
       onClose();
     } catch (err: any) {

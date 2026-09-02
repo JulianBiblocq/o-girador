@@ -48,8 +48,8 @@ export const generateTablatureCore = (
     const sectionStart = songSections.find(s => s.startMeasure === startM);
     const sectionEnd = songSections.find(s => s.endMeasure === endM);
 
-    const isRepeatedStart = sectionStart && (sectionStart.repeatCount || 1) > 1;
-    const isRepeatedEnd = sectionEnd && (sectionEnd.repeatCount || 1) > 1;
+    const isRepeatedStart = false;
+    const isRepeatedEnd = false;
 
     const leftBar = isRepeatedStart ? "||: " : "| ";
     const rightBar = isRepeatedEnd ? " :||" : " |";
@@ -116,14 +116,7 @@ export const generateTablatureCore = (
 
     const hasBpmOrRepeat = bpmLine.trim().length > 0 || isRepeatedEnd;
     if (hasBpmOrRepeat) {
-      if (isRepeatedEnd) {
-        const repeatText = `x${sectionEnd.repeatCount}`;
-        if (bpmLine.length < totalLineLen - repeatText.length) {
-          bpmLine = bpmLine.padEnd(totalLineLen - repeatText.length, " ") + repeatText;
-        } else {
-          bpmLine += " " + repeatText;
-        }
-      }
+      // (removed repeat count from export)
       chunkOutput += bpmLine + "\n";
     }
 

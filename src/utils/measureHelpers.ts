@@ -37,15 +37,10 @@ export function getExpandedMeasures(totalMeasures: number, songSections: SongSec
     expanded.push({ baseMeasure: current, iteration: currentIteration });
     count++;
 
-    if (activeSection && currentIteration < (activeSection.repeatCount || 1)) {
-      iterations[activeSection.id] = currentIteration + 1;
-      current = activeSection.startMeasure;
-    } else {
-      if (activeSection) {
-        iterations[activeSection.id] = 1;
-      }
-      current = current + 1;
+    if (activeSection) {
+      iterations[activeSection.id] = 1;
     }
+    current = current + 1;
   }
 
   return expanded;
