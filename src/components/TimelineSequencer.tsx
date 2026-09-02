@@ -185,6 +185,29 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const isMinZoom = MEASURE_W <= 120;
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const gridRef = React.useRef<HTMLDivElement>(null);
+
+  React.useLayoutEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.style.transform = '';
+    }
+  }, [MEASURE_W]);
+
+  const handleZoom = React.useCallback((targetWidth: number) => {
+    if (MEASURE_W === targetWidth) return;
+    
+    if (isPlaying && gridRef.current) {
+      const ratio = targetWidth / MEASURE_W;
+      gridRef.current.style.transform = `scaleX(${ratio})`;
+      setTimeout(() => {
+        React.startTransition(() => {
+          onMeasureWidthChange(targetWidth);
+        });
+      }, 10);
+    } else {
+      onMeasureWidthChange(targetWidth);
+    }
+  }, [MEASURE_W, isPlaying, onMeasureWidthChange]);
 
   // --- Horizontal measures virtualization ---
   const [visibleRange, setVisibleRange] = React.useState(() => {
@@ -1241,6 +1264,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           every track row share the same coordinate space.
         */}
         <div 
+          ref={gridRef}
           className="relative timeline-scroll-grid" 
           style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px`, minHeight: '100%', transformOrigin: '0 0' }}
         >
@@ -1632,73 +1656,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                     >
                       {section.name}
                     </span>
-                    
                     <div className="flex gap-1 shrink-0 z-10">
-                      <div className="relative flex items-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveRepeatDropdownSectionId(activeRepeatDropdownSectionId === section.id ? null : section.id);
-                          }}
-                          className="bg-white/80 hover:bg-white text-black text-[9px] p-0.5 px-1 rounded cordel-border-sm cursor-pointer font-sans font-bold flex items-center gap-0.5"
-                          title={lang === 'fr' ? 'Répétitions' : 'Repetições'}
-                        >
-                          🔁 x{section.repeatCount || 1}
-                        </button>
-                        
-                        {activeRepeatDropdownSectionId === section.id && (
-                          <div
-                            className="absolute top-full mt-1 right-0 z-[100] bg-[#f4ecd8] border-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] flex flex-col py-1 rounded-sm min-w-[70px]"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {[1, 2, 3, 4, 5, 6, 7].map((count) => (
-                              <button
-                                key={count}
-                                onClick={() => {
-                                  const sectionLength = section.endMeasure - section.startMeasure + 1;
-                                  const diff = (count - (section.repeatCount || 1)) * sectionLength;
-                                  if (totalMeasures + diff > 20 && !hasAccess('mestre')) {
-                                    setShowSubModal(true);
-                                  } else {
-                                    onUpdateSectionRepeat(section.id, count);
-                                  }
-                                  setActiveRepeatDropdownSectionId(null);
-                                }}
-                                className={`px-2 py-1 text-[10px] font-bold text-[#1a1a1a] hover:bg-black/10 text-left w-full cursor-pointer ${
-                                  (section.repeatCount || 1) === count ? 'bg-black/15' : ''
-                                }`}
-                              >
-                                x{count}
-                              </button>
-                            ))}
-                            <div className="border-t border-black/10 my-0.5" />
-                            <button
-                              onClick={async () => {
-                                setActiveRepeatDropdownSectionId(null);
-                                const val = await sequencer.promptAsync(
-                                  lang === 'fr' ? 'Nombre de répétitions pour cette section ?' : 'Número de repetições?',
-                                  (section.repeatCount || 1).toString()
-                                );
-                                if (val) {
-                                  const count = parseInt(val, 10);
-                                  if (!isNaN(count) && count > 0) {
-                                    const sectionLength = section.endMeasure - section.startMeasure + 1;
-                                    const diff = (count - (section.repeatCount || 1)) * sectionLength;
-                                    if (totalMeasures + diff > 20 && !hasAccess('mestre')) {
-                                      setShowSubModal(true);
-                                    } else {
-                                      onUpdateSectionRepeat(section.id, count);
-                                    }
-                                  }
-                                }
-                              }}
-                              className="px-2 py-1 text-[10px] font-bold text-[#1a1a1a] hover:bg-black/10 text-left w-full cursor-pointer opacity-70"
-                            >
-                              {lang === 'fr' ? 'Autre...' : 'Outro...'}
-                            </button>
-                          </div>
-                        )}
-                      </div>
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1783,25 +1741,22 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                 {/* Sélecteur de Zoom */}
                 <div className="flex items-center bg-[var(--cordel-text)]/5 rounded p-0.5 cordel-border-sm w-full max-w-[120px]">
                   <button 
-                    disabled={isPlaying}
                     onClick={() => {
                       const screenW = typeof window !== 'undefined' ? window.innerWidth : 1200;
                       const farWidth = Math.max(20, Math.floor((screenW - HEADER_W - 50) / totalMeasures));
-                      onMeasureWidthChange(farWidth);
+                      handleZoom(farWidth);
                     }} 
-                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W <= Math.max(20, Math.floor(((typeof window !== 'undefined' ? window.innerWidth : 1200) - HEADER_W - 50) / totalMeasures)) + 5 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} ${isPlaying ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W <= Math.max(20, Math.floor(((typeof window !== 'undefined' ? window.innerWidth : 1200) - HEADER_W - 50) / totalMeasures)) + 5 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} cursor-pointer`}
                     title={lang === 'fr' ? 'Vue éloignée' : 'Visão distante'}
                   >L</button>
                   <button 
-                    disabled={isPlaying}
-                    onClick={() => onMeasureWidthChange(60)} 
-                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W > Math.max(20, Math.floor(((typeof window !== 'undefined' ? window.innerWidth : 1200) - HEADER_W - 50) / totalMeasures)) + 5 && MEASURE_W < 120 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} ${isPlaying ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                    onClick={() => handleZoom(60)} 
+                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W > Math.max(20, Math.floor(((typeof window !== 'undefined' ? window.innerWidth : 1200) - HEADER_W - 50) / totalMeasures)) + 5 && MEASURE_W < 120 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} cursor-pointer`}
                     title={lang === 'fr' ? 'Vue moyenne' : 'Visão média'}
                   >M</button>
                   <button 
-                    disabled={isPlaying}
-                    onClick={() => onMeasureWidthChange(120)} 
-                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W >= 120 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} ${isPlaying ? 'opacity-30 cursor-not-allowed' : 'cursor-pointer'}`}
+                    onClick={() => handleZoom(120)} 
+                    className={`flex-1 text-[10px] font-bold py-1 rounded transition-colors ${MEASURE_W >= 120 ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-sm' : 'text-[var(--cordel-text)]/50 hover:bg-[var(--cordel-text)]/10'} cursor-pointer`}
                     title={lang === 'fr' ? 'Vue proche' : 'Visão próxima'}
                   >S</button>
                 </div>

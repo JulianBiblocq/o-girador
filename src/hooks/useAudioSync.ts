@@ -1070,19 +1070,12 @@ export function useAudioSync({
                   measureCountRef.current = (isLoopRegionActiveRef.current && loopStartRef.current !== null) ? loopStartRef.current : 0;
                 }
               }
-            } else if (activeSection && sectionIterationRef.current < (activeSection.repeatCount || 1)) {
-              // Local section jump
-              sectionIterationRef.current++;
-              measureCountRef.current = activeSection.startMeasure;
             } else if (currentMeasureIdx >= (totalMeasuresRef.current || 1) - 1) {
               // We reached the absolute end of the sequence (e.g. after exiting a loop)
               hasFinishedRef.current = true;
               setTimeout(() => handleStop(), 2000);
             } else {
               // Normal progression
-              if (activeSection) {
-                sectionIterationRef.current = 1; // reset for the next pass
-              }
               measureCountRef.current = (measureCountRef.current + 1) % (totalMeasuresRef.current || 1);
             }
           }

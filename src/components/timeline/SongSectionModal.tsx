@@ -163,32 +163,6 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
           </div>
         </div>
 
-        {/* Bouton de conversion pour rétro-compatibilité */}
-        {editingSection && editingSection.repeatCount && editingSection.repeatCount > 1 && (
-          <button
-            onClick={() => {
-              if (isPlaying) {
-                alert(lang === 'fr' ? 'Arrêtez la lecture avant de convertir la section (protection audio).' : 'Pare a reprodução antes de converter a seção (proteção de áudio).');
-                return;
-              }
-              const sectionLength = editingSection.endMeasure - editingSection.startMeasure + 1;
-              const copiesCount = editingSection.repeatCount! - 1;
-              const newEndMeasure = editingSection.endMeasure + (copiesCount * sectionLength);
-              
-              // Only duplicate the block, the total measures expansion is handled inside `duplicateSectionBlock`
-              duplicateSectionBlock(editingSection.startMeasure, editingSection.endMeasure, editingSection.endMeasure + 1, copiesCount);
-              
-              // We reset repeatCount to 1, but we DON'T extend the original section's endMeasure to cover the copies.
-              // The whole point of Mission 2 is that they are independent physical copies.
-              useSequencerStore.getState().handleUpdateSectionRepeat(editingSection.id, 1);
-              onClose();
-            }}
-            className="w-full px-4 py-2 mt-1 bg-[#f5cd79] text-[#1a1a1a] border-2 border-[#1a1a1a] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[#e0b965] flex items-center justify-center gap-2"
-          >
-            <span>🪄</span> {lang === 'fr' ? 'Convertir en copies physiques' : 'Converter para cópias físicas'}
-          </button>
-        )}
-
         {/* Pied de page et boutons d'action */}
         <div className="flex flex-wrap justify-end gap-2.5 mt-2 border-t border-[var(--cordel-border)]/30 pt-3">
           <div className="flex flex-wrap gap-2.5 mr-auto">

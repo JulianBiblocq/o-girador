@@ -248,14 +248,14 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
                 ? 'bg-orange-500 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]' // Bypassed: orange active state
                 : sequencer.isLooping 
                   ? sequencer.isLoopExitRequested
-                    ? 'bg-orange-500/80 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]'
+                    ? 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] opacity-70 animate-pulse'
                     : 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-border)]'
                   : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] opacity-60 hover:opacity-100'
             }`}
             title={lang === 'fr' ? 'Activer/Désactiver la boucle' : 'Toggle Loop'}
           >
-            {sequencer.isLooping && !isLoopBypassed ? <Repeat className="w-6 h-6" /> : <ArrowRightToLine className="w-6 h-6" />}
-            {sequencer.isLooping && !isLoopBypassed && (
+            {(sequencer.isLooping && !isLoopBypassed && !sequencer.isLoopExitRequested) ? <Repeat className="w-6 h-6" /> : <ArrowRightToLine className="w-6 h-6" />}
+            {sequencer.isLooping && !isLoopBypassed && !sequencer.isLoopExitRequested && (
               <span className="text-[9px] font-bold mt-[-2px]">
                 {loopMode === 'infinite' ? '∞' : Math.max(0, loopMode - currentLoopIteration + 1) + 'x'}
               </span>
