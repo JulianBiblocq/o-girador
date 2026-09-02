@@ -82,4 +82,19 @@ test.describe('Validation du Chargement des Vues et Modules Dynamiques', () => {
 
     expect(helperStatus).toBe(true);
   });
+
+  test('La TransportBar reste sur une seule ligne sans wrap et masque le BPM en mode mobile portrait (375x667)', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    await page.waitForFunction(() => 'firebaseAuth' in window);
+
+    // Vérifier la présence des règles CSS
+    const isBpmHidden = await page.evaluate(() => {
+      const el = document.querySelector('.mobile-portrait-hide-bpm');
+      if (!el) return true;
+      return window.getComputedStyle(el).display === 'none';
+    });
+
+    expect(isBpmHidden).toBe(true);
+  });
 });

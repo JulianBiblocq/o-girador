@@ -155,14 +155,14 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
   }, [isPlaying, bpm]);
 
   return (
-    <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] flex flex-wrap items-center justify-between px-4 z-[1000] shrink-0">
+    <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] flex flex-nowrap items-center justify-between px-2 sm:px-4 z-[1000] shrink-0 overflow-hidden">
       
       {/* Left side: Metro, Swing, BPM */}
-      <div className="flex items-center gap-4 flex-1">
+      <div className="flex items-center gap-2 sm:gap-4 shrink-0">
         <div className="flex items-center bg-[var(--cordel-bg)] cordel-border-sm overflow-hidden h-[30px]">
           <button
             onClick={() => setIsMetroOn(!isMetroOn)}
-            className={`px-3 py-1 font-cactus font-bold text-sm flex items-center justify-center gap-2 h-full transition-colors cursor-pointer select-none ${
+            className={`px-2 sm:px-3 py-1 font-cactus font-bold text-sm flex items-center justify-center gap-1.5 sm:gap-2 h-full transition-colors cursor-pointer select-none ${
               isMetroOn ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/5'
             }`}
             title={t('metroBtn')}
@@ -188,7 +188,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
           </button>
         </div>
 
-        <div className="flex items-center gap-1.5 bg-[var(--cordel-bg)] px-2 py-1 cordel-border-sm border-[var(--cordel-border)]">
+        <div className="mobile-portrait-hide-bpm flex items-center gap-1.5 bg-[var(--cordel-bg)] px-2 py-1 cordel-border-sm border-[var(--cordel-border)]">
           <Gauge className="w-4 h-4 text-[var(--cordel-text)] md:hidden" />
           <span className="font-cactus font-bold text-[var(--cordel-text)] text-sm select-none hidden md:inline">
             {lang === 'fr' ? 'Vitesse' : lang === 'pt' ? 'Velocidade' : 'Tempo'}
@@ -223,115 +223,118 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
         </div>
       </div>
 
-      {/* Center: Main Transport Controls */}
-      <div className="flex items-center justify-center gap-3 flex-1">
+      {/* Center/Right: Main Transport Controls */}
+      <div className="flex items-center justify-end sm:justify-center gap-1.5 sm:gap-3 flex-1 ml-auto shrink-0">
         <button
           onClick={handleStop}
-          className="w-10 h-10 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors"
+          className="w-9 h-9 sm:w-10 sm:h-10 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors shrink-0"
           title={lang === 'pt' ? 'Voltar au início' : 'Retour au début'}
         >
-          <SkipBack className="w-5 h-5" fill="currentColor" />
+          <SkipBack className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" />
         </button>
         
-        <button
-          onClick={handleTogglePlay}
-          disabled={audio.isLoading}
-          className={`w-14 h-14 cordel-border cordel-button flex items-center justify-center transition-colors ${
-            audio.isLoading ? 'bg-gray-400 text-gray-700 cursor-wait' : isPlaying ? 'bg-[#f1c40f] text-[#1a1a1a]' : 'bg-[var(--cordel-wood)] text-[#f4ecd8]'
-          }`}
-          title={audio.isLoading ? (lang === 'pt' ? 'Carregando sons...' : 'Chargement des sons...') : isPlaying ? (lang === 'pt' ? 'Pausar' : 'Pause') : (lang === 'pt' ? 'Tocar' : 'Lecture')}
-        >
-          {audio.isLoading ? <Loader2 className="w-8 h-8 animate-spin" /> : isPlaying ? <Square className="w-6 h-6" fill="currentColor" /> : <Play className="w-8 h-8 ml-1" fill="currentColor" />}
-        </button>
-        
-        <div className="relative flex items-center" ref={loopMenuRef}>
+        {/* Play & Loop: Colles quasiment ensemble */}
+        <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
           <button
-            ref={loopBtnRef}
-            onClick={() => {
-              const storeState = useSequencerStore.getState();
-              if (isPlaying && sequencer.isLooping && !storeState.isLoopExitRequested) {
-                storeState.requestLoopExit();
-              } else {
-                sequencer.setIsLooping(!sequencer.isLooping);
-                if (storeState.isLoopExitRequested) {
-                  storeState.clearLoopExitRequest();
-                }
-              }
-            }}
-            className={`w-14 h-14 cordel-border cordel-button flex flex-col items-center justify-center cursor-pointer transition-all relative ${
-              isLoopBypassed
-                ? 'bg-orange-500 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]' // Bypassed: orange active state
-                : sequencer.isLooping 
-                  ? sequencer.isLoopExitRequested
-                    ? 'bg-orange-500/60 text-white animate-pulse'
-                    : 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-border)]'
-                  : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] opacity-60 hover:opacity-100'
+            onClick={handleTogglePlay}
+            disabled={audio.isLoading}
+            className={`w-12 h-12 sm:w-14 sm:h-14 cordel-border cordel-button flex items-center justify-center transition-colors shrink-0 ${
+              audio.isLoading ? 'bg-gray-400 text-gray-700 cursor-wait' : isPlaying ? 'bg-[#f1c40f] text-[#1a1a1a]' : 'bg-[var(--cordel-wood)] text-[#f4ecd8]'
             }`}
-            title={lang === 'fr' ? 'Activer/Désactiver la boucle' : 'Toggle Loop'}
+            title={audio.isLoading ? (lang === 'pt' ? 'Carregando sons...' : 'Chargement des sons...') : isPlaying ? (lang === 'pt' ? 'Pausar' : 'Pause') : (lang === 'pt' ? 'Tocar' : 'Lecture')}
           >
-            <Repeat className={`w-6 h-6 icon-repeat ${(!sequencer.isLooping || isLoopBypassed || sequencer.isLoopExitRequested) ? 'hidden' : ''}`} />
-            <ArrowRightToLine className={`w-6 h-6 icon-arrow ${(sequencer.isLooping && !isLoopBypassed && !sequencer.isLoopExitRequested) ? 'hidden' : ''}`} />
-            
-            <span className={`text-[9px] font-bold mt-[-2px] loop-count ${(!sequencer.isLooping || isLoopBypassed || sequencer.isLoopExitRequested) ? 'hidden' : ''}`}>
-              {loopMode === 'infinite' ? '∞' : Math.max(0, loopMode - currentLoopIteration + 1) + 'x'}
-            </span>
+            {audio.isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" /> : isPlaying ? <Square className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" /> : <Play className="w-7 h-7 sm:w-8 sm:h-8 ml-0.5 sm:ml-1" fill="currentColor" />}
           </button>
           
-          <button
-            onClick={() => setShowLoopMenu(!showLoopMenu)}
-            className="w-4 h-14 cordel-border-sm cordel-button flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] ml-0.5"
-            title={lang === 'fr' ? 'Paramètres de boucle' : 'Configurar loop'}
-          >
-            <span className="text-[10px]">▼</span>
-          </button>
+          <div className="relative flex items-center shrink-0" ref={loopMenuRef}>
+            <button
+              ref={loopBtnRef}
+              onClick={() => {
+                const storeState = useSequencerStore.getState();
+                if (isPlaying && sequencer.isLooping && !storeState.isLoopExitRequested) {
+                  storeState.requestLoopExit();
+                } else {
+                  sequencer.setIsLooping(!sequencer.isLooping);
+                  if (storeState.isLoopExitRequested) {
+                    storeState.clearLoopExitRequest();
+                  }
+                }
+              }}
+              className={`w-12 h-12 sm:w-14 sm:h-14 cordel-border cordel-button flex flex-col items-center justify-center cursor-pointer transition-all relative shrink-0 ${
+                isLoopBypassed
+                  ? 'bg-orange-500 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]' // Bypassed: orange active state
+                  : sequencer.isLooping 
+                    ? sequencer.isLoopExitRequested
+                      ? 'bg-orange-500/60 text-white animate-pulse'
+                      : 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-border)]'
+                    : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] opacity-60 hover:opacity-100'
+              }`}
+              title={lang === 'fr' ? 'Activer/Désactiver la boucle' : 'Toggle Loop'}
+            >
+              <Repeat className={`w-5 h-5 sm:w-6 sm:h-6 icon-repeat ${(!sequencer.isLooping || isLoopBypassed || sequencer.isLoopExitRequested) ? 'hidden' : ''}`} />
+              <ArrowRightToLine className={`w-5 h-5 sm:w-6 sm:h-6 icon-arrow ${(sequencer.isLooping && !isLoopBypassed && !sequencer.isLoopExitRequested) ? 'hidden' : ''}`} />
+              
+              <span className={`text-[8px] sm:text-[9px] font-bold mt-[-2px] loop-count ${(!sequencer.isLooping || isLoopBypassed || sequencer.isLoopExitRequested) ? 'hidden' : ''}`}>
+                {loopMode === 'infinite' ? '∞' : Math.max(0, loopMode - currentLoopIteration + 1) + 'x'}
+              </span>
+            </button>
+            
+            <button
+              onClick={() => setShowLoopMenu(!showLoopMenu)}
+              className="w-3.5 sm:w-4 h-12 sm:h-14 cordel-border-sm cordel-button flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] ml-0.5 shrink-0"
+              title={lang === 'fr' ? 'Paramètres de boucle' : 'Configurar loop'}
+            >
+              <span className="text-[9px] sm:text-[10px]">▼</span>
+            </button>
 
-          {showLoopMenu && (
-            <div className="absolute bottom-[calc(100%+8px)] left-0 w-32 bg-[var(--cordel-bg)] cordel-border z-[1100] shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col">
-              <button 
-                onClick={() => { useSequencerStore.getState().setLoopMode('infinite'); setShowLoopMenu(false); }}
-                className={`px-3 py-2 text-left text-sm font-bold border-b border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] ${loopMode === 'infinite' ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'text-[var(--cordel-text)]'}`}
-              >
-                {lang === 'fr' ? '∞ Infini' : '∞ Infinito'}
-              </button>
-              <div className="flex items-center gap-2 px-3 py-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-b border-[var(--cordel-border)]">
-                <input
-                  type="number"
-                  min={1}
-                  max={99}
-                  value={loopMode === 'infinite' ? 4 : loopMode}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    if (!isNaN(val) && val > 0) {
-                      useSequencerStore.getState().setLoopMode(val);
-                    }
-                  }}
-                  className="w-12 text-sm font-bold border-2 border-[var(--cordel-border)] px-1 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] outline-none focus:bg-[var(--cordel-border)]/10"
-                />
-                <span className="text-xs font-bold">{lang === 'fr' ? 'fois' : 'vezes'}</span>
+            {showLoopMenu && (
+              <div className="absolute bottom-[calc(100%+8px)] left-0 w-32 bg-[var(--cordel-bg)] cordel-border z-[1100] shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col">
+                <button 
+                  onClick={() => { useSequencerStore.getState().setLoopMode('infinite'); setShowLoopMenu(false); }}
+                  className={`px-3 py-2 text-left text-sm font-bold border-b border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] ${loopMode === 'infinite' ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'text-[var(--cordel-text)]'}`}
+                >
+                  {lang === 'fr' ? '∞ Infini' : '∞ Infinito'}
+                </button>
+                <div className="flex items-center gap-2 px-3 py-2 bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-b border-[var(--cordel-border)]">
+                  <input
+                    type="number"
+                    min={1}
+                    max={99}
+                    value={loopMode === 'infinite' ? 4 : loopMode}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val > 0) {
+                        useSequencerStore.getState().setLoopMode(val);
+                      }
+                    }}
+                    className="w-12 text-sm font-bold border-2 border-[var(--cordel-border)] px-1 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] outline-none focus:bg-[var(--cordel-border)]/10"
+                  />
+                  <span className="text-xs font-bold">{lang === 'fr' ? 'fois' : 'vezes'}</span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 relative">
+        <div className="flex items-center gap-2 relative shrink-0">
           <button
             onClick={handleAudioRecordingToggle}
-            className={`w-10 h-10 cordel-border cordel-button flex items-center justify-center transition-colors ${
+            className={`w-9 h-9 sm:w-10 sm:h-10 cordel-border cordel-button flex items-center justify-center transition-colors shrink-0 ${
               isRecording ? 'bg-red-600 text-white animate-pulse-red' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-red-100 hover:text-red-800'
             }`}
             title={lang === 'fr' ? "Exporter l'audio en WAV" : lang === 'pt' ? "Exportar áudio em WAV" : "Export Audio to WAV"}
           >
-            <Circle className="w-5 h-5" fill="currentColor" />
+            <Circle className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" />
           </button>
           {isRecording && (
-            <span className="font-mono text-red-600 dark:text-red-500 font-bold text-xs animate-pulse absolute left-12 whitespace-nowrap bg-[var(--cordel-bg)] px-1.5 py-0.5 border border-red-600/30 shadow-[2px_2px_0_rgba(239,68,68,0.2)]">
+            <span className="font-mono text-red-600 dark:text-red-500 font-bold text-xs animate-pulse absolute left-11 sm:left-12 whitespace-nowrap bg-[var(--cordel-bg)] px-1.5 py-0.5 border border-red-600/30 shadow-[2px_2px_0_rgba(239,68,68,0.2)]">
               REC {formatRecordingTime(recordingSeconds)}
             </span>
           )}
         </div>
       </div>
 
-      {/* Right side filler to keep center controls centered */}
+      {/* Right side filler to keep center controls centered on larger screens */}
       <div className="hidden md:block flex-1" />
     </div>
   );

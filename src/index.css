@@ -1083,7 +1083,9 @@ textarea {
   touch-action: manipulation;
 }
 
-
-
-
-
+/* Smartphone en mode portrait : masquer le compteur BPM de la barre de transport pour garantir une seule ligne sans coupure */
+@media (max-width: 640px) and (orientation: portrait) {
+  .mobile-portrait-hide-bpm {
+    display: none !important;
+  }
+}
