@@ -38,6 +38,16 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
   const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
   const currentMeasure = useSequencerStore(state => state.currentMeasure);
   const tracks = useSequencerStore(state => state.tracks);
+  const timeSig = useSequencerStore(state => state.timeSig);
+
+  const getBeatsFromTimeSig = (sig: string): number => {
+    if (sig === '3/4') return 3;
+    if (sig === '2/4' || sig === '6/8') return 2;
+    if (sig === '12/8') return 4;
+    return parseInt(sig?.split('/')[0], 10) || 4;
+  };
+
+  const defaultBeats = getBeatsFromTimeSig(timeSig);
 
   // For instrument selection dropdown
   const [dropdownOpenTrackId, setDropdownOpenTrackId] = useState<number | null>(null);
@@ -102,7 +112,9 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
   // Keep track of DOM elements for playhead updates (Zero Render Thrashing)
   // Double indexation ref structure: cellRefs.current[trackId][stepIdx] = HTMLElement
   const cellRefs = useRef<Record<string, Record<number, HTMLElement>>>({});
-  const lastActiveStepRef = useRef<number>(-1);
+  const lastActiveStepsRef = useRef<Record<string, number>>({});
+  // Stable resolutions mapping for audio tick playhead highlighting without layout thrashing
+  const trackResolutionsRef = useRef<Record<string, { beats: number; resArray: number[]; totalSteps: number }>>({});
 
   // Compute stable visible track IDs string for hook dependency
   const visibleTrackIds = useMemo(() => {
@@ -110,104 +122,119 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
   }, [visibleTracks]);
 
   // Register cell DOM elements with cleanup of orphaned refs
-  const registerStepRef = (trackId: number, stepIdx: number, el: HTMLButtonElement | null) => {
+  const registerStepRef = (trackId: number | string, stepIdx: number, el: HTMLButtonElement | null) => {
+    const tKey = String(trackId);
     if (el) {
-      if (!cellRefs.current[trackId]) {
-        cellRefs.current[trackId] = {};
+      if (!cellRefs.current[tKey]) {
+        cellRefs.current[tKey] = {};
       }
-      cellRefs.current[trackId][stepIdx] = el;
+      cellRefs.current[tKey][stepIdx] = el;
     } else {
-      if (cellRefs.current[trackId]) {
-        delete cellRefs.current[trackId][stepIdx];
-        if (Object.keys(cellRefs.current[trackId]).length === 0) {
-          delete cellRefs.current[trackId];
+      if (cellRefs.current[tKey]) {
+        delete cellRefs.current[tKey][stepIdx];
+        if (Object.keys(cellRefs.current[tKey]).length === 0) {
+          delete cellRefs.current[tKey];
         }
       }
     }
   };
 
-  // High-performance playhead ticks listener bypassing React render cycle
+  // High-performance playhead ticks listener bypassing React render cycle (Zero Render Thrashing & Zero Layout Thrashing)
   useEffect(() => {
     if (!isActive) {
-      if (lastActiveStepRef.current !== -1) {
-        const lastIdx = lastActiveStepRef.current;
-        Object.keys(cellRefs.current).forEach((tId) => {
+      Object.keys(cellRefs.current).forEach((tId) => {
+        const lastIdx = lastActiveStepsRef.current[tId];
+        if (lastIdx !== undefined && lastIdx !== -1) {
           const steps = cellRefs.current[tId];
-          if (steps[lastIdx]) {
+          if (steps?.[lastIdx]) {
             const el = steps[lastIdx];
             el.classList.remove('playhead-active');
             el.classList.remove('!border-[#b23b25]', '!bg-[#b23b25]/20', 'shadow-[0_0_8px_#b23b25]');
           }
-        });
-        lastActiveStepRef.current = -1;
-      }
+        }
+      });
+      lastActiveStepsRef.current = {};
       return;
     }
 
     const handleTick = (detail: { step: number; ratio?: number; time?: number }) => {
-      const { step, ratio = 0, time = 0 } = detail;
+      const { step, ratio = 0 } = detail;
 
-      // 1. GESTION DU STOP (step < 0) - Nettoyage complet des cases rouges
+      // 1. GESTION DU STOP (step < 0) - Nettoyage complet des cases actives
       if (step < 0) {
-        if (lastActiveStepRef.current !== -1) {
-          const lastIdx = lastActiveStepRef.current;
-          Object.keys(cellRefs.current).forEach((tId) => {
+        Object.keys(cellRefs.current).forEach((tId) => {
+          const lastIdx = lastActiveStepsRef.current[tId];
+          if (lastIdx !== undefined && lastIdx !== -1) {
             const steps = cellRefs.current[tId];
-            if (steps[lastIdx]) {
+            if (steps?.[lastIdx]) {
               const el = steps[lastIdx];
               el.classList.remove('playhead-active');
               el.classList.remove('!border-[#b23b25]', '!bg-[#b23b25]/20', 'shadow-[0_0_8px_#b23b25]');
             }
-          });
-          lastActiveStepRef.current = -1;
-        }
+          }
+        });
+        lastActiveStepsRef.current = {};
         return;
       }
 
-      const targetStep = Math.floor(ratio * 16);
-      const lastStep = lastActiveStepRef.current;
+      Object.keys(cellRefs.current).forEach((tId) => {
+        const steps = cellRefs.current[tId];
+        if (!steps) return;
 
-      if (targetStep === lastStep) return;
+        const trackRes = trackResolutionsRef.current[tId];
+        let targetStep = 0;
+        if (trackRes && trackRes.beats > 0) {
+          const { beats, resArray, totalSteps } = trackRes;
+          const currentBeat = Math.min(beats - 1, Math.max(0, Math.floor(ratio * beats)));
+          const beatProgress = Math.min(0.9999, Math.max(0, (ratio * beats) - currentBeat));
+          const res = resArray[currentBeat] || 4;
+          const stepInBeat = Math.min(res - 1, Math.max(0, Math.floor(beatProgress * res)));
 
-      const applyDomUpdate = () => {
-        Object.keys(cellRefs.current).forEach((tId) => {
-          const steps = cellRefs.current[tId];
-
-          // 1. Remove playhead indicators from the previous active step
-          if (lastStep !== -1 && steps[lastStep]) {
-            const prevEl = steps[lastStep];
-            prevEl.classList.remove('playhead-active');
-            prevEl.classList.remove('!border-[#b23b25]', '!bg-[#b23b25]/20', 'shadow-[0_0_8px_#b23b25]');
+          let accumulated = 0;
+          for (let b = 0; b < currentBeat; b++) {
+            accumulated += (resArray[b] || 4);
           }
+          targetStep = Math.min(totalSteps - 1, accumulated + stepInBeat);
+        } else {
+          targetStep = Math.floor(ratio * 16);
+        }
 
-          // 2. Add playhead indicators to the new active step (subtle clay red organic glow)
-          if (steps[targetStep]) {
-            const newEl = steps[targetStep];
-            newEl.classList.add('playhead-active');
-            newEl.classList.add('!border-[#b23b25]', '!bg-[#b23b25]/20', 'shadow-[0_0_8px_#b23b25]');
-          }
-        });
+        const lastStep = lastActiveStepsRef.current[tId] ?? -1;
+        if (targetStep === lastStep) return;
 
-        lastActiveStepRef.current = targetStep;
-      };
+        // 1. Remove playhead indicator from previous active step
+        if (lastStep !== -1 && steps[lastStep]) {
+          const prevEl = steps[lastStep];
+          prevEl.classList.remove('playhead-active');
+          prevEl.classList.remove('!border-[#b23b25]', '!bg-[#b23b25]/20', 'shadow-[0_0_8px_#b23b25]');
+        }
 
-      applyDomUpdate();
+        // 2. Add playhead indicator to the new active step
+        if (steps[targetStep]) {
+          const newEl = steps[targetStep];
+          newEl.classList.add('playhead-active');
+          newEl.classList.add('!border-[#b23b25]', '!bg-[#b23b25]/20', 'shadow-[0_0_8px_#b23b25]');
+        }
+
+        lastActiveStepsRef.current[tId] = targetStep;
+      });
     };
 
     subscribeToTick(handleTick);
     return () => {
       unsubscribeFromTick(handleTick);
-      if (lastActiveStepRef.current !== -1) {
-        const lastIdx = lastActiveStepRef.current;
-        Object.keys(cellRefs.current).forEach((tId) => {
+      Object.keys(cellRefs.current).forEach((tId) => {
+        const lastIdx = lastActiveStepsRef.current[tId];
+        if (lastIdx !== undefined && lastIdx !== -1) {
           const steps = cellRefs.current[tId];
-          if (steps[lastIdx]) {
+          if (steps?.[lastIdx]) {
             const el = steps[lastIdx];
             el.classList.remove('playhead-active');
             el.classList.remove('!border-[#b23b25]', '!bg-[#b23b25]/20', 'shadow-[0_0_8px_#b23b25]');
           }
-        });
-      }
+        }
+      });
+      lastActiveStepsRef.current = {};
     };
   }, [isActive, visibleTrackIds]);
 
@@ -261,30 +288,20 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
           </div>
 
           {/* Right Ruler steps timeline headers aligned to beats */}
-          <div className="flex items-center justify-between flex-grow gap-2 md:gap-3 select-none pl-4">
-            <div className="grid grid-cols-8 xl:grid-cols-[repeat(16,_minmax(0,_1fr))] gap-y-1 md:gap-y-2 gap-x-0 w-full items-center text-[#1a1a1a] font-cactus font-bold text-[10px] md:text-xs">
-              {Array.from({ length: 16 }).map((_, stepIdx) => {
-                const isBeatStart = stepIdx % 4 === 0;
-                const isBeatEnd = (stepIdx + 1) % 4 === 0;
-                const beatNum = Math.floor(stepIdx / 4) + 1;
-                const isTimeSeparator = (stepIdx + 1) % 4 === 0 && stepIdx < 15;
-                const beatIndex = Math.floor(stepIdx / 4);
-                const isEvenBeat = beatIndex % 2 === 0;
+          <div className="flex items-center justify-between flex-grow pl-4 select-none">
+            <div className="flex w-full items-center gap-1.5 text-[#1a1a1a] font-cactus font-bold text-[10px] md:text-xs">
+              {Array.from({ length: defaultBeats }).map((_, beatIdx) => {
+                const isEvenBeat = beatIdx % 2 === 0;
                 const emptyStepBg = isEvenBeat ? '#f4ecd8' : '#d2c5b1';
-                const cellBorderRadius = isBeatStart 
-                  ? '4px 0 0 4px' 
-                  : (isBeatEnd ? '0 4px 4px 0' : '0px');
                 return (
                   <div
-                    key={stepIdx}
-                    className="text-center py-1"
+                    key={beatIdx}
+                    className="flex-1 text-center py-1 rounded"
                     style={{
                       backgroundColor: emptyStepBg,
-                      marginRight: isTimeSeparator ? '6px' : undefined,
-                      borderRadius: cellBorderRadius,
                     }}
                   >
-                    {isBeatStart ? `T${beatNum}` : ''}
+                    T{beatIdx + 1}
                   </div>
                 );
               })}
@@ -501,295 +518,322 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
 
                 </div>
 
-                {/* B. Right Side: 16 Step Buttons aligned in a regular fluid grid, stretched to border */}
-                <div className="flex items-center flex-grow pl-4">
-                  <div className="grid grid-cols-8 xl:grid-cols-[repeat(16,_minmax(0,_1fr))] gap-y-1 md:gap-y-2 gap-x-0 w-full items-center select-none">
-                    {Array.from({ length: 16 }).map((_, stepIdx) => {
-                      const val = isGhostStep
-                        ? (masterActivePattern?.activeSteps?.[stepIdx] ?? 0)
-                        : (activePattern?.activeSteps?.[stepIdx] ?? 0);
-                      const isActiveCell = val !== 0 && val !== '';
-                      const isVoice = inst.type === 'voice' || inst.id === 'toada';
+                {/* B. Right Side: Dynamic Step Buttons grouped by beats */}
+                {(() => {
+                  const patternForSteps = isGhostStep ? masterActivePattern : activePattern;
+                  const stepsCount = patternForSteps?.steps ?? 16;
+                  const beatRes = patternForSteps?.beatResolutions || Array(defaultBeats).fill(Math.floor(stepsCount / defaultBeats) || 4);
 
-                      const note = isVoice 
-                        ? (isGhostStep 
-                            ? (masterActivePattern?.notes?.[stepIdx] || '')
-                            : (activePattern?.notes?.[stepIdx] || ''))
-                        : '';
-                      const noteLetter = note ? note.charAt(0).toUpperCase() : '';
+                  // Keep trackResolutionsRef updated synchronously during render (Zero Layout Thrashing)
+                  trackResolutionsRef.current[String(track.id)] = {
+                    beats: defaultBeats,
+                    resArray: beatRes,
+                    totalSteps: stepsCount,
+                  };
 
-                      const visualVal = getVisualStrokeSymbol(Array.isArray(val) ? val[0] : val, isLeftHanded, inst.id);
-                      
-                      // Resolve lyrics or text symbol for voice track, percussions get letters
-                      const syl = isGhostStep
-                        ? (masterActivePattern?.lyrics?.[stepIdx] || (val !== 0 && val !== '' ? String(val) : ''))
-                        : (activePattern?.lyrics?.[stepIdx] || (val !== 0 && val !== '' ? String(val) : ''));
-                      
-                      let displayVal = isVoice ? syl : (visualVal === 0 ? '' : (Array.isArray(val) ? val.map(v => getVisualStrokeSymbol(v, isLeftHanded, inst.id)).join('') : String(visualVal)));
-
-                      // Zebra timing: alternate background color every 4 steps
-                      const beatIndex = Math.floor(stepIdx / 4);
-                      const isEvenBeat = beatIndex % 2 === 0;
-                      const emptyStepBg = isEvenBeat ? '#f4ecd8' : '#d2c5b1';
-
-                      let bgColor = emptyStepBg;
-                      let txtColor = 'rgba(26, 26, 26, 0.4)';
-                      let borderStyle = '2px solid rgba(26, 26, 26, 0.2)';
-                      let isSplit = false;
-
-                      let leftBg = emptyStepBg;
-                      let leftTxt = 'transparent';
-                      let leftSym = '';
-
-                      let rightBg = emptyStepBg;
-                      let rightTxt = 'transparent';
-                      let rightSym = '';
-
-                      // Resolve default master styles
-                      let masterBg = emptyStepBg;
-                      let masterTxt = txtColor;
-                      let masterSym = displayVal;
-
-                      if (isActiveCell) {
-                        if (isVoice) {
-                          const voiceInst = instrumentsConfig.find(c => c.id === (val === 'P' ? 'puxador' : 'coro')) || inst;
-                          masterBg = voiceInst.color || '#f4ecd8';
-                          masterTxt = '#1a1a1a';
-                        } else {
-                          const primaryVal = String(visualVal);
-                          masterBg = inst.colors?.[primaryVal] || inst.color || '#111';
-                          masterTxt = inst.colors?.text || '#f4ecd8';
-                          if (isDarkText(inst.id, primaryVal)) {
-                            masterTxt = '#1a1a1a';
-                          }
-                        }
+                  // Compute step index groups per beat
+                  const beatGroups: number[][] = [];
+                  let accumulated = 0;
+                  for (let b = 0; b < defaultBeats; b++) {
+                    const res = beatRes[b] ?? 4;
+                    const group: number[] = [];
+                    for (let i = 0; i < res; i++) {
+                      if (accumulated + i < stepsCount) {
+                        group.push(accumulated + i);
                       }
+                    }
+                    beatGroups.push(group);
+                    accumulated += res;
+                  }
 
-                      // ── RESOLVE TRACK LINKING AND VARIATIONS (RODA STYLE) ──
-                      const children = tracks.filter(t => String(t.linkedToTrackId) === String(track.id) && !t.isBusFolder);
-                      const isLinkedGroup = children.length > 0;
+                  return (
+                    <div className="flex items-center flex-grow pl-4 h-full">
+                      <div className="flex w-full h-full items-center gap-1.5 select-none">
+                        {beatGroups.map((group, beatIdx) => {
+                          const isEvenBeat = beatIdx % 2 === 0;
+                          const emptyStepBg = isEvenBeat ? '#f4ecd8' : '#d2c5b1';
+                          const isTriplet = group.length === 3;
+                          const isSextuplet = group.length === 6;
 
-                      if (isLinkedGroup) {
-                        // Collect active events from child tracks
-                        const childActiveEvents: Array<{
-                          bgColor: string;
-                          txtColor: string;
-                          displayVal: string;
-                          visualVal: string | number;
-                        }> = [];
-
-                        children.forEach(c => {
-                          const override = c.patternOverrides?.[currentMeasure];
-                          let cPattern = null;
-                          if (override === null) {
-                            cPattern = null;
-                          } else if (override !== undefined) {
-                            cPattern = track.patterns?.find((p: any) => p.id === override);
-                          } else if (activePattern) {
-                            cPattern = c.patterns?.find((p: any) => p.id === activePattern.id);
-                            if (!cPattern) {
-                              const idx = effectiveTrack.patterns?.indexOf(activePattern) ?? -1;
-                              if (idx !== -1 && c.patterns) {
-                                cPattern = c.patterns[idx];
-                              }
-                            }
-                          }
-
-                          const cVal = cPattern?.activeSteps?.[stepIdx] ?? 0;
-                          if (cVal !== 0 && cVal !== '') {
-                            const cInst = instrumentsConfig[c.instrumentIdx];
-                            if (cInst) {
-                              const cVisualVal = getVisualStrokeSymbol(cVal, isLeftHanded, cInst.id);
-                              if (cVisualVal !== 0) {
-                                const cBgColor = cInst.colors?.[cVisualVal as string] || cInst.color || '#111';
-                                let cTxtColor = cInst.colors?.text || '#f4ecd8';
-                                if (isDarkText(cInst.id, cVisualVal as string)) {
-                                  cTxtColor = '#1a1a1a';
-                                }
-                                childActiveEvents.push({
-                                  bgColor: cBgColor,
-                                  txtColor: cTxtColor,
-                                  displayVal: String(cVisualVal),
-                                  visualVal: cVisualVal,
-                                });
-                              }
-                            }
-                          }
-                        });
-
-                        const masterVisualVal = isActiveCell ? visualVal : 0;
-                        const hasMasterEvent = masterVisualVal !== 0;
-                        const activeChildrenCount = childActiveEvents.length;
-
-                        let isUnisson = false;
-                        if (hasMasterEvent && activeChildrenCount > 0) {
-                          // Unison = all ACTIVE children play the same stroke as master
-                          isUnisson = childActiveEvents.every(evt => evt.visualVal === masterVisualVal);
-                        }
-
-                        if (isUnisson) {
-                          // Cas A : Perfect Unison -> Uni normal step using the average group color
-                          isSplit = false;
-                          bgColor = getBusNoteColor(String(track.id), String(masterVisualVal), tracks, instrumentsConfig);
-                          txtColor = getContrastColor(bgColor);
-                          borderStyle = '2px solid #1a1a1a';
-                          displayVal = String(masterVisualVal);
-                        } else {
-                          // Divergence (at least one instrument in the group is playing something different/silence)
-                          const groupHasEvent = hasMasterEvent || activeChildrenCount > 0;
-                          if (groupHasEvent) {
-                            isSplit = true;
-                            borderStyle = '2px solid #1a1a1a';
-
-                            // Left-Top half (Master)
-                            if (hasMasterEvent) {
-                              leftBg = masterBg;
-                              leftTxt = masterTxt;
-                              leftSym = masterSym;
-                            } else {
-                              leftBg = emptyStepBg;
-                              leftTxt = 'transparent';
-                              leftSym = '';
-                            }
-
-                            // Right-Bottom half (Variation / Slave)
-                            if (activeChildrenCount > 0) {
-                              rightBg = childActiveEvents[0].bgColor;
-                              rightTxt = childActiveEvents[0].txtColor;
-                              rightSym = childActiveEvents[0].displayVal;
-                            } else {
-                              // Slave is silent while master plays (Cas B variation silence)
-                              rightBg = emptyStepBg;
-                              rightTxt = 'transparent';
-                              rightSym = '';
-                            }
-                          } else {
-                            // All silent
-                            isSplit = false;
-                            bgColor = emptyStepBg;
-                            txtColor = 'rgba(26, 26, 26, 0.4)';
-                            borderStyle = '2px solid rgba(26, 26, 26, 0.2)';
-                          }
-                        }
-                      } else {
-                        // Normal, unlinked track
-                        if (Array.isArray(val) && val.length === 2) {
-                          isSplit = true;
-                          borderStyle = '2px solid #1a1a1a';
-                          bgColor = emptyStepBg;
-
-                          const leftVal = getVisualStrokeSymbol(val[0], isLeftHanded, inst.id);
-                          leftBg = inst.colors?.[String(leftVal)] || inst.color || '#111';
-                          leftTxt = isDarkText(inst.id, String(leftVal)) ? '#1a1a1a' : (inst.colors?.text || '#f4ecd8');
-                          leftSym = leftVal === 0 ? '' : String(leftVal);
-                          if (leftVal === 0 || leftVal === '') { leftBg = emptyStepBg; leftTxt = 'transparent'; }
-
-                          const rightVal = getVisualStrokeSymbol(val[1], isLeftHanded, inst.id);
-                          rightBg = inst.colors?.[String(rightVal)] || inst.color || '#111';
-                          rightTxt = isDarkText(inst.id, String(rightVal)) ? '#1a1a1a' : (inst.colors?.text || '#f4ecd8');
-                          rightSym = rightVal === 0 ? '' : String(rightVal);
-                          if (rightVal === 0 || rightVal === '') { rightBg = emptyStepBg; rightTxt = 'transparent'; }
-                        } else {
-                          isSplit = false;
-                          if (isActiveCell) {
-                            bgColor = masterBg;
-                            txtColor = masterTxt;
-                            borderStyle = '2px solid #1a1a1a';
-                          } else {
-                            bgColor = emptyStepBg;
-                            txtColor = 'rgba(26, 26, 26, 0.4)';
-                            borderStyle = '2px solid rgba(26, 26, 26, 0.2)';
-                          }
-                        }
-                      }
-
-                      // Micro separator margin after every 4 steps (beat demarcation)
-                      const isTimeSeparator = (stepIdx + 1) % 4 === 0 && stepIdx < 15;
-
-                      const cellContent = (() => {
-                        if (isSplit) {
                           return (
-                            <button
-                              ref={(el) => registerStepRef(track.id, stepIdx, el)}
-                              data-step-index={stepIdx}
-                              onClick={(e) => handleStepClick(e, effectiveTrack.id, activePattern, inst, stepIdx, val)}
-                              className="sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out w-11 h-11 md:w-12 md:h-12 flex-shrink-0 aspect-square overflow-hidden outline-none"
-                              style={{
-                                border: borderStyle,
-                                borderRadius: '2px',
-                                boxShadow: '1px 1px 0px rgba(0,0,0,1)',
-                                background: `linear-gradient(135deg, ${leftBg} 48%, #000 48%, #000 52%, ${rightBg} 52%)`,
-                              }}
+                            <div
+                              key={beatIdx}
+                              className={`flex flex-1 h-full items-center py-1 px-1 rounded ${
+                                isTriplet ? 'justify-between gap-1' : isSextuplet ? 'gap-0.5' : 'gap-1'
+                              }`}
+                              style={{ backgroundColor: emptyStepBg }}
                             >
-                              {/* Left-Top text (base strike) */}
-                              <span
-                                className="absolute top-0.5 left-1.5 text-sm font-bold z-10"
-                                style={{ color: leftTxt }}
-                              >
-                                {leftSym}
-                              </span>
+                              {group.map((stepIdx, indexInGroup) => {
+                                const val = isGhostStep
+                                  ? (masterActivePattern?.activeSteps?.[stepIdx] ?? 0)
+                                  : (activePattern?.activeSteps?.[stepIdx] ?? 0);
+                                const isActiveCell = val !== 0 && val !== '';
+                                const isVoice = inst.type === 'voice' || inst.id === 'toada';
 
-                              {/* Right-Bottom text (variation strike) */}
-                              <span
-                                className="absolute bottom-0.5 right-1.5 text-sm font-bold z-10"
-                                style={{ color: rightTxt }}
-                              >
-                                {rightSym}
-                              </span>
-                            </button>
+                                const note = isVoice 
+                                  ? (isGhostStep 
+                                      ? (masterActivePattern?.notes?.[stepIdx] || '')
+                                      : (activePattern?.notes?.[stepIdx] || ''))
+                                  : '';
+
+                                const visualVal = getVisualStrokeSymbol(Array.isArray(val) ? val[0] : val, isLeftHanded, inst.id);
+                                
+                                const syl = isGhostStep
+                                  ? (masterActivePattern?.lyrics?.[stepIdx] || (val !== 0 && val !== '' ? String(val) : ''))
+                                  : (activePattern?.lyrics?.[stepIdx] || (val !== 0 && val !== '' ? String(val) : ''));
+                                
+                                let displayVal = isVoice ? syl : (visualVal === 0 ? '' : (Array.isArray(val) ? val.map(v => getVisualStrokeSymbol(v, isLeftHanded, inst.id)).join('') : String(visualVal)));
+
+                                let bgColor = emptyStepBg;
+                                let txtColor = 'rgba(26, 26, 26, 0.4)';
+                                let borderStyle = '2px solid rgba(26, 26, 26, 0.2)';
+                                let isSplit = false;
+
+                                let leftBg = emptyStepBg;
+                                let leftTxt = 'transparent';
+                                let leftSym = '';
+
+                                let rightBg = emptyStepBg;
+                                let rightTxt = 'transparent';
+                                let rightSym = '';
+
+                                let masterBg = emptyStepBg;
+                                let masterTxt = txtColor;
+                                let masterSym = displayVal;
+
+                                if (isActiveCell) {
+                                  if (isVoice) {
+                                    const voiceInst = instrumentsConfig.find(c => c.id === (val === 'P' ? 'puxador' : 'coro')) || inst;
+                                    masterBg = voiceInst.color || '#f4ecd8';
+                                    masterTxt = '#1a1a1a';
+                                  } else {
+                                    const primaryVal = String(visualVal);
+                                    masterBg = inst.colors?.[primaryVal] || inst.color || '#111';
+                                    masterTxt = inst.colors?.text || '#f4ecd8';
+                                    if (isDarkText(inst.id, primaryVal)) {
+                                      masterTxt = '#1a1a1a';
+                                    }
+                                  }
+                                }
+
+                                // ── RESOLVE TRACK LINKING AND VARIATIONS (RODA STYLE) ──
+                                const children = tracks.filter(t => String(t.linkedToTrackId) === String(track.id) && !t.isBusFolder);
+                                const isLinkedGroup = children.length > 0;
+
+                                if (isLinkedGroup) {
+                                  const childActiveEvents: Array<{
+                                    bgColor: string;
+                                    txtColor: string;
+                                    displayVal: string;
+                                    visualVal: string | number;
+                                  }> = [];
+
+                                  children.forEach(c => {
+                                    const override = c.patternOverrides?.[currentMeasure];
+                                    let cPattern = null;
+                                    if (override === null) {
+                                      cPattern = null;
+                                    } else if (override !== undefined) {
+                                      cPattern = track.patterns?.find((p: any) => p.id === override);
+                                    } else if (activePattern) {
+                                      cPattern = c.patterns?.find((p: any) => p.id === activePattern.id);
+                                      if (!cPattern) {
+                                        const idx = effectiveTrack.patterns?.indexOf(activePattern) ?? -1;
+                                        if (idx !== -1 && c.patterns) {
+                                          cPattern = c.patterns[idx];
+                                        }
+                                      }
+                                    }
+
+                                    const cVal = cPattern?.activeSteps?.[stepIdx] ?? 0;
+                                    if (cVal !== 0 && cVal !== '') {
+                                      const cInst = instrumentsConfig[c.instrumentIdx];
+                                      if (cInst) {
+                                        const cVisualVal = getVisualStrokeSymbol(cVal, isLeftHanded, cInst.id);
+                                        if (cVisualVal !== 0) {
+                                          const cBgColor = cInst.colors?.[cVisualVal as string] || cInst.color || '#111';
+                                          let cTxtColor = cInst.colors?.text || '#f4ecd8';
+                                          if (isDarkText(cInst.id, cVisualVal as string)) {
+                                            cTxtColor = '#1a1a1a';
+                                          }
+                                          childActiveEvents.push({
+                                            bgColor: cBgColor,
+                                            txtColor: cTxtColor,
+                                            displayVal: String(cVisualVal),
+                                            visualVal: cVisualVal,
+                                          });
+                                        }
+                                      }
+                                    }
+                                  });
+
+                                  const masterVisualVal = isActiveCell ? visualVal : 0;
+                                  const hasMasterEvent = masterVisualVal !== 0;
+                                  const activeChildrenCount = childActiveEvents.length;
+
+                                  let isUnisson = false;
+                                  if (hasMasterEvent && activeChildrenCount > 0) {
+                                    isUnisson = childActiveEvents.every(evt => evt.visualVal === masterVisualVal);
+                                  }
+
+                                  if (isUnisson) {
+                                    isSplit = false;
+                                    bgColor = getBusNoteColor(String(track.id), String(masterVisualVal), tracks, instrumentsConfig);
+                                    txtColor = getContrastColor(bgColor);
+                                    borderStyle = '2px solid #1a1a1a';
+                                    displayVal = String(masterVisualVal);
+                                  } else {
+                                    const groupHasEvent = hasMasterEvent || activeChildrenCount > 0;
+                                    if (groupHasEvent) {
+                                      isSplit = true;
+                                      borderStyle = '2px solid #1a1a1a';
+
+                                      if (hasMasterEvent) {
+                                        leftBg = masterBg;
+                                        leftTxt = masterTxt;
+                                        leftSym = masterSym;
+                                      } else {
+                                        leftBg = emptyStepBg;
+                                        leftTxt = 'transparent';
+                                        leftSym = '';
+                                      }
+
+                                      if (activeChildrenCount > 0) {
+                                        rightBg = childActiveEvents[0].bgColor;
+                                        rightTxt = childActiveEvents[0].txtColor;
+                                        rightSym = childActiveEvents[0].displayVal;
+                                      } else {
+                                        rightBg = emptyStepBg;
+                                        rightTxt = 'transparent';
+                                        rightSym = '';
+                                      }
+                                    } else {
+                                      isSplit = false;
+                                      bgColor = emptyStepBg;
+                                      txtColor = 'rgba(26, 26, 26, 0.4)';
+                                      borderStyle = '2px solid rgba(26, 26, 26, 0.2)';
+                                    }
+                                  }
+                                } else {
+                                  // Normal, unlinked track
+                                  if (Array.isArray(val) && val.length === 2) {
+                                    isSplit = true;
+                                    borderStyle = '2px solid #1a1a1a';
+                                    bgColor = emptyStepBg;
+
+                                    const leftVal = getVisualStrokeSymbol(val[0], isLeftHanded, inst.id);
+                                    leftBg = inst.colors?.[String(leftVal)] || inst.color || '#111';
+                                    leftTxt = isDarkText(inst.id, String(leftVal)) ? '#1a1a1a' : (inst.colors?.text || '#f4ecd8');
+                                    leftSym = leftVal === 0 ? '' : String(leftVal);
+                                    if (leftVal === 0 || leftVal === '') { leftBg = emptyStepBg; leftTxt = 'transparent'; }
+
+                                    const rightVal = getVisualStrokeSymbol(val[1], isLeftHanded, inst.id);
+                                    rightBg = inst.colors?.[String(rightVal)] || inst.color || '#111';
+                                    rightTxt = isDarkText(inst.id, String(rightVal)) ? '#1a1a1a' : (inst.colors?.text || '#f4ecd8');
+                                    rightSym = rightVal === 0 ? '' : String(rightVal);
+                                    if (rightVal === 0 || rightVal === '') { rightBg = emptyStepBg; rightTxt = 'transparent'; }
+                                  } else {
+                                    isSplit = false;
+                                    if (isActiveCell) {
+                                      bgColor = masterBg;
+                                      txtColor = masterTxt;
+                                      borderStyle = '2px solid #1a1a1a';
+                                    } else {
+                                      bgColor = emptyStepBg;
+                                      txtColor = 'rgba(26, 26, 26, 0.4)';
+                                      borderStyle = '2px solid rgba(26, 26, 26, 0.2)';
+                                    }
+                                  }
+                                }
+
+                                if (isSplit) {
+                                  return (
+                                    <div key={stepIdx} className="flex items-center justify-center h-full flex-1">
+                                      <button
+                                        ref={(el) => registerStepRef(track.id, stepIdx, el)}
+                                        data-step-index={stepIdx}
+                                        onClick={(e) => handleStepClick(e, effectiveTrack.id, activePattern, inst, stepIdx, val)}
+                                        className={`sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out flex-1 h-10 md:h-11 overflow-hidden outline-none ${
+                                          isTriplet ? 'max-w-[56px]' : isSextuplet ? 'max-w-[34px]' : 'max-w-[48px]'
+                                        }`}
+                                        style={{
+                                          border: (isTriplet || isSextuplet) ? 'none' : borderStyle,
+                                          borderRadius: (isTriplet || isSextuplet) ? '0' : '2px',
+                                          boxShadow: (!isTriplet && !isSextuplet) ? '1px 1px 0px rgba(0,0,0,1)' : undefined,
+                                          filter: (isTriplet || isSextuplet) ? 'drop-shadow(1px 1px 0px rgba(0,0,0,0.35))' : undefined,
+                                          clipPath: isSextuplet
+                                            ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
+                                            : isTriplet
+                                              ? 'polygon(50% 0%, 0% 100%, 100% 100%)'
+                                              : undefined,
+                                          background: `linear-gradient(135deg, ${leftBg} 48%, #000 48%, #000 52%, ${rightBg} 52%)`,
+                                        }}
+                                      >
+                                        {/* Left-Top text (base strike) */}
+                                        <span
+                                          className="absolute top-0.5 left-1 text-xs md:text-sm font-bold z-10"
+                                          style={{ color: leftTxt }}
+                                        >
+                                          {leftSym}
+                                        </span>
+
+                                        {/* Right-Bottom text (variation strike) */}
+                                        <span
+                                          className="absolute bottom-0.5 right-1 text-xs md:text-sm font-bold z-10"
+                                          style={{ color: rightTxt }}
+                                        >
+                                          {rightSym}
+                                        </span>
+                                      </button>
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div key={stepIdx} className="flex items-center justify-center h-full flex-1">
+                                    <button
+                                      ref={(el) => registerStepRef(track.id, stepIdx, el)}
+                                      data-step-index={stepIdx}
+                                      data-step-type={isVoice ? 'voice' : 'sampler'}
+                                      onClick={(e) => handleStepClick(e, effectiveTrack.id, activePattern, inst, stepIdx, val)}
+                                      className={`sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out flex-1 h-10 md:h-11 outline-none ${
+                                        isTriplet ? 'max-w-[56px]' : isSextuplet ? 'max-w-[34px]' : 'max-w-[48px]'
+                                      } ${isActiveCell ? 'is-active scale-100' : 'hover:bg-black/5'} ${
+                                        isVoice 
+                                          ? 'text-[9px] md:text-[11px] font-sans normal-case leading-tight text-center break-words overflow-hidden px-0.5' 
+                                          : isSextuplet
+                                            ? 'text-xs md:text-sm font-bold'
+                                            : 'text-base md:text-lg font-bold'
+                                      }`}
+                                      style={{
+                                        backgroundColor: (isTriplet || isSextuplet)
+                                          ? (isActiveCell ? bgColor : 'rgba(26, 26, 26, 0.12)')
+                                          : (isActiveCell ? bgColor : 'transparent'),
+                                        color: txtColor,
+                                        border: (isTriplet || isSextuplet) ? 'none' : borderStyle,
+                                        borderRadius: (isTriplet || isSextuplet) ? '0' : '2px',
+                                        boxShadow: (!isTriplet && !isSextuplet && isActiveCell) ? '1px 1px 0px rgba(0,0,0,1)' : undefined,
+                                        filter: (isTriplet || isSextuplet) ? 'drop-shadow(1px 1px 0px rgba(0,0,0,0.35))' : undefined,
+                                        clipPath: isSextuplet 
+                                          ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
+                                          : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
+                                        opacity: isGhostStep ? 0.35 : 1,
+                                      }}
+                                    >
+                                      <span className={isSextuplet ? (indexInGroup % 2 === 0 ? 'translate-y-1' : '-translate-y-1') : isTriplet ? 'translate-y-1' : ''}>
+                                        {displayVal}
+                                      </span>
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           );
-                        }
-
-                        // Normal undivided step button
-                        return (
-                          <button
-                            ref={(el) => registerStepRef(track.id, stepIdx, el)}
-                            data-step-index={stepIdx}
-                            data-step-type={isVoice ? 'voice' : 'sampler'}
-                            onClick={(e) => handleStepClick(e, effectiveTrack.id, activePattern, inst, stepIdx, val)}
-                            className={`sequencer-step relative flex items-center justify-center cursor-pointer select-none transition-all duration-75 ease-out w-11 h-11 md:w-12 md:h-12 flex-shrink-0 aspect-square outline-none ${
-                              isActiveCell ? 'is-active scale-100' : 'hover:bg-black/5'
-                            } ${
-                              isVoice 
-                                ? 'text-[10px] md:text-xs font-sans normal-case leading-tight text-center break-words overflow-hidden px-1' 
-                                : 'text-lg font-bold'
-                            }`}
-                            style={{
-                              backgroundColor: isActiveCell ? bgColor : 'transparent',
-                              color: txtColor,
-                              border: borderStyle,
-                              borderRadius: '2px',
-                              boxShadow: isActiveCell ? '1px 1px 0px rgba(0,0,0,1)' : undefined,
-                              opacity: isGhostStep ? 0.35 : 1,
-                            }}
-                          >
-                            {displayVal}
-                          </button>
-                        );
-                      })();
-
-                      const isBeatStart = stepIdx % 4 === 0;
-                      const isBeatEnd = (stepIdx + 1) % 4 === 0;
-                      const cellBorderRadius = isBeatStart 
-                        ? '4px 0 0 4px' 
-                        : (isBeatEnd ? '0 4px 4px 0' : '0px');
-
-                      return (
-                        <div
-                          key={stepIdx}
-                          className="flex items-center justify-center h-full w-full py-1"
-                          style={{
-                            backgroundColor: emptyStepBg,
-                            marginRight: isTimeSeparator ? '6px' : undefined,
-                            borderRadius: cellBorderRadius,
-                          }}
-                        >
-                          {cellContent}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}

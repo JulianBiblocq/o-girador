@@ -375,24 +375,28 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
   if (!uiContext || !stepData) return null;
   const { MEASURE_W } = uiContext;
 
-  // Calcul de la largeur de l'étape
+  // Calcul de la position et de la subdivision dans le temps
   const defaultBeats = parseInt(stepData.timeSigStr.split('/')[0], 10) || 4;
   const beatRes = beatResolutions || Array(defaultBeats).fill(Math.floor(stepsCount / defaultBeats) || 4);
 
-  let stepWidth = MEASURE_W / stepsCount;
+  let currentBeatIndex = 0;
+  let indexInBeat = 0;
+  let beatCount = 4;
   let accumulated = 0;
 
   for (let b = 0; b < beatRes.length; b++) {
-    if (stepIdx >= accumulated && stepIdx < accumulated + beatRes[b]) {
-      stepWidth = (MEASURE_W / defaultBeats) / beatRes[b];
+    const res = beatRes[b] ?? 4;
+    if (stepIdx >= accumulated && stepIdx < accumulated + res) {
+      currentBeatIndex = b;
+      indexInBeat = stepIdx - accumulated;
+      beatCount = res;
       break;
     }
-    accumulated += beatRes[b];
+    accumulated += res;
   }
 
-  const style: React.CSSProperties = {
-    width: `${stepWidth}px`,
-  };
+  const isTriplet = beatCount === 3;
+  const isSextuplet = beatCount === 6;
 
   // Résolution de la note vocale (chant)
   const noteLetter = stepData.note ? stepData.note.charAt(0).toUpperCase() : '';
@@ -430,10 +434,22 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
   const accentClass = stepData.leftIsAccent ? 'scale-120 border border-white/60' : 'border border-black/10';
   const heavyEffectClass = disableHeavyEffects ? '' : 'transition-transform duration-75 ease-out shadow-sm';
 
+  let shapeClipPath: string | undefined = undefined;
+  let shapeBorderRadius: string | undefined = undefined;
+
+  if (isTriplet) {
+    shapeClipPath = 'polygon(50% 0%, 0% 100%, 100% 100%)';
+    shapeBorderRadius = '0px';
+  } else if (isSextuplet) {
+    shapeClipPath = indexInBeat % 2 === 0
+      ? 'polygon(50% 0%, 0% 100%, 100% 100%)'
+      : 'polygon(0% 0%, 100% 0%, 50% 100%)';
+    shapeBorderRadius = '0px';
+  }
+
   return (
     <div
-      className="timeline-step relative h-full border-r border-[var(--cordel-border)]/10 flex items-center justify-center pointer-events-none select-none overflow-hidden"
-      style={style}
+      className="timeline-step relative h-full flex-1 border-r border-[var(--cordel-border)]/10 last:border-r-0 flex items-center justify-center pointer-events-none select-none overflow-hidden"
       data-measure={measureIdx}
       data-step={stepIdx}
       data-steps={stepsCount}
@@ -443,16 +459,23 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
     >
       {hasBackground ? (
         <div 
-          className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-xs ${heavyEffectClass} ${accentClass}`}
+          className={`${isTriplet || isSextuplet ? 'w-2.5 h-2.5 md:w-3 md:h-3' : 'w-2 h-2 md:w-2.5 md:h-2.5 rounded-xs'} ${heavyEffectClass} ${accentClass}`}
           style={{
             background: (stepData.isSplit || stepData.isRightHalfOnly) ? stepBg : undefined,
             backgroundColor: (stepData.isSplit || stepData.isRightHalfOnly) ? undefined : stepBg,
             opacity: bgOpacity,
+            clipPath: shapeClipPath,
+            borderRadius: shapeBorderRadius,
           }}
         />
       ) : (
-        /* Un point gris très discret pour la structure vide */
-        <div className="w-[2px] h-[2px] bg-black/10 dark:bg-white/10 rounded-full" />
+        /* Silhouette discrète pour la structure vide */
+        <div 
+          className={isTriplet || isSextuplet ? 'w-1.5 h-1.5 bg-black/20 dark:bg-white/20' : 'w-[2px] h-[2px] bg-black/10 dark:bg-white/10 rounded-full'}
+          style={{
+            clipPath: shapeClipPath,
+          }}
+        />
       )}
     </div>
   );
@@ -467,7 +490,8 @@ export const TimelineStep = React.memo(TimelineStepComponent, (prevProps, nextPr
     prevProps.stepsCount === nextProps.stepsCount &&
     prevProps.trackIdx === nextProps.trackIdx &&
     prevProps.patternIdx === nextProps.patternIdx &&
-    prevProps.instrumentIdx === nextProps.instrumentIdx
+    prevProps.instrumentIdx === nextProps.instrumentIdx &&
+    prevProps.beatResolutions === nextProps.beatResolutions
   );
 });
 

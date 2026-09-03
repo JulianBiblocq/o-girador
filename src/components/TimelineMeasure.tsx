@@ -235,21 +235,48 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
             />
           ) : (
             <div className="flex h-full w-full pointer-events-none">
-              {Array.from({ length: steps }).map((_, sIdx) => (
-                <TimelineStep
-                  key={sIdx}
-                  trackId={trackId}
-                  patternId={patternId}
-                  measureIdx={mIdx}
-                  stepIdx={sIdx}
-                  stepsCount={steps}
-                  trackIdx={trackIdx}
-                  patternIdx={patternIdx}
-                  instrumentIdx={instrumentIdx}
-                  beatResolutions={beatResolutions}
-                  onStepTouchStart={onStepTouchStart}
-                />
-              ))}
+              {(() => {
+                const defaultBeats = 4;
+                const beatRes = beatResolutions || Array(defaultBeats).fill(Math.floor(steps / defaultBeats) || 4);
+                const beatGroups: number[][] = [];
+                let accumulated = 0;
+                for (let b = 0; b < defaultBeats; b++) {
+                  const res = beatRes[b] ?? 4;
+                  const group: number[] = [];
+                  for (let i = 0; i < res; i++) {
+                    if (accumulated + i < steps) {
+                      group.push(accumulated + i);
+                    }
+                  }
+                  if (group.length > 0) {
+                    beatGroups.push(group);
+                  }
+                  accumulated += res;
+                }
+
+                return beatGroups.map((group, beatIdx) => (
+                  <div
+                    key={beatIdx}
+                    className="flex flex-1 h-full items-center border-r border-[var(--cordel-border)]/20 last:border-r-0"
+                  >
+                    {group.map((sIdx) => (
+                      <TimelineStep
+                        key={sIdx}
+                        trackId={trackId}
+                        patternId={patternId}
+                        measureIdx={mIdx}
+                        stepIdx={sIdx}
+                        stepsCount={steps}
+                        trackIdx={trackIdx}
+                        patternIdx={patternIdx}
+                        instrumentIdx={instrumentIdx}
+                        beatResolutions={beatResolutions}
+                        onStepTouchStart={onStepTouchStart}
+                      />
+                    ))}
+                  </div>
+                ));
+              })()}
 
               {instType === 'voice' && !hasAudio && (
                 <button
