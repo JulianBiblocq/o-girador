@@ -45,7 +45,7 @@ export const BoutonExportDanse: React.FC = () => {
 
   const gererExport = async () => {
     try {
-      const hasAccess = isAdmin || userProfile?.hasDancaAccess;
+      const hasAccess = isAdmin || userProfile?.hasDancaAccess || userProfile?.canWriteDansador;
       
       if (!hasAccess) {
         const wantToSubscribe = await confirmAsync(

@@ -24,6 +24,9 @@ export interface UserProfile {
   customSwingOffsets?: [number, number, number, number];
   customSwingIntensity?: number;
   hasDancaAccess?: boolean;
+  canWriteSequenciador?: boolean;
+  canWriteDansador?: boolean;
+  canWriteOrchestrador?: boolean;
   groupName?: string;
   groupId?: string;
 }
@@ -50,7 +53,12 @@ const roleLevels: Record<UserRole, number> = {
 export const checkIsAdmin = (profile: UserProfile | null | undefined): boolean => {
   if (!profile) return false;
   const actualRole = profile.dbRole || profile.role;
-  return actualRole === 'admin' || actualRole === 'mestre' || actualRole === 'mestri';
+  return (
+    actualRole === 'admin' ||
+    actualRole === 'mestre' ||
+    actualRole === 'mestri' ||
+    profile.canWriteSequenciador === true
+  );
 };
 
 const AuthContext = createContext<AuthContextType>({
