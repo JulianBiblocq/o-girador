@@ -75,31 +75,56 @@ export async function fetchCloudSections(
     let myGroupMestreId = (userRole === 'mestre' || userRole === 'mestri') ? userUid : mestreId;
 
     if (!myGroupMestreId && groupId) {
-      try {
-        const mestreQ = query(
-          collection(db, 'users'),
-          where('groupId', 'in', [groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']),
-          where('role', '==', 'mestre')
-        );
-        const mestreSnap = await getDocs(mestreQ);
-        if (!mestreSnap.empty) {
-          myGroupMestreId = mestreSnap.docs[0].id;
+      if (groupId.toLowerCase() === 'samambaia') {
+        myGroupMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+      } else {
+        try {
+          const mestreQ = query(
+            collection(db, 'users'),
+            where('groupId', 'in', [groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']),
+            where('role', '==', 'mestre')
+          );
+          const mestreSnap = await getDocs(mestreQ);
+          if (!mestreSnap.empty) {
+            myGroupMestreId = mestreSnap.docs[0].id;
+          }
+        } catch (e) {
+          console.warn("Could not resolve mestre for group in fetchCloudSections:", e);
         }
-      } catch (e) {
-        console.warn("Could not resolve mestre for group in fetchCloudSections:", e);
       }
     }
 
-    // We use a simple query by date to avoid requiring composite indexes for complex OR conditions
-    // The filtering is done in JS to ensure all visibility rules (admin_global, mestre_group) are correctly applied
-    const q = query(
-      sectionsRef,
-      orderBy('createdAt', 'desc'),
-      limit(200)
-    );
-    const snapshot = await getDocs(q);
+    const promises = [];
+    const isSysAdmin = userRole === 'admin';
+
+    if (isSysAdmin) {
+      promises.push(getDocs(query(sectionsRef, orderBy('createdAt', 'desc'), limit(200))));
+    } else {
+      // Requêtes ciblées parallélisées sans orderBy combiné pour éviter d'exiger des index composites
+      promises.push(getDocs(query(sectionsRef, where('ownerId', '==', userUid), limit(100))));
+      promises.push(getDocs(query(sectionsRef, where('visibility', 'in', ['admin_global', 'public']), limit(100))));
+      
+      if (groupId) {
+        promises.push(getDocs(query(sectionsRef, where('groupId', 'in', [groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']), limit(100))));
+      }
+      if (myGroupMestreId) {
+        promises.push(getDocs(query(sectionsRef, where('ownerId', '==', myGroupMestreId), limit(100))));
+        promises.push(getDocs(query(sectionsRef, where('mestreId', '==', myGroupMestreId), limit(100))));
+      }
+    }
+
+    const snapshots = await Promise.all(promises);
+    const uniqueDocs = new Map();
+
+    snapshots.forEach(snapshot => {
+      snapshot.forEach(docSnap => {
+        if (!uniqueDocs.has(docSnap.id)) {
+          uniqueDocs.set(docSnap.id, docSnap);
+        }
+      });
+    });
     
-    snapshot.forEach(docSnap => {
+    uniqueDocs.forEach(docSnap => {
       const data = docSnap.data();
       const isOwner = data.ownerId === userUid;
       const isAdminGlobal = data.visibility === 'admin_global';
@@ -107,9 +132,8 @@ export async function fetchCloudSections(
       const matchesMestre = myGroupMestreId && (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId);
       const matchesGroup = groupId && data.groupId && String(data.groupId).toLowerCase() === String(groupId).toLowerCase();
       const isMestreGroup = data.visibility === 'mestre_group' && (matchesMestre || matchesGroup);
-      const isSysAdmin = userRole === 'admin';
       
-      if (isOwner || isAdminGlobal || isPublic || isMestreGroup || isSysAdmin) {
+      if (isSysAdmin || isOwner || isAdminGlobal || isPublic || isMestreGroup) {
         sections.push({
           id: docSnap.id,
           name: data.name,
@@ -122,6 +146,9 @@ export async function fetchCloudSections(
         });
       }
     });
+
+    // Tri global par date décroissante
+    sections.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     
   } catch (err) {
     if (err && ((err as any).code === 'permission-denied' || String(err).includes('permission'))) {

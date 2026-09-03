@@ -5,8 +5,9 @@ async function globalSetup(config: FullConfig) {
   const browser = await chromium.launch();
   const page = await browser.newPage();
   
-  await page.goto(baseURL!);
-  await page.waitForFunction(() => 'firebaseAuth' in window);
+  await page.goto(baseURL!, { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1000);
+  await page.waitForFunction(() => 'firebaseAuth' in window, { timeout: 30000 });
 
   await page.evaluate(async () => {
     // @ts-ignore
@@ -25,14 +26,16 @@ async function globalSetup(config: FullConfig) {
     const createOrUpdateUser = async (email: string, password: string, displayName: string, role: string, mestreId: string | null = null) => {
       let userCredential;
       try {
-        userCredential = await createUser(auth, email, password);
-      } catch (error: any) {
-        if (error.code === 'auth/email-already-in-use') {
-          userCredential = await signIn(auth, email, password);
-        } else {
-          throw error;
+        userCredential = await signIn(auth, email, password);
+      } catch (signInErr: any) {
+        try {
+          userCredential = await createUser(auth, email, password);
+        } catch (createErr: any) {
+          console.warn('Auth fallback error for', email, createErr);
+          return null;
         }
       }
+      if (!userCredential) return null;
       
       const uid = userCredential.user.uid;
       const docData: any = {

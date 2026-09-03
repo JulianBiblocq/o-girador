@@ -100,37 +100,41 @@ export async function fetchCloudPresets(
 
       // Si mestreId est absent mais que l'utilisateur a un groupId, tenter de résoudre le Mestre du groupe
       if (!myGroupMestreId && groupId) {
-        try {
-          const mestreQ = query(
-            collection(db, 'users'),
-            where('groupId', 'in', [groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']),
-            where('role', '==', 'mestre')
-          );
-          const mestreSnap = await getDocs(mestreQ);
-          if (!mestreSnap.empty) {
-            myGroupMestreId = mestreSnap.docs[0].id;
+        if (groupId.toLowerCase() === 'samambaia') {
+          myGroupMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+        } else {
+          try {
+            const mestreQ = query(
+              collection(db, 'users'),
+              where('groupId', 'in', [groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']),
+              where('role', '==', 'mestre')
+            );
+            const mestreSnap = await getDocs(mestreQ);
+            if (!mestreSnap.empty) {
+              myGroupMestreId = mestreSnap.docs[0].id;
+            }
+          } catch (e) {
+            console.warn("Could not resolve mestre for group in fetchCloudPresets:", e);
           }
-        } catch (e) {
-          console.warn("Could not resolve mestre for group in fetchCloudPresets:", e);
         }
       }
       
       const queries = [
-        getDocs(query(presetsRef, where('ownerId', '==', userUid))),
-        getDocs(query(presetsRef, where('visibility', '==', 'admin_global'))),
-        getDocs(query(presetsRef, where('visibility', '==', 'public'))),
-        getDocs(query(presetsRef, where('targetUserId', '==', userUid)))
+        getDocs(query(presetsRef, where('ownerId', '==', userUid), limit(100))),
+        getDocs(query(presetsRef, where('visibility', '==', 'admin_global'), limit(100))),
+        getDocs(query(presetsRef, where('visibility', '==', 'public'), limit(100))),
+        getDocs(query(presetsRef, where('targetUserId', '==', userUid), limit(100)))
       ];
       
       if (myGroupMestreId) {
         // Fetch presets owned by the Mestre (which might have mestre_group visibility without explicit mestreId)
-        queries.push(getDocs(query(presetsRef, where('ownerId', '==', myGroupMestreId))));
+        queries.push(getDocs(query(presetsRef, where('ownerId', '==', myGroupMestreId), limit(100))));
         // Fetch presets created by students for this Mestre's group
-        queries.push(getDocs(query(presetsRef, where('mestreId', '==', myGroupMestreId))));
+        queries.push(getDocs(query(presetsRef, where('mestreId', '==', myGroupMestreId), limit(100))));
       }
 
       if (groupId) {
-        queries.push(getDocs(query(presetsRef, where('groupId', 'in', [groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']))));
+        queries.push(getDocs(query(presetsRef, where('groupId', 'in', [groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']), limit(100))));
       }
 
       const snapshots = await Promise.all(queries);

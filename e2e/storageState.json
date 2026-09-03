@@ -9,12 +9,12 @@
           "value": "light"
         },
         {
-          "name": "oGirador_master_reverb_vol",
-          "value": "0"
+          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_42",
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1788476773686}"
         },
         {
           "name": "firestore_sequence_number_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "244"
+          "value": "253"
         },
         {
           "name": "oGirador_reverb_decay",
@@ -25,12 +25,16 @@
           "value": "[]"
         },
         {
-          "name": "firestore_online_state_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "{\"clientId\":\"ilgRnAIYZfy6CDzhT8KN\",\"onlineState\":\"Online\"}"
+          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_c1kj6K1fYk0b7PRij6Eo",
+          "value": "{\"activeTargetIds\":[42],\"updateTimeMs\":1788476773694}"
         },
         {
-          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_ilgRnAIYZfy6CDzhT8KN",
-          "value": "{\"activeTargetIds\":[],\"updateTimeMs\":1788391717515}"
+          "name": "firestore_online_state_firestore/[DEFAULT]/o-girador-7828c/",
+          "value": "{\"clientId\":\"c1kj6K1fYk0b7PRij6Eo\",\"onlineState\":\"Online\"}"
+        },
+        {
+          "name": "oGirador_master_reverb_vol",
+          "value": "0"
         }
       ]
     }
