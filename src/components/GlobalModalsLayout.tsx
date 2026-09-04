@@ -177,6 +177,7 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
       {editingTrackId !== null && (
         <Suspense fallback={null}>
           <InstrumentDetailEditor
+            key={editingTrackId}
             trackId={editingTrackId}
             onClose={handleCloseDetailEditor}
             isMobile={isMobile}
