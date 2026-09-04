@@ -2,6 +2,7 @@ import React from 'react';
 import { TimelineStep } from './TimelineStep';
 import { Trash2, Mic } from 'lucide-react';
 import { useAudioStore } from '../stores/useAudioStore';
+import { useSequencerStore } from '../stores/useSequencerStore';
 import { vocalEngineService } from '../audio/vocalEngineService';
 
 interface TimelineMeasureProps {
@@ -88,6 +89,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   hasChildOverrides,
   onStepTouchStart,
 }) => {
+  const timeSigStr = useSequencerStore(state => state.measureTimeSigs[mIdx] || state.timeSig || '4/4');
   const hasAudio = useAudioStore((state) => !!state.vocalBlobs[patternId]);
   const targetPatternId = useAudioStore((state) => state.targetPatternId);
   const isArmed = targetPatternId === patternId;
@@ -236,46 +238,65 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
           ) : (
             <div className="flex h-full w-full pointer-events-none">
               {(() => {
-                const defaultBeats = 4;
-                const beatRes = beatResolutions || Array(defaultBeats).fill(Math.floor(steps / defaultBeats) || 4);
-                const beatGroups: number[][] = [];
-                let accumulated = 0;
-                for (let b = 0; b < defaultBeats; b++) {
-                  const res = beatRes[b] ?? 4;
-                  const group: number[] = [];
-                  for (let i = 0; i < res; i++) {
-                    if (accumulated + i < steps) {
-                      group.push(accumulated + i);
-                    }
-                  }
-                  if (group.length > 0) {
-                    beatGroups.push(group);
-                  }
-                  accumulated += res;
-                }
+                const defaultBeats = parseInt(timeSigStr.split('/')[0], 10) || 4;
+                const activeWidthPct = Math.min(100, (defaultBeats / 4) * 100);
+                
+                return (
+                  <>
+                    <div className="flex h-full" style={{ width: `${activeWidthPct}%` }}>
+                      {(() => {
+                        const beatRes = beatResolutions || Array(defaultBeats).fill(4);
+                        const beatGroups: number[][] = [];
+                        let accumulated = 0;
+                        for (let b = 0; b < defaultBeats; b++) {
+                          const res = beatRes[b] ?? 4;
+                          const group: number[] = [];
+                          for (let i = 0; i < res; i++) {
+                            group.push(accumulated + i);
+                          }
+                          beatGroups.push(group);
+                          accumulated += res;
+                        }
 
-                return beatGroups.map((group, beatIdx) => (
-                  <div
-                    key={beatIdx}
-                    className="flex flex-1 h-full items-center border-r border-[var(--cordel-border)]/20 last:border-r-0"
-                  >
-                    {group.map((sIdx) => (
-                      <TimelineStep
-                        key={sIdx}
-                        trackId={trackId}
-                        patternId={patternId}
-                        measureIdx={mIdx}
-                        stepIdx={sIdx}
-                        stepsCount={steps}
-                        trackIdx={trackIdx}
-                        patternIdx={patternIdx}
-                        instrumentIdx={instrumentIdx}
-                        beatResolutions={beatResolutions}
-                        onStepTouchStart={onStepTouchStart}
+                        return beatGroups.map((group, beatIdx) => (
+                          <div
+                            key={beatIdx}
+                            className="flex flex-1 h-full items-center border-r border-[var(--cordel-border)]/20 last:border-r-0"
+                          >
+                            {group.map((sIdx) => (
+                              <TimelineStep
+                                key={sIdx}
+                                trackId={trackId}
+                                patternId={patternId}
+                                measureIdx={mIdx}
+                                stepIdx={sIdx}
+                                stepsCount={steps}
+                                trackIdx={trackIdx}
+                                patternIdx={patternIdx}
+                                instrumentIdx={instrumentIdx}
+                                beatResolutions={beatResolutions}
+                                onStepTouchStart={onStepTouchStart}
+                              />
+                            ))}
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                    {defaultBeats < 4 && (
+                      <div 
+                        className="flex h-full"
+                        style={{ 
+                          width: `${100 - activeWidthPct}%`,
+                          backgroundColor: 'var(--cordel-bg)',
+                          backgroundImage: 'repeating-linear-gradient(45deg, var(--cordel-text) 0, var(--cordel-text) 1px, transparent 0, transparent 50%)',
+                          backgroundSize: '10px 10px',
+                          opacity: 0.15,
+                          borderLeft: '1px dashed var(--cordel-border)'
+                        }}
                       />
-                    ))}
-                  </div>
-                ));
+                    )}
+                  </>
+                );
               })()}
 
               {instType === 'voice' && !hasAudio && (

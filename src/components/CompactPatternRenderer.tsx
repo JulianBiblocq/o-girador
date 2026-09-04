@@ -47,7 +47,7 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
   tracks = []
 }) => {
   const defaultBeats = 4;
-  const beatRes = pattern.beatResolutions || Array(Math.ceil(pattern.steps / defaultBeats)).fill(defaultBeats);
+  const beatRes = pattern.beatResolutions || Array(defaultBeats).fill(4);
 
   const groups: number[][] = [];
   let accumulated = 0;

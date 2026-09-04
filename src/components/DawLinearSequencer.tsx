@@ -522,7 +522,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                 {(() => {
                   const patternForSteps = isGhostStep ? masterActivePattern : activePattern;
                   const stepsCount = patternForSteps?.steps ?? 16;
-                  const beatRes = patternForSteps?.beatResolutions || Array(defaultBeats).fill(Math.floor(stepsCount / defaultBeats) || 4);
+                  const beatRes = patternForSteps?.beatResolutions || Array(defaultBeats).fill(4);
 
                   // Keep trackResolutionsRef updated synchronously during render (Zero Layout Thrashing)
                   trackResolutionsRef.current[String(track.id)] = {
@@ -561,7 +561,13 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                               className={`flex flex-1 h-full items-center py-1 px-1 rounded ${
                                 isTriplet ? 'justify-between gap-1' : isSextuplet ? 'gap-0.5' : 'gap-1'
                               }`}
-                              style={{ backgroundColor: emptyStepBg }}
+                              style={{ 
+                                backgroundColor: emptyStepBg,
+                                ...(group.length === 0 && {
+                                  backgroundImage: 'repeating-linear-gradient(45deg, rgba(0,0,0,0.1) 0, rgba(0,0,0,0.1) 4px, transparent 4px, transparent 20px)',
+                                  backgroundSize: '100% 100%'
+                                })
+                              }}
                             >
                               {group.map((stepIdx, indexInGroup) => {
                                 const val = isGhostStep

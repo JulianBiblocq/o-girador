@@ -621,18 +621,32 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     }
 
     const soloPlayId = state.soloPatternPlayId;
+    
+    const isLinkedChild = track.linkedToTrackId && !track.isLinkFolder;
+    let sourceTrack = track;
+    if (isLinkedChild) {
+      const master = state.rawTracks.find((t: any) => String(t.id) === String(track.linkedToTrackId));
+      if (master) sourceTrack = master;
+    }
+
     if (soloPlayId !== undefined && soloPlayId !== null) {
-      for (let i = 0; i < track.patterns.length; i++) {
-        if (track.patterns[i].id === soloPlayId) {
+      for (let i = 0; i < sourceTrack.patterns.length; i++) {
+        if (sourceTrack.patterns[i].id === soloPlayId) {
           return soloPlayId;
         }
       }
       return null;
     }
 
-    for (let i = 0; i < track.patterns.length; i++) {
-      if (track.patterns[i].measureAssignments[measureIdx]) {
-        return track.patterns[i].id;
+    if (isLinkedChild) {
+      const override = track.isLinkMaster ? undefined : track.patternOverrides?.[measureIdx];
+      if (override === null) return null;
+      if (override !== undefined) return override;
+    }
+
+    for (let i = 0; i < sourceTrack.patterns.length; i++) {
+      if (sourceTrack.patterns[i].measureAssignments[measureIdx]) {
+        return sourceTrack.patterns[i].id;
       }
     }
     return null;
@@ -663,6 +677,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     songSections,
     isLeftHanded,
     songMarkers,
+    measureTimeSigs,
   });
 
   useEffect(() => {
@@ -689,9 +704,10 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       mestreSignals,
       songSections,
       isLeftHanded,
-      songMarkers
+      songMarkers,
+      measureTimeSigs
     };
-  }, [tracks, rawTracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded]);
+  }, [tracks, rawTracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded, measureTimeSigs]);
 
   useEffect(() => {
     if (props.tracks !== undefined) return;
@@ -1424,30 +1440,35 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         }
         ctx.setLineDash([]);
 
+        const live = livePlaybackRef.current;
+        const stateVal = stateRef.current;
+        const measureIdx = (live && live.step >= 0) ? live.measure : (pendingTargetMeasureRef.current !== null ? pendingTargetMeasureRef.current : stateVal.currentMeasure);
+        const activeTimeSig = stateVal.measureTimeSigs ? (stateVal.measureTimeSigs[measureIdx] || stateVal.timeSig || '4/4') : (stateVal.timeSig || '4/4');
+        const activeBeats = parseInt(activeTimeSig.split('/')[0], 10) || 4;
+
         const currentStep = (localStep >= 0) ? Math.floor((localStep / localTicks) * activePattern.steps) : -1;
         const stepCount = activePattern.steps;
-        let stepAngles: number[] | null = null;
-        if (activePattern.beatResolutions) {
-          stepAngles = [];
-          const beatRes = activePattern.beatResolutions;
-          const anglePerBeat = (Math.PI * 2) / beatRes.length;
-          let currentAngle = -Math.PI / 2;
-          for (let b = 0; b < beatRes.length; b++) {
-            const res = beatRes[b];
-            const anglePerStep = anglePerBeat / res;
-            for (let s = 0; s < res; s++) {
-              stepAngles.push(currentAngle + s * anglePerStep);
-            }
-            currentAngle += anglePerBeat;
+        const stepAngles: number[] = [];
+        
+        const beatRes = activePattern.beatResolutions || Array(activeBeats).fill(4);
+        const anglePerBeat = (Math.PI * 2) / activeBeats;
+        
+        for (let b = 0; b < activeBeats; b++) {
+          const res = beatRes[b] || 4;
+          const anglePerStep = anglePerBeat / res;
+          const beatStartAngle = -Math.PI / 2 + (b * anglePerBeat);
+          for (let s = 0; s < res; s++) {
+            stepAngles.push(beatStartAngle + s * anglePerStep);
           }
         }
 
-        for (let i = 0; i < stepCount; i++) {
-          const stepAngle = stepAngles ? stepAngles[i] : (-Math.PI / 2 + (i * (Math.PI * 2 / stepCount)));
+        const effectiveStepCount = stepAngles.length;
+
+        for (let i = 0; i < effectiveStepCount; i++) {
+          const stepAngle = stepAngles[i];
           const x = centerX + Math.cos(stepAngle) * tRad;
           const y = centerY + Math.sin(stepAngle) * tRad;
 
-          // ── DESSIN DES SATELLITES POUR VARIATIONS INDIVIDUELLES ──
           let satellitesToDraw: Array<{
             color: string;
             text: string;
@@ -1455,10 +1476,6 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             childInstId: string;
             childState: string | number;
           }> = [];
-
-          const live = livePlaybackRef.current;
-          const stateVal = stateRef.current;
-          const measureIdx = (live && live.step >= 0) ? live.measure : (pendingTargetMeasureRef.current !== null ? pendingTargetMeasureRef.current : stateVal.currentMeasure);
 
           if (track.isLinkFolder) {
             const children = (props.tracks !== undefined ? rawTracks : stateRef.current.rawTracks).filter((t: any) => 

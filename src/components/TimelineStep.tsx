@@ -347,7 +347,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
 
       // Informations complémentaires requises pour le chant ou la signature rythmique
       const note = isVoice ? resolvedNote : '';
-      const timeSigStr = state.measureTimeSigs[measureIdx] || '4/4';
+      const timeSigStr = state.measureTimeSigs[measureIdx] || state.timeSig || '4/4';
 
       return {
         isLinkFolder,
@@ -377,7 +377,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
 
   // Calcul de la position et de la subdivision dans le temps
   const defaultBeats = parseInt(stepData.timeSigStr.split('/')[0], 10) || 4;
-  const beatRes = beatResolutions || Array(defaultBeats).fill(Math.floor(stepsCount / defaultBeats) || 4);
+  const beatRes = beatResolutions || Array(defaultBeats).fill(4);
 
   let currentBeatIndex = 0;
   let indexInBeat = 0;

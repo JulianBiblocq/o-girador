@@ -161,14 +161,14 @@ function buildFlatSongSchedule(
 
       const stepCount = activePattern.steps;
       const ticksPerBeat = maxTicks / beats;
-      const resArray = activePattern.beatResolutions || Array(beats).fill(stepCount / beats);
+      const resArray = activePattern.beatResolutions || Array(beats).fill(4);
 
       let stepTickAccum = 0;
       const stepTickMap: number[] = [];
       const stepIsTupletMap: boolean[] = [];
 
       for (let b = 0; b < beats; b++) {
-        const res = resArray[b] || (stepCount / beats);
+        const res = resArray[b] || 4;
         const ticksPerStep = ticksPerBeat / res;
         for (let r = 0; r < res; r++) {
           stepTickMap.push(Math.round(stepTickAccum + r * ticksPerStep));
@@ -177,11 +177,13 @@ function buildFlatSongSchedule(
         stepTickAccum += ticksPerBeat;
       }
 
-      for (let step = 0; step < stepCount; step++) {
+      const effectiveStepCount = stepTickMap.length;
+
+      for (let step = 0; step < effectiveStepCount; step++) {
         const rawState = stepsToPlay[step];
         if (!rawState || rawState === 0 || rawState === '0') continue;
 
-        const tickIdx = stepTickMap[step] !== undefined ? stepTickMap[step] : Math.floor((step * maxTicks) / stepCount);
+        const tickIdx = stepTickMap[step];
         const statesToProcess = Array.isArray(rawState) ? rawState : [rawState];
 
         for (let strokeIndex = 0; strokeIndex < statesToProcess.length; strokeIndex++) {
