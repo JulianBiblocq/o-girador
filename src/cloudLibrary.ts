@@ -1,6 +1,6 @@
 import { db, storage } from './firebase/config';
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc , query, limit, where, orderBy, or } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, listAll } from 'firebase/storage';
 import { getVocalRecording } from './db';
 import { CloudPreset, Preset, CatalogVisibility } from './types';
 import LZString from 'lz-string';
@@ -201,4 +201,50 @@ export async function deleteCloudPreset(presetId: string): Promise<void> {
 
 export async function renameCloudPreset(presetId: string, newName: string): Promise<void> {
   await updateDoc(doc(db, CLOUD_PRESETS_COLLECTION, presetId), { name: newName });
+}
+
+/**
+ * Fetches .json presets from Firebase Storage folder documents/${groupId}/sequencer/
+ * Falls back to documents/${groupId.toLowerCase()}/sequencer/ if empty.
+ */
+export async function fetchStoragePresetsJSON(groupId: string): Promise<CloudPreset[]> {
+  if (!groupId) return [];
+  const presets: CloudPreset[] = [];
+  const tryFetch = async (folderPath: string) => {
+    try {
+      const folderRef = ref(storage, folderPath);
+      const res = await listAll(folderRef);
+      for (const itemRef of res.items) {
+        if (itemRef.name.endsWith('.json')) {
+          const url = await getDownloadURL(itemRef);
+          const response = await fetch(url);
+          if (response.ok) {
+            const data = await response.json();
+            presets.push({
+              id: itemRef.name, // using filename as id
+              name: data.metadata?.toada || data.name || itemRef.name.replace('.json', ''),
+              data: LZString.compressToBase64(JSON.stringify(data)),
+              ownerId: 'storage',
+              visibility: 'mestre_group',
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              groupId: groupId,
+              isFromStorage: true
+            } as any);
+          }
+        }
+      }
+      return res.items.length > 0;
+    } catch (err) {
+      console.warn(`Could not list storage for path ${folderPath}:`, err);
+      return false;
+    }
+  };
+
+  const success = await tryFetch(`documents/${groupId}/sequencer`);
+  if (!success && groupId !== groupId.toLowerCase()) {
+    await tryFetch(`documents/${groupId.toLowerCase()}/sequencer`);
+  }
+
+  return presets;
 }

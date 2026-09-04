@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, signInWithCustomToken } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 
@@ -57,7 +57,8 @@ export const checkIsAdmin = (profile: UserProfile | null | undefined): boolean =
     actualRole === 'admin' ||
     actualRole === 'mestre' ||
     actualRole === 'mestri' ||
-    profile.canWriteSequenciador === true
+    profile.canWriteSequenciador === true ||
+    profile.isSystemAdmin === true
   );
 };
 
@@ -82,6 +83,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | undefined;
+
+    // Détection et traitement du jeton SSO universel
+    const searchParams = new URLSearchParams(window.location.search);
+    const ssoToken = searchParams.get('ssoToken');
+    let isSSOPending = Boolean(ssoToken);
+
+    if (ssoToken) {
+      // Nettoyage immédiat de l'URL pour ne pas laisser traîner le jeton dans l'historique
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete('ssoToken');
+      window.history.replaceState({}, document.title, cleanUrl.toString());
+
+      let tokenUid: string | null = null;
+      try {
+        const parts = ssoToken.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+          tokenUid = payload.uid || payload.sub || null;
+        }
+      } catch (e) {
+        // Ignorer l'erreur de décodage local
+      }
+
+      if (auth.currentUser && tokenUid && auth.currentUser.uid === tokenUid) {
+        isSSOPending = false;
+      } else {
+        setLoading(true);
+        signInWithCustomToken(auth, ssoToken)
+          .catch((err) => {
+            console.warn("[Séquenciad'Or SSO] Erreur lors de la connexion par jeton personnalisé :", err);
+            setLoading(false);
+          })
+          .finally(() => {
+            isSSOPending = false;
+          });
+      }
+    }
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
@@ -198,7 +236,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       } else {
         setUserProfile(null);
-        setLoading(false);
+        if (!isSSOPending) {
+          setLoading(false);
+        }
       }
     });
 
