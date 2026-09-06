@@ -7,6 +7,8 @@ import LZString from 'lz-string';
 
 export const CLOUD_PRESETS_COLLECTION = 'presets';
 
+const presetCache = new Map<string, Preset>();
+
 /**
  * Saves a preset to the Cloud.
  */
@@ -176,6 +178,9 @@ export async function fetchCloudPresets(
 }
 
 export async function getCloudPreset(presetId: string): Promise<Preset | null> {
+  if (presetCache.has(presetId)) {
+    return presetCache.get(presetId) || null;
+  }
   const { getDoc } = await import('firebase/firestore');
   const docSnap = await getDoc(doc(db, CLOUD_PRESETS_COLLECTION, presetId));
   if (docSnap.exists()) {
@@ -220,6 +225,7 @@ export async function fetchStoragePresetsJSON(groupId: string): Promise<CloudPre
           const response = await fetch(url);
           if (response.ok) {
             const data = await response.json();
+            presetCache.set(itemRef.name, data as Preset);
             presets.push({
               id: itemRef.name, // using filename as id
               name: data.metadata?.toada || data.name || itemRef.name.replace('.json', ''),
