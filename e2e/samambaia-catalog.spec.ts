@@ -52,5 +52,6 @@ test.describe('Catalogue Cloud Samambaia', () => {
     expect(presets.length).toBeGreaterThan(0);
     expect(presets.some(n => n.toLowerCase().includes('conven'))).toBe(true);
     expect(presets.some(n => n.toLowerCase().includes('opanij'))).toBe(true);
+    expect(presets.some(n => n.toLowerCase().includes('macaiba'))).toBe(true);
   });
 });
