@@ -2920,17 +2920,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
       isEcoMode: nextEcoMode
     };
   }),
-  setEditingTrackId: (id) => set((state) => {
-    if (id === null) return { editingTrackId: null };
-    const track = state.tracks.find(t => t.id === id);
-    if (track && track.linkedToTrackId && !track.isLinkFolder) {
-      const parentBus = state.tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder);
-      if (parentBus) {
-        return { editingTrackId: parentBus.id };
-      }
-    }
-    return { editingTrackId: id };
-  }),
+  setEditingTrackId: (id) => set({ editingTrackId: id }),
   setVocalTransposeSteps: (steps) => set({ vocalTransposeSteps: Math.max(-12, Math.min(12, steps)) }),
   incrementVocalTransposeSteps: () => set((state) => ({ vocalTransposeSteps: Math.min(12, state.vocalTransposeSteps + 1) })),
   decrementVocalTransposeSteps: () => set((state) => ({ vocalTransposeSteps: Math.max(-12, state.vocalTransposeSteps - 1) })),

@@ -308,10 +308,8 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                   return;
                 }
                 let targetId = track.id;
-                if (track.isLinkFolder || (track.linkedToTrackId && !track.isLinkFolder)) {
-                   const masterTrack = track.isLinkFolder
-                     ? tracks.find(t => String(t.linkedToTrackId) === String(track.id) && t.isLinkMaster)
-                     : (track.linkedToTrackId ? tracks.find(t => t.id === parseInt(track.linkedToTrackId!, 10)) : null);
+                if (track.isLinkFolder) {
+                   const masterTrack = tracks.find(t => String(t.linkedToTrackId) === String(track.id) && t.isLinkMaster);
                    if (masterTrack) targetId = masterTrack.id;
                 } else if (isToada) {
                    const coro = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');

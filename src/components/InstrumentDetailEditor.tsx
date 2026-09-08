@@ -4,7 +4,7 @@
  */
 
 import * as Tone from 'tone';
-import { useSequencerStore, isLinearDAWVisibleTrack, isSequencerVisibleTrack, selectTracksMeta } from '../stores/useSequencerStore';
+import { useSequencerStore, isLinearDAWVisibleTrack, isSequencerVisibleTrack, isToadaChild, selectTracksMeta } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -301,11 +301,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     };
   }, [disarmAllPatterns]);
 
-  // Extraction ciblée des IDs des pistes visibles pour le ruban de navigation rapide (Commandement 4 : Zustand ID-Only)
+  // Extraction ciblée des IDs des pistes d'instruments réels pour le ruban de navigation rapide (Commandement 4 : Zustand ID-Only)
   const visibleTrackIds = useSequencerStore(
     useShallow((state) =>
       state.tracks
-        .filter((t) => !t.isHidden && isSequencerVisibleTrack(t, state.tracks))
+        .filter((t) => !t.isBusFolder && !t.isHidden && !isToadaChild(t, state.tracks))
         .map((t) => t.id)
     )
   );
@@ -548,7 +548,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   // Dynamic Navigation callbacks
   const onNavigatePrev = React.useCallback(() => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.isHidden && isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
+    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.isBusFolder && !t.isHidden && !isToadaChild(t, useSequencerStore.getState().tracks));
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (idx > 0) {
       setEditingTrackId(tracksList[idx - 1].id);
@@ -558,7 +558,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   }, [trackId, setEditingTrackId]);
 
   const onNavigateNext = React.useCallback(() => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.isHidden && isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
+    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.isBusFolder && !t.isHidden && !isToadaChild(t, useSequencerStore.getState().tracks));
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (idx >= 0 && idx < tracksList.length - 1) {
       setEditingTrackId(tracksList[idx + 1].id);
@@ -568,7 +568,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   }, [trackId, setEditingTrackId]);
 
   const onKeyDown = React.useCallback((e: any) => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.isHidden && isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
+    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.isBusFolder && !t.isHidden && !isToadaChild(t, useSequencerStore.getState().tracks));
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (e.key === 'ArrowDown') {
       if (idx >= 0 && idx < tracksList.length - 1) {
@@ -589,7 +589,41 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const track = useSequencerStore(
     React.useCallback(state => state.tracks.find(t => t.id === trackId), [trackId])
   );
-  const activePattern = track?.patterns.find(p => p.id === track?.selectedPatternId);
+
+  const isSlave = Boolean(track?.linkedToTrackId && !track?.isLinkMaster);
+
+  const parentBus = useSequencerStore(
+    React.useCallback(
+      (state) => (isSlave && track?.linkedToTrackId ? state.tracks.find((t) => String(t.id) === String(track.linkedToTrackId) && t.isLinkFolder) : undefined),
+      [isSlave, track?.linkedToTrackId]
+    )
+  );
+  const masterTrack = useSequencerStore(
+    React.useCallback(
+      (state) => {
+        if (!isSlave || !track?.linkedToTrackId) return undefined;
+        return state.tracks.find(
+          (t) =>
+            (String(t.linkedToTrackId) === String(track.linkedToTrackId) || String(t.id) === String(track.linkedToTrackId)) &&
+            t.isLinkMaster
+        );
+      },
+      [isSlave, track?.linkedToTrackId]
+    )
+  );
+
+  const displayedPatterns = useMemo(() => {
+    if (isSlave) {
+      return (parentBus?.patterns && parentBus.patterns.length > 0)
+        ? parentBus.patterns
+        : (masterTrack?.patterns && masterTrack.patterns.length > 0)
+        ? masterTrack.patterns
+        : track?.patterns || [];
+    }
+    return track?.patterns || [];
+  }, [isSlave, parentBus?.patterns, masterTrack?.patterns, track?.patterns]);
+
+  const activePattern = displayedPatterns.find(p => p.id === (track?.selectedPatternId ?? displayedPatterns[0]?.id));
   const hasVocalRecording = useAudioStore(
     useShallow(state => !!activePattern && !!state.vocalBlobs[activePattern.id])
   );
@@ -668,16 +702,20 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     })
   );
 
+  const displayedPatternsRef = useRef(displayedPatterns);
+  useEffect(() => { displayedPatternsRef.current = displayedPatterns; }, [displayedPatterns]);
+
   const handleDragEnd = (event: DragEndEvent) => {
+    if (isSlave) return;
     const { active, over } = event;
     if (over && active.id !== over.id && onReorderPatternsDnd) {
-      const oldIndex = track.patterns.findIndex(p => p.id === active.id);
-      const newIndex = track.patterns.findIndex(p => p.id === over.id);
+      const oldIndex = displayedPatterns.findIndex(p => p.id === active.id);
+      const newIndex = displayedPatterns.findIndex(p => p.id === over.id);
       onReorderPatternsDnd(oldIndex, newIndex);
     }
   };
 
-  const patternIds = useMemo(() => track?.patterns?.map(p => p.id) || [], [track?.patterns]);
+  const patternIds = useMemo(() => displayedPatterns.map(p => p.id), [displayedPatterns]);
 
   // --- Pattern Cloud Logic ---
   const { userProfile } = useAuth();
@@ -725,7 +763,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       return;
     }
     if (saveModalPatternId === null || !savePatternName.trim()) return;
-    const ptn = track.patterns.find(p => p.id === saveModalPatternId);
+    const ptn = displayedPatterns.find(p => p.id === saveModalPatternId);
     if (!ptn) return;
 
     const existingPattern = existingLibraryPatterns.find(p => p.name.trim() === savePatternName.trim() && p.ownerId === userProfile.uid);
@@ -829,15 +867,16 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
       let activeId: number | null = null;
       if (isPlay) {
+        const patternsToInspect = displayedPatternsRef.current;
         if (soloPatternId !== undefined && soloPatternId !== null) {
-          const hasSoloPattern = currentTrack.patterns.some(p => p.id === soloPatternId);
+          const hasSoloPattern = patternsToInspect.some(p => p.id === soloPatternId);
           if (hasSoloPattern) {
             activeId = soloPatternId;
           }
         }
         if (activeId === null) {
-          const activePattern = currentTrack.patterns.find(p => p.measureAssignments[measure]);
-          activeId = activePattern ? activePattern.id : currentTrack.patterns[0]?.id;
+          const activePattern = patternsToInspect.find(p => p.measureAssignments[measure]);
+          activeId = activePattern ? activePattern.id : patternsToInspect[0]?.id;
         }
       }
 
@@ -955,18 +994,18 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [selectedStepIdx, setSelectedStepIdx] = useState<number | null>(null);
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
   const [selectedStepIndices, setSelectedStepIndices] = useState<number[]>([]);
-  const [selectedPatternId, setSelectedPatternId] = useState<number>(track?.patterns?.[0]?.id || 0);
+  const [selectedPatternId, setSelectedPatternId] = useState<number>(track?.selectedPatternId || displayedPatterns[0]?.id || 0);
   const [isTupletEditMode, setIsTupletEditMode] = useState(false);
   const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState<boolean>(false);
 
   useEffect(() => {
-    setSelectedPatternId(track?.selectedPatternId || 0);
+    setSelectedPatternId(track?.selectedPatternId || displayedPatterns[0]?.id || 0);
     setSelectedStepIndices([]);
     setSelectedStepIdx(null);
     setSelectedVariationId(null);
     setIsMultiSelectActive(false);
-  }, [track?.id, track?.selectedPatternId]);
+  }, [track?.id, track?.selectedPatternId, displayedPatterns]);
 
   // Active stroke writing tool & parity alternation mode
   const [activeTool, setActiveTool] = useState<string>(() => {
@@ -1192,7 +1231,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                   onStopSoloPattern && onStopSoloPattern();
                   if (isPlaying) audio.handleTogglePlay();
                 } else {
-                  const targetPtnId = armedPatternId ?? track.selectedPatternId ?? track.patterns[0]?.id;
+                  const targetPtnId = armedPatternId ?? track.selectedPatternId ?? displayedPatterns[0]?.id;
                   if (targetPtnId !== undefined && onPlaySoloPattern) {
                     onPlaySoloPattern(targetPtnId, 'ensemble');
                   } else {
@@ -1232,13 +1271,26 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             )}
           </div>
 
+          {/* Mute */}
+          <button
+            onClick={onMuteToggle}
+            className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center ${
+              (track.isMute && !track.isSolo)
+                ? 'bg-[#8b2a1a] text-[#f4ecd8]'
+                : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]'
+            }`}
+            title="Mute"
+          >
+            M
+          </button>
+
           {/* Solo */}
           <button
             onClick={onSoloToggle}
             className={`w-8 h-8 cordel-border-sm cordel-button text-xs font-bold cursor-pointer transition-all flex items-center justify-center ${
               track.isSolo
-                ? 'bg-[#1a1a1a] text-[#f4ecd8]'
-                : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
+                ? 'bg-[#d4af37] text-[#1a1a1a]'
+                : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#d4af37] hover:text-[#1a1a1a]'
             }`}
             title="Solo"
           >
@@ -1265,11 +1317,23 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         <div className="w-full flex-1 flex overflow-hidden min-h-0 relative" style={{ WebkitOverflowScrolling: 'touch' }}>
           
           {/* Zone gauche (flex-1 overflow-y-auto) : Grille et gestion des motifs */}
-          <div ref={containerRef} className="flex-1 overflow-y-auto p-3 md:p-5 flex flex-col gap-6 min-w-0" style={{ WebkitOverflowScrolling: 'touch' }}>
-            <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
-              <SortableContext items={patternIds} strategy={verticalListSortingStrategy}>
-                {track.patterns.map((ptn, ptnIdx) => {
-                  const isSelected = track.selectedPatternId === ptn.id;
+          <div ref={containerRef} className="flex-1 overflow-y-auto p-3 md:p-5 flex flex-col gap-4 min-w-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+            {isSlave && (
+              <div className="flex items-center gap-2.5 px-4 py-2.5 bg-[#d4af37]/20 border-2 border-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] text-xs font-bold text-[#1a1a1a] shrink-0 select-none rounded-xs">
+                <span className="text-base">🔗</span>
+                <span>
+                  {lang === 'fr'
+                    ? 'Instrument lié — Motifs synchronisés sur le maître'
+                    : 'Instrumento vinculado — Padrões sincronizados com o mestre'}
+                </span>
+              </div>
+            )}
+
+            <div className={`flex flex-col gap-6 ${isSlave ? 'opacity-55 pointer-events-none select-none' : ''}`}>
+              <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
+                <SortableContext items={patternIds} strategy={verticalListSortingStrategy}>
+                  {displayedPatterns.map((ptn, ptnIdx) => {
+                    const isSelected = (track.selectedPatternId ?? displayedPatterns[0]?.id) === ptn.id;
 
                   return (
                     <SortablePatternWrapper key={ptn.id} id={ptn.id}>
@@ -1524,7 +1588,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             </div>
 
                             {/* Delete pattern */}
-                            {track.patterns.length > 1 && (
+                            {displayedPatterns.length > 1 && !isSlave && (
                               <button
                                 onClick={() => onDeletePattern(ptn.id)}
                                 className="text-[#8b2a1a] font-bold text-xs px-2 py-1 cordel-border-sm cordel-button hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer"
@@ -1697,12 +1761,15 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             </DndContext>
 
             {/* Add pattern button */}
-            <button
-              onClick={onAddPattern}
-              className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors mb-2"
-            >
-              + {lang === 'fr' ? 'Ajouter un motif' : 'Adicionar padrão'}
-            </button>
+            {!isSlave && (
+              <button
+                onClick={onAddPattern}
+                className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors mb-2"
+              >
+                + {lang === 'fr' ? 'Ajouter un motif' : 'Adicionar padrão'}
+              </button>
+            )}
+            </div>
           </div>
 
           {/* ─── Zone droite fixe (270px, border-l) : Panneau StrokeInspectorPanel ─── */}

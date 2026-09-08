@@ -66,6 +66,14 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
     } catch (_) {}
   };
 
+  const handlePreviewDrum = React.useCallback(() => {
+    if (!audioEngine) return;
+    const instId = instrument.id;
+    const strokeSymbol = instId === 'timbal' ? 'A' : 'D';
+    const pitch = track?.tuning || 0;
+    audioEngine.playPreview(instId, strokeSymbol, pitch, 1.0);
+  }, [instrument.id, track?.tuning]);
+
   // Find paired strokes for active tool
   const pairs = useMemo(() => {
     return getStrokePairs(instrument.id, instrument.type, lang, isLeftHanded);
@@ -498,7 +506,7 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
 
       {/* Section Lutherie du Fût (Accordage / Pitch) */}
       <div className="border-t border-[#1a1a1a]/20 pt-1.5 flex flex-col gap-1.5 mt-auto shrink-0">
-        <PercussionTuningControl trackId={trackId} />
+        <PercussionTuningControl trackId={trackId} onPreview={handlePreviewDrum} showPreviewButton={true} />
       </div>
     </div>
   );

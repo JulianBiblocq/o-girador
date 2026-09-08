@@ -22,6 +22,7 @@ import { reverbSends, distortionSends } from '../hooks/useAudioSync';
 import { MixerKnob } from './MixerKnob';
 import { MixerSlantedDivider } from './MixerSlantedDivider';
 import { eqNodes } from '../audio/effectsChain';
+import { XiloChisel } from './XiloIcons';
 
 interface MixerLinkedTrackProps {
   trackId: number;
@@ -37,6 +38,7 @@ interface MixerLinkedTrackProps {
 const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   trackId,
   index,
+  onOpenDetailEditor,
   isActive = true,
   busPosition = 'none',
   linkPosition = 'none',
@@ -324,9 +326,21 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
 
         {/* Title / Name */}
         <div className="relative flex items-center w-full">
-          <div className="flex items-center gap-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-1 py-1 w-full justify-center opacity-70">
-            <span className="font-cactus font-bold text-[9px] truncate">{getTrackDisplayName(track, tracksMeta)}</span>
-          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenDetailEditor(trackId);
+            }}
+            className="flex items-center gap-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button px-1 py-1 cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors w-full justify-between"
+            title={lang === 'pt' ? 'Editar instrumento' : 'Éditer l\'instrument'}
+          >
+            <div className="flex items-center gap-1 flex-1 min-w-0">
+              <img src={`${ASSETS_BASE_URL}${inst.iconImg}`} alt={inst.name} className="w-3.5 h-3.5 object-contain flex-shrink-0" />
+              <span className="font-cactus font-bold text-[9px] truncate">{getTrackDisplayName(track, tracksMeta)}</span>
+            </div>
+            <XiloChisel size={9} className="opacity-70 flex-shrink-0" />
+          </button>
         </div>
       </div>
 
