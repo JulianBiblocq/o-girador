@@ -1100,35 +1100,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           className="flex items-center gap-3 px-5 py-3 border-b-[3px] border-[#1a1a1a] shrink-0"
           style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
         >
-          <img
-            src={`${ASSETS_BASE_URL}${inst.iconImg}`}
-            alt={trackDisplayName}
-            className="w-8 h-8 object-contain"
-            onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-          />
-          <div className="flex items-center gap-2 shrink-0">
-            {onNavigatePrev && (
-              <button 
-                onClick={onNavigatePrev} 
-                className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/20 hover:bg-[#1a1a1a]/40 rounded-full cursor-pointer transition-colors text-xs"
-                title={lang === 'fr' ? 'Piste précédente' : 'Faixa anterior'}
-              >
-                ◀
-              </button>
-            )}
-            <span className="font-cactus font-bold text-lg tracking-wide whitespace-nowrap">
-              {trackDisplayName}
-            </span>
-            {onNavigateNext && (
-              <button 
-                onClick={onNavigateNext} 
-                className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/20 hover:bg-[#1a1a1a]/40 rounded-full cursor-pointer transition-colors text-xs"
-                title={lang === 'fr' ? 'Piste suivante' : 'Próxima faixa'}
-              >
-                ▶
-              </button>
-            )}
-          </div>
+          <span className="font-cactus font-bold text-lg tracking-wide whitespace-nowrap shrink-0">
+            {trackDisplayName}
+          </span>
 
           {/* Ruban de navigation rapide des pupitres */}
           <div className="flex items-center gap-1.5 sm:gap-2 px-1 py-0.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-w-[190px] xs:max-w-[250px] sm:max-w-[360px] md:max-w-[480px] lg:max-w-[620px] mr-auto">
@@ -1222,34 +1196,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             )}
           </div>
 
-          {/* Boucle Play & Bouton REC Global de l'Éditeur */}
-          <div className="flex items-center gap-2 mr-2">
-            <button
-              onClick={() => {
-                const isCurrentlyPlaying = (soloPatternPlayId !== null) || isPlaying;
-                if (isCurrentlyPlaying) {
-                  onStopSoloPattern && onStopSoloPattern();
-                  if (isPlaying) audio.handleTogglePlay();
-                } else {
-                  const targetPtnId = armedPatternId ?? track.selectedPatternId ?? displayedPatterns[0]?.id;
-                  if (targetPtnId !== undefined && onPlaySoloPattern) {
-                    onPlaySoloPattern(targetPtnId, 'ensemble');
-                  } else {
-                    audio.handleTogglePlay();
-                  }
-                }
-              }}
-              className={`h-8 px-2.5 rounded-sm cordel-border-sm text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
-                (soloPatternPlayId !== null || isPlaying)
-                  ? 'bg-[#8b2a1a] text-[#f4ecd8]'
-                  : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
-              }`}
-              title={(soloPatternPlayId !== null || isPlaying) ? (lang === 'fr' ? 'Arrêter la boucle' : 'Parar loop') : (lang === 'fr' ? 'Lire la boucle' : 'Tocar loop')}
-            >
-              {(soloPatternPlayId !== null || isPlaying) ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
-              <span className="hidden sm:inline">{(soloPatternPlayId !== null || isPlaying) ? (lang === 'fr' ? 'Stop' : 'Parar') : (lang === 'fr' ? 'Boucle' : 'Loop')}</span>
-            </button>
-
+          {/* Bouton REC Global de l'Éditeur */}
+          <div className="flex items-center mr-2">
             {isPatternRecording ? (
               <button
                 onClick={() => togglePatternRecording()}
@@ -1257,15 +1205,15 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                 title={lang === 'fr' ? "Enregistrement MIDI en cours (Raccourci: R pour arrêter)" : "Gravação MIDI ativa (Atalho: R para parar)"}
               >
                 <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping shrink-0" />
-                <span>● REC (R)</span>
+                <span>REC (R)</span>
               </button>
             ) : (
               <button
                 onClick={() => togglePatternRecording()}
-                className="h-8 px-2.5 rounded-sm cordel-border-sm border border-[#1a1a1a] text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10"
+                className="h-8 px-2.5 rounded-sm cordel-border-sm border border-[#1a1a1a] text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] group"
                 title={lang === 'fr' ? "Activer l'enregistrement MIDI en direct (Raccourci: R)" : "Ativar gravação MIDI ao vivo (Atalho: R)"}
               >
-                <span className="w-2 h-2 rounded-full bg-[#1a1a1a]/40 shrink-0" />
+                <span className="w-2 h-2 rounded-full bg-[#8b2a1a] group-hover:bg-[#f4ecd8] shrink-0 transition-colors" />
                 <span>REC (R)</span>
               </button>
             )}
