@@ -582,7 +582,7 @@ export function useSequencerState() {
   };
 
   const handleTrackPanChange = (id: number, val: number) => {
-    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, panVal: val } : t)));
+    setTracks(prev => prev.map((t) => (t.id === id ? { ...t, panVal: val, pan: val } : t)));
   };
 
   const handleTrackSwingChange = (id: number, val: number) => {

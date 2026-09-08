@@ -505,7 +505,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
           <div className="flex justify-center w-full">
             <PanKnob 
               trackId={trackId}
-              value={track.pan ?? track.panVal ?? 0} 
+              value={track.panVal ?? track.pan ?? 0} 
               onChange={onPanChange}
               label="PAN"
               showLabels={false}

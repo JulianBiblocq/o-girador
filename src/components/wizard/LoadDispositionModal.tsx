@@ -112,7 +112,7 @@ export const LoadDispositionModal: React.FC<LoadDispositionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-4 backdrop-blur-xs select-none">
+    <div className="fixed inset-0 z-[10050] bg-black/70 flex items-center justify-center p-4 backdrop-blur-xs select-none">
       <div
         className="w-full max-w-xl max-h-[85vh] bg-[#f4ecd8] border-3 border-[#1a1a1a] p-5 shadow-[6px_6px_0px_rgba(0,0,0,1)] text-[#1a1a1a] flex flex-col font-cactus overflow-hidden"
         onClick={(e) => e.stopPropagation()}

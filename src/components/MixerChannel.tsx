@@ -156,8 +156,9 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     }
     if (resetPan && panKnobRef.current) {
       const manualPan = t.panVal ?? t.pan ?? 0;
-      const angle = (manualPan / 100) * 60;
-      panKnobRef.current.style.transform = `rotate(${angle}deg)`;
+      const angle = manualPan * 1.35;
+      panKnobRef.current.style.transform = '';
+      panKnobRef.current.setAttribute('transform', `rotate(${angle} 16 16)`);
     }
     if (resetRev && reverbGaugeRef.current) {
       const manualRev = t.fxSends?.reverb ?? t.reverbVal ?? 0;
@@ -219,7 +220,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           }
         }
 
-        // 2. Potentiomètre Panoramique motorisé (-60° à +60°)
+        // 2. Potentiomètre Panoramique motorisé (-135° à +135°)
         if (isPanActive && t.measurePans && t.measurePans.length > 0) {
           const manualPan = t.panVal ?? t.pan ?? 0;
           const rawStart = t.measurePans[prevM] !== undefined ? t.measurePans[prevM] : manualPan;
@@ -228,8 +229,9 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           const interpPan = interpolateAutomationValue(rawStart, rawEnd, progress, trans);
 
           if (panKnobRef.current) {
-            const angle = (interpPan / 100) * 60;
-            panKnobRef.current.style.transform = `rotate(${angle}deg)`;
+            const angle = interpPan * 1.35;
+            panKnobRef.current.style.transform = '';
+            panKnobRef.current.setAttribute('transform', `rotate(${angle} 16 16)`);
           }
         }
 
@@ -951,7 +953,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
             <div className={`transition-opacity ${isPanActive ? 'opacity-50 pointer-events-none' : ''}`}>
               <PanKnob 
                 trackId={trackId}
-                value={track.pan ?? track.panVal ?? 0} 
+                value={track.panVal ?? track.pan ?? 0} 
                 onChange={onPanChange}
                 label="PAN"
                 showLabels={false}
