@@ -181,6 +181,77 @@ const getAlfaiaIconSizeClass = (instId?: string) => {
   return 'w-6 h-6';                                 // 24x24 px (Standard)
 };
 
+interface PupitreRibbonChipProps {
+  trackId: number;
+  isActive: boolean;
+  onSelect: (id: number) => void;
+}
+
+// Composant Enfant mémoïsé (Commandement 4 : Zustand ID-Only)
+const PupitreRibbonChip: React.FC<PupitreRibbonChipProps> = React.memo(({
+  trackId,
+  isActive,
+  onSelect,
+}) => {
+  const chipRef = useRef<HTMLButtonElement | null>(null);
+
+  // Chaque puce s'abonne individuellement à ses propres propriétés primitives
+  const instrumentIdx = useSequencerStore(
+    (state) => state.tracks.find((t) => t.id === trackId)?.instrumentIdx ?? 0
+  );
+  const customName = useSequencerStore(
+    (state) => state.tracks.find((t) => t.id === trackId)?.customName
+  );
+
+  useEffect(() => {
+    if (isActive && chipRef.current) {
+      chipRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
+    }
+  }, [isActive]);
+
+  const tInst = instrumentsConfig[instrumentIdx];
+  const iconSizeClass = getAlfaiaIconSizeClass(tInst?.id);
+  const titleText = customName || tInst?.name || 'Instrument';
+
+  return (
+    <button
+      ref={chipRef}
+      type="button"
+      onClick={() => {
+        if (!isActive) {
+          onSelect(trackId);
+        }
+      }}
+      title={titleText}
+      className={`shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-md flex items-center justify-center transition-all duration-150 relative select-none ${
+        isActive
+          ? 'bg-[#fbf8f0] border-2 border-[#1a1a1a] ring-2 ring-[#d4af37] ring-offset-1 ring-offset-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] scale-105 z-10 cursor-default'
+          : 'bg-[#f4ecd8]/90 hover:bg-[#fbf8f0] border-2 border-[#1a1a1a]/50 hover:border-[#1a1a1a] shadow-[1px_1px_0px_rgba(0,0,0,0.5)] hover:shadow-[2px_2px_0px_#1a1a1a] opacity-75 hover:opacity-100 hover:-translate-y-[1px] cursor-pointer'
+      }`}
+    >
+      {tInst?.iconImg ? (
+        <img
+          src={`${ASSETS_BASE_URL}${tInst.iconImg}`}
+          alt={titleText}
+          className={`${iconSizeClass} object-contain transition-transform pointer-events-none`}
+          onError={(e) => {
+            (e.target as HTMLElement).style.display = 'none';
+          }}
+        />
+      ) : (
+        <span className="font-cactus font-bold text-xs text-[#1a1a1a] pointer-events-none">
+          {titleText.slice(0, 2).toUpperCase()}
+        </span>
+      )}
+    </button>
+  );
+});
+PupitreRibbonChip.displayName = 'PupitreRibbonChip';
+
 const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = ({
   trackId,
   onClose,
@@ -230,31 +301,14 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     };
   }, [disarmAllPatterns]);
 
-  // Extraction ciblée des pistes visibles pour le ruban de navigation rapide (useShallow - Zero Render Thrashing)
-  const visibleTracksMeta = useSequencerStore(
+  // Extraction ciblée des IDs des pistes visibles pour le ruban de navigation rapide (Commandement 4 : Zustand ID-Only)
+  const visibleTrackIds = useSequencerStore(
     useShallow((state) =>
       state.tracks
         .filter((t) => !t.isHidden && isSequencerVisibleTrack(t, state.tracks))
-        .map((t) => ({
-          id: t.id,
-          instrumentIdx: t.instrumentIdx,
-          customName: t.customName,
-        }))
+        .map((t) => t.id)
     )
   );
-
-  const activeChipRef = useRef<HTMLButtonElement | null>(null);
-
-  // Défilement automatique pour garder la puce active visible dans le ruban
-  useEffect(() => {
-    if (activeChipRef.current) {
-      activeChipRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'center',
-      });
-    }
-  }, [trackId]);
 
   // Raccourci Clavier 'R' pour basculer l'enregistrement MIDI
   useEffect(() => {
@@ -1039,44 +1093,14 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
           {/* Ruban de navigation rapide des pupitres */}
           <div className="flex items-center gap-1.5 sm:gap-2 px-1 py-0.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-w-[190px] xs:max-w-[250px] sm:max-w-[360px] md:max-w-[480px] lg:max-w-[620px] mr-auto">
-            {visibleTracksMeta.map((t) => {
-              const tInst = instrumentsConfig[t.instrumentIdx];
-              const isActive = t.id === trackId;
-              const iconSizeClass = getAlfaiaIconSizeClass(tInst?.id);
-              const titleText = t.customName || tInst?.name || 'Instrument';
-
-              return (
-                <button
-                  key={t.id}
-                  ref={isActive ? activeChipRef : undefined}
-                  type="button"
-                  onClick={() => {
-                    if (!isActive) {
-                      setEditingTrackId(t.id);
-                    }
-                  }}
-                  title={titleText}
-                  className={`shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-md flex items-center justify-center transition-all duration-150 relative select-none ${
-                    isActive
-                      ? 'bg-[#fbf8f0] border-2 border-[#1a1a1a] ring-2 ring-[#d4af37] ring-offset-1 ring-offset-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] scale-105 z-10 cursor-default'
-                      : 'bg-[#f4ecd8]/90 hover:bg-[#fbf8f0] border-2 border-[#1a1a1a]/50 hover:border-[#1a1a1a] shadow-[1px_1px_0px_rgba(0,0,0,0.5)] hover:shadow-[2px_2px_0px_#1a1a1a] opacity-75 hover:opacity-100 hover:-translate-y-[1px] cursor-pointer'
-                  }`}
-                >
-                  {tInst?.iconImg ? (
-                    <img
-                      src={`${ASSETS_BASE_URL}${tInst.iconImg}`}
-                      alt={titleText}
-                      className={`${iconSizeClass} object-contain transition-transform pointer-events-none`}
-                      onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
-                    />
-                  ) : (
-                    <span className="font-cactus font-bold text-xs text-[#1a1a1a] pointer-events-none">
-                      {titleText.slice(0, 2).toUpperCase()}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+            {visibleTrackIds.map((vTrackId) => (
+              <PupitreRibbonChip
+                key={vTrackId}
+                trackId={vTrackId}
+                isActive={vTrackId === trackId}
+                onSelect={setEditingTrackId}
+              />
+            ))}
           </div>
 
           <div className="flex items-center gap-2">
