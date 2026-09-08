@@ -29,6 +29,8 @@ export interface TrackSlice {
   handleTrackPanChange: (id: number, val: number) => void;
   handleTrackSwingChange: (id: number, val: number) => void;
   handlePatternSwingChange: (trackId: number, patternId: number, val: number) => void;
+  handleTrackBalancoChange: (trackId: number, presetId?: string, amount?: number) => void;
+  handlePatternBalancoChange: (trackId: number, patternId: number, presetId?: string, amount?: number) => void;
   handleResetPatternMicrotimings: (trackId: number, patternId: number) => void;
   setTrackFxSend: (trackId: number, fxType: 'reverb' | 'distortion', value: number) => void;
   setTrackPan: (trackId: number, value: number) => void;
@@ -627,7 +629,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
 
   handleTrackSwingChange: (id, val) => {
     set((state) => ({
-      tracks: state.tracks.map((t) => t.id === id ? { ...t, swingIntensity: val } : t)
+      tracks: state.tracks.map((t) => t.id === id ? { ...t, swingIntensity: val, balancoAmount: val } : t)
     }));
   },
 
@@ -637,7 +639,45 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         if (t.id === trackId) {
           return {
             ...t,
-            patterns: t.patterns.map((p) => (p.id === patternId ? { ...p, swingIntensity: val } : p))
+            patterns: t.patterns.map((p) => (p.id === patternId ? { ...p, swingIntensity: val, balancoAmount: val } : p))
+          };
+        }
+        return t;
+      })
+    }));
+  },
+
+  handleTrackBalancoChange: (trackId, presetId, amount) => {
+    set((state) => ({
+      tracks: state.tracks.map((t) => {
+        if (t.id === trackId) {
+          return {
+            ...t,
+            ...(presetId !== undefined ? { balancoPresetId: presetId } : {}),
+            ...(amount !== undefined ? { balancoAmount: amount, swingIntensity: amount } : {})
+          };
+        }
+        return t;
+      })
+    }));
+  },
+
+  handlePatternBalancoChange: (trackId, patternId, presetId, amount) => {
+    set((state) => ({
+      tracks: state.tracks.map((t) => {
+        if (t.id === trackId) {
+          return {
+            ...t,
+            patterns: t.patterns.map((p) => {
+              if (p.id === patternId) {
+                return {
+                  ...p,
+                  ...(presetId !== undefined ? { balancoPresetId: presetId } : {}),
+                  ...(amount !== undefined ? { balancoAmount: amount, swingIntensity: amount } : {})
+                };
+              }
+              return p;
+            })
           };
         }
         return t;

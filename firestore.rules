@@ -138,7 +138,7 @@ service cloud.firestore {
 
     // --- RÃˆGLES TÃ‰LÃ‰MÃ‰TRIE & BUGS ---
     match /hub_system_errors/{errorId} {
-      allow create: if request.resource.data.keys().hasAll(['appId', 'timestamp', 'errorMessage']);
+      allow create: if request.resource.data.keys().hasAll(['appId', 'timestamp']) && request.resource.data.keys().hasAny(['error', 'errorMessage']);
       allow read, update, delete: if request.auth != null && request.auth.token.admin == true;
     }
 
@@ -450,6 +450,27 @@ service cloud.firestore {
     }
 
     // --- O GIRADOR: SÉQUENCEUR ---
+    // Balanços (Grooves, swing presets et micro-offsets)
+    match /balancos/{balancoId} {
+      allow read: if request.auth != null || (resource != null && resource.data.visibility == 'public');
+      allow create: if request.auth != null 
+                    && (isAdminOrMestre()
+                        || request.auth.uid == request.resource.data.ownerId 
+                        || request.auth.uid == request.resource.data.get('mestreId', '')
+                        || isSameGroup(request.resource.data.get('mestreId', '')));
+      allow update: if request.auth != null 
+                    && (isAdminOrMestre()
+                        || request.auth.uid == resource.data.ownerId 
+                        || request.auth.uid == resource.data.get('mestreId', '')
+                        || isSameGroup(resource.data.get('mestreId', ''))
+                        || isCoAuthorInSameGroup(resource.data.get('groupId', '')));
+      allow delete: if request.auth != null 
+                    && (isAdminOrMestre()
+                        || request.auth.uid == resource.data.ownerId 
+                        || request.auth.uid == resource.data.get('mestreId', '')
+                        || isSameGroup(resource.data.get('mestreId', '')));
+    }
+
     // Group members (élèves with same mestreId) can read/write alongside the mestre.
     match /patterns/{patternId} {
       allow read: if request.auth != null;

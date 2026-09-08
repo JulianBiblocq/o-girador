@@ -14,7 +14,7 @@ import { vocalEngineService } from '../audio/vocalEngineService';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getStrokePairs, STEP_OPTIONS } from '../utils/instrumentStrokes';
 import { createPortal } from 'react-dom';
-import { Play, Square, GripVertical, RotateCcw } from 'lucide-react';
+import { Play, Square, GripVertical } from 'lucide-react';
 import {
   DndContext,
   pointerWithin,
@@ -43,6 +43,7 @@ import { MelodicNoteSelector } from './MelodicNoteSelector';
 import { PatternVariationsEditor } from './instrument-editor/PatternVariationsEditor';
 import { InstrumentEffects } from './InstrumentEffects';
 import { StrokeWritingDock } from './instrument-editor/StrokeWritingDock';
+import { useBalancoStore } from '../stores/useBalancoStore';
 import { StrokeInspectorPanel } from './instrument-editor/StrokeInspectorPanel';
 import { InstrumentPatternGrid } from './InstrumentPatternGrid';
 import { XiloChisel, XiloMegaphone } from './XiloIcons';
@@ -204,7 +205,9 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const setTracks = useSequencerStore(state => state.setTracks);
   const pushUndoState = useSequencerStore(state => state.pushUndoState);
   const handlePatternSwingChange = useSequencerStore(state => state.handlePatternSwingChange);
-  const handleResetPatternMicrotimings = useSequencerStore(state => state.handleResetPatternMicrotimings);
+  const handleTrackBalancoChange = useSequencerStore(state => state.handleTrackBalancoChange);
+  const handlePatternBalancoChange = useSequencerStore(state => state.handlePatternBalancoChange);
+  const balancoPresets = useBalancoStore(state => state.presets);
 
   const canPaste = !!sequencer.copiedPattern;
 
@@ -923,24 +926,47 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               </div>
             )}
 
-            {/* Swing/Balanço Controller for non-vocal tracks */}
+            {/* Balanço Controller for non-vocal tracks (Preset + Amount) */}
             {inst.type !== 'voice' && (
-              <div className="flex items-center gap-3 bg-[#f4ecd8] px-3 py-1 rounded border-[2px] border-[#1a1a1a] text-xs font-bold ml-6 select-none text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]">
-                <span>{lang === 'fr' ? 'Balanço :' : 'Balanço :'}</span>
+              <div className="flex items-center gap-2.5 bg-[#f4ecd8] px-3 py-1 rounded border-[2px] border-[#1a1a1a] text-xs font-bold ml-4 select-none text-[#1a1a1a] shadow-[2px_2px_0px_0px_#1a1a1a]">
+                <span className="whitespace-nowrap flex items-center text-sm" title={lang === 'fr' ? 'Balanço (Instrument)' : 'Balanço (Instrument)'}>
+                  ⚖️
+                </span>
+
+                {/* Sélecteur de preset d'instrument */}
+                <select
+                  value={track.balancoPresetId || 'maracatu-trad'}
+                  onChange={(e) => {
+                    const presetId = e.target.value;
+                    const amount = track.balancoAmount !== undefined ? track.balancoAmount : (track.swingIntensity !== undefined ? track.swingIntensity : 100);
+                    handleTrackBalancoChange(trackId, presetId, amount);
+                  }}
+                  className="bg-white border border-[#1a1a1a] px-1.5 py-0.5 text-[11px] font-bold text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] outline-none cursor-pointer max-w-[130px] truncate"
+                  title={lang === 'fr' ? "Preset de Balanço par défaut de l'instrument" : "Preset de Balanço padrão do instrumento"}
+                >
+                  {balancoPresets.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Curseur de dosage balancoAmount (0 - 100%) */}
                 <input
                   type="range"
                   min="0"
                   max="100"
-                  value={track.swingIntensity !== undefined ? track.swingIntensity : 100}
+                  value={track.balancoAmount !== undefined ? track.balancoAmount : (track.swingIntensity !== undefined ? track.swingIntensity : 100)}
                   onChange={(e) => {
                     const val = Number(e.target.value);
-                    sequencer.handleTrackSwingChange(trackId, val);
+                    handleTrackBalancoChange(trackId, track.balancoPresetId || 'maracatu-trad', val);
                   }}
-                  className="w-24 h-2 bg-[#1a1a1a]/20 rounded-full appearance-none cursor-pointer outline-none"
+                  className="w-20 h-2 bg-[#1a1a1a]/20 rounded-full appearance-none cursor-pointer outline-none"
                   style={{ accentColor: '#8b2a1a' }}
+                  title={lang === 'fr' ? "Dosage du balanço pour l'instrument" : "Dosagem do balanço para o instrumento"}
                 />
                 <span className="w-8 text-right font-cactus text-sm">
-                  {track.swingIntensity !== undefined ? track.swingIntensity : 100}%
+                  {track.balancoAmount !== undefined ? track.balancoAmount : (track.swingIntensity !== undefined ? track.swingIntensity : 100)}%
                 </span>
               </div>
             )}
@@ -1152,34 +1178,48 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               </button>
                             </div>
 
-                            {/* Pattern Swing Slider (Compact) */}
-                            <div className="hidden md:flex items-center gap-1.5 bg-[#f4ecd8] px-2 py-0.5 rounded border-[1px] border-[#1a1a1a] text-[10px] font-bold ml-4 select-none text-[#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a]" title={lang === 'fr' ? "Multiplicateur de balanço pour ce motif" : "Multiplicador de balanço para este padrão"}>
-                              <span>⚖️ {lang === 'fr' ? 'Balanço :' : 'Balanço :'}</span>
+                            {/* Pattern Balanço Controller (Preset Override + Local Amount) */}
+                            <div className="hidden md:flex items-center gap-1.5 bg-[#f4ecd8] px-2 py-0.5 rounded border-[1px] border-[#1a1a1a] text-[10px] font-bold ml-4 select-none text-[#1a1a1a] shadow-[1px_1px_0px_0px_#1a1a1a]">
+                              <span className="whitespace-nowrap text-xs" title={lang === 'fr' ? 'Balanço (Motif)' : 'Balanço (Padrão)'}>⚖️</span>
+
+                              {/* Menu déroulant de surcharge par pattern */}
+                              <select
+                                value={ptn.balancoPresetId || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value || undefined;
+                                  const amount = ptn.balancoAmount !== undefined ? ptn.balancoAmount : (ptn.swingIntensity !== undefined ? ptn.swingIntensity : 100);
+                                  handlePatternBalancoChange(trackId, ptn.id, val, amount);
+                                }}
+                                className="bg-white border border-[#1a1a1a] px-1 py-0.5 text-[10px] font-bold text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] outline-none cursor-pointer max-w-[125px] truncate"
+                                title={lang === 'fr' ? "Surcharge de preset pour ce motif" : "Substituição de preset para este padrão"}
+                              >
+                                <option value="">
+                                  {lang === 'fr' ? "Hériter de l'instrument" : 'Herdar do instrumento'}
+                                </option>
+                                {balancoPresets.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.name}
+                                  </option>
+                                ))}
+                              </select>
+
+                              {/* Curseur de dosage local du pattern */}
                               <input
                                 type="range"
                                 min="0"
                                 max="100"
-                                value={ptn.swingIntensity !== undefined ? ptn.swingIntensity : 100}
+                                value={ptn.balancoAmount !== undefined ? ptn.balancoAmount : (ptn.swingIntensity !== undefined ? ptn.swingIntensity : 100)}
                                 onChange={(e) => {
-                                  handlePatternSwingChange(trackId, ptn.id, parseInt(e.target.value));
+                                  const val = parseInt(e.target.value, 10);
+                                  handlePatternBalancoChange(trackId, ptn.id, ptn.balancoPresetId, val);
                                 }}
-                                className="w-16 h-1.5 bg-[#1a1a1a]/20 rounded-full appearance-none cursor-pointer outline-none"
+                                className="w-14 h-1.5 bg-[#1a1a1a]/20 rounded-full appearance-none cursor-pointer outline-none"
                                 style={{ accentColor: '#8b2a1a' }}
+                                title={lang === 'fr' ? "Dosage local du balanço pour ce motif" : "Dosagem local do balanço para este padrão"}
                               />
                               <span className="w-6 text-right font-cactus text-[11px]">
-                                {ptn.swingIntensity !== undefined ? ptn.swingIntensity : 100}%
+                                {ptn.balancoAmount !== undefined ? ptn.balancoAmount : (ptn.swingIntensity !== undefined ? ptn.swingIntensity : 100)}%
                               </span>
-                              <button
-                                onClick={async () => {
-                                  if (await sequencer.confirmAsync(lang === 'fr' ? "Réinitialiser les microtimings de ce motif (remettre les pas droits) ?" : "Redefinir microtimings deste padrão (endireitar passos)?")) {
-                                    handleResetPatternMicrotimings(trackId, ptn.id);
-                                  }
-                                }}
-                                className="ml-1 text-[#8b2a1a] hover:text-[#a63d2d] transition-colors p-0.5 hover:bg-[#8b2a1a]/10 rounded cursor-pointer"
-                                title={lang === 'fr' ? "Réinitialiser les microtimings" : "Redefinir microtimings"}
-                              >
-                                <RotateCcw className="w-3 h-3" />
-                              </button>
                             </div>
 
                             {/* Steps selector */}

@@ -17,6 +17,7 @@ import { lazyWithRetry } from '../utils/lazyWithRetry';
 const ShortcutsGuide = lazyWithRetry(() => import('./right-sidebar/ShortcutsGuide').then(m => ({ default: m.ShortcutsGuide })), 'ShortcutsGuide');
 import { MidiManagerPanel } from './MidiManagerPanel';
 import { useAudioStore } from '../stores/useAudioStore';
+import { BalancoEditorPanel } from './balanco/BalancoEditorPanel';
 
 interface SettingsPageProps {
   mestreSignals?: CloudRhythmSignal[];
@@ -194,67 +195,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
     setSelectedAnnexTracks(newSet);
   };
 
-  // --- LOGIQUE LOCALE DU BALANÇO (SWING) ---
-  const [localSwing, setLocalSwing] = useState<GlobalSwing>(globalSwing);
-
-  // Synchronise l'état local si le globalSwing change de l'extérieur
-  useEffect(() => {
-    setLocalSwing(globalSwing);
-  }, [globalSwing]);
-
-  const handleSwingModeChange = (mode: 'maracatu' | 'custom' | 'off') => {
-    const newSwing = { ...localSwing, mode };
-    setLocalSwing(newSwing);
-    setGlobalSwing(newSwing);
-  };
-
-  const handleCustomOffsetChange = (index: number, val: number) => {
-    const newOffsets = [...localSwing.customOffsets];
-    newOffsets[index] = val;
-    const newSwing = { ...localSwing, customOffsets: newOffsets as [number, number, number, number] };
-    setLocalSwing(newSwing);
-    setGlobalSwing(newSwing);
-  };
-
-  const handleResetCustom = () => {
-    const newSwing = { ...localSwing, customOffsets: [0, 8, -29, -58] as [number, number, number, number] };
-    setLocalSwing(newSwing);
-    setGlobalSwing(newSwing);
-  };
-
-  const handleIntensityChange = (val: number) => {
-    const newSwing = { ...localSwing, swingIntensity: val };
-    setLocalSwing(newSwing);
-    setGlobalSwing(newSwing);
-  };
-
-  const handleSaveSwingToFirebase = async () => {
-    if (updateUserProfileField) {
-      try {
-        await updateUserProfileField('customSwingOffsets', localSwing.customOffsets);
-        await updateUserProfileField('customSwingIntensity', localSwing.swingIntensity ?? 100);
-        alert(lang === 'fr' ? 'Balanço personnalisé sauvegardé avec succès !' : 'Balanço personalizado salvo com sucesso!');
-      } catch (e) {
-        console.error(e);
-        alert(lang === 'fr' ? 'Erreur lors de la sauvegarde.' : 'Erro ao salvar.');
-      }
-    }
-  };
-
-  const handleLoadSwingFromFirebase = () => {
-    if (userProfile && userProfile.customSwingOffsets) {
-      const savedOffsets = userProfile.customSwingOffsets;
-      const savedIntensity = userProfile.customSwingIntensity !== undefined ? userProfile.customSwingIntensity : 100;
-      const newSwing = {
-        mode: 'custom' as const,
-        customOffsets: savedOffsets,
-        swingIntensity: savedIntensity
-      };
-      setLocalSwing(newSwing);
-      setGlobalSwing(newSwing);
-      alert(lang === 'fr' ? 'Balanço personnalisé chargé avec succès !' : 'Balanço personalizado carregado com sucesso!');
-    }
-  };
 
   // Latence artificielle pour protéger le thread audio d'un pic de render synchrone
   useEffect(() => {
@@ -672,147 +612,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
                                 🌊 {lang === 'fr' ? 'Balanço Général' : 'Balanço Geral'}
                               </h3>
-                              <div className="flex flex-col gap-4 text-left">
-                                {/* Modes */}
-                                <div className="flex flex-col gap-2">
-                                  <label className="font-bold text-[10px] uppercase">{lang === 'fr' ? 'Mode de Groove :' : 'Modo de Groove :'}</label>
-                                  <div className="flex flex-wrap gap-2">
-                                    <button
-                                      onClick={() => handleSwingModeChange('maracatu')}
-                                      className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase border-2 border-black cursor-pointer transition-colors flex-1 shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${
-                                        localSwing.mode === 'maracatu' ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#d5c3b0]'
-                                      }`}
-                                    >
-                                      Maracatu
-                                    </button>
-                                    <button
-                                      onClick={() => handleSwingModeChange('custom')}
-                                      className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase border-2 border-black cursor-pointer transition-colors flex-1 shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${
-                                        localSwing.mode === 'custom' ? 'bg-[#8b2a1a] text-[#f4ecd8]' : 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#d5c3b0]'
-                                      }`}
-                                    >
-                                      {lang === 'fr' ? 'Personnalisé' : 'Personalizado'}
-                                    </button>
-                                    <button
-                                      onClick={() => handleSwingModeChange('off')}
-                                      className={`px-3 py-1.5 font-cactus font-bold text-xs uppercase border-2 border-black cursor-pointer transition-colors flex-1 shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${
-                                        localSwing.mode === 'off' ? 'bg-black text-white' : 'bg-[#eaddcf] text-[#1a1a1a] hover:bg-[#d5c3b0]'
-                                      }`}
-                                    >
-                                      {lang === 'fr' ? 'Désactivé' : 'Desativado'}
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* Actions Firebase Mestre */}
-                                {isMestre && (
-                                  <div className="flex gap-2 border-t border-black/10 pt-2 flex-wrap">
-                                    {localSwing.mode === 'custom' && (
-                                      <button
-                                        onClick={handleSaveSwingToFirebase}
-                                        className="px-2.5 py-1 bg-[#8b2a1a] text-[#f4ecd8] border border-black text-[10px] font-bold hover:bg-black hover:text-white transition-colors cursor-pointer flex items-center gap-1 shadow-[1.5px_1.5px_0px_#000]"
-                                      >
-                                        💾 {lang === 'fr' ? 'Sauvegarder mon balanço' : 'Salvar meu balanço'}
-                                      </button>
-                                    )}
-                                    {userProfile?.customSwingOffsets && (
-                                      <button
-                                        onClick={handleLoadSwingFromFirebase}
-                                        className="px-2.5 py-1 bg-white text-black border border-black text-[10px] font-bold hover:bg-black hover:text-white transition-colors cursor-pointer flex items-center gap-1 shadow-[1.5px_1.5px_0px_#000]"
-                                      >
-                                        📂 {lang === 'fr' ? 'Importer mon balanço' : 'Importar meu balanço'}
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* Curseur d'intensité (uniquement en mode maracatu ou personnalisé) */}
-                                {localSwing.mode !== 'off' && (
-                                  <div className="flex flex-col gap-2 bg-[#eaddcf]/30 p-3 border border-black/10 rounded-sm">
-                                    <div className="flex justify-between items-center mb-1">
-                                      <span className="font-bold text-[10px] uppercase flex items-center gap-1">
-                                        🎚️ {lang === 'fr' ? 'Intensité du Balanço :' : 'Intensidade do Balanço :'}
-                                      </span>
-                                      <span className="font-bold text-[#8b2a1a] text-xs">
-                                        {localSwing.swingIntensity !== undefined ? localSwing.swingIntensity : 100}%
-                                      </span>
-                                    </div>
-                                    <input
-                                      type="range"
-                                      min="0"
-                                      max="100"
-                                      value={localSwing.swingIntensity !== undefined ? localSwing.swingIntensity : 100}
-                                      onChange={(e) => handleIntensityChange(parseInt(e.target.value))}
-                                      className="w-full h-2 bg-black/10 rounded-full appearance-none cursor-pointer outline-none"
-                                      style={{ accentColor: '#8b2a1a' }}
-                                    />
-                                  </div>
-                                )}
-
-                                {/* Custom blocks */}
-                                {localSwing.mode === 'custom' && (
-                                  <div className="flex flex-col gap-4 bg-[#eaddcf]/50 p-4 border border-black/10">
-                                    <div className="flex flex-wrap justify-between items-center gap-2 mb-1">
-                                      <span className="font-bold text-[10px] uppercase">
-                                        {lang === 'fr' ? 'Micro-timing (4 doubles croches)' : 'Micro-timing (4 semicolcheias)'}
-                                      </span>
-                                      <button
-                                        onClick={handleResetCustom}
-                                        className="px-2 py-0.5 bg-white border border-black text-[9px] font-bold hover:bg-black hover:text-white transition-colors cursor-pointer"
-                                      >
-                                        {lang === 'fr' ? 'Réinitialiser' : 'Redefinir'}
-                                      </button>
-                                    </div>
-                                    
-                                    <div className="flex gap-2 justify-around w-full">
-                                      {localSwing.customOffsets.map((offset, idx) => (
-                                        <div key={idx} className="flex flex-col items-center gap-2 flex-1">
-                                          
-                                          {/* Visuel du carré mobile */}
-                                          <div className="relative w-full h-10 flex items-center justify-center">
-                                            {/* Axe central pointillé */}
-                                            <div className="absolute top-0 bottom-0 left-1/2 w-0 border-l border-dashed border-black/20 -translate-x-1/2 z-0" />
-                                            
-                                            {/* Carré de la cellule */}
-                                            <div 
-                                              className="flex items-center justify-center bg-[#f4ecd8] border border-black shadow-[1.5px_1.5px_0px_#000] z-10 w-7 h-7 font-cactus font-black text-xs transition-transform duration-100"
-                                              style={{ 
-                                                transform: `translateX(${(offset / 100) * 12}px)` 
-                                              }}
-                                            >
-                                              {idx + 1}
-                                            </div>
-                                          </div>
-
-                                          {/* Slider horizontal */}
-                                          <div className="w-full relative flex items-center">
-                                            <input
-                                              type="range"
-                                              min="-100"
-                                              max="100"
-                                              value={offset}
-                                              onChange={(e) => handleCustomOffsetChange(idx, parseInt(e.target.value, 10))}
-                                              className="w-full h-1 bg-black/25 rounded-full appearance-none cursor-pointer outline-none slider-horizontal accent-black"
-                                            />
-                                          </div>
-                                          
-                                          {/* Valeur numérique */}
-                                          <div className="text-center font-bold text-[9px]">
-                                            {offset > 0 ? `+${offset}%` : `${offset}%`}
-                                          </div>
-
-                                        </div>
-                                      ))}
-                                    </div>
-                                    
-                                    <p className="text-[9px] opacity-75 text-center leading-tight">
-                                      {lang === 'fr' 
-                                        ? 'Axe vertical = grille théorique. Droite : Retard (+). Gauche : Avance (-).' 
-                                        : 'Eixo vertical = grade teórica. Direita: Atraso (+). Esquerda: Avanço (-).'}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
+                              <BalancoEditorPanel
+                                globalSwing={globalSwing}
+                                setGlobalSwing={setGlobalSwing}
+                                lang={lang}
+                                compact={true}
+                              />
                             </div>
 
                             {/* 2. BLOC MÉTRONOME */}

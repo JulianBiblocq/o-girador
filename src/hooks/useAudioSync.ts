@@ -27,6 +27,7 @@ import { useAudioStore } from '../stores/useAudioStore';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
+import { useBalancoStore } from '../stores/useBalancoStore';
 import { vocalEngineService, workerSetTimeout } from '../audio/vocalEngineService';
 import { pushVisualTick, pushVisualHitTrigger, startVisualLoop, stopVisualLoop, flushVisualBuffers, purgeVisualTickBuffer, getLastAudibleTick } from '../audio/visualTickBuffer';
 
@@ -1528,33 +1529,30 @@ export function useAudioSync({
                       if (isTuplet) {
                         noteSwingOffset = swingJitter;
                       } else {
-                        const trackSwingIntensity = liveTrack.swingIntensity !== undefined ? liveTrack.swingIntensity : 100;
-                        const trackSwingMultiplier = trackSwingIntensity / 100;
-                        const patternSwingIntensity = activePattern?.swingIntensity !== undefined ? activePattern.swingIntensity : 100;
-                        const patternSwingMultiplier = patternSwingIntensity / 100;
-                        const totalSwingMultiplier = trackSwingMultiplier * patternSwingMultiplier;
+                        // Résolution du preset actif : Pattern > Track > Global
+                        const patternPresetId = activePattern?.balancoPresetId;
+                        const trackPresetId = liveTrack.balancoPresetId;
+                        const effectivePresetId = patternPresetId || trackPresetId || (globalMode === 'maracatu' ? 'maracatu-trad' : undefined);
+                        const resolvedPreset = useBalancoStore.getState().resolvePreset(effectivePresetId);
 
-                        if (totalSwingMultiplier === 1) {
-                          noteSwingOffset = swingOffset;
+                        // Dosage d'intensité : liveTrack (balancoAmount ou swingIntensity) * activePattern (balancoAmount ou swingIntensity)
+                        const trackBalancoAmount = liveTrack.balancoAmount !== undefined ? liveTrack.balancoAmount : (liveTrack.swingIntensity !== undefined ? liveTrack.swingIntensity : 100);
+                        const patternBalancoAmount = activePattern?.balancoAmount !== undefined ? activePattern.balancoAmount : (activePattern?.swingIntensity !== undefined ? activePattern.swingIntensity : 100);
+                        const totalBalancoMultiplier = (trackBalancoAmount / 100) * (patternBalancoAmount / 100);
+
+                        const globalIntensity = (globalSwingRef.current.swingIntensity !== undefined ? globalSwingRef.current.swingIntensity : 100) / 100;
+
+                        let baseSwingOffset = 0;
+                        if (globalMode === 'custom' && !patternPresetId && !trackPresetId) {
+                          const customOffsetPct = globalSwingRef.current.customOffsets[posInGroup] || 0;
+                          baseSwingOffset = (customOffsetPct / 100) * stepDurationSec * 0.5 * globalIntensity;
                         } else {
-                          let baseSwingOffset = 0;
-                          const intensity = (globalSwingRef.current.swingIntensity !== undefined ? globalSwingRef.current.swingIntensity : 100) / 100;
-
-                          if (globalMode === 'maracatu') {
-                            if (posInGroup === 1) {
-                              baseSwingOffset = 0.04 * intensity * stepDurationSec;
-                            } else if (posInGroup === 2) {
-                              baseSwingOffset = -0.144 * intensity * stepDurationSec;
-                            } else if (posInGroup === 3) {
-                              baseSwingOffset = -0.292 * intensity * stepDurationSec;
-                            }
-                          } else if (globalMode === 'custom') {
-                            const customOffsetPct = globalSwingRef.current.customOffsets[posInGroup] || 0;
-                            baseSwingOffset = (customOffsetPct / 100) * stepDurationSec * 0.5 * intensity;
-                          }
-
-                          noteSwingOffset = (baseSwingOffset * totalSwingMultiplier) + swingJitter;
+                          const offsets = resolvedPreset.offsets;
+                          const offsetPct = offsets[posInGroup % offsets.length] || 0;
+                          baseSwingOffset = (offsetPct / 100) * stepDurationSec * 0.5 * globalIntensity;
                         }
+
+                        noteSwingOffset = (baseSwingOffset * totalBalancoMultiplier) + swingJitter;
                       }
                     }
                     const stepCount = activePattern ? activePattern.steps : 16;

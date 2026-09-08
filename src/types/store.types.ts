@@ -38,6 +38,8 @@ export interface Pattern {
   vocalClip?: VocalClipMeta;
   beatResolutions?: number[]; // Added for tuplet support
   swingIntensity?: number;
+  balancoPresetId?: string;
+  balancoAmount?: number; // 0 to 100
   variations?: PatternVariation[];
   preRollActiveSteps?: (string | number | [string, string])[];
   preRollLyrics?: string[];
@@ -64,6 +66,8 @@ export interface SavedPattern {
   volumes?: number[];
   decays?: number[];
   microtimings?: number[];
+  balancoPresetId?: string;
+  balancoAmount?: number;
   createdAt: number;
 }
 
@@ -91,6 +95,8 @@ export interface TrackGroup {
   tuning?: number; // Pitch offset in semitones (-12 to +12)
   pan?: number; // -100 to 100
   swingIntensity?: number; // 0 to 100
+  balancoPresetId?: string;
+  balancoAmount?: number; // 0 to 100
   fxSends?: {
     reverb: number; // 0 to 100
     distortion: number; // 0 to 100
@@ -154,6 +160,8 @@ export interface SavedSectionTrack {
   panVal?: number;
   pan?: number;
   swingIntensity?: number;
+  balancoPresetId?: string;
+  balancoAmount?: number;
   fxSends?: {
     reverb: number;
     distortion: number;
