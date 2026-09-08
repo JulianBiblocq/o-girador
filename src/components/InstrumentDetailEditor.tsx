@@ -172,6 +172,15 @@ interface InstrumentDetailEditorProps {
   setEditingTrackId: (id: number | null) => void;
 }
 
+// Différenciation visuelle des Alfaias par l'échelle physique de l'icône
+const getAlfaiaIconSizeClass = (instId?: string) => {
+  if (!instId) return 'w-6 h-6';
+  if (instId.includes('marcante')) return 'w-7 h-7'; // 28x28 px (100% - Gros fût)
+  if (instId.includes('meiao')) return 'w-6 h-6';    // 24x24 px (~85% - Moyen fût)
+  if (instId.includes('repique')) return 'w-5 h-5';  // 20x20 px (~70% - Petit fût)
+  return 'w-6 h-6';                                 // 24x24 px (Standard)
+};
+
 const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = ({
   trackId,
   onClose,
@@ -220,6 +229,32 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       disarmAllPatterns();
     };
   }, [disarmAllPatterns]);
+
+  // Extraction ciblée des pistes visibles pour le ruban de navigation rapide (useShallow - Zero Render Thrashing)
+  const visibleTracksMeta = useSequencerStore(
+    useShallow((state) =>
+      state.tracks
+        .filter((t) => !t.isHidden && isSequencerVisibleTrack(t, state.tracks))
+        .map((t) => ({
+          id: t.id,
+          instrumentIdx: t.instrumentIdx,
+          customName: t.customName,
+        }))
+    )
+  );
+
+  const activeChipRef = useRef<HTMLButtonElement | null>(null);
+
+  // Défilement automatique pour garder la puce active visible dans le ruban
+  useEffect(() => {
+    if (activeChipRef.current) {
+      activeChipRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      });
+    }
+  }, [trackId]);
 
   // Raccourci Clavier 'R' pour basculer l'enregistrement MIDI
   useEffect(() => {
@@ -978,27 +1013,73 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             className="w-8 h-8 object-contain"
             onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
           />
-          <div className="flex items-center gap-2 mr-auto">
+          <div className="flex items-center gap-2 shrink-0">
             {onNavigatePrev && (
               <button 
                 onClick={onNavigatePrev} 
-                className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/20 hover:bg-[#1a1a1a]/40 rounded-full cursor-pointer transition-colors"
+                className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/20 hover:bg-[#1a1a1a]/40 rounded-full cursor-pointer transition-colors text-xs"
+                title={lang === 'fr' ? 'Piste précédente' : 'Faixa anterior'}
               >
                 ◀
               </button>
             )}
-            <span className="font-cactus font-bold text-lg tracking-wide">
+            <span className="font-cactus font-bold text-lg tracking-wide whitespace-nowrap">
               {trackDisplayName}
             </span>
             {onNavigateNext && (
               <button 
                 onClick={onNavigateNext} 
-                className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/20 hover:bg-[#1a1a1a]/40 rounded-full cursor-pointer transition-colors"
+                className="w-6 h-6 flex items-center justify-center bg-[#1a1a1a]/20 hover:bg-[#1a1a1a]/40 rounded-full cursor-pointer transition-colors text-xs"
+                title={lang === 'fr' ? 'Piste suivante' : 'Próxima faixa'}
               >
                 ▶
               </button>
             )}
+          </div>
 
+          {/* Ruban de navigation rapide des pupitres */}
+          <div className="flex items-center gap-1.5 sm:gap-2 px-1 py-0.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden max-w-[190px] xs:max-w-[250px] sm:max-w-[360px] md:max-w-[480px] lg:max-w-[620px] mr-auto">
+            {visibleTracksMeta.map((t) => {
+              const tInst = instrumentsConfig[t.instrumentIdx];
+              const isActive = t.id === trackId;
+              const iconSizeClass = getAlfaiaIconSizeClass(tInst?.id);
+              const titleText = t.customName || tInst?.name || 'Instrument';
+
+              return (
+                <button
+                  key={t.id}
+                  ref={isActive ? activeChipRef : undefined}
+                  type="button"
+                  onClick={() => {
+                    if (!isActive) {
+                      setEditingTrackId(t.id);
+                    }
+                  }}
+                  title={titleText}
+                  className={`shrink-0 w-8 h-8 sm:w-9 sm:h-9 rounded-md flex items-center justify-center transition-all duration-150 relative select-none ${
+                    isActive
+                      ? 'bg-[#fbf8f0] border-2 border-[#1a1a1a] ring-2 ring-[#d4af37] ring-offset-1 ring-offset-[#1a1a1a] shadow-[2px_2px_0px_#1a1a1a] scale-105 z-10 cursor-default'
+                      : 'bg-[#f4ecd8]/90 hover:bg-[#fbf8f0] border-2 border-[#1a1a1a]/50 hover:border-[#1a1a1a] shadow-[1px_1px_0px_rgba(0,0,0,0.5)] hover:shadow-[2px_2px_0px_#1a1a1a] opacity-75 hover:opacity-100 hover:-translate-y-[1px] cursor-pointer'
+                  }`}
+                >
+                  {tInst?.iconImg ? (
+                    <img
+                      src={`${ASSETS_BASE_URL}${tInst.iconImg}`}
+                      alt={titleText}
+                      className={`${iconSizeClass} object-contain transition-transform pointer-events-none`}
+                      onError={(e) => { (e.target as HTMLElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <span className="font-cactus font-bold text-xs text-[#1a1a1a] pointer-events-none">
+                      {titleText.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-2">
             {/* Pitch Shift Controller for Vocal/Toada tracks */}
             {inst.type === 'voice' && (
               <div className="flex items-center gap-2 select-none">
