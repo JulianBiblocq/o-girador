@@ -114,9 +114,10 @@ export interface Preset {
   reverbDecay?: number;
   isSwingOn?: boolean; // Keep for backward compatibility
   globalSwing?: GlobalSwing;
-  loopStartMeasure?: number;
-  loopEndMeasure?: number;
+  loopStartMeasure?: number | null;
+  loopEndMeasure?: number | null;
   isLoopRegionActive?: boolean;
+  loopMode?: 'infinite' | number;
   isLooping?: boolean;
   version?: number;
 }

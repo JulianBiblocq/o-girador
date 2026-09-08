@@ -472,11 +472,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       sequencer.setMeasureVols(loadedVols);
       sequencer.setMeasureVolTransitions(loadedVolTransitions);
 
-      if (p.loopStartMeasure !== undefined) sequencer.setLoopStartMeasure(p.loopStartMeasure);
-      if (p.loopEndMeasure !== undefined) sequencer.setLoopEndMeasure(p.loopEndMeasure);
-      if (p.isLoopRegionActive !== undefined) sequencer.setIsLoopRegionActive(p.isLoopRegionActive);
+      useSequencerStore.getState().clearLoopExitRequest();
+      useSequencerStore.getState().setIsLoopBypassed(false);
+      useSequencerStore.getState().setCurrentLoopIteration(1);
+      useSequencerStore.getState().setLoopMode(p.loopMode !== undefined ? p.loopMode : 'infinite');
+      sequencer.setLoopStartMeasure(p.loopStartMeasure !== undefined ? p.loopStartMeasure : null);
+      sequencer.setLoopEndMeasure(p.loopEndMeasure !== undefined ? p.loopEndMeasure : null);
+      sequencer.setIsLoopRegionActive(p.isLoopRegionActive !== undefined ? p.isLoopRegionActive : true);
       if (p.isLooping !== undefined) sequencer.setIsLooping(p.isLooping);
-      if (p.loopMode !== undefined) useSequencerStore.getState().setLoopMode(p.loopMode);
 
       if (p.songSections && Array.isArray(p.songSections)) {
         sequencer.setSongSections(p.songSections);
@@ -690,7 +693,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       loopEndMeasure: storeState.loopEndMeasure,
       isLoopRegionActive: storeState.isLoopRegionActive,
       loopMode: storeState.loopMode,
-      isLoopExitRequested: storeState.isLoopExitRequested,
+      isLoopExitRequested: false,
       isLooping: sequencer.isLooping
     };
     const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
@@ -769,7 +772,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       loopEndMeasure: storeState.loopEndMeasure,
       isLoopRegionActive: storeState.isLoopRegionActive,
       loopMode: storeState.loopMode,
-      isLoopExitRequested: storeState.isLoopExitRequested,
+      isLoopExitRequested: false,
       isLooping: sequencer.isLooping
     };
   };

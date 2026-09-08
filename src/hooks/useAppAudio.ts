@@ -252,6 +252,7 @@ export function useAppAudio() {
         loopStartMeasure: state.loopStartMeasure,
         loopEndMeasure: state.loopEndMeasure,
         isLoopRegionActive: state.isLoopRegionActive,
+        loopMode: state.loopMode,
         isLooping: state.isLooping,
         letras: state.letras,
         metadata: state.metadata,
