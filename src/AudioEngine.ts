@@ -858,6 +858,45 @@ export class AudioEngine {
   }
 
   /**
+   * Pré-écoute d'une frappe pour un instrument donné (avec pitch / accordage en demi-tons optionnel).
+   * Utilisé par le Wizard et l'atelier de lutherie sans nécessiter de piste instanciée.
+   */
+  public playPreview(
+    instrumentId: string,
+    strokeSymbol: string,
+    pitchSemitones: number = 0,
+    velocity: number = 1.0,
+    time?: number
+  ): void {
+    const Tone = getTone();
+
+    // Déclenche le chargement en arrière-plan si pas encore chargé
+    this.loadInstrumentSamples(instrumentId).catch(console.error);
+
+    const config = this.configMap.get(instrumentId);
+    if (!config) return;
+
+    let normSymbol = strokeSymbol;
+    if (HUMANIZED_INSTRUMENTS_SET.has(instrumentId)) {
+      if (normSymbol === 't' || normSymbol === 'T') normSymbol = 'B';
+      else if (normSymbol === 'C') normSymbol = 'c';
+      else if (normSymbol === 'f') normSymbol = 'F';
+    } else if (instrumentId === 'timbal') {
+      if (normSymbol === 'f') normSymbol = 'F';
+      else if (normSymbol === 'v') normSymbol = 'V';
+    }
+
+    const strokesMap = this.strokesMaps.get(instrumentId);
+    if (!strokesMap) return;
+
+    let stroke = strokesMap.get(normSymbol) || strokesMap.get(normSymbol.toUpperCase());
+    if (!stroke || stroke.files.length === 0) return;
+
+    const triggerTime = time !== undefined ? time : Tone.now();
+    this.playStroke(null, instrumentId, config, stroke, triggerTime, velocity, 1.0, pitchSemitones);
+  }
+
+  /**
    * Helper to perform play and pitching of a specific stroke mapping
    */
   private playStroke(
@@ -867,7 +906,8 @@ export class AudioEngine {
     stroke: StrokeMapping,
     time: number,
     velocity: number,
-    decayMultiplier: number
+    decayMultiplier: number,
+    overrideTuning?: number
   ): void {
     const Tone = getTone();
     const isEco = useSequencerStore.getState().isEcoMode;
@@ -952,8 +992,7 @@ export class AudioEngine {
     const filePath = stroke.files[chosenIdx];
     const buffer = this.bufferPool.get(filePath);
 
-    if (!buffer) {
-
+    if (!buffer || !buffer.loaded) {
       return;
     }
 
@@ -1050,8 +1089,8 @@ export class AudioEngine {
       }
     }
 
-    let userTuning = 0;
-    if (trackId !== null) {
+    let userTuning = overrideTuning !== undefined ? overrideTuning : 0;
+    if (overrideTuning === undefined && trackId !== null) {
       const t = this.trackLookupMap.get(String(trackId));
       if (t) {
         userTuning = t.tuning || 0;

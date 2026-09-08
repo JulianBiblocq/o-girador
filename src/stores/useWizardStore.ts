@@ -46,6 +46,8 @@ interface WizardState {
   songInfo: SongInfo;
   bpm: number;
   timeSig: string;
+  instrumentTunings: Record<string, number>; // Semitones -6 à +6 par type d'instrument
+  selectedBalancoId: string;                 // ID du preset de balanço (défaut: 'maracatu-trad')
   
   setIntroModalOpen: (open: boolean) => void;
   setWizardOpen: (open: boolean) => void;
@@ -68,6 +70,8 @@ interface WizardState {
   updateSongInfo: (field: keyof SongInfo, value: string) => void;
   setBpm: (bpm: number) => void;
   setTimeSig: (timeSig: string) => void;
+  setInstrumentTuning: (instrumentType: string, semitones: number) => void;
+  setSelectedBalancoId: (balancoId: string) => void;
   
   resetWizard: () => void;
 }
@@ -103,6 +107,8 @@ export const useWizardStore = create<WizardState>((set) => ({
   },
   bpm: 100,
   timeSig: '4/4',
+  instrumentTunings: {},
+  selectedBalancoId: 'maracatu-trad',
   
   setIntroModalOpen: (isIntroModalOpen) => set({ isIntroModalOpen }),
   setWizardOpen: (isWizardOpen) => set({ isWizardOpen }),
@@ -153,6 +159,13 @@ export const useWizardStore = create<WizardState>((set) => ({
   })),
   setBpm: (bpm) => set({ bpm }),
   setTimeSig: (timeSig) => set({ timeSig }),
+  setInstrumentTuning: (instrumentType, semitones) => set((state) => ({
+    instrumentTunings: {
+      ...state.instrumentTunings,
+      [instrumentType]: semitones
+    }
+  })),
+  setSelectedBalancoId: (selectedBalancoId) => set({ selectedBalancoId }),
   
   resetWizard: () => set({
     isIntroModalOpen: false,
@@ -183,5 +196,7 @@ export const useWizardStore = create<WizardState>((set) => ({
     },
     bpm: 100,
     timeSig: '4/4',
+    instrumentTunings: {},
+    selectedBalancoId: 'maracatu-trad',
   }),
 }));

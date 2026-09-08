@@ -93,6 +93,7 @@ export interface TrackGroup {
   reverbVal?: number;
   panVal?: number; // -100 to 100
   tuning?: number; // Pitch offset in semitones (-12 to +12)
+  tuningPitch?: number; // Pitch offset alias
   pan?: number; // -100 to 100
   swingIntensity?: number; // 0 to 100
   balancoPresetId?: string;

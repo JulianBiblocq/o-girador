@@ -11,8 +11,11 @@ import { instrumentsConfig } from '../data';
 import { instrumentAudioConfigs } from '../data/audioConfig';
 import { useAuth } from '../contexts/AuthContext';
 import { useDispositionStore } from '../stores/useDispositionStore';
+import { useBalancoStore } from '../stores/useBalancoStore';
 import { SaveDispositionModal } from './wizard/SaveDispositionModal';
 import { LoadDispositionModal } from './wizard/LoadDispositionModal';
+import { PercussionTuningControl } from './PercussionTuningControl';
+import * as Tone from 'tone';
 
 interface WizardOverlayProps {
   onClose: () => void;
@@ -64,8 +67,15 @@ const t = {
     enBlocDesc: "Unie derrière la Marcante. Toutes les Alfaias s'alignent.",
     phrasesDistinctes: "Phrases distinctes (Chaque alfaia joue sa propre partition)",
     phrasesDistinctesDesc: "Chaque famille (Marcante, Meião, Repique) joue sa propre phrase.",
+    afinacaoTitle: "L'Accordage des Tambours (Afinação)",
+    afinacaoDesc: "Tendez ou relâchez la peau de chaque fût à l'aide des cordages en V et du rond de cuir (-6 à +6 demi-tons).",
+    ecouterTrio: "👂 Écouter l'accord du Trio",
+    ecouterCaixas: "👂 Écouter la section Caixas",
     ameBaque: "3. L'Âme du Baque (O Balanço)",
     styleSwing: "Style du Swing (Balanço) :",
+    mesBalancos: "👤 Mes Balanços",
+    groupeBalancos: "👥 Mon Groupe",
+    standardsBalancos: "★ Standards Publics & Usine",
     swingAlfaias: "Intensité Swing - Alfaias",
     swingCaixas: "Intensité Swing - Caixas & Tarol",
     swingSementes: "Intensité Swing - Sementes (Agbê / Mineiro)",
@@ -122,8 +132,15 @@ const t = {
     enBlocDesc: "Unido atrás da Marcante. Todas as Alfaias se alinham.",
     phrasesDistinctes: "Frases distintas (Cada alfaia toca sua própria partitura)",
     phrasesDistinctesDesc: "Cada família (Marcante, Meião, Repique) toca sua própria frase.",
+    afinacaoTitle: "A Afinação dos Tambores (Afinação)",
+    afinacaoDesc: "Ajuste a tensão de cada tambor usando as cordas em V e a bague de couro (-6 a +6 semitons).",
+    ecouterTrio: "👂 Ouvir a afinação do Trio",
+    ecouterCaixas: "👂 Ouvir o naipe de Caixas",
     ameBaque: "3. A Alma do Baque (Balanço)",
     styleSwing: "Estilo do Balanço :",
+    mesBalancos: "👤 Meus Balanços",
+    groupeBalancos: "👥 Meu Grupo",
+    standardsBalancos: "★ Padrões Públicos & Fábrica",
     swingAlfaias: "Intensidade do Balanço - Alfaias",
     swingCaixas: "Intensidade do Balanço - Caixas & Tarol",
     swingSementes: "Intensidade do Balanço - Sementes (Agbê / Mineiro)",
@@ -199,6 +216,13 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
   const setBpm = useWizardStore((state) => state.setBpm);
   const timeSig = useWizardStore((state) => state.timeSig);
   const setTimeSig = useWizardStore((state) => state.setTimeSig);
+  const instrumentTunings = useWizardStore((state) => state.instrumentTunings);
+  const setInstrumentTuning = useWizardStore((state) => state.setInstrumentTuning);
+  const selectedBalancoId = useWizardStore((state) => state.selectedBalancoId);
+  const setSelectedBalancoId = useWizardStore((state) => state.setSelectedBalancoId);
+
+  // Balanço store connection
+  const balancoPresets = useBalancoStore((state) => state.presets);
 
   const sequencer = useSequencer();
 
@@ -222,6 +246,40 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
       );
     }
   }, [userProfile?.uid, userProfile?.groupId, userProfile?.mestreId, userProfile?.role, syncCloudDispositions]);
+
+  // Pré-écoute unitaire d'un tambour avec son pitch actuel
+  const handlePreviewDrum = (instrumentType: string) => {
+    if (!audioEngine) return;
+    const strokeSymbol = instrumentType === 'timbal' ? 'A' : 'D';
+    const pitch = instrumentTunings[instrumentType] || 0;
+    audioEngine.playPreview(instrumentType, strokeSymbol, pitch, 1.0);
+  };
+
+  // Pré-écoute groupée du Trio d'Alfaias (Headroom 0.8 anti-saturation)
+  const handlePreviewTrioAlfaias = () => {
+    if (!audioEngine) return;
+    const now = Tone.now();
+    const alfaiasToPlay = ['marcante', 'meiao', 'repique'].filter((type) =>
+      placedInstruments.some((i) => i.instrumentType === type)
+    );
+    alfaiasToPlay.forEach((type, idx) => {
+      const pitch = instrumentTunings[type] || 0;
+      audioEngine.playPreview(type, 'D', pitch, 0.8, now + idx * 0.02);
+    });
+  };
+
+  // Pré-écoute groupée de la section Caixas / Tarol (Headroom 0.8 anti-saturation)
+  const handlePreviewCaixasSection = () => {
+    if (!audioEngine) return;
+    const now = Tone.now();
+    const caixasToPlay = ['caixa', 'tarol'].filter((type) =>
+      placedInstruments.some((i) => i.instrumentType === type)
+    );
+    caixasToPlay.forEach((type, idx) => {
+      const pitch = instrumentTunings[type] || 0;
+      audioEngine.playPreview(type, 'D', pitch, 0.8, now + idx * 0.02);
+    });
+  };
 
   // Local state for UI feedback
   const [localToast, setLocalToast] = useState<string | null>(null);
@@ -742,9 +800,11 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
     }));
     useSequencerStore.getState().setMestreSignals(cloudSignals);
 
+    const chosenBalanco = useBalancoStore.getState().resolvePreset(selectedBalancoId);
     useTransportStore.getState().setGlobalSwing({
-      ...useTransportStore.getState().globalSwing,
-      mode: selectedSwingId as 'maracatu' | 'custom' | 'off'
+      mode: chosenBalanco.id === 'straight' ? 'off' : 'custom',
+      customOffsets: chosenBalanco.offsets as [number, number, number, number],
+      swingIntensity: 100
     });
 
     const tracksToAdd: TrackGroup[] = [];
@@ -884,6 +944,9 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
         panVal: panPct,
         pan: panPct,
         swingIntensity: intensity,
+        balancoPresetId: selectedBalancoId,
+        tuning: instrumentTunings[inst.instrumentType] || 0,
+        tuningPitch: instrumentTunings[inst.instrumentType] || 0,
         fxSends: { reverb: calculatedReverb, distortion: 0 }
       };
       newTrack.selectedPatternId = newTrack.patterns[0].id;
@@ -1379,6 +1442,66 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
             </div>
           )}
 
+          {/* Bloc : Afinação dos Tambores (Lutherie en V) */}
+          {placedInstruments.some((i) => ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal'].includes(i.instrumentType)) && (
+            <div className="bg-[#f4ecd8] border-3 border-[#1a1a1a] p-4 md:p-5 shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col gap-4 rounded-sm">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-[#1a1a1a]/20 pb-2">
+                <div>
+                  <h3 className="font-cactus text-lg md:text-xl font-bold text-[#8b2a1a] uppercase tracking-wider">
+                    {t[wizardLang].afinacaoTitle}
+                  </h3>
+                  <p className="text-[10px] md:text-xs text-[#1a1a1a]/70">
+                    {t[wizardLang].afinacaoDesc}
+                  </p>
+                </div>
+
+                {/* Boutons d'écoute groupée */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {placedInstruments.some((i) => ['marcante', 'meiao', 'repique'].includes(i.instrumentType)) && (
+                    <button
+                      type="button"
+                      onClick={handlePreviewTrioAlfaias}
+                      className="px-3 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-[10px] md:text-xs uppercase tracking-wider cursor-pointer shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-[0.98] transition-all"
+                    >
+                      {t[wizardLang].ecouterTrio}
+                    </button>
+                  )}
+                  {placedInstruments.some((i) => ['caixa', 'tarol'].includes(i.instrumentType)) && (
+                    <button
+                      type="button"
+                      onClick={handlePreviewCaixasSection}
+                      className="px-3 py-1.5 bg-[#1a1a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-[10px] md:text-xs uppercase tracking-wider cursor-pointer shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-[0.98] transition-all"
+                    >
+                      {t[wizardLang].ecouterCaixas}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Grille des fûts */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 pt-1">
+                {['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal']
+                  .filter((type) => placedInstruments.some((i) => i.instrumentType === type))
+                  .map((type) => {
+                    const instDef = AVAILABLE_INSTRUMENTS.find((inst) => inst.id === type);
+                    const currentTuning = instrumentTunings[type] || 0;
+                    return (
+                      <div key={type} className="w-full">
+                        <PercussionTuningControl
+                          instrumentId={type}
+                          tuning={currentTuning}
+                          onChange={(semitones) => setInstrumentTuning(type, semitones)}
+                          title={instDef?.label || type}
+                          onPreview={() => handlePreviewDrum(type)}
+                          showPreviewButton={true}
+                        />
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
           {/* Bloc 3 : L'Âme du Baque (O Balanço) */}
           <div className="bg-[#f4ecd8] border-3 border-[#1a1a1a] p-4 md:p-5 shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col gap-4 rounded-sm">
             <h3 className="font-cactus text-lg md:text-xl font-bold text-[#8b2a1a] uppercase tracking-wider border-b border-[#1a1a1a]/20 pb-1">
@@ -1389,25 +1512,52 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
               <label className="text-[10px] md:text-xs font-cactus font-bold uppercase text-[#1a1a1a]/70">
                 {t[wizardLang].styleSwing}
               </label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                {[
-                  { id: 'maracatu', name: wizardLang === 'fr' ? 'Swing Maracatu' : 'Balanço Maracatu' },
-                  { id: 'custom', name: wizardLang === 'fr' ? 'Swing Personnalisé' : 'Balanço Custom' },
-                  { id: 'off', name: wizardLang === 'fr' ? 'Sans Swing (Droit)' : 'Sem Balanço' },
-                ].map((sw) => (
-                  <button
-                    key={sw.id}
-                    onClick={() => setSelectedSwingId(sw.id)}
-                    className={`px-3 py-2 text-center border-2 font-cactus font-bold text-[10px] md:text-xs uppercase tracking-wide cursor-pointer transition-all shadow-[2px_2px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-[0.98] ${
-                      selectedSwingId === sw.id
-                        ? 'bg-[#1a1a1a] text-[#f4ecd8] border-[#1a1a1a]'
-                        : 'bg-[#f4ecd8] text-[#1a1a1a] border-[#1a1a1a]'
-                    }`}
+
+              {(() => {
+                const myPresets = balancoPresets.filter(
+                  (p) => userProfile?.uid && p.ownerId === userProfile.uid && !p.isFactory
+                );
+                const groupPresets = balancoPresets.filter(
+                  (p) => p.visibility === 'group' && (!userProfile?.uid || p.ownerId !== userProfile.uid)
+                );
+                const standardPresets = balancoPresets.filter(
+                  (p) => p.isFactory || (p.visibility === 'public' && (!userProfile?.uid || p.ownerId !== userProfile.uid))
+                );
+
+                return (
+                  <select
+                    value={selectedBalancoId}
+                    onChange={(e) => setSelectedBalancoId(e.target.value)}
+                    className="w-full bg-[#fbf8f0] text-[#1a1a1a] border-2 border-[#1a1a1a] p-2.5 font-cactus font-bold text-xs uppercase tracking-wide cursor-pointer shadow-[2px_2px_0px_rgba(0,0,0,1)] focus:outline-none focus:ring-2 focus:ring-[#8b2a1a] transition-all"
                   >
-                    {sw.name}
-                  </button>
-                ))}
-              </div>
+                    {myPresets.length > 0 && (
+                      <optgroup label={t[wizardLang].mesBalancos}>
+                        {myPresets.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {groupPresets.length > 0 && (
+                      <optgroup label={t[wizardLang].groupeBalancos}>
+                        {groupPresets.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <optgroup label={t[wizardLang].standardsBalancos}>
+                      {standardPresets.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                );
+              })()}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
