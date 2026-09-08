@@ -471,6 +471,27 @@ service cloud.firestore {
                         || isSameGroup(resource.data.get('mestreId', '')));
     }
 
+    // Dispositions spatiales (Placement scène, cône acoustique, Toada)
+    match /dispositions/{dispositionId} {
+      allow read: if request.auth != null || (resource != null && resource.data.visibility == 'public');
+      allow create: if request.auth != null 
+                    && (isAdminOrMestre()
+                        || request.auth.uid == request.resource.data.ownerId 
+                        || request.auth.uid == request.resource.data.get('mestreId', '')
+                        || isSameGroup(request.resource.data.get('mestreId', '')));
+      allow update: if request.auth != null 
+                    && (isAdminOrMestre()
+                        || request.auth.uid == resource.data.ownerId 
+                        || request.auth.uid == resource.data.get('mestreId', '')
+                        || isSameGroup(resource.data.get('mestreId', ''))
+                        || isCoAuthorInSameGroup(resource.data.get('groupId', '')));
+      allow delete: if request.auth != null 
+                    && (isAdminOrMestre()
+                        || request.auth.uid == resource.data.ownerId 
+                        || request.auth.uid == resource.data.get('mestreId', '')
+                        || isSameGroup(resource.data.get('mestreId', '')));
+    }
+
     // Group members (élèves with same mestreId) can read/write alongside the mestre.
     match /patterns/{patternId} {
       allow read: if request.auth != null;

@@ -1083,3 +1083,20 @@ textarea {
   touch-action: manipulation;
 }
 
+/* Phase 1: Pattern Arming Pulse (Zero-Reflow GPU friendly: border-color and box-shadow only) */
+@keyframes cordel-arm-pulse {
+  0%, 100% {
+    border-color: #e67e22;
+    box-shadow: 0 0 0 2px #e67e22, 0 0 10px rgba(230, 126, 34, 0.4);
+  }
+  50% {
+    border-color: #d35400;
+    box-shadow: 0 0 0 2px #d35400, 0 0 20px rgba(211, 84, 0, 0.7);
+  }
+}
+
+.cordel-arm-pulse {
+  animation: cordel-arm-pulse 1.8s ease-in-out infinite !important;
+  border-color: #e67e22 !important;
+}
+

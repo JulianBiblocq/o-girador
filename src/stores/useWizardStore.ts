@@ -54,7 +54,9 @@ interface WizardState {
   addPlacedInstrument: (type: string, x: number, y: number) => void;
   updatePlacedInstrumentPosition: (id: string, x: number, y: number) => void;
   removePlacedInstrument: (id: string) => void;
+  setPlacedInstruments: (instruments: PlacedInstrument[]) => void;
   toggleToada: () => void;
+  setHasToada: (hasToada: boolean) => void;
   
   // Step 2 Actions
   toggleWizardLang: () => void;
@@ -123,7 +125,9 @@ export const useWizardStore = create<WizardState>((set) => ({
   removePlacedInstrument: (id) => set((state) => ({
     placedInstruments: state.placedInstruments.filter((inst) => inst.id !== id)
   })),
+  setPlacedInstruments: (placedInstruments) => set({ placedInstruments }),
   toggleToada: () => set((state) => ({ hasToada: !state.hasToada })),
+  setHasToada: (hasToada) => set({ hasToada }),
   
   // Step 2 Actions
   toggleWizardLang: () => set((state) => ({ wizardLang: state.wizardLang === 'fr' ? 'pt' : 'fr' })),

@@ -208,6 +208,73 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const handlePatternSwingChange = useSequencerStore(state => state.handlePatternSwingChange);
   const handleTrackBalancoChange = useSequencerStore(state => state.handleTrackBalancoChange);
   const handlePatternBalancoChange = useSequencerStore(state => state.handlePatternBalancoChange);
+  const armedPatternId = useSequencerStore(state => state.armedPatternId);
+  const toggleArmPattern = useSequencerStore(state => state.toggleArmPattern);
+  const disarmAllPatterns = useSequencerStore(state => state.disarmAllPatterns);
+  const isPatternRecording = useSequencerStore(state => state.isPatternRecording);
+  const togglePatternRecording = useSequencerStore(state => state.togglePatternRecording);
+
+  // Nettoyage au cycle de vie : désarmer tous les motifs au démontage de l'éditeur détaillé
+  useEffect(() => {
+    return () => {
+      disarmAllPatterns();
+    };
+  }, [disarmAllPatterns]);
+
+  // Raccourci Clavier 'R' pour basculer l'enregistrement MIDI
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        togglePatternRecording();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [togglePatternRecording]);
+
+  // Mode Live Erase (Effacement direct via Backspace et Delete maintenus)
+  const isLiveErasingRef = useRef(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        const target = e.target as HTMLElement | null;
+        if (
+          target?.tagName === 'INPUT' ||
+          target?.tagName === 'TEXTAREA' ||
+          target?.isContentEditable
+        ) {
+          return;
+        }
+        isLiveErasingRef.current = true;
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        isLiveErasingRef.current = false;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
   const balancoPresets = useBalancoStore(state => state.presets);
   const syncCloudPresets = useBalancoStore(state => state.syncCloudPresets);
   const globalSwing = useTransportStore(state => state.globalSwing);
@@ -734,6 +801,38 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           lastMeasure = measure;
           highlightActivePattern(measure);
         }
+
+        // Mode Live Erase : effacement direct pendant la lecture si Backspace ou Delete est maintenu
+        if (isLiveErasingRef.current && step >= 0) {
+          const storeState = useSequencerStore.getState();
+          const { isPatternRecording, armedPatternId, armedTrackId, updatePatternStep } = storeState;
+          if (isPatternRecording && armedPatternId !== null && armedTrackId !== null) {
+            const armedTrack = storeState.tracks.find(t => t.id === armedTrackId);
+            const armedPtn = armedTrack?.patterns.find(p => p.id === armedPatternId);
+            if (armedPtn) {
+              const stepsCount = armedPtn.steps || 16;
+              const currentStep = (step % stepsCount + stepsCount) % stepsCount;
+              const currentVal = armedPtn.activeSteps?.[currentStep];
+              if (currentVal !== 0 && currentVal !== '0' && currentVal !== undefined) {
+                updatePatternStep(armedTrackId, armedPatternId, currentStep, 0);
+
+                // Flash visuel d'effacement direct via WAAPI (sans re-render React)
+                const cellEl = document.querySelector<HTMLElement>(
+                  `[data-pattern-id="${armedPatternId}"][data-step-index="${currentStep}"]`
+                );
+                if (cellEl) {
+                  cellEl.animate([
+                    { opacity: 0.2, filter: 'grayscale(1) brightness(0.5)', transform: 'scale(0.85)' },
+                    { opacity: 1, filter: 'none', transform: 'scale(1)' }
+                  ], {
+                    duration: 180,
+                    easing: 'ease-out'
+                  });
+                }
+              }
+            }
+          }
+        }
       }
     };
 
@@ -979,6 +1078,55 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             )}
           </div>
 
+          {/* Boucle Play & Bouton REC Global de l'Éditeur */}
+          <div className="flex items-center gap-2 mr-2">
+            <button
+              onClick={() => {
+                const isCurrentlyPlaying = (soloPatternPlayId !== null) || isPlaying;
+                if (isCurrentlyPlaying) {
+                  onStopSoloPattern && onStopSoloPattern();
+                  if (isPlaying) audio.handleTogglePlay();
+                } else {
+                  const targetPtnId = armedPatternId ?? track.selectedPatternId ?? track.patterns[0]?.id;
+                  if (targetPtnId !== undefined && onPlaySoloPattern) {
+                    onPlaySoloPattern(targetPtnId, 'ensemble');
+                  } else {
+                    audio.handleTogglePlay();
+                  }
+                }
+              }}
+              className={`h-8 px-2.5 rounded-sm cordel-border-sm text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                (soloPatternPlayId !== null || isPlaying)
+                  ? 'bg-[#8b2a1a] text-[#f4ecd8]'
+                  : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
+              }`}
+              title={(soloPatternPlayId !== null || isPlaying) ? (lang === 'fr' ? 'Arrêter la boucle' : 'Parar loop') : (lang === 'fr' ? 'Lire la boucle' : 'Tocar loop')}
+            >
+              {(soloPatternPlayId !== null || isPlaying) ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
+              <span className="hidden sm:inline">{(soloPatternPlayId !== null || isPlaying) ? (lang === 'fr' ? 'Stop' : 'Parar') : (lang === 'fr' ? 'Boucle' : 'Loop')}</span>
+            </button>
+
+            {isPatternRecording ? (
+              <button
+                onClick={() => togglePatternRecording()}
+                className="h-8 px-2.5 rounded-sm cordel-border-sm bg-[#e74c3c] text-white shadow-md transition-all cursor-pointer flex items-center gap-1.5 font-bold text-xs cordel-arm-pulse animate-pulse"
+                title={lang === 'fr' ? "Enregistrement MIDI en cours (Raccourci: R pour arrêter)" : "Gravação MIDI ativa (Atalho: R para parar)"}
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping shrink-0" />
+                <span>● REC (R)</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => togglePatternRecording()}
+                className="h-8 px-2.5 rounded-sm cordel-border-sm border border-[#1a1a1a] text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a]/10"
+                title={lang === 'fr' ? "Activer l'enregistrement MIDI en direct (Raccourci: R)" : "Ativar gravação MIDI ao vivo (Atalho: R)"}
+              >
+                <span className="w-2 h-2 rounded-full bg-[#1a1a1a]/40 shrink-0" />
+                <span>REC (R)</span>
+              </button>
+            )}
+          </div>
+
           {/* Solo */}
           <button
             onClick={onSoloToggle}
@@ -1034,11 +1182,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                           data-selected={isSelected}
                           className={`cordel-border-sm p-4 flex flex-col gap-3 transition-colors ${
                             isSelected ? 'bg-[#f4ecd8]' : 'bg-[#ece4d0]'
-                          }`}
+                          } ${armedPatternId === ptn.id ? 'cordel-arm-pulse' : ''}`}
                           style={{
                             ...style,
-                            boxShadow: isSelected ? '4px 4px 0px 0px #1a1a1a' : '2px 2px 0px 0px #bbb',
-                            borderColor: isSelected ? '#1a1a1a' : '#999',
+                            boxShadow: armedPatternId === ptn.id ? undefined : (isSelected ? '4px 4px 0px 0px #1a1a1a' : '2px 2px 0px 0px #bbb'),
+                            borderColor: armedPatternId === ptn.id ? undefined : (isSelected ? '#1a1a1a' : '#999'),
                             borderWidth: '2px',
                           }}
                         >
@@ -1137,6 +1285,33 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             >
                               {soloPatternPlayId === ptn.id && soloPatternVariationId === 'ensemble' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
                             </button>
+
+                            {/* Bouton ARM / Badge ARMÉ */}
+                            {armedPatternId === ptn.id ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleArmPattern(track.id, ptn.id);
+                                }}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold cordel-border-sm bg-[#e67e22] text-[#1a1a1a] shadow-sm transition-all cursor-pointer select-none flex items-center gap-1.5 ml-1.5 animate-pulse"
+                                title={lang === 'fr' ? "Motif armé pour l'enregistrement (cliquer pour désarmer)" : "Padrão armado para gravação (clique para desarmar)"}
+                              >
+                                <span className="w-2 h-2 rounded-full bg-[#8b2a1a] shrink-0" />
+                                <span>● {lang === 'fr' ? 'ARMÉ / PRÊT' : 'ARMADO / PRONTO'}</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleArmPattern(track.id, ptn.id);
+                                }}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold cordel-border-sm border border-[#1a1a1a]/40 text-[#1a1a1a]/70 hover:text-[#1a1a1a] hover:border-[#1a1a1a] bg-transparent transition-all cursor-pointer select-none flex items-center gap-1 ml-1.5"
+                                title={lang === 'fr' ? "Armer ce motif pour l'enregistrement MIDI" : "Armar este padrão para gravação MIDI"}
+                              >
+                                <span className="w-1.5 h-1.5 rounded-full bg-[#1a1a1a]/40 shrink-0" />
+                                <span>ARM</span>
+                              </button>
+                            )}
 
                             <button
                               onPointerDown={(e) => e.stopPropagation()}

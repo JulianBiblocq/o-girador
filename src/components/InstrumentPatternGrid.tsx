@@ -96,6 +96,7 @@ interface PercussionStepCellProps {
   indexInGroup: number;
   totalShift: number;
   trackId: number;
+  patternId: number;
   
   onMouseDown: (e: React.MouseEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
   onMouseEnter: (index: number) => void;
@@ -131,6 +132,7 @@ const PercussionStepCell = React.memo(({
   indexInGroup,
   totalShift,
   trackId,
+  patternId,
   onMouseDown,
   onMouseEnter,
   onTouchStart,
@@ -178,6 +180,7 @@ const PercussionStepCell = React.memo(({
             cursor: activeTool === 'scissors' ? GLUE_CURSOR : 'pointer'
           }}
           data-track-id={trackId}
+          data-pattern-id={patternId}
           data-step-index={i}
           title={activeTool === 'scissors' ? '✂ / 🩹 Recoller le pas (Fusionner)' : undefined}
         >
@@ -189,6 +192,7 @@ const PercussionStepCell = React.memo(({
               cursor: activeTool === 'scissors' ? GLUE_CURSOR : 'pointer'
             }}
             data-track-id={trackId}
+            data-pattern-id={patternId}
             data-step-index={i}
             data-sub-index="0"
             tabIndex={-1}
@@ -216,6 +220,7 @@ const PercussionStepCell = React.memo(({
               cursor: activeTool === 'scissors' ? GLUE_CURSOR : 'pointer'
             }}
             data-track-id={trackId}
+            data-pattern-id={patternId}
             data-step-index={i}
             data-sub-index="1"
             tabIndex={-1}
@@ -288,6 +293,7 @@ const PercussionStepCell = React.memo(({
             borderRadius: isSextuplet || isTriplet ? '0' : undefined
           }}
           data-track-id={trackId}
+          data-pattern-id={patternId}
           data-step-index={i}
           title={activeTool === 'scissors' ? '✂ / 🩹 Scinder le pas en triples croches' : undefined}
         />
@@ -461,6 +467,7 @@ const VoiceStepCellComponent = ({
           backgroundColor: cardBg,
         }}
         data-track-id={trackId}
+        data-pattern-id={patternId}
         data-step-index={i}
         data-step-type="voice"
         onTouchStart={(e) => onTouchStart?.(e, i)}
@@ -2495,6 +2502,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                             indexInGroup={indexInGroup}
                             totalShift={totalShift}
                             trackId={trackId}
+                            patternId={pattern.id}
                             onMouseDown={handleCellMouseDown}
                             onMouseEnter={handleCellMouseEnter}
                             onTouchStart={handleCellTouchStart}

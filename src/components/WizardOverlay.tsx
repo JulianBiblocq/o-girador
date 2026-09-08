@@ -9,6 +9,10 @@ import { useTransportStore } from '../stores/useTransportStore';
 import { audioEngine } from '../hooks/useAudioSync';
 import { instrumentsConfig } from '../data';
 import { instrumentAudioConfigs } from '../data/audioConfig';
+import { useAuth } from '../contexts/AuthContext';
+import { useDispositionStore } from '../stores/useDispositionStore';
+import { SaveDispositionModal } from './wizard/SaveDispositionModal';
+import { LoadDispositionModal } from './wizard/LoadDispositionModal';
 
 interface WizardOverlayProps {
   onClose: () => void;
@@ -97,6 +101,8 @@ const t = {
     auditeur: "(Auditeur)",
     infoRetirer: "* Glissez un instrument sur la zone 'Congédier' pour le retirer",
     attentionSurcharge: "Attention Mestre, trop d'instruments peuvent surcharger la Roda (CPU). L'application s'ajustera si besoin.",
+    enregistrerDisposition: "Enregistrer",
+    dispositionsTitle: "Dispositions",
   },
   pt: {
     title: "Assistente de Criação",
@@ -153,6 +159,8 @@ const t = {
     auditeur: "(Ouvinte)",
     infoRetirer: "* Arraste um instrumento para a zona 'Dispensar' para removê-lo",
     attentionSurcharge: "Atenção Mestre, excesso de instrumentos pode sobrecarregar a Roda (CPU). O aplicativo se ajustará se necessário.",
+    enregistrerDisposition: "Salvar",
+    dispositionsTitle: "Disposições",
   }
 };
 
@@ -196,6 +204,24 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
 
   // Sequencer store connections
   const mestreSignals = useSequencerStore((state) => state.mestreSignals);
+
+  // Dispositions Spatiales (Presets & Synchronisation)
+  const { userProfile } = useAuth();
+  const dispositions = useDispositionStore((state) => state.dispositions);
+  const syncCloudDispositions = useDispositionStore((state) => state.syncCloudDispositions);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (userProfile?.uid) {
+      syncCloudDispositions(
+        userProfile.uid,
+        userProfile.groupId,
+        userProfile.mestreId,
+        userProfile.role
+      );
+    }
+  }, [userProfile?.uid, userProfile?.groupId, userProfile?.mestreId, userProfile?.role, syncCloudDispositions]);
 
   // Local state for UI feedback
   const [localToast, setLocalToast] = useState<string | null>(null);
@@ -824,6 +850,12 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
         }
       }
 
+      // Calcul de réverbe spatiale en fonction de l'éloignement (inst.y: 100% au premier plan -> 0% réverbe, 0% au fond -> 25% réverbe)
+      // La marcante est plafonnée à 10% pour préserver l'impact des basses
+      const distanceNormalized = Math.max(0, Math.min(1, (100 - inst.y) / 100));
+      const maxReverb = inst.instrumentType === 'marcante' ? 10 : 25;
+      const calculatedReverb = Math.round(distanceNormalized * maxReverb);
+
       const trackId = Date.now() + Math.floor(Math.random() * 100000) + idx;
       const newTrack: TrackGroup = {
         id: trackId,
@@ -848,11 +880,11 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
         isHidden: trackHidden,
         volumeVal,
         selectedPatternId: 0,
-        reverbVal: 0,
+        reverbVal: calculatedReverb,
         panVal: panPct,
         pan: panPct,
         swingIntensity: intensity,
-        fxSends: { reverb: 0, distortion: 0 }
+        fxSends: { reverb: calculatedReverb, distortion: 0 }
       };
       newTrack.selectedPatternId = newTrack.patterns[0].id;
       newTrack.patterns[0].measureAssignments[0] = true;
@@ -1672,12 +1704,45 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
           </p>
         </div>
         
-        <button
-          onClick={onClose}
-          className="px-3 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-[0.98] transition-all cursor-pointer font-cactus font-bold uppercase text-[10px] md:text-xs"
-        >
-          {t[wizardLang].annuler}
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Bouton [ 💾 Enregistrer ] */}
+          <button
+            type="button"
+            onClick={() => setIsSaveModalOpen(true)}
+            disabled={placedInstruments.length === 0}
+            title={
+              placedInstruments.length === 0
+                ? wizardLang === 'fr'
+                  ? 'Placez au moins un instrument pour enregistrer'
+                  : 'Coloque pelo menos um instrumento para salvar'
+                : undefined
+            }
+            className="px-2.5 md:px-3 py-1.5 bg-[#2e5339] text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-[0.98] transition-all font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-[3px_3px_0px_rgba(0,0,0,1)] disabled:hover:translate-x-0 disabled:hover:translate-y-0"
+          >
+            <span>💾</span>
+            <span>{t[wizardLang].enregistrerDisposition}</span>
+          </button>
+
+          {/* Bouton [ 📐 Dispositions ] avec badge compteur */}
+          <button
+            type="button"
+            onClick={() => setIsLoadModalOpen(true)}
+            className="px-2.5 md:px-3 py-1.5 bg-[#d7cfbb] hover:bg-[#ece4d0] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-[0.98] transition-all font-cactus font-bold uppercase text-[10px] md:text-xs flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>📐</span>
+            <span>{t[wizardLang].dispositionsTitle}</span>
+            <span className="px-1.5 py-0.2 bg-[#8b2a1a] text-[#f4ecd8] rounded-full text-[9px] font-mono font-bold leading-none">
+              {dispositions.length}
+            </span>
+          </button>
+
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[3px_3px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-[0.98] transition-all cursor-pointer font-cactus font-bold uppercase text-[10px] md:text-xs"
+          >
+            {t[wizardLang].annuler}
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col md:flex-row gap-4 min-h-0">
@@ -1881,5 +1946,34 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
     </div>
   );
 
-  return createPortal(content, modalRoot);
+  return createPortal(
+    <>
+      {content}
+      <SaveDispositionModal
+        isOpen={isSaveModalOpen}
+        onClose={() => setIsSaveModalOpen(false)}
+        lang={wizardLang}
+        onSuccess={(presetName) => {
+          showLocalToast(
+            wizardLang === 'fr'
+              ? `Disposition « ${presetName} » enregistrée !`
+              : `Disposição « ${presetName} » salva!`
+          );
+        }}
+      />
+      <LoadDispositionModal
+        isOpen={isLoadModalOpen}
+        onClose={() => setIsLoadModalOpen(false)}
+        lang={wizardLang}
+        onLoaded={(presetName) => {
+          showLocalToast(
+            wizardLang === 'fr'
+              ? `Disposition « ${presetName} » chargée sur La Place !`
+              : `Disposição « ${presetName} » carregada no Palco!`
+          );
+        }}
+      />
+    </>,
+    modalRoot
+  );
 };

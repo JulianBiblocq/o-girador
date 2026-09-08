@@ -5,6 +5,8 @@ import { useMidiStore, MidiTarget, TransportAction } from '../stores/useMidiStor
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudio } from '../contexts/AudioContext';
 import { useSequencer } from '../contexts/SequencerContext';
+import { instrumentsConfig } from '../data';
+import { getStrokesForInstrument } from '../utils/instrumentStrokes';
 
 /* CPU / Audio justification: This MIDI event listener runs outside the React render cycle (bypass).
    Upon receiving MIDI Note On or CC messages, it accesses `useMidiStore.getState()` directly to fetch mappings and state,
@@ -70,9 +72,15 @@ export const useMidiController = () => {
             case 93: // Stop
               audio.handleStop();
               return;
-            case 95: // Record
-              audio.handleAudioRecordingToggle();
+            case 95: { // Record
+              const seq = useSequencerStore.getState();
+              if (seq.armedPatternId !== null) {
+                seq.togglePatternRecording();
+              } else {
+                audio.handleAudioRecordingToggle();
+              }
               return;
+            }
             case 92: { // Fast Forward / Next Measure
               const current = useSequencerStore.getState().currentMeasure;
               const total = useSequencerStore.getState().totalMeasures;
@@ -145,9 +153,15 @@ export const useMidiController = () => {
             case 'stop':
               audio.handleStop();
               break;
-            case 'record':
-              audio.handleAudioRecordingToggle();
+            case 'record': {
+              const seq = useSequencerStore.getState();
+              if (seq.armedPatternId !== null) {
+                seq.togglePatternRecording();
+              } else {
+                audio.handleAudioRecordingToggle();
+              }
               break;
+            }
             case 'loop':
               if (sequencer && typeof sequencer.setIsLooping === 'function') {
                 sequencer.setIsLooping(!sequencer.isLooping);
@@ -174,26 +188,105 @@ export const useMidiController = () => {
 
       // 4. Live Mode: Instrument notes (only Note On, velocity > 0)
       if (isNoteOn && velocity > 0) {
+        const seqStore = useSequencerStore.getState();
+        const { isPatternRecording, armedPatternId, armedTrackId, updatePatternStep, tracks, lang, isLeftHanded } = seqStore;
         const target = state.mappings[note];
-        if (target && audioEngine) {
+
+        // Résolution du symbole/frappe
+        let strokeChar = target?.symbol;
+        let trackIdToPlay: number | string | null = target ? target.trackId : armedTrackId;
+
+        if (!strokeChar && armedTrackId !== null) {
+          const armedTrack = tracks.find(t => t.id === armedTrackId);
+          if (armedTrack) {
+            const inst = instrumentsConfig[armedTrack.instrumentIdx];
+            if (inst) {
+              const strokes = getStrokesForInstrument(inst.id, inst.type, lang || 'fr', isLeftHanded || false);
+              if (strokes.length > 0) {
+                const strokeIndex = (note % strokes.length + strokes.length) % strokes.length;
+                strokeChar = strokes[strokeIndex]?.symbol || strokes[0]?.symbol || 'D';
+              }
+            }
+          }
+        }
+        if (!strokeChar) strokeChar = 'D';
+
+        // 1. Bypass Audio Zéro-Latence : Déclenchement sonore immédiat via audioEngine.playNote() avant tout traitement
+        if (audioEngine && trackIdToPlay !== null) {
           audioEngine.playNote(
-            target.trackId,
-            target.symbol,
+            trackIdToPlay,
+            strokeChar,
             Tone.now(),
-            velocity / 127.0, // Normalize velocity to [0.0, 1.0] volume
-            1.0 // Decay multiplier default
+            velocity / 127.0, // Normalisation de la vélocité [0.0, 1.0]
+            1.0 // Multiplicateur de decay par défaut
           );
 
-          // Bypass React & CPU : Animation GPU-only via WAAPI
-          const domElements = document.querySelectorAll(`[data-midi-target="${target.instrumentId}-${target.symbol}"]`);
-          domElements.forEach(el => {
-            (el as HTMLElement).animate([
-              { opacity: 1, transform: 'scale(1)' },
-              { opacity: 0.4, transform: 'scale(0.85)' },
-              { opacity: 1, transform: 'scale(1)' }
-            ], { duration: 120, easing: 'ease-out' });
-          });
+          // Animation GPU-only via WAAPI sur cibles statiques de frappe
+          if (target) {
+            const domElements = document.querySelectorAll(`[data-midi-target="${target.instrumentId}-${target.symbol}"]`);
+            domElements.forEach(el => {
+              (el as HTMLElement).animate([
+                { opacity: 1, transform: 'scale(1)' },
+                { opacity: 0.4, transform: 'scale(0.85)' },
+                { opacity: 1, transform: 'scale(1)' }
+              ], { duration: 120, easing: 'ease-out' });
+            });
+          }
         }
+
+        // 2. Condition d'écriture : si !isPatternRecording || armedPatternId === null || armedTrackId === null, stopper là
+        if (!isPatternRecording || armedPatternId === null || armedTrackId === null) {
+          return;
+        }
+
+        const armedTrack = tracks.find(t => t.id === armedTrackId);
+        const armedPattern = armedTrack?.patterns.find(p => p.id === armedPatternId);
+        if (!armedTrack || !armedPattern) {
+          return;
+        }
+
+        const stepsCount = armedPattern.steps || 16;
+
+        // 3. Calcul de quantification à la volée
+        const ppq = Tone.Transport.PPQ || 192;
+        const patternTicks = stepsCount * (ppq / 4);
+        const currentTick = Math.max(0, Tone.Transport.ticks) % patternTicks;
+        const targetStep = (Math.round(currentTick / (patternTicks / stepsCount)) % stepsCount + stepsCount) % stepsCount;
+
+        // 5. Gestion Overdub (surimpression)
+        const currentVal = armedPattern.activeSteps?.[targetStep];
+        let finalVal: string | number | [string, string] = strokeChar;
+
+        if (currentVal && currentVal !== 0 && currentVal !== '0') {
+          if (Array.isArray(currentVal)) {
+            // Pas déjà scindé : mise à jour de la 2ème note
+            finalVal = [currentVal[0], strokeChar];
+          } else if (typeof currentVal === 'string') {
+            if (currentVal !== strokeChar) {
+              // Fusionner en pas scindé [existant, newChar]
+              finalVal = [currentVal, strokeChar];
+            } else {
+              finalVal = strokeChar;
+            }
+          }
+        }
+
+        // 6. Écriture immuable dans le store Zustand
+        updatePatternStep(armedTrackId, armedPatternId, targetStep, finalVal);
+
+        // 7. Flash visuel GPU-Only via WAAPI (sans re-render React)
+        const cellElements = document.querySelectorAll<HTMLElement>(
+          `[data-pattern-id="${armedPatternId}"][data-step-index="${targetStep}"]`
+        );
+        cellElements.forEach(cellEl => {
+          cellEl.animate([
+            { transform: 'scale(1.25)', filter: 'brightness(1.8)', opacity: 1 },
+            { transform: 'scale(1)', filter: 'brightness(1)', opacity: 1 }
+          ], {
+            duration: 160,
+            easing: 'cubic-bezier(0.25, 1, 0.5, 1)'
+          });
+        });
       }
     };
 

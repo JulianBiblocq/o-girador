@@ -14,8 +14,16 @@ export interface TrackSlice {
   activeAoVivoTrackId: number | null;
   tracksVersion: number;
   masterFX: MasterFX;
+  armedTrackId: number | null;
+  armedPatternId: number | null;
+  isPatternRecording: boolean;
   
   // Actions (Squelette pour l'instant)
+  toggleArmPattern: (trackId: number, patternId: number) => void;
+  disarmAllPatterns: () => void;
+  setIsPatternRecording: (val: boolean | ((prev: boolean) => boolean)) => void;
+  togglePatternRecording: () => void;
+  updatePatternStep: (trackId: number, patternId: number, stepIdx: number, char: string | number | [string, string]) => void;
   setTracks: (tracks: TrackGroup[] | ((prev: TrackGroup[]) => TrackGroup[])) => void;
   setActiveAoVivoTrackId: (id: number | null) => void;
   handleReorderTracksDnd: (activeId: number, overId: number) => void;
@@ -193,6 +201,65 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   tracks: [],
   activeAoVivoTrackId: null,
   tracksVersion: 0,
+  armedTrackId: null,
+  armedPatternId: null,
+  isPatternRecording: false,
+  toggleArmPattern: (trackId, patternId) => set(state => {
+    const isCurrentlyArmed = state.armedPatternId === patternId;
+    const nextArmed = isCurrentlyArmed ? null : patternId;
+    return {
+      armedTrackId: isCurrentlyArmed ? null : trackId,
+      armedPatternId: nextArmed,
+      isPatternRecording: nextArmed === null ? false : state.isPatternRecording,
+    };
+  }),
+  disarmAllPatterns: () => set({ armedTrackId: null, armedPatternId: null, isPatternRecording: false }),
+  setIsPatternRecording: (updater) => set(state => ({
+    isPatternRecording: typeof updater === 'function' ? updater(state.isPatternRecording) : updater
+  })),
+  togglePatternRecording: () => set(state => {
+    if (!state.isPatternRecording) {
+      if (state.armedPatternId === null || state.armedTrackId === null) {
+        return { isPatternRecording: false };
+      }
+      return { isPatternRecording: true };
+    }
+    return { isPatternRecording: false };
+  }),
+  updatePatternStep: (trackId, patternId, stepIdx, char) => set(state => {
+    let changed = false;
+    const nextTracks = state.tracks.map(t => {
+      if (t.id === trackId || String(t.id) === String(trackId)) {
+        const nextPatterns = t.patterns.map(p => {
+          if (p.id === patternId) {
+            const currentActive = [...(p.activeSteps || [])];
+            const maxSteps = p.steps || currentActive.length || 16;
+            while (currentActive.length < maxSteps) {
+              currentActive.push(0);
+            }
+            if (stepIdx >= 0 && stepIdx < maxSteps) {
+              currentActive[stepIdx] = char === '0' ? 0 : char;
+              changed = true;
+              return {
+                ...p,
+                activeSteps: currentActive,
+              };
+            }
+          }
+          return p;
+        });
+        return { ...t, patterns: nextPatterns };
+      }
+      return t;
+    });
+
+    if (!changed) return state;
+
+    return {
+      tracks: nextTracks,
+      tracksVersion: state.tracksVersion + 1,
+    };
+  }),
   masterFX: {
     reverb: {
       returnVolume: 70,
