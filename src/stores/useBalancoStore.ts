@@ -182,7 +182,9 @@ export const useBalancoStore = create<BalancoStoreState>((set, get) => ({
   resolvePreset: (id?: string): BalancoPreset => {
     if (!id) return FACTORY_BALANCOS[0];
     const { presets } = get();
-    const found = presets.find((p) => p.id === id);
+    const clean = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    const needle = clean(id);
+    const found = presets.find((p) => p.id === id || clean(p.id) === needle || clean(p.name) === needle);
     return found || FACTORY_BALANCOS[0];
   }
 }));

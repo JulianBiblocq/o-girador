@@ -9,6 +9,8 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useBalancoStore } from '../stores/useBalancoStore';
+import { computeStepBalancoPercent } from '../utils/balancoUtils';
 import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../hooks/useAudioSync';
 import { Pattern } from '../types';
 import { getNextStepValue, getWheelNuanceState, getNextNuanceState, getAlternatingStroke, getComplementaryStroke, getDefaultSplitPair } from '../utils/instrumentStrokes';
@@ -636,7 +638,10 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   } = useSequencer();
 
   const globalSwing = useTransportStore(state => state.globalSwing);
-  const trackSwingIntensity = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.swingIntensity);
+  const track = useSequencerStore(
+    React.useCallback(state => state.tracks.find(t => t.id === trackId), [trackId])
+  );
+  const balancoPresets = useBalancoStore(state => state.presets);
   const { soloPatternPlayIdRef } = useAudio();
   const currentWindow = useWindow();
 
@@ -662,42 +667,16 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   const initialTouchIndexRef = useRef<number | null>(null);
   const wasSelectedRef = useRef(false);
 
-  /* Compute global swing offset for a step index */
+  /* Compute balanço offset for a step index */
   const getStepSwingPercent = (stepIdx: number, steps: number, beatResolutions?: number[]) => {
-    if (globalSwing?.mode === 'off') return 0;
-
-    const trackSwingMultiplier = (trackSwingIntensity !== undefined ? trackSwingIntensity : 100) / 100;
-    const patternSwingMultiplier = (pattern?.swingIntensity !== undefined ? pattern.swingIntensity : 100) / 100;
-    const totalSwingMultiplier = trackSwingMultiplier * patternSwingMultiplier;
-
-    let posInGroup = 0;
-    if (beatResolutions && beatResolutions.length > 0) {
-      let accumulated = 0;
-      for (const res of beatResolutions) {
-        if (stepIdx >= accumulated && stepIdx < accumulated + res) {
-          if (res === 3 || res === 6) return 0;
-          posInGroup = stepIdx - accumulated;
-          break;
-        }
-        accumulated += res;
-      }
-    } else {
-      const posInBeat = ((stepIdx / (steps / 4)) % 1) * 4;
-      posInGroup = Math.round(posInBeat) % 4;
-    }
-
-    const intensity = (globalSwing?.swingIntensity !== undefined ? globalSwing.swingIntensity : 100) / 100 * totalSwingMultiplier;
-
-    if (globalSwing?.mode === 'custom') {
-      return (globalSwing?.customOffsets?.[posInGroup] || 0) * intensity;
-    }
-
-    // Default 'maracatu' mode
-    if (posInGroup === 0) return 0;
-    if (posInGroup === 1) return 8 * intensity;
-    if (posInGroup === 2) return -29 * intensity;
-    if (posInGroup === 3) return -58 * intensity;
-    return 0;
+    return computeStepBalancoPercent({
+      stepIdx,
+      steps,
+      beatResolutions,
+      track,
+      pattern,
+      globalSwing
+    });
   };
 
   // Pre-calculate step swing offsets in a memoized array (Zero calculation thrashing)
@@ -706,10 +685,28 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     const resArr = pattern?.beatResolutions;
     const offsets = new Float32Array(stepsCount);
     for (let i = 0; i < stepsCount; i++) {
-      offsets[i] = getStepSwingPercent(i, stepsCount, resArr);
+      offsets[i] = computeStepBalancoPercent({
+        stepIdx: i,
+        steps: stepsCount,
+        beatResolutions: resArr,
+        track,
+        pattern,
+        globalSwing
+      });
     }
     return offsets;
-  }, [pattern?.steps, pattern?.beatResolutions, globalSwing, trackSwingIntensity, pattern?.swingIntensity]);
+  }, [
+    pattern?.steps,
+    pattern?.beatResolutions,
+    pattern?.balancoPresetId,
+    pattern?.balancoAmount,
+    pattern?.swingIntensity,
+    track?.balancoPresetId,
+    track?.balancoAmount,
+    track?.swingIntensity,
+    globalSwing,
+    balancoPresets
+  ]);
 
   const handleStepTouchStartMulti = React.useCallback((e: React.MouseEvent | React.TouchEvent, index: number) => {
     if (!isMultiSelectActive) return;

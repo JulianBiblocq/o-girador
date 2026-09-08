@@ -1512,14 +1512,24 @@ export function useAudioSync({
                     const strokeSymbol = String.fromCharCode(strokeCharCode);
                     const decayMultiplier = decayPct / 100;
 
-                    // Find active pattern for current measure
+                    // Find active pattern for current measure (or solo pattern if solo play is active)
                     let activePattern = null;
                     const patterns = liveTrack.patterns;
                     const numPatterns = patterns.length;
-                    for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
-                      if (patterns[pIdx].measureAssignments[currentMeasureIdx]) {
-                        activePattern = patterns[pIdx];
-                        break;
+                    if (soloPatternPlayIdRef.current !== null) {
+                      for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+                        if (patterns[pIdx].id === soloPatternPlayIdRef.current) {
+                          activePattern = patterns[pIdx];
+                          break;
+                        }
+                      }
+                    }
+                    if (!activePattern) {
+                      for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
+                        if (patterns[pIdx].measureAssignments[currentMeasureIdx]) {
+                          activePattern = patterns[pIdx];
+                          break;
+                        }
                       }
                     }
 

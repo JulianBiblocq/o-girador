@@ -44,6 +44,7 @@ import { PatternVariationsEditor } from './instrument-editor/PatternVariationsEd
 import { InstrumentEffects } from './InstrumentEffects';
 import { StrokeWritingDock } from './instrument-editor/StrokeWritingDock';
 import { useBalancoStore } from '../stores/useBalancoStore';
+import { computeStepBalancoPercent } from '../utils/balancoUtils';
 import { StrokeInspectorPanel } from './instrument-editor/StrokeInspectorPanel';
 import { InstrumentPatternGrid } from './InstrumentPatternGrid';
 import { XiloChisel, XiloMegaphone } from './XiloIcons';
@@ -208,6 +209,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const handleTrackBalancoChange = useSequencerStore(state => state.handleTrackBalancoChange);
   const handlePatternBalancoChange = useSequencerStore(state => state.handlePatternBalancoChange);
   const balancoPresets = useBalancoStore(state => state.presets);
+  const syncCloudPresets = useBalancoStore(state => state.syncCloudPresets);
+  const globalSwing = useTransportStore(state => state.globalSwing);
 
   const canPaste = !!sequencer.copiedPattern;
 
@@ -542,7 +545,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       }
     };
     loadPatterns();
-  }, [userProfile]);
+
+    if (userProfile?.uid) {
+      syncCloudPresets(userProfile.uid, userProfile.groupId, userProfile.role, userProfile.mestreId);
+    }
+  }, [userProfile, syncCloudPresets]);
 
   const existingLibraryPatterns = cloudPatterns.filter(p => p.instrumentId === inst.id);
   const existingFolders = Array.from(new Set(existingLibraryPatterns.map(p => p.folder))).filter(Boolean);
@@ -1378,7 +1385,16 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             setSelectedVariationId={setSelectedVariationId}
                             setSelectedStepIndices={setSelectedStepIndices}
                             setIsMultiSelectActive={setIsMultiSelectActive}
-                            getStepSwingPercent={() => 0}
+                            getStepSwingPercent={(stepIdx, steps, beatResolutions) =>
+                              computeStepBalancoPercent({
+                                stepIdx,
+                                steps,
+                                beatResolutions,
+                                track,
+                                pattern: ptn,
+                                globalSwing
+                              })
+                            }
                             onAddPatternVariation={onAddPatternVariation}
                           />
 

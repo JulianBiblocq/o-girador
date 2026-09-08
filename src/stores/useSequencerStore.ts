@@ -672,7 +672,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
               if (p.id === patternId) {
                 return {
                   ...p,
-                  ...(presetId !== undefined ? { balancoPresetId: presetId } : {}),
+                  balancoPresetId: presetId,
                   ...(amount !== undefined ? { balancoAmount: amount, swingIntensity: amount } : {})
                 };
               }

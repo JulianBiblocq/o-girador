@@ -9,6 +9,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { useTransportStore } from '../stores/useTransportStore';
 import { Pattern } from '../types';
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { computeStepBalancoPercent } from '../utils/balancoUtils';
 import { instrumentsConfig } from '../data';
 
 const getVoiceDurationLabel = (val: number, lang: string): string => {
@@ -85,42 +86,18 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
   } = useSequencer();
 
   const globalSwing = useTransportStore(state => state.globalSwing);
-  const trackSwingIntensity = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.swingIntensity);
+  const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
 
-  /* Compute global swing offset for a step index */
+  /* Compute balanço offset for a step index */
   const getStepSwingPercent = (stepIdx: number, steps: number, beatResolutions?: number[]) => {
-    if (globalSwing.mode === 'off') return 0;
-
-    const trackSwingMultiplier = (trackSwingIntensity !== undefined ? trackSwingIntensity : 100) / 100;
-
-    let posInGroup = 0;
-    if (beatResolutions && beatResolutions.length > 0) {
-      let accumulated = 0;
-      for (const res of beatResolutions) {
-        if (stepIdx >= accumulated && stepIdx < accumulated + res) {
-          if (res === 3 || res === 6) return 0;
-          posInGroup = stepIdx - accumulated;
-          break;
-        }
-        accumulated += res;
-      }
-    } else {
-      const posInBeat = ((stepIdx / (steps / 4)) % 1) * 4;
-      posInGroup = Math.round(posInBeat) % 4;
-    }
-
-    const intensity = (globalSwing.swingIntensity !== undefined ? globalSwing.swingIntensity : 100) / 100 * trackSwingMultiplier;
-
-    if (globalSwing.mode === 'custom') {
-      return (globalSwing.customOffsets[posInGroup] || 0) * intensity;
-    }
-
-    // Default 'maracatu' mode
-    if (posInGroup === 0) return 0;
-    if (posInGroup === 1) return 8 * intensity;
-    if (posInGroup === 2) return -29 * intensity;
-    if (posInGroup === 3) return -58 * intensity;
-    return 0;
+    return computeStepBalancoPercent({
+      stepIdx,
+      steps,
+      beatResolutions,
+      track,
+      pattern,
+      globalSwing
+    });
   };
 
   const targets = selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx];
