@@ -110,6 +110,17 @@ export interface TrackGroup {
     mid: { f: number; g: number; q: 'wide' | 'narrow' };
     high: { f: number; g: number };
   };
+  measureVols?: number[];
+  measureVolTransitions?: ('immediate' | 'ramp' | 'bezier')[];
+  measurePans?: number[];
+  measurePanTransitions?: ('immediate' | 'ramp' | 'bezier')[];
+  measureReverbSends?: number[];
+  measureReverbTransitions?: ('immediate' | 'ramp' | 'bezier')[];
+  automationBypass?: {
+    volume?: boolean;
+    pan?: boolean;
+    reverb?: boolean;
+  };
 }
 
 export interface CatalogItem {

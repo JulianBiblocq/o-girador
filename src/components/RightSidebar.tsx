@@ -62,25 +62,92 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   const { userProfile, hasAccess } = useAuth();
   
   const [showAuthorshipModal, setShowAuthorshipModal] = React.useState(false);
-  const [currentStepIndex, setCurrentStepIndex] = React.useState<number>(-1);
+  const karaokeContainerRef = React.useRef<HTMLDivElement>(null);
+  const activeTokensRef = React.useRef<HTMLElement[]>([]);
+  const [subTab, setSubTab] = React.useState<'toada' | 'info' | 'legendes' | 'sinais' | 'feedback'>('info');
+
   React.useEffect(() => {
-    if (!visible) return;
+    if (!visible || subTab !== 'toada') {
+      activeTokensRef.current.forEach(el => {
+        el.classList.remove('scale-110', 'cordel-border-sm', 'px-1');
+        el.style.backgroundColor = 'transparent';
+        el.style.color = 'var(--cordel-text)';
+      });
+      activeTokensRef.current = [];
+      return;
+    }
 
     const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number }) => {
-      if (useSequencerStore.getState().isEcoMode) {
-        setCurrentStepIndex(-1);
+      if (useSequencerStore.getState().isEcoMode || !karaokeContainerRef.current) {
+        if (activeTokensRef.current.length > 0) {
+          activeTokensRef.current.forEach(el => {
+            el.classList.remove('scale-110', 'cordel-border-sm', 'px-1');
+            el.style.backgroundColor = 'transparent';
+            el.style.color = 'var(--cordel-text)';
+          });
+          activeTokensRef.current = [];
+        }
         return;
       }
-      setCurrentStepIndex(detail.step);
+
+      const { step, maxTicks } = detail;
+      const currentMeasure = useSequencerStore.getState().currentMeasure;
+      const currentTracks = useSequencerStore.getState().tracks;
+
+      const activePatternByInst: Record<number, number | null> = {};
+      currentTracks.forEach(t => {
+        if (activePatternByInst[t.instrumentIdx] === undefined) {
+          const activePattern = t.patterns.find(p => p.measureAssignments[currentMeasure]);
+          activePatternByInst[t.instrumentIdx] = activePattern ? activePattern.id : null;
+        }
+      });
+
+      // Clear previous tokens
+      activeTokensRef.current.forEach(el => {
+        el.classList.remove('scale-110', 'cordel-border-sm', 'px-1');
+        el.style.backgroundColor = 'transparent';
+        el.style.color = 'var(--cordel-text)';
+      });
+      activeTokensRef.current = [];
+
+      // Find and activate tokens directly via DOM
+      const tokenElements = karaokeContainerRef.current.querySelectorAll<HTMLElement>('[data-karaoke-token]');
+      tokenElements.forEach(el => {
+        const instIdx = Number(el.dataset.instIdx);
+        const patternId = Number(el.dataset.patternId);
+        const stepIdx = Number(el.dataset.stepIdx);
+        const steps = Number(el.dataset.steps);
+
+        const activeId = activePatternByInst[instIdx];
+        const isPatternActive = (activeId === patternId || activeId === undefined || activeId === null);
+        if (isPatternActive && steps > 0 && maxTicks > 0) {
+          const currentStep = Math.floor((step / maxTicks) * steps);
+          if (currentStep === stepIdx) {
+            el.classList.add('scale-110', 'cordel-border-sm', 'px-1');
+            el.style.backgroundColor = 'var(--cordel-text)';
+            el.style.color = 'var(--cordel-bg)';
+            activeTokensRef.current.push(el);
+          }
+        }
+      });
     };
+
     subscribeToTick(handleTick);
-    return () => unsubscribeFromTick(handleTick);
-  }, [visible]);
+    return () => {
+      unsubscribeFromTick(handleTick);
+      activeTokensRef.current.forEach(el => {
+        el.classList.remove('scale-110', 'cordel-border-sm', 'px-1');
+        el.style.backgroundColor = 'transparent';
+        el.style.color = 'var(--cordel-text)';
+      });
+      activeTokensRef.current = [];
+    };
+  }, [visible, subTab]);
+
   const audio = useAudio();
 
   const {
     lang,
-    
     letras,
     setLetras: onLetrasChange,
     metadata,
@@ -91,7 +158,6 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
 
   const {
     isPlaying = false,
-    
     handleTogglePlay: onTogglePlay,
   } = audio;
 
@@ -104,29 +170,10 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
     sequencer.setMetadata(newMeta);
     if (newMeta.rhythmSignals !== sequencer.metadata?.rhythmSignals) {
       const validIds = new Set((newMeta.rhythmSignals || []).map(s => s.id));
-      sequencer.setMeasureSignals(prev => prev.map(id => (id && validIds.has(id)) ? id : null));
+      sequencer.setMeasureSignals((prev: (string | null)[]) => prev.map((id: string | null) => (id && validIds.has(id)) ? id : null));
     }
   };
 
-  const currentPlayState = isPlaying ? {
-    stepIndex: currentStepIndex,
-    maxTicks: getMaxTicks(timeSig),
-    activePatternIdByInst: (() => {
-      const result: { [instIdx: number]: number | null } = {};
-      tracks.forEach(t => {
-        if (result[t.instrumentIdx] === undefined) {
-          if (isPlaying) {
-            const activePattern = t.patterns.find(p => p.measureAssignments[currentMeasure]);
-            result[t.instrumentIdx] = activePattern ? activePattern.id : null;
-          } else {
-            result[t.instrumentIdx] = t.selectedPatternId;
-          }
-        }
-      });
-      return result;
-    })(),
-  } : null;
-  const [subTab, setSubTab] = React.useState<'toada' | 'info' | 'legendes' | 'sinais' | 'feedback'>('info');
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
@@ -327,7 +374,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                 </span>
 
                 {/* Karaoke Viewer Container */}
-                <div className="flex-grow overflow-y-auto min-h-0 pr-1 custom-scrollbar">
+                <div ref={karaokeContainerRef} className="flex-grow overflow-y-auto min-h-0 pr-1 custom-scrollbar">
                 {(() => {
                   const voiceTracks = tracks.filter(t => instrumentsConfig[t.instrumentIdx]?.type === 'voice' && !t.isMute);
                   if (voiceTracks.length === 0) {
@@ -340,14 +387,11 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                     );
                   }
 
-                  // Determine which pattern is active per instrument (for karaoke turn)
-                  const activeByInst = currentPlayState?.activePatternIdByInst ?? {};
-
                   type Token = { trackId: number; patternId: number; stepIdx: number; displayText: string; hasSpace: boolean; color: string; instIdx: number; isBreak?: boolean };
                   const allTokens: Token[] = [];
                   voiceTracks.forEach(t => {
                     const inst = instrumentsConfig[t.instrumentIdx];
-                    t.patterns.forEach(ptn => {
+                    t.patterns.forEach((ptn: any) => {
                       let addedTokensForPattern = false;
                       for (let i = 0; i < ptn.steps; i++) {
                         const state = ptn.activeSteps[i];
@@ -402,26 +446,21 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                                   const t = voiceTracks.find(x => x.id === tok.trackId);
                                   if (!t) return null;
 
-                                  const groupActiveId = activeByInst[tok.instIdx];
-                                  const isThisPatternActive = currentPlayState !== null && (groupActiveId === tok.patternId || groupActiveId === undefined || groupActiveId === null);
-                                  const activePattern = t.patterns.find(p => p.id === tok.patternId);
+                                  const activePattern = t.patterns.find((p: any) => p.id === tok.patternId);
                                   if (!activePattern) return null;
-
-                                  const currentStep = (isThisPatternActive && currentPlayState)
-                                    ? Math.floor((currentPlayState.stepIndex / currentPlayState.maxTicks) * activePattern.steps)
-                                    : -1;
-                                  
-                                  const isHighlighted = isThisPatternActive && currentStep === tok.stepIdx;
 
                                   return (
                                     <span
                                       key={`${tok.trackId}-${tok.patternId}-${tok.stepIdx}-${idx}`}
-                                      className={`transition-all duration-100 font-bold ${
-                                        isHighlighted ? 'scale-110 cordel-border-sm px-1' : ''
-                                      }`}
+                                      data-karaoke-token="true"
+                                      data-inst-idx={tok.instIdx}
+                                      data-pattern-id={tok.patternId}
+                                      data-step-idx={tok.stepIdx}
+                                      data-steps={activePattern.steps}
+                                      className="transition-all duration-100 font-bold"
                                       style={{
-                                        backgroundColor: isHighlighted ? 'var(--cordel-text)' : 'transparent',
-                                        color: isHighlighted ? 'var(--cordel-bg)' : 'var(--cordel-text)',
+                                        backgroundColor: 'transparent',
+                                        color: 'var(--cordel-text)',
                                         marginRight: tok.hasSpace ? '6px' : '0px',
                                       }}
                                     >

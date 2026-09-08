@@ -9,9 +9,10 @@ interface PanKnobProps {
   onChange: (val: number) => void;
   label?: string;
   showLabels?: boolean;
+  panKnobRef?: React.RefObject<SVGGElement | null>;
 }
 
-export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, label = "Pan", showLabels = true }) => {
+export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, label = "Pan", showLabels = true, panKnobRef }) => {
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const isDraggingRef = useRef(false);
@@ -21,6 +22,13 @@ export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, labe
   const inputRef = useRef<HTMLInputElement>(null);
   const rotationGroupRef = useRef<SVGGElement>(null);
   const valueLabelRef = useRef<HTMLSpanElement>(null);
+
+  const setRotationRef = (el: SVGGElement | null) => {
+    (rotationGroupRef as React.MutableRefObject<SVGGElement | null>).current = el;
+    if (panKnobRef) {
+      (panKnobRef as React.MutableRefObject<SVGGElement | null>).current = el;
+    }
+  };
 
   const updateVisuals = (val: number) => {
     if (rotationGroupRef.current) {
@@ -126,7 +134,7 @@ export const PanKnob: React.FC<PanKnobProps> = ({ trackId, value, onChange, labe
           <line x1="30" y1="16" x2="28" y2="16" stroke="var(--cordel-border)" strokeWidth="1.5" opacity="0.3" />
           
           {/* Rotatable indicator pointer */}
-          <g ref={rotationGroupRef} transform={`rotate(${initialAngle} 16 16)`}>
+          <g ref={setRotationRef} style={{ transformOrigin: '16px 16px' }} transform={`rotate(${initialAngle} 16 16)`}>
             <line x1="16" y1="16" x2="16" y2="5" stroke="var(--cordel-border)" strokeWidth="2.5" strokeLinecap="round" />
             <circle cx="16" cy="5" r="1.5" fill="var(--cordel-wood)" />
           </g>

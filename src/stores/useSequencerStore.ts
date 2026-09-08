@@ -37,6 +37,8 @@ export interface TrackSlice {
   handleSetPatternOverride: (trackId: number, measureIdx: number, patternId: number | null | undefined) => void;
   handleTimelinePatternAssign: (trackId: number, patternId: number | null | undefined, measureIdx: number) => void;
   handleTimelinePatternVariationToggle: (trackId: number, patternId: number, measureIdx: number, val: boolean) => void;
+  duplicateMeasurePattern: (trackId: number, srcIdx: number, targetIdx: number) => void;
+  repeatPatternRange: (trackId: number, srcIdx: number, count: number) => void;
   handleTrackStepsChange: (trackId: number, patternId: number, targetSteps: number) => void;
   handleTrackStepVolumeChange: (trackId: number, patternId: number, stepIdx: number | number[], val: number) => void;
   handlePatternBeatResolutionChange: (patternId: number, beatIndex: number, newResolution: number) => void;
@@ -54,6 +56,13 @@ export interface TrackSlice {
   handleTrackEQReset: (id: number) => void;
   handleVocalLatencyChange: (trackId: number, patternId: number, latencyMs: number) => void;
   setTrackTuning: (trackId: number, tuning: number) => void;
+  handleTrackMeasureVolChange: (trackId: number, mIdx: number, val: number) => void;
+  handleTrackMeasureVolTransitionChange: (trackId: number, mIdx: number, val: 'immediate' | 'ramp' | 'bezier') => void;
+  handleTrackMeasurePanChange: (trackId: number, mIdx: number, val: number) => void;
+  handleTrackMeasurePanTransitionChange: (trackId: number, mIdx: number, val: 'immediate' | 'ramp' | 'bezier') => void;
+  handleTrackMeasureReverbChange: (trackId: number, mIdx: number, val: number) => void;
+  handleTrackMeasureReverbTransitionChange: (trackId: number, mIdx: number, val: 'immediate' | 'ramp' | 'bezier') => void;
+  toggleTrackAutomationBypass: (trackId: number, type: 'volume' | 'pan' | 'reverb') => void;
 }
 
 export const isToadaBus = (t: { isBusFolder?: boolean; customName?: string; id?: any }): boolean => {
@@ -131,7 +140,7 @@ export const isSequencerVisibleTrack = (t: TrackGroup, allTracks: TrackGroup[]):
   if (isToadaBus(t)) {
     return true;
   }
-  return !t.linkedToTrackId && (!t.isBusFolder || t.isLinkFolder);
+  return !t.linkedToTrackId && (!t.isBusFolder || !!t.isLinkFolder);
 };
 
 export const isLinearDAWVisibleTrack = (t: TrackGroup, allTracks: TrackGroup[]): boolean => {
@@ -460,6 +469,150 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     }));
   },
 
+  handleTrackMeasureVolChange: (trackId, mIdx, val) => {
+    get().pushUndoState();
+    const totalM = get().totalMeasures || 8;
+    set((state) => ({
+      tracks: state.tracks.map((t) => {
+        if (t.id === trackId) {
+          const currentVols = t.measureVols ? [...t.measureVols] : Array(totalM).fill(t.volumeVal ?? 100);
+          while (currentVols.length < totalM) {
+            currentVols.push(t.volumeVal ?? 100);
+          }
+          currentVols[mIdx] = val;
+          return { ...t, measureVols: currentVols };
+        }
+        return t;
+      }),
+      tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
+  handleTrackMeasureVolTransitionChange: (trackId, mIdx, val) => {
+    get().pushUndoState();
+    const totalM = get().totalMeasures || 8;
+    set((state) => ({
+      tracks: state.tracks.map((t) => {
+        if (t.id === trackId) {
+          const currentTrans = t.measureVolTransitions ? [...t.measureVolTransitions] : Array(totalM).fill('immediate' as const);
+          while (currentTrans.length < totalM) {
+            currentTrans.push('immediate');
+          }
+          currentTrans[mIdx] = val;
+          return { ...t, measureVolTransitions: currentTrans };
+        }
+        return t;
+      }),
+      tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
+  handleTrackMeasurePanChange: (trackId, mIdx, val) => {
+    get().pushUndoState();
+    const totalM = get().totalMeasures || 8;
+    set((state) => ({
+      tracks: state.tracks.map((t) => {
+        if (t.id === trackId) {
+          const currentPans = t.measurePans ? [...t.measurePans] : Array(totalM).fill(t.panVal ?? t.pan ?? 0);
+          while (currentPans.length < totalM) {
+            currentPans.push(t.panVal ?? t.pan ?? 0);
+          }
+          currentPans[mIdx] = val;
+          return { ...t, measurePans: currentPans };
+        }
+        return t;
+      }),
+      tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
+  handleTrackMeasurePanTransitionChange: (trackId, mIdx, val) => {
+    get().pushUndoState();
+    const totalM = get().totalMeasures || 8;
+    set((state) => ({
+      tracks: state.tracks.map((t) => {
+        if (t.id === trackId) {
+          const currentTrans = t.measurePanTransitions ? [...t.measurePanTransitions] : Array(totalM).fill('immediate' as const);
+          while (currentTrans.length < totalM) {
+            currentTrans.push('immediate');
+          }
+          currentTrans[mIdx] = val;
+          return { ...t, measurePanTransitions: currentTrans };
+        }
+        return t;
+      }),
+      tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
+  handleTrackMeasureReverbChange: (trackId, mIdx, val) => {
+    get().pushUndoState();
+    const totalM = get().totalMeasures || 8;
+    set((state) => ({
+      tracks: state.tracks.map((t) => {
+        if (t.id === trackId) {
+          const defaultRev = t.fxSends?.reverb ?? t.reverbVal ?? 0;
+          const currentReverbs = t.measureReverbSends ? [...t.measureReverbSends] : Array(totalM).fill(defaultRev);
+          while (currentReverbs.length < totalM) {
+            currentReverbs.push(defaultRev);
+          }
+          currentReverbs[mIdx] = val;
+          return { ...t, measureReverbSends: currentReverbs };
+        }
+        return t;
+      }),
+      tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
+  handleTrackMeasureReverbTransitionChange: (trackId, mIdx, val) => {
+    get().pushUndoState();
+    const totalM = get().totalMeasures || 8;
+    set((state) => ({
+      tracks: state.tracks.map((t) => {
+        if (t.id === trackId) {
+          const currentTrans = t.measureReverbTransitions ? [...t.measureReverbTransitions] : Array(totalM).fill('immediate' as const);
+          while (currentTrans.length < totalM) {
+            currentTrans.push('immediate');
+          }
+          currentTrans[mIdx] = val;
+          return { ...t, measureReverbTransitions: currentTrans };
+        }
+        return t;
+      }),
+      tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
+  toggleTrackAutomationBypass: (trackId, type) => {
+    get().pushUndoState();
+    set((state) => ({
+      tracks: state.tracks.map((t) => {
+        if (t.id === trackId) {
+          const currentBypass = t.automationBypass || {};
+          return {
+            ...t,
+            automationBypass: {
+              ...currentBypass,
+              [type]: !currentBypass[type]
+            }
+          };
+        }
+        return t;
+      }),
+      tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
+  setTrackTuning: (trackId: number, tuning: number) => {
+    set((state) => ({
+      tracks: state.tracks.map(t => 
+        t.id === trackId ? { ...t, tuning } : t
+      ),
+      tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
   handleTrackReverbChange: (id, val) => {
     set((state) => ({
       tracks: state.tracks.map((t) => t.id === id ? { ...t, reverbVal: val } : t)
@@ -560,12 +713,13 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
             mid: { f: 1000, g: 0, q: 'wide' as const },
             high: { f: 8000, g: 0 }
           };
+          if (!bands) return t;
           return {
             ...t,
             eqBands: {
-              low: { ...currentBands.low, ...bands.low },
-              mid: { ...currentBands.mid, ...bands.mid },
-              high: { ...currentBands.high, ...bands.high }
+              low: { ...currentBands.low, ...(bands.low || {}) },
+              mid: { ...currentBands.mid, ...(bands.mid || {}) },
+              high: { ...currentBands.high, ...(bands.high || {}) }
             }
           };
         }
@@ -1123,6 +1277,440 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     });
   },
 
+  duplicateMeasurePattern: (trackId: number, srcIdx: number, targetIdx: number) => {
+    if (targetIdx < 0 || targetIdx === srcIdx) return;
+    const state = get();
+    if (state.maxMeasuresAllowed !== null && targetIdx >= state.maxMeasuresAllowed) {
+      alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+      return;
+    }
+
+    get().pushUndoState();
+
+    set((curr) => {
+      let nextTotal = curr.totalMeasures;
+      let nextTracks = [...curr.tracks];
+      let nextTimeSigs = [...curr.measureTimeSigs];
+      let nextBpms = [...curr.measureBpms];
+      let nextBpmTransitions = [...curr.measureBpmTransitions];
+      let nextVols = [...curr.measureVols];
+      let nextVolTransitions = [...curr.measureVolTransitions];
+      let nextSignals = [...curr.measureSignals];
+
+      if (targetIdx >= nextTotal) {
+        nextTotal = targetIdx + 1;
+        const expandArray = <T>(arr: T[], fillValue: T): T[] => {
+          const next = [...arr];
+          while (next.length < nextTotal) next.push(fillValue);
+          return next;
+        };
+        nextTimeSigs = expandArray(nextTimeSigs, curr.timeSig);
+        nextBpms = expandArray(nextBpms, curr.bpm);
+        nextBpmTransitions = expandArray(nextBpmTransitions, 'immediate');
+        nextVols = expandArray(nextVols, 100);
+        nextVolTransitions = expandArray(nextVolTransitions, 'immediate');
+        nextSignals = expandArray(nextSignals, null);
+        nextTracks = nextTracks.map(t => ({
+          ...t,
+          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 100) : undefined,
+          measureVolTransitions: t.measureVolTransitions ? expandArray(t.measureVolTransitions, 'immediate' as const) : undefined,
+          measurePans: t.measurePans ? expandArray(t.measurePans, t.panVal ?? t.pan ?? 0) : undefined,
+          measurePanTransitions: t.measurePanTransitions ? expandArray(t.measurePanTransitions, 'immediate' as const) : undefined,
+          measureReverbSends: t.measureReverbSends ? expandArray(t.measureReverbSends, t.fxSends?.reverb ?? t.reverbVal ?? 0) : undefined,
+          measureReverbTransitions: t.measureReverbTransitions ? expandArray(t.measureReverbTransitions, 'immediate' as const) : undefined,
+          patterns: t.patterns.map(p => ({
+            ...p,
+            measureAssignments: expandArray(p.measureAssignments || [], false),
+            measureAllowVariations: p.measureAllowVariations ? expandArray(p.measureAllowVariations, true) : undefined
+          }))
+        }));
+      }
+
+      const clickedTrack = nextTracks.find(t => t.id === trackId);
+      if (!clickedTrack) return { totalMeasures: nextTotal, tracks: nextTracks };
+
+      const isLinkedSlave = clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && !clickedTrack.isLinkMaster;
+      const isLinkMaster = clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && clickedTrack.isLinkMaster;
+
+      if (isLinkedSlave) {
+        const srcOverride = clickedTrack.patternOverrides?.[srcIdx];
+        return {
+          totalMeasures: nextTotal,
+          measureTimeSigs: nextTimeSigs,
+          measureBpms: nextBpms,
+          measureBpmTransitions: nextBpmTransitions,
+          measureVols: nextVols,
+          measureVolTransitions: nextVolTransitions,
+          measureSignals: nextSignals,
+          tracks: nextTracks.map(t => {
+            if (t.id === trackId) {
+              const overrides = { ...(t.patternOverrides || {}) };
+              if (srcOverride === undefined) {
+                delete overrides[targetIdx];
+              } else {
+                overrides[targetIdx] = srcOverride;
+              }
+              return { ...t, patternOverrides: overrides };
+            }
+            return t;
+          }),
+          tracksVersion: curr.tracksVersion + 1
+        };
+      }
+
+      let targetTrackId = trackId;
+      let sourceOwnerTrack = clickedTrack;
+      if (isLinkMaster && clickedTrack.linkedToTrackId) {
+        targetTrackId = Number(clickedTrack.linkedToTrackId);
+        const owner = nextTracks.find(t => t.id === targetTrackId);
+        if (owner) sourceOwnerTrack = owner;
+      }
+
+      const isToadaTrackId = isToadaBus(clickedTrack);
+      const puxTrack = nextTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coroTrack = nextTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+      const isVoiceToadaAssign = isToadaTrackId || 
+        (puxTrack && targetTrackId === puxTrack.id) || 
+        (coroTrack && targetTrackId === coroTrack.id);
+
+      let activePatternId: number | null = null;
+      let allowVarVal: boolean | undefined = undefined;
+      const activePat = sourceOwnerTrack.patterns.find(p => p.measureAssignments?.[srcIdx]);
+      if (activePat) {
+        activePatternId = activePat.id;
+        allowVarVal = activePat.measureAllowVariations?.[srcIdx];
+      }
+
+      return {
+        totalMeasures: nextTotal,
+        measureTimeSigs: nextTimeSigs,
+        measureBpms: nextBpms,
+        measureBpmTransitions: nextBpmTransitions,
+        measureVols: nextVols,
+        measureVolTransitions: nextVolTransitions,
+        measureSignals: nextSignals,
+        tracks: nextTracks.map(t => {
+          if (isVoiceToadaAssign && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
+            return {
+              ...t,
+              patterns: t.patterns.map(p => {
+                const assign = [...p.measureAssignments];
+                while (assign.length < nextTotal) assign.push(false);
+                assign[targetIdx] = (t.id === targetTrackId && p.id === activePatternId);
+                const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
+                if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
+                  while (nextVariations.length < nextTotal) nextVariations.push(true);
+                  nextVariations[targetIdx] = allowVarVal;
+                }
+                return { ...p, measureAssignments: assign, measureAllowVariations: nextVariations };
+              })
+            };
+          }
+
+          if (t.id === targetTrackId) {
+            let nextVols = t.measureVols;
+            let nextTrans = t.measureVolTransitions;
+            if (t.measureVols) {
+              const vols = [...t.measureVols];
+              while (vols.length < nextTotal) vols.push(t.volumeVal ?? 100);
+              vols[targetIdx] = vols[srcIdx] !== undefined ? vols[srcIdx] : (t.volumeVal ?? 100);
+              nextVols = vols;
+            }
+            if (t.measureVolTransitions) {
+              const trans = [...t.measureVolTransitions];
+              while (trans.length < nextTotal) trans.push('immediate' as const);
+              trans[targetIdx] = trans[srcIdx] || 'immediate';
+              nextTrans = trans;
+            }
+
+            let nextPans = t.measurePans;
+            let nextPanTrans = t.measurePanTransitions;
+            if (t.measurePans) {
+              const pans = [...t.measurePans];
+              while (pans.length < nextTotal) pans.push(t.panVal ?? t.pan ?? 0);
+              pans[targetIdx] = pans[srcIdx] !== undefined ? pans[srcIdx] : (t.panVal ?? t.pan ?? 0);
+              nextPans = pans;
+            }
+            if (t.measurePanTransitions) {
+              const pTrans = [...t.measurePanTransitions];
+              while (pTrans.length < nextTotal) pTrans.push('immediate' as const);
+              pTrans[targetIdx] = pTrans[srcIdx] || 'immediate';
+              nextPanTrans = pTrans;
+            }
+
+            let nextReverbs = t.measureReverbSends;
+            let nextReverbTrans = t.measureReverbTransitions;
+            if (t.measureReverbSends) {
+              const revs = [...t.measureReverbSends];
+              while (revs.length < nextTotal) revs.push(t.fxSends?.reverb ?? t.reverbVal ?? 0);
+              revs[targetIdx] = revs[srcIdx] !== undefined ? revs[srcIdx] : (t.fxSends?.reverb ?? t.reverbVal ?? 0);
+              nextReverbs = revs;
+            }
+            if (t.measureReverbTransitions) {
+              const rTrans = [...t.measureReverbTransitions];
+              while (rTrans.length < nextTotal) rTrans.push('immediate' as const);
+              rTrans[targetIdx] = rTrans[srcIdx] || 'immediate';
+              nextReverbTrans = rTrans;
+            }
+
+            return {
+              ...t,
+              measureVols: nextVols,
+              measureVolTransitions: nextTrans,
+              measurePans: nextPans,
+              measurePanTransitions: nextPanTrans,
+              measureReverbSends: nextReverbs,
+              measureReverbTransitions: nextReverbTrans,
+              patterns: t.patterns.map(p => {
+                const assign = [...p.measureAssignments];
+                while (assign.length < nextTotal) assign.push(false);
+                assign[targetIdx] = p.id === activePatternId;
+                const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
+                if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
+                  while (nextVariations.length < nextTotal) nextVariations.push(true);
+                  nextVariations[targetIdx] = allowVarVal;
+                }
+                return { ...p, measureAssignments: assign, measureAllowVariations: nextVariations };
+              })
+            };
+          }
+          return t;
+        }),
+        tracksVersion: curr.tracksVersion + 1
+      };
+    });
+  },
+
+  repeatPatternRange: (trackId: number, srcIdx: number, count: number) => {
+    if (count <= 0) return;
+    const maxTargetIdx = srcIdx + count;
+    const state = get();
+    if (state.maxMeasuresAllowed !== null && maxTargetIdx >= state.maxMeasuresAllowed) {
+      alert(`Limite de ${state.maxMeasuresAllowed} mesures atteinte en version gratuite.`);
+      return;
+    }
+
+    get().pushUndoState();
+
+    set((curr) => {
+      let nextTotal = curr.totalMeasures;
+      let nextTracks = [...curr.tracks];
+      let nextTimeSigs = [...curr.measureTimeSigs];
+      let nextBpms = [...curr.measureBpms];
+      let nextBpmTransitions = [...curr.measureBpmTransitions];
+      let nextVols = [...curr.measureVols];
+      let nextVolTransitions = [...curr.measureVolTransitions];
+      let nextSignals = [...curr.measureSignals];
+
+      if (maxTargetIdx >= nextTotal) {
+        nextTotal = maxTargetIdx + 1;
+        const expandArray = <T>(arr: T[], fillValue: T): T[] => {
+          const next = [...arr];
+          while (next.length < nextTotal) next.push(fillValue);
+          return next;
+        };
+        nextTimeSigs = expandArray(nextTimeSigs, curr.timeSig);
+        nextBpms = expandArray(nextBpms, curr.bpm);
+        nextBpmTransitions = expandArray(nextBpmTransitions, 'immediate');
+        nextVols = expandArray(nextVols, 100);
+        nextVolTransitions = expandArray(nextVolTransitions, 'immediate');
+        nextSignals = expandArray(nextSignals, null);
+        nextTracks = nextTracks.map(t => ({
+          ...t,
+          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 100) : undefined,
+          measureVolTransitions: t.measureVolTransitions ? expandArray(t.measureVolTransitions, 'immediate' as const) : undefined,
+          measurePans: t.measurePans ? expandArray(t.measurePans, t.panVal ?? t.pan ?? 0) : undefined,
+          measurePanTransitions: t.measurePanTransitions ? expandArray(t.measurePanTransitions, 'immediate' as const) : undefined,
+          measureReverbSends: t.measureReverbSends ? expandArray(t.measureReverbSends, t.fxSends?.reverb ?? t.reverbVal ?? 0) : undefined,
+          measureReverbTransitions: t.measureReverbTransitions ? expandArray(t.measureReverbTransitions, 'immediate' as const) : undefined,
+          patterns: t.patterns.map(p => ({
+            ...p,
+            measureAssignments: expandArray(p.measureAssignments || [], false),
+            measureAllowVariations: p.measureAllowVariations ? expandArray(p.measureAllowVariations, true) : undefined
+          }))
+        }));
+      }
+
+      const clickedTrack = nextTracks.find(t => t.id === trackId);
+      if (!clickedTrack) return { totalMeasures: nextTotal, tracks: nextTracks };
+
+      const isLinkedSlave = clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && !clickedTrack.isLinkMaster;
+      const isLinkMaster = clickedTrack.linkedToTrackId && !clickedTrack.isLinkFolder && clickedTrack.isLinkMaster;
+
+      if (isLinkedSlave) {
+        const srcOverride = clickedTrack.patternOverrides?.[srcIdx];
+        return {
+          totalMeasures: nextTotal,
+          measureTimeSigs: nextTimeSigs,
+          measureBpms: nextBpms,
+          measureBpmTransitions: nextBpmTransitions,
+          measureVols: nextVols,
+          measureVolTransitions: nextVolTransitions,
+          measureSignals: nextSignals,
+          tracks: nextTracks.map(t => {
+            if (t.id === trackId) {
+              const overrides = { ...(t.patternOverrides || {}) };
+              for (let step = 1; step <= count; step++) {
+                const targetIdx = srcIdx + step;
+                if (srcOverride === undefined) {
+                  delete overrides[targetIdx];
+                } else {
+                  overrides[targetIdx] = srcOverride;
+                }
+              }
+              return { ...t, patternOverrides: overrides };
+            }
+            return t;
+          }),
+          tracksVersion: curr.tracksVersion + 1
+        };
+      }
+
+      let targetTrackId = trackId;
+      let sourceOwnerTrack = clickedTrack;
+      if (isLinkMaster && clickedTrack.linkedToTrackId) {
+        targetTrackId = Number(clickedTrack.linkedToTrackId);
+        const owner = nextTracks.find(t => t.id === targetTrackId);
+        if (owner) sourceOwnerTrack = owner;
+      }
+
+      const isToadaTrackId = isToadaBus(clickedTrack);
+      const puxTrack = nextTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+      const coroTrack = nextTracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
+      const isVoiceToadaAssign = isToadaTrackId || 
+        (puxTrack && targetTrackId === puxTrack.id) || 
+        (coroTrack && targetTrackId === coroTrack.id);
+
+      let activePatternId: number | null = null;
+      let allowVarVal: boolean | undefined = undefined;
+      const activePat = sourceOwnerTrack.patterns.find(p => p.measureAssignments?.[srcIdx]);
+      if (activePat) {
+        activePatternId = activePat.id;
+        allowVarVal = activePat.measureAllowVariations?.[srcIdx];
+      }
+
+      return {
+        totalMeasures: nextTotal,
+        measureTimeSigs: nextTimeSigs,
+        measureBpms: nextBpms,
+        measureBpmTransitions: nextBpmTransitions,
+        measureVols: nextVols,
+        measureVolTransitions: nextVolTransitions,
+        measureSignals: nextSignals,
+        tracks: nextTracks.map(t => {
+          if (isVoiceToadaAssign && (t.id === puxTrack?.id || t.id === coroTrack?.id)) {
+            return {
+              ...t,
+              patterns: t.patterns.map(p => {
+                const assign = [...p.measureAssignments];
+                while (assign.length < nextTotal) assign.push(false);
+                const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
+                if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
+                  while (nextVariations.length < nextTotal) nextVariations.push(true);
+                }
+                for (let step = 1; step <= count; step++) {
+                  const targetIdx = srcIdx + step;
+                  assign[targetIdx] = (t.id === targetTrackId && p.id === activePatternId);
+                  if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
+                    nextVariations[targetIdx] = allowVarVal;
+                  }
+                }
+                return { ...p, measureAssignments: assign, measureAllowVariations: nextVariations };
+              })
+            };
+          }
+
+          if (t.id === targetTrackId) {
+            let nextVols = t.measureVols;
+            let nextTrans = t.measureVolTransitions;
+            if (t.measureVols) {
+              const vols = [...t.measureVols];
+              while (vols.length < nextTotal) vols.push(t.volumeVal ?? 100);
+              for (let step = 1; step <= count; step++) {
+                vols[srcIdx + step] = vols[srcIdx] !== undefined ? vols[srcIdx] : (t.volumeVal ?? 100);
+              }
+              nextVols = vols;
+            }
+            if (t.measureVolTransitions) {
+              const trans = [...t.measureVolTransitions];
+              while (trans.length < nextTotal) trans.push('immediate' as const);
+              for (let step = 1; step <= count; step++) {
+                trans[srcIdx + step] = trans[srcIdx] || 'immediate';
+              }
+              nextTrans = trans;
+            }
+
+            let nextPans = t.measurePans;
+            let nextPanTrans = t.measurePanTransitions;
+            if (t.measurePans) {
+              const pans = [...t.measurePans];
+              while (pans.length < nextTotal) pans.push(t.panVal ?? t.pan ?? 0);
+              for (let step = 1; step <= count; step++) {
+                pans[srcIdx + step] = pans[srcIdx] !== undefined ? pans[srcIdx] : (t.panVal ?? t.pan ?? 0);
+              }
+              nextPans = pans;
+            }
+            if (t.measurePanTransitions) {
+              const pTrans = [...t.measurePanTransitions];
+              while (pTrans.length < nextTotal) pTrans.push('immediate' as const);
+              for (let step = 1; step <= count; step++) {
+                pTrans[srcIdx + step] = pTrans[srcIdx] || 'immediate';
+              }
+              nextPanTrans = pTrans;
+            }
+
+            let nextReverbs = t.measureReverbSends;
+            let nextReverbTrans = t.measureReverbTransitions;
+            if (t.measureReverbSends) {
+              const revs = [...t.measureReverbSends];
+              while (revs.length < nextTotal) revs.push(t.fxSends?.reverb ?? t.reverbVal ?? 0);
+              for (let step = 1; step <= count; step++) {
+                revs[srcIdx + step] = revs[srcIdx] !== undefined ? revs[srcIdx] : (t.fxSends?.reverb ?? t.reverbVal ?? 0);
+              }
+              nextReverbs = revs;
+            }
+            if (t.measureReverbTransitions) {
+              const rTrans = [...t.measureReverbTransitions];
+              while (rTrans.length < nextTotal) rTrans.push('immediate' as const);
+              for (let step = 1; step <= count; step++) {
+                rTrans[srcIdx + step] = rTrans[srcIdx] || 'immediate';
+              }
+              nextReverbTrans = rTrans;
+            }
+
+            return {
+              ...t,
+              measureVols: nextVols,
+              measureVolTransitions: nextTrans,
+              measurePans: nextPans,
+              measurePanTransitions: nextPanTrans,
+              measureReverbSends: nextReverbs,
+              measureReverbTransitions: nextReverbTrans,
+              patterns: t.patterns.map(p => {
+                const assign = [...p.measureAssignments];
+                while (assign.length < nextTotal) assign.push(false);
+                const nextVariations = p.measureAllowVariations ? [...p.measureAllowVariations] : undefined;
+                if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
+                  while (nextVariations.length < nextTotal) nextVariations.push(true);
+                }
+                for (let step = 1; step <= count; step++) {
+                  const targetIdx = srcIdx + step;
+                  assign[targetIdx] = p.id === activePatternId;
+                  if (nextVariations && allowVarVal !== undefined && p.id === activePatternId) {
+                    nextVariations[targetIdx] = allowVarVal;
+                  }
+                }
+                return { ...p, measureAssignments: assign, measureAllowVariations: nextVariations };
+              })
+            };
+          }
+          return t;
+        }),
+        tracksVersion: curr.tracksVersion + 1
+      };
+    });
+  },
+
   handleVocalLatencyChange: (trackId, patternId, latencyMs) => {
     get().pushUndoState();
     set((state) => ({
@@ -1282,7 +1870,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
                 volumes: spliceArray(pVolumes, 80, oldRes, newResolution),
                 decays: spliceArray(pDecays, 100, oldRes, newResolution),
                 microtimings: spliceArray(pMicro, 0, oldRes, newResolution, newResolution === 3 || newResolution === 6),
-              };
+              } as Pattern;
             }
             return p;
           })
@@ -1341,6 +1929,8 @@ export interface StructureSlice {
   handleDeleteMeasure: (measureIdx: number) => void;
   handleInsertMeasure: (measureIdx: number) => void;
   duplicateSectionBlock: (startIdx: number, endIdx: number, targetIdx: number, copiesCount: number) => void;
+  isMasterVolumeBypassed?: boolean;
+  toggleMasterVolumeBypass: () => void;
 }
 
 const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice> = (set, get) => ({
@@ -1387,6 +1977,11 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
   setMeasureVolTransitions: (updater) => set((state) => ({ measureVolTransitions: typeof updater === 'function' ? updater(state.measureVolTransitions) : updater })),
   setSongMarkers: (updater) => set((state) => ({ songMarkers: typeof updater === 'function' ? updater(state.songMarkers) : updater })),
   setMestreSignals: (signals) => set({ mestreSignals: signals }),
+  isMasterVolumeBypassed: false,
+  toggleMasterVolumeBypass: () => {
+    get().pushUndoState();
+    set(state => ({ isMasterVolumeBypassed: !state.isMasterVolumeBypassed }));
+  },
 
   handleTotalMeasuresChange: (val) => {
     get().pushUndoState();
@@ -1414,6 +2009,12 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
         measureSignals: expandArray(state.measureSignals, null),
         tracks: state.tracks.map(t => ({
           ...t,
+          measureVols: t.measureVols ? expandArray(t.measureVols, t.volumeVal ?? 100) : undefined,
+          measureVolTransitions: t.measureVolTransitions ? expandArray(t.measureVolTransitions, 'immediate' as const) : undefined,
+          measurePans: t.measurePans ? expandArray(t.measurePans, t.panVal ?? t.pan ?? 0) : undefined,
+          measurePanTransitions: t.measurePanTransitions ? expandArray(t.measurePanTransitions, 'immediate' as const) : undefined,
+          measureReverbSends: t.measureReverbSends ? expandArray(t.measureReverbSends, t.fxSends?.reverb ?? t.reverbVal ?? 0) : undefined,
+          measureReverbTransitions: t.measureReverbTransitions ? expandArray(t.measureReverbTransitions, 'immediate' as const) : undefined,
           patterns: t.patterns.map(p => ({
             ...p,
             measureAssignments: expandArray(p.measureAssignments || [], false),
@@ -1569,8 +2170,7 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
         measureVolTransitions: nextVolTransitions,
         measureSignals: nextSignals,
         tracks: nextTracks,
-        tracksVersion: state.tracksVersion + 1,
-        totalMeasures: newTotalMeasures // Auto-expansion (Mission 2)
+        tracksVersion: state.tracksVersion + 1
       };
     });
   },
@@ -1668,6 +2268,12 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
         }),
         tracks: state.tracks.map(t => ({
           ...t,
+          measureVols: t.measureVols ? t.measureVols.filter((_, idx) => idx !== measureIdx) : undefined,
+          measureVolTransitions: t.measureVolTransitions ? t.measureVolTransitions.filter((_, idx) => idx !== measureIdx) : undefined,
+          measurePans: t.measurePans ? t.measurePans.filter((_, idx) => idx !== measureIdx) : undefined,
+          measurePanTransitions: t.measurePanTransitions ? t.measurePanTransitions.filter((_, idx) => idx !== measureIdx) : undefined,
+          measureReverbSends: t.measureReverbSends ? t.measureReverbSends.filter((_, idx) => idx !== measureIdx) : undefined,
+          measureReverbTransitions: t.measureReverbTransitions ? t.measureReverbTransitions.filter((_, idx) => idx !== measureIdx) : undefined,
           patterns: t.patterns.map(p => ({
             ...p,
             measureAssignments: p.measureAssignments.filter((_, idx) => idx !== measureIdx),
@@ -1677,15 +2283,6 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
         tracksVersion: state.tracksVersion + 1
       };
     });
-  },
-
-  setTrackTuning: (trackId: number, tuning: number) => {
-    set((state) => ({
-      tracks: state.tracks.map(t => 
-        t.id === trackId ? { ...t, tuning } : t
-      ),
-      tracksVersion: state.tracksVersion + 1
-    }));
   },
 
   handleInsertMeasure: (measureIdx, amount = 1) => {
@@ -1731,6 +2328,12 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
         }),
         tracks: state.tracks.map(t => ({
           ...t,
+          measureVols: t.measureVols ? spliceArray(t.measureVols, t.measureVols[prevIdx] ?? t.volumeVal ?? 100) : undefined,
+          measureVolTransitions: t.measureVolTransitions ? spliceArray(t.measureVolTransitions, 'immediate' as const) : undefined,
+          measurePans: t.measurePans ? spliceArray(t.measurePans, t.measurePans[prevIdx] ?? t.panVal ?? t.pan ?? 0) : undefined,
+          measurePanTransitions: t.measurePanTransitions ? spliceArray(t.measurePanTransitions, 'immediate' as const) : undefined,
+          measureReverbSends: t.measureReverbSends ? spliceArray(t.measureReverbSends, t.measureReverbSends[prevIdx] ?? t.fxSends?.reverb ?? t.reverbVal ?? 0) : undefined,
+          measureReverbTransitions: t.measureReverbTransitions ? spliceArray(t.measureReverbTransitions, 'immediate' as const) : undefined,
           patterns: t.patterns.map(p => ({
             ...p,
             measureAssignments: spliceArray(p.measureAssignments, false),
@@ -2270,6 +2873,27 @@ export interface UISlice {
   toggleCircleSequencerDetached: () => void;
   toggleConsoleDetached: () => void;
   toggleTimelineDetached: () => void;
+
+  timelineContextMenu: {
+    x: number;
+    y: number;
+    trackId: number;
+    measureIdx: number;
+    patternId: number | null;
+  } | null;
+  activeTimelineCell: {
+    trackId: number;
+    measureIdx: number;
+  } | null;
+  openTimelineContextMenu: (data: {
+    x: number;
+    y: number;
+    trackId: number;
+    measureIdx: number;
+    patternId: number | null;
+  }) => void;
+  closeTimelineContextMenu: () => void;
+  setActiveTimelineCell: (cell: { trackId: number; measureIdx: number } | null) => void;
 }
 
 export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set) => ({
@@ -2281,6 +2905,12 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
   toggleCircleSequencerDetached: () => set((state) => ({ isCircleSequencerDetached: !state.isCircleSequencerDetached })),
   toggleConsoleDetached: () => set((state) => ({ isConsoleDetached: !state.isConsoleDetached })),
   toggleTimelineDetached: () => set((state) => ({ isTimelineDetached: !state.isTimelineDetached })),
+
+  timelineContextMenu: null,
+  activeTimelineCell: null,
+  openTimelineContextMenu: (data) => set({ timelineContextMenu: data }),
+  closeTimelineContextMenu: () => set({ timelineContextMenu: null }),
+  setActiveTimelineCell: (cell) => set({ activeTimelineCell: cell }),
 });
 
 export type SequencerStore = TrackSlice & StructureSlice & PlaybackSlice & HistorySlice & ClipboardSlice & ProjectSettingsSlice & UISlice;
@@ -2295,24 +2925,121 @@ export const useSequencerStore = create<SequencerStore>((...a) => ({
   ...createUISlice(...a),
 }));
 
-export const getEffectiveMuteState = (tracks: TrackGroup[], trackId: number): boolean => {
+export interface TrackMeta {
+  id: number;
+  instrumentIdx: number;
+  customName?: string;
+  isBusFolder?: boolean;
+  isLinkFolder?: boolean;
+  isLinkMaster?: boolean;
+  busId?: string | number;
+  linkedToTrackId?: string | number;
+  isMute: boolean;
+  isSolo: boolean;
+  patternOverrides?: Record<number, number | null>;
+  automationBypass?: { volume?: boolean; pan?: boolean; reverb?: boolean };
+}
+
+const trackMetaCache = new Map<string, TrackMeta>();
+
+export const getCachedTrackMeta = (
+  id: number,
+  instrumentIdx: number,
+  customName: string | undefined,
+  isBusFolder: boolean | undefined,
+  isLinkFolder: boolean | undefined,
+  isLinkMaster: boolean | undefined,
+  busId: string | number | undefined,
+  linkedToTrackId: string | number | undefined,
+  isMute: boolean,
+  isSolo: boolean,
+  patternOverrides?: Record<number, number | null>,
+  automationBypass?: { volume?: boolean; pan?: boolean; reverb?: boolean }
+): TrackMeta => {
+  const overridesKey = patternOverrides ? Object.entries(patternOverrides).map(([k, v]) => `${k}:${v}`).join(',') : '';
+  const bypassKey = automationBypass ? `${!!automationBypass.volume}_${!!automationBypass.pan}_${!!automationBypass.reverb}` : '';
+  const key = `${id}_${instrumentIdx}_${customName || ''}_${!!isBusFolder}_${!!isLinkFolder}_${!!isLinkMaster}_${busId ?? ''}_${linkedToTrackId ?? ''}_${isMute}_${isSolo}_${overridesKey}_${bypassKey}`;
+  let item = trackMetaCache.get(key);
+  if (!item) {
+    item = {
+      id,
+      instrumentIdx,
+      customName,
+      isBusFolder,
+      isLinkFolder,
+      isLinkMaster,
+      busId,
+      linkedToTrackId,
+      isMute,
+      isSolo,
+      patternOverrides,
+      automationBypass,
+    };
+    trackMetaCache.set(key, item);
+  }
+  return item;
+};
+
+let prevTracksArr: TrackGroup[] | null = null;
+let prevMetaList: TrackMeta[] = [];
+
+export const selectTracksMeta = (state: { tracks: TrackGroup[] }): TrackMeta[] => {
+  const currentTracks = state.tracks;
+  if (currentTracks === prevTracksArr) {
+    return prevMetaList;
+  }
+
+  let hasChanged = currentTracks.length !== prevMetaList.length;
+  const nextMetaList: TrackMeta[] = [];
+
+  for (let i = 0; i < currentTracks.length; i++) {
+    const t = currentTracks[i];
+    const meta = getCachedTrackMeta(
+      t.id,
+      t.instrumentIdx,
+      t.customName,
+      t.isBusFolder,
+      t.isLinkFolder,
+      t.isLinkMaster,
+      t.busId,
+      t.linkedToTrackId,
+      t.isMute,
+      t.isSolo,
+      t.patternOverrides,
+      t.automationBypass
+    );
+    nextMetaList.push(meta);
+    if (!hasChanged && prevMetaList[i] !== meta) {
+      hasChanged = true;
+    }
+  }
+
+  prevTracksArr = currentTracks;
+  if (!hasChanged) {
+    return prevMetaList;
+  }
+  prevMetaList = nextMetaList;
+  return nextMetaList;
+};
+
+export const getEffectiveMuteState = (tracks: any[], trackId: number): boolean => {
   const track = tracks.find(t => t.id === trackId);
   if (!track) return true;
 
   const hasAnySolo = tracks.some(t => t.isSolo);
 
   // Checks recursively if any parent (via busId or linkedToTrackId) is soloed
-  const isAnyParentSolo = (currentTrack: TrackGroup): boolean => {
-    let current: TrackGroup | undefined = currentTrack;
+  const isAnyParentSolo = (currentTrack: any): boolean => {
+    let current: any = currentTrack;
     const visited = new Set<number>();
     while (current) {
       if (visited.has(current.id)) break;
       visited.add(current.id);
       
-      const parentId = current.busId || current.linkedToTrackId;
+      const parentId: string | number | undefined = current.busId || current.linkedToTrackId;
       if (!parentId) break;
       
-      const parent = tracks.find(t => String(t.id) === String(parentId));
+      const parent: any = tracks.find(t => String(t.id) === String(parentId));
       if (parent) {
         if (parent.isSolo) return true;
         current = parent;
@@ -2345,17 +3072,17 @@ export const getEffectiveMuteState = (tracks: TrackGroup[], trackId: number): bo
   };
 
   // Checks recursively if any parent is muted
-  const isAnyParentMuted = (currentTrack: TrackGroup): boolean => {
-    let current: TrackGroup | undefined = currentTrack;
+  const isAnyParentMuted = (currentTrack: any): boolean => {
+    let current: any = currentTrack;
     const visited = new Set<number>();
     while (current) {
       if (visited.has(current.id)) break;
       visited.add(current.id);
       
-      const parentId = current.busId || current.linkedToTrackId;
+      const parentId: string | number | undefined = current.busId || current.linkedToTrackId;
       if (!parentId) break;
       
-      const parent = tracks.find(t => String(t.id) === String(parentId));
+      const parent: any = tracks.find(t => String(t.id) === String(parentId));
       if (parent) {
         if (parent.isMute) return true;
         current = parent;
@@ -2399,23 +3126,23 @@ export const getEffectiveMuteState = (tracks: TrackGroup[], trackId: number): bo
   return !isAllowedToPlayBySolo || isSelfMuted || isParentMuted;
 };
 
-export const getEffectiveVolume = (tracks: TrackGroup[], trackId: number): number => {
+export const getEffectiveVolume = (tracks: any[], trackId: number): number => {
   const track = tracks.find(t => t.id === trackId);
   if (!track) return 100;
   
   let effectiveVolume = track.volumeVal ?? 100;
   
   // Recursively multiply by parent volumes
-  let current: TrackGroup | undefined = track;
+  let current: any = track;
   const visited = new Set<number>();
   while (current) {
     if (visited.has(current.id)) break;
     visited.add(current.id);
     
-    const parentId = current.busId || current.linkedToTrackId;
+    const parentId: string | number | undefined = current.busId || current.linkedToTrackId;
     if (!parentId) break;
     
-    const parent = tracks.find(t => String(t.id) === String(parentId));
+    const parent: any = tracks.find(t => String(t.id) === String(parentId));
     if (parent) {
       const parentVol = parent.volumeVal ?? 100;
       effectiveVolume = (effectiveVolume * parentVol) / 100;

@@ -13,6 +13,8 @@ interface DragNumberBoxProps {
   mode?: 'unipolar' | 'bipolar';
   displayFormatter?: (val: number) => string;
   style?: React.CSSProperties;
+  gaugeRef?: React.RefObject<HTMLDivElement | null>;
+  valueTextRef?: React.RefObject<HTMLSpanElement | null>;
 }
 
 const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({ 
@@ -27,7 +29,9 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
   step,
   mode = 'unipolar',
   displayFormatter,
-  style
+  style,
+  gaugeRef,
+  valueTextRef,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const valueSpanRef = useRef<HTMLSpanElement>(null);
@@ -35,6 +39,19 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
   const startValRef = useRef<number>(0);
   const currentValRef = useRef<number>(value);
   const isDraggingRef = useRef<boolean>(false);
+
+  const setGaugeRef = (el: HTMLDivElement | null) => {
+    if (gaugeRef) {
+      (gaugeRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    }
+  };
+
+  const setTextRef = (el: HTMLSpanElement | null) => {
+    (valueSpanRef as React.MutableRefObject<HTMLSpanElement | null>).current = el;
+    if (valueTextRef) {
+      (valueTextRef as React.MutableRefObject<HTMLSpanElement | null>).current = el;
+    }
+  };
 
   const onAudioDragRef = useRef(onAudioDrag);
   onAudioDragRef.current = onAudioDrag;
@@ -180,8 +197,17 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
           : 'cursor-row-resize active:translate-y-[0.5px] active:shadow-none'
       } ${className}`}
     >
-      <span className="uppercase opacity-60 tracking-wider font-sans">{label}</span>
-      <span ref={valueSpanRef} className="font-mono font-bold text-[10px] ml-1 w-[24px] text-right shrink-0">
+      {/* GPU Accelerated Gauge Bar for Motorized Automation */}
+      <div
+        ref={setGaugeRef}
+        className="absolute inset-y-0 left-0 bg-current pointer-events-none origin-left opacity-20 z-[1]"
+        style={{
+          width: '100%',
+          transform: `scaleX(${Math.max(0, Math.min(1, (value - actualMin) / (range || 1)))})`,
+        }}
+      />
+      <span className="uppercase opacity-60 tracking-wider font-sans relative z-[2]">{label}</span>
+      <span ref={setTextRef} className="font-mono font-bold text-[10px] ml-1 w-[24px] text-right shrink-0 relative z-[2]">
         {disabled ? '—' : formatValue(value)}
       </span>
     </div>

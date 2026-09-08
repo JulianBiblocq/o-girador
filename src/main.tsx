@@ -240,7 +240,14 @@ window.doc = fbDoc;
 // @ts-ignore
 window.getDoc = fbGetDoc;
 
-createRoot(document.getElementById('root')!).render(
+const container = document.getElementById('root')!;
+let root = (window as any).__REACT_ROOT__;
+if (!root) {
+  root = createRoot(container);
+  (window as any).__REACT_ROOT__ = root;
+}
+
+root.render(
   <TopLevelErrorBoundary>
     <GlobalErrorListener />
     <HelmetProvider>

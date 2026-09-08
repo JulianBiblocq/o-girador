@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import { fetchCloudPresets, fetchStoragePresetsJSON } from '../../cloudLibrary';
 import { CloudPreset } from '../../types';
 
 interface UseCloudPresetsProps {
@@ -15,6 +14,7 @@ export function useCloudPresets({ userUid, userRole, mestreId, groupId }: UseClo
     queryFn: async () => {
       if (!userUid) return [];
       
+      const { fetchCloudPresets, fetchStoragePresetsJSON } = await import('../../cloudLibrary');
       const firestorePresetsPromise = fetchCloudPresets(userUid, userRole, mestreId, groupId);
       const storagePresetsPromise = groupId ? fetchStoragePresetsJSON(groupId) : Promise.resolve([]);
       

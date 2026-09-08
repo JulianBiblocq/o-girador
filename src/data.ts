@@ -7,7 +7,7 @@ import { InstrumentConfig, Preset, TimeSignature } from './types';
 
 import { MARACATU_THEME, buildInstrumentColors } from './theme/colorMap';
 
-export const ASSETS_BASE_URL = (import.meta as any).env.BASE_URL;
+export const ASSETS_BASE_URL = (import.meta as any).env?.BASE_URL || '/';
 
 export const instrumentsConfig: InstrumentConfig[] = [
   {
@@ -536,7 +536,7 @@ export function isDarkText(instId: string, strokeVal: string): boolean {
   if (instId === 'caixa' && ['r', 'R', 'd', 'e', 'c', 'C'].includes(strokeVal)) return true;
   if (instId === 'timbal' && ['s', 'S', 'd', 'D', 'c', 'C'].includes(strokeVal)) return true;
   if (instId === 'mineiro' && ['t', 'p', 'L'].includes(strokeVal)) return true;
-  if (instId === 'tarol' && ['c', 'C', 'd', 'e', 'F'].includes(strokeVal)) return true;
+  if (instId === 'tarol' && ['c', 'C', 'd', 'e', 'F', 'f'].includes(strokeVal)) return true;
   if (['marcante', 'meiao', 'repique'].includes(instId) && ['c', 'C', 'd', 'e'].includes(strokeVal)) return true;
   return false;
 }
@@ -552,6 +552,7 @@ export function getVisualStrokeSymbol(symbol: string | number, isLeftHanded: boo
   if (symbol === 'e') return 'd';
   if (symbol === 'R') return 'r';
   if (symbol === 'r') return 'R';
-  // Removed Q and q
+  if (symbol === 'F') return 'f';
+  if (symbol === 'f') return 'F';
   return symbol;
 }

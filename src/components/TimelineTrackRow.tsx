@@ -7,8 +7,9 @@ import { TimelineMeasure } from './TimelineMeasure';
 import { useSequencer } from '../contexts/SequencerContext';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { getTrackDisplayName } from '../utils/colorHelpers';
-import { Mic } from 'lucide-react';
+import { Mic, Activity } from 'lucide-react';
 import { useAudioStore } from '../stores/useAudioStore';
+import { AutomationTrack } from './AutomationTrack';
 
 interface TimelineTrackRowProps {
   trackId: number;
@@ -22,13 +23,17 @@ interface TimelineTrackRowProps {
     currentVal: string | number,
     onSelect: (val: string) => void
   ) => void;
+  isAutomationOpen?: boolean;
+  onToggleAutomation?: () => void;
 }
 
 const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({ 
   trackId, 
   visibleRange = { start: 0, end: 8 },
   currentMeasureW,
-  onStepTouchStart
+  onStepTouchStart,
+  isAutomationOpen = false,
+  onToggleAutomation
 }) => {
   const uiContext = useContext(TimelineUIContext);
   
@@ -228,21 +233,51 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     );
   };
 
+  const [automationParam, setAutomationParam] = React.useState<'volume' | 'pan' | 'reverb'>('volume');
+
+  const handleTrackMeasureVolChange = React.useCallback((mIdx: number, val: number) => {
+    useSequencerStore.getState().handleTrackMeasureVolChange(trackId, mIdx, val);
+  }, [trackId]);
+
+  const handleTrackMeasureVolTransitionChange = React.useCallback((mIdx: number, val: 'immediate' | 'ramp' | 'bezier') => {
+    useSequencerStore.getState().handleTrackMeasureVolTransitionChange(trackId, mIdx, val);
+  }, [trackId]);
+
+  const handleTrackMeasurePanChange = React.useCallback((mIdx: number, val: number) => {
+    useSequencerStore.getState().handleTrackMeasurePanChange(trackId, mIdx, val);
+  }, [trackId]);
+
+  const handleTrackMeasurePanTransitionChange = React.useCallback((mIdx: number, val: 'immediate' | 'ramp' | 'bezier') => {
+    useSequencerStore.getState().handleTrackMeasurePanTransitionChange(trackId, mIdx, val);
+  }, [trackId]);
+
+  const handleTrackMeasureReverbChange = React.useCallback((mIdx: number, val: number) => {
+    useSequencerStore.getState().handleTrackMeasureReverbChange(trackId, mIdx, val);
+  }, [trackId]);
+
+  const handleTrackMeasureReverbTransitionChange = React.useCallback((mIdx: number, val: 'immediate' | 'ramp' | 'bezier') => {
+    useSequencerStore.getState().handleTrackMeasureReverbTransitionChange(trackId, mIdx, val);
+  }, [trackId]);
+
+  const handleToggleAutomationBypass = React.useCallback(() => {
+    useSequencerStore.getState().toggleTrackAutomationBypass(trackId, automationParam);
+  }, [trackId, automationParam]);
+
   const leftSpacerWidth = Math.max(0, visibleRange.start) * currentMeasureW;
   const rightSpacerCount = Math.max(0, totalMeasures - 1 - visibleRange.end);
   const rightSpacerWidth = rightSpacerCount * currentMeasureW;
 
   return (
-    <div
-      className={`flex border-b border-[var(--cordel-border)]/20 h-10 rounded-none transition-opacity duration-150 relative ${
-        !canPlay ? 'opacity-50' : ''
-      }`}
-      style={{ 
-        width: `${HEADER_W + totalContentW}px`,
-        minWidth: `${HEADER_W + totalContentW}px`,
-        // Suppression du contain: 'strict' pour corriger définitivement le bug d'affichage (Culling) après C2
-      }}
-    >
+    <div className="flex flex-col">
+      <div
+        className={`flex border-b border-[var(--cordel-border)]/20 h-10 rounded-none transition-opacity duration-150 relative ${
+          !canPlay ? 'opacity-50' : ''
+        }`}
+        style={{ 
+          width: `${HEADER_W + totalContentW}px`,
+          minWidth: `${HEADER_W + totalContentW}px`,
+        }}
+      >
       {/* ── Sticky track header ── */}
       <div
         className={`timeline-sticky-header sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] shrink-0 ${
@@ -309,6 +344,25 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               </span>
             )
           ) : null}
+
+          {/* Automation Curve Toggle Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleAutomation?.();
+            }}
+            className={`p-0.5 rounded cursor-pointer shrink-0 flex items-center justify-center transition-all ml-auto pointer-events-auto ${
+              isAutomationOpen
+                ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-black shadow-sm'
+                : 'bg-transparent hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] border border-transparent hover:border-[var(--cordel-border)]/30'
+            }`}
+            style={{ width: '22px', height: '22px' }}
+            title={lang === 'fr' 
+              ? (isAutomationOpen ? "Masquer l'automation de volume" : "Afficher l'automation de volume") 
+              : (isAutomationOpen ? "Ocultar automação de volume" : "Mostrar automação de volume")}
+          >
+            <Activity className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
@@ -379,7 +433,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               currentTrackIdx = tracks.findIndex(t => t.id === parentBus.id);
             }
           } else {
-            activePattern = trackData.patterns.find(p => p.measureAssignments[mIdx]);
+            activePattern = trackData.patterns.find((p: any) => p.measureAssignments[mIdx]);
             activeTrack = trackData;
           }
 
@@ -388,8 +442,8 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
 
           // Find if there is a section covering this measure
           const measureSection = songSections.find(s => mIdx >= s.startMeasure && mIdx <= s.endMeasure);
-          const isSectionStart = measureSection && mIdx === measureSection.startMeasure;
-          const isSectionEnd = measureSection && mIdx === measureSection.endMeasure;
+          const isSectionStart = !!(measureSection && mIdx === measureSection.startMeasure);
+          const isSectionEnd = !!(measureSection && mIdx === measureSection.endMeasure);
           const sectionColor = measureSection?.color || '';
 
           const isInLoop = loopStartMeasure !== null && loopEndMeasure !== null && mIdx >= loopStartMeasure && mIdx <= loopEndMeasure;
@@ -450,6 +504,68 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
       {rightSpacerCount > 0 && (
         <div style={{ width: `${rightSpacerWidth}px`, minWidth: `${rightSpacerWidth}px` }} className="shrink-0" />
       )}
+      </div>
+
+      {isAutomationOpen && (
+        <AutomationTrack
+          type={automationParam}
+          label={
+            automationParam === 'volume'
+              ? (lang === 'fr' ? `Vol : ${displayName}` : `Vol: ${displayName}`)
+              : automationParam === 'pan'
+              ? (lang === 'fr' ? `Pan : ${displayName}` : `Pan: ${displayName}`)
+              : (lang === 'fr' ? `Rév : ${displayName}` : `Rev: ${displayName}`)
+          }
+          totalMeasures={totalMeasures}
+          measureWidth={currentMeasureW}
+          values={
+            automationParam === 'volume'
+              ? (dbTrack?.measureVols || Array(totalMeasures).fill(dbTrack?.volumeVal ?? 100))
+              : automationParam === 'pan'
+              ? (dbTrack?.measurePans || Array(totalMeasures).fill(dbTrack?.panVal ?? 0))
+              : (dbTrack?.measureReverbSends || Array(totalMeasures).fill(dbTrack?.reverbVal ?? 0))
+          }
+          transitions={
+            automationParam === 'volume'
+              ? (dbTrack?.measureVolTransitions || Array(totalMeasures).fill('immediate'))
+              : automationParam === 'pan'
+              ? (dbTrack?.measurePanTransitions || Array(totalMeasures).fill('immediate'))
+              : (dbTrack?.measureReverbTransitions || Array(totalMeasures).fill('immediate'))
+          }
+          onChangeValue={
+            automationParam === 'volume'
+              ? handleTrackMeasureVolChange
+              : automationParam === 'pan'
+              ? handleTrackMeasurePanChange
+              : handleTrackMeasureReverbChange
+          }
+          onChangeTransition={
+            automationParam === 'volume'
+              ? handleTrackMeasureVolTransitionChange
+              : automationParam === 'pan'
+              ? handleTrackMeasurePanTransitionChange
+              : handleTrackMeasureReverbTransitionChange
+          }
+          onClose={onToggleAutomation}
+          min={automationParam === 'pan' ? -100 : 0}
+          max={100}
+          color={
+            automationParam === 'volume'
+              ? (inst.colors?.text || '#f19066')
+              : automationParam === 'pan'
+              ? '#38bdf8'
+              : '#c084fc'
+          }
+          lang={lang}
+          headerWidth={HEADER_W}
+          isBypassed={!!dbTrack?.automationBypass?.[automationParam]}
+          onToggleBypass={handleToggleAutomationBypass}
+          paramSelector={{
+            current: automationParam,
+            onChange: setAutomationParam,
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -458,5 +574,6 @@ export const TimelineTrackRow = React.memo(TimelineTrackRowComponent, (prev, nex
   return prev.trackId === next.trackId &&
          prev.currentMeasureW === next.currentMeasureW &&
          prev.visibleRange.start === next.visibleRange.start &&
-         prev.visibleRange.end === next.visibleRange.end;
+         prev.visibleRange.end === next.visibleRange.end &&
+         prev.isAutomationOpen === next.isAutomationOpen;
 });

@@ -12,7 +12,7 @@ import { telemetryService } from '../services/telemetryService';
 import { SavedPattern, TimeSignature, SavedSectionData, Preset } from '../types';
 import { getEffectiveVolume } from '../stores/useSequencerStore';
 import { encoderWav } from '../utils/encodeurWav';
-import { CLOUD_PATTERNS_COLLECTION } from '../cloudPatterns';
+const CLOUD_PATTERNS_COLLECTION = 'patterns';
 import { CLOUD_SECTIONS_COLLECTION } from '../cloudSections';
 import { instrumentAudioConfigs } from '../data/audioConfig';
 import { instrumentsConfig } from '../data';

@@ -690,6 +690,22 @@ export class AudioEngine {
   }
 
   /**
+   * Disconnect and remove an instrument channel associated with a trackId.
+   */
+  public removeInstrumentChannel(trackId: number | string): void {
+    const normalizedId = String(trackId);
+    const channel = this.instrumentChannels.get(normalizedId);
+    if (channel) {
+      try {
+        if (typeof channel.disconnect === 'function') {
+          channel.disconnect();
+        }
+      } catch (_) {}
+      this.instrumentChannels.delete(normalizedId);
+    }
+  }
+
+  /**
    * Retourne la limite de polyphonie d'un instrument en mode éco.
    */
   private getPolyphonyLimit(instrumentId: string): number {
@@ -811,6 +827,10 @@ export class AudioEngine {
     if (HUMANIZED_INSTRUMENTS_SET.has(instrumentId)) {
       if (normSymbol === 't' || normSymbol === 'T') normSymbol = 'B';
       else if (normSymbol === 'C') normSymbol = 'c';
+      else if (normSymbol === 'f') normSymbol = 'F';
+    } else if (instrumentId === 'timbal') {
+      if (normSymbol === 'f') normSymbol = 'F';
+      else if (normSymbol === 'v') normSymbol = 'V';
     } else if (instrumentId === 'agbe') {
       if (normSymbol === 't') normSymbol = 'B';
     } else if (instrumentId === 'gongue') {

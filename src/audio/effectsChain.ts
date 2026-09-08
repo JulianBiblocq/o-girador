@@ -385,7 +385,18 @@ export function syncTrackInsertChain(trackId: number, track: any) {
   lastNode.connect(channelNode);
 }
 
+let onTrackDisposeCallback: ((trackId: number) => void) | null = null;
+export function setOnTrackDisposeCallback(cb: (trackId: number) => void) {
+  onTrackDisposeCallback = cb;
+}
+
 export function disposeTrackNodes(trackId: number) {
+  try {
+    if (onTrackDisposeCallback) {
+      onTrackDisposeCallback(trackId);
+    }
+  } catch (_) {}
+
   try {
     if (reverbSends[trackId]) {
       try { reverbSends[trackId].dispose(); } catch (_) {}

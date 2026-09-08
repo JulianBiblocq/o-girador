@@ -4,16 +4,15 @@
  */
 
 import * as Tone from 'tone';
-import { useSequencerStore, isLinearDAWVisibleTrack, isSequencerVisibleTrack } from '../stores/useSequencerStore';
+import { useSequencerStore, isLinearDAWVisibleTrack, isSequencerVisibleTrack, selectTracksMeta } from '../stores/useSequencerStore';
+import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
-import { subscribeToTick, unsubscribeFromTick, getActiveStrokesForTrack, audioEngine } from '../hooks/useAudioSync';
-import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
-import { useMidiStore } from '../stores/useMidiStore';
+import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../hooks/useAudioSync';
 import { useAudioStore } from '../stores/useAudioStore';
 import { vocalEngineService } from '../audio/vocalEngineService';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { getStrokesForInstrument, STEP_OPTIONS } from '../utils/instrumentStrokes';
+import { getStrokePairs, STEP_OPTIONS } from '../utils/instrumentStrokes';
 import { createPortal } from 'react-dom';
 import { Play, Square, GripVertical, RotateCcw } from 'lucide-react';
 import {
@@ -32,11 +31,10 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useSortable } from '@dnd-kit/sortable';
 import { Pattern, RhythmSignal, CloudPattern, CatalogVisibility, Language, GlobalSwing } from '../types';
-import { i18n, instrumentsConfig, ASSETS_BASE_URL, isDarkText, NEWTON_NOTE_COLORS } from '../data';
+import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { VisitorAuthModal } from './VisitorAuthModal';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useAuth } from '../contexts/AuthContext';
-import { fetchCloudPatterns, savePatternToCloud, deleteCloudPattern } from '../cloudPatterns';
 import { useGameData } from '../contexts/GameDataContext';
 import { AudioFader } from './AudioFader';
 import { useSequencer } from '../contexts/SequencerContext';
@@ -44,7 +42,8 @@ import { useAudio } from '../contexts/AudioContext';
 import { MelodicNoteSelector } from './MelodicNoteSelector';
 import { PatternVariationsEditor } from './instrument-editor/PatternVariationsEditor';
 import { InstrumentEffects } from './InstrumentEffects';
-import { PercussionTuningControl } from './PercussionTuningControl';
+import { StrokeWritingDock } from './instrument-editor/StrokeWritingDock';
+import { StrokeInspectorPanel } from './instrument-editor/StrokeInspectorPanel';
 import { InstrumentPatternGrid } from './InstrumentPatternGrid';
 import { XiloChisel, XiloMegaphone } from './XiloIcons';
 import { useCloudAudioBounce } from '../hooks/useCloudAudioBounce';
@@ -206,22 +205,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const pushUndoState = useSequencerStore(state => state.pushUndoState);
   const handlePatternSwingChange = useSequencerStore(state => state.handlePatternSwingChange);
   const handleResetPatternMicrotimings = useSequencerStore(state => state.handleResetPatternMicrotimings);
-
-  // Settings Store hooks for global stroke controls
-  const forcedStrokes = useSequencerSettingsStore(state => state.forcedStrokes) || {};
-  const setStrokeForcedState = useSequencerSettingsStore(state => state.setStrokeForcedState);
-  const strokeDefaults = useSequencerSettingsStore(state => state.strokeDefaults);
-  const setStrokeDefault = useSequencerSettingsStore(state => state.setStrokeDefault);
-
-  // MIDI store hooks
-  const isMidiLearnActive = useMidiStore(state => state.isMidiLearnActive);
-  const setMidiLearnActive = useMidiStore(state => state.setMidiLearnActive);
-  const waitingForMidiStroke = useMidiStore(state => state.waitingForMidiStroke);
-  const setWaitingForMidiStroke = useMidiStore(state => state.setWaitingForMidiStroke);
-  const mappings = useMidiStore(state => state.mappings);
-  const removeMidiMapping = useMidiStore(state => state.removeMidiMapping);
-
-  const [selectedStrokeMacro, setSelectedStrokeMacro] = useState<string | null>(null);
 
   const canPaste = !!sequencer.copiedPattern;
 
@@ -463,7 +446,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     }
   }, [activePattern, lang]);
 
-  const allTracks = useSequencerStore(state => state.tracks);
+  const tracksMeta = useSequencerStore(selectTracksMeta);
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
   const inst = track ? instrumentsConfig[track.instrumentIdx] : { id: '', name: '', type: 'percussion', iconImg: '', colors: { text: '' }, mixerBg: '' };
   
@@ -472,7 +455,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     if (track.customName) return track.customName;
     const instName = inst.name || 'Instrument';
     
-    const sameInstTracks = allTracks.filter(t => 
+    const sameInstTracks = tracksMeta.filter(t => 
       !t.isBusFolder && 
       instrumentsConfig[t.instrumentIdx]?.id === inst.id
     );
@@ -485,145 +468,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       }
     }
     return instName;
-  }, [track, inst, allTracks, trackId]);
+  }, [track, inst, tracksMeta, trackId]);
 
-
-  // 1. Calculer les moyennes réelles (volume et decay) pour une frappe donnée sur la piste en cours
-  const getStrokeAverages = (stroke: string) => {
-    let volSum = 0;
-    let volCount = 0;
-    let decaySum = 0;
-    let decayCount = 0;
-
-    const isVoice = inst?.type === 'voice';
-    const defaultDecay = isVoice ? 10 : 100;
-
-    track.patterns.forEach((p) => {
-      const vols = p.volumes || [];
-      const decays = p.decays || [];
-
-      p.activeSteps.forEach((step, idx) => {
-        if (step === stroke) {
-          volSum += vols[idx] !== undefined ? vols[idx] : 80;
-          volCount++;
-          decaySum += decays[idx] !== undefined ? decays[idx] : defaultDecay;
-          decayCount++;
-        }
-      });
-
-      p.variations?.forEach((v) => {
-        const varVols = v.volumes || [];
-        const varDecays = v.decays || [];
-        v.steps.forEach((step, idx) => {
-          if (step === stroke) {
-            volSum += varVols[idx] !== undefined ? varVols[idx] : 80;
-            volCount++;
-            decaySum += varDecays[idx] !== undefined ? varDecays[idx] : defaultDecay;
-            decayCount++;
-          }
-        });
-      });
-    });
-
-    if (volCount > 0 && decayCount > 0) {
-      return {
-        avgVolume: Math.round(volSum / volCount),
-        avgDecay: Math.round(decaySum / decayCount),
-      };
-    }
-
-    // Récupération de la valeur par défaut anticipée dans les strokeDefaults
-    const defaults = strokeDefaults[`${track.id}:${stroke}`];
-    return {
-      avgVolume: defaults?.volume !== undefined ? defaults.volume : 80,
-      avgDecay: defaults?.decay !== undefined ? defaults.decay : defaultDecay,
-    };
-  };
-
-  // 2. Appliquer un delta de volume relatif sur tous les pas correspondants de la piste, et sauvegarder la valeur par défaut
-  const applyMacroVolumeDelta = (stroke: string, delta: number, targetVal: number) => {
-    if (pushUndoState) pushUndoState();
-
-    // Enregistrer la macro par défaut anticipée
-    setStrokeDefault(`${trackId}:${stroke}`, { volume: targetVal });
-
-    setTracks(prevTracks => prevTracks.map(t => {
-      if (t.id === trackId) {
-        return {
-          ...t,
-          patterns: t.patterns.map(p => {
-            const newVols = [...(p.volumes || Array(p.steps).fill(80))];
-            let hasChanged = false;
-            p.activeSteps.forEach((step, idx) => {
-              if (step === stroke) {
-                newVols[idx] = Math.max(0, Math.min(100, newVols[idx] + delta));
-                hasChanged = true;
-              }
-            });
-
-            const newVariations = p.variations?.map(v => {
-              const newVarVols = [...(v.volumes || Array(v.steps.length).fill(80))];
-              let varChanged = false;
-              v.steps.forEach((step, idx) => {
-                if (step === stroke) {
-                  newVarVols[idx] = Math.max(0, Math.min(100, newVarVols[idx] + delta));
-                  varChanged = true;
-                }
-              });
-              return varChanged ? { ...v, volumes: newVarVols } : v;
-            });
-
-            return (hasChanged || p.variations) ? { ...p, volumes: newVols, variations: newVariations } : p;
-          })
-        };
-      }
-      return t;
-    }));
-  };
-
-  // 3. Appliquer un delta de decay relatif sur tous les pas correspondants de la piste, et sauvegarder la valeur par défaut
-  const applyMacroDecayDelta = (stroke: string, delta: number, targetVal: number) => {
-    if (pushUndoState) pushUndoState();
-
-    // Enregistrer la macro par défaut anticipée
-    setStrokeDefault(`${trackId}:${stroke}`, { decay: targetVal });
-
-    setTracks(prevTracks => prevTracks.map(t => {
-      if (t.id === trackId) {
-        const isVoice = inst?.type === 'voice';
-        const defaultDecay = isVoice ? 10 : 100;
-
-        return {
-          ...t,
-          patterns: t.patterns.map(p => {
-            const newDecays = [...(p.decays || Array(p.steps).fill(defaultDecay))];
-            let hasChanged = false;
-            p.activeSteps.forEach((step, idx) => {
-              if (step === stroke) {
-                newDecays[idx] = Math.max(10, Math.min(100, newDecays[idx] + delta));
-                hasChanged = true;
-              }
-            });
-
-            const newVariations = p.variations?.map(v => {
-              const newVarDecays = [...(v.decays || Array(v.steps.length).fill(defaultDecay))];
-              let varChanged = false;
-              v.steps.forEach((step, idx) => {
-                if (step === stroke) {
-                  newVarDecays[idx] = Math.max(10, Math.min(100, newVarDecays[idx] + delta));
-                  varChanged = true;
-                }
-              });
-              return varChanged ? { ...v, decays: newVarDecays } : v;
-            });
-
-            return (hasChanged || p.variations) ? { ...p, decays: newDecays, variations: newVariations } : p;
-          })
-        };
-      }
-      return t;
-    }));
-  };
 
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);
   const [editName, setEditName] = useState<string>('');
@@ -682,9 +528,15 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     const loadPatterns = async () => {
       if (!userProfile) return;
       setIsLoadingPatterns(true);
-      const patterns = await fetchCloudPatterns(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null);
-      setCloudPatterns(patterns);
-      setIsLoadingPatterns(false);
+      try {
+        const { fetchCloudPatterns } = await import('../cloudPatterns');
+        const patterns = await fetchCloudPatterns(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null);
+        setCloudPatterns(patterns);
+      } catch (err) {
+        console.error("Error loading cloud patterns", err);
+      } finally {
+        setIsLoadingPatterns(false);
+      }
     };
     loadPatterns();
   }, [userProfile]);
@@ -741,6 +593,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         : (userProfile.mestreId || undefined);
       const myGroupId = userProfile.groupId || undefined;
 
+      const { savePatternToCloud, fetchCloudPatterns } = await import('../cloudPatterns');
       const docId = await savePatternToCloud(savedPattern, userProfile.uid, savePatternVisibility, myGroupMestreId, targetDocId, userProfile.role, myGroupId);
       
       if (autoGeneratePatternAudio) {
@@ -917,7 +770,21 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     setIsMultiSelectActive(false);
   }, [track?.id, track?.selectedPatternId]);
 
-  const strokes = getStrokesForInstrument(inst.id, inst.type, lang, isLeftHanded);
+  // Active stroke writing tool & parity alternation mode
+  const [activeTool, setActiveTool] = useState<string>(() => {
+    const pairs = getStrokePairs(inst?.id, inst?.type, lang, isLeftHanded);
+    return pairs[0]?.strong?.symbol || 'D';
+  });
+  const [isAlternating, setIsAlternating] = useState<boolean>(false);
+  const [isInspectorMobileOpen, setIsInspectorMobileOpen] = useState<boolean>(false);
+
+  // Sync activeTool when instrument changes
+  useEffect(() => {
+    const pairs = getStrokePairs(inst?.id, inst?.type, lang, isLeftHanded);
+    if (pairs[0]?.strong?.symbol) {
+      setActiveTool(pairs[0].strong.symbol);
+    }
+  }, [inst?.id, inst?.type, lang, isLeftHanded]);
 
   const handleClose = React.useCallback(() => {
     if (isClosing) return;
@@ -942,17 +809,29 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     setMouseDownOnBackdrop(false);
   };
 
+  const isSettingsOpen = useSequencerSettingsStore(state => state.isSettingsOpen);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (isSettingsOpen) return;
+      if (e.defaultPrevented) return;
       if (e.key === 'Escape') {
         e.preventDefault();
         handleClose();
+        return;
+      }
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        if (selectedStepIdx !== null) return;
+        const activeEl = document.activeElement;
+        if (activeEl && (activeEl.closest?.('.step-boxes') || activeEl.closest?.('.step-input-cell'))) {
+          return;
+        }
       }
       if (onKeyDown) onKeyDown(e);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [handleClose, onKeyDown]);
+  }, [handleClose, onKeyDown, selectedStepIdx, isSettingsOpen]);
 
   if (!track) return null;
 
@@ -966,9 +845,10 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       <div
         className="bg-[#f4ecd8] cordel-border-sm text-[#1a1a1a] flex flex-col relative overflow-hidden"
         style={{
-          maxWidth: isMobile ? '100%' : '1600px',
-          width: isMobile ? '98vw' : '96vw',
-          maxHeight: isMobile ? 'calc(100dvh - 180px)' : 'calc(100vh - 160px)',
+          maxWidth: isMobile ? '100%' : '1400px',
+          width: isMobile ? '98vw' : '95vw',
+          height: isMobile ? 'calc(100dvh - 30px)' : '92vh',
+          maxHeight: isMobile ? 'calc(100dvh - 30px)' : '960px',
           boxShadow: '8px 8px 0px 0px #1a1a1a',
         }}
       >
@@ -1095,11 +975,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           </button>
         </div>
 
-        {/* ═══════════════════ BODY ═══════════════════ */}
-        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden min-h-0" style={{ WebkitOverflowScrolling: 'touch' }}>
+        {/* ═══════════════════ CORPS CENTRAL (Grille + Inspecteur) ═══════════════════ */}
+        <div className="w-full flex-1 flex overflow-hidden min-h-0 relative" style={{ WebkitOverflowScrolling: 'touch' }}>
           
-          {/* Main scrollable editor panel */}
-          <div ref={containerRef} className="flex-1 md:overflow-y-auto p-3 md:p-5 flex flex-col gap-6" style={{ minWidth: 0, WebkitOverflowScrolling: 'touch' }}>
+          {/* Zone gauche (flex-1 overflow-y-auto) : Grille et gestion des motifs */}
+          <div ref={containerRef} className="flex-1 overflow-y-auto p-3 md:p-5 flex flex-col gap-6 min-w-0" style={{ WebkitOverflowScrolling: 'touch' }}>
             <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
               <SortableContext items={patternIds} strategy={verticalListSortingStrategy}>
                 {track.patterns.map((ptn, ptnIdx) => {
@@ -1329,7 +1209,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
                           {/* Pattern Usage Info */}
                           {(() => {
-                            const usage = getPatternUsage(ptn.id, track, allTracks, lang);
+                            const usage = getPatternUsage(ptn.id, track, tracksMeta, lang);
                             return (
                               <div className="flex flex-wrap items-center gap-2 text-[10px] bg-[#eaddcf]/30 p-1.5 px-2.5 rounded-sm border border-[#1a1a1a]/10 mb-2">
                                 <span className="font-bold text-[#1a1a1a]/60 uppercase tracking-wider flex items-center gap-1.5 select-none">
@@ -1430,6 +1310,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             onCopyPattern={onCopyPattern}
                             onPastePattern={onPastePattern}
                             canPaste={canPaste}
+                            activeTool={activeTool}
+                            isAlternating={isAlternating}
                           />
 
                           {/* Variations */}
@@ -1481,353 +1363,60 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             {/* Add pattern button */}
             <button
               onClick={onAddPattern}
-              className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors"
+              className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors mb-2"
             >
               + {lang === 'fr' ? 'Ajouter un motif' : 'Adicionar padrão'}
             </button>
           </div>
 
-          {/* ─── Right sidebar: Stroke legend ─── */}
-          <div className="border-t-[3px] md:border-t-0 md:border-l-[3px] border-[#1a1a1a] bg-[#ece4d0] p-4 shrink-0 flex flex-col gap-4 w-full md:w-[220px] lg:w-[280px] xl:w-[320px] md:overflow-y-auto">
-            <div className="border-b-[2px] border-[#1a1a1a] pb-2">
-              <h3 className="font-cactus font-bold text-sm uppercase tracking-wide">
-                {t('legend')}
-              </h3>
-              <p className="text-[10px] text-[#666] mt-0.5">{trackDisplayName}</p>
-            </div>
-
-            <PercussionTuningControl trackId={track.id} />
-
-            {/* Sculpting Legend */}
-            <div className="bg-[#f4ecd8] cordel-border-sm p-2.5 text-[10px] flex flex-col gap-1.5 text-[#1a1a1a]">
-              <p className="font-bold">🎛️ {lang === 'fr' ? 'Sculpture du son' : 'Escultura do som'}:</p>
-              <div className="flex items-center gap-1.5">
-                <div className="w-6 h-1 bg-green-600 shrink-0" />
-                <span>{lang === 'fr' ? 'Volume du pas (0-100%)' : 'Volume do passo (0-100%)'}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-6 h-1 bg-amber-500 shrink-0" />
-                <span>
-                  {inst.type === 'voice'
-                    ? (lang === 'fr' 
-                        ? 'Durée de la note (1 double croche par pas de 10%)' 
-                        : 'Duração da nota (1 semicolcheia por passo de 10%)')
-                    : (lang === 'fr' 
-                        ? 'Résonance/Decay (10-100%)' 
-                        : 'Ressonância/Decay (10-100%)')
-                  }
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-6 h-1.5 bg-[#2980b9] shrink-0" />
-                <span>
-                  {lang === 'fr'
-                    ? 'Micro-timing (Gauche: Avance, Droite: Retard)'
-                    : 'Micro-timing (Esquerda: Avanço, Direita: Atraso)'}
-                </span>
-              </div>
-              <p className="text-[9px] text-[#666] mt-0.5 leading-tight">
-                {lang === 'fr' 
-                  ? 'Cliquez sur un pas pour afficher ses curseurs sous le motif.' 
-                  : 'Clique em um passo para exibir seus controles sob o padrão.'}
-              </p>
-            </div>
-
-            {/* Voice-specific instructions */}
-            {inst.type === 'voice' && (
-              <div className="bg-[#f4ecd8] cordel-border-sm p-3 text-[10px] flex flex-col gap-2">
-                <p className="font-bold text-xs border-b border-[#1a1a1a]/20 pb-1">
-                  🎤 {inst.id === 'puxador' 
-                    ? (lang === 'fr' ? 'Soliste (Puxador)' : 'Solista (Puxador)') 
-                    : (lang === 'fr' ? 'Chœur (Coro)' : 'Coro')}
-                </p>
-                <p className="opacity-90">
-                  {inst.id === 'puxador'
-                    ? (lang === 'fr' 
-                        ? 'Sur cette piste, vous écrivez uniquement le chant du Puxador (fond terracotta/sable).' 
-                        : 'Nesta faixa, você escreve apenas o canto do Puxador (fundo terracota/areia).')
-                    : (lang === 'fr' 
-                        ? 'Sur cette piste, vous écrivez uniquement le chant du Coro (fond ciano).' 
-                        : 'Nesta faixa, você escreve apenas o canto do Coro (fundo ciano).')
-                  }
-                </p>
-                
-                <div className="mt-1 flex flex-col gap-1">
-                  <p className="font-bold uppercase tracking-wider text-[9px] text-[#666]">
-                    {lang === 'fr' ? 'Couleurs des Notes (Newton) :' : 'Cores das Notas (Newton) :'}
-                  </p>
-                  <div className="grid grid-cols-2 gap-x-2 gap-y-1 mt-0.5">
-                    {Object.entries(NEWTON_NOTE_COLORS).map(([noteName, hexColor]) => {
-                      const transposeSteps = sequencer.vocalTransposeSteps || 0;
-                      let displayNote = noteName;
-                      let displayColor = hexColor;
-
-                      if (transposeSteps !== 0) {
-                        try {
-                          const transposed = Tone.Frequency(noteName + "4").transpose(transposeSteps).toNote();
-                          const transposedLetter = transposed.replace(/\d+$/, '').toUpperCase();
-                          displayNote = transposedLetter;
-                          
-                          const baseTransposedLetter = transposedLetter.charAt(0);
-                          displayColor = NEWTON_NOTE_COLORS[baseTransposedLetter] || hexColor;
-                        } catch (_) {}
-                      }
-
-                      const noteSolfeges: Record<string, string> = {
-                        C: lang === 'fr' ? 'Do' : 'Dó',
-                        D: 'Ré',
-                        E: lang === 'fr' ? 'Mi' : 'Mi',
-                        F: lang === 'fr' ? 'Fa' : 'Fá',
-                        G: 'Sol',
-                        A: lang === 'fr' ? 'La' : 'Lá',
-                        B: 'Si'
-                      };
-
-                      const noteColors: Record<string, string> = {
-                        C: lang === 'fr' ? 'Rouge' : 'Vermelho',
-                        D: lang === 'fr' ? 'Terracotta' : 'Terracota',
-                        E: lang === 'fr' ? 'Jaune' : 'Amarelo',
-                        F: lang === 'fr' ? 'Vert' : 'Verde',
-                        G: lang === 'fr' ? 'Bleu' : 'Azul',
-                        A: lang === 'fr' ? 'Indigo' : 'Índigo',
-                        B: lang === 'fr' ? 'Violet' : 'Violeta'
-                      };
-
-                      const baseLetter = displayNote.charAt(0).toUpperCase();
-                      const solfege = noteSolfeges[baseLetter] || '';
-                      const colorName = noteColors[baseLetter] || '';
-                      const hasAccident = displayNote.includes('#');
-
-                      const label = `${displayNote} (${solfege}${hasAccident ? '#' : ''} - ${colorName})`;
-
-                      return (
-                        <div key={noteName} className="flex items-center gap-1.5 font-sans">
-                          <span 
-                            className="w-2.5 h-2.5 rounded-full border border-black/10 shrink-0" 
-                            style={{ backgroundColor: displayColor }} 
-                          />
-                          <span className="font-medium text-[9px] text-[#1a1a1a]">{label}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Bouton d'activation global MIDI Learn */}
-            <div className="flex justify-between items-center gap-2 border-b border-black/10 pb-2">
-              <button
-                onClick={() => setMidiLearnActive(!isMidiLearnActive)}
-                className={`w-full border-black border-2 px-3 py-1.5 active:scale-95 transition-all text-xs font-bold font-mono shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none cursor-pointer flex items-center justify-center gap-1.5 ${
-                  isMidiLearnActive 
-                    ? 'bg-amber-500 text-black hover:bg-amber-600' 
-                    : 'bg-[#f4ecd8] text-black hover:bg-[#ebdcb9]'
-                }`}
-              >
-                <span>🎹</span>
-                <span>
-                  {lang === 'fr' ? 'Apprentissage MIDI :' : 'Aprendizado MIDI :'} {isMidiLearnActive ? (lang === 'fr' ? 'ACTIF' : 'ATIVO') : (lang === 'fr' ? 'INACTIF' : 'INATIVO')}
-                </span>
-              </button>
-            </div>
-
-            {/* Stroke list */}
-            <div className="flex flex-col gap-2">
-              {strokes.map((stroke, sIdx) => {
-                const symbol = stroke.symbol;
-                const activeStrokes = getActiveStrokesForTrack(track, allTracks);
-                const isUsed = activeStrokes.includes(symbol);
-                const forced = forcedStrokes[`${track.id}:${symbol}`];
-                const isActive = forced !== undefined ? forced : isUsed;
-                const isSelected = selectedStrokeMacro === symbol;
-
-                const bgColor = inst.colors[stroke.colorKey] || '#666';
-                let txtColor = inst.colors.text || '#f4ecd8';
-                if (isDarkText(inst.id, stroke.colorKey)) {
-                  txtColor = '#1a1a1a';
-                }
-
-                 const { avgVolume, avgDecay } = getStrokeAverages(symbol);
-                 const isVoice = inst?.type === 'voice';
- 
-                 const isWaiting = waitingForMidiStroke && 
-                   String(waitingForMidiStroke.trackId) === String(track.id) && 
-                   waitingForMidiStroke.symbol === symbol;
- 
-                 // Find note associated with this track & symbol
-                 let associatedNote: number | null = null;
-                 for (const key in mappings) {
-                   const m = mappings[key];
-                   if (m && String(m.trackId) === String(track.id) && m.symbol === symbol) {
-                     associatedNote = Number(key);
-                     break;
-                   }
-                 }
- 
-                 return (
-                   <div key={sIdx} className="flex flex-col border border-black/10 bg-black/[0.01] p-1.5 rounded-sm">
-                     {/* Touche et Infos (Ligne interactive) */}
-                     <div
-                       onClick={() => setSelectedStrokeMacro(isSelected ? null : symbol)}
-                       className={`flex items-center gap-2.5 cursor-pointer hover:bg-black/5 p-0.5 select-none transition-all ${
-                         !isActive ? 'opacity-40 grayscale border-dashed border border-black/30' : ''
-                       }`}
-                       title={`${symbol} : ${stroke.label} (${isActive ? (lang === 'fr' ? 'Actif' : 'Ativo') : (lang === 'fr' ? 'Inactif' : 'Inativo')})`}
-                     >
-                       <div
-                         onPointerDown={(e) => {
-                           e.preventDefault();
-                           e.stopPropagation();
-                           if (isMidiLearnActive) {
-                             setWaitingForMidiStroke({
-                               trackId: String(trackId),
-                               instrumentId: inst.id,
-                               symbol
-                             });
-                           } else {
-                             if (audioEngine) {
-                               audioEngine.playNote(trackId, symbol, Tone.now(), 1.0, 1.0);
-                             }
-                           }
-                         }}
-                         data-midi-target={`${inst.id}-${symbol}`}
-                         className={`flex items-center justify-center cordel-border-sm font-bold text-xs shrink-0 cursor-pointer active:scale-95 transition-transform duration-100 select-none hover:opacity-90 ${
-                           isWaiting ? 'animate-pulse border-2 border-dashed !border-amber-600' : ''
-                         }`}
-                         style={{
-                           width: '32px',
-                           height: '32px',
-                           backgroundColor: bgColor,
-                           color: txtColor,
-                           borderColor: isWaiting ? '#d35400' : '#1a1a1a',
-                           borderStyle: isWaiting ? 'dashed' : (isActive ? 'solid' : 'dashed'),
-                         }}
-                       >
-                         {symbol.length <= 2 ? symbol : symbol.charAt(0)}
-                       </div>
- 
-                       <div className="flex flex-col min-w-0 flex-grow">
-                         <div className="flex items-center gap-1.5 flex-wrap">
-                           <span className="text-[11px] font-bold text-[#1a1a1a] leading-tight">{stroke.label}</span>
-                           {associatedNote !== null && (
-                             <span 
-                               onClick={(e) => {
-                                 e.stopPropagation();
-                                 removeMidiMapping(associatedNote!);
-                               }}
-                               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-[#1a1a1a] text-[#f4ecd8] border border-black hover:bg-red-700 hover:text-white cursor-pointer transition-colors"
-                               title={lang === 'fr' ? "Cliquez pour dissocier la note MIDI" : "Clique para desassociar a nota MIDI"}
-                             >
-                               <span>🎹 {midiNoteToName(associatedNote)}</span>
-                               <span className="font-extrabold text-[9px] leading-none">×</span>
-                             </span>
-                           )}
-                         </div>
-                         <span className="text-[9px] text-[#666] leading-tight">
-                           {lang === 'fr' ? 'Touche' : 'Tecla'}: {stroke.shortcut}
-                         </span>
-                       </div>
-
-                      <span className="text-[9px] text-[#666] font-bold mr-1 shrink-0 select-none">
-                        {isSelected ? '▲' : '▼'}
-                      </span>
-                    </div>
-
-                    {/* Accordéon Tiroir Contextuel pour les réglages globaux */}
-                    {isSelected && (
-                      <div className="mt-2 border-t border-dashed border-[#1a1a1a]/30 pt-2 pb-1 px-1 flex flex-col gap-2.5 bg-[#ece4d0]/40">
-                        <div className="flex justify-between items-center text-[9px] font-bold">
-                          <span>🎛️ {lang === 'fr' ? 'MACRO :' : 'MACRO :'} [{symbol}]</span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setStrokeForcedState(`${track.id}:${symbol}`, !isActive);
-                            }}
-                            className={`px-1.5 py-0.5 border text-[8px] font-black uppercase tracking-wider cursor-pointer shadow-[1px_1px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all select-none ${
-                              isActive
-                                ? 'bg-green-600 text-white border-green-700 hover:bg-green-700' 
-                                : 'bg-red-700 text-white border-red-800 hover:bg-red-800'
-                            }`}
-                            title={lang === 'fr' 
-                              ? 'Forcer l\'activation ou la désactivation de cette frappe'
-                              : 'Forçar a ativação ou desativação desta batida'}
-                          >
-                            {isActive ? '● ACTIF' : '○ DÉSACTIVÉ'}
-                          </button>
-                        </div>
-
-                        {/* Volume slider */}
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex justify-between text-[9px] font-bold">
-                            <span>🔊 Volume Global :</span>
-                            <span className={`vol-label-${symbol}`}>{avgVolume}%</span>
-                          </div>
-                          <input 
-                            type="range"
-                            min="0"
-                            max="100"
-                            defaultValue={avgVolume}
-                            onInput={(e) => {
-                              const target = e.currentTarget;
-                              const label = target.parentElement?.querySelector(`.vol-label-${symbol}`);
-                              if (label) label.textContent = `${target.value}%`;
-                            }}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value, 10);
-                              const delta = val - avgVolume;
-                              applyMacroVolumeDelta(symbol, delta, val);
-                            }}
-                            className="w-full accent-green-600 cursor-pointer h-1.5 bg-black/10"
-                          />
-                        </div>
-
-                        {/* Decay slider */}
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex justify-between text-[9px] font-bold">
-                            <span>⏳ {isVoice ? (lang === 'fr' ? 'Durée Globale :' : 'Duração Geral :') : (lang === 'fr' ? 'Decay Global :' : 'Decay Geral :')}</span>
-                            <span className={`decay-label-${symbol}`}>{avgDecay}%</span>
-                          </div>
-                          <input 
-                            type="range"
-                            min="10"
-                            max="100"
-                            defaultValue={avgDecay}
-                            onInput={(e) => {
-                              const target = e.currentTarget;
-                              const label = target.parentElement?.querySelector(`.decay-label-${symbol}`);
-                              if (label) label.textContent = `${target.value}%`;
-                            }}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value, 10);
-                              const delta = val - avgDecay;
-                              applyMacroDecayDelta(symbol, delta, val);
-                            }}
-                            className="w-full accent-amber-500 cursor-pointer h-1.5 bg-black/10"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Keyboard navigation tips */}
-            <div className="bg-[#f4ecd8] cordel-border-sm p-2.5 text-[10px] mt-auto flex flex-col gap-1">
-              <p className="font-bold">⌨️ {lang === 'fr' ? 'Astuces' : 'Dicas'}:</p>
-              <p>{lang === 'fr'
-                ? 'Espace pour avancer et laisser un silence.'
-                : 'Espaço para avançar e deixar um silêncio.'
-              }</p>
-              <p>{lang === 'fr'
-                ? 'Flèches (←/→) pour naviguer.'
-                : 'Setas (←/→) para navegar.'
-              }</p>
-            </div>
+          {/* ─── Zone droite fixe (270px, border-l) : Panneau StrokeInspectorPanel ─── */}
+          <div className="hidden lg:flex shrink-0 w-[270px] h-full flex-col overflow-hidden border-l-[3px] border-[#1a1a1a] bg-[#ece4d0]">
+            <StrokeInspectorPanel
+              trackId={track.id}
+              instrument={inst}
+              lang={lang}
+              isLeftHanded={isLeftHanded}
+              activeTool={activeTool}
+            />
           </div>
         </div>
+
+        {/* ═══════════════════ PIED DE PAGE GLOBAL (Dock pleine largeur) ═══════════════════ */}
+        <StrokeWritingDock
+          trackId={track.id}
+          instrument={inst}
+          lang={lang}
+          isLeftHanded={isLeftHanded}
+          activeTool={activeTool}
+          onSelectTool={setActiveTool}
+          isAlternating={isAlternating}
+          onToggleAlternating={() => setIsAlternating(prev => !prev)}
+          onOpenBottomSheet={() => setIsInspectorMobileOpen(true)}
+        />
       </div>
+
+    {/* ─── Mobile/Tablet Portrait Bottom Sheet Drawer (< 1024px) ─── */}
+    {isInspectorMobileOpen && (
+      <div
+        className="lg:hidden fixed inset-0 z-[100000] flex flex-col justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
+        onClick={() => setIsInspectorMobileOpen(false)}
+      >
+        <div
+          className="bg-[#ece4d0] border-t-[3px] border-[#1a1a1a] rounded-t-xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <StrokeInspectorPanel
+            trackId={track.id}
+            instrument={inst}
+            lang={lang}
+            isLeftHanded={isLeftHanded}
+            activeTool={activeTool}
+            isMobileDrawer={true}
+            onCloseMobileDrawer={() => setIsInspectorMobileOpen(false)}
+          />
+        </div>
+      </div>
+    )}
 
       {/* Load Pattern Modal */}
       {loadModalPatternId !== null && (
@@ -1909,6 +1498,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                       if (await sequencer.confirmAsync(lang === 'fr' ? 'Supprimer définitivement cette phrase du catalogue ?' : 'Excluir permanentemente este padrão do catálogo?')) {
                                         try {
                                           const pId = libPtn.id;
+                                          const { deleteCloudPattern } = await import('../cloudPatterns');
                                           await deleteCloudPattern(pId);
                                           setCloudPatterns(prev => prev.filter(p => p.id !== pId));
                                         } catch (err) {

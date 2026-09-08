@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import * as Tone from 'tone';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { audioEngine } from '../hooks/useAudioSync';
@@ -12,7 +13,8 @@ import { metroChannel } from '../audio/effectsChain';
 import { TrackGroup, Pattern, GlobalSwing, CloudRhythmSignal } from '../types';
 import { getStrokesForInstrument } from '../utils/instrumentStrokes';
 import { exportTablatureFile, printTablature, printLegendOnly, generateTablatureCore, generateAnnexTablature } from '../utils/exportTablature';
-import { ShortcutsGuide } from './right-sidebar/ShortcutsGuide';
+import { lazyWithRetry } from '../utils/lazyWithRetry';
+const ShortcutsGuide = lazyWithRetry(() => import('./right-sidebar/ShortcutsGuide').then(m => ({ default: m.ShortcutsGuide })), 'ShortcutsGuide');
 import { MidiManagerPanel } from './MidiManagerPanel';
 import { useAudioStore } from '../stores/useAudioStore';
 
@@ -270,6 +272,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
     }, 85);
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const toggleSection = (section: string) => {
     setActiveSection(activeSection === section ? null : section);
   };
@@ -516,8 +530,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
   ];
 
   if (isClosing) {
-    return (
-      <div className="fixed inset-0 z-[999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    return createPortal(
+      <div className="fixed inset-0 z-[100010] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         {/* Conteneur sas de décompression brutaliste */}
         <div className="border-4 border-black bg-[#fbf8f0] p-8 max-w-sm text-center shadow-[6px_6px_0px_#000] flex flex-col items-center justify-center gap-3">
           <div className="animate-spin text-3xl">
@@ -537,12 +551,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
             {lang === 'fr' ? 'Fermeture de l\'Atelier...' : 'Fechando A Oficina...'}
           </span>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
-    <div className="fixed inset-0 z-[999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[100010] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
+    >
       {/* Container Principal Brutaliste */}
       <div className="bg-[#f4ecd8] border-4 border-black w-full md:w-[92vw] max-w-6xl h-[85vh] flex flex-col shadow-[8px_8px_0px_#000] relative overflow-hidden text-[#1a1a1a]">
         
@@ -1628,11 +1648,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                   : "Esta é a lista de atalhos e notações para os instrumentos do ritmo atual. Instrumentos não programados são ocultados automaticamente."}
                               </p>
                               <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-                                <ShortcutsGuide 
-                                  lang={lang} 
-                                  t={t} 
-                                  activeStrokesByInstrument={activeStrokesByInstrument} 
-                                />
+                                <React.Suspense fallback={<div className="p-4 text-xs font-mono opacity-50">Chargement...</div>}>
+                                  <ShortcutsGuide 
+                                    lang={lang} 
+                                    t={t} 
+                                    activeStrokesByInstrument={activeStrokesByInstrument} 
+                                  />
+                                </React.Suspense>
                               </div>
                             </div>
 
@@ -1654,6 +1676,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -45,9 +45,10 @@ interface GlobalModalsLayoutProps {
     patternId: number,
     stepIdx: number,
     instId: string,
-    currentVal: string | number,
-    onSelect: (val: string) => void,
-    trackId: number
+    currentVal: string | number | [string, string],
+    onSelect: (val: string | [string, string], merge?: boolean) => void,
+    trackId: number,
+    isSplit?: boolean
   ) => void;
 }
 

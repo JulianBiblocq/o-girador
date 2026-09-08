@@ -12,12 +12,14 @@ interface SettingsState {
   setIsSettingsOpen: (isSettingsOpen: boolean) => void;
   toggleSettings: () => void;
   setStrokeDefault: (key: string, values: { volume?: number; decay?: number }) => void;
+  toggleSignalEnabled: (id: string, allIds?: string[]) => void;
   setSignalsBatch: (ids: string[], enabled: boolean, allIds: string[]) => void;
   setStrokeForcedState: (key: string, enabled: boolean) => void;
 }
 
 export const useSequencerSettingsStore = create<SettingsState>((set) => ({
   bpm: 120,
+  balanco: 0,
   isSettingsOpen: false,
   strokeDefaults: {},
   enabledSignalIds: null,
@@ -35,12 +37,12 @@ export const useSequencerSettingsStore = create<SettingsState>((set) => ({
       }
     }
   })),
-  toggleSignalEnabled: (id, allIds) => set((state) => {
+  toggleSignalEnabled: (id: string, allIds?: string[]) => set((state) => {
     const current = state.enabledSignalIds !== null 
       ? state.enabledSignalIds 
       : (allIds || []);
     const next = current.includes(id) 
-      ? current.filter(x => x !== id) 
+      ? current.filter((x: string) => x !== id) 
       : [...current, id];
     return { enabledSignalIds: next };
   }),

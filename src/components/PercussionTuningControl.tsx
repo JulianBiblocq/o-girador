@@ -75,8 +75,8 @@ export const PercussionTuningControl: React.FC<PercussionTuningControlProps> = (
   const R_y = 90 - (localTuning * (50 / 6));
 
   return (
-    <div className="flex flex-col items-center justify-center bg-[var(--cordel-bg)] border-[3px] border-[var(--cordel-text)] p-3 gap-2 relative w-full select-none shadow-[4px_4px_0_rgba(0,0,0,1)]">
-      <div className="flex justify-between w-full items-end leading-none border-b-2 border-dashed border-[#1a1a1a]/30 pb-2">
+    <div className="flex flex-col items-center justify-center bg-[var(--cordel-bg)] border-[2px] sm:border-[3px] border-[var(--cordel-text)] p-2 gap-1.5 relative w-full select-none shadow-[3px_3px_0_rgba(0,0,0,1)]">
+      <div className="flex justify-between w-full items-end leading-none border-b border-dashed border-[#1a1a1a]/30 pb-1.5">
         <span className="text-[11px] font-bold font-cactus uppercase text-[var(--cordel-text)] tracking-wider">
           Afinar (Pitch)
         </span>
@@ -90,7 +90,7 @@ export const PercussionTuningControl: React.FC<PercussionTuningControlProps> = (
         ref={svgRef}
         viewBox="0 0 100 180"
         preserveAspectRatio="xMidYMid meet"
-        className="w-full h-[160px] touch-none cursor-grab active:cursor-grabbing overflow-visible mt-2"
+        className="w-full h-[135px] touch-none cursor-grab active:cursor-grabbing overflow-visible mt-1"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

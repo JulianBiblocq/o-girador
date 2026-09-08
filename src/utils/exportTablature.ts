@@ -136,7 +136,8 @@ export const generateTablatureCore = (
           const visualLen = activePattern.steps * 2 - 1;
           for (let s = 0; s < activePattern.steps; s++) {
             const val = activePattern.activeSteps[s];
-            const char = (val === 0 || val === '0' || val === '') ? '-' : val;
+            const rawChar = Array.isArray(val) ? val[0] : val;
+            const char = (rawChar === 0 || rawChar === '0' || rawChar === '' || rawChar === undefined) ? '-' : rawChar;
             
             const isShaded = Math.floor(s / 4) % 2 !== 0;
             if (isHtml && s % 4 === 0 && isShaded) measureHtml += `<span style="background-color: rgba(0,0,0,0.1); border-radius: 2px;">`;
@@ -257,11 +258,12 @@ export const generateAnnexTablature = (
       const patName = p.name ? p.name : `Pattern ${pId}`;
       trackOutput += isHtml ? `  <span style="text-decoration: underline;">${patName}</span>\n` : `  ${patName}\n`;
       
-      const formatSteps = (steps: (string|number)[]) => {
+      const formatSteps = (steps: (string | number | [string, string])[]) => {
          let html = "";
          for (let s = 0; s < p.steps; s++) {
             const val = steps[s];
-            const char = (val === 0 || val === '0' || val === '') ? '-' : val;
+            const rawChar = Array.isArray(val) ? val[0] : val;
+            const char = (rawChar === 0 || rawChar === '0' || rawChar === '' || rawChar === undefined) ? '-' : rawChar;
             
             const isShaded = Math.floor(s / 4) % 2 !== 0;
             if (isHtml && s % 4 === 0 && isShaded) html += `<span style="background-color: rgba(0,0,0,0.1); border-radius: 2px;">`;
@@ -280,7 +282,7 @@ export const generateAnnexTablature = (
       const baseLabel = `[Base]`.padEnd(50, ' ');
       trackOutput += `    ${baseLabel} | ${formatSteps(p.activeSteps)}\n`;
       
-      p.variations.forEach(v => {
+      p.variations?.forEach(v => {
         const labelText = v.playFirstTimeOnly ? `${v.name} - (Levée / 1ère fois uniquement)` : `${v.name} - ${v.probability}%`;
         const varLabel = `[${labelText}]`.padEnd(50, ' ');
         trackOutput += `    ${varLabel} | ${formatSteps(v.steps)}\n`;

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { CatalogVisibility, Preset } from '../types';
-import { savePresetToCloud, fetchCloudPresets } from '../cloudLibrary';
 import { VisitorAuthModal } from './VisitorAuthModal';
 import { useCloudAudioBounce } from '../hooks/useCloudAudioBounce';
 import { useQueryClient } from '@tanstack/react-query';
@@ -43,6 +42,7 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
         : (userProfile.mestreId || null);
       const myGroupId = userProfile.groupId || undefined;
 
+      const { savePresetToCloud, fetchCloudPresets } = await import('../cloudLibrary');
       const existingPresets = await fetchCloudPresets(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null);
       
       // Look for existing preset: first check own presets, then group presets

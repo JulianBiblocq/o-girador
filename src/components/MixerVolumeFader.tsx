@@ -22,6 +22,9 @@ interface MixerVolumeFaderProps {
   thumbHeight?: number;
   fontSize?: string;
   isMaster?: boolean;
+  faderHandleRef?: React.RefObject<HTMLDivElement | null>;
+  valueTextRefProp?: React.RefObject<HTMLSpanElement | null>;
+  travelRangeRef?: React.MutableRefObject<number>;
 }
 
 export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
@@ -36,11 +39,28 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   thumbHeight,
   fontSize,
   isMaster = false,
+  faderHandleRef,
+  valueTextRefProp,
+  travelRangeRef,
 }) => {
   const visualThumbRef = useRef<HTMLDivElement>(null);
   const valueTextRef = useRef<HTMLSpanElement>(null);
   const isDraggingRef = useRef(false);
   const rectRef = useRef<DOMRect | null>(null);
+
+  const setThumbRef = (el: HTMLDivElement | null) => {
+    (visualThumbRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    if (faderHandleRef) {
+      (faderHandleRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
+    }
+  };
+
+  const setTextRef = (el: HTMLSpanElement | null) => {
+    (valueTextRef as React.MutableRefObject<HTMLSpanElement | null>).current = el;
+    if (valueTextRefProp) {
+      (valueTextRefProp as React.MutableRefObject<HTMLSpanElement | null>).current = el;
+    }
+  };
 
   const [measuredHeight, setMeasuredHeight] = React.useState(height || 115);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -69,6 +89,10 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   const resolvedThumbHeight = thumbHeight || 20;
   const travelRange = faderHeight - resolvedThumbHeight;
   const topPadding = 8; // padding fixe de 8px en haut
+
+  if (travelRangeRef) {
+    travelRangeRef.current = travelRange;
+  }
 
   // Calcule la position "top" en pixels en fonction de la valeur
   const getTopPosition = (val: number) => {
@@ -272,20 +296,21 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
 
       {/* 2. Le bouton visuel (Thumb) avec texte centré en Flexbox */}
       <div
-        ref={visualThumbRef}
-        className={`absolute left-1/2 -translate-x-1/2 shadow-[0_2px_5px_var(--cordel-shadow-color)] flex items-center justify-center pointer-events-none z-10 transition-colors ${
+        ref={setThumbRef}
+        className={`absolute shadow-[0_2px_5px_var(--cordel-shadow-color)] flex items-center justify-center pointer-events-none z-10 transition-colors ${
           isMaster ? 'master-fader-thumb' : 'cordel-border-sm'
         }`}
         style={{
-          width: `${thumbWidth || 32}px`,
+          width: `${thumbWidth || (isMaster ? 44 : 32)}px`,
           height: `${resolvedThumbHeight}px`,
+          left: `calc(50% - ${(thumbWidth || (isMaster ? 44 : 32)) / 2}px)`,
           top: `${getTopPosition(value)}px`,
           backgroundColor: faderColor,
           borderColor: 'var(--cordel-border)',
         }}
       >
         <span
-          ref={valueTextRef}
+          ref={setTextRef}
           className={`${fontSize || 'text-[10px]'} font-black font-mono select-none`}
           style={{ color: textColor }}
         >

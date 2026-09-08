@@ -7,7 +7,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GripHorizontal } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencerStore';
+import { useSequencerStore, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useAudioStore } from '../stores/useAudioStore';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { getBusColor, getContrastColor, getTopParentBusId, getTrackDisplayName } from '../utils/colorHelpers';
@@ -29,6 +30,7 @@ interface MixerLinkedTrackProps {
   isActive?: boolean;
   busPosition?: 'first' | 'middle' | 'last' | 'none';
   linkPosition?: 'first' | 'middle' | 'last' | 'none';
+  isDragOver?: boolean;
   dropIndicator?: 'left' | 'right' | null;
 }
 
@@ -38,6 +40,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   isActive = true,
   busPosition = 'none',
   linkPosition = 'none',
+  isDragOver = false,
   dropIndicator = null,
 }) => {
   const sequencer = useSequencer();
@@ -46,8 +49,8 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   const chorusDensity = useAudioStore(state => state.chorusDensity);
 
   const lang = useSequencerStore(state => state.lang);
-  const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
-  const tracks = useSequencerStore(state => state.tracks);
+  const track = useSequencerStore(useShallow(state => state.tracks.find(t => t.id === trackId)));
+  const tracksMeta = useSequencerStore(selectTracksMeta);
 
   const [instDropdownOpen, setInstDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -80,7 +83,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   const inst = instrumentsConfig[track.instrumentIdx];
   if (!inst) return null;
 
-  const masterTrack = tracks.find(t => String(t.id) === String(track.linkedToTrackId));
+  const masterTrack = tracksMeta.find(t => String(t.id) === String(track.linkedToTrackId));
   const masterInst = masterTrack ? instrumentsConfig[masterTrack.instrumentIdx] : null;
   const masterName = masterInst ? masterInst.name : '?';
 
@@ -142,10 +145,10 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   const groupStyle: React.CSSProperties = {
     marginRight: (isInsideBusBlock || isInsideLinkBlock) ? '0px' : '16px'
   };
-  const topBusId = getTopParentBusId(track, tracks);
+  const topBusId = getTopParentBusId(track, tracksMeta);
   if (busPosition !== 'none' && topBusId) {
     const parentBusId = topBusId;
-    const busColor = getBusColor(parentBusId, tracks, instrumentsConfig);
+    const busColor = getBusColor(parentBusId, tracksMeta, instrumentsConfig);
     const cleanHex = busColor.replace('#', '');
     const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
     const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
@@ -170,9 +173,9 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
 
   // Calcul du cadre de liaison de partition interne (Track Linking)
   const linkColor = track.isLinkFolder 
-    ? getBusColor(String(track.id), tracks, instrumentsConfig) 
+    ? getBusColor(String(track.id), tracksMeta, instrumentsConfig) 
     : (track.linkedToTrackId 
-        ? getBusColor(String(track.linkedToTrackId), tracks, instrumentsConfig) 
+        ? getBusColor(String(track.linkedToTrackId), tracksMeta, instrumentsConfig) 
         : (inst?.color || '#8b2a1a'));
 
   const linkStyle: React.CSSProperties = {
@@ -268,7 +271,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
     }
   };
 
-    const isMuted = getEffectiveMuteState(tracks, trackId);
+    const isMuted = getEffectiveMuteState(tracksMeta, trackId);
   return (
     <div 
       ref={setNodeRef}
@@ -322,7 +325,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
         {/* Title / Name */}
         <div className="relative flex items-center w-full">
           <div className="flex items-center gap-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm px-1 py-1 w-full justify-center opacity-70">
-            <span className="font-cactus font-bold text-[9px] truncate">{getTrackDisplayName(track, tracks)}</span>
+            <span className="font-cactus font-bold text-[9px] truncate">{getTrackDisplayName(track, tracksMeta)}</span>
           </div>
         </div>
       </div>

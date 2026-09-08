@@ -42,6 +42,10 @@ function getNormalizedStroke(instId: string, rawStroke: string): string {
   if (['marcante', 'meiao', 'repique', 'caixa', 'tarol'].includes(instId)) {
     if (targetKey === 't' || targetKey === 'T') return 'B';
     if (targetKey === 'C') return 'c';
+    if (targetKey === 'f') return 'F';
+  } else if (instId === 'timbal') {
+    if (targetKey === 'f') return 'F';
+    if (targetKey === 'v') return 'V';
   } else if (instId === 'agbe' || instId === 'gongue') {
     if (targetKey === 't') return 'B';
   }
@@ -176,7 +180,8 @@ import {
   trackInputs,
   syncTrackInsertChain,
   disposeTrackNodes,
-  disposeAllTrackNodes
+  disposeAllTrackNodes,
+  setOnTrackDisposeCallback
 } from '../audio/effectsChain';
 
 export {
@@ -427,6 +432,17 @@ export function useAudioSync({
   const isRecordingRef = useRef(false);
   const hasTriggeredPunchInRef = useRef(false);
   const hasTriggeredAutoStopRef = useRef(false);
+  const isEcoModeRef = useRef(false);
+  const isMasterVolumeBypassedRef = useRef(false);
+
+  useEffect(() => {
+    isEcoModeRef.current = useSequencerStore.getState().isEcoMode;
+    isMasterVolumeBypassedRef.current = !!useSequencerStore.getState().isMasterVolumeBypassed;
+    return useSequencerStore.subscribe((state) => {
+      isEcoModeRef.current = state.isEcoMode;
+      isMasterVolumeBypassedRef.current = !!state.isMasterVolumeBypassed;
+    });
+  }, []);
   // Stable reference to the non-reactive store action to avoid Zustand state subscriptions
   const setCurrentMeasure = useRef(useSequencerStore.getState().setCurrentMeasure).current;
   const setCurrentExpandedMeasureIdx = useRef(useSequencerStore.getState().setCurrentExpandedMeasureIdx).current;
@@ -444,6 +460,10 @@ export function useAudioSync({
       useSequencerStore.getState().songSections
     );
 
+    setOnTrackDisposeCallback((trackId) => {
+      audioEngine?.removeInstrumentChannel(trackId);
+    });
+
     const unsub = useSequencerStore.subscribe((state) => {
       totalMeasuresRefInternal.current = state.totalMeasures;
       measureTimeSigsRefInternal.current = state.measureTimeSigs;
@@ -455,11 +475,12 @@ export function useAudioSync({
         const idNum = Number(idStr);
         if (!currentTrackIds.has(idNum)) {
           disposeTrackNodes(idNum);
+          audioEngine?.removeInstrumentChannel(idNum);
         }
       });
     });
     return unsub;
-  }, []);
+  }, [audioEngine]);
 
   const sectionIterationRef = useRef<number>(1);
   const lastPlayedPatternRef = useRef<Record<number, number>>({});
@@ -1226,29 +1247,168 @@ export function useAudioSync({
 
         if (stepIdx === 0) {
           try {
-            const endGain = targetVolPercent / 100;
-            const prevMeasureIdx = (currentMeasureIdx - 1 + (totalMeasuresRef.current || 1)) % (totalMeasuresRef.current || 1);
-            const startVolPercent = measureVolsRef.current[prevMeasureIdx] !== undefined ? measureVolsRef.current[prevMeasureIdx] : 100;
-            const startGain = startVolPercent / 100;
+            if (isMasterVolumeBypassedRef.current || isEcoModeRef.current) {
+              Tone.Destination.volume.cancelScheduledValues(time);
+              Tone.Destination.volume.setValueAtTime(0, time);
+            } else {
+              const endGain = targetVolPercent / 100;
+              const prevMeasureIdx = (currentMeasureIdx - 1 + (totalMeasuresRef.current || 1)) % (totalMeasuresRef.current || 1);
+              const startVolPercent = measureVolsRef.current[prevMeasureIdx] !== undefined ? measureVolsRef.current[prevMeasureIdx] : 100;
+              const startGain = startVolPercent / 100;
 
-            if (endGain !== startGain) {
-              if (volTransition === 'ramp') {
-                const measureDurationSec = currentTicks * tick96nSec;
-                Tone.Destination.volume.cancelScheduledValues(time);
-                Tone.Destination.volume.setValueAtTime(Tone.gainToDb(startGain === 0 ? 0.0001 : startGain), time);
-                Tone.Destination.volume.linearRampToValueAtTime(Tone.gainToDb(endGain === 0 ? 0.0001 : endGain), time + measureDurationSec);
-              } else if (volTransition === 'bezier') {
-                const measureDurationSec = currentTicks * tick96nSec;
-                Tone.Destination.volume.cancelScheduledValues(time);
-                Tone.Destination.volume.setValueAtTime(Tone.gainToDb(startGain === 0 ? 0.0001 : startGain), time);
-                // dB being logarithmic, an exponential ramp on dB makes a very smooth curve
-                Tone.Destination.volume.exponentialRampToValueAtTime(Tone.gainToDb(endGain === 0 ? 0.0001 : endGain), time + measureDurationSec);
-              } else {
-                Tone.Destination.volume.cancelScheduledValues(time);
-                Tone.Destination.volume.setValueAtTime(Tone.gainToDb(endGain === 0 ? 0.0001 : endGain), time);
+              if (endGain !== startGain) {
+                if (volTransition === 'ramp') {
+                  const measureDurationSec = currentTicks * tick96nSec;
+                  Tone.Destination.volume.cancelScheduledValues(time);
+                  Tone.Destination.volume.setValueAtTime(Tone.gainToDb(startGain === 0 ? 0.0001 : startGain), time);
+                  Tone.Destination.volume.linearRampToValueAtTime(Tone.gainToDb(endGain === 0 ? 0.0001 : endGain), time + measureDurationSec);
+                } else if (volTransition === 'bezier') {
+                  const measureDurationSec = currentTicks * tick96nSec;
+                  Tone.Destination.volume.cancelScheduledValues(time);
+                  Tone.Destination.volume.setValueAtTime(Tone.gainToDb(startGain === 0 ? 0.0001 : startGain), time);
+                  // dB being logarithmic, an exponential ramp on dB makes a very smooth curve
+                  Tone.Destination.volume.exponentialRampToValueAtTime(Tone.gainToDb(endGain === 0 ? 0.0001 : endGain), time + measureDurationSec);
+                } else {
+                  Tone.Destination.volume.cancelScheduledValues(time);
+                  Tone.Destination.volume.setValueAtTime(Tone.gainToDb(endGain === 0 ? 0.0001 : endGain), time);
+                }
               }
             }
           } catch (e) {}
+        }
+
+        // 3c. Appliquer les automations par tranche d'instrument (Volume, Pan, Send Réverbe)
+        if (stepIdx === 0 && tracksRef.current && !isEcoModeRef.current) {
+          const totalM = totalMeasuresRef.current || 1;
+          const prevMeasureIdx = (currentMeasureIdx - 1 + totalM) % totalM;
+          const measureDurationSec = currentTicks * tick96nSec;
+
+          tracksRef.current.forEach((t) => {
+            const channel = channels[t.id] || busChannels?.[t.id];
+            if (!channel) return;
+
+            // 1. Automation Volume
+            if (!t.automationBypass?.volume && t.measureVols && t.measureVols.length && channel.volume) {
+              try {
+                const baseEffectiveVol = getEffectiveVolume(tracksRef.current, t.id);
+                const baseGain = Math.max(0.00001, baseEffectiveVol / 100);
+
+                const rawTargetVol = t.measureVols[currentMeasureIdx] !== undefined ? t.measureVols[currentMeasureIdx] : 100;
+                const rawPrevVol = t.measureVols[prevMeasureIdx] !== undefined ? t.measureVols[prevMeasureIdx] : 100;
+                const trackTransition = t.measureVolTransitions?.[currentMeasureIdx] || 'immediate';
+
+                const startGain = Math.max(0.00001, baseGain * (rawPrevVol / 100));
+                const endGain = Math.max(0.00001, baseGain * (rawTargetVol / 100));
+
+                channel.volume.cancelScheduledValues(time);
+
+                if (startGain !== endGain) {
+                  if (trackTransition === 'ramp') {
+                    channel.volume.setValueAtTime(Tone.gainToDb(startGain), time);
+                    channel.volume.linearRampToValueAtTime(Tone.gainToDb(endGain), time + measureDurationSec);
+                  } else if (trackTransition === 'bezier') {
+                    channel.volume.setValueAtTime(Tone.gainToDb(startGain), time);
+                    channel.volume.exponentialRampToValueAtTime(Tone.gainToDb(endGain), time + measureDurationSec);
+                  } else {
+                    channel.volume.setValueAtTime(Tone.gainToDb(endGain), time);
+                  }
+                } else {
+                  channel.volume.setValueAtTime(Tone.gainToDb(endGain), time);
+                }
+              } catch (err) {}
+            }
+
+            // 2. Automation Panoramique (-100..+100 -> -1.0..+1.0)
+            if (!t.automationBypass?.pan && t.measurePans && t.measurePans.length && channel.pan) {
+              try {
+                const defaultPan = t.panVal ?? t.pan ?? 0;
+                const rawTargetPan = t.measurePans[currentMeasureIdx] !== undefined ? t.measurePans[currentMeasureIdx] : defaultPan;
+                const rawPrevPan = t.measurePans[prevMeasureIdx] !== undefined ? t.measurePans[prevMeasureIdx] : defaultPan;
+                const panTransition = t.measurePanTransitions?.[currentMeasureIdx] || 'immediate';
+
+                const startPan = Math.max(-1, Math.min(1, rawPrevPan / 100));
+                const endPan = Math.max(-1, Math.min(1, rawTargetPan / 100));
+
+                channel.pan.cancelScheduledValues(time);
+
+                if (startPan !== endPan) {
+                  if (panTransition === 'ramp') {
+                    channel.pan.setValueAtTime(startPan, time);
+                    channel.pan.linearRampToValueAtTime(endPan, time + measureDurationSec);
+                  } else if (panTransition === 'bezier') {
+                    const steps = 8;
+                    const curve: number[] = [];
+                    for (let i = 0; i < steps; i++) {
+                      const tNorm = i / (steps - 1);
+                      const ease = tNorm * tNorm * (3 - 2 * tNorm);
+                      curve.push(startPan + (endPan - startPan) * ease);
+                    }
+                    try {
+                      channel.pan.setValueCurveAtTime(curve, time, measureDurationSec);
+                    } catch (_) {
+                      channel.pan.setValueAtTime(startPan, time);
+                      channel.pan.linearRampToValueAtTime(endPan, time + measureDurationSec);
+                    }
+                  } else {
+                    channel.pan.setValueAtTime(endPan, time);
+                  }
+                } else {
+                  channel.pan.setValueAtTime(endPan, time);
+                }
+              } catch (err) {}
+            }
+
+            // 3. Automation Send Réverbe
+            const sendNode = reverbSends[t.id];
+            if (!t.automationBypass?.reverb && t.measureReverbSends && t.measureReverbSends.length && sendNode?.gain) {
+              try {
+                const defaultRev = t.fxSends?.reverb ?? t.reverbVal ?? 0;
+                const rawTargetRev = t.measureReverbSends[currentMeasureIdx] !== undefined ? t.measureReverbSends[currentMeasureIdx] : defaultRev;
+                const rawPrevRev = t.measureReverbSends[prevMeasureIdx] !== undefined ? t.measureReverbSends[prevMeasureIdx] : defaultRev;
+                const revTransition = t.measureReverbTransitions?.[currentMeasureIdx] || 'immediate';
+
+                const isDb = sendNode.gain.units === 'decibels';
+                const startVal = isDb
+                  ? (rawPrevRev <= 0 ? -Infinity : Tone.gainToDb(Math.max(0.0001, rawPrevRev / 100)))
+                  : Math.max(0, Math.min(1, rawPrevRev / 100));
+                const endVal = isDb
+                  ? (rawTargetRev <= 0 ? -Infinity : Tone.gainToDb(Math.max(0.0001, rawTargetRev / 100)))
+                  : Math.max(0, Math.min(1, rawTargetRev / 100));
+
+                sendNode.gain.cancelScheduledValues(time);
+
+                if (startVal !== endVal) {
+                  if (revTransition === 'ramp') {
+                    sendNode.gain.setValueAtTime(startVal, time);
+                    sendNode.gain.linearRampToValueAtTime(endVal, time + measureDurationSec);
+                  } else if (revTransition === 'bezier') {
+                    if (isDb && startVal > -Infinity && endVal > -Infinity) {
+                      sendNode.gain.setValueAtTime(startVal, time);
+                      sendNode.gain.exponentialRampToValueAtTime(endVal, time + measureDurationSec);
+                    } else {
+                      const steps = 8;
+                      const curve = new Float32Array(steps);
+                      for (let i = 0; i < steps; i++) {
+                        const tNorm = i / (steps - 1);
+                        const ease = tNorm * tNorm * (3 - 2 * tNorm);
+                        curve[i] = startVal + (endVal - startVal) * ease;
+                      }
+                      try {
+                        sendNode.gain.setValueCurveAtTime(curve, time, measureDurationSec);
+                      } catch (_) {
+                        sendNode.gain.setValueAtTime(startVal, time);
+                        sendNode.gain.linearRampToValueAtTime(endVal, time + measureDurationSec);
+                      }
+                    }
+                  } else {
+                    sendNode.gain.setValueAtTime(endVal, time);
+                  }
+                } else {
+                  sendNode.gain.setValueAtTime(endVal, time);
+                }
+              } catch (err) {}
+            }
+          });
         }
 
         // Click metronome beat pulse

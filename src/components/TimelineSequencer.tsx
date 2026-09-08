@@ -6,7 +6,7 @@
 import { useSequencerStore, isLinearDAWVisibleTrack, isToadaBus } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useShallow } from 'zustand/react/shallow';
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import type * as ToneType from 'tone';
 import { loadTone, getTone } from '@/src/ToneLoader';
 
@@ -33,6 +33,7 @@ import { SongSectionModal } from './timeline/SongSectionModal';
 import { SongMarkerModal } from './timeline/SongMarkerModal';
 import { RhythmSignalsRow } from './timeline/RhythmSignalsRow';
 import { VocalRecordingBar } from './VocalRecordingBar';
+import { TimelineContextMenu } from './TimelineContextMenu';
 import { XiloChisel, XiloMagnet } from './XiloIcons';
 import { AutomationTrack } from './AutomationTrack';
 
@@ -89,6 +90,41 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
     );
   }, []);
 
+  // Raccourci clavier Ctrl+D / Cmd+D : Duplication rapide de mesure (avec garde de saisie)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+        const activeEl = document.activeElement;
+        if (
+          activeEl &&
+          (activeEl.tagName === 'INPUT' ||
+           activeEl.tagName === 'TEXTAREA' ||
+           (activeEl as HTMLElement).isContentEditable)
+        ) {
+          return;
+        }
+
+        const activeCell = useSequencerStore.getState().activeTimelineCell;
+        if (activeCell) {
+          e.preventDefault();
+          e.stopPropagation();
+          useSequencerStore.getState().duplicateMeasurePattern(
+            activeCell.trackId,
+            activeCell.measureIdx,
+            activeCell.measureIdx + 1
+          );
+          useSequencerStore.getState().setActiveTimelineCell({
+            trackId: activeCell.trackId,
+            measureIdx: activeCell.measureIdx + 1,
+          });
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   // 🛡️ FIX (Audit): Direct Zustand selectors to avoid massive cascade re-renders
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const measureTimeSigs = useSequencerStore(useShallow(state => state.measureTimeSigs));
@@ -136,6 +172,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   } = sequencer;
   
   const duplicateSectionBlock = useSequencerStore(state => state.duplicateSectionBlock);
+  const isMasterVolumeBypassed = useSequencerStore(state => state.isMasterVolumeBypassed);
+  const toggleMasterVolumeBypass = useSequencerStore(state => state.toggleMasterVolumeBypass);
   const trackIds = useSequencerStore(useShallow(state => {
     const visibleTrackIds: number[] = [];
     state.tracks.forEach(t => {
@@ -171,13 +209,26 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   ];
 
   const onMeasureSignalChange = (mIdx: number, sigId: string | null) => {
-    sequencer.setMeasureSignals(prev => {
+    sequencer.setMeasureSignals((prev: (string | null)[]) => {
       const arr = [...prev];
       while (arr.length <= mIdx) arr.push(null);
       arr[mIdx] = sigId;
       return arr;
     });
   };
+
+  const [expandedAutomationTrackIds, setExpandedAutomationTrackIds] = useState<Set<number>>(() => new Set());
+  const toggleAutomationTrack = useCallback((trackId: number) => {
+    setExpandedAutomationTrackIds(prev => {
+      const next = new Set(prev);
+      if (next.has(trackId)) {
+        next.delete(trackId);
+      } else {
+        next.add(trackId);
+      }
+      return next;
+    });
+  }, []);
 
   const HEADER_W = isMobile ? 80 : 200;
   const MEASURE_W = measureWidth;
@@ -905,8 +956,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const handleViewportPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const isHandMode = toolMode === 'hand' || isSpacePressed;
     const targetEl = e.target as HTMLElement;
-    const isClickingEmpty = targetEl?.classList?.contains('cell-detailed') || 
-                            targetEl?.classList?.contains('cell-macro') || 
+    const isClickingEmpty = targetEl === scrollRef.current || 
+                            targetEl === gridRef.current || 
                             targetEl?.classList?.contains('grid-lines-overlay');
 
     if (e.button === 0 && (isHandMode || isClickingEmpty)) {
@@ -1185,7 +1236,6 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
       if (currentCopies > 0) {
         // Mission 2: Sécurité Audio (Critique) - Bloquer si lecture en cours
-        const isPlaying = useAudioStore.getState().isPlaying;
         if (isPlaying) {
           console.warn("Impossible d'étirer une section pendant la lecture (Zero Render Thrashing / Audio Sync rule).");
           return;
@@ -2049,11 +2099,21 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
             color="#55efc4"
             lang={lang}
             headerWidth={HEADER_W}
+            isBypassed={isMasterVolumeBypassed}
+            onToggleBypass={toggleMasterVolumeBypass}
           />
 
           {/* ══════════ TRACK ROWS ══════════ */}
           {trackIds.map(trackId => (
-            <TimelineTrackRow key={trackId} trackId={trackId} visibleRange={visibleRange} currentMeasureW={MEASURE_W} onStepTouchStart={onStepTouchStart} />
+            <TimelineTrackRow 
+              key={trackId} 
+              trackId={trackId} 
+              visibleRange={visibleRange} 
+              currentMeasureW={MEASURE_W} 
+              onStepTouchStart={onStepTouchStart}
+              isAutomationOpen={expandedAutomationTrackIds.has(trackId)}
+              onToggleAutomation={() => toggleAutomationTrack(trackId)}
+            />
           ))}
           {/* ══════════ PLAYHEAD (Bypass React via Ref) ══════════ */}
           <TimelinePlayhead isActive={isActive} />
@@ -2109,6 +2169,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       )}
       <VocalRecordingBar />
       <StepEditorPopup />
+      <TimelineContextMenu />
       {/* ══════════ INSERT MEASURES PROMPT MODAL ══════════ */}
       {insertMeasuresPrompt.isOpen && (
         <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4">

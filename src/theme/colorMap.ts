@@ -34,12 +34,14 @@ export const STROKE_INTENSITY_MAP: Record<string, IntensityLevel> = {
   'C': 'muted',   // Click
   'B': 'muted',   // Barulho
   'F': 'accent',  // Fla
+  'f': 'accent',  // Fla gauche
   'R': 'accent',  // Rufada courte D
   'r': 'accent',  // Rufada courte G
   
-  // Agbe
+  // Agbe & Timbal
   'S': 'special', // Salto
-  'V': 'accent',  // Volta
+  'V': 'accent',  // Volta / Fla claqué
+  'v': 'accent',  // Fla claqué gauche
   
   // Gongue
   'G': 'strong', 'g': 'weak',
@@ -102,7 +104,8 @@ export const MARACATU_THEME: ThemePalette = {
       'S': '#fbbf24', 's': '#fbbf24', // Slap (Fort)
       'D': '#fef08a', 'd': '#fef08a', // Dedilhado (Faible/Clair)
       'P': '#451a03', 'p': '#451a03', // Preso (Muted)
-      'F': '#ea580c', 'V': '#f97316',
+      'F': '#ea580c', 'f': '#ea580c',
+      'V': '#f97316', 'v': '#f97316',
       'C': '#ffedd5', 'B': '#291002'  // Clic clair
     }
   },

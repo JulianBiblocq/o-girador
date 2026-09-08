@@ -7,7 +7,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { GripHorizontal } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencerStore';
+import { useSequencerStore, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
+import { useShallow } from 'zustand/react/shallow';
 import { Pattern } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { getBusColor, getContrastColor, getTopParentBusId, getTrackDisplayName } from '../utils/colorHelpers';
@@ -22,6 +23,9 @@ import { MixerKnob } from './MixerKnob';
 import { MixerSlantedDivider } from './MixerSlantedDivider';
 import { eqNodes } from '../audio/effectsChain';
 import { XiloChisel } from './XiloIcons';
+import * as Tone from 'tone';
+import { interpolateAutomationValue } from '../utils/automationMath';
+import { getLastAudibleTick } from '../audio/visualTickBuffer';
 
 interface MixerChannelProps {
   trackId: number;
@@ -63,12 +67,25 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const audio = useAudio();
 
   const lang = useSequencerStore(state => state.lang);
-  const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
-  const tracks = useSequencerStore(state => state.tracks);
+  const track = useSequencerStore(useShallow(state => state.tracks.find(t => t.id === trackId)));
+  const tracksMeta = useSequencerStore(selectTracksMeta);
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
 
+  const hasVolAuto = !!track?.measureVols && track.measureVols.length > 0;
+  const isVolBypassed = !!track?.automationBypass?.volume;
+  const isVolActive = hasVolAuto && !isVolBypassed;
+
+  const hasPanAuto = !!track?.measurePans && track.measurePans.length > 0;
+  const isPanBypassed = !!track?.automationBypass?.pan;
+  const isPanActive = hasPanAuto && !isPanBypassed;
+
+  const hasRevAuto = !!track?.measureReverbSends && track.measureReverbSends.length > 0;
+  const isRevBypassed = !!track?.automationBypass?.reverb;
+  const isRevActive = hasRevAuto && !isRevBypassed;
+
   const currentInst = track ? instrumentsConfig[track.instrumentIdx] : null;
-  const eligibleTracks = currentInst ? tracks.filter(t => {
+
+  const eligibleTracks = currentInst ? tracksMeta.filter(t => {
     if (t.isBusFolder) return false;
     if (t.id === trackId) return false;
     if (t.linkedToTrackId && String(t.linkedToTrackId) === String(trackId)) return false;
@@ -90,7 +107,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     return false;
   }) : [];
 
-  const slaves = tracks.filter(t => String(t.linkedToTrackId) === String(trackId));
+  const slaves = tracksMeta.filter(t => String(t.linkedToTrackId) === String(trackId));
   const isMaster = slaves.length > 0;
   const getPluralName = (name: string) => {
     if (name.includes('Alfaia')) return 'Alfaias';
@@ -104,9 +121,148 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const linkedSlavesTooltip = isMaster 
     ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${currentInst?.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
     : undefined;
-  const displayName = getTrackDisplayName(track, tracks);
+  const displayName = getTrackDisplayName(track, tracksMeta);
 
   const { isPlaying } = audio;
+
+  const isEcoMode = useSequencerStore(state => state.isEcoMode);
+  const isEcoModeRef = useRef(isEcoMode);
+  isEcoModeRef.current = isEcoMode;
+
+  const totalMeasures = useSequencerStore(state => state.totalMeasures);
+  const totalMeasuresRef = useRef(totalMeasures);
+  totalMeasuresRef.current = totalMeasures;
+
+  const trackRef = useRef(track);
+  trackRef.current = track;
+
+  // Refs pour l'animation motorisée directe du DOM (60 FPS, Zéro Render Thrashing, Priorité GPU)
+  const faderHandleRef = useRef<HTMLDivElement>(null);
+  const faderTextRef = useRef<HTMLSpanElement>(null);
+  const travelRangeRef = useRef<number>(90);
+  const panKnobRef = useRef<SVGGElement>(null);
+  const reverbGaugeRef = useRef<HTMLDivElement>(null);
+  const reverbTextRef = useRef<HTMLSpanElement>(null);
+
+  // Réinitialisation instantanée sur les positions manuelles statiques
+  const resetManualPositions = (resetVol = true, resetPan = true, resetRev = true) => {
+    const t = trackRef.current;
+    if (!t) return;
+    if (resetVol && faderHandleRef.current) {
+      faderHandleRef.current.style.transform = 'translateY(0px)';
+      if (faderTextRef.current) {
+        faderTextRef.current.textContent = String(Math.round(t.volumeVal));
+      }
+    }
+    if (resetPan && panKnobRef.current) {
+      const manualPan = t.panVal ?? t.pan ?? 0;
+      const angle = (manualPan / 100) * 60;
+      panKnobRef.current.style.transform = `rotate(${angle}deg)`;
+    }
+    if (resetRev && reverbGaugeRef.current) {
+      const manualRev = t.fxSends?.reverb ?? t.reverbVal ?? 0;
+      reverbGaugeRef.current.style.transform = `scaleX(${Math.max(0, Math.min(1, manualRev / 100))})`;
+      if (reverbTextRef.current) {
+        reverbTextRef.current.textContent = `${Math.round(manualRev)}%`;
+      }
+    }
+  };
+
+  useEffect(() => {
+    const hasAnyAutomation = isVolActive || isPanActive || isRevActive;
+
+    if (!isPlaying || !hasAnyAutomation || isEcoMode) {
+      resetManualPositions(!isVolActive, !isPanActive, !isRevActive);
+      if (!isPlaying || isEcoMode) {
+        resetManualPositions(true, true, true);
+      }
+      return;
+    }
+
+    let rafId: number | null = null;
+
+    const animate = () => {
+      if (isEcoModeRef.current) {
+        resetManualPositions(true, true, true);
+        return;
+      }
+
+      const t = trackRef.current;
+      if (!t) {
+        rafId = requestAnimationFrame(animate);
+        return;
+      }
+
+      const tick = getLastAudibleTick();
+      if (tick && tick.measureDuration && tick.measureDuration > 0 && tick.measureStartTime !== undefined) {
+        const audioCtxTime = Tone.context?.currentTime ?? (performance.now() / 1000);
+        const elapsed = audioCtxTime - tick.measureStartTime;
+        const progress = Math.max(0, Math.min(1, elapsed / tick.measureDuration));
+        const currentM = tick.measure;
+        const totalM = totalMeasuresRef.current || 1;
+        const prevM = (currentM - 1 + totalM) % totalM;
+
+        // 1. Fader de volume motorisé (translateY)
+        if (isVolActive && t.measureVols && t.measureVols.length > 0) {
+          const rawStart = t.measureVols[prevM] !== undefined ? t.measureVols[prevM] : 100;
+          const rawEnd = t.measureVols[currentM] !== undefined ? t.measureVols[currentM] : 100;
+          const trans = t.measureVolTransitions?.[currentM] || 'immediate';
+          const interpVol = interpolateAutomationValue(rawStart, rawEnd, progress, trans);
+
+          if (faderHandleRef.current) {
+            const travel = travelRangeRef.current || 90;
+            const deltaY = ((t.volumeVal - interpVol) / 100) * travel;
+            faderHandleRef.current.style.transform = `translateY(${deltaY}px)`;
+          }
+          if (faderTextRef.current) {
+            faderTextRef.current.textContent = String(Math.round(interpVol));
+          }
+        }
+
+        // 2. Potentiomètre Panoramique motorisé (-60° à +60°)
+        if (isPanActive && t.measurePans && t.measurePans.length > 0) {
+          const manualPan = t.panVal ?? t.pan ?? 0;
+          const rawStart = t.measurePans[prevM] !== undefined ? t.measurePans[prevM] : manualPan;
+          const rawEnd = t.measurePans[currentM] !== undefined ? t.measurePans[currentM] : manualPan;
+          const trans = t.measurePanTransitions?.[currentM] || 'immediate';
+          const interpPan = interpolateAutomationValue(rawStart, rawEnd, progress, trans);
+
+          if (panKnobRef.current) {
+            const angle = (interpPan / 100) * 60;
+            panKnobRef.current.style.transform = `rotate(${angle}deg)`;
+          }
+        }
+
+        // 3. Jauge Départ Réverbe motorisée (scaleX 0 à 1)
+        if (isRevActive && t.measureReverbSends && t.measureReverbSends.length > 0) {
+          const manualRev = t.fxSends?.reverb ?? t.reverbVal ?? 0;
+          const rawStart = t.measureReverbSends[prevM] !== undefined ? t.measureReverbSends[prevM] : manualRev;
+          const rawEnd = t.measureReverbSends[currentM] !== undefined ? t.measureReverbSends[currentM] : manualRev;
+          const trans = t.measureReverbTransitions?.[currentM] || 'immediate';
+          const interpRev = interpolateAutomationValue(rawStart, rawEnd, progress, trans);
+
+          if (reverbGaugeRef.current) {
+            const norm = Math.max(0, Math.min(1, interpRev / 100));
+            reverbGaugeRef.current.style.transform = `scaleX(${norm})`;
+          }
+          if (reverbTextRef.current) {
+            reverbTextRef.current.textContent = `${Math.round(interpRev)}%`;
+          }
+        }
+      }
+
+      rafId = requestAnimationFrame(animate);
+    };
+
+    rafId = requestAnimationFrame(animate);
+
+    return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      resetManualPositions(true, true, true);
+    };
+  }, [isPlaying, isVolActive, isPanActive, isRevActive, isEcoMode]);
 
   const [instDropdownOpen, setInstDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -210,10 +366,10 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const groupStyle: React.CSSProperties = {
     marginRight: (isInsideBusBlock || isInsideLinkBlock) ? '0px' : '16px'
   };
-  const topBusId = getTopParentBusId(track, tracks);
+  const topBusId = getTopParentBusId(track, tracksMeta);
   if (busPosition !== 'none' && topBusId) {
     const targetBusId = topBusId;
-    const busColor = getBusColor(targetBusId, tracks, instrumentsConfig);
+    const busColor = getBusColor(targetBusId, tracksMeta, instrumentsConfig);
     const cleanHex = busColor.replace('#', '');
     const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
     const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
@@ -236,7 +392,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     }
   } else if (track.isLinkFolder && busPosition === 'none') {
     const targetBusId = String(track.id);
-    const busColor = getBusColor(targetBusId, tracks, instrumentsConfig);
+    const busColor = getBusColor(targetBusId, tracksMeta, instrumentsConfig);
     const cleanHex = busColor.replace('#', '');
     const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
     const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
@@ -252,9 +408,9 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
 
   // Calcul du cadre de liaison de partition interne (Track Linking)
   const linkColor = track.isLinkFolder 
-    ? getBusColor(String(track.id), tracks, instrumentsConfig) 
+    ? getBusColor(String(track.id), tracksMeta, instrumentsConfig) 
     : (track.linkedToTrackId 
-        ? getBusColor(String(track.linkedToTrackId), tracks, instrumentsConfig) 
+        ? getBusColor(String(track.linkedToTrackId), tracksMeta, instrumentsConfig) 
         : (inst?.color || '#8b2a1a'));
 
   const linkStyle: React.CSSProperties = {
@@ -284,7 +440,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   }
 
   const faderColor = track.isLinkFolder 
-    ? getBusColor(String(track.id), tracks, instrumentsConfig) 
+    ? getBusColor(String(track.id), tracksMeta, instrumentsConfig) 
     : (inst.color || '#8b2a1a');
 
   const faderTextColor = getContrastColor(faderColor);
@@ -358,7 +514,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     }
   };
 
-    const isMuted = getEffectiveMuteState(tracks, trackId);
+    const isMuted = getEffectiveMuteState(tracksMeta, trackId);
   return (
     <div 
       ref={setNodeRef}
@@ -506,7 +662,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                   {eligibleTracks.length > 0 ? (
                     eligibleTracks.map((tOpt) => {
                       const tOptInst = instrumentsConfig[tOpt.instrumentIdx];
-                      const tOptIndex = tracks.findIndex(t => t.id === tOpt.id);
+                      const tOptIndex = tracksMeta.findIndex(t => t.id === tOpt.id);
                       const shortName = tOptInst.name.replace('Alfaia ', '');
                       return (
                         <div
@@ -556,8 +712,8 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                   ✕ {lang === 'fr' ? 'Quitter le groupe' : 'Sair do groupe'}
                 </div>
               )}
-              {tracks.filter(t => t.isBusFolder && t.id !== trackId).map((bus) => {
-                const busIdx = tracks.findIndex(t => t.id === bus.id);
+              {tracksMeta.filter(t => t.isBusFolder && t.id !== trackId).map((bus) => {
+                const busIdx = tracksMeta.findIndex(t => t.id === bus.id);
                 return (
                   <div
                     key={bus.id}
@@ -738,39 +894,105 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
             onAudioDrag={handleDistortionAudioDrag}
             className="w-full text-[8px] px-1 py-0.5 shrink"
           />
-          <DragNumberBox 
-            label="Rev" 
-            value={track.fxSends?.reverb ?? track.reverbVal ?? 0} 
-            onChange={onReverbChange}
-            onAudioDrag={handleReverbAudioDrag}
-            className="w-full text-[8px] px-1 py-0.5 shrink"
-          />
+          <div className="relative w-full">
+            <DragNumberBox 
+              label="Rev" 
+              value={track.fxSends?.reverb ?? track.reverbVal ?? 0} 
+              onChange={onReverbChange}
+              onAudioDrag={handleReverbAudioDrag}
+              disabled={isRevActive}
+              gaugeRef={reverbGaugeRef}
+              valueTextRef={reverbTextRef}
+              className={`w-full text-[8px] px-1 py-0.5 shrink transition-opacity ${
+                isRevActive ? 'opacity-50 pointer-events-none' : ''
+              }`}
+            />
+            {hasRevAuto && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  useSequencerStore.getState().toggleTrackAutomationBypass(track.id, 'reverb');
+                }}
+                className={`absolute right-1 top-1/2 -translate-y-1/2 z-10 w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] transition-all cursor-pointer select-none ${
+                  isRevActive
+                    ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[#a83220] shadow-xs hover:bg-[#a83220]'
+                    : 'bg-black/40 text-gray-400 border border-dashed border-gray-600 line-through hover:text-gray-200'
+                }`}
+                title={isRevActive ? "Automation Réverbe active (cliquer pour débrayer)" : "Automation Réverbe débrayée (cliquer pour activer)"}
+              >
+                A
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Section PAN */}
         <div className="w-full flex flex-col items-center shrink-0">
           <div className="w-full border-t border-[var(--cordel-border)]/20 my-0.5 shrink-0" />
-          <div className="flex justify-center w-full">
-            <PanKnob 
-              trackId={trackId}
-              value={track.pan ?? track.panVal ?? 0} 
-              onChange={onPanChange}
-              label="PAN"
-              showLabels={false}
-            />
+          <div className="relative flex items-center justify-center w-full">
+            {hasPanAuto && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  useSequencerStore.getState().toggleTrackAutomationBypass(track.id, 'pan');
+                }}
+                className={`absolute left-1 top-0 z-10 w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] transition-all cursor-pointer select-none ${
+                  isPanActive
+                    ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[#a83220] shadow-xs hover:bg-[#a83220]'
+                    : 'bg-black/40 text-gray-400 border border-dashed border-gray-600 line-through hover:text-gray-200'
+                }`}
+                title={isPanActive ? "Automation Pan active (cliquer pour débrayer)" : "Automation Pan débrayée (cliquer pour activer)"}
+              >
+                A
+              </button>
+            )}
+            <div className={`transition-opacity ${isPanActive ? 'opacity-50 pointer-events-none' : ''}`}>
+              <PanKnob 
+                trackId={trackId}
+                value={track.pan ?? track.panVal ?? 0} 
+                onChange={onPanChange}
+                label="PAN"
+                showLabels={false}
+                panKnobRef={panKnobRef}
+              />
+            </div>
           </div>
         </div>
 
         {/* Section VOL */}
         <div className="w-full flex flex-col flex-grow min-h-[60px] overflow-hidden">
-          <div className="flex-grow flex-1 min-h-[60px] h-auto flex justify-center gap-2 items-stretch w-full py-1.5 overflow-hidden">
-            <div className="flex flex-col items-center flex-1 h-full min-w-0">
+          <div className="relative flex-grow flex-1 min-h-[60px] h-auto flex justify-center gap-2 items-stretch w-full py-1 overflow-hidden">
+            {hasVolAuto && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  useSequencerStore.getState().toggleTrackAutomationBypass(track.id, 'volume');
+                }}
+                className={`absolute top-0.5 left-1 z-20 w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] transition-all cursor-pointer select-none ${
+                  isVolActive
+                    ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[#a83220] shadow-xs hover:bg-[#a83220]'
+                    : 'bg-black/40 text-gray-400 border border-dashed border-gray-600 line-through hover:text-gray-200'
+                }`}
+                title={isVolActive ? "Automation Volume active (cliquer pour débrayer)" : "Automation Volume débrayée (cliquer pour activer)"}
+              >
+                A
+              </button>
+            )}
+            <div className={`flex flex-col items-center flex-1 h-full min-w-0 transition-opacity ${
+              isVolActive ? 'opacity-50 pointer-events-none' : ''
+            }`}>
               <MixerVolumeFader
                 trackId={trackId}
                 value={track.volumeVal}
                 onChange={onVolumeChange}
                 faderColor={faderColor}
                 textColor={faderTextColor}
+                faderHandleRef={faderHandleRef}
+                valueTextRefProp={faderTextRef}
+                travelRangeRef={travelRangeRef}
               />
             </div>
             <div className="flex flex-col items-center w-5 h-full justify-center">

@@ -26,6 +26,8 @@ import { MixerFolderBus } from './MixerFolderBus';
 import { MixerMasterEffects } from './MixerMasterEffects';
 import { MixerVolumeFader } from './MixerVolumeFader';
 import { MixerAddChannel } from './MixerAddChannel';
+import { interpolateAutomationValue } from '../utils/automationMath';
+import { getLastAudibleTick } from '../audio/visualTickBuffer';
 import { DragNumberBox } from './DragNumberBox';
 import { XiloEQ, XiloCompressor, XiloMestre } from './XiloIcons';
 import { metroChannel, masterVolumeNode } from '../audio/effectsChain';
@@ -239,6 +241,12 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   
   const setTracks = useSequencerStore(state => state.setTracks);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
+  const measureVols = useSequencerStore(state => state.measureVols);
+  const isMasterVolumeBypassed = useSequencerStore(state => state.isMasterVolumeBypassed);
+  const toggleMasterVolumeBypass = useSequencerStore(state => state.toggleMasterVolumeBypass);
+
+  const hasMasterVolAuto = useMemo(() => measureVols && measureVols.some(v => v !== 100), [measureVols]);
+  const isMasterVolActive = hasMasterVolAuto && !isMasterVolumeBypassed;
 
   const {
     isMetroOn,
@@ -281,6 +289,88 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const onMasterVolChange = setMasterVol;
   const onMasterEQChange = setMasterEQ;
   const onMasterCompressorChange = setMasterCompressor;
+
+  const isEcoMode = useSequencerStore(state => state.isEcoMode);
+  const isEcoModeRef = useRef(isEcoMode);
+  isEcoModeRef.current = isEcoMode;
+  const measureVolTransitions = useSequencerStore(state => state.measureVolTransitions);
+  const measureVolTransitionsRef = useRef(measureVolTransitions);
+  measureVolTransitionsRef.current = measureVolTransitions;
+  const totalMeasuresRef = useRef(totalMeasures);
+  totalMeasuresRef.current = totalMeasures;
+  const measureVolsRef = useRef(measureVols);
+  measureVolsRef.current = measureVols;
+  const masterVolRef = useRef(masterVol);
+  masterVolRef.current = masterVol;
+
+  const masterFaderHandleRef = useRef<HTMLDivElement>(null);
+  const masterFaderTextRef = useRef<HTMLSpanElement>(null);
+  const masterTravelRangeRef = useRef<number>(90);
+
+  const resetMasterFaderPosition = () => {
+    if (masterFaderHandleRef.current) {
+      masterFaderHandleRef.current.style.transform = 'translateY(0px)';
+      if (masterFaderTextRef.current) {
+        const manualVal = Math.max(0, Math.min(100, Math.round(((masterVolRef.current + 40) / 46) * 100)));
+        masterFaderTextRef.current.textContent = String(manualVal);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!isPlaying || !isMasterVolActive || isEcoMode) {
+      resetMasterFaderPosition();
+      return;
+    }
+
+    let rafId: number | null = null;
+
+    const animate = () => {
+      if (isEcoModeRef.current) {
+        resetMasterFaderPosition();
+        return;
+      }
+
+      const tick = getLastAudibleTick();
+      if (tick && tick.measureDuration && tick.measureDuration > 0 && tick.measureStartTime !== undefined) {
+        const audioCtxTime = Tone.context?.currentTime ?? (performance.now() / 1000);
+        const elapsed = audioCtxTime - tick.measureStartTime;
+        const progress = Math.max(0, Math.min(1, elapsed / tick.measureDuration));
+        const currentM = tick.measure;
+        const totalM = totalMeasuresRef.current || 1;
+        const prevM = (currentM - 1 + totalM) % totalM;
+
+        const mVols = measureVolsRef.current;
+        if (mVols && mVols.length > 0) {
+          const rawStart = mVols[prevM] !== undefined ? mVols[prevM] : 100;
+          const rawEnd = mVols[currentM] !== undefined ? mVols[currentM] : 100;
+          const trans = measureVolTransitionsRef.current?.[currentM] || 'immediate';
+          const interpVol = interpolateAutomationValue(rawStart, rawEnd, progress, trans);
+
+          if (masterFaderHandleRef.current) {
+            const manualVal = Math.max(0, Math.min(100, Math.round(((masterVolRef.current + 40) / 46) * 100)));
+            const travel = masterTravelRangeRef.current || 90;
+            const deltaY = ((manualVal - interpVol) / 100) * travel;
+            masterFaderHandleRef.current.style.transform = `translateY(${deltaY}px)`;
+          }
+          if (masterFaderTextRef.current) {
+            masterFaderTextRef.current.textContent = String(Math.round(interpVol));
+          }
+        }
+      }
+
+      rafId = requestAnimationFrame(animate);
+    };
+
+    rafId = requestAnimationFrame(animate);
+
+    return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      resetMasterFaderPosition();
+    };
+  }, [isPlaying, isMasterVolActive, isEcoMode]);
 
   const handleMetroAudioDrag = (val: number) => {
     if (metroChannel && metroChannel.volume) {
@@ -569,11 +659,13 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
   const memoizedOnClose = React.useCallback(() => setEditingTrackId(null), []);
   const memoizedOnNavigatePrev = React.useCallback(() => {
+    if (editingTrackId === null) return;
     const idx = trackIds.indexOf(editingTrackId);
     if (idx > 0) setEditingTrackId(trackIds[idx - 1]);
     else if (trackIds.length > 0) setEditingTrackId(trackIds[trackIds.length - 1]);
   }, [editingTrackId, trackIds]);
   const memoizedOnNavigateNext = React.useCallback(() => {
+    if (editingTrackId === null) return;
     const idx = trackIds.indexOf(editingTrackId);
     if (idx >= 0 && idx < trackIds.length - 1) setEditingTrackId(trackIds[idx + 1]);
     else if (trackIds.length > 0) setEditingTrackId(trackIds[0]);
@@ -1012,8 +1104,29 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 
                 {/* Master Fader Column */}
                 <div className="flex flex-col items-center gap-1 h-full justify-end flex-1 min-w-0">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60 shrink-0">Master</span>
-                  <div className="flex-grow flex-1 w-full flex items-center justify-center min-h-0">
+                  <div className="flex items-center justify-between w-full px-1 shrink-0 h-4">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60">Master</span>
+                    {hasMasterVolAuto && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleMasterVolumeBypass();
+                        }}
+                        className={`w-[18px] h-[18px] rounded-[3px] flex items-center justify-center font-bold text-[10px] transition-all cursor-pointer select-none ${
+                          isMasterVolActive
+                            ? 'bg-[#8b2a1a] text-[#f4ecd8] border border-[#a83220] shadow-xs hover:bg-[#a83220]'
+                            : 'bg-black/40 text-gray-400 border border-dashed border-gray-600 line-through hover:text-gray-200'
+                        }`}
+                        title={isMasterVolActive ? "Automation Master Volume active (cliquer pour débrayer)" : "Automation Master Volume débrayée (cliquer pour activer)"}
+                      >
+                        A
+                      </button>
+                    )}
+                  </div>
+                  <div className={`flex-grow flex-1 w-full flex items-center justify-center min-h-0 transition-opacity ${
+                    isMasterVolActive ? 'opacity-50 pointer-events-none' : ''
+                  }`}>
                     <MixerVolumeFader
                       value={Math.max(0, Math.min(100, Math.round(((masterVol + 40) / 46) * 100)))}
                       thumbWidth={44}
@@ -1021,6 +1134,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                       fontSize="text-[11px]"
                       isMaster={true}
                       textColor="#1a1a1a"
+                      faderHandleRef={masterFaderHandleRef}
+                      valueTextRefProp={masterFaderTextRef}
+                      travelRangeRef={masterTravelRangeRef}
                       onChange={(val) => {
                         const db = val === 0 ? -40 : -40 + (val / 100) * 46;
                         onMasterVolChange(db);

@@ -9,9 +9,9 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
-import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
+import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../hooks/useAudioSync';
 import { Pattern } from '../types';
-import { getNextStepValue } from '../utils/instrumentStrokes';
+import { getNextStepValue, getWheelNuanceState, getNextNuanceState, getAlternatingStroke, getComplementaryStroke, getDefaultSplitPair } from '../utils/instrumentStrokes';
 import { Trash2 } from 'lucide-react';
 import { isDarkText, instrumentsConfig, NEWTON_NOTE_COLORS } from '../data';
 import { useWindow } from '../contexts/WindowContext';
@@ -32,6 +32,8 @@ interface InstrumentPatternGridProps {
   isTupletEditMode: boolean;
   isMultiSelectActive: boolean;
   noteSelectorTarget: { patternId: number; stepIdx: number; note: string; element: HTMLElement } | null;
+  activeTool?: string;
+  isAlternating?: boolean;
 
   // React State setters
   setNoteSelectorTarget: React.Dispatch<React.SetStateAction<{ patternId: number; stepIdx: number; note: string; element: HTMLElement } | null>>;
@@ -64,17 +66,27 @@ const getGlobalClipboard = () => {
   return null;
 };
 
+const SCISSORS_CURSOR = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%238b2a1a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='6' cy='6' r='3'/><circle cx='6' cy='18' r='3'/><line x1='20' y1='4' x2='8.12' y2='15.88'/><line x1='14.47' y1='14.48' x2='20' y2='20'/><line x1='8.12' y1='8.12' x2='12' y2='12'/></svg>") 6 6, crosshair`;
+
+const GLUE_CURSOR = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%238b2a1a' stroke='%23f4ecd8' stroke-width='1.5'><path d='M12 2C12 2 5 11 5 16a7 7 0 0 0 14 0c0-5-7-14-7-14z'/><circle cx='10' cy='14' r='1.5' fill='%23f4ecd8'/></svg>") 12 20, pointer`;
+
 interface PercussionStepCellProps {
   i: number;
-  val: string | number;
+  val: string | number | [string, string];
   volume: number;
   decay: number;
   microtiming: number;
   isSelected: boolean;
   isMultiSelected: boolean;
   isFocused: boolean;
+  selectedSubIndex?: 0 | 1 | null;
+  activeTool?: string | number;
   shiftPx: number;
   colorStyle: React.CSSProperties;
+  splitLeftColor?: string;
+  splitRightColor?: string;
+  splitLeftText?: string;
+  splitRightText?: string;
   isMultiSelectActive: boolean;
   isSextuplet: boolean;
   isTriplet: boolean;
@@ -83,11 +95,14 @@ interface PercussionStepCellProps {
   totalShift: number;
   trackId: number;
   
-  onMouseDown: (e: React.MouseEvent<HTMLInputElement>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
+  onMouseDown: (e: React.MouseEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
   onMouseEnter: (index: number) => void;
-  onTouchStart: (e: React.TouchEvent<HTMLInputElement>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
+  onTouchStart: (e: React.TouchEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
+  onTouchMove?: (e: React.TouchEvent<any>) => void;
+  onTouchEnd?: (e: React.TouchEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
+  onContextMenu?: (e: React.MouseEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
   onChange: (e: React.ChangeEvent<HTMLInputElement>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
-  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
+  onKeyDown: (e: React.KeyboardEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
 }
 
 const PercussionStepCell = React.memo(({
@@ -99,8 +114,14 @@ const PercussionStepCell = React.memo(({
   isSelected,
   isMultiSelected,
   isFocused,
+  selectedSubIndex,
+  activeTool,
   shiftPx,
   colorStyle,
+  splitLeftColor,
+  splitRightColor,
+  splitLeftText,
+  splitRightText,
   isMultiSelectActive,
   isSextuplet,
   isTriplet,
@@ -111,83 +132,136 @@ const PercussionStepCell = React.memo(({
   onMouseDown,
   onMouseEnter,
   onTouchStart,
+  onTouchMove,
+  onTouchEnd,
+  onContextMenu,
   onChange,
   onKeyDown
 }: PercussionStepCellProps) => {
   return (
-    <div key={i} className="flex flex-col items-center select-none" style={{ width: isSextuplet || isTriplet || isOcto ? 'auto' : '36px', flex: isSextuplet || isTriplet || isOcto ? '1' : 'none' }}>
+    <div
+      key={i}
+      className="percussion-step-container flex flex-col items-center select-none relative"
+      style={{
+        width: isSextuplet || isTriplet || isOcto ? 'auto' : '40px',
+        flex: isSextuplet || isTriplet || isOcto ? '1' : 'none',
+        cursor: activeTool === 'scissors' ? (Array.isArray(val) ? GLUE_CURSOR : SCISSORS_CURSOR) : undefined
+      }}
+      onMouseDown={activeTool === 'scissors' ? (e) => onMouseDown(e, i, val) : undefined}
+      onTouchStart={activeTool === 'scissors' ? (e) => onTouchStart(e, i, val) : undefined}
+      onTouchEnd={activeTool === 'scissors' ? (e) => onTouchEnd?.(e, i, val) : undefined}
+      title={activeTool === 'scissors' ? (Array.isArray(val) ? '✂ / 🩹 Recoller le pas (Fusionner)' : '✂ / 🩹 Scinder le pas en triples croches') : undefined}
+    >
       {Array.isArray(val) ? (
-        <div className="flex w-full h-full gap-[1px]">
-          <input
-            type="text"
-            value={val[0] === '0' || val[0] === 0 ? '' : val[0]}
-            readOnly={isMultiSelectActive}
+        <div
+          className={`step-input-cell w-full relative flex items-center justify-center font-bold cordel-border outline-none p-0 box-border z-10 transition-all duration-200 overflow-hidden ${
+            isOcto ? 'text-[9px]' : 'text-sm'
+          } ${
+            isMultiSelected
+              ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+              : (isFocused && (selectedSubIndex === null || selectedSubIndex === undefined))
+                ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
+                : 'outline-none'
+          }`}
+          style={{
+            width: isSextuplet || isTriplet || isOcto ? '100%' : '40px',
+            height: isSextuplet || isTriplet ? '48px' : '40px',
+            transform: `translateX(${shiftPx}px)`,
+            background: `linear-gradient(135deg, ${splitLeftColor || '#666'} 48%, #1a1a1a 48%, #1a1a1a 52%, ${splitRightColor || '#666'} 52%)`,
+            clipPath: isSextuplet 
+              ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
+              : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
+            borderStyle: isSextuplet || isTriplet ? 'none' : undefined,
+            borderRadius: isSextuplet || isTriplet ? '0' : undefined,
+            cursor: activeTool === 'scissors' ? GLUE_CURSOR : 'pointer'
+          }}
+          data-track-id={trackId}
+          data-step-index={i}
+          title={activeTool === 'scissors' ? '✂ / 🩹 Recoller le pas (Fusionner)' : undefined}
+        >
+          {/* Zone cliquable note 1 (Haut-Gauche) */}
+          <div
+            className={`absolute inset-0 z-10 select-none outline-none ${activeTool === 'scissors' ? 'pointer-events-none' : ''}`}
+            style={{ 
+              clipPath: 'polygon(0 0, 100% 0, 0 100%)',
+              cursor: activeTool === 'scissors' ? GLUE_CURSOR : 'pointer'
+            }}
+            data-track-id={trackId}
+            data-step-index={i}
+            data-sub-index="0"
+            tabIndex={-1}
             onMouseDown={(e) => onMouseDown(e, i, val, 0)}
             onMouseEnter={() => onMouseEnter(i)}
             onTouchStart={(e) => onTouchStart(e, i, val, 0)}
-            onChange={(e) => onChange(e, i, val, 0)}
+            onTouchMove={onTouchMove}
+            onTouchEnd={(e) => onTouchEnd?.(e, i, val, 0)}
+            onContextMenu={(e) => onContextMenu?.(e, i, val, 0)}
             onKeyDown={(e) => onKeyDown(e, i, val, 0)}
-            className={`step-input-cell w-1/2 text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
-              val[0] === '0' || val[0] === 0
-                ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
-                : ''
-            } ${
-              isMultiSelected
-                ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                : isFocused
-                  ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                  : 'outline-none'
-            }`}
-            style={{
-              ...colorStyle,
-              height: isSextuplet || isTriplet ? '48px' : '36px',
-              borderStyle: isSextuplet || isTriplet ? 'none' : undefined,
-              borderRadius: isSextuplet || isTriplet ? '0' : undefined
+          >
+            <span
+              className="absolute top-0.5 left-1 text-[10px] sm:text-xs font-bold select-none pointer-events-none"
+              style={{ color: splitLeftText || '#f4ecd8' }}
+            >
+              {val[0] === '0' || val[0] === 0 ? '' : val[0]}
+            </span>
+          </div>
+
+          {/* Zone cliquable note 2 (Bas-Droite) */}
+          <div
+            className={`absolute inset-0 z-10 select-none outline-none ${activeTool === 'scissors' ? 'pointer-events-none' : ''}`}
+            style={{ 
+              clipPath: 'polygon(100% 0, 100% 100%, 0 100%)',
+              cursor: activeTool === 'scissors' ? GLUE_CURSOR : 'pointer'
             }}
             data-track-id={trackId}
             data-step-index={i}
-          />
-          <input
-            type="text"
-            value={val[1] === '0' || val[1] === 0 ? '' : val[1]}
-            readOnly={isMultiSelectActive}
+            data-sub-index="1"
+            tabIndex={-1}
             onMouseDown={(e) => onMouseDown(e, i, val, 1)}
             onMouseEnter={() => onMouseEnter(i)}
             onTouchStart={(e) => onTouchStart(e, i, val, 1)}
-            onChange={(e) => onChange(e, i, val, 1)}
+            onTouchMove={onTouchMove}
+            onTouchEnd={(e) => onTouchEnd?.(e, i, val, 1)}
+            onContextMenu={(e) => onContextMenu?.(e, i, val, 1)}
             onKeyDown={(e) => onKeyDown(e, i, val, 1)}
-            className={`step-input-cell w-1/2 text-center font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
-              val[1] === '0' || val[1] === 0
-                ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
-                : ''
-            } ${
-              isMultiSelected
-                ? '!border-[2px] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                : isFocused
-                  ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
-                  : 'outline-none'
-            }`}
-            style={{
-              ...colorStyle,
-              height: isSextuplet || isTriplet ? '48px' : '36px',
-              borderStyle: isSextuplet || isTriplet ? 'none' : undefined,
-              borderRadius: isSextuplet || isTriplet ? '0' : undefined
-            }}
-            data-track-id={trackId}
-            data-step-index={i}
-          />
+          >
+            <span
+              className="absolute bottom-0.5 right-1 text-[10px] sm:text-xs font-bold select-none pointer-events-none"
+              style={{ color: splitRightText || '#f4ecd8' }}
+            >
+              {val[1] === '0' || val[1] === 0 ? '' : val[1]}
+            </span>
+          </div>
+
+          {/* Focus triangulaire SVG au clavier / navigation fine */}
+          {isFocused && selectedSubIndex === 0 && (
+            <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <polygon points="0,0 100,0 0,100" fill="rgba(244, 236, 216, 0.2)" stroke="#8b2a1a" strokeWidth="6" strokeLinejoin="miter" />
+            </svg>
+          )}
+          {isFocused && selectedSubIndex === 1 && (
+            <svg className="absolute inset-0 w-full h-full pointer-events-none z-20" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <polygon points="100,0 100,100 0,100" fill="rgba(244, 236, 216, 0.2)" stroke="#8b2a1a" strokeWidth="6" strokeLinejoin="miter" />
+            </svg>
+          )}
         </div>
       ) : (
         <input
           type="text"
           value={val === 0 ? '' : val}
-          readOnly={isMultiSelectActive}
-          onMouseDown={(e) => onMouseDown(e, i, val)}
+          readOnly={isMultiSelectActive || activeTool === 'scissors'}
+          tabIndex={activeTool === 'scissors' ? -1 : undefined}
+          onMouseDown={activeTool === 'scissors' ? undefined : (e) => onMouseDown(e, i, val)}
           onMouseEnter={() => onMouseEnter(i)}
-          onTouchStart={(e) => onTouchStart(e, i, val)}
+          onTouchStart={activeTool === 'scissors' ? undefined : (e) => onTouchStart(e, i, val)}
+          onTouchMove={onTouchMove}
+          onTouchEnd={(e) => onTouchEnd?.(e, i, val)}
+          onContextMenu={(e) => onContextMenu?.(e, i, val)}
           onChange={(e) => onChange(e, i, val)}
           onKeyDown={(e) => onKeyDown(e, i, val)}
-          className={`step-input-cell w-full text-center font-bold cordel-border outline-none p-0 box-border z-10 relative transition-all duration-200 ${isOcto ? 'text-[9px]' : 'text-sm'} ${
+          className={`step-input-cell w-full text-center font-bold cordel-border outline-none p-0 box-border z-10 relative transition-all duration-200 ${
+            activeTool === 'scissors' ? 'pointer-events-none cursor-inherit' : ''
+          } ${isOcto ? 'text-[9px]' : 'text-sm'} ${
             val === 0
               ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
               : ''
@@ -200,9 +274,11 @@ const PercussionStepCell = React.memo(({
           }`}
           style={{
             ...colorStyle,
-            width: isSextuplet || isTriplet || isOcto ? '100%' : '36px',
-            height: isSextuplet || isTriplet ? '48px' : '36px',
+            width: isSextuplet || isTriplet || isOcto ? '100%' : '40px',
+            height: isSextuplet || isTriplet ? '48px' : '40px',
             transform: `translateX(${shiftPx}px)`,
+            cursor: activeTool === 'scissors' ? SCISSORS_CURSOR : undefined,
+            pointerEvents: activeTool === 'scissors' ? 'none' : undefined,
             clipPath: isSextuplet 
               ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
               : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
@@ -211,6 +287,7 @@ const PercussionStepCell = React.memo(({
           }}
           data-track-id={trackId}
           data-step-index={i}
+          title={activeTool === 'scissors' ? '✂ / 🩹 Scinder le pas en triples croches' : undefined}
         />
       )}
       {/* Sculpting micro-bars */}
@@ -241,18 +318,29 @@ const PercussionStepCell = React.memo(({
     </div>
   );
 }, (prevProps, nextProps) => {
+  const isValEqual = Array.isArray(prevProps.val) && Array.isArray(nextProps.val)
+    ? prevProps.val[0] === nextProps.val[0] && prevProps.val[1] === nextProps.val[1]
+    : prevProps.val === nextProps.val;
+
   return (
-    prevProps.val === nextProps.val &&
+    isValEqual &&
     prevProps.volume === nextProps.volume &&
     prevProps.decay === nextProps.decay &&
     prevProps.microtiming === nextProps.microtiming &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isMultiSelected === nextProps.isMultiSelected &&
     prevProps.isFocused === nextProps.isFocused &&
+    prevProps.selectedSubIndex === nextProps.selectedSubIndex &&
+    prevProps.activeTool === nextProps.activeTool &&
     prevProps.shiftPx === nextProps.shiftPx &&
     prevProps.totalShift === nextProps.totalShift &&
+    prevProps.splitLeftColor === nextProps.splitLeftColor &&
+    prevProps.splitRightColor === nextProps.splitRightColor &&
+    prevProps.splitLeftText === nextProps.splitLeftText &&
+    prevProps.splitRightText === nextProps.splitRightText &&
     prevProps.colorStyle.backgroundColor === nextProps.colorStyle.backgroundColor &&
     prevProps.colorStyle.color === nextProps.colorStyle.color &&
+    prevProps.colorStyle.borderColor === nextProps.colorStyle.borderColor &&
     prevProps.isMultiSelectActive === nextProps.isMultiSelectActive &&
     prevProps.isSextuplet === nextProps.isSextuplet &&
     prevProps.isTriplet === nextProps.isTriplet &&
@@ -522,6 +610,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   setSelectedVariationId,
   setSelectedStepIndices,
   setIsMultiSelectActive,
+  activeTool = 'D',
+  isAlternating = false,
   onStepTouchStart,
   onCopyPattern,
   onPastePattern,
@@ -552,11 +642,21 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
   const gridRef = useRef<HTMLDivElement>(null);
   const [hasClipboard, setHasClipboard] = useState(false);
+  const [selectedSubIndex, setSelectedSubIndex] = useState<0 | 1 | null>(null);
+
+  useEffect(() => {
+    if (selectedStepIdx === null) {
+      setSelectedSubIndex(null);
+    }
+  }, [selectedStepIdx]);
 
   const isMouseDownRef = useRef(false);
   const paintValueRef = useRef<string | number>(0);
 
   const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLongPressFiredRef = useRef<boolean>(false);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const isSelectingRef = useRef(false);
   const hasDraggedRef = useRef(false);
   const initialTouchIndexRef = useRef<number | null>(null);
@@ -706,7 +806,74 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
   }, [onStepTouchStart, pattern.id, instrument.id, selectedVariationId, trackId, handleVariationStepValueChange, handleTrackStepValueChange]);
 
-  const handleCellMouseDown = React.useCallback((e: React.MouseEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
+  const handleCellMouseDown = React.useCallback((e: React.MouseEvent<any>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
+    // Interception pointerdown / mousedown prioritaire et immédiate pour l'outil Ciseau / Colle
+    if (activeTool === 'scissors') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.button !== 0) return;
+
+      // Déterminer la valeur actuelle de la case avec priorité absolue
+      const currentStep = (value !== undefined && value !== null)
+        ? value
+        : (pattern?.activeSteps?.[idx] !== undefined && pattern?.activeSteps?.[idx] !== null
+            ? pattern.activeSteps[idx]
+            : 0);
+
+      let finalVal: string | number | [string, string];
+
+      // A. Clic sur un pas déjà scindé (Array.isArray(val)) : Effet Colle
+      // Fusionne instantanément le pas en conservant la première note : val[0]
+      if (Array.isArray(currentStep)) {
+        const first = currentStep[0];
+        finalVal = (first === '0' || first === 0 || !first) ? 0 : first;
+        setSelectedSubIndex(null);
+      }
+      // B. Clic sur un pas vide ('0' ou '' ou 0 ou null) : Pré-remplissage naturel
+      // Scinde la case en initialisant directement le binôme fondamental de l'instrument
+      else if (
+        currentStep === 0 || 
+        currentStep === '0' || 
+        !currentStep || 
+        String(currentStep).trim() === '' || 
+        String(currentStep).trim() === '0'
+      ) {
+        finalVal = getDefaultSplitPair(instrument?.id, instrument?.type);
+        setSelectedSubIndex(0);
+      }
+      // C. Clic sur un pas contenant déjà une note : Déduction de la main opposée
+      // Conserve impérativement la note cliquée en première position (val[0]).
+      // Déduit automatiquement le second coup complémentaire via getComplementaryStroke(val[0], instId, ...)
+      else {
+        const baseVal = String(currentStep).trim();
+        const compVal = getComplementaryStroke(baseVal, instrument?.id, instrument?.type, isLeftHanded);
+        finalVal = [baseVal, compVal];
+        setSelectedSubIndex(0);
+      }
+
+      setSelectedStepIdx(idx);
+      setSelectedStepIndices([idx]);
+
+      if (selectedVariationId) {
+        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+      } else {
+        handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+      }
+
+      // Sound preview
+      const noteToPreview = Array.isArray(finalVal) ? finalVal[0] : finalVal;
+      if (noteToPreview !== 0 && noteToPreview !== '0' && noteToPreview !== '') {
+        try {
+          if (audioEngine) {
+            const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
+            const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+            audioEngine.playNote(trackId, String(noteToPreview), Tone.now(), vol, dec);
+          }
+        } catch (_) {}
+      }
+      return;
+    }
+
     e.stopPropagation();
     if (e.button !== 0) return;
     setSelectedPatternId(pattern.id);
@@ -726,83 +893,267 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       setIsMultiSelectActive(false);
       setSelectedStepIndices([idx]);
       setSelectedStepIdx(idx);
-      return;
-    }
-
-    if (e.altKey) {
-      isMouseDownRef.current = true;
-      let valToCycle = value;
-      if (Array.isArray(value)) {
-        valToCycle = subIndex !== undefined ? value[subIndex] : value[0];
-      }
-      const nextVal = getNextStepValue(instrument?.id, instrument?.type, valToCycle as string | number);
-      paintValueRef.current = nextVal;
-      
-      let finalVal: string | [string, string] = String(nextVal);
-      if (subIndex !== undefined && Array.isArray(value)) {
-        finalVal = [...value] as [string, string];
-        finalVal[subIndex] = String(nextVal);
-      }
-      
-      if (selectedVariationId) {
-        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
-      } else {
-        handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
-      }
+      setSelectedSubIndex(subIndex ?? null);
       return;
     }
 
     setSelectedStepIdx(idx);
     setSelectedStepIndices([idx]);
+    setSelectedSubIndex(subIndex ?? null);
+
     isMouseDownRef.current = true;
-    if (onStepTouchStart) {
-      handleStart(e, idx, value, subIndex);
+
+    // Apply directly the active tool from dock, with parity alternation if active
+    let strokeToApply: string | number;
+    if (activeTool === '0' || activeTool === 0 || activeTool === '') {
+      strokeToApply = 0;
+    } else if (isAlternating) {
+      strokeToApply = getAlternatingStroke(idx, activeTool, instrument?.id, instrument?.type, lang, isLeftHanded);
     } else {
-      let valToCycle = value;
-      if (Array.isArray(value)) {
-        valToCycle = subIndex !== undefined ? value[subIndex] : value[0];
-      }
-      const nextVal = getNextStepValue(instrument?.id, instrument?.type, valToCycle as string | number);
-      paintValueRef.current = nextVal;
-      
-      let finalVal: string | [string, string] = String(nextVal);
-      if (subIndex !== undefined && Array.isArray(value)) {
-        finalVal = [...value] as [string, string];
-        finalVal[subIndex] = String(nextVal);
-      }
-      
-      if (selectedVariationId) {
-        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
-      } else {
-        handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
-      }
+      strokeToApply = activeTool;
     }
-  }, [pattern.id, selectedVariationId, isMultiSelectActive, instrument?.id, instrument?.type, trackId, selectedStepIdx, onStepTouchStart, handleStart, handleStepMouseDownMulti, handleVariationStepValueChange, handleTrackStepValueChange, setSelectedPatternId, setSelectedVariationId, setSelectedStepIndices, setSelectedStepIdx]);
+
+    paintValueRef.current = strokeToApply;
+
+    let finalVal: string | number | [string, string] = strokeToApply;
+    if (subIndex !== undefined && Array.isArray(value)) {
+      const arr = [...value] as [string, string];
+      arr[subIndex] = String(strokeToApply);
+      finalVal = arr;
+      setSelectedSubIndex(subIndex);
+    } else {
+      setSelectedSubIndex(null);
+    }
+
+    if (selectedVariationId) {
+      handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+    } else {
+      handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+    }
+
+    // Sound preview
+    if (strokeToApply !== 0 && strokeToApply !== '0') {
+      try {
+        if (audioEngine) {
+          const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
+          const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+          audioEngine.playNote(trackId, String(strokeToApply), Tone.now(), vol, dec);
+        }
+      } catch (_) {}
+    }
+  }, [pattern.id, pattern.activeSteps, pattern.volumes, pattern.decays, selectedVariationId, isMultiSelectActive, activeTool, isAlternating, instrument?.id, instrument?.type, lang, isLeftHanded, trackId, handleStepMouseDownMulti, handleVariationStepValueChange, handleTrackStepValueChange, setSelectedPatternId, setSelectedVariationId, setSelectedStepIndices, setSelectedStepIdx, setSelectedSubIndex]);
 
   const handleCellMouseEnter = React.useCallback((idx: number) => {
+    if (activeTool === 'scissors') return; // Glisser/drag désactivé pour l'outil ciseau
     if (isMultiSelectActive) {
       handleStepMouseEnterMulti(idx);
       return;
     }
     if (isMouseDownRef.current) {
-      if (selectedVariationId) {
-        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, String(paintValueRef.current));
+      let strokeToApply: string | number;
+      if (activeTool === '0' || activeTool === 0 || activeTool === '') {
+        strokeToApply = 0;
+      } else if (isAlternating) {
+        strokeToApply = getAlternatingStroke(idx, activeTool, instrument?.id, instrument?.type, lang, isLeftHanded);
       } else {
-        handleTrackStepValueChange(trackId, pattern.id, idx, String(paintValueRef.current));
+        strokeToApply = paintValueRef.current;
+      }
+
+      if (selectedVariationId) {
+        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, strokeToApply as any);
+      } else {
+        handleTrackStepValueChange(trackId, pattern.id, idx, strokeToApply as any);
+      }
+
+      if (strokeToApply !== 0 && strokeToApply !== '0') {
+        try {
+          if (audioEngine) {
+            const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
+            const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+            audioEngine.playNote(trackId, String(strokeToApply), Tone.now(), vol, dec);
+          }
+        } catch (_) {}
       }
     }
-  }, [isMultiSelectActive, handleStepMouseEnterMulti, selectedVariationId, trackId, pattern.id, handleVariationStepValueChange, handleTrackStepValueChange]);
+  }, [isMultiSelectActive, handleStepMouseEnterMulti, selectedVariationId, trackId, pattern?.id, pattern?.volumes, pattern?.decays, activeTool, isAlternating, instrument?.id, instrument?.type, lang, isLeftHanded, handleVariationStepValueChange, handleTrackStepValueChange]);
+
+  const handleCellContextMenu = React.useCallback((e: React.MouseEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleStart(e, idx, value, subIndex);
+  }, [handleStart]);
 
   const handleCellTouchStart = React.useCallback((e: React.TouchEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
+    if (activeTool === 'scissors') {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
     e.stopPropagation();
     if (isMultiSelectActive) {
       handleStepTouchStartMulti(e as any, idx);
       return;
     }
-    handleStart(e, idx, value, subIndex);
-  }, [isMultiSelectActive, handleStepTouchStartMulti, handleStart]);
+
+    isLongPressFiredRef.current = false;
+    if (e.touches && e.touches.length > 0) {
+      touchStartPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+
+    // Long press (> 450ms) triggers TouchStrokeSelector popup for rare strokes
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressFiredRef.current = true;
+      handleStart(e, idx, value, subIndex);
+    }, 450);
+  }, [isMultiSelectActive, handleStepTouchStartMulti, handleStart, activeTool]);
+
+  const handleCellTouchMove = React.useCallback((e: React.TouchEvent<HTMLInputElement>) => {
+    if (touchStartPosRef.current && e.touches && e.touches.length > 0) {
+      const dx = e.touches[0].clientX - touchStartPosRef.current.x;
+      const dy = e.touches[0].clientY - touchStartPosRef.current.y;
+      if (dx * dx + dy * dy > 64) { // moved > 8px
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+      }
+    }
+  }, []);
+
+  const handleCellTouchEnd = React.useCallback((e: React.TouchEvent<any>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    if (isLongPressFiredRef.current) {
+      isLongPressFiredRef.current = false;
+      return;
+    }
+
+    if (isMultiSelectActive) return;
+
+    // Cas spécifique : Outil Ciseau / Colle (Scissors / Glue) - Outil persistant
+    if (activeTool === 'scissors') {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const currentStep = (value !== undefined && value !== null)
+        ? value
+        : (pattern?.activeSteps?.[idx] !== undefined && pattern?.activeSteps?.[idx] !== null
+            ? pattern.activeSteps[idx]
+            : 0);
+
+      let finalVal: string | number | [string, string];
+
+      // A. Clic sur un pas déjà scindé (Array.isArray(val)) : Effet Colle
+      // Fusionne instantanément le pas en conservant la première note : val[0]
+      if (Array.isArray(currentStep)) {
+        const first = currentStep[0];
+        finalVal = (first === '0' || first === 0 || !first) ? 0 : first;
+        setSelectedSubIndex(null);
+      }
+      // B. Clic sur un pas vide ('0' ou '' ou 0 ou null) : Pré-remplissage naturel
+      // Scinde la case en initialisant directement le binôme fondamental de l'instrument
+      else if (
+        currentStep === 0 || 
+        currentStep === '0' || 
+        !currentStep || 
+        String(currentStep).trim() === '' || 
+        String(currentStep).trim() === '0'
+      ) {
+        finalVal = getDefaultSplitPair(instrument?.id, instrument?.type);
+        setSelectedSubIndex(0);
+      }
+      // C. Clic sur un pas contenant déjà une note : Déduction de la main opposée
+      // Conserve impérativement la note cliquée en première position (val[0]).
+      // Déduit automatiquement le second coup complémentaire via getComplementaryStroke(val[0], instId, ...)
+      else {
+        const baseVal = String(currentStep).trim();
+        const compVal = getComplementaryStroke(baseVal, instrument?.id, instrument?.type, isLeftHanded);
+        finalVal = [baseVal, compVal];
+        setSelectedSubIndex(0);
+      }
+
+      setSelectedStepIdx(idx);
+      setSelectedStepIndices([idx]);
+
+      if (selectedVariationId) {
+        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+      } else {
+        handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+      }
+
+      // Sound preview
+      const noteToPreview = Array.isArray(finalVal) ? finalVal[0] : finalVal;
+      if (noteToPreview !== 0 && noteToPreview !== '0' && noteToPreview !== '') {
+        try {
+          if (audioEngine) {
+            const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
+            const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+            audioEngine.playNote(trackId, String(noteToPreview), Tone.now(), vol, dec);
+          }
+        } catch (_) {}
+      }
+      return;
+    }
+
+    // Instantaneous Tap State Machine without lag:
+    // Empty -> Strong -> Weak -> 0
+    let currentVal = value;
+    if (Array.isArray(value)) {
+      currentVal = subIndex !== undefined ? value[subIndex] : value[0];
+    }
+
+    const nextVal = getNextNuanceState(
+      currentVal,
+      activeTool,
+      instrument?.id,
+      instrument?.type,
+      lang,
+      isLeftHanded
+    );
+
+    let finalVal: string | number | [string, string] = nextVal;
+    if (subIndex !== undefined && Array.isArray(value)) {
+      const arr = [...value] as [string, string];
+      arr[subIndex] = String(nextVal);
+      finalVal = arr;
+      setSelectedSubIndex(subIndex);
+    } else {
+      setSelectedSubIndex(null);
+    }
+
+    if (selectedVariationId) {
+      handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+    } else {
+      handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+    }
+
+    setSelectedStepIdx(idx);
+    setSelectedStepIndices([idx]);
+
+    if (nextVal !== '0' && nextVal !== 0 && nextVal !== '') {
+      try {
+        if (audioEngine) {
+          const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
+          const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+          audioEngine.playNote(trackId, String(nextVal), Tone.now(), vol, dec);
+        }
+      } catch (_) {}
+    }
+  }, [isMultiSelectActive, activeTool, instrument?.id, instrument?.type, lang, isLeftHanded, selectedVariationId, trackId, pattern?.id, pattern?.activeSteps, pattern?.volumes, pattern?.decays, handleVariationStepValueChange, handleTrackStepValueChange, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex]);
 
   const handleCellChange = React.useCallback((e: React.ChangeEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
+    if (activeTool === 'scissors') {
+      e.preventDefault();
+      return;
+    }
     const newVal = e.target.value;
     let finalVal: string | [string, string] = String(newVal);
     if (subIndex !== undefined && Array.isArray(value)) {
@@ -814,31 +1165,301 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     } else {
       handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
     }
-  }, [selectedVariationId, trackId, pattern.id, handleVariationStepValueChange, handleTrackStepValueChange]);
+  }, [activeTool, selectedVariationId, trackId, pattern.id, handleVariationStepValueChange, handleTrackStepValueChange]);
 
-  const handleCellKeyDown = React.useCallback((e: React.KeyboardEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
-    const inputEl = e.currentTarget as HTMLInputElement;
-    if (subIndex !== undefined && Array.isArray(value)) {
-      // Temporarily bypass handleTrackStepKeyDown for subIndex because it doesn't support arrays yet
-      const finalVal = [...value] as [string, string];
-      if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
-        finalVal[subIndex] = '0';
-      } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        finalVal[subIndex] = e.key;
-      } else {
-        return; // Ignore other keys
+  const focusCell = React.useCallback((stepIdx: number, subIndex?: 0 | 1 | null) => {
+    if (!gridRef.current) return;
+    if (subIndex !== undefined && subIndex !== null) {
+      const el = gridRef.current.querySelector(
+        `[data-step-index="${stepIdx}"][data-sub-index="${subIndex}"]`
+      ) as HTMLElement | null;
+      if (el) el.focus();
+    } else {
+      const el = gridRef.current.querySelector(
+        `input[data-step-index="${stepIdx}"]`
+      ) as HTMLInputElement | null;
+      if (el) {
+        el.focus();
+        el.select();
       }
-      
+    }
+  }, []);
+
+  const handleCellKeyDown = React.useCallback((
+    e: React.KeyboardEvent<any>,
+    idx: number,
+    value: string | number | [string, string],
+    subIndex?: 0 | 1
+  ) => {
+    if (activeTool === 'scissors') {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft' && e.key !== 'Tab') {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    }
+    const totalSteps = pattern?.steps || 16;
+
+    // Navigation ArrowRight / Tab
+    if (e.key === 'ArrowRight' || e.key === 'Tab') {
       e.preventDefault();
+      if (Array.isArray(value) && subIndex === 0) {
+        setSelectedSubIndex(1);
+        focusCell(idx, 1);
+        return;
+      }
+      if (idx < totalSteps - 1) {
+        const nextIdx = idx + 1;
+        const nextVal = pattern?.activeSteps?.[nextIdx];
+        setSelectedStepIdx(nextIdx);
+        setSelectedStepIndices([nextIdx]);
+        if (Array.isArray(nextVal)) {
+          setSelectedSubIndex(0);
+          focusCell(nextIdx, 0);
+        } else {
+          setSelectedSubIndex(null);
+          focusCell(nextIdx);
+        }
+      }
+      return;
+    }
+
+    // Navigation ArrowLeft
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      if (Array.isArray(value) && subIndex === 1) {
+        setSelectedSubIndex(0);
+        focusCell(idx, 0);
+        return;
+      }
+      if (idx > 0) {
+        const prevIdx = idx - 1;
+        const prevVal = pattern?.activeSteps?.[prevIdx];
+        setSelectedStepIdx(prevIdx);
+        setSelectedStepIndices([prevIdx]);
+        if (Array.isArray(prevVal)) {
+          setSelectedSubIndex(1);
+          focusCell(prevIdx, 1);
+        } else {
+          setSelectedSubIndex(null);
+          focusCell(prevIdx);
+        }
+      }
+      return;
+    }
+
+    // ArrowUp / ArrowDown -> getWheelNuanceState ('up' = strong, 'down' = weak)
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      e.stopPropagation();
+      (e.nativeEvent as any)?.stopImmediatePropagation?.();
+      const dir = e.key === 'ArrowUp' ? 'up' : 'down';
+      let valToCycle = value;
+      const sub = subIndex !== undefined ? subIndex : (selectedSubIndex ?? 0);
+      if (Array.isArray(value)) {
+        valToCycle = value[sub];
+      }
+      const nextVal = getWheelNuanceState(
+        valToCycle as string | number,
+        dir,
+        instrument?.id,
+        instrument?.type,
+        lang,
+        isLeftHanded
+      );
+
+      let finalVal: string | number | [string, string] = nextVal;
+      if (Array.isArray(value)) {
+        const arr = [...value] as [string, string];
+        arr[sub] = String(nextVal);
+        finalVal = arr;
+      }
+
       if (selectedVariationId) {
-        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal);
+        handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
       } else {
-        handleTrackStepValueChange(trackId, pattern.id, idx, finalVal);
+        handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+      }
+
+      if (nextVal !== 0 && nextVal !== '0') {
+        try {
+          if (audioEngine) {
+            const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
+            const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+            audioEngine.playNote(trackId, String(nextVal), Tone.now(), vol, dec);
+          }
+        } catch (_) {}
+      }
+      return;
+    }
+
+    // Backspace: effacement précis sans saut de curseur
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      if (Array.isArray(value)) {
+        const sub = subIndex ?? 0;
+        const arr = [...value] as [string, string];
+        if (sub === 1) {
+          if (arr[1] !== '0' && arr[1] !== '' && arr[1] !== 0) {
+            arr[1] = '0';
+            const finalVal = arr;
+            if (selectedVariationId) {
+              handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+            } else {
+              handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+            }
+          } else {
+            // Recollement en conservant la note restante val[0]
+            const finalVal = (arr[0] === '0' || arr[0] === 0 || !arr[0]) ? 0 : arr[0];
+            if (selectedVariationId) {
+              handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+            } else {
+              handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+            }
+          }
+          setSelectedSubIndex(0);
+          focusCell(idx, 0);
+        } else {
+          // subIndex === 0
+          if (arr[0] !== '0' && arr[0] !== '' && arr[0] !== 0) {
+            arr[0] = '0';
+            const finalVal = arr;
+            if (selectedVariationId) {
+              handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+            } else {
+              handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+            }
+          } else {
+            const finalVal = (arr[1] === '0' || arr[1] === 0 || !arr[1]) ? 0 : arr[1];
+            if (selectedVariationId) {
+              handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+            } else {
+              handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+            }
+          }
+          if (idx > 0) {
+            const prevIdx = idx - 1;
+            const prevVal = pattern?.activeSteps?.[prevIdx];
+            setSelectedStepIdx(prevIdx);
+            setSelectedStepIndices([prevIdx]);
+            if (Array.isArray(prevVal)) {
+              setSelectedSubIndex(1);
+              focusCell(prevIdx, 1);
+            } else {
+              setSelectedSubIndex(null);
+              focusCell(prevIdx);
+            }
+          }
+        }
+      } else {
+        // Simple step
+        if (selectedVariationId) {
+          handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, 0 as any);
+        } else {
+          handleTrackStepValueChange(trackId, pattern.id, idx, 0 as any);
+        }
+        if (idx > 0) {
+          const prevIdx = idx - 1;
+          const prevVal = pattern?.activeSteps?.[prevIdx];
+          setSelectedStepIdx(prevIdx);
+          setSelectedStepIndices([prevIdx]);
+          if (Array.isArray(prevVal)) {
+            setSelectedSubIndex(1);
+            focusCell(prevIdx, 1);
+          } else {
+            setSelectedSubIndex(null);
+            focusCell(prevIdx);
+          }
+        }
+      }
+      return;
+    }
+
+    // Delete ou 0: vide la cellule sur place sans reculer
+    if (e.key === 'Delete' || e.key === '0') {
+      e.preventDefault();
+      if (Array.isArray(value)) {
+        const sub = subIndex ?? 0;
+        const arr = [...value] as [string, string];
+        arr[sub] = '0';
+        const finalVal = (arr[0] === '0' && arr[1] === '0') ? 0 : arr;
+        if (selectedVariationId) {
+          handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+        } else {
+          handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+        }
+        if (finalVal === 0) {
+          setSelectedSubIndex(null);
+          focusCell(idx);
+        }
+      } else {
+        if (selectedVariationId) {
+          handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, 0 as any);
+        } else {
+          handleTrackStepValueChange(trackId, pattern.id, idx, 0 as any);
+        }
+      }
+      return;
+    }
+
+    // Saisie d'une frappe au clavier (touches de lettres)
+    if (subIndex !== undefined && Array.isArray(value)) {
+      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        const arr = [...value] as [string, string];
+        arr[subIndex] = e.key;
+        if (selectedVariationId) {
+          handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, arr as any);
+        } else {
+          handleTrackStepValueChange(trackId, pattern.id, idx, arr as any);
+        }
+        try {
+          if (audioEngine && e.key !== '0') {
+            const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
+            const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+            audioEngine.playNote(trackId, e.key, Tone.now(), vol, dec);
+          }
+        } catch (_) {}
+
+        if (subIndex === 0) {
+          setSelectedSubIndex(1);
+          focusCell(idx, 1);
+        } else if (idx < totalSteps - 1) {
+          const nextIdx = idx + 1;
+          const nextVal = pattern?.activeSteps?.[nextIdx];
+          setSelectedStepIdx(nextIdx);
+          setSelectedStepIndices([nextIdx]);
+          if (Array.isArray(nextVal)) {
+            setSelectedSubIndex(0);
+            focusCell(nextIdx, 0);
+          } else {
+            setSelectedSubIndex(null);
+            focusCell(nextIdx);
+          }
+        }
       }
     } else {
-      handleTrackStepKeyDown(trackId, pattern.id, idx, e.key, inputEl.value, inputEl);
+      const inputEl = e.currentTarget as HTMLInputElement;
+      if (inputEl && ['d', 'D', 'p', 'P', 't', 'T', 'g', 'G', 'a', 'A', 'r', 'R', 'e', 'E', 'x', 'X', 'f', 'F', 'i', 'I', 's', 'S', 'c', 'C', 'w', 'W'].includes(e.key)) {
+        setTimeout(() => {
+          if (idx < totalSteps - 1) {
+            const nextIdx = idx + 1;
+            const nextVal = pattern?.activeSteps?.[nextIdx];
+            setSelectedStepIdx(nextIdx);
+            setSelectedStepIndices([nextIdx]);
+            if (Array.isArray(nextVal)) {
+              setSelectedSubIndex(0);
+              focusCell(nextIdx, 0);
+            } else {
+              setSelectedSubIndex(null);
+              focusCell(nextIdx);
+            }
+          }
+        }, 10);
+      }
+      handleTrackStepKeyDown(trackId, pattern.id, idx, e.key, inputEl?.value || '', inputEl);
     }
-  }, [handleTrackStepKeyDown, trackId, pattern.id, selectedVariationId, handleVariationStepValueChange, handleTrackStepValueChange]);
+  }, [activeTool, trackId, pattern?.id, pattern?.steps, pattern?.activeSteps, pattern?.volumes, pattern?.decays, selectedVariationId, instrument?.id, instrument?.type, lang, isLeftHanded, handleVariationStepValueChange, handleTrackStepValueChange, handleTrackStepKeyDown, focusCell, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex]);
 
   const handleVoiceTouchStart = React.useCallback((e: React.TouchEvent<HTMLDivElement>, idx: number) => {
     if (isMultiSelectActive) {
@@ -874,6 +1495,86 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     window.addEventListener('oGiradorClipboardChanged', handleChanged);
     return () => window.removeEventListener('oGiradorClipboardChanged', handleChanged);
   }, []);
+
+  // Native wheel listener on grid with { passive: false } and e.preventDefault() to block modal vertical scroll
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const stepInput = target.closest('[data-track-id][data-step-index]') as HTMLElement | null;
+      if (!stepInput) return;
+
+      const targetTrackId = stepInput.getAttribute('data-track-id');
+      const stepIdxAttr = stepInput.getAttribute('data-step-index');
+      if (targetTrackId !== String(trackId) || stepIdxAttr === null) return;
+
+      // Neutralize modal vertical scrolling
+      e.preventDefault();
+      e.stopPropagation();
+
+      const idx = parseInt(stepIdxAttr, 10);
+      const direction = e.deltaY < 0 ? 'up' : 'down';
+
+      const currentVal = pattern?.activeSteps?.[idx] ?? 0;
+      let valToNuance = currentVal;
+      const subIdxAttr = stepInput.getAttribute('data-sub-index');
+      if (Array.isArray(currentVal) && subIdxAttr !== null) {
+        const subIdx = parseInt(subIdxAttr, 10);
+        valToNuance = currentVal[subIdx];
+      }
+
+      const nextVal = getWheelNuanceState(
+        valToNuance as string | number,
+        direction,
+        instrument?.id,
+        instrument?.type,
+        lang,
+        isLeftHanded
+      );
+
+      let finalVal: string | number | [string, string] = nextVal;
+      if (Array.isArray(currentVal) && subIdxAttr !== null) {
+        const subIdx = parseInt(subIdxAttr, 10);
+        const arr = [...currentVal] as [string, string];
+        arr[subIdx] = String(nextVal);
+        finalVal = arr;
+      }
+
+      if (nextVal !== valToNuance) {
+        if (selectedVariationId) {
+          handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+        } else {
+          handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+        }
+
+        setSelectedStepIdx(idx);
+        setSelectedStepIndices([idx]);
+        if (subIdxAttr !== null) {
+          setSelectedSubIndex(parseInt(subIdxAttr, 10) as 0 | 1);
+        } else {
+          setSelectedSubIndex(null);
+        }
+
+        if (nextVal !== 0 && nextVal !== '0') {
+          try {
+            if (audioEngine) {
+              const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
+              const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+              audioEngine.playNote(trackId, String(nextVal), Tone.now(), vol, dec);
+            }
+          } catch (_) {}
+        }
+      }
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+    };
+  }, [trackId, pattern, instrument?.id, instrument?.type, lang, isLeftHanded, selectedVariationId, handleVariationStepValueChange, handleTrackStepValueChange, setSelectedStepIdx, setSelectedStepIndices, setSelectedSubIndex]);
 
   // Listen to CustomEvent 'o-girador-tick' to highlight cells dynamically (Bypass React)
   useEffect(() => {
@@ -1094,6 +1795,64 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     return () => window.removeEventListener('grid-shortcut', handleGridShortcut);
   }, [pattern, selectedPatternId, selectedVariationId, isMultiSelectActive, selectedStepIndices, selectedStepIdx, onCopyPattern, onPastePattern, canPaste, trackId]);
 
+  // Priorité absolue des flèches ↑ / ↓ sur le pas actif (Miroir de la molette)
+  useEffect(() => {
+    if (selectedStepIdx === null) return;
+
+    const handleGridVerticalArrows = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
+        const idx = selectedStepIdx;
+        const currentVal = pattern?.activeSteps?.[idx] ?? 0;
+        const dir = e.key === 'ArrowUp' ? 'up' : 'down';
+
+        let valToCycle = currentVal;
+        const sub = selectedSubIndex !== null && selectedSubIndex !== undefined ? selectedSubIndex : 0;
+        if (Array.isArray(currentVal)) {
+          valToCycle = currentVal[sub];
+        }
+
+        const nextVal = getWheelNuanceState(
+          valToCycle as string | number,
+          dir,
+          instrument?.id,
+          instrument?.type,
+          lang,
+          isLeftHanded
+        );
+
+        let finalVal: string | number | [string, string] = nextVal;
+        if (Array.isArray(currentVal)) {
+          const arr = [...currentVal] as [string, string];
+          arr[sub] = String(nextVal);
+          finalVal = arr;
+        }
+
+        if (selectedVariationId) {
+          handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+        } else {
+          handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+        }
+
+        if (nextVal !== 0 && nextVal !== '0') {
+          try {
+            if (audioEngine) {
+              const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
+              const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+              audioEngine.playNote(trackId, String(nextVal), Tone.now(), vol, dec);
+            }
+          } catch (_) {}
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGridVerticalArrows, { capture: true });
+    return () => window.removeEventListener('keydown', handleGridVerticalArrows, { capture: true });
+  }, [selectedStepIdx, selectedSubIndex, pattern?.id, pattern?.activeSteps, pattern?.volumes, pattern?.decays, selectedVariationId, instrument?.id, instrument?.type, lang, isLeftHanded, trackId, handleVariationStepValueChange, handleTrackStepValueChange]);
+
   // Guard Clauses for store state and props
   const trackExists = useSequencerStore(state => state.tracks.some(t => t.id === trackId));
   if (!trackExists || !pattern || !instrument) return null;
@@ -1307,6 +2066,13 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         .slider-transparent-track::-moz-range-track {
           background: transparent !important;
         }
+        ${activeTool === 'scissors' ? `
+          .percussion-step-container input {
+            pointer-events: none !important;
+            cursor: inherit !important;
+            user-select: none !important;
+          }
+        ` : ''}
       `}</style>
       
       {isTouchDevice && renderSelectionToolbar(pattern)}      {instrument.type === 'voice' ? (
@@ -1596,7 +2362,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       ) : (
         /* ──── Instrument step grid ──── */
         <div
-          className="step-boxes flex flex-wrap gap-y-4 gap-x-6"
+          className="step-boxes flex flex-wrap gap-y-4 gap-x-5 lg:gap-x-7"
           id={`detail-steps-${trackId}-${pattern.id}`}
           onTouchMove={handleGridTouchMove}
           onTouchEnd={handleGridTouchEnd}
@@ -1638,7 +2404,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       </select>
                     </div>
                   )}
-                  <div className={`p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm relative ${isSextuplet ? 'h-[72px]' : isTriplet ? 'flex justify-between' : isOcto ? 'flex gap-1' : 'flex gap-4'}`} style={{ width: '204px' }}>
+                  <div className={`p-1.5 bg-[#ece4d0]/40 border border-[#1a1a1a]/10 rounded-sm relative ${isSextuplet ? 'h-[72px]' : isTriplet ? 'flex justify-between' : isOcto ? 'flex gap-1' : 'flex gap-4'}`} style={{ width: '220px' }}>
                     {group.map((i, indexInGroup) => {
                       const val = pattern?.activeSteps?.[i];
                       const displayVal = getDisplayVal(val);
@@ -1648,10 +2414,28 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       const isSingleSelected = selectedStepIdx === i;
 
                       let colorStyle: React.CSSProperties = {};
-                      if (isActive) {
-                        const bgColor = instrument?.colors?.[val as string] || '#111';
+                      let splitLeftColor: string | undefined = undefined;
+                      let splitRightColor: string | undefined = undefined;
+                      let splitLeftText: string | undefined = undefined;
+                      let splitRightText: string | undefined = undefined;
+
+                      if (Array.isArray(val)) {
+                        const s0 = String(val[0] ?? '0');
+                        const s1 = String(val[1] ?? '0');
+                        const lookup0 = (s0 === 'f' && !instrument?.colors?.['f']) ? 'F' : (s0 === 'v' && !instrument?.colors?.['v']) ? 'V' : s0;
+                        const lookup1 = (s1 === 'f' && !instrument?.colors?.['f']) ? 'F' : (s1 === 'v' && !instrument?.colors?.['v']) ? 'V' : s1;
+
+                        splitLeftColor = instrument?.colors?.[lookup0] || '#666';
+                        splitRightColor = instrument?.colors?.[lookup1] || '#666';
+
+                        splitLeftText = isDarkText(instrument?.id, lookup0) ? '#1a1a1a' : (instrument?.colors?.text || '#f4ecd8');
+                        splitRightText = isDarkText(instrument?.id, lookup1) ? '#1a1a1a' : (instrument?.colors?.text || '#f4ecd8');
+                      } else if (isActive) {
+                        const s = String(val);
+                        const lookup = (s === 'f' && !instrument?.colors?.['f']) ? 'F' : (s === 'v' && !instrument?.colors?.['v']) ? 'V' : s;
+                        const bgColor = instrument?.colors?.[lookup] || '#111';
                         let txtColor = instrument?.colors?.text || '#f4ecd8';
-                        if (isDarkText(instrument?.id, val as string)) {
+                        if (isDarkText(instrument?.id, lookup)) {
                           txtColor = '#1a1a1a';
                         }
                         colorStyle = {
@@ -1670,7 +2454,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       const isMultiSelected = selectedStepIndices.includes(i) && selectedStepIndices.length > 1;
 
                       let wrapperClasses = "relative flex flex-col items-center";
-                      let wrapperStyle: React.CSSProperties = { width: '36px' };
+                      let wrapperStyle: React.CSSProperties = { width: '40px' };
                       
                       if (isSextuplet) {
                         wrapperClasses = "absolute flex flex-col items-center justify-center top-1.5 z-10 hover:z-20";
@@ -1699,8 +2483,14 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                             isSelected={selectedStepIndices.includes(i)}
                             isMultiSelected={isMultiSelected}
                             isFocused={selectedStepIdx === i}
+                            selectedSubIndex={selectedStepIdx === i ? selectedSubIndex : null}
+                            activeTool={activeTool}
                             shiftPx={shiftPx}
                             colorStyle={colorStyle}
+                            splitLeftColor={splitLeftColor}
+                            splitRightColor={splitRightColor}
+                            splitLeftText={splitLeftText}
+                            splitRightText={splitRightText}
                             isMultiSelectActive={isMultiSelectActive}
                             isSextuplet={isSextuplet}
                             isTriplet={isTriplet}
@@ -1711,6 +2501,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                             onMouseDown={handleCellMouseDown}
                             onMouseEnter={handleCellMouseEnter}
                             onTouchStart={handleCellTouchStart}
+                            onTouchMove={handleCellTouchMove}
+                            onTouchEnd={handleCellTouchEnd}
+                            onContextMenu={handleCellContextMenu}
                             onChange={handleCellChange}
                             onKeyDown={handleCellKeyDown}
                           />

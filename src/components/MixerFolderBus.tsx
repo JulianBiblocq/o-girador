@@ -7,7 +7,8 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { GripHorizontal } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useSequencerStore, getEffectiveMuteState } from '../stores/useSequencerStore';
+import { useSequencerStore, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
+import { useShallow } from 'zustand/react/shallow';
 import { useAudioStore } from '../stores/useAudioStore';
 import { getBusColor, getContrastColor, getTopParentBusId } from '../utils/colorHelpers';
 import { DragNumberBox } from './DragNumberBox';
@@ -45,63 +46,27 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   const { isPlaying } = audio;
 
   const lang = useSequencerStore(state => state.lang);
-  const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
-  const tracks = useSequencerStore(state => state.tracks);
+  const track = useSequencerStore(useShallow(state => state.tracks.find(t => t.id === trackId)));
+  const tracksMeta = useSequencerStore(selectTracksMeta);
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
 
   const [isEditing, setIsEditing] = useState(false);
   const [nameVal, setNameVal] = useState(track?.customName || 'Bus');
-  const [liveMeasure, setLiveMeasure] = useState<number>(-1);
-  const lastMeasureRef = useRef<number>(-1);
-
-  const isToada = track?.customName === 'Toada' || String(track?.id) === 'toada';
-
-  const activeChildTrack = useMemo(() => {
-    if (!isToada) return null;
-    const pux = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-    const coro = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
-    
-    const globalSelectedId = useAudioStore.getState().selectedVocalPatternId;
-    if (globalSelectedId) {
-      if (pux && pux.patterns.some(p => p.id === globalSelectedId)) return pux;
-      if (coro && coro.patterns.some(p => p.id === globalSelectedId)) return coro;
-    }
-    
-    const measure = liveMeasure >= 0 ? liveMeasure : useSequencerStore.getState().currentMeasure;
-    const coroPtn = coro?.patterns.find(p => p.measureAssignments[measure]);
-    if (coroPtn) return coro;
-    
-    const puxPtn = pux?.patterns.find(p => p.measureAssignments[measure]);
-    if (puxPtn) return pux;
-    
-    return coro || pux || null;
-  }, [isToada, tracks, liveMeasure]);
-
-  const effectiveTrack = isToada ? (activeChildTrack || track) : track;
+  const liveMeasureRef = useRef<number>(-1);
 
   useEffect(() => {
     if (!isActive) {
-      if (lastMeasureRef.current !== -1) {
-        lastMeasureRef.current = -1;
-        setLiveMeasure(-1);
-      }
+      liveMeasureRef.current = -1;
       return;
     }
 
     const handleTick = (detail: { step: number; measure: number; maxTicks: number; ratio?: number; time?: number }) => {
       const { step, measure } = detail;
-      
       if (step < 0) {
-        if (lastMeasureRef.current !== -1) {
-          lastMeasureRef.current = -1;
-          setLiveMeasure(-1);
-        }
+        liveMeasureRef.current = -1;
         return;
       }
-      if (measure !== lastMeasureRef.current) {
-        lastMeasureRef.current = measure;
-        setLiveMeasure(prev => (prev !== measure ? measure : prev));
-      }
+      liveMeasureRef.current = measure;
     };
     subscribeToTick(handleTick);
     return () => {
@@ -146,7 +111,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   };
 
   const onDelete = () => {
-    const childTracks = tracks.filter(t => String(t.busId) === String(trackId));
+    const childTracks = useSequencerStore.getState().tracks.filter(t => String(t.busId) === String(trackId));
     
     if (childTracks.length > 0) {
       const confirmMsg = lang === 'fr' 
@@ -223,8 +188,8 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
     }
   }, [trackId]);
 
-  const topBusId = getTopParentBusId(track, tracks) || String(trackId);
-  const busColor = getBusColor(topBusId, tracks, instrumentsConfig);
+  const topBusId = getTopParentBusId(track, tracksMeta) || String(trackId);
+  const busColor = getBusColor(topBusId, tracksMeta, instrumentsConfig);
   const faderTextColor = getContrastColor(busColor);
 
   const cleanHex = busColor.replace('#', '');
@@ -355,7 +320,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
     }
   };
 
-    const isMuted = getEffectiveMuteState(tracks, trackId);
+    const isMuted = getEffectiveMuteState(tracksMeta, trackId);
   return (
     <div
       ref={setNodeRef}

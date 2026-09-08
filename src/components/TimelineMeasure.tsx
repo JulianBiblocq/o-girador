@@ -94,6 +94,25 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   const targetPatternId = useAudioStore((state) => state.targetPatternId);
   const isArmed = targetPatternId === patternId;
 
+  const isSelectedCell = useSequencerStore(
+    React.useCallback(
+      (state) => state.activeTimelineCell?.trackId === trackId && state.activeTimelineCell?.measureIdx === mIdx,
+      [trackId, mIdx]
+    )
+  );
+
+  const longPressTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartPosRef = React.useRef<{ x: number; y: number } | null>(null);
+  const isLongPressTriggeredRef = React.useRef(false);
+
+  React.useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleMicroClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     const newArmed = !isArmed;
@@ -109,6 +128,11 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
 
   const handleCellClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (isPanningActive) return;
+    if (isLongPressTriggeredRef.current) {
+      isLongPressTriggeredRef.current = false;
+      return;
+    }
+    useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     onMeasureClick(mIdx, steps, clickX);
@@ -129,7 +153,11 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
 
   return (
     <div
-      className={`h-full cursor-pointer border-r shrink-0 ${
+      className={`h-full cursor-pointer border-r shrink-0 select-none relative transition-all duration-100 ${
+        isSelectedCell
+          ? 'ring-2 ring-inset ring-[#8b2a1a] bg-[#8b2a1a]/[0.08] shadow-[inset_0_0_0_1px_#8b2a1a,0_0_8px_rgba(139,42,26,0.3)] z-30'
+          : ''
+      } ${
         (mIdx + 1) % 4 === 0
           ? 'border-r-2 border-r-blue-500/40 dark:border-r-blue-400/40 shadow-[1px_0_0_0_rgba(59,130,246,0.15)]'
           : 'border-r-[var(--cordel-border)]/20'
@@ -145,10 +173,78 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
         minWidth: currentMeasureW,
         contain: 'layout paint style',
         opacity: isFollowingMaster ? 0.45 : 1.0,
+        WebkitTouchCallout: 'none',
+        userSelect: 'none',
         ...({ '--section-color': sectionColor } as React.CSSProperties)
       }}
+      onPointerDown={(e) => {
+        if (e.button === 0 && !isPanningActive) {
+          useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+        }
+      }}
       onClick={handleCellClick}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+        useSequencerStore.getState().openTimelineContextMenu({
+          x: e.clientX,
+          y: e.clientY,
+          trackId,
+          measureIdx: mIdx,
+          patternId: patternId !== -1 ? patternId : null,
+        });
+      }}
+      onTouchStart={(e) => {
+        if (e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+        isLongPressTriggeredRef.current = false;
+        if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = setTimeout(() => {
+          isLongPressTriggeredRef.current = true;
+          useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+          useSequencerStore.getState().openTimelineContextMenu({
+            x: touch.clientX,
+            y: touch.clientY,
+            trackId,
+            measureIdx: mIdx,
+            patternId: patternId !== -1 ? patternId : null,
+          });
+        }, 400);
+      }}
+      onTouchMove={(e) => {
+        if (!touchStartPosRef.current || e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
+        const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
+        if (dx > 8 || dy > 8) {
+          if (longPressTimerRef.current) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+          }
+        }
+      }}
+      onTouchEnd={() => {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+      }}
+      onTouchCancel={() => {
+        if (longPressTimerRef.current) {
+          clearTimeout(longPressTimerRef.current);
+          longPressTimerRef.current = null;
+        }
+      }}
     >
+      {/* Selection corner tag */}
+      {isSelectedCell && (
+        <div className="absolute top-0 right-0 w-2.5 h-2.5 pointer-events-none z-30">
+          <div className="w-full h-full bg-[#8b2a1a]" style={{ clipPath: 'polygon(100% 0, 0 0, 100% 100%)' }} />
+        </div>
+      )}
+
       {/* Detailed View */}
       {!isMacro && (
         <div className="cell-detailed w-full h-full relative">
@@ -158,7 +254,11 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
             onMouseDown={e => e.stopPropagation()}
             onTouchStart={e => e.stopPropagation()}
           >
-            <div className="flex items-center gap-1 bg-[var(--cordel-bg)]/80 hover:bg-[var(--cordel-bg)]/95 border border-[var(--cordel-border)]/20 hover:border-[var(--cordel-border)]/50 rounded px-1.5 py-px shadow-sm max-w-[125px] relative h-[20px]">
+            <div className={`flex items-center gap-1 ${
+              isSelectedCell
+                ? 'bg-[var(--cordel-bg)] border-2 border-[#8b2a1a] shadow-[0_0_6px_rgba(139,42,26,0.5)]'
+                : 'bg-[var(--cordel-bg)]/80 hover:bg-[var(--cordel-bg)]/95 border border-[var(--cordel-border)]/20 hover:border-[var(--cordel-border)]/50'
+            } rounded px-1.5 py-px shadow-sm max-w-[125px] relative h-[20px]`}>
               <span className="text-[10px] font-cactus font-bold tracking-wider uppercase truncate leading-tight select-none pr-2.5">
                 {isFollowingMaster && <span className="mr-0.5 opacity-60">🔗</span>}
                 {activePatternName || (lang === 'fr' ? 'Silence' : 'Silêncio')}
@@ -168,7 +268,11 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
               
               <select
                 value={isSlave && !isOverridden ? 'follow' : (patternId !== -1 && !isSilence ? String(patternId) : 'silence')}
+                onFocus={() => {
+                  useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+                }}
                 onChange={e => {
+                  useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
                   const v = e.target.value;
                   onPatternAssignForMeasure(
                     trackId,
@@ -411,7 +515,9 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
             <div
               className={`macro-pattern-block w-full h-full flex ${
                 isMinZoom ? 'flex-row justify-center items-center p-1' : 'flex-col justify-center p-1.5'
-              } border rounded-sm transition-all relative`}
+              } border rounded-sm transition-all relative ${
+                isSelectedCell ? 'ring-2 ring-inset ring-[#8b2a1a] !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.3)]' : ''
+              }`}
               style={{
                 backgroundColor: `${instMixerBg}cc`,
                 borderColor: `${instColors['D'] || instColors['E'] || 'var(--cordel-border)'}40`,
@@ -429,7 +535,11 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                   
                   <select
                     value={patternId !== -1 ? String(patternId) : 'silence'}
+                    onFocus={() => {
+                      useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
+                    }}
                     onChange={e => {
+                      useSequencerStore.getState().setActiveTimelineCell({ trackId, measureIdx: mIdx });
                       const v = e.target.value;
                       onPatternAssignForMeasure(
                         trackId,
