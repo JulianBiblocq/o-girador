@@ -956,7 +956,8 @@ export function useAudioSync({
           // Always sync the channel mapping with audioEngine using the start of the insert chain
           audioEngine?.setInstrumentChannel(t.id, inst.id, trackInputs[t.id] || channels[t.id]);
 
-          const effectiveVol = getEffectiveVolume(tracksRef.current, t.id);
+          const isConnectedToBus = Boolean(t.busId && busChannels[t.busId]);
+          const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 100) : getEffectiveVolume(tracksRef.current, t.id);
           const gain = Math.max(0.00001, effectiveVol / 100);
           const db = effectiveVol === 0 ? -Infinity : Tone.gainToDb(gain);
           channels[t.id].volume.value = db;
@@ -1291,7 +1292,8 @@ export function useAudioSync({
             // 1. Automation Volume
             if (!t.automationBypass?.volume && t.measureVols && t.measureVols.length && channel.volume) {
               try {
-                const baseEffectiveVol = getEffectiveVolume(tracksRef.current, t.id);
+                const isConnectedToBus = Boolean(t.busId && busChannels?.[t.busId]);
+                const baseEffectiveVol = isConnectedToBus ? (t.volumeVal ?? 100) : getEffectiveVolume(tracksRef.current, t.id);
                 const baseGain = Math.max(0.00001, baseEffectiveVol / 100);
 
                 const rawTargetVol = t.measureVols[currentMeasureIdx] !== undefined ? t.measureVols[currentMeasureIdx] : 100;
@@ -1504,7 +1506,8 @@ export function useAudioSync({
               if (liveTrack) {
                 const inst = instrumentsConfig[liveTrack.instrumentIdx];
                 if (inst) {
-                  const trackVolPct = getEffectiveVolume(tracksRef.current, liveTrack.id);
+                  const isConnectedToBus = Boolean(liveTrack.busId && busChannels[liveTrack.busId]);
+                  const trackVolPct = isConnectedToBus ? (liveTrack.volumeVal ?? 100) : getEffectiveVolume(tracksRef.current, liveTrack.id);
                   const isMuted = getEffectiveMuteState(tracksRef.current, liveTrack.id);
                   if (trackVolPct > 0 && !isMuted) {
                     const trackVolLinear = Math.pow(trackVolPct / 100, 2);
@@ -1779,12 +1782,14 @@ export function useAudioSync({
                       const isCoroTrack = voiceInst?.id === 'coro';
 
 
+                      const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
+                      const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id);
                       const handle = vocalEngineService.playSequencerVocal(
                         safeId,
                         time,
                         elapsedSinceVocalStart,
                         outputNode,
-                        getEffectiveVolume(tracks, track.id),
+                        vocalVol,
                         isCoroTrack
                       );
                       if (handle) {
@@ -1818,8 +1823,8 @@ export function useAudioSync({
               const state = activePattern.activeSteps[cellIdx];
               if (state && state !== 0) {
                 const triggerTime = swingTime;
-                const liveTrack = tracks[trackIdx];
-                const trackVolPct = liveTrack ? getEffectiveVolume(tracks, liveTrack.id) : 100;
+                const isConnectedToBus = Boolean(liveTrack?.busId && busChannels[liveTrack.busId]);
+                const trackVolPct = liveTrack ? (isConnectedToBus ? (liveTrack.volumeVal ?? 100) : getEffectiveVolume(tracks, liveTrack.id)) : 100;
                 if (trackVolPct > 0) {
                   const trackVolLinear = Math.pow(trackVolPct / 100, 2);
                   const noteVal = activePattern.notes?.[cellIdx] || 'C4';
@@ -2340,7 +2345,8 @@ export function useAudioSync({
               channelNode.connect(busMeters[t.id]);
             }
 
-            const effectiveVol = getEffectiveVolume(tracks, t.id);
+            const isConnectedToParentBus = Boolean(t.busId && busChannels[t.busId]);
+            const effectiveVol = isConnectedToParentBus ? (t.volumeVal ?? 100) : getEffectiveVolume(tracks, t.id);
             const gain = Math.max(0.00001, effectiveVol / 100);
             const db = effectiveVol === 0 ? -Infinity : Tone.gainToDb(gain);
             const pan = (t.panVal || 0) / 100;
@@ -2433,7 +2439,8 @@ export function useAudioSync({
           const gainNode = trackInputs[t.id] || channels[t.id];
           audioEngine?.setInstrumentChannel(t.id, inst.id, gainNode);
 
-          const effectiveVol = getEffectiveVolume(tracks, t.id);
+          const isConnectedToBus = Boolean(t.busId && busChannels[t.busId]);
+          const effectiveVol = isConnectedToBus ? (t.volumeVal ?? 100) : getEffectiveVolume(tracks, t.id);
           const gain = Math.max(0.00001, effectiveVol / 100);
           const db = effectiveVol === 0 ? -Infinity : Tone.gainToDb(gain);
           const pan = (t.pan ?? t.panVal ?? 0) / 100;
