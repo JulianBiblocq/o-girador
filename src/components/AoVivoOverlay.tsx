@@ -118,7 +118,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
       const instId = activeTrack.instrumentIdx !== undefined ? instrumentsConfig[activeTrack.instrumentIdx]?.id : null;
       const isTimbal = instId === 'timbal';
       const isDrum = instId === 'caixa' || instId === 'tarol';
-      const xOffset = (isTimbal || isDrum) ? 30 : 160;
+      const xOffset = (isTimbal || isDrum) ? 30 : 85;
 
       if (leftWrapperRef.current) {
         const leftX = targetX - xOffset;

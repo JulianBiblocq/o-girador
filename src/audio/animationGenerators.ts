@@ -9,15 +9,16 @@
 
 export const CONFIG_STICKS = {
   // --------------------------------------------------------------------------
-  // 1. ANGLE NATUREL DES POIGNETS (V-SHAPE)
+  // 1. ANGLE NATUREL DES POIGNETS (V-SHAPE) & FOUETTÉ DYNAMIQUE
   // --------------------------------------------------------------------------
-  vShapeAngle: 12, // Main gauche: -12°, Main droite: +12°
+  vShapeAngle: 7, // Angle de repos resserré vers le centre (±7° au lieu de ±12°)
+  wristWhipAngle: 2.2, // Micro-torsion angulaire du poignet (ouverture en haut, fermeture à l'impact)
 
   // --------------------------------------------------------------------------
   // 2. POSITION BASSE DE REPOS (au-dessus de la peau du tambour)
   // --------------------------------------------------------------------------
   rest: {
-    translateY: -225, // Position basse en attente au-dessus de la peau (px)
+    translateY: -180, // Position basse abaissée pour viser pile la zone centrale (Luanda)
     scale: 0.92,       // Échelle en perspective basse
   },
 
@@ -25,23 +26,24 @@ export const CONFIG_STICKS = {
   // 3. COUP FORT (Majuscules : D, E, I)
   // --------------------------------------------------------------------------
   strong: {
-    duration: 220,    // Durée totale du cycle de frappe (ms)
+    duration: 230,    // Durée totale du cycle de frappe (ms)
     windUp: {
       offset: 0.15,   // Fin de la montée à 15% du cycle
-      translateY: 15, // Recul neutre vers le joueur sans glisser vers le centre (px)
-      scale: 1.22,    // Grossissement fort de l'olive vers le visage du joueur
-      // Règle d'or WAAPI : l'easing déclaré ici régit la transition VERS l'impact (15% -> 25%)
-      easing: 'cubic-bezier(0.8, 0, 1, 1)', // Accélération fulgurante
+      translateY: 25, // Recul physique délié vers le joueur (accentue l'effet levier)
+      scale: 1.35,    // Olive fortement grossie vers le visage (perspective Z boostée)
+      // Micro-respiration au sommet puis accélération fulgurante vers la peau
+      easing: 'cubic-bezier(0.45, 0, 0.9, 1)',
     },
     impact: {
       offset: 0.25,     // Impact net à 25% du cycle
-      translateY: -240, // Plongée de l'olive au centre de la peau (px)
+      translateY: -195, // Point d'impact abaissé (calé sur le cercle Luanda)
       scale: 0.88,      // Rétrécissement d'éloignement en perspective Z
-      easing: 'ease-out', // Réaction immédiate d'amorti vers le rebond
+      // Installation après impact : sensation de masse en suspension progressive
+      easing: 'cubic-bezier(0.15, 0.85, 0.35, 1)',
     },
     rebound: {
-      offset: 0.40,     // Rebond rapide dès l'impact
-      translateY: -225, // Remontée immédiate de 15px (de -240 à -225px)
+      offset: 0.40,     // Rebond contrôlé dès l'impact
+      translateY: -180, // Remontée de 15px (de -195 à -180px)
       scale: 0.92,       // Retour à l'échelle de repos
       easing: 'linear',  // Maintien stable sans effet ressort élastique
     },
@@ -54,19 +56,19 @@ export const CONFIG_STICKS = {
     duration: 160,    // Durée totale resserrée (ms)
     windUp: {
       offset: 0.15,
-      translateY: -215, // Armement minime (léger retrait de 10px depuis le repos)
-      scale: 1.03,     // Grossissement subtil
-      easing: 'cubic-bezier(0.8, 0, 1, 1)', // Descente vive
+      translateY: -170, // Armement minime (recul de 10px depuis le repos -180px)
+      scale: 1.04,     // Grossissement subtil
+      easing: 'cubic-bezier(0.45, 0, 0.9, 1)',
     },
     impact: {
       offset: 0.25,
-      translateY: -235, // Frappe sèche au même centre de peau (px)
+      translateY: -190, // Frappe sèche au même centre de peau (px)
       scale: 0.90,
-      easing: 'ease-out',
+      easing: 'cubic-bezier(0.15, 0.85, 0.35, 1)',
     },
     rebound: {
       offset: 0.40,
-      translateY: -225, // Rebond presque imperceptible (environ 3 à 5px)
+      translateY: -180, // Rebond presque imperceptible (environ 10px)
       scale: 0.92,
       easing: 'linear',
     },
@@ -77,7 +79,7 @@ export const CONFIG_STICKS = {
   // --------------------------------------------------------------------------
   rufada: {
     duration: 200,     // Durée totale du roulé (ms)
-    baseY: -235,       // Confinée au centre de la peau à hauteur du coup faible
+    baseY: -190,       // Confinée au centre de la peau à hauteur du coup faible
     baseScale: 0.90,   // Échelle confinée
     rotateZMax: 0.4,   // Balayage horizontal strictement bridé (< 0.5 deg)
     jitterY: 5,        // Amplitude des micro-rebonds verticaux (±5px)
@@ -89,10 +91,10 @@ export const CONFIG_STICKS = {
   // --------------------------------------------------------------------------
   crossClick: {
     duration: 240,     // Durée totale du clic (ms)
-    windUpY: 10,       // Montée en l'air au-dessus du tambour
-    scale: 1.20,       // Échelle haute vers le visage
-    rotateZLeft: 18,   // Angle vers le centre (gauche)
-    rotateZRight: -18, // Angle vers le centre (droite)
+    windUpY: 15,       // Montée en l'air au-dessus du tambour
+    scale: 1.25,       // Échelle haute vers le visage
+    rotateZLeft: 16,   // Angle vers le centre (gauche)
+    rotateZRight: -16, // Angle vers le centre (droite)
   },
 
   // --------------------------------------------------------------------------
@@ -100,13 +102,13 @@ export const CONFIG_STICKS = {
   // --------------------------------------------------------------------------
   rimShot: {
     duration: 200,          // Durée totale du rim shot (ms)
-    windUpY: 15,
-    windUpScale: 1.20,
-    impactTranslateY: -140, // Rebord extérieur de la Roda (nettement plus bas)
+    windUpY: 20,
+    windUpScale: 1.25,
+    impactTranslateY: -110, // Rebord extérieur de la Roda (nettement plus bas)
     impactScale: 0.95,
-    rotateZLeft: -14,       // Déport extérieur pour la baguette gauche
-    rotateZRight: 14,       // Déport extérieur pour la baguette droite
-    reboundTranslateY: -160,
+    rotateZLeft: -12,       // Déport extérieur pour la baguette gauche
+    rotateZRight: 12,       // Déport extérieur pour la baguette droite
+    reboundTranslateY: -130,
   },
 
   // --------------------------------------------------------------------------
@@ -154,8 +156,18 @@ function buildStickKeyframes(
   isLeft: boolean,
   bpm: number = 100
 ): Keyframe[] {
-  // Base V-Shape de repos : main gauche -12°, main droite +12°
+  // Base V-Shape de repos : main gauche -7°, main droite +7°
   const baseAngle = isLeft ? -CONFIG_STICKS.vShapeAngle : CONFIG_STICKS.vShapeAngle;
+
+  // Micro-fouetté de poignet dynamique (brise la rigidité mécanique)
+  // À l'armement (en haut) : la baguette s'ouvre légèrement vers l'extérieur
+  const whipWindUpRot = isLeft
+    ? baseAngle - CONFIG_STICKS.wristWhipAngle
+    : baseAngle + CONFIG_STICKS.wristWhipAngle;
+  // À l'impact : le poignet compense et referme la baguette vers le centre
+  const whipImpactRot = isLeft
+    ? baseAngle + CONFIG_STICKS.wristWhipAngle
+    : baseAngle - CONFIG_STICKS.wristWhipAngle;
 
   // Ciblage & Humanisation aléatoire
   const deltaX = (Math.random() - 0.5) * CONFIG_STICKS.humanize.deltaX; // ±4px
@@ -243,15 +255,14 @@ function buildStickKeyframes(
         easing: 'ease-out',
       },
       {
-        // Règle d'or WAAPI : easing cubic-bezier ici pour la plongée vers le bord
         transform: `translate(0px, ${windUpY}px) rotateZ(${baseAngle + angleOffset * 0.5}deg) scale(${windUpScale})`,
         offset: 0.15,
-        easing: 'cubic-bezier(0.8, 0, 1, 1)',
+        easing: 'cubic-bezier(0.45, 0, 0.9, 1)',
       },
       {
         transform: `translate(${deltaX}px, ${CONFIG_STICKS.rimShot.impactTranslateY + deltaY}px) rotateZ(${baseAngle + angleOffset}deg) scale(${CONFIG_STICKS.rimShot.impactScale})`,
         offset: 0.25,
-        easing: 'ease-out',
+        easing: 'cubic-bezier(0.15, 0.85, 0.35, 1)',
       },
       {
         transform: `translate(0px, ${CONFIG_STICKS.rimShot.reboundTranslateY}px) rotateZ(${baseAngle}deg) scale(${CONFIG_STICKS.rest.scale})`,
@@ -270,7 +281,7 @@ function buildStickKeyframes(
       { transform: `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${baseAngle}deg) scale(${CONFIG_STICKS.rest.scale})`, easing: 'ease-in-out' },
       { transform: `translate(${-8 + deltaX}px, ${CONFIG_STICKS.rest.translateY - 8 + deltaY}px) rotateZ(${baseAngle - 1}deg) scale(${CONFIG_STICKS.rest.scale})`, offset: 0.25, easing: 'ease-in-out' },
       { transform: `translate(${8 - deltaX}px, ${CONFIG_STICKS.rest.translateY + 8 - deltaY}px) rotateZ(${baseAngle + 1}deg) scale(${CONFIG_STICKS.rest.scale})`, offset: 0.50, easing: 'ease-in-out' },
-      { transform: `translate(${-8 + deltaX}px, ${CONFIG_STICKS.rest.translateY + 8 - deltaY}px) rotateZ(${baseAngle - 1}deg) scale(${CONFIG_STICKS.rest.scale})`, offset: 0.75, easing: 'ease-in-out' },
+      { transform: `translate(${-8 + deltaX}px, ${CONFIG_STICKS.rest.translateY - 8 + deltaY}px) rotateZ(${baseAngle - 1}deg) scale(${CONFIG_STICKS.rest.scale})`, offset: 0.75, easing: 'ease-in-out' },
       { transform: `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${baseAngle}deg) scale(${CONFIG_STICKS.rest.scale})` },
     ];
   }
@@ -289,26 +300,25 @@ function buildStickKeyframes(
         easing: 'ease-out',
       },
       {
-        // 15% : Élan vers le visage (l'olive grossit fortement)
-        // RÈGLE D'OR WAAPI : l'easing cubic-bezier régit la descente VERS le keyframe d'impact (offset: 0.25)
-        transform: `translate(0px, ${windUpY}px) rotateZ(${baseAngle}deg) scale(${windUpScale})`,
+        // 15% : Élan vers le visage (l'olive grossit, ouverture souple vers l'extérieur)
+        transform: `translate(0px, ${windUpY}px) rotateZ(${whipWindUpRot}deg) scale(${windUpScale})`,
         offset: CONFIG_STICKS.strong.windUp.offset,
         easing: CONFIG_STICKS.strong.windUp.easing,
       },
       {
-        // 25% : Impact net au centre de la peau avec humanisation
-        transform: `translate(${deltaX}px, ${CONFIG_STICKS.strong.impact.translateY + deltaY}px) rotateZ(${baseAngle + jitterRot}deg) scale(${CONFIG_STICKS.strong.impact.scale})`,
+        // 25% : Impact net au centre de la peau (fermeture de compensation vers le centre)
+        transform: `translate(${deltaX}px, ${CONFIG_STICKS.strong.impact.translateY + deltaY}px) rotateZ(${whipImpactRot + jitterRot}deg) scale(${CONFIG_STICKS.strong.impact.scale})`,
         offset: CONFIG_STICKS.strong.impact.offset,
         easing: CONFIG_STICKS.strong.impact.easing,
       },
       {
-        // 40% : Rebond contrôlé immédiat (+15px)
+        // 40% : Rebond contrôlé vers la position de repos avec amorti
         transform: `translate(0px, ${CONFIG_STICKS.strong.rebound.translateY}px) rotateZ(${baseAngle}deg) scale(${CONFIG_STICKS.strong.rebound.scale})`,
         offset: CONFIG_STICKS.strong.rebound.offset,
         easing: CONFIG_STICKS.strong.rebound.easing,
       },
       {
-        // 100% : Reste calée en position basse de repos en attente du coup suivant
+        // 100% : Maintien en suspension stable au-dessus de la peau
         transform: `translate(0px, ${CONFIG_STICKS.strong.rebound.translateY}px) rotateZ(${baseAngle}deg) scale(${CONFIG_STICKS.strong.rebound.scale})`,
       },
     ];
@@ -325,18 +335,18 @@ function buildStickKeyframes(
       },
       {
         // 15% : Armement minime
-        transform: `translate(0px, ${windUpY}px) rotateZ(${baseAngle}deg) scale(${windUpScale})`,
+        transform: `translate(0px, ${windUpY}px) rotateZ(${whipWindUpRot * 0.7 + baseAngle * 0.3}deg) scale(${windUpScale})`,
         offset: CONFIG_STICKS.weak.windUp.offset,
         easing: CONFIG_STICKS.weak.windUp.easing,
       },
       {
         // 25% : Frappe sèche au même endroit central
-        transform: `translate(${deltaX}px, ${CONFIG_STICKS.weak.impact.translateY + deltaY}px) rotateZ(${baseAngle + jitterRot}deg) scale(${CONFIG_STICKS.weak.impact.scale})`,
+        transform: `translate(${deltaX}px, ${CONFIG_STICKS.weak.impact.translateY + deltaY}px) rotateZ(${whipImpactRot * 0.7 + baseAngle * 0.3 + jitterRot}deg) scale(${CONFIG_STICKS.weak.impact.scale})`,
         offset: CONFIG_STICKS.weak.impact.offset,
         easing: CONFIG_STICKS.weak.impact.easing,
       },
       {
-        // 40% : Rebond presque imperceptible (3 à 5px)
+        // 40% : Rebond presque imperceptible vers le repos
         transform: `translate(0px, ${CONFIG_STICKS.weak.rebound.translateY}px) rotateZ(${baseAngle}deg) scale(${CONFIG_STICKS.weak.rebound.scale})`,
         offset: CONFIG_STICKS.weak.rebound.offset,
         easing: CONFIG_STICKS.weak.rebound.easing,
