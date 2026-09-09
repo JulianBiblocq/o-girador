@@ -66,6 +66,7 @@ interface InstrumentEffectsProps {
   selectedStepIdx: number;
   selectedStepIndices: number[];
   selectedVariationId: string | null;
+  onClose?: () => void;
 }
 
 const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
@@ -74,6 +75,7 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
   selectedStepIdx,
   selectedStepIndices,
   selectedVariationId,
+  onClose,
 }) => {
   const {
     lang,
@@ -125,22 +127,34 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
             return ` (${stepVal === 0 ? (lang === 'fr' ? 'Silence' : 'Silêncio') : `${lang === 'fr' ? 'Coup' : 'Golpe'}: ${stepVal}`})`;
           })()}
         </span>
-        <button 
-          onClick={() => {
-            if (selectedVariationId) {
-              handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, 80);
-              handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, 100);
-              handleVariationStepMicrotimingChange?.(trackId, pattern.id, selectedVariationId, targets, 0);
-            } else {
-              handleTrackStepVolumeChange(trackId, pattern.id, targets, 80);
-              handleTrackStepDecayChange(trackId, pattern.id, targets, 100);
-              handleTrackStepMicrotimingChange(trackId, pattern.id, targets, 0);
-            }
-          }}
-          className="text-[#8b2a1a] font-bold text-[10px] uppercase hover:underline cursor-pointer"
-        >
-          {lang === 'fr' ? 'Réinitialiser' : 'Resetar'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => {
+              if (selectedVariationId) {
+                handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, 80);
+                handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, 100);
+                handleVariationStepMicrotimingChange?.(trackId, pattern.id, selectedVariationId, targets, 0);
+              } else {
+                handleTrackStepVolumeChange(trackId, pattern.id, targets, 80);
+                handleTrackStepDecayChange(trackId, pattern.id, targets, 100);
+                handleTrackStepMicrotimingChange(trackId, pattern.id, targets, 0);
+              }
+            }}
+            className="text-[#8b2a1a] font-bold text-[10px] uppercase hover:underline cursor-pointer"
+          >
+            {lang === 'fr' ? 'Réinitialiser' : 'Resetar'}
+          </button>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-5 h-5 flex items-center justify-center rounded-xs bg-[#1a1a1a]/10 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] transition-colors cursor-pointer text-xs font-bold shrink-0 ml-1"
+              title={lang === 'fr' ? 'Fermer le sculpteur' : 'Fechar o escultor'}
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[#1a1a1a]">

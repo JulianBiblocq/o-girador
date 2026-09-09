@@ -1001,13 +1001,35 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState<boolean>(false);
 
+  const prevTrackIdRef = useRef(track?.id);
+  const prevTrackSelectedPatternIdRef = useRef(track?.selectedPatternId);
+
   useEffect(() => {
-    setSelectedPatternId(track?.selectedPatternId || displayedPatterns[0]?.id || 0);
-    setSelectedStepIndices([]);
-    setSelectedStepIdx(null);
-    setSelectedVariationId(null);
-    setIsMultiSelectActive(false);
-  }, [track?.id, track?.selectedPatternId, displayedPatterns]);
+    const isDifferentTrack = prevTrackIdRef.current !== track?.id;
+    const isDifferentPattern = prevTrackSelectedPatternIdRef.current !== track?.selectedPatternId;
+
+    if (isDifferentTrack || isDifferentPattern) {
+      prevTrackIdRef.current = track?.id;
+      prevTrackSelectedPatternIdRef.current = track?.selectedPatternId;
+
+      const fallbackPatternId = track?.selectedPatternId || displayedPatterns[0]?.id || 0;
+      setSelectedPatternId(fallbackPatternId);
+      setSelectedStepIndices([]);
+      setSelectedStepIdx(null);
+      setSelectedVariationId(null);
+      setIsMultiSelectActive(false);
+    } else {
+      // Sécurité : si le pattern actuellement sélectionné a été supprimé
+      const currentPatternExists = displayedPatterns.some(p => p.id === selectedPatternId);
+      if (!currentPatternExists && displayedPatterns.length > 0) {
+        setSelectedPatternId(displayedPatterns[0].id);
+        setSelectedStepIndices([]);
+        setSelectedStepIdx(null);
+        setSelectedVariationId(null);
+        setIsMultiSelectActive(false);
+      }
+    }
+  }, [track?.id, track?.selectedPatternId, displayedPatterns, selectedPatternId]);
 
   // Active stroke writing tool & parity alternation mode
   const [activeTool, setActiveTool] = useState<string>(() => {
@@ -1700,6 +1722,10 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               selectedStepIdx={selectedStepIdx}
                               selectedStepIndices={selectedStepIndices}
                               selectedVariationId={selectedVariationId}
+                              onClose={() => {
+                                setSelectedStepIdx(null);
+                                setSelectedStepIndices([]);
+                              }}
                             />
                           )}
                         </div>
