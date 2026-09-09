@@ -31,6 +31,7 @@ export interface AudioState {
   addVocalBlob: (patternId: number, blob: Blob) => void;
   removeVocalBlob: (patternId: number) => void;
   addVocalBuffer: (patternId: number, buffer: AudioBuffer) => void;
+  setVocalBuffer: (patternId: number, buffer: AudioBuffer) => void;
   removeVocalBuffer: (patternId: number) => void;
   setIsVocalRecordingBarExpanded: (expanded: boolean) => void;
   setSelectedVocalPatternId: (id: number | null) => void;
@@ -133,6 +134,10 @@ export const useAudioStore = create<AudioState>((set) => ({
       return { vocalBlobs: nextBlobs };
     }),
   addVocalBuffer: (patternId, buffer) =>
+    set((state) => ({
+      vocalBuffers: { ...state.vocalBuffers, [patternId]: buffer },
+    })),
+  setVocalBuffer: (patternId, buffer) =>
     set((state) => ({
       vocalBuffers: { ...state.vocalBuffers, [patternId]: buffer },
     })),

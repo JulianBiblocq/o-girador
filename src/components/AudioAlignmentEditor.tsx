@@ -1,10 +1,14 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import * as Tone from 'tone';
-import { Play, Square, Save, X, RotateCcw, Scissors } from 'lucide-react';
+import { Play, Square, Save, X, RotateCcw, Scissors, Music } from 'lucide-react';
 import { Pattern, VocalClipMeta } from '../types/store.types';
-import { useAudioStore } from '../stores/useAudioStore';
 import { useAudio } from '../contexts/AudioContext';
-import { vocalEngineService } from '../audio/vocalEngineService';
+import { extractPeaks, renderTrimmedVocalBuffer, audioBufferToWav } from '../utils/audioBufferUtils';
 
 const PIXELS_PER_SECOND = 200; // Timeline scale: 200px = 1 second
 
@@ -14,11 +18,11 @@ interface AudioAlignmentEditorProps {
   bpm: number;
   measureBpms: number[];
   measureTimeSigs: string[];
-  initialOffsetStart: number;   // In seconds
-  initialStartTimeDelay: number; // In seconds
-  initialOffsetEnd?: number;     // In seconds
-  isImported: boolean;           // True if file was imported externally
-  onSave: (meta: VocalClipMeta) => void;
+  preRollDurationSec: number;
+  initialTrimStartSec?: number;
+  initialTrimEndSec?: number;
+  initialNudgeMs?: number;
+  onSave: (cleanBuffer: AudioBuffer, wavBlob: Blob, meta: VocalClipMeta) => void;
   onCancel: () => void;
 }
 
@@ -28,84 +32,148 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
   bpm,
   measureBpms,
   measureTimeSigs,
-  initialOffsetStart,
-  initialStartTimeDelay,
-  initialOffsetEnd,
-  isImported,
+  preRollDurationSec,
+  initialTrimStartSec,
+  initialTrimEndSec,
+  initialNudgeMs = 0,
   onSave,
   onCancel,
 }) => {
-  // Helper to calculate elapsed seconds up to a given measure
-  const getElapsedSeconds = useCallback((mCount: number) => {
-    let secs = 0;
-    for (let i = 0; i < mCount; i++) {
-      const mIdx = i % (measureBpms.length || 1);
-      const mBpm = measureBpms[mIdx] || bpm;
-      const timeSig = measureTimeSigs[mIdx] || '4/4';
-      const beats = parseInt(timeSig.split('/')[0]) || 4;
-      secs += (beats * 60) / mBpm;
-    }
-    return secs;
-  }, [measureBpms, measureTimeSigs, bpm]);
+  // Initial trim and nudge states
+  const defaultTrimStart = initialTrimStartSec !== undefined ? initialTrimStartSec : preRollDurationSec;
+  const defaultTrimEnd = initialTrimEndSec !== undefined ? initialTrimEndSec : audioBuffer.duration;
 
-  const initialMeasureIdx = pattern.measureAssignments.indexOf(true) !== -1
-    ? pattern.measureAssignments.indexOf(true)
-    : 0;
-
-  const startMeasureIdx = Math.max(0, initialMeasureIdx - 1);
-  const preRollDurationSec = getElapsedSeconds(initialMeasureIdx) - getElapsedSeconds(startMeasureIdx);
-
-  // For imported files, the initial latency nudge editor state is just the offset from preRollDurationSec
-  const initialNudgeFromProp = isImported
-    ? (initialStartTimeDelay - preRollDurationSec) * 1000
-    : initialStartTimeDelay * 1000;
-
-  const [nudgeMs, setNudgeMs] = useState(initialNudgeFromProp);
-  const [trimStartMs, setTrimStartMs] = useState(initialOffsetStart * 1000);
-  const [trimEndMs, setTrimEndMs] = useState((initialOffsetEnd ?? audioBuffer.duration) * 1000);
+  const [trimStartSec, setTrimStartSec] = useState(defaultTrimStart);
+  const [trimEndSec, setTrimEndSec] = useState(defaultTrimEnd);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const patternBpm = measureBpms[initialMeasureIdx] || bpm;
-  const timeSig = measureTimeSigs[initialMeasureIdx] || '4/4';
-  const beatsPerMeasure = parseInt(timeSig.split('/')[0]) || 4;
-  const measureDurationSec = (beatsPerMeasure * 60) / patternBpm;
-  const stepDurationSec = measureDurationSec / 16;
+  // Measure and pattern durations
+  const beatDurationSec = 60 / bpm;
+  const patternMeasures = Math.max(
+    1,
+    pattern.measureAssignments.filter(Boolean).length || 1
+  );
+  const loopDurationSec = patternMeasures * 4 * beatDurationSec;
 
-  // Total measures count for loop preview
-  let patternMeasures = 0;
-  for (let i = initialMeasureIdx; i < measureBpms.length; i++) {
-    if (pattern.measureAssignments[i]) {
-      patternMeasures++;
-    } else {
-      break;
-    }
-  }
-  patternMeasures = Math.max(1, patternMeasures);
-  const loopDurationSec = getElapsedSeconds(initialMeasureIdx + patternMeasures) - getElapsedSeconds(startMeasureIdx);
-
-  // Refs for 60 FPS direct DOM mutation (Zero Render Thrashing)
+  // Refs for 60 FPS DOM direct mutations (Zero Render Thrashing)
   const waveformContainerRef = useRef<HTMLDivElement>(null);
   const nudgeValueLabelRef = useRef<HTMLSpanElement>(null);
-  const gridCanvasRef = useRef<HTMLCanvasElement>(null);
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null);
-
-  // Preview local GrainPlayer reference
+  const trimOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const localPlayerRef = useRef<Tone.GrainPlayer | null>(null);
+  const previewLoopTimeoutRef = useRef<any>(null);
 
-  // Refs for preview loop timeout and state values tracking (Zero Closures bugs)
-  const previewTimeoutRef = useRef<any>(null);
-  const nudgeMsRef = useRef(nudgeMs);
-  const trimStartMsRef = useRef(trimStartMs);
-  const trimEndMsRef = useRef(trimEndMs);
+  // Cached Peaks extracted ONCE (Zero Layout Thrashing & Waveform Persistence)
+  const cachedPeaksRef = useRef<Float32Array | null>(null);
 
-  useEffect(() => { nudgeMsRef.current = nudgeMs; }, [nudgeMs]);
-  useEffect(() => { trimStartMsRef.current = trimStartMs; }, [trimStartMs]);
-  useEffect(() => { trimEndMsRef.current = trimEndMs; }, [trimEndMs]);
+  // Refs for live state values during preview loops
+  const nudgeMsRef = useRef(initialNudgeMs);
+  const trimStartSecRef = useRef(trimStartSec);
+  const trimEndSecRef = useRef(trimEndSec);
 
-  // Restart or update preview player in real-time (autonomously using Tone.context.currentTime)
-  const handleRestartPreview = useCallback((nVal: number, tStartVal: number, tEndVal: number) => {
-    if (!audioBuffer) return;
+  useEffect(() => {
+    trimStartSecRef.current = trimStartSec;
+  }, [trimStartSec]);
 
+  useEffect(() => {
+    trimEndSecRef.current = trimEndSec;
+  }, [trimEndSec]);
+
+  const { isPlaying, handleTogglePlay, handleStop } = useAudio();
+
+  // 1. One-time Peak Extraction & Canvas Waveform Render
+  useEffect(() => {
+    if (!audioBuffer || !waveformCanvasRef.current) return;
+
+    const canvas = waveformCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const duration = audioBuffer.duration;
+    const width = Math.max(Math.ceil(duration * PIXELS_PER_SECOND), 1200);
+    const height = canvas.height;
+
+    canvas.width = width;
+
+    // Extract peaks once if not already cached in ref
+    if (!cachedPeaksRef.current) {
+      cachedPeaksRef.current = extractPeaks(audioBuffer, width);
+    }
+
+    const peaks = cachedPeaksRef.current;
+    const numPoints = peaks.length / 2;
+
+    // Draw Cordel aesthetic waveform: Fond papier (#f4ecd8) & Waveform Rouge Argile (#8b2a1a)
+    ctx.fillStyle = '#f4ecd8';
+    ctx.fillRect(0, 0, width, height);
+
+    // Center line
+    ctx.strokeStyle = 'rgba(139, 42, 26, 0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, height / 2);
+    ctx.lineTo(width, height / 2);
+    ctx.stroke();
+
+    ctx.fillStyle = '#8b2a1a';
+    const amp = (height / 2) * 0.9;
+
+    for (let i = 0; i < numPoints; i++) {
+      const min = peaks[i * 2];
+      const max = peaks[i * 2 + 1];
+      const x = i;
+      const y = height / 2 + min * amp;
+      const h = Math.max(1.5, (max - min) * amp);
+      ctx.fillRect(x, y, 1.5, h);
+    }
+  }, [audioBuffer]);
+
+  // 2. Draw Trim overlay on separate trimOverlayCanvas
+  useEffect(() => {
+    if (!trimOverlayCanvasRef.current || !audioBuffer) return;
+
+    const canvas = trimOverlayCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const width = Math.max(Math.ceil(audioBuffer.duration * PIXELS_PER_SECOND), 1200);
+    const height = canvas.height;
+    canvas.width = width;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const startPx = trimStartSec * PIXELS_PER_SECOND;
+    const endPx = trimEndSec * PIXELS_PER_SECOND;
+
+    // Dark Cordel tint for trimmed-out zones
+    ctx.fillStyle = 'rgba(26, 26, 26, 0.55)';
+    ctx.fillRect(0, 0, startPx, height);
+    ctx.fillRect(endPx, 0, width - endPx, height);
+
+    // Trim Start line
+    ctx.strokeStyle = '#2a5d4e';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(startPx, 0);
+    ctx.lineTo(startPx, height);
+    ctx.stroke();
+
+    // Trim End line
+    ctx.strokeStyle = '#8b2a1a';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(endPx, 0);
+    ctx.lineTo(endPx, height);
+    ctx.stroke();
+  }, [audioBuffer, trimStartSec, trimEndSec]);
+
+  // 3. Pre-listen (Tone.GrainPlayer surgical preview loop)
+  const stopLocalPreview = useCallback(() => {
+    if (previewLoopTimeoutRef.current) {
+      clearTimeout(previewLoopTimeoutRef.current);
+      previewLoopTimeoutRef.current = null;
+    }
     if (localPlayerRef.current) {
       try {
         localPlayerRef.current.stop();
@@ -113,633 +181,297 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
       } catch (_) {}
       localPlayerRef.current = null;
     }
+  }, []);
 
-    const startOffsetSec = tStartVal / 1000;
-    const durationSec = (tEndVal - tStartVal) / 1000;
+  const playPreviewIteration = useCallback(() => {
+    stopLocalPreview();
+
+    const tStart = trimStartSecRef.current;
+    const tEnd = trimEndSecRef.current;
+    const rawNudge = nudgeMsRef.current;
+    const duration = Math.max(0.05, tEnd - tStart);
 
     const player = new Tone.GrainPlayer(audioBuffer);
     player.grainSize = 0.09;
     player.overlap = 0.04;
-    player.volume.value = 0; // Unity gain (0 dB, NOT silent / -Infinity!)
-    
-    // Explicitly connect to audio output destination
+    player.volume.value = 0;
     player.connect(Tone.Destination);
 
-    // Relative trigger delay in the measure loop (aligned with pattern target note onset)
-    const firstNoteOffsetSec = vocalEngineService.getPatternFirstNoteOffset(pattern, bpm);
-    const delaySec = (isImported ? preRollDurationSec : firstNoteOffsetSec) + (nVal / 1000);
+    // Convention de signe : triggerTime = measureStartTime - anacrusisSec + nudgeSec
+    const anacrusisSec = Math.max(0, preRollDurationSec - tStart);
+    const scheduledTriggerDelay = -anacrusisSec + (rawNudge / 1000);
 
-    let actualStartOffset = startOffsetSec;
-    let actualDuration = durationSec;
-    let triggerDelay = delaySec;
+    let actualStartOffset = tStart;
+    let actualPlayDelay = scheduledTriggerDelay;
+    let actualDuration = duration;
 
-    // Handle negative Transport trigger times (e.g. anacrouse note or negative nudge)
-    if (triggerDelay < 0) {
-      const clipPastSec = -triggerDelay;
+    // Cas limite : si le déclenchement est avant le temps zéro de la mesure, compenser l'offset
+    if (actualPlayDelay < 0) {
+      const clipPastSec = -actualPlayDelay;
       actualStartOffset += clipPastSec;
       actualDuration = Math.max(0, actualDuration - clipPastSec);
-      triggerDelay = 0;
+      actualPlayDelay = 0;
     }
 
     if (actualDuration > 0) {
-      const startTime = Tone.context.currentTime + triggerDelay;
-      player.start(startTime, actualStartOffset, actualDuration);
+      const now = Tone.context.currentTime;
+      player.start(now + actualPlayDelay, actualStartOffset, actualDuration);
       localPlayerRef.current = player;
-
-    } else {
-
-    }
-  }, [audioBuffer, preRollDurationSec, pattern, bpm, isImported]);
-
-  // Recursively loops the autonomous preview player
-  const playLoop = useCallback(() => {
-    if (previewTimeoutRef.current) {
-      clearTimeout(previewTimeoutRef.current);
-      previewTimeoutRef.current = null;
     }
 
-    handleRestartPreview(nudgeMsRef.current, trimStartMsRef.current, trimEndMsRef.current);
-
-    previewTimeoutRef.current = setTimeout(() => {
-      playLoop();
+    // Loop
+    previewLoopTimeoutRef.current = setTimeout(() => {
+      playPreviewIteration();
     }, loopDurationSec * 1000);
-  }, [loopDurationSec, handleRestartPreview]);
+  }, [audioBuffer, preRollDurationSec, loopDurationSec, stopLocalPreview]);
 
-  // Cancels the current loop timeout and restarts immediately if playing
-  const restartPreviewLoop = useCallback(() => {
-    if (previewTimeoutRef.current) {
-      clearTimeout(previewTimeoutRef.current);
-      previewTimeoutRef.current = null;
-    }
+  const handleTogglePreview = () => {
     if (isPlayingPreview) {
-      playLoop();
-    }
-  }, [isPlayingPreview, playLoop]);
-
-  // Store original loop settings to restore them
-  const originalLoopSettingsRef = useRef<{
-    loop: boolean;
-    loopStart: any;
-    loopEnd: any;
-    seconds: number;
-  } | null>(null);
-
-  // Waveform left padding px to align with timeline targets
-  const leftOffsetPx = isImported ? (preRollDurationSec * PIXELS_PER_SECOND) : 0;
-
-  // Draw fixed sequencer grid on gridCanvasRef and floating vocal waveform on waveformCanvasRef
-  useEffect(() => {
-    if (!audioBuffer || !gridCanvasRef.current || !waveformCanvasRef.current) return;
-
-    const gridCanvas = gridCanvasRef.current;
-    const waveCanvas = waveformCanvasRef.current;
-    const gridCtx = gridCanvas.getContext('2d');
-    const waveCtx = waveCanvas.getContext('2d');
-    if (!gridCtx || !waveCtx) return;
-
-    const duration = audioBuffer.duration;
-    const width = Math.max(duration * PIXELS_PER_SECOND, 2000);
-    const height = gridCanvas.height;
-
-    // Set canvas dimensions
-    gridCanvas.width = width;
-    waveCanvas.width = width;
-
-    gridCtx.clearRect(0, 0, width, height);
-    waveCtx.clearRect(0, 0, width, height);
-
-    // =========================================================================
-    // 1. DRAW FIXED SEQUENCER GRID & NOTES (gridCanvasRef - NEVER MOVES)
-    // =========================================================================
-    const preRollWidthPx = preRollDurationSec * PIXELS_PER_SECOND;
-    gridCtx.fillStyle = 'rgba(42, 93, 78, 0.06)'; // Cactus green tint
-    gridCtx.fillRect(0, 0, preRollWidthPx, height);
-
-    // Pre-roll (anacrouse) 16 steps
-    const preRollStepWidthPx = preRollWidthPx / 16;
-    for (let i = 0; i < 16; i++) {
-      const x = i * preRollStepWidthPx;
-      gridCtx.strokeStyle = i % 4 === 0 ? 'rgba(139, 42, 26, 0.3)' : 'rgba(139, 42, 26, 0.1)';
-      gridCtx.lineWidth = i % 4 === 0 ? 1.5 : 1;
-      gridCtx.beginPath(); gridCtx.moveTo(x, 0); gridCtx.lineTo(x, height); gridCtx.stroke();
-
-      if (pattern.preRollActiveSteps && pattern.preRollActiveSteps[i] && pattern.preRollActiveSteps[i] !== 0 && pattern.preRollActiveSteps[i] !== '0') {
-        const noteName = (pattern.preRollNotes && pattern.preRollNotes[i]) || 'Voix';
-        const lyric = (pattern.preRollLyrics && pattern.preRollLyrics[i]) || '';
-
-        gridCtx.fillStyle = 'rgba(139, 42, 26, 0.15)';
-        gridCtx.fillRect(x, 0, preRollStepWidthPx, height);
-
-        gridCtx.strokeStyle = '#8b2a1a';
-        gridCtx.lineWidth = 2;
-        gridCtx.beginPath(); gridCtx.moveTo(x, 0); gridCtx.lineTo(x, height); gridCtx.stroke();
-
-        gridCtx.fillStyle = '#8b2a1a';
-        gridCtx.font = 'bold 9px monospace';
-        gridCtx.fillText(noteName.toUpperCase(), x + 2, 14);
-        if (lyric) {
-          gridCtx.font = '8px monospace';
-          gridCtx.fillText(lyric, x + 2, 26);
-        }
-      }
-    }
-
-    // Main measure 16 steps
-    const mainStepWidthPx = stepDurationSec * PIXELS_PER_SECOND;
-    for (let j = 0; j < 16; j++) {
-      const x = preRollWidthPx + (j * mainStepWidthPx);
-      gridCtx.strokeStyle = j % 4 === 0 ? 'rgba(26, 26, 26, 0.35)' : 'rgba(26, 26, 26, 0.12)';
-      gridCtx.lineWidth = j % 4 === 0 ? 1.5 : 1;
-      gridCtx.beginPath(); gridCtx.moveTo(x, 0); gridCtx.lineTo(x, height); gridCtx.stroke();
-
-      if (j % 4 === 0) {
-        gridCtx.fillStyle = 'rgba(26, 26, 26, 0.4)';
-        gridCtx.font = 'bold 9px monospace';
-        gridCtx.fillText(`T${(j / 4) + 1}`, x + 3, 10);
-      }
-
-      if (pattern.activeSteps && pattern.activeSteps[j] && pattern.activeSteps[j] !== 0 && pattern.activeSteps[j] !== '0') {
-        const noteName = pattern.notes[j] || 'Voix';
-        const lyric = pattern.lyrics[j] || '';
-
-        gridCtx.fillStyle = 'rgba(42, 93, 78, 0.15)';
-        gridCtx.fillRect(x, 0, mainStepWidthPx, height);
-
-        gridCtx.strokeStyle = '#2a5d4e';
-        gridCtx.lineWidth = 2;
-        gridCtx.beginPath(); gridCtx.moveTo(x, 0); gridCtx.lineTo(x, height); gridCtx.stroke();
-
-        gridCtx.fillStyle = '#2a5d4e';
-        gridCtx.font = 'bold 9px monospace';
-        gridCtx.fillText(noteName.toUpperCase(), x + 2, 14);
-        if (lyric) {
-          gridCtx.font = '8px monospace';
-          gridCtx.fillText(lyric, x + 2, 26);
-        }
-      }
-    }
-
-    // Highlight Target Note Attack Line
-    const firstNoteOffsetSec = vocalEngineService.getPatternFirstNoteOffset(pattern, patternBpm);
-    const targetNoteXPx = (preRollDurationSec + firstNoteOffsetSec) * PIXELS_PER_SECOND;
-
-    gridCtx.strokeStyle = '#8b2a1a';
-    gridCtx.lineWidth = 2.5;
-    gridCtx.setLineDash([4, 4]);
-    gridCtx.beginPath();
-    gridCtx.moveTo(targetNoteXPx, 0);
-    gridCtx.lineTo(targetNoteXPx, height);
-    gridCtx.stroke();
-    gridCtx.setLineDash([]);
-
-    // =========================================================================
-    // 2. DRAW FLOATING VOCAL WAVEFORM & TRIMS (waveformCanvasRef - MOVES WITH NUDGE)
-    // =========================================================================
-    const waveWidth = duration * PIXELS_PER_SECOND;
-    const channelData = audioBuffer.getChannelData(0);
-    const step = Math.ceil(channelData.length / waveWidth);
-    const amp = height / 2.5;
-
-    waveCtx.fillStyle = '#8b2a1a'; // Crimson Red
-    for (let i = 0; i < waveWidth; i++) {
-      let min = 1.0;
-      let max = -1.0;
-      const startIdx = i * step;
-      const endIdx = Math.min(channelData.length, startIdx + step);
-      for (let j = startIdx; j < endIdx; j++) {
-        const val = channelData[j];
-        if (val < min) min = val;
-        if (val > max) max = val;
-      }
-      const x = i;
-      const y = height / 2 + min * amp;
-      const w = 1.5;
-      const h = Math.max(1.5, (max - min) * amp);
-      waveCtx.fillRect(x, y, w, h);
-    }
-
-    // Trim Start & Trim End transparent overlays & borders
-    waveCtx.fillStyle = 'rgba(26, 26, 26, 0.45)';
-    waveCtx.fillRect(0, 0, (trimStartMs / 1000) * PIXELS_PER_SECOND, height);
-
-    const trimEndLeft = (trimEndMs / 1000) * PIXELS_PER_SECOND;
-    waveCtx.fillRect(trimEndLeft, 0, waveWidth - trimEndLeft, height);
-
-    waveCtx.strokeStyle = '#1a1a1a';
-    waveCtx.lineWidth = 2.5;
-    waveCtx.beginPath();
-    waveCtx.moveTo((trimStartMs / 1000) * PIXELS_PER_SECOND, 0);
-    waveCtx.lineTo((trimStartMs / 1000) * PIXELS_PER_SECOND, height);
-    waveCtx.moveTo(trimEndLeft, 0);
-    waveCtx.lineTo(trimEndLeft, height);
-    waveCtx.stroke();
-  }, [audioBuffer, trimStartMs, trimEndMs, preRollDurationSec, stepDurationSec, pattern, patternBpm]);
-
-  // Drag state (ref-only for 60 FPS performance, bypassing React renders)
-  const isDraggingRef = useRef(false);
-  const dragStartXPxRef = useRef(0);
-  const dragStartNudgeMsRef = useRef(0);
-
-  const handleDragMove = useCallback((e: MouseEvent | TouchEvent) => {
-    if (!isDraggingRef.current) return;
-
-    if (e.cancelable) {
-      e.preventDefault();
-    }
-
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const deltaPx = clientX - dragStartXPxRef.current;
-    
-    // Scale: 200px = 1 second (1000ms), so 1px = 5ms.
-    const deltaMs = deltaPx * (1000 / PIXELS_PER_SECOND);
-    
-    let targetNudgeMs = dragStartNudgeMsRef.current + deltaMs;
-    targetNudgeMs = Math.max(-2000, Math.min(2000, targetNudgeMs));
-
-    // Zero Render Thrashing: Mutate DOM directly
-    const shiftPx = leftOffsetPx + (targetNudgeMs / 1000) * PIXELS_PER_SECOND;
-    if (waveformContainerRef.current) {
-      waveformContainerRef.current.style.left = `${shiftPx}px`;
-    }
-    if (nudgeValueLabelRef.current) {
-      nudgeValueLabelRef.current.textContent = `${targetNudgeMs > 0 ? '+' : ''}${targetNudgeMs.toFixed(0)} ms`;
-    }
-  }, [leftOffsetPx]);
-
-  const handleDragEnd = useCallback(() => {
-    if (!isDraggingRef.current) return;
-    isDraggingRef.current = false;
-
-    window.removeEventListener('mousemove', handleDragMove);
-    window.removeEventListener('mouseup', handleDragEnd);
-    window.removeEventListener('touchmove', handleDragMove);
-    window.removeEventListener('touchend', handleDragEnd);
-
-    if (nudgeValueLabelRef.current) {
-      const text = nudgeValueLabelRef.current.textContent || '0 ms';
-      const parsedVal = parseFloat(text.replace(' ms', '')) || 0;
-      setNudgeMs(parsedVal);
-      nudgeMsRef.current = parsedVal;
-
-      restartPreviewLoop();
-    }
-  }, [handleDragMove, restartPreviewLoop]);
-
-  const handleDragStart = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
-    isDraggingRef.current = true;
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    dragStartXPxRef.current = clientX;
-    dragStartNudgeMsRef.current = nudgeMs;
-
-    if (!('touches' in e)) {
-      window.addEventListener('mousemove', handleDragMove);
-      window.addEventListener('mouseup', handleDragEnd);
+      setIsPlayingPreview(false);
+      stopLocalPreview();
+      handleStop();
     } else {
-      window.addEventListener('touchmove', handleDragMove, { passive: false });
-      window.addEventListener('touchend', handleDragEnd);
+      setIsPlayingPreview(true);
+      if (!isPlaying) {
+        handleTogglePlay();
+      }
+      playPreviewIteration();
     }
   };
 
   useEffect(() => {
     return () => {
-      window.removeEventListener('mousemove', handleDragMove);
-      window.removeEventListener('mouseup', handleDragEnd);
-      window.removeEventListener('touchmove', handleDragMove);
-      window.removeEventListener('touchend', handleDragEnd);
+      stopLocalPreview();
+      handleStop();
     };
-  }, [handleDragMove, handleDragEnd]);
+  }, [stopLocalPreview, handleStop]);
 
-  useEffect(() => {
-    if (nudgeValueLabelRef.current) {
-      nudgeValueLabelRef.current.textContent = `${nudgeMs > 0 ? '+' : ''}${nudgeMs.toFixed(0)} ms`;
-    }
-  }, [nudgeMs]);
-
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 4. Fine Nudge Slider (-300ms to +300ms) with 60 FPS DOM Manipulation (Zero Render Thrashing)
+  const handleNudgeInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
-    const shiftPx = leftOffsetPx + (val / 1000) * PIXELS_PER_SECOND;
+    nudgeMsRef.current = val;
 
+    // Zero Render Thrashing: Mutate transform and text directly
+    const shiftPx = (val / 1000) * PIXELS_PER_SECOND;
     if (waveformContainerRef.current) {
-      waveformContainerRef.current.style.left = `${shiftPx}px`;
+      waveformContainerRef.current.style.transform = `translate3d(${shiftPx}px, 0, 0)`;
     }
     if (nudgeValueLabelRef.current) {
       nudgeValueLabelRef.current.textContent = `${val > 0 ? '+' : ''}${val.toFixed(0)} ms`;
     }
   };
 
-  const handleSliderRelease = (e: React.SyntheticEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.currentTarget.value);
-    setNudgeMs(val);
-    nudgeMsRef.current = val;
-
-    restartPreviewLoop();
-  };
-
   const handleResetNudge = () => {
-    setNudgeMs(0);
     nudgeMsRef.current = 0;
     if (waveformContainerRef.current) {
-      waveformContainerRef.current.style.left = `${leftOffsetPx}px`;
+      waveformContainerRef.current.style.transform = 'translate3d(0px, 0, 0)';
     }
     if (nudgeValueLabelRef.current) {
       nudgeValueLabelRef.current.textContent = '0 ms';
     }
-    restartPreviewLoop();
+    const input = document.getElementById('vocal-nudge-slider') as HTMLInputElement | null;
+    if (input) input.value = '0';
   };
 
-  const handleTrimRelease = () => {
-    trimStartMsRef.current = trimStartMs;
-    trimEndMsRef.current = trimEndMs;
-    restartPreviewLoop();
-  };
+  // 5. Validation via OfflineAudioContext with 10ms/30ms anti-pop fades
+  const handleValidate = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    stopLocalPreview();
+    handleStop();
 
-  const { isPlaying, handleTogglePlay, handleStop } = useAudio();
+    try {
+      const cleanBuffer = await renderTrimmedVocalBuffer(
+        audioBuffer,
+        trimStartSec,
+        trimEndSec,
+        0.010, // 10ms fade-in anti-craquement
+        0.030  // 30ms fade-out anti-craquement
+      );
 
-  const handleTogglePreview = () => {
-    if (isPlayingPreview) {
-      // STOP PREVIEW
-      setIsPlayingPreview(false);
+      const wavBlob = audioBufferToWav(cleanBuffer);
 
-      if (previewTimeoutRef.current) {
-        clearTimeout(previewTimeoutRef.current);
-        previewTimeoutRef.current = null;
-      }
-      if (localPlayerRef.current) {
-        try {
-          localPlayerRef.current.stop();
-          localPlayerRef.current.dispose();
-        } catch (_) {}
-        localPlayerRef.current = null;
-      }
-      handleStop();
+      // Mathématique de l'anacrouse : dépassement à gauche du Temps 1
+      const anacrusisSec = Math.max(0, preRollDurationSec - trimStartSec);
+      const anacrusisBeats = anacrusisSec / beatDurationSec;
 
-    } else {
-      // START PREVIEW SYNCHRONISÉ (Voix + Backing Track Roda)
-      if (!audioBuffer) return;
-      setIsPlayingPreview(true);
-      
-      // Lancer simultanément le séquenceur Roda et le GrainPlayer vocal
-      if (!isPlaying) {
-        handleTogglePlay();
-      }
+      const meta: VocalClipMeta = {
+        patternId: pattern.id,
+        baseBpm: bpm,
+        trimStartSec,
+        trimEndSec,
+        nudgeMs: nudgeMsRef.current,
+        anacrusisBeats,
+        // Backward compatibility
+        offsetStart: 0,
+        startTimeDelay: nudgeMsRef.current / 1000,
+        bpmSync: true,
+        offsetEnd: cleanBuffer.duration,
+      };
 
-      setTimeout(() => {
-        playLoop();
-      }, 0);
+      onSave(cleanBuffer, wavBlob, meta);
+    } catch (err) {
+      console.error('Erreur lors du rendu du buffer vocal :', err);
+      setIsProcessing(false);
     }
   };
 
-  // Clean preview and stop playback on unmount
-  useEffect(() => {
-    return () => {
-      if (previewTimeoutRef.current) {
-        clearTimeout(previewTimeoutRef.current);
-        previewTimeoutRef.current = null;
-      }
-      if (localPlayerRef.current) {
-        try {
-          localPlayerRef.current.stop();
-          localPlayerRef.current.dispose();
-        } catch (_) {}
-        localPlayerRef.current = null;
-      }
-      handleStop();
-    };
-  }, []);
-
-  const handleSave = () => {
-    if (isPlayingPreview) {
-      handleTogglePreview();
-    }
-    // Calculate global startTimeDelay in timeline seconds (unified for micro and imports)
-    const firstNoteOffsetSec = vocalEngineService.getPatternFirstNoteOffset(pattern, bpm);
-    const finalStartTimeDelay = (isImported ? preRollDurationSec : firstNoteOffsetSec) + (nudgeMs / 1000);
-
-
-
-    onSave({
-      offsetStart: trimStartMs / 1000,
-      startTimeDelay: finalStartTimeDelay,
-      baseBpm: bpm,
-      bpmSync: true,
-      offsetEnd: trimEndMs / 1000,
-    });
-  };
-
-  const bufferDurationMs = audioBuffer ? audioBuffer.duration * 1000 : 0;
+  const bufferDuration = audioBuffer.duration;
+  const temps1Px = preRollDurationSec * PIXELS_PER_SECOND;
 
   return (
-    <div className="flex flex-col gap-6">
-      
-      {/* UX Prevention Warning Banner */}
-      <div className="bg-[#fef3c7] text-[#92400e] border-2 border-[#b45309] p-3 rounded-sm text-xs font-bold font-sans flex items-center justify-between gap-3 shadow-[2px_2px_0px_#b45309]">
-        <span className="flex items-center gap-2">
-          <span>⚠️</span>
-          <span>Décalage ? Un bruit de fond a pu déclencher le micro trop tôt. Ajustez manuellement ou recommencez.</span>
-        </span>
-      </div>
-
-      {/* Timeline & Waveform Panel */}
-      <div 
-        onMouseDown={handleDragStart}
-        onTouchStart={handleDragStart}
-        className="relative border-4 border-[#1a1a1a] bg-[#e2d8be] rounded-sm overflow-hidden min-h-[220px] cursor-ew-resize select-none"
-      >
+    <div className="flex flex-col gap-5 select-none font-mono">
+      {/* Visual Alignment Board */}
+      <div className="relative border-4 border-[#1a1a1a] bg-[#e2d8be] rounded-sm overflow-hidden h-44 shadow-[4px_4px_0px_#1a1a1a]">
         
-        {/* Target Notes Timeline Ruler */}
-        <div className="h-12 bg-[#d7cbaf] border-b-2 border-[#1a1a1a] relative overflow-hidden">
-          <div className="absolute inset-0 flex items-center">
-            
-            {/* Pre-roll region Label & Anacrouse notes rendering */}
-            <div 
-              style={{ width: `${preRollDurationSec * PIXELS_PER_SECOND}px` }} 
-              className="h-full bg-[#2a5d4e]/10 border-r border-[#2a5d4e] relative shrink-0 uppercase tracking-widest overflow-hidden"
-            >
-              <span className="absolute top-1 left-1 text-[9px] font-bold text-[#2a5d4e] opacity-60 pointer-events-none">
-                Pre-roll / Anacrouse
-              </span>
+        {/* Fixed Header Ruler: TEMPS 1 / PREMIÈRE NOTE */}
+        <div className="h-8 bg-[#d7cbaf] border-b-2 border-[#1a1a1a] relative flex items-center px-2">
+          <span className="text-[10px] font-bold text-[#1a1a1a]/70 uppercase tracking-wider flex items-center gap-1">
+            <Music className="w-3.5 h-3.5 text-[#8b2a1a]" />
+            Zone d'alignement audio (Pattern #{pattern.id} - "{pattern.name}")
+          </span>
 
-              {/* Render Anacrouse notes in pre-roll measure */}
-              {pattern.preRollActiveSteps && pattern.preRollActiveSteps.map((active, stepIdx) => {
-                if (!active || active === 0 || active === '0') return null;
-                const noteName = (pattern.preRollNotes && pattern.preRollNotes[stepIdx]) || 'Voix';
-                const lyric = (pattern.preRollLyrics && pattern.preRollLyrics[stepIdx]) || '';
-                
-                const timeInPreRoll = (stepIdx * (preRollDurationSec / 16));
-                const left = timeInPreRoll * PIXELS_PER_SECOND;
-                const width = (preRollDurationSec / 16) * PIXELS_PER_SECOND;
-
-                return (
-                  <div
-                    key={`preroll-note-step-${stepIdx}`}
-                    style={{
-                      left: `${left}px`,
-                      width: `${width}px`,
-                    }}
-                    className="absolute top-1 bottom-1 bg-[#8b2a1a] text-[#fdfaf2] border border-[#1a1a1a] rounded-sm flex flex-col justify-center px-1 overflow-hidden shadow-[1px_1px_0px_#1a1a1a] pointer-events-none z-10"
-                  >
-                    <span className="text-[9px] font-black leading-none truncate uppercase">{noteName}</span>
-                    {lyric && <span className="text-[8px] leading-none truncate opacity-90 mt-0.5">{lyric}</span>}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Notes mapping aligned with main pattern measure */}
-            <div className="relative h-full flex-grow">
-              {pattern.activeSteps.map((active, stepIdx) => {
-                if (!active || active === 0 || active === '0') return null;
-                const noteName = pattern.notes[stepIdx] || 'Voix';
-                const lyric = pattern.lyrics[stepIdx] || '';
-                
-                const timeInAudio = preRollDurationSec + (stepIdx * stepDurationSec);
-                const left = timeInAudio * PIXELS_PER_SECOND;
-                const width = stepDurationSec * PIXELS_PER_SECOND;
-
-                return (
-                  <div
-                    key={`note-step-${stepIdx}`}
-                    style={{
-                      left: `${left}px`,
-                      width: `${width}px`,
-                    }}
-                    className="absolute top-1 bottom-1 bg-[#2a5d4e] text-[#fdfaf2] border border-[#1a1a1a] rounded-sm flex flex-col justify-center px-1 overflow-hidden shadow-[1px_1px_0px_#1a1a1a] pointer-events-none"
-                  >
-                    <span className="text-[9px] font-black leading-none truncate uppercase">{noteName}</span>
-                    {lyric && <span className="text-[8px] leading-none truncate opacity-90 mt-0.5">{lyric}</span>}
-                  </div>
-                );
-              })}
+          {/* TEMPS 1 Fixed Guide Line Badge */}
+          <div
+            style={{ left: `${temps1Px}px` }}
+            className="absolute top-0 bottom-0 flex items-center -translate-x-1/2 z-30 pointer-events-none"
+          >
+            <div className="px-2 py-0.5 bg-[#8b2a1a] text-[#fdfaf2] text-[9px] font-black uppercase tracking-wider border-x border-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a]">
+              TEMPS 1 / 1ère NOTE
             </div>
           </div>
         </div>
 
-        {/* FIXED SEQUENCER GRID CANVAS (100% IMMOBILE) */}
-        <canvas
-          ref={gridCanvasRef}
-          className="absolute top-12 bottom-0 left-0 h-32 w-full pointer-events-none z-0"
-          height={128}
-        />
+        {/* Scrollable Waveform Viewport */}
+        <div className="relative h-36 overflow-x-auto overflow-y-hidden">
+          {/* Fixed Vertical TEMPS 1 Guide Line */}
+          <div
+            style={{ left: `${temps1Px}px` }}
+            className="absolute top-0 bottom-0 w-0.5 bg-[#8b2a1a] z-20 pointer-events-none border-l-2 border-dashed border-[#8b2a1a]"
+          />
 
-        {/* Floating Waveform container translating directly with Nudge (60 FPS) */}
-        <div 
-          ref={waveformContainerRef}
-          style={{ 
-            left: `${leftOffsetPx + (nudgeMs / 1000) * PIXELS_PER_SECOND}px`
-          }}
-          className="absolute top-12 h-32 w-full transition-all duration-75 will-change-[left] z-10 pointer-events-none"
-        >
-          <canvas 
-            ref={waveformCanvasRef} 
-            className="absolute top-0 bottom-0 left-0 h-full w-full pointer-events-none" 
-            height={128}
+          {/* Floating Waveform Canvas Layer (Translates with Nudge via GPU transform) */}
+          <div
+            ref={waveformContainerRef}
+            style={{ transform: `translate3d(${(initialNudgeMs / 1000) * PIXELS_PER_SECOND}px, 0, 0)` }}
+            className="absolute top-0 bottom-0 left-0 will-change-transform z-0"
+          >
+            <canvas
+              ref={waveformCanvasRef}
+              className="h-full block pointer-events-none"
+              height={144}
+            />
+          </div>
+
+          {/* Trim Dark Shading Layer */}
+          <canvas
+            ref={trimOverlayCanvasRef}
+            className="absolute top-0 bottom-0 left-0 h-full pointer-events-none z-10"
+            height={144}
           />
         </div>
-
-        {/* Fixed timeline target alignment line guide */}
-        <div 
-          style={{ left: `${preRollDurationSec * PIXELS_PER_SECOND}px` }}
-          className="absolute top-0 bottom-0 w-0.5 bg-[#8b2a1a]/40 border-l border-dashed border-[#8b2a1a] z-20 pointer-events-none"
-        >
-          <div className="absolute top-0 left-1 px-1 py-0.5 bg-[#8b2a1a] text-[#fdfaf2] text-[8px] font-bold rounded-sm uppercase tracking-wide">
-            Cible
-          </div>
-        </div>
       </div>
 
-      {/* Trim Adjuster Sliders Panel */}
-      <div className="bg-[#e2d8be] border-2 border-[#1a1a1a] p-4 rounded-sm flex flex-col gap-4">
-        <span className="text-sm font-bold text-[#2a5d4e] uppercase flex items-center gap-1">
-          <Scissors className="w-4 h-4" />
-          Délimiter l'audio (Trim Start / Trim End)
-        </span>
-        
+      {/* Two Trim Sliders (Trim Start & Trim End) */}
+      <div className="bg-[#f4ecd8] border-2 border-[#1a1a1a] p-4 rounded-sm flex flex-col gap-3 shadow-[2px_2px_0px_#1a1a1a]">
+        <div className="flex items-center justify-between text-xs font-bold text-[#1a1a1a]">
+          <span className="flex items-center gap-1.5 uppercase text-[#2a5d4e]">
+            <Scissors className="w-4 h-4 text-[#2a5d4e]" />
+            Rognage Audio (Trim Start / Trim End)
+          </span>
+          <span className="text-[10px] text-[#1a1a1a]/60">
+            L'anacrouse respire à gauche de la ligne rouge Temps 1.
+          </span>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Trim Start */}
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between text-xs font-bold text-[#1a1a1a]/70">
-              <span>Trim Début :</span>
-              <span className="font-mono text-[#2a5d4e]">{trimStartMs.toFixed(0)} ms</span>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between text-xs font-bold">
+              <span className="text-[#2a5d4e]">Trim Début :</span>
+              <span className="font-mono text-[#2a5d4e]">{trimStartSec.toFixed(3)}s</span>
             </div>
             <input
               type="range"
               min="0"
-              max={Math.max(0, trimEndMs - 100)}
-              value={trimStartMs}
-              onChange={(e) => setTrimStartMs(parseFloat(e.target.value))}
-              onMouseUp={handleTrimRelease}
-              onTouchEnd={handleTrimRelease}
+              max={Math.max(0, trimEndSec - 0.05)}
+              step="0.005"
+              value={trimStartSec}
+              onChange={(e) => setTrimStartSec(parseFloat(e.target.value))}
               className="w-full h-2 bg-[#ece4d0] rounded border border-[#1a1a1a] appearance-none cursor-pointer accent-[#2a5d4e]"
             />
           </div>
 
           {/* Trim End */}
-          <div className="flex flex-col gap-2">
-            <div className="flex justify-between text-xs font-bold text-[#1a1a1a]/70">
-              <span>Trim Fin :</span>
-              <span className="font-mono text-[#8b2a1a]">{trimEndMs.toFixed(0)} ms / {bufferDurationMs.toFixed(0)} ms</span>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between text-xs font-bold">
+              <span className="text-[#8b2a1a]">Trim Fin :</span>
+              <span className="font-mono text-[#8b2a1a]">
+                {trimEndSec.toFixed(3)}s / {bufferDuration.toFixed(3)}s
+              </span>
             </div>
             <input
               type="range"
-              min={trimStartMs + 100}
-              max={bufferDurationMs}
-              value={trimEndMs}
-              onChange={(e) => setTrimEndMs(parseFloat(e.target.value))}
-              onMouseUp={handleTrimRelease}
-              onTouchEnd={handleTrimRelease}
+              min={trimStartSec + 0.05}
+              max={bufferDuration}
+              step="0.005"
+              value={trimEndSec}
+              onChange={(e) => setTrimEndSec(parseFloat(e.target.value))}
               className="w-full h-2 bg-[#ece4d0] rounded border border-[#1a1a1a] appearance-none cursor-pointer accent-[#8b2a1a]"
             />
           </div>
         </div>
       </div>
 
-      {/* Timing Adjuster Slider Panel */}
-      <div className="bg-[#e2d8be] border-2 border-[#1a1a1a] p-4 rounded-sm flex flex-col gap-4">
-        <div className="flex justify-between items-center">
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-bold text-[#8b2a1a] uppercase">Ajustement Temporel (Nudge)</span>
-            <span className="text-[10px] text-[#1a1a1a]/60">Ajustez pour corriger la latence (Bluetooth / Matériel).</span>
+      {/* Fine Nudge Slider (-300ms to +300ms) */}
+      <div className="bg-[#f4ecd8] border-2 border-[#1a1a1a] p-4 rounded-sm flex flex-col gap-3 shadow-[2px_2px_0px_#1a1a1a]">
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="text-xs font-bold text-[#8b2a1a] uppercase">
+              Calage Fin de Latence (Nudge -300ms à +300ms)
+            </span>
+            <span className="text-[10px] text-[#1a1a1a]/60">
+              Glissement à 60 FPS sans re-render pour caler l'attaque au millième de seconde.
+            </span>
           </div>
-          
-          {/* Nudge Value indicator */}
-          <div className="flex items-center gap-3">
-            <span 
-              ref={nudgeValueLabelRef} 
-              className="text-lg font-black bg-[#ece4d0] px-3 py-1 border-2 border-[#1a1a1a] rounded-sm text-[#1a1a1a]"
-            />
+
+          <div className="flex items-center gap-2">
+            <span
+              ref={nudgeValueLabelRef}
+              className="text-base font-black px-3 py-0.5 bg-[#ece4d0] border-2 border-[#1a1a1a] rounded-sm text-[#1a1a1a]"
+            >
+              {initialNudgeMs > 0 ? `+${initialNudgeMs}` : initialNudgeMs} ms
+            </span>
             <button
               onClick={handleResetNudge}
-              className="p-1.5 hover:bg-[#8b2a1a] hover:text-[#fdfaf2] border-2 border-[#1a1a1a] bg-[#ece4d0] transition-colors cursor-pointer rounded-sm"
-              title="Réinitialiser le Nudge"
+              className="p-1.5 bg-[#ece4d0] hover:bg-[#8b2a1a] hover:text-[#fdfaf2] border-2 border-[#1a1a1a] transition-colors rounded-sm cursor-pointer"
+              title="Réinitialiser le Nudge à 0 ms"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
-        {/* Slider */}
         <input
+          id="vocal-nudge-slider"
           type="range"
-          min="-2000"
-          max="2000"
-          value={nudgeMs}
-          onChange={handleSliderChange}
-          onMouseUp={handleSliderRelease}
-          onTouchEnd={handleSliderRelease}
-          className="w-full h-3 bg-[#ece4d0] rounded-lg border-2 border-[#1a1a1a] appearance-none cursor-pointer accent-[#8b2a1a]"
+          min="-300"
+          max="300"
+          step="1"
+          defaultValue={initialNudgeMs}
+          onChange={handleNudgeInput}
+          className="w-full h-2.5 bg-[#ece4d0] rounded border border-[#1a1a1a] appearance-none cursor-pointer accent-[#8b2a1a]"
         />
       </div>
 
-      {/* Preview and Controls Panel */}
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-t-2 border-[#1a1a1a]/10 pt-4 select-none">
-        
-        {/* Preview loop play button */}
+      {/* Preview and Validation Footer */}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2 border-t-2 border-[#1a1a1a]/15">
         <button
           onClick={handleTogglePreview}
-          className={`px-5 py-3 border-2 border-[#1a1a1a] font-bold text-xs rounded-sm cursor-pointer shadow-[3px_3px_0px_#1a1a1a] transition-all flex items-center gap-2 ${
-            isPlayingPreview 
-              ? 'bg-[#8b2a1a] text-[#fdfaf2] hover:bg-[#1a1a1a] hover:text-[#ece4d0]' 
-              : 'bg-[#2a5d4e] text-[#fdfaf2] hover:bg-[#1a1a1a] hover:text-[#ece4d0]'
+          className={`px-5 py-2.5 border-2 border-[#1a1a1a] font-bold text-xs rounded-sm cursor-pointer shadow-[3px_3px_0px_#1a1a1a] transition-all flex items-center gap-2 ${
+            isPlayingPreview
+              ? 'bg-[#8b2a1a] text-[#fdfaf2] hover:bg-[#1a1a1a]'
+              : 'bg-[#2a5d4e] text-[#fdfaf2] hover:bg-[#1a1a1a]'
           }`}
         >
           {isPlayingPreview ? (
@@ -750,29 +482,35 @@ export const AudioAlignmentEditor: React.FC<AudioAlignmentEditorProps> = ({
           ) : (
             <>
               <Play className="w-4 h-4 fill-current" />
-              Écouter la Sélection
+              Écouter avec la Roda
             </>
           )}
         </button>
 
-        {/* Validation action buttons */}
-        <div className="flex gap-3 w-full md:w-auto justify-end">
+        <div className="flex gap-3 w-full sm:w-auto justify-end">
           <button
             onClick={onCancel}
-            className="px-5 py-3 text-xs font-bold border-2 border-[#1a1a1a] bg-[#ece4d0] hover:bg-[#1a1a1a] hover:text-[#ece4d0] transition-colors cursor-pointer rounded-sm shadow-[3px_3px_0px_#1a1a1a]"
+            disabled={isProcessing}
+            className="px-5 py-2.5 text-xs font-bold border-2 border-[#1a1a1a] bg-[#ece4d0] hover:bg-[#1a1a1a] hover:text-[#ece4d0] transition-colors cursor-pointer rounded-sm shadow-[3px_3px_0px_#1a1a1a]"
           >
             Annuler
           </button>
           <button
-            onClick={handleSave}
-            className="px-5 py-3 text-xs font-bold bg-[#8b2a1a] text-[#fdfaf2] border-2 border-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#ece4d0] transition-colors cursor-pointer rounded-sm shadow-[3px_3px_0px_#1a1a1a] flex items-center gap-2"
+            onClick={handleValidate}
+            disabled={isProcessing}
+            className="px-5 py-2.5 text-xs font-bold bg-[#8b2a1a] text-[#fdfaf2] border-2 border-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#ece4d0] transition-colors cursor-pointer rounded-sm shadow-[3px_3px_0px_#1a1a1a] flex items-center gap-2"
           >
-            <Save className="w-4 h-4" />
-            Valider le Calage
+            {isProcessing ? (
+              <span>Rendu en cours...</span>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                Valider le Sample
+              </>
+            )}
           </button>
         </div>
       </div>
-
     </div>
   );
 };

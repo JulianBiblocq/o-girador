@@ -49,11 +49,17 @@ export interface Pattern {
 }
 
 export interface VocalClipMeta {
-  offsetStart: number;      // Seconds to skip from buffer start (trim offset)
-  startTimeDelay: number;   // Delay in seconds for player trigger (nudge offset)
-  baseBpm: number;          // Original BPM when recorded/imported
-  bpmSync: boolean;         // Enable automatic BPM synchronization
-  offsetEnd?: number;       // Seconds from buffer start where playback should stop
+  patternId?: number;
+  baseBpm: number;           // BPM lors de la prise pour le time-stretching
+  trimStartSec: number;      // Début utile du sample (rognage manuel)
+  trimEndSec: number;        // Fin utile du sample
+  nudgeMs: number;           // Décalage fin manuel (+/- ms)
+  anacrusisBeats: number;    // Débordement éventuel avant le temps 1 (0, 1 ou 2 temps)
+  // Backward-compatibility aliases
+  offsetStart?: number;      // Legacy alias for trimStartSec
+  startTimeDelay?: number;   // Legacy alias for nudgeSec
+  bpmSync?: boolean;         // Legacy alias
+  offsetEnd?: number;        // Legacy alias for trimEndSec
 }
 
 export interface SavedPattern {

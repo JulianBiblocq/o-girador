@@ -1603,76 +1603,6 @@ export function useAudioSync({
           const inst = instrumentsConfig[track.instrumentIdx];
           if (!inst || inst.type !== 'voice') continue;
 
-          const targetPatternId = useAudioStore.getState().targetPatternId;
-          const recordingStatus = useAudioStore.getState().recordingStatus;
-
-          // Self-healing reset of trigger flags
-          if (targetPatternId === null || recordingStatus === 'inactive') {
-            hasTriggeredPunchInRef.current = false;
-            hasTriggeredAutoStopRef.current = false;
-          }
-
-          if (targetPatternId !== null) {
-            const hasPatternBeingRecorded = track.patterns.some(p => Number(p.id) === Number(targetPatternId));
-            
-            if (hasPatternBeingRecorded) {
-              const targetPattern = track.patterns.find(p => Number(p.id) === Number(targetPatternId));
-              if (targetPattern) {
-                const storeTargetMeasureIdx = useAudioStore.getState().targetMeasureIdx;
-                const initialMeasureIdx = storeTargetMeasureIdx !== null
-                  ? storeTargetMeasureIdx
-                  : targetPattern.measureAssignments.indexOf(true);
-                if (initialMeasureIdx !== -1) {
-                  const currentMeasureIdx = measureCountRef.current % totalMeasuresRef.current;
-                  
-                  // 1 measure pre-roll
-                  const startMeasureIdx = Math.max(0, initialMeasureIdx - 1);
-
-                  // Calculate endMeasureIdx (1 measure post-roll after consecutive assignments)
-                  let consecutiveMeasures = 0;
-                  for (let i = initialMeasureIdx; i < totalMeasuresRef.current; i++) {
-                    if (targetPattern.measureAssignments[i]) {
-                      consecutiveMeasures++;
-                    } else {
-                      break;
-                    }
-                  }
-                  consecutiveMeasures = Math.max(1, consecutiveMeasures);
-                  const endMeasureIdx = initialMeasureIdx + consecutiveMeasures + 1;
-
-                  // 1. Punch-in check: starts immediately when playhead enters or is in the pre-roll measure
-                  if (recordingStatus === 'inactive' && currentMeasureIdx === startMeasureIdx && !hasTriggeredPunchInRef.current) {
-
-                    hasTriggeredPunchInRef.current = true;
-                    useAudioStore.getState().setRecordingStatus('arming');
-                    
-                    vocalEngineService.startRecording(targetPatternId, {
-                      immediate: true,
-                      onError: (err) => {
-                        console.error("🎙️ [VOCAL DEBUG] Immediate recording error:", err);
-                        hasTriggeredPunchInRef.current = false;
-                        useAudioStore.getState().setRecordingStatus('inactive');
-                      }
-                    });
-                  }
-
-                  // 2. Auto-stop check: exact start of endMeasureIdx
-                  if (recordingStatus === 'recording' && currentMeasureIdx === endMeasureIdx && stepIdx === 0) {
-                    if (!hasTriggeredAutoStopRef.current) {
-                      hasTriggeredAutoStopRef.current = true;
-                      const stopDelayMs = Math.max(0, (time + tick96nSec - Tone.context.rawContext.currentTime) * 1000) + 1000;
-
-                      workerSetTimeout(() => {
-                        vocalEngineService.stopRecording();
-                        handleStop();
-                      }, stopDelayMs);
-                    }
-                  }
-                }
-              }
-            }
-          }
-
           // Playback of vocal patterns
           let activePattern = null;
           const patterns = track.patterns;
@@ -1706,8 +1636,9 @@ export function useAudioSync({
             canPlay = hasSolo ? track.isSolo : !track.isMute;
           }
 
+          const safeId = Number(activePattern.id);
+
           if (!canPlay) {
-            const safeId = Number(activePattern.id);
             if (activeSequencerVocalsRef.current.has(safeId)) {
               activeSequencerVocalsRef.current.get(safeId)?.stop();
               activeSequencerVocalsRef.current.delete(safeId);
@@ -1715,141 +1646,104 @@ export function useAudioSync({
             continue;
           }
 
-          const hasVocalBlob = useAudioStore.getState().vocalBlobs[Number(activePattern.id)];
-          const hasVocalBuf = useAudioStore.getState().vocalBuffers[Number(activePattern.id)];
-          const isMicroMode = activePattern.vocalMode === 'micro' || hasVocalBlob || hasVocalBuf;
+          const vocalBuf = useAudioStore.getState().vocalBuffers[safeId];
+          const hasVocalSample = Boolean(vocalBuf && activePattern.vocalMode === 'micro');
 
-          if (isMicroMode) {
-            const safeId = Number(activePattern.id);
-            const vocalBuf = useAudioStore.getState().vocalBuffers[safeId];
-            if (vocalBuf && activePattern.vocalMode === 'micro') {
-              const bpm = useSequencerStore.getState().bpm;
-              const currentMeasureIdx = measureCountRef.current;
-              const timeSig = measureTimeSigsRef.current[currentMeasureIdx % (totalMeasuresRef.current || 1)] || '4/4';
-              const beats = parseInt(timeSig.split('/')[0]) || 4;
-              const measureDurationSec = (beats * 60) / (useSequencerStore.getState().measureBpms[currentMeasureIdx] || bpm);
-              const stepCount = getMaxTicks(timeSig);
-              const elapsedInMeasure = (stepIdx / stepCount) * measureDurationSec;
+          // 1. Déclenchement du Tone.GrainPlayer vocal au début de la mesure (stepIdx === 0)
+          if (hasVocalSample && stepIdx === 0 && !activeSequencerVocalsRef.current.has(safeId)) {
+            const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
+            const voiceInst = instrumentsConfig[track.instrumentIdx];
+            const isCoroTrack = voiceInst?.id === 'coro';
+            const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
+            const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id);
+            const currentBpm = useSequencerStore.getState().measureBpms[currentMeasureLocal] || useSequencerStore.getState().bpm;
 
-              const initialMeasureIdx = activePattern.measureAssignments.indexOf(true);
-              if (initialMeasureIdx !== -1) {
-                const startMeasureIdx = initialMeasureIdx;
-                
-                let consecutiveMeasures = 0;
-                for (let i = initialMeasureIdx; i < totalMeasuresRef.current; i++) {
-                  if (activePattern.measureAssignments[i]) {
-                    consecutiveMeasures++;
-                  } else {
-                    break;
-                  }
-                }
-                consecutiveMeasures = Math.max(1, consecutiveMeasures);
-                const endMeasureIdx = initialMeasureIdx + consecutiveMeasures;
-
-                // Support anacrouse note triggering 1 measure before initialMeasureIdx
-                const isAnacrousePreRollMeasure = (currentMeasureIdx === Math.max(0, initialMeasureIdx - 1)) && (initialMeasureIdx > 0);
-                const isInRange = (currentMeasureIdx >= startMeasureIdx && currentMeasureIdx < endMeasureIdx) || isAnacrousePreRollMeasure;
-
-                if (isInRange) {
-                  let elapsedSec = 0;
-                  if (isAnacrousePreRollMeasure) {
-                    elapsedSec = elapsedInMeasure - measureDurationSec;
-                  } else {
-                    for (let m = startMeasureIdx; m < currentMeasureIdx; m++) {
-                      const mIdx = m % (useSequencerStore.getState().measureBpms.length || 1);
-                      const mBpm = useSequencerStore.getState().measureBpms[mIdx] || bpm;
-                      const mSig = useSequencerStore.getState().measureTimeSigs[mIdx] || '4/4';
-                      const mBeats = parseInt(mSig.split('/')[0]) || 4;
-                      elapsedSec += (mBeats * 60) / mBpm;
-                    }
-                    elapsedSec += elapsedInMeasure;
-                  }
-
-                  const clip = activePattern.vocalClip;
-                  const offsetStart = clip ? (clip.offsetStart || 0) : ((activePattern.vocalTrimStart || 0) / 1000);
-                  const startTimeDelay = clip ? (clip.startTimeDelay || 0) : ((activePattern.vocalNudge || 0) / 1000);
-                  const offsetEnd = clip && clip.offsetEnd !== undefined ? clip.offsetEnd : vocalBuf.duration;
-
-                  // Unified non-destructive buffer playback offset calculation
-                  const elapsedSinceVocalStart = elapsedSec - startTimeDelay + offsetStart;
-
-                  const isAlreadyPlaying = activeSequencerVocalsRef.current.has(safeId);
-
-                  if (elapsedSinceVocalStart >= offsetStart && elapsedSinceVocalStart < offsetEnd) {
-                    if (!isAlreadyPlaying) {
-                      const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
-                      const voiceInst = instrumentsConfig[track.instrumentIdx];
-                      const isCoroTrack = voiceInst?.id === 'coro';
-
-
-                      const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
-                      const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id);
-                      const handle = vocalEngineService.playSequencerVocal(
-                        safeId,
-                        time,
-                        elapsedSinceVocalStart,
-                        outputNode,
-                        vocalVol,
-                        isCoroTrack
-                      );
-                      if (handle) {
-                        activeSequencerVocalsRef.current.set(safeId, handle);
-                      }
-                    }
-                  } else {
-                    if (isAlreadyPlaying) {
-                      activeSequencerVocalsRef.current.get(safeId)?.stop();
-                      activeSequencerVocalsRef.current.delete(safeId);
-                    }
-                  }
-                } else {
-                  if (activeSequencerVocalsRef.current.has(safeId)) {
-                    activeSequencerVocalsRef.current.get(safeId)?.stop();
-                    activeSequencerVocalsRef.current.delete(safeId);
-                  }
-                }
-              }
-            } else {
-              if (activeSequencerVocalsRef.current.has(safeId)) {
-                activeSequencerVocalsRef.current.get(safeId)?.stop();
+            const handle = vocalEngineService.playSequencerVocal(
+              safeId,
+              time,
+              currentBpm,
+              outputNode,
+              vocalVol,
+              isCoroTrack,
+              () => {
                 activeSequencerVocalsRef.current.delete(safeId);
               }
+            );
+            if (handle) {
+              activeSequencerVocalsRef.current.set(safeId, handle);
             }
-            continue;
-          } else {
-            const stepCount = activePattern.steps;
-            if (stepIdx % (currentTicks / stepCount) === 0) {
-              const cellIdx = Math.floor(stepIdx / (currentTicks / stepCount));
-              const state = activePattern.activeSteps[cellIdx];
-              if (state && state !== 0) {
-                const triggerTime = swingTime;
-                const isConnectedToBus = Boolean(liveTrack?.busId && busChannels[liveTrack.busId]);
-                const trackVolPct = liveTrack ? (isConnectedToBus ? (liveTrack.volumeVal ?? 100) : getEffectiveVolume(tracks, liveTrack.id)) : 100;
-                if (trackVolPct > 0) {
-                  const trackVolLinear = Math.pow(trackVolPct / 100, 2);
-                  const noteVal = activePattern.notes?.[cellIdx] || 'C4';
-                  const transposeSteps = useSequencerStore.getState().vocalTransposeSteps || 0;
-                  let finalNoteVal = noteVal;
-                  if (transposeSteps !== 0) {
-                    try {
-                      finalNoteVal = Tone.Frequency(noteVal).transpose(transposeSteps).toNote();
-                    } catch (_) {}
-                  }
-                  const noteFreq = noteToFrequency(finalNoteVal);
-                  const decayVal = activePattern.decays?.[cellIdx] ?? 10;
-                  const numSteps = getVoiceNoteStepsFromDecay(decayVal);
-                  const noteDuration = (numSteps * 6) * tick96nSec;
-                  const safeId = Number(activePattern.id);
-                  if (activePattern.vocalMode === 'micro' && useAudioStore.getState().vocalBuffers[safeId]) {
-                    // Bloque le synthétiseur pour laisser place à la voix réelle
-                  } else {
-                    playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[liveTrack.id]);
-                  }
-                }
+          }
 
-                if (!isDocHidden) {
-                  pushVisualHitTrigger(track.id, cellIdx, state, triggerTime);
+          // Déclenchement anticipé si le motif de la mesure suivante a une anacrouse
+          const nextMeasureLocal = (currentMeasureLocal + 1) % totalMeasuresRef.current;
+          const nextPattern = track.patterns.find(p => p.measureAssignments[nextMeasureLocal]);
+          if (nextPattern && stepIdx === 0) {
+            const nextSafeId = Number(nextPattern.id);
+            const nextVocalBuf = useAudioStore.getState().vocalBuffers[nextSafeId];
+            const nextHasVocal = Boolean(nextVocalBuf && nextPattern.vocalMode === 'micro');
+            const nextClip = nextPattern.vocalClip;
+            const hasAnacrusis = Boolean(nextClip && (nextClip.anacrusisBeats || 0) > 0);
+
+            if (nextHasVocal && hasAnacrusis && !activeSequencerVocalsRef.current.has(nextSafeId)) {
+              const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
+              const voiceInst = instrumentsConfig[track.instrumentIdx];
+              const isCoroTrack = voiceInst?.id === 'coro';
+              const isConnectedToBus = Boolean(track.busId && busChannels[track.busId]);
+              const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id);
+              const nextBpm = useSequencerStore.getState().measureBpms[nextMeasureLocal] || useSequencerStore.getState().bpm;
+              const nextTimeSig = measureTimeSigsRef.current[nextMeasureLocal % (totalMeasuresRef.current || 1)] || '4/4';
+              const nextBeats = parseInt(nextTimeSig.split('/')[0]) || 4;
+              const currentMeasureDurationSec = (nextBeats * 60) / (useSequencerStore.getState().measureBpms[currentMeasureLocal] || nextBpm);
+
+              const handle = vocalEngineService.playSequencerVocal(
+                nextSafeId,
+                time + currentMeasureDurationSec,
+                nextBpm,
+                outputNode,
+                vocalVol,
+                isCoroTrack,
+                () => {
+                  activeSequencerVocalsRef.current.delete(nextSafeId);
                 }
+              );
+              if (handle) {
+                activeSequencerVocalsRef.current.set(nextSafeId, handle);
+              }
+            }
+          }
+
+          // 2. Traitement des pas du motif (Karaoké & Synthé)
+          // CRITIQUE : NE PAS bloquer la surbrillance des pas ni le défilement des paroles (Karaoké)
+          const stepCount = activePattern.steps;
+          if (stepIdx % (currentTicks / stepCount) === 0) {
+            const cellIdx = Math.floor(stepIdx / (currentTicks / stepCount));
+            const state = activePattern.activeSteps[cellIdx];
+            if (state && state !== 0) {
+              const triggerTime = swingTime;
+              const isConnectedToBus = Boolean(track?.busId && busChannels[track.busId]);
+              const trackVolPct = track ? (isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id)) : 100;
+
+              // Si le sample vocal existe : désactivation sélective du synthé
+              if (!hasVocalSample && trackVolPct > 0) {
+                const trackVolLinear = Math.pow(trackVolPct / 100, 2);
+                const noteVal = activePattern.notes?.[cellIdx] || 'C4';
+                const transposeSteps = useSequencerStore.getState().vocalTransposeSteps || 0;
+                let finalNoteVal = noteVal;
+                if (transposeSteps !== 0) {
+                  try {
+                    finalNoteVal = Tone.Frequency(noteVal).transpose(transposeSteps).toNote();
+                  } catch (_) {}
+                }
+                const noteFreq = noteToFrequency(finalNoteVal);
+                const decayVal = activePattern.decays?.[cellIdx] ?? 10;
+                const numSteps = getVoiceNoteStepsFromDecay(decayVal);
+                const noteDuration = (numSteps * 6) * tick96nSec;
+                playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[track.id]);
+              }
+
+              // Maintien absolu du défilement des paroles et de l'illumination visuelle des pas à 60 FPS
+              if (!isDocHidden) {
+                pushVisualHitTrigger(track.id, cellIdx, state, triggerTime);
               }
             }
           }
