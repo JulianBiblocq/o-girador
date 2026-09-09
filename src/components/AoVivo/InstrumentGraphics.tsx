@@ -73,7 +73,7 @@ export const TimbalHandRight = React.forwardRef<SVGSVGElement, { style?: React.C
 TimbalHandRight.displayName = 'TimbalHandRight';
 
 export const GongueStick = React.forwardRef<SVGSVGElement, { style?: React.CSSProperties }>((props, ref) => (
-  <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.5)] origin-bottom" style={props.style} viewBox="0 0 100 800" preserveAspectRatio="xMidYMin meet">
+  <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.5)] origin-bottom" style={{ transformOrigin: 'bottom center', transformBox: 'fill-box', ...props.style }} viewBox="0 0 100 800" preserveAspectRatio="xMidYMin meet">
     <rect x="30" y="0" width="40" height="800" fill="#F8F9FA" rx="4" />
     <rect x="38" y="0" width="10" height="800" fill="#FFFFFF" rx="2" />
   </svg>
