@@ -26,7 +26,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
   const audio = useAudio();
   const sequencerSettings = useSequencerSettingsStore();
 
-  const { lang, bpm, setBpm, isLeftHanded, setIsLeftHanded } = sequencer;
+  const { lang, setBpm, isLeftHanded, setIsLeftHanded } = sequencer;
   
   const {
     isMetroOn,
@@ -139,20 +139,6 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
     return stopBpmChange;
   }, [stopBpmChange]);
 
-  const [displayBpm, setDisplayBpm] = React.useState(bpm);
-  React.useEffect(() => {
-    let animationFrameId: number;
-    const updateBpm = () => {
-      if (isPlaying) {
-        setDisplayBpm(Math.round(Tone.Transport.bpm.value));
-      } else {
-        setDisplayBpm(bpm);
-      }
-      animationFrameId = requestAnimationFrame(updateBpm);
-    };
-    updateBpm();
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [isPlaying, bpm]);
 
   return (
     <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] relative flex flex-nowrap items-center justify-between px-2 sm:px-4 z-[1000] shrink-0 overflow-hidden">
@@ -188,14 +174,11 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
           </button>
         </div>
 
-        {/* Bouton de vélocité : icône + boutons +/-, avec numéro masqué uniquement sur smartphone */}
+        {/* Bouton de vélocité : icône / libellé + boutons +/- */}
         <div className="flex items-center gap-1 sm:gap-1.5 bg-[var(--cordel-bg)] px-1.5 sm:px-2 py-1 cordel-border-sm border-[var(--cordel-border)]">
           <Gauge className="w-4 h-4 text-[var(--cordel-text)] md:hidden" />
           <span className="font-cactus font-bold text-[var(--cordel-text)] text-sm select-none hidden md:inline">
             {lang === 'fr' ? 'Vitesse' : lang === 'pt' ? 'Velocidade' : 'Tempo'}
-          </span>
-          <span className="font-mono font-bold text-[var(--cordel-text)] text-xs ml-1 w-7 text-center hidden sm:inline">
-            {displayBpm}
           </span>
           <div className="flex items-center gap-1 ml-0.5 sm:ml-1">
             <button
@@ -204,7 +187,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
               onPointerLeave={(e) => { e.preventDefault(); stopBpmChange(); }}
               onPointerCancel={(e) => { e.preventDefault(); stopBpmChange(); }}
               className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] rounded-sm active:scale-95 transition-all select-none"
-              title={lang === 'fr' ? 'Diminuer le tempo' : lang === 'pt' ? 'Diminuir o tempo' : 'Decrease tempo'}
+              title={lang === 'fr' ? 'Diminuer la vitesse' : lang === 'pt' ? 'Diminuir a velocidade' : 'Decrease speed'}
               style={{ padding: 0, touchAction: 'none' }}
             >
               -
@@ -215,7 +198,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
               onPointerLeave={(e) => { e.preventDefault(); stopBpmChange(); }}
               onPointerCancel={(e) => { e.preventDefault(); stopBpmChange(); }}
               className="w-5 h-5 flex items-center justify-center bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 font-bold text-xs cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] rounded-sm active:scale-95 transition-all select-none"
-              title={lang === 'fr' ? 'Augmenter le tempo' : lang === 'pt' ? 'Aumentar o tempo' : 'Increase tempo'}
+              title={lang === 'fr' ? 'Augmenter la vitesse' : lang === 'pt' ? 'Aumentar a velocidade' : 'Increase speed'}
               style={{ padding: 0, touchAction: 'none' }}
             >
               +

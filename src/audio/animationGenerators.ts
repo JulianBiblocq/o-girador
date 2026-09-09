@@ -38,8 +38,8 @@ export const CONFIG_STICKS = {
       bacalhau: -4, // Baguette fine / flanc (plus ouverte : -16°)
       macaneta: 4,   // Mailloche lourde (plus directe : +7°)
     },
-    wristWhipAngle: 2.2, // Micro-torsion dynamique du poignet (degrés)
-    rotJitter: 2.0,      // Micro-variation angulaire aléatoire à l'impact (±1°)
+    wristWhipAngle: 4.5, // Micro-torsion dynamique du poignet (degrés)
+    rotJitter: 6.0,      // Micro-variation angulaire aléatoire à l'impact (±1°)
   },
 
   // Alias rétrocompatibles
@@ -64,12 +64,12 @@ export const CONFIG_STICKS = {
   // 4. COUP FORT (Majuscules : D, E, I)
   // --------------------------------------------------------------------------
   strong: {
-    duration: 230,    // Durée totale du cycle de frappe (ms)
+    duration: 290,    // Durée totale du cycle de frappe (ms)
     windUp: {
       offset: 0.15,   // Fin de la montée à 15% du cycle
       translateY: 25, // Recul physique délié vers le joueur (accentue l'effet levier)
       scaleAlfaia: 1.35, // Effet de perspective Z puissant vers le visage (Alfaia à 92 BPM)
-      scaleDrum: 1.22,   // Effet de perspective Z adapté (Caixa / Tarol)
+      scaleDrum: 1.20,   // Effet de perspective Z adapté (Caixa / Tarol)
       // Micro-respiration au sommet puis accélération fulgurante vers la peau
       easing: 'cubic-bezier(0.45, 0, 0.9, 1)',
     },
@@ -470,7 +470,7 @@ export const CONFIG_TIMBAL = {
   // 1. Grave / Basse (G, g) : toute la paume au centre
   grave: {
     duration: 220,
-    impactY: -230,
+    impactY: -280,
     scale: 0.94,
     reboundY: -210,
   },
@@ -480,7 +480,7 @@ export const CONFIG_TIMBAL = {
     duration: 190,
     windUpY: 15,
     windUpScale: 1.15,
-    impactY: -80,
+    impactY: -60,
     impactScale: 0.96,
     reboundY: -60, // Retrait immédiat pour laisser sonner
   },
@@ -488,7 +488,7 @@ export const CONFIG_TIMBAL = {
   // 3. Aberto / Tonique (A, a) : seuls les doigts tapent le cerclage
   aberto: {
     duration: 180,
-    impactY: 75, // En bas, sur le bord
+    impactY: 90, // En bas, sur le bord
     scale: 1.0,
     reboundY: 55,
   },
@@ -1125,9 +1125,11 @@ export function generateAgbeKeyframes(stroke: string, bpm: number = 100): Keyfra
   }
 
   // 3. Coups Latéraux (Droite D/d vs Gauche E/e)
+  // En vue subjective (POV), pour un coup Esquerda (E/e), l'agbê est projeté vers la gauche (de droite à gauche).
+  // En raison du pivot pendulaire en haut (col à 50% 12%), un angle rotateZ positif fait basculer les perles vers la gauche.
   const isRight = stroke === 'D' || stroke === 'd';
   const cfg = isStrongLateral ? CONFIG_AGBE.lateralStrong : CONFIG_AGBE.lateralWeak;
-  const dir = isRight ? 1 : -1;
+  const dir = isRight ? -1 : 1;
 
   const tx = cfg.translateX * dir;
   const rz = cfg.rotateZ * dir;
