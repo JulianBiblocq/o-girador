@@ -23,6 +23,8 @@ import {
   generateMineiroKeyframes,
   generateAgbeKeyframes,
   generateTimbalKeyframes,
+  getStickDuration,
+  CONFIG_STICKS,
   getTotalDuration,
   PHYSICS_ALFAIA,
   PHYSICS_DRUM,
@@ -30,12 +32,6 @@ import {
   PHYSICS_GONGUE,
   PHYSICS_MINEIRO,
   PHYSICS_AGBE,
-  KEYFRAMES_TIMBAL_G,
-  KEYFRAMES_TIMBAL_A,
-  KEYFRAMES_TIMBAL_S,
-  KEYFRAMES_TIMBAL_S_WEAK,
-  KEYFRAMES_TIMBAL_D,
-  KEYFRAMES_TIMBAL_P,
   KEYFRAMES_AGBE_STRETCH_Y_STRONG,
   KEYFRAMES_AGBE_STRETCH_Y_WEAK,
   KEYFRAMES_AGBE_STRETCH_X_STRONG,
@@ -45,7 +41,7 @@ import {
   KEYFRAMES_FLASH_STRONG,
   KEYFRAMES_FLASH_WEAK,
   KEYFRAMES_FLASH_VIBRATE,
-} from './AoVivo/animationGenerators';
+} from '../audio/animationGenerators';
 
 const EMPTY_ARRAY: any[] = [];
 
@@ -75,6 +71,8 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
   const leftStickRef = useRef<SVGSVGElement>(null);
   const rightStickRef = useRef<SVGSVGElement>(null);
+  const leftAnimRef = useRef<Animation | null>(null);
+  const rightAnimRef = useRef<Animation | null>(null);
   const mineiroStickRef = useRef<SVGSVGElement>(null);
   const agbeWholeRef = useRef<SVGGElement>(null);
   const agbeLeftRef = useRef<SVGGElement>(null);
@@ -213,6 +211,8 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
       if (step < 0) {
         lastVuStepRef.current = -1;
+        if (leftAnimRef.current) leftAnimRef.current.cancel();
+        if (rightAnimRef.current) rightAnimRef.current.cancel();
         // Clean highlights on stop
         if (inst.type === 'voice' && voiceWrapperRef.current) {
           const stepSpans = voiceWrapperRef.current.querySelectorAll('[data-step-idx]');
@@ -326,6 +326,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
             // --- 1. Alfaia Sticks ---
             if (['marcante', 'meiao', 'repique'].includes(inst.id)) {
+              const bpm = useSequencerStore.getState().bpm || 100;
               let keyframesLeft: Keyframe[] | null = null;
               let keyframesRight: Keyframe[] | null = null;
               let triggerLeft = false;
@@ -334,36 +335,36 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
               let animHaloOffsetY = 0;
 
               if (isVibrate) {
-                keyframesLeft = generateAlfaiaKeyframes(stroke, true);
-                keyframesRight = generateAlfaiaKeyframes(stroke, false);
+                keyframesLeft = generateAlfaiaKeyframes(stroke, true, bpm);
+                keyframesRight = generateAlfaiaKeyframes(stroke, false, bpm);
                 triggerLeft = true;
                 triggerRight = true;
               } else {
                 if (stroke === 'D') {
-                  if (isLeftHanded) { keyframesLeft = generateAlfaiaKeyframes('D', true); triggerLeft = true; }
-                  else { keyframesRight = generateAlfaiaKeyframes('D', false); triggerRight = true; }
+                  if (isLeftHanded) { keyframesLeft = generateAlfaiaKeyframes('D', true, bpm); triggerLeft = true; }
+                  else { keyframesRight = generateAlfaiaKeyframes('D', false, bpm); triggerRight = true; }
                 } else if (stroke === 'd') {
-                  if (isLeftHanded) { keyframesLeft = generateAlfaiaKeyframes('d', true); triggerLeft = true; }
-                  else { keyframesRight = generateAlfaiaKeyframes('d', false); triggerRight = true; }
+                  if (isLeftHanded) { keyframesLeft = generateAlfaiaKeyframes('d', true, bpm); triggerLeft = true; }
+                  else { keyframesRight = generateAlfaiaKeyframes('d', false, bpm); triggerRight = true; }
                 } else if (stroke === 'E') {
-                  if (isLeftHanded) { keyframesRight = generateAlfaiaKeyframes('E', false); triggerRight = true; }
-                  else { keyframesLeft = generateAlfaiaKeyframes('E', true); triggerLeft = true; }
+                  if (isLeftHanded) { keyframesRight = generateAlfaiaKeyframes('E', false, bpm); triggerRight = true; }
+                  else { keyframesLeft = generateAlfaiaKeyframes('E', true, bpm); triggerLeft = true; }
                 } else if (stroke === 'e') {
-                  if (isLeftHanded) { keyframesRight = generateAlfaiaKeyframes('e', false); triggerRight = true; }
-                  else { keyframesLeft = generateAlfaiaKeyframes('e', true); triggerLeft = true; }
+                  if (isLeftHanded) { keyframesRight = generateAlfaiaKeyframes('e', false, bpm); triggerRight = true; }
+                  else { keyframesLeft = generateAlfaiaKeyframes('e', true, bpm); triggerLeft = true; }
                 } else if (stroke === 'i' || stroke === 'I') {
-                  if (isLeftHanded) { keyframesRight = generateAlfaiaKeyframes(stroke, false); triggerRight = true; }
-                  else { keyframesLeft = generateAlfaiaKeyframes(stroke, true); triggerLeft = true; }
+                  if (isLeftHanded) { keyframesRight = generateAlfaiaKeyframes(stroke, false, bpm); triggerRight = true; }
+                  else { keyframesLeft = generateAlfaiaKeyframes(stroke, true, bpm); triggerLeft = true; }
                 } else if (stroke === 'x' || stroke === 'X') {
-                  keyframesLeft = generateAlfaiaKeyframes(stroke, true);
-                  keyframesRight = generateAlfaiaKeyframes(stroke, false);
+                  keyframesLeft = generateAlfaiaKeyframes(stroke, true, bpm);
+                  keyframesRight = generateAlfaiaKeyframes(stroke, false, bpm);
                   triggerLeft = true;
                   triggerRight = true;
                   animHalo = true;
                   animHaloOffsetY = -100;
                 } else if (stroke === 'c' || stroke === 'C') {
-                  keyframesLeft = generateAlfaiaKeyframes(stroke, true);
-                  keyframesRight = generateAlfaiaKeyframes(stroke, false);
+                  keyframesLeft = generateAlfaiaKeyframes(stroke, true, bpm);
+                  keyframesRight = generateAlfaiaKeyframes(stroke, false, bpm);
                   triggerLeft = true;
                   triggerRight = true;
                   animHalo = true;
@@ -372,19 +373,25 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
               }
 
               if (triggerLeft && leftStickRef.current && keyframesLeft) {
-                const isStrong = ['D', 'E', 'I', 'X', 'C'].includes(stroke);
-                leftStickRef.current.animate(keyframesLeft, {
-                  duration: isVibrate ? 100 : getTotalDuration(PHYSICS_ALFAIA, isStrong),
+                if (leftAnimRef.current) {
+                  leftAnimRef.current.cancel();
+                }
+                leftAnimRef.current = leftStickRef.current.animate(keyframesLeft, {
+                  duration: isVibrate ? 100 : getStickDuration(stroke),
                   iterations: isVibrate ? Infinity : 1,
-                  easing: isVibrate ? 'linear' : undefined
+                  easing: isVibrate ? 'linear' : undefined,
+                  fill: 'forwards',
                 });
               }
               if (triggerRight && rightStickRef.current && keyframesRight) {
-                const isStrong = ['D', 'E', 'I', 'X', 'C'].includes(stroke);
-                rightStickRef.current.animate(keyframesRight, {
-                  duration: isVibrate ? 100 : getTotalDuration(PHYSICS_ALFAIA, isStrong),
+                if (rightAnimRef.current) {
+                  rightAnimRef.current.cancel();
+                }
+                rightAnimRef.current = rightStickRef.current.animate(keyframesRight, {
+                  duration: isVibrate ? 100 : getStickDuration(stroke),
                   iterations: isVibrate ? Infinity : 1,
-                  easing: isVibrate ? 'linear' : undefined
+                  easing: isVibrate ? 'linear' : undefined,
+                  fill: 'forwards',
                 });
               }
               if (animHalo && haloRef.current) {
@@ -397,6 +404,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
             // --- 2. Caixa / Tarol ---
             else if (['caixa', 'tarol'].includes(inst.id)) {
+              const bpm = useSequencerStore.getState().bpm || 100;
               let keyframesLeft: Keyframe[] | null = null;
               let keyframesRight: Keyframe[] | null = null;
               let triggerLeft = false;
@@ -405,42 +413,42 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
               let animHaloOffsetY = 0;
 
               if (isVibrate) {
-                keyframesLeft = generateDrumKeyframes(stroke, true);
-                keyframesRight = generateDrumKeyframes(stroke, false);
+                keyframesLeft = generateDrumKeyframes(stroke, true, bpm);
+                keyframesRight = generateDrumKeyframes(stroke, false, bpm);
                 triggerLeft = true;
                 triggerRight = true;
               } else {
                 if (stroke === 'D') {
-                  if (isLeftHanded) { keyframesLeft = generateDrumKeyframes('D', true); triggerLeft = true; }
-                  else { keyframesRight = generateDrumKeyframes('D', false); triggerRight = true; }
+                  if (isLeftHanded) { keyframesLeft = generateDrumKeyframes('D', true, bpm); triggerLeft = true; }
+                  else { keyframesRight = generateDrumKeyframes('D', false, bpm); triggerRight = true; }
                 } else if (stroke === 'd') {
-                  if (isLeftHanded) { keyframesLeft = generateDrumKeyframes('d', true); triggerLeft = true; }
-                  else { keyframesRight = generateDrumKeyframes('d', false); triggerRight = true; }
+                  if (isLeftHanded) { keyframesLeft = generateDrumKeyframes('d', true, bpm); triggerLeft = true; }
+                  else { keyframesRight = generateDrumKeyframes('d', false, bpm); triggerRight = true; }
                 } else if (stroke === 'E') {
-                  if (isLeftHanded) { keyframesRight = generateDrumKeyframes('E', false); triggerRight = true; }
-                  else { keyframesLeft = generateDrumKeyframes('E', true); triggerLeft = true; }
+                  if (isLeftHanded) { keyframesRight = generateDrumKeyframes('E', false, bpm); triggerRight = true; }
+                  else { keyframesLeft = generateDrumKeyframes('E', true, bpm); triggerLeft = true; }
                 } else if (stroke === 'e') {
-                  if (isLeftHanded) { keyframesRight = generateDrumKeyframes('e', false); triggerRight = true; }
-                  else { keyframesLeft = generateDrumKeyframes('e', true); triggerLeft = true; }
+                  if (isLeftHanded) { keyframesRight = generateDrumKeyframes('e', false, bpm); triggerRight = true; }
+                  else { keyframesLeft = generateDrumKeyframes('e', true, bpm); triggerLeft = true; }
                 } else if (stroke === 'R' || stroke === 'r') {
-                  if (isLeftHanded) { keyframesLeft = generateDrumKeyframes(stroke, true); triggerLeft = true; }
-                  else { keyframesRight = generateDrumKeyframes(stroke, false); triggerRight = true; }
+                  if (isLeftHanded) { keyframesLeft = generateDrumKeyframes(stroke, true, bpm); triggerLeft = true; }
+                  else { keyframesRight = generateDrumKeyframes(stroke, false, bpm); triggerRight = true; }
                 } else if (stroke === 'f' || stroke === 'F') {
                   const isRightStrong = stroke === 'F';
-                  keyframesLeft = generateDrumKeyframes(isRightStrong ? 'fla-weak' : 'fla-strong', true);
-                  keyframesRight = generateDrumKeyframes(isRightStrong ? 'fla-strong' : 'fla-weak', false);
+                  keyframesLeft = generateDrumKeyframes(isRightStrong ? 'fla-weak' : 'fla-strong', true, bpm);
+                  keyframesRight = generateDrumKeyframes(isRightStrong ? 'fla-strong' : 'fla-weak', false, bpm);
                   triggerLeft = true;
                   triggerRight = true;
                 } else if (stroke === 'x' || stroke === 'X') {
-                  keyframesLeft = generateDrumKeyframes(stroke, true);
-                  keyframesRight = generateDrumKeyframes(stroke, false);
+                  keyframesLeft = generateDrumKeyframes(stroke, true, bpm);
+                  keyframesRight = generateDrumKeyframes(stroke, false, bpm);
                   triggerLeft = true;
                   triggerRight = true;
                   animHalo = true;
                   animHaloOffsetY = -100;
                 } else if (stroke === 'c' || stroke === 'C') {
-                  keyframesLeft = generateDrumKeyframes(stroke, true);
-                  keyframesRight = generateDrumKeyframes(stroke, false);
+                  keyframesLeft = generateDrumKeyframes(stroke, true, bpm);
+                  keyframesRight = generateDrumKeyframes(stroke, false, bpm);
                   triggerLeft = true;
                   triggerRight = true;
                   animHalo = true;
@@ -449,19 +457,25 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
               }
 
               if (triggerLeft && leftStickRef.current && keyframesLeft) {
-                const isStrong = ['D', 'E', 'I', 'X', 'C'].includes(stroke);
-                leftStickRef.current.animate(keyframesLeft, {
-                  duration: isVibrate ? 100 : getTotalDuration(PHYSICS_ALFAIA, isStrong),
+                if (leftAnimRef.current) {
+                  leftAnimRef.current.cancel();
+                }
+                leftAnimRef.current = leftStickRef.current.animate(keyframesLeft, {
+                  duration: isVibrate ? 100 : getStickDuration(stroke),
                   iterations: isVibrate ? Infinity : 1,
-                  easing: isVibrate ? 'linear' : undefined
+                  easing: isVibrate ? 'linear' : undefined,
+                  fill: 'forwards',
                 });
               }
               if (triggerRight && rightStickRef.current && keyframesRight) {
-                const isStrong = ['D', 'E', 'I', 'X', 'C'].includes(stroke);
-                rightStickRef.current.animate(keyframesRight, {
-                  duration: isVibrate ? 100 : getTotalDuration(PHYSICS_ALFAIA, isStrong),
+                if (rightAnimRef.current) {
+                  rightAnimRef.current.cancel();
+                }
+                rightAnimRef.current = rightStickRef.current.animate(keyframesRight, {
+                  duration: isVibrate ? 100 : getStickDuration(stroke),
                   iterations: isVibrate ? Infinity : 1,
-                  easing: isVibrate ? 'linear' : undefined
+                  easing: isVibrate ? 'linear' : undefined,
+                  fill: 'forwards',
                 });
               }
               if (animHalo && haloRef.current) {
@@ -724,16 +738,16 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
             </div>
             <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px' }}>
               {isLeftHanded ? (
-                <AlfaiaMacaneta ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)', transformOrigin: 'bottom center' }} />
+                <AlfaiaMacaneta ref={leftStickRef} style={{ height: '100%', width: '100%', transform: `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${-CONFIG_STICKS.vShapeAngle}deg) scale(${CONFIG_STICKS.rest.scale})`, transformOrigin: 'bottom center' }} />
               ) : (
-                <AlfaiaBacalhau ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)', transformOrigin: 'bottom center' }} />
+                <AlfaiaBacalhau ref={leftStickRef} style={{ height: '100%', width: '100%', transform: `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${-CONFIG_STICKS.vShapeAngle}deg) scale(${CONFIG_STICKS.rest.scale})`, transformOrigin: 'bottom center' }} />
               )}
             </div>
             <div ref={rightWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px' }}>
               {isLeftHanded ? (
-                <AlfaiaBacalhau ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)', transformOrigin: 'bottom center' }} />
+                <AlfaiaBacalhau ref={rightStickRef} style={{ height: '100%', width: '100%', transform: `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${CONFIG_STICKS.vShapeAngle}deg) scale(${CONFIG_STICKS.rest.scale})`, transformOrigin: 'bottom center' }} />
               ) : (
-                <AlfaiaMacaneta ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(30deg)', transformOrigin: 'bottom center' }} />
+                <AlfaiaMacaneta ref={rightStickRef} style={{ height: '100%', width: '100%', transform: `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${CONFIG_STICKS.vShapeAngle}deg) scale(${CONFIG_STICKS.rest.scale})`, transformOrigin: 'bottom center' }} />
               )}
             </div>
           </>
@@ -755,10 +769,10 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
               <div className="w-[300px] h-[300px] sm:w-[400px] sm:h-[400px] rounded-full border-[8px] border-[#f4ecd8] shadow-[0_0_80px_rgba(255,255,255,1)]" />
             </div>
             <div ref={leftWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px' }}>
-              <DrumStick ref={leftStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(25deg)', transformOrigin: 'bottom center' }} />
+              <DrumStick ref={leftStickRef} style={{ height: '100%', width: '100%', transform: `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${-CONFIG_STICKS.vShapeAngle}deg) scale(${CONFIG_STICKS.rest.scale})`, transformOrigin: 'bottom center' }} />
             </div>
             <div ref={rightWrapperRef} className="absolute flex justify-center items-end pointer-events-none z-10" style={{ bottom: '-350px', width: '400px', transformOrigin: 'bottom center', perspective: '2000px' }}>
-              <DrumStick ref={rightStickRef} style={{ height: '100%', width: '100%', transform: 'translateY(0px) rotateX(25deg)', transformOrigin: 'bottom center' }} />
+              <DrumStick ref={rightStickRef} style={{ height: '100%', width: '100%', transform: `translate(0px, ${CONFIG_STICKS.rest.translateY}px) rotateZ(${CONFIG_STICKS.vShapeAngle}deg) scale(${CONFIG_STICKS.rest.scale})`, transformOrigin: 'bottom center' }} />
             </div>
           </>
         );

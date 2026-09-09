@@ -2,7 +2,7 @@ import React from 'react';
 
 // --- forwardRef SVG Components ---
 export const AlfaiaMacaneta = React.forwardRef<SVGSVGElement, { style?: React.CSSProperties }>((props, ref) => (
-  <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.7)] origin-bottom" style={props.style} viewBox="0 0 100 800" preserveAspectRatio="xMidYMin meet">
+  <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.7)] origin-bottom" style={{ transformOrigin: 'bottom center', transformBox: 'fill-box', ...props.style }} viewBox="0 0 100 800" preserveAspectRatio="xMidYMin meet">
     <rect x="25" y="45" width="50" height="755" fill="#7A3B12" rx="20" />
     <circle cx="50" cy="45" r="45" fill="#D2B48C" stroke="#5C3A21" strokeWidth="4" />
     <line x1="40" y1="90" x2="40" y2="800" stroke="#5C3A21" strokeWidth="4" strokeDasharray="30 20" opacity="0.4" />
@@ -12,7 +12,7 @@ export const AlfaiaMacaneta = React.forwardRef<SVGSVGElement, { style?: React.CS
 AlfaiaMacaneta.displayName = 'AlfaiaMacaneta';
 
 export const AlfaiaBacalhau = React.forwardRef<SVGSVGElement, { style?: React.CSSProperties }>((props, ref) => (
-  <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.7)] origin-bottom" style={props.style} viewBox="0 0 100 800" preserveAspectRatio="xMidYMin meet">
+  <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.7)] origin-bottom" style={{ transformOrigin: 'bottom center', transformBox: 'fill-box', ...props.style }} viewBox="0 0 100 800" preserveAspectRatio="xMidYMin meet">
     <rect x="25" y="0" width="50" height="800" fill="#DEB887" rx="10" />
     <line x1="40" y1="0" x2="40" y2="800" stroke="#8B4513" strokeWidth="4" strokeDasharray="35 15" opacity="0.3" />
     <line x1="60" y1="20" x2="60" y2="800" stroke="#8B4513" strokeWidth="2" strokeDasharray="20 20" opacity="0.2" />
@@ -21,7 +21,7 @@ export const AlfaiaBacalhau = React.forwardRef<SVGSVGElement, { style?: React.CS
 AlfaiaBacalhau.displayName = 'AlfaiaBacalhau';
 
 export const DrumStick = React.forwardRef<SVGSVGElement, { style?: React.CSSProperties }>((props, ref) => (
-  <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.5)] origin-bottom" style={props.style} viewBox="0 0 100 800" preserveAspectRatio="xMidYMin meet">
+  <svg ref={ref} className="drop-shadow-[0_15px_30px_rgba(0,0,0,0.5)] origin-bottom" style={{ transformOrigin: 'bottom center', transformBox: 'fill-box', ...props.style }} viewBox="0 0 100 800" preserveAspectRatio="xMidYMin meet">
     <rect x="35" y="20" width="30" height="780" fill="#E6C280" rx="15" />
     <rect x="55" y="20" width="10" height="780" fill="#C49B5A" rx="5" />
     <path d="M40 100 Q45 150 40 200 T45 300 T38 400 T42 500 T38 600 T45 700" stroke="#C49B5A" strokeWidth="2" fill="none" opacity="0.6" />
