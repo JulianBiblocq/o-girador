@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, signInWithCustomToken } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
+import { useNomenclatureStore } from '../stores/useNomenclatureStore';
 
 export type UserRole = 'visiteur' | 'eleve' | 'mestre' | 'admin';
 
@@ -190,6 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             
             setUserProfile({ ...profile, dbRole: profile.dbRole || profile.role });
+            useNomenclatureStore.getState().syncGroupNomenclature(profile.groupId || null);
           } else {
             let initialRole: UserRole = 'visiteur';
             let initialMestreId: string | null = null;
@@ -231,11 +233,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await setDoc(userRef, newProfile);
             
             setUserProfile({ ...newProfile, dbRole: newProfile.dbRole || newProfile.role });
+            useNomenclatureStore.getState().syncGroupNomenclature(null);
           }
           setLoading(false);
         });
       } else {
         setUserProfile(null);
+        useNomenclatureStore.getState().syncGroupNomenclature(null);
         if (!isSSOPending) {
           setLoading(false);
         }
@@ -263,6 +267,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       await signOut(auth);
+      useNomenclatureStore.getState().syncGroupNomenclature(null);
     } catch (error) {
       console.error('Error signing out', error);
     }

@@ -7,6 +7,7 @@ import { TimelineMeasure } from './TimelineMeasure';
 import { useSequencer } from '../contexts/SequencerContext';
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { getTrackDisplayName } from '../utils/colorHelpers';
+import { useNomenclatureStore } from '../stores/useNomenclatureStore';
 import { Mic, Activity } from 'lucide-react';
 import { useAudioStore } from '../stores/useAudioStore';
 import { AutomationTrack } from './AutomationTrack';
@@ -53,7 +54,9 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const trackInst = dbTrack ? instrumentsConfig[dbTrack.instrumentIdx] : null;
 
   const [isEditingName, setIsEditingName] = React.useState(false);
-  const [nameVal, setNameVal] = React.useState(dbTrack?.customName || (trackInst ? trackInst.name : ''));
+  const [nameVal, setNameVal] = React.useState(
+    dbTrack?.customName || (dbTrack ? useNomenclatureStore.getState().getInstrumentLabel(dbTrack) : '')
+  );
 
   const targetPatternId = useAudioStore((state) => state.targetPatternId);
   const isArmedAtTrackLevel = dbTrack ? dbTrack.patterns.some(p => p.id === targetPatternId) : false;

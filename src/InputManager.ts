@@ -121,9 +121,9 @@ export class InputManager {
         return;
       }
 
-      // Play stroke
+      // Play stroke (isLiveHold: true pour permettre le jeu continu des boucles Barulho jusqu'au keyup)
       const now = this.audioEngine.getCurrentTime();
-      this.audioEngine.playNote(this.activeInstrumentId, matchedSymbol, now, 1.0, 1.0);
+      this.audioEngine.playNote(this.activeInstrumentId, matchedSymbol, now, 1.0, 1.0, true);
 
       // Trigger UI callback
       if (this.onStrokeTriggered) {

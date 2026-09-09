@@ -12,6 +12,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { Pattern } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { getBusColor, getContrastColor, getTopParentBusId, getTrackDisplayName } from '../utils/colorHelpers';
+import { useNomenclatureStore } from '../stores/useNomenclatureStore';
 import { DragNumberBox } from './DragNumberBox';
 import { PanKnob } from './PanKnob';
 import { MixerVolumeFader } from './MixerVolumeFader';
@@ -119,7 +120,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     return name + 's';
   };
   const linkedSlavesTooltip = isMaster 
-    ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${currentInst?.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
+    ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${useNomenclatureStore.getState().getInstrumentLabel(track)} et ${slaves.map(s => useNomenclatureStore.getState().getInstrumentLabel(s)).join(', ')}`
     : undefined;
   const displayName = getTrackDisplayName(track, tracksMeta);
 
@@ -627,7 +628,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                   className="flex items-center gap-2 px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-[10px] font-bold"
                 >
                   <img src={`${ASSETS_BASE_URL}${opt.iconImg}`} alt={opt.name} className="w-4 h-4 object-contain" />
-                  <span className="font-cactus">{opt.name}</span>
+                  <span className="font-cactus">{useNomenclatureStore.getState().getInstrumentLabel(oIdx)}</span>
                 </div>
               ))}
               

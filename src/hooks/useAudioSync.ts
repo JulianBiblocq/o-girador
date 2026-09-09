@@ -1975,6 +1975,7 @@ export function useAudioSync({
     }
     if (!isPlayingRef.current) {
       lastPlayedSignalIdRef.current = null;
+      audioEngine?.stopAllBarulho();
 
       // 🛡️ COLD START SAFETY: Attendre la fin du décodage de tous les buffers audio RAM + 300ms de respiration pour stabiliser le Main Thread mobile
       setIsLoading(true);

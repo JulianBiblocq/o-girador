@@ -8,3 +8,4 @@ export * from './store.types';
 export * from './config.types';
 export * from './balanco.types';
 export * from './disposition.types';
+export * from './nomenclature.types';

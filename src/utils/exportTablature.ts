@@ -1,24 +1,14 @@
 import { TrackGroup, SongSection, PresetMetadata } from '../types';
 import { instrumentsConfig } from '../data';
+import { useNomenclatureStore } from '../stores/useNomenclatureStore';
 
-const getInstrumentLabel = (instId: string, isFirstBlock: boolean) => {
+const getInstrumentLabel = (instId: string, isFirstBlock: boolean, track?: TrackGroup) => {
+  const customLabel = track?.customName || useNomenclatureStore.getState().getInstrumentLabel(track || instId);
   if (isFirstBlock) {
-    if (instId === 'marcante') return 'Alfaia 1';
-    if (instId === 'meiao') return 'Alfaia 2';
-    if (instId === 'repique') return 'Alfaia 3';
-    return instrumentsConfig.find(c => c.id === instId)?.name || 'Track';
+    return customLabel;
   } else {
-    switch (instId) {
-      case 'marcante': return 'Al 1';
-      case 'meiao': return 'Al 2';
-      case 'repique': return 'Al 3';
-      case 'caixa': return 'Cx';
-      case 'tarol': return 'Tl';
-      case 'gongue': return 'Gg';
-      case 'agbe': return 'Ab';
-      case 'mineiro': return 'Mi';
-      default: return instrumentsConfig.find(c => c.id === instId)?.name.substring(0, 3) || 'Trk';
-    }
+    if (customLabel.length <= 4) return customLabel;
+    return customLabel.substring(0, 3);
   }
 };
 
@@ -174,7 +164,7 @@ export const generateTablatureCore = (
 
       if (hasDataInChunk) {
         const conf = instrumentsConfig[track.instrumentIdx];
-        const instLabel = getInstrumentLabel(conf.id, isFirstBlock);
+        const instLabel = getInstrumentLabel(conf.id, isFirstBlock, track);
         
         const varMarker = hasVariationsInChunk ? (isHtml ? ' 🎲' : ' (*v)') : '';
         const safeInstLabel = (instLabel + varMarker).substring(0, 15).padEnd(15, ' ');

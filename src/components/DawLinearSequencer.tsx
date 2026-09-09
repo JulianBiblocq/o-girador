@@ -11,6 +11,7 @@ import { instrumentsConfig, ASSETS_BASE_URL, getVisualStrokeSymbol, NEWTON_NOTE_
 import { getNextStepValue } from '../utils/instrumentStrokes';
 import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { getBusNoteColor, getContrastColor, getTrackDisplayName } from '../utils/colorHelpers';
+import { useNomenclatureStore } from '../stores/useNomenclatureStore';
 import { XiloChisel } from './XiloIcons';
 import { CompassoSelector } from './CompassoSelector';
 import { useSequencer } from '../contexts/SequencerContext';
@@ -470,7 +471,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                                   (e.target as HTMLElement).style.display = 'none';
                                 }}
                               />
-                              <span>{opt.name}</span>
+                              <span>{useNomenclatureStore.getState().getInstrumentLabel(oIdx)}</span>
                             </div>
                           ))}
                         </div>

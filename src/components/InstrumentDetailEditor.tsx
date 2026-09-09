@@ -32,6 +32,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useSortable } from '@dnd-kit/sortable';
 import { Pattern, RhythmSignal, CloudPattern, CatalogVisibility, Language, GlobalSwing } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
+import { useInstrumentLabel } from '../stores/useNomenclatureStore';
 import { VisitorAuthModal } from './VisitorAuthModal';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useAuth } from '../contexts/AuthContext';
@@ -644,12 +645,13 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   const tracksMeta = useSequencerStore(selectTracksMeta);
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  const getInstrumentLabel = useInstrumentLabel();
   const inst = track ? instrumentsConfig[track.instrumentIdx] : { id: '', name: '', type: 'percussion', iconImg: '', colors: { text: '' }, mixerBg: '' };
   
   const trackDisplayName = useMemo(() => {
     if (!track || !inst) return '';
     if (track.customName) return track.customName;
-    const instName = inst.name || 'Instrument';
+    const instName = getInstrumentLabel(track) || inst.name || 'Instrument';
     
     const sameInstTracks = tracksMeta.filter(t => 
       !t.isBusFolder && 
@@ -664,7 +666,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       }
     }
     return instName;
-  }, [track, inst, tracksMeta, trackId]);
+  }, [track, inst, tracksMeta, trackId, getInstrumentLabel]);
 
 
   const [editingPatternId, setEditingPatternId] = useState<number | null>(null);

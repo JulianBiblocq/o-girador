@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { instrumentsConfig } from '../data';
+import { useInstrumentLabel } from '../stores/useNomenclatureStore';
 import { Language } from '../types';
 
 interface ExportMenuModalProps {
@@ -25,6 +26,7 @@ export const ExportMenuModal: React.FC<ExportMenuModalProps> = ({
   lang,
 }) => {
   const tracks = useSequencerStore(state => state.tracks);
+  const getInstrumentLabel = useInstrumentLabel();
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#121212]/80 backdrop-blur-sm select-none">
@@ -87,7 +89,7 @@ export const ExportMenuModal: React.FC<ExportMenuModalProps> = ({
                         setSelectedExportTracks(newSet);
                       }}
                     />
-                    <span className="font-cactus text-xs font-bold">{conf.name}</span>
+                    <span className="font-cactus text-xs font-bold">{track.customName || getInstrumentLabel(track)}</span>
                   </label>
                   <label className={`flex items-center gap-2 pl-7 cursor-pointer transition-colors ${!selectedExportTracks.has(track.id) ? 'opacity-50 pointer-events-none' : 'hover:bg-[var(--cordel-border)]/5'}`}>
                     <input 

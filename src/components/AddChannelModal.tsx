@@ -8,6 +8,7 @@ import { Music, FolderOpen, Link, X, Search, Check } from 'lucide-react';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useSequencer } from '../contexts/SequencerContext';
+import { useInstrumentLabel } from '../stores/useNomenclatureStore';
 
 interface AddChannelModalProps {
   onClose: () => void;
@@ -81,6 +82,7 @@ const translations: Record<string, Record<string, string>> = {
 
 export const AddChannelModal: React.FC<AddChannelModalProps> = ({ onClose }) => {
   const sequencer = useSequencer();
+  const getInstrumentLabel = useInstrumentLabel();
   const lang = useSequencerStore(state => state.lang);
   const tracks = useSequencerStore(state => state.tracks);
   const currentMeasure = useSequencerStore(state => state.currentMeasure);
@@ -130,8 +132,11 @@ export const AddChannelModal: React.FC<AddChannelModalProps> = ({ onClose }) => 
 
     if (!searchQuery.trim()) return sorted;
     const query = searchQuery.toLowerCase();
-    return sorted.filter(({ inst }) => inst.name.toLowerCase().includes(query));
-  }, [searchQuery]);
+    return sorted.filter(({ inst, idx }) => 
+      getInstrumentLabel(idx).toLowerCase().includes(query) || 
+      inst.name.toLowerCase().includes(query)
+    );
+  }, [searchQuery, getInstrumentLabel]);
 
   // --- Auto-generate names ---
   useEffect(() => {
@@ -324,7 +329,9 @@ export const AddChannelModal: React.FC<AddChannelModalProps> = ({ onClose }) => 
                         (e.target as HTMLElement).style.display = 'none';
                       }}
                     />
-                    <span className="font-cactus font-bold text-xs truncate uppercase tracking-wider">{inst.name}</span>
+                    <span className="font-cactus font-bold text-xs truncate uppercase tracking-wider">
+                      {getInstrumentLabel(idx)}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -367,7 +374,7 @@ export const AddChannelModal: React.FC<AddChannelModalProps> = ({ onClose }) => 
                                 (e.target as HTMLElement).style.display = 'none';
                               }}
                             />
-                            <span>{track.isLinkFolder ? `🔗 ${track.customName || 'Liaison'}` : (track.customName || inst?.name)} ({index + 1})</span>
+                            <span>{track.isLinkFolder ? `🔗 ${track.customName || 'Liaison'}` : (track.customName || getInstrumentLabel(track.instrumentIdx))} ({index + 1})</span>
                             {isSelected && <Check size={12} className="ml-1 shrink-0" />}
                           </button>
                         );
@@ -443,7 +450,7 @@ export const AddChannelModal: React.FC<AddChannelModalProps> = ({ onClose }) => 
                                 (e.target as HTMLElement).style.display = 'none';
                               }}
                             />
-                            <span>{track.customName || inst?.name} ({index + 1})</span>
+                            <span>{track.customName || getInstrumentLabel(track.instrumentIdx)} ({index + 1})</span>
                           </button>
                         );
                       })}
@@ -480,7 +487,7 @@ export const AddChannelModal: React.FC<AddChannelModalProps> = ({ onClose }) => 
                                   (e.target as HTMLElement).style.display = 'none';
                                 }}
                               />
-                              <span>{track.customName || inst?.name} ({tracks.findIndex(t => t.id === track.id) + 1})</span>
+                              <span>{track.customName || getInstrumentLabel(track.instrumentIdx)} ({tracks.findIndex(t => t.id === track.id) + 1})</span>
                               {isSelected && <Check size={12} className="ml-1 shrink-0" />}
                             </button>
                           );

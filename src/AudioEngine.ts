@@ -799,7 +799,8 @@ export class AudioEngine {
     strokeSymbol: string,
     time: number,
     velocity: number,
-    decayMultiplier: number
+    decayMultiplier: number,
+    isLiveHold: boolean = false
   ): void {
     let trackId: number | null = null;
     let instrumentId = '';
@@ -854,7 +855,7 @@ export class AudioEngine {
       }
     }
 
-    this.playStroke(trackId, instrumentId, config, stroke, time, velocity, decayMultiplier);
+    this.playStroke(trackId, instrumentId, config, stroke, time, velocity, decayMultiplier, undefined, isLiveHold);
   }
 
   /**
@@ -893,7 +894,7 @@ export class AudioEngine {
     if (!stroke || stroke.files.length === 0) return;
 
     const triggerTime = time !== undefined ? time : Tone.now();
-    this.playStroke(null, instrumentId, config, stroke, triggerTime, velocity, 1.0, pitchSemitones);
+    this.playStroke(null, instrumentId, config, stroke, triggerTime, velocity, 1.0, pitchSemitones, false);
   }
 
   /**
@@ -907,13 +908,14 @@ export class AudioEngine {
     time: number,
     velocity: number,
     decayMultiplier: number,
-    overrideTuning?: number
+    overrideTuning?: number,
+    isLiveHold: boolean = false
   ): void {
     const Tone = getTone();
     const isEco = useSequencerStore.getState().isEcoMode;
 
-    // If it's a Barulho stroke and already looping, just adjust volume and continue seamlessly
-    if (stroke.isBarulho && this.activeBarulhoNodes.has(instrumentId)) {
+    // If it's a Barulho stroke and already looping in live hold mode, just adjust volume and continue seamlessly
+    if (stroke.isBarulho && isLiveHold && this.activeBarulhoNodes.has(instrumentId)) {
       const activeGain = this.activeBarulhoGains.get(instrumentId);
       if (activeGain) {
         try {
@@ -925,8 +927,8 @@ export class AudioEngine {
       return;
     }
 
-    // If it's NOT a barulho, choke any existing looping barulho for this instrument
-    if (!stroke.isBarulho) {
+    // If an existing barulho is running for this instrument, stop it before starting a new one (or any other stroke)
+    if (!stroke.isBarulho || !isLiveHold) {
       this.stopBarulho(instrumentId, time);
     }
 
@@ -1114,11 +1116,32 @@ export class AudioEngine {
 
     // 6. Handle play duration and looping
     if (stroke.isBarulho) {
-      source.loop = true;
-      source.start(time);
-      this.activeBarulhoNodes.set(instrumentId, source);
-      this.activeBarulhoGains.set(instrumentId, gainNode);
-      this.activeGainNodes.set(source, this.getGainNodeMapping(instrumentId, gainNode, Infinity));
+      if (isLiveHold) {
+        // En mode jeu clavier continu (keydown/keyup) : boucle infinie arrêtée au relâchement
+        source.loop = true;
+        source.start(time);
+        this.activeBarulhoNodes.set(instrumentId, source);
+        this.activeBarulhoGains.set(instrumentId, gainNode);
+        this.activeGainNodes.set(source, this.getGainNodeMapping(instrumentId, gainNode, Infinity));
+      } else {
+        // En lecture de séquence ou pré-écoute souris : durée bornée pour ne pas tourner indéfiniment
+        this.scheduledHits.add(source);
+        const originalDuration = buffer.duration;
+        const maxDuration = Math.max(0.35, Math.min(1.2, originalDuration * decayMultiplier));
+        const realWorldDuration = maxDuration / calculatedPitch;
+        const fadeTime = Math.min(0.02, realWorldDuration / 2);
+
+        this.activeBarulhoNodes.set(instrumentId, source);
+        this.activeBarulhoGains.set(instrumentId, gainNode);
+        this.activeGainNodes.set(source, this.getGainNodeMapping(instrumentId, gainNode, time + realWorldDuration));
+
+        gainNode.gain.setValueAtTime(velocity, time);
+        gainNode.gain.setValueAtTime(velocity, time + Math.max(0, realWorldDuration - fadeTime));
+        gainNode.gain.linearRampToValueAtTime(0, time + realWorldDuration);
+
+        source.start(time, 0, maxDuration);
+        source.stop(time + realWorldDuration + 0.01);
+      }
 
       source.onended = () => {
         try { source.disconnect(); } catch (_) {}
@@ -1130,6 +1153,10 @@ export class AudioEngine {
         }
         this.activeGainNodes.delete(source);
         this.removeActiveVoice(instrumentId, source);
+        if (this.activeBarulhoNodes.get(instrumentId) === source) {
+          this.activeBarulhoNodes.delete(instrumentId);
+          this.activeBarulhoGains.delete(instrumentId);
+        }
       };
 
       if (isEco) {
