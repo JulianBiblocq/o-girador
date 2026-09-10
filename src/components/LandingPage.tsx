@@ -219,7 +219,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
   return (
     <div id="landing-page">
       <header className="lp-header">
-        <GoogleLoginButton lang={lang} />
+        <GoogleLoginButton lang={lang} align="right" />
       </header>
       
       <main className="lp-center">

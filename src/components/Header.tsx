@@ -277,7 +277,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   👤 {lang === 'pt' ? 'Perfil' : 'Profil'}
                 </span>
                 <div className="flex items-center gap-2">
-                  <GoogleLoginButton lang={lang} onAdminClick={onAdminClick} />
+                  <GoogleLoginButton lang={lang} onAdminClick={onAdminClick} align="left" />
                   <button onClick={() => { sequencer.setIsLeftHanded(!sequencer.isLeftHanded); setMobileMenuOpen(false); }} className={`px-2 py-1.5 cordel-border-sm text-xs font-bold font-cactus cursor-pointer flex-1 ${sequencer.isLeftHanded ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'}`}>
                     🫲 {lang === 'pt' ? 'Canhoto' : 'Gaucher'}
                   </button>
@@ -645,7 +645,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   👤 {lang === 'pt' ? 'Perfil' : 'Profil'}
                 </span>
                 <div className="flex items-center gap-2">
-                  <GoogleLoginButton lang={lang} onAdminClick={onAdminClick} />
+                  <GoogleLoginButton lang={lang} onAdminClick={onAdminClick} align="left" />
                   <button onClick={() => { sequencer.setIsLeftHanded(!sequencer.isLeftHanded); setProjectDropOpen(false); }} className={`px-2 py-1.5 cordel-border-sm text-xs font-bold font-cactus cursor-pointer flex-1 ${sequencer.isLeftHanded ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'}`}>
                     🫲 {lang === 'pt' ? 'Canhoto' : 'Gaucher'}
                   </button>

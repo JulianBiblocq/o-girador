@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 interface VisitorAuthModalProps {
@@ -15,27 +16,40 @@ export const VisitorAuthModal: React.FC<VisitorAuthModalProps> = ({ onClose, lan
     onClose();
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={!isMandatory ? onClose : undefined}>
-      <div className="bg-[#f4ecd8] border-4 border-[#1a1a1a] p-8 max-w-md w-full shadow-[12px_12px_0px_rgba(0,0,0,1)] flex flex-col gap-6 relative" onClick={e => e.stopPropagation()}>
+  const modalRoot = (typeof document !== 'undefined' && (document.getElementById('modal-root') || document.body)) || null;
+
+  const content = (
+    <div 
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto" 
+      onClick={!isMandatory ? onClose : undefined}
+    >
+      <div 
+        className="bg-[#f4ecd8] border-4 border-[#1a1a1a] p-5 sm:p-8 max-w-md w-full shadow-[8px_8px_0px_rgba(0,0,0,1)] sm:shadow-[12px_12px_0px_rgba(0,0,0,1)] flex flex-col gap-4 sm:gap-6 relative my-auto max-h-[95dvh] overflow-y-auto" 
+        onClick={e => e.stopPropagation()}
+      >
         {!isMandatory && (
-          <button onClick={onClose} className="absolute top-4 right-4 text-2xl font-bold text-[#1a1a1a] hover:text-[#8b2a1a]">×</button>
+          <button 
+            onClick={onClose} 
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 text-2xl font-bold text-[#1a1a1a] hover:text-[#8b2a1a] cursor-pointer"
+          >
+            ×
+          </button>
         )}
         
-        <div className="text-center flex flex-col gap-2 mt-4">
-          <span className="text-5xl mb-2">🔒</span>
-          <h2 className="font-cactus text-3xl font-black text-[#1a1a1a] uppercase leading-none">
+        <div className="text-center flex flex-col gap-1 sm:gap-2 mt-2 sm:mt-4">
+          <span className="text-4xl sm:text-5xl mb-1 sm:mb-2">🔒</span>
+          <h2 className="font-cactus text-2xl sm:text-3xl font-black text-[#1a1a1a] uppercase leading-tight sm:leading-none">
             {lang === 'fr' ? 'La suite est réservée aux membres !' : 'O resto é reservado para membros!'}
           </h2>
         </div>
         
-        <div className="bg-[#eaddcf] border-2 border-[#1a1a1a] p-4 text-[#1a1a1a]">
-          <p className="font-bold mb-3 text-center">
+        <div className="bg-[#eaddcf] border-2 border-[#1a1a1a] p-3 sm:p-4 text-[#1a1a1a]">
+          <p className="font-bold mb-2 sm:mb-3 text-center text-sm sm:text-base">
             {lang === 'fr' 
               ? 'Créez un compte gratuit pour :' 
               : 'Crie uma conta gratuita para:'}
           </p>
-          <ul className="text-sm flex flex-col gap-2 text-left font-semibold">
+          <ul className="text-xs sm:text-sm flex flex-col gap-2 text-left font-semibold">
             <li className="flex items-start gap-2">
               <span className="mt-0.5">🎵</span> {lang === 'fr' ? 'Écouter ce morceau en entier' : 'Ouvir esta música na íntegra'}
             </li>
@@ -51,10 +65,10 @@ export const VisitorAuthModal: React.FC<VisitorAuthModalProps> = ({ onClose, lan
           </ul>
         </div>
 
-        <div className="flex justify-center mt-2">
+        <div className="flex justify-center mt-1 sm:mt-2">
           <button
             onClick={handleSignIn}
-            className="w-full py-4 bg-[#8b2a1a] text-[#f4ecd8] font-black text-lg tracking-widest uppercase text-center border-2 border-[#1a1a1a] shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-[#6b1e11] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] transition-all"
+            className="w-full py-3.5 sm:py-4 bg-[#8b2a1a] text-[#f4ecd8] font-black text-base sm:text-lg tracking-widest uppercase text-center border-2 border-[#1a1a1a] shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:bg-[#6b1e11] hover:translate-y-[2px] hover:shadow-[2px_2px_0px_rgba(0,0,0,1)] transition-all cursor-pointer"
           >
             {lang === 'fr' ? 'Se connecter' : 'Conectar-se'}
           </button>
@@ -62,4 +76,7 @@ export const VisitorAuthModal: React.FC<VisitorAuthModalProps> = ({ onClose, lan
       </div>
     </div>
   );
+
+  if (!modalRoot) return content;
+  return createPortal(content, modalRoot);
 };

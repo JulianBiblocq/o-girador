@@ -8,18 +8,37 @@ interface GoogleLoginButtonProps {
   className?: string;
   lang?: 'fr' | 'pt';
   onAdminClick?: () => void;
+  align?: 'left' | 'right' | 'auto';
 }
 
 export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   className = '',
   lang = 'pt',
   onAdminClick,
+  align = 'auto',
 }) => {
   const { currentUser, userProfile, signInWithGoogle, logout, loading, updateUserProfileField, isAdmin } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [computedAlign, setComputedAlign] = useState<'left' | 'right'>(align === 'left' ? 'left' : 'right');
   const [isUploading, setIsUploading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    if (align === 'left' || align === 'right') {
+      setComputedAlign(align);
+      return;
+    }
+    if (dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      if (rect.left < window.innerWidth / 2) {
+        setComputedAlign('left');
+      } else {
+        setComputedAlign('right');
+      }
+    }
+  }, [dropdownOpen, align]);
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -142,7 +161,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
         </button>
 
         {dropdownOpen && (
-          <div className="absolute top-10 right-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] min-w-[200px] z-[1000] flex flex-col p-3 gap-3 select-none">
+          <div className={`absolute top-10 ${computedAlign === 'left' ? 'left-0' : 'right-0'} bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] min-w-[220px] max-w-[calc(100vw-24px)] z-[1000] flex flex-col p-3 gap-3 select-none box-border`}>
             <div className="flex flex-col border-b border-[var(--cordel-border)]/30 pb-2 gap-2">
               <div>
                 <span className="text-xs font-cactus font-bold text-[var(--cordel-text)] truncate flex items-center gap-1">

@@ -34,7 +34,7 @@ export const Home: React.FC<HomeProps> = ({ onEnter, lang }) => {
       
       {/* Top Right Actions */}
       <div className="absolute top-4 right-4 z-50 flex items-center gap-4">
-        <GoogleLoginButton lang={lang} />
+        <GoogleLoginButton lang={lang} align="right" />
       </div>
       
       {/* Background Decorative Pattern */}
