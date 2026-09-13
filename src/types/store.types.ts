@@ -136,6 +136,8 @@ export interface TrackGroup {
   };
 }
 
+export type Track = TrackGroup;
+
 export interface CatalogItem {
   file: string;
   name: string;

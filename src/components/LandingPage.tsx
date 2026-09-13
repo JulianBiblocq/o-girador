@@ -44,18 +44,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
       
       let targetMestreId = userProfile?.mestreId;
       if (!targetMestreId && userProfile?.groupId) {
-        try {
-          const mestreQ = query(
-            collection(db, 'users'),
-            where('groupId', 'in', [userProfile.groupId, userProfile.groupId.toLowerCase(), 'Samambaia', 'samambaia']),
-            where('role', '==', 'mestre')
-          );
-          const mestreSnap = await getDocs(mestreQ);
-          if (!mestreSnap.empty) {
-            targetMestreId = mestreSnap.docs[0].id;
+        if (userProfile.groupId.toLowerCase() === 'samambaia') {
+          targetMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+        } else {
+          try {
+            const mestreQ = query(
+              collection(db, 'users'),
+              where('groupId', 'in', Array.from(new Set([userProfile.groupId, userProfile.groupId.toLowerCase()]))),
+              where('role', '==', 'mestre')
+            );
+            const mestreSnap = await getDocs(mestreQ);
+            if (!mestreSnap.empty) {
+              targetMestreId = mestreSnap.docs[0].id;
+            }
+          } catch (e) {
+            console.warn("Could not resolve group mestre on LandingPage:", e);
           }
-        } catch (e) {
-          console.warn("Could not resolve group mestre on LandingPage:", e);
         }
       }
 

@@ -108,7 +108,7 @@ export async function fetchCloudPresets(
           try {
             const mestreQ = query(
               collection(db, 'users'),
-              where('groupId', 'in', [groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']),
+              where('groupId', 'in', Array.from(new Set([groupId, groupId.toLowerCase()]))),
               where('role', '==', 'mestre')
             );
             const mestreSnap = await getDocs(mestreQ);
@@ -136,7 +136,7 @@ export async function fetchCloudPresets(
       }
 
       if (groupId) {
-        queries.push(getDocs(query(presetsRef, where('groupId', 'in', [groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']), limit(100))));
+        queries.push(getDocs(query(presetsRef, where('groupId', 'in', Array.from(new Set([groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']))), limit(100))));
       }
 
       const snapshots = await Promise.all(queries);
@@ -153,9 +153,9 @@ export async function fetchCloudPresets(
             const matchesMestre = myGroupMestreId && (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId);
             const matchesGroup = groupId && (data as any).groupId && 
               String((data as any).groupId).toLowerCase() === String(groupId).toLowerCase();
-            const isMestreGroup = data.visibility === 'mestre_group' && (matchesMestre || matchesGroup);
+            const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup);
 
-            if (isOwner || isAdminGlobal || isPublic || isTarget || isMestreGroup) {
+            if (isOwner || isAdminGlobal || isPublic || isTarget || isMestreGroup || matchesGroup || matchesMestre) {
               uniqueIds.add(docSnap.id);
               presets.push({ id: docSnap.id, ...data });
             }
@@ -210,46 +210,52 @@ export async function renameCloudPreset(presetId: string, newName: string): Prom
 
 /**
  * Fetches .json presets from Firebase Storage folder documents/${groupId}/sequencer/
- * Falls back to documents/${groupId.toLowerCase()}/sequencer/ if empty.
+ * Falls back to documents/${groupId.toLowerCase()}/sequencer/ or documents/Samambaia/sequencer.
  */
 export async function fetchStoragePresetsJSON(groupId: string): Promise<CloudPreset[]> {
   if (!groupId) return [];
   const presets: CloudPreset[] = [];
-  const tryFetch = async (folderPath: string) => {
+  const seenIds = new Set<string>();
+
+  const candidateFolders = Array.from(new Set([
+    `documents/${groupId}/sequencer`,
+    `documents/${groupId.toLowerCase()}/sequencer`,
+    ...(groupId.toLowerCase() === 'samambaia' ? ['documents/Samambaia/sequencer'] : [])
+  ]));
+
+  for (const folderPath of candidateFolders) {
     try {
       const folderRef = ref(storage, folderPath);
       const res = await listAll(folderRef);
       for (const itemRef of res.items) {
-        if (itemRef.name.endsWith('.json')) {
-          const url = await getDownloadURL(itemRef);
-          const response = await fetch(url);
-          if (response.ok) {
-            const data = await response.json();
-            presetCache.set(itemRef.name, data as Preset);
-            presets.push({
-              id: itemRef.name, // using filename as id
-              name: data.metadata?.toada || data.name || itemRef.name.replace('.json', ''),
-              data: LZString.compressToBase64(JSON.stringify(data)),
-              ownerId: 'storage',
-              visibility: 'mestre_group',
-              createdAt: Date.now(),
-              updatedAt: Date.now(),
-              groupId: groupId,
-              isFromStorage: true
-            } as any);
+        if (itemRef.name.endsWith('.json') && !seenIds.has(itemRef.name)) {
+          seenIds.add(itemRef.name);
+          try {
+            const url = await getDownloadURL(itemRef);
+            const response = await fetch(url);
+            if (response.ok) {
+              const data = await response.json();
+              presetCache.set(itemRef.name, data as Preset);
+              presets.push({
+                id: itemRef.name, // using filename as id
+                name: data.metadata?.toada || data.name || itemRef.name.replace('.json', ''),
+                data: LZString.compressToBase64(JSON.stringify(data)),
+                ownerId: 'storage',
+                visibility: 'mestre_group',
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+                groupId: groupId,
+                isFromStorage: true
+              } as any);
+            }
+          } catch (e) {
+            console.warn(`Could not load preset from ${itemRef.fullPath}:`, e);
           }
         }
       }
-      return res.items.length > 0;
     } catch (err) {
       console.warn(`Could not list storage for path ${folderPath}:`, err);
-      return false;
     }
-  };
-
-  const success = await tryFetch(`documents/${groupId}/sequencer`);
-  if (!success && groupId !== groupId.toLowerCase()) {
-    await tryFetch(`documents/${groupId.toLowerCase()}/sequencer`);
   }
 
   return presets;

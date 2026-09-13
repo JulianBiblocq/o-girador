@@ -81,7 +81,7 @@ export async function fetchCloudSections(
         try {
           const mestreQ = query(
             collection(db, 'users'),
-            where('groupId', 'in', [groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']),
+            where('groupId', 'in', Array.from(new Set([groupId, groupId.toLowerCase()]))),
             where('role', '==', 'mestre')
           );
           const mestreSnap = await getDocs(mestreQ);
@@ -105,7 +105,7 @@ export async function fetchCloudSections(
       promises.push(getDocs(query(sectionsRef, where('visibility', 'in', ['admin_global', 'public']), limit(100))));
       
       if (groupId) {
-        promises.push(getDocs(query(sectionsRef, where('groupId', 'in', [groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']), limit(100))));
+        promises.push(getDocs(query(sectionsRef, where('groupId', 'in', Array.from(new Set([groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']))), limit(100))));
       }
       if (myGroupMestreId) {
         promises.push(getDocs(query(sectionsRef, where('ownerId', '==', myGroupMestreId), limit(100))));
@@ -131,9 +131,9 @@ export async function fetchCloudSections(
       const isPublic = data.visibility === 'public';
       const matchesMestre = myGroupMestreId && (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId);
       const matchesGroup = groupId && data.groupId && String(data.groupId).toLowerCase() === String(groupId).toLowerCase();
-      const isMestreGroup = data.visibility === 'mestre_group' && (matchesMestre || matchesGroup);
+      const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup);
       
-      if (isSysAdmin || isOwner || isAdminGlobal || isPublic || isMestreGroup) {
+      if (isSysAdmin || isOwner || isAdminGlobal || isPublic || isMestreGroup || matchesGroup || matchesMestre) {
         sections.push({
           id: docSnap.id,
           name: data.name,

@@ -30,6 +30,7 @@ export interface UserProfile {
   canWriteOrchestrador?: boolean;
   groupName?: string;
   groupId?: string;
+  isSystemAdmin?: boolean;
 }
 
 interface AuthContextType {
@@ -165,24 +166,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             
             // Auto-resolve Mestre for members belonging to an association/group (e.g. Samambaia)
-            if (!profile.mestreId && profile.groupId) {
-              try {
-                const mestreQ = query(
-                  collection(db, 'users'),
-                  where('groupId', 'in', [profile.groupId, profile.groupId.toLowerCase(), 'Samambaia', 'samambaia']),
-                  where('role', '==', 'mestre')
-                );
-                const mestreSnap = await getDocs(mestreQ);
-                if (!mestreSnap.empty) {
-                  const mestreDoc = mestreSnap.docs[0];
-                  profile.mestreId = mestreDoc.id;
-                  if (!profile.groupName && mestreDoc.data().groupName) {
-                    profile.groupName = mestreDoc.data().groupName;
-                  }
-                  updateDoc(userRef, { mestreId: mestreDoc.id }).catch(() => {});
+            if (profile.groupId) {
+              const rawData = docSnap.data();
+              if (profile.groupId.toLowerCase() === 'samambaia') {
+                const targetMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+                const targetGroupName = rawData.groupName || 'Samambaia';
+                const needsUpdate = rawData.mestreId !== targetMestreId || !rawData.groupName;
+                profile.mestreId = targetMestreId;
+                if (!profile.groupName) {
+                  profile.groupName = 'Samambaia';
                 }
-              } catch (err) {
-                console.warn("Could not resolve mestre for group:", err);
+                if (needsUpdate) {
+                  updateDoc(userRef, { mestreId: targetMestreId, groupName: targetGroupName }).catch(() => {});
+                }
+              } else if (!rawData.mestreId) {
+                try {
+                  const mestreQ = query(
+                    collection(db, 'users'),
+                    where('groupId', 'in', Array.from(new Set([profile.groupId, profile.groupId.toLowerCase()]))),
+                    where('role', '==', 'mestre')
+                  );
+                  const mestreSnap = await getDocs(mestreQ);
+                  if (!mestreSnap.empty) {
+                    const mestreDoc = mestreSnap.docs[0];
+                    const targetMestreId = mestreDoc.id;
+                    const resolvedGroupName = mestreDoc.data().groupName;
+                    const targetGroupName = rawData.groupName || resolvedGroupName;
+                    const needsUpdate = rawData.mestreId !== targetMestreId || (resolvedGroupName && !rawData.groupName);
+                    profile.mestreId = targetMestreId;
+                    if (!profile.groupName && resolvedGroupName) {
+                      profile.groupName = resolvedGroupName;
+                    }
+                    if (needsUpdate) {
+                      updateDoc(userRef, { mestreId: targetMestreId, ...(targetGroupName ? { groupName: targetGroupName } : {}) }).catch(() => {});
+                    }
+                  }
+                } catch (err) {
+                  console.warn("Could not resolve mestre for group:", err);
+                }
               }
             }
 

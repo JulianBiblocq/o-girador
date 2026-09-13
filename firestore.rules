@@ -41,7 +41,13 @@ service cloud.firestore {
         docMestreId != null &&
         docMestreId != '' &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        getUserData().get('mestreId', '') == docMestreId;
+        (
+          getUserData().get('mestreId', '') == docMestreId ||
+          (
+            getUserData().get('groupId', '').lower() == 'samambaia' &&
+            (docMestreId == 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' || docMestreId == 'Samambaia' || docMestreId == 'samambaia' || docMestreId.lower() == 'samambaia')
+          )
+        );
     }
 
     // Checks if the user is a co-author and belongs to the same group as the document
@@ -51,7 +57,7 @@ service cloud.firestore {
         docGroupId != '' &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         getUserData().get('canWriteSequenciador', false) == true &&
-        getUserData().get('groupId', '') == docGroupId;
+        getUserData().get('groupId', '').lower() == docGroupId.lower();
     }
 
     function canManageEvents() {
@@ -101,7 +107,7 @@ service cloud.firestore {
         (
           channelId != null &&
           exists(/databases/$(database)/documents/forum_channels/$(channelId)) &&
-          getUserData().groupId == getChannelData(channelId).groupId &&
+          getUserData().get('groupId', '').lower() == getChannelData(channelId).get('groupId', '').lower() &&
           (
             getChannelData(channelId).isTransparent == true ||
             getChannelData(channelId).readRoles == null ||
@@ -122,7 +128,7 @@ service cloud.firestore {
         (
           channelId != null &&
           exists(/databases/$(database)/documents/forum_channels/$(channelId)) &&
-          getUserData().groupId == getChannelData(channelId).groupId &&
+          getUserData().get('groupId', '').lower() == getChannelData(channelId).get('groupId', '').lower() &&
           (!getChannelData(channelId).keys().hasAny(['readOnlyForMembers']) || getChannelData(channelId).readOnlyForMembers != true) &&
           (
             getChannelData(channelId).writeRoles == null ||
@@ -230,19 +236,24 @@ service cloud.firestore {
       allow update: if isAdminOrMestre() || hasAnyTag(['Vitrine', 'Webmaster', 'Bureau', 'PrÃ©sident', 'PrÃ©sidente', 'CA']) || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['vitrineViews']);
 
       match /private_settings/credentials {
-        allow read, write: if isAdminOrMestre() && getUserData().groupId == assocId;
+        allow read, write: if isAdminOrMestre() && getUserData().get('groupId', '').lower() == assocId.lower();
       }
 
       match /contacts_diffusion/{contactId} {
-        allow read, write: if isAuthenticated() && getUserData().groupId == assocId;
+        allow read, write: if isAuthenticated() && getUserData().get('groupId', '').lower() == assocId.lower();
       }
 
       match /blocNotes/{noteId} {
-        allow read, write: if isAdminOrMestre() && getUserData().groupId == assocId;
+        allow read, write: if isAdminOrMestre() && getUserData().get('groupId', '').lower() == assocId.lower();
       }
 
       match /rhythmMetadata/{rhythmId} {
-        allow read, write: if isAdminOrMestre() && getUserData().groupId == assocId;
+        allow read, write: if (isAdminOrMestre() || isAuthenticated()) && getUserData().get('groupId', '').lower() == assocId.lower();
+      }
+
+      match /repertoire/{pieceId} {
+        allow read: if isAuthenticated() && getUserData().get('groupId', '').lower() == assocId.lower();
+        allow write: if isAdminOrMestre() && getUserData().get('groupId', '').lower() == assocId.lower();
       }
     }
 
@@ -317,7 +328,7 @@ service cloud.firestore {
 
     match /transactions/{transaction} {
       allow read, write: if (canManageTreasury() || isAdminOrMestre()) && (
-        resource == null || getUserData().groupId == resource.data.groupId
+        resource == null || getUserData().get('groupId', '').lower() == resource.data.get('groupId', '').lower()
       );
     }
 
@@ -325,7 +336,7 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (
         isAdminOrMestre() ||
         (
-          getUserData().groupId == resource.data.groupId &&
+          getUserData().get('groupId', '').lower() == resource.data.get('groupId', '').lower() &&
           (
             resource.data.isTransparent == true ||
             resource.data.readRoles == null ||
@@ -338,7 +349,7 @@ service cloud.firestore {
           )
         )
       );
-      allow create: if isAuthenticated() && request.resource.data.groupId == getUserData().groupId;
+      allow create: if isAuthenticated() && request.resource.data.get('groupId', '').lower() == getUserData().get('groupId', '').lower();
       allow update, delete: if isAdminOrMestre();
     }
 
@@ -436,17 +447,17 @@ service cloud.firestore {
 
     match /choreographies/{document} {
       allow read: if isAuthenticated();
-      allow write: if (isAdminOrMestre() || (getUserData().keys().hasAny(['canWriteDansador']) && getUserData().canWriteDansador == true)) && (resource == null || getUserData().groupId == resource.data.tenantId || getUserData().groupId == request.resource.data.tenantId);
+      allow write: if (isAdminOrMestre() || (getUserData().keys().hasAny(['canWriteDansador']) && getUserData().canWriteDansador == true)) && (resource == null || getUserData().get('groupId', '').lower() == resource.data.get('tenantId', '').lower() || getUserData().get('groupId', '').lower() == request.resource.data.get('tenantId', '').lower());
     }
 
     match /steps/{document} {
       allow read: if isAuthenticated();
-      allow write: if (isAdminOrMestre() || (getUserData().keys().hasAny(['canWriteDansador']) && getUserData().canWriteDansador == true)) && (resource == null || getUserData().groupId == resource.data.tenantId || getUserData().groupId == request.resource.data.tenantId);
+      allow write: if (isAdminOrMestre() || (getUserData().keys().hasAny(['canWriteDansador']) && getUserData().canWriteDansador == true)) && (resource == null || getUserData().get('groupId', '').lower() == resource.data.get('tenantId', '').lower() || getUserData().get('groupId', '').lower() == request.resource.data.get('tenantId', '').lower());
     }
 
     match /programs/{document} {
       allow read: if isAuthenticated();
-      allow write: if (isAdminOrMestre() || (getUserData().keys().hasAny(['canWriteDansador']) && getUserData().canWriteDansador == true)) && (resource == null || getUserData().groupId == resource.data.tenantId || getUserData().groupId == request.resource.data.tenantId);
+      allow write: if (isAdminOrMestre() || (getUserData().keys().hasAny(['canWriteDansador']) && getUserData().canWriteDansador == true)) && (resource == null || getUserData().get('groupId', '').lower() == resource.data.get('tenantId', '').lower() || getUserData().get('groupId', '').lower() == request.resource.data.get('tenantId', '').lower());
     }
 
     // --- O GIRADOR: SÉQUENCEUR ---

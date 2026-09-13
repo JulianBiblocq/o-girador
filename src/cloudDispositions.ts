@@ -117,7 +117,7 @@ export async function fetchCloudDispositions(
         try {
           const mestreQ = query(
             collection(db, 'users'),
-            where('groupId', 'in', [validGroupId, validGroupId.toLowerCase(), 'Samambaia', 'samambaia']),
+            where('groupId', 'in', Array.from(new Set([validGroupId, validGroupId.toLowerCase()]))),
             where('role', '==', 'mestre')
           );
           const mestreSnap = await getDocs(mestreQ);
@@ -147,7 +147,7 @@ export async function fetchCloudDispositions(
           getDocs(
             query(
               dispositionsRef,
-              where('groupId', 'in', [validGroupId, validGroupId.toLowerCase(), 'Samambaia', 'samambaia']),
+              where('groupId', 'in', Array.from(new Set([validGroupId, validGroupId.toLowerCase(), 'Samambaia', 'samambaia']))),
               limit(100)
             )
           )
@@ -179,9 +179,9 @@ export async function fetchCloudDispositions(
       const matchesMestre = myGroupMestreId && data.ownerId === myGroupMestreId;
       const matchesGroup =
         validGroupId && data.groupId && String(data.groupId).toLowerCase() === validGroupId.toLowerCase();
-      const isMestreGroup = data.visibility === 'mestre_group' && (matchesMestre || matchesGroup);
+      const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup);
 
-      if (isSysAdmin || isOwner || isAdminGlobal || isPublic || isMestreGroup) {
+      if (isSysAdmin || isOwner || isAdminGlobal || isPublic || isMestreGroup || matchesGroup || matchesMestre) {
         dispositions.push({
           id: docSnap.id,
           name: data.name || "Disposition",
