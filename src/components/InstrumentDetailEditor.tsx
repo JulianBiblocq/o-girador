@@ -13,6 +13,7 @@ import { useAudioStore } from '../stores/useAudioStore';
 import { vocalEngineService } from '../audio/vocalEngineService';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { getStrokePairs, STEP_OPTIONS } from '../utils/instrumentStrokes';
+import { getNextPatternName } from '../utils/patternNaming';
 import { createPortal } from 'react-dom';
 import { Play, Square, GripVertical } from 'lucide-react';
 import {
@@ -427,7 +428,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         const p = t.patterns[0];
         const newPattern = {
           id: Date.now() + Math.floor(Math.random() * 1000),
-          name: lang === 'fr' ? `Motif ${t.patterns.length + 1}` : `Padrão ${t.patterns.length + 1}`,
+          name: getNextPatternName(t.patterns, undefined, lang),
           steps: p.steps,
           activeSteps: Array(p.steps).fill(0),
           lyrics: Array(p.steps).fill(''),
@@ -442,7 +443,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       }
       return t;
     }));
-  }, [trackId, sequencer, totalMeasures]);
+  }, [trackId, sequencer, totalMeasures, lang]);
 
   const onDeletePattern = React.useCallback((patternId: number) => {
     sequencer.pushUndoState();
@@ -1832,14 +1833,25 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               </SortableContext>
             </DndContext>
 
-            {/* Add pattern button */}
+            {/* Add pattern button & Paste as new pattern */}
             {!isSlave && (
-              <button
-                onClick={onAddPattern}
-                className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors mb-2"
-              >
-                + {lang === 'fr' ? 'Ajouter un motif' : 'Adicionar padrão'}
-              </button>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <button
+                  onClick={onAddPattern}
+                  className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors"
+                >
+                  + {lang === 'fr' ? 'Ajouter un motif' : 'Adicionar padrão'}
+                </button>
+                {canPaste && (
+                  <button
+                    onClick={() => sequencer.handlePastePattern(trackId)}
+                    className="self-start bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button px-4 py-2 font-cactus font-bold text-sm cursor-pointer hover:bg-[#1a1a1a] hover:text-[#f4ecd8] transition-colors"
+                    title={lang === 'fr' ? 'Coller le motif copié comme nouveau motif' : 'Colar o padrão copiado como novo padrão'}
+                  >
+                    📥 {lang === 'fr' ? 'Coller comme nouveau motif' : 'Colar como novo padrão'}
+                  </button>
+                )}
+              </div>
             )}
             </div>
           </div>

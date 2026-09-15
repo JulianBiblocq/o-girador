@@ -27,6 +27,7 @@ import { MixerMasterEffects } from './MixerMasterEffects';
 import { MixerVolumeFader } from './MixerVolumeFader';
 import { MixerAddChannel } from './MixerAddChannel';
 import { interpolateAutomationValue } from '../utils/automationMath';
+import { getNextPatternName } from '../utils/patternNaming';
 import { getLastAudibleTick } from '../audio/visualTickBuffer';
 import { DragNumberBox } from './DragNumberBox';
 import { XiloEQ, XiloCompressor, XiloMestre } from './XiloIcons';
@@ -571,7 +572,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         const p = t.patterns[0];
         const newPattern: Pattern = {
           id: Date.now() + Math.floor(Math.random() * 1000),
-          name: lang === 'fr' ? `Motif ${t.patterns.length + 1}` : `Padrão ${t.patterns.length + 1}`,
+          name: getNextPatternName(t.patterns, undefined, lang),
           steps: p.steps,
           activeSteps: Array(p.steps).fill(0),
           lyrics: Array(p.steps).fill(''),

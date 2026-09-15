@@ -18,6 +18,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSequencerStore, isSequencerVisibleTrack } from '../stores/useSequencerStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useSequencerHistory } from './useSequencerHistory';
+import { getNextPatternName } from '../utils/patternNaming';
 
 export function useSequencerState() {
   const { userProfile, updateUserPreference } = useAuth();
@@ -983,12 +984,55 @@ export function useSequencerState() {
         const firstP = t.patterns[0];
         
         if (targetPatternId !== undefined) {
-          // Overwrite existing pattern
+          // Si on colle sur le motif même qu'on vient de copier -> duplication explicite sur la piste
+          if (targetPatternId === patternToPaste.id) {
+            const pasted: Pattern = {
+              ...patternToPaste,
+              id: Date.now() + Math.floor(Math.random() * 1000),
+              name: getNextPatternName(t.patterns, patternToPaste.name, lang),
+              steps: patternToPaste.steps,
+              activeSteps: [...patternToPaste.activeSteps],
+              lyrics: [...patternToPaste.lyrics],
+              notes: [...patternToPaste.notes],
+              measureAssignments: Array(totalMeasuresRef.current).fill(true),
+              volumes: patternToPaste.volumes ? [...patternToPaste.volumes] : Array(firstP.steps).fill(80),
+              decays: patternToPaste.decays ? [...patternToPaste.decays] : Array(firstP.steps).fill(100),
+              microtimings: patternToPaste.microtimings ? [...patternToPaste.microtimings] : Array(patternToPaste.steps).fill(0),
+              beatResolutions: patternToPaste.beatResolutions ? [...patternToPaste.beatResolutions] : undefined,
+              variations: patternToPaste.variations ? JSON.parse(JSON.stringify(patternToPaste.variations)) : undefined,
+              preRollActiveSteps: patternToPaste.preRollActiveSteps ? [...patternToPaste.preRollActiveSteps] : undefined,
+              preRollLyrics: patternToPaste.preRollLyrics ? [...patternToPaste.preRollLyrics] : undefined,
+              preRollNotes: patternToPaste.preRollNotes ? [...patternToPaste.preRollNotes] : undefined,
+              preRollVolumes: patternToPaste.preRollVolumes ? [...patternToPaste.preRollVolumes] : undefined,
+              preRollDecays: patternToPaste.preRollDecays ? [...patternToPaste.preRollDecays] : undefined,
+            };
+            while (pasted.activeSteps.length < patternToPaste.steps) pasted.activeSteps.push(0);
+            while (pasted.lyrics.length < patternToPaste.steps) pasted.lyrics.push('');
+            while (pasted.notes.length < patternToPaste.steps) pasted.notes.push('');
+            if (pasted.volumes) while (pasted.volumes.length < patternToPaste.steps) pasted.volumes.push(80);
+            if (pasted.decays) while (pasted.decays.length < patternToPaste.steps) pasted.decays.push(100);
+            if (pasted.microtimings) while (pasted.microtimings.length < patternToPaste.steps) pasted.microtimings.push(0);
+
+            pasted.activeSteps.length = patternToPaste.steps;
+            pasted.lyrics.length = patternToPaste.steps;
+            pasted.notes.length = patternToPaste.steps;
+            if (pasted.volumes) pasted.volumes.length = patternToPaste.steps;
+            if (pasted.decays) pasted.decays.length = patternToPaste.steps;
+            if (pasted.microtimings) pasted.microtimings.length = patternToPaste.steps;
+
+            return {
+              ...t,
+              patterns: [...t.patterns, pasted],
+              selectedPatternId: pasted.id
+            };
+          }
+
+          // Collage sur un motif existant distinct : on conserve son nom original (p.name)
           const nextPatterns = t.patterns.map(p => {
             if (p.id === targetPatternId) {
               return {
                 ...p,
-                name: patternToPaste.name,
+                name: p.name,
                 activeSteps: [...patternToPaste.activeSteps],
                 lyrics: [...patternToPaste.lyrics],
                 notes: [...patternToPaste.notes],
@@ -1011,11 +1055,11 @@ export function useSequencerState() {
             patterns: nextPatterns,
           };
         } else {
-          // Append new pattern (fallback/legacy)
+          // Append new pattern (targetPatternId === undefined)
           const pasted: Pattern = {
             ...patternToPaste,
             id: Date.now() + Math.floor(Math.random() * 1000),
-            name: `${patternToPaste.name} (Cópia)`,
+            name: getNextPatternName(t.patterns, patternToPaste.name, lang),
             steps: patternToPaste.steps,
             activeSteps: [...patternToPaste.activeSteps],
             lyrics: [...patternToPaste.lyrics],
