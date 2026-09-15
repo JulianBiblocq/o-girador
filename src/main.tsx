@@ -223,7 +223,7 @@ export const GlobalErrorListener: React.FC = () => {
 
 import { auth as fbAuth, db as fbDb } from './firebase/config';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc as fbDoc, setDoc as fbSetDoc, getDoc as fbGetDoc } from 'firebase/firestore';
+import { doc as fbDoc, setDoc as fbSetDoc, getDoc as fbGetDoc, collection as fbCollection, query as fbQuery, where as fbWhere, getDocs as fbGetDocs, updateDoc as fbUpdateDoc } from 'firebase/firestore';
 
 // @ts-ignore
 window.firebaseAuth = fbAuth;
@@ -239,6 +239,16 @@ window.setDoc = fbSetDoc;
 window.doc = fbDoc;
 // @ts-ignore
 window.getDoc = fbGetDoc;
+// @ts-ignore
+window.collection = fbCollection;
+// @ts-ignore
+window.query = fbQuery;
+// @ts-ignore
+window.where = fbWhere;
+// @ts-ignore
+window.getDocs = fbGetDocs;
+// @ts-ignore
+window.updateDoc = fbUpdateDoc;
 
 const container = document.getElementById('root')!;
 let root = (window as any).__REACT_ROOT__;

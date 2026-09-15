@@ -1,3 +1,7 @@
+// DISABLED TO PREVENT DESTRUCTIVE RECOMPRESSION OF USER AUDIO SAMPLES
+console.log('[AudioOptimizer] Optimization disabled to protect original audio samples.');
+process.exit(0);
+
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';

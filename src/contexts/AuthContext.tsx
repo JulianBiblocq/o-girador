@@ -170,12 +170,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const rawData = docSnap.data();
               if (profile.groupId.toLowerCase() === 'samambaia') {
                 const targetMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
-                const targetGroupName = rawData.groupName || 'Samambaia';
-                const needsUpdate = rawData.mestreId !== targetMestreId || !rawData.groupName;
+                const targetGroupName = 'Samambaia';
+                const needsUpdate = rawData.mestreId !== targetMestreId || rawData.groupName !== 'Samambaia';
                 profile.mestreId = targetMestreId;
-                if (!profile.groupName) {
-                  profile.groupName = 'Samambaia';
-                }
+                profile.groupName = 'Samambaia';
                 if (needsUpdate) {
                   updateDoc(userRef, { mestreId: targetMestreId, groupName: targetGroupName }).catch(() => {});
                 }

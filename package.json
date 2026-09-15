@@ -4,9 +4,9 @@
   "version": "1.2.4",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/updatePresets.js && node scripts/copyAudio.js && node scripts/optimize-audio.js",
+    "predev": "node scripts/updatePresets.js && node scripts/copyAudio.js",
     "dev": "vite --port=5174 --host=0.0.0.0",
-    "prebuild": "node scripts/updatePresets.js && node scripts/copyAudio.js && node scripts/optimize-audio.js",
+    "prebuild": "node scripts/updatePresets.js && node scripts/copyAudio.js",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
