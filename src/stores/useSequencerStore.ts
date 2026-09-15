@@ -2966,10 +2966,12 @@ export interface UISlice {
   isCircleSequencerDetached: boolean;
   isConsoleDetached: boolean;
   isTimelineDetached: boolean;
+  isInstrumentEditorDetached: boolean;
   toggleLinearDawDetached: () => void;
   toggleCircleSequencerDetached: () => void;
   toggleConsoleDetached: () => void;
   toggleTimelineDetached: () => void;
+  toggleInstrumentEditorDetached: () => void;
 
   timelineContextMenu: {
     x: number;
@@ -2998,10 +3000,12 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
   isCircleSequencerDetached: false,
   isConsoleDetached: false,
   isTimelineDetached: false,
+  isInstrumentEditorDetached: false,
   toggleLinearDawDetached: () => set((state) => ({ isLinearDawDetached: !state.isLinearDawDetached })),
   toggleCircleSequencerDetached: () => set((state) => ({ isCircleSequencerDetached: !state.isCircleSequencerDetached })),
   toggleConsoleDetached: () => set((state) => ({ isConsoleDetached: !state.isConsoleDetached })),
   toggleTimelineDetached: () => set((state) => ({ isTimelineDetached: !state.isTimelineDetached })),
+  toggleInstrumentEditorDetached: () => set((state) => ({ isInstrumentEditorDetached: !state.isInstrumentEditorDetached })),
 
   timelineContextMenu: null,
   activeTimelineCell: null,

@@ -162,6 +162,7 @@ interface InstrumentDetailEditorProps {
   trackId: number;
   onClose: () => void;
   isMobile: boolean;
+  isDetached?: boolean;
   onStepTouchStart?: (
     e: React.MouseEvent | React.TouchEvent,
     patternId: number,
@@ -257,6 +258,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   trackId,
   onClose,
   isMobile,
+  isDetached = false,
   onStepTouchStart,
   setEditingTrackId,
 }) => {
@@ -306,7 +308,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const visibleTrackIds = useSequencerStore(
     useShallow((state) =>
       state.tracks
-        .filter((t) => !t.isBusFolder && !t.isHidden && !isToadaChild(t, state.tracks))
+        .filter((t) => (!t.isBusFolder || t.isLinkFolder) && !t.isHidden && !isToadaChild(t, state.tracks))
         .map((t) => t.id)
     )
   );
@@ -1049,11 +1051,15 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   const handleClose = React.useCallback(() => {
     if (isClosing) return;
+    if (isDetached) {
+      onClose();
+      return;
+    }
     setIsClosing(true);
     setTimeout(() => {
       onClose();
     }, 750);
-  }, [isClosing, onClose]);
+  }, [isClosing, isDetached, onClose]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -1096,16 +1102,11 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   if (!track) return null;
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center"
-      style={{ backgroundColor: 'rgba(0,0,0,0.72)' }}
-      onMouseDown={handleMouseDown}
-      onMouseUp={handleMouseUp}
-    >
+  const wrapperContent = (
+    <>
       <div
-        className="bg-[#f4ecd8] cordel-border-sm text-[#1a1a1a] flex flex-col relative overflow-hidden"
-        style={{
+        className={`bg-[#f4ecd8] ${isDetached ? 'w-full h-full' : 'cordel-border-sm'} text-[#1a1a1a] flex flex-col relative overflow-hidden`}
+        style={isDetached ? { width: '100%', height: '100%' } : {
           maxWidth: isMobile ? '100%' : '1400px',
           width: isMobile ? '98vw' : '95vw',
           height: isMobile ? 'calc(100dvh - 30px)' : '92vh',
@@ -1113,7 +1114,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           boxShadow: '8px 8px 0px 0px #1a1a1a',
         }}
       >
-        {isClosing && (
+        {isClosing && !isDetached && (
           <div className="absolute inset-0 bg-[#f4ecd8]/20 backdrop-blur-[0.5px] z-[99999] pointer-events-auto" />
         )}
         {showVisitorModal && (
@@ -1269,11 +1270,26 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             S
           </button>
 
+          {/* Detach / Reintegrate */}
+          <button
+            onClick={() => useSequencerStore.getState().toggleInstrumentEditorDetached()}
+            className={`w-8 h-8 cordel-border-sm cordel-button font-bold text-sm flex items-center justify-center cursor-pointer transition-colors ml-1 ${
+              isDetached ? 'bg-[#d4af37] text-[#1a1a1a] hover:bg-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#d4af37]'
+            }`}
+            title={
+              isDetached
+                ? (lang === 'fr' ? 'Réintégrer dans la fenêtre principale' : 'Reintegrar na janela principal')
+                : (lang === 'fr' ? 'Détacher dans une nouvelle fenêtre' : 'Destacar em nova janela')
+            }
+          >
+            {isDetached ? '↙' : '↗'}
+          </button>
+
           {/* Close */}
           <button
             onClick={handleClose}
             disabled={isClosing}
-            className="w-8 h-8 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold text-sm flex items-center justify-center hover:bg-[#1a1a1a] cursor-pointer transition-colors ml-2"
+            className="w-8 h-8 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold text-sm flex items-center justify-center hover:bg-[#1a1a1a] cursor-pointer transition-colors ml-1"
           >
             {isClosing ? (
               <svg className="w-5 h-5 animate-spin text-[#f4ecd8]" fill="currentColor" viewBox="0 0 24 24">
@@ -2042,6 +2058,25 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           </div>
         );
       })()}
+    </>
+  );
+
+  if (isDetached) {
+    return (
+      <div className="w-full h-full relative overflow-hidden flex flex-col">
+        {wrapperContent}
+      </div>
+    );
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[99999] flex items-center justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.72)' }}
+      onMouseDown={handleMouseDown}
+      onMouseUp={handleMouseUp}
+    >
+      {wrapperContent}
     </div>,
     document.body
   );

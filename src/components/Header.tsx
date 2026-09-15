@@ -11,7 +11,8 @@ import {
   MessageSquare,
   Download,
   Upload,
-  ExternalLink
+  ExternalLink,
+  Edit3
 } from 'lucide-react';
 import { BoutonExportDanse } from './BoutonExportDanse';
 import { AudioFader } from './AudioFader';
@@ -98,6 +99,9 @@ interface HeaderProps {
   onInstallClick?: () => void;
   onAdminClick?: () => void;
   onCloudSave?: () => void;
+  onOpenInstrumentEditor?: () => void;
+  onToggleDetachInstrumentEditor?: () => void;
+  editingTrackId?: number | null;
 }
 
 const HeaderComponent: React.FC<HeaderProps> = ({
@@ -120,11 +124,15 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   onInstallClick,
   onAdminClick,
   onCloudSave,
+  onOpenInstrumentEditor,
+  onToggleDetachInstrumentEditor,
+  editingTrackId = null,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
   const { hasAccess, userProfile, isAdmin } = useAuth();
   const toggleSettings = useSequencerSettingsStore((state) => state.toggleSettings);
+  const isInstrumentEditorDetached = useSequencerStore((state) => state.isInstrumentEditorDetached);
 
   const {
     lang,
@@ -892,6 +900,30 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           <button
             onClick={() => useSequencerStore.getState().toggleTimelineDetached()}
             className="flex items-center justify-center px-2 border-l-2 border-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer h-full"
+            title={lang === 'fr' ? 'Détacher' : 'Separar'}
+          >
+            <ExternalLink size={14} />
+          </button>
+        </div>
+
+        {/* ÉDITEUR */}
+        <div className="flex items-stretch h-[36px] cordel-border cordel-button overflow-hidden shadow-[4px_4px_0_var(--cordel-text)] rounded bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+          <button
+            onClick={() => onOpenInstrumentEditor?.()}
+            className={`flex items-center justify-center gap-1.5 px-4 font-cactus uppercase font-bold cursor-pointer h-full hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors ${
+              editingTrackId !== null && !isInstrumentEditorDetached
+                ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]'
+                : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)]'
+            }`}
+            title={lang === 'fr' ? "Éditeur d'instrument détaillé" : "Editor de instrumento detalhado"}
+          >
+            <Edit3 size={14} className="shrink-0" /> {lang === 'fr' ? 'ÉDITEUR' : 'EDITOR'}
+          </button>
+          <button
+            onClick={() => onToggleDetachInstrumentEditor ? onToggleDetachInstrumentEditor() : useSequencerStore.getState().toggleInstrumentEditorDetached()}
+            className={`flex items-center justify-center px-2 border-l-2 border-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer h-full ${
+              isInstrumentEditorDetached ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)]' : ''
+            }`}
             title={lang === 'fr' ? 'Détacher' : 'Separar'}
           >
             <ExternalLink size={14} />

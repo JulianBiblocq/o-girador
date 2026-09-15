@@ -110,7 +110,7 @@ function buildFlatSongSchedule(
 
       // Resolve variations for this measure
       if (activePattern.variations && activePattern.variations.length > 0) {
-        let matchedVariation = null;
+        let matchedVariation: any = null;
 
         // 0. Si le mode solo vise spécifiquement une variation
         if (isSoloPlayActive && soloPatternPlayId === activePattern.id && soloPatternVariationId && soloPatternVariationId !== 'base' && soloPatternVariationId !== 'ensemble') {
@@ -184,6 +184,7 @@ function buildFlatSongSchedule(
         if (!rawState || rawState === 0 || rawState === '0') continue;
 
         const tickIdx = stepTickMap[step];
+        const stepDurationTicks = (step < effectiveStepCount - 1) ? (stepTickMap[step + 1] - stepTickMap[step]) : (maxTicks - stepTickMap[step]);
         const statesToProcess = Array.isArray(rawState) ? rawState : [rawState];
 
         for (let strokeIndex = 0; strokeIndex < statesToProcess.length; strokeIndex++) {
@@ -233,14 +234,16 @@ function buildFlatSongSchedule(
         const microtimingPct = rawMicro;
 
         const isTuplet = stepIsTupletMap[step] || false;
-        const absoluteTick = accumulatedTicks + tickIdx;
+        const subTickOffset = statesToProcess.length > 1
+          ? Math.round((stepDurationTicks / statesToProcess.length) * strokeIndex)
+          : 0;
+        const absoluteTick = Math.round(accumulatedTicks + tickIdx + subTickOffset);
 
-        // Pack data: trackIdx (10 bits), step (6 bits), strokeCharCode (7 bits), decayPct (7 bits), isTuplet (1 bit), isSecondStroke (1 bit)
+        // Pack data: trackIdx (10 bits), step (6 bits), strokeCharCode (7 bits), decayPct (7 bits), isTuplet (1 bit), unused (1 bit)
         const strokeCharCode = targetKey.charCodeAt(0);
         const decayPct = Math.round(stepDecayMultiplier * 100);
         const isTupletBit = isTuplet ? 1 : 0;
-        const isSecondStrokeBit = strokeIndex > 0 ? 1 : 0;
-        const packedData = (trackIdx << 22) | (step << 16) | (strokeCharCode << 9) | (decayPct << 2) | (isTupletBit << 1) | isSecondStrokeBit;
+        const packedData = (trackIdx << 22) | (step << 16) | (strokeCharCode << 9) | (decayPct << 2) | (isTupletBit << 1);
 
         notesList.push(absoluteTick, packedData, stepVolMultiplier, microtimingPct);
         }

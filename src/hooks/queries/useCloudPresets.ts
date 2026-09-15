@@ -9,14 +9,18 @@ interface UseCloudPresetsProps {
 }
 
 export function useCloudPresets({ userUid, userRole, mestreId, groupId }: UseCloudPresetsProps) {
+  const normalizedGroupId = (groupId && (groupId.toLowerCase().includes('samambaia') || groupId.toLowerCase().includes('sammbia')))
+    ? 'Samambaia'
+    : groupId;
+
   return useQuery<CloudPreset[]>({
-    queryKey: ['cloudPresets', userUid, userRole, mestreId, groupId],
+    queryKey: ['cloudPresets', userUid, userRole, mestreId, normalizedGroupId],
     queryFn: async () => {
       if (!userUid) return [];
       
       const { fetchCloudPresets, fetchStoragePresetsJSON } = await import('../../cloudLibrary');
-      const firestorePresetsPromise = fetchCloudPresets(userUid, userRole, mestreId, groupId);
-      const storagePresetsPromise = groupId ? fetchStoragePresetsJSON(groupId) : Promise.resolve([]);
+      const firestorePresetsPromise = fetchCloudPresets(userUid, userRole, mestreId, normalizedGroupId);
+      const storagePresetsPromise = normalizedGroupId ? fetchStoragePresetsJSON(normalizedGroupId) : Promise.resolve([]);
       
       const [firestorePresets, storagePresets] = await Promise.all([firestorePresetsPromise, storagePresetsPromise]);
       

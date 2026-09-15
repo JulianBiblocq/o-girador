@@ -188,49 +188,14 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
           </div>
 
           {/* Visibility */}
-          <div className="flex flex-col gap-2 p-3 bg-black/5 border-2 border-[#1a1a1a]">
+          <div className="flex flex-col gap-1 p-3 bg-black/5 border-2 border-[#1a1a1a]">
             <label className="text-xs font-bold uppercase text-[#1a1a1a]">
-              {lang === 'fr' ? 'Visibilité' : 'Visibilidade'}
+              {lang === 'fr' ? 'Destination' : 'Destino'}
             </label>
-            
-            <div className="flex flex-col gap-2 mt-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="presetVisibility"
-                  value="mestre_group"
-                  checked={visibility === 'mestre_group'}
-                  onChange={() => setVisibility('mestre_group')}
-                  className="accent-[#8b2a1a]"
-                />
-                <span className="text-sm font-bold text-[#1a1a1a]">
-                  {lang === 'fr' ? `Catalogue ${userProfile?.groupName || userProfile?.displayName || 'Cloud'} (Privé)` : `Catálogo ${userProfile?.groupName || userProfile?.displayName || 'Cloud'} (Privado)`}
-                </span>
-              </label>
-              
-              <div className="flex flex-col gap-1">
-                <label className={`flex items-center gap-2 ${(!isAdmin && userProfile?.role !== 'mestre') ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
-                  <input
-                    type="radio"
-                    name="presetVisibility"
-                    value="public"
-                    checked={visibility === 'public'}
-                    onChange={() => setVisibility('public')}
-                    disabled={!isAdmin && userProfile?.role !== 'mestre'}
-                    className="accent-[#8b2a1a]"
-                  />
-                  <span className="text-sm font-bold text-[#1a1a1a]">
-                    {lang === 'fr' ? 'Catalogue O Girador (Public)' : 'Catálogo O Girador (Público)'}
-                  </span>
-                </label>
-                {(!isAdmin && userProfile?.role !== 'mestre') && (
-                  <span className="text-xs text-[#1a1a1a]/60 italic ml-6 leading-tight">
-                    {lang === 'fr' 
-                      ? 'Seul un Mestre ou Administrateur peut publier dans le catalogue public.' 
-                      : 'Apenas um Mestre ou Administrador pode publicar no catálogo público.'}
-                  </span>
-                )}
-              </div>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-sm font-bold text-[#1a1a1a] flex items-center gap-1.5">
+                🔒 {lang === 'fr' ? `Catalogue ${userProfile?.groupName || userProfile?.displayName || 'Cloud'} (Privé)` : `Catálogo ${userProfile?.groupName || userProfile?.displayName || 'Cloud'} (Privado)`}
+              </span>
             </div>
           </div>
 

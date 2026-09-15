@@ -77,11 +77,13 @@ export const WindowPortal: React.FC<WindowPortalProps> = ({
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] });
 
     // Handle closing the new window by the user
-    newWindow.addEventListener('beforeunload', () => {
+    const handleClose = () => {
       if (!isUnmounting.current) {
         onClose();
       }
-    });
+    };
+    newWindow.addEventListener('beforeunload', handleClose);
+    newWindow.addEventListener('unload', handleClose);
 
     return () => {
       isUnmounting.current = true;

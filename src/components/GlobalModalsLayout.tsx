@@ -14,6 +14,7 @@ import { VocalValidationModal } from './VocalValidationModal';
 import { VocalRecordingFocusOverlay } from './VocalRecordingFocusOverlay';
 
 import { lazyWithRetry } from '../utils/lazyWithRetry';
+import { WindowPortal } from './WindowPortal';
 
 // Lazy loaded modals for bundle size optimization
 const SaveSectionModal = lazyWithRetry(() => import('./CloudSectionModals').then(m => ({ default: m.SaveSectionModal })), 'SaveSectionModal');
@@ -76,6 +77,7 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
   const sequencer = useSequencer();
   const editingTrackId = useSequencerStore(state => state.editingTrackId);
   const setEditingTrackId = useSequencerStore(state => state.setEditingTrackId);
+  const isInstrumentEditorDetached = useSequencerStore(state => state.isInstrumentEditorDetached);
   const tempRecording = useAudioStore(state => state.tempRecording);
 
 
@@ -176,16 +178,46 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
 
       {/* Instrument Detail Editor Overlay */}
       {editingTrackId !== null && (
-        <Suspense fallback={null}>
-          <InstrumentDetailEditor
-            key={editingTrackId}
-            trackId={editingTrackId}
-            onClose={handleCloseDetailEditor}
-            isMobile={isMobile}
-            onStepTouchStart={(e, pId, sIdx, iId, cur, onSel) => handleStepTouchStart(e, pId, sIdx, iId, cur, onSel, editingTrackId)}
-            setEditingTrackId={setEditingTrackId}
-          />
-        </Suspense>
+        isInstrumentEditorDetached ? (
+          <WindowPortal
+            onClose={() => {
+              handleCloseDetailEditor();
+              useSequencerStore.setState({ isInstrumentEditorDetached: false });
+            }}
+            title={sequencer.lang === 'pt' ? "Editor de Instrumento - o-girador" : "Éditeur d'Instrument - o-girador"}
+            width={1280}
+            height={850}
+          >
+            <Suspense fallback={null}>
+              <div className="w-full h-full bg-[#f4ecd8] text-[#1a1a1a] overflow-hidden flex flex-col cordel-bg">
+                <InstrumentDetailEditor
+                  key={editingTrackId}
+                  trackId={editingTrackId}
+                  onClose={() => {
+                    handleCloseDetailEditor();
+                    useSequencerStore.setState({ isInstrumentEditorDetached: false });
+                  }}
+                  isMobile={false}
+                  isDetached={true}
+                  onStepTouchStart={(e, pId, sIdx, iId, cur, onSel) => handleStepTouchStart(e, pId, sIdx, iId, cur, onSel, editingTrackId)}
+                  setEditingTrackId={setEditingTrackId}
+                />
+              </div>
+            </Suspense>
+          </WindowPortal>
+        ) : (
+          <Suspense fallback={null}>
+            <InstrumentDetailEditor
+              key={editingTrackId}
+              trackId={editingTrackId}
+              onClose={handleCloseDetailEditor}
+              isMobile={isMobile}
+              isDetached={false}
+              onStepTouchStart={(e, pId, sIdx, iId, cur, onSel) => handleStepTouchStart(e, pId, sIdx, iId, cur, onSel, editingTrackId)}
+              setEditingTrackId={setEditingTrackId}
+            />
+          </Suspense>
+        )
       )}
 
       {/* Live Overlay */}

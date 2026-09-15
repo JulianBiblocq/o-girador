@@ -12,7 +12,7 @@ import { useAuth, checkIsAdmin } from './contexts/AuthContext';
 import { i18n, instrumentsConfig } from './data';
 import { Header } from './components/Header';
 import { TransportBar } from './components/TransportBar';
-import { useSequencerStore } from './stores/useSequencerStore';
+import { useSequencerStore, isToadaChild } from './stores/useSequencerStore';
 import { useSequencerSettingsStore } from './stores/useSequencerSettingsStore';
 import { useTransportStore } from './stores/useTransportStore';
 import { SettingsPage } from './components/SettingsPage';
@@ -589,6 +589,32 @@ export default function App() {
   const [inspecteurCaixaParfaite, setInspecteurCaixaParfaite] = useState<number>(0);
   const [inspecteurCaixaErreur, setInspecteurCaixaErreur] = useState<number>(0);
   const [mestreRhythmState, setMestreRhythmState] = useState<number>(0);
+  const handleOpenDefaultInstrumentEditor = React.useCallback(() => {
+    const state = useSequencerStore.getState();
+    if (state.editingTrackId !== null) {
+      state.setEditingTrackId(null);
+      return;
+    }
+    const tracks = state.tracks;
+    const firstTrack = tracks.find(t => !t.isHidden && !isToadaChild(t, tracks) && (!t.isBusFolder || t.isLinkFolder))
+      || tracks.find(t => !t.isHidden && !t.isBusFolder)
+      || tracks[0];
+    if (firstTrack) {
+      state.setEditingTrackId(firstTrack.id);
+    }
+  }, []);
+
+  const handleToggleDetachInstrumentEditor = React.useCallback(() => {
+    const state = useSequencerStore.getState();
+    const tracks = state.tracks;
+    const firstTrack = tracks.find(t => !t.isHidden && !isToadaChild(t, tracks) && (!t.isBusFolder || t.isLinkFolder))
+      || tracks.find(t => !t.isHidden && !t.isBusFolder)
+      || tracks[0];
+    if (firstTrack && state.editingTrackId === null) {
+      state.setEditingTrackId(firstTrack.id);
+    }
+    state.toggleInstrumentEditorDetached();
+  }, []);
 
   return (
     <>
@@ -622,6 +648,9 @@ export default function App() {
         mobileTab={mobileTab}
         onMobileTabToggle={setMobileTab}
         version={CURRENT_VERSION}
+        onOpenInstrumentEditor={handleOpenDefaultInstrumentEditor}
+        onToggleDetachInstrumentEditor={handleToggleDetachInstrumentEditor}
+        editingTrackId={editingTrackId}
       />
 
       {/* Main Workspace workspace containing expanding grids layouts */}

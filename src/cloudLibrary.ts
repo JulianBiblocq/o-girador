@@ -217,10 +217,11 @@ export async function fetchStoragePresetsJSON(groupId: string): Promise<CloudPre
   const presets: CloudPreset[] = [];
   const seenIds = new Set<string>();
 
+  const isSamambaia = groupId.toLowerCase().includes('samambaia') || groupId.toLowerCase().includes('sammbia');
   const candidateFolders = Array.from(new Set([
     `documents/${groupId}/sequencer`,
     `documents/${groupId.toLowerCase()}/sequencer`,
-    ...(groupId.toLowerCase() === 'samambaia' ? ['documents/Samambaia/sequencer'] : [])
+    ...(isSamambaia ? ['documents/Samambaia/sequencer', 'documents/samambaia/sequencer'] : [])
   ]));
 
   for (const folderPath of candidateFolders) {

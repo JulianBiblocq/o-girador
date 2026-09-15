@@ -172,23 +172,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
                   {userProfile.email}
                 </span>
               </div>
-              
-              <div className="flex flex-col gap-1">
-                <label className="text-[9px] font-bold uppercase text-[var(--cordel-text)]/70">
-                  {lang === 'fr' ? 'Mon Instrument' : 'Meu Instrumento'}
-                </label>
-                <select
-                  value={userProfile.instrument || 'caixa'}
-                  onChange={(e) => updateUserProfileField('instrument', e.target.value)}
-                  className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 text-xs font-bold w-full rounded outline-none"
-                >
-                  <option value="alfaia">Alfaia</option>
-                  <option value="caixa">Caixa</option>
-                  <option value="gongue">Gonguê</option>
-                  <option value="agbe">Agbê</option>
-                  <option value="timbal">Timbal</option>
-                </select>
-              </div>
+
 
               {(userProfile.role === 'mestre' || isAdmin) && (
                 <div className="flex flex-col gap-1 mt-1">

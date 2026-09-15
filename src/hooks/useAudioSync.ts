@@ -1556,12 +1556,13 @@ export function useAudioSync({
                         const globalIntensity = (globalSwingRef.current.swingIntensity !== undefined ? globalSwingRef.current.swingIntensity : 100) / 100;
 
                         let baseSwingOffset = 0;
+                        const stepPosInGroup = circleStepIdx % 4;
                         if (globalMode === 'custom' && !patternPresetId && !trackPresetId) {
-                          const customOffsetPct = globalSwingRef.current.customOffsets[posInGroup] || 0;
+                          const customOffsetPct = globalSwingRef.current.customOffsets[stepPosInGroup] || 0;
                           baseSwingOffset = (customOffsetPct / 100) * stepDurationSec * 0.5 * globalIntensity;
                         } else {
                           const offsets = resolvedPreset.offsets;
-                          const offsetPct = offsets[posInGroup % offsets.length] || 0;
+                          const offsetPct = offsets[stepPosInGroup % offsets.length] || 0;
                           baseSwingOffset = (offsetPct / 100) * stepDurationSec * 0.5 * globalIntensity;
                         }
 
@@ -1573,10 +1574,6 @@ export function useAudioSync({
                     const microOffset = (microtimingPct / 100) * stepDurSec * 0.5;
 
                     let triggerTime = time + noteSwingOffset + microOffset;
-                    
-                    if (isSecondStroke) {
-                      triggerTime += Tone.Time("32n").toSeconds();
-                    }
 
                     audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
 
