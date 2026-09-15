@@ -106,6 +106,7 @@ interface PercussionStepCellProps {
   onContextMenu?: (e: React.MouseEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
   onChange: (e: React.ChangeEvent<HTMLInputElement>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
   onKeyDown: (e: React.KeyboardEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
+  onSelectForSculpt?: (index: number) => void;
 }
 
 const PercussionStepCell = React.memo(({
@@ -140,7 +141,8 @@ const PercussionStepCell = React.memo(({
   onTouchEnd,
   onContextMenu,
   onChange,
-  onKeyDown
+  onKeyDown,
+  onSelectForSculpt
 }: PercussionStepCellProps) => {
   return (
     <div
@@ -323,8 +325,24 @@ const PercussionStepCell = React.memo(({
           title={activeTool === 'scissors' ? '✂ / 🩹 Scinder le pas en triples croches' : undefined}
         />
       )}
-      {/* Sculpting micro-bars */}
-      <div className="w-full flex flex-col gap-[2px] mt-1 z-10 relative">
+      {/* Sculpting micro-bars — Zone isolée pour sélection Escultor sans écrasement d'outil */}
+      <div
+        className="w-full flex flex-col gap-[2px] mt-1.5 z-10 relative select-none cursor-pointer min-h-[20px] py-0.5"
+        style={{ touchAction: 'manipulation' }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectForSculpt?.(i);
+        }}
+        onMouseDown={(e) => {
+          // Empêcher la propagation vers handleCellMouseDown (peinture/écriture)
+          e.stopPropagation();
+        }}
+        onTouchStart={(e) => {
+          // Empêcher la propagation vers handleCellTouchStart (long press / tool apply)
+          e.stopPropagation();
+        }}
+        title="Sélectionner ce pas pour l'Escultor"
+      >
         {/* Volume bar (Green) */}
         <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
           <div className="h-full bg-green-600 transition-all" style={{ width: `${volume}%` }} />
@@ -405,6 +423,7 @@ interface VoiceStepCellProps {
   onMouseDown?: (e: React.MouseEvent<HTMLDivElement>, index: number) => void;
   onMouseEnter?: (index: number) => void;
   onContextMenu?: (e: React.MouseEvent<any>, index: number) => void;
+  onSelectForSculpt?: (index: number) => void;
   onVoiceTypeToggle: (trackId: number, patternId: number, index: number) => void;
   onVoiceSylChange: (trackId: number, patternId: number, index: number, value: string) => void;
   onVoiceNoteChange: (trackId: number, patternId: number, index: number, value: string) => void;
@@ -435,6 +454,7 @@ const VoiceStepCellComponent = ({
   onMouseDown,
   onMouseEnter,
   onContextMenu,
+  onSelectForSculpt,
   onVoiceTypeToggle,
   onVoiceSylChange,
   onVoiceNoteChange,
@@ -587,8 +607,22 @@ const VoiceStepCellComponent = ({
             </span>
           )}
         </div>
-        {/* Sculpting micro-bars */}
-        <div className="w-full flex flex-col gap-[2px] p-[2px] bg-[#ece4d0] border-t border-[#1a1a1a]/20 shrink-0">
+        {/* Sculpting micro-bars — Zone isolée pour sélection Escultor sans écrasement d'outil */}
+        <div
+          className="w-full flex flex-col gap-[2px] p-[2px] bg-[#ece4d0] border-t border-[#1a1a1a]/20 shrink-0 select-none cursor-pointer min-h-[20px]"
+          style={{ touchAction: 'manipulation' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectForSculpt?.(i);
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+          }}
+          onTouchStart={(e) => {
+            e.stopPropagation();
+          }}
+          title="Sélectionner ce pas pour l'Escultor"
+        >
           <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
             <div className="h-[2px] bg-green-600 rounded-none transition-all" style={{ width: `${volume}%` }} />
           </div>
@@ -1578,6 +1612,16 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     setSelectedPatternId(pattern.id);
   }, [setSelectedStepIdx, setSelectedPatternId, pattern.id]);
 
+  // Sélection Escultor isolée : ne touche JAMAIS à la valeur du pas (Zero Tool Trigger)
+  // Impact perf : seul setSelectedStepIdx mute → React.memo filtre les cellules non-concernées
+  const handleSelectStepForSculpt = React.useCallback((idx: number) => {
+    setSelectedStepIdx(idx);
+    setSelectedStepIndices([idx]);
+    setSelectedPatternId(pattern.id);
+    setSelectedVariationId(null);
+    setSelectedSubIndex(null);
+  }, [setSelectedStepIdx, setSelectedStepIndices, setSelectedPatternId, setSelectedVariationId, setSelectedSubIndex, pattern.id]);
+
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
 
   // Sync clipboard status
@@ -2357,6 +2401,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                           onVoiceNoteBlur={handleVoiceNoteBlur}
                           onFocusStep={handleVoiceFocusStep}
                           onContextMenu={handleVoiceContextMenu}
+                          onSelectForSculpt={handleSelectStepForSculpt}
                           onNoteSelectorTarget={setNoteSelectorTarget}
                           onVoiceNav={handleVoiceNav}
                         />
@@ -2602,6 +2647,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                             onContextMenu={handleCellContextMenu}
                             onChange={handleCellChange}
                             onKeyDown={handleCellKeyDown}
+                            onSelectForSculpt={handleSelectStepForSculpt}
                           />
                         </div>
                       );
