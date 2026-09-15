@@ -275,17 +275,25 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     }
 
+    const sanitizeSculptValue = (raw: any, defaultVal: number): number | [number, number] => {
+      if (Array.isArray(raw)) {
+        const v0 = Number(raw[0]);
+        const v1 = Number(raw[1]);
+        return [isNaN(v0) ? defaultVal : v0, isNaN(v1) ? defaultVal : v1];
+      }
+      const val = Number(raw);
+      return isNaN(val) ? defaultVal : val;
+    };
+
     if (!p.volumes || p.volumes.length !== p.steps) {
       const existing = p.volumes || [];
       p.volumes = Array(p.steps).fill(100);
       for (let i = 0; i < Math.min(existing.length, p.steps); i++) {
-        const val = Number(existing[i]);
-        p.volumes[i] = isNaN(val) ? 100 : val;
+        p.volumes[i] = sanitizeSculptValue(existing[i], 100);
       }
     } else {
       for (let i = 0; i < p.steps; i++) {
-        const val = Number(p.volumes[i]);
-        p.volumes[i] = isNaN(val) ? 100 : val;
+        p.volumes[i] = sanitizeSculptValue(p.volumes[i], 100);
       }
     }
 
@@ -293,13 +301,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const existing = p.decays || [];
       p.decays = Array(p.steps).fill(100);
       for (let i = 0; i < Math.min(existing.length, p.steps); i++) {
-        const val = Number(existing[i]);
-        p.decays[i] = isNaN(val) ? 100 : val;
+        p.decays[i] = sanitizeSculptValue(existing[i], 100);
       }
     } else {
       for (let i = 0; i < p.steps; i++) {
-        const val = Number(p.decays[i]);
-        p.decays[i] = isNaN(val) ? 100 : val;
+        p.decays[i] = sanitizeSculptValue(p.decays[i], 100);
       }
     }
 
@@ -307,13 +313,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const existing = p.microtimings || [];
       p.microtimings = Array(p.steps).fill(0);
       for (let i = 0; i < Math.min(existing.length, p.steps); i++) {
-        const val = Number(existing[i]);
-        p.microtimings[i] = isNaN(val) ? 0 : val;
+        p.microtimings[i] = sanitizeSculptValue(existing[i], 0);
       }
     } else {
       for (let i = 0; i < p.steps; i++) {
-        const val = Number(p.microtimings[i]);
-        p.microtimings[i] = isNaN(val) ? 0 : val;
+        p.microtimings[i] = sanitizeSculptValue(p.microtimings[i], 0);
       }
     }
   };

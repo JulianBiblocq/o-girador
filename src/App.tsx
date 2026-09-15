@@ -282,7 +282,7 @@ export default function App() {
     }
   }, [userProfile?.uid]);
 
-  // Context menu prevention on UI elements
+  // Context menu prevention on UI elements & sequencer grid
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -291,14 +291,17 @@ export default function App() {
           target.tagName === 'IMG' || 
           (target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'range') ||
           target.classList.contains('vertical-fader') ||
-          target.closest('.vertical-fader')
+          target.closest('.vertical-fader') ||
+          target.closest('.percussion-step-container') ||
+          target.closest('.step-input-cell') ||
+          target.closest('.v-card')
         )
       ) {
         e.preventDefault();
       }
     };
-    window.addEventListener('contextmenu', handleContextMenu);
-    return () => window.removeEventListener('contextmenu', handleContextMenu);
+    window.addEventListener('contextmenu', handleContextMenu, { capture: true });
+    return () => window.removeEventListener('contextmenu', handleContextMenu, { capture: true });
   }, []);
 
   // Panel sizing responsive collapsing

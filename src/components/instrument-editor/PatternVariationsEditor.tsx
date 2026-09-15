@@ -318,33 +318,92 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                             }}
                           />
                           {/* Sculpting micro-bars */}
-                          <div className="w-full flex flex-col gap-[2px] mt-1 z-10 relative">
-                            {/* Volume bar (Green) */}
-                            <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-                              <div className="h-full bg-green-600 transition-all" style={{ width: `${variation.volumes?.[i] ?? 100}%` }} />
-                            </div>
-                            {/* Decay bar (Amber) */}
-                            <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-                              <div className="h-full bg-amber-500 transition-all" style={{ width: `${variation.decays?.[i] ?? 100}%` }} />
-                            </div>
-                            {/* Micro-timing bar (Blue bi-directional) */}
+                          <div className="w-full mt-1 z-10 relative">
                             {(() => {
-                              const manualVal = variation.microtimings?.[i] ?? 0;
+                              const isSplit = Array.isArray(step);
+                              const rawVol = variation.volumes?.[i];
+                              const vol0 = Array.isArray(rawVol) ? (rawVol[0] ?? 80) : (rawVol ?? 80);
+                              const vol1 = Array.isArray(rawVol) ? (rawVol[1] ?? 80) : (rawVol ?? 80);
+
+                              const rawDec = variation.decays?.[i];
+                              const dec0 = Array.isArray(rawDec) ? (rawDec[0] ?? 100) : (rawDec ?? 100);
+                              const dec1 = Array.isArray(rawDec) ? (rawDec[1] ?? 100) : (rawDec ?? 100);
+
+                              const rawMicro = variation.microtimings?.[i] ?? 0;
                               const swingOffset = getStepSwingPercent(i, variation.steps.length, ptn.beatResolutions);
-                              const totalShift = Math.max(-100, Math.min(100, manualVal + swingOffset));
+                              const totalShift0 = Math.max(-100, Math.min(100, (Array.isArray(rawMicro) ? rawMicro[0] : rawMicro) + swingOffset));
+                              const totalShift1 = Math.max(-100, Math.min(100, (Array.isArray(rawMicro) ? rawMicro[1] : rawMicro) + swingOffset));
+
+                              if (isSplit) {
+                                return (
+                                  <div className="grid grid-cols-2 gap-[1px] w-full">
+                                    <div className="flex flex-col gap-[1px]">
+                                      <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+                                        <div className="h-full bg-green-600 transition-all" style={{ width: `${vol0}%` }} />
+                                      </div>
+                                      <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+                                        <div className="h-full bg-amber-500 transition-all" style={{ width: `${dec0}%` }} />
+                                      </div>
+                                      <div className="h-[2px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
+                                        <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
+                                        {totalShift0 !== 0 && (
+                                          <div
+                                            className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
+                                            style={{
+                                              left: totalShift0 > 0 ? '50%' : 'auto',
+                                              right: totalShift0 < 0 ? '50%' : 'auto',
+                                              width: `${Math.min(50, Math.abs(totalShift0) / 2)}%`
+                                            }}
+                                          />
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex flex-col gap-[1px]">
+                                      <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+                                        <div className="h-full bg-green-600 transition-all" style={{ width: `${vol1}%` }} />
+                                      </div>
+                                      <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+                                        <div className="h-full bg-amber-500 transition-all" style={{ width: `${dec1}%` }} />
+                                      </div>
+                                      <div className="h-[2px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
+                                        <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
+                                        {totalShift1 !== 0 && (
+                                          <div
+                                            className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
+                                            style={{
+                                              left: totalShift1 > 0 ? '50%' : 'auto',
+                                              right: totalShift1 < 0 ? '50%' : 'auto',
+                                              width: `${Math.min(50, Math.abs(totalShift1) / 2)}%`
+                                            }}
+                                          />
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
                               return (
-                                <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
-                                  <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
-                                  {totalShift !== 0 && (
-                                    <div
-                                      className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
-                                      style={{
-                                        left: totalShift > 0 ? '50%' : 'auto',
-                                        right: totalShift < 0 ? '50%' : 'auto',
-                                        width: `${Math.min(50, Math.abs(totalShift) / 2)}%`
-                                      }}
-                                    />
-                                  )}
+                                <div className="flex flex-col gap-[2px] w-full">
+                                  <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+                                    <div className="h-full bg-green-600 transition-all" style={{ width: `${vol0}%` }} />
+                                  </div>
+                                  <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+                                    <div className="h-full bg-amber-500 transition-all" style={{ width: `${dec0}%` }} />
+                                  </div>
+                                  <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
+                                    <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
+                                    {totalShift0 !== 0 && (
+                                      <div
+                                        className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
+                                        style={{
+                                          left: totalShift0 > 0 ? '50%' : 'auto',
+                                          right: totalShift0 < 0 ? '50%' : 'auto',
+                                          width: `${Math.min(50, Math.abs(totalShift0) / 2)}%`
+                                        }}
+                                      />
+                                    )}
+                                  </div>
                                 </div>
                               );
                             })()}

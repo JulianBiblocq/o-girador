@@ -996,6 +996,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const t = (key: string) => (i18n[lang] as any)[key] || key;
 
   const [selectedStepIdx, setSelectedStepIdx] = useState<number | null>(null);
+  const [selectedSubIndex, setSelectedSubIndex] = useState<0 | 1 | null>(null);
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
   const [selectedStepIndices, setSelectedStepIndices] = useState<number[]>([]);
   const [selectedPatternId, setSelectedPatternId] = useState<number>(track?.selectedPatternId || displayedPatterns[0]?.id || 0);
@@ -1018,6 +1019,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
       setSelectedPatternId(fallbackPatternId);
       setSelectedStepIndices([]);
       setSelectedStepIdx(null);
+      setSelectedSubIndex(null);
       setSelectedVariationId(null);
       setIsMultiSelectActive(false);
     } else {
@@ -1027,6 +1029,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         setSelectedPatternId(displayedPatterns[0].id);
         setSelectedStepIndices([]);
         setSelectedStepIdx(null);
+        setSelectedSubIndex(null);
         setSelectedVariationId(null);
         setIsMultiSelectActive(false);
       }
@@ -1676,6 +1679,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             selectedStepIdx={selectedStepIdx}
                             selectedStepIndices={selectedStepIndices}
                             selectedVariationId={selectedVariationId}
+                            selectedSubIndex={selectedSubIndex}
+                            setSelectedSubIndex={setSelectedSubIndex}
                             isTupletEditMode={isTupletEditMode}
                             isMultiSelectActive={isMultiSelectActive}
                             noteSelectorTarget={noteSelectorTarget}
@@ -1738,9 +1743,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               selectedStepIdx={selectedStepIdx}
                               selectedStepIndices={selectedStepIndices}
                               selectedVariationId={selectedVariationId}
+                              selectedSubIndex={selectedSubIndex}
+                              onSelectSubIndex={setSelectedSubIndex}
                               onClose={() => {
                                 setSelectedStepIdx(null);
                                 setSelectedStepIndices([]);
+                                setSelectedSubIndex(null);
                               }}
                             />
                           )}

@@ -12,7 +12,7 @@ import { useSequencerStore } from '../stores/useSequencerStore';
 import { useBalancoStore } from '../stores/useBalancoStore';
 import { computeStepBalancoPercent } from '../utils/balancoUtils';
 import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../hooks/useAudioSync';
-import { Pattern } from '../types';
+import { Pattern, StepSculptValue } from '../types';
 import { getNextStepValue, getWheelNuanceState, getNextNuanceState, getAlternatingStroke, getComplementaryStroke, getDefaultSplitPair } from '../utils/instrumentStrokes';
 import { Trash2 } from 'lucide-react';
 import { isDarkText, instrumentsConfig, NEWTON_NOTE_COLORS } from '../data';
@@ -31,6 +31,8 @@ interface InstrumentPatternGridProps {
   selectedStepIdx: number | null;
   selectedStepIndices: number[];
   selectedVariationId: string | null;
+  selectedSubIndex?: 0 | 1 | null;
+  setSelectedSubIndex?: React.Dispatch<React.SetStateAction<0 | 1 | null>>;
   isTupletEditMode: boolean;
   isMultiSelectActive: boolean;
   noteSelectorTarget: { patternId: number; stepIdx: number; note: string; element: HTMLElement } | null;
@@ -75,9 +77,9 @@ const GLUE_CURSOR = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/
 interface PercussionStepCellProps {
   i: number;
   val: string | number | [string, string];
-  volume: number;
-  decay: number;
-  microtiming: number;
+  volume: StepSculptValue;
+  decay: StepSculptValue;
+  microtiming: StepSculptValue;
   isSelected: boolean;
   isMultiSelected: boolean;
   isFocused: boolean;
@@ -94,7 +96,7 @@ interface PercussionStepCellProps {
   isTriplet: boolean;
   isOcto: boolean;
   indexInGroup: number;
-  totalShift: number;
+  totalShift: number | [number, number];
   trackId: number;
   patternId: number;
   
@@ -106,8 +108,19 @@ interface PercussionStepCellProps {
   onContextMenu?: (e: React.MouseEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
   onChange: (e: React.ChangeEvent<HTMLInputElement>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
   onKeyDown: (e: React.KeyboardEvent<any>, index: number, value: string | number | [string, string], subIndex?: 0 | 1) => void;
-  onSelectForSculpt?: (index: number) => void;
+  onSelectForSculpt?: (index: number, subIndex?: 0 | 1) => void;
 }
+
+const isParamEqual = (
+  a: StepSculptValue | number[] | undefined,
+  b: StepSculptValue | number[] | undefined
+): boolean => {
+  if (a === b) return true;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a[0] === b[0] && a[1] === b[1];
+  }
+  return false;
+};
 
 const PercussionStepCell = React.memo(({
   i,
@@ -155,7 +168,6 @@ const PercussionStepCell = React.memo(({
       }}
       onContextMenu={(e) => {
         e.preventDefault();
-        e.stopPropagation();
         onContextMenu?.(e, i, val);
       }}
       onMouseDown={activeTool === 'scissors' ? (e) => onMouseDown(e, i, val) : undefined}
@@ -191,7 +203,6 @@ const PercussionStepCell = React.memo(({
           data-step-index={i}
           onContextMenu={(e) => {
             e.preventDefault();
-            e.stopPropagation();
             const targetEl = e.target as HTMLElement;
             if (!targetEl.hasAttribute('data-sub-index') && !targetEl.closest('[data-sub-index]')) {
               onContextMenu?.(e, i, val);
@@ -201,7 +212,7 @@ const PercussionStepCell = React.memo(({
         >
           {/* Zone cliquable note 1 (Haut-Gauche) */}
           <div
-            className={`absolute inset-0 z-10 select-none outline-none ${activeTool === 'scissors' ? 'pointer-events-none' : ''}`}
+            className="absolute inset-0 z-10 select-none outline-none"
             style={{ 
               clipPath: 'polygon(0 0, 100% 0, 0 100%)',
               cursor: activeTool === 'scissors' ? GLUE_CURSOR : 'pointer'
@@ -218,7 +229,6 @@ const PercussionStepCell = React.memo(({
             onTouchEnd={(e) => onTouchEnd?.(e, i, val, 0)}
             onContextMenu={(e) => {
               e.preventDefault();
-              e.stopPropagation();
               onContextMenu?.(e, i, val, 0);
             }}
             onKeyDown={(e) => onKeyDown(e, i, val, 0)}
@@ -233,7 +243,7 @@ const PercussionStepCell = React.memo(({
 
           {/* Zone cliquable note 2 (Bas-Droite) */}
           <div
-            className={`absolute inset-0 z-10 select-none outline-none ${activeTool === 'scissors' ? 'pointer-events-none' : ''}`}
+            className="absolute inset-0 z-10 select-none outline-none"
             style={{ 
               clipPath: 'polygon(100% 0, 100% 100%, 0 100%)',
               cursor: activeTool === 'scissors' ? GLUE_CURSOR : 'pointer'
@@ -250,7 +260,6 @@ const PercussionStepCell = React.memo(({
             onTouchEnd={(e) => onTouchEnd?.(e, i, val, 1)}
             onContextMenu={(e) => {
               e.preventDefault();
-              e.stopPropagation();
               onContextMenu?.(e, i, val, 1);
             }}
             onKeyDown={(e) => onKeyDown(e, i, val, 1)}
@@ -281,21 +290,20 @@ const PercussionStepCell = React.memo(({
           value={val === 0 ? '' : val}
           readOnly={isMultiSelectActive || activeTool === 'scissors'}
           tabIndex={activeTool === 'scissors' ? -1 : undefined}
-          onMouseDown={activeTool === 'scissors' ? undefined : (e) => onMouseDown(e, i, val)}
+          onMouseDown={(e) => onMouseDown(e, i, val)}
           onMouseEnter={() => onMouseEnter(i)}
-          onTouchStart={activeTool === 'scissors' ? undefined : (e) => onTouchStart(e, i, val)}
+          onTouchStart={(e) => onTouchStart(e, i, val)}
           onTouchMove={onTouchMove}
           onTouchEnd={(e) => onTouchEnd?.(e, i, val)}
           onContextMenu={(e) => {
             e.preventDefault();
-            e.stopPropagation();
             onContextMenu?.(e, i, val);
           }}
           onChange={(e) => onChange(e, i, val)}
           onKeyDown={(e) => onKeyDown(e, i, val)}
           className={`step-input-cell w-full text-center font-bold cordel-border outline-none p-0 box-border z-10 relative transition-all duration-200 ${
-            activeTool === 'scissors' ? 'pointer-events-none cursor-inherit' : ''
-          } ${isOcto ? 'text-[9px]' : 'text-sm'} ${
+            isOcto ? 'text-[9px]' : 'text-sm'
+          } ${
             val === 0
               ? 'bg-[#f4ecd8] text-[#1a1a1a] focus:border-[#8b2a1a]'
               : ''
@@ -312,7 +320,6 @@ const PercussionStepCell = React.memo(({
             height: isSextuplet || isTriplet ? '48px' : '40px',
             transform: `translateX(${shiftPx}px)`,
             cursor: activeTool === 'scissors' ? SCISSORS_CURSOR : undefined,
-            pointerEvents: activeTool === 'scissors' ? 'none' : undefined,
             clipPath: isSextuplet 
               ? (indexInGroup % 2 === 0 ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : 'polygon(0% 0%, 100% 0%, 50% 100%)')
               : isTriplet ? 'polygon(50% 0%, 0% 100%, 100% 100%)' : undefined,
@@ -327,44 +334,128 @@ const PercussionStepCell = React.memo(({
       )}
       {/* Sculpting micro-bars — Zone isolée pour sélection Escultor sans écrasement d'outil */}
       <div
-        className="w-full flex flex-col gap-[2px] mt-1.5 z-10 relative select-none cursor-pointer min-h-[20px] py-0.5"
+        className="w-full mt-1.5 z-10 relative select-none min-h-[20px] py-0.5"
         style={{ touchAction: 'manipulation' }}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelectForSculpt?.(i);
-        }}
-        onMouseDown={(e) => {
-          // Empêcher la propagation vers handleCellMouseDown (peinture/écriture)
-          e.stopPropagation();
-        }}
-        onTouchStart={(e) => {
-          // Empêcher la propagation vers handleCellTouchStart (long press / tool apply)
-          e.stopPropagation();
-        }}
-        title="Sélectionner ce pas pour l'Escultor"
+        onMouseDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
       >
-        {/* Volume bar (Green) */}
-        <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-          <div className="h-full bg-green-600 transition-all" style={{ width: `${volume}%` }} />
-        </div>
-        {/* Decay bar (Amber) */}
-        <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-          <div className="h-full bg-amber-500 transition-all" style={{ width: `${decay}%` }} />
-        </div>
-        {/* Micro-timing bar (Blue bi-directional) */}
-        <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
-          <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
-          {totalShift !== 0 && (
+        {(() => {
+          const isSplit = Array.isArray(val);
+          const vol0 = Array.isArray(volume) ? (volume[0] ?? 80) : (volume ?? 80);
+          const vol1 = Array.isArray(volume) ? (volume[1] ?? 80) : (volume ?? 80);
+          const decay0 = Array.isArray(decay) ? (decay[0] ?? 100) : (decay ?? 100);
+          const decay1 = Array.isArray(decay) ? (decay[1] ?? 100) : (decay ?? 100);
+          const shift0 = Array.isArray(totalShift) ? (totalShift[0] ?? 0) : (totalShift ?? 0);
+          const shift1 = Array.isArray(totalShift) ? (totalShift[1] ?? 0) : (totalShift ?? 0);
+
+          if (isSplit) {
+            return (
+              <div className="grid grid-cols-2 gap-[2px] w-full">
+                {/* Colonne Frappe 1 */}
+                <div
+                  className={`flex flex-col gap-[2px] cursor-pointer rounded-xs p-[1px] transition-all ${
+                    isFocused && selectedSubIndex === 0
+                      ? 'bg-[#8b2a1a]/20 ring-1 ring-[#8b2a1a]'
+                      : 'hover:bg-black/10'
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectForSculpt?.(i, 0);
+                  }}
+                  title="Sculpter le 1er coup"
+                >
+                  <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+                    <div className="h-full bg-green-600 transition-all" style={{ width: `${vol0}%` }} />
+                  </div>
+                  <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+                    <div className="h-full bg-amber-500 transition-all" style={{ width: `${decay0}%` }} />
+                  </div>
+                  <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
+                    <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
+                    {shift0 !== 0 && (
+                      <div
+                        className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
+                        style={{
+                          left: shift0 > 0 ? '50%' : 'auto',
+                          right: shift0 < 0 ? '50%' : 'auto',
+                          width: `${Math.min(50, Math.abs(shift0) / 2)}%`
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Colonne Frappe 2 */}
+                <div
+                  className={`flex flex-col gap-[2px] cursor-pointer rounded-xs p-[1px] transition-all ${
+                    isFocused && selectedSubIndex === 1
+                      ? 'bg-[#8b2a1a]/20 ring-1 ring-[#8b2a1a]'
+                      : 'hover:bg-black/10'
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectForSculpt?.(i, 1);
+                  }}
+                  title="Sculpter le 2ème coup"
+                >
+                  <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+                    <div className="h-full bg-green-600 transition-all" style={{ width: `${vol1}%` }} />
+                  </div>
+                  <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+                    <div className="h-full bg-amber-500 transition-all" style={{ width: `${decay1}%` }} />
+                  </div>
+                  <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
+                    <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
+                    {shift1 !== 0 && (
+                      <div
+                        className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
+                        style={{
+                          left: shift1 > 0 ? '50%' : 'auto',
+                          right: shift1 < 0 ? '50%' : 'auto',
+                          width: `${Math.min(50, Math.abs(shift1) / 2)}%`
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          return (
             <div
-              className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
-              style={{
-                left: totalShift > 0 ? '50%' : 'auto',
-                right: totalShift < 0 ? '50%' : 'auto',
-                width: `${Math.min(50, Math.abs(totalShift) / 2)}%`
+              className="flex flex-col gap-[2px] cursor-pointer w-full"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectForSculpt?.(i);
               }}
-            />
-          )}
-        </div>
+              title="Sélectionner ce pas pour l'Escultor"
+            >
+              {/* Volume bar (Green) */}
+              <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+                <div className="h-full bg-green-600 transition-all" style={{ width: `${vol0}%` }} />
+              </div>
+              {/* Decay bar (Amber) */}
+              <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
+                <div className="h-full bg-amber-500 transition-all" style={{ width: `${decay0}%` }} />
+              </div>
+              {/* Micro-timing bar (Blue bi-directional) */}
+              <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
+                <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
+                {shift0 !== 0 && (
+                  <div
+                    className="absolute top-0 bottom-0 bg-[#2980b9] transition-all"
+                    style={{
+                      left: shift0 > 0 ? '50%' : 'auto',
+                      right: shift0 < 0 ? '50%' : 'auto',
+                      width: `${Math.min(50, Math.abs(shift0) / 2)}%`
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -375,16 +466,16 @@ const PercussionStepCell = React.memo(({
 
   return (
     isValEqual &&
-    prevProps.volume === nextProps.volume &&
-    prevProps.decay === nextProps.decay &&
-    prevProps.microtiming === nextProps.microtiming &&
+    isParamEqual(prevProps.volume, nextProps.volume) &&
+    isParamEqual(prevProps.decay, nextProps.decay) &&
+    isParamEqual(prevProps.microtiming, nextProps.microtiming) &&
+    isParamEqual(prevProps.totalShift, nextProps.totalShift) &&
     prevProps.isSelected === nextProps.isSelected &&
     prevProps.isMultiSelected === nextProps.isMultiSelected &&
     prevProps.isFocused === nextProps.isFocused &&
     prevProps.selectedSubIndex === nextProps.selectedSubIndex &&
     prevProps.activeTool === nextProps.activeTool &&
     prevProps.shiftPx === nextProps.shiftPx &&
-    prevProps.totalShift === nextProps.totalShift &&
     prevProps.splitLeftColor === nextProps.splitLeftColor &&
     prevProps.splitRightColor === nextProps.splitRightColor &&
     prevProps.splitLeftText === nextProps.splitLeftText &&
@@ -676,6 +767,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   selectedStepIdx,
   selectedStepIndices,
   selectedVariationId,
+  selectedSubIndex: propSelectedSubIndex,
+  setSelectedSubIndex: propSetSelectedSubIndex,
   isTupletEditMode,
   isMultiSelectActive,
   noteSelectorTarget,
@@ -720,13 +813,15 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
   const gridRef = useRef<HTMLDivElement>(null);
   const [hasClipboard, setHasClipboard] = useState(false);
-  const [selectedSubIndex, setSelectedSubIndex] = useState<0 | 1 | null>(null);
+  const [internalSubIndex, setInternalSubIndex] = useState<0 | 1 | null>(null);
+  const selectedSubIndex = propSelectedSubIndex !== undefined ? propSelectedSubIndex : internalSubIndex;
+  const setSelectedSubIndex = propSetSelectedSubIndex || setInternalSubIndex;
 
   useEffect(() => {
     if (selectedStepIdx === null) {
       setSelectedSubIndex(null);
     }
-  }, [selectedStepIdx]);
+  }, [selectedStepIdx, setSelectedSubIndex]);
 
   const isMouseDownRef = useRef(false);
   const paintValueRef = useRef<string | number>(0);
@@ -1095,13 +1190,11 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
   const handleCellContextMenu = React.useCallback((e: React.MouseEvent<any>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
     e.preventDefault();
-    e.stopPropagation();
     handleClearStep(idx, subIndex);
   }, [handleClearStep]);
 
   const handleVoiceContextMenu = React.useCallback((e: React.MouseEvent<any>, idx: number) => {
     e.preventDefault();
-    e.stopPropagation();
     const currentState = pattern?.activeSteps?.[idx];
     const currentSyl = pattern?.lyrics?.[idx];
     const currentNote = pattern?.notes?.[idx];
@@ -1614,12 +1707,12 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
   // Sélection Escultor isolée : ne touche JAMAIS à la valeur du pas (Zero Tool Trigger)
   // Impact perf : seul setSelectedStepIdx mute → React.memo filtre les cellules non-concernées
-  const handleSelectStepForSculpt = React.useCallback((idx: number) => {
+  const handleSelectStepForSculpt = React.useCallback((idx: number, subIndex?: 0 | 1 | null) => {
     setSelectedStepIdx(idx);
     setSelectedStepIndices([idx]);
     setSelectedPatternId(pattern.id);
     setSelectedVariationId(null);
-    setSelectedSubIndex(null);
+    setSelectedSubIndex(subIndex ?? null);
   }, [setSelectedStepIdx, setSelectedStepIndices, setSelectedPatternId, setSelectedVariationId, setSelectedSubIndex, pattern.id]);
 
   const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -2206,7 +2299,6 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         }
         ${activeTool === 'scissors' ? `
           .percussion-step-container input {
-            pointer-events: none !important;
             cursor: inherit !important;
             user-select: none !important;
           }
@@ -2588,8 +2680,14 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                       // Calculate total micro-timing shift (manual + pre-calculated global swing)
                       const manualMicro = pattern?.microtimings?.[i] ?? 0;
                       const swingOffset = swingOffsets[i] || 0;
-                      const totalShift = Math.max(-100, Math.min(100, manualMicro + swingOffset));
-                      const shiftPx = (totalShift / 100) * 8; // Max 8px shift
+                      const totalShift: number | [number, number] = Array.isArray(manualMicro)
+                        ? [
+                            Math.max(-100, Math.min(100, manualMicro[0] + swingOffset)),
+                            Math.max(-100, Math.min(100, manualMicro[1] + swingOffset))
+                          ]
+                        : Math.max(-100, Math.min(100, manualMicro + swingOffset));
+                      const effectiveShift = Array.isArray(totalShift) ? totalShift[0] : totalShift;
+                      const shiftPx = (effectiveShift / 100) * 8; // Max 8px shift
 
                       const isMultiSelected = selectedStepIndices.includes(i) && selectedStepIndices.length > 1;
 
@@ -2617,7 +2715,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                           <PercussionStepCell
                             i={i}
                             val={val}
-                            volume={pattern?.volumes?.[i] ?? 100}
+                            volume={pattern?.volumes?.[i] ?? 80}
                             decay={pattern?.decays?.[i] ?? 100}
                             microtiming={pattern?.microtimings?.[i] ?? 0}
                             isSelected={selectedStepIndices.includes(i)}

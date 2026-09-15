@@ -3,14 +3,16 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+export type StepSculptValue = number | [number, number];
+
 export interface PatternVariation {
   id: string;
   name: string;
   steps: (string | number | [string, string])[];
   probability: number;
-  volumes?: number[];
-  decays?: number[];
-  microtimings?: number[];
+  volumes?: StepSculptValue[];
+  decays?: StepSculptValue[];
+  microtimings?: StepSculptValue[];
   beatResolutions?: number[]; // Added for tuplet support (e.g. [4, 4, 4, 4])
   playFirstTimeOnly?: boolean;
 }
@@ -24,9 +26,9 @@ export interface Pattern {
   notes: string[];
   measureAssignments: boolean[];
   measureAllowVariations?: boolean[];
-  volumes?: number[];
-  decays?: number[];
-  microtimings?: number[];
+  volumes?: StepSculptValue[];
+  decays?: StepSculptValue[];
+  microtimings?: StepSculptValue[];
   vocalMode?: 'synth' | 'micro';
   vocalLatency?: number;
   vocalBaseBpm?: number;
@@ -44,8 +46,8 @@ export interface Pattern {
   preRollActiveSteps?: (string | number | [string, string])[];
   preRollLyrics?: string[];
   preRollNotes?: string[];
-  preRollVolumes?: number[];
-  preRollDecays?: number[];
+  preRollVolumes?: StepSculptValue[];
+  preRollDecays?: StepSculptValue[];
 }
 
 export interface VocalClipMeta {

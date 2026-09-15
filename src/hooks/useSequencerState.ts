@@ -10,7 +10,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { arrayMove } from '@dnd-kit/sortable';
-import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker } from '../types';
+import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, StepSculptValue } from '../types';
 import { instrumentsConfig, getMarkers, getVisualStrokeSymbol } from '../data';
 import { audioEngine } from './useAudioSync';
 import { getExpandedMeasures } from '../utils/measureHelpers';
@@ -395,7 +395,29 @@ export function useSequencerState() {
     setTracks(prev => prev.map((t) => (t.id === id ? { ...t, reverbVal: val } : t)));
   };
 
-  const handleTrackStepVolumeChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
+  const updateStepSculptValue = (
+    currentVal: StepSculptValue | undefined,
+    defaultVal: number,
+    newVal: number,
+    subIndex?: 0 | 1,
+    isSplitStep: boolean = false
+  ): StepSculptValue => {
+    if (subIndex === undefined) {
+      if (isSplitStep) {
+        return [newVal, newVal];
+      }
+      return newVal;
+    }
+    const base0 = Array.isArray(currentVal) ? currentVal[0] : (currentVal ?? defaultVal);
+    const base1 = Array.isArray(currentVal) ? currentVal[1] : (currentVal ?? defaultVal);
+    if (subIndex === 0) {
+      return [newVal, base1];
+    } else {
+      return [base0, newVal];
+    }
+  };
+
+  const handleTrackStepVolumeChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => {
     setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         return {
@@ -405,10 +427,12 @@ export function useSequencerState() {
               const copyVols = [...(p.volumes || Array(p.steps).fill(80))];
               if (Array.isArray(stepIdx)) {
                 stepIdx.forEach(idx => {
-                  copyVols[idx] = val;
+                  const isSplit = Array.isArray(p.activeSteps[idx]);
+                  copyVols[idx] = updateStepSculptValue(copyVols[idx], 80, val, subIndex, isSplit);
                 });
               } else {
-                copyVols[stepIdx] = val;
+                const isSplit = Array.isArray(p.activeSteps[stepIdx]);
+                copyVols[stepIdx] = updateStepSculptValue(copyVols[stepIdx], 80, val, subIndex, isSplit);
               }
               return { ...p, volumes: copyVols };
             }
@@ -420,7 +444,7 @@ export function useSequencerState() {
     }));
   };
 
-  const handleTrackStepDecayChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
+  const handleTrackStepDecayChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => {
     setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         return {
@@ -430,10 +454,12 @@ export function useSequencerState() {
               const copyDecays = [...(p.decays || Array(p.steps).fill(100))];
               if (Array.isArray(stepIdx)) {
                 stepIdx.forEach(idx => {
-                  copyDecays[idx] = val;
+                  const isSplit = Array.isArray(p.activeSteps[idx]);
+                  copyDecays[idx] = updateStepSculptValue(copyDecays[idx], 100, val, subIndex, isSplit);
                 });
               } else {
-                copyDecays[stepIdx] = val;
+                const isSplit = Array.isArray(p.activeSteps[stepIdx]);
+                copyDecays[stepIdx] = updateStepSculptValue(copyDecays[stepIdx], 100, val, subIndex, isSplit);
               }
               return { ...p, decays: copyDecays };
             }
@@ -445,7 +471,7 @@ export function useSequencerState() {
     }));
   };
 
-  const handleTrackStepMicrotimingChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number) => {
+  const handleTrackStepMicrotimingChange = (trackId: number, patternId: number, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => {
     setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         return {
@@ -455,10 +481,12 @@ export function useSequencerState() {
               const copyMicros = [...(p.microtimings || Array(p.steps).fill(0))];
               if (Array.isArray(stepIdx)) {
                 stepIdx.forEach(idx => {
-                  copyMicros[idx] = val;
+                  const isSplit = Array.isArray(p.activeSteps[idx]);
+                  copyMicros[idx] = updateStepSculptValue(copyMicros[idx], 0, val, subIndex, isSplit);
                 });
               } else {
-                copyMicros[stepIdx] = val;
+                const isSplit = Array.isArray(p.activeSteps[stepIdx]);
+                copyMicros[stepIdx] = updateStepSculptValue(copyMicros[stepIdx], 0, val, subIndex, isSplit);
               }
               return { ...p, microtimings: copyMicros };
             }
@@ -470,7 +498,7 @@ export function useSequencerState() {
     }));
   };
 
-  const handleVariationStepVolumeChange = (trackId: number, patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
+  const handleVariationStepVolumeChange = (trackId: number, patternId: number, variationId: string, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => {
     setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         return {
@@ -483,9 +511,13 @@ export function useSequencerState() {
                   if (v.id === variationId) {
                     const copyVols = [...(v.volumes || Array(p.steps).fill(80))];
                     if (Array.isArray(stepIdx)) {
-                      stepIdx.forEach(idx => copyVols[idx] = val);
+                      stepIdx.forEach(idx => {
+                        const isSplit = Array.isArray(v.steps[idx]);
+                        copyVols[idx] = updateStepSculptValue(copyVols[idx], 80, val, subIndex, isSplit);
+                      });
                     } else {
-                      copyVols[stepIdx] = val;
+                      const isSplit = Array.isArray(v.steps[stepIdx]);
+                      copyVols[stepIdx] = updateStepSculptValue(copyVols[stepIdx], 80, val, subIndex, isSplit);
                     }
                     return { ...v, volumes: copyVols };
                   }
@@ -501,7 +533,7 @@ export function useSequencerState() {
     }));
   };
 
-  const handleVariationStepDecayChange = (trackId: number, patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
+  const handleVariationStepDecayChange = (trackId: number, patternId: number, variationId: string, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => {
     setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         return {
@@ -514,9 +546,13 @@ export function useSequencerState() {
                   if (v.id === variationId) {
                     const copyDecays = [...(v.decays || Array(p.steps).fill(100))];
                     if (Array.isArray(stepIdx)) {
-                      stepIdx.forEach(idx => copyDecays[idx] = val);
+                      stepIdx.forEach(idx => {
+                        const isSplit = Array.isArray(v.steps[idx]);
+                        copyDecays[idx] = updateStepSculptValue(copyDecays[idx], 100, val, subIndex, isSplit);
+                      });
                     } else {
-                      copyDecays[stepIdx] = val;
+                      const isSplit = Array.isArray(v.steps[stepIdx]);
+                      copyDecays[stepIdx] = updateStepSculptValue(copyDecays[stepIdx], 100, val, subIndex, isSplit);
                     }
                     return { ...v, decays: copyDecays };
                   }
@@ -532,7 +568,7 @@ export function useSequencerState() {
     }));
   };
 
-  const handleVariationStepMicrotimingChange = (trackId: number, patternId: number, variationId: string, stepIdx: number | number[], val: number) => {
+  const handleVariationStepMicrotimingChange = (trackId: number, patternId: number, variationId: string, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => {
     setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
         return {
@@ -545,9 +581,13 @@ export function useSequencerState() {
                   if (v.id === variationId) {
                     const copyMicros = [...(v.microtimings || Array(p.steps).fill(0))];
                     if (Array.isArray(stepIdx)) {
-                      stepIdx.forEach(idx => copyMicros[idx] = val);
+                      stepIdx.forEach(idx => {
+                        const isSplit = Array.isArray(v.steps[idx]);
+                        copyMicros[idx] = updateStepSculptValue(copyMicros[idx], 0, val, subIndex, isSplit);
+                      });
                     } else {
-                      copyMicros[stepIdx] = val;
+                      const isSplit = Array.isArray(v.steps[stepIdx]);
+                      copyMicros[stepIdx] = updateStepSculptValue(copyMicros[stepIdx], 0, val, subIndex, isSplit);
                     }
                     return { ...v, microtimings: copyMicros };
                   }

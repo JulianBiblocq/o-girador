@@ -162,7 +162,7 @@ export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
         {/* Outil Ciseau / Colle (Scissors / Glue) */}
         <button
           type="button"
-          onClick={() => onSelectTool('scissors')}
+          onClick={() => onSelectTool(isScissorsActive ? 'D' : 'scissors')}
           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm border-[2px] transition-all cursor-pointer select-none shrink-0 active:scale-95 ${
             isScissorsActive
               ? 'border-[#8b2a1a] bg-[#8b2a1a] text-[#f4ecd8] shadow-[2px_2px_0px_#1a1a1a] scale-105 z-10'

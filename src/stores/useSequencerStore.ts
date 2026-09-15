@@ -1,6 +1,6 @@
 import { create, StateCreator } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
-import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX, CloudRhythmSignal } from '../types';
+import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX, CloudRhythmSignal, StepSculptValue } from '../types';
 
 import { usePerformanceStore } from './usePerformanceStore';
 // Nous aurons besoin d'instrumentsConfig pour extraire les paroles
@@ -50,7 +50,9 @@ export interface TrackSlice {
   duplicateMeasurePattern: (trackId: number, srcIdx: number, targetIdx: number) => void;
   repeatPatternRange: (trackId: number, srcIdx: number, count: number) => void;
   handleTrackStepsChange: (trackId: number, patternId: number, targetSteps: number) => void;
-  handleTrackStepVolumeChange: (trackId: number, patternId: number, stepIdx: number | number[], val: number) => void;
+  handleTrackStepVolumeChange: (trackId: number, patternId: number, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => void;
+  handleTrackStepDecayChange?: (trackId: number, patternId: number, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => void;
+  handleTrackStepMicrotimingChange?: (trackId: number, patternId: number, stepIdx: number | number[], val: number, subIndex?: 0 | 1) => void;
   handlePatternBeatResolutionChange: (patternId: number, beatIndex: number, newResolution: number) => void;
   handleCreateBus: (trackId: number, name: string) => void;
   handleCreateCustomBus: (trackIds: number[], name: string) => void;
@@ -1885,7 +1887,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     }));
   },
 
-  handleTrackStepVolumeChange: (trackId, patternId, stepIdx, val) => {
+  handleTrackStepVolumeChange: (trackId, patternId, stepIdx, val, subIndex) => {
     get().pushUndoState();
     set((state) => ({
       tracks: state.tracks.map(t => {
@@ -1895,12 +1897,96 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
             patterns: t.patterns.map(p => {
               if (p.id === patternId) {
                 const copyVols = [...(p.volumes || Array(p.steps).fill(80))];
+                const updateVal = (idx: number) => {
+                  const isSplit = Array.isArray(p.activeSteps[idx]);
+                  if (subIndex === undefined) {
+                    copyVols[idx] = isSplit ? [val, val] : val;
+                  } else {
+                    const base0 = Array.isArray(copyVols[idx]) ? (copyVols[idx] as [number, number])[0] : (copyVols[idx] as number ?? 80);
+                    const base1 = Array.isArray(copyVols[idx]) ? (copyVols[idx] as [number, number])[1] : (copyVols[idx] as number ?? 80);
+                    copyVols[idx] = subIndex === 0 ? [val, base1] : [base0, val];
+                  }
+                };
                 if (Array.isArray(stepIdx)) {
-                  stepIdx.forEach(idx => copyVols[idx] = val);
+                  stepIdx.forEach(idx => updateVal(idx));
                 } else {
-                  copyVols[stepIdx] = val;
+                  updateVal(stepIdx);
                 }
                 return { ...p, volumes: copyVols };
+              }
+              return p;
+            })
+          };
+        }
+        return t;
+      }),
+      tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
+  handleTrackStepDecayChange: (trackId, patternId, stepIdx, val, subIndex) => {
+    get().pushUndoState();
+    set((state) => ({
+      tracks: state.tracks.map(t => {
+        if (t.id === trackId) {
+          return {
+            ...t,
+            patterns: t.patterns.map(p => {
+              if (p.id === patternId) {
+                const copyDecays = [...(p.decays || Array(p.steps).fill(100))];
+                const updateVal = (idx: number) => {
+                  const isSplit = Array.isArray(p.activeSteps[idx]);
+                  if (subIndex === undefined) {
+                    copyDecays[idx] = isSplit ? [val, val] : val;
+                  } else {
+                    const base0 = Array.isArray(copyDecays[idx]) ? (copyDecays[idx] as [number, number])[0] : (copyDecays[idx] as number ?? 100);
+                    const base1 = Array.isArray(copyDecays[idx]) ? (copyDecays[idx] as [number, number])[1] : (copyDecays[idx] as number ?? 100);
+                    copyDecays[idx] = subIndex === 0 ? [val, base1] : [base0, val];
+                  }
+                };
+                if (Array.isArray(stepIdx)) {
+                  stepIdx.forEach(idx => updateVal(idx));
+                } else {
+                  updateVal(stepIdx);
+                }
+                return { ...p, decays: copyDecays };
+              }
+              return p;
+            })
+          };
+        }
+        return t;
+      }),
+      tracksVersion: state.tracksVersion + 1
+    }));
+  },
+
+  handleTrackStepMicrotimingChange: (trackId, patternId, stepIdx, val, subIndex) => {
+    get().pushUndoState();
+    set((state) => ({
+      tracks: state.tracks.map(t => {
+        if (t.id === trackId) {
+          return {
+            ...t,
+            patterns: t.patterns.map(p => {
+              if (p.id === patternId) {
+                const copyMicros = [...(p.microtimings || Array(p.steps).fill(0))];
+                const updateVal = (idx: number) => {
+                  const isSplit = Array.isArray(p.activeSteps[idx]);
+                  if (subIndex === undefined) {
+                    copyMicros[idx] = isSplit ? [val, val] : val;
+                  } else {
+                    const base0 = Array.isArray(copyMicros[idx]) ? (copyMicros[idx] as [number, number])[0] : (copyMicros[idx] as number ?? 0);
+                    const base1 = Array.isArray(copyMicros[idx]) ? (copyMicros[idx] as [number, number])[1] : (copyMicros[idx] as number ?? 0);
+                    copyMicros[idx] = subIndex === 0 ? [val, base1] : [base0, val];
+                  }
+                };
+                if (Array.isArray(stepIdx)) {
+                  stepIdx.forEach(idx => updateVal(idx));
+                } else {
+                  updateVal(stepIdx);
+                }
+                return { ...p, microtimings: copyMicros };
               }
               return p;
             })

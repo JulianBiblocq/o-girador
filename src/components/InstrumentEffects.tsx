@@ -66,6 +66,8 @@ interface InstrumentEffectsProps {
   selectedStepIdx: number;
   selectedStepIndices: number[];
   selectedVariationId: string | null;
+  selectedSubIndex?: 0 | 1 | null;
+  onSelectSubIndex?: (subIndex: 0 | 1 | null) => void;
   onClose?: () => void;
 }
 
@@ -75,6 +77,8 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
   selectedStepIdx,
   selectedStepIndices,
   selectedVariationId,
+  selectedSubIndex,
+  onSelectSubIndex,
   onClose,
 }) => {
   const {
@@ -103,27 +107,40 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
   };
 
   const targets = selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx];
+  const isSingle = selectedStepIndices.length <= 1;
+
+  const activeVarObj = selectedVariationId ? pattern.variations?.find(v => v.id === selectedVariationId) : null;
+  const effectiveSteps = activeVarObj ? activeVarObj.steps : pattern.activeSteps;
+  const effectiveVolumes = activeVarObj ? activeVarObj.volumes : pattern.volumes;
+  const effectiveDecays = activeVarObj ? activeVarObj.decays : pattern.decays;
+  const effectiveMicros = activeVarObj ? activeVarObj.microtimings : pattern.microtimings;
+
+  const stepVal = isSingle ? effectiveSteps[selectedStepIdx] : null;
+  const isSplitStep = isSingle && Array.isArray(stepVal);
+  const activeSub: 0 | 1 | null = isSplitStep ? (selectedSubIndex ?? 0) : null;
+  const subToPass = isSplitStep && selectedSubIndex !== null && selectedSubIndex !== undefined ? selectedSubIndex : undefined;
 
   return (
     <div className="bg-[#ece4d0] cordel-border-sm p-3 mt-3 flex flex-col gap-2 shrink-0">
       <div className="flex items-center justify-between text-xs border-b border-[#1a1a1a]/20 pb-1.5 text-[#1a1a1a]">
         <span className="font-bold">
           🎛️ {lang === 'fr' ? 'Sculpteur' : 'Escultor'} — {
-            selectedStepIndices.length > 1
+            !isSingle
               ? (lang === 'fr' ? `${selectedStepIndices.length} pas sélectionnés` : `${selectedStepIndices.length} passos selecionados`)
               : (lang === 'fr' ? `Pas ${selectedStepIdx + 1}` : `Passo ${selectedStepIdx + 1}`)
           }
-          {(() => {
-            const activeVarObj = selectedVariationId ? pattern.variations?.find(v => v.id === selectedVariationId) : null;
-            if (activeVarObj) {
-              return ` (Var: ${activeVarObj.name})`;
+          {activeVarObj && ` (Var: ${activeVarObj.name})`}
+          {isSingle && (() => {
+            if (isSplitStep) {
+              const sVal = stepVal as [string, string];
+              if (selectedSubIndex === 0) {
+                return ` — ${lang === 'fr' ? '1er Coup' : '1º Golpe'} (${sVal[0]})`;
+              } else if (selectedSubIndex === 1) {
+                return ` — ${lang === 'fr' ? '2ème Coup' : '2º Golpe'} (${sVal[1]})`;
+              } else {
+                return ` — ${lang === 'fr' ? 'Coups liés' : 'Golpes ligados'} (${sVal[0]}, ${sVal[1]})`;
+              }
             }
-            return '';
-          })()}
-          {selectedStepIndices.length <= 1 && (() => {
-            const activeVarObj = selectedVariationId ? pattern.variations?.find(v => v.id === selectedVariationId) : null;
-            const effectiveSteps = activeVarObj ? activeVarObj.steps : pattern.activeSteps;
-            const stepVal = effectiveSteps[selectedStepIdx];
             return ` (${stepVal === 0 ? (lang === 'fr' ? 'Silence' : 'Silêncio') : `${lang === 'fr' ? 'Coup' : 'Golpe'}: ${stepVal}`})`;
           })()}
         </span>
@@ -131,13 +148,13 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
           <button 
             onClick={() => {
               if (selectedVariationId) {
-                handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, 80);
-                handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, 100);
-                handleVariationStepMicrotimingChange?.(trackId, pattern.id, selectedVariationId, targets, 0);
+                handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, 80, subToPass);
+                handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, 100, subToPass);
+                handleVariationStepMicrotimingChange?.(trackId, pattern.id, selectedVariationId, targets, 0, subToPass);
               } else {
-                handleTrackStepVolumeChange(trackId, pattern.id, targets, 80);
-                handleTrackStepDecayChange(trackId, pattern.id, targets, 100);
-                handleTrackStepMicrotimingChange(trackId, pattern.id, targets, 0);
+                handleTrackStepVolumeChange(trackId, pattern.id, targets, 80, subToPass);
+                handleTrackStepDecayChange(trackId, pattern.id, targets, 100, subToPass);
+                handleTrackStepMicrotimingChange(trackId, pattern.id, targets, 0, subToPass);
               }
             }}
             className="text-[#8b2a1a] font-bold text-[10px] uppercase hover:underline cursor-pointer"
@@ -157,13 +174,60 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
         </div>
       </div>
 
+      {/* Sélecteur de sous-coup si le pas est scindé */}
+      {isSplitStep && (
+        <div className="flex items-center gap-1.5 py-1 px-2 bg-[#1a1a1a]/5 rounded-xs border border-[#1a1a1a]/15 text-[11px]">
+          <span className="font-bold text-[#1a1a1a]/70 mr-1">
+            {lang === 'fr' ? 'Cibler le coup :' : 'Alvo do golpe :'}
+          </span>
+          <button
+            type="button"
+            onClick={() => onSelectSubIndex?.(0)}
+            className={`px-2 py-0.5 font-bold rounded-xs cursor-pointer transition-colors ${
+              selectedSubIndex === 0
+                ? 'bg-[#8b2a1a] text-[#f4ecd8] shadow-xs'
+                : 'bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 text-[#1a1a1a]'
+            }`}
+          >
+            ⚡ {lang === 'fr' ? '1er Coup' : '1º Golpe'} ({(stepVal as [string, string])[0]})
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectSubIndex?.(1)}
+            className={`px-2 py-0.5 font-bold rounded-xs cursor-pointer transition-colors ${
+              selectedSubIndex === 1
+                ? 'bg-[#8b2a1a] text-[#f4ecd8] shadow-xs'
+                : 'bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 text-[#1a1a1a]'
+            }`}
+          >
+            ⚡ {lang === 'fr' ? '2ème Coup' : '2º Golpe'} ({(stepVal as [string, string])[1]})
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectSubIndex?.(null)}
+            className={`px-2 py-0.5 font-bold rounded-xs cursor-pointer transition-colors ${
+              selectedSubIndex === null
+                ? 'bg-[#8b2a1a] text-[#f4ecd8] shadow-xs'
+                : 'bg-[#1a1a1a]/10 hover:bg-[#1a1a1a]/20 text-[#1a1a1a]'
+            }`}
+          >
+            🔗 {lang === 'fr' ? 'Les deux (Lié)' : 'Ambos (Ligado)'}
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[#1a1a1a]">
         {/* Volume slider */}
         <div className="flex flex-col gap-0.5">
           {(() => {
-            const activeVarObj = selectedVariationId ? pattern.variations?.find(v => v.id === selectedVariationId) : null;
-            const effectiveVolumes = activeVarObj ? activeVarObj.volumes : pattern.volumes;
-            const currVol = effectiveVolumes?.[selectedStepIdx] ?? 80;
+            const rawVol = effectiveVolumes?.[selectedStepIdx];
+            let currVol = 80;
+            if (Array.isArray(rawVol)) {
+              currVol = activeSub === 1 ? (rawVol[1] ?? 80) : (rawVol[0] ?? 80);
+            } else if (rawVol !== undefined && rawVol !== null) {
+              currVol = rawVol as number;
+            }
+
             return (
               <>
                 <div className="flex justify-between text-[10px] font-bold items-center">
@@ -175,9 +239,9 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
                     max={100} 
                     onChange={(val: number) => {
                       if (selectedVariationId) {
-                        handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, val);
+                        handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, val, subToPass);
                       } else {
-                        handleTrackStepVolumeChange(trackId, pattern.id, targets, val);
+                        handleTrackStepVolumeChange(trackId, pattern.id, targets, val, subToPass);
                       }
                     }} 
                   />
@@ -190,9 +254,9 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
                   onChange={(e) => {
                     const val = parseInt(e.target.value);
                     if (selectedVariationId) {
-                      handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, val);
+                      handleVariationStepVolumeChange?.(trackId, pattern.id, selectedVariationId, targets, val, subToPass);
                     } else {
-                      handleTrackStepVolumeChange(trackId, pattern.id, targets, val);
+                      handleTrackStepVolumeChange(trackId, pattern.id, targets, val, subToPass);
                     }
                   }}
                   className="w-full accent-green-600 cursor-pointer h-2 bg-[#1a1a1a]/10"
@@ -210,9 +274,15 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
             const inst = track ? instrumentsConfig[track.instrumentIdx] : null;
             const isVoice = inst?.type === 'voice';
 
-            const activeVarObj = selectedVariationId ? pattern.variations?.find(v => v.id === selectedVariationId) : null;
-            const effectiveDecays = activeVarObj ? activeVarObj.decays : pattern.decays;
-            const currDecay = effectiveDecays?.[selectedStepIdx] ?? (isVoice ? 10 : 100);
+            const rawDecay = effectiveDecays?.[selectedStepIdx];
+            const defaultDecay = isVoice ? 10 : 100;
+            let currDecay = defaultDecay;
+            if (Array.isArray(rawDecay)) {
+              currDecay = activeSub === 1 ? (rawDecay[1] ?? defaultDecay) : (rawDecay[0] ?? defaultDecay);
+            } else if (rawDecay !== undefined && rawDecay !== null) {
+              currDecay = rawDecay as number;
+            }
+
             return (
               <>
                 <div className="flex justify-between text-[10px] font-bold items-center">
@@ -231,9 +301,9 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
                         max={100} 
                         onChange={(val: number) => {
                           if (selectedVariationId) {
-                            handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, val);
+                            handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, val, subToPass);
                           } else {
-                            handleTrackStepDecayChange(trackId, pattern.id, targets, val);
+                            handleTrackStepDecayChange(trackId, pattern.id, targets, val, subToPass);
                           }
                         }} 
                       />
@@ -249,9 +319,9 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
                   onChange={(e) => {
                     const val = parseInt(e.target.value);
                     if (selectedVariationId) {
-                      handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, val);
+                      handleVariationStepDecayChange?.(trackId, pattern.id, selectedVariationId, targets, val, subToPass);
                     } else {
-                      handleTrackStepDecayChange(trackId, pattern.id, targets, val);
+                      handleTrackStepDecayChange(trackId, pattern.id, targets, val, subToPass);
                     }
                   }}
                   className="w-full accent-amber-500 cursor-pointer h-2 bg-[#1a1a1a]/10"
@@ -264,9 +334,14 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
         {/* Micro-timing slider */}
         <div className="flex flex-col gap-0.5">
           {(() => {
-            const activeVarObj = selectedVariationId ? pattern.variations?.find(v => v.id === selectedVariationId) : null;
-            const effectiveMicros = activeVarObj ? activeVarObj.microtimings : pattern.microtimings;
-            const manualVal = effectiveMicros?.[selectedStepIdx] ?? 0;
+            const rawMicro = effectiveMicros?.[selectedStepIdx];
+            let manualVal = 0;
+            if (Array.isArray(rawMicro)) {
+              manualVal = activeSub === 1 ? (rawMicro[1] ?? 0) : (rawMicro[0] ?? 0);
+            } else if (rawMicro !== undefined && rawMicro !== null) {
+              manualVal = rawMicro as number;
+            }
+
             const swingOffset = getStepSwingPercent(selectedStepIdx, pattern.steps, pattern.beatResolutions);
             const totalVal = manualVal + swingOffset;
             const clampedTotalVal = Math.max(-100, Math.min(100, totalVal));
@@ -284,9 +359,9 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
                       const newManual = newTotal - swingOffset;
                       const clampedManual = Math.max(-100, Math.min(100, newManual));
                       if (selectedVariationId) {
-                        handleVariationStepMicrotimingChange?.(trackId, pattern.id, selectedVariationId, targets, clampedManual);
+                        handleVariationStepMicrotimingChange?.(trackId, pattern.id, selectedVariationId, targets, clampedManual, subToPass);
                       } else {
-                        handleTrackStepMicrotimingChange(trackId, pattern.id, targets, clampedManual);
+                        handleTrackStepMicrotimingChange(trackId, pattern.id, targets, clampedManual, subToPass);
                       }
                     }} 
                   />
@@ -323,9 +398,9 @@ const InstrumentEffectsComponent: React.FC<InstrumentEffectsProps> = ({
                         const newManual = newTotal - swingOffset;
                         const clampedManual = Math.max(-100, Math.min(100, newManual));
                         if (selectedVariationId) {
-                          handleVariationStepMicrotimingChange?.(trackId, pattern.id, selectedVariationId, targets, clampedManual);
+                          handleVariationStepMicrotimingChange?.(trackId, pattern.id, selectedVariationId, targets, clampedManual, subToPass);
                         } else {
-                          handleTrackStepMicrotimingChange(trackId, pattern.id, targets, clampedManual);
+                          handleTrackStepMicrotimingChange(trackId, pattern.id, targets, clampedManual, subToPass);
                         }
                       }}
                       className="absolute inset-x-0 w-full h-4 opacity-100 cursor-pointer slider-transparent-track"
