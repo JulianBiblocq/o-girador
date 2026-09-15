@@ -80,19 +80,20 @@ test.describe("Effacement au Clic Droit (Workflow Express FL Studio)", () => {
     await page.locator('text=/marcante/i').first().click();
     await page.waitForTimeout(1000);
 
-    const firstStep = page.locator('.step-input-cell').first();
-    await expect(firstStep).toBeVisible();
+    const emptyStep = page.locator('.step-input-cell').nth(1);
+    await expect(emptyStep).toBeVisible();
 
-    // Le pas est déjà vide par défaut. Clic droit ne doit rien changer
-    const valueBefore = await firstStep.inputValue().catch(() => '')
-      ?? await firstStep.textContent();
+    // Le pas d'index 1 est vide par défaut. Clic droit ne doit rien changer
+    const valueBefore = await emptyStep.inputValue().catch(() => '')
+      ?? await emptyStep.textContent();
+    expect(valueBefore?.trim()).toBe('');
 
-    await firstStep.click({ button: 'right' });
+    await emptyStep.click({ button: 'right' });
     await page.waitForTimeout(200);
 
-    const valueAfter = await firstStep.inputValue().catch(() => '')
-      ?? await firstStep.textContent();
-    expect(valueAfter).toBe(valueBefore);
+    const valueAfter = await emptyStep.inputValue().catch(() => '')
+      ?? await emptyStep.textContent();
+    expect(valueAfter?.trim()).toBe('');
   });
 
   test("Clic droit sur un pas scindé : efface un seul triangle, puis le pas entier", async ({ page }) => {

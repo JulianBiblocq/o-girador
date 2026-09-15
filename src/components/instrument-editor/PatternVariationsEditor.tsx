@@ -170,7 +170,6 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                             value={displayVal}
                             readOnly={false}
                             inputMode={isTouchDevice ? 'none' : undefined}
-                            className="step-input-cell w-full text-center font-bold outline-none p-0 box-border z-10 relative transition-all duration-200 text-sm bg-transparent"
                             onClick={(e) => e.stopPropagation()}
                             onFocus={(e) => {
                               if (!isTouchDevice) {
@@ -304,7 +303,7 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                                 }
                               }
                             }}
-                            className={`text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${
+                            className={`step-input-cell text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${
                               (val === 0 || val === '0') ? 'bg-[#ece4d0] text-[#1a1a1a]' : ''
                             } ${
                               selectedStepIdx === i && selectedVariationId === variation.id
@@ -320,7 +319,7 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                           {/* Sculpting micro-bars */}
                           <div className="w-full mt-1 z-10 relative">
                             {(() => {
-                              const isSplit = Array.isArray(step);
+                              const isSplit = Array.isArray(val);
                               const rawVol = variation.volumes?.[i];
                               const vol0 = Array.isArray(rawVol) ? (rawVol[0] ?? 80) : (rawVol ?? 80);
                               const vol1 = Array.isArray(rawVol) ? (rawVol[1] ?? 80) : (rawVol ?? 80);
