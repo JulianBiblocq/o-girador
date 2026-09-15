@@ -1,12 +1,21 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
+import * as Tone from 'tone';
 import { Play, Square } from 'lucide-react';
 import { Language, Pattern } from '../../types';
 import { isDarkText } from '../../data';
+import { audioEngine } from '../../hooks/useAudioSync';
+import { getAlternatingStroke, getNextNuanceState, getWheelNuanceState } from '../../utils/instrumentStrokes';
 
 interface PatternVariationsEditorProps {
+  trackId: number;
   lang: Language;
   ptn: Pattern;
   inst: any;
+  activeTool: string;
+  isAlternating: boolean;
+  isLeftHanded: boolean;
+  selectedPatternId: number;
+  onSelectPattern: (id: number) => void;
   soloPatternPlayId: number | null;
   soloPatternVariationId: string | null;
   isTouchDevice: boolean;
@@ -14,6 +23,8 @@ interface PatternVariationsEditorProps {
   selectedStepIdx: number | null;
   selectedVariationId: string | null;
   selectedStepIndices: number[];
+  selectedSubIndex?: 0 | 1 | null;
+  setSelectedSubIndex?: (subIndex: 0 | 1 | null) => void;
   onStopSoloPattern?: () => void;
   onPlaySoloPattern?: (patternId: number, variationId?: string) => void;
   onTogglePatternVariationFirstTimeOnly?: (patternId: number, variationId: string, val: boolean) => void;
@@ -38,9 +49,15 @@ interface PatternVariationsEditorProps {
 }
 
 export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = ({
+  trackId,
   lang,
   ptn,
   inst,
+  activeTool,
+  isAlternating,
+  isLeftHanded,
+  selectedPatternId,
+  onSelectPattern,
   soloPatternPlayId,
   soloPatternVariationId,
   isTouchDevice,
@@ -48,6 +65,8 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
   selectedStepIdx,
   selectedVariationId,
   selectedStepIndices,
+  selectedSubIndex,
+  setSelectedSubIndex,
   onStopSoloPattern,
   onPlaySoloPattern,
   onTogglePatternVariationFirstTimeOnly,
@@ -63,8 +82,14 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
   getStepSwingPercent,
   onAddPatternVariation,
 }) => {
-  const getDisplayVal = (val: string | number): string => {
-    if (val === 0 || val === '0') return '';
+  const selectedPatternIdRef = useRef(selectedPatternId);
+  useEffect(() => {
+    selectedPatternIdRef.current = selectedPatternId;
+  }, [selectedPatternId]);
+
+  const getDisplayVal = (val: string | number | [string, string]): string => {
+    if (val === 0 || val === '0' || !val) return '';
+    if (Array.isArray(val)) return `${val[0]}/${val[1]}`;
     return String(val);
   };
 
@@ -166,7 +191,7 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                           <div className="text-[8px] text-[#999] font-bold mb-0.5 z-10 relative">{i + 1}</div>
                           <input
                             type="text"
-                            maxLength={['caixa', 'tarol', 'timbal'].includes(inst.id) ? 2 : 1}
+                            maxLength={['caixa', 'tarol', 'timbal'].includes(inst.id) ? 3 : 1}
                             value={displayVal}
                             readOnly={false}
                             inputMode={isTouchDevice ? 'none' : undefined}
@@ -175,11 +200,14 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                               if (!isTouchDevice) {
                                 e.target.select();
                               }
+                              onSelectPattern(ptn.id);
                               setSelectedPatternId(ptn.id);
                             }}
                             onMouseDown={(e) => {
                               e.stopPropagation();
                               if (e.button !== 0) return;
+
+                              onSelectPattern(ptn.id);
                               setSelectedPatternId(ptn.id);
                               setSelectedVariationId(variation.id);
 
@@ -222,19 +250,45 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
 
                               setSelectedStepIdx(i);
                               setSelectedStepIndices([i]);
-                              if (onStepTouchStart) {
-                                onStepTouchStart(e, ptn.id, i, inst.id, val, (newVal) => {
-                                  onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, newVal);
-                                });
+                              setSelectedSubIndex?.(null);
+
+                              // Application directe de l'outil d'écriture actif du dock (sans ouvrir de popup intempestive)
+                              let strokeToApply: string | number;
+                              if (activeTool === '0' || activeTool === 0 || activeTool === '') {
+                                strokeToApply = 0;
+                              } else if (activeTool === 'scissors') {
+                                return;
+                              } else if (isAlternating) {
+                                strokeToApply = getAlternatingStroke(i, activeTool, inst.id, inst.type, lang, isLeftHanded);
+                              } else {
+                                strokeToApply = activeTool;
+                              }
+
+                              // Si la case a déjà cette frappe, cycle de nuances
+                              if (String(val) === String(strokeToApply)) {
+                                strokeToApply = getNextNuanceState(val as string | number, activeTool, inst.id, inst.type, lang, isLeftHanded);
+                              }
+
+                              onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, String(strokeToApply));
+
+                              // Pré-écoute sonore
+                              if (strokeToApply !== 0 && strokeToApply !== '0' && audioEngine) {
+                                try {
+                                  const rawVol = variation.volumes?.[i];
+                                  const vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
+                                  const rawDec = variation.decays?.[i];
+                                  const dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
+                                  audioEngine.playNote(trackId, String(strokeToApply), Tone.now(), vol, dec);
+                                } catch (_) {}
                               }
                             }}
                             onTouchStart={(e) => {
                               e.stopPropagation();
+                              onSelectPattern(ptn.id);
                               setSelectedPatternId(ptn.id);
                               setSelectedVariationId(variation.id);
 
                               if (isMultiSelectActive) {
-                                // Touch multi-select logic
                                 if (selectedStepIndices.includes(i)) {
                                   setSelectedStepIndices(selectedStepIndices.filter(idx => idx !== i));
                                 } else {
@@ -245,8 +299,10 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
 
                               setSelectedStepIdx(i);
                               setSelectedStepIndices([i]);
-                              if (onStepTouchStart) {
-                                onStepTouchStart(e, ptn.id, i, inst.id, val, (newVal) => {
+                              setSelectedSubIndex?.(null);
+
+                              if (isTouchDevice && onStepTouchStart) {
+                                onStepTouchStart(e, ptn.id, i, inst.id, val as string | number, (newVal) => {
                                   onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, newVal);
                                 });
                               }
@@ -254,19 +310,81 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                             onChange={(e) => {
                               onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, e.target.value.toUpperCase());
                             }}
+                            onWheel={(e) => {
+                              // Uniquement si ce motif est le motif actif sélectionné
+                              if (ptn.id !== selectedPatternIdRef.current) return;
+
+                              e.preventDefault();
+                              e.stopPropagation();
+
+                              const direction = e.deltaY < 0 ? 'up' : 'down';
+                              const nextVal = getWheelNuanceState(
+                                val as string | number,
+                                direction,
+                                inst.id,
+                                inst.type,
+                                lang,
+                                isLeftHanded
+                              );
+
+                              if (nextVal !== val) {
+                                onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, String(nextVal));
+                                setSelectedStepIdx(i);
+                                setSelectedStepIndices([i]);
+
+                                if (nextVal !== 0 && nextVal !== '0' && audioEngine) {
+                                  try {
+                                    const rawVol = variation.volumes?.[i];
+                                    const vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
+                                    const rawDec = variation.decays?.[i];
+                                    const dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
+                                    audioEngine.playNote(trackId, String(nextVal), Tone.now(), vol, dec);
+                                  } catch (_) {}
+                                }
+                              }
+                            }}
                             onKeyDown={(e) => {
                               const inputEl = e.currentTarget;
                               const cardGrid = inputEl.closest('.step-boxes');
                               const inputs = cardGrid ? Array.from(cardGrid.querySelectorAll('input')) : [];
                               const indexInGrid = inputs.indexOf(inputEl);
 
-                              if (e.key === 'Delete' || e.key === 'Backspace' || e.key === ' ') {
+                              if (e.key === 'Delete' || e.key === 'Backspace' || e.key === ' ' || e.key === '0') {
                                 e.preventDefault();
                                 onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, '0');
                                 if (e.key === 'Backspace' && indexInGrid > 0) {
                                   const prevEl = inputs[indexInGrid - 1] as HTMLInputElement;
                                   prevEl.focus();
                                   prevEl.select();
+                                  setSelectedStepIdx(i - 1);
+                                  setSelectedStepIndices([i - 1]);
+                                }
+                                return;
+                              }
+
+                              if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const dir = e.key === 'ArrowUp' ? 'up' : 'down';
+                                const nextVal = getWheelNuanceState(
+                                  val as string | number,
+                                  dir,
+                                  inst.id,
+                                  inst.type,
+                                  lang,
+                                  isLeftHanded
+                                );
+                                if (nextVal !== val) {
+                                  onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, String(nextVal));
+                                  if (nextVal !== 0 && nextVal !== '0' && audioEngine) {
+                                    try {
+                                      const rawVol = variation.volumes?.[i];
+                                      const vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
+                                      const rawDec = variation.decays?.[i];
+                                      const dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
+                                      audioEngine.playNote(trackId, String(nextVal), Tone.now(), vol, dec);
+                                    } catch (_) {}
+                                  }
                                 }
                                 return;
                               }
@@ -277,6 +395,8 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                                   const nextEl = inputs[indexInGrid + 1] as HTMLInputElement;
                                   nextEl.focus();
                                   nextEl.select();
+                                  setSelectedStepIdx(i + 1);
+                                  setSelectedStepIndices([i + 1]);
                                 }
                                 return;
                               }
@@ -287,6 +407,8 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                                   const prevEl = inputs[indexInGrid - 1] as HTMLInputElement;
                                   prevEl.focus();
                                   prevEl.select();
+                                  setSelectedStepIdx(i - 1);
+                                  setSelectedStepIndices([i - 1]);
                                 }
                                 return;
                               }
@@ -296,15 +418,26 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                               if (isAlphaNum && !e.ctrlKey && !e.metaKey && !e.altKey) {
                                 e.preventDefault();
                                 onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, upper);
+                                if (audioEngine) {
+                                  try {
+                                    const rawVol = variation.volumes?.[i];
+                                    const vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
+                                    const rawDec = variation.decays?.[i];
+                                    const dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
+                                    audioEngine.playNote(trackId, upper, Tone.now(), vol, dec);
+                                  } catch (_) {}
+                                }
                                 if (indexInGrid < inputs.length - 1) {
                                   const nextEl = inputs[indexInGrid + 1] as HTMLInputElement;
                                   nextEl.focus();
                                   nextEl.select();
+                                  setSelectedStepIdx(i + 1);
+                                  setSelectedStepIndices([i + 1]);
                                 }
                               }
                             }}
-                            className={`step-input-cell text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 ${
-                              (val === 0 || val === '0') ? 'bg-[#ece4d0] text-[#1a1a1a]' : ''
+                            className={`step-input-cell text-center text-sm font-bold cordel-border-sm outline-none p-0 box-border z-10 relative transition-all duration-200 cursor-pointer ${
+                              (val === 0 || val === '0' || !val) ? 'bg-[#ece4d0] text-[#1a1a1a]' : ''
                             } ${
                               selectedStepIdx === i && selectedVariationId === variation.id
                                 ? '!border-2 !border-[#8b2a1a] shadow-[0_0_8px_rgba(139,42,26,0.6)] scale-110 z-20'
@@ -316,8 +449,27 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                               ...colorStyle,
                             }}
                           />
-                          {/* Sculpting micro-bars */}
-                          <div className="w-full mt-1 z-10 relative">
+                          {/* Sculpting micro-bars — Zone interactive pour ouvrir l'Escultor sans modifier la note */}
+                          <div
+                            className={`w-full mt-1.5 z-10 relative select-none min-h-[18px] py-0.5 cursor-pointer rounded-xs transition-colors p-[1px] ${
+                              isSelected && selectedVariationId === variation.id
+                                ? 'bg-[#8b2a1a]/15 ring-1 ring-[#8b2a1a]'
+                                : 'hover:bg-[#1a1a1a]/10'
+                            }`}
+                            style={{ touchAction: 'manipulation' }}
+                            onMouseDown={(e) => e.stopPropagation()}
+                            onTouchStart={(e) => e.stopPropagation()}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectPattern(ptn.id);
+                              setSelectedPatternId(ptn.id);
+                              setSelectedVariationId(variation.id);
+                              setSelectedStepIdx(i);
+                              setSelectedStepIndices([i]);
+                              setSelectedSubIndex?.(null);
+                            }}
+                            title={lang === 'fr' ? "Régler le volume, decay et micro-timing (Escultor)" : "Ajustar volume, decay e micro-timing (Escultor)"}
+                          >
                             {(() => {
                               const isSplit = Array.isArray(val);
                               const rawVol = variation.volumes?.[i];
@@ -336,7 +488,20 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                               if (isSplit) {
                                 return (
                                   <div className="grid grid-cols-2 gap-[1px] w-full">
-                                    <div className="flex flex-col gap-[1px]">
+                                    <div
+                                      className={`flex flex-col gap-[1px] p-[1px] rounded-xs ${
+                                        isSelected && selectedSubIndex === 0 ? 'bg-[#8b2a1a]/20 ring-1 ring-[#8b2a1a]' : ''
+                                      }`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onSelectPattern(ptn.id);
+                                        setSelectedPatternId(ptn.id);
+                                        setSelectedVariationId(variation.id);
+                                        setSelectedStepIdx(i);
+                                        setSelectedStepIndices([i]);
+                                        setSelectedSubIndex?.(0);
+                                      }}
+                                    >
                                       <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
                                         <div className="h-full bg-green-600 transition-all" style={{ width: `${vol0}%` }} />
                                       </div>
@@ -357,7 +522,20 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                                         )}
                                       </div>
                                     </div>
-                                    <div className="flex flex-col gap-[1px]">
+                                    <div
+                                      className={`flex flex-col gap-[1px] p-[1px] rounded-xs ${
+                                        isSelected && selectedSubIndex === 1 ? 'bg-[#8b2a1a]/20 ring-1 ring-[#8b2a1a]' : ''
+                                      }`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onSelectPattern(ptn.id);
+                                        setSelectedPatternId(ptn.id);
+                                        setSelectedVariationId(variation.id);
+                                        setSelectedStepIdx(i);
+                                        setSelectedStepIndices([i]);
+                                        setSelectedSubIndex?.(1);
+                                      }}
+                                    >
                                       <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
                                         <div className="h-full bg-green-600 transition-all" style={{ width: `${vol1}%` }} />
                                       </div>

@@ -1727,12 +1727,21 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     return () => window.removeEventListener('oGiradorClipboardChanged', handleChanged);
   }, []);
 
+  const selectedPatternIdRef = useRef(selectedPatternId);
+  useEffect(() => {
+    selectedPatternIdRef.current = selectedPatternId;
+  }, [selectedPatternId]);
+
   // Native wheel listener on grid with { passive: false } and e.preventDefault() to block modal vertical scroll
   useEffect(() => {
     const el = gridRef.current;
     if (!el) return;
 
     const handleWheel = (e: WheelEvent) => {
+      // Sécurisation absolue : si ce motif n'est pas le motif actif sélectionné, on ignore immédiatement
+      // l'événement et on laisse le défilement vertical natif se poursuivre sans altérer de pas.
+      if (pattern?.id !== selectedPatternIdRef.current) return;
+
       const target = e.target as HTMLElement | null;
       if (!target) return;
       const stepInput = target.closest('[data-track-id][data-step-index]') as HTMLElement | null;
@@ -2028,7 +2037,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
   // Priorité absolue des flèches ↑ / ↓ sur le pas actif (Miroir de la molette)
   useEffect(() => {
-    if (selectedStepIdx === null) return;
+    if (selectedStepIdx === null || pattern?.id !== selectedPatternId || selectedVariationId !== null) return;
 
     const handleGridVerticalArrows = (e: KeyboardEvent) => {
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {

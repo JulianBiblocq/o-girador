@@ -456,12 +456,6 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     }));
   }, [trackId, sequencer]);
 
-  const onSelectPattern = React.useCallback((patternId: number) => {
-    useSequencerStore.getState().setTracks(prev =>
-      prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t)
-    );
-  }, [trackId]);
-
   const onReorderPatternsDnd = React.useCallback((oldIndex: number, newIndex: number) => {
     if (sequencer.handleReorderPatternsDnd) {
       sequencer.handleReorderPatternsDnd(trackId, oldIndex, newIndex);
@@ -1004,6 +998,14 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   const [isMultiSelectActive, setIsMultiSelectActive] = useState(false);
   const [mouseDownOnBackdrop, setMouseDownOnBackdrop] = useState<boolean>(false);
 
+  const onSelectPattern = React.useCallback((patternId: number) => {
+    setSelectedPatternId(patternId);
+    setSelectedVariationId(null);
+    useSequencerStore.getState().setTracks(prev =>
+      prev.map(t => t.id === trackId ? { ...t, selectedPatternId: patternId } : t)
+    );
+  }, [trackId]);
+
   const prevTrackIdRef = useRef(track?.id);
   const prevTrackSelectedPatternIdRef = useRef(track?.selectedPatternId);
 
@@ -1043,6 +1045,47 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   });
   const [isAlternating, setIsAlternating] = useState<boolean>(false);
   const [isInspectorMobileOpen, setIsInspectorMobileOpen] = useState<boolean>(false);
+
+  const handleDockSelectTool = React.useCallback((tool: string) => {
+    setActiveTool(tool);
+
+    if (selectedStepIdx !== null && selectedPatternId && track) {
+      const targets = selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx];
+      let strokeToApply: string | number = tool;
+      if (tool === '0' || tool === 0 || tool === '') {
+        strokeToApply = 0;
+      } else if (tool === 'scissors') {
+        return;
+      }
+
+      if (selectedVariationId) {
+        onVariationStepValueChange(selectedPatternId, selectedVariationId, targets, strokeToApply as any);
+      } else {
+        sequencer.handleTrackStepValueChange(track.id, selectedPatternId, targets, strokeToApply as any);
+      }
+
+      if (strokeToApply !== 0 && strokeToApply !== '0' && audioEngine) {
+        try {
+          const currentPtn = track.patterns.find(p => p.id === selectedPatternId);
+          let vol = 0.8;
+          let dec = 1.0;
+          if (selectedVariationId) {
+            const vObj = currentPtn?.variations?.find(v => v.id === selectedVariationId);
+            const rawVol = vObj?.volumes?.[selectedStepIdx];
+            vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
+            const rawDec = vObj?.decays?.[selectedStepIdx];
+            dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
+          } else {
+            const rawVol = currentPtn?.volumes?.[selectedStepIdx];
+            vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
+            const rawDec = currentPtn?.decays?.[selectedStepIdx];
+            dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
+          }
+          audioEngine.playNote(track.id, String(strokeToApply), Tone.now(), vol, dec);
+        } catch (_) {}
+      }
+    }
+  }, [selectedStepIdx, selectedPatternId, selectedStepIndices, selectedVariationId, onVariationStepValueChange, sequencer, track]);
 
   // Sync activeTool when instrument changes
   useEffect(() => {
@@ -1324,7 +1367,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
               <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={handleDragEnd}>
                 <SortableContext items={patternIds} strategy={verticalListSortingStrategy}>
                   {displayedPatterns.map((ptn, ptnIdx) => {
-                    const isSelected = (track.selectedPatternId ?? displayedPatterns[0]?.id) === ptn.id;
+                    const isSelected = (selectedPatternId ?? track.selectedPatternId ?? displayedPatterns[0]?.id) === ptn.id;
 
                   return (
                     <SortablePatternWrapper key={ptn.id} id={ptn.id}>
@@ -1340,14 +1383,19 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                           }}
                           data-pattern-card={ptn.id}
                           data-selected={isSelected}
-                          className={`cordel-border-sm p-4 flex flex-col gap-3 transition-colors ${
-                            isSelected ? 'bg-[#f4ecd8]' : 'bg-[#ece4d0]'
+                          onClick={() => {
+                            onSelectPattern(ptn.id);
+                            setSelectedPatternId(ptn.id);
+                            setSelectedVariationId(null);
+                          }}
+                          className={`cordel-border-sm p-4 flex flex-col gap-3 transition-all cursor-pointer ${
+                            isSelected ? 'bg-[#f4ecd8]' : 'bg-[#ece4d0]/75 hover:bg-[#ece4d0]'
                           } ${armedPatternId === ptn.id ? 'cordel-arm-pulse' : ''}`}
                           style={{
                             ...style,
-                            boxShadow: armedPatternId === ptn.id ? undefined : (isSelected ? '4px 4px 0px 0px #1a1a1a' : '2px 2px 0px 0px #bbb'),
-                            borderColor: armedPatternId === ptn.id ? undefined : (isSelected ? '#1a1a1a' : '#999'),
-                            borderWidth: '2px',
+                            boxShadow: armedPatternId === ptn.id ? undefined : (isSelected ? '4px 4px 0px 0px #8b2a1a' : '2px 2px 0px 0px #bbb'),
+                            borderColor: armedPatternId === ptn.id ? undefined : (isSelected ? '#8b2a1a' : '#bbb'),
+                            borderWidth: isSelected ? '3px' : '2px',
                           }}
                         >
                           {/* Pattern Header */}
@@ -1413,19 +1461,35 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                               </button>
                             )}
 
-                            <span
-                              ref={(el) => {
-                                if (el) {
-                                  badgeDOMRefs.current.set(ptn.id, el);
-                                } else {
-                                  badgeDOMRefs.current.delete(ptn.id);
-                                }
-                              }}
-                              data-active-badge={ptn.id}
-                              className="bg-[#8b2a1a] text-[#f4ecd8] text-[9px] uppercase px-1.5 py-0.5 cordel-border-sm font-bold flex items-center gap-1 animate-pulse select-none hidden"
-                            >
-                              ▶ {lang === 'fr' ? 'Actif' : 'Ativo'}
-                            </span>
+                            {isSelected ? (
+                              <span
+                                ref={(el) => {
+                                  if (el) {
+                                    badgeDOMRefs.current.set(ptn.id, el);
+                                  } else {
+                                    badgeDOMRefs.current.delete(ptn.id);
+                                  }
+                                }}
+                                data-active-badge={ptn.id}
+                                className="bg-[#8b2a1a] text-[#f4ecd8] text-[9px] uppercase px-2 py-0.5 cordel-border-sm font-bold flex items-center gap-1 select-none shadow-[1px_1px_0px_#1a1a1a]"
+                              >
+                                ▶ {lang === 'fr' ? 'ÉDITION ACTIVE' : 'EDIÇÃO ATIVA'}
+                              </span>
+                            ) : (
+                              <span
+                                ref={(el) => {
+                                  if (el) {
+                                    badgeDOMRefs.current.set(ptn.id, el);
+                                  } else {
+                                    badgeDOMRefs.current.delete(ptn.id);
+                                  }
+                                }}
+                                data-active-badge={ptn.id}
+                                className="text-[#666] text-[9px] uppercase px-1.5 py-0.5 font-semibold opacity-60 hover:opacity-100 transition-opacity select-none"
+                              >
+                                {lang === 'fr' ? 'Cliquer pour activer' : 'Clique para ativar'}
+                              </span>
+                            )}
 
                             <button
                               onClick={(e) => {
@@ -1700,9 +1764,15 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
                           {/* Variations */}
                           <PatternVariationsEditor
+                            trackId={track.id}
                             lang={lang}
                             ptn={ptn}
                             inst={inst}
+                            activeTool={activeTool}
+                            isAlternating={isAlternating}
+                            isLeftHanded={isLeftHanded}
+                            selectedPatternId={selectedPatternId}
+                            onSelectPattern={onSelectPattern}
                             soloPatternPlayId={soloPatternPlayId}
                             soloPatternVariationId={soloPatternVariationId}
                             isTouchDevice={isTouchDevice}
@@ -1710,6 +1780,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             selectedStepIdx={selectedStepIdx}
                             selectedVariationId={selectedVariationId}
                             selectedStepIndices={selectedStepIndices}
+                            selectedSubIndex={selectedSubIndex}
+                            setSelectedSubIndex={setSelectedSubIndex}
                             onStopSoloPattern={onStopSoloPattern}
                             onPlaySoloPattern={onPlaySoloPattern}
                             onTogglePatternVariationFirstTimeOnly={onTogglePatternVariationFirstTimeOnly}
@@ -1791,7 +1863,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
           lang={lang}
           isLeftHanded={isLeftHanded}
           activeTool={activeTool}
-          onSelectTool={setActiveTool}
+          onSelectTool={handleDockSelectTool}
           isAlternating={isAlternating}
           onToggleAlternating={() => setIsAlternating(prev => !prev)}
           onOpenBottomSheet={() => setIsInspectorMobileOpen(true)}
