@@ -151,6 +151,11 @@ const PercussionStepCell = React.memo(({
         flex: isSextuplet || isTriplet || isOcto ? '1' : 'none',
         cursor: activeTool === 'scissors' ? (Array.isArray(val) ? GLUE_CURSOR : SCISSORS_CURSOR) : undefined
       }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onContextMenu?.(e, i, val);
+      }}
       onMouseDown={activeTool === 'scissors' ? (e) => onMouseDown(e, i, val) : undefined}
       onTouchStart={activeTool === 'scissors' ? (e) => onTouchStart(e, i, val) : undefined}
       onTouchEnd={activeTool === 'scissors' ? (e) => onTouchEnd?.(e, i, val) : undefined}
@@ -182,6 +187,14 @@ const PercussionStepCell = React.memo(({
           data-track-id={trackId}
           data-pattern-id={patternId}
           data-step-index={i}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const targetEl = e.target as HTMLElement;
+            if (!targetEl.hasAttribute('data-sub-index') && !targetEl.closest('[data-sub-index]')) {
+              onContextMenu?.(e, i, val);
+            }
+          }}
           title={activeTool === 'scissors' ? '✂ / 🩹 Recoller le pas (Fusionner)' : undefined}
         >
           {/* Zone cliquable note 1 (Haut-Gauche) */}
@@ -201,7 +214,11 @@ const PercussionStepCell = React.memo(({
             onTouchStart={(e) => onTouchStart(e, i, val, 0)}
             onTouchMove={onTouchMove}
             onTouchEnd={(e) => onTouchEnd?.(e, i, val, 0)}
-            onContextMenu={(e) => onContextMenu?.(e, i, val, 0)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onContextMenu?.(e, i, val, 0);
+            }}
             onKeyDown={(e) => onKeyDown(e, i, val, 0)}
           >
             <span
@@ -229,7 +246,11 @@ const PercussionStepCell = React.memo(({
             onTouchStart={(e) => onTouchStart(e, i, val, 1)}
             onTouchMove={onTouchMove}
             onTouchEnd={(e) => onTouchEnd?.(e, i, val, 1)}
-            onContextMenu={(e) => onContextMenu?.(e, i, val, 1)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onContextMenu?.(e, i, val, 1);
+            }}
             onKeyDown={(e) => onKeyDown(e, i, val, 1)}
           >
             <span
@@ -263,7 +284,11 @@ const PercussionStepCell = React.memo(({
           onTouchStart={activeTool === 'scissors' ? undefined : (e) => onTouchStart(e, i, val)}
           onTouchMove={onTouchMove}
           onTouchEnd={(e) => onTouchEnd?.(e, i, val)}
-          onContextMenu={(e) => onContextMenu?.(e, i, val)}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onContextMenu?.(e, i, val);
+          }}
           onChange={(e) => onChange(e, i, val)}
           onKeyDown={(e) => onKeyDown(e, i, val)}
           className={`step-input-cell w-full text-center font-bold cordel-border outline-none p-0 box-border z-10 relative transition-all duration-200 ${
@@ -379,6 +404,7 @@ interface VoiceStepCellProps {
   onTouchStart?: (e: React.TouchEvent<HTMLDivElement>, index: number) => void;
   onMouseDown?: (e: React.MouseEvent<HTMLDivElement>, index: number) => void;
   onMouseEnter?: (index: number) => void;
+  onContextMenu?: (e: React.MouseEvent<any>, index: number) => void;
   onVoiceTypeToggle: (trackId: number, patternId: number, index: number) => void;
   onVoiceSylChange: (trackId: number, patternId: number, index: number, value: string) => void;
   onVoiceNoteChange: (trackId: number, patternId: number, index: number, value: string) => void;
@@ -408,6 +434,7 @@ const VoiceStepCellComponent = ({
   onTouchStart,
   onMouseDown,
   onMouseEnter,
+  onContextMenu,
   onVoiceTypeToggle,
   onVoiceSylChange,
   onVoiceNoteChange,
@@ -473,6 +500,11 @@ const VoiceStepCellComponent = ({
         onTouchStart={(e) => onTouchStart?.(e, i)}
         onMouseDown={(e) => onMouseDown?.(e, i)}
         onMouseEnter={() => onMouseEnter?.(i)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onContextMenu?.(e, i);
+        }}
       >
         {/* Step number */}
         <div className="text-[8px] text-[#999] text-center font-bold bg-[#ece4d0] leading-tight py-0.5">
@@ -981,11 +1013,69 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
   }, [isMultiSelectActive, handleStepMouseEnterMulti, selectedVariationId, trackId, pattern?.id, pattern?.volumes, pattern?.decays, activeTool, isAlternating, instrument?.id, instrument?.type, lang, isLeftHanded, handleVariationStepValueChange, handleTrackStepValueChange]);
 
-  const handleCellContextMenu = React.useCallback((e: React.MouseEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
+  const handleClearStep = React.useCallback((idx: number, subIndex?: 0 | 1) => {
+    const rawVal = pattern?.activeSteps?.[idx];
+
+    // Si le pas est déjà vide (0, '0', '', null, undefined), ne rien faire (coût CPU = 0)
+    if (rawVal === 0 || rawVal === '0' || rawVal === '' || rawVal === null || rawVal === undefined) {
+      return;
+    }
+
+    let finalVal: string | number | [string, string] = 0;
+
+    // Si le pas est scindé ([string, string])
+    if (Array.isArray(rawVal)) {
+      if (subIndex !== undefined) {
+        const arr: [string, string] = [...rawVal] as [string, string];
+        arr[subIndex] = '0';
+        // Si les deux sous-pas deviennent '0' ou vides, repasser le pas à 0 (silence complet)
+        if ((arr[0] === '0' || arr[0] === 0 || arr[0] === '') && (arr[1] === '0' || arr[1] === 0 || arr[1] === '')) {
+          finalVal = 0;
+          setSelectedSubIndex(null);
+        } else {
+          finalVal = arr;
+          setSelectedSubIndex(subIndex);
+        }
+      } else {
+        // Clic droit global sur la case scindée : silence complet
+        finalVal = 0;
+        setSelectedSubIndex(null);
+      }
+    } else {
+      // Pas simple : repasser directement à 0
+      finalVal = 0;
+      setSelectedSubIndex(null);
+    }
+
+    if (selectedVariationId) {
+      handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
+    } else {
+      handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
+    }
+
+    // Synchronisation de la sélection si ce pas était sélectionné
+    if (selectedStepIdx === idx && finalVal === 0) {
+      setSelectedSubIndex(null);
+    }
+  }, [pattern?.activeSteps, pattern?.id, selectedVariationId, selectedStepIdx, trackId, handleVariationStepValueChange, handleTrackStepValueChange, setSelectedSubIndex]);
+
+  const handleCellContextMenu = React.useCallback((e: React.MouseEvent<any>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
     e.preventDefault();
     e.stopPropagation();
-    handleStart(e, idx, value, subIndex);
-  }, [handleStart]);
+    handleClearStep(idx, subIndex);
+  }, [handleClearStep]);
+
+  const handleVoiceContextMenu = React.useCallback((e: React.MouseEvent<any>, idx: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const currentState = pattern?.activeSteps?.[idx];
+    const currentSyl = pattern?.lyrics?.[idx];
+    const currentNote = pattern?.notes?.[idx];
+    if ((!currentState || currentState === 0 || currentState === '0') && !currentSyl && !currentNote) {
+      return;
+    }
+    handleTrackStepValueChange(trackId, pattern.id, idx, 0, '', '');
+  }, [pattern?.activeSteps, pattern?.lyrics, pattern?.notes, pattern?.id, trackId, handleTrackStepValueChange]);
 
   const handleCellTouchStart = React.useCallback((e: React.TouchEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
     if (activeTool === 'scissors') {
@@ -2266,6 +2356,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
                           onVoiceNoteChange={handleVoiceNoteChange}
                           onVoiceNoteBlur={handleVoiceNoteBlur}
                           onFocusStep={handleVoiceFocusStep}
+                          onContextMenu={handleVoiceContextMenu}
                           onNoteSelectorTarget={setNoteSelectorTarget}
                           onVoiceNav={handleVoiceNav}
                         />
