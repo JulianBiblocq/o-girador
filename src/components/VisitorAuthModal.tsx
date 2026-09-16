@@ -20,7 +20,7 @@ export const VisitorAuthModal: React.FC<VisitorAuthModalProps> = ({ onClose, lan
 
   const content = (
     <div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-3 sm:p-4 overflow-y-auto" 
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[300] flex items-center justify-center p-3 sm:p-4 overflow-y-auto" 
       onClick={!isMandatory ? onClose : undefined}
     >
       <div 

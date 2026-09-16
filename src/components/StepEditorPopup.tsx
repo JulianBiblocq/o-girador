@@ -202,7 +202,7 @@ export const StepEditorPopup: React.FC = () => {
   return ReactDOM.createPortal(
     <div
       ref={popupRef}
-      className="fixed z-[999999] border-black border-2 shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] p-2 flex flex-col gap-1.5 w-[140px] font-cactus"
+      className="fixed z-50 border-black border-2 shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] p-2 flex flex-col gap-1.5 w-[140px] font-cactus"
       style={{
         top: `${top}px`,
         left: `${left}px`,

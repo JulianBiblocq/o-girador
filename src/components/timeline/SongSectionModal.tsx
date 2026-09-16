@@ -6,7 +6,6 @@
 import React, { useState, useEffect } from 'react';
 import { SongSection, Language } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
-import { VisitorAuthModal } from '../VisitorAuthModal';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { saveSectionToCloud } from '../../cloudSections';
 import { useAudio } from '../../contexts/AudioContext';
@@ -35,7 +34,6 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
   onLoadCloudSection,
 }) => {
   const { userProfile } = useAuth();
-  const [showVisitorModal, setShowVisitorModal] = useState(false);
   const [sectionFormName, setSectionFormName] = useState<string>('');
   const [sectionFormStart, setSectionFormStart] = useState<number | string>(1);
   const [sectionFormEnd, setSectionFormEnd] = useState<number | string>(4);
@@ -170,7 +168,7 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
               <button
                 onClick={() => {
                   if (!userProfile) {
-                    setShowVisitorModal(true);
+                    useSequencerStore.getState().openVisitorAuthModal();
                     return;
                   }
                   onSaveCloudSection(editingSection);
@@ -198,9 +196,6 @@ export const SongSectionModal: React.FC<SongSectionModalProps> = ({
           </button>
         </div>
       </div>
-      {showVisitorModal && (
-        <VisitorAuthModal lang={lang} onClose={() => setShowVisitorModal(false)} />
-      )}
     </div>
   );
 };

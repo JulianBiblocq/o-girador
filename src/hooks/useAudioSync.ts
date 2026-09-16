@@ -655,27 +655,6 @@ export function useAudioSync({
     return () => unsubscribe();
   }, [masterCompressor]);
 
-  // Sync Reverb parameters and Master Reverb Volume
-  useEffect(() => {
-    if (masterReverbVolumeNode) {
-      masterReverbVolumeNode.gain.rampTo(Tone.dbToGain(masterReverbVol === -40 ? -Infinity : masterReverbVol), 0.05);
-    }
-
-    const applyReverb = () => {
-      if (reverbNode) {
-        if (reverbNode.decay !== reverbDecay) {
-          reverbNode.decay = reverbDecay;
-        }
-      }
-    };
-
-    applyReverb();
-    // Note: Reverb SEND levels (including eco mode bypass) are completely handled 
-    // by the main volume/pan/fx synchronization useEffect above. 
-    // We strictly avoid subscribing to `state.tracks` here to prevent the reverb 
-    // from regenerating (and abruptly cutting its tail) when the user adjusts a track fader!
-  }, [reverbDecay, masterReverbVol]);
-
   // Sync Reverb Sends, EQ configurations and Connection in response to Eco Mode / ecoConfig changes
   useEffect(() => {
     let lastDisableFx = useSequencerStore.getState().ecoConfig?.disableFx ?? useSequencerStore.getState().isEcoMode;

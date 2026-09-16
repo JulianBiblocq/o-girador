@@ -157,6 +157,7 @@ const PercussionStepCell = React.memo(({
   onKeyDown,
   onSelectForSculpt
 }: PercussionStepCellProps) => {
+  const lang = useSequencerStore(state => state.lang);
   return (
     <div
       key={i}
@@ -429,7 +430,7 @@ const PercussionStepCell = React.memo(({
                 e.stopPropagation();
                 onSelectForSculpt?.(i);
               }}
-              title="Sélectionner ce pas pour l'Escultor"
+              title={lang === 'fr' ? "Sélectionner ce pas pour le Sculpteur" : "Selecionar este passo para o Escultor"}
             >
               {/* Volume bar (Green) */}
               <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
@@ -554,6 +555,7 @@ const VoiceStepCellComponent = ({
   onNoteSelectorTarget,
   onVoiceNav
 }: VoiceStepCellProps) => {
+  const lang = useSequencerStore(state => state.lang);
   const [isNoteFocused, setIsNoteFocused] = useState(false);
   const isActive = state !== 0 && state !== '';
   const isPux = state === 'P';
@@ -712,7 +714,7 @@ const VoiceStepCellComponent = ({
           onTouchStart={(e) => {
             e.stopPropagation();
           }}
-          title="Sélectionner ce pas pour l'Escultor"
+          title={lang === 'fr' ? "Sélectionner ce pas pour le Sculpteur" : "Selecionar este passo para o Escultor"}
         >
           <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
             <div className="h-[2px] bg-green-600 rounded-none transition-all" style={{ width: `${volume}%` }} />
@@ -2434,7 +2436,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
               <span>➕</span>
               <span>
                 {lang === 'fr' 
-                  ? `Allonger le pattern (${pattern.steps === 16 ? '2 mes.' : pattern.steps === 32 ? '3 mes.' : pattern.steps === 48 ? '4 mes.' : '1 mes.'})` 
+                  ? `Allonger le motif (${pattern.steps === 16 ? '2 mes.' : pattern.steps === 32 ? '3 mes.' : pattern.steps === 48 ? '4 mes.' : '1 mes.'})` 
                   : `Alongar padrão (${pattern.steps === 16 ? '2 comp.' : pattern.steps === 32 ? '3 comp.' : pattern.steps === 48 ? '4 comp.' : '1 comp.'})`}
               </span>
             </button>

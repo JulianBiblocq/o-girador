@@ -37,7 +37,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
   const audio = useAudio();
   const lang = useSequencerStore(state => state.lang);
   const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
-  const currentMeasure = useSequencerStore(state => state.currentMeasure);
+  const currentMeasure = useSequencerStore(state => isActive ? state.currentMeasure : 0);
   const tracks = useSequencerStore(state => state.tracks);
   const timeSig = useSequencerStore(state => state.timeSig);
 
@@ -264,6 +264,11 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
     if (name === 'Gonguê') return 'Gonguês';
     return name + 's';
   };
+
+  // Mise en sommeil stricte après l'ensemble des hooks si inactif (évite de monter et calculer le DOM caché en mode timeline)
+  if (!isActive) {
+    return null;
+  }
 
   return (
     <div

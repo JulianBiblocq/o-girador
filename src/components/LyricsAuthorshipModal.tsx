@@ -10,7 +10,7 @@ export const LyricsAuthorshipModal: React.FC<LyricsAuthorshipModalProps> = ({ on
   // const lang = useSequencerStore(state => state.lang);
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
       <div 
         className="bg-[var(--cordel-bg)] border-4 border-[#1a1a1a] p-8 max-w-md w-full shadow-[8px_8px_0px_rgba(0,0,0,1)] flex flex-col gap-6 relative" 
         onClick={e => e.stopPropagation()}

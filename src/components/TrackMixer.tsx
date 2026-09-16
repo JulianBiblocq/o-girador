@@ -294,7 +294,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
             {...attributes}
             {...listeners}
             className="mr-2 transition-colors p-1 touch-none flex-shrink-0 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)]"
-            title="Drag to reorder"
+            title={lang === 'fr' ? "Glisser pour réorganiser" : "Arrastar para reordenar"}
           >
             <GripVertical size={16} />
           </div>
@@ -436,7 +436,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
               className={`w-6 h-6 cordel-border-sm cordel-button text-[10px] font-bold cursor-pointer transition-all flex items-center justify-center ${
                 track.isHidden ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
               }`}
-              title="Ocultar pista"
+              title={lang === 'fr' ? "Masquer la piste" : "Ocultar pista"}
             >
               {track.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </button>

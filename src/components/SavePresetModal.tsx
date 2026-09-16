@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { CatalogVisibility, Preset } from '../types';
-import { VisitorAuthModal } from './VisitorAuthModal';
 import { useCloudAudioBounce } from '../hooks/useCloudAudioBounce';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSequencerStore } from '../stores/useSequencerStore';
@@ -23,14 +22,13 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
   const [visibility, setVisibility] = useState<CatalogVisibility>('mestre_group');
   const [isSaving, setIsSaving] = useState(false);
   const [autoGenerateAudio, setAutoGenerateAudio] = useState(true);
-  const [showVisitorModal, setShowVisitorModal] = useState(false);
 
   const { genererEtUploaderPresetCloudBounce, isBouncingCloud } = useCloudAudioBounce();
 
   const handleSave = async () => {
     if (!name.trim()) return;
     if (!userProfile) {
-      setShowVisitorModal(true);
+      useSequencerStore.getState().openVisitorAuthModal();
       return;
     }
     setIsSaving(true);
@@ -147,14 +145,14 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
       onClose();
     } catch (err: any) {
       console.error(err);
-      alert((lang === 'fr' ? 'Erreur lors de la sauvegarde : ' : 'Erro ao salvar : ') + (err.message || String(err)));
+      await sequencer.alertAsync((lang === 'fr' ? 'Erreur lors de la sauvegarde : ' : 'Erro ao salvar : ') + (err.message || String(err)));
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-[1000] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
       <div className="bg-[#f4ecd8] text-[#1a1a1a] border-4 border-[#1a1a1a] shadow-[8px_8px_0px_rgba(0,0,0,1)] p-6 max-w-md w-full flex flex-col gap-6 relative">
         {/* Header */}
         <div className="flex justify-between items-start">
@@ -242,9 +240,6 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
           </button>
         </div>
       </div>
-      {showVisitorModal && (
-        <VisitorAuthModal lang={lang} onClose={() => setShowVisitorModal(false)} />
-      )}
     </div>
   );
 };

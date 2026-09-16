@@ -150,7 +150,7 @@ export const VocalValidationModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[#121212]/85 backdrop-blur-sm p-4 select-none">
+    <div className="fixed inset-0 z-[300] flex items-center justify-center bg-[#121212]/85 backdrop-blur-sm p-4 select-none">
       <div className="bg-[#ece4d0] text-[#1a1a1a] border-4 border-[#1a1a1a] shadow-[8px_8px_0px_#1a1a1a] p-6 max-w-4xl w-full flex flex-col gap-5 font-mono rounded-sm max-h-[95vh] overflow-y-auto">
         
         {/* Header */}

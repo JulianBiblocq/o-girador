@@ -44,6 +44,14 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
   const minimapPointerId = useRef<number | null>(null);
   const dragAbortControllerRef = useRef<AbortController | null>(null);
 
+  const sliderWidthRef = useRef<number>(50);
+  const sliderLeftRef = useRef<number>(0);
+  const isMinimapRafScheduledRef = useRef<boolean>(false);
+  const minimapLayoutCacheRef = useRef<{ minimapWidth: number; viewportWidth: number }>({
+    minimapWidth: 0,
+    viewportWidth: 0,
+  });
+
   useEffect(() => {
     return () => {
       if (dragAbortControllerRef.current) {
@@ -52,7 +60,7 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
     };
   }, []);
 
-  // Mini-Map Viewport synchronisation
+  // Mini-Map Viewport synchronisation (100% GPU via translate3d)
   const updateMinimapViewport = useCallback(() => {
     if (!scrollRef.current || !minimapSliderRef.current || !minimapContainerRef.current) return;
     const scrollEl = scrollRef.current;
@@ -63,23 +71,43 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
     const viewportWidth = scrollEl.clientWidth - HEADER_W;
     const minimapWidth = containerEl.clientWidth;
     
+    minimapLayoutCacheRef.current = { minimapWidth, viewportWidth };
+
     if (totalContentWidth <= 0 || minimapWidth <= 0) return;
     
     const ratio = minimapWidth / totalContentWidth;
     const sliderWidth = Math.max(16, Math.min(minimapWidth, viewportWidth * ratio));
     const sliderLeft = scrollEl.scrollLeft * ratio;
+
+    sliderWidthRef.current = sliderWidth;
+    sliderLeftRef.current = sliderLeft;
     
     sliderEl.style.width = `${sliderWidth}px`;
-    sliderEl.style.left = `${sliderLeft}px`;
+    sliderEl.style.transform = `translate3d(${sliderLeft}px, 0, 0)`;
   }, [totalMeasures, MEASURE_W, HEADER_W, scrollRef]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
+    
+    // Cadencement asynchrone par requestAnimationFrame pour zéro blocage du scroll
     const handleScroll = () => {
-      updateMinimapViewport();
+      if (isMinimapRafScheduledRef.current) return;
+      isMinimapRafScheduledRef.current = true;
+      requestAnimationFrame(() => {
+        isMinimapRafScheduledRef.current = false;
+        if (!scrollRef.current || !minimapSliderRef.current) return;
+        const totalContentWidth = totalMeasures * MEASURE_W + 150;
+        const { minimapWidth } = minimapLayoutCacheRef.current;
+        if (totalContentWidth <= 0 || minimapWidth <= 0) return;
+        const ratio = minimapWidth / totalContentWidth;
+        const sliderLeft = scrollRef.current.scrollLeft * ratio;
+        sliderLeftRef.current = sliderLeft;
+        minimapSliderRef.current.style.transform = `translate3d(${sliderLeft}px, 0, 0)`;
+      });
     };
-    el.addEventListener('scroll', handleScroll);
+
+    el.addEventListener('scroll', handleScroll, { passive: true });
     updateMinimapViewport();
     
     window.addEventListener('resize', updateMinimapViewport);
@@ -88,14 +116,14 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
       el.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', updateMinimapViewport);
     };
-  }, [scrollRef.current, updateMinimapViewport]);
+  }, [scrollRef.current, updateMinimapViewport, totalMeasures, MEASURE_W]);
 
   // Handle updates to measureWidth/totalMeasures to redraw minimap slider correctly
   useEffect(() => {
     updateMinimapViewport();
   }, [measureWidth, totalMeasures, updateMinimapViewport]);
 
-  // Mini-Map Navigation / Dragging logic
+  // Mini-Map Navigation / Dragging logic (sans lecture synchrone de offsetLeft)
   const handleMinimapDrag = useCallback((clientX: number) => {
     if (!scrollRef.current || !minimapContainerRef.current || !minimapSliderRef.current) return;
     const scrollEl = scrollRef.current;
@@ -111,14 +139,15 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
     const ratio = minimapWidth / totalContentWidth;
     if (ratio <= 0) return;
     
-    const sliderWidth = parseFloat(sliderEl.style.width) || 50;
+    const sliderWidth = sliderWidthRef.current || 50;
     
     let newLeft = clickX - sliderWidth / 2;
     if (newLeft < 0) newLeft = 0;
     if (newLeft > minimapWidth - sliderWidth) newLeft = minimapWidth - sliderWidth;
     
+    sliderLeftRef.current = newLeft;
     scrollEl.scrollLeft = newLeft / ratio;
-    sliderEl.style.left = `${newLeft}px`;
+    sliderEl.style.transform = `translate3d(${newLeft}px, 0, 0)`;
   }, [totalMeasures, MEASURE_W, scrollRef]);
 
   const handleMinimapPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -156,8 +185,8 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
     
     if (!minimapContainerRef.current || !minimapSliderRef.current || !scrollRef.current) return;
     const initialX = e.clientX;
-    const initialS = minimapSliderRef.current.clientWidth;
-    const initialL = minimapSliderRef.current.offsetLeft;
+    const initialS = sliderWidthRef.current;
+    const initialL = sliderLeftRef.current;
     const M = minimapContainerRef.current.clientWidth;
     const V = scrollRef.current.clientWidth;
     
@@ -186,10 +215,12 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
         }
       });
 
-      // 3. Mettre à jour le slider de la minimap
+      // 3. Mettre à jour le slider de la minimap via GPU translate3d
       if (minimapSliderRef.current) {
+        sliderWidthRef.current = targetS;
+        sliderLeftRef.current = initialL;
         minimapSliderRef.current.style.width = `${targetS}px`;
-        minimapSliderRef.current.style.left = `${initialL}px`;
+        minimapSliderRef.current.style.transform = `translate3d(${initialL}px, 0, 0)`;
       }
     };
 
@@ -229,8 +260,8 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
     
     if (!minimapContainerRef.current || !minimapSliderRef.current || !scrollRef.current) return;
     const initialX = e.clientX;
-    const initialS = minimapSliderRef.current.clientWidth;
-    const initialL = minimapSliderRef.current.offsetLeft;
+    const initialS = sliderWidthRef.current;
+    const initialL = sliderLeftRef.current;
     const M = minimapContainerRef.current.clientWidth;
     const V = scrollRef.current.clientWidth;
     
@@ -260,10 +291,12 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
         }
       });
 
-      // 3. Mettre à jour le slider de la minimap
+      // 3. Mettre à jour le slider de la minimap via GPU translate3d
       if (minimapSliderRef.current) {
+        sliderWidthRef.current = targetS;
+        sliderLeftRef.current = targetL;
         minimapSliderRef.current.style.width = `${targetS}px`;
-        minimapSliderRef.current.style.left = `${targetL}px`;
+        minimapSliderRef.current.style.transform = `translate3d(${targetL}px, 0, 0)`;
       }
     };
 
@@ -355,7 +388,7 @@ const TimelineMinimapComponent: React.FC<TimelineMinimapProps> = ({
         <div 
           ref={minimapSliderRef}
           className="absolute top-0 bottom-0 bg-blue-500/10 dark:bg-blue-400/10 border-y-2 border-blue-500 dark:border-blue-400 shadow-[0_0_6px_rgba(59,130,246,0.25)] cursor-grab active:cursor-grabbing z-10"
-          style={{ width: '100px', left: '0px' }}
+          style={{ width: '100px', left: '0px', willChange: 'transform', transformOrigin: 'left center' }}
         >
           {/* Left Handle */}
           <div

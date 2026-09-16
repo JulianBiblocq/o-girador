@@ -89,7 +89,7 @@ export interface Circle {
   radius?: number;
 }
 
-import { TrackGroup, SongSection, SongMarker } from './store.types';
+import { TrackGroup, SongSection, SongMarker, MasterFX } from './store.types';
 
 export interface Preset {
   bpm: number;
@@ -112,6 +112,9 @@ export interface Preset {
   masterVol?: number;
   masterReverbVol?: number;
   reverbDecay?: number;
+  masterFX?: MasterFX;
+  masterDistortion?: number; // Compat alias (0-100)
+  masterDistortionDrive?: number; // Compat alias (0-100)
   isSwingOn?: boolean; // Keep for backward compatibility
   globalSwing?: GlobalSwing;
   loopStartMeasure?: number | null;

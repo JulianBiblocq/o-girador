@@ -63,6 +63,7 @@ export interface TrackSlice {
   setMasterFxVolume: (fxType: 'reverb' | 'distortion', volume: number) => void;
   setMasterFxParam: (fxType: 'reverb' | 'distortion', param: 'time' | 'drive', value: number) => void;
   toggleMasterFxMute: (fxType: 'reverb' | 'distortion') => void;
+  setMasterFX: (masterFX: MasterFX) => void;
   handleTrackLowCutToggle: (id: number) => void;
   handleTrackEQChange: (id: number, bands: Partial<TrackGroup['eqBands']>) => void;
   handleTrackEQReset: (id: number) => void;
@@ -1283,6 +1284,10 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         }
       }
     }));
+  },
+
+  setMasterFX: (masterFX) => {
+    set({ masterFX });
   },
 
   handleTimelinePatternAssign: (trackId, patternId, measureIdx) => {
@@ -2919,6 +2924,8 @@ export interface ProjectSettingsSlice {
   vocalTransposeSteps: number;
   isTracksCollapsed: boolean;
   isPreviewMode: boolean;
+  isVisitorAuthModalOpen: boolean;
+  isSubscriptionModalOpen: boolean;
 
   setLetras: (letras: string) => void;
   setMetadata: (metadata: PresetMetadata) => void;
@@ -2934,6 +2941,10 @@ export interface ProjectSettingsSlice {
   decrementVocalTransposeSteps: () => void;
   toggleTracksCollapsed: () => void;
   setIsPreviewMode: (val: boolean) => void;
+  openVisitorAuthModal: () => void;
+  closeVisitorAuthModal: () => void;
+  openSubscriptionModal: () => void;
+  closeSubscriptionModal: () => void;
 }
 
 const detectEcoMode = (): boolean => {
@@ -2965,6 +2976,8 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   vocalTransposeSteps: 0,
   isTracksCollapsed: typeof window !== 'undefined' && (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768) ? false : true,
   isPreviewMode: false,
+  isVisitorAuthModalOpen: false,
+  isSubscriptionModalOpen: false,
 
   setLetras: (letras) => set({ letras }),
   setMetadata: (metadata) => set({ metadata }),
@@ -3038,7 +3051,11 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
 
     set({ letras: htmlArr.join('\n\n') });
   },
-  setIsPreviewMode: (val) => set({ isPreviewMode: val })
+  setIsPreviewMode: (val) => set({ isPreviewMode: val }),
+  openVisitorAuthModal: () => set({ isVisitorAuthModalOpen: true }),
+  closeVisitorAuthModal: () => set({ isVisitorAuthModalOpen: false }),
+  openSubscriptionModal: () => set({ isSubscriptionModalOpen: true }),
+  closeSubscriptionModal: () => set({ isSubscriptionModalOpen: false })
 });
 
 // ---------------------------------------------------------

@@ -49,7 +49,7 @@ export const MelodicNoteSelector: React.FC<MelodicNoteSelectorProps> = ({
   const isBlackKey = (note: string) => note.includes('#');
 
   return (
-    <div className="absolute z-[999] bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[4px_4px_0_#1a1a1a] p-3 flex flex-col gap-2.5 w-60 select-none font-sans">
+    <div className="absolute z-50 bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[4px_4px_0_#1a1a1a] p-3 flex flex-col gap-2.5 w-60 select-none font-sans">
       <div className="flex justify-between items-center border-b border-[#1a1a1a]/20 pb-1.5">
         <span className="text-[10px] font-bold uppercase tracking-wider">
           🎹 {lang === 'fr' ? 'Sélecteur de Note' : 'Seletor de Nota'}

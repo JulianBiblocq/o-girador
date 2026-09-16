@@ -237,7 +237,7 @@ export const AddChannelModal: React.FC<AddChannelModalProps> = ({ onClose }) => 
 
   return (
     <div 
-      className="fixed inset-0 bg-[#000000]/70 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-fade-in"
+      className="fixed inset-0 bg-[#000000]/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in"
       onClick={onClose}
     >
       <div 

@@ -54,7 +54,7 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'F': return isPt ? 'Fla aberto' : 'Fla ouvert';
       case 'V': return isPt ? 'Fla slap' : 'Fla claqué';
       case 'C': return isPt ? 'Clap (mãos)' : 'Clap (mains)';
-      case 'B': return isPt ? 'Barulho' : 'Tremblement';
+      case 'B': return isPt ? 'Barulho' : 'Grondement';
       default: return stroke;
     }
   }
@@ -66,12 +66,12 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'E': return isPt ? 'Mão Esquerda (Forte)' : 'Main Gauche (Fort)';
       case 'e': return isPt ? 'Mão Esquerda (Fraca)' : 'Main Gauche (Faible)';
 
-      case 'R': return isPt ? 'Rufada Direita' : 'Roulement court D';
-      case 'r': return isPt ? 'Rufada Esquerda' : 'Roulement court G';
+      case 'R': return isPt ? 'Rufada Direita' : 'Roulement court (Rufada) D';
+      case 'r': return isPt ? 'Rufada Esquerda' : 'Roulement court (Rufada) G';
       case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
       case 'F': return isPt ? 'Fla' : 'Fla';
       case 'C': return isPt ? 'Click' : 'Click';
-      case 'B': return isPt ? 'Barulho' : 'Tremblement';
+      case 'B': return isPt ? 'Barulho' : 'Grondement';
       default: return stroke;
     }
   }
@@ -85,8 +85,8 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
 
       case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
       case 'C': return isPt ? 'Click' : 'Click';
-      case 'I': return isPt ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Iguarassu)';
-      case 'B': return isPt ? 'Barulho' : 'Tremblement';
+      case 'I': return isPt ? 'Bacalhau (Iguarassu)' : 'Bacalhau (Bois gauche / Iguarassu)';
+      case 'B': return isPt ? 'Barulho' : 'Grondement';
       default: return stroke;
     }
   }
@@ -97,21 +97,21 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'g': return isPt ? 'Grave Fraco' : 'Grave Faible';
       case 'A': return isPt ? 'Agudo Forte' : 'Aigu Fort';
       case 'a': return isPt ? 'Agudo Fraco' : 'Aigu Faible';
-      case 'X': return isPt ? 'Toque no aro' : 'Coup sur le cerclage';
-      case 'B': return isPt ? 'Barulho' : 'Tremblement';
+      case 'X': return isPt ? 'Corpo do sino' : 'Corps / Flanc';
+      case 'B': return isPt ? 'Barulho' : 'Grondement';
       default: return stroke;
     }
   }
 
   if (instId === 'agbe') {
     switch (stroke) {
-      case 'E': return isPt ? 'Esquerda (Forte)' : 'Gauche (Fort)';
-      case 'e': return isPt ? 'Esquerda (Fraca)' : 'Gauche (Faible)';
-      case 'D': return isPt ? 'Direita (Forte)' : 'Droite (Fort)';
-      case 'd': return isPt ? 'Direita (Fraca)' : 'Droite (Faible)';
-      case 'S': return isPt ? 'Salto' : 'Salto';
-      case 'V': return isPt ? 'Volta' : 'Volta';
-      case 'B': return isPt ? 'Barulho' : 'Tremblement';
+      case 'E': return isPt ? 'Esquerda (Forte)' : 'Gauche / Filet (Fort)';
+      case 'e': return isPt ? 'Esquerda (Fraca)' : 'Gauche / Filet (Faible)';
+      case 'D': return isPt ? 'Direita (Forte)' : 'Droite / Paume (Fort)';
+      case 'd': return isPt ? 'Direita (Fraca)' : 'Droite / Paume (Faible)';
+      case 'S': return isPt ? 'Salto' : 'Lancer (Salto)';
+      case 'V': return isPt ? 'Volta' : 'Retour (Volta)';
+      case 'B': return isPt ? 'Barulho' : 'Grondement';
       default: return stroke;
     }
   }
@@ -122,8 +122,8 @@ const getStrokeDescription = (instId: string, instType: string, stroke: string, 
       case 'p': return isPt ? 'Push (Fraco)' : 'Pousser (Faible)';
       case 'T': return isPt ? 'Pull (Forte)' : 'Tirer (Fort)';
       case 't': return isPt ? 'Pull (Fraco)' : 'Tirer (Faible)';
-      case 'L': return isPt ? 'Lado' : 'Lado';
-      case 'B': return isPt ? 'Barulho' : 'Tremblement';
+      case 'L': return isPt ? 'Lado' : 'Secousse latérale';
+      case 'B': return isPt ? 'Barulho' : 'Grondement';
       default: return stroke;
     }
   }
@@ -345,7 +345,7 @@ const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
 
   return (
     <div
-      className="fixed z-[999999] flex flex-col items-center pointer-events-none"
+      className="fixed z-50 flex flex-col items-center pointer-events-none"
       style={{
         left: `${leftPos}px`,
         top: `${selector.y}px`,

@@ -89,7 +89,7 @@ export const TimelineContextMenu: React.FC = () => {
   return createPortal(
     <div
       ref={menuRef}
-      className="fixed z-[99999] bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a] p-1.5 min-w-[190px] select-none text-xs font-cactus animate-in fade-in zoom-in-95 duration-75"
+      className="fixed z-50 bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[4px_4px_0px_#1a1a1a] p-1.5 min-w-[190px] select-none text-xs font-cactus animate-in fade-in zoom-in-95 duration-75"
       style={{ left: `${coords.x}px`, top: `${coords.y}px` }}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => {

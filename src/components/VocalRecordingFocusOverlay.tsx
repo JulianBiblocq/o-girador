@@ -86,7 +86,7 @@ export const VocalRecordingFocusOverlay: React.FC = () => {
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#121212]/92 backdrop-blur-md text-[#fdfaf2] font-mono select-none p-6"
+      className="fixed inset-0 z-[200] flex flex-col items-center justify-center bg-[#121212]/92 backdrop-blur-md text-[#fdfaf2] font-mono select-none p-6"
     >
       <div className="bg-[#ece4d0] text-[#1a1a1a] border-4 border-[#1a1a1a] shadow-[12px_12px_0px_#1a1a1a] p-8 max-w-xl w-full flex flex-col items-center gap-6 rounded-sm text-center">
         

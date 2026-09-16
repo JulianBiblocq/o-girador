@@ -23,6 +23,7 @@ export function useAppAudio() {
   const hasLoadedInitialPreset = useRef(false);
   const lastNotesSignatureRef = useRef<string>('');
   const lastTracksRef = useRef<any[]>([]);
+  const lastMasterFXRef = useRef<any>(null);
   const audioRef = useRef<any>(audio);
   const workerRef = useRef<Worker | null>(null);
 
@@ -261,6 +262,9 @@ export function useAppAudio() {
         masterVol: audioRef.current.masterVol,
         masterReverbVol: audioRef.current.masterReverbVol,
         reverbDecay: audioRef.current.reverbDecay,
+        masterFX: state.masterFX,
+        masterDistortion: state.masterFX?.distortion?.returnVolume,
+        masterDistortionDrive: state.masterFX?.distortion?.drive,
         globalSwing: audioRef.current.globalSwing,
       };
 
@@ -283,18 +287,31 @@ export function useAppAudio() {
 
     // Initialize refs on mount/load
     const currentTracks = useSequencerStore.getState().tracks;
+    const currentMasterFX = useSequencerStore.getState().masterFX;
     lastTracksRef.current = currentTracks;
+    lastMasterFXRef.current = currentMasterFX;
     if (!lastNotesSignatureRef.current) {
       lastNotesSignatureRef.current = getNotesSignature(currentTracks);
     }
 
     const unsub = useSequencerStore.subscribe((state) => {
-      if (state.tracks === lastTracksRef.current) return;
-      lastTracksRef.current = state.tracks;
+      let shouldScheduleSave = false;
 
-      const currentSig = getNotesSignature(state.tracks);
-      if (currentSig !== lastNotesSignatureRef.current) {
-        lastNotesSignatureRef.current = currentSig;
+      if (state.tracks !== lastTracksRef.current) {
+        lastTracksRef.current = state.tracks;
+        const currentSig = getNotesSignature(state.tracks);
+        if (currentSig !== lastNotesSignatureRef.current) {
+          lastNotesSignatureRef.current = currentSig;
+          shouldScheduleSave = true;
+        }
+      }
+
+      if (state.masterFX !== lastMasterFXRef.current) {
+        lastMasterFXRef.current = state.masterFX;
+        shouldScheduleSave = true;
+      }
+
+      if (shouldScheduleSave) {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(performSave, 1500);
       }

@@ -942,7 +942,7 @@ export const BalancoEditorPanel: React.FC<BalancoEditorPanelProps> = ({
       {/* 6. Modale Bibliothèque complète des Balanços */}
       {isLibraryModalOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[75] flex items-center justify-center p-3 sm:p-4 select-none"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[100] flex items-center justify-center p-3 sm:p-4 select-none"
           onClick={() => setIsLibraryModalOpen(false)}
         >
           <div
@@ -1163,7 +1163,7 @@ export const BalancoEditorPanel: React.FC<BalancoEditorPanelProps> = ({
       {/* 7. Modale de confirmation de suppression style Cordel */}
       {presetToDelete && (
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-[85] flex items-center justify-center p-4 select-none"
+          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-[300] flex items-center justify-center p-4 select-none"
           onClick={() => setPresetToDelete(null)}
         >
           <div
@@ -1228,7 +1228,7 @@ export const BalancoEditorPanel: React.FC<BalancoEditorPanelProps> = ({
       {/* 8. Fenêtre de feedback style Cordel */}
       {statusFeedback && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[80] flex items-center justify-center p-4 select-none"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[300] flex items-center justify-center p-4 select-none"
           onClick={() => setStatusFeedback(null)}
         >
           <div

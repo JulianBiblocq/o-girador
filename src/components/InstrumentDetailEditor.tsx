@@ -34,7 +34,6 @@ import { useSortable } from '@dnd-kit/sortable';
 import { Pattern, RhythmSignal, CloudPattern, CatalogVisibility, Language, GlobalSwing } from '../types';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { useInstrumentLabel } from '../stores/useNomenclatureStore';
-import { VisitorAuthModal } from './VisitorAuthModal';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useAuth } from '../contexts/AuthContext';
 import { useGameData } from '../contexts/GameDataContext';
@@ -769,7 +768,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     let targetDocId: string | undefined = undefined;
 
     if (existingPattern) {
-      const confirmReplace = await sequencer.confirmAsync(lang === 'fr' ? `Le pattern "${savePatternName.trim()}" existe déjà. Voulez-vous le remplacer ?` : `O padrão "${savePatternName.trim()}" já existe. Deseja substituí-lo?`);
+      const confirmReplace = await sequencer.confirmAsync(lang === 'fr' ? `Le motif "${savePatternName.trim()}" existe déjà. Voulez-vous le remplacer ?` : `O padrão "${savePatternName.trim()}" já existe. Deseja substituí-lo?`);
       if (!confirmReplace) {
         return;
       }
@@ -1162,11 +1161,8 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
         }}
       >
         {isClosing && !isDetached && (
-          <div className="absolute inset-0 bg-[#f4ecd8]/20 backdrop-blur-[0.5px] z-[99999] pointer-events-auto" />
+          <div className="absolute inset-0 bg-[#f4ecd8]/20 backdrop-blur-[0.5px] z-10 pointer-events-auto" />
         )}
-        {showVisitorModal && (
-            <VisitorAuthModal lang={lang} onClose={() => setShowVisitorModal(false)} />
-          )}
         {/* ═══════════════════ HEADER BAR ═══════════════════ */}
         <div
           className="flex items-center gap-3 px-5 py-3 border-b-[3px] border-[#1a1a1a] shrink-0"
@@ -1407,7 +1403,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 {...attributes}
                                 {...listeners}
                                 className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[#1a1a1a]/60 hover:text-[#1a1a1a] transition-colors touch-none"
-                                title="Drag to reorder patterns"
+                                title={lang === 'fr' ? "Glisser pour réordonner les motifs" : "Arrastar para reordenar os padrões"}
                               >
                                 <GripVertical size={16} />
                               </div>
@@ -1546,7 +1542,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 setSavePatternFolder(existingFolders[0] || 'Général');
                               }}
                               className="p-1 rounded-sm transition-colors ml-4 text-[#1a1a1a] hover:bg-[#1a1a1a]/10"
-                              title={lang === 'fr' ? 'Sauvegarder la phrase dans le catalogue' : 'Salvar o padrão no catálogo'}
+                              title={lang === 'fr' ? 'Sauvegarder le motif dans le catalogue' : 'Salvar o padrão no catálogo'}
                             >
                               💾
                             </button>
@@ -1696,7 +1692,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                             return (
                               <div className="text-xs font-bold text-[#666] mb-2 flex items-center justify-between flex-wrap gap-2">
                                 <div className="flex items-center gap-3">
-                                  <span>{lang === 'fr' ? 'Probabilité de base (Base Track) :' : 'Probabilidade base (Pista Base) :'} {baseProb}%</span>
+                                  <span>{lang === 'fr' ? 'Probabilité du motif maître :' : 'Probabilidade do padrão base :'} {baseProb}%</span>
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -1711,7 +1707,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                         ? 'bg-[#8b2a1a] text-[#f4ecd8]'
                                         : 'text-[#1a1a1a] hover:bg-[#1a1a1a]/10'
                                     }`}
-                                    title={soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar lecture') : (lang === 'fr' ? 'Écouter ce motif de base en solo (sans variations)' : 'Ouvir este padrão base em solo')}
+                                    title={soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? (lang === 'fr' ? 'Arrêter la lecture' : 'Parar leitura') : (lang === 'fr' ? 'Écouter ce motif de base en solo (sans variations)' : 'Ouvir este padrão base em solo')}
                                   >
                                     {soloPatternPlayId === ptn.id && soloPatternVariationId === 'base' ? <Square className="w-3.5 h-3.5 fill-current" /> : <Play className="w-3.5 h-3.5 fill-current" />}
                                   </button>
@@ -1885,7 +1881,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     {/* ─── Mobile/Tablet Portrait Bottom Sheet Drawer (< 1024px) ─── */}
     {isInspectorMobileOpen && (
       <div
-        className="lg:hidden fixed inset-0 z-[100000] flex flex-col justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
+        className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
         onClick={() => setIsInspectorMobileOpen(false)}
       >
         <div
@@ -1920,7 +1916,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             
             {existingFolders.length === 0 ? (
               <div className="text-center py-8 text-[#666] font-bold text-sm italic">
-                {lang === 'fr' ? 'Aucune phrase sauvegardée pour cet instrument.' : 'Nenhum padrão salvo para este instrumento.'}
+                {lang === 'fr' ? 'Aucun motif sauvegardé pour cet instrument.' : 'Nenhum padrão salvo para este instrumento.'}
               </div>
             ) : (
               <div className="flex flex-col gap-4">
@@ -1982,7 +1978,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                 </button>
                                   <button
                                     onClick={async () => {
-                                      if (await sequencer.confirmAsync(lang === 'fr' ? 'Supprimer définitivement cette phrase du catalogue ?' : 'Excluir permanentemente este padrão do catálogo?')) {
+                                      if (await sequencer.confirmAsync(lang === 'fr' ? 'Supprimer définitivement ce motif du catalogue ?' : 'Excluir permanentemente este padrão do catálogo?')) {
                                         try {
                                           const pId = libPtn.id;
                                           const { deleteCloudPattern } = await import('../cloudPatterns');
@@ -2023,7 +2019,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
             
             <div className="mb-4">
               <label className="block text-sm font-bold text-[#1a1a1a] mb-1">
-                {lang === 'fr' ? 'Nom de la phrase' : 'Nome do padrão'}
+                {lang === 'fr' ? 'Nom du motif' : 'Nome do padrão'}
               </label>
               <input
                 type="text"
@@ -2163,7 +2159,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[99999] flex items-center justify-center"
+      className="fixed inset-0 z-[200] flex items-center justify-center"
       style={{ backgroundColor: 'rgba(0,0,0,0.72)' }}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}

@@ -27,7 +27,6 @@ import { TimelineUIContext } from '../contexts/TimelineUIContext';
 import { useAudio } from '../contexts/AudioContext';
 import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { useAuth } from '../contexts/AuthContext';
-import { SubscriptionModal } from './SubscriptionModal';
 import { TimelineMinimap } from './timeline/TimelineMinimap';
 import { SongSectionModal } from './timeline/SongSectionModal';
 import { SongMarkerModal } from './timeline/SongMarkerModal';
@@ -78,7 +77,6 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 }) => {
   const sequencer = useSequencer();
   const { hasAccess } = useAuth();
-  const [showSubModal, setShowSubModal] = React.useState(false);
   const [insertMeasuresPrompt, setInsertMeasuresPrompt] = React.useState<{isOpen: boolean, targetIdx: number | null}>({isOpen: false, targetIdx: null});
   const [insertAmountStr, setInsertAmountStr] = React.useState("1");
   const { isPlaying } = useAudio();
@@ -261,63 +259,92 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   }, [MEASURE_W, isPlaying, onMeasureWidthChange]);
 
   // --- Horizontal measures virtualization ---
+  // Si totalMeasures <= 48 : AUCUNE VIRTUALISATION.
+  // Toutes les mesures restent montées -> zéro re-render et zéro unmount/mount au scroll (60 FPS constants)
   const [visibleRange, setVisibleRange] = React.useState(() => {
+    if (totalMeasures <= 48) {
+      return { start: 0, end: Math.max(0, totalMeasures - 1) };
+    }
     const initialWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
     const initialVisible = Math.ceil((initialWidth - HEADER_W) / MEASURE_W);
-    return { start: 0, end: Math.min(totalMeasures - 1, initialVisible + 2) };
+    return { start: 0, end: Math.min(totalMeasures - 1, initialVisible + 8) };
   });
 
-  const updateVisibleRange = React.useCallback(() => {
-    const el = scrollRef.current;
-    const currentMeasureW = measureWidthRef.current;
-    
-    let scrollLeft = 0;
-    let viewportWidth = typeof window !== 'undefined' ? window.innerWidth - HEADER_W : 1200;
-    
-    if (el) {
-      // 🛡️ Performance / CPU impact check: Clamping scrollLeft programmatically 
-      // avoids layout shifts, double-commit loops and layout thrashing (Reflow/Paint)
-      const maxScrollLeft = Math.max(0, totalMeasures * currentMeasureW + 150 - (el.clientWidth - HEADER_W));
-      if (el.scrollLeft > maxScrollLeft) {
-        el.scrollLeft = maxScrollLeft;
-      }
-      scrollLeft = el.scrollLeft;
-      viewportWidth = el.clientWidth - HEADER_W;
-    }
-    
-    const buffer = 2; // 2 measures buffer on each side
-    let start = Math.max(0, Math.floor(scrollLeft / currentMeasureW) - buffer);
-    const end = Math.min(
-      totalMeasures - 1,
-      Math.ceil((scrollLeft + viewportWidth) / currentMeasureW) + buffer
-    );
-    
-    // Safety check: ensure start never exceeds end if layout is in transition
-    if (start > end) {
-      start = Math.max(0, end - buffer);
+  const isRangeScheduledRef = useRef(false);
+  const viewportCacheRef = useRef({
+    width: typeof window !== 'undefined' ? window.innerWidth - HEADER_W : 1200,
+    lastScrollLeft: 0,
+  });
+
+  const updateVisibleRange = React.useCallback((immediate = false) => {
+    // Si totalMeasures <= 48 : forcer visibleRange à couvrir l'ensemble du morceau
+    if (totalMeasures <= 48) {
+      setVisibleRange(prev => {
+        if (prev.start === 0 && prev.end === totalMeasures - 1) return prev;
+        return { start: 0, end: Math.max(0, totalMeasures - 1) };
+      });
+      return;
     }
 
-    React.startTransition(() => {
-      setVisibleRange(prev => {
-        if (prev.start === start && prev.end === end) return prev;
-        return { start, end };
+    const computeRange = () => {
+      const scrollLeft = viewportCacheRef.current.lastScrollLeft;
+      const viewportWidth = viewportCacheRef.current.width;
+      const currentMeasureW = measureWidthRef.current;
+
+      const buffer = 8; // Buffer généreux de 8 mesures pour anticiper sans détruire
+      let start = Math.max(0, Math.floor(scrollLeft / currentMeasureW) - buffer);
+      const end = Math.min(
+        totalMeasures - 1,
+        Math.ceil((scrollLeft + viewportWidth) / currentMeasureW) + buffer
+      );
+
+      if (start > end) {
+        start = Math.max(0, end - buffer);
+      }
+
+      React.startTransition(() => {
+        setVisibleRange(prev => {
+          if (prev.start === start && prev.end === end) return prev;
+          return { start, end };
+        });
       });
-    });
-  }, [totalMeasures, HEADER_W]);
+    };
+
+    if (immediate) {
+      computeRange();
+    } else {
+      if (isRangeScheduledRef.current) return;
+      isRangeScheduledRef.current = true;
+      requestAnimationFrame(() => {
+        isRangeScheduledRef.current = false;
+        computeRange();
+      });
+    }
+  }, [totalMeasures]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
+    viewportCacheRef.current.lastScrollLeft = el.scrollLeft;
+    viewportCacheRef.current.width = el.clientWidth - HEADER_W;
+
     const handleScroll = () => {
-      updateVisibleRange();
+      viewportCacheRef.current.lastScrollLeft = el.scrollLeft;
+      // Pour totalMeasures <= 48, ne pas recalculer visibleRange au scroll (zéro unmount)
+      if (totalMeasures > 48) {
+        updateVisibleRange(false);
+      }
     };
 
     el.addEventListener('scroll', handleScroll, { passive: true });
-    updateVisibleRange();
+    updateVisibleRange(true);
 
-    const resizeObserver = new ResizeObserver(() => {
-      updateVisibleRange();
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (entries[0]) {
+        viewportCacheRef.current.width = entries[0].contentRect.width - HEADER_W;
+      }
+      updateVisibleRange(true);
     });
     resizeObserver.observe(el);
 
@@ -325,10 +352,10 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       el.removeEventListener('scroll', handleScroll);
       resizeObserver.disconnect();
     };
-  }, [updateVisibleRange, scrollRef.current, isActive]);
+  }, [updateVisibleRange, scrollRef.current, isActive, totalMeasures, HEADER_W]);
 
   useEffect(() => {
-    updateVisibleRange();
+    updateVisibleRange(true);
   }, [measureWidth, totalMeasures, updateVisibleRange]);
 
   // 🛡️ FIX (Audit): Centralized AbortController for all drag/drop events
@@ -2164,15 +2191,12 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       />
 
       {/* Tablature Export Modal removed (lifted to App.tsx) */}
-      {showSubModal && (
-        <SubscriptionModal lang={lang} onClose={() => setShowSubModal(false)} />
-      )}
       <VocalRecordingBar />
       <StepEditorPopup />
       <TimelineContextMenu />
       {/* ══════════ INSERT MEASURES PROMPT MODAL ══════════ */}
       {insertMeasuresPrompt.isOpen && (
-        <div className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
           <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] p-6 rounded cordel-border w-full max-w-sm cordel-shadow text-center font-cactus relative">
             <h3 className="text-xl font-bold mb-4 uppercase tracking-wider">
               {lang === 'fr' ? 'Ajouter des mesures' : 'Adicionar compassos'}
@@ -2195,7 +2219,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                     const idx = insertMeasuresPrompt.targetIdx ?? totalMeasures;
                     const newTotal = Math.min(64, totalMeasures + amount);
                     if (newTotal > 20 && !hasAccess('mestre')) {
-                      setShowSubModal(true);
+                      useSequencerStore.getState().openSubscriptionModal();
                     } else {
                       onInsertMeasure && onInsertMeasure(idx, newTotal - totalMeasures);
                     }
@@ -2218,7 +2242,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                     const idx = insertMeasuresPrompt.targetIdx ?? totalMeasures;
                     const newTotal = Math.min(64, totalMeasures + amount);
                     if (newTotal > 20 && !hasAccess('mestre')) {
-                      setShowSubModal(true);
+                      useSequencerStore.getState().openSubscriptionModal();
                     } else {
                       onInsertMeasure && onInsertMeasure(idx, newTotal - totalMeasures);
                     }

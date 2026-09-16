@@ -26,6 +26,7 @@ const getVoiceDurationLabel = (val: number, lang: string): string => {
 };
 
 const EditableNumber = ({ value, suffix = "", min = 0, max = 100, onChange, className = "" }: any) => {
+  const lang = useSequencerStore(state => state.lang);
   const [isEditing, setIsEditing] = useState(false);
   const [tempVal, setTempVal] = useState(String(value));
 
@@ -53,7 +54,7 @@ const EditableNumber = ({ value, suffix = "", min = 0, max = 100, onChange, clas
     <span 
       onClick={() => { setTempVal(String(value)); setIsEditing(true); }} 
       className={`cursor-pointer hover:underline decoration-dashed underline-offset-2 ${className}`}
-      title="Tap to edit"
+      title={lang === 'fr' ? "Cliquer pour modifier" : "Clique para editar"}
     >
       {value > 0 && min < 0 ? `+${value}` : value}{suffix}
     </span>

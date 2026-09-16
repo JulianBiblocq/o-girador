@@ -402,9 +402,28 @@ export function useCloudAudioBounce() {
         const playersToLoad: Promise<void>[] = [];
         
         // 1. Create Master FX
-        const masterEQ = new Tone.EQ3(0, 0, 0).toDestination();
-        const masterReverb = new Tone.Reverb(2).connect(masterEQ);
-        const masterDistortion = new Tone.Distortion(0.8).connect(masterEQ);
+        const eqLow = presetData.masterEQ?.low ?? 0;
+        const eqMid = presetData.masterEQ?.mid ?? 0;
+        const eqHigh = presetData.masterEQ?.high ?? 0;
+        const masterEQ = new Tone.EQ3(eqLow, eqMid, eqHigh).toDestination();
+
+        const revDecay = presetData.masterFX
+          ? (0.5 + 7.5 * (presetData.masterFX.reverb.time / 100))
+          : (presetData.reverbDecay ?? 2.5);
+        const masterReverbVol = presetData.masterFX
+          ? (presetData.masterFX.reverb.isMuted ? 0 : presetData.masterFX.reverb.returnVolume / 100)
+          : 0.7;
+        const masterReverbGain = new Tone.Gain(masterReverbVol).connect(masterEQ);
+        const masterReverb = new Tone.Reverb(Math.max(0.5, revDecay)).connect(masterReverbGain);
+
+        const distDrive = presetData.masterFX
+          ? (presetData.masterFX.distortion.drive / 100)
+          : (presetData.masterDistortionDrive !== undefined ? presetData.masterDistortionDrive / 100 : 0.2);
+        const distVol = presetData.masterFX
+          ? (presetData.masterFX.distortion.isMuted ? 0 : presetData.masterFX.distortion.returnVolume / 100)
+          : (presetData.masterDistortion !== undefined ? presetData.masterDistortion / 100 : 0);
+        const masterDistGain = new Tone.Gain(distVol).connect(masterEQ);
+        const masterDistortion = new Tone.Distortion(distDrive).connect(masterDistGain);
         await masterReverb.generate();
         
         // 2. Process each track

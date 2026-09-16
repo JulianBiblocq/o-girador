@@ -368,7 +368,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
     } catch (err) {
       console.error('Signal camera error:', err);
       setSignalCameraActive(false);
-      window.alert(wizardLang === 'fr' ? "Impossible d'accéder à la caméra." : "Não foi possível acessar a câmera.");
+      sequencer.alertAsync(wizardLang === 'fr' ? "Impossible d'accéder à la caméra." : "Não foi possível acessar a câmera.");
     }
   };
 
@@ -456,14 +456,14 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
                   setShowCamera(false);
                 } else {
                   console.error('GIF creation error:', obj.errorMsg);
-                  window.alert(wizardLang === 'fr' ? "Erreur lors de la génération du GIF." : "Erro ao gerar o GIF.");
+                  sequencer.alertAsync(wizardLang === 'fr' ? "Erreur lors de la génération du GIF." : "Erro ao gerar o GIF.");
                 }
               }
             );
           } catch (err) {
             console.error('Failed to load gifshot:', err);
             setIsProcessingGif(false);
-            window.alert(wizardLang === 'fr' ? "Erreur de chargement du module GIF." : "Erro ao carregar o módulo GIF.");
+            sequencer.alertAsync(wizardLang === 'fr' ? "Erreur de chargement du module GIF." : "Erro ao carregar o módulo GIF.");
           }
         } else {
           setTimeout(() => {
@@ -767,7 +767,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
   const H = placeSize.height;
 
   // Orchestrator Generation function
-  const generateRodaFromWizard = () => {
+  const generateRodaFromWizard = async () => {
     // 1. Nettoyage et Métadonnées
     sequencer.pushUndoState();
     sequencer.handleClear();
@@ -1182,8 +1182,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
     checkAndLinkDoubles(gongues, 'GONGUÊS');
 
     // Log final de validation
-
-    alert(t[wizardLang].consacree);
+    await sequencer.alertAsync(t[wizardLang].consacree);
 
     // 6. Clôture
     useWizardStore.getState().setWizardOpen(false);
@@ -1209,11 +1208,11 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
       : defaultSigns;
 
     return createPortal(
-      <div className="fixed inset-0 bg-[#f4ecd8] z-[9998] flex flex-col p-4 md:p-8 select-none font-sans overflow-y-auto">
+      <div className="fixed inset-0 bg-[#f4ecd8] z-[200] flex flex-col p-4 md:p-8 select-none font-sans overflow-y-auto">
         
         {/* Cordel Image Editor Modal overlay */}
         {rawSignalFrames.length > 0 && (
-          <div className="fixed inset-0 bg-black/60 z-[10002] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div className="bg-[#f4ecd8] border-4 border-[#1a1a1a] p-4 max-w-sm w-full rounded-sm shadow-[8px_8px_0_rgba(0,0,0,1)]">
               <CordelImageEditor
                 frames={rawSignalFrames}
@@ -1231,7 +1230,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
 
         {/* Camera Modal overlay */}
         {showCamera && rawSignalFrames.length === 0 && (
-          <div className="fixed inset-0 bg-black/60 z-[10001] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div className="bg-[#f4ecd8] border-4 border-[#1a1a1a] p-5 max-w-md w-full rounded-sm shadow-[8px_8px_0_rgba(0,0,0,1)] flex flex-col gap-4 relative">
               <button
                 onClick={() => { stopSignalCamera(); setShowCamera(false); }}
@@ -1812,19 +1811,19 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
 
   const content = (
     <div 
-      className="fixed inset-0 bg-[#f4ecd8] z-[9998] flex flex-col p-4 md:p-8 select-none font-sans overflow-hidden"
+      className="fixed inset-0 bg-[#f4ecd8] z-[200] flex flex-col p-4 md:p-8 select-none font-sans overflow-hidden"
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
     >
       <div
         ref={ghostRef}
         className="pointer-events-none fixed items-center justify-center flex-col select-none"
-        style={{ display: 'none', zIndex: 99999 }}
+        style={{ display: 'none', zIndex: 50 }}
       />
 
       <div
         ref={dismissZoneRef}
-        className="absolute top-18 left-1/2 -translate-x-1/2 border-3 border-[#1a1a1a] bg-[#e2d7be] px-6 py-2.5 shadow-[4px_4px_0px_rgba(0,0,0,1)] z-[10001] transition-all duration-200 pointer-events-none opacity-0 select-none flex items-center gap-2 font-cactus font-bold uppercase text-xs md:text-sm"
+        className="absolute top-18 left-1/2 -translate-x-1/2 border-3 border-[#1a1a1a] bg-[#e2d7be] px-6 py-2.5 shadow-[4px_4px_0px_rgba(0,0,0,1)] z-30 transition-all duration-200 pointer-events-none opacity-0 select-none flex items-center gap-2 font-cactus font-bold uppercase text-xs md:text-sm"
         style={{
           transform: 'translate(-50%, -150%)',
         }}
@@ -1834,7 +1833,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
       </div>
 
       {localToast && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[10005] max-w-md w-full px-4 animate-bounce">
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 max-w-md w-full px-4 animate-bounce">
           <div className="bg-[#f4ecd8] border-3 border-[#1a1a1a] shadow-[6px_6px_0px_rgba(0,0,0,1)] p-4 rounded-sm flex items-start gap-3">
             <span className="text-2xl">⚠️</span>
             <div className="flex-1 text-xs md:text-sm font-bold text-[#8b2a1a] leading-tight font-cactus uppercase tracking-wide">

@@ -19,7 +19,7 @@ export const NewSongIntroModal: React.FC<NewSongIntroModalProps> = ({
 
   const content = (
     <div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 select-none font-sans"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 select-none font-sans"
       onClick={onClose}
     >
       <div 

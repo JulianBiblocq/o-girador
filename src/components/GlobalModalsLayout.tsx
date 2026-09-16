@@ -15,6 +15,8 @@ import { VocalRecordingFocusOverlay } from './VocalRecordingFocusOverlay';
 
 import { lazyWithRetry } from '../utils/lazyWithRetry';
 import { WindowPortal } from './WindowPortal';
+import { VisitorAuthModal } from './VisitorAuthModal';
+import { SubscriptionModal } from './SubscriptionModal';
 
 // Lazy loaded modals for bundle size optimization
 const SaveSectionModal = lazyWithRetry(() => import('./CloudSectionModals').then(m => ({ default: m.SaveSectionModal })), 'SaveSectionModal');
@@ -80,6 +82,10 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
   const isInstrumentEditorDetached = useSequencerStore(state => state.isInstrumentEditorDetached);
   const tempRecording = useAudioStore(state => state.tempRecording);
 
+  const isVisitorAuthModalOpen = useSequencerStore(state => state.isVisitorAuthModalOpen);
+  const closeVisitorAuthModal = useSequencerStore(state => state.closeVisitorAuthModal);
+  const isSubscriptionModalOpen = useSequencerStore(state => state.isSubscriptionModalOpen);
+  const closeSubscriptionModal = useSequencerStore(state => state.closeSubscriptionModal);
 
   const handleCloseDetailEditor = React.useCallback(() => {
     setEditingTrackId(null);
@@ -89,7 +95,7 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
 
   const content = (
     <>
-      {/* Export Menu Modal */}
+      {/* Export Menu Modal (Level 2: z-[100]) */}
       {showExportMenu && (
         <ExportMenuModal
           onClose={() => setShowExportMenu(false)}
@@ -103,9 +109,23 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
         />
       )}
 
-      {/* Custom Dialog (Alert / Confirm / Prompt) */}
+      {/* Critical Auth & Subscription Modals (Level 4: z-[300]) */}
+      {isVisitorAuthModalOpen && (
+        <VisitorAuthModal
+          lang={sequencer.lang}
+          onClose={closeVisitorAuthModal}
+        />
+      )}
+      {isSubscriptionModalOpen && (
+        <SubscriptionModal
+          lang={sequencer.lang}
+          onClose={closeSubscriptionModal}
+        />
+      )}
+
+      {/* Custom Dialog (Alert / Confirm / Prompt) (Level 4: z-[300]) */}
       {customDialog && (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-[#121212]/80 backdrop-blur-sm select-text text-sm">
+        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-[#121212]/80 backdrop-blur-sm select-text text-sm">
           <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] shadow-[4px_4px_0_var(--cordel-border)] p-5 max-w-sm w-full mx-4 flex flex-col gap-4 font-mono select-text">
             <div className="font-cactus font-bold text-base border-b-2 border-[var(--cordel-border)] pb-2 select-none">
               {customDialog.type === 'alert' ? '📢 Info' : customDialog.type === 'confirm' ? '❓' : '📝'} {customDialog.type === 'alert' ? (sequencer.lang === 'pt' ? 'Aviso' : 'Information') : customDialog.type === 'confirm' ? (sequencer.lang === 'pt' ? 'Confirmação' : 'Confirmation') : (sequencer.lang === 'pt' ? 'Entrada' : 'Saisie')}

@@ -11,7 +11,7 @@ import { useSequencer } from './SequencerContext';
 import { getVocalRecording, saveVocalRecording } from '../db';
 import { getLocalLibrary, savePresetToLibrary } from '../library';
 import { vouVadiarPreset, baqueDeImalePreset, ASSETS_BASE_URL, i18n, instrumentsConfig } from '../data';
-import { Preset, Pattern, TrackGroup, TimeSignature } from '../types';
+import { Preset, Pattern, TrackGroup, TimeSignature, MasterFX } from '../types';
 import { migrateCirclesToTracks } from '../migration';
 import { useAuth } from './AuthContext';
 // Web Audio recording variables
@@ -515,21 +515,49 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setMasterCompressor({ threshold: -20, ratio: 4 });
       }
 
-      if (p.masterVol !== undefined) {
+      if (p.masterVol !== undefined && typeof p.masterVol === 'number' && !isNaN(p.masterVol)) {
         setMasterVol(p.masterVol);
       }
-      if (p.masterReverbVol !== undefined) {
-        setMasterReverbVol(p.masterReverbVol);
-      }
 
-      if (p.reverbDecay !== undefined) {
-        setReverbDecay(p.reverbDecay);
+      // Restauration robuste et sécurisée de MasterFX (Distorsion, Réverbe, Mute)
+      const isValidNum = (v: any): v is number => typeof v === 'number' && !isNaN(v);
+      const rawMasterFX = p.masterFX;
+
+      // Calcul sécurisé du temps de réverbe pour anciens presets
+      let fallbackReverbTime = 30;
+      if (isValidNum(p.reverbDecay)) {
+        fallbackReverbTime = Math.max(0, Math.min(100, Math.round(((p.reverbDecay - 0.5) / 7.5) * 100)));
       } else if ((p as any).reverbType) {
         const oldType = (p as any).reverbType;
-        if (oldType === 'hall') setReverbDecay(4.5);
-        else if (oldType === 'studio') setReverbDecay(2.5);
-        else setReverbDecay(1.5);
+        if (oldType === 'hall') fallbackReverbTime = Math.round(((4.5 - 0.5) / 7.5) * 100);
+        else if (oldType === 'studio') fallbackReverbTime = Math.round(((2.5 - 0.5) / 7.5) * 100);
+        else fallbackReverbTime = Math.round(((1.5 - 0.5) / 7.5) * 100);
       }
+
+      const loadedMasterFX: MasterFX = {
+        reverb: {
+          returnVolume: isValidNum(rawMasterFX?.reverb?.returnVolume)
+            ? rawMasterFX.reverb.returnVolume
+            : (isValidNum(p.masterReverbVol) ? p.masterReverbVol : 70),
+          time: isValidNum(rawMasterFX?.reverb?.time)
+            ? rawMasterFX.reverb.time
+            : fallbackReverbTime,
+          isMuted: typeof rawMasterFX?.reverb?.isMuted === 'boolean' ? rawMasterFX.reverb.isMuted : false,
+        },
+        distortion: {
+          returnVolume: isValidNum(rawMasterFX?.distortion?.returnVolume)
+            ? rawMasterFX.distortion.returnVolume
+            : (isValidNum(p.masterDistortion) ? p.masterDistortion : 0),
+          drive: isValidNum(rawMasterFX?.distortion?.drive)
+            ? rawMasterFX.distortion.drive
+            : (isValidNum(p.masterDistortionDrive) ? p.masterDistortionDrive : 20),
+          isMuted: typeof rawMasterFX?.distortion?.isMuted === 'boolean' ? rawMasterFX.distortion.isMuted : false,
+        },
+      };
+
+      useSequencerStore.getState().setMasterFX(loadedMasterFX);
+      setMasterReverbVol(loadedMasterFX.reverb.returnVolume);
+      setReverbDecay(0.5 + 7.5 * (loadedMasterFX.reverb.time / 100));
 
       if (p.globalSwing) {
         audioSync.setGlobalSwing(p.globalSwing);
@@ -569,7 +597,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       const { getCloudPreset } = await import('../cloudLibrary');
       p = await getCloudPreset(id);
       if (!p) {
-        window.alert(t('invalidFile') || 'Error');
+        window.alert(t('invalidFile') || (sequencer.lang === 'fr' ? 'Fichier invalide' : 'Arquivo inválido'));
         return;
       }
     } else if (name.startsWith('local:')) {
@@ -577,7 +605,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // 🛡️ FIX (Audit): Use static import for getLocalLibrary to fix Vite duplicate chunk warning
       p = getLocalLibrary()[id];
       if (!p) {
-        window.alert(t('invalidFile') || 'Error');
+        window.alert(t('invalidFile') || (sequencer.lang === 'fr' ? 'Fichier invalide' : 'Arquivo inválido'));
         return;
       }
     } else if (name.endsWith('.json')) {
@@ -689,8 +717,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       masterEQ,
       masterCompressor,
       masterVol,
-      masterReverbVol,
-      reverbDecay,
+      masterReverbVol: storeState.masterFX.reverb.returnVolume,
+      reverbDecay: 0.5 + 7.5 * (storeState.masterFX.reverb.time / 100),
+      masterFX: storeState.masterFX,
+      masterDistortion: storeState.masterFX.distortion.returnVolume,
+      masterDistortionDrive: storeState.masterFX.distortion.drive,
       isSwingOn: audioSync.globalSwing.mode !== 'off', // Keep for backwards compatibility
       globalSwing: audioSync.globalSwing,
       loopStartMeasure: storeState.loopStartMeasure,
@@ -730,7 +761,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await applyPreset(data);
       } catch (err: any) {
         console.error("Error loading preset file:", err);
-        window.alert(`${t('invalidFile')}\n\nError details: ${err?.message || err}`);
+        window.alert(`${t('invalidFile')}\n\n${sequencer.lang === 'fr' ? "Détails de l'erreur :" : "Detalhes do erro :"} ${err?.message || err}`);
       }
     };
     reader.readAsText(file);
@@ -768,8 +799,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       masterEQ,
       masterCompressor,
       masterVol,
-      masterReverbVol,
-      reverbDecay,
+      masterReverbVol: storeState.masterFX.reverb.returnVolume,
+      reverbDecay: 0.5 + 7.5 * (storeState.masterFX.reverb.time / 100),
+      masterFX: storeState.masterFX,
+      masterDistortion: storeState.masterFX.distortion.returnVolume,
+      masterDistortionDrive: storeState.masterFX.distortion.drive,
       isSwingOn: audioSync.globalSwing.mode !== 'off',
       globalSwing: audioSync.globalSwing,
       loopStartMeasure: storeState.loopStartMeasure,
@@ -799,7 +833,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       const dataToSave = getCurrentPresetData();
       await savePresetToLibrary(name, dataToSave);
-      window.alert(t('presetSavedLocal') || 'Saved locally!');
+      window.alert(t('presetSavedLocal') || (sequencer.lang === 'fr' ? 'Sauvegardé localement !' : 'Salvo localmente!'));
     } catch (err) {
       console.error("Local save failed:", err);
     }

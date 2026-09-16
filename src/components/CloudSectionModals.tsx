@@ -4,8 +4,6 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { SongSection, SavedSectionData, CatalogVisibility, CloudSection, TrackGroup, Pattern } from '../types';
 import { saveSectionToCloud, fetchCloudSections, deleteCloudSection, getCloudSectionData } from '../cloudSections';
-import { SubscriptionModal } from './SubscriptionModal';
-import { VisitorAuthModal } from './VisitorAuthModal';
 import { useCloudAudioBounce } from '../hooks/useCloudAudioBounce';
 
 interface SaveSectionModalProps {
@@ -22,14 +20,13 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
   const [visibility, setVisibility] = useState<CatalogVisibility>('private');
   const [isSaving, setIsSaving] = useState(false);
   const [autoGenerateAudio, setAutoGenerateAudio] = useState(true);
-  const [showVisitorModal, setShowVisitorModal] = useState(false);
 
   const { genererEtUploaderSectionCloudBounce, isBouncingCloud } = useCloudAudioBounce();
 
   const handleSave = async () => {
     if (!name.trim()) return;
     if (!userProfile) {
-      setShowVisitorModal(true);
+      useSequencerStore.getState().openVisitorAuthModal();
       return;
     }
     setIsSaving(true);
@@ -120,14 +117,14 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
       onClose();
     } catch (err: any) {
       console.error(err);
-      alert((lang === 'fr' ? 'Erreur lors de la sauvegarde : ' : 'Erro ao salvar : ') + (err.message || String(err)));
+      await sequencer.alertAsync((lang === 'fr' ? 'Erreur lors de la sauvegarde : ' : 'Erro ao salvar : ') + (err.message || String(err)));
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-[#f4ecd8] border-2 border-[#1a1a1a] p-6 max-w-sm w-full rounded-sm shadow-[8px_8px_0px_rgba(0,0,0,1)]" onClick={e => e.stopPropagation()}>
         <h3 className="font-cactus text-2xl font-bold text-[#1a1a1a] mb-4">
           {lang === 'fr' ? 'Sauvegarder Section Cloud' : 'Salvar Seção na Nuvem'}
@@ -198,9 +195,6 @@ export const SaveSectionModal: React.FC<SaveSectionModalProps> = ({ section, onC
           </button>
         </div>
       </div>
-      {showVisitorModal && (
-        <VisitorAuthModal lang={lang} onClose={() => setShowVisitorModal(false)} />
-      )}
     </div>
   );
 };
@@ -217,7 +211,6 @@ export const LoadSectionModal: React.FC<LoadSectionModalProps> = ({ insertAtMeas
   
   const [sections, setSections] = useState<CloudSection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showSubModal, setShowSubModal] = useState(false);
   const [bouncingSectionId, setBouncingSectionId] = useState<string | null>(null);
   
   const { genererEtUploaderSectionCloudBounce, isBouncingCloud } = useCloudAudioBounce();
@@ -236,7 +229,7 @@ export const LoadSectionModal: React.FC<LoadSectionModalProps> = ({ insertAtMeas
       if (data && sequencer.handleInsertCloudSection) {
         if (!userProfile || (userProfile.role !== 'mestre' && userProfile.role !== 'admin')) {
           if (insertAtMeasure + data.numMeasures > 20) {
-            setShowSubModal(true);
+            useSequencerStore.getState().openSubscriptionModal();
             return;
           }
         }
@@ -245,7 +238,7 @@ export const LoadSectionModal: React.FC<LoadSectionModalProps> = ({ insertAtMeas
       }
     } catch (err) {
       console.error(err);
-      alert(lang === 'fr' ? 'Erreur lors du chargement.' : 'Erro ao carregar.');
+      await sequencer.alertAsync(lang === 'fr' ? 'Erreur lors du chargement.' : 'Erro ao carregar.');
     }
   };
 
@@ -256,13 +249,13 @@ export const LoadSectionModal: React.FC<LoadSectionModalProps> = ({ insertAtMeas
         setSections(prev => prev.filter(s => s.id !== sectionInfo.id));
       } catch (err) {
         console.error(err);
-        alert(lang === 'fr' ? 'Erreur lors de la suppression.' : 'Erro ao excluir.');
+        await sequencer.alertAsync(lang === 'fr' ? 'Erreur lors de la suppression.' : 'Erro ao excluir.');
       }
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-[#f4ecd8] border-2 border-[#1a1a1a] p-6 max-w-lg w-full rounded-sm shadow-[8px_8px_0px_rgba(0,0,0,1)] flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
           <h3 className="font-cactus text-2xl font-bold text-[#1a1a1a]">
@@ -313,10 +306,10 @@ export const LoadSectionModal: React.FC<LoadSectionModalProps> = ({ insertAtMeas
                               const currentBpm = storeState.bpm || 100;
                               const newAudioUrl = await genererEtUploaderSectionCloudBounce(sec.id, data, currentBpm);
                               setSections(prev => prev.map(s => s.id === sec.id ? { ...s, audioUrl: newAudioUrl } : s));
-                              alert(lang === 'fr' ? 'Audio généré avec succès !' : 'Áudio gerado com sucesso!');
+                              await sequencer.alertAsync(lang === 'fr' ? 'Audio généré avec succès !' : 'Áudio gerado com sucesso!');
                             }
                           } catch(err: any) {
-                            alert((lang === 'fr' ? 'Erreur lors de la génération audio: ' : 'Erro na geração de áudio: ') + (err.message || String(err)));
+                            await sequencer.alertAsync((lang === 'fr' ? 'Erreur lors de la génération audio: ' : 'Erro na geração de áudio: ') + (err.message || String(err)));
                           } finally {
                             setBouncingSectionId(null);
                           }
@@ -342,9 +335,6 @@ export const LoadSectionModal: React.FC<LoadSectionModalProps> = ({ insertAtMeas
           </div>
         )}
       </div>
-      {showSubModal && (
-        <SubscriptionModal lang={lang} onClose={() => setShowSubModal(false)} />
-      )}
     </div>
   );
 };

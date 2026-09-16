@@ -471,7 +471,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
   if (isClosing) {
     return createPortal(
-      <div className="fixed inset-0 z-[100010] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
         {/* Conteneur sas de décompression brutaliste */}
         <div className="border-4 border-black bg-[#fbf8f0] p-8 max-w-sm text-center shadow-[6px_6px_0px_#000] flex flex-col items-center justify-center gap-3">
           <div className="animate-spin text-3xl">
@@ -498,7 +498,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[100010] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}

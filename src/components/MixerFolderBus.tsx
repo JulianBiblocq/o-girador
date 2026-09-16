@@ -360,7 +360,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             {...attributes}
             {...listeners}
             className="flex items-center justify-center p-1 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)] transition-colors touch-none"
-            title="Drag to reorder"
+            title={lang === 'fr' ? "Glisser pour réorganiser" : "Arrastar para reordenar"}
           >
             <GripHorizontal size={18} />
           </div>

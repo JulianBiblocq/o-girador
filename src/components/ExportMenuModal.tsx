@@ -29,7 +29,7 @@ export const ExportMenuModal: React.FC<ExportMenuModalProps> = ({
   const getInstrumentLabel = useInstrumentLabel();
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#121212]/80 backdrop-blur-sm select-none">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#121212]/80 backdrop-blur-sm select-none">
       <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] shadow-[8px_8px_0_var(--cordel-border)] p-6 max-w-sm w-full mx-4 flex flex-col gap-5">
         <h2 className="font-cactus text-2xl font-bold border-b-2 border-[var(--cordel-border)] pb-2">
           {lang === 'fr' ? 'Exportation Tablature' : 'Exportar Partitura'}

@@ -83,10 +83,11 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
         <div className="p-2 border-t border-[var(--cordel-border)]/20 text-[10px] text-[var(--cordel-text)] leading-relaxed">
           {lang === 'fr' ? (
             <>
+              <p>• <b>Sélection & Dock d'écriture</b> : Cliquez sur un pas pour le sélectionner et utiliser la palette inférieure.</p>
+              <p>• <b>Flèches Haut / Bas</b> (ou molette sur pas sélectionné) : Ajuster la nuance et vélocité.</p>
               <p>• <b>Double-clic</b> (ou appui long) sur un temps pour y insérer une frappe forte.</p>
               <p>• <b>Clic simple</b> pour insérer une frappe faible.</p>
-              <p>• <b>Molette souris</b> (ou glisser haut/bas) sur une cellule pour changer la frappe/nuance.</p>
-              <p>• <b>Ctrl + Clic</b> (ou appui long) sur l'entête d'une ligne pour couper le son (mute) de l'instrument.</p>
+              <p>• <b>Ctrl + Clic</b> sur l'entête d'une ligne pour couper le son (mute) de l'instrument.</p>
               <div className="w-full h-px bg-[var(--cordel-border)]/10 my-1"></div>
               <p>• <b>Espace</b> : Lecture / Pause.</p>
               <p>• <b>Ctrl+Z / Ctrl+Y</b> : Annuler / Rétablir.</p>
@@ -94,10 +95,11 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
             </>
           ) : (
             <>
+              <p>• <b>Seleção e Dock de Escrita</b> : Clique em um passo para selecioná-lo e usar a barra inferior.</p>
+              <p>• <b>Setas Cima / Baixo</b> (ou roda do mouse no passo selecionado) : Ajustar velocidade e nuance.</p>
               <p>• <b>Duplo clique</b> (ou toque longo) em um tempo para inserir uma batida forte.</p>
               <p>• <b>Clique simples</b> para inserir uma batida fraca.</p>
-              <p>• <b>Roda do mouse</b> (ou deslizar para cima/baixo) em uma célula para mudar a batida/nuance.</p>
-              <p>• <b>Ctrl + Clique</b> (ou toque longo) no cabeçalho de uma linha para silenciar (mute) o instrumento.</p>
+              <p>• <b>Ctrl + Clique</b> no cabeçalho de uma linha para silenciar (mute) o instrumento.</p>
               <div className="w-full h-px bg-[var(--cordel-border)]/10 my-1"></div>
               <p>• <b>Espaço</b> : Reproduzir / Pausar.</p>
               <p>• <b>Ctrl+Z / Ctrl+Y</b> : Desfazer / Refazer.</p>
@@ -327,7 +329,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
             {isStrokeActiveForInstruments(['timbal'], ['B', 'b']) && (
               <div className="flex items-center gap-2">
                 {renderBadge(['timbal'], ['B'], 'B / b')}
-                <span>{lang === 'fr' ? 'Tremblement (Barulho)' : 'Barulho'}</span>
+                <span>{lang === 'fr' ? 'Grondement (Barulho)' : 'Barulho'}</span>
               </div>
             )}
           </div>
