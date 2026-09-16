@@ -129,6 +129,15 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
         }
       }
 
+      // Persister l'ID du preset dans l'URL et localStorage pour survie au F5
+      // Impact CPU: zéro reflow — replaceState et localStorage sont synchrones et hors DOM
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('loadPreset', presetId);
+        window.history.replaceState(null, '', url.toString());
+        localStorage.setItem('girador_last_loaded_preset_id', presetId);
+      } catch (_e) { /* ignore navigation errors in iframes */ }
+
       // Mettre à jour le store courant avec le nouveau nom et le nouvel ID
       const newMeta = {
         ...finalPresetData.metadata,
@@ -138,6 +147,9 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
       if (sequencer.setMetadata) {
         sequencer.setMetadata(newMeta);
       }
+
+      // Forcer un autosave immédiat vers IndexedDB pour synchroniser l'état complet
+      window.dispatchEvent(new Event('force-autosave'));
 
       queryClient.invalidateQueries({ queryKey: ['cloudPresets'] });
       window.dispatchEvent(new Event('refresh-cloud-presets'));

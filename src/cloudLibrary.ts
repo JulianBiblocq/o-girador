@@ -58,7 +58,7 @@ export async function savePresetToCloud(
     mestreId: mestreId || null,
     updatedAt: Date.now()
   };
-  if (groupId) docData.groupId = groupId;
+  if (groupId) docData.groupId = groupId.trim().toLowerCase();
   if (audioUrl !== undefined) docData.audioUrl = audioUrl;
   
   if (targetPresetId) {
@@ -136,7 +136,16 @@ export async function fetchCloudPresets(
       }
 
       if (groupId) {
-        queries.push(getDocs(query(presetsRef, where('groupId', 'in', Array.from(new Set([groupId, groupId.toLowerCase(), 'Samambaia', 'samambaia']))), limit(100))));
+        // Requête sécurisée avec toutes les variations de casse possibles
+        const normalizedGroupId = groupId.trim().toLowerCase();
+        const isSamambaia = normalizedGroupId === 'samambaia' || normalizedGroupId.includes('sammbia');
+        const groupIdVariants = Array.from(new Set([
+          groupId,
+          normalizedGroupId,
+          ...(isSamambaia ? ['Samambaia', 'samambaia'] : [])
+        ]));
+        // Firestore 'in' queries are limited to 30 values, this is well within bounds
+        queries.push(getDocs(query(presetsRef, where('groupId', 'in', groupIdVariants), limit(100))));
       }
 
       const snapshots = await Promise.all(queries);

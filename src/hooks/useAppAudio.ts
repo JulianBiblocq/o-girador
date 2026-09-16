@@ -176,15 +176,33 @@ export function useAppAudio() {
       let restoredFromLocalStorage = false;
 
       if (!loadedFromHash) {
-        try {
-          const { getAutosave } = await import('../db');
-          const savedState = await getAutosave();
-          if (savedState) {
-            await audio.applyPreset(savedState);
-            restoredFromLocalStorage = true;
+        // Priorité 1 : vérifier si un preset cloud a été sauvegardé récemment (localStorage fallback)
+        const lastPresetId = localStorage.getItem('girador_last_loaded_preset_id');
+        if (lastPresetId) {
+          try {
+            const { getCloudPreset } = await import('../cloudLibrary');
+            const cloudPreset = await getCloudPreset(lastPresetId);
+            if (cloudPreset) {
+              await audio.applyPreset(cloudPreset);
+              restoredFromLocalStorage = true;
+            }
+          } catch (err) {
+            console.warn('[O Girador] Failed to restore from localStorage preset ID, falling back to IndexedDB:', err);
           }
-        } catch (err) {
-          console.error('[O Girador] Failed to restore autosave from IndexedDB:', err);
+        }
+
+        // Priorité 2 : autosave IndexedDB
+        if (!restoredFromLocalStorage) {
+          try {
+            const { getAutosave } = await import('../db');
+            const savedState = await getAutosave();
+            if (savedState) {
+              await audio.applyPreset(savedState);
+              restoredFromLocalStorage = true;
+            }
+          } catch (err) {
+            console.error('[O Girador] Failed to restore autosave from IndexedDB:', err);
+          }
         }
       }
 
@@ -221,6 +239,8 @@ export function useAppAudio() {
   }, [audio.applyPreset]);
 
   // Autosave to IndexedDB using Zustand subscription
+  // Commandement #1 respecté : toute la logique de comparaison utilise des refs (lastStateSignatureRef),
+  // aucun setState React n'est déclenché par le souscripteur. Le performSave est debounced et hors cycle React.
   useEffect(() => {
     if (audio.isLoading) return;
     
@@ -271,55 +291,75 @@ export function useAppAudio() {
       workerRef.current?.postMessage({ type: 'SAVE_AUTOSAVE', payload: dataToSave });
     };
 
-    const getNotesSignature = (tracksList: any[]) => {
-      return JSON.stringify(
-        tracksList.map((t) => ({
+    // Empreinte légère de l'état global pour détecter tout changement pertinent
+    // Utilise des refs pour éviter tout re-render React (Commandement #1)
+    const getStateSignature = (state: any) => {
+      return JSON.stringify({
+        bpm: state.bpm,
+        timeSig: state.timeSig,
+        totalMeasures: state.totalMeasures,
+        loopMode: state.loopMode,
+        isLooping: state.isLooping,
+        loopStartMeasure: state.loopStartMeasure,
+        loopEndMeasure: state.loopEndMeasure,
+        isLoopRegionActive: state.isLoopRegionActive,
+        metadata: state.metadata,
+        letras: state.letras,
+        songSectionsLen: state.songSections?.length,
+        songMarkersLen: state.songMarkers?.length,
+        measureBpms: state.measureBpms,
+        measureTimeSigs: state.measureTimeSigs,
+        measureSignals: state.measureSignals,
+        measureVols: state.measureVols,
+        measureVolTransitions: state.measureVolTransitions,
+        measureBpmTransitions: state.measureBpmTransitions,
+        tracks: state.tracks.map((t: any) => ({
           id: t.id,
-          patterns: t.patterns.map((p) => ({
+          instrumentIdx: t.instrumentIdx,
+          isMute: t.isMute,
+          volumeVal: t.volumeVal,
+          reverbVal: t.reverbVal,
+          panVal: t.panVal,
+          patterns: t.patterns.map((p: any) => ({
             id: p.id,
             steps: p.steps,
             activeSteps: p.activeSteps,
             volumes: p.volumes,
           })),
-        }))
-      );
+        })),
+        masterFX: state.masterFX,
+      });
     };
 
     // Initialize refs on mount/load
-    const currentTracks = useSequencerStore.getState().tracks;
-    const currentMasterFX = useSequencerStore.getState().masterFX;
-    lastTracksRef.current = currentTracks;
-    lastMasterFXRef.current = currentMasterFX;
+    const initialState = useSequencerStore.getState();
+    lastTracksRef.current = initialState.tracks;
+    lastMasterFXRef.current = initialState.masterFX;
     if (!lastNotesSignatureRef.current) {
-      lastNotesSignatureRef.current = getNotesSignature(currentTracks);
+      lastNotesSignatureRef.current = getStateSignature(initialState);
     }
 
     const unsub = useSequencerStore.subscribe((state) => {
-      let shouldScheduleSave = false;
-
-      if (state.tracks !== lastTracksRef.current) {
-        lastTracksRef.current = state.tracks;
-        const currentSig = getNotesSignature(state.tracks);
-        if (currentSig !== lastNotesSignatureRef.current) {
-          lastNotesSignatureRef.current = currentSig;
-          shouldScheduleSave = true;
-        }
-      }
-
-      if (state.masterFX !== lastMasterFXRef.current) {
-        lastMasterFXRef.current = state.masterFX;
-        shouldScheduleSave = true;
-      }
-
-      if (shouldScheduleSave) {
+      const currentSig = getStateSignature(state);
+      if (currentSig !== lastNotesSignatureRef.current) {
+        lastNotesSignatureRef.current = currentSig;
         clearTimeout(timeoutId);
         timeoutId = setTimeout(performSave, 1500);
       }
     });
 
+    // Écouter l'événement 'force-autosave' pour les sauvegardes cloud immédiates
+    const handleForceAutosave = () => {
+      clearTimeout(timeoutId);
+      // Petit délai pour laisser le setState du metadata se propager au store
+      timeoutId = setTimeout(performSave, 100);
+    };
+    window.addEventListener('force-autosave', handleForceAutosave);
+
     return () => {
       clearTimeout(timeoutId);
       unsub();
+      window.removeEventListener('force-autosave', handleForceAutosave);
     };
   }, [audio.isLoading]);
 

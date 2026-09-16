@@ -45,8 +45,26 @@ export function useSequencerState() {
   const [isLooping, setIsLooping] = useState<boolean>(true);
 
   // Letras, metadata, settings
-  const [letras, setLetras] = useState<string>('');
-  const [metadata, setMetadata] = useState<PresetMetadata>({ toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] });
+  // Commandement #1 : les wrappers ci-dessous écrivent directement au store Zustand (synchrone)
+  // en plus du state React local, éliminant la race condition avec l'autosave.
+  const [letras, _setLetrasRaw] = useState<string>('');
+  const setLetras = useCallback((val: string | ((prev: string) => string)) => {
+    _setLetrasRaw((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      useSequencerStore.setState({ letras: next });
+      return next;
+    });
+  }, []);
+
+  const [metadata, _setMetadataRaw] = useState<PresetMetadata>({ toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] });
+  const setMetadata = useCallback((val: PresetMetadata | ((prev: PresetMetadata) => PresetMetadata)) => {
+    _setMetadataRaw((prev) => {
+      const next = typeof val === 'function' ? val(prev) : val;
+      useSequencerStore.setState({ metadata: next });
+      return next;
+    });
+  }, []);
+
   const activeVariationsRef = useRef<Record<number, (string | number)[]>>({});
   const [isLeftHanded, _setIsLeftHanded] = useState<boolean>(() => localStorage.getItem('o_girador_left_handed') === 'true');
   const [lang, _setLang] = useState<Language>(() => {
@@ -76,6 +94,7 @@ export function useSequencerState() {
   const decrementVocalTransposeSteps = useSequencerStore(state => state.decrementVocalTransposeSteps);
 
   // Sync local states to the store for autosave and global access
+  // Note: metadata et letras sont désormais synchronisés immédiatement via leurs wrappers ci-dessus
   useEffect(() => {
     useSequencerStore.setState({
       bpm,
@@ -85,10 +104,8 @@ export function useSequencerState() {
       measureVols,
       measureVolTransitions,
       isLooping,
-      letras,
-      metadata,
     });
-  }, [bpm, timeSig, measureBpms, measureBpmTransitions, measureVols, measureVolTransitions, isLooping, letras, metadata]);
+  }, [bpm, timeSig, measureBpms, measureBpmTransitions, measureVols, measureVolTransitions, isLooping]);
 
   useEffect(() => {
     if (userProfile && userProfile.isLeftHanded !== undefined) {
