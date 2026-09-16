@@ -26,7 +26,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
-import { XiloRoda, XiloConsole, XiloTimeline, XiloMestre, XiloGame, XiloSun, XiloMoon, XiloDrum } from './XiloIcons';
+import { XiloRoda, XiloConsole, XiloTimeline, XiloSun, XiloMoon, XiloDrum } from './XiloIcons';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { MiniTelemetryBadge } from './TelemetryBadge';
 import { useWizardStore } from '../stores/useWizardStore';
@@ -195,9 +195,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   
   const [projectDropOpen, setProjectDropOpen] = useState(false);
   const projectDropRef = useRef<HTMLDivElement>(null);
-
-  const [jogoDropOpen, setJogoDropOpen] = useState(false);
-  const jogoDropRef = useRef<HTMLDivElement>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Use a ref to always have the latest onLoad callback, bypassing React.memo stale closure issue
@@ -235,9 +232,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       if (projectDropRef.current && !projectDropRef.current.contains(e.target as Node)) {
         setProjectDropOpen(false);
       }
-      if (jogoDropOpen && jogoDropRef.current && !jogoDropRef.current.contains(e.target as Node)) {
-        setJogoDropOpen(false);
-      }
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(e.target as Node)) {
         setMobileMenuOpen(false);
       }
@@ -251,7 +245,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
     };
-  }, [jogoDropOpen]);
+  }, []);
 
   if (isMobile) {
     return (

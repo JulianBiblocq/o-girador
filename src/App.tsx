@@ -180,15 +180,6 @@ export default function App() {
     toggleDarkMode
   } = theme;
 
-  const [unlockedFolhetos, setUnlockedFolhetos] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('o-girador-unlocked-folhetos');
-      return saved ? JSON.parse(saved) : [];
-    } catch (_) {
-      return [];
-    }
-  });
-  const [justUnlockedBookletId, setJustUnlockedBookletId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const editingTrackId = useSequencerStore(state => state.editingTrackId);
   const setEditingTrackId = useSequencerStore(state => state.setEditingTrackId);
@@ -320,18 +311,9 @@ export default function App() {
 
   // Theme application and synchronization is now handled by useThemeManager
 
-  // Local folhetos persistence
-  useEffect(() => {
-    localStorage.setItem('o-girador-unlocked-folhetos', JSON.stringify(unlockedFolhetos));
-  }, [unlockedFolhetos]);
-
   // Touch selector Bubble states
   const [touchSelector, setTouchSelector] = useState<any | null>(null);
   const [hoveredStroke, setHoveredStroke] = useState<string | null>(null);
-
-  // Progression State
-  const [activeExercise, setActiveExercise] = useState<any>(null);
-  const [activeCordeIndex, setActiveCordeIndex] = useState<number | null>(null);
 
   // Cloud Section State
   const [sectionToSave, setSectionToSave] = useState<SongSection | null>(null);
@@ -544,7 +526,6 @@ export default function App() {
     setHideGlobalSignals(prev => !prev);
   }, []);
 
-  const handleClearJustUnlocked = React.useCallback(() => setJustUnlockedBookletId(null), []);
 
   const handleHomeEnter = React.useCallback((mode: string) => changeViewMode(mode as any), [changeViewMode]);
   const handleLandingEnter = React.useCallback(() => changeViewMode('roda'), [changeViewMode]);
@@ -572,10 +553,7 @@ export default function App() {
     }
   };
 
-  // Game Engine state definitions
-  const [inspecteurCaixaParfaite, setInspecteurCaixaParfaite] = useState<number>(0);
-  const [inspecteurCaixaErreur, setInspecteurCaixaErreur] = useState<number>(0);
-  const [mestreRhythmState, setMestreRhythmState] = useState<number>(0);
+
   const handleOpenDefaultInstrumentEditor = React.useCallback(() => {
     const state = useSequencerStore.getState();
     if (state.editingTrackId !== null) {
@@ -656,11 +634,7 @@ export default function App() {
         setMeasureWidth={setMeasureWidth}
         setSectionToSave={setSectionToSave}
         setLoadSectionInsertMeasure={setLoadSectionInsertMeasure}
-        mestreRhythmState={mestreRhythmState}
-        setMestreRhythmState={setMestreRhythmState}
-        unlockedFolhetos={unlockedFolhetos}
-        justUnlockedBookletId={justUnlockedBookletId}
-        onClearJustUnlocked={handleClearJustUnlocked}
+
 
         presetFiles={presetFiles}
         localPresets={localPresets}

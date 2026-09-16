@@ -52,12 +52,12 @@ export const Home: React.FC<HomeProps> = ({ onEnter, lang }) => {
         </div>
 
         {/* Main Menu */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
+        <div className="flex justify-center w-full max-w-2xl">
           
           {/* Roda (Primary) */}
           <button
             onClick={() => handleEnter('roda')}
-            className="col-span-1 md:col-span-2 relative overflow-hidden group bg-[#e67e22] text-[#1a1a1a] cordel-border flex flex-col items-center justify-center py-10 px-6 cursor-pointer hover:scale-[1.02] transition-transform duration-300"
+            className="w-full relative overflow-hidden group bg-[#e67e22] text-[#1a1a1a] cordel-border flex flex-col items-center justify-center py-10 px-6 cursor-pointer hover:scale-[1.02] transition-transform duration-300"
           >
             <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity" />
             <span className="text-4xl mb-3">⭕</span>
@@ -68,40 +68,6 @@ export const Home: React.FC<HomeProps> = ({ onEnter, lang }) => {
               {isFr ? 'Séquenceur circulaire et création' : 'Sequenciador circular e criação'}
             </span>
           </button>
-
-          {/* Jeux (Varal) */}
-          {hasAccess('admin') && (
-            <button
-              onClick={() => handleEnter('varal')}
-              className="bg-[#2980b9] text-[#1a1a1a] cordel-border flex flex-col items-center justify-center py-6 px-4 cursor-pointer hover:-translate-y-1 transition-transform"
-            >
-              <span className="text-3xl mb-2">🪢</span>
-              <span className="font-cactus font-bold text-xl uppercase tracking-wider">
-                {isFr ? 'Le Varal' : 'O Varal'}
-              </span>
-              <span className="text-xs font-bold opacity-80 mt-1 text-center">
-                {isFr ? 'Parcours de jeux et progression' : 'Jornada de jogos e progresso'}
-              </span>
-            </button>
-          )}
-
-          {/* TODO: Réactiver le Studio des Jeux plus tard */}
-          {/* Studio */}
-          {/* {hasAccess('admin') && (
-            <button
-              onClick={() => handleEnter('studio')}
-              className="bg-[#8e44ad] text-[#1a1a1a] cordel-border flex flex-col items-center justify-center py-6 px-4 cursor-pointer hover:-translate-y-1 transition-transform"
-            >
-              <span className="text-3xl mb-2">👑</span>
-              <span className="font-cactus font-bold text-xl uppercase tracking-wider">
-                {isFr ? 'La parole du mestre' : 'A palavra do mestre'}
-              </span>
-              <span className="text-xs font-bold opacity-80 mt-1 text-center">
-                {isFr ? 'Arrangements avancés' : 'Arranjos avançados'}
-              </span>
-            </button>
-          )} */}
-
         </div>
 
         {/* Footer info */}

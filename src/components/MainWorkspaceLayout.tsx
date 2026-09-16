@@ -20,9 +20,6 @@ const ConsoleMixer = lazyWithRetry(() => import('./ConsoleMixer').then(m => ({ d
 const CircleSequencer = lazyWithRetry(() => import('./CircleSequencer').then(m => ({ default: m.CircleSequencer })), 'CircleSequencer');
 const DawLinearSequencer = lazyWithRetry(() => import('./DawLinearSequencer').then(m => ({ default: m.DawLinearSequencer })), 'DawLinearSequencer');
 const TimelineSequencer = lazyWithRetry(() => import('./TimelineSequencer').then(m => ({ default: m.TimelineSequencer })), 'TimelineSequencer');
-
-// TODO: Réactiver le Studio des Jeux plus tard
-// const MestreStudio = lazyWithRetry(() => import('./MestreStudio').then(m => ({ default: m.MestreStudio })), 'MestreStudio');
 const AdminPanel = lazyWithRetry(() => import('./AdminPanel').then(m => ({ default: m.AdminPanel })), 'AdminPanel');
 
 const renderFallback = (labelFr: string, labelPt: string) => {
@@ -52,7 +49,6 @@ interface MainWorkspaceLayoutProps {
   viewMode: string;
   renderedView: string | null;
   isFadingIn: boolean;
-  hasVisitedStudio?: boolean;
   isMobile: boolean;
   mobileTab: string;
   setMobileTab: (tab: string) => void;
@@ -64,11 +60,6 @@ interface MainWorkspaceLayoutProps {
   setMeasureWidth: (w: number) => void;
   setSectionToSave: (sec: any) => void;
   setLoadSectionInsertMeasure: (val: any) => void;
-  mestreRhythmState: any;
-  setMestreRhythmState: (state: any) => void;
-  unlockedFolhetos: any[];
-  justUnlockedBookletId: any;
-  onClearJustUnlocked: () => void;
 
   presetFiles: any[];
   localPresets: any[];
@@ -101,11 +92,6 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
   setMeasureWidth,
   setSectionToSave,
   setLoadSectionInsertMeasure,
-  mestreRhythmState,
-  setMestreRhythmState,
-  unlockedFolhetos,
-  justUnlockedBookletId,
-  onClearJustUnlocked,
 
   presetFiles,
   localPresets,
