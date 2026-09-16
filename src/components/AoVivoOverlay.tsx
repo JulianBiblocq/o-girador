@@ -725,9 +725,9 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
     const amplitude = CONFIG_AGBE.dimensions?.amplitude || 30;
     const beadR = CONFIG_AGBE.dimensions?.beadRadius || 8;
 
-    const outerZigZag = [];
-    const innerZigZag = [];
-    const beads = [];
+    const outerZigZag: string[] = [];
+    const innerZigZag: string[] = [];
+    const beads: Array<{ cx: number; cy: number; r: number }> = [];
 
     for (let i = 0; i <= numPoints; i++) {
       const angle1 = (i / numPoints) * Math.PI * 2;

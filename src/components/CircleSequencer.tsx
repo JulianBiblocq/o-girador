@@ -10,10 +10,9 @@ import { loadTone, getTone } from '../ToneLoader';
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
 }
-import { TrackGroup, Language, HitTrigger, HitTriggerPool, TimeSignature, SongSection, SongMarker, CloudRhythmSignal } from '../types';
+import { TrackGroup, Pattern, Language, HitTrigger, HitTriggerPool, TimeSignature, SongSection, SongMarker, CloudRhythmSignal } from '../types';
 import { instrumentsConfig, getMarkers, ASSETS_BASE_URL, isDarkText, getVisualStrokeSymbol, i18n } from '../data';
 import { getNextStepValue } from '../utils/instrumentStrokes';
-import { useGameData } from '../contexts/GameDataContext';
 import { useSequencerStore, isSequencerVisibleTrack, isToadaBus, getEffectiveMuteState } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
@@ -35,15 +34,16 @@ interface CircleSequencerProps {
   maxTicks?: number;
   timeSig?: TimeSignature;
   onTogglePlay?: () => void;
-  onStepChange?: (trackId: number, patternId: number, stepIdx: number, newState: string | number, lyric?: string, note?: string) => void;
+  onStepChange?: (trackId: number, patternId: number, stepIdx: number, newState: string | number | [string, string], lyric?: string, note?: string) => void;
   onStepTouchStart?: (
     e: React.MouseEvent | React.TouchEvent,
     patternId: number,
     stepIdx: number,
     instId: string,
-    currentVal: string | number,
-    onSelect: (val: string) => void,
-    trackId: number
+    currentVal: string | number | [string, string],
+    onSelect: (val: string | number | [string, string], merge?: boolean) => void,
+    trackId: number,
+    isSplit?: boolean
   ) => void;
   langPromptVoiceText?: string;
   isMetroOn?: boolean;
@@ -771,10 +771,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       return !getEffectiveMuteState(currentRawTracks, t.id);
     });
 
-    // Detect click on any track
     activeVisibleTracksToDraw.forEach((track, visibleIdx) => {
       const isToada = isToadaBus(track);
-      let activePattern = null;
+      let activePattern: Pattern | null | undefined = null;
       let ownerTrack = track;
       
       const activePatternId = getLiveActivePatternId(track);
@@ -866,9 +865,11 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
                 );
               } else {
                 const visualVal = getVisualStrokeSymbol(currentVal, stateRef.current.isLeftHanded || false, inst.id);
-                const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
+                const primaryVisualVal = Array.isArray(visualVal) ? visualVal[0] : visualVal;
+                const nextVisualVal = getNextStepValue(inst.id, inst.type, primaryVisualVal);
                 const nextSemanticVal = getVisualStrokeSymbol(nextVisualVal, stateRef.current.isLeftHanded || false, inst.id);
-                onStepChange(ownerTrack.id, activePattern.id, i, nextSemanticVal);
+                const primarySemanticVal = Array.isArray(nextSemanticVal) ? nextSemanticVal[0] : nextSemanticVal;
+                onStepChange(ownerTrack.id, activePattern.id, i, primarySemanticVal);
               }
             }
             return;
@@ -1376,7 +1377,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
         const activePatternId = getLiveActivePatternId(track);
         if (activePatternId === null) return;
-        let activePattern = null;
+        let activePattern: Pattern | null | undefined = null;
         let ownerTrack = track;
 
         const isToada = isToadaBus(track);
@@ -1474,7 +1475,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             text: string;
             isDark: boolean;
             childInstId: string;
-            childState: string | number;
+            childState: string | number | [string, string];
           }> = [];
 
           if (track.isLinkFolder) {
@@ -1499,12 +1500,13 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
                       if (childInst) {
                         const childVisualState = getVisualStrokeSymbol(childState, localLeftHanded || false, childInst.id);
                         if (childVisualState !== 0) {
-                          const childColor = (childInst.colors && childInst.colors[childVisualState]) || childInst.color || '#fff';
-                          const childText = String(childVisualState);
+                          const primaryChildVisual = Array.isArray(childVisualState) ? childVisualState[0] : childVisualState;
+                          const childColor = (childInst.colors && childInst.colors[primaryChildVisual as string]) || childInst.color || '#fff';
+                          const childText = String(primaryChildVisual);
                           satellitesToDraw.push({
                             color: childColor,
                             text: childText,
-                            isDark: isDarkText(childInst.id, String(childState)),
+                            isDark: isDarkText(childInst.id, String(Array.isArray(childState) ? childState[0] : childState)),
                             childInstId: childInst.id,
                             childState: childState
                           });
@@ -1541,9 +1543,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
               masterRadiusSize = 13 * dynamicScale;
               if (currentInst.type === 'voice') {
                 masterRadiusSize = 22 * dynamicScale;
-                masterFillColor = track.isLinkFolder
+                masterFillColor = (track.isLinkFolder
                   ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
-                  : currentInst.color;
+                  : currentInst.color) || '#f4ecd8';
                 let syl = activePattern.lyrics[i] || String(visualState);
                 if (syl === '-') {
                   masterText = '-';
@@ -1555,9 +1557,10 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
                 }
               } else {
                 const stateStr = String(visualState);
+                const primaryVisual = Array.isArray(visualState) ? visualState[0] : visualState;
                 masterFillColor = track.isLinkFolder 
-                  ? getBusNoteColor(String(track.id), String(visualState), localRawTracks, instrumentsConfig)
-                  : ((currentInst.colors && currentInst.colors[visualState]) ? currentInst.colors[visualState] : '#fff');
+                  ? getBusNoteColor(String(track.id), String(primaryVisual), localRawTracks, instrumentsConfig)
+                  : ((currentInst.colors && currentInst.colors[primaryVisual as string]) ? currentInst.colors[primaryVisual as string] : '#fff');
                 masterIsAccent = (stateStr === stateStr.toUpperCase());
                 masterRadiusSize = (masterIsAccent ? 15 : 12) * dynamicScale;
 
@@ -1860,10 +1863,11 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
                const secondY = centerY + Math.sin(finalAngle) * tRad;
                
                const visualState = getVisualStrokeSymbol(secondState, localLeftHanded || false, currentInst.id);
-               const visualStateStr = String(visualState);
+               const primaryVisual = Array.isArray(visualState) ? visualState[0] : visualState;
+               const visualStateStr = String(primaryVisual);
                
-               let fillColor = ((currentInst.colors && currentInst.colors[visualState]) ? currentInst.colors[visualState] : '#fff');
-               let txtColor = isDarkText(currentInst.id, String(secondState)) ? '#1a1a1a' : '#f4ecd8';
+               let fillColor = ((currentInst.colors && currentInst.colors[primaryVisual as string]) ? currentInst.colors[primaryVisual as string] : '#fff');
+               let txtColor = isDarkText(currentInst.id, String(Array.isArray(secondState) ? secondState[0] : secondState)) ? '#1a1a1a' : '#f4ecd8';
                let isAccent = (visualStateStr === visualStateStr.toUpperCase());
                let radiusSize = (currentInst.type === 'voice' ? 22 : (isAccent ? 13 : 10)) * dynamicScale;
                

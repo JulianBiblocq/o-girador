@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase/config';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, query, collection, where, getDocs } from 'firebase/firestore';
 import { GoogleLoginButton } from './GoogleLoginButton';
 import type * as ToneType from 'tone';
 import { useAudioStore } from '../stores/useAudioStore';

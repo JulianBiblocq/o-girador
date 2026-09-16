@@ -159,7 +159,7 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
             {/* Variation Grid */}
             <div className="step-boxes flex flex-wrap gap-y-2 gap-x-4 scale-[0.9] origin-top-left mt-1">
               {(() => {
-                const groups = [];
+                const groups: number[][] = [];
                 for (let g = 0; g < variation.steps.length; g += 4) {
                   groups.push(Array.from({ length: Math.min(4, variation.steps.length - g) }, (_, idx) => g + idx));
                 }
@@ -254,7 +254,7 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
 
                               // Application directe de l'outil d'écriture actif du dock (sans ouvrir de popup intempestive)
                               let strokeToApply: string | number;
-                              if (activeTool === '0' || activeTool === 0 || activeTool === '') {
+                              if (activeTool === '0' || activeTool === '') {
                                 strokeToApply = 0;
                               } else if (activeTool === 'scissors') {
                                 return;

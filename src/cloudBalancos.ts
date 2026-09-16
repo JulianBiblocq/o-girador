@@ -108,7 +108,7 @@ export async function fetchCloudBalancos(
       }
     }
 
-    const promises = [];
+    const promises: Promise<any>[] = [];
     const isSysAdmin = userRole === 'admin';
 
     if (isSysAdmin) {

@@ -5,6 +5,7 @@
 
 import React, { useEffect, useRef, useMemo, useState } from 'react';
 import { GripVertical } from 'lucide-react';
+import { Pattern } from '../types';
 import { useSequencerStore, isLinearDAWVisibleTrack, isToadaBus, isToadaChild } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
 import { instrumentsConfig, ASSETS_BASE_URL, getVisualStrokeSymbol, NEWTON_NOTE_COLORS, isDarkText } from '../data';
@@ -350,7 +351,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
               ? tracks.find(p => String(p.id) === String(track.linkedToTrackId) && p.isLinkFolder)
               : null;
 
-            let activePattern = null;
+            let activePattern: Pattern | null = null;
             if (isLinkedSlave && parentBus) {
               if (override === null) {
                 activePattern = null;
@@ -642,7 +643,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
 
                                   children.forEach(c => {
                                     const override = c.patternOverrides?.[currentMeasure];
-                                    let cPattern = null;
+                                    let cPattern: Pattern | null | undefined = null;
                                     if (override === null) {
                                       cPattern = null;
                                     } else if (override !== undefined) {
@@ -663,16 +664,17 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                                       if (cInst) {
                                         const cVisualVal = getVisualStrokeSymbol(cVal, isLeftHanded, cInst.id);
                                         if (cVisualVal !== 0) {
-                                          const cBgColor = cInst.colors?.[cVisualVal as string] || cInst.color || '#111';
+                                          const primaryCVisual = Array.isArray(cVisualVal) ? cVisualVal[0] : cVisualVal;
+                                          const cBgColor = cInst.colors?.[primaryCVisual as string] || cInst.color || '#111';
                                           let cTxtColor = cInst.colors?.text || '#f4ecd8';
-                                          if (isDarkText(cInst.id, cVisualVal as string)) {
+                                          if (isDarkText(cInst.id, primaryCVisual as string)) {
                                             cTxtColor = '#1a1a1a';
                                           }
                                           childActiveEvents.push({
                                             bgColor: cBgColor,
                                             txtColor: cTxtColor,
-                                            displayVal: String(cVisualVal),
-                                            visualVal: cVisualVal,
+                                            displayVal: String(primaryCVisual),
+                                            visualVal: primaryCVisual,
                                           });
                                         }
                                       }

@@ -274,7 +274,7 @@ export const FeedbackSection: React.FC = () => {
                 : "Découvrez O Girador, le séquenceur de Maracatu interactif ! https://ogirador.web.app";
               try {
                 await navigator.clipboard.writeText(textStr);
-                alertAsync(lang === 'pt' ? 'Link copiado para a área de transferência!' : 'Lien copié dans le presse-papier !', "O Girador");
+                alertAsync(lang === 'pt' ? 'Link copiado para a área de transferência!' : 'Lien copié dans le presse-papier !');
               } catch (err) {
                 console.error("Clipboard write failed:", err);
               }

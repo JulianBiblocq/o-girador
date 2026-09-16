@@ -7,7 +7,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import * as Tone from 'tone';
 import { AudioEngine, ActiveInstrumentData } from '../AudioEngine';
 import { InputManager } from '../InputManager';
-import { TrackGroup, TimeSignature, HitTrigger, HitTriggerPool, SongSection, GlobalSwing } from '../types';
+import { TrackGroup, TimeSignature, HitTrigger, HitTriggerPool, SongSection, GlobalSwing, Pattern } from '../types';
 import { isStrokeActiveByDefault } from '../utils/instrumentStrokes';
 
 // Pub/Sub system for high-performance visual tick updates
@@ -1020,7 +1020,7 @@ export function useAudioSync({
             const currentMeasureIdx = measureCountRef.current;
             const effectiveLoopEnd = (isLoopRegionActiveRef.current && loopEndRef.current !== null) ? loopEndRef.current : (totalMeasuresRef.current - 1);
 
-            let activeSection = null;
+            let activeSection: SongSection | null = null;
             const sections = songSectionsRef.current;
             if (sections) {
               for (let i = 0; i < sections.length; i++) {
@@ -1495,7 +1495,7 @@ export function useAudioSync({
                     const decayMultiplier = decayPct / 100;
 
                     // Find active pattern for current measure (or solo pattern if solo play is active)
-                    let activePattern = null;
+                    let activePattern: Pattern | null = null;
                     const patterns = liveTrack.patterns;
                     const numPatterns = patterns.length;
                     if (soloPatternPlayIdRef.current !== null) {
@@ -1580,7 +1580,7 @@ export function useAudioSync({
           if (!inst || inst.type !== 'voice') continue;
 
           // Playback of vocal patterns
-          let activePattern = null;
+          let activePattern: Pattern | null = null;
           const patterns = track.patterns;
           const numPatterns = patterns.length;
           for (let pIdx = 0; pIdx < numPatterns; pIdx++) {
@@ -1712,14 +1712,16 @@ export function useAudioSync({
                 }
                 const noteFreq = noteToFrequency(finalNoteVal);
                 const decayVal = activePattern.decays?.[cellIdx] ?? 10;
-                const numSteps = getVoiceNoteStepsFromDecay(decayVal);
+                const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
+                const numSteps = getVoiceNoteStepsFromDecay(decayNum);
                 const noteDuration = (numSteps * 6) * tick96nSec;
                 playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[track.id]);
               }
 
               // Maintien absolu du défilement des paroles et de l'illumination visuelle des pas à 60 FPS
               if (!isDocHidden) {
-                pushVisualHitTrigger(track.id, cellIdx, state, triggerTime);
+                const stateCode = typeof state === 'number' ? state : (typeof state === 'string' ? (state.charCodeAt(0) || 1) : (state[0] ? (state[0].charCodeAt(0) || 1) : 1));
+                pushVisualHitTrigger(track.id, cellIdx, stateCode, triggerTime);
               }
             }
           }
@@ -1808,7 +1810,7 @@ export function useAudioSync({
 
         activeInstruments.sort((a, b) => a.id.localeCompare(b.id));
 
-        audioEngine.syncActiveInstrumentsMemory(activeInstruments)
+        audioEngine?.syncActiveInstrumentsMemory(activeInstruments)
           .catch(e => { /* console.warn("Dynamic RAM sync failed:", e); */ });
       }
     });
@@ -1864,7 +1866,7 @@ export function useAudioSync({
         if (useSequencerStore.getState().isPreviewMode) {
           Tone.Transport.scheduleOnce((time) => {
             Tone.Transport.stop(time);
-            useTransportStore.getState().setPlaying(false);
+            setIsPlaying(false);
             window.dispatchEvent(new CustomEvent('show-visitor-auth-mandatory'));
           }, '4:0:0');
         }

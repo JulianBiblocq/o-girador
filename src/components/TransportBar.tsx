@@ -42,17 +42,18 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
     }))
   );
 
-  const isRecording = useAudioStore(state => state.isRecording);
-  const recordingSeconds = useAudioStore(state => state.recordingSeconds);
   const loopMode = useSequencerStore(state => state.loopMode);
   const currentLoopIteration = useSequencerStore(state => state.currentLoopIteration);
   const isLoopBypassed = useSequencerStore(state => state.isLoopBypassed);
+  const isLoopExitRequested = useSequencerStore(state => state.isLoopExitRequested);
 
   const {
     isPlaying,
     handleTogglePlay,
     handleStop,
     handleAudioRecordingToggle,
+    isRecording,
+    recordingSeconds,
   } = audio;
 
   const [showLoopMenu, setShowLoopMenu] = React.useState(false);
@@ -255,17 +256,17 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
                 isLoopBypassed
                   ? 'bg-orange-500 text-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)]' // Bypassed: orange active state
                   : sequencer.isLooping 
-                    ? sequencer.isLoopExitRequested
+                    ? isLoopExitRequested
                       ? 'bg-orange-500/60 text-white animate-pulse'
                       : 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-border)]'
                     : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] opacity-60 hover:opacity-100'
               }`}
               title={lang === 'fr' ? 'Activer/Désactiver la boucle' : 'Toggle Loop'}
             >
-              <Repeat className={`w-5 h-5 sm:w-6 sm:h-6 icon-repeat ${(!sequencer.isLooping || isLoopBypassed || sequencer.isLoopExitRequested) ? 'hidden' : ''}`} />
-              <ArrowRightToLine className={`w-5 h-5 sm:w-6 sm:h-6 icon-arrow ${(sequencer.isLooping && !isLoopBypassed && !sequencer.isLoopExitRequested) ? 'hidden' : ''}`} />
+              <Repeat className={`w-5 h-5 sm:w-6 sm:h-6 icon-repeat ${(!sequencer.isLooping || isLoopBypassed || isLoopExitRequested) ? 'hidden' : ''}`} />
+              <ArrowRightToLine className={`w-5 h-5 sm:w-6 sm:h-6 icon-arrow ${(sequencer.isLooping && !isLoopBypassed && !isLoopExitRequested) ? 'hidden' : ''}`} />
               
-              <span className={`text-[8px] sm:text-[9px] font-bold mt-[-2px] loop-count ${(!sequencer.isLooping || isLoopBypassed || sequencer.isLoopExitRequested) ? 'hidden' : ''}`}>
+              <span className={`text-[8px] sm:text-[9px] font-bold mt-[-2px] loop-count ${(!sequencer.isLooping || isLoopBypassed || isLoopExitRequested) ? 'hidden' : ''}`}>
                 {loopMode === 'infinite' ? '∞' : Math.max(0, loopMode - currentLoopIteration + 1) + 'x'}
               </span>
             </button>

@@ -36,7 +36,6 @@ import { i18n, instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { useInstrumentLabel } from '../stores/useNomenclatureStore';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useAuth } from '../contexts/AuthContext';
-import { useGameData } from '../contexts/GameDataContext';
 import { AudioFader } from './AudioFader';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
@@ -627,9 +626,10 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   const handleOpenAlignment = React.useCallback(async () => {
     if (!activePattern) return;
-    let blob = useAudioStore.getState().vocalBlobs[activePattern.id];
+    let blob: Blob | undefined = useAudioStore.getState().vocalBlobs[activePattern.id];
     if (!blob) {
-      blob = await vocalEngineService.loadVocalRecording(activePattern.id) || undefined;
+      const loaded = await vocalEngineService.loadVocalRecording(activePattern.id);
+      if (loaded) blob = loaded;
     }
     if (blob) {
       useAudioStore.getState().setTargetPatternId(activePattern.id);
@@ -1366,7 +1366,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                           {/* Pattern Header */}
                           <div className="flex items-center gap-3 border-b-[2px] border-[#1a1a1a] pb-2">
                             {/* Reorder handle */}
-                            {onReorderPatternsDnd && (
+                            {(track.patterns?.length || 0) > 1 && (
                               <div
                                 {...attributes}
                                 {...listeners}
@@ -1926,7 +1926,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
                                       const newAudioUrl = await genererEtUploaderCloudBounce(libPtn.id, libPtn as any, currentBpm, currentTimeSig);
                                       setCloudPatterns(prev => prev.map(p => p.id === libPtn.id ? { ...p, audioUrl: newAudioUrl } : p));
                                       alert(lang === 'fr' ? 'Audio généré avec succès !' : 'Áudio gerado com sucesso!');
-                                    } catch(err) {
+                                    } catch(err: any) {
                                       alert((lang === 'fr' ? 'Erreur lors de la génération audio: ' : 'Erro na geração de áudio: ') + (err.message || String(err)));
                                     } finally {
                                       setBouncingPatternId(null);

@@ -40,7 +40,7 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   isMobileDrawer = false,
 }) => {
   const isFr = lang === 'fr';
-  const isEraser = activeTool === '0' || activeTool === 0 || activeTool === '';
+  const isEraser = activeTool === '0' || activeTool === '';
   const isScissors = activeTool === 'scissors';
   const isVoice = instrument?.type === 'voice';
 
@@ -101,9 +101,11 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
 
       p.activeSteps.forEach((step, idx) => {
         if (step === stroke) {
-          volSum += vols[idx] !== undefined ? vols[idx] : 80;
+          const v = vols[idx];
+          volSum += v !== undefined ? (Array.isArray(v) ? v[0] : v) : 80;
           volCount++;
-          decaySum += decays[idx] !== undefined ? decays[idx] : defaultDecay;
+          const d = decays[idx];
+          decaySum += d !== undefined ? (Array.isArray(d) ? d[0] : d) : defaultDecay;
           decayCount++;
         }
       });
@@ -113,9 +115,11 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
         const varDecays = v.decays || [];
         v.steps.forEach((step, idx) => {
           if (step === stroke) {
-            volSum += varVols[idx] !== undefined ? varVols[idx] : 80;
+            const vv = varVols[idx];
+            volSum += vv !== undefined ? (Array.isArray(vv) ? vv[0] : vv) : 80;
             volCount++;
-            decaySum += varDecays[idx] !== undefined ? varDecays[idx] : defaultDecay;
+            const vd = varDecays[idx];
+            decaySum += vd !== undefined ? (Array.isArray(vd) ? vd[0] : vd) : defaultDecay;
             decayCount++;
           }
         });
@@ -150,7 +154,9 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
             p.activeSteps.forEach((s, idx) => {
               if (s === stroke) {
                 const current = newVols[idx] !== undefined ? newVols[idx] : 80;
-                newVols[idx] = Math.max(0, Math.min(100, current + delta));
+                newVols[idx] = Array.isArray(current)
+                  ? [Math.max(0, Math.min(100, current[0] + delta)), Math.max(0, Math.min(100, current[1] + delta))]
+                  : Math.max(0, Math.min(100, current + delta));
               }
             });
 
@@ -159,7 +165,9 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
               v.steps.forEach((s, idx) => {
                 if (s === stroke) {
                   const current = varVols[idx] !== undefined ? varVols[idx] : 80;
-                  varVols[idx] = Math.max(0, Math.min(100, current + delta));
+                  varVols[idx] = Array.isArray(current)
+                    ? [Math.max(0, Math.min(100, current[0] + delta)), Math.max(0, Math.min(100, current[1] + delta))]
+                    : Math.max(0, Math.min(100, current + delta));
                 }
               });
               return { ...v, volumes: varVols };
@@ -188,7 +196,9 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
             p.activeSteps.forEach((s, idx) => {
               if (s === stroke) {
                 const current = newDecays[idx] !== undefined ? newDecays[idx] : (isVoice ? 10 : 100);
-                newDecays[idx] = Math.max(minDecay, Math.min(100, current + delta));
+                newDecays[idx] = Array.isArray(current)
+                  ? [Math.max(minDecay, Math.min(100, current[0] + delta)), Math.max(minDecay, Math.min(100, current[1] + delta))]
+                  : Math.max(minDecay, Math.min(100, current + delta));
               }
             });
 
@@ -197,7 +207,9 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
               v.steps.forEach((s, idx) => {
                 if (s === stroke) {
                   const current = varDecays[idx] !== undefined ? varDecays[idx] : (isVoice ? 10 : 100);
-                  varDecays[idx] = Math.max(minDecay, Math.min(100, current + delta));
+                  varDecays[idx] = Array.isArray(current)
+                    ? [Math.max(minDecay, Math.min(100, current[0] + delta)), Math.max(minDecay, Math.min(100, current[1] + delta))]
+                    : Math.max(minDecay, Math.min(100, current + delta));
                 }
               });
               return { ...v, decays: varDecays };

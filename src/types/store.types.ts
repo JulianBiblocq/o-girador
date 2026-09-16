@@ -71,9 +71,9 @@ export interface SavedPattern {
   folder: string;
   steps: (string | number | [string, string])[];
   variations: PatternVariation[];
-  volumes?: number[];
-  decays?: number[];
-  microtimings?: number[];
+  volumes?: StepSculptValue[];
+  decays?: StepSculptValue[];
+  microtimings?: StepSculptValue[];
   balancoPresetId?: string;
   balancoAmount?: number;
   createdAt: number;
@@ -85,7 +85,7 @@ export interface CloudPattern extends SavedPattern {
   ownerId: string;
   visibility: CatalogVisibility;
   mestreId?: string;
-  audioUrl?: string;
+  audioUrl?: string | null;
 }
 
 export interface TrackGroup {
@@ -163,6 +163,7 @@ export interface SongMarker {
 }
 
 export interface SavedSectionTrack {
+  id?: number;
   instrumentIdx: number;
   isMute: boolean;
   isSolo: boolean;
@@ -186,7 +187,7 @@ export interface SavedSectionData {
   numMeasures: number;
   timeSigs: TimeSignature[];
   vols: number[];
-  volTransitions: ('immediate' | 'ramp')[];
+  volTransitions: ('immediate' | 'ramp' | 'bezier')[];
   signals: (string | null)[];
   tracks: SavedSectionTrack[];
 }
@@ -199,7 +200,7 @@ export interface CloudSection {
   mestreId?: string;
   createdAt: number;
   data: string; // LZString compressed JSON of SavedSectionData
-  audioUrl?: string;
+  audioUrl?: string | null;
 }
 
 export interface CloudPreset {
@@ -212,6 +213,8 @@ export interface CloudPreset {
   mestreId?: string | null;
   groupId?: string | null;
   createdAt: number;
+  isFavorite?: boolean;
+  audioUrl?: string | null;
 }
 
 export interface MasterFX {

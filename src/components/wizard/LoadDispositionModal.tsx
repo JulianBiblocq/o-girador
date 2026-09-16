@@ -103,12 +103,13 @@ export const LoadDispositionModal: React.FC<LoadDispositionModalProps> = ({
       preset.ownerId === userUid ||
       preset.authorId === userUid ||
       preset.ownerId === 'local';
-    const isGroupMestre =
+    const isGroupMestre = Boolean(
       isMestreOrAdmin &&
       groupId &&
       preset.groupId &&
-      String(preset.groupId).toLowerCase() === groupId;
-    return isAuthor || isGroupMestre;
+      String(preset.groupId).toLowerCase() === groupId
+    );
+    return Boolean(isAuthor || isGroupMestre);
   };
 
   return (

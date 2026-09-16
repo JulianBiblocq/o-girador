@@ -20,8 +20,6 @@ import { TouchStrokeSelector } from './components/TouchStrokeSelector';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { MainWorkspaceLayout } from './components/MainWorkspaceLayout';
 import { GlobalModalsLayout } from './components/GlobalModalsLayout';
-import { AudioCompilerProvider } from './contexts/AudioCompilerContext';
-import { CustomPromptModal } from './components/CustomPromptModal';
 import { SavePresetModal } from './components/SavePresetModal';
 import { useWizardStore } from './stores/useWizardStore';
 import { NewSongIntroModal } from './components/NewSongIntroModal';
@@ -174,7 +172,6 @@ export default function App() {
     viewMode,
     renderedView,
     isFadingIn,
-    hasVisitedStudio,
     changeViewMode
   } = router;
 
@@ -245,11 +242,11 @@ export default function App() {
     const isMestreAdmin = actualRole1 === 'mestre' || actualRole1 === 'admin';
     const isEleve = contextHasAccessRef.current ? contextHasAccessRef.current('eleve') : false;
     
-    let targetMestreId = null;
+    let targetMestreId: string | null = null;
     if (isMestreAdmin) {
-      targetMestreId = profile?.mestreId || profile?.uid;
+      targetMestreId = profile?.mestreId || profile?.uid || null;
     } else if (isEleve) {
-      targetMestreId = profile?.mestreId;
+      targetMestreId = profile?.mestreId || null;
     }
 
     if (targetMestreId) {
@@ -327,17 +324,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('o-girador-unlocked-folhetos', JSON.stringify(unlockedFolhetos));
   }, [unlockedFolhetos]);
-
-  const unlockBooklet = React.useCallback((id: string) => {
-    setUnlockedFolhetos((prev) => {
-      if (prev.includes(id)) return prev;
-      setJustUnlockedBookletId(id);
-      changeViewMode('varal');
-      return [...prev, id];
-    });
-  }, [changeViewMode]);
-
-
 
   // Touch selector Bubble states
   const [touchSelector, setTouchSelector] = useState<any | null>(null);
@@ -450,7 +436,7 @@ export default function App() {
   const handleDeleteSongSection = React.useCallback((id: string) => sequencerRef.current.handleDeleteSongSection(id), []);
   const handleCopySongSection = React.useCallback((sec: SongSection) => sequencerRef.current.handleCopySongSection(sec), []);
   const handlePasteSongSection = React.useCallback((dest: number) => sequencerRef.current.handlePasteSongSection(dest), []);
-  const handleStepValueSelectAndToggle = React.useCallback((tId: number, pId: number, sIdx: number, state: string | number, l?: string, n?: string) => sequencerRef.current.handleStepValueSelectAndToggle(tId, pId, sIdx, state, l, n), []);
+  const handleStepValueSelectAndToggle = React.useCallback((tId: number, pId: number, sIdx: number, state: string | number | [string, string], l?: string, n?: string) => sequencerRef.current.handleStepValueSelectAndToggle(tId, pId, sIdx, state, l, n), []);
   const handleVoiceTypeToggle = React.useCallback((tId: number, pId: number, sIdx: number) => sequencerRef.current.handleVoiceTypeToggle(tId, pId, sIdx), []);
   const handleVoiceSylChange = React.useCallback((tId: number, pId: number, sIdx: number, val: string) => sequencerRef.current.handleVoiceSylChange(tId, pId, sIdx, val), []);
   const handleVoiceNoteChange = React.useCallback((tId: number, pId: number, sIdx: number, val: string) => sequencerRef.current.handleVoiceNoteChange(tId, pId, sIdx, val), []);
@@ -528,9 +514,7 @@ export default function App() {
       name: metadata?.toada?.trim() || 'Morceau complet',
       startMeasure: 1,
       endMeasure: state.totalMeasures,
-      color: '#8b2a1a',
-      isLooping: false,
-      isMuted: false
+      color: '#8b2a1a'
     });
   }, []);
   const handleLoadState = React.useCallback((file: File) => audioRef.current.handleLoadState(file), []);
@@ -661,7 +645,6 @@ export default function App() {
         viewMode={viewMode}
         renderedView={renderedView}
         isFadingIn={isFadingIn}
-        hasVisitedStudio={hasVisitedStudio}
         isMobile={isMobile}
         mobileTab={mobileTab}
         setMobileTab={(tab) => setMobileTab(tab as any)}
@@ -686,7 +669,7 @@ export default function App() {
         onToggleRightPanel={handleToggleRightPanel}
       />
 
-      {viewMode !== 'quiz' && viewMode !== 'dictee' && viewMode !== 'inspecteur' && viewMode !== 'mestre' && viewMode !== 'rythmelive' && viewMode !== 'varal' && viewMode !== 'studio' && viewMode !== 'admin' && (
+      {viewMode !== 'admin' && (
         <TransportBar
           viewMode={viewMode as any}
         />

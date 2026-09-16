@@ -122,6 +122,7 @@ export interface Preset {
   isLoopRegionActive?: boolean;
   loopMode?: 'infinite' | number;
   isLooping?: boolean;
+  isLoopExitRequested?: boolean;
   version?: number;
 }
 

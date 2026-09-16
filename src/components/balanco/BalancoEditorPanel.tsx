@@ -84,8 +84,7 @@ export const BalancoEditorPanel: React.FC<BalancoEditorPanelProps> = ({
     if (!userProfile) {
       return p.ownerId === 'local';
     }
-    if (p.ownerId === userProfile.uid || p.ownerId === 'local') return true;
-    const role = userProfile.role || '';
+    const role = String(userProfile.role || '');
     if (role === 'admin' || role === 'super-admin') return true;
     if ((role === 'mestre' || role === 'mestri') && p.groupId && userProfile.groupId) {
       return String(p.groupId).toLowerCase() === String(userProfile.groupId).toLowerCase();

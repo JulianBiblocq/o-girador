@@ -1128,19 +1128,19 @@ export function useSequencerState() {
             while (nextActiveSteps.length < p.steps) nextActiveSteps.push(0);
             nextActiveSteps.length = p.steps;
             
-            let nextVolumes = undefined;
+            let nextVolumes: StepSculptValue[] | undefined = undefined;
             if (libPattern.volumes) {
               nextVolumes = [...libPattern.volumes];
               while (nextVolumes.length < p.steps) nextVolumes.push(80);
               nextVolumes.length = p.steps;
             }
-            let nextDecays = undefined;
+            let nextDecays: StepSculptValue[] | undefined = undefined;
             if (libPattern.decays) {
               nextDecays = [...libPattern.decays];
               while (nextDecays.length < p.steps) nextDecays.push(100);
               nextDecays.length = p.steps;
             }
-            let nextMicrotimings = undefined;
+            let nextMicrotimings: StepSculptValue[] | undefined = undefined;
             if (libPattern.microtimings) {
               nextMicrotimings = [...libPattern.microtimings];
               while (nextMicrotimings.length < p.steps) nextMicrotimings.push(0);
@@ -1151,9 +1151,9 @@ export function useSequencerState() {
               ...p,
               activeSteps: nextActiveSteps,
               variations: JSON.parse(JSON.stringify(libPattern.variations || [])),
-              ...(nextVolumes && { volumes: nextVolumes }),
-              ...(nextDecays && { decays: nextDecays }),
-              ...(nextMicrotimings && { microtimings: nextMicrotimings })
+              ...(nextVolumes ? { volumes: nextVolumes } : {}),
+              ...(nextDecays ? { decays: nextDecays } : {}),
+              ...(nextMicrotimings ? { microtimings: nextMicrotimings } : {})
             };
           }
           return p;
@@ -1285,7 +1285,7 @@ export function useSequencerState() {
     trackId: number,
     patternId: number,
     stepIdx: number,
-    newState: string | number,
+    newState: string | number | [string, string],
     optLyric?: string,
     optNote?: string
   ) => {
@@ -1597,23 +1597,24 @@ export function useSequencerState() {
     trackId: number,
     patternId: number,
     stepIdx: number | number[],
-    val: string | string[] | [string, string],
-    lyrics?: string[],
-    notes?: string[]
+    val: string | number | string[] | [string, string],
+    lyrics?: string[] | string,
+    notes?: string[] | string
   ) => {
     pushUndoState();
     setTracks(prev => prev.map(t => {
       if (t.id === trackId || String(t.id) === String(trackId)) {
         const inst = instrumentsConfig[t.instrumentIdx];
 
-        const parseVal = (v: string): string | number => {
-          if (!v) return 0;
-          const cleanChar = v.slice(-1);
+        const parseVal = (v: string | number): string | number => {
+          if (!v || v === 0 || v === '0') return 0;
+          const strV = String(v);
+          const cleanChar = strV.slice(-1);
           let parsed: string | number = 0;
-          if (v === '0') {
+          if (strV === '0') {
             parsed = 0;
-          } else if (inst.colors[v] !== undefined && v !== 'text') {
-            parsed = v;
+          } else if (inst.colors[strV] !== undefined && strV !== 'text') {
+            parsed = strV;
           } else if (cleanChar && cleanChar.trim() !== '') {
             if (inst.type === 'gongue') {
               if (['G', 'g', 'A', 'a'].includes(cleanChar)) parsed = cleanChar;
@@ -1677,7 +1678,8 @@ export function useSequencerState() {
               if (['D', 'E', 'd', 'e'].includes(cleanChar)) parsed = cleanChar;
             }
           }
-          return getVisualStrokeSymbol(parsed, isLeftHanded, inst.id);
+          const sym = getVisualStrokeSymbol(parsed, isLeftHanded, inst.id);
+          return (Array.isArray(sym) ? sym[0] : sym) as string | number;
         };
 
         const nextPatterns = t.patterns.map(p => {
@@ -1690,11 +1692,13 @@ export function useSequencerState() {
               stepIdx.forEach((idx, i) => {
                 const currentVal = Array.isArray(val) ? val[i] : val;
                 copySteps[idx] = parseVal(currentVal);
-                if (lyrics && lyrics[i] !== undefined) {
-                  arrLyrics[idx] = lyrics[i];
+                if (lyrics) {
+                  const lyricVal = Array.isArray(lyrics) ? lyrics[i] : lyrics;
+                  if (lyricVal !== undefined) arrLyrics[idx] = lyricVal;
                 }
-                if (notes && notes[i] !== undefined) {
-                  arrNotes[idx] = notes[i];
+                if (notes) {
+                  const noteVal = Array.isArray(notes) ? notes[i] : notes;
+                  if (noteVal !== undefined) arrNotes[idx] = noteVal;
                 }
               });
             } else {
@@ -1703,11 +1707,11 @@ export function useSequencerState() {
               } else {
                 copySteps[stepIdx] = parseVal(val);
               }
-              if (lyrics && lyrics[0] !== undefined) {
-                arrLyrics[stepIdx] = lyrics[0];
+              if (lyrics !== undefined) {
+                arrLyrics[stepIdx] = Array.isArray(lyrics) ? (lyrics[0] ?? '') : lyrics;
               }
-              if (notes && notes[0] !== undefined) {
-                arrNotes[stepIdx] = notes[0];
+              if (notes !== undefined) {
+                arrNotes[stepIdx] = Array.isArray(notes) ? (notes[0] ?? '') : notes;
               }
             }
             return {
@@ -1875,7 +1879,7 @@ export function useSequencerState() {
     }));
   };
 
-  const handleVariationStepValueChange = (trackId: number, patternId: number, variationId: string, stepIdx: number | number[], val: string | string[] | [string, string]) => {
+  const handleVariationStepValueChange = (trackId: number, patternId: number, variationId: string, stepIdx: number | number[], val: string | number | string[] | [string, string]) => {
     pushUndoState();
     setTracks(prev => prev.map(t => {
       if (t.id === trackId) {
@@ -1892,7 +1896,7 @@ export function useSequencerState() {
                   if (Array.isArray(val)) {
                     nextSteps[stepIdx] = [String(val[0]), String(val[1])];
                   } else {
-                    nextSteps[stepIdx] = val as string;
+                    nextSteps[stepIdx] = val as string | number;
                   }
                 }
                 return { ...v, steps: nextSteps };

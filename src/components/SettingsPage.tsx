@@ -337,9 +337,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
       p.activeSteps.forEach((step, idx) => {
         if (step === stroke) {
-          volSum += vols[idx] !== undefined ? vols[idx] : 80;
+          const v = vols[idx];
+          volSum += v !== undefined ? (Array.isArray(v) ? v[0] : v) : 80;
           volCount++;
-          decaySum += decays[idx] !== undefined ? decays[idx] : defaultDecay;
+          const d = decays[idx];
+          decaySum += d !== undefined ? (Array.isArray(d) ? d[0] : d) : defaultDecay;
           decayCount++;
         }
       });
@@ -349,9 +351,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
         const varDecays = v.decays || [];
         v.steps.forEach((step, idx) => {
           if (step === stroke) {
-            volSum += varVols[idx] !== undefined ? varVols[idx] : 80;
+            const vv = varVols[idx];
+            volSum += vv !== undefined ? (Array.isArray(vv) ? vv[0] : vv) : 80;
             volCount++;
-            decaySum += varDecays[idx] !== undefined ? varDecays[idx] : defaultDecay;
+            const vd = varDecays[idx];
+            decaySum += vd !== undefined ? (Array.isArray(vd) ? vd[0] : vd) : defaultDecay;
             decayCount++;
           }
         });

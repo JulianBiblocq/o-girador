@@ -44,8 +44,10 @@ interface MixerProps {
     patternId: number,
     stepIdx: number,
     instId: string,
-    currentVal: string | number,
-    onSelect: (val: string) => void
+    currentVal: string | number | [string, string],
+    onSelect: (val: string | number | [string, string], merge?: boolean) => void,
+    trackId?: number,
+    isSplit?: boolean
   ) => void;
   isActive?: boolean;
   setEditingTrackId: (id: number | null) => void;

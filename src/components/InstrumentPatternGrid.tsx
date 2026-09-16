@@ -16,7 +16,14 @@ import { Pattern, StepSculptValue } from '../types';
 import { getNextStepValue, getWheelNuanceState, getNextNuanceState, getAlternatingStroke, getComplementaryStroke, getDefaultSplitPair } from '../utils/instrumentStrokes';
 import { Trash2 } from 'lucide-react';
 import { isDarkText, instrumentsConfig, NEWTON_NOTE_COLORS } from '../data';
+import { getContrastColor } from '../utils/colorHelpers';
 import { useWindow } from '../contexts/WindowContext';
+
+const getSculptNumber = (val: StepSculptValue | undefined, fallback = 100, subIndex = 0): number => {
+  if (val === undefined) return fallback;
+  if (Array.isArray(val)) return val[subIndex] ?? val[0] ?? fallback;
+  return typeof val === 'number' ? val : fallback;
+};
 
 interface InstrumentPatternGridProps {
   trackId: number;
@@ -54,9 +61,10 @@ interface InstrumentPatternGridProps {
     stepIdx: number,
     instId: string,
     currentVal: string | number,
-    onSelect: (val: string, merge?: boolean) => void,
+    onSelect: (val: string | number | [string, string], merge?: boolean) => void,
     trackId: number,
-    isSplit?: boolean
+    isSplit?: boolean,
+    subIndex?: 0 | 1
   ) => void;
   onCopyPattern?: (pattern: any) => void;
   onPastePattern?: (patternId: number) => void;
@@ -238,7 +246,7 @@ const PercussionStepCell = React.memo(({
               className="absolute top-0.5 left-1 text-[10px] sm:text-xs font-bold select-none pointer-events-none"
               style={{ color: splitLeftText || '#f4ecd8' }}
             >
-              {val[0] === '0' || val[0] === 0 ? '' : val[0]}
+              {val[0] === '0' || !val[0] ? '' : val[0]}
             </span>
           </div>
 
@@ -269,7 +277,7 @@ const PercussionStepCell = React.memo(({
               className="absolute bottom-0.5 right-1 text-[10px] sm:text-xs font-bold select-none pointer-events-none"
               style={{ color: splitRightText || '#f4ecd8' }}
             >
-              {val[1] === '0' || val[1] === 0 ? '' : val[1]}
+              {val[1] === '0' || !val[1] ? '' : val[1]}
             </span>
           </div>
 
@@ -498,17 +506,17 @@ interface VoiceStepCellProps {
   steps: number;
   trackId: number;
   patternId: number;
-  state: string | number;
+  state: string | number | [string, string];
   syl: string;
   note: string;
   isSelected: boolean;
   isMultiSelectActive: boolean;
-  manualMicro: number;
+  manualMicro?: StepSculptValue;
   totalShift: number;
   shiftPx: number;
   isLinked: boolean;
-  volume: number;
-  decay: number;
+  volume: StepSculptValue;
+  decay: StepSculptValue;
   isPreRoll?: boolean;
   
   onTouchStart?: (e: React.TouchEvent<HTMLDivElement>, index: number) => void;
@@ -584,7 +592,7 @@ const VoiceStepCellComponent = ({
   };
 
   const { letter: noteLetterOnly, octave, color: noteColor } = getTransposedNoteDetails();
-  const txtColor = isDarkText(cardBg) ? '#1a1a1a' : '#f4ecd8';
+  const txtColor = getContrastColor(cardBg || '#f4ecd8');
 
   return (
     <div className="relative" style={{ width: '56px' }}>
@@ -717,10 +725,10 @@ const VoiceStepCellComponent = ({
           title={lang === 'fr' ? "Sélectionner ce pas pour le Sculpteur" : "Selecionar este passo para o Escultor"}
         >
           <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-            <div className="h-[2px] bg-green-600 rounded-none transition-all" style={{ width: `${volume}%` }} />
+            <div className="h-[2px] bg-green-600 rounded-none transition-all" style={{ width: `${getSculptNumber(volume)}%` }} />
           </div>
           <div className="h-[2px] bg-[#1a1a1a]/10 w-full relative">
-            <div className="h-[2px] bg-amber-500 rounded-none transition-all" style={{ width: `${decay}%` }} />
+            <div className="h-[2px] bg-amber-500 rounded-none transition-all" style={{ width: `${getSculptNumber(decay)}%` }} />
           </div>
           <div className="h-[3px] bg-[#1a1a1a]/15 w-full relative overflow-hidden">
             <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-[#1a1a1a]/30" />
@@ -742,11 +750,14 @@ const VoiceStepCellComponent = ({
 };
 
 const areVoicePropsEqual = (prev: VoiceStepCellProps, next: VoiceStepCellProps) => {
+  const stateEqual = Array.isArray(prev.state) && Array.isArray(next.state)
+    ? prev.state[0] === next.state[0] && prev.state[1] === next.state[1]
+    : prev.state === next.state;
   return prev.i === next.i &&
          prev.steps === next.steps &&
          prev.trackId === next.trackId &&
          prev.patternId === next.patternId &&
-         prev.state === next.state &&
+         stateEqual &&
          prev.syl === next.syl &&
          prev.note === next.note &&
          prev.isSelected === next.isSelected &&
@@ -993,7 +1004,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       // Fusionne instantanément le pas en conservant la première note : val[0]
       if (Array.isArray(currentStep)) {
         const first = currentStep[0];
-        finalVal = (first === '0' || first === 0 || !first) ? 0 : first;
+        finalVal = (first === '0' || !first) ? 0 : first;
         setSelectedSubIndex(null);
       }
       // B. Clic sur un pas vide ('0' ou '' ou 0 ou null) : Pré-remplissage naturel
@@ -1032,8 +1043,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       if (noteToPreview !== 0 && noteToPreview !== '0' && noteToPreview !== '') {
         try {
           if (audioEngine) {
-            const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
-            const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+            const vol = getSculptNumber(pattern?.volumes?.[idx], 100) / 100;
+            const dec = getSculptNumber(pattern?.decays?.[idx], 100) / 100;
             audioEngine.playNote(trackId, String(noteToPreview), Tone.now(), vol, dec);
           }
         } catch (_) {}
@@ -1072,7 +1083,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
     // Apply directly the active tool from dock, with parity alternation if active
     let strokeToApply: string | number;
-    if (activeTool === '0' || activeTool === 0 || activeTool === '') {
+    if (activeTool === '0' || activeTool === '' || activeTool === undefined) {
       strokeToApply = 0;
     } else if (isAlternating) {
       strokeToApply = getAlternatingStroke(idx, activeTool, instrument?.id, instrument?.type, lang, isLeftHanded);
@@ -1102,8 +1113,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     if (strokeToApply !== 0 && strokeToApply !== '0') {
       try {
         if (audioEngine) {
-          const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
-          const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+          const vol = getSculptNumber(pattern?.volumes?.[idx], 100) / 100;
+          const dec = getSculptNumber(pattern?.decays?.[idx], 100) / 100;
           audioEngine.playNote(trackId, String(strokeToApply), Tone.now(), vol, dec);
         }
       } catch (_) {}
@@ -1118,7 +1129,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
     if (isMouseDownRef.current) {
       let strokeToApply: string | number;
-      if (activeTool === '0' || activeTool === 0 || activeTool === '') {
+      if (activeTool === '0' || activeTool === '' || activeTool === undefined) {
         strokeToApply = 0;
       } else if (isAlternating) {
         strokeToApply = getAlternatingStroke(idx, activeTool, instrument?.id, instrument?.type, lang, isLeftHanded);
@@ -1135,8 +1146,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       if (strokeToApply !== 0 && strokeToApply !== '0') {
         try {
           if (audioEngine) {
-            const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
-            const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+            const vol = getSculptNumber(pattern?.volumes?.[idx], 100) / 100;
+            const dec = getSculptNumber(pattern?.decays?.[idx], 100) / 100;
             audioEngine.playNote(trackId, String(strokeToApply), Tone.now(), vol, dec);
           }
         } catch (_) {}
@@ -1160,7 +1171,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         const arr: [string, string] = [...rawVal] as [string, string];
         arr[subIndex] = '0';
         // Si les deux sous-pas deviennent '0' ou vides, repasser le pas à 0 (silence complet)
-        if ((arr[0] === '0' || arr[0] === 0 || arr[0] === '') && (arr[1] === '0' || arr[1] === 0 || arr[1] === '')) {
+        if ((arr[0] === '0' || !arr[0]) && (arr[1] === '0' || !arr[1])) {
           finalVal = 0;
           setSelectedSubIndex(null);
         } else {
@@ -1203,7 +1214,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     if ((!currentState || currentState === 0 || currentState === '0') && !currentSyl && !currentNote) {
       return;
     }
-    handleTrackStepValueChange(trackId, pattern.id, idx, 0, '', '');
+    handleTrackStepValueChange(trackId, pattern.id, idx, '0', '', '');
   }, [pattern?.activeSteps, pattern?.lyrics, pattern?.notes, pattern?.id, trackId, handleTrackStepValueChange]);
 
   const handleCellTouchStart = React.useCallback((e: React.TouchEvent<HTMLInputElement>, idx: number, value: string | number | [string, string], subIndex?: 0 | 1) => {
@@ -1278,7 +1289,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       // Fusionne instantanément le pas en conservant la première note : val[0]
       if (Array.isArray(currentStep)) {
         const first = currentStep[0];
-        finalVal = (first === '0' || first === 0 || !first) ? 0 : first;
+        finalVal = (first === '0' || !first) ? 0 : first;
         setSelectedSubIndex(null);
       }
       // B. Clic sur un pas vide ('0' ou '' ou 0 ou null) : Pré-remplissage naturel
@@ -1317,8 +1328,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       if (noteToPreview !== 0 && noteToPreview !== '0' && noteToPreview !== '') {
         try {
           if (audioEngine) {
-            const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
-            const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+            const vol = getSculptNumber(pattern?.volumes?.[idx], 100) / 100;
+            const dec = getSculptNumber(pattern?.decays?.[idx], 100) / 100;
             audioEngine.playNote(trackId, String(noteToPreview), Tone.now(), vol, dec);
           }
         } catch (_) {}
@@ -1364,8 +1375,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     if (nextVal !== '0' && nextVal !== 0 && nextVal !== '') {
       try {
         if (audioEngine) {
-          const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
-          const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+          const vol = getSculptNumber(pattern?.volumes?.[idx], 100) / 100;
+          const dec = getSculptNumber(pattern?.decays?.[idx], 100) / 100;
           audioEngine.playNote(trackId, String(nextVal), Tone.now(), vol, dec);
         }
       } catch (_) {}
@@ -1507,8 +1518,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
       if (nextVal !== 0 && nextVal !== '0') {
         try {
           if (audioEngine) {
-            const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
-            const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+            const vol = getSculptNumber(pattern?.volumes?.[idx], 100) / 100;
+            const dec = getSculptNumber(pattern?.decays?.[idx], 100) / 100;
             audioEngine.playNote(trackId, String(nextVal), Tone.now(), vol, dec);
           }
         } catch (_) {}
@@ -1523,7 +1534,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         const sub = subIndex ?? 0;
         const arr = [...value] as [string, string];
         if (sub === 1) {
-          if (arr[1] !== '0' && arr[1] !== '' && arr[1] !== 0) {
+          if (arr[1] !== '0' && arr[1] !== '') {
             arr[1] = '0';
             const finalVal = arr;
             if (selectedVariationId) {
@@ -1533,7 +1544,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
             }
           } else {
             // Recollement en conservant la note restante val[0]
-            const finalVal = (arr[0] === '0' || arr[0] === 0 || !arr[0]) ? 0 : arr[0];
+            const finalVal = (arr[0] === '0' || !arr[0]) ? 0 : arr[0];
             if (selectedVariationId) {
               handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
             } else {
@@ -1544,7 +1555,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
           focusCell(idx, 0);
         } else {
           // subIndex === 0
-          if (arr[0] !== '0' && arr[0] !== '' && arr[0] !== 0) {
+          if (arr[0] !== '0' && arr[0] !== '') {
             arr[0] = '0';
             const finalVal = arr;
             if (selectedVariationId) {
@@ -1553,7 +1564,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
               handleTrackStepValueChange(trackId, pattern.id, idx, finalVal as any);
             }
           } else {
-            const finalVal = (arr[1] === '0' || arr[1] === 0 || !arr[1]) ? 0 : arr[1];
+            const finalVal = (arr[1] === '0' || !arr[1]) ? 0 : arr[1];
             if (selectedVariationId) {
               handleVariationStepValueChange(trackId, pattern.id, selectedVariationId, idx, finalVal as any);
             } else {
@@ -1638,8 +1649,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         }
         try {
           if (audioEngine && e.key !== '0') {
-            const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
-            const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+            const vol = getSculptNumber(pattern?.volumes?.[idx], 100) / 100;
+            const dec = getSculptNumber(pattern?.decays?.[idx], 100) / 100;
             audioEngine.playNote(trackId, e.key, Tone.now(), vol, dec);
           }
         } catch (_) {}
@@ -1803,8 +1814,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         if (nextVal !== 0 && nextVal !== '0') {
           try {
             if (audioEngine) {
-              const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
-              const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+              const vol = getSculptNumber(pattern?.volumes?.[idx], 100) / 100;
+              const dec = getSculptNumber(pattern?.decays?.[idx], 100) / 100;
               audioEngine.playNote(trackId, String(nextVal), Tone.now(), vol, dec);
             }
           } catch (_) {}
@@ -2082,8 +2093,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
         if (nextVal !== 0 && nextVal !== '0') {
           try {
             if (audioEngine) {
-              const vol = (pattern?.volumes?.[idx] ?? 100) / 100;
-              const dec = (pattern?.decays?.[idx] ?? 100) / 100;
+              const vol = getSculptNumber(pattern?.volumes?.[idx], 100) / 100;
+              const dec = getSculptNumber(pattern?.decays?.[idx], 100) / 100;
               audioEngine.playNote(trackId, String(nextVal), Tone.now(), vol, dec);
             }
           } catch (_) {}
@@ -2237,8 +2248,9 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
     }
   }, []);
 
-  const getDisplayVal = (val: string | number): string => {
-    if (val === 0 || val === '0') return '';
+  const getDisplayVal = (val: string | number | [string, string] | undefined): string => {
+    if (val === undefined || val === 0 || val === '0') return '';
+    if (Array.isArray(val)) return val.join('/');
     return String(val);
   };
 
@@ -2450,7 +2462,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
           >
             {(() => {
               const numMeasures = Math.max(1, Math.ceil((pattern?.steps ?? 16) / 16));
-              const rows = [];
+              const rows: React.ReactNode[] = [];
               for (let m = 0; m < numMeasures; m++) {
                 const startStep = m * 16;
                 const measureGroups = [
@@ -2471,11 +2483,12 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
 
                       // Calculate total micro-timing shift (manual + pre-calculated global swing)
                       const manualMicro = pattern?.microtimings?.[i] ?? 0;
+                      const manualMicroNum = getSculptNumber(manualMicro, 0);
                       const swingOffset = swingOffsets[i] || 0;
-                      const totalShift = Math.max(-100, Math.min(100, manualMicro + swingOffset));
+                      const totalShift = Math.max(-100, Math.min(100, manualMicroNum + swingOffset));
                       const shiftPx = (totalShift / 100) * 8; // Max 8px shift
 
-                      const isLinked = syl && !syl.endsWith(' ') && i < (pattern?.steps ?? 16) - 1 && (pattern?.lyrics?.[i + 1] || '').trim() !== '';
+                      const isLinked = Boolean(syl && !syl.endsWith(' ') && i < (pattern?.steps ?? 16) - 1 && (pattern?.lyrics?.[i + 1] || '').trim() !== '');
 
                       return (
                         <VoiceStepCell
@@ -2546,8 +2559,8 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
             
             {/* Live Karaoke Preview */}
             {(() => {
-              const karaokeWords = [];
-              let currentWord = [];
+              const karaokeWords: Array<Array<{ text: string; index: number }>> = [];
+              let currentWord: Array<{ text: string; index: number }> = [];
               
               for (let idx = 0; idx < (pattern?.steps ?? 16); idx++) {
                 const active = pattern?.activeSteps?.[idx] !== 0;
@@ -2611,13 +2624,13 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
           onTouchEnd={handleGridTouchEnd}
         >
           {(() => {
-            const groups = [];
+            const groups: number[][] = [];
             let accumulated = 0;
             const defaultBeats = 4;
             const beatRes = pattern?.beatResolutions || Array(defaultBeats).fill(4);
             for (let b = 0; b < beatRes.length; b++) {
               const res = beatRes[b];
-              const group = [];
+              const group: number[] = [];
               for (let i = 0; i < res; i++) {
                 if (accumulated + i < (pattern?.steps ?? 16)) {
                   group.push(accumulated + i);

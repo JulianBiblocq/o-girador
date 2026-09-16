@@ -430,9 +430,10 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                     title={lang === 'fr' ? "Ajuster la latence et le calage" : "Ajuster latência e calagem"}
                     onClick={async (e) => {
                       e.stopPropagation();
-                      let blob = useAudioStore.getState().vocalBlobs[patternId];
+                      let blob: Blob | undefined = useAudioStore.getState().vocalBlobs[patternId];
                       if (!blob) {
-                        blob = await vocalEngineService.loadVocalRecording(patternId) || undefined;
+                        const loaded = await vocalEngineService.loadVocalRecording(patternId);
+                        blob = loaded || undefined;
                       }
                       if (blob) {
                         useAudioStore.getState().setTempRecording({ patternId, blob });

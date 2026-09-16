@@ -257,27 +257,29 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
 
   // Pré-écoute groupée du Trio d'Alfaias (Headroom 0.8 anti-saturation)
   const handlePreviewTrioAlfaias = () => {
-    if (!audioEngine) return;
+    const engine = audioEngine;
+    if (!engine) return;
     const now = Tone.now();
     const alfaiasToPlay = ['marcante', 'meiao', 'repique'].filter((type) =>
       placedInstruments.some((i) => i.instrumentType === type)
     );
     alfaiasToPlay.forEach((type, idx) => {
       const pitch = instrumentTunings[type] || 0;
-      audioEngine.playPreview(type, 'D', pitch, 0.8, now + idx * 0.02);
+      engine.playPreview(type, 'D', pitch, 0.8, now + idx * 0.02);
     });
   };
 
   // Pré-écoute groupée de la section Caixas / Tarol (Headroom 0.8 anti-saturation)
   const handlePreviewCaixasSection = () => {
-    if (!audioEngine) return;
+    const engine = audioEngine;
+    if (!engine) return;
     const now = Tone.now();
     const caixasToPlay = ['caixa', 'tarol'].filter((type) =>
       placedInstruments.some((i) => i.instrumentType === type)
     );
     caixasToPlay.forEach((type, idx) => {
       const pitch = instrumentTunings[type] || 0;
-      audioEngine.playPreview(type, 'D', pitch, 0.8, now + idx * 0.02);
+      engine.playPreview(type, 'D', pitch, 0.8, now + idx * 0.02);
     });
   };
 
@@ -1517,7 +1519,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
                   (p) => userProfile?.uid && p.ownerId === userProfile.uid && !p.isFactory
                 );
                 const groupPresets = balancoPresets.filter(
-                  (p) => p.visibility === 'group' && (!userProfile?.uid || p.ownerId !== userProfile.uid)
+                  (p) => p.visibility === 'mestre_group' && (!userProfile?.uid || p.ownerId !== userProfile.uid)
                 );
                 const standardPresets = balancoPresets.filter(
                   (p) => p.isFactory || (p.visibility === 'public' && (!userProfile?.uid || p.ownerId !== userProfile.uid))

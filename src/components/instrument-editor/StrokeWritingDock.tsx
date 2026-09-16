@@ -46,7 +46,7 @@ export const StrokeWritingDock: React.FC<StrokeWritingDockProps> = React.memo(({
     return getStrokePairs(instrument.id, instrument.type, lang, isLeftHanded);
   }, [instrument.id, instrument.type, lang, isLeftHanded]);
 
-  const isEraserActive = activeTool === '0' || activeTool === 0 || activeTool === '';
+  const isEraserActive = activeTool === '0' || activeTool === '';
   const isScissorsActive = activeTool === 'scissors';
   const supportsAlternation = !NO_ALTERNATION_INSTRUMENTS.has(instrument.id) && !NO_ALTERNATION_INSTRUMENTS.has(instrument.type);
 

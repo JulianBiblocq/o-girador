@@ -95,7 +95,7 @@ export async function fetchCloudPatterns(
       }
     }
 
-    const promises = [];
+    const promises: Promise<any>[] = [];
     const isSysAdmin = userRole === 'admin';
 
     if (isSysAdmin) {

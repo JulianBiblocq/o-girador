@@ -32,6 +32,7 @@
     "index-live-lines.js",
     "node_modules",
     "dist",
-    "src_backup_pre_wizard"
+    "src_backup_pre_wizard",
+    "e2e"
   ]
 }

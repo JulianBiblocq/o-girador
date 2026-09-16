@@ -87,7 +87,7 @@ export function useCloudAudioBounce() {
             // @ts-ignore : On force le chargement synchrone via une promesse
             playersToLoad.push(new Promise((resolve, reject) => {
               Tone.Buffer.load(encodedPath).then(buffer => {
-                player.buffer = buffer;
+                player.buffer = new Tone.ToneAudioBuffer(buffer);
                 resolve();
               }).catch(reject);
             }));
@@ -123,7 +123,8 @@ export function useCloudAudioBounce() {
             
             // Gestion du volume (simplifié pour l'export, on ignore variations/microtimings)
             let baseVol = patternData.volumes?.[step] ?? 80;
-            const stepVolMultiplier = baseVol / 100;
+            const baseVolNum = Array.isArray(baseVol) ? (baseVol[0] ?? 80) : (typeof baseVol === 'number' ? baseVol : 80);
+            const stepVolMultiplier = baseVolNum / 100;
             const db = 40 * Math.log10(Math.max(0.0001, stepVolMultiplier));
             
             player.volume.setValueAtTime(db, timeSec);
@@ -216,10 +217,8 @@ export function useCloudAudioBounce() {
           const instrumentConf = instrumentsConfig[track.instrumentIdx];
           if (!instrumentConf) continue;
           const audioConfig = instrumentAudioConfigs.find(c => c.id === instrumentConf.id);
-          if (!audioConfig) continue;
-          
-          // Channel setup
-          const effectiveVol = getEffectiveVolume(sectionData.tracks, track.id);
+          if (!audioConfig) continue;          // Channel setup
+          const effectiveVol = track.id !== undefined ? getEffectiveVolume(sectionData.tracks, track.id) : (track.volumeVal ?? 100);
           const channel = new Tone.Channel({
             volume: 40 * Math.log10(Math.max(0.0001, effectiveVol / 100)),
             pan: track.panVal !== undefined ? track.panVal / 100 : (track.pan !== undefined ? track.pan / 100 : 0)
@@ -248,29 +247,17 @@ export function useCloudAudioBounce() {
               if (pattern.measureAssignments?.[m]) {
                 const activeStps = pattern.activeSteps || [];
                 activeStps.forEach(s => {
-                  if (s !== 0 && s !== '0' && s !== '') usedStrokes.add(String(s).trim());
+                  if (s && s !== 0 && s !== '0') {
+                    usedStrokes.add(String(s).trim());
+                  }
                 });
               }
             }
           }
           
           for (const rawStroke of usedStrokes) {
-            let normStroke = rawStroke;
-            if (['marcante', 'meiao', 'repique', 'caixa', 'tarol'].includes(instrumentConf.id)) {
-              if (normStroke === 't' || normStroke === 'T') normStroke = 'B';
-              else if (normStroke === 'C') normStroke = 'c';
-            } else if (instrumentConf.id === 'agbe' || instrumentConf.id === 'gongue') {
-              if (normStroke === 't') normStroke = 'B';
-            }
-            
-            const strokeDef = audioConfig.strokes.find(s => 
-              s.caseSensitive === false 
-                ? s.symbol.toUpperCase() === normStroke.toUpperCase()
-                : s.symbol === normStroke
-            );
-            
-            if (strokeDef && strokeDef.files.length > 0) {
-              const file = strokeDef.files[0];
+            const file = audioConfig.strokes[rawStroke];
+            if (file) {
               const baseUrl = (import.meta as any).env.BASE_URL || '/';
               const cleanPath = file.startsWith('/') ? file : '/' + file;
               const fetchPath = baseUrl.endsWith('/') ? baseUrl + cleanPath.slice(1) : baseUrl + cleanPath;
@@ -281,7 +268,7 @@ export function useCloudAudioBounce() {
               
               playersToLoad.push(new Promise((resolve, reject) => {
                 Tone.Buffer.load(encodedPath).then(buffer => {
-                  player.buffer = buffer;
+                  player.buffer = new Tone.ToneAudioBuffer(buffer);
                   resolve();
                 }).catch(reject);
               }));
@@ -335,7 +322,8 @@ export function useCloudAudioBounce() {
                     const timeSec = measureStartTime + (tickIdx / maxTicks) * beats * (60 / baseBpm);
                     
                     let baseVol = pattern.volumes?.[step] ?? 80;
-                    const stepVolMultiplier = baseVol / 100;
+                    const baseVolNum = Array.isArray(baseVol) ? (baseVol[0] ?? 80) : (typeof baseVol === 'number' ? baseVol : 80);
+                    const stepVolMultiplier = baseVolNum / 100;
                     const db = 40 * Math.log10(Math.max(0.0001, stepVolMultiplier));
                     
                     player.volume.setValueAtTime(db, timeSec);
@@ -517,7 +505,7 @@ export function useCloudAudioBounce() {
               
               playersToLoad.push(new Promise((resolve, reject) => {
                 Tone.Buffer.load(encodedPath).then(buffer => {
-                  player.buffer = buffer;
+                  player.buffer = new Tone.ToneAudioBuffer(buffer);
                   resolve();
                 }).catch(reject);
               }));
@@ -571,7 +559,8 @@ export function useCloudAudioBounce() {
                     const timeSec = measureStartTime + (tickIdx / maxTicks) * beats * (60 / baseBpm);
                     
                     let baseVol = pattern.volumes?.[step] ?? 80;
-                    const stepVolMultiplier = baseVol / 100;
+                    const baseVolNum = Array.isArray(baseVol) ? (baseVol[0] ?? 80) : (typeof baseVol === 'number' ? baseVol : 80);
+                    const stepVolMultiplier = baseVolNum / 100;
                     const db = 40 * Math.log10(Math.max(0.0001, stepVolMultiplier));
                     
                     player.volume.setValueAtTime(db, timeSec);

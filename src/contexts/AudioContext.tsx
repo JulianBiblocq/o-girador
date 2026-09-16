@@ -83,7 +83,7 @@ const base64ToBlob = (base64Data: string): Blob => {
   }
   const sliceSize = 512;
   const byteCharacters = atob(rawBase64);
-  const byteArrays = [];
+  const byteArrays: Uint8Array[] = [];
 
   for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
     const slice = byteCharacters.slice(offset, offset + sliceSize);
@@ -95,7 +95,7 @@ const base64ToBlob = (base64Data: string): Blob => {
     byteArrays.push(byteArray);
   }
 
-  return new Blob(byteArrays, { type: contentType || 'audio/webm' });
+  return new Blob(byteArrays as BlobPart[], { type: contentType || 'audio/webm' });
 };
 
 function bufferToWav(leftBuffers: Float32Array[], rightBuffers: Float32Array[], sampleRate: number): Blob {

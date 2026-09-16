@@ -9,14 +9,14 @@ interface CompactPatternRendererProps {
   isLeftHanded?: boolean;
   isEditable?: boolean;
   onStepValueChange?: (stepIdx: number, val: string) => void;
-  onStepClick?: (e: React.MouseEvent | React.TouchEvent, stepIdx: number, val: string | number) => void;
-  onStepShiftClick?: (e: React.MouseEvent, stepIdx: number, val: string | number) => void;
+  onStepClick?: (e: React.MouseEvent | React.TouchEvent, stepIdx: number, val: string | number | [string, string]) => void;
+  onStepShiftClick?: (e: React.MouseEvent, stepIdx: number, val: string | number | [string, string]) => void;
   currentStep?: number | null;
   className?: string;
   style?: React.CSSProperties;
   isFluid?: boolean;
   readOnly?: boolean;
-  onStepKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>, stepIdx: number, val: string | number) => void;
+  onStepKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>, stepIdx: number, val: string | number | [string, string]) => void;
   registerStepRef?: (stepIdx: number, el: HTMLInputElement | null) => void;
   onStepMouseEnter?: (stepIdx: number) => void;
   selectedStepIndices?: number[];
@@ -53,7 +53,7 @@ export const CompactPatternRenderer: React.FC<CompactPatternRendererProps> = ({
   let accumulated = 0;
   for (let b = 0; b < beatRes.length; b++) {
     const res = beatRes[b];
-    const group = [];
+    const group: number[] = [];
     for (let i = 0; i < res; i++) {
       if (accumulated + i < pattern.steps) {
         group.push(accumulated + i);

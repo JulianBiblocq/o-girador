@@ -1,4 +1,5 @@
 import React, { useContext } from 'react';
+import { Pattern } from '../types';
 import { useSequencerStore, isToadaBus, isToadaChild, getEffectiveMuteState } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
@@ -383,8 +384,8 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
           const coroTrack = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
           const isToada = isToadaBus(trackData);
 
-          let activePattern = null;
-          let activeTrack = null;
+          let activePattern: Pattern | null = null;
+          let activeTrack: any = null;
           let currentTrackId = trackData.id;
           let currentInstrumentIdx = trackData.instrumentIdx;
           let currentInst = inst;
@@ -412,7 +413,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               currentInst = instrumentsConfig[currentInstrumentIdx] || inst;
             }
 
-            const toadaPatternsList = [];
+            const toadaPatternsList: Pattern[] = [];
             if (puxTrack) toadaPatternsList.push(...puxTrack.patterns);
             if (coroTrack) toadaPatternsList.push(...coroTrack.patterns);
             currentPatternsList = toadaPatternsList;
@@ -486,7 +487,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               onPatternAssignForMeasure={onPatternAssignForMeasure}
               onPatternVariationToggleForMeasure={onPatternVariationToggleForMeasure}
               measureAllowVariations={activePattern?.measureAllowVariations?.[mIdx] ?? true}
-              variationsCount={activePattern?.variationsCount || 0}
+              variationsCount={activePattern?.variations?.length || 0}
               isMacro={isMacro}
               isMinZoom={isMinZoom}
               instColors={isLinkedChild ? inst.colors : currentInst.colors}

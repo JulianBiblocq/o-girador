@@ -101,7 +101,7 @@ export const AudioFader: React.FC<AudioFaderProps> = ({
 
       }
     } else if (audioTarget === 'masterVolume' && masterVolumeNode) {
-      masterVolumeNode.gain.rampTo(safeGetTone()?.dbToGain(val === -40 ? -Infinity : val), 0.05);
+      masterVolumeNode.gain.rampTo(safeGetTone()?.dbToGain(val === -40 ? -Infinity : val) ?? 0, 0.05);
     } else if (audioTarget === 'metroVolume' && metroChannel) {
       const gain = Math.max(0.00001, val / 100);
       metroChannel.volume.rampTo(val === 0 ? -Infinity : safeGetTone()!.gainToDb(gain), 0.05);
@@ -116,7 +116,7 @@ export const AudioFader: React.FC<AudioFaderProps> = ({
     } else if (audioTarget === 'compRatio' && masterCompressorNode) {
       masterCompressorNode.ratio.linearRampToValueAtTime(val, (safeGetTone()?.now() ?? 0) + 0.05);
     } else if (audioTarget === 'masterReverbVol' && masterReverbVolumeNode) {
-      masterReverbVolumeNode.gain.rampTo(safeGetTone()?.dbToGain(val === -40 ? -Infinity : val), 0.05);
+      masterReverbVolumeNode.gain.rampTo(safeGetTone()?.dbToGain(val === -40 ? -Infinity : val) ?? 0, 0.05);
     } else if (audioTarget === 'reverbDecay' && reverbNode) {
       try {
         reverbNode.decay = val;

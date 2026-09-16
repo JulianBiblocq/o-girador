@@ -19,7 +19,7 @@ export interface TouchSelectorState {
   instId: string;
   x: number;
   y: number;
-  currentVal: string | number;
+  currentVal: string | number | [string, string];
   onSelect: (val: string | [string, string], merge?: boolean) => void;
   isStickyDefault?: boolean;
   trackId: number;
@@ -495,7 +495,8 @@ const TouchStrokeSelectorComponent: React.FC<TouchStrokeSelectorProps> = ({
                 e.preventDefault();
                 e.stopPropagation();
                 // We pass merge = true
-                selector.onSelect(selector.currentVal, true);
+                const mergedVal = Array.isArray(selector.currentVal) ? selector.currentVal[0] : String(selector.currentVal);
+                selector.onSelect(mergedVal, true);
                 onClose();
               }}
               className="w-11 h-11 flex items-center justify-center font-cactus font-black text-lg border-2 border-[#1a1a1a] bg-[#3498db] text-white shadow-[2px_2px_0px_#1a1a1a] hover:bg-black hover:text-[#3498db] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all cursor-pointer select-none"

@@ -249,9 +249,10 @@ export const VocalRecordingBar: React.FC = () => {
 
   const handleOpenValidationModal = async () => {
     if (!selectedPatternId) return;
-    let blob = useAudioStore.getState().vocalBlobs[selectedPatternId];
+    let blob: Blob | undefined = useAudioStore.getState().vocalBlobs[selectedPatternId];
     if (!blob) {
-      blob = await vocalEngineService.loadVocalRecording(selectedPatternId) || undefined;
+      const loaded = await vocalEngineService.loadVocalRecording(selectedPatternId);
+      blob = loaded || undefined;
     }
     if (blob) {
       useAudioStore.getState().setTempRecording({ patternId: selectedPatternId, blob });

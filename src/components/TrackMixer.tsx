@@ -27,8 +27,8 @@ interface TrackMixerProps {
     patternId: number,
     stepIdx: number,
     instId: string,
-    currentVal: string | number,
-    onSelect: (val: string) => void,
+    currentVal: string | number | [string, string],
+    onSelect: (val: string | number | [string, string], merge?: boolean) => void,
     trackId?: number
   ) => void;
 }
@@ -193,10 +193,11 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     };
   }, [isTracksCollapsed, isMobile, activePattern]);
 
-  const handleStepClick = (e: React.MouseEvent | React.TouchEvent, stepIdx: number, val: string | number) => {
+  const handleStepClick = (e: React.MouseEvent | React.TouchEvent, stepIdx: number, val: string | number | [string, string]) => {
     e.stopPropagation();
     if (!activePattern || !inst || !track) return;
     const visualVal = getVisualStrokeSymbol(val, isLeftHanded, inst.id);
+    const primaryVisualVal = Array.isArray(visualVal) ? visualVal[0] : visualVal;
     
     if (onStepTouchStart) {
       onStepTouchStart(
@@ -204,16 +205,17 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         activePattern.id,
         stepIdx,
         inst.id,
-        visualVal,
+        primaryVisualVal,
         (newVal) => {
           handleTrackStepValueChange(track.id, activePattern.id, stepIdx, newVal);
         },
         track.id
       );
     } else {
-      const nextVisualVal = getNextStepValue(inst.id, inst.type, visualVal);
+      const nextVisualVal = getNextStepValue(inst.id, inst.type, primaryVisualVal);
       const nextSemanticVal = getVisualStrokeSymbol(nextVisualVal, isLeftHanded, inst.id);
-      handleTrackStepValueChange(track.id, activePattern.id, stepIdx, String(nextSemanticVal));
+      const nextSemanticStr = Array.isArray(nextSemanticVal) ? nextSemanticVal[0] : nextSemanticVal;
+      handleTrackStepValueChange(track.id, activePattern.id, stepIdx, String(nextSemanticStr));
     }
   };
 

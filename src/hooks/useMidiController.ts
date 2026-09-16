@@ -310,7 +310,7 @@ export const useMidiController = () => {
     // Handle connection / disconnection events
     const onStateChange = (event: Event) => {
       const port = (event as MIDIConnectionEvent).port;
-      if (port.type === 'input' && midiAccess) {
+      if (port && port.type === 'input' && midiAccess) {
         setupInputs(midiAccess);
       }
     };

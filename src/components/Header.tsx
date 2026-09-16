@@ -166,7 +166,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
     handlePresetSelect: onPresetChange,
     handleSaveState: onSave,
     handleLoadState: onLoad,
-    handleShare: onShare,
     handleSaveToLocal: onSaveToLocal,
     handleLoadLocalPreset: onLoadLocalPreset,
     masterVol,
@@ -214,6 +213,19 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   const [infoDropOpen, setInfoDropOpen] = useState(false);
   const infoDropRef = useRef<HTMLDivElement>(null);
+
+  const handleShareApp = () => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      navigator.share({
+        title: 'O Girador',
+        text: 'O Girador - Sequenciador de Maracatu',
+        url: window.location.href,
+      }).catch(() => {});
+    } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(window.location.href);
+      alert(lang === 'pt' ? 'Link copiado!' : 'Lien copié !');
+    }
+  };
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent | TouchEvent) {
@@ -503,9 +515,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                     💬 {t('feedbackBtn')}
                   </button>
                   <button onClick={() => {
-                    if (onShare) {
-                      onShare();
-                    }
+                    handleShareApp();
                     setMobileMenuOpen(false);
                   }} className="px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer flex items-center justify-center gap-1 transition-colors">
                     <Share2 className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Compartilhar o App' : "Partager l'application"}
@@ -758,7 +768,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   <button onClick={() => { onToggleRightPanel('feedback'); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-text)] text-[var(--cordel-bg)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cursor-pointer w-full transition-colors">
                     <MessageSquare className="w-3.5 h-3.5 shrink-0" /> {t('feedbackBtn')}
                   </button>
-                  <button onClick={() => { if (onShare) onShare(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full border-none transition-colors">
+                  <button onClick={() => { handleShareApp(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full border-none transition-colors">
                     <Share2 className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Compartilhar o App' : "Partager l'application"}
                   </button>
                 </div>

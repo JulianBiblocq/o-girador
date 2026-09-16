@@ -541,8 +541,19 @@ export function isDarkText(instId: string, strokeVal: string): boolean {
   return false;
 }
 
-export function getVisualStrokeSymbol(symbol: string | number, isLeftHanded: boolean, instId: string): string | number {
-  if (!isLeftHanded || typeof symbol !== 'string') return symbol;
+export function getVisualStrokeSymbol(
+  symbol: string | number | [string, string],
+  isLeftHanded: boolean,
+  instId: string
+): string | number | [string, string] {
+  if (!isLeftHanded) return symbol;
+  if (Array.isArray(symbol)) {
+    return [
+      String(getVisualStrokeSymbol(symbol[0], isLeftHanded, instId)),
+      String(getVisualStrokeSymbol(symbol[1], isLeftHanded, instId))
+    ] as [string, string];
+  }
+  if (typeof symbol !== 'string') return symbol;
   const targetInsts = ['marcante', 'meiao', 'repique', 'caixa', 'tarol'];
   if (!targetInsts.includes(instId)) return symbol;
 

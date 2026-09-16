@@ -52,7 +52,7 @@ interface MainWorkspaceLayoutProps {
   viewMode: string;
   renderedView: string | null;
   isFadingIn: boolean;
-  hasVisitedStudio: boolean;
+  hasVisitedStudio?: boolean;
   isMobile: boolean;
   mobileTab: string;
   setMobileTab: (tab: string) => void;
@@ -77,8 +77,10 @@ interface MainWorkspaceLayoutProps {
     patternId: number,
     stepIdx: number,
     instId: string,
-    currentVal: string | number,
-    onSelect: (val: string) => void
+    currentVal: string | number | [string, string],
+    onSelect: (val: string | number | [string, string], merge?: boolean) => void,
+    trackId?: number,
+    isSplit?: boolean
   ) => void;
   activeRightPanel: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais' | null;
   onToggleRightPanel: (panel: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais', force?: boolean) => void;
@@ -88,7 +90,6 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
   viewMode,
   renderedView,
   isFadingIn,
-  hasVisitedStudio,
   isMobile,
   mobileTab,
   setMobileTab,

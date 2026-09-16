@@ -121,7 +121,7 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
             undefined,
             audioUrl ?? null,
             presetId, // pass presetId to overwrite with audio URL
-            myGroupMestreId,
+            myGroupMestreId || undefined,
             myGroupId
           );
         } catch (audioErr) {
@@ -140,6 +140,10 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
 
       // Mettre à jour le store courant avec le nouveau nom et le nouvel ID
       const newMeta = {
+        toada: finalPresetData.metadata?.toada || presetName,
+        nacao: finalPresetData.metadata?.nacao || '',
+        compositor: finalPresetData.metadata?.compositor || '',
+        ritmo: finalPresetData.metadata?.ritmo || '',
         ...finalPresetData.metadata,
         morceauId: presetId
       };

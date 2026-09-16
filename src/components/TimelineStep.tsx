@@ -66,9 +66,9 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
       const isSlave = !!(currentTrack.linkedToTrackId && !currentTrack.isLinkFolder && !currentTrack.isLinkMaster);
       const isLinkMaster = !!(currentTrack.linkedToTrackId && !currentTrack.isLinkFolder && currentTrack.isLinkMaster);
 
-      let masterVal: string | number = 0;
-      let esclaveVal: string | number = 0;
-      let resolvedVal: string | number = 0;
+      let masterVal: string | number | [string, string] = 0;
+      let esclaveVal: string | number | [string, string] = 0;
+      let resolvedVal: string | number | [string, string] = 0;
       let resolvedNote = '';
 
       // Variables unifiées pour le rendu visuel
@@ -79,13 +79,13 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
       let leftTxtColor = '#f4ecd8';
       let leftIsAccent = false;
       let leftInstId = inst?.id || '';
-      let leftState: string | number = '';
+      let leftState: string | number | [string, string] = '';
 
       let rightText = '';
       let rightFillColor = 'transparent';
       let rightTxtColor = '#f4ecd8';
       let rightInstId = '';
-      let rightState: string | number = '';
+      let rightState: string | number | [string, string] = '';
 
       let renderCas = 0; // 0: Normal, 1: Unisson, 2: Variation, 3: Divergence, 4: Héritage Maître
 
@@ -106,11 +106,11 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
         if (hasMasterEvent) {
           const visualState = getVisualStrokeSymbol(masterVal, isLeftHanded, inst.id);
           if (visualState !== 0 && visualState !== '0') {
-            const stateStr = String(visualState);
+            const stateStr = String(Array.isArray(visualState) ? visualState[0] : visualState);
             resolvedMasterColor = getBusNoteColor(String(currentTrack.id), stateStr, state.tracks, instrumentsConfig);
             resolvedMasterIsAccent = (stateStr === stateStr.toUpperCase());
             resolvedMasterText = stateStr;
-            resolvedMasterTxtColor = isDarkText(inst.id, String(masterVal)) ? '#1a1a1a' : '#f4ecd8';
+            resolvedMasterTxtColor = isDarkText(inst.id, String(Array.isArray(masterVal) ? masterVal[0] : masterVal)) ? '#1a1a1a' : '#f4ecd8';
           } else if (String(visualState) === '0' || String(visualState) === '-') {
             resolvedMasterColor = '#ab5318'; // orange silence
             resolvedMasterText = '-';
@@ -124,7 +124,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
           text: string;
           isDark: boolean;
           childInstId: string;
-          childState: string | number;
+          childState: string | number | [string, string];
         }> = [];
 
         const children = state.tracks.filter(t => 
@@ -144,11 +144,12 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
                 if (childInst) {
                   const childVisualState = getVisualStrokeSymbol(childState, isLeftHanded, childInst.id);
                   if (childVisualState !== 0) {
-                    const childColor = childInst.colors?.[childVisualState] || childInst.color || '#fff';
+                    const primaryChildVisual = Array.isArray(childVisualState) ? childVisualState[0] : childVisualState;
+                    const childColor = childInst.colors?.[primaryChildVisual as string] || childInst.color || '#fff';
                     satellites.push({
                       color: childColor,
-                      text: String(childVisualState),
-                      isDark: isDarkText(childInst.id, String(childState)),
+                      text: String(primaryChildVisual),
+                      isDark: isDarkText(childInst.id, String(Array.isArray(childState) ? childState[0] : childState)),
                       childInstId: childInst.id,
                       childState: childState
                     });
@@ -254,9 +255,10 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
         if (hasEsclave) {
           // Si l'esclave a sa propre note (variation active), on l'affiche PLEINE sur sa ligne
           renderCas = 2;
-          leftFillColor = inst.colors?.[esclaveVal as string] || inst.color || '#111';
+          const primaryEsclaveVal = Array.isArray(esclaveVal) ? esclaveVal[0] : esclaveVal;
+          leftFillColor = inst.colors?.[primaryEsclaveVal as string] || inst.color || '#111';
           leftText = String(getVisualStrokeSymbol(esclaveVal, isLeftHanded, inst.id));
-          leftTxtColor = isDarkText(inst.id, String(esclaveVal)) ? '#1a1a1a' : '#f4ecd8';
+          leftTxtColor = isDarkText(inst.id, String(primaryEsclaveVal)) ? '#1a1a1a' : '#f4ecd8';
           leftState = esclaveVal;
           leftInstId = inst.id;
           
@@ -265,11 +267,12 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
         } else if (hasMaitre) {
           // Héritage du Maître (l'esclave ne joue rien, affiche la note du maître en filigrane, opacité réduite)
           renderCas = 4;
-          const maitreColor = (masterInst) ? (masterInst.colors?.[masterVal as string] || masterInst.color || '#111') : '#111';
+          const primaryMasterVal = Array.isArray(masterVal) ? masterVal[0] : masterVal;
+          const maitreColor = (masterInst) ? (masterInst.colors?.[primaryMasterVal as string] || masterInst.color || '#111') : '#111';
           leftFillColor = maitreColor;
           if (masterInst) {
             leftText = String(getVisualStrokeSymbol(masterVal, isLeftHanded, masterInst.id));
-            leftTxtColor = isDarkText(masterInst.id, String(masterVal)) ? '#1a1a1a' : '#f4ecd8';
+            leftTxtColor = isDarkText(masterInst.id, String(primaryMasterVal)) ? '#1a1a1a' : '#f4ecd8';
             leftState = masterVal;
             leftInstId = masterInst.id;
           }
@@ -297,9 +300,10 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
               leftText = '';
               leftFillColor = inst.color || '#111';
             } else {
-              leftText = String(visualVal);
-              leftFillColor = inst.colors?.[visualVal as string] || inst.color || '#111';
-              leftTxtColor = isDarkText(inst.id, String(val)) ? '#1a1a1a' : '#f4ecd8';
+              const primaryVisualVal = Array.isArray(visualVal) ? visualVal[0] : visualVal;
+              leftText = String(primaryVisualVal);
+              leftFillColor = inst.colors?.[primaryVisualVal as string] || inst.color || '#111';
+              leftTxtColor = isDarkText(inst.id, String(Array.isArray(val) ? val[0] : val)) ? '#1a1a1a' : '#f4ecd8';
             }
           }
         }
@@ -309,7 +313,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
         const val = pattern?.activeSteps?.[stepIdx] ?? 0;
         resolvedVal = val;
         resolvedNote = pattern?.notes?.[stepIdx] ?? '';
-        const hasEvent = val !== 0 && val !== '' && !(Array.isArray(val) && val.length === 0);
+        const hasEvent = val !== 0 && val !== '' && !((val as any)?.length === 0);
 
         if (hasEvent) {
           if (Array.isArray(val) && val.length === 2) {
@@ -455,7 +459,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
       data-steps={stepsCount}
       data-track-id={trackId}
       data-pattern-id={patternId}
-      data-val={stepData.val}
+      data-val={Array.isArray(stepData.val) ? stepData.val.join('-') : stepData.val}
     >
       {hasBackground ? (
         <div 
