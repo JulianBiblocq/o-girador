@@ -153,6 +153,11 @@ service cloud.firestore {
       allow read, update, delete: if request.auth != null && request.auth.token.admin == true;
     }
 
+    match /telemetry/{reportId} {
+      allow create: if true; // Permet de logger les erreurs même en session anonyme/visiteur
+      allow read, update, delete: if false; // Strictement confidentiel en écriture seule
+    }
+
     // Collection Rules
 
     match /settings/{document} {

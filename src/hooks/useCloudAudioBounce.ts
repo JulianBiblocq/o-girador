@@ -26,7 +26,7 @@ export function useCloudAudioBounce() {
     patternData: SavedPattern,
     bpm: number,
     timeSig: TimeSignature
-  ): Promise<string> => {
+  ): Promise<string | null> => {
     setIsBouncingCloud(true);
     setBounceError(null);
 
@@ -139,15 +139,23 @@ export function useCloudAudioBounce() {
       const webmBlob = await encoderWav(nativeBuffer);
       
 
-      const storageRef = ref(storage, `bounces/${patternId}.webm`);
-      await uploadBytes(storageRef, webmBlob, { contentType: 'audio/webm' });
-      
-      const audioUrl = await getDownloadURL(storageRef);
+      let audioUrl: string | null = null;
+      try {
+        const storageRef = ref(storage, `bounces/${patternId}.webm`);
+        await uploadBytes(storageRef, webmBlob, { contentType: 'audio/webm' });
+        audioUrl = await getDownloadURL(storageRef);
+      } catch (uploadErr: any) {
+        console.warn("[Cloud Bounce] Échec upload Storage, repli sur audioUrl: null :", uploadErr?.message || uploadErr);
+        telemetryService.logError(uploadErr, 'useCloudAudioBounce_Pattern_StorageUpload');
+        audioUrl = null;
+      }
 
-      
-
-      const documentRef = doc(db, CLOUD_PATTERNS_COLLECTION, patternId);
-      await updateDoc(documentRef, { audioUrl });
+      try {
+        const documentRef = doc(db, CLOUD_PATTERNS_COLLECTION, patternId);
+        await updateDoc(documentRef, { audioUrl });
+      } catch (docErr) {
+        console.warn("[Cloud Bounce] Échec mise à jour document Firestore :", docErr);
+      }
       
       setIsBouncingCloud(false);
       return audioUrl;
@@ -156,7 +164,7 @@ export function useCloudAudioBounce() {
       telemetryService.logError(err, 'useCloudAudioBounce_Pattern');
       setBounceError(err.message || 'Erreur lors de la génération audio cloud');
       setIsBouncingCloud(false);
-      throw err;
+      return null;
     }
   }
 
@@ -164,7 +172,7 @@ export function useCloudAudioBounce() {
     sectionId: string,
     sectionData: SavedSectionData,
     baseBpm: number
-  ): Promise<string> => {
+  ): Promise<string | null> => {
     setIsBouncingCloud(true);
     setBounceError(null);
 
@@ -348,15 +356,23 @@ export function useCloudAudioBounce() {
       const webmBlob = await encoderWav(nativeBuffer);
       
 
-      const storageRef = ref(storage, `bounces/sections/${sectionId}.webm`);
-      await uploadBytes(storageRef, webmBlob, { contentType: 'audio/webm' });
-      
-      const audioUrl = await getDownloadURL(storageRef);
+      let audioUrl: string | null = null;
+      try {
+        const storageRef = ref(storage, `bounces/sections/${sectionId}.webm`);
+        await uploadBytes(storageRef, webmBlob, { contentType: 'audio/webm' });
+        audioUrl = await getDownloadURL(storageRef);
+      } catch (uploadErr: any) {
+        console.warn("[Cloud Bounce] Échec upload Storage, repli sur audioUrl: null :", uploadErr?.message || uploadErr);
+        telemetryService.logError(uploadErr, 'useCloudAudioBounce_Section_StorageUpload');
+        audioUrl = null;
+      }
 
-      
-
-      const documentRef = doc(db, CLOUD_SECTIONS_COLLECTION, sectionId);
-      await updateDoc(documentRef, { audioUrl });
+      try {
+        const documentRef = doc(db, CLOUD_SECTIONS_COLLECTION, sectionId);
+        await updateDoc(documentRef, { audioUrl });
+      } catch (docErr) {
+        console.warn("[Cloud Bounce] Échec mise à jour document Firestore :", docErr);
+      }
       
       setIsBouncingCloud(false);
       return audioUrl;
@@ -365,7 +381,7 @@ export function useCloudAudioBounce() {
       telemetryService.logError(err, 'useCloudAudioBounce_Section');
       setBounceError(err.message || 'Erreur lors de la génération audio cloud (Section)');
       setIsBouncingCloud(false);
-      throw err;
+      return null;
     }
   };
 
@@ -373,7 +389,7 @@ export function useCloudAudioBounce() {
     presetId: string,
     presetData: Preset,
     baseBpm: number
-  ): Promise<string> => {
+  ): Promise<string | null> => {
     setIsBouncingCloud(true);
     setBounceError(null);
 
@@ -576,15 +592,23 @@ export function useCloudAudioBounce() {
       const webmBlob = await encoderWav(nativeBuffer);
       
 
-      const storageRef = ref(storage, `bounces/presets/${presetId}.webm`);
-      await uploadBytes(storageRef, webmBlob, { contentType: 'audio/webm' });
-      
-      const audioUrl = await getDownloadURL(storageRef);
+      let audioUrl: string | null = null;
+      try {
+        const storageRef = ref(storage, `bounces/presets/${presetId}.webm`);
+        await uploadBytes(storageRef, webmBlob, { contentType: 'audio/webm' });
+        audioUrl = await getDownloadURL(storageRef);
+      } catch (uploadErr: any) {
+        console.warn("[Cloud Bounce] Échec upload Storage, repli sur audioUrl: null :", uploadErr?.message || uploadErr);
+        telemetryService.logError(uploadErr, 'useCloudAudioBounce_Preset_StorageUpload');
+        audioUrl = null;
+      }
 
-      
-
-      const documentRef = doc(db, 'presets', presetId);
-      await updateDoc(documentRef, { audioUrl });
+      try {
+        const documentRef = doc(db, 'presets', presetId);
+        await updateDoc(documentRef, { audioUrl });
+      } catch (docErr) {
+        console.warn("[Cloud Bounce] Échec mise à jour document Firestore :", docErr);
+      }
       
       setIsBouncingCloud(false);
       return audioUrl;
@@ -593,7 +617,7 @@ export function useCloudAudioBounce() {
       telemetryService.logError(err, 'useCloudAudioBounce_Preset');
       setBounceError(err.message || 'Erreur lors de la génération audio cloud (Preset)');
       setIsBouncingCloud(false);
-      throw err;
+      return null;
     }
   };
 

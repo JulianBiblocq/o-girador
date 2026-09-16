@@ -112,20 +112,20 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
       if (autoGenerateAudio) {
         try {
           const audioUrl = await genererEtUploaderPresetCloudBounce(presetId, finalPresetData, finalPresetData.bpm || 100);
-          // Updating the preset with the audio URL
+          // Updating the preset with the audio URL (null if upload failed)
           await savePresetToCloud(
             presetName,
             finalPresetData,
             userProfile.uid,
             finalVisibility,
             undefined,
-            audioUrl,
+            audioUrl ?? null,
             presetId, // pass presetId to overwrite with audio URL
             myGroupMestreId,
             myGroupId
           );
         } catch (audioErr) {
-          console.error("Audio generation failed after save", audioErr);
+          console.warn("[SavePresetModal] Échec non bloquant de l'audio cloud, preset conservé avec audioUrl: null :", audioErr);
         }
       }
 

@@ -18,7 +18,7 @@ export async function savePresetToCloud(
   ownerId: string,
   visibility: CatalogVisibility,
   targetUserId?: string,
-  audioUrl?: string,
+  audioUrl?: string | null,
   targetPresetId?: string,
   mestreId?: string,
   groupId?: string
@@ -59,7 +59,7 @@ export async function savePresetToCloud(
     updatedAt: Date.now()
   };
   if (groupId) docData.groupId = groupId;
-  if (audioUrl) docData.audioUrl = audioUrl;
+  if (audioUrl !== undefined) docData.audioUrl = audioUrl;
   
   if (targetPresetId) {
     await updateDoc(doc(db, CLOUD_PRESETS_COLLECTION, targetPresetId), docData);

@@ -2,32 +2,125 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    match /{allPaths=**} {
-      // Lecture publique
-      allow read: if true;
-      
-      // Écriture restreinte pour les autres chemins : authentification requise, taille < 20Mo, et type audio
-      allow write: if request.auth != null 
-                   && request.resource.size < 20 * 1024 * 1024 
-                   && request.resource.contentType.matches('audio/.*');
+
+    // Fonctions d'aide pour l'authentification et l'isolation multi-tenants (SaaS)
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isSystemAdmin() {
+      return isAuthenticated() && (
+        (request.auth.token.keys().hasAny(['isSystemAdmin']) && request.auth.token.isSystemAdmin == true) ||
+        (request.auth.token.keys().hasAny(['admin']) && request.auth.token.admin == true)
+      );
+    }
+
+    function getUserData() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Vérifie strictement que l'utilisateur appartient au groupe spécifié dans le chemin Storage
+    function isMemberOfGroup(groupId) {
+      return isAuthenticated() && (
+        isSystemAdmin() ||
+        (request.auth.token.keys().hasAny(['groupId']) && request.auth.token.groupId.lower() == groupId.lower()) ||
+        (firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) && getUserData().get('groupId', '').lower() == groupId.lower())
+      );
     }
     
-    // Autorisation spécifique pour l'export "Danse"
-    match /exports_danse/{allPaths=**} {
+    // 1. Photos de profil / Avatars : Lecture publique (Trombinoscope/Vitrine), écriture par le propriétaire ou un Admin
+    match /avatars/{userId}/{allPaths=**} {
       allow read: if true;
-      // On autorise l'écriture publique pour O Girador Dança, avec limite à 20Mo pour les WAV/WEBM
-      allow write: if request.resource.size < 20 * 1024 * 1024 
-                   && request.resource.contentType.matches('(audio|video)/.*');
+      allow write: if request.auth != null && (
+        request.auth.uid == userId || 
+        request.auth.token.role == 'admin' || 
+        request.auth.token.role == 'mestre' ||
+        isSystemAdmin()
+      );
+    }
+
+    // 2. Fichiers Vitrine & Association (Logos, PDFs Dossiers Pro, Images Hero) : Lecture publique, Upload réservé aux membres du groupe
+    match /associations/{groupId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isMemberOfGroup(groupId);
+    }
+
+    // 3. Documents internes (Varal, Partitions, Comptes-Rendus, Séquenceur) : Accessible uniquement aux membres du groupe
+    match /documents/{groupId}/{allPaths=**} {
+      allow read, write: if isMemberOfGroup(groupId);
     }
 
     // Accès aux bibliothèques Cloud par groupe (fichiers JSON du Séquenceur)
     match /documents/{groupId}/sequencer/{allPaths=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isAuthenticated();
     }
 
-    // Enregistrements vocaux (guides vocaux et toadas)
+    // Guides vocaux et enregistrements toadas
     match /vocalRecordings/{allPaths=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isAuthenticated();
+    }
+
+    // Bounces audio du Séquenceur (presets, sections, patterns)
+    // Autoriser la lecture publique des bounces et l'écriture aux utilisateurs authentifiés
+    match /bounces/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // 4. Média des Ateliers / Workshops : Accessible uniquement aux membres du groupe
+    match /workshops_media/{groupId}/{allPaths=**} {
+      allow read, write: if isMemberOfGroup(groupId);
+    }
+
+    // 4b. Images du Forum : Accessible uniquement aux membres du groupe
+    match /forum_images/{groupId}/{allPaths=**} {
+      allow read, write: if isMemberOfGroup(groupId);
+    }
+
+    // 5. Média Studio Social & Justificatifs : Membres du groupe
+    match /studio_validation/{groupId}/{allPaths=**} {
+      allow read, write: if isMemberOfGroup(groupId);
+    }
+
+    // 6. Justificatifs de commandes : Membres du groupe
+    match /orders/{groupId}/{allPaths=**} {
+      allow read, write: if isMemberOfGroup(groupId);
+    }
+
+    // 7. Justificatifs de trésorerie (Opérations) : Membres du groupe
+    match /transactions/{groupId}/{allPaths=**} {
+      allow read, write: if isMemberOfGroup(groupId);
+    }
+
+    // 8. Autorisation spécifique pour l'export "Danse" du séquenceur
+    match /exports_danse/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.resource.size < 100 * 1024 * 1024 
+                   && request.resource.contentType.matches('(audio|video)/.*');
+    }
+
+    // 9. Dancador Studio Capture (Vidéos des pas)
+    match /videos/{groupId}/{allPaths=**} {
+      allow read: if isMemberOfGroup(groupId);
+      allow write: if isMemberOfGroup(groupId)
+                   && request.resource.size < 500 * 1024 * 1024 
+                   && request.resource.contentType.matches('^video/.*');
+    }
+
+    // 10. Dancador Studio Capture (Images / Silhouettes)
+    match /images/{groupId}/{allPaths=**} {
+      allow read: if isMemberOfGroup(groupId);
+      allow write: if isMemberOfGroup(groupId)
+                   && request.resource.size < 10 * 1024 * 1024 
+                   && request.resource.contentType.matches('^image/.*');
+    }
+
+    // Règle par défaut pour le reste des fichiers audio
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null 
+                   && request.resource.size < 20 * 1024 * 1024 
+                   && request.resource.contentType.matches('audio/.*');
     }
   }
 }
