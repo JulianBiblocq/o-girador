@@ -1048,44 +1048,12 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
 
   const handleDockSelectTool = React.useCallback((tool: string) => {
     setActiveTool(tool);
-
-    if (selectedStepIdx !== null && selectedPatternId && track) {
-      const targets = selectedStepIndices.length > 0 ? selectedStepIndices : [selectedStepIdx];
-      let strokeToApply: string | number = tool;
-      if (tool === '0' || tool === 0 || tool === '') {
-        strokeToApply = 0;
-      } else if (tool === 'scissors') {
-        return;
-      }
-
-      if (selectedVariationId) {
-        onVariationStepValueChange(selectedPatternId, selectedVariationId, targets, strokeToApply as any);
-      } else {
-        sequencer.handleTrackStepValueChange(track.id, selectedPatternId, targets, strokeToApply as any);
-      }
-
-      if (strokeToApply !== 0 && strokeToApply !== '0' && audioEngine) {
-        try {
-          const currentPtn = track.patterns.find(p => p.id === selectedPatternId);
-          let vol = 0.8;
-          let dec = 1.0;
-          if (selectedVariationId) {
-            const vObj = currentPtn?.variations?.find(v => v.id === selectedVariationId);
-            const rawVol = vObj?.volumes?.[selectedStepIdx];
-            vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
-            const rawDec = vObj?.decays?.[selectedStepIdx];
-            dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
-          } else {
-            const rawVol = currentPtn?.volumes?.[selectedStepIdx];
-            vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
-            const rawDec = currentPtn?.decays?.[selectedStepIdx];
-            dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
-          }
-          audioEngine.playNote(track.id, String(strokeToApply), Tone.now(), vol, dec);
-        } catch (_) {}
-      }
-    }
-  }, [selectedStepIdx, selectedPatternId, selectedStepIndices, selectedVariationId, onVariationStepValueChange, sequencer, track]);
+    // Sélection d'outil de frappe isolée : ne jamais écraser le pas précédemment sélectionné,
+    // et désélectionner le pas actif pour synchroniser l'Escultor et l'indicateur visuel.
+    setSelectedStepIdx(null);
+    setSelectedStepIndices([]);
+    setSelectedSubIndex(null);
+  }, []);
 
   // Sync activeTool when instrument changes
   useEffect(() => {

@@ -25,7 +25,22 @@ export const BoutonExportDanse: React.FC = () => {
   const [messageErreurUI, setMessageErreurUI] = useState<string>('');
 
   // Extraction optimisée des données nécessaires du store
-  const { bpm, measureBpms, totalMesures, timeSig, metadata, mestreSignals, songSections, measureSignals, measureTimeSigs, measureBpmTransitions } = useSequencerStore(
+  const { 
+    bpm, 
+    measureBpms, 
+    totalMesures, 
+    timeSig, 
+    metadata, 
+    mestreSignals, 
+    songSections, 
+    measureSignals, 
+    measureTimeSigs, 
+    measureBpmTransitions,
+    isLoopRegionActive,
+    loopStartMeasure,
+    loopEndMeasure,
+    loopMode
+  } = useSequencerStore(
     useShallow(state => ({
       bpm: state.bpm,
       measureBpms: state.measureBpms,
@@ -36,7 +51,11 @@ export const BoutonExportDanse: React.FC = () => {
       songSections: state.songSections,
       measureSignals: state.measureSignals,
       measureTimeSigs: state.measureTimeSigs,
-      measureBpmTransitions: state.measureBpmTransitions
+      measureBpmTransitions: state.measureBpmTransitions,
+      isLoopRegionActive: state.isLoopRegionActive,
+      loopStartMeasure: state.loopStartMeasure,
+      loopEndMeasure: state.loopEndMeasure,
+      loopMode: state.loopMode
     }))
   );
   
@@ -72,7 +91,12 @@ export const BoutonExportDanse: React.FC = () => {
       const idFallback = titreFormate ? titreFormate : `brouillon_${Date.now()}`;
       const morceauId = (metadata as any)?.morceauId || idFallback;
       
-      const expandedMeasures = getExpandedMeasures(totalMesures, songSections || []);
+      const expandedMeasures = getExpandedMeasures(totalMesures, songSections || [], {
+        isLoopRegionActive,
+        loopStartMeasure,
+        loopEndMeasure,
+        loopMode
+      });
       const sinaisDoMestreAbsolus: any[] = [];
       
       expandedMeasures.forEach((measureInfo, absoluteIndex) => {
@@ -88,24 +112,17 @@ export const BoutonExportDanse: React.FC = () => {
         }
       });
       
-      let lastSeenBpm = bpm;
-      let lastSeenTransition = 'immediate';
-      
       const measureBpmsAbsolus = expandedMeasures.map(measureInfo => {
-        if (measureBpms[measureInfo.baseMeasure] !== undefined) {
-          lastSeenBpm = measureBpms[measureInfo.baseMeasure];
-        }
-        return lastSeenBpm;
+        const m = measureInfo.baseMeasure;
+        return (measureBpms && measureBpms[m] !== undefined) ? measureBpms[m] : bpm;
       });
 
       const measureBpmTransitionsAbsolus = expandedMeasures.map(measureInfo => {
-        if (measureBpmTransitions[measureInfo.baseMeasure] !== undefined) {
-          lastSeenTransition = measureBpmTransitions[measureInfo.baseMeasure];
-        }
-        return lastSeenTransition;
+        const m = measureInfo.baseMeasure;
+        return (measureBpmTransitions && measureBpmTransitions[m] !== undefined) ? measureBpmTransitions[m] : 'immediate';
       });
 
-      const measureTimeSigsAbsolus = expandedMeasures.map(measureInfo => measureTimeSigs[measureInfo.baseMeasure] || timeSig);
+      const measureTimeSigsAbsolus = expandedMeasures.map(measureInfo => (measureTimeSigs && measureTimeSigs[measureInfo.baseMeasure]) || timeSig || '4/4');
       
       const bpmReel = measureBpmsAbsolus.length > 0 ? measureBpmsAbsolus[0] : bpm;
 

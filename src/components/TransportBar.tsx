@@ -92,15 +92,19 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
   }, []);
 
   React.useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (loopMenuRef.current && !loopMenuRef.current.contains(e.target as Node)) {
         setShowLoopMenu(false);
       }
     };
     if (showLoopMenu) {
       window.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('touchstart', handleClickOutside);
     }
-    return () => window.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('touchstart', handleClickOutside);
+    };
   }, [showLoopMenu]);
 
   const t = (key: string) => (i18n[lang] as any)[key] || key;
@@ -141,7 +145,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
 
 
   return (
-    <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] relative flex flex-nowrap items-center justify-between px-2 sm:px-4 z-30 shrink-0 overflow-hidden">
+    <div className="w-full h-[60px] bg-[var(--cordel-bg)] border-t-2 border-[var(--cordel-border)] relative flex flex-nowrap items-center justify-between px-2 sm:px-4 z-50 shrink-0 overflow-visible">
       
       {/* Left side: Metro, Swing, BPM */}
       <div className="flex items-center gap-2 sm:gap-4 shrink-0">
@@ -275,7 +279,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
             </button>
 
             {showLoopMenu && (
-              <div className="absolute bottom-[calc(100%+8px)] left-0 w-32 bg-[var(--cordel-bg)] cordel-border z-40 shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col">
+              <div className="absolute bottom-[calc(100%+8px)] right-0 sm:left-1/2 sm:-translate-x-1/2 w-36 bg-[var(--cordel-bg)] cordel-border z-50 shadow-[4px_4px_0_rgba(0,0,0,1)] flex flex-col">
                 <button 
                   onClick={() => { useSequencerStore.getState().setLoopMode('infinite'); setShowLoopMenu(false); }}
                   className={`px-3 py-2 text-left text-sm font-bold border-b border-[var(--cordel-border)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] ${loopMode === 'infinite' ? 'bg-[var(--cordel-wood)] text-[#f4ecd8]' : 'text-[var(--cordel-text)]'}`}
@@ -293,6 +297,9 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
                       if (!isNaN(val) && val > 0) {
                         useSequencerStore.getState().setLoopMode(val);
                       }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') setShowLoopMenu(false);
                     }}
                     className="w-12 text-sm font-bold border-2 border-[var(--cordel-border)] px-1 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] outline-none focus:bg-[var(--cordel-border)]/10"
                   />

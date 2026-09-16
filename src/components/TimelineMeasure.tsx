@@ -588,6 +588,23 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   );
 };
 
+const arePatternsListsEqual = (
+  prevList?: Array<{ id: number; name: string; vocalMode?: string }>,
+  nextList?: Array<{ id: number; name: string; vocalMode?: string }>
+): boolean => {
+  if (prevList === nextList) return true;
+  if (!prevList || !nextList) return false;
+  if (prevList.length !== nextList.length) return false;
+  for (let i = 0; i < prevList.length; i++) {
+    const a = prevList[i];
+    const b = nextList[i];
+    if (a.id !== b.id || a.name !== b.name || a.vocalMode !== b.vocalMode) {
+      return false;
+    }
+  }
+  return true;
+};
+
 export const TimelineMeasure = React.memo(TimelineMeasureComponent, (prev, next) => {
   return prev.mIdx === next.mIdx &&
          prev.trackId === next.trackId &&
@@ -611,5 +628,6 @@ export const TimelineMeasure = React.memo(TimelineMeasureComponent, (prev, next)
          prev.activePatternActiveSteps === next.activePatternActiveSteps &&
          prev.isLinkedChild === next.isLinkedChild &&
          prev.isLinkMaster === next.isLinkMaster &&
-         prev.isOverridden === next.isOverridden;
+         prev.isOverridden === next.isOverridden &&
+         arePatternsListsEqual(prev.patternsList, next.patternsList);
 });

@@ -53,6 +53,9 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
     const scrollEl = document.getElementById('timeline-scroll-container');
     if (!scrollEl) return;
 
+    // S'assurer que le conteneur n'a aucun scroll-behavior: smooth pour éliminer tout saut asynchrone
+    scrollEl.style.scrollBehavior = 'auto';
+
     layoutCache.current.vw = scrollEl.clientWidth - HEADER_W;
     layoutCache.current.lastScrollX = scrollEl.scrollLeft;
 
@@ -160,28 +163,7 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       const currentMEASURE_W = measureWRef.current;
       const exactX = measure * currentMEASURE_W + ratio * currentMEASURE_W;
 
-      const isUltraEco = usePerformanceStore.getState().disablePlayheadRAF;
-
-      if (isUltraEco) {
-        // Mode Tier 3 (Beat Jump) : Saut de position instantané sans transition CSS
-        el.style.transition = 'none';
-        el.style.transform = `translate3d(${HEADER_W + exactX}px, 0, 0)`;
-      } else if (isNewMeasure && measureDuration && measureDuration > 0) {
-        // 🚀 GPU CSS TRANSITION MODEL: Déclencher la transition CSS 60 FPS native au niveau du GPU par mesure
-        const startX = HEADER_W + exactX;
-        const endX = HEADER_W + (measure + 1) * currentMEASURE_W;
-        const remDuration = Math.max(0.1, (1 - ratio) * measureDuration);
-
-        el.style.transition = 'none';
-        el.style.transform = `translate3d(${startX}px, 0, 0)`;
-        requestAnimationFrame(() => {
-          if (el) {
-            el.style.transition = `transform ${remDuration}s linear`;
-            el.style.transform = `translate3d(${endX}px, 0, 0)`;
-          }
-        });
-      }
-
+      // 3. AUTO-SCROLL / PAGINATION ATOMIQUE DANS LA MÊME FRAME
       // Détection de rupture (Loop, Seek ou saut au début de la boucle) pour le scroll immédiat
       const dx = exactX - lastExactXRef.current;
       const isRupture = lastExactXRef.current === -1 || dx < 0 || Math.abs(dx) > currentMEASURE_W * 0.5;
@@ -209,6 +191,29 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
           scrollEl.scrollLeft = targetScroll;
           layoutCache.current.lastScrollX = targetScroll;
         }
+      }
+
+      // 4. POSITIONNEMENT GPU DE LA BARRE DE LECTURE
+      const isUltraEco = usePerformanceStore.getState().disablePlayheadRAF;
+
+      if (isUltraEco) {
+        // Mode Tier 3 (Beat Jump) : Saut de position instantané sans transition CSS
+        el.style.transition = 'none';
+        el.style.transform = `translate3d(${HEADER_W + exactX}px, 0, 0)`;
+      } else if (isNewMeasure && measureDuration && measureDuration > 0) {
+        // 🚀 GPU CSS TRANSITION MODEL: Déclencher la transition CSS 60 FPS native au niveau du GPU par mesure
+        const startX = HEADER_W + exactX;
+        const endX = HEADER_W + (measure + 1) * currentMEASURE_W;
+        const remDuration = Math.max(0.1, (1 - ratio) * measureDuration);
+
+        el.style.transition = 'none';
+        el.style.transform = `translate3d(${startX}px, 0, 0)`;
+        requestAnimationFrame(() => {
+          if (el) {
+            el.style.transition = `transform ${remDuration}s linear`;
+            el.style.transform = `translate3d(${endX}px, 0, 0)`;
+          }
+        });
       }
     };
 

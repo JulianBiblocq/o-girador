@@ -30,10 +30,27 @@ export function useAudioBounce() {
         bpm, 
         timeSig, 
         songSections, 
-        measureBpmTransitions 
+        measureBpmTransitions,
+        isLoopRegionActive,
+        loopStartMeasure,
+        loopEndMeasure,
+        loopMode
       } = state;
 
-      const expandedMeasures = getExpandedMeasures(totalMeasures, songSections);
+      const isFiniteLoop = Boolean(
+        isLoopRegionActive &&
+        typeof loopMode === 'number' &&
+        loopMode > 0 &&
+        loopStartMeasure !== null &&
+        loopEndMeasure !== null
+      );
+
+      const expandedMeasures = getExpandedMeasures(totalMeasures, songSections, {
+        isLoopRegionActive,
+        loopStartMeasure,
+        loopEndMeasure,
+        loopMode
+      });
 
       // 1. Calcul de la durée totale (avec prise en compte des rampes de BPM)
       let dureeTotaleSec = 0;
@@ -68,9 +85,15 @@ export function useAudioBounce() {
         audio.handleStop(); // Remise à zéro au début
       }
 
-      // Désactivation de la boucle pour l'export (pour ne pas enregistrer le début d'un 2ème cycle)
+      // Sauvegarde et configuration de la boucle pour l'export
       const previousIsLooping = state.isLooping;
-      if (previousIsLooping) {
+      const previousLoopIteration = state.currentLoopIteration;
+      if (isFiniteLoop) {
+        // En boucle finie N fois : garder la boucle active avec réinitialisation à l'itération 1
+        state.setIsLooping(true);
+        state.setCurrentLoopIteration(1);
+      } else {
+        // Sinon : désactiver la boucle pour ne jouer qu'un seul cycle linéaire
         state.setIsLooping(false);
       }
 
@@ -78,28 +101,23 @@ export function useAudioBounce() {
       const recorder = new Tone.Recorder();
       Tone.getDestination().connect(recorder);
       recorder.start();
-      
-      // Laisser l'enregistreur s'initialiser et capter le premier transitoire
-      await new Promise(r => setTimeout(r, 100));
 
-      // 3. Démarrage de la lecture
+      // 3. Démarrage immédiat de la lecture (aucun blanc artificiel au début)
       await audio.handleTogglePlay();
 
-      // 4. Attente automatique (blocage asynchrone non-bloquant pour le UI)
+      // 4. Attente automatique de la durée exacte déroulée
       await new Promise(resolve => setTimeout(resolve, dureeTotaleSec * 1000));
 
-      // 5. Fin de l'enregistrement
-      const blob = await recorder.stop();
-      
-      // Nettoyage
+      // 5. Clôture STRICTE de l'enregistrement pour éliminer tout rebond ou échantillon de la mesure 0
+      // 🛡️ VIGILANCE 2 : Tone.getDestination().disconnect(recorder) -> await recorder.stop() -> audio.handleStop()
       Tone.getDestination().disconnect(recorder);
+      const blob = await recorder.stop();
       recorder.dispose();
       audio.handleStop();
       
       // Restauration de l'état de boucle
-      if (previousIsLooping) {
-        state.setIsLooping(true);
-      }
+      state.setIsLooping(previousIsLooping);
+      state.setCurrentLoopIteration(previousLoopIteration);
 
       setEstEnCalcul(false);
       return blob;

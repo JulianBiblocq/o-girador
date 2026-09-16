@@ -80,6 +80,8 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const [insertMeasuresPrompt, setInsertMeasuresPrompt] = React.useState<{isOpen: boolean, targetIdx: number | null}>({isOpen: false, targetIdx: null});
   const [insertAmountStr, setInsertAmountStr] = React.useState("1");
   const { isPlaying } = useAudio();
+  const isPlayingRef = React.useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
 
   // Replier automatiquement toutes les pistes de liens du séquenceur lors du montage (entrée sur la page)
   React.useEffect(() => {
@@ -331,8 +333,9 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
     const handleScroll = () => {
       viewportCacheRef.current.lastScrollLeft = el.scrollLeft;
-      // Pour totalMeasures <= 48, ne pas recalculer visibleRange au scroll (zéro unmount)
-      if (totalMeasures > 48) {
+      // 🛡️ ZERO RENDER THRASHING (Vigilance 3) :
+      // Interdiction stricte de déclencher updateVisibleRange ou tout setState au scroll pendant la lecture
+      if (!isPlayingRef.current && totalMeasures > 48) {
         updateVisibleRange(false);
       }
     };
@@ -357,6 +360,19 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   useEffect(() => {
     updateVisibleRange(true);
   }, [measureWidth, totalMeasures, updateVisibleRange]);
+
+  // 🛡️ Gestion de la virtualisation en lecture / arrêt :
+  // Pendant la lecture, monter l'ensemble des mesures si totalMeasures > 48 pour garantir zéro unmount/mount au scroll
+  // À l'arrêt, restaurer immédiatement la virtualisation propre
+  useEffect(() => {
+    if (isPlaying) {
+      if (totalMeasures > 48) {
+        setVisibleRange({ start: 0, end: Math.max(0, totalMeasures - 1) });
+      }
+    } else {
+      updateVisibleRange(true);
+    }
+  }, [isPlaying, totalMeasures, updateVisibleRange]);
 
   // 🛡️ FIX (Audit): Centralized AbortController for all drag/drop events
   const dragAbortControllerRef = useRef<AbortController | null>(null);
@@ -1328,6 +1344,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
       <div
         id="timeline-scroll-container"
         ref={scrollRef}
+        style={{ scrollBehavior: 'auto' }}
         onPointerDown={handleViewportPointerDown}
         onPointerMove={handleViewportPointerMove}
         onPointerUp={handleViewportPointerUp}
