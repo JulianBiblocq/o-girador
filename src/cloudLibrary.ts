@@ -82,7 +82,8 @@ export async function fetchCloudPresets(
   userUid: string | null,
   userRole: 'admin' | 'mestre' | 'eleve' | 'visiteur' | string,
   mestreId: string | null,
-  groupId?: string | null
+  groupId?: string | null,
+  canWriteSequenciador?: boolean
 ): Promise<CloudPreset[]> {
   const presets: CloudPreset[] = [];
   if (!userUid) return presets;
@@ -91,24 +92,27 @@ export async function fetchCloudPresets(
   try {
     if (userRole === 'admin') {
       // Les admins chargent tout avec une limite généreuse
-      const q = query(presetsRef, orderBy('createdAt', 'desc'), limit(1000));
+      const q = query(presetsRef, limit(1000));
       const snapshot = await getDocs(q);
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as Omit<CloudPreset, 'id'>;
         presets.push({ id: docSnap.id, ...data });
       });
+      presets.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     } else {
       let myGroupMestreId = (userRole === 'mestre' || userRole === 'mestri') ? userUid : mestreId;
+      const normalizedUserGroupId = groupId ? groupId.trim().toLowerCase() : '';
+      const isSamambaiaGroup = normalizedUserGroupId === 'samambaia' || normalizedUserGroupId.includes('sammbia');
 
-      // Si mestreId est absent mais que l'utilisateur a un groupId, tenter de résoudre le Mestre du groupe
-      if (!myGroupMestreId && groupId) {
-        if (groupId.toLowerCase() === 'samambaia') {
+      // Si mestreId est absent mais que l'utilisateur appartient à Samambaia ou est éditeur sans groupe explicite
+      if (!myGroupMestreId) {
+        if (isSamambaiaGroup || canWriteSequenciador) {
           myGroupMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
-        } else {
+        } else if (groupId) {
           try {
             const mestreQ = query(
               collection(db, 'users'),
-              where('groupId', 'in', Array.from(new Set([groupId, groupId.toLowerCase()]))),
+              where('groupId', 'in', Array.from(new Set([groupId, normalizedUserGroupId]))),
               where('role', '==', 'mestre')
             );
             const mestreSnap = await getDocs(mestreQ);
@@ -135,41 +139,51 @@ export async function fetchCloudPresets(
         queries.push(getDocs(query(presetsRef, where('mestreId', '==', myGroupMestreId), limit(100))));
       }
 
-      if (groupId) {
-        // Requête sécurisée avec toutes les variations de casse possibles
-        const normalizedGroupId = groupId.trim().toLowerCase();
-        const isSamambaia = normalizedGroupId === 'samambaia' || normalizedGroupId.includes('sammbia');
+      // Group variants queries
+      const effectiveGroup = groupId || ((isSamambaiaGroup || canWriteSequenciador) ? 'Samambaia' : null);
+      if (effectiveGroup) {
+        const norm = effectiveGroup.trim().toLowerCase();
+        const isSam = norm === 'samambaia' || norm.includes('sammbia') || canWriteSequenciador;
         const groupIdVariants = Array.from(new Set([
-          groupId,
-          normalizedGroupId,
-          ...(isSamambaia ? ['Samambaia', 'samambaia'] : [])
+          effectiveGroup,
+          norm,
+          ...(isSam ? ['Samambaia', 'samambaia', 'SAMAMBAIA'] : [])
         ]));
-        // Firestore 'in' queries are limited to 30 values, this is well within bounds
         queries.push(getDocs(query(presetsRef, where('groupId', 'in', groupIdVariants), limit(100))));
       }
 
-      const snapshots = await Promise.all(queries);
+      // Utiliser Promise.allSettled pour ne jamais faire échouer tout le catalogue si une sous-requête échoue
+      const settled = await Promise.allSettled(queries);
       const uniqueIds = new Set<string>();
       
-      snapshots.forEach(snapshot => {
-        snapshot.forEach(docSnap => {
-          if (!uniqueIds.has(docSnap.id)) {
-            const data = docSnap.data() as Omit<CloudPreset, 'id'>;
-            const isOwner = data.ownerId === userUid;
-            const isAdminGlobal = data.visibility === 'admin_global';
-            const isPublic = data.visibility === 'public';
-            const isTarget = data.targetUserId === userUid;
-            const matchesMestre = myGroupMestreId && (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId);
-            const matchesGroup = groupId && (data as any).groupId && 
-              String((data as any).groupId).toLowerCase() === String(groupId).toLowerCase();
-            const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup);
+      settled.forEach(res => {
+        if (res.status === 'fulfilled') {
+          res.value.forEach(docSnap => {
+            if (!uniqueIds.has(docSnap.id)) {
+              const data = docSnap.data() as Omit<CloudPreset, 'id'>;
+              const isOwner = data.ownerId === userUid;
+              const isAdminGlobal = data.visibility === 'admin_global';
+              const isPublic = data.visibility === 'public';
+              const isTarget = data.targetUserId === userUid;
+              const matchesMestre = myGroupMestreId && (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId);
+              
+              const dataGroupIdNorm = String((data as any).groupId || '').toLowerCase();
+              const userGroupNorm = String(groupId || (canWriteSequenciador ? 'samambaia' : '')).toLowerCase();
+              const matchesGroup = Boolean(
+                (userGroupNorm && dataGroupIdNorm && dataGroupIdNorm === userGroupNorm) ||
+                ((userGroupNorm === 'samambaia' || canWriteSequenciador) && (dataGroupIdNorm === 'samambaia' || dataGroupIdNorm.includes('sammbia')))
+              );
+              const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup);
 
-            if (isOwner || isAdminGlobal || isPublic || isTarget || isMestreGroup || matchesGroup || matchesMestre) {
-              uniqueIds.add(docSnap.id);
-              presets.push({ id: docSnap.id, ...data });
+              if (isOwner || isAdminGlobal || isPublic || isTarget || isMestreGroup || matchesGroup || matchesMestre || canWriteSequenciador) {
+                uniqueIds.add(docSnap.id);
+                presets.push({ id: docSnap.id, ...data });
+              }
             }
-          }
-        });
+          });
+        } else {
+          console.warn("[CloudLibrary] Une sous-requête de presets a échoué (ignorée sans bloquer le reste):", res.reason);
+        }
       });
       
       presets.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));

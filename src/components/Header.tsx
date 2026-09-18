@@ -183,6 +183,8 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const onRedo = handleRedo;
   const canRedo = tracksRedoHistory.length > 0;
   const [isSwingModalOpen, setIsSwingModalOpen] = useState(false);
+  const groupLabel = userProfile?.groupName || userProfile?.groupId || (userProfile?.canWriteSequenciador ? 'Samambaia' : 'Cloud');
+  const showGroupCatalogue = cloudPresets.length > 0 || Boolean(userProfile?.groupId || userProfile?.groupName || userProfile?.canWriteSequenciador);
   const onMasterVolChange = setMasterVol;
   const onTotalMeasuresChange = setTotalMeasures;
 
@@ -338,13 +340,19 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                       })}
                     </optgroup>
 
-                    {cloudPresets.length > 0 && (
-                      <optgroup label={lang === 'pt' ? `Catálogo ${userProfile?.groupName || userProfile?.groupId || 'Cloud'}` : `Catalogue ${userProfile?.groupName || userProfile?.groupId || 'Cloud'}`}>
-                        {cloudPresets.map((p) => (
-                          <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
-                            ☁️ {p.name}
+                    {showGroupCatalogue && (
+                      <optgroup label={lang === 'pt' ? `Catálogo ${groupLabel} (Privado)` : `Catalogue ${groupLabel} (Privé)`}>
+                        {cloudPresets.length > 0 ? (
+                          cloudPresets.map((p) => (
+                            <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
+                              ☁️ {p.name}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
+                            {lang === 'pt' ? '(Nenhum ritmo no catálogo)' : '(Aucun morceau dans le catalogue)'}
                           </option>
-                        ))}
+                        )}
                       </optgroup>
                     )}
 
@@ -702,13 +710,19 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                     })}
                   </optgroup>
 
-                  {cloudPresets.length > 0 && (
-                    <optgroup label={lang === 'pt' ? `Catálogo ${userProfile?.groupName || userProfile?.groupId || userProfile?.displayName || 'Cloud'} (Privado)` : `Catalogue ${userProfile?.groupName || userProfile?.groupId || userProfile?.displayName || 'Cloud'} (Privé)`}>
-                      {cloudPresets.map((p) => (
-                        <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
-                          ☁️ {p.name}
+                  {showGroupCatalogue && (
+                    <optgroup label={lang === 'pt' ? `Catálogo ${groupLabel} (Privado)` : `Catalogue ${groupLabel} (Privé)`}>
+                      {cloudPresets.length > 0 ? (
+                        cloudPresets.map((p) => (
+                          <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
+                            ☁️ {p.name}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
+                          {lang === 'pt' ? '(Nenhum ritmo no catálogo)' : '(Aucun morceau dans le catalogue)'}
                         </option>
-                      ))}
+                      )}
                     </optgroup>
                   )}
 

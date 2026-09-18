@@ -166,63 +166,83 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             
             // Auto-resolve Mestre for members belonging to an association/group (e.g. Samambaia)
-            if (profile.groupId) {
-              const rawData = docSnap.data();
-              // Normalisation déterministe de la casse du groupId
-              const normalizedGroupId = profile.groupId.trim().toLowerCase();
-              const isSamambaia = normalizedGroupId === 'samambaia' || normalizedGroupId.includes('sammbia');
+            const rawData = docSnap.data();
+            const extractedGroupId = (
+              profile.groupId ||
+              (rawData as any).group ||
+              (rawData as any).associationId ||
+              (rawData as any).association ||
+              (rawData as any).groupName ||
+              ''
+            ).trim().toLowerCase();
 
-              if (isSamambaia) {
-                const targetMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
-                const targetGroupName = 'Samambaia';
-                profile.mestreId = targetMestreId;
-                profile.groupName = targetGroupName;
-                profile.groupId = normalizedGroupId;
-                const needsUpdate = rawData.mestreId !== targetMestreId || rawData.groupName !== targetGroupName || rawData.groupId !== normalizedGroupId;
-                if (needsUpdate) {
-                  updateDoc(userRef, { mestreId: targetMestreId, groupName: targetGroupName, groupId: normalizedGroupId }).catch((e) => {
-                    console.warn('[AuthContext] Échec persistance mestreId Samambaia:', e);
-                  });
-                }
-              } else {
-                // Normaliser le groupId en lowercase dans le profil et Firestore
-                if (rawData.groupId !== normalizedGroupId) {
-                  profile.groupId = normalizedGroupId;
-                  updateDoc(userRef, { groupId: normalizedGroupId }).catch(() => {});
-                }
+            const isExplicitSamambaia = 
+              extractedGroupId === 'samambaia' || 
+              extractedGroupId.includes('sammbia') ||
+              String((rawData as any).groupName || '').toLowerCase().includes('samambaia') ||
+              rawData.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
 
-                // Résolution du mestreId pour tout groupe non-Samambaia
-                if (!rawData.mestreId) {
-                  try {
-                    const mestreQ = query(
-                      collection(db, 'users'),
-                      where('groupId', 'in', Array.from(new Set([normalizedGroupId, profile.groupId]))),
-                      where('role', '==', 'mestre')
-                    );
-                    const mestreSnap = await getDocs(mestreQ);
-                    if (!mestreSnap.empty) {
-                      const mestreDoc = mestreSnap.docs[0];
-                      const targetMestreId = mestreDoc.id;
-                      const resolvedGroupName = mestreDoc.data().groupName;
-                      const targetGroupName = rawData.groupName || resolvedGroupName;
-                      profile.mestreId = targetMestreId;
-                      if (!profile.groupName && resolvedGroupName) {
-                        profile.groupName = resolvedGroupName;
-                      }
-                      // Persister immédiatement mestreId + groupId normalisé
-                      updateDoc(userRef, {
-                        mestreId: targetMestreId,
-                        groupId: normalizedGroupId,
-                        ...(targetGroupName ? { groupName: targetGroupName } : {})
-                      }).catch((e) => {
-                        console.warn('[AuthContext] Échec persistance mestreId résolu:', e);
-                      });
-                    } else {
-                      console.warn(`[AuthContext] Aucun mestre trouvé pour le groupe '${normalizedGroupId}'. L'élève n'aura pas accès au catalogue privé.`);
+            // Si l'utilisateur est éditeur du séquenceur sans groupe défini, le rattacher par défaut à Samambaia
+            const isEditorSamambaia = 
+              (profile.canWriteSequenciador === true || (rawData as any).canWriteSequenciador === true) &&
+              (!extractedGroupId || isExplicitSamambaia);
+
+            if (isExplicitSamambaia || isEditorSamambaia) {
+              const targetMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+              const targetGroupName = 'Samambaia';
+              const targetGroupId = 'samambaia';
+              profile.mestreId = targetMestreId;
+              profile.groupName = targetGroupName;
+              profile.groupId = targetGroupId;
+              const needsUpdate = rawData.mestreId !== targetMestreId || rawData.groupName !== targetGroupName || rawData.groupId !== targetGroupId;
+              if (needsUpdate) {
+                // Ne persister que mestreId et groupName si possible, pour éviter un rejet par les règles Firestore
+                const updatePayload: Record<string, any> = { mestreId: targetMestreId, groupName: targetGroupName };
+                if (checkIsAdmin(profile)) {
+                  updatePayload.groupId = targetGroupId;
+                }
+                updateDoc(userRef, updatePayload).catch((e) => {
+                  console.warn('[AuthContext] Échec persistance profil Samambaia:', e);
+                });
+              }
+            } else if (extractedGroupId) {
+              const normalizedGroupId = extractedGroupId;
+              profile.groupId = normalizedGroupId;
+
+              // Normaliser le groupId dans Firestore si permis
+              if (rawData.groupId !== normalizedGroupId && checkIsAdmin(profile)) {
+                updateDoc(userRef, { groupId: normalizedGroupId }).catch(() => {});
+              }
+
+              // Résolution du mestreId pour tout groupe non-Samambaia
+              if (!rawData.mestreId) {
+                try {
+                  const mestreQ = query(
+                    collection(db, 'users'),
+                    where('groupId', 'in', Array.from(new Set([normalizedGroupId, profile.groupId].filter(Boolean) as string[]))),
+                    where('role', '==', 'mestre')
+                  );
+                  const mestreSnap = await getDocs(mestreQ);
+                  if (!mestreSnap.empty) {
+                    const mestreDoc = mestreSnap.docs[0];
+                    const targetMestreId = mestreDoc.id;
+                    const resolvedGroupName = mestreDoc.data().groupName;
+                    const targetGroupName = rawData.groupName || resolvedGroupName;
+                    profile.mestreId = targetMestreId;
+                    if (!profile.groupName && resolvedGroupName) {
+                      profile.groupName = resolvedGroupName;
                     }
-                  } catch (err) {
-                    console.warn("[AuthContext] Could not resolve mestre for group:", err);
+                    updateDoc(userRef, {
+                      mestreId: targetMestreId,
+                      ...(targetGroupName ? { groupName: targetGroupName } : {})
+                    }).catch((e) => {
+                      console.warn('[AuthContext] Échec persistance mestreId résolu:', e);
+                    });
+                  } else {
+                    console.warn(`[AuthContext] Aucun mestre trouvé pour le groupe '${normalizedGroupId}'. L'élève n'aura pas accès au catalogue privé.`);
                   }
+                } catch (err) {
+                  console.warn("[AuthContext] Could not resolve mestre for group:", err);
                 }
               }
             }

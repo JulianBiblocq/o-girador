@@ -209,7 +209,8 @@ export default function App() {
     userUid: userProfile?.uid || null,
     userRole: userProfile?.role || 'visiteur',
     mestreId: userProfile?.mestreId || null,
-    groupId: userProfile?.groupId || null
+    groupId: userProfile?.groupId || null,
+    canWriteSequenciador: !!userProfile?.canWriteSequenciador
   });
 
   const cloudPresets = useMemo(() => {
