@@ -308,7 +308,7 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                               }
                             }}
                             onChange={(e) => {
-                              onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, e.target.value.toUpperCase());
+                              onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, e.target.value);
                             }}
                             onWheel={(e) => {
                               // Uniquement si ce motif est le motif actif sélectionné
@@ -413,18 +413,18 @@ export const PatternVariationsEditor: React.FC<PatternVariationsEditorProps> = (
                                 return;
                               }
 
-                              const upper = e.key.toUpperCase();
-                              const isAlphaNum = upper.length === 1 && upper.match(/^[A-Z0-9]$/);
+                              const char = e.key;
+                              const isAlphaNum = char.length === 1 && char.match(/^[a-zA-Z0-9]$/);
                               if (isAlphaNum && !e.ctrlKey && !e.metaKey && !e.altKey) {
                                 e.preventDefault();
-                                onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, upper);
+                                onVariationStepValueChange && onVariationStepValueChange(ptn.id, variation.id, i, char);
                                 if (audioEngine) {
                                   try {
                                     const rawVol = variation.volumes?.[i];
                                     const vol = ((Array.isArray(rawVol) ? rawVol[0] : (rawVol ?? 80)) as number) / 100;
                                     const rawDec = variation.decays?.[i];
                                     const dec = ((Array.isArray(rawDec) ? rawDec[0] : (rawDec ?? 100)) as number) / 100;
-                                    audioEngine.playNote(trackId, upper, Tone.now(), vol, dec);
+                                    audioEngine.playNote(trackId, char, Tone.now(), vol, dec);
                                   } catch (_) {}
                                 }
                                 if (indexInGrid < inputs.length - 1) {
