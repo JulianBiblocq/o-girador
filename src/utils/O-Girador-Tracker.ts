@@ -2,6 +2,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 
 let sessionStartTime: number | null = null;
+let isWriting = false;
 
 /**
  * Starts a new session and sends a 'session_start' event to Firestore.
@@ -10,8 +11,8 @@ let sessionStartTime: number | null = null;
  * @param groupId Optional group identifier
  */
 export const startSession = async (userProfile: any, appId: string, groupId?: string) => {
-  if (sessionStartTime !== null) {
-    // Session is already running
+  if (sessionStartTime !== null || isWriting) {
+    // Session is already running or write in progress
     return;
   }
 
@@ -24,6 +25,7 @@ export const startSession = async (userProfile: any, appId: string, groupId?: st
   };
 
   try {
+    isWriting = true;
     await addDoc(collection(db, 'hub_telemetry_daily'), {
       eventName: 'session_start',
       appId,
@@ -33,7 +35,9 @@ export const startSession = async (userProfile: any, appId: string, groupId?: st
       demographics,
     });
   } catch (error) {
-    console.error('Failed to send session_start telemetry:', error);
+    console.warn('Telemetry session_start ignored:', error);
+  } finally {
+    isWriting = false;
   }
 };
 
@@ -51,6 +55,11 @@ export const endSession = async (appId: string, groupId?: string, userId?: strin
   const durationInSeconds = Math.floor((Date.now() - sessionStartTime) / 1000);
   sessionStartTime = null;
 
+  // Ignore transient flashes / rapid unmounts < 2s to avoid polluting telemetry and exhausting write queues
+  if (durationInSeconds < 2) {
+    return;
+  }
+
   try {
     await addDoc(collection(db, 'hub_telemetry_daily'), {
       eventName: 'session_end',
@@ -61,6 +70,6 @@ export const endSession = async (appId: string, groupId?: string, userId?: strin
       timestamp: serverTimestamp(),
     });
   } catch (error) {
-    console.error('Failed to send session_end telemetry:', error);
+    console.warn('Telemetry session_end ignored:', error);
   }
 };

@@ -97,14 +97,29 @@ export function useAppAudio() {
         if (loadPresetId) {
           try {
             const { getCloudPreset } = await import('../cloudLibrary');
-            const cloudPreset = await getCloudPreset(loadPresetId);
+            let cloudPreset = await getCloudPreset(loadPresetId);
+            // Retry once if first attempt was momentarily empty
+            if (!cloudPreset) {
+              await new Promise(r => setTimeout(r, 400));
+              cloudPreset = await getCloudPreset(loadPresetId);
+            }
             if (cloudPreset) {
               await audio.applyPreset(cloudPreset);
               window.history.replaceState({}, document.title, window.location.pathname);
               return true;
+            } else {
+              console.warn('[O Girador] Preset introuvable pour ID:', loadPresetId);
+              if (sequencer.alertAsync) {
+                sequencer.alertAsync('Le morceau demandé via le lien est introuvable ou a été supprimé.');
+              }
+              window.history.replaceState({}, document.title, window.location.pathname);
             }
           } catch (e) {
             console.error('Failed to load preset from URL', e);
+            if (sequencer.alertAsync) {
+              sequencer.alertAsync('Impossible de charger le morceau depuis le lien partagé.');
+            }
+            window.history.replaceState({}, document.title, window.location.pathname);
           }
         }
 
@@ -112,7 +127,11 @@ export function useAppAudio() {
         if (loadPatternId) {
           try {
             const { getCloudPattern } = await import('../cloudPatterns');
-            const cloudPattern = await getCloudPattern(loadPatternId);
+            let cloudPattern = await getCloudPattern(loadPatternId);
+            if (!cloudPattern) {
+              await new Promise(r => setTimeout(r, 400));
+              cloudPattern = await getCloudPattern(loadPatternId);
+            }
             if (cloudPattern) {
               const instConf = instrumentsConfig.find(i => i.id === cloudPattern.instrumentId) || instrumentsConfig[0];
               const instIdx = instrumentsConfig.indexOf(instConf);

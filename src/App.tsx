@@ -121,21 +121,22 @@ export default function App() {
   // Session Tracking
   React.useEffect(() => {
     const appId = 'o-girador-sequenceur';
+    const currentUid = userProfile?.uid;
 
-    if (userProfile) {
+    if (currentUid && userProfile) {
       startSession(userProfile, appId);
     }
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
-        endSession(appId, undefined, userProfile?.uid);
+        endSession(appId, undefined, currentUid);
       } else if (document.visibilityState === 'visible' && userProfile) {
         startSession(userProfile, appId);
       }
     };
 
     const handleBeforeUnload = () => {
-      endSession(appId, undefined, userProfile?.uid);
+      endSession(appId, undefined, currentUid);
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -144,9 +145,9 @@ export default function App() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      endSession(appId, undefined, userProfile?.uid);
+      endSession(appId, undefined, currentUid);
     };
-  }, [userProfile]);
+  }, [userProfile?.uid]);
 
 
   const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 1024);
