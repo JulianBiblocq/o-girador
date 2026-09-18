@@ -21,7 +21,8 @@ export async function savePresetToCloud(
   audioUrl?: string | null,
   targetPresetId?: string,
   mestreId?: string,
-  groupId?: string
+  groupId?: string,
+  canWriteSequenciador?: boolean
 ): Promise<string> {
   // Deep copy presetData to avoid modifying active app state
   const presetToSave = JSON.parse(JSON.stringify(presetData));
@@ -48,6 +49,19 @@ export async function savePresetToCloud(
   }
 
   const dataString = LZString.compressToBase64(JSON.stringify(presetToSave));
+
+  let effectiveGroupId = groupId ? groupId.trim() : '';
+  let effectiveMestreId = mestreId || null;
+
+  const isSamambaiaGroup = 
+    effectiveGroupId.toLowerCase() === 'samambaia' ||
+    effectiveGroupId.toLowerCase().includes('sammbia') ||
+    Boolean(canWriteSequenciador);
+
+  if (isSamambaiaGroup) {
+    effectiveGroupId = 'Samambaia';
+    effectiveMestreId = effectiveMestreId || 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+  }
   
   const docData: any = {
     name: name || "Preset Sans Nom",
@@ -55,10 +69,10 @@ export async function savePresetToCloud(
     ownerId: ownerId || "",
     visibility: visibility || "private",
     targetUserId: targetUserId || null,
-    mestreId: mestreId || null,
+    mestreId: effectiveMestreId,
     updatedAt: Date.now()
   };
-  if (groupId) docData.groupId = groupId.trim().toLowerCase();
+  if (effectiveGroupId) docData.groupId = effectiveGroupId;
   if (audioUrl !== undefined) docData.audioUrl = audioUrl;
   
   if (targetPresetId) {

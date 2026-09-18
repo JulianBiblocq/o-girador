@@ -35,13 +35,25 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
     
     try {
       const presetName = name.trim();
+      const isSamambaiaMember = Boolean(
+        (userProfile.groupId && userProfile.groupId.toLowerCase().includes('samambaia')) ||
+        userProfile.canWriteSequenciador ||
+        userProfile.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1'
+      );
+
       const myGroupMestreId = (userProfile.role === 'mestre' || (userProfile.dbRole as any) === 'mestre')
         ? userProfile.uid
-        : (userProfile.mestreId || null);
-      const myGroupId = userProfile.groupId || undefined;
+        : (userProfile.mestreId || (isSamambaiaMember ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : null));
+      const myGroupId = userProfile.groupId || (isSamambaiaMember ? 'Samambaia' : undefined);
 
       const { savePresetToCloud, fetchCloudPresets } = await import('../cloudLibrary');
-      const existingPresets = await fetchCloudPresets(userProfile.uid, userProfile.role, userProfile.mestreId || null, userProfile.groupId || null);
+      const existingPresets = await fetchCloudPresets(
+        userProfile.uid,
+        userProfile.role,
+        myGroupMestreId,
+        myGroupId,
+        userProfile.canWriteSequenciador
+      );
       
       // Look for existing preset: first check own presets, then group presets
       let existingPreset = existingPresets.find(p => p.name.trim() === presetName && p.ownerId === userProfile.uid);
@@ -106,7 +118,8 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
         undefined,
         targetDocId,
         myGroupMestreId || undefined,
-        myGroupId
+        myGroupId,
+        userProfile.canWriteSequenciador
       );
 
       if (autoGenerateAudio) {
@@ -122,7 +135,8 @@ export const SavePresetModal: React.FC<SavePresetModalProps> = ({ presetData, de
             audioUrl ?? null,
             presetId, // pass presetId to overwrite with audio URL
             myGroupMestreId || undefined,
-            myGroupId
+            myGroupId,
+            userProfile.canWriteSequenciador
           );
         } catch (audioErr) {
           console.warn("[SavePresetModal] Échec non bloquant de l'audio cloud, preset conservé avec audioUrl: null :", audioErr);
