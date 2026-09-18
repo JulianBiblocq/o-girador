@@ -31,22 +31,56 @@ export const fetchMestreSignals = async (mestreId: string, lastVisibleDoc?: any)
   }
 };
 
+export interface UploadSignalResult {
+  success: boolean;
+  signal?: CloudRhythmSignal;
+  error?: string;
+}
+
 export const uploadMestreSignal = async (
   mestreId: string,
   name: string,
   base64Image: string
-): Promise<CloudRhythmSignal | null> => {
-  if (!mestreId || !base64Image) return null;
-  try {
-    // 🛡️ FIX (Audit): Secure ID generation
-    const id = doc(collection(db, 'mestre_signals')).id;
-    
-    // Upload image to Storage
-    const storageRef = ref(storage, `sinais/${mestreId}/${id}`);
-    await uploadString(storageRef, base64Image, 'data_url');
-    const imageUrl = await getDownloadURL(storageRef);
+): Promise<UploadSignalResult> => {
+  if (!mestreId) {
+    return { success: false, error: 'Mestre ID manquant ou invalide.' };
+  }
+  if (!base64Image) {
+    return { success: false, error: 'Image manquante ou invalide.' };
+  }
 
-    // Save to Firestore
+  const id = doc(collection(db, 'mestre_signals')).id;
+  const storageRef = ref(storage, `sinais/${mestreId}/${id}`);
+
+  // 1. Upload vers Firebase Storage
+  let imageUrl = '';
+  try {
+    const mimeMatch = base64Image.match(/^data:([^;]+);base64,/);
+    const contentType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+
+    await uploadString(storageRef, base64Image, 'data_url', {
+      contentType,
+      customMetadata: { mestreId, signalName: name },
+    });
+    imageUrl = await getDownloadURL(storageRef);
+  } catch (storageErr: any) {
+    console.error('[CloudSignals] Échec upload Firebase Storage:', storageErr);
+    let errorDetail = storageErr?.message || 'Erreur de stockage inconnue';
+    if (storageErr?.code === 'storage/unauthorized') {
+      errorDetail = 'Permission refusée par les règles Firebase Storage.';
+    } else if (storageErr?.code === 'storage/quota-exceeded') {
+      errorDetail = 'Quota de stockage Firebase Storage dépassé.';
+    } else if (storageErr?.code === 'storage/invalid-format') {
+      errorDetail = "Format d'image invalide.";
+    }
+    return {
+      success: false,
+      error: `Storage: ${errorDetail}`,
+    };
+  }
+
+  // 2. Enregistrement dans Firestore
+  try {
     const signalData: CloudRhythmSignal = {
       id,
       mestreId,
@@ -56,25 +90,48 @@ export const uploadMestreSignal = async (
     };
 
     await setDoc(doc(db, 'mestre_signals', id), signalData);
-    return signalData;
-  } catch (err) {
-    console.error('Error uploading mestre signal:', err);
-    return null;
+    return { success: true, signal: signalData };
+  } catch (firestoreErr: any) {
+    console.error('[CloudSignals] Échec enregistrement Firestore:', firestoreErr);
+    let errorDetail = firestoreErr?.message || 'Erreur Firestore inconnue';
+    if (firestoreErr?.code === 'permission-denied') {
+      errorDetail = 'Permission refusée par les règles Firestore.';
+    }
+    // Nettoyage de l'image orpheline dans Storage
+    try {
+      await deleteObject(storageRef);
+    } catch (_) {}
+
+    return {
+      success: false,
+      error: `Firestore: ${errorDetail}`,
+    };
   }
 };
 
-export const deleteMestreSignal = async (id: string, mestreId: string): Promise<boolean> => {
-  if (!id || !mestreId) return false;
+export const deleteMestreSignal = async (
+  id: string,
+  mestreId: string
+): Promise<{ success: boolean; error?: string }> => {
+  if (!id || !mestreId) return { success: false, error: 'Identifiants manquants.' };
   try {
-    // Delete from Firestore
+    // Suppression Firestore
     await deleteDoc(doc(db, 'mestre_signals', id));
 
-    // Delete from Storage
-    const storageRef = ref(storage, `sinais/${mestreId}/${id}`);
-    await deleteObject(storageRef);
-    return true;
-  } catch (err) {
-    console.error('Error deleting mestre signal:', err);
-    return false;
+    // Suppression Storage
+    try {
+      const storageRef = ref(storage, `sinais/${mestreId}/${id}`);
+      await deleteObject(storageRef);
+    } catch (storageErr: any) {
+      console.warn('[CloudSignals] Avertissement suppression Storage:', storageErr);
+    }
+    return { success: true };
+  } catch (err: any) {
+    console.error('[CloudSignals] Erreur suppression mestre signal:', err);
+    let errorDetail = err?.message || 'Erreur inconnue';
+    if (err?.code === 'permission-denied') {
+      errorDetail = 'Permission refusée par les règles Firestore.';
+    }
+    return { success: false, error: errorDetail };
   }
 };
