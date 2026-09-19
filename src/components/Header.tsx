@@ -83,6 +83,7 @@ interface HeaderProps {
   presetFiles: string[];
   localPresets: string[];
   cloudPresets?: { id: string; name: string }[];
+  isCloudPresetsLoading?: boolean;
 
   viewMode: string;
   onViewModeToggle: (mode: any) => void;
@@ -108,6 +109,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   presetFiles = [],
   localPresets = [],
   cloudPresets = [],
+  isCloudPresetsLoading = false,
 
   viewMode,
   onViewModeToggle,
@@ -183,8 +185,13 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const onRedo = handleRedo;
   const canRedo = tracksRedoHistory.length > 0;
   const [isSwingModalOpen, setIsSwingModalOpen] = useState(false);
-  const groupLabel = userProfile?.groupName || userProfile?.groupId || (userProfile?.canWriteSequenciador ? 'Samambaia' : 'Cloud');
-  const showGroupCatalogue = cloudPresets.length > 0 || Boolean(userProfile?.groupId || userProfile?.groupName || userProfile?.canWriteSequenciador);
+  const isSamambaia = Boolean(
+    (userProfile?.groupId && (userProfile.groupId.toLowerCase().includes('samambaia') || userProfile.groupId.toLowerCase().includes('sammbia'))) ||
+    userProfile?.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+    userProfile?.canWriteSequenciador
+  );
+  const groupLabel = userProfile?.groupName || (isSamambaia ? 'Samambaia' : userProfile?.groupId) || 'Cloud';
+  const showGroupCatalogue = cloudPresets.length > 0 || isSamambaia || Boolean(userProfile?.groupId || userProfile?.groupName);
   const onMasterVolChange = setMasterVol;
   const onTotalMeasuresChange = setTotalMeasures;
 
@@ -342,7 +349,11 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
                     {showGroupCatalogue && (
                       <optgroup label={lang === 'pt' ? `Catálogo ${groupLabel} (Privado)` : `Catalogue ${groupLabel} (Privé)`}>
-                        {cloudPresets.length > 0 ? (
+                        {isCloudPresetsLoading ? (
+                          <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
+                            {lang === 'pt' ? '(Carregando catálogo...)' : '(Chargement du catalogue...)'}
+                          </option>
+                        ) : cloudPresets.length > 0 ? (
                           cloudPresets.map((p) => (
                             <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
                               ☁️ {p.name}
@@ -712,7 +723,11 @@ const HeaderComponent: React.FC<HeaderProps> = ({
 
                   {showGroupCatalogue && (
                     <optgroup label={lang === 'pt' ? `Catálogo ${groupLabel} (Privado)` : `Catalogue ${groupLabel} (Privé)`}>
-                      {cloudPresets.length > 0 ? (
+                      {isCloudPresetsLoading ? (
+                        <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
+                          {lang === 'pt' ? '(Carregando catálogo...)' : '(Chargement du catalogue...)'}
+                        </option>
+                      ) : cloudPresets.length > 0 ? (
                         cloudPresets.map((p) => (
                           <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
                             ☁️ {p.name}

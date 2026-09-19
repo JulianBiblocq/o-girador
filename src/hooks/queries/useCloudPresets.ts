@@ -12,6 +12,7 @@ interface UseCloudPresetsProps {
 export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWriteSequenciador }: UseCloudPresetsProps) {
   const isSamambaia = Boolean(
     (groupId && (groupId.toLowerCase().includes('samambaia') || groupId.toLowerCase().includes('sammbia'))) ||
+    mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
     (canWriteSequenciador && (!groupId || groupId.toLowerCase() === 'samambaia'))
   );
 

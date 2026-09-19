@@ -291,7 +291,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               mestreId: initialMestreId,
               createdAt: Date.now(),
             };
-            await setDoc(userRef, newProfile);
+            await setDoc(userRef, newProfile, { merge: true });
             
             setUserProfile({ ...newProfile, dbRole: newProfile.dbRole || newProfile.role });
             useNomenclatureStore.getState().syncGroupNomenclature(null);

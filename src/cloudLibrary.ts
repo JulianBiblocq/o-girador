@@ -116,7 +116,7 @@ export async function fetchCloudPresets(
     } else {
       let myGroupMestreId = (userRole === 'mestre' || userRole === 'mestri') ? userUid : mestreId;
       const normalizedUserGroupId = groupId ? groupId.trim().toLowerCase() : '';
-      const isSamambaiaGroup = normalizedUserGroupId === 'samambaia' || normalizedUserGroupId.includes('sammbia');
+      const isSamambaiaGroup = normalizedUserGroupId === 'samambaia' || normalizedUserGroupId.includes('sammbia') || mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
 
       // Si mestreId est absent mais que l'utilisateur appartient à Samambaia ou est éditeur sans groupe explicite
       if (!myGroupMestreId) {
@@ -182,14 +182,14 @@ export async function fetchCloudPresets(
               const matchesMestre = myGroupMestreId && (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId);
               
               const dataGroupIdNorm = String((data as any).groupId || '').toLowerCase();
-              const userGroupNorm = String(groupId || (canWriteSequenciador ? 'samambaia' : '')).toLowerCase();
+              const userGroupNorm = String(groupId || (isSamambaiaGroup || canWriteSequenciador ? 'samambaia' : '')).toLowerCase();
               const matchesGroup = Boolean(
                 (userGroupNorm && dataGroupIdNorm && dataGroupIdNorm === userGroupNorm) ||
-                ((userGroupNorm === 'samambaia' || canWriteSequenciador) && (dataGroupIdNorm === 'samambaia' || dataGroupIdNorm.includes('sammbia')))
+                ((userGroupNorm === 'samambaia' || isSamambaiaGroup || canWriteSequenciador) && (dataGroupIdNorm === 'samambaia' || dataGroupIdNorm.includes('sammbia')))
               );
               const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup);
 
-              if (isOwner || isAdminGlobal || isPublic || isTarget || isMestreGroup || matchesGroup || matchesMestre || canWriteSequenciador) {
+              if (isOwner || isAdminGlobal || isPublic || isTarget || isMestreGroup || matchesGroup || matchesMestre || isSamambaiaGroup || canWriteSequenciador) {
                 uniqueIds.add(docSnap.id);
                 presets.push({ id: docSnap.id, ...data });
               }

@@ -206,7 +206,7 @@ export default function App() {
   }, [setEditingTrackId]);
 
   const queryClient = useQueryClient();
-  const { data: cloudPresetsData } = useCloudPresets({
+  const { data: cloudPresetsData, isLoading: isCloudPresetsLoading } = useCloudPresets({
     userUid: userProfile?.uid || null,
     userRole: userProfile?.role || 'visiteur',
     mestreId: userProfile?.mestreId || null,
@@ -606,6 +606,7 @@ export default function App() {
         presetFiles={presetFiles}
         localPresets={localPresets}
         cloudPresets={cloudPresets}
+        isCloudPresetsLoading={isCloudPresetsLoading}
         activeRightPanel={activeRightPanel}
         onToggleRightPanel={handleToggleRightPanel}
         onCloudSave={handleSaveToLocal}

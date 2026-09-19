@@ -430,9 +430,6 @@ export function useAudioSync({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
   const compilerWorkerRef = useRef<Worker | null>(null);
-  const isRecordingRef = useRef(false);
-  const hasTriggeredPunchInRef = useRef(false);
-  const hasTriggeredAutoStopRef = useRef(false);
   const isEcoModeRef = useRef(false);
   const isMasterVolumeBypassedRef = useRef(false);
 

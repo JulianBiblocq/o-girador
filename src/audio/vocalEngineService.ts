@@ -93,6 +93,7 @@ let mediaRecorder: MediaRecorder | null = null;
 let audioStream: MediaStream | null = null;
 let recordedChunks: Blob[] = [];
 let activeScheduledEvents: number[] = [];
+let activeTimeoutIds: number[] = [];
 
 function clearScheduledEvents() {
   activeScheduledEvents.forEach((id) => {
@@ -101,9 +102,19 @@ function clearScheduledEvents() {
     } catch (_) {}
   });
   activeScheduledEvents = [];
+  activeTimeoutIds.forEach((id) => {
+    try {
+      clearTimeout(id);
+    } catch (_) {}
+  });
+  activeTimeoutIds = [];
 }
 
 export const vocalEngineService = {
+  isArming: false,
+  get mediaRecorder(): MediaRecorder | null {
+    return mediaRecorder;
+  },
   recordingDurationMeasures: 1,
   recordedMeasuresCount: 0,
 
@@ -160,6 +171,12 @@ export const vocalEngineService = {
       immediate?: boolean;
     } = {}
   ) {
+    if (this.isArming || this.mediaRecorder?.state === 'recording') {
+      console.warn("🎙️ [VOCAL ENGINE] startRecording rejected: already arming or recording");
+      return;
+    }
+
+    this.isArming = true;
     const numPatternId = Number(patternId);
     const store = useAudioStore.getState();
     const sequencerStore = useSequencerStore.getState();
@@ -225,6 +242,9 @@ export const vocalEngineService = {
         }
       };
 
+      // MediaRecorder is initialized and ready
+      this.isArming = false;
+
       // Find target pattern
       const tracks = sequencerStore.tracks;
       const voiceTrack = tracks.find(t => t.patterns.some(p => Number(p.id) === numPatternId));
@@ -260,6 +280,37 @@ export const vocalEngineService = {
           mediaRecorder.start();
           store.setRecordingStartTimelineSec(Tone.Transport.seconds);
           store.setRecordingStatus('recording');
+
+          // Programme l'auto-stop pour le mode immédiat (durée attendue du pattern + 1.5s de résonance)
+          const immediateDurationSec = patternDurationSec + resonanceTailSec;
+          const stopImmediateRecording = () => {
+            clearScheduledEvents();
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+              try {
+                mediaRecorder.stop();
+              } catch (e) {
+                console.error("🎙️ [VOCAL ENGINE] Error stopping MediaRecorder in immediate mode:", e);
+              }
+            }
+            try {
+              Tone.Transport.stop();
+            } catch (_) {}
+            store.setRecordingStatus('inactive');
+            store.setIsFocusRecordingMode(false);
+          };
+
+          if (Tone.Transport.state === 'started') {
+            const scheduledStopId = Tone.Transport.schedule(() => {
+              stopImmediateRecording();
+            }, Tone.Transport.seconds + immediateDurationSec);
+            activeScheduledEvents.push(scheduledStopId);
+          }
+
+          const safetyTimeoutMs = Math.ceil(immediateDurationSec * 1000);
+          const safetyTimerId = window.setTimeout(() => {
+            stopImmediateRecording();
+          }, safetyTimeoutMs);
+          activeTimeoutIds.push(safetyTimerId);
         }
       } else {
         // Pattern-First: Start count-in at Transport position 0 for absolute temporal predictability
@@ -326,6 +377,7 @@ export const vocalEngineService = {
         Tone.Transport.start(undefined, 0);
       }
     } catch (err: any) {
+      this.isArming = false;
       console.error("🎙️ [VOCAL ENGINE] Error in startRecording:", err);
       this.cleanupTimers();
       this.cleanupMedia();
@@ -340,6 +392,7 @@ export const vocalEngineService = {
    * Stops the active recording process immediately and releases hardware mic stream.
    */
   stopRecording() {
+    this.isArming = false;
     this.cleanupTimers();
     Tone.Transport.stop();
     const store = useAudioStore.getState();
@@ -598,33 +651,11 @@ export const vocalEngineService = {
     const beatDurationSec = 60 / currentBpm;
     const anacrusisBeats = clip?.anacrusisBeats ?? 0;
     const anacrusisSec = anacrusisBeats * beatDurationSec;
-    const nudgeSec = (clip?.nudgeMs ?? (ptnRef?.vocalNudge ?? 0)) / 1000;
+    const nudgeMs = clip?.nudgeMs ?? (ptnRef?.vocalNudge ?? 0);
 
-    // Convention de signe stricte : anacrouse se déclenche AVANT le temps 1
-    const rawTriggerTime = measureStartTime - anacrusisSec + nudgeSec;
-    const now = Tone.context.currentTime;
+    // Calcul de l'instant de déclenchement sur la timeline Tone.Transport
+    const triggerTime = measureStartTime - anacrusisSec + (nudgeMs / 1000);
     const bufferDuration = audioBuffer.duration;
-
-    let actualStartPlayTime = rawTriggerTime;
-    let internalBufferOffset = 0;
-
-    // Cas limite Mesure 0 : si rawTriggerTime < 0, bride à 0 et compense l'offset
-    if (rawTriggerTime < 0) {
-      actualStartPlayTime = 0;
-      const clippedSec = -rawTriggerTime;
-      internalBufferOffset = clippedSec * playbackRate;
-    } else if (rawTriggerTime < now) {
-      // Late join compensation if playback started mid-measure
-      actualStartPlayTime = now;
-      const lateSec = now - rawTriggerTime;
-      internalBufferOffset = lateSec * playbackRate;
-    }
-
-    const remainingDuration = Math.max(0, bufferDuration - internalBufferOffset);
-
-    if (remainingDuration <= 0) {
-      return null;
-    }
 
     // Stop previous playback on this player
     try {
@@ -633,10 +664,22 @@ export const vocalEngineService = {
 
     // Track volume gain
     const baseGainLinear = Math.pow(trackVolPct / 100, 2);
-    mainGain.gain.setValueAtTime(baseGainLinear, actualStartPlayTime);
 
-    // Trigger GrainPlayer with offset and duration
-    mainPlayer.start(actualStartPlayTime, internalBufferOffset, remainingDuration);
+    // Gère le cas limite de la mesure 0 (si triggerTime < 0)
+    // Le buffer stocké dans vocalBuffers[patternId] étant déjà physiquement rogné,
+    // la lecture débute à l'offset interne 0 lorsque triggerTime >= 0.
+    if (triggerTime >= 0) {
+      mainGain.gain.setValueAtTime(baseGainLinear, triggerTime);
+      mainPlayer.start(triggerTime, 0);
+    } else {
+      const internalOffset = Math.abs(triggerTime) * playbackRate;
+      const remainingDuration = Math.max(0, bufferDuration - internalOffset);
+      if (remainingDuration <= 0) {
+        return null;
+      }
+      mainGain.gain.setValueAtTime(baseGainLinear, 0);
+      mainPlayer.start(0, internalOffset);
+    }
 
     if (onStop) {
       mainPlayer.onstop = () => {
