@@ -3,7 +3,7 @@ import { CloudPreset } from '../../types';
 
 interface UseCloudPresetsProps {
   userUid: string | null;
-  userRole: 'admin' | 'mestre' | 'eleve' | 'visiteur' | string;
+  userRole: 'admin' | 'mestre' | 'eleve' | 'membre' | 'visiteur' | string;
   mestreId: string | null;
   groupId?: string | null;
   canWriteSequenciador?: boolean;
@@ -16,11 +16,25 @@ export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWrite
     (canWriteSequenciador && (!groupId || groupId.toLowerCase() === 'samambaia'))
   );
 
-  const normalizedGroupId = isSamambaia ? 'Samambaia' : groupId;
+  const normalizedGroupId = isSamambaia ? 'Samambaia' : (groupId || null);
   const effectiveMestreId = mestreId || (isSamambaia ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : null);
 
+  // Condition enabled : si l'utilisateur est authentifié, attendre que groupId ou userRole soit stabilisé
+  // (empêche une exécution prématurée avec un profil non encore résolu depuis Firestore qui mettrait en cache une liste vide)
+  const isProfileStabilized = Boolean(
+    userUid && (
+      userRole === 'admin' ||
+      userRole === 'mestre' ||
+      userRole === 'mestri' ||
+      userRole === 'eleve' ||
+      userRole === 'membre' ||
+      Boolean(groupId) ||
+      Boolean(mestreId)
+    )
+  );
+
   return useQuery<CloudPreset[]>({
-    queryKey: ['cloudPresets', userUid, userRole, effectiveMestreId, normalizedGroupId, canWriteSequenciador],
+    queryKey: ['cloudPresets', userUid, userRole, groupId, mestreId, effectiveMestreId, normalizedGroupId, canWriteSequenciador],
     queryFn: async () => {
       if (!userUid) return [];
       
@@ -50,7 +64,6 @@ export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWrite
       }
       return merged;
     },
-    enabled: !!userUid,
+    enabled: isProfileStabilized,
   });
 }
-
