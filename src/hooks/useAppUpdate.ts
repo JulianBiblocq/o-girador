@@ -15,7 +15,7 @@ export interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
 }
 
-export const CURRENT_VERSION = "1.2.3"; // Matches version.json
+export const CURRENT_VERSION = "1.2.4"; // Matches version.json
 export const HAS_SEEN_UPDATE_KEY = `has_seen_update_${CURRENT_VERSION}`;
 
 export function useAppUpdate() {
@@ -49,6 +49,12 @@ export function useAppUpdate() {
 
   // SW Update Handler
   const handleAppUpdate = useCallback(async (reg: ServiceWorkerRegistration) => {
+    const swSessionKey = 'sw_update_prompted';
+    if (sessionStorage.getItem(swSessionKey)) {
+      return;
+    }
+    sessionStorage.setItem(swSessionKey, 'true');
+
     setIsUpdateAvailable(true);
     setWaitingRegistration(reg);
 
@@ -88,7 +94,12 @@ export function useAppUpdate() {
         } catch (err) {
           // console.warn('Error unregistering service workers:', err);
         }
-        window.location.reload();
+        setTimeout(() => {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
+        }, 150);
       }
     }
   }, [confirmAsync, sequencer.lang]);
@@ -126,7 +137,12 @@ export function useAppUpdate() {
       } catch (err) {
         // console.warn('Error unregistering service workers:', err);
       }
-      window.location.reload();
+      setTimeout(() => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      }, 150);
     }
   }, [waitingRegistration]);
 
@@ -161,6 +177,13 @@ export function useAppUpdate() {
             if (data && typeof data === 'object' && 'version' in data) {
               const latestVersion = String(data.version);
               if (latestVersion && latestVersion !== 'undefined' && latestVersion !== CURRENT_VERSION) {
+                // Prevent infinite reload loops in the same session
+                const sessionKey = `update_prompted_${latestVersion}`;
+                if (sessionStorage.getItem(sessionKey)) {
+                  return;
+                }
+                sessionStorage.setItem(sessionKey, 'true');
+
                 setIsUpdateAvailable(true);
                 const shouldUpdate = await confirmAsync(
                   sequencer.lang === 'fr'
@@ -186,7 +209,12 @@ export function useAppUpdate() {
                     const registrations = await navigator.serviceWorker.getRegistrations();
                     for (const reg of registrations) await reg.unregister();
                   } catch {}
-                  window.location.reload();
+                  setTimeout(() => {
+                    if (!refreshing) {
+                      refreshing = true;
+                      window.location.reload();
+                    }
+                  }, 150);
                 }
               }
             }
