@@ -72,6 +72,8 @@ export interface PresetMetadata {
   partitionImage?: string; // base64 JPEG
   rhythmSignals?: RhythmSignal[];
   description?: string;
+  descriptionPt?: string;
+  descriptionFr?: string;
 }
 
 export interface Circle {

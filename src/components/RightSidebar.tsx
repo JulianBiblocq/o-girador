@@ -16,6 +16,7 @@ import { PresetMetadata, CloudRhythmSignal } from '../types';
 import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { XiloInfo, XiloScroll, XiloHand, XiloBook, XiloChat } from './XiloIcons';
 import { LyricsAuthorshipModal } from './LyricsAuthorshipModal';
+import { DescriptionModal } from './DescriptionModal';
 import { Feather } from 'lucide-react';
 import { lazyWithRetry } from '../utils/lazyWithRetry';
 
@@ -62,6 +63,7 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
   const { userProfile, hasAccess } = useAuth();
   
   const [showAuthorshipModal, setShowAuthorshipModal] = React.useState(false);
+  const [isDescriptionModalOpen, setIsDescriptionModalOpen] = React.useState(false);
   const karaokeContainerRef = React.useRef<HTMLDivElement>(null);
   const activeTokensRef = React.useRef<HTMLElement[]>([]);
   const [subTab, setSubTab] = React.useState<'toada' | 'info' | 'legendes' | 'sinais' | 'feedback'>('info');
@@ -174,6 +176,29 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
     }
   };
 
+  const getCurrentDescription = React.useCallback((meta?: PresetMetadata, currentLang: Language = lang) => {
+    if (!meta) return '';
+    if (currentLang === 'pt') {
+      return meta.descriptionPt || meta.description || meta.descriptionFr || '';
+    } else {
+      return meta.descriptionFr || meta.descriptionPt || meta.description || '';
+    }
+  }, [lang]);
+
+  const handleSaveDescriptionFromModal = React.useCallback(({ descriptionPt, descriptionFr }: { descriptionPt: string; descriptionFr: string }) => {
+    if (!metadata) return;
+    const updatedMeta: PresetMetadata = {
+      ...metadata,
+      descriptionPt,
+      descriptionFr,
+      description: descriptionPt || descriptionFr || metadata.description || '',
+    };
+    onMetadataChange(updatedMeta);
+    if (textareaRef.current) {
+      textareaRef.current.value = getCurrentDescription(updatedMeta, lang);
+    }
+  }, [metadata, getCurrentDescription, lang]);
+
   const [dropdownOpen, setDropdownOpen] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
@@ -191,14 +216,6 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
     };
   }, []);
 
-  React.useEffect(() => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = `${textarea.scrollHeight}px`;
-    }
-  }, [metadata?.description, subTab]);
-
   // Synchronize uncontrolled inputs when metadata or letras change (e.g. on preset load or file import)
   React.useEffect(() => {
     if (metadata) {
@@ -208,12 +225,10 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
       if (ritmoInputRef.current) ritmoInputRef.current.value = metadata.ritmo || '';
       if (youtubeInputRef.current) youtubeInputRef.current.value = metadata.youtubeUrl || '';
       if (textareaRef.current) {
-        textareaRef.current.value = metadata.description || '';
-        textareaRef.current.style.height = 'auto';
-        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+        textareaRef.current.value = getCurrentDescription(metadata, lang);
       }
     }
-  }, [metadata]);
+  }, [metadata, lang, getCurrentDescription]);
 
   React.useEffect(() => {
     if (letrasRef.current) {
@@ -561,23 +576,47 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
                       />
                     </div>
                   )}
+                  {/* Story / Description Header & Read More Button */}
+                  <div className="flex items-center justify-between mt-3 mb-1">
+                    <span className="text-[11px] font-bold text-[var(--cordel-text)] uppercase font-cactus tracking-wide flex items-center gap-1">
+                      📜 {lang === 'fr' ? 'Histoire & Contexte' : 'História & Contexto'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsDescriptionModalOpen(true)}
+                      className="cordel-border-sm bg-[#8b2a1a] hover:bg-[#1a1a1a] text-[#f4ecd8] px-2.5 py-1 text-[11px] font-cactus font-bold uppercase transition-colors flex items-center gap-1.5 cursor-pointer shadow-[2px_2px_0px_#1a1a1a]"
+                      title={lang === 'fr' ? "Ouvrir l'histoire en entier (Pop-up)" : 'Abrir história completa (Pop-up)'}
+                    >
+                      📖 {lang === 'fr' ? 'Lire plus' : 'Ler mais'}
+                    </button>
+                  </div>
+
                   <textarea
                     ref={textareaRef}
                     placeholder={lang === 'pt' ? 'Descrição / História do ritmo...' : 'Description / Histoire du rythme...'}
-                    defaultValue={metadata.description || ''}
-                    onInput={(e) => {
-                      const el = e.currentTarget;
-                      el.style.height = 'auto';
-                      el.style.height = `${el.scrollHeight}px`;
-                    }}
+                    defaultValue={getCurrentDescription(metadata, lang)}
                     onBlur={(e) => {
-                      if (e.target.value !== (metadata.description || '')) {
-                        onMetadataChange({ ...metadata, description: e.target.value });
+                      const val = e.target.value;
+                      if (lang === 'pt') {
+                        if (val !== (metadata.descriptionPt || metadata.description || '')) {
+                          onMetadataChange({
+                            ...metadata,
+                            descriptionPt: val,
+                            description: val,
+                          });
+                        }
+                      } else {
+                        if (val !== (metadata.descriptionFr || '')) {
+                          onMetadataChange({
+                            ...metadata,
+                            descriptionFr: val,
+                          });
+                        }
                       }
                     }}
-                    rows={1}
-                    className="xilo-textarea mt-2 overflow-hidden"
-                    style={{ minHeight: '32px' }}
+                    rows={3}
+                    className="xilo-textarea max-h-32 overflow-y-auto custom-scrollbar resize-none"
+                    style={{ minHeight: '64px' }}
                   />
                 </div>
               ) : (
@@ -648,8 +687,22 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
           )}
 
         </div>
-    </div>
+      </div>
 
+      {metadata && (
+        <DescriptionModal
+          isOpen={isDescriptionModalOpen}
+          onClose={() => setIsDescriptionModalOpen(false)}
+          metadata={metadata}
+          onSaveDescription={handleSaveDescriptionFromModal}
+          lang={lang}
+          isPlaying={isPlaying}
+        />
+      )}
+
+      {showAuthorshipModal && (
+        <LyricsAuthorshipModal onClose={() => setShowAuthorshipModal(false)} />
+      )}
     </>
   );
 };
