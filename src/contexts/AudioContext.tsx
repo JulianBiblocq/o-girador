@@ -627,6 +627,19 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const handlePresetSelect = async (value: string) => {
     setIsPresetLoading(true);
     setActivePresetName(value);
+    if (typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href);
+        if (value.startsWith('cloud:')) {
+          url.searchParams.set('loadPreset', value.replace('cloud:', ''));
+        } else {
+          url.searchParams.delete('loadPreset');
+        }
+        window.history.replaceState(null, '', url.toString());
+      } catch (e) {
+        console.warn('URL sync error:', e);
+      }
+    }
     await loadFallbackPreset(value);
   };
 
@@ -678,93 +691,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // [DEPRECATED - Transition 100% Cloud]
+  // L'exportation manuelle en fichier .json local a été retirée au profit du catalogue Cloud.
   const handleSaveState = async () => {
-    const tracksCopy = JSON.parse(JSON.stringify(useSequencerStore.getState().tracks));
-    for (const t of tracksCopy) {
-      const inst = instrumentsConfig[t.instrumentIdx];
-      if (inst && inst.type === 'voice') {
-        for (const p of t.patterns) {
-          try {
-            const blob = await getVocalRecording(p.id);
-            if (blob) {
-              const b64 = await blobToBase64(blob);
-              p.vocalAudioData = b64;
-            }
-          } catch (err) {
-            console.error(`Failed to get vocal recording for pattern ${p.id}:`, err);
-          }
-        }
-      }
-    }
-
-    const storeState = useSequencerStore.getState();
-    const dataToSave: Preset = {
-      bpm: sequencer.bpm,
-      timeSig: sequencer.timeSig,
-      version: 3,
-      totalMeasures: storeState.totalMeasures,
-      tracks: tracksCopy,
-      letras: sequencer.letras,
-      metadata: sequencer.metadata,
-      measureTimeSigs: storeState.measureTimeSigs,
-      measureBpms: sequencer.measureBpms,
-      measureBpmTransitions: sequencer.measureBpmTransitions,
-      measureVols: sequencer.measureVols,
-      measureVolTransitions: sequencer.measureVolTransitions,
-      songSections: storeState.songSections,
-      songMarkers: storeState.songMarkers,
-      measureSignals: sequencer.measureSignals,
-      masterEQ,
-      masterCompressor,
-      masterVol,
-      masterReverbVol: storeState.masterFX.reverb.returnVolume,
-      reverbDecay: 0.5 + 7.5 * (storeState.masterFX.reverb.time / 100),
-      masterFX: storeState.masterFX,
-      masterDistortion: storeState.masterFX.distortion.returnVolume,
-      masterDistortionDrive: storeState.masterFX.distortion.drive,
-      isSwingOn: audioSync.globalSwing.mode !== 'off', // Keep for backwards compatibility
-      globalSwing: audioSync.globalSwing,
-      loopStartMeasure: storeState.loopStartMeasure,
-      loopEndMeasure: storeState.loopEndMeasure,
-      isLoopRegionActive: storeState.isLoopRegionActive,
-      loopMode: storeState.loopMode,
-      isLoopExitRequested: false,
-      isLooping: sequencer.isLooping
-    };
-    const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
-    const dlLink = document.createElement('a');
-    dlLink.href = URL.createObjectURL(blob);
-    
-    let fileName = 'rythme_samambaia.json';
-    if (sequencer.metadata?.toada && sequencer.metadata.toada.trim() !== '') {
-      const cleanTitle = sequencer.metadata.toada.trim()
-        .toLowerCase()
-        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9_-]+/gi, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_+|_+$/g, '');
-      if (cleanTitle) {
-        fileName = `${cleanTitle}.json`;
-      }
-    }
-    
-    dlLink.download = fileName;
-    dlLink.click();
+    console.warn('[O Girador] O salvamento local em arquivo JSON foi desativado. Use o catálogo Cloud.');
   };
 
-  const handleLoadState = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      try {
-        const resultText = evt.target?.result as string;
-        const data = JSON.parse(resultText);
-        await applyPreset(data);
-      } catch (err: any) {
-        console.error("Error loading preset file:", err);
-        window.alert(`${t('invalidFile')}\n\n${sequencer.lang === 'fr' ? "Détails de l'erreur :" : "Detalhes do erro :"} ${err?.message || err}`);
-      }
-    };
-    reader.readAsText(file);
+  // [DEPRECATED - Transition 100% Cloud]
+  // L'importation manuelle de fichier .json local a été retirée au profit du catalogue Cloud.
+  const handleLoadState = (_file: File) => {
+    console.warn('[O Girador] A importação de arquivos JSON locais foi desativada. Use o catálogo Cloud.');
   };
 
 

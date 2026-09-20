@@ -10,7 +10,6 @@ import {
   SlidersHorizontal,
   MessageSquare,
   Download,
-  Upload,
   ExternalLink,
   Edit3
 } from 'lucide-react';
@@ -30,6 +29,7 @@ import { XiloRoda, XiloConsole, XiloTimeline, XiloSun, XiloMoon, XiloDrum } from
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { MiniTelemetryBadge } from './TelemetryBadge';
 import { useWizardStore } from '../stores/useWizardStore';
+import { PresetAccordionSelector } from './PresetAccordionSelector';
 
 const UndoIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg
@@ -171,8 +171,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const {
     activePresetName: preset,
     handlePresetSelect: onPresetChange,
-    handleSaveState: onSave,
-    handleLoadState: onLoad,
     handleSaveToLocal: onSaveToLocal,
     handleLoadLocalPreset: onLoadLocalPreset,
     masterVol,
@@ -214,11 +212,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   
   const [projectDropOpen, setProjectDropOpen] = useState(false);
   const projectDropRef = useRef<HTMLDivElement>(null);
-  
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  // Use a ref to always have the latest onLoad callback, bypassing React.memo stale closure issue
-  const onLoadRef = useRef(onLoad);
-  onLoadRef.current = onLoad;
 
   const t = (key: string) => {
     const section = i18n[lang];
@@ -333,79 +326,22 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 </span>
                 
                 {/* Presets Selector */}
-                <div className="flex flex-col gap-1 mt-1">
-                  <span className="text-[9px] font-bold text-[var(--cordel-text)]/70 uppercase tracking-wider flex items-center gap-1">
-                    📚 {lang === 'pt' ? 'Catálogo de Ritmos' : 'Catalogue des Morceaux'}
-                  </span>
-                  <select
-                    value={preset}
-                    onChange={(e) => { onPresetChange(e.target.value); setMobileMenuOpen(false); }}
-                    className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus text-xs font-bold p-1.5 cordel-border-sm outline-none cursor-pointer mb-1"
-                  >
-                    <option value="" disabled>
-                      {metadata?.toada || (lang === 'pt' ? 'Escolha um ritmo' : 'Choisir un rythme')}
-                    </option>
-                    
-                    <optgroup label={lang === 'pt' ? 'Catálogo O Girador (Padrão)' : 'Catalogue O Girador (Standard)'}>
-                      {presetFiles.map((file) => {
-                        let label = file.replace(/\.json$/, '');
-                        if (label.startsWith('_')) label = label.substring(1);
-                        label = label.replace(/_/g, ' ');
-                        return (
-                          <option key={file} value={file} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
-                            {label}
-                          </option>
-                        );
-                      })}
-                    </optgroup>
-
-                    {(publicCloudPresets.length > 0 || isCloudPresetsLoading) && (
-                      <optgroup label={lang === 'pt' ? 'Catálogo Cloud (Público)' : 'Catalogue Cloud (Public)'}>
-                        {isCloudPresetsLoading && publicCloudPresets.length === 0 ? (
-                          <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
-                            {lang === 'pt' ? '(Carregando catálogo...)' : '(Chargement du catalogue...)'}
-                          </option>
-                        ) : (
-                          publicCloudPresets.map((p) => (
-                            <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
-                              ☁️ {p.name}
-                            </option>
-                          ))
-                        )}
-                      </optgroup>
-                    )}
-
-                    {showGroupCatalogue && (
-                      <optgroup label={lang === 'pt' ? `Catálogo ${groupLabel} (Privado)` : `Catalogue ${groupLabel} (Privé)`}>
-                        {isCloudPresetsLoading && privateCloudPresets.length === 0 ? (
-                          <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
-                            {lang === 'pt' ? '(Carregando catálogo...)' : '(Chargement du catalogue...)'}
-                          </option>
-                        ) : privateCloudPresets.length > 0 ? (
-                          privateCloudPresets.map((p) => (
-                            <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#27ae60]">
-                              🔒 {p.name}
-                            </option>
-                          ))
-                        ) : (
-                          <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
-                            {lang === 'pt' ? '(Nenhum ritmo privado)' : '(Aucun morceau privé)'}
-                          </option>
-                        )}
-                      </optgroup>
-                    )}
-
-                    {localPresets.length > 0 && (
-                      <optgroup label={lang === 'pt' ? 'Meus Presets' : 'Mes Presets'}>
-                        {localPresets.map((name) => (
-                          <option key={`local:${name}`} value={`local:${name}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
-                            💾 {name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
-                </div>
+                <PresetAccordionSelector
+                  lang={lang}
+                  activePreset={preset}
+                  currentSongTitle={metadata?.toada}
+                  publicCloudPresets={publicCloudPresets}
+                  privateCloudPresets={privateCloudPresets}
+                  localPresets={localPresets}
+                  isCloudPresetsLoading={isCloudPresetsLoading}
+                  showGroupCatalogue={showGroupCatalogue}
+                  groupLabel={groupLabel}
+                  onSelectPreset={(val) => {
+                    onPresetChange(val);
+                    setMobileMenuOpen(false);
+                  }}
+                  className="mt-1"
+                />
 
                 <div className="grid grid-cols-2 gap-1.5 mt-1">
                   <button onClick={() => { onClear(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
@@ -417,13 +353,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
                     <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Tablatura' : 'Tablature'}
                   </button>
-                  <button onClick={() => { fileInputRef.current?.click(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
-                    <Upload className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Import (PC)' : 'Import (PC)'}
-                  </button>
-                  <button onClick={() => { onSave(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full">
-                    <Download className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Export (PC)' : 'Export (PC)'}
-                  </button>
-                  <button onClick={() => { onCloudSave ? onCloudSave() : onSave(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full col-span-2 mt-1 border-none transition-colors">
+                  <button onClick={() => { onCloudSave?.(); setMobileMenuOpen(false); }} className="flex items-center gap-1.5 px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-[11px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer text-left w-full col-span-2 mt-1 border-none transition-colors">
                     <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar (Cloud)' : 'Sauvegarder (Cloud)'}
                   </button>
                   {(isAdmin || userProfile?.role === 'mestre') && (
@@ -659,10 +589,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             <XiloTimeline size={16} />
           </button>
         </div>
-
       </div>
-      {/* File input always in DOM so fileInputRef.current is never null */}
-      <input type="file" ref={fileInputRef} accept=".json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onLoadRef.current(f); e.target.value = ''; }} />
       </>
     );
   }
@@ -727,79 +654,21 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 </span>
                 
                 {/* Presets Selector */}
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] font-bold text-[var(--cordel-text)]/70 uppercase tracking-wider flex items-center gap-1">
-                    📚 {lang === 'pt' ? 'Catálogo de Ritmos' : 'Catalogue des Morceaux'}
-                  </span>
-                  <select
-                    value={preset}
-                    onChange={(e) => { onPresetChange(e.target.value); setProjectDropOpen(false); }}
-                    className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus text-xs font-bold p-1.5 cordel-border-sm outline-none cursor-pointer mb-1"
-                  >
-                    <option value="" disabled>
-                      {metadata?.toada || (lang === 'pt' ? 'Escolha um ritmo' : 'Choisir un rythme')}
-                    </option>
-                    
-                    <optgroup label={lang === 'pt' ? 'Catálogo O Girador (Padrão)' : 'Catalogue O Girador (Standard)'}>
-                      {presetFiles.map((file) => {
-                        let label = file.replace(/\.json$/, '');
-                        if (label.startsWith('_')) label = label.substring(1);
-                        label = label.replace(/_/g, ' ');
-                        return (
-                          <option key={file} value={file} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
-                            {label}
-                          </option>
-                        );
-                      })}
-                    </optgroup>
-
-                    {(publicCloudPresets.length > 0 || isCloudPresetsLoading) && (
-                      <optgroup label={lang === 'pt' ? 'Catálogo Cloud (Público)' : 'Catalogue Cloud (Public)'}>
-                        {isCloudPresetsLoading && publicCloudPresets.length === 0 ? (
-                          <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
-                            {lang === 'pt' ? '(Carregando catálogo...)' : '(Chargement du catalogue...)'}
-                          </option>
-                        ) : (
-                          publicCloudPresets.map((p) => (
-                            <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
-                              ☁️ {p.name}
-                            </option>
-                          ))
-                        )}
-                      </optgroup>
-                    )}
-
-                    {showGroupCatalogue && (
-                      <optgroup label={lang === 'pt' ? `Catálogo ${groupLabel} (Privado)` : `Catalogue ${groupLabel} (Privé)`}>
-                        {isCloudPresetsLoading && privateCloudPresets.length === 0 ? (
-                          <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
-                            {lang === 'pt' ? '(Carregando catálogo...)' : '(Chargement du catalogue...)'}
-                          </option>
-                        ) : privateCloudPresets.length > 0 ? (
-                          privateCloudPresets.map((p) => (
-                            <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#27ae60]">
-                              🔒 {p.name}
-                            </option>
-                          ))
-                        ) : (
-                          <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
-                            {lang === 'pt' ? '(Nenhum ritmo privado)' : '(Aucun morceau privé)'}
-                          </option>
-                        )}
-                      </optgroup>
-                    )}
-
-                    {localPresets.length > 0 && (
-                      <optgroup label={lang === 'pt' ? 'Meus Presets' : 'Mes Presets'}>
-                        {localPresets.map((name) => (
-                          <option key={`local:${name}`} value={`local:${name}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
-                            💾 {name}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                  </select>
-                </div>
+                <PresetAccordionSelector
+                  lang={lang}
+                  activePreset={preset}
+                  currentSongTitle={metadata?.toada}
+                  publicCloudPresets={publicCloudPresets}
+                  privateCloudPresets={privateCloudPresets}
+                  localPresets={localPresets}
+                  isCloudPresetsLoading={isCloudPresetsLoading}
+                  showGroupCatalogue={showGroupCatalogue}
+                  groupLabel={groupLabel}
+                  onSelectPreset={(val) => {
+                    onPresetChange(val);
+                    setProjectDropOpen(false);
+                  }}
+                />
 
                 <div className="grid grid-cols-2 gap-1.5">
                   <button onClick={() => { onClear(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">
@@ -808,13 +677,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   <button onClick={() => { onExportTablature?.(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">
                     <FileText className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Tablatura' : 'Tablature'}
                   </button>
-                  <button onClick={() => { fileInputRef.current?.click(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">
-                    <Upload className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Import (PC)' : 'Import (PC)'}
-                  </button>
-                  <button onClick={() => { onSave(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">
-                    <Download className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Export (PC)' : 'Export (PC)'}
-                  </button>
-                  <button onClick={() => { onCloudSave ? onCloudSave() : onSave(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full col-span-2 mt-1 border-none transition-colors">
+                  <button onClick={() => { onCloudSave?.(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full col-span-2 mt-1 border-none transition-colors">
                     <Save className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Salvar (Cloud)' : 'Sauvegarder (Cloud)'}
                   </button>
                   {(isAdmin || userProfile?.role === 'mestre') && (
@@ -867,9 +730,6 @@ const HeaderComponent: React.FC<HeaderProps> = ({
             </div>
           )}
         </div>
-
-        {/* File input always in DOM so fileInputRef.current is never null */}
-        <input type="file" ref={fileInputRef} accept=".json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onLoadRef.current(f); e.target.value = ''; }} />
 
 
 

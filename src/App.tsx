@@ -496,7 +496,6 @@ export default function App() {
       window.prompt(isPt ? "Copie este texto:" : "Copiez ce texte :", textStr);
     }
   }, [sequencer.lang]);
-  const handleSaveState = React.useCallback(() => audioRef.current.handleSaveState(), []);
   const handleCloudSave = React.useCallback(() => {
     const state = useSequencerStore.getState();
     const metadata = sequencerRef.current?.metadata;
@@ -508,7 +507,6 @@ export default function App() {
       color: '#8b2a1a'
     });
   }, []);
-  const handleLoadState = React.useCallback((file: File) => audioRef.current.handleLoadState(file), []);
   
   const [showSavePresetModal, setShowSavePresetModal] = useState(false);
   const [presetDataToSave, setPresetDataToSave] = useState<any>(null);
