@@ -624,7 +624,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           </button>
           
           {projectDropOpen && (
-            <div className="absolute top-10 left-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] min-w-[250px] z-[100] flex flex-col p-2 gap-3">
+            <div className="absolute top-10 left-0 bg-[var(--cordel-bg)] cordel-border shadow-[4px_4px_0_var(--cordel-border)] w-[280px] z-[100] flex flex-col p-2 gap-3">
               {/* 👤 PERFIL */}
               <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-2">
                 <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">

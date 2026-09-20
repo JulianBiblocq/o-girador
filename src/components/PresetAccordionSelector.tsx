@@ -27,17 +27,13 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
   onSelectPreset,
   className = '',
 }) => {
-  const [isGroupOpen, setIsGroupOpen] = useState<boolean>(showGroupCatalogue);
-  const [isPublicOpen, setIsPublicOpen] = useState<boolean>(!showGroupCatalogue);
-  const [isLocalOpen, setIsLocalOpen] = useState<boolean>(false);
+  const [isGroupOpen, setIsGroupOpen] = useState(showGroupCatalogue);
+  const [isPublicOpen, setIsPublicOpen] = useState(!showGroupCatalogue);
+  const [isLocalOpen, setIsLocalOpen] = useState(false);
 
   useEffect(() => {
-    if (showGroupCatalogue) {
-      setIsGroupOpen(true);
-      setIsPublicOpen(false);
-    } else {
-      setIsPublicOpen(true);
-    }
+    setIsGroupOpen(showGroupCatalogue);
+    setIsPublicOpen(!showGroupCatalogue);
   }, [showGroupCatalogue]);
 
   const handleItemClick = (val: string, cloudId?: string) => {
@@ -72,13 +68,14 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
             <button
               key={`cloud:${p.id}`}
               type="button"
+              title={p.name}
               onClick={() => handleItemClick(`cloud:${p.id}`, p.id)}
-              className={`w-full text-left px-2.5 py-1.5 text-xs font-cactus font-bold flex items-center justify-between transition-colors cursor-pointer cordel-border-sm ${
+              className={`w-full text-left px-2.5 py-1.5 text-xs font-cactus font-bold flex items-center justify-between gap-1 transition-colors cursor-pointer cordel-border-sm min-w-0 ${
                 active ? 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-wood)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
               }`}
             >
-              <span className="truncate flex items-center gap-1.5">
-                <span className="text-xs">{icon}</span>
+              <span className="flex items-center gap-1.5 min-w-0 flex-1">
+                <span className="text-xs shrink-0">{icon}</span>
                 <span className="truncate">{p.name}</span>
               </span>
               {active && <span className="text-[10px] shrink-0 font-sans ml-1">✓</span>}
@@ -157,12 +154,13 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
                   <button
                     key={`local:${name}`}
                     type="button"
+                    title={name}
                     onClick={() => handleItemClick(`local:${name}`)}
-                    className={`w-full text-left px-2.5 py-1.5 text-xs font-cactus font-bold flex items-center justify-between transition-colors cursor-pointer cordel-border-sm ${
+                    className={`w-full text-left px-2.5 py-1.5 text-xs font-cactus font-bold flex items-center justify-between gap-1 transition-colors cursor-pointer cordel-border-sm min-w-0 ${
                       isItemActive(`local:${name}`, name) ? 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-wood)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
                     }`}
                   >
-                    <span className="truncate flex items-center gap-1.5"><span className="text-xs">💾</span><span className="truncate">{name}</span></span>
+                    <span className="flex items-center gap-1.5 min-w-0 flex-1"><span className="text-xs shrink-0">💾</span><span className="truncate">{name}</span></span>
                     {isItemActive(`local:${name}`, name) && <span className="text-[10px] shrink-0 font-sans ml-1">✓</span>}
                   </button>
                 ))}
