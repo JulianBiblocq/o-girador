@@ -270,8 +270,8 @@ export const FeedbackSection: React.FC = () => {
           <button 
             onClick={async () => {
               const textStr = lang === 'pt'
-                ? "Descubra O Girador, o sequenciador interativo de Maracatu! https://ogirador.web.app"
-                : "Découvrez O Girador, le séquenceur de Maracatu interactif ! https://ogirador.web.app";
+                ? "Descubra O Girador, o sequenciador interativo de Maracatu! https://sequenciador.o-girador.com"
+                : "Découvrez O Girador, le séquenceur de Maracatu interactif ! https://sequenciador.o-girador.com";
               try {
                 await navigator.clipboard.writeText(textStr);
                 alertAsync(lang === 'pt' ? 'Link copiado para a área de transferência!' : 'Lien copié dans le presse-papier !');

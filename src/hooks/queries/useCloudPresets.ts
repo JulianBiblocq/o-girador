@@ -19,22 +19,12 @@ export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWrite
   const normalizedGroupId = isSamambaia ? 'Samambaia' : (groupId || null);
   const effectiveMestreId = mestreId || (isSamambaia ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : null);
 
-  // Condition enabled : si l'utilisateur est authentifié, attendre que groupId ou userRole soit stabilisé
-  // (empêche une exécution prématurée avec un profil non encore résolu depuis Firestore qui mettrait en cache une liste vide)
-  const isProfileStabilized = Boolean(
-    userUid && (
-      userRole === 'admin' ||
-      userRole === 'mestre' ||
-      userRole === 'mestri' ||
-      userRole === 'eleve' ||
-      userRole === 'membre' ||
-      Boolean(groupId) ||
-      Boolean(mestreId)
-    )
-  );
+  // Activation immédiate dès l'authentification : TanStack Query se déclenche sans bloquer sur mestreId ou groupId.
+  // Les modifications ultérieures de mestreId ou groupId réexécuteront la requête via la queryKey.
+  const isProfileStabilized = Boolean(userUid);
 
   return useQuery<CloudPreset[]>({
-    queryKey: ['cloudPresets', userUid, userRole, groupId, mestreId, effectiveMestreId, normalizedGroupId, canWriteSequenciador],
+    queryKey: ['cloudPresets', userUid, groupId, mestreId, userRole, canWriteSequenciador],
     queryFn: async () => {
       if (!userUid) return [];
       
@@ -47,10 +37,10 @@ export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWrite
       const storagePresets = results[1].status === 'fulfilled' ? results[1].value : [];
 
       if (results[0].status === 'rejected') {
-        console.warn("[useCloudPresets] Firestore presets query failed:", results[0].reason);
+        console.warn('[useCloudPresets] Firestore presets query failed:', results[0].reason);
       }
       if (results[1].status === 'rejected') {
-        console.warn("[useCloudPresets] Storage presets query failed:", results[1].reason);
+        console.warn('[useCloudPresets] Storage presets query failed:', results[1].reason);
       }
       
       // Merge results with unique ID deduplication

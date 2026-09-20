@@ -176,27 +176,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ''
             ).trim().toLowerCase();
 
-            const isExplicitSamambaia = 
+            const isSamambaiaOrEditor = 
               extractedGroupId === 'samambaia' || 
               extractedGroupId.includes('sammbia') ||
               String((rawData as any).groupName || '').toLowerCase().includes('samambaia') ||
-              rawData.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+              rawData.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+              Boolean(profile.canWriteSequenciador || (rawData as any).canWriteSequenciador);
 
-            // Si l'utilisateur est éditeur du séquenceur sans groupe défini, le rattacher par défaut à Samambaia
-            const isEditorSamambaia = 
-              (profile.canWriteSequenciador === true || (rawData as any).canWriteSequenciador === true) &&
-              (!extractedGroupId || isExplicitSamambaia);
-
-            if (isExplicitSamambaia || isEditorSamambaia) {
+            if (isSamambaiaOrEditor) {
+              // Injection synchrone immédiate en mémoire pour Samambaia et les éditeurs
               const targetMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
-              const targetGroupName = 'Samambaia';
+              const targetGroupName = profile.groupName || 'Samambaia';
               const targetGroupId = 'samambaia';
               profile.mestreId = targetMestreId;
               profile.groupName = targetGroupName;
               profile.groupId = targetGroupId;
+
               const needsUpdate = rawData.mestreId !== targetMestreId || rawData.groupName !== targetGroupName || rawData.groupId !== targetGroupId;
               if (needsUpdate) {
-                // Ne persister que mestreId et groupName si possible, pour éviter un rejet par les règles Firestore
+                // Persistance non bloquante en tâche de fond
                 const updatePayload: Record<string, any> = { mestreId: targetMestreId, groupName: targetGroupName };
                 if (checkIsAdmin(profile)) {
                   updatePayload.groupId = targetGroupId;
@@ -209,41 +207,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               const normalizedGroupId = extractedGroupId;
               profile.groupId = normalizedGroupId;
 
-              // Normaliser le groupId dans Firestore si permis
+              // Normaliser le groupId dans Firestore si autorisé
               if (rawData.groupId !== normalizedGroupId && checkIsAdmin(profile)) {
                 updateDoc(userRef, { groupId: normalizedGroupId }).catch(() => {});
               }
 
-              // Résolution du mestreId pour tout groupe non-Samambaia
-              if (!rawData.mestreId) {
-                try {
-                  const mestreQ = query(
-                    collection(db, 'users'),
-                    where('groupId', 'in', Array.from(new Set([normalizedGroupId, profile.groupId].filter(Boolean) as string[]))),
-                    where('role', '==', 'mestre')
-                  );
-                  const mestreSnap = await getDocs(mestreQ);
-                  if (!mestreSnap.empty) {
-                    const mestreDoc = mestreSnap.docs[0];
-                    const targetMestreId = mestreDoc.id;
-                    const resolvedGroupName = mestreDoc.data().groupName;
-                    const targetGroupName = rawData.groupName || resolvedGroupName;
-                    profile.mestreId = targetMestreId;
-                    if (!profile.groupName && resolvedGroupName) {
-                      profile.groupName = resolvedGroupName;
-                    }
-                    updateDoc(userRef, {
-                      mestreId: targetMestreId,
-                      ...(targetGroupName ? { groupName: targetGroupName } : {})
-                    }).catch((e) => {
-                      console.warn('[AuthContext] Échec persistance mestreId résolu:', e);
-                    });
-                  } else {
-                    console.warn(`[AuthContext] Aucun mestre trouvé pour le groupe '${normalizedGroupId}'. L'élève n'aura pas accès au catalogue privé.`);
-                  }
-                } catch (err) {
-                  console.warn("[AuthContext] Could not resolve mestre for group:", err);
-                }
+              // Résolution locale sans requête distante getDocs sur /users (qui échoue avec les règles de sécurité)
+              if (rawData.mestreId) {
+                profile.mestreId = rawData.mestreId;
               }
             }
 

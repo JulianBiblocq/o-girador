@@ -208,7 +208,9 @@ export default function App() {
   const queryClient = useQueryClient();
   const { data: cloudPresetsData, isLoading: isCloudPresetsLoading } = useCloudPresets({
     userUid: userProfile?.uid || null,
-    userRole: userProfile?.role || 'visiteur',
+    userRole: (userProfile?.role === 'admin' || userProfile?.canWriteSequenciador)
+      ? 'admin'
+      : (userProfile?.role || 'visiteur'),
     mestreId: userProfile?.mestreId || null,
     groupId: userProfile?.groupId || null,
     canWriteSequenciador: !!userProfile?.canWriteSequenciador
@@ -478,8 +480,8 @@ export default function App() {
   const handleShare = React.useCallback(async () => {
     const isPt = sequencer.lang === 'pt';
     const textStr = isPt 
-      ? "Descubra O Girador, o sequenciador interativo de Maracatu! https://ogirador.web.app" 
-      : "Découvrez O Girador, le séquenceur de Maracatu interactif ! https://ogirador.web.app";
+      ? "Descubra O Girador, o sequenciador interativo de Maracatu! https://sequenciador.o-girador.com" 
+      : "Découvrez O Girador, le séquenceur de Maracatu interactif ! https://sequenciador.o-girador.com";
     try {
       await navigator.clipboard.writeText(textStr);
       setToastMessage(isPt ? 'Link copiado para a área de transferência!' : 'Lien copié dans le presse-papier !');

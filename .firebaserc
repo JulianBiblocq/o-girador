@@ -1,5 +1,7 @@
 {
-  "projects": {},
+  "projects": {
+    "default": "o-girador-7828c"
+  },
   "targets": {
     "o-girador-7828c": {
       "hosting": {

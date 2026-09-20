@@ -73,7 +73,7 @@ export const BoutonExportDanse: React.FC = () => {
             : "Para enviar esta música para o aplicativo O Girador Dança, você deve ativar a ponte entre os dois aplicativos. Deseja assinar esta opção?"
         );
         if (wantToSubscribe) {
-          window.open('https://orquestrador.o-girador.com', '_blank');
+          window.open('https://o-girador.com', '_blank');
         }
         return;
       }
