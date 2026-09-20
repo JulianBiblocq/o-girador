@@ -443,6 +443,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       updateRadii(loadedTracks);
 
       useSequencerStore.getState().setTracks(loadedTracks);
+      useSequencerStore.getState().resetSpeedTrainerConfig();
       sequencer.setTotalMeasures(loadedMeasures);
       sequencer.setBpmRaw(Math.round(p.bpm || 90));
       sequencer.setTimeSig(p.timeSig || '4/4');

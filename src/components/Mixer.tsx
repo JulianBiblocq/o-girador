@@ -141,14 +141,14 @@ const MixerComponent: React.FC<MixerProps> = ({
   const handleDragStart = (event: any) => {
     const activeId = String(event.active.id);
     if (activeId.startsWith('track-')) {
-      setActiveDragTrackId(parseInt(activeId.replace('track-', ''), 10));
+      setActiveDragTrackId(Number(activeId.replace('track-', '')));
     }
   };
 
   const handleDragOver = (event: any) => {
     const overId = event.over ? String(event.over.id) : null;
     if (overId && overId.startsWith('track-')) {
-      setOverDragTrackId(parseInt(overId.replace('track-', ''), 10));
+      setOverDragTrackId(Number(overId.replace('track-', '')));
     } else {
       setOverDragTrackId(null);
     }
@@ -168,8 +168,8 @@ const MixerComponent: React.FC<MixerProps> = ({
       const overId = String(over.id);
 
       if (activeId.startsWith('track-') && overId.startsWith('track-')) {
-        const activeTrackId = parseInt(activeId.replace('track-', ''), 10);
-        const overTrackId = parseInt(overId.replace('track-', ''), 10);
+        const activeTrackId = Number(activeId.replace('track-', ''));
+        const overTrackId = Number(overId.replace('track-', ''));
         handleReorderTracksDnd(activeTrackId, overTrackId);
       }
     }

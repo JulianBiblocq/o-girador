@@ -239,7 +239,8 @@ export const generateAnnexTablature = (
 
     if (assignedPatternIds.size === 0) return;
 
-    let trackOutput = isHtml ? `<div style="margin-bottom: 20px;"><strong>[ ${conf.name} ]</strong>\n` : `[ ${conf.name} ]\n`;
+    const trackLabel = track.customName || useNomenclatureStore.getState().getInstrumentLabel(track || conf.id);
+    let trackOutput = isHtml ? `<div style="margin-bottom: 20px;"><strong>[ ${trackLabel} ]</strong>\n` : `[ ${trackLabel} ]\n`;
     
     assignedPatternIds.forEach(pId => {
       const p = track.patterns.find(pat => pat.id === pId);

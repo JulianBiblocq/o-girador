@@ -381,11 +381,11 @@ export class AudioEngine {
   /**
    * Start the scheduling loop
    */
-  public start(): void {
+  public start(scheduledStartTime?: number): void {
     if (this.isPlaying) return;
 
-    // Initialize timing markers with 25ms pre-roll buffer for seamless AudioContext startup & UI sync
-    this.nextTickTime = this.audioContext.currentTime + 0.025;
+    // Initialize timing markers with pre-roll buffer or precise scheduled hardware time
+    this.nextTickTime = scheduledStartTime !== undefined ? scheduledStartTime : (this.audioContext.currentTime + 0.025);
     
     // Hard Sync initialization
     this.schedulingStep = this.currentStep;

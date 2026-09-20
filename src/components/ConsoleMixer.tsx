@@ -614,14 +614,14 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const handleDragStart = React.useCallback((event: any) => {
     const activeId = String(event.active.id);
     if (activeId.startsWith('track-')) {
-      setActiveDragTrackId(parseInt(activeId.replace('track-', ''), 10));
+      setActiveDragTrackId(Number(activeId.replace('track-', '')));
     }
   }, []);
 
   const handleDragOver = React.useCallback((event: any) => {
     const overId = event.over ? String(event.over.id) : null;
     if (overId && overId.startsWith('track-')) {
-      setOverDragTrackId(parseInt(overId.replace('track-', ''), 10));
+      setOverDragTrackId(Number(overId.replace('track-', '')));
     } else {
       setOverDragTrackId(null);
     }
@@ -641,8 +641,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       const overId = String(over.id);
 
       if (activeId.startsWith('pattern-') && overId.startsWith('pattern-')) {
-        const activePatternId = parseInt(activeId.replace('pattern-', ''), 10);
-        const overPatternId = parseInt(overId.replace('pattern-', ''), 10);
+        const activePatternId = Number(activeId.replace('pattern-', ''));
+        const overPatternId = Number(overId.replace('pattern-', ''));
         const track = useSequencerStore.getState().tracks.find(t => t.patterns.some(p => p.id === activePatternId));
         if (track && onReorderPatternsDnd) {
           const oldIndex = track.patterns.findIndex(p => p.id === activePatternId);
@@ -650,8 +650,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           onReorderPatternsDnd(track.id, oldIndex, newIndex);
         }
       } else if (activeId.startsWith('track-') && overId.startsWith('track-')) {
-        const activeTrackId = parseInt(activeId.replace('track-', ''), 10);
-        const overTrackId = parseInt(overId.replace('track-', ''), 10);
+        const activeTrackId = Number(activeId.replace('track-', ''));
+        const overTrackId = Number(overId.replace('track-', ''));
         handleReorderTracksDnd(activeTrackId, overTrackId);
       }
     }

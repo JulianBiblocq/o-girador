@@ -115,3 +115,50 @@ export function stopAllNativeOscillators() {
   });
   activeNativeOscillators.clear();
 }
+
+/**
+ * Play a high-precision standalone count-in beep using native Web Audio oscillator
+ */
+export const playCountInBeep = (time: number, freq: number, isAccent: boolean = false) => {
+  const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+  if (!rawCtx) return;
+
+  if (rawCtx.state === 'suspended') {
+    rawCtx.resume().catch(() => {});
+  }
+
+  const osc = rawCtx.createOscillator();
+  const clickGain = rawCtx.createGain();
+  osc.connect(clickGain);
+
+  // Directly connect to master bus or destination so count-in is never muted by regular metronome mute state
+  if (masterVolumeNode) {
+    Tone.connect(clickGain, masterVolumeNode as any);
+  } else if (Tone.getDestination()) {
+    Tone.connect(clickGain, Tone.getDestination() as any);
+  } else {
+    clickGain.connect(rawCtx.destination);
+  }
+
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(freq, time);
+
+  const duration = 0.085; // 85ms crisp beep
+  const finalVol = isAccent ? 0.95 : 0.75;
+
+  clickGain.gain.setValueAtTime(0.0001, time);
+  clickGain.gain.exponentialRampToValueAtTime(finalVol, time + 0.003);
+  clickGain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+
+  osc.start(time);
+  osc.stop(time + duration + 0.01);
+
+  activeNativeOscillators.add(osc);
+  osc.onended = () => {
+    activeNativeOscillators.delete(osc);
+    try {
+      osc.disconnect();
+      clickGain.disconnect();
+    } catch (_) {}
+  };
+};

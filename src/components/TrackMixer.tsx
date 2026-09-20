@@ -12,6 +12,7 @@ import { getNextStepValue } from '../utils/instrumentStrokes';
 import { useAudio } from '../contexts/AudioContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useWindow } from '../contexts/WindowContext';
+import { useNomenclatureStore } from '../stores/useNomenclatureStore';
 
 interface TrackMixerProps {
   trackId: number;
@@ -231,7 +232,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     : undefined;
   const displayName = isToada
     ? 'Toada'
-    : (inst ? (isMaster ? `🔗 ${getPluralName(inst.name)}` : inst.name) : 'Instrument');
+    : (inst ? (isMaster ? `🔗 ${getPluralName(inst.name)}` : (track ? useNomenclatureStore.getState().getInstrumentLabel(track) : inst.name)) : 'Instrument');
 
   const isAoVivo = track ? activeAoVivoTrackId === track.id : false;
   const toggleAoVivo = async () => {

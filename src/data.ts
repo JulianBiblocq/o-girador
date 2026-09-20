@@ -259,7 +259,25 @@ export const i18n = {
     compThreshold: "THRESH.",
     compRatio: "RATIO",
     expandSteps: "Mostrar passos",
-    collapseSteps: "Ocultar passos"
+    collapseSteps: "Ocultar passos",
+    speedTrainerHelp: "O loop inicia após uma contagem em andamento reduzido e acelera a cada ciclo até o andamento alvo. Ao parar, a peça volta às configurações originais.",
+    speedTrainerTitle: "⚡ Modo Treino",
+    speedTrainerSubtitle: "Aceleração progressiva de andamento",
+    speedTrainerZone: "Zona de trabalho (Compassos)",
+    speedTrainerFrom: "Do compasso",
+    speedTrainerTo: "ao compasso",
+    speedTrainerStartBpm: "Velocidade inicial",
+    speedTrainerTargetBpm: "Velocidade alvo",
+    speedTrainerNominal: "(valor nominal)",
+    speedTrainerStep: "Aceleração",
+    speedTrainerInterval: "Frequência",
+    speedTrainerEveryLoop: "A cada volta",
+    speedTrainerEvery2Loops: "A cada 2 voltas",
+    speedTrainerLaunch: "⚡ Iniciar treino",
+    speedTrainerStop: "⏹ Parar e restaurar",
+    speedTrainerActiveBanner: "Treino em andamento",
+    speedTrainerTour: "Volta",
+    speedTrainerCountdown: "Contagem"
   },
   fr: {
     loading: "Chargement des voix...",
@@ -367,7 +385,25 @@ export const i18n = {
     compThreshold: "SEUIL",
     compRatio: "RATIO",
     expandSteps: "Déplier les pas",
-    collapseSteps: "Replier les pas"
+    collapseSteps: "Replier les pas",
+    speedTrainerHelp: "La boucle démarre après un décompte au tempo ralenti, puis accélère à chaque cycle jusqu'au tempo cible. À l'arrêt, le morceau retrouve ses paramètres d'origine.",
+    speedTrainerTitle: "⚡ Mode Entraînement",
+    speedTrainerSubtitle: "Accélération progressive en vitesse",
+    speedTrainerZone: "Zone de travail (Mesures)",
+    speedTrainerFrom: "De la mesure",
+    speedTrainerTo: "à la mesure",
+    speedTrainerStartBpm: "Vitesse de départ",
+    speedTrainerTargetBpm: "Vitesse cible",
+    speedTrainerNominal: "(valeur nominale)",
+    speedTrainerStep: "Accélération",
+    speedTrainerInterval: "Fréquence",
+    speedTrainerEveryLoop: "Chaque tour",
+    speedTrainerEvery2Loops: "Tous les 2 tours",
+    speedTrainerLaunch: "⚡ Lancer l'entraînement",
+    speedTrainerStop: "⏹ Arrêter et restaurer",
+    speedTrainerActiveBanner: "Entraînement en cours",
+    speedTrainerTour: "Tour",
+    speedTrainerCountdown: "Décompte"
   }
 };
 

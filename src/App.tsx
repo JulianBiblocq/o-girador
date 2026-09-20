@@ -45,6 +45,7 @@ import { useThemeManager } from './hooks/useThemeManager';
 import { useMidiController } from './hooks/useMidiController';
 import { startSession, endSession } from './utils/O-Girador-Tracker';
 import { VisitorAuthModal } from './components/VisitorAuthModal';
+import { SpeedTrainerModal } from './components/SpeedTrainerModal';
 
 export default function App() {
   // 1. Core hook extraction setup
@@ -746,6 +747,8 @@ export default function App() {
       {isSettingsOpen && (
         <SettingsPage mestreSignals={mestreSignals} />
       )}
+
+      <SpeedTrainerModal />
 
     </div>
       )}

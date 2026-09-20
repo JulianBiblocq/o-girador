@@ -54,7 +54,14 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
     handleAudioRecordingToggle,
     isRecording,
     recordingSeconds,
+    stopSpeedTrainerAudio,
   } = audio;
+
+  const isSpeedTrainerActive = useSequencerStore(state => state.isSpeedTrainerActive);
+  const speedTrainerTourCount = useSequencerStore(state => state.speedTrainerTourCount);
+  const speedTrainerCurrentBpm = useSequencerStore(state => state.speedTrainerCurrentBpm);
+  const speedTrainerCountdown = useSequencerStore(state => state.speedTrainerCountdown);
+  const openSpeedTrainerModal = useSequencerStore(state => state.openSpeedTrainerModal);
 
   const [showLoopMenu, setShowLoopMenu] = React.useState(false);
   const loopBtnRef = React.useRef<HTMLButtonElement>(null);
@@ -210,6 +217,44 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
             </button>
           </div>
         </div>
+
+        {/* Speed Trainer ⚡ Button / Live Indicator */}
+        <button
+          onClick={() => {
+            if (isSpeedTrainerActive) {
+              stopSpeedTrainerAudio();
+            } else {
+              openSpeedTrainerModal();
+            }
+          }}
+          className={`h-[30px] px-2 sm:px-2.5 flex items-center gap-1.5 font-cactus font-bold text-xs select-none transition-all cordel-border-sm cursor-pointer shadow-[1px_1px_0px_#1a1a1a] ${
+            isSpeedTrainerActive
+              ? 'bg-amber-500/20 text-amber-800 border-amber-600 animate-pulse'
+              : 'bg-transparent text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/5'
+          }`}
+          title={
+            isSpeedTrainerActive
+              ? (lang === 'fr'
+                  ? `Entraînement actif : Tour ${speedTrainerTourCount + 1} (${speedTrainerCurrentBpm} BPM). Cliquez pour arrêter et restaurer.`
+                  : `Treino ativo: Volta ${speedTrainerTourCount + 1} (${speedTrainerCurrentBpm} BPM). Clique para parar e restaurar.`)
+              : (lang === 'fr' ? 'Entraînement (Montée en vitesse)' : 'Treino (Aceleração de andamento)')
+          }
+        >
+          <span className="text-sm text-amber-600">⚡</span>
+          {speedTrainerCountdown !== null ? (
+            <span className="font-cactus font-bold text-amber-700 animate-bounce text-sm">
+              {speedTrainerCountdown}
+            </span>
+          ) : isSpeedTrainerActive ? (
+            <span className="font-cactus font-bold text-[11px] sm:text-xs">
+              {lang === 'fr' ? `T${speedTrainerTourCount + 1} · ${speedTrainerCurrentBpm}` : `V${speedTrainerTourCount + 1} · ${speedTrainerCurrentBpm}`}
+            </span>
+          ) : (
+            <span className="hidden lg:inline text-[var(--cordel-text)]">
+              {lang === 'fr' ? 'Entraînement' : 'Treino'}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Center/Right: Main Transport Controls

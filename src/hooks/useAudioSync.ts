@@ -7,7 +7,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import * as Tone from 'tone';
 import { AudioEngine, ActiveInstrumentData } from '../AudioEngine';
 import { InputManager } from '../InputManager';
-import { TrackGroup, TimeSignature, HitTrigger, HitTriggerPool, SongSection, GlobalSwing, Pattern } from '../types';
+import { TrackGroup, TimeSignature, HitTrigger, HitTriggerPool, SongSection, GlobalSwing, Pattern, SpeedTrainerConfig } from '../types';
 import { isStrokeActiveByDefault } from '../utils/instrumentStrokes';
 
 // Pub/Sub system for high-performance visual tick updates
@@ -213,7 +213,8 @@ import {
   activeNativeOscillators,
   playNativeMetroClick,
   playNativeVoiceSynth,
-  stopAllNativeOscillators
+  stopAllNativeOscillators,
+  playCountInBeep
 } from '../audio/nativeSynths';
 
 export {
@@ -515,6 +516,8 @@ export function useAudioSync({
   const lastActiveInstrumentIdsRef = useRef<string>('');
   const anchoredMeasureStartSecRef = useRef<number>(0);
   const anchoredMeasureIdxRef = useRef<number>(-1);
+  const speedTrainerCurrentBpmRef = useRef<number>(83);
+  const speedTrainerTimeoutsRef = useRef<number[]>([]);
 
   // Subscribe to useTransportStore to keep refs and metroChannel in sync non-reactively
   useEffect(() => {
@@ -550,6 +553,10 @@ export function useAudioSync({
 
   // Update dynamic callback refs on every render to ensure the AudioEngine loop uses fresh closures
   getTickDurationRef.current = () => {
+    if (useSequencerStore.getState().isSpeedTrainerActive) {
+      const stBpm = speedTrainerCurrentBpmRef.current || useSequencerStore.getState().speedTrainerCurrentBpm || Tone.Transport.bpm.value;
+      return 2.5 / stBpm;
+    }
     const currentMeasureIdx = measureCountRef.current % (totalMeasuresRef.current || 1);
     const rawBpm = measureBpmsRef.current[currentMeasureIdx];
     const targetBpm = isNaN(rawBpm) || rawBpm <= 0 ? 100 : rawBpm;
@@ -1067,6 +1074,23 @@ export function useAudioSync({
                   currentLoopIterationRef.current++;
                   useSequencerStore.getState().setCurrentLoopIteration(currentLoopIterationRef.current);
                   measureCountRef.current = (isLoopRegionActiveRef.current && loopStartRef.current !== null) ? loopStartRef.current : 0;
+
+                  // ⚡ Speed Trainer loop acceleration
+                  const stState = useSequencerStore.getState();
+                  if (stState.isSpeedTrainerActive && stState.speedTrainerConfig) {
+                    const nextTour = (stState.speedTrainerTourCount || 0) + 1;
+                    stState.setSpeedTrainerTourCount(nextTour);
+
+                    if (nextTour % stState.speedTrainerConfig.loopInterval === 0) {
+                      const curBpm = speedTrainerCurrentBpmRef.current || stState.speedTrainerConfig.startBpm;
+                      if (curBpm < stState.speedTrainerConfig.targetBpm) {
+                        const nextBpm = Math.min(curBpm + stState.speedTrainerConfig.bpmStep, stState.speedTrainerConfig.targetBpm);
+                        speedTrainerCurrentBpmRef.current = nextBpm;
+                        Tone.Transport.bpm.value = nextBpm;
+                        stState.setSpeedTrainerCurrentBpm(nextBpm);
+                      }
+                    }
+                  }
                 }
               }
             } else if (currentMeasureIdx >= (totalMeasuresRef.current || 1) - 1) {
@@ -1186,7 +1210,8 @@ export function useAudioSync({
         }
 
         // Pré-calculer la durée d'un 96n une seule fois par tick
-        const rawBpm = measureBpmsRef.current[currentMeasureIdx];
+        const isSpeedTrainer = useSequencerStore.getState().isSpeedTrainerActive;
+        const rawBpm = isSpeedTrainer ? speedTrainerCurrentBpmRef.current : measureBpmsRef.current[currentMeasureIdx];
         const targetBpm = isNaN(rawBpm) || rawBpm <= 0 ? 100 : rawBpm;
         const tick96nSec = 2.5 / targetBpm;
 
@@ -1730,10 +1755,7 @@ export function useAudioSync({
         rawCtx,
         (time) => onTickRef.current(time),
         () => {
-          const currentMeasureIdx = measureCountRef.current % (totalMeasuresRef.current || 1);
-          const rawBpm = measureBpmsRef.current[currentMeasureIdx];
-          const targetBpm = isNaN(rawBpm) || rawBpm <= 0 ? 100 : rawBpm;
-          return 2.5 / targetBpm;
+          return getTickDurationRef.current ? getTickDurationRef.current() : 2.5 / 100;
         },
         (measureIdx) => {
           const timeSig = measureTimeSigsRef.current[measureIdx % (totalMeasuresRef.current || 1)] || '4/4';
@@ -1960,6 +1982,14 @@ export function useAudioSync({
   }, [audioEngine, setIsPlaying, setSoloPatternPlayId, setCurrentMeasure]);
 
   const handleStop = useCallback(() => {
+    // Speed Trainer Rollback & Cleanup
+    speedTrainerTimeoutsRef.current.forEach(t => clearTimeout(t));
+    speedTrainerTimeoutsRef.current = [];
+    if (useSequencerStore.getState().isSpeedTrainerActive) {
+      useSequencerStore.getState().stopSpeedTrainer();
+      Tone.Transport.bpm.value = useSequencerStore.getState().bpm;
+    }
+
     // Clear all pending vocal recording or schedule timeouts
     engineTimeoutsRef.current.forEach((t) => clearTimeout(t));
     engineTimeoutsRef.current.clear();
@@ -2137,6 +2167,117 @@ export function useAudioSync({
   useEffect(() => {
     navigateRef.current = handleTimelineNavigate;
   }, [handleTimelineNavigate]);
+
+  const stopSpeedTrainerAudio = useCallback(() => {
+    speedTrainerTimeoutsRef.current.forEach(t => clearTimeout(t));
+    speedTrainerTimeoutsRef.current = [];
+    if (useSequencerStore.getState().isSpeedTrainerActive) {
+      useSequencerStore.getState().stopSpeedTrainer();
+      Tone.Transport.bpm.value = useSequencerStore.getState().bpm;
+    }
+    handleStop();
+  }, [handleStop]);
+
+  const launchSpeedTrainer = useCallback(async (config: SpeedTrainerConfig) => {
+    // 1. Clean stop if currently playing or counting down
+    handleStop();
+
+    // 2. AudioContext unlock
+    if (!useAudioStore.getState().isAudioUnlocked) {
+      useAudioStore.getState().unlockAudio();
+    }
+    const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+    if (rawCtx && rawCtx.state !== 'running') {
+      try {
+        await rawCtx.resume();
+      } catch (_) {}
+    }
+    if (Tone.start) {
+      try {
+        await Tone.start();
+      } catch (_) {}
+    }
+
+    // 3. Measure time signature & beats analysis
+    const startMeasureSig = (measureTimeSigsRefInternal.current && measureTimeSigsRefInternal.current[config.startMeasure]) || '4/4';
+    const isTernary = startMeasureSig === '6/8' || startMeasureSig === '12/8';
+    let beatsCount = 4;
+    if (startMeasureSig === '2/4' || startMeasureSig === '6/8') {
+      beatsCount = 2;
+    } else if (startMeasureSig === '3/4') {
+      beatsCount = 3;
+    } else if (startMeasureSig === '4/4' || startMeasureSig === '12/8') {
+      beatsCount = 4;
+    } else {
+      const sigStr = String(startMeasureSig);
+      const num = parseInt(sigStr.split('/')[0], 10);
+      beatsCount = isNaN(num) || num <= 0 ? 4 : num;
+    }
+
+    // Ternary pulsation (6/8 and 12/8) dotted-quarter note (18 ticks = 45 / BPM)
+    const beatDurationSec = isTernary ? (45 / config.startBpm) : (60 / config.startBpm);
+
+    // 4. Arm store state
+    const store = useSequencerStore.getState();
+    store.startSpeedTrainer(config);
+    speedTrainerCurrentBpmRef.current = config.startBpm;
+    Tone.Transport.bpm.value = config.startBpm;
+
+    // 5. Hardware-timed Pre-roll Count-in Beeps
+    const t0 = rawCtx.currentTime + 0.06; // 60ms safety window
+    const countInDurationSec = beatsCount * beatDurationSec;
+    const targetStartTime = t0 + countInDurationSec;
+
+    for (let i = 0; i < beatsCount; i++) {
+      const beepTime = t0 + i * beatDurationSec;
+      const isAccent = i === beatsCount - 1;
+      let freq = 800;
+      if (beatsCount === 4) {
+        freq = [600, 800, 1000, 1200][i];
+      } else if (beatsCount === 3) {
+        freq = [700, 900, 1200][i];
+      } else if (beatsCount === 2) {
+        freq = [800, 1200][i];
+      } else {
+        freq = isAccent ? 1200 : 800;
+      }
+      playCountInBeep(beepTime, freq, isAccent);
+    }
+
+    // 6. Visual Countdown UI updates
+    store.setSpeedTrainerCountdown(beatsCount);
+    const timeouts: number[] = [];
+    speedTrainerTimeoutsRef.current = timeouts;
+
+    for (let step = 1; step < beatsCount; step++) {
+      const delayMs = (step * beatDurationSec + 0.06) * 1000;
+      const t = window.setTimeout(() => {
+        store.setSpeedTrainerCountdown(beatsCount - step);
+      }, delayMs);
+      timeouts.push(t);
+    }
+
+    // Clear visual countdown at launch
+    const clearCdTimeout = window.setTimeout(() => {
+      store.setSpeedTrainerCountdown(null);
+    }, (countInDurationSec + 0.06) * 1000);
+    timeouts.push(clearCdTimeout);
+
+    // 7. Zero Jitter Start: Schedule AudioEngine & Transport onto hardware targetStartTime
+    measureCountRef.current = config.startMeasure;
+    currentStepIndexRef.current = -1;
+    setCurrentMeasure(config.startMeasure);
+
+    if (audioEngine) {
+      audioEngine.currentMeasure = config.startMeasure;
+      audioEngine.currentStep = 0;
+    }
+
+    Tone.Transport.position = 0;
+    Tone.Transport.start(targetStartTime);
+    audioEngine?.start(targetStartTime);
+    setIsPlaying(true);
+  }, [handleStop, setCurrentMeasure, setIsPlaying]);
 
   useEffect(() => {
     const handleTimelineNav = (e: Event) => {
@@ -2409,6 +2550,8 @@ export function useAudioSync({
     handleStartSoloPattern,
     handleStopSoloPattern,
     handleTimelineNavigate,
+    launchSpeedTrainer,
+    stopSpeedTrainerAudio,
     // Scheduling references/refs needed by circle sequencer/etc.
     isPlayingRef,
     currentStepIndexRef,
@@ -2430,6 +2573,8 @@ export function useAudioSync({
     handleStop,
     handleStartSoloPattern,
     handleStopSoloPattern,
-    handleTimelineNavigate
+    handleTimelineNavigate,
+    launchSpeedTrainer,
+    stopSpeedTrainerAudio
   ]);
 }

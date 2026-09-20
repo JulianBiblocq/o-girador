@@ -918,7 +918,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         <div 
           className="flex items-center gap-2 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] cordel-button px-3 h-[34px] cursor-pointer hover:bg-[#1a1a1a]/5 transition-colors select-none shrink-0" 
           onClick={toggleSettings}
-          title="A Oficina (Settings)"
+          title={lang === 'pt' ? 'A Oficina (Configurações)' : "L'Atelier (Paramètres)"}
         >
           <MiniTelemetryBadge />
           <span className="text-[var(--cordel-text)] font-cactus font-bold text-xs uppercase flex items-center gap-1.5">
@@ -933,7 +933,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               <path d="M19.07 19.07L16.24 16.24L17.66 14.83L20.49 17.66L19.07 19.07Z" />
               <path d="M4.93 4.93L7.76 7.76L9.17 6.34L6.34 3.51L4.93 4.93Z" />
             </svg>
-            <span>{lang === 'pt' ? 'A Oficina' : 'A Oficina'}</span>
+            <span>{lang === 'pt' ? 'A Oficina' : "L'Atelier"}</span>
           </span>
         </div>
       </div>

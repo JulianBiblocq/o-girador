@@ -1,6 +1,7 @@
 import { create, StateCreator } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
-import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX, CloudRhythmSignal, StepSculptValue } from '../types';
+import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX, CloudRhythmSignal, StepSculptValue, SpeedTrainerSlice } from '../types';
+import { createSpeedTrainerSlice } from './slices/speedTrainerSlice';
 
 import { usePerformanceStore } from './usePerformanceStore';
 // Nous aurons besoin d'instrumentsConfig pour extraire les paroles
@@ -861,13 +862,13 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       let updated = [...state.tracks];
 
       if (linkedToTrackId) {
-        const masterTrackId = parseInt(linkedToTrackId, 10);
+        const masterTrackId = Number(linkedToTrackId);
         const masterTrack = updated.find(t => t.id === masterTrackId);
         const slaveTrackIndex = updated.findIndex(t => t.id === trackId);
 
         if (masterTrack && slaveTrackIndex !== -1) {
           let targetBusId = masterTrack.busId;
-          let busTrack = targetBusId ? updated.find(t => t.id === parseInt(targetBusId!, 10) && t.isLinkFolder) : null;
+          let busTrack = targetBusId ? updated.find(t => t.id === Number(targetBusId!) && t.isLinkFolder) : null;
 
           // Si le maître n'est pas déjà dans un bus de liaison de partition, on en crée un automatiquement
           if (!busTrack) {
@@ -3117,7 +3118,7 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
   setActiveTimelineCell: (cell) => set({ activeTimelineCell: cell }),
 });
 
-export type SequencerStore = TrackSlice & StructureSlice & PlaybackSlice & HistorySlice & ClipboardSlice & ProjectSettingsSlice & UISlice;
+export type SequencerStore = TrackSlice & StructureSlice & PlaybackSlice & HistorySlice & ClipboardSlice & ProjectSettingsSlice & UISlice & SpeedTrainerSlice;
 
 export const useSequencerStore = create<SequencerStore>((...a) => ({
   ...createTrackSlice(...a),
@@ -3127,6 +3128,7 @@ export const useSequencerStore = create<SequencerStore>((...a) => ({
   ...createClipboardSlice(...a),
   ...createProjectSettingsSlice(...a),
   ...createUISlice(...a),
+  ...createSpeedTrainerSlice(...a),
 }));
 
 export interface TrackMeta {

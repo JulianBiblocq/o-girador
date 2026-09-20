@@ -524,7 +524,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
               <path d="M19.07 19.07L16.24 16.24L17.66 14.83L20.49 17.66L19.07 19.07Z" />
               <path d="M4.93 4.93L7.76 7.76L9.17 6.34L6.34 3.51L4.93 4.93Z" />
             </svg>
-            <span>A Oficina - O Girador</span>
+            <span>{lang === 'fr' ? "L'Atelier - O Girador" : 'A Oficina - O Girador'}</span>
           </h2>
           <div className="flex items-center gap-3">
             {/* Commutateur de langue brutaliste */}
@@ -582,7 +582,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                 </svg>
               </div>
               <span className="font-cactus font-bold text-lg tracking-wider animate-pulse">
-                {lang === 'pt' ? 'Carregando A Oficina...' : 'Chargement de A Oficina...'}
+                {lang === 'pt' ? 'Carregando A Oficina...' : "Chargement de l'Atelier..."}
               </span>
             </div>
           ) : (
@@ -1481,7 +1481,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
         {/* Footer Brutaliste */}
         <div className="bg-black text-[#f4ecd8]/60 text-[10px] px-6 py-2 flex justify-between shrink-0 border-t-4 border-black">
           <span>O GIRADOR © 2026</span>
-          <span className="font-cactus font-bold tracking-wider">A OFICINA (SETTINGS)</span>
+          <span className="font-cactus font-bold tracking-wider">{lang === 'fr' ? "L'ATELIER (SETTINGS)" : 'A OFICINA (SETTINGS)'}</span>
         </div>
 
       </div>

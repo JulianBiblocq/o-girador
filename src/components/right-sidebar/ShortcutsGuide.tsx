@@ -4,6 +4,7 @@ import { Language } from '../../types';
 import { instrumentsConfig, isDarkText } from '../../data';
 import { audioEngine } from '../../hooks/useAudioSync';
 import { useSequencerStore } from '../../stores/useSequencerStore';
+import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
 import * as Tone from 'tone';
 
 interface ShortcutsGuideProps {
@@ -13,6 +14,16 @@ interface ShortcutsGuideProps {
 }
 
 export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeStrokesByInstrument }) => {
+  const getInstrumentLabel = useInstrumentLabel();
+  const andWord = lang === 'pt' ? 'e' : '&';
+
+  const labelMarcante = getInstrumentLabel('marcante');
+  const labelMeiao = getInstrumentLabel('meiao');
+  const labelRepique = getInstrumentLabel('repique');
+  const isDefaultAlfaia = labelMarcante === 'Marcante' && labelMeiao === 'Meião' && labelRepique === 'Repique';
+  const alfaiaTitle = isDefaultAlfaia
+    ? `Alfaia (${labelMarcante}, ${labelMeiao}, ${labelRepique})`
+    : `${labelMarcante} · ${labelMeiao} · ${labelRepique} (Alfaia)`;
   const isStrokeActiveForInstruments = (instIds: string[], strokeSymbols: string[]) => {
     if (!activeStrokesByInstrument) return true;
     return instIds.some(id => {
@@ -147,7 +158,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">
             <span className="flex items-center text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
               <img src="icones/micro.svg" alt="" className="w-4 h-4 mr-1.5 inline-block opacity-80" />
-              {t('voiceLegendTitle')}
+              {`${t('voiceLegendTitle')} (${getInstrumentLabel('puxador')} ${andWord} ${getInstrumentLabel('coro')})`}
             </span>
             <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
           </summary>
@@ -164,7 +175,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">
             <span className="flex items-center text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
               <img src="icones/alfaia.svg" alt="" className="w-4 h-4 mr-1.5 inline-block opacity-80" />
-              Alfaia
+              {alfaiaTitle}
             </span>
             <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
           </summary>
@@ -215,7 +226,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">
             <span className="flex items-center text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
               <img src="icones/caixa.svg" alt="" className="w-4 h-4 mr-1.5 inline-block opacity-80" />
-              Caixa & Tarol
+              {`${getInstrumentLabel('caixa')} ${andWord} ${getInstrumentLabel('tarol')}`}
             </span>
             <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
           </summary>
@@ -279,7 +290,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">
             <span className="flex items-center text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
               <img src="icones/timbal.svg" alt="" className="w-4 h-4 mr-1.5 inline-block opacity-80" />
-              Timbal
+              {getInstrumentLabel('timbal')}
             </span>
             <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
           </summary>
@@ -348,7 +359,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">
             <span className="flex items-center text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
               <img src="icones/gongue.svg" alt="" className="w-4 h-4 mr-1.5 inline-block opacity-80" />
-              {t('gongueLegend')}
+              {getInstrumentLabel('gongue')}
             </span>
             <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
           </summary>
@@ -387,7 +398,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">
             <span className="flex items-center text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
               <img src="icones/agbe.svg" alt="" className="w-4 h-4 mr-1.5 inline-block opacity-80" />
-              {t('agbeLegend')}
+              {getInstrumentLabel('agbe')}
             </span>
             <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
           </summary>
@@ -432,7 +443,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">
             <span className="flex items-center text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
               <img src="icones/mineiro.svg" alt="" className="w-4 h-4 mr-1.5 inline-block opacity-80" />
-              {t('mineiroLegend')}
+              {getInstrumentLabel('mineiro')}
             </span>
             <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
           </summary>
@@ -471,7 +482,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
           <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">
             <span className="flex items-center text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
               <img src="icones/apito.svg" alt="" className="w-4 h-4 mr-1.5 inline-block opacity-80" />
-              {t('apitoLegend')}
+              {getInstrumentLabel('apito')}
             </span>
             <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
           </summary>

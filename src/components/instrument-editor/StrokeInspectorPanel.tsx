@@ -12,6 +12,7 @@ import { audioEngine } from '../../hooks/useAudioSync';
 import { PercussionTuningControl } from '../PercussionTuningControl';
 import { isDarkText } from '../../data';
 import { getStrokePairs, strokeExistsForInstrument } from '../../utils/instrumentStrokes';
+import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
 import { X, Volume2, Clock, Scissors } from 'lucide-react';
 
 interface StrokeInspectorPanelProps {
@@ -43,6 +44,7 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
   const isEraser = activeTool === '0' || activeTool === '';
   const isScissors = activeTool === 'scissors';
   const isVoice = instrument?.type === 'voice';
+  const getInstrumentLabel = useInstrumentLabel();
 
   // Store selectors
   const track = useSequencerStore(state => state.tracks.find(t => t.id === trackId));
@@ -360,7 +362,7 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
                 type="button"
                 onClick={() => setIsSettingsOpen(true)}
                 className="p-1 rounded-sm border border-[#1a1a1a]/30 hover:border-[#8b2a1a] hover:bg-[#8b2a1a]/10 text-[#1a1a1a] hover:text-[#8b2a1a] transition-all cursor-pointer shrink-0"
-                title={isFr ? "Ouvrir l'Atelier (A Oficina)" : "Abrir A Oficina"}
+                title={isFr ? "Ouvrir l'Atelier" : "Abrir A Oficina"}
               >
                 <svg className="w-3.5 h-3.5 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24" strokeLinecap="square">
                   <circle cx="12" cy="12" r="3" />
@@ -376,7 +378,7 @@ export const StrokeInspectorPanel: React.FC<StrokeInspectorPanelProps> = React.m
               </button>
             </div>
             <span className="text-[10px] text-[#666]">
-              {instrument.name || instrument.id}
+              {track ? getInstrumentLabel(track) : getInstrumentLabel(instrument.id)}
             </span>
           </div>
         </div>
