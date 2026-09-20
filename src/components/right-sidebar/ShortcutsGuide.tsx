@@ -87,11 +87,14 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
               <p>• <b>Flèches Haut / Bas</b> (ou molette sur pas sélectionné) : Ajuster la nuance et vélocité.</p>
               <p>• <b>Double-clic</b> (ou appui long) sur un temps pour y insérer une frappe forte.</p>
               <p>• <b>Clic simple</b> pour insérer une frappe faible.</p>
+              <p>• <b>Touches du clavier</b> : Tapez les lettres des frappes (ex: D, E, X, G, A...) pour insérer et pré-écouter le son instantanément.</p>
               <p>• <b>Ctrl + Clic</b> sur l'entête d'une ligne pour couper le son (mute) de l'instrument.</p>
               <div className="w-full h-px bg-[var(--cordel-border)]/10 my-1"></div>
               <p>• <b>Espace</b> : Lecture / Pause.</p>
               <p>• <b>Ctrl+Z / Ctrl+Y</b> : Annuler / Rétablir.</p>
-              <p>• <b>C / V</b> : Copier / Coller la mesure.</p>
+              <p>• <b>Ctrl+C / Ctrl+V</b> : Copier / Coller le motif.</p>
+              <p>• <b>Ctrl+A / Ctrl+X</b> : Tout sélectionner / Couper le motif.</p>
+              <p>• <b>Gomme en direct (Live Erase)</b> : Maintenez <b>Retour arrière (Backspace)</b> ou <b>Suppr</b> pendant la lecture pour effacer les pas en continu au passage de la tête de lecture.</p>
             </>
           ) : (
             <>
@@ -99,11 +102,14 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
               <p>• <b>Setas Cima / Baixo</b> (ou roda do mouse no passo selecionado) : Ajustar velocidade e nuance.</p>
               <p>• <b>Duplo clique</b> (ou toque longo) em um tempo para inserir uma batida forte.</p>
               <p>• <b>Clique simples</b> para inserir uma batida fraca.</p>
+              <p>• <b>Teclas do teclado</b> : Digite as letras dos toques (ex: D, E, X, G, A...) para inserir e pré-ouvir o som instantaneamente.</p>
               <p>• <b>Ctrl + Clique</b> no cabeçalho de uma linha para silenciar (mute) o instrumento.</p>
               <div className="w-full h-px bg-[var(--cordel-border)]/10 my-1"></div>
               <p>• <b>Espaço</b> : Reproduzir / Pausar.</p>
               <p>• <b>Ctrl+Z / Ctrl+Y</b> : Desfazer / Refazer.</p>
-              <p>• <b>C / V</b> : Copiar / Colar compasso.</p>
+              <p>• <b>Ctrl+C / Ctrl+V</b> : Copiar / Colar o padrão.</p>
+              <p>• <b>Ctrl+A / Ctrl+X</b> : Selecionar tudo / Recortar o padrão.</p>
+              <p>• <b>Borracha ao vivo (Live Erase)</b> : Mantenha <b>Backspace</b> ou <b>Delete</b> pressionado durante a reprodução para apagar notas na passagem da cabeça de reprodução.</p>
             </>
           )}
         </div>
@@ -281,55 +287,55 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
             {isStrokeActiveForInstruments(['timbal'], ['G', 'g']) && (
               <div className="flex items-center gap-2">
                 {renderBadge(['timbal'], ['G'], 'G / g')}
-                <span>{lang === 'fr' ? 'Basse (baixo)' : 'Baixo'}</span>
+                <span>{t('legendTimbalBaixo')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['A', 'a']) && (
               <div className="flex items-center gap-2">
                 {renderBadge(['timbal'], ['A'], 'A / a')}
-                <span>{lang === 'fr' ? 'Ouvert (aberto)' : 'Aberto'}</span>
+                <span>{t('legendTimbalAberto')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['S', 's']) && (
               <div className="flex items-center gap-2">
                 {renderBadge(['timbal'], ['S'], 'S / s')}
-                <span>{lang === 'fr' ? 'Claqué (slap)' : 'Slap'}</span>
+                <span>{t('legendTimbalSlap')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['D', 'd']) && (
               <div className="flex items-center gap-2">
                 {renderBadge(['timbal'], ['D'], 'D / d')}
-                <span>{lang === 'fr' ? 'Fantôme (dedilhado)' : 'Dedilhado'}</span>
+                <span>{t('legendTimbalDedilhado')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['P', 'p']) && (
               <div className="flex items-center gap-2">
                 {renderBadge(['timbal'], ['P'], 'P / p')}
-                <span>{lang === 'fr' ? 'Fermé (preso)' : 'Abafado / Preso'}</span>
+                <span>{t('legendTimbalPreso')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['F', 'f']) && (
               <div className="flex items-center gap-2">
                 {renderBadge(['timbal'], ['F'], 'F / f')}
-                <span>{lang === 'fr' ? 'Fla ouvert (aberto)' : 'Fla aberto'}</span>
+                <span>{t('legendTimbalFlaAberto')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['V', 'v']) && (
               <div className="flex items-center gap-2">
                 {renderBadge(['timbal'], ['V'], 'V / v')}
-                <span>{lang === 'fr' ? 'Fla claqué (slap)' : 'Fla slap'}</span>
+                <span>{t('legendTimbalFlaSlap')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['C', 'c']) && (
               <div className="flex items-center gap-2">
                 {renderBadge(['timbal'], ['C'], 'C / c')}
-                <span>{lang === 'fr' ? 'Clap (mains)' : 'Clap (mãos)'}</span>
+                <span>{t('legendTimbalClap')}</span>
               </div>
             )}
             {isStrokeActiveForInstruments(['timbal'], ['B', 'b']) && (
               <div className="flex items-center gap-2">
                 {renderBadge(['timbal'], ['B'], 'B / b')}
-                <span>{lang === 'fr' ? 'Grondement (Barulho)' : 'Barulho'}</span>
+                <span>{t('legendTimbalBarulho')}</span>
               </div>
             )}
           </div>
