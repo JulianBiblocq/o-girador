@@ -177,6 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             ).trim().toLowerCase();
 
             const isSamambaiaOrEditor = 
+              profile.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
               extractedGroupId === 'samambaia' || 
               extractedGroupId.includes('sammbia') ||
               String((rawData as any).groupName || '').toLowerCase().includes('samambaia') ||

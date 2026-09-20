@@ -11,6 +11,7 @@ interface UseCloudPresetsProps {
 
 export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWriteSequenciador }: UseCloudPresetsProps) {
   const isSamambaia = Boolean(
+    userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
     (groupId && (groupId.toLowerCase().includes('samambaia') || groupId.toLowerCase().includes('sammbia'))) ||
     mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
     (canWriteSequenciador && (!groupId || groupId.toLowerCase() === 'samambaia'))
@@ -19,15 +20,9 @@ export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWrite
   const normalizedGroupId = isSamambaia ? 'Samambaia' : (groupId || null);
   const effectiveMestreId = mestreId || (isSamambaia ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : null);
 
-  // Activation immédiate dès l'authentification : TanStack Query se déclenche sans bloquer sur mestreId ou groupId.
-  // Les modifications ultérieures de mestreId ou groupId réexécuteront la requête via la queryKey.
-  const isProfileStabilized = Boolean(userUid);
-
   return useQuery<CloudPreset[]>({
-    queryKey: ['cloudPresets', userUid, groupId, mestreId, userRole, canWriteSequenciador],
+    queryKey: ['cloudPresets', userUid, normalizedGroupId, effectiveMestreId, userRole, canWriteSequenciador],
     queryFn: async () => {
-      if (!userUid) return [];
-      
       const { fetchCloudPresets, fetchStoragePresetsJSON } = await import('../../cloudLibrary');
       const firestorePresetsPromise = fetchCloudPresets(userUid, userRole, effectiveMestreId, normalizedGroupId, canWriteSequenciador);
       const storagePresetsPromise = normalizedGroupId ? fetchStoragePresetsJSON(normalizedGroupId) : Promise.resolve([]);
@@ -43,7 +38,7 @@ export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWrite
         console.warn('[useCloudPresets] Storage presets query failed:', results[1].reason);
       }
       
-      // Merge results with unique ID deduplication
+      // Fusion des résultats avec déduplication par identifiant unique
       const seenIds = new Set<string>();
       const merged: CloudPreset[] = [];
       for (const p of [...storagePresets, ...firestorePresets]) {
@@ -54,6 +49,6 @@ export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWrite
       }
       return merged;
     },
-    enabled: isProfileStabilized,
+    enabled: true,
   });
 }

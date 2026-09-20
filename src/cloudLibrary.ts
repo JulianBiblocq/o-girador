@@ -4,11 +4,11 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getVocalRecording } from './db';
 import { CloudPreset, Preset, CatalogVisibility } from './types';
 import LZString from 'lz-string';
-import { CLOUD_PRESETS_COLLECTION } from './cloudPresetsStorage';
+import { CLOUD_PRESETS_COLLECTION, isPresetAuthorized } from './cloudPresetsStorage';
 
 export {
   CLOUD_PRESETS_COLLECTION, presetCache, getCloudPreset,
-  deleteCloudPreset, renameCloudPreset, fetchStoragePresetsJSON
+  deleteCloudPreset, renameCloudPreset, fetchStoragePresetsJSON, isPresetAuthorized
 } from './cloudPresetsStorage';
 
 /**
@@ -93,10 +93,31 @@ export async function fetchCloudPresets(
   canWriteSequenciador?: boolean
 ): Promise<CloudPreset[]> {
   const presets: CloudPreset[] = [];
-  if (!userUid) return presets;
   const presetsRef = collection(db, CLOUD_PRESETS_COLLECTION);
   
   try {
+    if (!userUid) {
+      // Visiteur non connecté : consultation immédiate des presets publics & globaux
+      const qPublic = [
+        getDocs(query(presetsRef, where('visibility', '==', 'admin_global'), limit(100))),
+        getDocs(query(presetsRef, where('visibility', '==', 'public'), limit(100)))
+      ];
+      const res = await Promise.allSettled(qPublic);
+      const ids = new Set<string>();
+      res.forEach(r => {
+        if (r.status === 'fulfilled') {
+          r.value.forEach(d => {
+            if (!ids.has(d.id)) {
+              ids.add(d.id);
+              presets.push({ id: d.id, ...(d.data() as Omit<CloudPreset, 'id'>) });
+            }
+          });
+        }
+      });
+      presets.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      return presets;
+    }
+
     if (userRole === 'admin') {
       const snapshot = await getDocs(query(presetsRef, limit(1000)));
       snapshot.forEach(docSnap => {
@@ -104,12 +125,13 @@ export async function fetchCloudPresets(
       });
       presets.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     } else {
+      const isJulian = userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
       let myGroupMestreId = (userRole === 'mestre' || userRole === 'mestri') ? userUid : mestreId;
       const normalizedUserGroupId = groupId ? groupId.trim().toLowerCase() : '';
-      const isSamambaiaGroup = normalizedUserGroupId === 'samambaia' || 
+      const isSamambaiaGroup = isJulian || normalizedUserGroupId === 'samambaia' || 
         normalizedUserGroupId.includes('sammbia') || mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
 
-      if (groupId?.toLowerCase().includes('samambaia')) {
+      if (isJulian || groupId?.toLowerCase().includes('samambaia')) {
         myGroupMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
       } else if (!myGroupMestreId && (isSamambaiaGroup || canWriteSequenciador)) {
         myGroupMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
@@ -146,34 +168,12 @@ export async function fetchCloudPresets(
           res.value.forEach(docSnap => {
             if (!uniqueIds.has(docSnap.id)) {
               const data = docSnap.data() as Omit<CloudPreset, 'id'>;
-              const isOwner = data.ownerId === userUid;
-              const isAdminGlobal = data.visibility === 'admin_global';
-              const isPublic = data.visibility === 'public';
-              const isTarget = data.targetUserId === userUid;
-              const matchesMestre = myGroupMestreId && (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId);
-              
-              // Comparaison insensible à la casse
-              const dataGroupIdNorm = String((data as any).groupId || '').toLowerCase();
-              const userGroupNorm = String(groupId || (isSamambaiaGroup || canWriteSequenciador ? 'samambaia' : '')).toLowerCase();
-              const matchesGroup = Boolean(
-                (userGroupNorm && dataGroupIdNorm && dataGroupIdNorm === userGroupNorm) ||
-                ((userGroupNorm.includes('samambaia') || isSamambaiaGroup || canWriteSequenciador) && (dataGroupIdNorm === 'samambaia' || dataGroupIdNorm.includes('sammbia')))
-              );
-              const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup);
-              const isMemberOrEleve = userRole === 'membre' || userRole === 'eleve';
-
-              if (
-                isOwner || isAdminGlobal || isPublic || isTarget || isMestreGroup || 
-                matchesGroup || matchesMestre || 
-                ((isMemberOrEleve || canWriteSequenciador) && (isSamambaiaGroup || matchesGroup || matchesMestre))
-              ) {
+              if (isPresetAuthorized(data, userUid, userRole, myGroupMestreId, groupId, isSamambaiaGroup, canWriteSequenciador)) {
                 uniqueIds.add(docSnap.id);
                 presets.push({ id: docSnap.id, ...data });
               }
             }
           });
-        } else {
-          console.warn("fetchCloudPresets - Avertissement sous-requête partielle :", res.reason);
         }
       });
       

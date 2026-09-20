@@ -82,7 +82,12 @@ const RedoIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
 interface HeaderProps {
   presetFiles: string[];
   localPresets: string[];
-  cloudPresets?: { id: string; name: string }[];
+  cloudPresets?: {
+    id: string;
+    name: string;
+    visibility?: string;
+    groupId?: string | null;
+  }[];
   isCloudPresetsLoading?: boolean;
 
   viewMode: string;
@@ -186,12 +191,17 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const canRedo = tracksRedoHistory.length > 0;
   const [isSwingModalOpen, setIsSwingModalOpen] = useState(false);
   const isSamambaia = Boolean(
+    userProfile?.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
     (userProfile?.groupId && (userProfile.groupId.toLowerCase().includes('samambaia') || userProfile.groupId.toLowerCase().includes('sammbia'))) ||
     userProfile?.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
     userProfile?.canWriteSequenciador
   );
-  const groupLabel = userProfile?.groupName || (isSamambaia ? 'Samambaia' : userProfile?.groupId) || 'Cloud';
-  const showGroupCatalogue = cloudPresets.length > 0 || isSamambaia || Boolean(userProfile?.groupId || userProfile?.groupName);
+  const groupLabel = userProfile?.groupName || (isSamambaia ? 'Samambaia' : userProfile?.groupId) || null;
+  const isPublicPreset = (p: { visibility?: string }) =>
+    p.visibility === 'admin_global' || p.visibility === 'public';
+  const publicCloudPresets = (cloudPresets || []).filter(isPublicPreset);
+  const privateCloudPresets = (cloudPresets || []).filter((p) => !isPublicPreset(p));
+  const showGroupCatalogue = Boolean(groupLabel && (privateCloudPresets.length > 0 || isSamambaia || userProfile?.groupId));
   const onMasterVolChange = setMasterVol;
   const onTotalMeasuresChange = setTotalMeasures;
 
@@ -324,7 +334,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 
                 {/* Presets Selector */}
                 <div className="flex flex-col gap-1 mt-1">
-                  <span className="text-[9px] font-bold text-[var(--cordel-text)]/60 uppercase tracking-wider">Presets</span>
+                  <span className="text-[9px] font-bold text-[var(--cordel-text)]/70 uppercase tracking-wider flex items-center gap-1">
+                    📚 {lang === 'pt' ? 'Catálogo de Ritmos' : 'Catalogue des Morceaux'}
+                  </span>
                   <select
                     value={preset}
                     onChange={(e) => { onPresetChange(e.target.value); setMobileMenuOpen(false); }}
@@ -334,7 +346,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                       {metadata?.toada || (lang === 'pt' ? 'Escolha um ritmo' : 'Choisir un rythme')}
                     </option>
                     
-                    <optgroup label={lang === 'pt' ? 'Catálogo O Girador' : 'Catalogue O Girador'}>
+                    <optgroup label={lang === 'pt' ? 'Catálogo O Girador (Padrão)' : 'Catalogue O Girador (Standard)'}>
                       {presetFiles.map((file) => {
                         let label = file.replace(/\.json$/, '');
                         if (label.startsWith('_')) label = label.substring(1);
@@ -347,21 +359,37 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                       })}
                     </optgroup>
 
-                    {showGroupCatalogue && (
-                      <optgroup label={lang === 'pt' ? `Catálogo ${groupLabel} (Privado)` : `Catalogue ${groupLabel} (Privé)`}>
-                        {isCloudPresetsLoading ? (
+                    {(publicCloudPresets.length > 0 || isCloudPresetsLoading) && (
+                      <optgroup label={lang === 'pt' ? 'Catálogo Cloud (Público)' : 'Catalogue Cloud (Public)'}>
+                        {isCloudPresetsLoading && publicCloudPresets.length === 0 ? (
                           <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
                             {lang === 'pt' ? '(Carregando catálogo...)' : '(Chargement du catalogue...)'}
                           </option>
-                        ) : cloudPresets.length > 0 ? (
-                          cloudPresets.map((p) => (
+                        ) : (
+                          publicCloudPresets.map((p) => (
                             <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
                               ☁️ {p.name}
                             </option>
                           ))
+                        )}
+                      </optgroup>
+                    )}
+
+                    {showGroupCatalogue && (
+                      <optgroup label={lang === 'pt' ? `Catálogo ${groupLabel} (Privado)` : `Catalogue ${groupLabel} (Privé)`}>
+                        {isCloudPresetsLoading && privateCloudPresets.length === 0 ? (
+                          <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
+                            {lang === 'pt' ? '(Carregando catálogo...)' : '(Chargement du catalogue...)'}
+                          </option>
+                        ) : privateCloudPresets.length > 0 ? (
+                          privateCloudPresets.map((p) => (
+                            <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#27ae60]">
+                              🔒 {p.name}
+                            </option>
+                          ))
                         ) : (
                           <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
-                            {lang === 'pt' ? '(Nenhum ritmo no catálogo)' : '(Aucun morceau dans le catalogue)'}
+                            {lang === 'pt' ? '(Nenhum ritmo privado)' : '(Aucun morceau privé)'}
                           </option>
                         )}
                       </optgroup>
@@ -699,58 +727,79 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                 </span>
                 
                 {/* Presets Selector */}
-                <select
-                  value={preset}
-                  onChange={(e) => { onPresetChange(e.target.value); setProjectDropOpen(false); }}
-                  className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus text-xs font-bold p-1.5 cordel-border-sm outline-none cursor-pointer mb-1"
-                >
-                  <option value="" disabled>
-                    {metadata?.toada || (lang === 'pt' ? 'Escolha um ritmo' : 'Choisir un rythme')}
-                  </option>
-                  
-                  <optgroup label={lang === 'pt' ? 'Catálogo O Girador (Público)' : 'Catalogue O Girador (Public)'}>
-                    {presetFiles.map((file) => {
-                      let label = file.replace(/\.json$/, '');
-                      if (label.startsWith('_')) label = label.substring(1);
-                      label = label.replace(/_/g, ' ');
-                      return (
-                        <option key={file} value={file} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
-                          {label}
-                        </option>
-                      );
-                    })}
-                  </optgroup>
-
-                  {showGroupCatalogue && (
-                    <optgroup label={lang === 'pt' ? `Catálogo ${groupLabel} (Privado)` : `Catalogue ${groupLabel} (Privé)`}>
-                      {isCloudPresetsLoading ? (
-                        <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
-                          {lang === 'pt' ? '(Carregando catálogo...)' : '(Chargement du catalogue...)'}
-                        </option>
-                      ) : cloudPresets.length > 0 ? (
-                        cloudPresets.map((p) => (
-                          <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
-                            ☁️ {p.name}
+                <div className="flex flex-col gap-1">
+                  <span className="text-[9px] font-bold text-[var(--cordel-text)]/70 uppercase tracking-wider flex items-center gap-1">
+                    📚 {lang === 'pt' ? 'Catálogo de Ritmos' : 'Catalogue des Morceaux'}
+                  </span>
+                  <select
+                    value={preset}
+                    onChange={(e) => { onPresetChange(e.target.value); setProjectDropOpen(false); }}
+                    className="w-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] font-cactus text-xs font-bold p-1.5 cordel-border-sm outline-none cursor-pointer mb-1"
+                  >
+                    <option value="" disabled>
+                      {metadata?.toada || (lang === 'pt' ? 'Escolha um ritmo' : 'Choisir un rythme')}
+                    </option>
+                    
+                    <optgroup label={lang === 'pt' ? 'Catálogo O Girador (Padrão)' : 'Catalogue O Girador (Standard)'}>
+                      {presetFiles.map((file) => {
+                        let label = file.replace(/\.json$/, '');
+                        if (label.startsWith('_')) label = label.substring(1);
+                        label = label.replace(/_/g, ' ');
+                        return (
+                          <option key={file} value={file} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+                            {label}
                           </option>
-                        ))
-                      ) : (
-                        <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
-                          {lang === 'pt' ? '(Nenhum ritmo no catálogo)' : '(Aucun morceau dans le catalogue)'}
-                        </option>
-                      )}
+                        );
+                      })}
                     </optgroup>
-                  )}
 
-                  {localPresets.length > 0 && (
-                    <optgroup label={lang === 'pt' ? 'Meus Presets' : 'Mes Presets'}>
-                      {localPresets.map((name) => (
-                        <option key={`local:${name}`} value={`local:${name}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
-                          💾 {name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
+                    {(publicCloudPresets.length > 0 || isCloudPresetsLoading) && (
+                      <optgroup label={lang === 'pt' ? 'Catálogo Cloud (Público)' : 'Catalogue Cloud (Public)'}>
+                        {isCloudPresetsLoading && publicCloudPresets.length === 0 ? (
+                          <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
+                            {lang === 'pt' ? '(Carregando catálogo...)' : '(Chargement du catalogue...)'}
+                          </option>
+                        ) : (
+                          publicCloudPresets.map((p) => (
+                            <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#2980b9]">
+                              ☁️ {p.name}
+                            </option>
+                          ))
+                        )}
+                      </optgroup>
+                    )}
+
+                    {showGroupCatalogue && (
+                      <optgroup label={lang === 'pt' ? `Catálogo ${groupLabel} (Privado)` : `Catalogue ${groupLabel} (Privé)`}>
+                        {isCloudPresetsLoading && privateCloudPresets.length === 0 ? (
+                          <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
+                            {lang === 'pt' ? '(Carregando catálogo...)' : '(Chargement du catalogue...)'}
+                          </option>
+                        ) : privateCloudPresets.length > 0 ? (
+                          privateCloudPresets.map((p) => (
+                            <option key={`cloud:${p.id}`} value={`cloud:${p.id}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[#27ae60]">
+                              🔒 {p.name}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="" disabled className="bg-[var(--cordel-bg)] text-[var(--cordel-subtext)] italic">
+                            {lang === 'pt' ? '(Nenhum ritmo privado)' : '(Aucun morceau privé)'}
+                          </option>
+                        )}
+                      </optgroup>
+                    )}
+
+                    {localPresets.length > 0 && (
+                      <optgroup label={lang === 'pt' ? 'Meus Presets' : 'Mes Presets'}>
+                        {localPresets.map((name) => (
+                          <option key={`local:${name}`} value={`local:${name}`} className="bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+                            💾 {name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </div>
 
                 <div className="grid grid-cols-2 gap-1.5">
                   <button onClick={() => { onClear(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full">

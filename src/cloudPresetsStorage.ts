@@ -100,3 +100,30 @@ export async function fetchStoragePresetsJSON(groupId: string): Promise<CloudPre
 
   return presets;
 }
+
+/**
+ * Vérifie si un preset Cloud est accessible pour l'utilisateur.
+ */
+export function isPresetAuthorized(
+  data: Omit<CloudPreset, 'id'>,
+  userUid: string,
+  userRole: string,
+  myGroupMestreId: string | null,
+  groupId: string | null | undefined,
+  isSamambaiaGroup: boolean,
+  canWriteSequenciador?: boolean
+): boolean {
+  if (data.ownerId === userUid || data.visibility === 'admin_global' || data.visibility === 'public' || data.targetUserId === userUid) {
+    return true;
+  }
+  const matchesMestre = Boolean(myGroupMestreId && (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId));
+  const dataGroupIdNorm = String((data as any).groupId || '').toLowerCase();
+  const userGroupNorm = String(groupId || (isSamambaiaGroup || canWriteSequenciador ? 'samambaia' : '')).toLowerCase();
+  const matchesGroup = Boolean(
+    (userGroupNorm && dataGroupIdNorm && dataGroupIdNorm === userGroupNorm) ||
+    ((userGroupNorm.includes('samambaia') || isSamambaiaGroup || canWriteSequenciador) && (dataGroupIdNorm === 'samambaia' || dataGroupIdNorm.includes('sammbia')))
+  );
+  const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup);
+  const isMemberOrEleve = userRole === 'membre' || userRole === 'eleve';
+  return Boolean(isMestreGroup || matchesGroup || matchesMestre || ((isMemberOrEleve || canWriteSequenciador) && (isSamambaiaGroup || matchesGroup || matchesMestre)));
+}
