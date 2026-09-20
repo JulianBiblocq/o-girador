@@ -89,7 +89,6 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     handlePastePattern,
     handleLoadLibraryPattern,
     handleReorderTracksDnd,
-    handleTrackInstrumentIdxChange: onInstrumentChange,
     handleTrackMuteToggle: onMuteToggle,
     handleTrackSoloToggle: onSoloToggle,
     handleTrackHideToggle: onHideToggle,

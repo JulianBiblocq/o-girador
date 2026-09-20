@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { GripHorizontal } from 'lucide-react';
+import { GripHorizontal, Trash2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
@@ -267,8 +267,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     };
   }, [isPlaying, isVolActive, isPanActive, isRevActive, isEcoMode]);
 
-  const [instDropdownOpen, setInstDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const [isEditingName, setIsEditingName] = useState<boolean>(false);
   const [nameVal, setNameVal] = useState<string>(track?.customName || '');
   useEffect(() => {
@@ -276,20 +274,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       setNameVal(track.customName);
     }
   }, [track?.customName]);
-
-  useEffect(() => {
-    function clickOutside(e: MouseEvent | TouchEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setInstDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', clickOutside);
-    document.addEventListener('touchstart', clickOutside);
-    return () => {
-      document.removeEventListener('mousedown', clickOutside);
-      document.removeEventListener('touchstart', clickOutside);
-    };
-  }, []);
 
   const {
     attributes,
@@ -311,17 +295,27 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     setIsEditingName(false);
   };
 
-  const onInstrumentChange = (instIdx: number) => {
-    useSequencerStore.getState().handleTrackInstrumentIdxChange(trackId, instIdx);
-  };
   const onMuteToggle = () => {
     useSequencerStore.getState().handleTrackMuteToggle(trackId);
   };
   const onSoloToggle = () => {
     useSequencerStore.getState().handleTrackSoloToggle(trackId);
   };
-  const onDelete = () => {
-    useSequencerStore.getState().handleTrackDelete(trackId);
+  const handleDeleteTrack = async () => {
+    if (!track) return;
+    const isBus = track.isLinkFolder;
+    const trackName = track.customName || getTrackDisplayName(track, tracksMeta) || currentInst?.name || (lang === 'fr' ? 'la piste' : 'a faixa');
+    const confirmMsg = isBus
+      ? (lang === 'fr'
+          ? `Supprimer définitivement le groupe "${trackName}" et toutes les pistes associées ?`
+          : `Excluir definitivamente o grupo "${trackName}" e todas as faixas associadas?`)
+      : (lang === 'fr'
+          ? `Supprimer définitivement la piste "${trackName}" et tous ses motifs ?`
+          : `Excluir definitivamente a faixa "${trackName}" e todos os seus padrões?`);
+
+    if (await sequencer.confirmAsync(confirmMsg)) {
+      useSequencerStore.getState().handleTrackDelete(trackId);
+    }
   };
   const onVolumeChange = (val: number) => {
     useSequencerStore.getState().handleTrackVolumeChange(trackId, val);
@@ -529,7 +523,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         ...groupStyle,
         paddingTop: `${paddingTop}px`,
         paddingBottom: `${12 + paddingBottom}px`,
-        zIndex: instDropdownOpen ? 30 : 1,
+        zIndex: 1,
         '--fader-thumb-bg': faderColor,
         '--fader-thumb-border': 'var(--cordel-border)',
       } as React.CSSProperties}
@@ -546,7 +540,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
       {/* Niveau 6 (Tout en haut) : En-tête */}
       <div 
         className="relative p-1.5 pb-1 flex flex-col gap-1 border-b-[3px] border-[var(--cordel-border)] h-[76px] shrink-0 justify-between w-full"
-        style={{ zIndex: instDropdownOpen ? 40 : 10 }}
+        style={{ zIndex: 10 }}
       >
         {/* Outils */}
         <div className="flex justify-between items-center w-full">
@@ -558,28 +552,17 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           >
             <GripHorizontal size={18} />
           </div>
-          {track?.isLinkFolder ? null : (
-            <button
-              onMouseDown={(e) => e.stopPropagation()}
-              onTouchStart={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); setInstDropdownOpen(!instDropdownOpen); }}
-              className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-sm"
-              title={lang === 'fr' ? 'Changer d\'instrument' : 'Mudar instrumento'}
-            >
-              ▼
-            </button>
-          )}
           <button 
-            onClick={onDelete} 
+            onClick={handleDeleteTrack} 
             className="w-6 h-6 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-sm"
-            title={track?.isLinkFolder ? (lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o grupo') : 'Supprimer la piste'}
+            title={track?.isLinkFolder ? (lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o grupo') : (lang === 'fr' ? 'Supprimer la piste' : 'Excluir a faixa')}
           >
-            ✕
+            <Trash2 size={13} />
           </button>
         </div>
 
         {/* Instrument Selector / Dropdown Trigger */}
-        <div className="relative flex items-center w-full" ref={dropdownRef}>
+        <div className="relative flex items-center w-full">
           {track?.isLinkFolder ? (
             isEditingName ? (
               <input
@@ -613,125 +596,6 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
                 <span className="font-cactus font-bold text-[9px] truncate">{displayName}</span>
               </div>
               <XiloChisel size={10} className="opacity-70 flex-shrink-0" />
-            </div>
-          )}
-
-          {instDropdownOpen && (
-            <div className="absolute top-7 left-0 right-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-shadow max-h-[250px] overflow-y-auto z-[99] w-[180px] custom-scrollbar">
-              <div className="text-[9px] uppercase opacity-60 font-bold px-2 py-1 bg-[var(--cordel-text)]/5 border-b border-[var(--cordel-border)]/20">
-                {lang === 'fr' ? 'Changer d\'instrument' : 'Mudar instrumento'}
-              </div>
-              {instrumentsConfig.map((opt, oIdx) => (
-                <div 
-                  key={oIdx} 
-                  onClick={() => { onInstrumentChange(oIdx); setInstDropdownOpen(false); }} 
-                  className="flex items-center gap-2 px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-[10px] font-bold"
-                >
-                  <img src={`${ASSETS_BASE_URL}${opt.iconImg}`} alt={opt.name} className="w-4 h-4 object-contain" />
-                  <span className="font-cactus">{useNomenclatureStore.getState().getInstrumentLabel(oIdx)}</span>
-                </div>
-              ))}
-              
-              {/* Liaison de partition */}
-              <div className="text-[9px] uppercase opacity-60 font-bold px-2 py-1 bg-[var(--cordel-text)]/5 border-t border-b border-[var(--cordel-border)]/20 mt-1">
-                🔗 {lang === 'fr' ? 'Liaison' : 'Vínculo'}
-              </div>
-              {track.linkedToTrackId ? (
-                <div 
-                  onClick={() => {
-                    useSequencerStore.getState().handleLinkTrack(trackId, null);
-                    setInstDropdownOpen(false);
-                  }}
-                  className="px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-[10px] font-bold text-[#8b2a1a]"
-                >
-                  ✕ {lang === 'fr' ? 'Délier' : 'Remover'}
-                </div>
-              ) : (
-                <>
-                  <div 
-                    onClick={() => {
-                      const isAlfaia = currentInst?.name.toLowerCase().includes('alfaia');
-                      const defaultName = isAlfaia ? 'ALFAIAS' : `${currentInst?.name.toUpperCase()}S`;
-                      const name = prompt(lang === 'fr' ? 'Nom du groupe :' : 'Nome do grupo:', defaultName);
-                      if (name) {
-                        useSequencerStore.getState().handleCreateLinkGroup(trackId, name);
-                      }
-                      setInstDropdownOpen(false);
-                    }}
-                    className="px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-[10px] font-bold text-blue-600"
-                  >
-                    🔗 {lang === 'fr' ? 'Créer maître' : 'Criar mestre'}
-                  </div>
-                  {eligibleTracks.length > 0 ? (
-                    eligibleTracks.map((tOpt) => {
-                      const tOptInst = instrumentsConfig[tOpt.instrumentIdx];
-                      const tOptIndex = tracksMeta.findIndex(t => t.id === tOpt.id);
-                      const shortName = tOptInst.name.replace('Alfaia ', '');
-                      return (
-                        <div
-                          key={tOpt.id}
-                          onClick={() => {
-                            useSequencerStore.getState().handleLinkTrack(trackId, String(tOpt.id));
-                            setInstDropdownOpen(false);
-                          }}
-                          className="px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-[10px] font-bold truncate"
-                        >
-                          🔗 {shortName} ({tOptIndex + 1})
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="px-2 py-1 text-[8px] italic text-[var(--cordel-text)]/60">
-                      {lang === 'fr' ? 'Aucun compatible' : 'Nenhum compatível'}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Audio Bussing */}
-              <div className="text-[9px] uppercase opacity-60 font-bold px-2 py-1 bg-[var(--cordel-text)]/5 border-t border-b border-[var(--cordel-border)]/20 mt-1 flex items-center gap-1">
-                <span>{lang === 'fr' ? 'Bus' : 'Bus'}</span>
-              </div>
-              <div
-                onClick={() => {
-                  const busName = window.prompt(lang === 'fr' ? 'Nom du groupe :' : 'Nome do groupe:', 'Alfaias');
-                  if (busName && busName.trim()) {
-                    useSequencerStore.getState().handleCreateBus(trackId, busName.trim());
-                  }
-                  setInstDropdownOpen(false);
-                }}
-                className="px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-[10px] font-bold text-green-700 flex items-center gap-1"
-              >
-                <span>{lang === 'fr' ? 'Créer un groupe' : 'Criar um groupe'}</span>
-              </div>
-              {track.busId && (
-                <div
-                  onClick={() => {
-                    useSequencerStore.getState().handleAssignToBus(trackId, null);
-                    setInstDropdownOpen(false);
-                  }}
-                  className="px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-[10px] font-bold text-[#8b2a1a]"
-                >
-                  ✕ {lang === 'fr' ? 'Quitter le groupe' : 'Sair do groupe'}
-                </div>
-              )}
-              {tracksMeta.filter(t => t.isBusFolder && t.id !== trackId).map((bus) => {
-                const busIdx = tracksMeta.findIndex(t => t.id === bus.id);
-                return (
-                  <div
-                    key={bus.id}
-                    onClick={() => {
-                      useSequencerStore.getState().handleAssignToBus(trackId, String(bus.id));
-                      setInstDropdownOpen(false);
-                    }}
-                    className={`px-2 py-1.5 cursor-pointer border-b border-[var(--cordel-border)]/20 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] text-[10px] font-bold truncate ${
-                      String(track.busId) === String(bus.id) ? 'bg-[var(--cordel-text)]/10' : ''
-                    }`}
-                  >
-                    <span>{bus.customName || 'Bus'} ({busIdx + 1})</span>
-                  </div>
-                );
-              })}
             </div>
           )}
         </div>

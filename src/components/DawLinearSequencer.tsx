@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef, useMemo, useState } from 'react';
-import { GripVertical } from 'lucide-react';
+import React, { useEffect, useRef, useMemo } from 'react';
+import { GripVertical, Trash2 } from 'lucide-react';
 import { Pattern } from '../types';
 import { useSequencerStore, isLinearDAWVisibleTrack, isToadaBus, isToadaChild } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
@@ -51,10 +51,6 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
 
   const defaultBeats = getBeatsFromTimeSig(timeSig);
 
-  // For instrument selection dropdown
-  const [dropdownOpenTrackId, setDropdownOpenTrackId] = useState<number | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
   // Replier automatiquement toutes les pistes de liens du séquenceur lors du montage (entrée sur la page)
   useEffect(() => {
     useSequencerStore.getState().setTracks(prev =>
@@ -63,24 +59,6 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
   }, []);
 
   const currentWindow = useWindow();
-
-  // Handle click outside for dropdown
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent | TouchEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpenTrackId(null);
-      }
-    }
-
-    if (dropdownOpenTrackId !== null) {
-      currentWindow.document.addEventListener('mousedown', handleClickOutside);
-      currentWindow.document.addEventListener('touchstart', handleClickOutside);
-    }
-    return () => {
-      currentWindow.document.removeEventListener('mousedown', handleClickOutside);
-      currentWindow.document.removeEventListener('touchstart', handleClickOutside);
-    };
-  }, [dropdownOpenTrackId, currentWindow]);
 
   // Filter visible tracks to show on the DAW grid (matching left Mixer panel list)
   const visibleTracks = useMemo(() => {
@@ -387,26 +365,16 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
               ? 'Toada'
               : (isChild ? `↳ ${getTrackDisplayName(track, tracks)}` : getTrackDisplayName(track, tracks));
 
-            const isDropdownOpen = dropdownOpenTrackId === track.id;
-
             return (
               <div
                 key={track.id}
-                className={`flex items-center w-full h-auto min-h-[116px] xl:h-[76px] xl:min-h-[76px] justify-start shrink-0 text-[#1a1a1a] border-b-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] px-3 py-1 relative ${
-                  isDropdownOpen ? 'overflow-visible z-[60]' : 'overflow-hidden z-[1]'
-                }`}
-                style={{
-                  zIndex: isDropdownOpen ? 60 : 1,
-                }}
+                className="flex items-center w-full h-auto min-h-[116px] xl:h-[76px] xl:min-h-[76px] justify-start shrink-0 text-[#1a1a1a] border-b-2 border-black shadow-[2px_2px_0px_rgba(0,0,0,1)] rounded-none bg-[#f4ecd8] px-3 py-1 relative overflow-hidden z-[1]"
               >
                 {/* A. Left Side: Integrated Instrument Mixer Controls (w-[360px] fixed width) */}
                 <div 
-                  className={`flex items-center justify-between gap-2 w-[360px] min-w-[360px] h-[76px] min-h-[76px] shrink-0 border-r border-[#1a1a1a]/20 pr-3 relative ${
-                    isDropdownOpen ? 'z-[60]' : 'z-[2]'
-                  } ${
+                  className={`flex items-center justify-between gap-2 w-[360px] min-w-[360px] h-[76px] min-h-[76px] shrink-0 border-r border-[#1a1a1a]/20 pr-3 relative z-[2] ${
                     isChild ? 'pl-8' : 'pl-3'
                   }`}
-                  ref={isDropdownOpen ? dropdownRef : undefined}
                 >
                   <div className="flex items-center gap-2">
                     {/* Sortable drag grip (pure aesthetic in DAW view but maintains Mixer visual layout) */}
@@ -446,51 +414,32 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
                           <span className="flex-shrink-0 opacity-70"><XiloChisel size={11} /></span>
                         )}
                       </button>
-
-                      {/* Instrument Selector Dropdown popup */}
-                      {isDropdownOpen && (
-                        <div className="absolute top-9 left-0 bg-[#f4ecd8] text-[#1a1a1a] cordel-border cordel-shadow min-w-[180px] max-h-[220px] overflow-y-auto z-[9999]">
-                          <div
-                            onClick={() => {
-                              useSequencerStore.getState().handleTrackDelete(track.id);
-                              setDropdownOpenTrackId(null);
-                            }}
-                            className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold text-[#8b2a1a] border-b border-black/10 hover:bg-[#8b2a1a] hover:text-[#f4ecd8]"
-                          >
-                            <span className="w-5 text-center">🗑️</span>
-                            <span>{lang === 'fr' ? 'Supprimer la piste' : 'Excluir pista'}</span>
-                          </div>
-                          {instrumentsConfig.map((opt, oIdx) => (
-                            <div
-                              key={opt.id}
-                              onClick={() => {
-                                useSequencerStore.getState().handleTrackInstrumentIdxChange(track.id, oIdx);
-                                setDropdownOpenTrackId(null);
-                              }}
-                              className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold border-b border-black/10 hover:bg-black hover:text-[#f4ecd8]"
-                            >
-                              <img
-                                src={`${ASSETS_BASE_URL}${opt.iconImg}`}
-                                alt={opt.name}
-                                className="w-5 h-5 object-contain"
-                                onError={(e) => {
-                                  (e.target as HTMLElement).style.display = 'none';
-                                }}
-                              />
-                              <span>{useNomenclatureStore.getState().getInstrumentLabel(oIdx)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
 
-                    {/* Dropdown Toggle Icon */}
+                    {/* Bouton de suppression sécurisé de la piste (icône corbeille) */}
                     <button
-                      onClick={() => setDropdownOpenTrackId(isDropdownOpen ? null : track.id)}
-                      className="ml-1 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]"
-                      title={lang === 'pt' ? 'Mudar instrumento' : 'Changer d\'instrument'}
+                      onClick={async () => {
+                        const trackName = displayName || inst?.name || (lang === 'fr' ? 'cette piste' : 'esta faixa');
+                        const isBus = track.isBusFolder;
+                        const childTracks = tracks.filter(t => String(t.busId) === String(track.id));
+                        let confirmMsg: string;
+                        if (isBus && childTracks.length > 0) {
+                          confirmMsg = lang === 'fr'
+                            ? `Attention : le bus "${trackName}" contient ${childTracks.length} piste(s). Sa suppression entraînera également la suppression de toutes les pistes associées. Voulez-vous continuer ?`
+                            : `Atenção: o bus "${trackName}" contém ${childTracks.length} faixa(s). Sua exclusão também removerá todas as faixas associadas. Deseja continuar?`;
+                        } else {
+                          confirmMsg = lang === 'fr'
+                            ? `Supprimer définitivement la piste "${trackName}" et tous ses motifs ?`
+                            : `Excluir definitivamente a faixa "${trackName}" e todos os seus padrões?`;
+                        }
+                        if (await sequencer.confirmAsync(confirmMsg)) {
+                          useSequencerStore.getState().handleTrackDelete(track.id);
+                        }
+                      }}
+                      className="ml-1 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]"
+                      title={lang === 'fr' ? 'Supprimer la piste' : 'Excluir faixa'}
                     >
-                      ▼
+                      <Trash2 size={13} />
                     </button>
 
                     {(track.isLinkMaster || isToada) && (

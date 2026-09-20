@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Eye, EyeOff, GripVertical } from 'lucide-react';
+import { Eye, EyeOff, GripVertical, Trash2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, getVisualStrokeSymbol, isDarkText } from '../data';
@@ -44,8 +44,9 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   isMobile = false,
   onStepTouchStart,
 }) => {
-  const { isPlaying } = useAudio();
-  const { handleTrackStepValueChange, alertAsync } = useSequencer();
+  const sequencer = useSequencer();
+  const { handleTrackStepValueChange, alertAsync } = sequencer;
+  const audio = useAudio();
   const lang = useSequencerStore(state => state.lang);
   const activeAoVivoTrackId = useSequencerStore(state => state.activeAoVivoTrackId);
   const setActiveAoVivoTrackId = useSequencerStore(state => state.setActiveAoVivoTrackId);
@@ -56,9 +57,6 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const isLeftHanded = useSequencerStore(state => state.isLeftHanded);
   const currentMeasure = useSequencerStore(state => state.currentMeasure);
 
-  const onInstrumentChange = (instIdx: number) => {
-    useSequencerStore.getState().handleTrackInstrumentIdxChange(trackId, instIdx);
-  };
   const onMuteToggle = () => {
     useSequencerStore.getState().handleTrackMuteToggle(trackId);
   };
@@ -68,33 +66,32 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
   const onHideToggle = () => {
     useSequencerStore.getState().handleTrackHideToggle(trackId);
   };
-  const onDelete = () => {
-    useSequencerStore.getState().handleTrackDelete(trackId);
-  };
   const onOpenDetailEditorClick = () => {
     onOpenDetailEditor(trackId);
   };
 
-  const [instDropdownOpen, setInstDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const currentWindow = useWindow();
+  const handleDeleteTrack = async () => {
+    if (!track) return;
+    const isBus = track.isBusFolder;
+    const childTracks = tracks.filter(t => String(t.busId) === String(trackId));
+    const inst = instrumentsConfig[track.instrumentIdx];
+    const trackDisplayName = track.customName || inst?.name || (lang === 'fr' ? 'cette piste' : 'esta faixa');
 
-  // Close dropdown on click outside
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent | TouchEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setInstDropdownOpen(false);
-      }
+    let confirmMsg: string;
+    if (isBus && childTracks.length > 0) {
+      confirmMsg = lang === 'fr'
+        ? `Attention : le bus "${trackDisplayName}" contient ${childTracks.length} piste(s). Sa suppression entraînera également la suppression de toutes les pistes associées. Voulez-vous continuer ?`
+        : `Atenção: o bus "${trackDisplayName}" contém ${childTracks.length} faixa(s). Sua exclusão também removerá todas as faixas associadas. Deseja continuar?`;
+    } else {
+      confirmMsg = lang === 'fr'
+        ? `Supprimer définitivement la piste "${trackDisplayName}" et tous ses motifs ?`
+        : `Excluir definitivamente a faixa "${trackDisplayName}" e todos os seus padrões?`;
     }
-    if (instDropdownOpen) {
-      currentWindow.document.addEventListener('mousedown', handleClickOutside);
-      currentWindow.document.addEventListener('touchstart', handleClickOutside);
+
+    if (await sequencer.confirmAsync(confirmMsg)) {
+      useSequencerStore.getState().handleTrackDelete(trackId);
     }
-    return () => {
-      currentWindow.document.removeEventListener('mousedown', handleClickOutside);
-      currentWindow.document.removeEventListener('touchstart', handleClickOutside);
-    };
-  }, [instDropdownOpen, currentWindow]);
+  };
 
   const isToada = track ? isToadaBus(track) : false;
 
@@ -276,7 +273,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
       }`}
       style={{
         ...style,
-        zIndex: instDropdownOpen ? 9999 : 10,
+        zIndex: 10,
         '--cordel-bg': '#f4ecd8',
         '--cordel-text': '#1a1a1a',
         '--cordel-border': '#1a1a1a',
@@ -301,7 +298,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
             <GripVertical size={16} />
           </div>
 
-          <div className="relative flex items-center" ref={dropdownRef}>
+          <div className="relative flex items-center">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -342,58 +339,13 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setInstDropdownOpen(!instDropdownOpen);
+                handleDeleteTrack();
               }}
-              className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button text-[10px] cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]"
-              title={lang === 'pt' ? 'Mudar instrumento' : 'Changer d\'instrument'}
+              className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]"
+              title={lang === 'fr' ? 'Supprimer la piste' : 'Excluir faixa'}
             >
-              ▼
+              <Trash2 size={12} />
             </button>
-
-            {instDropdownOpen && (
-              <div className="absolute top-7 left-0 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-shadow min-w-[180px] max-h-[220px] overflow-y-auto z-[99]">
-                <div
-                  onClick={() => {
-                    const isBus = track.isBusFolder;
-                    const childTracks = tracks.filter(t => String(t.busId) === String(trackId));
-                    if (isBus && childTracks.length > 0) {
-                      const confirmMsg = lang === 'fr' 
-                        ? "Attention, si vous supprimez ce bus, toutes les pistes audio qui sont à l'intérieur seront supprimées également. Voulez-vous continuer ?" 
-                        : lang === 'pt'
-                        ? "Atenção: se você excluir este bus, todas as pistas de áudio dentro dele também serão excluídas. Deseja continuar?"
-                        : "Warning: if you delete this bus, all audio tracks inside will also be deleted. Do you want to continue?";
-                      if (!window.confirm(confirmMsg)) return;
-                    }
-                    onDelete();
-                    setInstDropdownOpen(false);
-                  }}
-                  className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold text-[#8b2a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]"
-                >
-                  <span className="w-5 text-center">🗑️</span>
-                  <span>{lang === 'fr' ? 'Supprimer la piste' : lang === 'pt' ? 'Excluir pista' : 'Delete track'}</span>
-                </div>
-                {instrumentsConfig.map((opt, oIdx) => (
-                  <div
-                    key={opt.id}
-                    onClick={() => {
-                      onInstrumentChange(oIdx);
-                      setInstDropdownOpen(false);
-                    }}
-                    className="flex items-center gap-3.5 px-3 py-2 cursor-pointer text-xs font-bold border-b border-[var(--cordel-border)]/30 hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
-                  >
-                    <img
-                      src={`${ASSETS_BASE_URL}${opt.iconImg}`}
-                      alt={opt.name}
-                      className="w-5 h-5 object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLElement).style.display = 'none';
-                      }}
-                    />
-                    <span>{opt.name}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
 

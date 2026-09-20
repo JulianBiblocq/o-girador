@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { GripHorizontal } from 'lucide-react';
+import { GripHorizontal, Trash2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
@@ -15,6 +15,7 @@ import { DragNumberBox } from './DragNumberBox';
 import { PanKnob } from './PanKnob';
 import { MixerVolumeFader } from './MixerVolumeFader';
 import { useAudio } from '../contexts/AudioContext';
+import { useSequencer } from '../contexts/SequencerContext';
 import { VUMeter } from './VUMeter';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { reverbSends, distortionSends, subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
@@ -42,6 +43,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   isDragOver = false,
   dropIndicator = null,
 }) => {
+  const sequencer = useSequencer();
   const audio = useAudio();
   const { isPlaying } = audio;
 
@@ -110,35 +112,30 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
     }
   };
 
-  const onDelete = () => {
+  const onDelete = async () => {
     const childTracks = useSequencerStore.getState().tracks.filter(t => String(t.busId) === String(trackId));
+    const busName = track.customName || 'Bus';
     
+    let confirmMsg: string;
     if (childTracks.length > 0) {
-      const confirmMsg = lang === 'fr' 
-        ? "Attention, si vous supprimez ce bus, toutes les pistes audio qui sont à l'intérieur seront supprimées également. Voulez-vous continuer ?" 
+      confirmMsg = lang === 'fr' 
+        ? `Attention : le bus "${busName}" contient ${childTracks.length} piste(s). Sa suppression entraînera également la suppression de toutes les pistes associées. Voulez-vous continuer ?` 
         : lang === 'pt'
-        ? "Atenção: se você excluir este bus, todas as pistas de áudio dentro dele também serão excluídas. Deseja continuar?"
-        : "Warning: if you delete this bus, all audio tracks inside will also be deleted. Do you want to continue?";
-      
-      if (window.confirm(confirmMsg)) {
-        useSequencerStore.getState().pushUndoState();
-        useSequencerStore.getState().setTracks(prev => {
-          return prev.filter(t => t.id !== trackId && String(t.busId) !== String(trackId));
-        });
-      }
+        ? `Atenção: o bus "${busName}" contém ${childTracks.length} faixa(s). Sua exclusão também removerá todas as faixas associadas. Deseja continuar?`
+        : `Warning: the bus "${busName}" contains ${childTracks.length} track(s). Deleting it will also delete all associated tracks. Do you want to continue?`;
     } else {
-      const confirmMsg = lang === 'fr' 
-        ? "Voulez-vous supprimer ce Bus ?" 
+      confirmMsg = lang === 'fr' 
+        ? `Supprimer définitivement le bus "${busName}" ?` 
         : lang === 'pt'
-        ? "Deseja excluir este Bus?"
-        : "Do you want to delete this Bus?";
-      
-      if (window.confirm(confirmMsg)) {
-        useSequencerStore.getState().pushUndoState();
-        useSequencerStore.getState().setTracks(prev => {
-          return prev.filter(t => t.id !== trackId);
-        });
-      }
+        ? `Excluir definitivamente o bus "${busName}"?`
+        : `Permanently delete the bus "${busName}"?`;
+    }
+
+    if (await sequencer.confirmAsync(confirmMsg)) {
+      useSequencerStore.getState().pushUndoState();
+      useSequencerStore.getState().setTracks(prev => {
+        return prev.filter(t => t.id !== trackId && String(t.busId) !== String(trackId));
+      });
     }
   };
 
@@ -376,9 +373,9 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
            <button 
              onClick={onDelete} 
              className="w-6 h-6 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-sm"
-             title={lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o groupe'}
+             title={lang === 'fr' ? 'Supprimer le bus' : 'Excluir o bus'}
            >
-             ✕
+             <Trash2 size={13} />
            </button>
         </div>
 

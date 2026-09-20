@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import { GripHorizontal } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { GripHorizontal, Trash2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
@@ -54,23 +54,6 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   const track = useSequencerStore(useShallow(state => state.tracks.find(t => t.id === trackId)));
   const tracksMeta = useSequencerStore(selectTracksMeta);
 
-  const [instDropdownOpen, setInstDropdownOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function clickOutside(e: MouseEvent | TouchEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setInstDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', clickOutside);
-    document.addEventListener('touchstart', clickOutside);
-    return () => {
-      document.removeEventListener('mousedown', clickOutside);
-      document.removeEventListener('touchstart', clickOutside);
-    };
-  }, []);
-
   const {
     attributes,
     listeners,
@@ -95,8 +78,15 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   const onSoloToggle = () => {
     useSequencerStore.getState().handleTrackSoloToggle(trackId);
   };
-  const onDelete = () => {
-    useSequencerStore.getState().handleTrackDelete(trackId);
+  const handleDeleteTrack = async () => {
+    if (!track) return;
+    const trackName = getTrackDisplayName(track, tracksMeta) || inst?.name || (lang === 'fr' ? 'la piste' : 'a faixa');
+    const confirmMsg = lang === 'fr'
+      ? `Supprimer définitivement la piste liée "${trackName}" et tous ses motifs ?`
+      : `Excluir definitivamente a faixa vinculada "${trackName}" e todos os seus padrões?`;
+    if (await sequencer.confirmAsync(confirmMsg)) {
+      useSequencerStore.getState().handleTrackDelete(trackId);
+    }
   };
   const onVolumeChange = (val: number) => {
     useSequencerStore.getState().handleTrackVolumeChange(trackId, val);
@@ -137,7 +127,7 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    zIndex: instDropdownOpen ? 30 : 1,
+    zIndex: 1,
     '--fader-thumb-bg': faderColor,
     '--fader-thumb-border': 'var(--cordel-border)',
   } as React.CSSProperties;
@@ -316,11 +306,11 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
             <GripHorizontal size={14} />
           </div>
           <button 
-            onClick={onDelete} 
+            onClick={handleDeleteTrack} 
             className="w-5 h-5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-[9px]"
             title={lang === 'fr' ? 'Supprimer la piste' : 'Excluir a faixa'}
           >
-            ✕
+            <Trash2 size={11} />
           </button>
         </div>
 
