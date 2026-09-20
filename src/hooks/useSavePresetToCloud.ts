@@ -88,9 +88,28 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
       let targetDocId: string | undefined = undefined;
       if (existingPreset) {
         const isOwnPreset = existingPreset.ownerId === userProfile.uid;
+        const isMestre = userProfile.role === 'mestre' || (userProfile.dbRole as any) === 'mestre' || userProfile.uid === myGroupMestreId;
+        const isPresetLocked = (existingPreset as any).isLocked === true;
+
+        if (isPresetLocked && !isMestre && !isAdmin) {
+          await sequencer.alertAsync(lang === 'fr'
+            ? `🔒 Le morceau "${presetName}" est verrouillé par le Mestre. Il ne peut être ni modifié ni écrasé par un élève.`
+            : `🔒 A música "${presetName}" está bloqueada pelo Mestre. Não pode ser modificada nem sobrescrita.`);
+          setIsSaving(false);
+          return;
+        }
+
+        if (!isOwnPreset && !isMestre && !isAdmin) {
+          await sequencer.alertAsync(lang === 'fr'
+            ? `⚠️ Le morceau "${presetName}" a été créé par le Mestre ou un autre membre. Vous ne pouvez pas l'écraser. Veuillez choisir un autre nom pour votre version personnelle.`
+            : `⚠️ A música "${presetName}" foi criada pelo Mestre ou por outro membro. Você não pode sobrescrevê-la. Escolha outro nome para sua versão pessoal.`);
+          setIsSaving(false);
+          return;
+        }
+
         const confirmMessage = isOwnPreset
           ? (lang === 'fr' ? `Le preset "${presetName}" existe déjà. Voulez-vous le remplacer ?` : `O preset "${presetName}" já existe. Deseja substituí-lo?`)
-          : (lang === 'fr' ? `⚠️ Attention : Le preset "${presetName}" a été créé par un autre utilisateur. Voulez-vous vraiment le remplacer ?` : `⚠️ Atenção: O preset "${presetName}" foi criado por outra pessoa. Deseja substituí-lo?`);
+          : (lang === 'fr' ? `⚠️ Attention : Le preset "${presetName}" a été créé par un autre utilisateur. En tant que Mestre/Admin, voulez-vous vraiment le remplacer ?` : `⚠️ Atenção: O preset "${presetName}" foi criado por outra pessoa. Deseja substituí-lo?`);
         
         const confirmReplace = await sequencer.confirmAsync(confirmMessage);
         if (!confirmReplace) {
