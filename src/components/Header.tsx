@@ -88,6 +88,9 @@ interface HeaderProps {
     name: string;
     visibility?: string;
     groupId?: string | null;
+    ownerId?: string;
+    mestreId?: string | null;
+    [key: string]: any;
   }[];
   isCloudPresetsLoading?: boolean;
 

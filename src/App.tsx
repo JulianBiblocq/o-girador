@@ -218,10 +218,13 @@ export default function App() {
 
   const cloudPresets = useMemo(() => {
     return (cloudPresetsData || []).map(p => ({
+      ...p,
       id: p.id,
       name: p.name,
       visibility: p.visibility,
-      groupId: p.groupId
+      groupId: p.groupId,
+      ownerId: p.ownerId,
+      mestreId: p.mestreId
     }));
   }, [cloudPresetsData]);
 
