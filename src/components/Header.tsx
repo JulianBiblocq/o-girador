@@ -30,6 +30,7 @@ import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { MiniTelemetryBadge } from './TelemetryBadge';
 import { useWizardStore } from '../stores/useWizardStore';
 import { PresetAccordionSelector } from './PresetAccordionSelector';
+import { isPresetAuthorized } from '../cloudLibrary';
 
 const UndoIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg
@@ -198,7 +199,18 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const isPublicPreset = (p: { visibility?: string }) =>
     p.visibility === 'admin_global' || p.visibility === 'public';
   const publicCloudPresets = (cloudPresets || []).filter(isPublicPreset);
-  const privateCloudPresets = (cloudPresets || []).filter((p) => !isPublicPreset(p));
+  const privateCloudPresets = (cloudPresets || []).filter((p) => {
+    if (isPublicPreset(p)) return false;
+    return isPresetAuthorized(
+      p as any,
+      userProfile?.uid || '',
+      userProfile?.role || '',
+      userProfile?.mestreId || (isSamambaia ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : null),
+      userProfile?.groupId,
+      isSamambaia,
+      userProfile?.canWriteSequenciador
+    );
+  });
   const showGroupCatalogue = Boolean(groupLabel && (privateCloudPresets.length > 0 || isSamambaia || userProfile?.groupId));
   const onMasterVolChange = setMasterVol;
   const onTotalMeasuresChange = setTotalMeasures;
