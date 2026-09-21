@@ -85,6 +85,27 @@ export const XiloDistortion: React.FC<XiloIconProps> = ({ size = 16, className =
   </svg>
 );
 
+// ⚡ Éclair Cordel / Entraînement (Woodcut Chisel Lightning)
+export const XiloLightning: React.FC<XiloIconProps> = ({ size = 16, className = '', ...props }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="currentColor" 
+    className={`xilo-icon ${className}`} 
+    {...props}
+  >
+    {/* Woodcut carved lightning bolt with sharp chisel facets */}
+    <path 
+      d="M13.8,1.2 L4.2,12.8 L10.8,12.8 L8.2,22.8 L19.8,9.8 L13.2,9.8 L15.2,1.2 Z" 
+      stroke="currentColor" 
+      strokeWidth="0.6" 
+      strokeLinejoin="miter"
+    />
+  </svg>
+);
+
+
 // ✏️ Ciseau à bois / Éditer (Chisel)
 export const XiloChisel: React.FC<XiloIconProps> = ({ size = 16, className = '', ...props }) => (
   <svg 
@@ -385,8 +406,8 @@ export const XiloInfo: React.FC<XiloIconProps> = ({ size = 16, className = '', .
   </svg>
 );
 
-// 📝 Scroll/Document (Toada lyrics)
-export const XiloScroll: React.FC<XiloIconProps> = ({ size = 16, className = '', ...props }) => (
+// 📝 Document (Fiche/Feuille)
+export const XiloDocument: React.FC<XiloIconProps> = ({ size = 16, className = '', ...props }) => (
   <svg 
     width={size} 
     height={size} 
@@ -489,5 +510,54 @@ export const XiloMegaphone: React.FC<XiloIconProps> = ({ size = 16, className = 
     <path d="M21.5,6.5 C23.5,8.2 23.5,15.8 21.5,17.5" strokeWidth="2" strokeDasharray="1.5 2" />
   </svg>
 );
+
+// 📜 Parchemin / Gabarit de Batuque (Cordel Woodcut Scroll / Folheto)
+export const XiloScroll: React.FC<XiloIconProps> = ({ size = 16, className = '', ...props }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2.2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={`xilo-icon ${className}`} 
+    {...props}
+  >
+    {/* Fond du parchemin avec texture linogravure semi-transparente */}
+    <path 
+      d="M5.5 6.5 C8.5 5.8 13.5 6.5 18.5 5.8 L18.5 17.5 C14.5 18.2 9.5 17.5 5.5 18.2 Z" 
+      fill="currentColor" 
+      fillOpacity="0.12" 
+      stroke="none"
+    />
+    {/* Enroulement supérieur (volute en bois gravé) */}
+    <path 
+      d="M4.5 6.5 C3.8 5 4.8 3.5 6.8 3 C10.2 2.2 14.8 3 17.8 2.3 C19.5 2 20.5 3 20.2 4.8 C19.8 6.5 17 6.2 15 6.2 L5.5 6.2" 
+    />
+    <path 
+      d="M4.5 6.5 C4.2 7.4 5.2 7.8 6.2 7.6 C7.5 7.3 7.8 6 7.2 5" 
+      strokeWidth="1.8"
+    />
+    {/* Bords verticaux taillés à la gouge */}
+    <path d="M5.5 6.5 L5.2 18.2" />
+    <path d="M19.2 5.5 L18.8 17.5" />
+    {/* Enroulement inférieur (volute inversée) */}
+    <path 
+      d="M19.5 17.5 C20.2 19 19.2 20.5 17.2 21 C13.8 21.8 9.2 21 6.2 21.7 C4.5 22 3.5 21 3.8 19.2 C4.2 17.5 7 17.8 9 17.8 L18.5 17.8" 
+    />
+    <path 
+      d="M19.5 17.5 C19.8 16.6 18.8 16.2 17.8 16.4 C16.5 16.7 16.2 18 16.8 19" 
+      strokeWidth="1.8"
+    />
+    {/* Traits de gravure intérieurs (chansons et motifs du Cordel) */}
+    <path d="M8.5 10.2 C11 9.8 13.5 10.4 16 10" strokeWidth="1.8" />
+    <path d="M8 12.8 C10.5 12.5 13 13 15.5 12.6" strokeWidth="1.8" />
+    <path d="M8.5 15.4 C10.2 15.1 12 15.5 14 15.2" strokeWidth="1.8" />
+  </svg>
+);
+
+export const XiloParchment = XiloScroll;
 
 

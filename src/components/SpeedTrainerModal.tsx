@@ -10,7 +10,8 @@ import { useAudio } from '../contexts/AudioContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { i18n } from '../data';
 import { SpeedTrainerConfig } from '../types/speedTrainer.types';
-import { Zap, X, Minus, Plus, Square, Info } from 'lucide-react';
+import { X, Minus, Plus, Square, Info } from 'lucide-react';
+import { XiloLightning } from './XiloIcons';
 
 interface HoldButtonProps {
   onAction: () => void;
@@ -267,8 +268,8 @@ export const SpeedTrainerModal: React.FC = () => {
         {/* Header */}
         <div className="p-3 sm:p-4 bg-[#ebe2cb] border-b-2 border-[#1a1a1a] flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-7 h-7 rounded-xs bg-amber-500/20 border border-amber-600 flex items-center justify-center text-amber-700 font-bold text-sm shadow-[1px_1px_0px_#1a1a1a]">
-              ⚡
+            <span className="w-7 h-7 rounded-xs bg-amber-500/20 border border-amber-600 flex items-center justify-center text-amber-700 shadow-[1px_1px_0px_#1a1a1a]">
+              <XiloLightning size={16} />
             </span>
             <div>
               <h2 className="font-cactus font-bold text-lg sm:text-xl uppercase tracking-wide leading-none">
@@ -585,7 +586,7 @@ export const SpeedTrainerModal: React.FC = () => {
               onClick={handleLaunch}
               className="w-full py-2.5 px-4 bg-amber-600 text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-sm uppercase tracking-wider shadow-[3px_3px_0px_#1a1a1a] hover:bg-amber-700 active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_#1a1a1a] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Zap className="w-4 h-4 fill-current" />
+              <XiloLightning size={16} className="fill-current" />
               {t('speedTrainerLaunch')}
             </button>
           )}

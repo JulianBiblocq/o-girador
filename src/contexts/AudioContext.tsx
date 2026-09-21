@@ -242,26 +242,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     reverbDecay
   });
 
-  // Dynamic layout radial positioning offsets
-  const updateRadii = (list: TrackGroup[]) => {
-    const visibleList = list.filter(t => {
-      const inst = instrumentsConfig[t.instrumentIdx];
-      return !t.isHidden && inst?.id !== 'apito';
-    });
-    if (visibleList.length === 0) return;
-    const minRadius = 180;
-    const maxRadius = 495;
-
-    if (visibleList.length === 1) {
-      visibleList[0].radius = (minRadius + maxRadius) / 2;
-    } else {
-      const gap = (maxRadius - minRadius) / (visibleList.length - 1);
-      visibleList.forEach((t, idx) => {
-        t.radius = minRadius + idx * gap;
-      });
-    }
-  };
-
   const normalizePatternData = (p: Pattern, instIdx: number, targetMeasures: number) => {
     if (!p.notes) p.notes = Array(p.steps).fill('');
     if (!p.lyrics) p.lyrics = Array(p.steps).fill('');
@@ -440,9 +420,16 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       }
 
-      updateRadii(loadedTracks);
+      // Sanitize and restore rodaTrackOrder (Retrocompatibilité & Assainissement)
+      const loadedTrackIds = new Set(loadedTracks.map(t => t.id));
+      const rawRodaOrder = Array.isArray(p.rodaTrackOrder) ? p.rodaTrackOrder : [];
+      const validExisting = rawRodaOrder.filter((id: any) => typeof id === 'number' && loadedTrackIds.has(id));
+      const missing = loadedTracks.map(t => t.id).filter(id => !validExisting.includes(id));
+      const finalRodaOrder = [...validExisting, ...missing];
 
+      useSequencerStore.setState({ rodaTrackOrder: finalRodaOrder });
       useSequencerStore.getState().setTracks(loadedTracks);
+      useSequencerStore.getState().setRodaTrackOrder(finalRodaOrder);
       useSequencerStore.getState().resetSpeedTrainerConfig();
       sequencer.setTotalMeasures(loadedMeasures);
       sequencer.setBpmRaw(Math.round(p.bpm || 90));
@@ -723,6 +710,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       version: 3,
       totalMeasures: storeState.totalMeasures,
       tracks: tracksCopy,
+      rodaTrackOrder: storeState.rodaTrackOrder,
       letras: sequencer.letras,
       metadata: cleanMetadata,
       measureTimeSigs: storeState.measureTimeSigs,

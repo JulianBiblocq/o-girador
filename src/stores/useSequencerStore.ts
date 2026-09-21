@@ -1,6 +1,6 @@
 import { create, StateCreator } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
-import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX, CloudRhythmSignal, StepSculptValue, SpeedTrainerSlice } from '../types';
+import { TrackGroup, TimeSignature, SongSection, Pattern, PresetMetadata, Language, SongMarker, MasterFX, CloudRhythmSignal, StepSculptValue, SpeedTrainerSlice, WorkspaceTemplate } from '../types';
 import { createSpeedTrainerSlice } from './slices/speedTrainerSlice';
 
 import { usePerformanceStore } from './usePerformanceStore';
@@ -25,7 +25,21 @@ export interface TrackSlice {
   setIsPatternRecording: (val: boolean | ((prev: boolean) => boolean)) => void;
   togglePatternRecording: () => void;
   updatePatternStep: (trackId: number, patternId: number, stepIdx: number, char: string | number | [string, string]) => void;
+  rodaTrackOrder: number[];
+  setRodaTrackOrder: (order: number[] | ((prev: number[]) => number[])) => void;
+  handleReorderRodaTracks: (activeId: number, overId: number) => void;
+  handleReorderMixerTracks: (activeId: number, overId: number) => void;
   setTracks: (tracks: TrackGroup[] | ((prev: TrackGroup[]) => TrackGroup[])) => void;
+  handleCreateFromTemplate: (
+    template: WorkspaceTemplate,
+    audio?: {
+      setMasterEQ?: (eq: { low: number; mid: number; high: number }) => void;
+      setMasterCompressor?: (comp: { threshold: number; ratio: number }) => void;
+      setMasterVol?: (vol: number) => void;
+      setReverbDecay?: (decay: number) => void;
+      setMasterReverbVol?: (vol: number) => void;
+    }
+  ) => void;
   setActiveAoVivoTrackId: (id: number | null) => void;
   handleReorderTracksDnd: (activeId: number, overId: number) => void;
   handleTrackInstrumentIdxChange: (id: number, targetInstIdx: number) => void;
@@ -44,6 +58,7 @@ export interface TrackSlice {
   setTrackFxSend: (trackId: number, fxType: 'reverb' | 'distortion', value: number) => void;
   setTrackPan: (trackId: number, value: number) => void;
   handleLinkTrack: (trackId: number, linkedToTrackId: string | null) => void;
+  handleDetachTrack: (trackId: number) => void;
   handleCreateLinkGroup: (trackId: number, name: string) => void;
   handleSetPatternOverride: (trackId: number, measureIdx: number, patternId: number | null | undefined) => void;
   handleTimelinePatternAssign: (trackId: number, patternId: number | null | undefined, measureIdx: number) => void;
@@ -179,12 +194,28 @@ export const isLinearDAWVisibleTrack = (t: TrackGroup, allTracks: TrackGroup[]):
   return !t.isBusFolder;
 };
 
-const applyRadii = (list: TrackGroup[]): TrackGroup[] => {
+export const sanitizeRodaTrackOrder = (currentOrder: number[] | undefined, tracks: TrackGroup[]): number[] => {
+  const trackIdSet = new Set(tracks.map(t => t.id));
+  const validExisting = (currentOrder || []).filter(id => trackIdSet.has(id));
+  const missing = tracks.map(t => t.id).filter(id => !validExisting.includes(id));
+  return [...validExisting, ...missing];
+};
+
+export const applyRadii = (list: TrackGroup[], rodaTrackOrder?: number[]): TrackGroup[] => {
+  const order = rodaTrackOrder && rodaTrackOrder.length > 0 ? rodaTrackOrder : list.map(t => t.id);
+  const orderMap = new Map(order.map((id, index) => [id, index]));
+
   const drawableTracks = list.filter(t => 
     !t.isHidden && 
     isSequencerVisibleTrack(t, list) && 
     instrumentsConfig[t.instrumentIdx]?.id !== 'apito'
   );
+
+  drawableTracks.sort((a, b) => {
+    const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
+    const idxB = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999;
+    return idxA - idxB;
+  });
 
   const gap = drawableTracks.length > 1 ? (495 - 180) / (drawableTracks.length - 1) : 0;
   
@@ -203,6 +234,7 @@ const applyRadii = (list: TrackGroup[]): TrackGroup[] => {
 
 const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set, get) => ({
   tracks: [],
+  rodaTrackOrder: [],
   activeAoVivoTrackId: null,
   tracksVersion: 0,
   armedTrackId: null,
@@ -279,14 +311,112 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
   setTracks: (updater) => set(state => {
     let nextTracks = typeof updater === 'function' ? (updater as any)(state.tracks) : updater;
     nextTracks = ensureToadaBus(nextTracks);
+    const nextRodaOrder = sanitizeRodaTrackOrder(state.rodaTrackOrder, nextTracks);
     return {
-      tracks: nextTracks,
+      tracks: applyRadii(nextTracks, nextRodaOrder),
+      rodaTrackOrder: nextRodaOrder,
       tracksVersion: state.tracksVersion + 1
     };
   }),
+  setRodaTrackOrder: (updater) => set(state => {
+    const rawOrder = typeof updater === 'function' ? updater(state.rodaTrackOrder) : updater;
+    const nextOrder = sanitizeRodaTrackOrder(rawOrder, state.tracks);
+    return {
+      rodaTrackOrder: nextOrder,
+      tracks: applyRadii(state.tracks, nextOrder),
+      tracksVersion: state.tracksVersion + 1
+    };
+  }),
+  handleReorderRodaTracks: (activeId, overId) => {
+    if (activeId === overId) return;
+    get().pushUndoState();
+    set(state => {
+      const currentOrder = sanitizeRodaTrackOrder(state.rodaTrackOrder, state.tracks);
+      const activeTrack = state.tracks.find(t => t.id === activeId);
+      if (!activeTrack) return {};
+
+      // Pistes esclaves liées (Track Linking : Marcante -> Meião, Repique ou Toada -> Puxador, Coro)
+      const isToada = isToadaBus(activeTrack);
+      const linkedSlaves = state.tracks.filter(t => {
+        if (t.id === activeId) return false;
+        if (isToada && isToadaChild(t, state.tracks)) return true;
+        if (t.linkedToTrackId && String(t.linkedToTrackId) === String(activeTrack.id)) return true;
+        if (activeTrack.linkedToTrackId && activeTrack.isLinkMaster && String(t.linkedToTrackId) === String(activeTrack.linkedToTrackId)) return true;
+        return false;
+      });
+
+      // Si le glissement vise un esclave d'un autre groupe maître, réajuster la cible pour préserver la contiguïté du groupe cible
+      const overTrack = state.tracks.find(t => t.id === overId);
+      let effectiveOverId = overId;
+      if (overTrack) {
+        const overParentMaster = state.tracks.find(t => 
+          t.id !== overTrack.id && (
+            (overTrack.linkedToTrackId && String(t.id) === String(overTrack.linkedToTrackId)) ||
+            (overTrack.linkedToTrackId && t.isLinkMaster && String(t.linkedToTrackId) === String(overTrack.linkedToTrackId)) ||
+            (isToadaBus(t) && isToadaChild(overTrack, state.tracks))
+          )
+        );
+        if (overParentMaster && !linkedSlaves.some(s => s.id === overParentMaster.id)) {
+          const isToadaOver = isToadaBus(overParentMaster);
+          const overSlaves = state.tracks.filter(t => 
+            t.id !== overParentMaster.id && (
+              (isToadaOver && isToadaChild(t, state.tracks)) ||
+              (t.linkedToTrackId && String(t.linkedToTrackId) === String(overParentMaster.id)) ||
+              (overParentMaster.linkedToTrackId && overParentMaster.isLinkMaster && String(t.linkedToTrackId) === String(overParentMaster.linkedToTrackId))
+            )
+          );
+          const overBlockIds = [overParentMaster.id, ...overSlaves.map(s => s.id)];
+          const oldIdx = currentOrder.indexOf(activeId);
+          const overIdx = currentOrder.indexOf(overId);
+          if (oldIdx < overIdx) {
+            let maxIdx = -1;
+            let lastId = overParentMaster.id;
+            overBlockIds.forEach(id => {
+              const idx = currentOrder.indexOf(id);
+              if (idx > maxIdx) {
+                maxIdx = idx;
+                lastId = id;
+              }
+            });
+            effectiveOverId = lastId;
+          } else {
+            effectiveOverId = overParentMaster.id;
+          }
+        }
+      }
+
+      const slaveIds = linkedSlaves.map(s => s.id);
+      slaveIds.sort((a, b) => currentOrder.indexOf(a) - currentOrder.indexOf(b));
+
+      const blockIds = [activeId, ...slaveIds];
+      const remainingOrder = currentOrder.filter(id => !blockIds.includes(id));
+
+      const oldIndex = currentOrder.indexOf(activeId);
+      const targetIdx = remainingOrder.indexOf(effectiveOverId);
+      if (oldIndex === -1 || targetIdx === -1) return {};
+
+      const overIndex = currentOrder.indexOf(effectiveOverId);
+      const isDropAfter = oldIndex < overIndex;
+
+      let insertIdx = isDropAfter ? targetIdx + 1 : targetIdx;
+      insertIdx = Math.max(0, Math.min(remainingOrder.length, insertIdx));
+
+      const nextOrder = [
+        ...remainingOrder.slice(0, insertIdx),
+        ...blockIds,
+        ...remainingOrder.slice(insertIdx)
+      ];
+
+      return {
+        rodaTrackOrder: nextOrder,
+        tracks: applyRadii(state.tracks, nextOrder),
+        tracksVersion: state.tracksVersion + 1
+      };
+    });
+  },
   setActiveAoVivoTrackId: (id) => set({ activeAoVivoTrackId: id }),
   
-  handleReorderTracksDnd: (activeId, overId) => {
+  handleReorderMixerTracks: (activeId, overId) => {
     if (activeId === overId) return;
 
     // Helper récursif interne pour forcer l'alignement hiérarchique physique dans le store
@@ -300,7 +430,7 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
         }
         const busIdStr = t.busId;
         if (!busIdStr) return true;
-        const hasParent = tracksList.some(p => String(p.id) === String(busIdStr));
+        const hasParent = tracksList.some(p => p.id !== t.id && String(p.id) === String(busIdStr));
         return !hasParent;
       };
 
@@ -350,11 +480,39 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       const draggedTrack = currentTracks[oldIndex];
       const overTrack = currentTracks[newIndex];
 
-      // --- RÈGLE C : Dépôt sur un dossier de Bus / Groupe de Liaison (Routage) ---
-      if (overTrack.isBusFolder && !draggedTrack.isBusFolder) {
-        if (draggedTrack.busId !== String(overTrack.id)) {
-          const targetBusId = String(overTrack.id);
-          const isLink = !!overTrack.isLinkFolder;
+      // Helper pour déterminer l'identifiant d'un groupe de liaison (Track Linking)
+      const getLinkGroupId = (t: TrackGroup, list: TrackGroup[]): string | null => {
+        if (t.isLinkFolder) return String(t.id);
+        if (t.linkedToTrackId) return String(t.linkedToTrackId);
+        if (t.isLinkMaster) return String(t.id);
+        const hasSlaves = list.some(other => other.linkedToTrackId && String(other.linkedToTrackId) === String(t.id));
+        if (hasSlaves) return String(t.id);
+        return null;
+      };
+
+      // Helper pour déterminer si une piste candidate appartient au même bloc solidaire que reference
+      const isMemberOfSolidBlock = (candidate: TrackGroup, reference: TrackGroup, list: TrackGroup[]): boolean => {
+        const refLinkId = getLinkGroupId(reference, list);
+        if (refLinkId) {
+          return getLinkGroupId(candidate, list) === refLinkId;
+        }
+        if (reference.isBusFolder && !reference.isLinkFolder) {
+          return candidate.id === reference.id || String(candidate.busId) === String(reference.id);
+        }
+        return candidate.id === reference.id;
+      };
+
+      // --- CAS 1 : Routage vers un autre Bus Audio ou Dossier de Liaison dans le Mixeur ---
+      const targetBusIdStr = overTrack.isBusFolder 
+        ? String(overTrack.id) 
+        : (overTrack.busId ? String(overTrack.busId) : (overTrack.linkedToTrackId ? String(overTrack.linkedToTrackId) : null));
+      const targetBus = targetBusIdStr ? currentTracks.find(t => String(t.id) === targetBusIdStr && t.isBusFolder) : null;
+
+      if (targetBus && !draggedTrack.isBusFolder) {
+        const isCurrentBusMember = String(draggedTrack.busId) === String(targetBus.id) || String(draggedTrack.linkedToTrackId) === String(targetBus.id);
+        if (!isCurrentBusMember) {
+          const targetBusId = String(targetBus.id);
+          const isLink = !!targetBus.isLinkFolder;
 
           const updatedTrack: TrackGroup = {
             ...draggedTrack,
@@ -363,91 +521,126 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
             isLinkMaster: isLink ? false : undefined
           };
 
-          let nextTracks = currentTracks.filter(t => t.id !== activeId);
-          const busIdxInNext = nextTracks.findIndex(t => t.id === overTrack.id);
-          nextTracks.splice(busIdxInNext + 1, 0, updatedTrack);
+          const remainingTracks = currentTracks.filter(t => t.id !== activeId);
+          const targetIdxInRemaining = remainingTracks.findIndex(t => t.id === overTrack.id);
+          const insertIdx = targetIdxInRemaining !== -1 ? targetIdxInRemaining + 1 : remainingTracks.length;
+
+          const nextTracks = [
+            ...remainingTracks.slice(0, insertIdx),
+            updatedTrack,
+            ...remainingTracks.slice(insertIdx)
+          ];
 
           return {
-            tracks: applyRadii(sortTracksHierarchically(nextTracks)),
+            tracks: applyRadii(sortTracksHierarchically(nextTracks), state.rodaTrackOrder),
             tracksVersion: state.tracksVersion + 1
           };
         }
       }
 
-      // --- RÈGLE B : Drag d'un Enfant (Déracinage automatique s'il sort du bloc) ---
-      if (draggedTrack.busId && !draggedTrack.isBusFolder) {
-        const busId = draggedTrack.busId;
-        const groupIndices = currentTracks
-          .map((t, idx) => (String(t.id) === String(busId) || String(t.busId) === String(busId) ? idx : -1))
-          .filter(idx => idx !== -1);
-
-        if (groupIndices.length > 0) {
-          const minLimit = Math.min(...groupIndices);
-          const maxLimit = Math.max(...groupIndices);
-
-          if (newIndex < minLimit || newIndex > maxLimit) {
-            const updatedTrack: TrackGroup = {
-              ...draggedTrack,
-              busId: undefined,
-              linkedToTrackId: undefined,
-              isLinkMaster: undefined
-            };
-
-            const tempTracks = currentTracks.map(t => t.id === activeId ? updatedTrack : t);
-            const nextTracks = arrayMove(tempTracks, oldIndex, newIndex) as TrackGroup[];
-
-            return {
-              tracks: applyRadii(sortTracksHierarchically(nextTracks)),
-              tracksVersion: state.tracksVersion + 1
-            };
-          }
-        }
-        
-        const newTracks = arrayMove(currentTracks, oldIndex, newIndex) as TrackGroup[];
-        return {
-          tracks: applyRadii(sortTracksHierarchically(newTracks)),
-          tracksVersion: state.tracksVersion + 1
+      // --- CAS 2 : Piste individuelle glissée nettement en dehors de son bus vers une piste autonome ---
+      if (draggedTrack.busId && !targetBus && !draggedTrack.isBusFolder) {
+        const updatedTrack: TrackGroup = {
+          ...draggedTrack,
+          busId: undefined,
+          linkedToTrackId: undefined,
+          isLinkMaster: undefined
         };
-      }
 
-      // --- RÈGLE A : Drag d'un Bus (Déplacement par Bloc) ---
-      if (draggedTrack.isBusFolder) {
-        const busId = draggedTrack.id;
+        const remainingTracks = currentTracks.filter(t => t.id !== activeId);
+        const targetIdxInRemaining = remainingTracks.findIndex(t => t.id === overTrack.id);
+        const isDropAfter = oldIndex < newIndex;
+        const insertIdx = targetIdxInRemaining !== -1
+          ? (isDropAfter ? targetIdxInRemaining + 1 : targetIdxInRemaining)
+          : remainingTracks.length;
 
-        const blockTracks = currentTracks.filter(t => String(t.id) === String(busId) || String(t.busId) === String(busId));
-        const remainingTracks = currentTracks.filter(t => String(t.id) !== String(busId) && String(t.busId) !== String(busId));
-
-        const targetTrack = currentTracks[newIndex];
-        let insertIndex = remainingTracks.findIndex(t => t.id === targetTrack.id);
-        
-        if (oldIndex < newIndex) {
-          insertIndex = insertIndex + 1;
-        }
-
-        if (insertIndex === -1) {
-          insertIndex = oldIndex < newIndex ? remainingTracks.length : 0;
-        }
-
-        const finalTracks = [
-          ...remainingTracks.slice(0, insertIndex),
-          ...blockTracks,
-          ...remainingTracks.slice(insertIndex)
+        const nextTracks = [
+          ...remainingTracks.slice(0, insertIdx),
+          updatedTrack,
+          ...remainingTracks.slice(insertIdx)
         ];
 
         return {
-          tracks: applyRadii(sortTracksHierarchically(finalTracks)),
+          tracks: applyRadii(sortTracksHierarchically(nextTracks), state.rodaTrackOrder),
           tracksVersion: state.tracksVersion + 1
         };
       }
 
-      // Déplacement standard pour les pistes autonomes
-      const newTracks = arrayMove(currentTracks, oldIndex, newIndex) as TrackGroup[];
+      // --- CAS 3 : Réarrangement interne au sein du même groupe ou bus ---
+      const isSameAudioBus = !!(draggedTrack.busId && overTrack.busId && String(draggedTrack.busId) === String(overTrack.busId));
+      const blockTracks = currentTracks.filter(t => isMemberOfSolidBlock(t, draggedTrack, currentTracks));
+      const isInternal = (blockTracks.length > 1 && blockTracks.some(t => t.id === overTrack.id)) || isSameAudioBus;
+
+      if (isInternal) {
+        const linkId = getLinkGroupId(draggedTrack, currentTracks);
+
+        // Si c'est un Track Linking (ex: Alfaias)
+        if (linkId) {
+          const folders = blockTracks.filter(t => t.isLinkFolder);
+          const masters = blockTracks.filter(t => t.isLinkMaster && !t.isLinkFolder);
+          let slaves = blockTracks.filter(t => !t.isLinkMaster && !t.isLinkFolder);
+
+          const oldSlaveIdx = slaves.findIndex(t => t.id === draggedTrack.id);
+          const newSlaveIdx = slaves.findIndex(t => t.id === overTrack.id);
+
+          if (oldSlaveIdx !== -1 && newSlaveIdx !== -1) {
+            slaves = arrayMove(slaves, oldSlaveIdx, newSlaveIdx);
+          }
+
+          const reorderedBlock = [...folders, ...masters, ...slaves];
+
+          let blockIdx = 0;
+          const nextTracks = currentTracks.map(t => {
+            if (isMemberOfSolidBlock(t, draggedTrack, currentTracks)) {
+              return reorderedBlock[blockIdx++];
+            }
+            return t;
+          });
+
+          return {
+            tracks: applyRadii(sortTracksHierarchically(nextTracks), state.rodaTrackOrder),
+            tracksVersion: state.tracksVersion + 1
+          };
+        }
+
+        // Si c'est un Bus audio (non-link) : toutes les tranches peuvent s'intervertir librement
+        const newTracks = arrayMove(currentTracks, oldIndex, newIndex) as TrackGroup[];
+        return {
+          tracks: applyRadii(sortTracksHierarchically(newTracks), state.rodaTrackOrder),
+          tracksVersion: state.tracksVersion + 1
+        };
+      }
+
+      // --- CAS 4 : Déplacement Solidaire par Bloc (ou piste autonome) vers l'extérieur ---
+      const remainingTracks = currentTracks.filter(t => !isMemberOfSolidBlock(t, draggedTrack, currentTracks));
+
+      const firstBlockIdx = currentTracks.findIndex(t => isMemberOfSolidBlock(t, draggedTrack, currentTracks));
+      const isDropAfter = firstBlockIdx < newIndex;
+
+      const targetIdx = remainingTracks.findIndex(t => t.id === overTrack.id);
+      let insertIdx: number;
+
+      if (targetIdx === -1) {
+        insertIdx = isDropAfter ? remainingTracks.length : 0;
+      } else {
+        insertIdx = isDropAfter ? targetIdx + 1 : targetIdx;
+      }
+
+      insertIdx = Math.max(0, Math.min(remainingTracks.length, insertIdx));
+
+      const newTracks = [
+        ...remainingTracks.slice(0, insertIdx),
+        ...blockTracks,
+        ...remainingTracks.slice(insertIdx)
+      ];
+
       return {
-        tracks: applyRadii(sortTracksHierarchically(newTracks)),
+        tracks: applyRadii(sortTracksHierarchically(newTracks), state.rodaTrackOrder),
         tracksVersion: state.tracksVersion + 1
       };
     });
   },
+  handleReorderTracksDnd: (activeId, overId) => get().handleReorderMixerTracks(activeId, overId),
 
   handleTrackInstrumentIdxChange: (id, targetInstIdx) => {
     get().pushUndoState();
@@ -528,9 +721,11 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
 
       // Effectuer la suppression physique de la piste
       const remaining = updated.filter((t) => t.id !== id);
+      const nextRodaOrder = sanitizeRodaTrackOrder(state.rodaTrackOrder, remaining);
 
       return { 
-        tracks: applyRadii(remaining),
+        tracks: applyRadii(remaining, nextRodaOrder),
+        rodaTrackOrder: nextRodaOrder,
         tracksVersion: state.tracksVersion + 1
       };
     });
@@ -988,6 +1183,119 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
     });
   },
 
+  handleDetachTrack: (trackId) => {
+    get().pushUndoState();
+    set((state) => {
+      const target = state.tracks.find(t => t.id === trackId);
+      if (!target) return {};
+
+      let updated = [...state.tracks];
+
+      // Cas 1 : Piste liée (Track Linking)
+      if (target.linkedToTrackId) {
+        const busId = target.linkedToTrackId;
+        const busTrack = updated.find(t => String(t.id) === String(busId) && t.isLinkFolder);
+        const patternsToCopy = busTrack ? JSON.parse(JSON.stringify(busTrack.patterns)) : [];
+
+        if (target.isLinkMaster) {
+          // Si le maître se détache :
+          const otherSlaves = updated.filter(t => t.id !== trackId && String(t.linkedToTrackId) === String(busId) && !t.isLinkFolder);
+          if (otherSlaves.length > 1) {
+            // Promouvoir le premier esclave restant comme nouveau master
+            const newMasterId = otherSlaves[0].id;
+            updated = updated.map(t => {
+              if (t.id === trackId) {
+                return {
+                  ...t,
+                  linkedToTrackId: undefined,
+                  isLinkMaster: undefined,
+                  busId: undefined,
+                  patterns: patternsToCopy.length ? patternsToCopy : t.patterns
+                };
+              }
+              if (t.id === newMasterId) {
+                return { ...t, isLinkMaster: true };
+              }
+              return t;
+            });
+          } else {
+            // S'il n'y a plus qu'un esclave ou aucun, dissoudre tout le groupe de liaison
+            updated = updated.map(t => {
+              if (String(t.linkedToTrackId) === String(busId)) {
+                return {
+                  ...t,
+                  linkedToTrackId: undefined,
+                  isLinkMaster: undefined,
+                  busId: undefined,
+                  patterns: patternsToCopy.length ? patternsToCopy : t.patterns
+                };
+              }
+              return t;
+            });
+            // Supprimer le bus folder
+            updated = updated.filter(t => String(t.id) !== String(busId));
+          }
+        } else {
+          // C'est un esclave qui se détache :
+          updated = updated.map(t => {
+            if (t.id === trackId) {
+              return {
+                ...t,
+                linkedToTrackId: undefined,
+                isLinkMaster: undefined,
+                busId: undefined,
+                patterns: patternsToCopy.length ? patternsToCopy : t.patterns
+              };
+            }
+            return t;
+          });
+
+          // Vérifier combien d'esclaves il reste
+          const remainingSlaves = updated.filter(t => String(t.linkedToTrackId) === String(busId) && !t.isLinkMaster && !t.isLinkFolder);
+          // S'il ne reste aucun esclave (seul le master subsiste), dissoudre le groupe
+          if (remainingSlaves.length === 0) {
+            updated = updated.map(t => {
+              if (String(t.linkedToTrackId) === String(busId)) {
+                return {
+                  ...t,
+                  linkedToTrackId: undefined,
+                  isLinkMaster: undefined,
+                  busId: undefined,
+                  patterns: patternsToCopy.length ? patternsToCopy : t.patterns
+                };
+              }
+              return t;
+            });
+            updated = updated.filter(t => String(t.id) !== String(busId));
+          }
+        }
+      } else if (target.busId) {
+        // Cas 2 : Piste dans un bus audio standard
+        const busId = target.busId;
+        updated = updated.map(t => {
+          if (t.id === trackId) {
+            return {
+              ...t,
+              busId: undefined
+            };
+          }
+          return t;
+        });
+
+        // Si le bus audio n'a plus d'enfants physiques, on supprime le bus folder vide
+        const remainingChildren = updated.filter(t => String(t.busId) === String(busId) && !t.isBusFolder);
+        if (remainingChildren.length === 0) {
+          updated = updated.filter(t => String(t.id) !== String(busId));
+        }
+      }
+
+      return {
+        tracks: applyRadii(updated),
+        tracksVersion: state.tracksVersion + 1
+      };
+    });
+  },
+
   handleCreateLinkGroup: (trackId, name) => {
     get().pushUndoState();
     set((state) => {
@@ -1206,6 +1514,145 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       return {
         tracks: applyRadii(nextTracks),
         tracksVersion: state.tracksVersion + 1
+      };
+    });
+  },
+
+  handleCreateFromTemplate: (template, audio) => {
+    get().pushUndoState();
+
+    // Application des réglages audio Master si fournis
+    if (template.masterSettings && audio) {
+      const { options, masterSettings } = template;
+      if (options.includeEQ && masterSettings.masterEQ && audio.setMasterEQ) {
+        audio.setMasterEQ(masterSettings.masterEQ);
+      }
+      if (options.includeStructure && masterSettings.masterCompressor && audio.setMasterCompressor) {
+        audio.setMasterCompressor(masterSettings.masterCompressor);
+      }
+      if (options.includeVolumePan && masterSettings.masterVol !== undefined && audio.setMasterVol) {
+        audio.setMasterVol(masterSettings.masterVol);
+      }
+      if (options.includeFX) {
+        if (masterSettings.reverbDecay !== undefined && audio.setReverbDecay) {
+          audio.setReverbDecay(masterSettings.reverbDecay);
+        }
+        if (masterSettings.masterReverbVol !== undefined && audio.setMasterReverbVol) {
+          audio.setMasterReverbVol(masterSettings.masterReverbVol);
+        }
+      }
+    }
+
+    set((state) => {
+      const { options, tracks: tplTracks, rodaTrackOrder: tplRodaOrder } = template;
+      const idMap = new Map<number, number>();
+      const now = Date.now();
+
+      // 1. Allouer de nouveaux identifiants uniques et étanches pour chaque piste
+      tplTracks.forEach((t, i) => {
+        idMap.set(t.id, now + i * 10 + Math.floor(Math.random() * 9));
+      });
+
+      const totalM = state.totalMeasures || 4;
+
+      // 2. Reconstruire chaque piste avec nouveaux IDs et grilles de notes vierges
+      const newTracks: TrackGroup[] = tplTracks.map((t, i) => {
+        const newId = idMap.get(t.id)!;
+        const newPatternId = now + 1000 + i;
+        const steps = 16;
+        const isPureBus = Boolean(options.includeStructure && t.isBusFolder && !t.isLinkFolder);
+
+        const blankPattern: Pattern = {
+          id: newPatternId,
+          name: state.lang === 'pt' ? 'Padrão 1' : 'Motif 1',
+          steps,
+          activeSteps: Array(steps).fill(0),
+          volumes: Array(steps).fill(80),
+          decays: Array(steps).fill(100),
+          microtimings: Array(steps).fill(0),
+          measureAssignments: Array(totalM).fill(true),
+          lyrics: Array(steps).fill(''),
+          notes: Array(steps).fill('')
+        };
+
+        // Remappage strict des relations de bus et de liens (Track Linking)
+        let newBusId: string | undefined = undefined;
+        if (options.includeStructure && t.busId) {
+          const oldParent = Number(t.busId);
+          newBusId = idMap.has(oldParent) ? String(idMap.get(oldParent)) : undefined;
+        }
+
+        let newLinkedToTrackId: string | undefined = undefined;
+        if (options.includeStructure && t.linkedToTrackId) {
+          const oldLinkParent = Number(t.linkedToTrackId);
+          newLinkedToTrackId = idMap.has(oldLinkParent) ? String(idMap.get(oldLinkParent)) : undefined;
+        }
+
+        const newTrack: TrackGroup = {
+          id: newId,
+          instrumentIdx: t.instrumentIdx,
+          customName: t.customName,
+          patterns: isPureBus ? [] : [blankPattern],
+          selectedPatternId: isPureBus ? 0 : newPatternId,
+          isMute: false,
+          isSolo: false,
+          isHidden: false,
+          isBusFolder: options.includeStructure ? t.isBusFolder : undefined,
+          isLinkFolder: options.includeStructure ? t.isLinkFolder : undefined,
+          isLinkMaster: options.includeStructure ? t.isLinkMaster : undefined,
+          busId: newBusId,
+          linkedToTrackId: newLinkedToTrackId,
+          volumeVal: options.includeVolumePan ? (t.volumeVal ?? 100) : 100,
+          pan: options.includeVolumePan ? (t.pan ?? 0) : 0,
+          panVal: options.includeVolumePan ? (t.panVal ?? 0) : 0,
+          eqBands: options.includeEQ && t.eqBands ? JSON.parse(JSON.stringify(t.eqBands)) : undefined,
+          lowCut: options.includeEQ ? (t.lowCut ?? false) : false,
+          reverbVal: options.includeFX ? (t.reverbVal ?? 0) : 0,
+          fxSends: options.includeFX && t.fxSends ? { ...t.fxSends } : { reverb: 0, distortion: 0 }
+        };
+
+        return newTrack;
+      });
+
+      // 3. Remappage strict de rodaTrackOrder
+      let newRodaTrackOrder: number[] = [];
+      if (options.includeDisplayOrder && tplRodaOrder && tplRodaOrder.length > 0) {
+        newRodaTrackOrder = tplRodaOrder
+          .map(oldId => idMap.get(oldId))
+          .filter((id): id is number => id !== undefined);
+      }
+      // Compléter si des pistes manquent
+      newTracks.forEach(t => {
+        if (!newRodaTrackOrder.includes(t.id)) {
+          newRodaTrackOrder.push(t.id);
+        }
+      });
+
+      // 4. Calcul des rayons visuels de la Roda
+      const finalTracks = applyRadii(newTracks, newRodaTrackOrder);
+
+      const nextMasterFX = (options.includeFX && template.masterSettings?.masterFX)
+        ? JSON.parse(JSON.stringify(template.masterSettings.masterFX))
+        : state.masterFX;
+
+      return {
+        tracks: finalTracks,
+        rodaTrackOrder: newRodaTrackOrder,
+        tracksVersion: state.tracksVersion + 1,
+        masterFX: nextMasterFX,
+        // Réinitialiser les données du morceau (ardoise vierge)
+        letras: '',
+        metadata: {
+          toada: '',
+          nacao: '',
+          compositor: '',
+          ritmo: '',
+          youtubeUrl: '',
+          rhythmSignals: []
+        },
+        songSections: [],
+        songMarkers: [],
+        activeAoVivoTrackId: null
       };
     });
   },
@@ -2965,7 +3412,7 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   letras: '',
   metadata: { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] },
   isLeftHanded: false, 
-  lang: 'pt',
+  lang: (typeof window !== 'undefined' && (localStorage.getItem('o_girador_lang') as Language)) || 'pt',
   vocalCalibrationLatencyMs: parseInt(localStorage.getItem('oGirador_vocal_calibration_latency') || '0', 10),
   isEcoMode: detectEcoMode(),
   ecoConfig: {
@@ -2983,7 +3430,12 @@ const createProjectSettingsSlice: StateCreator<SequencerStore, [], [], ProjectSe
   setLetras: (letras) => set({ letras }),
   setMetadata: (metadata) => set({ metadata }),
   setIsLeftHanded: (val) => set({ isLeftHanded: val }),
-  setLang: (lang) => set({ lang }),
+  setLang: (lang) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('o_girador_lang', lang);
+    }
+    set({ lang });
+  },
   setVocalCalibrationLatencyMs: (val) => {
     localStorage.setItem('oGirador_vocal_calibration_latency', String(val));
     set({ vocalCalibrationLatencyMs: val });
@@ -3076,6 +3528,13 @@ export interface UISlice {
   toggleConsoleDetached: () => void;
   toggleTimelineDetached: () => void;
   toggleInstrumentEditorDetached: () => void;
+  setDetachedPanelsState: (panels: {
+    mixer?: boolean;
+    roda?: boolean;
+    detailEditor?: boolean;
+    linearDaw?: boolean;
+    timeline?: boolean;
+  }) => void;
 
   timelineContextMenu: {
     x: number;
@@ -3110,6 +3569,13 @@ export const createUISlice: StateCreator<SequencerStore, [], [], UISlice> = (set
   toggleConsoleDetached: () => set((state) => ({ isConsoleDetached: !state.isConsoleDetached })),
   toggleTimelineDetached: () => set((state) => ({ isTimelineDetached: !state.isTimelineDetached })),
   toggleInstrumentEditorDetached: () => set((state) => ({ isInstrumentEditorDetached: !state.isInstrumentEditorDetached })),
+  setDetachedPanelsState: (panels) => set((state) => ({
+    ...(panels.mixer !== undefined ? { isConsoleDetached: panels.mixer } : {}),
+    ...(panels.roda !== undefined ? { isCircleSequencerDetached: panels.roda } : {}),
+    ...(panels.detailEditor !== undefined ? { isInstrumentEditorDetached: panels.detailEditor } : {}),
+    ...(panels.linearDaw !== undefined ? { isLinearDawDetached: panels.linearDaw } : {}),
+    ...(panels.timeline !== undefined ? { isTimelineDetached: panels.timeline } : {}),
+  })),
 
   timelineContextMenu: null,
   activeTimelineCell: null,

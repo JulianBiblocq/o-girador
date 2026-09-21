@@ -47,7 +47,8 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   const audio = useAudio();
   const { isPlaying } = audio;
 
-  const lang = useSequencerStore(state => state.lang);
+  const storeLang = useSequencerStore(state => state.lang);
+  const lang = sequencer?.lang || storeLang || 'pt';
   const track = useSequencerStore(useShallow(state => state.tracks.find(t => t.id === trackId)));
   const tracksMeta = useSequencerStore(selectTracksMeta);
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
@@ -196,34 +197,42 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   const bgAlphaGroup = `rgba(${r}, ${g}, ${b}, 0.14)`;
   const bgAlphaOrphan = `rgba(${r}, ${g}, ${b}, 0.12)`;
 
+  const highlightColor = busColor || 'var(--cordel-wood)';
+  const borderWidth = isDragOver ? '5px' : '3px';
+
   const groupStyle: React.CSSProperties = {};
   if (busPosition !== 'none') {
-    groupStyle.backgroundColor = bgAlphaGroup;
+    groupStyle.backgroundColor = isDragOver ? `rgba(${r}, ${g}, ${b}, 0.28)` : bgAlphaGroup;
     groupStyle.marginRight = '0px';
-    groupStyle.borderTop = `3px solid ${busColor}`;
-    groupStyle.borderBottom = `3px solid ${busColor}`;
+    groupStyle.borderTop = `${borderWidth} solid ${highlightColor}`;
+    groupStyle.borderBottom = `${borderWidth} solid ${highlightColor}`;
 
     if (busPosition === 'first') {
-      groupStyle.borderLeft = `3px solid ${busColor}`;
+      groupStyle.borderLeft = `${borderWidth} solid ${highlightColor}`;
       groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
     } else if (busPosition === 'middle') {
       groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
       groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
     } else if (busPosition === 'last') {
       groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
-      groupStyle.borderRight = `3px solid ${busColor}`;
+      groupStyle.borderRight = `${borderWidth} solid ${highlightColor}`;
       groupStyle.marginRight = '16px';
     }
   } else {
-    groupStyle.backgroundColor = bgAlphaOrphan;
-    groupStyle.borderTop = `3px double ${busColor}`;
-    groupStyle.borderBottom = `3px double ${busColor}`;
-    groupStyle.borderLeft = `3px double ${busColor}`;
-    groupStyle.borderRight = `3px double ${busColor}`;
+    groupStyle.backgroundColor = isDragOver ? `rgba(${r}, ${g}, ${b}, 0.28)` : bgAlphaOrphan;
+    groupStyle.borderTop = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${highlightColor}`;
+    groupStyle.borderBottom = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${highlightColor}`;
+    groupStyle.borderLeft = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${highlightColor}`;
+    groupStyle.borderRight = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${highlightColor}`;
     groupStyle.marginRight = '16px';
   }
 
+  if (isDragOver) {
+    groupStyle.boxShadow = `0 0 22px ${highlightColor}77, inset 0 0 15px ${highlightColor}22`;
+  }
+
   const linkColor = busColor;
+  const linkBorderWidth = isDragOver ? '4px' : '2.5px';
   const linkStyle: React.CSSProperties = {
     position: 'absolute',
     top: '3px',
@@ -232,28 +241,32 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
     right: '3px',
     pointerEvents: 'none',
     zIndex: 2,
-    borderTop: `2.5px solid ${linkColor}`,
-    borderBottom: `2.5px solid ${linkColor}`,
+    borderTop: `${linkBorderWidth} solid ${linkColor}`,
+    borderBottom: `${linkBorderWidth} solid ${linkColor}`,
   };
 
   if (linkPosition === 'first') {
-    linkStyle.borderLeft = `2.5px solid ${linkColor}`;
+    linkStyle.borderLeft = `${linkBorderWidth} solid ${linkColor}`;
     linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
   } else if (linkPosition === 'middle') {
     linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
     linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
   } else if (linkPosition === 'last') {
     linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
-    linkStyle.borderRight = `2.5px solid ${linkColor}`;
+    linkStyle.borderRight = `${linkBorderWidth} solid ${linkColor}`;
   } else if (linkPosition === 'none' && track.isLinkFolder) {
-    linkStyle.borderLeft = `2.5px solid ${linkColor}`;
-    linkStyle.borderRight = `2.5px solid ${linkColor}`;
+    linkStyle.borderLeft = `${linkBorderWidth} solid ${linkColor}`;
+    linkStyle.borderRight = `${linkBorderWidth} solid ${linkColor}`;
   }
 
-  const borderThicknessTop = 3;
-  const borderThicknessBottom = 3;
-  const paddingTop = 3 - borderThicknessTop;
-  const paddingBottom = 3 - borderThicknessBottom;
+  if (isDragOver && linkPosition !== 'none') {
+    linkStyle.boxShadow = `0 0 12px ${linkColor}66`;
+  }
+
+  const borderThicknessTop = isDragOver ? 5 : 3;
+  const borderThicknessBottom = isDragOver ? 5 : 3;
+  const paddingTop = Math.max(0, 3 - borderThicknessTop);
+  const paddingBottom = Math.max(0, 3 - borderThicknessBottom);
 
   const lowCut = track.lowCut ?? false;
   const eq = track.eqBands ?? {
@@ -321,10 +334,11 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   return (
     <div
       ref={setNodeRef}
+      data-track-id={trackId}
       className={`flex flex-col bg-[var(--cordel-bg)] w-[115px] h-full justify-between shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
         isMuted ? 'opacity-50 bg-black/5 dark:bg-white/5' : (track.isSolo ? 'shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-100')
       } ${busPosition === 'none' ? 'cordel-border' : ''} ${
-        isDragOver ? 'ring-4 ring-[var(--cordel-wood)] shadow-[0_0_25px_var(--cordel-wood)] scale-[1.02] border-[var(--cordel-wood)] z-30' : ''
+        isDragOver ? 'z-20' : ''
       }`}
       style={{
         ...style,
@@ -362,10 +376,10 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             <GripHorizontal size={18} />
           </div>
           
-          <button
-             onClick={() => setIsEditing(true)}
+          <button 
+             onClick={() => setIsEditing(true)} 
              className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors text-sm"
-             title={lang === 'fr' ? 'Renommer le groupe' : 'Renomear o grupo'}
+             title={lang === 'fr' ? (track.isLinkFolder ? 'Renommer le groupe' : 'Renommer le bus') : (track.isLinkFolder ? 'Renomear o grupo' : 'Renomear o bus')}
            >
              <XiloChisel size={12} />
            </button>
@@ -373,7 +387,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
            <button 
              onClick={onDelete} 
              className="w-6 h-6 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-sm"
-             title={lang === 'fr' ? 'Supprimer le bus' : 'Excluir o bus'}
+             title={lang === 'fr' ? (track.isLinkFolder ? 'Supprimer le groupe' : 'Supprimer le bus') : (track.isLinkFolder ? 'Excluir o grupo' : 'Excluir o bus')}
            >
              <Trash2 size={13} />
            </button>
@@ -560,6 +574,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             value={track.fxSends?.distortion ?? 0} 
             onChange={onDistortionChange}
             onAudioDrag={handleDistortionAudioDrag}
+            fillColor="var(--disto-color)"
             className="w-full text-[8px] px-1 py-0.5 shrink"
           />
           <DragNumberBox 
@@ -567,6 +582,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
             value={track.fxSends?.reverb ?? track.reverbVal ?? 0} 
             onChange={onReverbChange}
             onAudioDrag={handleReverbAudioDrag}
+            fillColor="var(--reverb-color)"
             className="w-full text-[8px] px-1 py-0.5 shrink"
           />
         </div>

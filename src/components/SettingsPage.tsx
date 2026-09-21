@@ -17,7 +17,14 @@ import { lazyWithRetry } from '../utils/lazyWithRetry';
 const ShortcutsGuide = lazyWithRetry(() => import('./right-sidebar/ShortcutsGuide').then(m => ({ default: m.ShortcutsGuide })), 'ShortcutsGuide');
 import { MidiManagerPanel } from './MidiManagerPanel';
 import { useAudioStore } from '../stores/useAudioStore';
+import { useNomenclatureStore } from '../stores/useNomenclatureStore';
 import { BalancoEditorPanel } from './balanco/BalancoEditorPanel';
+import { useAudio } from '../contexts/AudioContext';
+import { useWorkspaceTemplateStore } from '../stores/useWorkspaceTemplateStore';
+import { useDesktopWorkspaceStore } from '../stores/useDesktopWorkspaceStore';
+import { WorkspaceTemplate } from '../types';
+import { DesktopWorkspaceLayout } from '../types/desktopWorkspace.types';
+import { XiloScroll } from './XiloIcons';
 
 interface SettingsPageProps {
   mestreSignals?: CloudRhythmSignal[];
@@ -112,6 +119,95 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
     }
   };
 
+  // --- GABARITS DE BATERIA / WORKSPACE TEMPLATES ---
+  const workspaceTemplates = useWorkspaceTemplateStore((state) => state.templates);
+  const deleteWorkspaceTemplate = useWorkspaceTemplateStore((state) => state.deleteTemplate);
+  const renameWorkspaceTemplate = useWorkspaceTemplateStore((state) => state.renameTemplate);
+  const syncWorkspaceTemplates = useWorkspaceTemplateStore((state) => state.syncWithCloud);
+  const isSyncingTemplates = useWorkspaceTemplateStore((state) => state.isSyncing);
+
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [editingTemplateName, setEditingTemplateName] = useState<string>('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const audio = useAudio();
+
+  const handleLoadTemplate = (tpl: WorkspaceTemplate) => {
+    const confirmMsg = lang === 'pt'
+      ? `Carregar o modelo "${tpl.name}" irá substituir o batuque atual por este modelo vazio. Deseja continuar?`
+      : `Charger le gabarit "${tpl.name}" va remplacer le batuque actuel par ce gabarit vierge. Voulez-vous continuer ?`;
+    if (window.confirm(confirmMsg)) {
+      useSequencerStore.getState().handleCreateFromTemplate(tpl, audio);
+      handleClose();
+    }
+  };
+
+  const handleSaveRename = (id: string) => {
+    if (editingTemplateName.trim()) {
+      renameWorkspaceTemplate(id, editingTemplateName.trim());
+    }
+    setEditingTemplateId(null);
+    setEditingTemplateName('');
+  };
+
+  const handleDeleteTemplate = (id: string) => {
+    deleteWorkspaceTemplate(id);
+    setConfirmDeleteId(null);
+  };
+
+  // --- ESPACES DE TRAVAIL (MULTI-ÉCRANS & FENÊTRES) ---
+  // Actif sur tout ordinateur (Windows, Mac, Linux) y compris en fenêtres scindées (split-screen),
+  // et sur tout écran de résolution >= 768px.
+  const isDesktop = typeof window !== 'undefined' && (
+    !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    window.screen.width >= 768
+  );
+  const desktopLayouts = useDesktopWorkspaceStore((state) => state.layouts);
+  const activeDesktopLayoutId = useDesktopWorkspaceStore((state) => state.activeLayoutId);
+  const saveCurrentDesktopLayout = useDesktopWorkspaceStore((state) => state.saveCurrentLayout);
+  const applyDesktopLayout = useDesktopWorkspaceStore((state) => state.applyLayout);
+  const deleteDesktopLayout = useDesktopWorkspaceStore((state) => state.deleteLayout);
+  const renameDesktopLayout = useDesktopWorkspaceStore((state) => state.renameLayout);
+
+  const [isSavingLayoutModalOpen, setIsSavingLayoutModalOpen] = useState(false);
+  const [newLayoutName, setNewLayoutName] = useState('');
+  const [editingLayoutId, setEditingLayoutId] = useState<string | null>(null);
+  const [editingLayoutName, setEditingLayoutName] = useState('');
+  const [confirmDeleteLayoutId, setConfirmDeleteLayoutId] = useState<string | null>(null);
+  const [appliedLayoutNotification, setAppliedLayoutNotification] = useState<string | null>(null);
+
+  const handleSaveNewLayout = () => {
+    if (!newLayoutName.trim()) return;
+    saveCurrentDesktopLayout(newLayoutName.trim());
+    setIsSavingLayoutModalOpen(false);
+    setNewLayoutName('');
+  };
+
+  const handleApplyLayout = (id: string, name: string) => {
+    const success = applyDesktopLayout(id);
+    if (success) {
+      setAppliedLayoutNotification(
+        lang === 'pt'
+          ? `Espaço de trabalho "${name}" aplicado com sucesso!`
+          : `Espace de travail "${name}" appliqué avec succès !`
+      );
+      setTimeout(() => setAppliedLayoutNotification(null), 3500);
+    }
+  };
+
+  const handleSaveLayoutRename = (id: string) => {
+    if (editingLayoutName.trim()) {
+      renameDesktopLayout(id, editingLayoutName.trim());
+    }
+    setEditingLayoutId(null);
+    setEditingLayoutName('');
+  };
+
+  const handleDeleteLayout = (id: string) => {
+    deleteDesktopLayout(id);
+    setConfirmDeleteLayoutId(null);
+  };
+
   // --- LOGIQUE DE SÉLECTION D'INSTRUMENTS D'EXPORT (PANNEAU 3) ---
   const validExportTracks = useMemo(() => {
     return tracks.filter(t => {
@@ -159,10 +255,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
     if (annexTxt) finalTxt += annexTxt;
     
     if (letras && letras.trim() !== '') {
-      finalTxt += `\n--- VOIX / PAROLES ---\n${letras}\n`;
+      finalTxt += lang === 'fr' 
+        ? `\n--- VOIX / PAROLES ---\n${letras}\n`
+        : `\n--- VOZES / LETRAS ---\n${letras}\n`;
     }
     
-    finalTxt += `\n(Généré avec O Girador)\n`;
+    finalTxt += lang === 'fr' ? `\n(Généré avec O Girador)\n` : `\n(Gerado com O Girador)\n`;
     setLiveText(finalTxt);
   };
 
@@ -465,12 +563,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
   const sections = [
     { id: 'groove', title: lang === 'pt' ? 'Balanço, Kit & Metrônomo' : 'Balanço, Kit & Métronome' },
+    { id: 'gabarits', title: lang === 'pt' ? '📜 Meus Modelos de Batuque' : '📜 Mes Gabarits de Batuque' },
+    ...(isDesktop ? [{ id: 'desktopLayouts', title: lang === 'pt' ? '🖥️ Espaços de Trabalho' : '🖥️ Espaces de Travail' }] : []),
     { id: 'midi', title: lang === 'pt' ? '🎹 Controladores MIDI' : '🎹 Contrôleurs MIDI' },
-    { id: 'sinais', title: lang === 'pt' ? 'Sinais do Mestre' : 'Sinais do Mestre' },
-    { id: 'prensa', title: lang === 'pt' ? 'A Prensa (Partitura)' : 'A Prensa (Partition)' },
-    { id: 'performance', title: lang === 'pt' ? 'Desempenho (Performances)' : 'Desempenho (Performances)' },
+    { id: 'sinais', title: lang === 'pt' ? '📢 Sinais do Mestre' : '📢 Signaux du Maître' },
+    { id: 'prensa', title: lang === 'pt' ? '🖨️ A Prensa (Partitura)' : '🖨️ La Presse (Partition)' },
+    { id: 'performance', title: lang === 'pt' ? '⚡ Desempenho & Modo Eco' : '⚡ Performances & Mode Éco' },
     { id: 'audio', title: lang === 'pt' ? '🎧 Áudio' : '🎧 Audio' },
-    { id: 'ajuda', title: lang === 'pt' ? 'Ajuda (Ajuda)' : 'Ajuda (Aide)' },
+    { id: 'ajuda', title: lang === 'pt' ? '📖 Ajuda & Atalhos' : '📖 Aide & Raccourcis' },
   ];
 
   if (isClosing) {
@@ -627,7 +727,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                             {/* 2. BLOC MÉTRONOME */}
                             <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000]">
                               <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
-                                ⏱️ Metrônomo
+                                ⏱️ {lang === 'fr' ? 'Métronome' : 'Metrônomo'}
                               </h3>
                               <div className="flex flex-col gap-4">
                                 <div className="flex flex-wrap items-center justify-between gap-4 border-b border-black/5 pb-3">
@@ -689,7 +789,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                             {/* 3. BLOC MONTAGEM DO KIT (MACROS EXHAUSTIVES AVEC FRAPPES FANTÔMES GRISÉES) */}
                             <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[4px_10px_6px_12px] p-4 bg-white shadow-[3.5px_3.5px_0px_#000]">
                               <h3 className="font-cactus font-bold text-sm uppercase mb-3 flex items-center gap-1.5 border-b border-black/10 pb-1">
-                                🥁 Montagem do Kit (Macros)
+                                🥁 {lang === 'fr' ? 'Montage du Kit (Macros)' : 'Montagem do Kit (Macros)'}
                               </h3>
                               <p className="text-[10px] opacity-75 mb-4">
                                 {lang === 'pt' 
@@ -699,7 +799,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {activeTracks.length === 0 ? (
-                                  <p className="text-[10px] italic opacity-60">Aucun instrument actif dans cette session.</p>
+                                  <p className="text-[10px] italic opacity-60">
+                                    {lang === 'fr' ? 'Aucun instrument actif dans cette session.' : 'Nenhum instrumento ativo nesta sessão.'}
+                                  </p>
                                 ) : (
                                   activeTracks.map((track) => {
                                     const inst = instrumentsConfig[track.instrumentIdx];
@@ -712,7 +814,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                       <div key={track.id} className="border border-black/10 p-3 bg-black/[0.02] flex flex-col gap-2">
                                         <div className="flex flex-wrap items-center justify-between gap-2">
                                           <span className="font-cactus font-bold text-xs uppercase text-[#8b2a1a]">
-                                            {track.customName || inst.name}
+                                            {track.customName || useNomenclatureStore.getState().getInstrumentLabel(inst.id) || inst.name}
                                           </span>
                                           
                                           {/* Pastilles de frappes actives et fantômes */}
@@ -772,7 +874,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                                 <div className="flex justify-between items-center text-[10px] font-bold border-b border-black/10 pb-1.5 flex-wrap gap-2">
                                                    <div className="flex items-center gap-2 flex-wrap">
                                                      <span>
-                                                       🎚️ CONFIGURAÇÃO DE GOLPE : [{stroke}]
+                                                       🎚️ {lang === 'fr' ? `CONFIGURATION DE FRAPPE : [${stroke}]` : `CONFIGURAÇÃO DE BATIDA : [${stroke}]`}
                                                      </span>
                                                      {/* Bouton de forçage d'activation/désactivation de frappe */}
                                                      <button
@@ -791,22 +893,22 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                                          : 'Clique para forçar a ativação ou desativação desta batida no kit'}
                                                      >
                                                        {(forcedStrokes[`${track.id}:${stroke}`] !== undefined ? forcedStrokes[`${track.id}:${stroke}`] : isUsed)
-                                                         ? '● ACTIF' 
-                                                         : '○ DÉSACTIVÉ'}
+                                                         ? (lang === 'fr' ? '● ACTIF' : '● ATIVO')
+                                                         : (lang === 'fr' ? '○ DÉSACTIVÉ' : '○ DESATIVADO')}
                                                      </button>
                                                    </div>
                                                    <button 
                                                      onClick={() => setSelectedMacro(null)}
                                                      className="text-[#8b2a1a] hover:underline uppercase font-bold text-[9px] cursor-pointer"
                                                    >
-                                                     Fermer
+                                                     {lang === 'fr' ? 'Fermer' : 'Fechar'}
                                                    </button>
                                                  </div>
 
                                                  {/* Volume macro slider */}
                                                  <div className="flex flex-col gap-1">
                                                    <div className="flex justify-between text-[10px] font-bold">
-                                                     <span>🔊 Volume Global :</span>
+                                                     <span>🔊 {lang === 'fr' ? 'Volume Global :' : 'Volume Geral :'}</span>
                                                      <span>{avgVolume}%</span>
                                                    </div>
                                                    <input 
@@ -826,7 +928,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                                  {/* Decay macro slider */}
                                                  <div className="flex flex-col gap-1">
                                                    <div className="flex justify-between text-[10px] font-bold">
-                                                     <span>⏳ {isVoice ? (lang === 'fr' ? 'Durée Globale :' : 'Duração Geral :') : 'Decay Global :'}</span>
+                                                     <span>⏳ {isVoice ? (lang === 'fr' ? 'Durée Globale :' : 'Duração Geral :') : (lang === 'fr' ? 'Résonance Globale (Decay) :' : 'Ressonância Geral (Decay) :')}</span>
                                                      <span>{avgDecay}%</span>
                                                    </div>
                                                    <input 
@@ -853,6 +955,458 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               </div>
                             </div>
 
+                          </div>
+                        )}
+                        {section.id === 'gabarits' && (
+                          <div className="flex flex-col gap-5 text-left">
+                            <div className="flex flex-wrap justify-between items-center gap-2 border-b border-black/10 pb-2">
+                              <div>
+                                <h3 className="font-cactus font-bold text-sm uppercase flex items-center gap-1.5">
+                                  <XiloScroll size={16} className="shrink-0" />
+                                  <span>{lang === 'pt' ? 'Modelos de Batuque Pessoais' : 'Gabarits de Batuque Personnels'}</span>
+                                </h3>
+                                <p className="text-[10px] opacity-75 mt-0.5">
+                                  {lang === 'pt'
+                                    ? 'Seus gabaritos são estritamente privados (salvos localmente e sincronizados na sua conta).'
+                                    : 'Vos gabarits sont strictement privés (enregistrés localement et synchronisés sur votre compte).'}
+                                </p>
+                              </div>
+                              {userProfile && (
+                                <button
+                                  onClick={() => syncWorkspaceTemplates(userProfile.uid)}
+                                  disabled={isSyncingTemplates}
+                                  className="px-2.5 py-1 text-[10px] font-cactus font-bold uppercase border-2 border-black bg-white hover:bg-black hover:text-white cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center gap-1.5"
+                                  title={lang === 'pt' ? 'Sincronizar com a nuvem' : 'Synchroniser avec le cloud'}
+                                >
+                                  <span>{isSyncingTemplates ? '🔄' : '☁️'}</span>
+                                  <span>
+                                    {isSyncingTemplates 
+                                      ? (lang === 'pt' ? 'Sincronizando...' : 'Synchronisation...') 
+                                      : (lang === 'pt' ? 'Sincronizar' : 'Synchroniser')}
+                                  </span>
+                                </button>
+                              )}
+                            </div>
+
+                            {workspaceTemplates.length === 0 ? (
+                              <div className="p-6 border-2 border-dashed border-black/40 bg-white/60 text-center flex flex-col items-center justify-center gap-2 rounded">
+                                <XiloScroll size={36} className="text-[#1a1a1a]/80 mb-1" />
+                                <span className="font-cactus font-bold text-sm uppercase text-black/80">
+                                  {lang === 'pt' ? 'Nenhum modelo de batuque salvo ainda' : 'Aucun gabarit de batuque enregistré'}
+                                </span>
+                                <p className="text-[11px] text-black/60 max-w-md">
+                                  {lang === 'pt'
+                                    ? 'Abra a mesa de mixagem (Console) e clique no botão "📜 Memorizar modelo" na régua Master para capturar a formação do seu batuque atual.'
+                                    : 'Ouvrez la table de mixage (Console) et cliquez sur le bouton "📜 Mémoriser gabarit" sur la tranche Master pour capturer la composition de votre batuque actuel.'}
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {workspaceTemplates.map((tpl) => {
+                                  const isEditing = editingTemplateId === tpl.id;
+                                  const isConfirmingDelete = confirmDeleteId === tpl.id;
+
+                                  return (
+                                    <div
+                                      key={tpl.id}
+                                      className="border-2 border-black bg-white p-4 shadow-[3px_3px_0px_#000] flex flex-col justify-between gap-3 rounded-[3px_6px_4px_8px]"
+                                    >
+                                      <div className="flex flex-col gap-2">
+                                        {/* Header du Template : Titre & Actions inline */}
+                                        <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-2">
+                                          {isEditing ? (
+                                            <div className="flex items-center gap-1.5 flex-1">
+                                              <input
+                                                type="text"
+                                                value={editingTemplateName}
+                                                onChange={(e) => setEditingTemplateName(e.target.value)}
+                                                className="border-2 border-black px-2 py-0.5 text-xs font-cactus font-bold bg-[#f4ecd8] flex-1 outline-none"
+                                                autoFocus
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter') handleSaveRename(tpl.id);
+                                                  if (e.key === 'Escape') setEditingTemplateId(null);
+                                                }}
+                                              />
+                                              <button
+                                                onClick={() => handleSaveRename(tpl.id)}
+                                                className="px-2 py-0.5 bg-black text-[#f4ecd8] border border-black font-bold text-xs cursor-pointer hover:bg-green-700"
+                                                title={lang === 'pt' ? 'Salvar' : 'Enregistrer'}
+                                              >
+                                                ✓
+                                              </button>
+                                              <button
+                                                onClick={() => setEditingTemplateId(null)}
+                                                className="px-2 py-0.5 bg-white text-black border border-black font-bold text-xs cursor-pointer hover:bg-gray-200"
+                                                title={lang === 'pt' ? 'Cancelar' : 'Annuler'}
+                                              >
+                                                ✕
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                              <span className="font-cactus font-bold text-sm text-black truncate" title={tpl.name}>
+                                                {tpl.name}
+                                              </span>
+                                              <button
+                                                onClick={() => {
+                                                  setEditingTemplateId(tpl.id);
+                                                  setEditingTemplateName(tpl.name);
+                                                }}
+                                                className="text-[11px] opacity-60 hover:opacity-100 cursor-pointer p-0.5"
+                                                title={lang === 'pt' ? 'Renomear modelo' : 'Renommer le gabarit'}
+                                              >
+                                                ✏️
+                                              </button>
+                                            </div>
+                                          )}
+
+                                          <span className="text-[9px] font-bold font-cactus bg-black/5 border border-black/20 px-1.5 py-0.5 rounded shrink-0">
+                                            🔒 {lang === 'pt' ? 'Privado' : 'Privé'}
+                                          </span>
+                                        </div>
+
+                                        {/* Date et Nombre de pistes */}
+                                        <div className="flex items-center justify-between text-[10px] text-black/60">
+                                          <span>
+                                            {tpl.tracks.length} {lang === 'pt' ? 'faixas' : 'pistes'}
+                                          </span>
+                                          <span>
+                                            {new Date(tpl.updatedAt).toLocaleDateString(lang === 'pt' ? 'pt-BR' : 'fr-FR')}
+                                          </span>
+                                        </div>
+
+                                        {/* Chips des instruments enregistrés */}
+                                        <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto py-1">
+                                          {tpl.tracks.map((tr, idx) => {
+                                            const inst = instrumentsConfig[tr.instrumentIdx];
+                                            const label = tr.customName || (inst ? inst.name : `Track ${idx + 1}`);
+                                            return (
+                                              <span
+                                                key={idx}
+                                                className="bg-[#f4ecd8] text-[#1a1a1a] border border-black/50 px-1.5 py-0.2 text-[9px] font-cactus font-bold rounded"
+                                              >
+                                                {tr.isBusFolder ? `📁 ${label}` : label}
+                                              </span>
+                                            );
+                                          })}
+                                        </div>
+
+                                        {/* Options incluses */}
+                                        <div className="flex flex-wrap gap-1 text-[9px] text-black/70">
+                                          {tpl.options.includeVolumePan && (
+                                            <span className="bg-gray-100 border border-gray-300 px-1 py-0.2 rounded">🎚️ Vol/Pan</span>
+                                          )}
+                                          {tpl.options.includeEQ && (
+                                            <span className="bg-gray-100 border border-gray-300 px-1 py-0.2 rounded">🎛️ EQ</span>
+                                          )}
+                                          {tpl.options.includeFX && (
+                                            <span className="bg-gray-100 border border-gray-300 px-1 py-0.2 rounded">✨ FX</span>
+                                          )}
+                                          {tpl.options.includeStructure && (
+                                            <span className="bg-gray-100 border border-gray-300 px-1 py-0.2 rounded">🗂️ Bus/Liens</span>
+                                          )}
+                                          {tpl.options.includeDisplayOrder && (
+                                            <span className="bg-gray-100 border border-gray-300 px-1 py-0.2 rounded">🔄 Roda</span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Actions principales */}
+                                      <div className="border-t border-black/10 pt-2 flex items-center justify-between gap-2">
+                                        <button
+                                          onClick={() => handleLoadTemplate(tpl)}
+                                          className="flex-1 bg-black text-[#f4ecd8] border-2 border-black font-cactus font-bold uppercase text-[10px] md:text-xs py-1.5 px-3 shadow-[2px_2px_0px_#000] hover:bg-[#8b2a1a] cursor-pointer transition-colors active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                                        >
+                                          🚀 {lang === 'pt' ? 'Criar projeto com este modelo' : 'Créer un projet avec ce gabarit'}
+                                        </button>
+
+                                        {isConfirmingDelete ? (
+                                          <div className="flex items-center gap-1">
+                                            <button
+                                              onClick={() => handleDeleteTemplate(tpl.id)}
+                                              className="px-2 py-1 bg-red-700 text-white font-cactus font-bold text-[10px] uppercase border border-black cursor-pointer hover:bg-red-800"
+                                              title={lang === 'pt' ? 'Confirmar exclusão' : 'Confirmer la suppression'}
+                                            >
+                                              {lang === 'pt' ? 'Excluir' : 'Suppr.'}
+                                            </button>
+                                            <button
+                                              onClick={() => setConfirmDeleteId(null)}
+                                              className="px-2 py-1 bg-white text-black font-cactus font-bold text-[10px] uppercase border border-black cursor-pointer hover:bg-gray-100"
+                                              title={lang === 'pt' ? 'Cancelar' : 'Annuler'}
+                                            >
+                                              ✕
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            onClick={() => setConfirmDeleteId(tpl.id)}
+                                            className="px-2 py-1 bg-white text-red-700 border-2 border-black font-cactus font-bold text-xs hover:bg-red-50 cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                                            title={lang === 'pt' ? 'Excluir este modelo' : 'Supprimer ce gabarit'}
+                                          >
+                                            🗑️
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {section.id === 'desktopLayouts' && (
+                          <div className="flex flex-col gap-5 text-left">
+                            <div className="flex flex-wrap justify-between items-center gap-2 border-b border-black/10 pb-2">
+                              <div>
+                                <h3 className="font-cactus font-bold text-sm uppercase flex items-center gap-1.5">
+                                  <span>🖥️</span>
+                                  <span>{lang === 'pt' ? 'Espaços de Trabalho (Telas & Janelas)' : 'Espaces de Travail (Écrans & Fenêtres)'}</span>
+                                </h3>
+                                <p className="text-[10px] opacity-75 mt-0.5">
+                                  {lang === 'pt'
+                                    ? 'Memorize a organização física do seu espaço de trabalho (janelas destacadas, tela cheia ou janelas divididas) e restaure-a com um clique. Configuração 100% local.'
+                                    : 'Mémorisez l\'organisation physique de votre espace de travail (fenêtres détachées, plein écran ou fenêtres scindées) et restaurez-la en un clic. Configuration 100% locale.'}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setNewLayoutName(lang === 'pt' ? `Espaço ${desktopLayouts.length + 1}` : `Espace ${desktopLayouts.length + 1}`);
+                                  setIsSavingLayoutModalOpen(true);
+                                }}
+                                className="px-3 py-1.5 text-[11px] font-cactus font-bold uppercase border-2 border-black bg-[#8b2a1a] text-[#f4ecd8] hover:bg-[#a83220] cursor-pointer shadow-[2px_2px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none flex items-center gap-1.5 transition-all"
+                                title={lang === 'pt' ? 'Memorizar o espaço de trabalho atual' : 'Mémoriser l\'espace de travail actuel'}
+                              >
+                                <span>💾</span>
+                                <span>{lang === 'pt' ? 'Memorizar espaço atual' : 'Mémoriser l\'espace actuel'}</span>
+                              </button>
+                            </div>
+
+                            {/* Notification d'application */}
+                            {appliedLayoutNotification && (
+                              <div className="bg-emerald-100 border-2 border-emerald-800 text-emerald-900 px-3 py-2 text-xs font-bold text-center shadow-[2px_2px_0px_#065f46]">
+                                {appliedLayoutNotification}
+                              </div>
+                            )}
+
+                            {/* Micro-modale Cordel d'enregistrement de nom */}
+                            {isSavingLayoutModalOpen && (
+                              <div className="border-2 border-black bg-white p-3.5 shadow-[3px_3px_0px_#000] flex flex-col gap-2 rounded-[2px_4px_3px_5px]">
+                                <div className="flex items-center justify-between">
+                                  <span className="font-cactus font-bold text-xs uppercase text-[#1a1a1a]">
+                                    {lang === 'pt' ? 'Nome do espaço de trabalho :' : 'Nom de l\'espace de travail :'}
+                                  </span>
+                                  <button
+                                    onClick={() => setIsSavingLayoutModalOpen(false)}
+                                    className="text-xs font-bold opacity-60 hover:opacity-100 cursor-pointer"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    value={newLayoutName}
+                                    onChange={(e) => setNewLayoutName(e.target.value)}
+                                    placeholder={lang === 'pt' ? 'ex: Studio 2 Telas - Mesa separada' : 'ex: Studio 2 Écrans - Mixeur déporté'}
+                                    className="flex-1 border-2 border-black px-2 py-1 text-xs font-cactus font-bold bg-[#f4ecd8] text-[#1a1a1a] outline-none"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSaveNewLayout();
+                                      if (e.key === 'Escape') setIsSavingLayoutModalOpen(false);
+                                    }}
+                                  />
+                                  <button
+                                    onClick={handleSaveNewLayout}
+                                    className="px-3.5 py-1 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-black font-cactus font-bold text-xs uppercase shadow-[2px_2px_0px_#000] hover:bg-[#a83220] cursor-pointer active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                                  >
+                                    {lang === 'pt' ? 'Salvar' : 'Enregistrer'}
+                                  </button>
+                                  <button
+                                    onClick={() => setIsSavingLayoutModalOpen(false)}
+                                    className="px-3 py-1 bg-white text-black border-2 border-black font-cactus font-bold text-xs uppercase shadow-[2px_2px_0px_#000] hover:bg-gray-100 cursor-pointer"
+                                  >
+                                    {lang === 'pt' ? 'Cancelar' : 'Annuler'}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Liste ou État vide */}
+                            {desktopLayouts.length === 0 ? (
+                              <div className="p-6 border-2 border-dashed border-black/40 bg-white/60 text-center flex flex-col items-center justify-center gap-2 rounded">
+                                <span className="text-3xl">🖥️</span>
+                                <span className="font-cactus font-bold text-sm uppercase text-black/80">
+                                  {lang === 'pt' ? 'Nenhum espaço de trabalho salvo' : 'Aucun espace de travail enregistré'}
+                                </span>
+                                <p className="text-[11px] text-black/60 max-w-md">
+                                  {lang === 'pt'
+                                    ? 'Organize suas janelas (separe a mesa de mixagem, a roda ou o editor, divida suas janelas em uma ou várias telas) e clique em "Memorizar espaço atual" para salvá-lo.'
+                                    : 'Organisez vos fenêtres (détachez la console de mixage, la roda ou l\'éditeur, scindez vos fenêtres sur un ou plusieurs écrans) puis cliquez sur "Mémoriser l\'espace actuel" pour l\'enregistrer.'}
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {desktopLayouts.map((layout) => {
+                                  const isEditing = editingLayoutId === layout.id;
+                                  const isConfirmingDelete = confirmDeleteLayoutId === layout.id;
+                                  const isActiveLayout = activeDesktopLayoutId === layout.id;
+
+                                  const { mixer, roda, detailEditor } = layout.detachedPanels;
+
+                                  return (
+                                    <div
+                                      key={layout.id}
+                                      className={`border-2 border-black bg-white p-4 shadow-[3px_3px_0px_#000] flex flex-col justify-between gap-3 rounded-[3px_6px_4px_8px] transition-all ${
+                                        isActiveLayout ? 'ring-2 ring-[#8b2a1a] bg-[#fbf8f0]' : ''
+                                      }`}
+                                    >
+                                      <div className="flex flex-col gap-2">
+                                        {/* Header de la fiche : Titre & Renommage */}
+                                        <div className="flex items-center justify-between gap-2 border-b border-black/10 pb-2">
+                                          {isEditing ? (
+                                            <div className="flex items-center gap-1.5 flex-1">
+                                              <input
+                                                type="text"
+                                                value={editingLayoutName}
+                                                onChange={(e) => setEditingLayoutName(e.target.value)}
+                                                className="border-2 border-black px-2 py-0.5 text-xs font-cactus font-bold bg-[#f4ecd8] flex-1 outline-none"
+                                                autoFocus
+                                                onKeyDown={(e) => {
+                                                  if (e.key === 'Enter') handleSaveLayoutRename(layout.id);
+                                                  if (e.key === 'Escape') setEditingLayoutId(null);
+                                                }}
+                                              />
+                                              <button
+                                                onClick={() => handleSaveLayoutRename(layout.id)}
+                                                className="px-2 py-0.5 bg-black text-[#f4ecd8] border border-black font-bold text-xs cursor-pointer hover:bg-green-700"
+                                                title={lang === 'pt' ? 'Salvar' : 'Enregistrer'}
+                                              >
+                                                ✓
+                                              </button>
+                                              <button
+                                                onClick={() => setEditingLayoutId(null)}
+                                                className="px-2 py-0.5 bg-white text-black border border-black font-bold text-xs cursor-pointer hover:bg-gray-200"
+                                                title={lang === 'pt' ? 'Cancelar' : 'Annuler'}
+                                              >
+                                                ✕
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                              <span className="font-cactus font-bold text-sm text-black truncate" title={layout.name}>
+                                                {layout.name}
+                                              </span>
+                                              <button
+                                                onClick={() => {
+                                                  setEditingLayoutId(layout.id);
+                                                  setEditingLayoutName(layout.name);
+                                                }}
+                                                className="text-[11px] opacity-60 hover:opacity-100 cursor-pointer p-0.5"
+                                                title={lang === 'pt' ? 'Renomear espaço' : 'Renommer l\'espace'}
+                                              >
+                                                ✏️
+                                              </button>
+                                              {isActiveLayout && (
+                                                <span className="text-[9px] font-cactus font-bold px-1.5 py-0.2 bg-[#8b2a1a] text-[#f4ecd8] rounded-full">
+                                                  {lang === 'pt' ? 'Ativo' : 'Actif'}
+                                                </span>
+                                              )}
+                                              <span className="text-[9px] opacity-40 ml-auto font-mono">
+                                                {new Date(layout.createdAt).toLocaleDateString()}
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Badges des panneaux concernés */}
+                                        <div className="flex flex-wrap gap-1.5 text-[9px] font-cactus font-bold">
+                                          {/* Mixeur */}
+                                          <span
+                                            className={`px-1.5 py-0.5 border rounded flex items-center gap-1 ${
+                                              mixer?.detached
+                                                ? 'bg-[#8b2a1a]/10 text-[#8b2a1a] border-[#8b2a1a]/40'
+                                                : 'bg-gray-100 text-black/60 border-gray-300'
+                                            }`}
+                                          >
+                                            🎛️ {mixer?.detached
+                                              ? (lang === 'pt' ? 'Mesa déportada' : 'Console déportée') + (mixer.bounds ? ` [${mixer.bounds.width}×${mixer.bounds.height} @ (${mixer.bounds.screenX}, ${mixer.bounds.screenY})]` : '')
+                                              : (lang === 'pt' ? 'Mesa ancorada' : 'Console ancrée')}
+                                          </span>
+
+                                          {/* Roda */}
+                                          <span
+                                            className={`px-1.5 py-0.5 border rounded flex items-center gap-1 ${
+                                              roda?.detached
+                                                ? 'bg-[#8b2a1a]/10 text-[#8b2a1a] border-[#8b2a1a]/40'
+                                                : 'bg-gray-100 text-black/60 border-gray-300'
+                                            }`}
+                                          >
+                                            🥁 {roda?.detached
+                                              ? (lang === 'pt' ? 'Roda déportada' : 'Roda déportée') + (roda.bounds ? ` [${roda.bounds.width}×${roda.bounds.height} @ (${roda.bounds.screenX}, ${roda.bounds.screenY})]` : '')
+                                              : (lang === 'pt' ? 'Roda ancorada' : 'Roda ancrée')}
+                                          </span>
+
+                                          {/* Éditeur d'Instrument */}
+                                          {detailEditor?.detached && (
+                                            <span className="px-1.5 py-0.5 border rounded bg-[#8b2a1a]/10 text-[#8b2a1a] border-[#8b2a1a]/40 flex items-center gap-1">
+                                              🔧 {lang === 'pt' ? 'Editor déportado' : 'Éditeur déporté'} {detailEditor.bounds ? `[${detailEditor.bounds.width}×${detailEditor.bounds.height}]` : ''}
+                                            </span>
+                                          )}
+
+                                          {/* Pistes DAW */}
+                                          {layout.uiState?.isTracksCollapsed === false && (
+                                            <span className="px-1.5 py-0.5 border rounded bg-amber-50 text-amber-900 border-amber-300 flex items-center gap-1">
+                                              🎼 {lang === 'pt' ? 'Pistas abertas' : 'Pistes ouvertes'}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Actions : Appliquer / Supprimer */}
+                                      <div className="border-t border-black/10 pt-2 flex items-center justify-between gap-2">
+                                        <button
+                                          onClick={() => handleApplyLayout(layout.id, layout.name)}
+                                          className={`flex-1 font-cactus font-bold uppercase text-[10px] md:text-xs py-1.5 px-3 border-2 border-black shadow-[2px_2px_0px_#000] cursor-pointer transition-colors active:translate-x-[1px] active:translate-y-[1px] active:shadow-none ${
+                                            isActiveLayout
+                                              ? 'bg-[#8b2a1a] text-[#f4ecd8] hover:bg-[#a83220]'
+                                              : 'bg-black text-[#f4ecd8] hover:bg-[#8b2a1a]'
+                                          }`}
+                                        >
+                                          🚀 {lang === 'pt' ? 'Aplicar espaço' : 'Appliquer l\'espace'}
+                                        </button>
+
+                                        {isConfirmingDelete ? (
+                                          <div className="flex items-center gap-1">
+                                            <button
+                                              onClick={() => handleDeleteLayout(layout.id)}
+                                              className="px-2 py-1 bg-red-700 text-white font-cactus font-bold text-[10px] uppercase border border-black cursor-pointer hover:bg-red-800"
+                                              title={lang === 'pt' ? 'Confirmar exclusão' : 'Confirmer la suppression'}
+                                            >
+                                              {lang === 'pt' ? 'Excluir' : 'Suppr.'}
+                                            </button>
+                                            <button
+                                              onClick={() => setConfirmDeleteLayoutId(null)}
+                                              className="px-2 py-1 bg-white text-black font-cactus font-bold text-[10px] uppercase border border-black cursor-pointer hover:bg-gray-100"
+                                              title={lang === 'pt' ? 'Cancelar' : 'Annuler'}
+                                            >
+                                              ✕
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <button
+                                            onClick={() => setConfirmDeleteLayoutId(layout.id)}
+                                            className="px-2 py-1 bg-white text-red-700 border-2 border-black font-cactus font-bold text-xs hover:bg-red-50 cursor-pointer shadow-[1.5px_1.5px_0px_#000] active:translate-x-[1px] active:translate-y-[1px] active:shadow-none"
+                                            title={lang === 'pt' ? 'Excluir este espaço' : 'Supprimer cet espace'}
+                                          >
+                                            🗑️
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         )}
                         {section.id === 'midi' && (
@@ -1064,7 +1618,9 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                             checked={isExportChecked}
                                             onChange={(e) => handleToggleTrackExport(track.id, e.target.checked)}
                                           />
-                                          <span className="font-cactus text-xs font-bold text-[#8b2a1a] uppercase truncate">{conf.name}</span>
+                                          <span className="font-cactus text-xs font-bold text-[#8b2a1a] uppercase truncate">
+                                            {track.customName || useNomenclatureStore.getState().getInstrumentLabel(conf.id) || conf.name}
+                                          </span>
                                         </label>
                                         
                                         <label className={`flex items-center gap-2 cursor-pointer transition-all select-none ${!isExportChecked ? 'opacity-40 pointer-events-none' : 'hover:bg-black/5'}`}>
@@ -1137,7 +1693,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                      onChange={(e) => setLiveText(e.target.value)}
                                      style={{ fontSize: `${bodyFontSize}px`, whiteSpace: 'pre', overflowX: 'auto' }}
                                      className="w-full flex-grow h-0 min-h-0 bg-transparent text-black font-mono whitespace-pre overflow-x-auto overflow-y-auto leading-relaxed outline-none resize-none custom-scrollbar text-[#1a1a1a]"
-                                     placeholder="Générez ou tapez la partition ici..."
+                                     placeholder={lang === 'fr' ? "Générez ou tapez la partition ici..." : "Gere ou digite a partitura aqui..."}
                                    />
                                  </div>
                                </div>
@@ -1207,7 +1763,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                               {/* TÉLÉMÉTRIE */}
                               <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-black rounded-[3px_6px_4px_8px] p-4 bg-white shadow-[3px_3px_0px_#000] flex flex-col gap-2">
                                 <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-black/10 pb-1">
-                                  ⚡ Télémétrie en Temps Réel
+                                  ⚡ {lang === 'fr' ? 'Télémétrie en Temps Réel' : 'Telemetria em Tempo Real'}
                                 </h3>
                                 <p className="text-[10px] opacity-75 mb-2">
                                   {lang === 'fr' 
@@ -1311,7 +1867,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                              {/* PURGE DU CACHE */}
                              <div className="border-t-[2px] border-b-[4px] border-l-[3px] border-r-[2px] border-[#8b2a1a] rounded-[4px_10px_6px_12px] p-4 bg-[#fbf8f0] shadow-[3px_3px_0px_#8b2a1a] flex flex-col gap-4">
                               <h3 className="font-cactus font-bold text-sm uppercase mb-1 flex items-center gap-1.5 border-b border-[#8b2a1a]/20 pb-1 text-[#8b2a1a]">
-                                🖨️ {lang === 'fr' ? 'Purge de l\'Atelier' : 'Limpar Oficina'}
+                                🧹 {lang === 'fr' ? 'Purge de l\'Atelier' : 'Limpeza da Oficina'}
                               </h3>
                               <p className="text-[10px] italic opacity-85">
                                 {lang === 'fr'
@@ -1395,7 +1951,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                       <option value="">{lang === 'fr' ? '-- Par défaut --' : '-- Padrão --'}</option>
                                       {availableDevices.map((device) => (
                                         <option key={device.deviceId} value={device.deviceId}>
-                                          {device.label || `Entrée (${device.deviceId.slice(0, 6)}...)`}
+                                          {device.label || (lang === 'fr' ? `Entrée (${device.deviceId.slice(0, 6)}...)` : `Entrada (${device.deviceId.slice(0, 6)}...)`)}
                                         </option>
                                       ))}
                                     </select>
@@ -1414,7 +1970,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                       <option value="">{lang === 'fr' ? '-- Par défaut --' : '-- Padrão --'}</option>
                                       {availableOutputDevices.map((device) => (
                                         <option key={device.deviceId} value={device.deviceId}>
-                                          {device.label || `Sortie (${device.deviceId.slice(0, 6)}...)`}
+                                          {device.label || (lang === 'fr' ? `Sortie (${device.deviceId.slice(0, 6)}...)` : `Saída (${device.deviceId.slice(0, 6)}...)`)}
                                         </option>
                                       ))}
                                     </select>
@@ -1457,7 +2013,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
                                   : "Esta é a lista de atalhos e notações para os instrumentos do ritmo atual. Instrumentos não programados são ocultados automaticamente."}
                               </p>
                               <div className="flex-1 overflow-hidden flex flex-col min-h-0">
-                                <React.Suspense fallback={<div className="p-4 text-xs font-mono opacity-50">Chargement...</div>}>
+                                <React.Suspense fallback={<div className="p-4 text-xs font-mono opacity-50">{lang === 'fr' ? 'Chargement...' : 'Carregando...'}</div>}>
                                   <ShortcutsGuide 
                                     lang={lang} 
                                     t={t} 
@@ -1481,7 +2037,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
         {/* Footer Brutaliste */}
         <div className="bg-black text-[#f4ecd8]/60 text-[10px] px-6 py-2 flex justify-between shrink-0 border-t-4 border-black">
           <span>O GIRADOR © 2026</span>
-          <span className="font-cactus font-bold tracking-wider">{lang === 'fr' ? "L'ATELIER (SETTINGS)" : 'A OFICINA (SETTINGS)'}</span>
+          <span className="font-cactus font-bold tracking-wider">{lang === 'fr' ? "L'ATELIER (PARAMÈTRES)" : 'A OFICINA (CONFIGURAÇÕES)'}</span>
         </div>
 
       </div>

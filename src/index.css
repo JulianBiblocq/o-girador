@@ -19,6 +19,18 @@
   --cordel-shadow-color: rgba(0, 0, 0, 0.55); /* Ombre sombre douce en mode nuit */
   --title-text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
   --title-drop-shadow: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  /* Master Strip Tokens (Dark default) */
+  --master-header-bg: #0f0f0f;
+  --master-header-text: #f4ecd8;
+  --master-border: #f4ecd8;
+  --master-fader-thumb: #8b2a1a;
+  --master-comp-bg: rgba(212, 175, 55, 0.08);
+  --comp-color: #d4af37;
+  --eq-low-color: #8b2a1a;
+  --eq-mid-color: #d4af37;
+  --eq-high-color: #3d8b85;
+  --reverb-color: #2a5c8a;
+  --disto-color: #c25e1a;
 }
 
 [data-theme='light'] {
@@ -31,7 +43,21 @@
   --cordel-shadow-color: rgba(26, 26, 26, 0.25); /* Ombre sombre classique */
   --title-text-shadow: none;
   --title-drop-shadow: none;
+
+  /* Master Strip Tokens (Light mode) */
+  --master-header-bg: #1a1a1a;
+  --master-header-text: #f4ecd8;
+  --master-border: #1a1a1a;
+  --master-fader-thumb: #8b2a1a;
+  --master-comp-bg: rgba(212, 175, 55, 0.06);
+  --comp-color: #c49618;
+  --eq-low-color: #8b2a1a;
+  --eq-mid-color: #d4af37;
+  --eq-high-color: #3d8b85;
+  --reverb-color: #2a5c8a;
+  --disto-color: #c25e1a;
 }
+
 
 body {
   font-family: 'Roboto', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -1030,7 +1056,7 @@ body.eco-mode #center-afficheur {
   left: var(--fill-left, 0%);
   width: var(--fill-width, 0%);
   background-color: var(--fader-fill-color, currentColor);
-  opacity: 0.12;
+  opacity: var(--fader-fill-opacity, 0.12);
   transition: opacity 0.15s ease;
   z-index: 0;
   pointer-events: none;
@@ -1038,8 +1064,9 @@ body.eco-mode #center-afficheur {
 
 /* Active fill gauge state during drag */
 .digital-fader.is-dragging::before {
-  opacity: 0.30;
+  opacity: var(--fader-drag-opacity, 0.30);
 }
+
 
 /* Center vertical line for bipolar mode */
 .digital-fader::after {
@@ -1063,15 +1090,16 @@ body.eco-mode #center-afficheur {
 }
 
 
-/* Master Volume Fader Visual Thumb with Gravure double-border */
+/* Master Volume Fader Visual Thumb with Gravure border */
 .master-fader-thumb {
-  border: 4px double var(--cordel-border, #1a1a1a) !important;
-  box-shadow: 1px 1px 0 var(--cordel-border, #1a1a1a) !important;
+  border: 2px solid var(--master-border, var(--cordel-border, #1a1a1a)) !important;
+  box-shadow: 1px 1px 0 var(--master-border, var(--cordel-border, #1a1a1a)) !important;
+  background-color: var(--master-fader-thumb, #8b2a1a) !important;
 }
 
-/* Master console strip double border frame & custom background */
+/* Master console strip 2px border frame & custom background */
 .cordel-master-strip {
-  border: 5px double var(--cordel-border, #1a1a1a);
+  border: 2px solid var(--master-border, var(--cordel-border, #1a1a1a));
   background-color: var(--cordel-master-bg, var(--cordel-bg));
   box-shadow: 0 4px 10px var(--cordel-shadow-color);
   border-radius: 3px;
@@ -1103,4 +1131,14 @@ textarea {
   animation: cordel-arm-pulse 1.8s ease-in-out infinite !important;
   border-color: #e67e22 !important;
 }
+
+/* Lifted mixer strips during solid block drag & drop (Zero Reflow: box-shadow, filter & z-index only) */
+.mixer-strip-lifted {
+  box-shadow: 0 20px 38px rgba(0, 0, 0, 0.5), 0 8px 16px rgba(0, 0, 0, 0.35) !important;
+  filter: brightness(1.05) contrast(1.02);
+  transition: none !important;
+  z-index: 50 !important;
+  pointer-events: none;
+}
+
 

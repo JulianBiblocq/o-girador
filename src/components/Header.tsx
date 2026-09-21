@@ -603,6 +603,15 @@ const HeaderComponent: React.FC<HeaderProps> = ({
           >
             <XiloTimeline size={16} />
           </button>
+
+          {/* ATELIER (OFICINA) */}
+          <button
+            onClick={toggleSettings}
+            className="w-9 h-9 flex items-center justify-center font-bold text-sm cordel-border-sm cordel-button cursor-pointer bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
+            title={lang === 'pt' ? 'A Oficina (Configurações) [O]' : "L'Atelier (Paramètres) [O]"}
+          >
+            ⚙️
+          </button>
         </div>
       </div>
       </>
@@ -918,7 +927,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         <div 
           className="flex items-center gap-2 bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] cordel-button px-3 h-[34px] cursor-pointer hover:bg-[#1a1a1a]/5 transition-colors select-none shrink-0" 
           onClick={toggleSettings}
-          title={lang === 'pt' ? 'A Oficina (Configurações)' : "L'Atelier (Paramètres)"}
+          title={lang === 'pt' ? 'A Oficina (Configurações) [O]' : "L'Atelier (Paramètres) [O]"}
         >
           <MiniTelemetryBadge />
           <span className="text-[var(--cordel-text)] font-cactus font-bold text-xs uppercase flex items-center gap-1.5">

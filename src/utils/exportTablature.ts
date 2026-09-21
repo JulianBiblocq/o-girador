@@ -1,6 +1,7 @@
 import { TrackGroup, SongSection, PresetMetadata } from '../types';
 import { instrumentsConfig } from '../data';
 import { useNomenclatureStore } from '../stores/useNomenclatureStore';
+import { useSequencerStore } from '../stores/useSequencerStore';
 
 const getInstrumentLabel = (instId: string, isFirstBlock: boolean, track?: TrackGroup) => {
   const customLabel = track?.customName || useNomenclatureStore.getState().getInstrumentLabel(track || instId);
@@ -44,13 +45,14 @@ export const generateTablatureCore = (
     const leftBar = isRepeatedStart ? "||: " : "| ";
     const rightBar = isRepeatedEnd ? " :||" : " |";
 
+    const lang = useSequencerStore.getState().lang || 'fr';
     let header = "";
     if (sectionStart) {
       header = `[ ${sectionStart.name} ]`;
     } else if (currentChunk.length === 1) {
-      header = `--- Mesure ${startM + 1} ---`;
+      header = lang === 'fr' ? `--- Mesure ${startM + 1} ---` : `--- Compasso ${startM + 1} ---`;
     } else {
-      header = `--- Mesures ${startM + 1} à ${endM + 1} ---`;
+      header = lang === 'fr' ? `--- Mesures ${startM + 1} à ${endM + 1} ---` : `--- Compassos ${startM + 1} a ${endM + 1} ---`;
     }
     
     let chunkOutput = header + "\n";
@@ -212,8 +214,9 @@ export const generateAnnexTablature = (
   const annexTracks = tracks.filter(t => annexTrackIds.has(t.id));
   if (annexTracks.length === 0) return '';
 
+  const lang = useSequencerStore.getState().lang || 'fr';
   let output = isHtml ? `<div style="page-break-before: always;" class="tab-chunk">\n` : `\n\n========================================\n`;
-  const titleStr = 'Annexe : Lexique des variations';
+  const titleStr = lang === 'fr' ? 'Annexe : Lexique des variations' : 'Anexo: Léxico das variações';
   
   if (isHtml) {
     output += `<div class="tab-title" style="margin-top: 40px; margin-bottom: 20px;">${titleStr}</div>\n`;
@@ -274,7 +277,9 @@ export const generateAnnexTablature = (
       trackOutput += `    ${baseLabel} | ${formatSteps(p.activeSteps)}\n`;
       
       p.variations?.forEach(v => {
-        const labelText = v.playFirstTimeOnly ? `${v.name} - (Levée / 1ère fois uniquement)` : `${v.name} - ${v.probability}%`;
+        const labelText = v.playFirstTimeOnly 
+          ? (lang === 'fr' ? `${v.name} - (Levée / 1ère fois uniquement)` : `${v.name} - (Levada / 1ª vez apenas)`)
+          : `${v.name} - ${v.probability}%`;
         const varLabel = `[${labelText}]`.padEnd(50, ' ');
         trackOutput += `    ${varLabel} | ${formatSteps(v.steps)}\n`;
       });
@@ -292,7 +297,49 @@ export const generateAnnexTablature = (
   return output;
 };
 
-const generateLegendTxt = () => {
+const generateLegendTxt = (lang: string = 'fr') => {
+  if (lang === 'pt') {
+    return `
+--- LEGENDA DOS INSTRUMENTOS ---
+
+ALFAIAS / CAIXA / TAROL
+   D : Mão Direita (Forte)
+   d : Mão Direita (Fraca)
+   E : Mão Esquerda (Forte)
+   e : Mão Esquerda (Fraca)
+   C : Estalo (Batida das 2 baquetas uma contra a outra)
+   X : Aro / Madeira
+   R / r : Rufada (Rolamento)
+   F : Flam
+   I : Iguarassu / Bacalhau
+   B : Barulho (Ruído / efeito)
+
+GONGUÊ
+   D : Grave (Forte)
+   d : Grave (Fraco)
+   E : Agudo (Forte)
+   e : Agudo (Fraco)
+   X : Borda
+   B : Barulho
+
+AGBÊ
+   D / d : Direita (Forte / Fraca)
+   E / e : Esquerda (Forte / Fraca)
+   S : Salto / Lançamento
+   V : Volta
+   B : Barulho (Ruído / efeito)
+
+MINEIRO
+   P / p : Empurrar (Forte / Fraco)
+   T / t : Puxar (Forte / Fraco)
+   L : Lado (Batida de lado)
+   B : Barulho (Ruído / efeito)
+
+--- ESTRUTURA MUSICAL ---
+   ||:  ...  :|| : Barras de repetição. Repetir a seção.
+   (Levada / 1ª vez apenas) : Frase introdutória tocada apenas na primeira iteração do loop.
+`;
+  }
   return `
 --- LÉGENDE DES INSTRUMENTS ---
 
@@ -334,7 +381,68 @@ MINEIRO
 `;
 };
 
-const generateLegendHTML = (forcePageBreak: boolean = true) => {
+const generateLegendHTML = (forcePageBreak: boolean = true, lang: string = 'fr') => {
+  if (lang === 'pt') {
+    return `
+    <div style="${forcePageBreak ? 'page-break-before: always; ' : ''}font-family: sans-serif; padding-top: 20px; color: black; background: white;">
+      <h2 style="font-family: 'Cactus', sans-serif; border-bottom: 2px solid #000; padding-bottom: 10px; font-size: 24px; margin-bottom: 20px;">Legenda das Tablaturas</h2>
+      
+      <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 10px;">
+        
+        <div style="width: 45%; margin-bottom: 15px;">
+          <h3 style="font-size: 16px; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">Alfaias, Caixa, Tarol</h3>
+          <ul style="list-style-type: none; padding-left: 0; margin: 0; font-size: 14px;">
+            <li style="margin-bottom: 4px;"><strong>D</strong> : Mão Direita (Forte)</li>
+            <li style="margin-bottom: 4px;"><strong>d</strong> : Mão Direita (Fraca)</li>
+            <li style="margin-bottom: 4px;"><strong>E</strong> : Mão Esquerda (Forte)</li>
+            <li style="margin-bottom: 4px;"><strong>e</strong> : Mão Esquerda (Fraca)</li>
+            <li style="margin-bottom: 4px;"><strong>C</strong> : Estalo (Batida das 2 baquetas uma contra a outra)</li>
+            <li style="margin-bottom: 4px;"><strong>X</strong> : Aro / Madeira</li>
+            <li style="margin-bottom: 4px;"><strong>R / r</strong> : Rufada (Rolamento direito/esquerdo)</li>
+            <li style="margin-bottom: 4px;"><strong>F</strong> : Flam</li>
+            <li style="margin-bottom: 4px;"><strong>I</strong> : Iguarassu / Bacalhau</li>
+            <li style="margin-bottom: 4px;"><strong>B</strong> : Barulho (Ruído / efeito)</li>
+          </ul>
+        </div>
+
+        <div style="width: 45%; margin-bottom: 15px;">
+          <h3 style="font-size: 16px; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">Gonguê</h3>
+          <ul style="list-style-type: none; padding-left: 0; margin: 0; font-size: 14px;">
+            <li style="margin-bottom: 4px;"><strong>D</strong> : Grave (Forte)</li>
+            <li style="margin-bottom: 4px;"><strong>d</strong> : Grave (Fraco)</li>
+            <li style="margin-bottom: 4px;"><strong>E</strong> : Agudo (Forte)</li>
+            <li style="margin-bottom: 4px;"><strong>e</strong> : Agudo (Fraco)</li>
+            <li style="margin-bottom: 4px;"><strong>X</strong> : Borda</li>
+            <li style="margin-bottom: 4px;"><strong>B</strong> : Barulho</li>
+          </ul>
+          
+          <h3 style="font-size: 16px; margin-top: 20px; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">Agbê</h3>
+          <ul style="list-style-type: none; padding-left: 0; margin: 0; font-size: 14px;">
+            <li style="margin-bottom: 4px;"><strong>D / d</strong> : Direita (Forte / Fraca)</li>
+            <li style="margin-bottom: 4px;"><strong>E / e</strong> : Esquerda (Forte / Fraca)</li>
+            <li style="margin-bottom: 4px;"><strong>S</strong> : Salto / Lançamento</li>
+            <li style="margin-bottom: 4px;"><strong>V</strong> : Volta</li>
+            <li style="margin-bottom: 4px;"><strong>B</strong> : Barulho</li>
+          </ul>
+
+          <h3 style="font-size: 16px; margin-top: 20px; margin-bottom: 8px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">Mineiro</h3>
+          <ul style="list-style-type: none; padding-left: 0; margin: 0; font-size: 14px;">
+            <li style="margin-bottom: 4px;"><strong>P / p</strong> : Empurrar (Forte / Fraco)</li>
+            <li style="margin-bottom: 4px;"><strong>T / t</strong> : Puxar (Forte / Fraco)</li>
+            <li style="margin-bottom: 4px;"><strong>L</strong> : Lado (Batida de lado)</li>
+            <li style="margin-bottom: 4px;"><strong>B</strong> : Barulho</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3 style="font-size: 16px; margin-top: 30px; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 4px;">Estrutura Musical e Repetições</h3>
+      <ul style="list-style-type: none; padding-left: 0; font-size: 14px;">
+        <li style="margin-bottom: 8px;"><strong>||: &nbsp; &nbsp; :||</strong> : Barras de repetição. Indica que a seção deve ser repetida.</li>
+        <li style="margin-bottom: 8px;"><strong>(Levada / 1ª vez apenas)</strong> : Frase introdutória tocada apenas na primeira iteração do loop.</li>
+      </ul>
+    </div>
+    `;
+  }
   return `
     <div style="${forcePageBreak ? 'page-break-before: always; ' : ''}font-family: sans-serif; padding-top: 20px; color: black; background: white;">
       <h2 style="font-family: 'Cactus', sans-serif; border-bottom: 2px solid #000; padding-bottom: 10px; font-size: 24px; margin-bottom: 20px;">Légende des Tablatures</h2>
@@ -397,11 +505,14 @@ const generateLegendHTML = (forcePageBreak: boolean = true) => {
 };
 
 export const printLegendOnly = () => {
-  const htmlContent = generateLegendHTML(false);
+  const lang = useSequencerStore.getState().lang || 'fr';
+  const htmlContent = generateLegendHTML(false, lang);
   
   const printWindow = window.open('', '_blank', 'width=800,height=600');
   if (!printWindow) {
-    alert("Veuillez autoriser l'ouverture des pop-ups pour imprimer la légende.");
+    alert(lang === 'fr' 
+      ? "Veuillez autoriser l'ouverture des pop-ups pour imprimer la légende."
+      : "Por favor, autorize os pop-ups para imprimir a legenda.");
     return;
   }
   
@@ -409,7 +520,7 @@ export const printLegendOnly = () => {
     <!DOCTYPE html>
     <html>
       <head>
-        <title>Légende des Tablatures</title>
+        <title>${lang === 'fr' ? 'Légende des Tablatures' : 'Legenda das Tablaturas'}</title>
         <style>
           body { margin: 0; padding: 20px; font-family: sans-serif; background: white; color: black; }
           @media print {
@@ -446,7 +557,9 @@ export const exportTablatureFile = (
   measureBpms?: { [m: number]: number },
   letras?: string
 ) => {
-  const title = metadata?.toada?.trim() || "O Girador Tablature";
+  const lang = useSequencerStore.getState().lang || 'fr';
+  const defaultTitle = lang === 'fr' ? "Partition O Girador" : "Partitura O Girador";
+  const title = metadata?.toada?.trim() || defaultTitle;
   let finalTxt = "";
 
   if (typeof tracks === 'string') {
@@ -455,17 +568,19 @@ export const exportTablatureFile = (
     const outputTxt = generateTablatureCore(tracks, totalMeasures || 0, songSections || [], measureTimeSigs, measureBpms, false);
     const annexTxt = generateAnnexTablature(tracks, annexTrackIds, false);
     
-    finalTxt = `TITRE: ${title}\n`;
-    if (metadata?.compositor) finalTxt += `COMPOSITEUR: ${metadata.compositor}\n`;
-    if (metadata?.ritmo) finalTxt += `RYTHME: ${metadata.ritmo}\n`;
+    finalTxt = `${lang === 'fr' ? 'TITRE' : 'TÍTULO'}: ${title}\n`;
+    if (metadata?.compositor) finalTxt += `${lang === 'fr' ? 'COMPOSITEUR' : 'COMPOSITOR'}: ${metadata.compositor}\n`;
+    if (metadata?.ritmo) finalTxt += `${lang === 'fr' ? 'RYTHME' : 'RITMO'}: ${metadata.ritmo}\n`;
     finalTxt += `\n${outputTxt}`;
     if (annexTxt) finalTxt += annexTxt;
     
     if (letras && letras.trim() !== '') {
-      finalTxt += `\n--- VOIX / PAROLES ---\n${letras}\n`;
+      finalTxt += lang === 'fr' 
+        ? `\n--- VOIX / PAROLES ---\n${letras}\n`
+        : `\n--- VOZES / LETRAS ---\n${letras}\n`;
     }
     
-    finalTxt += `\n(Généré avec O Girador)\n`;
+    finalTxt += lang === 'fr' ? `\n(Généré avec O Girador)\n` : `\n(Gerado com O Girador)\n`;
   }
 
   // Create blob and download
@@ -491,8 +606,12 @@ export const printTablature = (
   letras?: string,
   fontSize?: number
 ) => {
-  const title = metadata?.toada?.trim() || "O Girador Tablature";
-  const composer = metadata?.compositor ? `Compositeur : ${metadata.compositor}` : "";
+  const lang = useSequencerStore.getState().lang || 'fr';
+  const defaultTitle = lang === 'fr' ? "Partition O Girador" : "Partitura O Girador";
+  const title = metadata?.toada?.trim() || defaultTitle;
+  const composer = metadata?.compositor 
+    ? `${lang === 'fr' ? 'Compositeur' : 'Compositor'} : ${metadata.compositor}` 
+    : "";
   let innerContent = "";
 
   if (typeof tracks === 'string') {
@@ -514,7 +633,7 @@ export const printTablature = (
     if (letras && letras.trim() !== '') {
       innerContent += `
         <div class="tab-letras">
-          <h3>Voix / Paroles</h3>
+          <h3>${lang === 'fr' ? 'Voix / Paroles' : 'Vozes / Letras'}</h3>
           <div>${letras}</div>
         </div>
       `;
@@ -528,7 +647,7 @@ export const printTablature = (
   }
 
   innerContent += `
-    <div class="tab-footer">Généré avec O Girador</div>
+    <div class="tab-footer">${lang === 'fr' ? 'Généré avec O Girador' : 'Gerado com O Girador'}</div>
   `;
   
   const printContainer = document.createElement('div');

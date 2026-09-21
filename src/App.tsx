@@ -725,6 +725,10 @@ export default function App() {
             setIntroModalOpen(false);
             setWizardOpen(true);
           }}
+          onSelectTemplate={(template) => {
+            setIntroModalOpen(false);
+            useSequencerStore.getState().handleCreateFromTemplate(template, audio);
+          }}
           lang={sequencer.lang}
         />
       )}

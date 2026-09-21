@@ -278,6 +278,7 @@ export function useAppAudio() {
       const dataToSave = {
         version: 3,
         tracks: tracksCopy,
+        rodaTrackOrder: state.rodaTrackOrder,
         bpm: state.bpm,
         timeSig: state.timeSig,
         totalMeasures: state.totalMeasures,
@@ -332,6 +333,7 @@ export function useAppAudio() {
         measureVols: state.measureVols,
         measureVolTransitions: state.measureVolTransitions,
         measureBpmTransitions: state.measureBpmTransitions,
+        rodaTrackOrder: state.rodaTrackOrder,
         tracks: state.tracks.map((t: any) => ({
           id: t.id,
           instrumentIdx: t.instrumentIdx,

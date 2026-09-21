@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import { useAudio } from '../contexts/AudioContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { inputManager } from './useAudioSync';
+import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 
 export function useGlobalKeyboardShortcuts() {
   const audio = useAudio();
@@ -94,6 +95,14 @@ export function useGlobalKeyboardShortcuts() {
       if (e.code === 'Space') {
         e.preventDefault();
         handleTogglePlay();
+        return;
+      }
+
+      // Raccourci global 'O' pour ouvrir/fermer instantanément L'Atelier (A Oficina)
+      if ((e.key === 'o' || e.key === 'O') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        useSequencerSettingsStore.getState().toggleSettings();
+        return;
       }
 
       if ((window as any).oGiradorDetailEditorOpen) return;

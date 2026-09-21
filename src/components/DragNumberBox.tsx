@@ -15,6 +15,7 @@ interface DragNumberBoxProps {
   style?: React.CSSProperties;
   gaugeRef?: React.RefObject<HTMLDivElement | null>;
   valueTextRef?: React.RefObject<HTMLSpanElement | null>;
+  fillColor?: string;
 }
 
 const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({ 
@@ -32,6 +33,7 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
   style,
   gaugeRef,
   valueTextRef,
+  fillColor,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const valueSpanRef = useRef<HTMLSpanElement>(null);
@@ -182,6 +184,11 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
     '--fill-width': initialStyles.width,
     '--zero-pos': `${zeroPos}%`,
     '--show-center-line': mode === 'bipolar' ? 'block' : 'none',
+    ...(fillColor ? {
+      '--fader-fill-color': fillColor,
+      '--fader-fill-opacity': '0.30',
+      '--fader-drag-opacity': '0.50',
+    } : {}),
   } as React.CSSProperties;
 
   return (
@@ -200,9 +207,11 @@ const DragNumberBoxComponent: React.FC<DragNumberBoxProps> = ({
       {/* GPU Accelerated Gauge Bar for Motorized Automation */}
       <div
         ref={setGaugeRef}
-        className="absolute inset-y-0 left-0 bg-current pointer-events-none origin-left opacity-20 z-[1]"
+        className="absolute inset-y-0 left-0 pointer-events-none origin-left z-[1]"
         style={{
           width: '100%',
+          backgroundColor: fillColor || 'currentColor',
+          opacity: fillColor ? 0.30 : 0.20,
           transform: `scaleX(${Math.max(0, Math.min(1, (value - actualMin) / (range || 1)))})`,
         }}
       />

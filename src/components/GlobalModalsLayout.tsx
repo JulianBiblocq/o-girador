@@ -200,6 +200,7 @@ export const GlobalModalsLayout: React.FC<GlobalModalsLayoutProps> = ({
       {editingTrackId !== null && (
         isInstrumentEditorDetached ? (
           <WindowPortal
+            panelKey="detailEditor"
             onClose={() => {
               handleCloseDetailEditor();
               useSequencerStore.setState({ isInstrumentEditorDetached: false });

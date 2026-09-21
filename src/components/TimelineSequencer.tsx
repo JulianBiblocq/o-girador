@@ -175,28 +175,41 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
   const isMasterVolumeBypassed = useSequencerStore(state => state.isMasterVolumeBypassed);
   const toggleMasterVolumeBypass = useSequencerStore(state => state.toggleMasterVolumeBypass);
   const trackIds = useSequencerStore(useShallow(state => {
-    const visibleTrackIds: number[] = [];
+    const topLevelList: TrackGroup[] = [];
     state.tracks.forEach(t => {
       if (isLinearDAWVisibleTrack(t, state.tracks)) {
-        visibleTrackIds.push(t.id);
-        if (isToadaBus(t) && !t.isSequencerFolded) {
-          const puxTrack = state.tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'puxador');
-          const coroTrack = state.tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'coro');
-          if (puxTrack) visibleTrackIds.push(puxTrack.id);
-          if (coroTrack) visibleTrackIds.push(coroTrack.id);
-        }
-        if (t.isLinkMaster) {
-          const parentBus = state.tracks.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
-          if (parentBus && !parentBus.isSequencerFolded) {
-            const slaves = state.tracks.filter(child => 
-              String(child.linkedToTrackId) === String(parentBus.id) && 
-              !child.isLinkFolder && 
-              !child.isLinkMaster
-            );
-            slaves.forEach(slave => visibleTrackIds.push(slave.id));
-          }
-        }
+        topLevelList.push(t);
+      }
+    });
 
+    if (state.rodaTrackOrder && state.rodaTrackOrder.length > 0) {
+      const orderMap = new Map(state.rodaTrackOrder.map((id, index) => [id, index]));
+      topLevelList.sort((a, b) => {
+        const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
+        const idxB = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999;
+        return idxA - idxB;
+      });
+    }
+
+    const visibleTrackIds: number[] = [];
+    topLevelList.forEach(t => {
+      visibleTrackIds.push(t.id);
+      if (isToadaBus(t) && !t.isSequencerFolded) {
+        const puxTrack = state.tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'puxador');
+        const coroTrack = state.tracks.find(child => instrumentsConfig[child.instrumentIdx]?.id === 'coro');
+        if (puxTrack) visibleTrackIds.push(puxTrack.id);
+        if (coroTrack) visibleTrackIds.push(coroTrack.id);
+      }
+      if (t.isLinkMaster) {
+        const parentBus = state.tracks.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
+        if (parentBus && !parentBus.isSequencerFolded) {
+          const slaves = state.tracks.filter(child => 
+            String(child.linkedToTrackId) === String(parentBus.id) && 
+            !child.isLinkFolder && 
+            !child.isLinkMaster
+          );
+          slaves.forEach(slave => visibleTrackIds.push(slave.id));
+        }
       }
     });
     return visibleTrackIds;

@@ -66,9 +66,20 @@ interface CircleSequencerProps {
   circleId?: number;
   measureIndex?: number;
   trackId?: number;
+  rodaTrackOrder?: number[];
 }
 
 const EMPTY_ARRAY: any[] = [];
+
+export const sortTracksByRodaOrder = (tracksList: TrackGroup[], rodaTrackOrder?: number[]): TrackGroup[] => {
+  if (!rodaTrackOrder || rodaTrackOrder.length === 0) return tracksList;
+  const orderMap = new Map(rodaTrackOrder.map((id, index) => [id, index]));
+  return [...tracksList].sort((a, b) => {
+    const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
+    const idxB = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999;
+    return idxA - idxB;
+  });
+};
 
 const isTracksStructureEqual = (prev: TrackGroup[], next: TrackGroup[]) => {
   if (prev === next) return true;
@@ -175,6 +186,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const songSections = props.songSections !== undefined ? props.songSections : (songSectionsFromStore || []);
   const songMarkersFromStore = useSequencerStore(state => state.songMarkers);
   const songMarkers = props.songMarkers !== undefined ? props.songMarkers : (songMarkersFromStore || []);
+  const storeRodaTrackOrder = useSequencerStore(state => state.rodaTrackOrder);
+  const rodaTrackOrder = props.rodaTrackOrder !== undefined ? props.rodaTrackOrder : storeRodaTrackOrder;
 
   const isPlaying = props.isPlaying !== undefined ? props.isPlaying : audio.isPlaying;
   const globalCurrentMeasure = useSequencerStore(state => isActive ? state.currentMeasure : 0);
@@ -656,6 +669,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
   const stateRef = useRef({
     tracks,
     rawTracks,
+    rodaTrackOrder,
     isPlaying,
     currentMeasure,
     maxTicks,
@@ -684,6 +698,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     stateRef.current = {
       tracks,
       rawTracks,
+      rodaTrackOrder,
       isPlaying,
       currentMeasure,
       maxTicks,
@@ -707,7 +722,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       songMarkers,
       measureTimeSigs
     };
-  }, [tracks, rawTracks, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded, measureTimeSigs]);
+  }, [tracks, rawTracks, rodaTrackOrder, isPlaying, currentMeasure, maxTicks, timeSig, lang, isMetroOn, activeCircleIdByInst, totalMeasures, activePatternIdByTrack, hitTriggersRef, bpm, measureBpms, measureVols, isMobile, soloPatternPlayId, measureSignals, rhythmSignals, mestreSignals, songSections, songMarkers, isLeftHanded, measureTimeSigs]);
 
   useEffect(() => {
     if (props.tracks !== undefined) return;
@@ -715,11 +730,13 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     // Keep filtered tracks in stateRef up to date imperatively
     stateRef.current.tracks = useSequencerStore.getState().tracks.filter(t => isSequencerVisibleTrack(t, useSequencerStore.getState().tracks));
     stateRef.current.rawTracks = useSequencerStore.getState().tracks;
+    stateRef.current.rodaTrackOrder = useSequencerStore.getState().rodaTrackOrder;
     
     const unsubscribe = useSequencerStore.subscribe(
       (state) => {
         stateRef.current.tracks = state.tracks.filter(t => isSequencerVisibleTrack(t, state.tracks));
         stateRef.current.rawTracks = state.tracks;
+        stateRef.current.rodaTrackOrder = state.rodaTrackOrder;
       }
     );
     return unsubscribe;
@@ -762,8 +779,11 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
     const currentTracks = stateRef.current.tracks;
     const currentRawTracks = stateRef.current.rawTracks;
+    const currentRodaOrder = stateRef.current.rodaTrackOrder;
 
-    const activeVisibleTracksToDraw = currentTracks.filter(t => {
+    const sortedCurrentTracks = sortTracksByRodaOrder(currentTracks, currentRodaOrder);
+
+    const activeVisibleTracksToDraw = sortedCurrentTracks.filter(t => {
       if (t.isHidden) return false;
       if (!isSequencerVisibleTrack(t, currentTracks)) return false;
       if (instrumentsConfig[t.instrumentIdx]?.id === 'apito') return false;
@@ -1004,6 +1024,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       const { 
         tracks, 
         rawTracks: localRawTracks,
+        rodaTrackOrder: localRodaOrder,
         isPlaying: localPlaying, 
         timeSig: localTimeSig,
         isMetroOn: localMetroOn, 
@@ -1015,8 +1036,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       const localStep = live.step;
       const localTicks = live.maxTicks || 96;
 
-      // 2. Filtrer les pistes actives et visibles (non mutées, non masquées)
-      const activeVisibleTracks = tracks.filter(t => {
+      // 2. Filtrer et ordonner les pistes actives et visibles selon rodaTrackOrder
+      const sortedTracks = sortTracksByRodaOrder(tracks, localRodaOrder);
+      const activeVisibleTracks = sortedTracks.filter(t => {
         if (t.isHidden) return false;
         if (!isSequencerVisibleTrack(t, tracks)) return false;
         if (instrumentsConfig[t.instrumentIdx]?.id === 'apito') return false;

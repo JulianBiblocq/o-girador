@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { GripHorizontal, Trash2 } from 'lucide-react';
+import { GripHorizontal, Trash2, Unlink } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useSequencerStore, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
@@ -67,7 +67,8 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const sequencer = useSequencer();
   const audio = useAudio();
 
-  const lang = useSequencerStore(state => state.lang);
+  const storeLang = useSequencerStore(state => state.lang);
+  const lang = sequencer?.lang || storeLang || 'pt';
   const track = useSequencerStore(useShallow(state => state.tracks.find(t => t.id === trackId)));
   const tracksMeta = useSequencerStore(selectTracksMeta);
   const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
@@ -281,6 +282,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     setNodeRef,
     transform,
     transition,
+    isDragging,
   } = useSortable({ id: `track-${trackId}` });
 
   if (!track) return null;
@@ -315,6 +317,27 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
 
     if (await sequencer.confirmAsync(confirmMsg)) {
       useSequencerStore.getState().handleTrackDelete(trackId);
+    }
+  };
+
+  const isLinkChild = !track?.isBusFolder && !!track?.linkedToTrackId;
+  const isBusChild = !track?.isBusFolder && !!track?.busId && !isLinkChild;
+  const isChild = !track?.isBusFolder && !!(track?.busId || track?.linkedToTrackId);
+  const parentBus = isChild ? tracksMeta.find(t => String(t.id) === String(track?.busId || track?.linkedToTrackId)) : null;
+  const parentBusName = parentBus ? (parentBus.customName || (parentBus.isLinkFolder ? 'ALFAIAS' : 'Bus')) : 'Bus';
+
+  const handleDetachTrackClick = async () => {
+    if (!track) return;
+    const trackName = track.customName || getTrackDisplayName(track, tracksMeta) || currentInst?.name || (lang === 'fr' ? 'la piste' : 'a faixa');
+    const confirmMsg = isBusChild
+      ? (lang === 'fr'
+          ? `Dissocier la piste "${trackName}" du bus "${parentBusName}" ?`
+          : `Desvincular a faixa "${trackName}" do bus "${parentBusName}"?`)
+      : (lang === 'fr'
+          ? `Dissocier la piste "${trackName}" du groupe "${parentBusName}" ?`
+          : `Desvincular a faixa "${trackName}" do grupo "${parentBusName}"?`);
+    if (await sequencer.confirmAsync(confirmMsg)) {
+      useSequencerStore.getState().handleDetachTrack(track.id);
     }
   };
   const onVolumeChange = (val: number) => {
@@ -371,21 +394,26 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
     const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
     const b = parseInt(cleanHex.substring(4, 6), 16) || 26;
-    const bgAlpha = `rgba(${r}, ${g}, ${b}, ${track.isLinkFolder ? 0.14 : 0.02})`;
+    const bgAlpha = `rgba(${r}, ${g}, ${b}, ${isDragOver ? 0.22 : (track.isLinkFolder ? 0.14 : 0.02)})`;
+    const borderWidth = isDragOver ? '5px' : '3px';
 
     groupStyle.backgroundColor = bgAlpha;
-    groupStyle.borderTop = `3px solid ${busColor}`;
-    groupStyle.borderBottom = `3px solid ${busColor}`;
+    groupStyle.borderTop = `${borderWidth} solid ${busColor}`;
+    groupStyle.borderBottom = `${borderWidth} solid ${busColor}`;
 
     if (busPosition === 'first') {
-      groupStyle.borderLeft = `3px solid ${busColor}`;
+      groupStyle.borderLeft = `${borderWidth} solid ${busColor}`;
       groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
     } else if (busPosition === 'middle') {
       groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
       groupStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
     } else if (busPosition === 'last') {
       groupStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
-      groupStyle.borderRight = `3px solid ${busColor}`;
+      groupStyle.borderRight = `${borderWidth} solid ${busColor}`;
+    }
+
+    if (isDragOver) {
+      groupStyle.boxShadow = `0 0 22px ${busColor}77, inset 0 0 15px ${busColor}22`;
     }
   } else if (track.isLinkFolder && busPosition === 'none') {
     const targetBusId = String(track.id);
@@ -394,13 +422,18 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     const r = parseInt(cleanHex.substring(0, 2), 16) || 139;
     const g = parseInt(cleanHex.substring(2, 4), 16) || 42;
     const b = parseInt(cleanHex.substring(4, 6), 16) || 26;
-    const bgAlpha = `rgba(${r}, ${g}, ${b}, 0.12)`;
+    const bgAlpha = `rgba(${r}, ${g}, ${b}, ${isDragOver ? 0.25 : 0.12})`;
+    const borderWidth = isDragOver ? '5px' : '3px';
 
     groupStyle.backgroundColor = bgAlpha;
-    groupStyle.borderTop = `3px double ${busColor}`;
-    groupStyle.borderBottom = `3px double ${busColor}`;
-    groupStyle.borderLeft = `3px double ${busColor}`;
-    groupStyle.borderRight = `3px double ${busColor}`;
+    groupStyle.borderTop = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${busColor}`;
+    groupStyle.borderBottom = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${busColor}`;
+    groupStyle.borderLeft = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${busColor}`;
+    groupStyle.borderRight = `${borderWidth} ${isDragOver ? 'solid' : 'double'} ${busColor}`;
+
+    if (isDragOver) {
+      groupStyle.boxShadow = `0 0 22px ${busColor}77, inset 0 0 15px ${busColor}22`;
+    }
   }
 
   // Calcul du cadre de liaison de partition interne (Track Linking)
@@ -410,6 +443,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         ? getBusColor(String(track.linkedToTrackId), tracksMeta, instrumentsConfig) 
         : (inst?.color || '#8b2a1a'));
 
+  const linkBorderWidth = isDragOver ? '4px' : '2.5px';
   const linkStyle: React.CSSProperties = {
     position: 'absolute',
     top: '3px',
@@ -418,22 +452,26 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     right: '3px',
     pointerEvents: 'none',
     zIndex: 2,
-    borderTop: `2.5px solid ${linkColor}`,
-    borderBottom: `2.5px solid ${linkColor}`,
+    borderTop: `${linkBorderWidth} solid ${linkColor}`,
+    borderBottom: `${linkBorderWidth} solid ${linkColor}`,
   };
 
   if (linkPosition === 'first') {
-    linkStyle.borderLeft = `2.5px solid ${linkColor}`;
+    linkStyle.borderLeft = `${linkBorderWidth} solid ${linkColor}`;
     linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
   } else if (linkPosition === 'middle') {
     linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
     linkStyle.borderRight = '1.5px dashed rgba(26, 26, 26, 0.15)';
   } else if (linkPosition === 'last') {
     linkStyle.borderLeft = '1.5px dashed rgba(26, 26, 26, 0.15)';
-    linkStyle.borderRight = `2.5px solid ${linkColor}`;
+    linkStyle.borderRight = `${linkBorderWidth} solid ${linkColor}`;
   } else if (linkPosition === 'none' && (!track.isBusFolder || track.isLinkFolder)) {
-    linkStyle.borderLeft = `2.5px solid ${linkColor}`;
-    linkStyle.borderRight = `2.5px solid ${linkColor}`;
+    linkStyle.borderLeft = `${linkBorderWidth} solid ${linkColor}`;
+    linkStyle.borderRight = `${linkBorderWidth} solid ${linkColor}`;
+  }
+
+  if (isDragOver && linkPosition !== 'none') {
+    linkStyle.boxShadow = `0 0 12px ${linkColor}66`;
   }
 
   const faderColor = track.isLinkFolder 
@@ -444,10 +482,10 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
 
   const hasOuterBorder = busPosition === 'none';
   const hasGroupBorder = busPosition !== 'none' && (track.isLinkFolder || track.busId);
-  const borderThicknessTop = (hasOuterBorder || hasGroupBorder) ? 3 : 0;
-  const borderThicknessBottom = (hasOuterBorder || hasGroupBorder) ? 3 : 0;
-  const paddingTop = 3 - borderThicknessTop;
-  const paddingBottom = 3 - borderThicknessBottom;
+  const borderThicknessTop = (hasOuterBorder || hasGroupBorder) ? (isDragOver ? 5 : 3) : 0;
+  const borderThicknessBottom = (hasOuterBorder || hasGroupBorder) ? (isDragOver ? 5 : 3) : 0;
+  const paddingTop = Math.max(0, 3 - borderThicknessTop);
+  const paddingBottom = Math.max(0, 3 - borderThicknessBottom);
 
   const lowCut = track.lowCut ?? false;
   const eq = track.eqBands ?? {
@@ -515,6 +553,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   return (
     <div 
       ref={setNodeRef}
+      data-track-id={trackId}
       className={`flex flex-col bg-[var(--cordel-bg)] w-[115px] h-full justify-between shrink-0 text-[var(--cordel-text)] overflow-hidden relative transition-all duration-300 ${
         isMuted ? 'opacity-50 bg-black/5 dark:bg-white/5' : (track.isSolo ? 'bg-[var(--cordel-border)]/5 shadow-[0_0_15px_rgba(0,0,0,0.15)] z-25' : 'opacity-100')
       } ${busPosition === 'none' ? 'cordel-border' : ''}`}
@@ -523,7 +562,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
         ...groupStyle,
         paddingTop: `${paddingTop}px`,
         paddingBottom: `${12 + paddingBottom}px`,
-        zIndex: 1,
+        zIndex: isDragging ? 50 : (isDragOver ? 20 : 1),
         '--fader-thumb-bg': faderColor,
         '--fader-thumb-border': 'var(--cordel-border)',
       } as React.CSSProperties}
@@ -552,13 +591,26 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
           >
             <GripHorizontal size={18} />
           </div>
-          <button 
-            onClick={handleDeleteTrack} 
-            className="w-6 h-6 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-sm"
-            title={track?.isLinkFolder ? (lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o grupo') : (lang === 'fr' ? 'Supprimer la piste' : 'Excluir a faixa')}
-          >
-            <Trash2 size={13} />
-          </button>
+          <div className="flex items-center gap-1">
+            {isChild && (
+              <button 
+                onClick={handleDetachTrackClick} 
+                className="w-6 h-6 bg-[#f4ecd8] text-[#1a1a1a] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[#b23b25] hover:text-[#f4ecd8] text-sm"
+                title={isBusChild
+                  ? (lang === 'fr' ? `Dissocier du bus "${parentBusName}"` : `Desvincular do bus "${parentBusName}"`)
+                  : (lang === 'fr' ? `Dissocier du groupe "${parentBusName}"` : `Desvincular do grupo "${parentBusName}"`)}
+              >
+                <Unlink size={13} />
+              </button>
+            )}
+            <button 
+              onClick={handleDeleteTrack} 
+              className="w-6 h-6 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[#f4ecd8] text-sm"
+              title={track?.isLinkFolder ? (lang === 'fr' ? 'Supprimer le groupe' : 'Excluir o grupo') : (lang === 'fr' ? 'Supprimer la piste' : 'Excluir a faixa')}
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
         </div>
 
         {/* Instrument Selector / Dropdown Trigger */}
@@ -759,6 +811,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
             value={track.fxSends?.distortion ?? 0} 
             onChange={onDistortionChange}
             onAudioDrag={handleDistortionAudioDrag}
+            fillColor="var(--disto-color)"
             className="w-full text-[8px] px-1 py-0.5 shrink"
           />
           <div className="relative w-full">
@@ -770,6 +823,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
               disabled={isRevActive}
               gaugeRef={reverbGaugeRef}
               valueTextRef={reverbTextRef}
+              fillColor="var(--reverb-color)"
               className={`w-full text-[8px] px-1 py-0.5 shrink transition-opacity ${
                 isRevActive ? 'opacity-50 pointer-events-none' : ''
               }`}

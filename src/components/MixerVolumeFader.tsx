@@ -32,7 +32,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   value,
   onChange,
   onAudioDrag,
-  faderColor = '#d4af37',
+  faderColor,
   textColor = 'var(--cordel-text)',
   height,
   thumbWidth,
@@ -43,6 +43,7 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
   valueTextRefProp,
   travelRangeRef,
 }) => {
+  const resolvedFaderColor = faderColor || (isMaster ? 'var(--master-fader-thumb)' : '#d4af37');
   const visualThumbRef = useRef<HTMLDivElement>(null);
   const valueTextRef = useRef<HTMLSpanElement>(null);
   const isDraggingRef = useRef(false);
@@ -305,14 +306,23 @@ export const MixerVolumeFader: React.FC<MixerVolumeFaderProps> = ({
           height: `${resolvedThumbHeight}px`,
           left: `calc(50% - ${(thumbWidth || (isMaster ? 44 : 32)) / 2}px)`,
           top: `${getTopPosition(value)}px`,
-          backgroundColor: faderColor,
-          borderColor: 'var(--cordel-border)',
+          backgroundColor: resolvedFaderColor,
+          borderColor: isMaster ? 'var(--master-border, var(--cordel-border))' : 'var(--cordel-border)',
         }}
       >
+        {/* Repère central net du Fader Master (Haute lisibilité mode jour et nuit) */}
+        {isMaster && (
+          <div
+            className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-[2px] bg-[#f4ecd8] opacity-90 shadow-[0_1px_1px_rgba(0,0,0,0.8)] pointer-events-none"
+            aria-hidden="true"
+          />
+        )}
         <span
           ref={setTextRef}
-          className={`${fontSize || 'text-[10px]'} font-black font-mono select-none`}
-          style={{ color: textColor }}
+          className={`${fontSize || 'text-[10px]'} font-black font-mono select-none relative z-10 ${
+            isMaster ? 'px-1.5 py-[0.5px] rounded-[2px] bg-[#1a1a1a]/85 text-[#f4ecd8] border border-[#f4ecd8]/40 shadow-xs' : ''
+          }`}
+          style={isMaster ? undefined : { color: textColor }}
         >
           {value}
         </span>

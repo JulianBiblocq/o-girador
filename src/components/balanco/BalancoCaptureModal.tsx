@@ -483,7 +483,7 @@ export const BalancoCaptureModal: React.FC<BalancoCaptureModalProps> = ({
               <span className="opacity-50 text-[9px]">(3)</span>
             </div>
             <span className="font-cactus text-xs tracking-widest text-[#f4ecd8]/70">
-              ⚡ BALANCIEZ AU TEMPO
+              ⚡ {lang === 'fr' ? 'BALANCIEZ AU TEMPO' : 'BALANCEIE NO TEMPO'}
             </span>
             <div className="flex items-center gap-1.5">
               <span className="opacity-50 text-[9px]">(4)</span>
@@ -496,7 +496,7 @@ export const BalancoCaptureModal: React.FC<BalancoCaptureModalProps> = ({
             <div
               ref={leftLedRef}
               className="w-4 h-4 rounded-full border border-black/50 bg-[#3a2e22] opacity-60 flex items-center justify-center font-cactus text-[9px] font-black text-white shrink-0 z-10 select-none"
-              title="Temps 1 (Accent) / Temps 3"
+              title={lang === 'fr' ? 'Temps 1 (Accent) / Temps 3' : 'Tempo 1 (Acento) / Tempo 3'}
             >
               1
             </div>
@@ -522,7 +522,7 @@ export const BalancoCaptureModal: React.FC<BalancoCaptureModalProps> = ({
             <div
               ref={rightLedRef}
               className="w-4 h-4 rounded-full border border-black/50 bg-[#3a2e22] opacity-60 flex items-center justify-center font-cactus text-[9px] font-black text-white shrink-0 z-10 select-none"
-              title="Temps 2 / Temps 4"
+              title={lang === 'fr' ? 'Temps 2 / Temps 4' : 'Tempo 2 / Tempo 4'}
             >
               2
             </div>
@@ -564,7 +564,7 @@ export const BalancoCaptureModal: React.FC<BalancoCaptureModalProps> = ({
                   {lang === 'fr' ? 'FRAPPEZ ICI' : 'TOQUE AQUI'}
                 </span>
                 <span className="text-[10px] opacity-75 mt-1 font-mono">
-                  Touches [F] / [J] ou Pad MIDI
+                  {lang === 'fr' ? 'Touches [F] / [J] ou Pad MIDI' : 'Teclas [F] / [J] ou Pad MIDI'}
                 </span>
               </button>
             </div>

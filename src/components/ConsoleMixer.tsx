@@ -11,6 +11,7 @@ import {
   useSensors,
   useSensor,
   DragEndEvent,
+  DragMoveEvent,
   TouchSensor,
   pointerWithin,
 } from '@dnd-kit/core';
@@ -26,12 +27,14 @@ import { MixerFolderBus } from './MixerFolderBus';
 import { MixerMasterEffects } from './MixerMasterEffects';
 import { MixerVolumeFader } from './MixerVolumeFader';
 import { MixerAddChannel } from './MixerAddChannel';
+import { MixerKnob } from './MixerKnob';
 import { interpolateAutomationValue } from '../utils/automationMath';
 import { getNextPatternName } from '../utils/patternNaming';
 import { getLastAudibleTick } from '../audio/visualTickBuffer';
+import { SaveWorkspaceTemplateModal } from './SaveWorkspaceTemplateModal';
 import { DragNumberBox } from './DragNumberBox';
-import { XiloEQ, XiloCompressor, XiloMestre } from './XiloIcons';
-import { metroChannel, masterVolumeNode } from '../audio/effectsChain';
+import { XiloEQ, XiloCompressor, XiloMestre, XiloScroll } from './XiloIcons';
+import { metroChannel, masterVolumeNode, masterEQNode, masterCompressorNode } from '../audio/effectsChain';
 import { i18n, instrumentsConfig } from '../data';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
@@ -40,6 +43,7 @@ import { masterLeftMeterNode, masterRightMeterNode } from '../audio/effectsChain
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
+import { getMixerTheme } from '../theme';
 
 import { getTopParentBusId } from '../utils/colorHelpers';
 
@@ -52,6 +56,16 @@ const getCachedTrack = (id: number, isHidden: boolean, isSolo: boolean, isMute: 
     trackListCache.set(key, obj);
   }
   return obj;
+};
+
+const getTrackGroupKey = (t: TrackGroup | null | undefined, allTracks: TrackGroup[]): string | null => {
+  if (!t) return null;
+  const topBus = getTopParentBusId(t, allTracks);
+  if (topBus) return topBus;
+  if (t.isLinkFolder) return String(t.id);
+  if (t.linkedToTrackId) return String(t.linkedToTrackId);
+  if (t.busId) return String(t.busId);
+  return null;
 };
 
 interface ConsoleMixerProps {
@@ -88,6 +102,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     handleCopyPattern,
     handlePastePattern,
     handleLoadLibraryPattern,
+    handleReorderMixerTracks,
     handleReorderTracksDnd,
     handleTrackMuteToggle: onMuteToggle,
     handleTrackSoloToggle: onSoloToggle,
@@ -238,6 +253,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
   const [activeDragTrackId, setActiveDragTrackId] = React.useState<number | null>(null);
   const [overDragTrackId, setOverDragTrackId] = React.useState<number | null>(null);
+  const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
   
   const setTracks = useSequencerStore(state => state.setTracks);
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
@@ -387,6 +403,87 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       masterVolumeNode.gain.rampTo(gain, 0.05);
     }
   };
+
+  const handleMasterEQLowAudioDrag = (val: number) => {
+    if (masterEQNode && masterEQNode.low) {
+      masterEQNode.low.rampTo(val, 0.05);
+    }
+  };
+
+  const handleMasterEQMidAudioDrag = (val: number) => {
+    if (masterEQNode && masterEQNode.mid) {
+      masterEQNode.mid.rampTo(val, 0.05);
+    }
+  };
+
+  const handleMasterEQHighAudioDrag = (val: number) => {
+    if (masterEQNode && masterEQNode.high) {
+      masterEQNode.high.rampTo(val, 0.05);
+    }
+  };
+
+  const handleMasterCompThresholdAudioDrag = (val: number) => {
+    if (masterCompressorNode && masterCompressorNode.threshold) {
+      try {
+        masterCompressorNode.threshold.rampTo(val, 0.05);
+      } catch (_) {}
+    }
+  };
+
+  const handleMasterCompRatioAudioDrag = (val: number) => {
+    if (masterCompressorNode && masterCompressorNode.ratio) {
+      try {
+        masterCompressorNode.ratio.rampTo(val, 0.05);
+      } catch (_) {}
+    }
+  };
+
+  const masterContainerRef = useRef<HTMLDivElement>(null);
+
+  // Injection des tokens de thème sur le conteneur Master (Zéro Render Thrashing)
+  useEffect(() => {
+    const applyThemeTokens = () => {
+      const el = masterContainerRef.current;
+      if (!el) return;
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+      const mode = isLight ? 'light' : 'dark';
+      const theme = getMixerTheme('maracatu');
+
+      el.style.setProperty('--master-header-bg', theme.master.headerBg[mode]);
+      el.style.setProperty('--master-header-text', theme.master.headerText[mode]);
+      el.style.setProperty('--master-border', theme.master.border[mode]);
+      el.style.setProperty('--master-fader-thumb', theme.master.faderThumb[mode]);
+      el.style.setProperty('--master-comp-bg', theme.master.compressorBg[mode]);
+      el.style.setProperty('--comp-color', theme.master.compressorColor || '#d4af37');
+      el.style.setProperty('--eq-low-color', theme.eq.low.color);
+      el.style.setProperty('--eq-mid-color', theme.eq.mid.color);
+      el.style.setProperty('--eq-high-color', theme.eq.high.color);
+      el.style.setProperty('--reverb-color', theme.effects.reverb.accentColor);
+      el.style.setProperty('--disto-color', theme.effects.distortion.accentColor);
+    };
+
+    // 1. Exécution immédiate dès le premier montage
+    applyThemeTokens();
+
+    // 2. Écoute directe des mutations de thème sans aucun re-rendu React
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.attributeName === 'data-theme') {
+          applyThemeTokens();
+          break;
+        }
+      }
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
 
   const [isMasterCollapsed, setIsMasterCollapsed] = useState(isMobile);
 
@@ -611,11 +708,86 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     })
   );
 
+  const activeGroupTrackIdsRef = useRef<number[]>([]);
+  const activeDragGroupElementsRef = useRef<HTMLElement[]>([]);
+
+  const cleanupGroupDrag = React.useCallback(() => {
+    const elements = activeDragGroupElementsRef.current;
+    elements.forEach(el => {
+      el.classList.remove('mixer-strip-lifted');
+      el.style.transform = '';
+      el.style.transition = '';
+      el.style.zIndex = '';
+    });
+    activeDragGroupElementsRef.current = [];
+    activeGroupTrackIdsRef.current = [];
+  }, []);
+
   const handleDragStart = React.useCallback((event: any) => {
     const activeId = String(event.active.id);
     if (activeId.startsWith('track-')) {
-      setActiveDragTrackId(Number(activeId.replace('track-', '')));
+      const activeTrackId = Number(activeId.replace('track-', ''));
+      setActiveDragTrackId(activeTrackId);
+
+      const activeTrack = tracks.find(t => t.id === activeTrackId);
+      const isGroupHeader = activeTrack && (
+        activeTrack.isBusFolder ||
+        activeTrack.isLinkFolder ||
+        activeTrack.isLinkMaster ||
+        tracks.some(t => String(t.busId) === String(activeTrack.id) || String(t.linkedToTrackId) === String(activeTrack.id))
+      );
+
+      if (isGroupHeader && scrollRef.current) {
+        const children = tracks.filter(t => 
+          t.id !== activeTrackId && (
+            String(t.busId) === String(activeTrackId) ||
+            String(t.linkedToTrackId) === String(activeTrackId) ||
+            (activeTrack?.linkedToTrackId && activeTrack.isLinkMaster && String(t.linkedToTrackId) === String(activeTrack.linkedToTrackId))
+          )
+        );
+        const groupIds = [activeTrackId, ...children.map(c => c.id)];
+        activeGroupTrackIdsRef.current = groupIds;
+
+        const elements: HTMLElement[] = [];
+        groupIds.forEach(id => {
+          const el = scrollRef.current?.querySelector(`[data-track-id="${id}"]`) as HTMLElement | null;
+          if (el) {
+            elements.push(el);
+            el.classList.add('mixer-strip-lifted');
+            el.style.zIndex = '50';
+            el.style.transition = 'none';
+          }
+        });
+        activeDragGroupElementsRef.current = elements;
+      } else {
+        activeGroupTrackIdsRef.current = [activeTrackId];
+        activeDragGroupElementsRef.current = [];
+      }
     }
+  }, [tracks]);
+
+  const handleDragMove = React.useCallback((event: DragMoveEvent) => {
+    const deltaX = event.delta?.x || 0;
+    const elements = activeDragGroupElementsRef.current;
+    if (elements.length > 1) {
+      // Synchronisation directe DOM Vanilla JS des enfants du bloc sans aucun re-render React (Zero Render Thrashing)
+      for (let i = 1; i < elements.length; i++) {
+        elements[i].style.transform = `translate3d(${deltaX}px, 0px, 0px)`;
+      }
+    }
+  }, []);
+
+  const customCollisionDetection = React.useCallback((args: any) => {
+    const collisions = pointerWithin(args);
+    if (!collisions || collisions.length === 0) return [];
+
+    const groupIds = activeGroupTrackIdsRef.current;
+    if (groupIds.length <= 1) return collisions;
+
+    // Ignorer les collisions internes avec les pistes membres du bloc solidaire actif
+    const groupSet = new Set(groupIds.map(id => `track-${id}`));
+    const filtered = collisions.filter((c: any) => !groupSet.has(String(c.id)));
+    return filtered.length > 0 ? filtered : [];
   }, []);
 
   const handleDragOver = React.useCallback((event: any) => {
@@ -628,11 +800,13 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   }, []);
 
   const handleDragCancel = React.useCallback(() => {
+    cleanupGroupDrag();
     setActiveDragTrackId(null);
     setOverDragTrackId(null);
-  }, []);
+  }, [cleanupGroupDrag]);
 
   const handleDragEnd = (event: DragEndEvent) => {
+    cleanupGroupDrag();
     setActiveDragTrackId(null);
     setOverDragTrackId(null);
     const { active, over } = event;
@@ -652,7 +826,10 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       } else if (activeId.startsWith('track-') && overId.startsWith('track-')) {
         const activeTrackId = Number(activeId.replace('track-', ''));
         const overTrackId = Number(overId.replace('track-', ''));
-        handleReorderTracksDnd(activeTrackId, overTrackId);
+        const reorderFn = handleReorderMixerTracks || handleReorderTracksDnd;
+        if (reorderFn) {
+          reorderFn(activeTrackId, overTrackId);
+        }
       }
     }
   };
@@ -828,8 +1005,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       <div ref={scrollRef} className="flex-grow flex overflow-x-auto pt-4 pb-4 pl-4 pr-0 custom-scrollbar">
         <DndContext
           sensors={sensors}
-          collisionDetection={pointerWithin}
+          collisionDetection={customCollisionDetection}
           onDragStart={handleDragStart}
+          onDragMove={handleDragMove}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
@@ -840,22 +1018,38 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
               const prevTrack = index > 0 ? displayedTracks[index - 1] : null;
               const nextTrack = index < displayedTracks.length - 1 ? displayedTracks[index + 1] : null;
 
-              const isDragOverBus = activeDragTrackId !== null && 
-                                    overDragTrackId === trackId && 
-                                    activeDragTrackId !== trackId && 
-                                    track.isBusFolder &&
-                                    !tracks.find(t => t.id === activeDragTrackId)?.isBusFolder;
+              const activeTrack = activeDragTrackId !== null ? tracks.find(t => t.id === activeDragTrackId) : null;
+              const overTrack = overDragTrackId !== null ? tracks.find(t => t.id === overDragTrackId) : null;
+
+              const activeGroupKey = getTrackGroupKey(activeTrack, tracks);
+              const hoveredGroupKey = getTrackGroupKey(overTrack, tracks);
+              const currentTrackGroupKey = getTrackGroupKey(track, tracks);
+
+              // Ce groupe est-il actuellement survolé ?
+              const isThisGroupHovered = !!(
+                hoveredGroupKey &&
+                currentTrackGroupKey === hoveredGroupKey &&
+                activeDragTrackId !== null &&
+                !activeTrack?.isBusFolder
+              );
+
+              // S'agit-il d'une piste externe qui survole ce groupe ?
+              const isExternalHoveringThisGroup = !!(
+                isThisGroupHovered &&
+                (!activeGroupKey || activeGroupKey !== hoveredGroupKey)
+              );
 
               let dropIndicator: 'left' | 'right' | null = null;
-              if (activeDragTrackId !== null && overDragTrackId === trackId && activeDragTrackId !== trackId) {
-                const activeTrack = tracks.find(t => t.id === activeDragTrackId);
-                const isRouting = track.isBusFolder && activeTrack && !activeTrack.isBusFolder && activeTrack.busId !== String(trackId);
-                if (!isRouting) {
-                  const activeIdx = displayedTracks.findIndex(t => t.id === activeDragTrackId);
-                  const overIdx = displayedTracks.findIndex(t => t.id === trackId);
-                  if (activeIdx !== -1 && overIdx !== -1) {
-                    dropIndicator = activeIdx < overIdx ? 'right' : 'left';
-                  }
+              if (
+                activeDragTrackId !== null &&
+                overDragTrackId === trackId &&
+                activeDragTrackId !== trackId &&
+                !isExternalHoveringThisGroup
+              ) {
+                const activeIdx = displayedTracks.findIndex(t => t.id === activeDragTrackId);
+                const overIdx = displayedTracks.findIndex(t => t.id === trackId);
+                if (activeIdx !== -1 && overIdx !== -1) {
+                  dropIndicator = activeIdx < overIdx ? 'right' : 'left';
                 }
               }
 
@@ -911,7 +1105,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                       isActive={isActive}
                       busPosition={busPosition}
                       linkPosition={linkPosition}
-                      isDragOver={isDragOverBus}
+                      isDragOver={isThisGroupHovered}
                       dropIndicator={dropIndicator}
                     />
                   );
@@ -924,7 +1118,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     isActive={isActive}
                     busPosition={busPosition}
                     linkPosition={linkPosition}
-                    isDragOver={isDragOverBus}
+                    isDragOver={isThisGroupHovered}
                     dropIndicator={dropIndicator}
                   />
                 );
@@ -940,6 +1134,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     isActive={isActive}
                     busPosition={busPosition}
                     linkPosition={linkPosition}
+                    isDragOver={isThisGroupHovered}
                     dropIndicator={dropIndicator}
                   />
                 );
@@ -957,6 +1152,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   isActive={isActive}
                   busPosition={busPosition}
                   linkPosition={linkPosition}
+                  isDragOver={isThisGroupHovered}
                   dropIndicator={dropIndicator}
                 />
               );
@@ -978,105 +1174,133 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         >
           {/* Master Console Strip */}
           <div 
-            className={`flex flex-col cordel-master-strip shrink-0 text-[var(--cordel-text)] overflow-hidden pb-4 transition-all duration-300 ${
+            ref={masterContainerRef}
+            className={`flex flex-col cordel-master-strip shrink-0 text-[var(--cordel-text)] overflow-hidden pb-2 transition-all duration-300 border-2 border-[var(--master-border)] ${
               isMasterCollapsed ? 'w-[45px]' : 'w-[240px]'
             }`}
             style={{
-              '--fader-thumb-bg': '#8b2a1a',
-              '--fader-thumb-border': 'var(--cordel-border)',
+              '--fader-thumb-bg': 'var(--master-fader-thumb)',
+              '--fader-thumb-border': 'var(--master-border)',
             } as React.CSSProperties}
           >
           {/* Header / Title */}
-          <div className="relative p-3 pb-1 flex justify-between items-center h-[52px] border-b-[3px] border-[var(--cordel-border)] bg-[var(--cordel-bg)] w-full">
+          <div className="relative px-3 py-1.5 flex justify-between items-center h-[42px] border-b-2 border-[var(--master-border)] bg-[var(--master-header-bg)] text-[var(--master-header-text)] w-full transition-colors">
             {!isMasterCollapsed ? (
               <>
                 <div className="flex items-center gap-1.5">
-                  <span className="font-cactus font-bold text-sm tracking-wider flex items-center gap-1">
-                    <XiloMestre size={13} className="shrink-0" /> MASTER
+                  <span className="font-cactus font-black text-sm tracking-widest flex items-center gap-1.5 uppercase select-none">
+                    <XiloMestre size={14} className="shrink-0" /> MASTER
                   </span>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setIsMasterCollapsed(true)}
-                  className="w-6 h-6 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer text-[10px]"
+                  className="w-6 h-6 bg-transparent text-[var(--master-header-text)] border border-[var(--master-header-text)]/40 hover:border-[var(--master-header-text)] hover:bg-[var(--master-header-text)]/15 font-bold flex items-center justify-center transition-all rounded-[2px] cursor-pointer text-[10px]"
                   title={lang === 'fr' ? 'Replier le Master' : 'Recolher o Master'}
                 >
                   ▶
                 </button>
               </>
             ) : (
-              <button
-                onClick={() => setIsMasterCollapsed(false)}
-                className="w-7 h-7 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm cordel-button font-bold flex items-center justify-center hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer text-[10px] mx-auto"
-                title={lang === 'fr' ? 'Déplier le Master' : 'Expandir o Master'}
-              >
-                ◀
-              </button>
+              <div className="flex flex-col items-center gap-1 mx-auto">
+                <button
+                  type="button"
+                  onClick={() => setIsMasterCollapsed(false)}
+                  className="w-7 h-7 bg-transparent text-[var(--master-header-text)] border border-[var(--master-header-text)]/40 hover:border-[var(--master-header-text)] hover:bg-[var(--master-header-text)]/15 font-bold flex items-center justify-center transition-all rounded-[2px] cursor-pointer text-[10px]"
+                  title={lang === 'fr' ? 'Déplier le Master' : 'Expandir o Master'}
+                >
+                  ◀
+                </button>
+              </div>
             )}
           </div>
 
           {!isMasterCollapsed ? (
             <>
+              {/* Bouton Mémoriser gabarit Cordel */}
+              <div className="p-1.5 px-2 border-b-2 border-[var(--master-border)] bg-[var(--cordel-bg)] shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsSaveTemplateModalOpen(true)}
+                  className="w-full py-1 px-2 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cordel-border-sm cordel-button font-cactus font-bold text-[11px] uppercase flex items-center justify-center gap-1.5 transition-colors shadow-[2px_2px_0px_#1a1a1a] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer"
+                  title={lang === 'pt' ? 'Salvar configuração do batuque como modelo privado' : 'Mémoriser la configuration du batuque comme gabarit privé'}
+                >
+                  <XiloScroll size={14} className="shrink-0" />
+                  <span>{lang === 'pt' ? 'Salvar Modelo' : 'Mémoriser gabarit'}</span>
+                </button>
+              </div>
               {/* Middle Section (EQ & Compressor Controls) */}
-              <div className="relative z-10 flex-1 p-3 flex flex-col gap-4 overflow-y-auto custom-scrollbar border-b-[3px] border-[var(--cordel-border)] bg-[#1a1a1a]/5">
+              <div className="relative z-10 p-2 flex flex-col gap-2 shrink-0 border-b-2 border-[var(--master-border)] bg-[#1a1a1a]/5">
                 
-                {/* EQ Section */}
-                <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/20 pb-2">
-                  <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80 flex items-center gap-1">
+                {/* EQ Section (3 Potentiomètres rotatifs Baxandall ±6 dB) */}
+                <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/20 pb-1.5">
+                  <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-85 flex items-center gap-1">
                     <XiloEQ size={11} className="shrink-0" /> {t('eqTitle')}
                   </span>
-                  <div className="flex gap-2 justify-between mt-1">
-                    <DragNumberBox 
+                  <div className="flex justify-between items-center w-full mt-0.5 px-0.5">
+                    <MixerKnob 
                       label={t('eqLow')}
                       value={masterEQ.low}
+                      min={-6.0}
+                      max={6.0}
+                      step={0.5}
+                      decimals={1}
+                      defaultValue={0}
+                      unit="dB"
+                      size={40}
+                      color="var(--eq-low-color)"
                       onChange={(val) => onMasterEQChange({ ...masterEQ, low: val })}
-                      min={-12}
-                      max={12}
-                      step={1}
-                      mode="bipolar"
-                      style={{
-                        '--fader-fill-color': '#8b2a1a',
-                      } as React.CSSProperties}
-                      className="flex-grow"
+                      onAudioDrag={handleMasterEQLowAudioDrag}
                     />
-                    <DragNumberBox 
+                    <MixerKnob 
                       label={t('eqMid')}
                       value={masterEQ.mid}
+                      min={-6.0}
+                      max={6.0}
+                      step={0.5}
+                      decimals={1}
+                      defaultValue={0}
+                      unit="dB"
+                      size={40}
+                      color="var(--eq-mid-color)"
                       onChange={(val) => onMasterEQChange({ ...masterEQ, mid: val })}
-                      min={-12}
-                      max={12}
-                      step={1}
-                      mode="bipolar"
-                      style={{
-                        '--fader-fill-color': '#d4af37',
-                      } as React.CSSProperties}
-                      className="flex-grow"
+                      onAudioDrag={handleMasterEQMidAudioDrag}
                     />
-                    <DragNumberBox 
+                    <MixerKnob 
                       label={t('eqHigh')}
                       value={masterEQ.high}
+                      min={-6.0}
+                      max={6.0}
+                      step={0.5}
+                      decimals={1}
+                      defaultValue={0}
+                      unit="dB"
+                      size={40}
+                      color="var(--eq-high-color)"
                       onChange={(val) => onMasterEQChange({ ...masterEQ, high: val })}
-                      min={-12}
-                      max={12}
-                      step={1}
-                      mode="bipolar"
-                      style={{
-                        '--fader-fill-color': '#3d8b85',
-                      } as React.CSSProperties}
-                      className="flex-grow"
+                      onAudioDrag={handleMasterEQHighAudioDrag}
                     />
                   </div>
                 </div>
 
+
                 {/* Compressor Section */}
-                <div className="flex flex-col gap-1 border-b border-[var(--cordel-border)]/20 pb-2">
-                  <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--cordel-text)] opacity-80 flex items-center gap-1">
-                    <XiloCompressor size={11} className="shrink-0" /> {t('compTitle')}
-                  </span>
-                  <div className="flex gap-2 justify-between mt-1">
+                <div className="flex flex-col gap-0.5 border border-[var(--comp-color,#d4af37)]/40 rounded-xs p-1.5 bg-[var(--master-comp-bg)] transition-colors shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-cactus font-bold tracking-wider text-[var(--comp-color,#d4af37)] flex items-center gap-1">
+                      <XiloCompressor size={11} className="shrink-0 text-[var(--comp-color,#d4af37)]" /> {t('compTitle')}
+                    </span>
+                    <span className="text-[8px] font-mono font-bold px-1 rounded-xs bg-[var(--comp-color,#d4af37)]/15 text-[var(--comp-color,#d4af37)] border border-[var(--comp-color,#d4af37)]/30 leading-tight">
+                      DYN
+                    </span>
+                  </div>
+                  <div className="flex gap-2 justify-between mt-0.5">
                     <DragNumberBox 
                       label={t('compThreshold')}
                       value={masterCompressor.threshold}
                       onChange={(val) => onMasterCompressorChange({ ...masterCompressor, threshold: val })}
+                      onAudioDrag={handleMasterCompThresholdAudioDrag}
+                      fillColor="var(--comp-color, #d4af37)"
                       min={-60}
                       max={0}
                       step={1}
@@ -1086,6 +1310,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                       label={t('compRatio')}
                       value={masterCompressor.ratio}
                       onChange={(val) => onMasterCompressorChange({ ...masterCompressor, ratio: val })}
+                      onAudioDrag={handleMasterCompRatioAudioDrag}
+                      fillColor="var(--comp-color, #d4af37)"
                       min={1}
                       max={12}
                       step={0.1}
@@ -1100,7 +1326,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
               </div>
 
               {/* Bottom Fader (Master Fader & Master LED Meter) */}
-              <div className="relative z-10 p-3 pt-2 flex justify-center items-stretch flex-grow flex-1 min-h-[100px] h-auto gap-8 overflow-hidden">
+              <div className="relative z-10 p-3 pt-2 flex justify-center items-stretch flex-grow flex-1 min-h-[140px] h-auto gap-7 overflow-hidden">
                 
                 {/* Master Fader Column */}
                 <div className="flex flex-col items-center gap-1 h-full justify-end flex-1 min-w-0">
@@ -1133,7 +1359,8 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                       thumbHeight={24}
                       fontSize="text-[11px]"
                       isMaster={true}
-                      textColor="#1a1a1a"
+                      faderColor="var(--master-fader-thumb)"
+                      textColor="#f4ecd8"
                       faderHandleRef={masterFaderHandleRef}
                       valueTextRefProp={masterFaderTextRef}
                       travelRangeRef={masterTravelRangeRef}
@@ -1155,18 +1382,18 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 {/* Master LED Meter (Stereo) */}
                 <div className="flex flex-col items-center gap-1 h-full justify-end shrink-0 w-8">
                   <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--cordel-text)]/60 shrink-0">Meter</span>
-                  <div className="w-8 flex-grow flex-1 bg-[var(--cordel-bg)] cordel-border relative overflow-hidden flex gap-[2px] p-[1.5px] min-h-0">
+                  <div className="w-8 flex-grow flex-1 bg-[var(--cordel-bg)] border border-[var(--master-border)]/40 relative overflow-hidden flex gap-[2px] p-[1.5px] min-h-0">
                     <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
                       <div
                         ref={vuMeterLeftRef}
-                        className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#8b2a1a] w-full"
+                        className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--master-fader-thumb)] w-full"
                         style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
                       />
                     </div>
                     <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
                       <div
                         ref={vuMeterRightRef}
-                        className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#8b2a1a] w-full"
+                        className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--master-fader-thumb)] w-full"
                         style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
                       />
                     </div>
@@ -1176,35 +1403,39 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
             </>
           ) : (
             /* Version Repliée */
-            <div className="flex-grow flex flex-col items-center justify-between pt-6 pb-2 px-1 w-full gap-4 min-h-0">
-              {/* Titre vertical */}
-              <div className="flex-grow flex items-center justify-center select-none">
+            <div className="flex-grow flex flex-col items-center justify-between py-3 px-1 w-full gap-4 min-h-0 bg-[var(--master-header-bg)] text-[var(--master-header-text)] transition-colors">
+              {/* Titre vertical cliquable pour déplier */}
+              <div 
+                className="flex-grow flex items-center justify-center select-none py-2 cursor-pointer"
+                onClick={() => setIsMasterCollapsed(false)}
+                title={lang === 'fr' ? 'Déplier le Master' : 'Expandir o Master'}
+              >
                 <span
-                  className="font-cactus font-bold text-xs tracking-widest text-[var(--cordel-text)]/50 hover:text-[var(--cordel-text)]/80 transition-colors uppercase cursor-pointer"
+                  className="font-cactus font-black text-xs tracking-widest text-[var(--master-header-text)] opacity-85 hover:opacity-100 transition-opacity uppercase"
                   style={{
                     writingMode: 'vertical-rl',
                     transform: 'rotate(180deg)',
                   }}
-                  onClick={() => setIsMasterCollapsed(false)}
                 >
                   MASTER
                 </span>
               </div>
 
-              {/* Mini VU-mètre LED vertical compact */}
-              <div className="flex flex-col items-center gap-1 shrink-0 w-6 h-[160px] pb-4">
-                <div className="w-6 h-full bg-[var(--cordel-bg)] cordel-border-sm relative overflow-hidden flex gap-[2px] p-[1px] min-h-0">
+              {/* VU-mètre LED vertical Master (Même taille et hauteur généreuse que le Master déplié) */}
+              <div className="flex flex-col items-center gap-1 shrink-0 w-8 h-[280px] pb-2">
+                <span className="text-[9px] font-bold uppercase tracking-wider text-[var(--master-header-text)]/60 shrink-0">Meter</span>
+                <div className="w-8 flex-grow flex-1 bg-[var(--cordel-bg)] border border-[var(--master-border)]/40 relative overflow-hidden flex gap-[2px] p-[1.5px] min-h-0">
                   <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
                     <div
                       ref={vuMeterLeftRef}
-                      className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#8b2a1a] w-full"
+                      className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--master-fader-thumb)] w-full"
                       style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
                     />
                   </div>
                   <div className="flex-1 h-full bg-[var(--cordel-bg)]/20 relative overflow-hidden">
                     <div
                       ref={vuMeterRightRef}
-                      className="meter-vertical absolute bottom-0 left-0 right-0 bg-[#8b2a1a] w-full"
+                      className="meter-vertical absolute bottom-0 left-0 right-0 bg-[var(--master-fader-thumb)] w-full"
                       style={{ height: '100%', transform: 'scaleY(0)', transformOrigin: 'bottom', transition: 'none' }}
                     />
                   </div>
@@ -1212,10 +1443,17 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
               </div>
             </div>
           )}
+
           {/* Solid masking spacer on the right */}
           <div className="w-4 shrink-0 bg-[var(--cordel-bg)] z-10 transition-colors" />
         </div>
       </div>
+
+      <SaveWorkspaceTemplateModal
+        isOpen={isSaveTemplateModalOpen}
+        onClose={() => setIsSaveTemplateModalOpen(false)}
+        lang={lang}
+      />
     </div>
   </div>
 );

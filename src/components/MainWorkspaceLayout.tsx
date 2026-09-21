@@ -147,7 +147,7 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
 
           {/* Circle Sequencer detached Window */}
           {isCircleSequencerDetached ? (
-            <WindowPortal onClose={toggleCircleSequencerDetached} title="Roda - o-girador" width={1024} height={768}>
+            <WindowPortal onClose={toggleCircleSequencerDetached} panelKey="roda" title="Roda - o-girador" width={1024} height={768}>
               <div className="w-full h-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden flex flex-col cordel-bg">
                 <CircleSequencer
                   isMobile={false}
@@ -239,7 +239,7 @@ export const MainWorkspaceLayout: React.FC<MainWorkspaceLayoutProps> = ({
           style={{ display: (viewMode === 'console' || isConsoleDetached) ? 'contents' : 'none' }}
         >
           {isConsoleDetached ? (
-            <WindowPortal onClose={toggleConsoleDetached} title="Console - o-girador">
+            <WindowPortal onClose={toggleConsoleDetached} panelKey="mixer" title="Console - o-girador" width={1280} height={800}>
               <div className="w-full h-full bg-[var(--cordel-bg)] text-[var(--cordel-text)] overflow-hidden flex flex-col cordel-bg">
                 <ConsoleMixer
                   isMobile={false}

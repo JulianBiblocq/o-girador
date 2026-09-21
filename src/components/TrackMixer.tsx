@@ -13,6 +13,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useWindow } from '../contexts/WindowContext';
 import { useNomenclatureStore } from '../stores/useNomenclatureStore';
+import { getBusColor, getTopParentBusId } from '../utils/colorHelpers';
 
 interface TrackMixerProps {
   trackId: number;
@@ -217,6 +218,54 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     }
   };
 
+  const topBusId = useMemo(() => {
+    if (!track) return null;
+    return getTopParentBusId(track, tracks);
+  }, [track, tracks]);
+
+  const busColor = useMemo(() => {
+    if (!topBusId) return null;
+    return getBusColor(topBusId, tracks, instrumentsConfig);
+  }, [topBusId, tracks]);
+
+  const isChild = useMemo(() => {
+    if (!track) return false;
+    return !!((track.busId || track.linkedToTrackId) && !track.isBusFolder);
+  }, [track]);
+
+  const parentBus = useMemo(() => {
+    if (!track || !isChild) return null;
+    const pId = track.busId || track.linkedToTrackId;
+    return tracks.find(t => String(t.id) === String(pId)) || null;
+  }, [track, isChild, tracks]);
+
+  const parentBusName = useMemo(() => {
+    if (!parentBus) return 'Bus';
+    if (parentBus.customName) return parentBus.customName;
+    if (parentBus.isLinkFolder) return 'ALFAIAS';
+    const parentInst = instrumentsConfig[parentBus.instrumentIdx];
+    return parentInst ? parentInst.name : 'Bus';
+  }, [parentBus]);
+
+  const treeInfo = useMemo(() => {
+    if (!track || !isChild || !parentBus) return null;
+    const pId = String(parentBus.id);
+    const siblings = tracks.filter(t => 
+      !t.isBusFolder && 
+      (String(t.busId) === pId || String(t.linkedToTrackId) === pId)
+    );
+    const idx = siblings.findIndex(t => t.id === track.id);
+    if (idx === -1) return null;
+    return {
+      index: idx,
+      total: siblings.length,
+      isFirst: idx === 0,
+      isLast: idx === siblings.length - 1,
+      isSingle: siblings.length === 1
+    };
+  }, [track, isChild, parentBus, tracks]);
+
+
   const slaves = tracks.filter(t => String(t.linkedToTrackId) === String(trackId));
   const getPluralName = (name: string) => {
     if (name.includes('Alfaia')) return 'Alfaias';
@@ -271,9 +320,12 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         isUnfolded ? 'h-auto min-h-[156px] py-2' : 'h-[76px] min-h-[76px] py-1'
       } ${
         isDragOver ? 'ring-4 ring-[var(--cordel-wood)] shadow-[0_0_20px_var(--cordel-wood)] z-30 scale-[1.01] border-[var(--cordel-wood)]' : ''
+      } ${
+        isChild ? 'pl-5' : ''
       }`}
       style={{
         ...style,
+        borderLeft: busColor ? `5px solid ${busColor}` : '2px solid #1a1a1a',
         zIndex: 10,
         '--cordel-bg': '#f4ecd8',
         '--cordel-text': '#1a1a1a',
@@ -282,6 +334,15 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         '--fader-thumb-border': '#1a1a1a',
       } as React.CSSProperties}
     >
+      {isChild && treeInfo && (
+        <div
+          className="absolute left-1.5 top-0 bottom-0 flex items-center justify-center pointer-events-none text-xs font-mono font-bold select-none opacity-80"
+          style={{ color: busColor || '#8b2a1a' }}
+          title={`${parentBusName} (${treeInfo.index + 1}/${treeInfo.total})`}
+        >
+          {treeInfo.isSingle ? '─' : (treeInfo.isFirst ? '┌' : (treeInfo.isLast ? '└' : '├'))}
+        </div>
+      )}
       {dropIndicator === 'top' && (
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />
       )}
@@ -330,6 +391,14 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                 }}
               />
               <span className="font-cactus font-bold text-center leading-[1.1] flex-1">
+                {isChild && parentBusName && (
+                  <span 
+                    className="block text-[8px] font-mono tracking-wider font-semibold opacity-85 truncate max-w-[85px] mx-auto mb-0.5"
+                    style={{ color: inst.colors.text }}
+                  >
+                    🔗 {parentBusName}
+                  </span>
+                )}
                 {index + 1}. {displayName.split(' ')[0]}
                 {displayName.indexOf(' ') !== -1 && <><br/>{displayName.substring(displayName.indexOf(' ') + 1)}</>}
               </span>

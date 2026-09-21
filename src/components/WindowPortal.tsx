@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { WindowContext } from '../contexts/WindowContext';
+import { DetachedPanelKey, DesktopWindowBounds } from '../types/desktopWorkspace.types';
+import { detachedWindowManager } from '../utils/detachedWindowManager';
+import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 
 interface WindowPortalProps {
   children: React.ReactNode;
@@ -8,6 +11,10 @@ interface WindowPortalProps {
   title?: string;
   width?: number;
   height?: number;
+  left?: number;
+  top?: number;
+  panelKey?: DetachedPanelKey;
+  initialBounds?: DesktopWindowBounds;
 }
 
 export const WindowPortal: React.FC<WindowPortalProps> = ({ 
@@ -15,22 +22,50 @@ export const WindowPortal: React.FC<WindowPortalProps> = ({
   onClose, 
   title = 'o-girador Detached Window',
   width = 800,
-  height = 600
+  height = 600,
+  left,
+  top,
+  panelKey,
+  initialBounds,
 }) => {
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const externalWindow = useRef<Window | null>(null);
   const isUnmounting = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
-    // Open a new browser window
-    const newWindow = window.open('', '', `width=${width},height=${height},left=200,top=200`);
+    // Calculer les coordonnées et dimensions physiques cibles (coordonnées négatives autorisées pour multi-écrans)
+    const pendingBounds = panelKey ? detachedWindowManager.getPendingBounds(panelKey) : undefined;
+    const targetBounds = initialBounds || pendingBounds;
+
+    const targetW = targetBounds?.width ?? width ?? 800;
+    const targetH = targetBounds?.height ?? height ?? 600;
+    const targetLeft = targetBounds?.screenX ?? left ?? 200;
+    const targetTop = targetBounds?.screenY ?? top ?? 200;
+
+    // Injection systématique des coordonnées et dimensions dans le 3ᵉ argument de window.open
+    const features = `width=${targetW},height=${targetH},left=${targetLeft},top=${targetTop},resizable=yes,scrollbars=yes`;
+    
+    let newWindow: Window | null = null;
+    try {
+      newWindow = window.open('', '', features);
+    } catch (e) {
+      console.warn('Exception while calling window.open:', e);
+    }
+
     if (!newWindow) {
       console.warn('Failed to open new window. Popups might be blocked.');
-      onClose(); // Fallback if popup is blocked
+      onCloseRef.current(); // Fallback if popup is blocked
       return;
     }
 
     externalWindow.current = newWindow;
+    if (panelKey) {
+      detachedWindowManager.register(panelKey, newWindow);
+      // Nettoyer les pending bounds une fois consommés
+      detachedWindowManager.setPendingBounds(panelKey, undefined);
+    }
     
     // Create a container div in the new window
     const div = newWindow.document.createElement('div');
@@ -40,7 +75,7 @@ export const WindowPortal: React.FC<WindowPortalProps> = ({
     newWindow.document.body.appendChild(div);
     setContainer(div);
 
-    // Copy title
+    // Set initial title
     newWindow.document.title = title;
 
     // Copy styles from main window to popup window
@@ -76,10 +111,27 @@ export const WindowPortal: React.FC<WindowPortalProps> = ({
     observer.observe(document.head, { childList: true });
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] });
 
+    // Handle global keyboard shortcuts inside popup window (e.g. 'O' for Atelier)
+    const handlePopupKeyDown = (e: KeyboardEvent) => {
+      const activeTag = newWindow.document.activeElement?.tagName;
+      const isInput = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT';
+      if (!isInput && (e.key === 'o' || e.key === 'O') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        useSequencerSettingsStore.getState().toggleSettings();
+        try {
+          window.focus();
+        } catch (_) {}
+      }
+    };
+    newWindow.addEventListener('keydown', handlePopupKeyDown);
+
     // Handle closing the new window by the user
     const handleClose = () => {
+      if (panelKey) {
+        detachedWindowManager.unregister(panelKey);
+      }
       if (!isUnmounting.current) {
-        onClose();
+        onCloseRef.current();
       }
     };
     newWindow.addEventListener('beforeunload', handleClose);
@@ -88,11 +140,26 @@ export const WindowPortal: React.FC<WindowPortalProps> = ({
     return () => {
       isUnmounting.current = true;
       observer.disconnect();
+      newWindow.removeEventListener('keydown', handlePopupKeyDown);
+      newWindow.removeEventListener('beforeunload', handleClose);
+      newWindow.removeEventListener('unload', handleClose);
+      if (panelKey) {
+        detachedWindowManager.unregister(panelKey);
+      }
       if (externalWindow.current && !externalWindow.current.closed) {
         externalWindow.current.close();
       }
     };
-  }, [width, height, title, onClose]);
+  // Ne pas réexécuter sur simple changement de callback onClose
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [width, height, left, top, panelKey, initialBounds]);
+
+  // Synchronisation dynamique du titre sans réouverture de fenêtre
+  useEffect(() => {
+    if (externalWindow.current && !externalWindow.current.closed) {
+      externalWindow.current.document.title = title;
+    }
+  }, [title]);
 
   if (!container || !externalWindow.current) {
     return null; // Don't render until the window and container are ready

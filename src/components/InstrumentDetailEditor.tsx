@@ -303,13 +303,22 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     };
   }, [disarmAllPatterns]);
 
-  // Extraction ciblée des IDs des pistes d'instruments réels pour le ruban de navigation rapide (Commandement 4 : Zustand ID-Only)
+  // Extraction ciblée des IDs des pistes d'instruments réels pour le ruban de navigation rapide (trié selon rodaTrackOrder)
   const visibleTrackIds = useSequencerStore(
-    useShallow((state) =>
-      state.tracks
-        .filter((t) => (!t.isBusFolder || t.isLinkFolder) && !t.isHidden && !isToadaChild(t, state.tracks))
-        .map((t) => t.id)
-    )
+    useShallow((state) => {
+      const list = state.tracks.filter(
+        (t) => (!t.isBusFolder || t.isLinkFolder) && !t.isHidden && !isToadaChild(t, state.tracks)
+      );
+      if (state.rodaTrackOrder && state.rodaTrackOrder.length > 0) {
+        const orderMap = new Map(state.rodaTrackOrder.map((id, index) => [id, index]));
+        list.sort((a, b) => {
+          const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
+          const idxB = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999;
+          return idxA - idxB;
+        });
+      }
+      return list.map((t) => t.id);
+    })
   );
 
   // Raccourci Clavier 'R' pour basculer l'enregistrement MIDI
@@ -542,9 +551,23 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
     sequencer.handlePatternNameChange(trackId, patternId, name);
   }, [trackId, sequencer]);
 
-  // Dynamic Navigation callbacks
+  // Dynamic Navigation callbacks sorted according to pedagogical rodaTrackOrder
+  const getNavTracksList = () => {
+    const state = useSequencerStore.getState();
+    const list = state.tracks.filter(t => !t.isBusFolder && !t.isHidden && !isToadaChild(t, state.tracks));
+    if (state.rodaTrackOrder && state.rodaTrackOrder.length > 0) {
+      const orderMap = new Map(state.rodaTrackOrder.map((id, index) => [id, index]));
+      list.sort((a, b) => {
+        const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
+        const idxB = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999;
+        return idxA - idxB;
+      });
+    }
+    return list;
+  };
+
   const onNavigatePrev = React.useCallback(() => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.isBusFolder && !t.isHidden && !isToadaChild(t, useSequencerStore.getState().tracks));
+    const tracksList = getNavTracksList();
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (idx > 0) {
       setEditingTrackId(tracksList[idx - 1].id);
@@ -554,7 +577,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   }, [trackId, setEditingTrackId]);
 
   const onNavigateNext = React.useCallback(() => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.isBusFolder && !t.isHidden && !isToadaChild(t, useSequencerStore.getState().tracks));
+    const tracksList = getNavTracksList();
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (idx >= 0 && idx < tracksList.length - 1) {
       setEditingTrackId(tracksList[idx + 1].id);
@@ -564,7 +587,7 @@ const InstrumentDetailEditorComponent: React.FC<InstrumentDetailEditorProps> = (
   }, [trackId, setEditingTrackId]);
 
   const onKeyDown = React.useCallback((e: any) => {
-    const tracksList = useSequencerStore.getState().tracks.filter(t => !t.isBusFolder && !t.isHidden && !isToadaChild(t, useSequencerStore.getState().tracks));
+    const tracksList = getNavTracksList();
     const idx = tracksList.findIndex(t => t.id === trackId);
     if (e.key === 'ArrowDown') {
       if (idx >= 0 && idx < tracksList.length - 1) {

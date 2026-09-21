@@ -10,3 +10,5 @@ export * from './balanco.types';
 export * from './disposition.types';
 export * from './nomenclature.types';
 export * from './speedTrainer.types';
+export * from './workspaceTemplate.types';
+export * from './desktopWorkspace.types';

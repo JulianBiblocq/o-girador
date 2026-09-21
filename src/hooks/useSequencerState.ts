@@ -75,8 +75,15 @@ export function useSequencerState() {
 
   const setLang = useCallback((newLang: Language) => {
     _setLang(newLang);
-    localStorage.setItem('o_girador_lang', newLang);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('o_girador_lang', newLang);
+    }
+    useSequencerStore.getState().setLang(newLang);
   }, []);
+
+  useEffect(() => {
+    useSequencerStore.getState().setLang(lang);
+  }, [lang]);
   const copiedPattern = useSequencerStore(state => state.copiedPattern);
   const copiedSection = useSequencerStore(state => state.copiedSection);
   const setCopiedPattern = (useSequencerStore as any)(state => state.setCopiedPattern) as any;
@@ -370,6 +377,8 @@ export function useSequencerState() {
   };
 
   const handleReorderTracksDnd = useSequencerStore(state => state.handleReorderTracksDnd);
+  const handleReorderMixerTracks = useSequencerStore(state => state.handleReorderMixerTracks);
+  const handleReorderRodaTracks = useSequencerStore(state => state.handleReorderRodaTracks);
 
   const handleTrackInstrumentIdxChange = (id: number, targetInstIdx: number) => {
     pushUndoState();
@@ -2252,6 +2261,8 @@ export function useSequencerState() {
     clearHistory,
     // Handlers
     handleReorderTracksDnd,
+    handleReorderMixerTracks,
+    handleReorderRodaTracks,
     handleTrackInstrumentIdxChange,
     handleTrackMuteToggle,
     handleTrackSoloToggle,

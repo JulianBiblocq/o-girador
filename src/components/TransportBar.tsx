@@ -15,6 +15,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { i18n } from '../data';
 import { DragNumberBox } from './DragNumberBox';
 import { metroChannel } from '../audio/effectsChain';
+import { XiloLightning } from './XiloIcons';
 import * as Tone from 'tone';
 
 interface TransportBarProps {
@@ -240,7 +241,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
               : (lang === 'fr' ? 'Entraînement (Montée en vitesse)' : 'Treino (Aceleração de andamento)')
           }
         >
-          <span className="text-sm text-amber-600">⚡</span>
+          <XiloLightning size={14} className="shrink-0 transition-colors" />
           {speedTrainerCountdown !== null ? (
             <span className="font-cactus font-bold text-amber-700 animate-bounce text-sm">
               {speedTrainerCountdown}

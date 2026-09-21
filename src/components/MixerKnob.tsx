@@ -5,6 +5,8 @@ interface MixerKnobProps {
   min: number;
   max: number;
   step?: number;
+  decimals?: number;
+  defaultValue?: number;
   onChange: (val: number) => void;
   onAudioDrag?: (val: number) => void;
   label: string;
@@ -19,6 +21,8 @@ export const MixerKnob: React.FC<MixerKnobProps> = ({
   min,
   max,
   step = 1,
+  decimals,
+  defaultValue = 0,
   onChange,
   onAudioDrag,
   label,
@@ -35,10 +39,12 @@ export const MixerKnob: React.FC<MixerKnobProps> = ({
   const isDraggingRef = useRef(false);
   const startYRef = useRef(0);
   const startValueRef = useRef(0);
+  const lastTapTimeRef = useRef(0);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const rotationGroupRef = useRef<SVGGElement>(null);
   const valueLabelRef = useRef<HTMLSpanElement>(null);
+  const knobContainerRef = useRef<HTMLDivElement>(null);
 
   const getAngle = (val: number) => {
     // Map value to angle range: -135 to 135 degrees
@@ -54,10 +60,30 @@ export const MixerKnob: React.FC<MixerKnobProps> = ({
       return `${Math.round(val)}`;
     }
     if (unit === 'dB') {
+      if (decimals !== undefined && decimals > 0) {
+        const fixed = Math.abs(val).toFixed(decimals);
+        if (val > 0) return `+${fixed} dB`;
+        if (val < 0) return `-${fixed} dB`;
+        return `0.0 dB`;
+      }
       const rounded = Math.round(val);
       return rounded > 0 ? `+${rounded}` : `${rounded}`;
     }
     return `${Math.round(val)}${unit}`;
+  };
+
+  const quantizeValue = (rawVal: number) => {
+    let val = Math.min(max, Math.max(min, rawVal));
+    if (step) {
+      val = Math.round(val / step) * step;
+    }
+    // Fine magnetic snapping to center / 0
+    const snapThreshold = step ? step * 0.75 : 0.8;
+    const targetZero = defaultValue !== undefined ? defaultValue : 0;
+    if (unit === 'dB' && Math.abs(val - targetZero) < snapThreshold) {
+      val = targetZero;
+    }
+    return val;
   };
 
   const updateVisuals = (val: number) => {
@@ -72,6 +98,17 @@ export const MixerKnob: React.FC<MixerKnobProps> = ({
       inputRef.current.title = `${label}: ${formatValue(val)}`;
       inputRef.current.value = String(val);
     }
+  };
+
+  const resetToDefault = () => {
+    const resetVal = defaultValue !== undefined ? defaultValue : 0;
+    updateVisuals(resetVal);
+    if (onAudioDragRef.current) {
+      onAudioDragRef.current(resetVal);
+    }
+    React.startTransition(() => {
+      onChangeRef.current(resetVal);
+    });
   };
 
   useEffect(() => {
@@ -99,15 +136,8 @@ export const MixerKnob: React.FC<MixerKnobProps> = ({
     // Sensitivity: 150px vertical movement for full sweep range
     const sweepRange = 150;
     const range = max - min;
-    let val = startValueRef.current + (diffY / sweepRange) * range;
-    
-    // Clamp values
-    val = Math.min(max, Math.max(min, val));
-    
-    // Magnetic snapping to 0 dB
-    if (unit === 'dB' && Math.abs(val) < 0.8) {
-      val = 0;
-    }
+    const rawVal = startValueRef.current + (diffY / sweepRange) * range;
+    const val = quantizeValue(rawVal);
 
     updateVisuals(val);
 
@@ -125,39 +155,45 @@ export const MixerKnob: React.FC<MixerKnobProps> = ({
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch (_) {}
 
-    let val = parseFloat(inputRef.current?.value || String(value));
-    
-    // Magnetic snapping to 0 dB
-    if (unit === 'dB' && Math.abs(val) < 0.8) {
-      val = 0;
-    }
+    const rawVal = parseFloat(inputRef.current?.value || String(value));
+    const val = quantizeValue(rawVal);
 
     React.startTransition(() => {
       onChangeRef.current(val);
     });
   };
 
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resetToDefault();
+  };
+
   // Keyboard accessibility
   const handleKeyboardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isDraggingRef.current) return;
-    let val = parseFloat(e.target.value);
-    
-    // Magnetic snapping to 0 dB
-    if (unit === 'dB' && Math.abs(val) < 0.8) {
-      val = 0;
-    }
+    const rawVal = parseFloat(e.target.value);
+    const val = quantizeValue(rawVal);
     
     updateVisuals(val);
     onChangeRef.current(val);
   };
-
-  const knobContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = knobContainerRef.current;
     if (!el) return;
 
     const handleTouchStart = (e: TouchEvent) => {
+      const now = performance.now();
+      if (now - lastTapTimeRef.current < 300) {
+        // Double-tap rapide tactile détecté (< 300ms)
+        e.preventDefault();
+        lastTapTimeRef.current = 0;
+        resetToDefault();
+        return;
+      }
+      lastTapTimeRef.current = now;
+
       if (e.touches.length > 0) {
         e.preventDefault();
         isDraggingRef.current = true;
@@ -172,11 +208,9 @@ export const MixerKnob: React.FC<MixerKnobProps> = ({
         const diffY = startYRef.current - e.touches[0].clientY;
         const sweepRange = 150;
         const range = max - min;
-        let val = startValueRef.current + (diffY / sweepRange) * range;
-        val = Math.min(max, Math.max(min, val));
-        if (unit === 'dB' && Math.abs(val) < 0.8) {
-          val = 0;
-        }
+        const rawVal = startValueRef.current + (diffY / sweepRange) * range;
+        const val = quantizeValue(rawVal);
+
         updateVisuals(val);
         if (onAudioDragRef.current) {
           onAudioDragRef.current(val);
@@ -188,10 +222,8 @@ export const MixerKnob: React.FC<MixerKnobProps> = ({
       if (isDraggingRef.current) {
         e.preventDefault();
         isDraggingRef.current = false;
-        let val = parseFloat(inputRef.current?.value || String(value));
-        if (unit === 'dB' && Math.abs(val) < 0.8) {
-          val = 0;
-        }
+        const rawVal = parseFloat(inputRef.current?.value || String(value));
+        const val = quantizeValue(rawVal);
         React.startTransition(() => {
           onChangeRef.current(val);
         });
@@ -209,22 +241,31 @@ export const MixerKnob: React.FC<MixerKnobProps> = ({
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('touchcancel', handleTouchEnd);
     };
-  }, [min, max, value, unit]);
+  }, [min, max, value, unit, step, defaultValue]);
 
   const initialAngle = getAngle(value);
+  const isLarge = size >= 32;
 
   return (
-    <div className="flex flex-col items-center select-none shrink-0 touch-none" style={{ width: `${size + 12}px` }}>
-      <span className="text-[7px] font-black uppercase tracking-wider text-[var(--cordel-text)]/40 text-center truncate w-full leading-none mb-0.5">
+    <div 
+      className="flex flex-col items-center select-none shrink-0 touch-none" 
+      style={{ width: isLarge ? `${Math.min(size + 24, 70)}px` : `${size + 14}px`, touchAction: 'none' }}
+    >
+      <span className={
+        isLarge 
+          ? "text-[9px] font-cactus font-bold uppercase tracking-wider text-[var(--cordel-text)] opacity-85 text-center whitespace-nowrap leading-none mb-1 cursor-default"
+          : "text-[7px] font-black uppercase tracking-wider text-[var(--cordel-text)]/40 text-center truncate w-full leading-none mb-0.5"
+      }>
         {label}
       </span>
       <div 
         ref={knobContainerRef}
-        className="relative flex items-center justify-center cursor-pointer touch-none" 
-        style={{ width: `${size}px`, height: `${size}px` }}
+        className="relative flex items-center justify-center cursor-pointer touch-none select-none" 
+        style={{ width: `${size}px`, height: `${size}px`, touchAction: 'none' }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
+        onDoubleClick={handleDoubleClick}
       >
         <svg width={size} height={size} viewBox="0 0 32 32" className="transition-transform duration-100 pointer-events-none">
           {/* Dial body */}
@@ -274,7 +315,14 @@ export const MixerKnob: React.FC<MixerKnobProps> = ({
           className="absolute inset-0 opacity-0 pointer-events-none w-0 h-0"
         />
       </div>
-      <span ref={valueLabelRef} className="text-[7.5px] font-black font-mono opacity-65 mt-0.5 leading-none">
+      <span 
+        ref={valueLabelRef} 
+        className={
+          isLarge
+            ? "text-[9px] font-black font-mono text-[var(--cordel-text)] opacity-90 mt-1 leading-none"
+            : "text-[7.5px] font-black font-mono opacity-65 mt-0.5 leading-none"
+        }
+      >
         {formatValue(value)}
       </span>
     </div>

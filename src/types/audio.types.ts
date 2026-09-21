@@ -126,6 +126,7 @@ export interface Preset {
   isLooping?: boolean;
   isLoopExitRequested?: boolean;
   version?: number;
+  rodaTrackOrder?: number[];
 }
 
 export interface CloudRhythmSignal {

@@ -7,7 +7,7 @@ import { TimelineUIContext } from '../contexts/TimelineUIContext';
 import { TimelineMeasure } from './TimelineMeasure';
 import { useSequencer } from '../contexts/SequencerContext';
 import { getNextStepValue } from '../utils/instrumentStrokes';
-import { getTrackDisplayName } from '../utils/colorHelpers';
+import { getTrackDisplayName, getBusColor, getTopParentBusId } from '../utils/colorHelpers';
 import { useNomenclatureStore } from '../stores/useNomenclatureStore';
 import { Mic, Activity } from 'lucide-react';
 import { useAudioStore } from '../stores/useAudioStore';
@@ -212,6 +212,16 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     return null;
   }, [dbTrack?.isLinkMaster, dbTrack?.linkedToTrackId, tracks]);
 
+  const topBusId = React.useMemo(() => {
+    if (!dbTrack) return null;
+    return getTopParentBusId(dbTrack, tracks);
+  }, [dbTrack, tracks]);
+
+  const busColor = React.useMemo(() => {
+    if (!topBusId) return null;
+    return getBusColor(topBusId, tracks, instrumentsConfig);
+  }, [topBusId, tracks]);
+
   const isCollapsed = React.useMemo(() => {
     if (isToada) return dbTrack?.isSequencerFolded;
     if (dbTrack?.isLinkMaster) return parentBus?.isSequencerFolded;
@@ -287,7 +297,12 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
         className={`timeline-sticky-header sticky left-0 z-35 bg-[var(--cordel-bg)] border-r-2 border-[var(--cordel-border)] flex items-center justify-between py-1 shadow-[2px_0_5px_rgba(0,0,0,0.15)] shrink-0 ${
           isMobile ? (isChild ? 'pl-3 pr-1' : 'px-1') : (isChild ? 'pl-8 pr-3' : 'px-3')
         }`}
-        style={{ width: HEADER_W, minWidth: HEADER_W, transformOrigin: '0 0' }}
+        style={{ 
+          width: HEADER_W, 
+          minWidth: HEADER_W, 
+          transformOrigin: '0 0',
+          borderLeft: busColor ? `4px solid ${busColor}` : undefined
+        }}
       >
         <div className={`flex items-center min-w-0 flex-grow ${isMobile ? 'gap-0.5' : 'gap-2'}`}>
           {(dbTrack?.isLinkMaster || isToada) && (

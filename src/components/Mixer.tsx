@@ -70,7 +70,7 @@ const MixerComponent: React.FC<MixerProps> = ({
   const toggleTracksCollapsed = useSequencerStore(state => state.toggleTracksCollapsed);
 
   // Zustand actions and states
-  const handleReorderTracksDnd = useSequencerStore(state => state.handleReorderTracksDnd);
+  const handleReorderRodaTracks = useSequencerStore(state => state.handleReorderRodaTracks);
   const tracks = useSequencerStore(state => state.tracks);
 
   const [activeDragTrackId, setActiveDragTrackId] = useState<number | null>(null);
@@ -92,6 +92,17 @@ const MixerComponent: React.FC<MixerProps> = ({
           list.push(t);
         }
       });
+
+      const rodaOrder = state.rodaTrackOrder;
+      if (rodaOrder && rodaOrder.length > 0) {
+        const orderMap = new Map(rodaOrder.map((id, index) => [id, index]));
+        list.sort((a, b) => {
+          const idxA = orderMap.has(a.id) ? orderMap.get(a.id)! : 9999;
+          const idxB = orderMap.has(b.id) ? orderMap.get(b.id)! : 9999;
+          return idxA - idxB;
+        });
+      }
+
       return list.map(t => getCachedTrack(t.id, t.isHidden, t.isSolo, t.isMute));
     })
   );
@@ -170,7 +181,7 @@ const MixerComponent: React.FC<MixerProps> = ({
       if (activeId.startsWith('track-') && overId.startsWith('track-')) {
         const activeTrackId = Number(activeId.replace('track-', ''));
         const overTrackId = Number(overId.replace('track-', ''));
-        handleReorderTracksDnd(activeTrackId, overTrackId);
+        handleReorderRodaTracks(activeTrackId, overTrackId);
       }
     }
   };
