@@ -6,6 +6,7 @@ import { createSpeedTrainerSlice } from './slices/speedTrainerSlice';
 import { usePerformanceStore } from './usePerformanceStore';
 // Nous aurons besoin d'instrumentsConfig pour extraire les paroles
 import { instrumentsConfig } from '../data';
+import { getTopParentBusId } from '../utils/colorHelpers';
 
 // ---------------------------------------------------------
 // 1. TRACK SLICE
@@ -103,6 +104,17 @@ export const isToadaChild = (t: { busId?: string }, allTracks: TrackGroup[]): bo
   if (!t.busId) return false;
   const parent = allTracks.find(p => String(p.id) === String(t.busId));
   return !!parent && isToadaBus(parent);
+};
+
+export const getTrackSolidBlockId = (track: TrackGroup, allTracks: TrackGroup[]): string | null => {
+  if (track.isLinkFolder) return `link-${track.id}`;
+  if (track.linkedToTrackId) return `link-${track.linkedToTrackId}`;
+  if (track.isLinkMaster) return `link-${track.id}`;
+  const hasSlaves = allTracks.some(other => other.linkedToTrackId && String(other.linkedToTrackId) === String(track.id));
+  if (hasSlaves) return `link-${track.id}`;
+  if (track.isBusFolder) return `bus-${track.id}`;
+  if (track.busId) return `bus-${track.busId}`;
+  return null;
 };
 
 export const ensureToadaBus = (list: TrackGroup[]): TrackGroup[] => {
@@ -668,11 +680,11 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
       const originalOverIdx = currentTracks.findIndex(t => t.id === overTrackId);
       const isMovingRight = originalWagonHeadIdx < originalOverIdx;
 
-      const overTopBusId = getTopParentBusId(overTrack, currentTracks);
+      const overBlockId = getTrackSolidBlockId(overTrack, currentTracks);
       let targetIndex = -1;
 
-      if (overTopBusId) {
-        const targetGroupMembers = remainingTracks.filter(t => getTopParentBusId(t, currentTracks) === overTopBusId);
+      if (overBlockId) {
+        const targetGroupMembers = remainingTracks.filter(t => getTrackSolidBlockId(t, currentTracks) === overBlockId);
         if (targetGroupMembers.length > 0) {
           if (isMovingRight) {
             const lastMember = targetGroupMembers[targetGroupMembers.length - 1];

@@ -42,7 +42,7 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { meters, masterMeterNode } from '../hooks/useAudioSync';
 import { masterLeftMeterNode, masterRightMeterNode } from '../audio/effectsChain';
-import { useSequencerStore } from '../stores/useSequencerStore';
+import { useSequencerStore, getTrackSolidBlockId } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getMixerTheme } from '../theme';
@@ -793,10 +793,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       const targetTrackId = Number(targetIdStr.replace('track-', ''));
       const targetTrack = tracks.find(t => t.id === targetTrackId);
       if (targetTrack) {
-        const targetTopBusId = getTopParentBusId(targetTrack, tracks);
-        if (targetTopBusId) {
-          const headTrack = displayedTracks.find(t => String(t.id) === targetTopBusId)
-            || displayedTracks.find(t => getTopParentBusId(t, tracks) === targetTopBusId);
+        const targetBlockId = getTrackSolidBlockId(targetTrack, tracks);
+        if (targetBlockId) {
+          const headTrack = displayedTracks.find(t => getTrackSolidBlockId(t, tracks) === targetBlockId);
           if (headTrack && headTrack.id !== targetTrackId) {
             return [{ id: `track-${headTrack.id}`, data: firstCollision.data }];
           }
