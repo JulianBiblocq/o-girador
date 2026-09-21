@@ -506,6 +506,15 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   }} className="px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer flex items-center justify-center gap-1 transition-colors">
                     <Share2 className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Compartilhar o App' : "Partager l'application"}
                   </button>
+                  <button 
+                    onClick={() => {
+                      onViewModeToggle('landing');
+                      setMobileMenuOpen(false);
+                    }} 
+                    className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer col-span-2 transition-colors"
+                  >
+                    <span>📜</span> {lang === 'pt' ? 'Sobre' : 'À propos'}
+                  </button>
                 </div>
               </div>
 
@@ -729,6 +738,15 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   </button>
                   <button onClick={() => { handleShareApp(); setProjectDropOpen(false); }} className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[#8b2a1a] text-[#f4ecd8] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full border-none transition-colors">
                     <Share2 className="w-3.5 h-3.5 shrink-0" /> {lang === 'pt' ? 'Compartilhar o App' : "Partager l'application"}
+                  </button>
+                  <button 
+                    onClick={() => {
+                      onViewModeToggle('landing');
+                      setProjectDropOpen(false);
+                    }} 
+                    className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-[10px] font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer w-full col-span-2 transition-colors"
+                  >
+                    <span>📜</span> {lang === 'pt' ? 'Sobre' : 'À propos'}
                   </button>
                 </div>
               </div>

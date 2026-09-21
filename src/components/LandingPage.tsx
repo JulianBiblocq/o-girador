@@ -33,6 +33,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
   const hasSavedLang = localStorage.getItem('o_gridador_lang') !== null;
   const isBrowserFr = typeof navigator !== 'undefined' && navigator.language.startsWith('fr');
   const displayFr = hasSavedLang ? (lang === 'fr') : isBrowserFr;
+  const hasSeenWelcome = (typeof window !== 'undefined' && localStorage.getItem('ogirador_has_seen_welcome') === 'true') || !!userProfile;
 
   useEffect(() => {
     const fetchMestreData = async () => {
@@ -222,7 +223,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
 
   return (
     <div id="landing-page">
-      <header className="lp-header">
+      <header className="lp-header flex items-center justify-between w-full">
+        {hasSeenWelcome ? (
+          <button
+            type="button"
+            onClick={onEnter}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] cordel-border-sm cordel-button font-cactus font-bold text-xs uppercase transition-colors shadow-[2px_2px_0px_#1a1a1a] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer"
+            title={displayFr ? "Retourner à l'espace de travail" : "Voltar ao espaço de trabalho"}
+          >
+            ← {displayFr ? 'Retour' : 'Voltar'}
+          </button>
+        ) : (
+          <div />
+        )}
         <GoogleLoginButton lang={lang} align="right" />
       </header>
       

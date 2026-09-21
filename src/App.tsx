@@ -539,7 +539,10 @@ export default function App() {
 
 
   const handleHomeEnter = React.useCallback((mode: string) => changeViewMode(mode as any), [changeViewMode]);
-  const handleLandingEnter = React.useCallback(() => changeViewMode('roda'), [changeViewMode]);
+  const handleLandingEnter = React.useCallback(() => {
+    localStorage.setItem('ogirador_has_seen_welcome', 'true');
+    changeViewMode('roda');
+  }, [changeViewMode]);
 
 
   const handleExportTablature = React.useCallback(() => {

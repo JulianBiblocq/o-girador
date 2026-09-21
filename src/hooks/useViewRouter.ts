@@ -20,12 +20,45 @@ interface UseViewRouterOptions {
   setActiveRightPanel: (panel: 'legend' | 'letras' | 'info' | 'feedback' | 'sinais' | null) => void;
 }
 
+const getInitialViewMode = (): ViewMode => {
+  if (typeof window === 'undefined') return 'landing';
+
+  // 1. URL Deep Linking / parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const targetView = urlParams.get('view');
+  if (targetView && ['roda', 'console', 'timeline', 'admin', 'landing', 'home'].includes(targetView)) {
+    return targetView as ViewMode;
+  }
+  if (urlParams.has('loadPreset')) {
+    return 'roda';
+  }
+
+  // 2. Visiteur ayant déjà vu l'accueil
+  if (localStorage.getItem('ogirador_has_seen_welcome') === 'true') {
+    return 'roda';
+  }
+
+  // 3. Utilisateur avec session Firebase Auth active dans le stockage local
+  const hasFirebaseAuthSession = Object.keys(localStorage).some((key) =>
+    key.startsWith('firebase:authUser:')
+  );
+  if (hasFirebaseAuthSession) {
+    return 'roda';
+  }
+
+  // 4. Première visite sans compte connecté
+  return 'landing';
+};
+
 export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptions) {
-  const { hasAccess } = useAuth();
+  const { hasAccess, currentUser } = useAuth();
   
-  const [viewMode, setViewMode] = useState<ViewMode>('landing');
-  const [renderedView, setRenderedView] = useState<ViewMode | null>('landing');
+  const [viewMode, setViewMode] = useState<ViewMode>(getInitialViewMode);
+  const [renderedView, setRenderedView] = useState<ViewMode | null>(getInitialViewMode);
   const [isFadingIn, setIsFadingIn] = useState<boolean>(true);
+
+  // Indique si l'accueil a été ouvert manuellement via le menu « À propos »
+  const hasManuallyOpenedAboutRef = useRef<boolean>(false);
 
   // Latest Ref pattern to stabilize audio and external state references
   const audioRef = useRef<AudioContextType>(audio);
@@ -37,6 +70,14 @@ export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptio
     hasAccessRef.current = hasAccess;
     setActiveRightPanelRef.current = setActiveRightPanel;
   }, [audio, hasAccess, setActiveRightPanel]);
+
+  // Si l'utilisateur se connecte depuis la page d'accueil (hors ouverture manuelle d'À propos)
+  useEffect(() => {
+    if (currentUser && viewMode === 'landing' && !hasManuallyOpenedAboutRef.current) {
+      localStorage.setItem('ogirador_has_seen_welcome', 'true');
+      setViewMode('roda');
+    }
+  }, [currentUser, viewMode]);
 
   // Handle fading and delayed mounting to yield the Main Thread
   useEffect(() => {
@@ -62,6 +103,12 @@ export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptio
 
   // Change view mode safely by checking if audio needs to stop
   const changeViewMode = useCallback((targetView: ViewMode) => {
+    if (targetView === 'landing') {
+      hasManuallyOpenedAboutRef.current = true;
+    } else {
+      hasManuallyOpenedAboutRef.current = false;
+    }
+
     const isHeavyView = ['admin'].includes(targetView);
 
     const applyViewChange = () => {
