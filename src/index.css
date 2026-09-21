@@ -31,6 +31,7 @@
   --eq-high-color: #3d8b85;
   --reverb-color: #2a5c8a;
   --disto-color: #c25e1a;
+  --wallpaper-opacity: 0.045;
 }
 
 [data-theme='light'] {
@@ -56,6 +57,7 @@
   --eq-high-color: #3d8b85;
   --reverb-color: #2a5c8a;
   --disto-color: #c25e1a;
+  --wallpaper-opacity: 0.055;
 }
 
 
@@ -69,6 +71,7 @@ body {
   background-color: var(--cordel-bg);
   color: var(--cordel-text);
   transition: background-color 0.3s, color 0.3s;
+  isolation: isolate;
 }
 
 #root {
@@ -1139,6 +1142,87 @@ textarea {
   transition: none !important;
   z-index: 50 !important;
   pointer-events: none;
+}
+
+/* ==========================================================================
+   PAPIER PEINT TROMPE-L'ŒIL MARACATU (FILIGRANE VEILLÉ SANS SACRIFICE 60FPS)
+   - Technique: mask-image vectoriel alimenté par var(--cordel-text)
+   - Isolation GPU stricte via body::before avec position: fixed et z-index négatif
+   - Zéro dégradation des perfs audio / aiguille de la Roda
+   - Support WebKit / Safari (iOS & macOS) via double préfixe constructeur
+   ========================================================================== */
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -10;
+  opacity: 0;
+  background-color: var(--cordel-text);
+  transform: translateZ(0);
+  transition: opacity 0.3s ease;
+}
+
+body.has-wallpaper-rosace::before {
+  opacity: var(--wallpaper-opacity, 0.045);
+  -webkit-mask-image: url('/textures/pattern-maracatu-rosace.svg');
+  mask-image: url('/textures/pattern-maracatu-rosace.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 120px 120px;
+  mask-size: 120px 120px;
+}
+
+body.has-wallpaper-damas::before {
+  opacity: var(--wallpaper-opacity, 0.045);
+  -webkit-mask-image: url('/textures/pattern-maracatu-damas.svg');
+  mask-image: url('/textures/pattern-maracatu-damas.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 120px 120px;
+  mask-size: 120px 120px;
+}
+
+body.has-wallpaper-gravure::before {
+  opacity: var(--wallpaper-opacity, 0.045);
+  -webkit-mask-image: url('/textures/pattern-maracatu-gravure.svg');
+  mask-image: url('/textures/pattern-maracatu-gravure.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 140px 140px;
+  mask-size: 140px 140px;
+}
+
+/* Classes pour les prévisualisations dans la modale */
+.wallpaper-mask-rosace {
+  background-color: var(--cordel-text);
+  -webkit-mask-image: url('/textures/pattern-maracatu-rosace.svg');
+  mask-image: url('/textures/pattern-maracatu-rosace.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 120px 120px;
+  mask-size: 120px 120px;
+}
+
+.wallpaper-mask-damas {
+  background-color: var(--cordel-text);
+  -webkit-mask-image: url('/textures/pattern-maracatu-damas.svg');
+  mask-image: url('/textures/pattern-maracatu-damas.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 120px 120px;
+  mask-size: 120px 120px;
+}
+
+.wallpaper-mask-gravure {
+  background-color: var(--cordel-text);
+  -webkit-mask-image: url('/textures/pattern-maracatu-gravure.svg');
+  mask-image: url('/textures/pattern-maracatu-gravure.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 140px 140px;
+  mask-size: 140px 140px;
 }
 
 

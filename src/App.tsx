@@ -42,10 +42,12 @@ import { useAppAudio } from './hooks/useAppAudio';
 import { useGlobalKeyboardShortcuts } from './hooks/useGlobalKeyboardShortcuts';
 import { useViewRouter } from './hooks/useViewRouter';
 import { useThemeManager } from './hooks/useThemeManager';
+import { useWallpaper } from './hooks/useWallpaper';
 import { useMidiController } from './hooks/useMidiController';
 import { startSession, endSession } from './utils/O-Girador-Tracker';
 import { VisitorAuthModal } from './components/VisitorAuthModal';
 import { SpeedTrainerModal } from './components/SpeedTrainerModal';
+import { WallpaperShowcaseModal } from './components/WallpaperShowcaseModal';
 
 export default function App() {
   // 1. Core hook extraction setup
@@ -181,6 +183,14 @@ export default function App() {
     isDarkMode,
     toggleDarkMode
   } = theme;
+
+  const {
+    wallpaper,
+    setWallpaper,
+    isWallpaperModalOpen,
+    openWallpaperModal,
+    closeWallpaperModal,
+  } = useWallpaper();
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const editingTrackId = useSequencerStore(state => state.editingTrackId);
@@ -635,6 +645,7 @@ export default function App() {
         onOpenInstrumentEditor={handleOpenDefaultInstrumentEditor}
         onToggleDetachInstrumentEditor={handleToggleDetachInstrumentEditor}
         editingTrackId={editingTrackId}
+        onOpenWallpaperModal={openWallpaperModal}
       />
 
       {/* Main Workspace workspace containing expanding grids layouts */}
@@ -760,6 +771,16 @@ export default function App() {
       )}
 
       <SpeedTrainerModal />
+
+      <WallpaperShowcaseModal
+        isOpen={isWallpaperModalOpen}
+        onClose={closeWallpaperModal}
+        currentWallpaper={wallpaper}
+        onApplyWallpaper={setWallpaper}
+        isDarkMode={isDarkMode}
+        onToggleDarkMode={toggleDarkMode}
+        lang={sequencer.lang}
+      />
 
     </div>
       )}

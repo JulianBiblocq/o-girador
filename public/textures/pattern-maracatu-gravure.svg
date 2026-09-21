@@ -1,0 +1,169 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" width="140" height="140">
+  <defs>
+    <!-- ALFAIA -->
+    <g id="inst-alfaia">
+      <path d="M 18 30 Q 50 22 82 32" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" />
+      <path d="M 16 33 Q 50 45 84 30" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" />
+      <path d="M 19 74 Q 48 85 81 68" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" />
+      <path d="M 18 30 Q 12 50 19 74 M 82 32 Q 88 50 81 68" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" />
+      <path d="M 19 32 L 28 68 L 38 35 L 48 70 L 58 32 L 68 69 L 80 32" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+      <path d="M 5 20 Q 20 23 35 25" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" />
+      <circle cx="6" cy="18" r="4" fill="currentColor" />
+    </g>
+
+    <!-- CAIXA -->
+    <g id="inst-caixa">
+      <ellipse cx="50" cy="40" rx="38" ry="8" stroke="currentColor" stroke-width="2.5" fill="none" />
+      <ellipse cx="50" cy="65" rx="36" ry="7" stroke="currentColor" stroke-width="2.5" fill="none" />
+      <path d="M 12 40 L 14 65 M 88 40 L 86 65" stroke="currentColor" stroke-width="2.5" fill="none" />
+      <path d="M 28 43 L 27 63 M 42 44 L 42 66 M 58 44 L 58 66 M 72 43 L 73 63" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" />
+      <path d="M 10 24 L 50 40 M 90 20 L 45 42" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" />
+    </g>
+
+    <!-- GONGUE -->
+    <g id="inst-gongue">
+      <path d="M 15 75 Q 50 95 85 75 Q 50 60 15 75 Z" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linejoin="round" />
+      <path d="M 15 75 Q 35 45 45 28 M 85 75 Q 65 45 55 28" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" />
+      <path d="M 45 28 Q 50 24 55 28" stroke="currentColor" stroke-width="2.5" fill="none" />
+      <path d="M 48 26 L 46 6 M 52 26 L 54 6" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" />
+      <path d="M 85 15 L 60 55" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" />
+    </g>
+
+    <!-- AGBE -->
+    <g id="inst-agbe">
+      <path d="M 46 18 Q 18 38 23 72 C 25 95, 82 95, 78 72 Q 72 38 54 18 Z" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linejoin="round" />
+      <ellipse cx="50" cy="18" rx="6" ry="4" stroke="currentColor" stroke-width="2.5" fill="none" />
+      <path d="M 28 48 L 78 88 M 24 60 L 68 95 M 78 48 L 28 88 M 80 60 L 38 95" stroke="currentColor" stroke-width="1.2" fill="none" />
+      <circle cx="50" cy="55" r="2" fill="currentColor" />
+      <circle cx="65" cy="68" r="2" fill="currentColor" />
+      <circle cx="38" cy="72" r="2" fill="currentColor" />
+      <circle cx="52" cy="85" r="2" fill="currentColor" />
+    </g>
+
+    <!-- MINEIRO -->
+    <g id="inst-mineiro">
+      <path d="M 22 25 L 72 65 M 32 15 L 82 55" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" />
+      <path d="M 22 25 Q 15 22 32 15 M 72 65 Q 85 75 82 55" stroke="currentColor" stroke-width="2.5" fill="none" />
+      <path d="M 36 29 L 46 21 M 50 40 L 60 32 M 64 51 L 74 43" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" />
+      <circle cx="16" cy="20" r="2.5" fill="currentColor" />
+      <circle cx="86" cy="68" r="2.5" fill="currentColor" />
+    </g>
+
+    <!-- APITO -->
+    <g id="inst-apito">
+      <path d="M 38 28 L 38 75 C 38 80, 62 80, 62 75 L 62 28 Z" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linejoin="round" />
+      <path d="M 42 28 L 45 14 L 55 14 L 58 28" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linejoin="round" />
+      <path d="M 38 38 L 62 38" stroke="currentColor" stroke-width="2" fill="none" />
+      <path d="M 38 48 L 26 48 L 26 62 L 38 62" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" />
+      <path d="M 62 48 L 74 48 L 74 62 L 62 62" stroke="currentColor" stroke-width="2" fill="none" stroke-linejoin="round" />
+      <circle cx="50" cy="54" r="3" fill="currentColor" />
+      <circle cx="50" cy="86" r="4" stroke="currentColor" stroke-width="2" fill="none" />
+    </g>
+
+    <!-- HACHURE DE GRAVURE (Petites étincelles xylographiques) -->
+    <g id="fleuron-cordel" stroke="currentColor" stroke-width="1" stroke-linecap="round">
+      <line x1="-3" y1="0" x2="3" y2="0" />
+      <line x1="0" y1="-3" x2="0" y2="3" />
+      <line x1="-2" y1="-2" x2="2" y2="2" />
+      <line x1="-2" y1="2" x2="2" y2="-2" />
+    </g>
+  </defs>
+
+  <!-- ================= SEMIS ORGANIQUE / GRAVURE ================= -->
+
+  <!-- Éléments intérieurs (sans coupe de bordure) -->
+  <g transform="translate(42, 42) rotate(22) scale(0.17) translate(-50, -50)">
+    <use href="#inst-alfaia" />
+  </g>
+  <g transform="translate(98, 38) rotate(-35) scale(0.16) translate(-50, -50)">
+    <use href="#inst-caixa" />
+  </g>
+  <g transform="translate(42, 98) rotate(-18) scale(0.16) translate(-50, -50)">
+    <use href="#inst-agbe" />
+  </g>
+  <g transform="translate(98, 96) rotate(65) scale(0.17) translate(-50, -50)">
+    <use href="#inst-gongue" />
+  </g>
+  <g transform="translate(70, 68) rotate(-45) scale(0.14) translate(-50, -50)">
+    <use href="#inst-mineiro" />
+  </g>
+  <g transform="translate(70, 24) rotate(40) scale(0.13) translate(-50, -50)">
+    <use href="#inst-apito" />
+  </g>
+  <g transform="translate(70, 114) rotate(-140) scale(0.13) translate(-50, -50)">
+    <use href="#inst-apito" />
+  </g>
+
+  <!-- Éléments coupés sur les bordures (dupliqués exactement x ou y +/- 140) -->
+  <!-- 1. Alfaia sur les bords gauche et droite (0, 70) et (140, 70) -->
+  <g transform="translate(0, 70) rotate(80) scale(0.16) translate(-50, -50)">
+    <use href="#inst-alfaia" />
+  </g>
+  <g transform="translate(140, 70) rotate(80) scale(0.16) translate(-50, -50)">
+    <use href="#inst-alfaia" />
+  </g>
+
+  <!-- 2. Gonguê sur les bords haut et bas (70, 0) et (70, 140) -->
+  <g transform="translate(70, 0) rotate(-10) scale(0.16) translate(-50, -50)">
+    <use href="#inst-gongue" />
+  </g>
+  <g transform="translate(70, 140) rotate(-10) scale(0.16) translate(-50, -50)">
+    <use href="#inst-gongue" />
+  </g>
+
+  <!-- 3. Caixas sur les 4 coins (0,0), (140,0), (0,140), (140,140) -->
+  <g transform="translate(0, 0) rotate(45) scale(0.15) translate(-50, -50)">
+    <use href="#inst-caixa" />
+  </g>
+  <g transform="translate(140, 0) rotate(45) scale(0.15) translate(-50, -50)">
+    <use href="#inst-caixa" />
+  </g>
+  <g transform="translate(0, 140) rotate(45) scale(0.15) translate(-50, -50)">
+    <use href="#inst-caixa" />
+  </g>
+  <g transform="translate(140, 140) rotate(45) scale(0.15) translate(-50, -50)">
+    <use href="#inst-caixa" />
+  </g>
+
+  <!-- 4. Agbê sur les bords latéraux (0, 24) et (140, 24) -->
+  <g transform="translate(0, 24) rotate(-55) scale(0.14) translate(-50, -50)">
+    <use href="#inst-agbe" />
+  </g>
+  <g transform="translate(140, 24) rotate(-55) scale(0.14) translate(-50, -50)">
+    <use href="#inst-agbe" />
+  </g>
+
+  <!-- 5. Mineiro sur les bords supérieur et inférieur (24, 0) et (24, 140) -->
+  <g transform="translate(24, 0) rotate(30) scale(0.13) translate(-50, -50)">
+    <use href="#inst-mineiro" />
+  </g>
+  <g transform="translate(24, 140) rotate(30) scale(0.13) translate(-50, -50)">
+    <use href="#inst-mineiro" />
+  </g>
+
+  <!-- 6. Mineiro sur les bords supérieur et inférieur (116, 0) et (116, 140) -->
+  <g transform="translate(116, 0) rotate(-30) scale(0.13) translate(-50, -50)">
+    <use href="#inst-mineiro" />
+  </g>
+  <g transform="translate(116, 140) rotate(-30) scale(0.13) translate(-50, -50)">
+    <use href="#inst-mineiro" />
+  </g>
+
+  <!-- Ornements de gravure / taille-douce (étoiles cordel et pointillés) -->
+  <use href="#fleuron-cordel" x="22" y="58" opacity="0.7" />
+  <use href="#fleuron-cordel" x="118" y="58" opacity="0.7" />
+  <use href="#fleuron-cordel" x="54" y="80" opacity="0.7" />
+  <use href="#fleuron-cordel" x="86" y="56" opacity="0.7" />
+  <use href="#fleuron-cordel" x="70" y="90" opacity="0.7" />
+  <use href="#fleuron-cordel" x="70" y="46" opacity="0.7" />
+
+  <!-- Pointillés de texture organiques -->
+  <circle cx="18" cy="85" r="1" fill="currentColor" opacity="0.6" />
+  <circle cx="122" cy="85" r="1" fill="currentColor" opacity="0.6" />
+  <circle cx="48" cy="18" r="1" fill="currentColor" opacity="0.6" />
+  <circle cx="92" cy="18" r="1" fill="currentColor" opacity="0.6" />
+  <circle cx="48" cy="125" r="1" fill="currentColor" opacity="0.6" />
+  <circle cx="92" cy="125" r="1" fill="currentColor" opacity="0.6" />
+  <circle cx="34" cy="68" r="1" fill="currentColor" opacity="0.6" />
+  <circle cx="106" cy="74" r="1" fill="currentColor" opacity="0.6" />
+</svg>

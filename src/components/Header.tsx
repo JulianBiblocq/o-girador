@@ -115,6 +115,7 @@ interface HeaderProps {
   onOpenInstrumentEditor?: () => void;
   onToggleDetachInstrumentEditor?: () => void;
   editingTrackId?: number | null;
+  onOpenWallpaperModal?: () => void;
 }
 
 const HeaderComponent: React.FC<HeaderProps> = ({
@@ -141,6 +142,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   onOpenInstrumentEditor,
   onToggleDetachInstrumentEditor,
   editingTrackId = null,
+  onOpenWallpaperModal,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -507,6 +509,17 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   >
                     <span>📜</span> {lang === 'pt' ? 'Sobre' : 'À propos'}
                   </button>
+                  {onOpenWallpaperModal && (
+                    <button 
+                      onClick={() => {
+                        onOpenWallpaperModal();
+                        setMobileMenuOpen(false);
+                      }} 
+                      className="flex items-center justify-center gap-1.5 px-2 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border-sm text-xs font-bold font-cactus hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] cursor-pointer col-span-2 transition-colors"
+                    >
+                      <span>🎨</span> {lang === 'pt' ? 'Papel de Parede' : 'Papier Peint'}
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -925,6 +938,16 @@ const HeaderComponent: React.FC<HeaderProps> = ({
         >
           {isDarkMode ? <XiloSun size={18} className="shrink-0" /> : <XiloMoon size={16} className="shrink-0" />}
         </button>
+
+        {onOpenWallpaperModal && (
+          <button
+            onClick={onOpenWallpaperModal}
+            className="bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] text-[var(--cordel-text)] cordel-button w-12 h-[34px] flex items-center justify-center cursor-pointer shrink-0 text-base"
+            title={lang === 'pt' ? "Papel de Parede Trompe-l'Œil" : "Papier Peint Trompe-l'Œil"}
+          >
+            🎨
+          </button>
+        )}
 
         <button
           onClick={onLangToggle}
