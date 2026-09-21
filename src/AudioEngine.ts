@@ -76,7 +76,7 @@ export class AudioEngine {
   private getTicksPerMeasure: (measureIdx: number) => number;
 
   // Sampler State & Buffers
-  private bufferPool = new Map<string, ToneType.ToneAudioBuffer>(); // Maps absolute path -> ToneAudioBuffer (Sample Pooling)
+  public bufferPool = new Map<string, ToneType.ToneAudioBuffer>(); // Maps absolute path -> ToneAudioBuffer (Sample Pooling)
   private loadingPromises = new Map<string, Promise<void>>(); // Cache to prevent concurrent duplicate loading tasks
   private lastPlayedIndices = new Map<string, Map<string, number>>(); // Maps instrumentId -> strokeSymbol -> last played index (Round-Robin)
   private instrumentChannels = new Map<string, any>(); // Maps trackId -> Tone.Channel

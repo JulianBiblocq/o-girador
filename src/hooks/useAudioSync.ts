@@ -1779,10 +1779,7 @@ export function useAudioSync({
         console.error("❌ Critical error during initAudio:", err);
       } finally {
         if (audioEngine) {
-          const isMobileDevice = window.innerWidth <= 768 || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-          if (!isMobileDevice) {
-            audioEngine.loadAllSamples().catch(e => { /* consolewarn("Background load samples failed:", e); */ });
-          }
+          audioEngine.loadAllSamples().catch(e => { /* consolewarn("Background load samples failed:", e); */ });
         }
         // ALWAYS unblock the UI.
         setIsLoading(false);
@@ -1804,44 +1801,6 @@ export function useAudioSync({
       stopAllNativeOscillators();
     };
   }, [isAudioUnlocked]);
-
-  // Dynamic RAM Management for Mobile (Stroke-level Lazy Loading)
-  useEffect(() => {
-    const isMobileDevice = window.innerWidth <= 768 || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-    if (!audioEngine || !isMobileDevice) return;
-
-    const syncTracksMemory = (tracks: any[]) => {
-      if (tracks.length === 0) return;
-
-      const activeInstruments = tracks
-        .filter(t => !t.isHidden)
-        .map(t => {
-          const inst = instrumentsConfig[t.instrumentIdx];
-          if (!inst) return null;
-
-          return {
-            id: inst.id,
-            activeStrokes: getActiveStrokesForTrack(t, tracks)
-          };
-        }).filter(Boolean) as ActiveInstrumentData[];
-
-      activeInstruments.sort((a, b) => a.id.localeCompare(b.id));
-
-      audioEngine?.syncActiveInstrumentsMemory(activeInstruments)
-        .catch(e => { /* console.warn("Dynamic RAM sync failed:", e); */ });
-    };
-
-    // 🚀 INITIAL MOBILE SYNC : Précharger immédiatement les strokes actifs dès le montage sur mobile
-    syncTracksMemory(useSequencerStore.getState().tracks);
-
-    const unsub = useSequencerStore.subscribe((state, prevState) => {
-      if (state.tracks !== prevState.tracks) {
-        syncTracksMemory(state.tracks);
-      }
-    });
-
-    return unsub;
-  }, [audioEngine]);
 
   const handleTogglePlay = useCallback(async () => {
     if (import.meta.env.DEV) {
@@ -1893,6 +1852,17 @@ export function useAudioSync({
     if (!isPlayingRef.current) {
       lastPlayedSignalIdRef.current = null;
       audioEngine?.stopAllBarulho();
+
+      // Sécurisation : S'assurer que le pool de samples est chargé avant le start
+      if (audioEngine && audioEngine.bufferPool.size === 0) {
+        try {
+          await audioEngine.loadAllSamples();
+        } catch (e) {
+          console.error("Échec du chargement de secours des samples:", e);
+        }
+      }
+
+      console.log('🥁 [AUDIO ENGINE] bufferPool size:', audioEngine?.bufferPool?.size ?? 0);
 
       // Suppression du délai destructeur setTimeout(300) pour conserver le jeton d'activation utilisateur tactile
       if (Tone.loaded) {
