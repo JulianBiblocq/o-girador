@@ -29,6 +29,7 @@ export interface TrackSlice {
   setRodaTrackOrder: (order: number[] | ((prev: number[]) => number[])) => void;
   handleReorderRodaTracks: (activeId: number, overId: number) => void;
   handleReorderMixerTracks: (activeId: number, overId: number) => void;
+  handleReorderWagon: (wagonTrackIds: number[], overTrackId: number) => void;
   setTracks: (tracks: TrackGroup[] | ((prev: TrackGroup[]) => TrackGroup[])) => void;
   handleCreateFromTemplate: (
     template: WorkspaceTemplate,
@@ -636,6 +637,73 @@ const createTrackSlice: StateCreator<SequencerStore, [], [], TrackSlice> = (set,
 
       return {
         tracks: applyRadii(sortTracksHierarchically(newTracks), state.rodaTrackOrder),
+        tracksVersion: state.tracksVersion + 1
+      };
+    });
+  },
+  handleReorderWagon: (wagonTrackIds, overTrackId) => {
+    if (!wagonTrackIds || wagonTrackIds.length === 0) return;
+    if (wagonTrackIds.includes(overTrackId)) return;
+
+    get().pushUndoState();
+    set((state) => {
+      const currentTracks = [...state.tracks];
+      const wagonSet = new Set(wagonTrackIds);
+
+      // 1. Extraire les pistes du wagon dans leur ordre actuel exact
+      const wagonTracks = wagonTrackIds
+        .map(id => currentTracks.find(t => t.id === id))
+        .filter(Boolean) as TrackGroup[];
+
+      if (wagonTracks.length === 0) return {};
+
+      // 2. Extraire les pistes restantes (sans le wagon)
+      const remainingTracks = currentTracks.filter(t => !wagonSet.has(t.id));
+
+      // 3. Déterminer la position cible dans le tableau restant
+      const overTrack = currentTracks.find(t => t.id === overTrackId);
+      if (!overTrack) return {};
+
+      const originalWagonHeadIdx = currentTracks.findIndex(t => t.id === wagonTrackIds[0]);
+      const originalOverIdx = currentTracks.findIndex(t => t.id === overTrackId);
+      const isMovingRight = originalWagonHeadIdx < originalOverIdx;
+
+      const overTopBusId = getTopParentBusId(overTrack, currentTracks);
+      let targetIndex = -1;
+
+      if (overTopBusId) {
+        const targetGroupMembers = remainingTracks.filter(t => getTopParentBusId(t, currentTracks) === overTopBusId);
+        if (targetGroupMembers.length > 0) {
+          if (isMovingRight) {
+            const lastMember = targetGroupMembers[targetGroupMembers.length - 1];
+            targetIndex = remainingTracks.findIndex(t => t.id === lastMember.id) + 1;
+          } else {
+            const firstMember = targetGroupMembers[0];
+            targetIndex = remainingTracks.findIndex(t => t.id === firstMember.id);
+          }
+        }
+      }
+
+      if (targetIndex === -1) {
+        const idxInRemaining = remainingTracks.findIndex(t => t.id === overTrackId);
+        if (idxInRemaining !== -1) {
+          targetIndex = isMovingRight ? idxInRemaining + 1 : idxInRemaining;
+        } else {
+          targetIndex = isMovingRight ? remainingTracks.length : 0;
+        }
+      }
+
+      targetIndex = Math.max(0, Math.min(remainingTracks.length, targetIndex));
+
+      // 4. Injection atomique du wagon sans modifier l'ordre interne des faders
+      const newTracks = [
+        ...remainingTracks.slice(0, targetIndex),
+        ...wagonTracks,
+        ...remainingTracks.slice(targetIndex)
+      ];
+
+      return {
+        tracks: applyRadii(newTracks, state.rodaTrackOrder),
         tracksVersion: state.tracksVersion + 1
       };
     });

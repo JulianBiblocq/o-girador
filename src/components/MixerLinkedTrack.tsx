@@ -33,6 +33,9 @@ interface MixerLinkedTrackProps {
   linkPosition?: 'first' | 'middle' | 'last' | 'none';
   isDragOver?: boolean;
   dropIndicator?: 'left' | 'right' | null;
+  activeWagonSize?: number;
+  isWagonMember?: boolean;
+  isDraggingWagon?: boolean;
 }
 
 const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
@@ -44,6 +47,9 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   linkPosition = 'none',
   isDragOver = false,
   dropIndicator = null,
+  activeWagonSize = 1,
+  isWagonMember = false,
+  isDraggingWagon = false,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -145,9 +151,17 @@ const MixerLinkedTrackComponent: React.FC<MixerLinkedTrackProps> = ({
   const faderTextColor = getContrastColor(faderColor);
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: transform ? (
+      activeWagonSize > 1 && !isWagonMember
+        ? CSS.Transform.toString({
+            ...transform,
+            x: transform.x * activeWagonSize,
+          })
+        : CSS.Transform.toString(transform)
+    ) : undefined,
     transition,
-    zIndex: 1,
+    opacity: isWagonMember && isDraggingWagon ? 0.25 : undefined,
+    zIndex: isDragging ? 50 : 1,
     '--fader-thumb-bg': faderColor,
     '--fader-thumb-border': 'var(--cordel-border)',
   } as React.CSSProperties;

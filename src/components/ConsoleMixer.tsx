@@ -14,7 +14,9 @@ import {
   DragMoveEvent,
   TouchSensor,
   pointerWithin,
+  DragOverlay,
 } from '@dnd-kit/core';
+import { MixerWagonGhost } from './MixerWagonGhost';
 import {
   SortableContext,
   horizontalListSortingStrategy,
@@ -252,6 +254,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
   const displayedTrackIds = useMemo(() => displayedTracks.map(t => `track-${t.id}`), [displayedTracks]);
 
   const [activeDragTrackId, setActiveDragTrackId] = React.useState<number | null>(null);
+  const [activeDragWagonTracks, setActiveDragWagonTracks] = React.useState<TrackGroup[] | null>(null);
   const [overDragTrackId, setOverDragTrackId] = React.useState<number | null>(null);
   const [isSaveTemplateModalOpen, setIsSaveTemplateModalOpen] = useState(false);
   
@@ -721,6 +724,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     });
     activeDragGroupElementsRef.current = [];
     activeGroupTrackIdsRef.current = [];
+    setActiveDragWagonTracks(null);
   }, []);
 
   const handleDragStart = React.useCallback((event: any) => {
@@ -730,51 +734,43 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       setActiveDragTrackId(activeTrackId);
 
       const activeTrack = tracks.find(t => t.id === activeTrackId);
-      const isGroupHeader = activeTrack && (
-        activeTrack.isBusFolder ||
-        activeTrack.isLinkFolder ||
-        activeTrack.isLinkMaster ||
-        tracks.some(t => String(t.busId) === String(activeTrack.id) || String(t.linkedToTrackId) === String(activeTrack.id))
+
+      // Détecter si la piste est une fille interne (esclave liée ou fille de bus mais pas master)
+      const isLinkedChild = !!activeTrack?.linkedToTrackId && !activeTrack?.isLinkFolder && !activeTrack?.isLinkMaster;
+      const isBusChild = !!activeTrack?.busId && !activeTrack?.isBusFolder;
+      const isInternalChild = isLinkedChild || isBusChild;
+
+      const isGroupHeader = Boolean(
+        activeTrack &&
+        !isInternalChild &&
+        (
+          activeTrack.isBusFolder ||
+          activeTrack.isLinkFolder ||
+          activeTrack.isLinkMaster ||
+          tracks.some(t => String(t.busId) === String(activeTrack.id) || String(t.linkedToTrackId) === String(activeTrack.id))
+        )
       );
 
-      if (isGroupHeader && scrollRef.current) {
-        const children = tracks.filter(t => 
-          t.id !== activeTrackId && (
-            String(t.busId) === String(activeTrackId) ||
-            String(t.linkedToTrackId) === String(activeTrackId) ||
-            (activeTrack?.linkedToTrackId && activeTrack.isLinkMaster && String(t.linkedToTrackId) === String(activeTrack.linkedToTrackId))
-          )
+      if (isGroupHeader) {
+        // Extraire tous les membres du wagon ordonnés tels qu'affichés
+        const blockTracks = displayedTracks.filter(t => 
+          t.id === activeTrackId ||
+          String(t.busId) === String(activeTrackId) ||
+          String(t.linkedToTrackId) === String(activeTrackId) ||
+          (activeTrack?.linkedToTrackId && String(t.linkedToTrackId) === String(activeTrack.linkedToTrackId))
         );
-        const groupIds = [activeTrackId, ...children.map(c => c.id)];
+        const groupIds = blockTracks.map(c => c.id);
         activeGroupTrackIdsRef.current = groupIds;
-
-        const elements: HTMLElement[] = [];
-        groupIds.forEach(id => {
-          const el = scrollRef.current?.querySelector(`[data-track-id="${id}"]`) as HTMLElement | null;
-          if (el) {
-            elements.push(el);
-            el.classList.add('mixer-strip-lifted');
-            el.style.zIndex = '50';
-            el.style.transition = 'none';
-          }
-        });
-        activeDragGroupElementsRef.current = elements;
+        setActiveDragWagonTracks(blockTracks);
       } else {
         activeGroupTrackIdsRef.current = [activeTrackId];
-        activeDragGroupElementsRef.current = [];
+        setActiveDragWagonTracks(activeTrack ? [activeTrack] : null);
       }
     }
-  }, [tracks]);
+  }, [tracks, displayedTracks]);
 
-  const handleDragMove = React.useCallback((event: DragMoveEvent) => {
-    const deltaX = event.delta?.x || 0;
-    const elements = activeDragGroupElementsRef.current;
-    if (elements.length > 1) {
-      // Synchronisation directe DOM Vanilla JS des enfants du bloc sans aucun re-render React (Zero Render Thrashing)
-      for (let i = 1; i < elements.length; i++) {
-        elements[i].style.transform = `translate3d(${deltaX}px, 0px, 0px)`;
-      }
-    }
+  const handleDragMove = React.useCallback((_event: DragMoveEvent) => {
+    // Les mouvements fluides sont gérés nativement par DragOverlay accéléré GPU
   }, []);
 
   const customCollisionDetection = React.useCallback((args: any) => {
@@ -782,13 +778,34 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     if (!collisions || collisions.length === 0) return [];
 
     const groupIds = activeGroupTrackIdsRef.current;
-    if (groupIds.length <= 1) return collisions;
-
-    // Ignorer les collisions internes avec les pistes membres du bloc solidaire actif
     const groupSet = new Set(groupIds.map(id => `track-${id}`));
-    const filtered = collisions.filter((c: any) => !groupSet.has(String(c.id)));
-    return filtered.length > 0 ? filtered : [];
-  }, []);
+    const externalCollisions = collisions.filter((c: any) => !groupSet.has(String(c.id)));
+    if (externalCollisions.length === 0) return [];
+
+    // Si on déplace une piste individuelle, comportement standard
+    if (groupIds.length <= 1) return externalCollisions;
+
+    // Si on déplace un wagon (tête de groupe) :
+    // Redirection de la collision vers la tête de groupe cible si survol d'un enfant d'un autre groupe
+    const firstCollision = externalCollisions[0];
+    const targetIdStr = String(firstCollision.id);
+    if (targetIdStr.startsWith('track-')) {
+      const targetTrackId = Number(targetIdStr.replace('track-', ''));
+      const targetTrack = tracks.find(t => t.id === targetTrackId);
+      if (targetTrack) {
+        const targetTopBusId = getTopParentBusId(targetTrack, tracks);
+        if (targetTopBusId) {
+          const headTrack = displayedTracks.find(t => String(t.id) === targetTopBusId)
+            || displayedTracks.find(t => getTopParentBusId(t, tracks) === targetTopBusId);
+          if (headTrack && headTrack.id !== targetTrackId) {
+            return [{ id: `track-${headTrack.id}`, data: firstCollision.data }];
+          }
+        }
+      }
+    }
+
+    return externalCollisions;
+  }, [tracks, displayedTracks]);
 
   const handleDragOver = React.useCallback((event: any) => {
     const overId = event.over ? String(event.over.id) : null;
@@ -803,12 +820,16 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     cleanupGroupDrag();
     setActiveDragTrackId(null);
     setOverDragTrackId(null);
+    setActiveDragWagonTracks(null);
   }, [cleanupGroupDrag]);
 
   const handleDragEnd = (event: DragEndEvent) => {
+    const activeGroupIds = [...activeGroupTrackIdsRef.current];
     cleanupGroupDrag();
     setActiveDragTrackId(null);
     setOverDragTrackId(null);
+    setActiveDragWagonTracks(null);
+
     const { active, over } = event;
     if (over && active.id !== over.id) {
       const activeId = String(active.id);
@@ -826,9 +847,16 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       } else if (activeId.startsWith('track-') && overId.startsWith('track-')) {
         const activeTrackId = Number(activeId.replace('track-', ''));
         const overTrackId = Number(overId.replace('track-', ''));
-        const reorderFn = handleReorderMixerTracks || handleReorderTracksDnd;
-        if (reorderFn) {
-          reorderFn(activeTrackId, overTrackId);
+
+        if (activeGroupIds.length > 1) {
+          // Déplacement atomique du wagon complet
+          useSequencerStore.getState().handleReorderWagon(activeGroupIds, overTrackId);
+        } else {
+          // Déplacement individuel
+          const reorderFn = handleReorderMixerTracks || handleReorderTracksDnd;
+          if (reorderFn) {
+            reorderFn(activeTrackId, overTrackId);
+          }
         }
       }
     }
@@ -1097,6 +1125,10 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 else if (hasPrev && !hasNext) linkPosition = 'last';
               }
 
+              const wagonSize = activeDragWagonTracks && activeDragWagonTracks.length > 1 ? activeDragWagonTracks.length : 1;
+              const isWagonMember = activeGroupTrackIdsRef.current.includes(trackId);
+              const isDraggingWagon = activeDragWagonTracks !== null && activeDragWagonTracks.length > 1;
+
               if (track.isBusFolder) {
                 if (track.isLinkFolder) {
                   return (
@@ -1113,6 +1145,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                       linkPosition={linkPosition}
                       isDragOver={isThisGroupHovered}
                       dropIndicator={dropIndicator}
+                      activeWagonSize={wagonSize}
+                      isWagonMember={isWagonMember}
+                      isDraggingWagon={isDraggingWagon}
                     />
                   );
                 }
@@ -1126,6 +1161,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     linkPosition={linkPosition}
                     isDragOver={isThisGroupHovered}
                     dropIndicator={dropIndicator}
+                    activeWagonSize={wagonSize}
+                    isWagonMember={isWagonMember}
+                    isDraggingWagon={isDraggingWagon}
                   />
                 );
               }
@@ -1142,6 +1180,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                     linkPosition={linkPosition}
                     isDragOver={isThisGroupHovered}
                     dropIndicator={dropIndicator}
+                    activeWagonSize={wagonSize}
+                    isWagonMember={isWagonMember}
+                    isDraggingWagon={isDraggingWagon}
                   />
                 );
               }
@@ -1160,10 +1201,20 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                   linkPosition={linkPosition}
                   isDragOver={isThisGroupHovered}
                   dropIndicator={dropIndicator}
+                  activeWagonSize={wagonSize}
+                  isWagonMember={isWagonMember}
+                  isDraggingWagon={isDraggingWagon}
                 />
               );
             })}
           </SortableContext>
+
+          {/* Fantôme solidaire du wagon complet lors du déplacement */}
+          <DragOverlay dropAnimation={null}>
+            {activeDragWagonTracks && activeDragWagonTracks.length > 0 ? (
+              <MixerWagonGhost tracks={activeDragWagonTracks} lang={lang} />
+            ) : null}
+          </DragOverlay>
         </DndContext>
 
         <MixerAddChannel isActive={isActive} />

@@ -48,6 +48,9 @@ interface MixerChannelProps {
   linkPosition?: 'first' | 'middle' | 'last' | 'none';
   isDragOver?: boolean;
   dropIndicator?: 'left' | 'right' | null;
+  activeWagonSize?: number;
+  isWagonMember?: boolean;
+  isDraggingWagon?: boolean;
 }
 
 const MixerChannelComponent: React.FC<MixerChannelProps> = ({
@@ -63,6 +66,9 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   linkPosition = 'none',
   isDragOver = false,
   dropIndicator = null,
+  activeWagonSize = 1,
+  isWagonMember = false,
+  isDraggingWagon = false,
 }) => {
   const sequencer = useSequencer();
   const audio = useAudio();
@@ -375,9 +381,17 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
     }
   }, [trackId]);
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
+  const style: React.CSSProperties = {
+    transform: transform ? (
+      activeWagonSize > 1 && !isWagonMember
+        ? CSS.Transform.toString({
+            ...transform,
+            x: transform.x * activeWagonSize,
+          })
+        : CSS.Transform.toString(transform)
+    ) : undefined,
     transition,
+    opacity: isWagonMember && isDraggingWagon ? 0.25 : undefined,
   };
 
   // Calcul du style du grand bus externe
