@@ -29,20 +29,28 @@ const getInitialViewMode = (): ViewMode => {
   if (targetView && ['roda', 'console', 'timeline', 'admin', 'landing', 'home'].includes(targetView)) {
     return targetView as ViewMode;
   }
-  if (urlParams.has('loadPreset')) {
+  if (urlParams.has('loadPreset') || urlParams.has('loadPattern')) {
     return 'roda';
   }
 
-  // 2. Visiteur ayant déjà vu l'accueil
-  if (localStorage.getItem('ogirador_has_seen_welcome') === 'true') {
+  // 2. Détection synchrone du mode PWA autonome
+  const isStandalonePwa = 
+    typeof window !== 'undefined' && (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      Boolean((window.navigator as any).standalone)
+    );
+
+  if (isStandalonePwa) {
     return 'roda';
   }
 
-  // 3. Utilisateur avec session Firebase Auth active dans le stockage local
+  // 3. Utilisateur connecté ou ayant déjà vu l'accueil
+  const hasSeenWelcome = localStorage.getItem('ogirador_has_seen_welcome') === 'true';
   const hasFirebaseAuthSession = Object.keys(localStorage).some((key) =>
     key.startsWith('firebase:authUser:')
   );
-  if (hasFirebaseAuthSession) {
+
+  if (hasSeenWelcome || hasFirebaseAuthSession) {
     return 'roda';
   }
 

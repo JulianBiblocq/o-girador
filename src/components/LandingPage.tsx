@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase/config';
-import { doc, getDoc, updateDoc, query, collection, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
 import { GoogleLoginButton } from './GoogleLoginButton';
 import type * as ToneType from 'tone';
 import { useAudioStore } from '../stores/useAudioStore';
@@ -10,7 +10,6 @@ import { loadTone, getTone } from '@/src/ToneLoader';
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
 }
-import { Edit2, Check, X } from 'lucide-react';
 
 interface LandingPageProps {
   onEnter: () => void;
@@ -18,12 +17,8 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
-  const { userProfile, hasAccess } = useAuth();
+  const { userProfile } = useAuth();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [mestreMessage, setMestreMessage] = useState<string | null>(null);
-  const [isEditingMsg, setIsEditingMsg] = useState(false);
-  const [editMsgContent, setEditMsgContent] = useState('');
-  const [isSavingMsg, setIsSavingMsg] = useState(false);
 
   const [isToneReady, setIsToneReady] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
@@ -33,13 +28,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
   const hasSavedLang = localStorage.getItem('o_gridador_lang') !== null;
   const isBrowserFr = typeof navigator !== 'undefined' && navigator.language.startsWith('fr');
   const displayFr = hasSavedLang ? (lang === 'fr') : isBrowserFr;
-  const hasSeenWelcome = (typeof window !== 'undefined' && localStorage.getItem('ogirador_has_seen_welcome') === 'true') || !!userProfile;
+
+  // Détection PWA autonome ou visiteur ayant déjà vu l'accueil / connecté
+  const isStandalonePwa = typeof window !== 'undefined' && (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    Boolean((window.navigator as any).standalone)
+  );
+  const hasSeenWelcome = (typeof window !== 'undefined' && localStorage.getItem('ogirador_has_seen_welcome') === 'true') || !!userProfile || isStandalonePwa;
 
   useEffect(() => {
-    const fetchMestreData = async () => {
-      if (hasAccess('mestre')) {
-        if (userProfile?.groupLogoUrl) setLogoUrl(userProfile.groupLogoUrl);
-        if (userProfile?.mestreMessage) setMestreMessage(userProfile.mestreMessage);
+    const fetchGroupLogo = async () => {
+      if (userProfile?.groupLogoUrl) {
+        setLogoUrl(userProfile.groupLogoUrl);
         return;
       }
       
@@ -69,35 +69,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
           const mestreDoc = await getDoc(doc(db, 'users', targetMestreId));
           if (mestreDoc.exists()) {
             const mestreData = mestreDoc.data();
-            if (mestreData) {
-              if (mestreData.groupLogoUrl) setLogoUrl(mestreData.groupLogoUrl);
-              if (mestreData.mestreMessage) setMestreMessage(mestreData.mestreMessage);
+            if (mestreData?.groupLogoUrl) {
+              setLogoUrl(mestreData.groupLogoUrl);
             }
           }
         } catch (error) {
-          console.error("Error fetching mestre data:", error);
+          console.error("Error fetching group logo:", error);
         }
       }
     };
 
-    fetchMestreData();
-  }, [userProfile, hasAccess]);
-
-  const handleSaveMessage = async () => {
-    if (!userProfile?.uid) return;
-    setIsSavingMsg(true);
-    try {
-      const userRef = doc(db, 'users', userProfile.uid);
-      await updateDoc(userRef, { mestreMessage: editMsgContent });
-      setMestreMessage(editMsgContent);
-      setIsEditingMsg(false);
-    } catch (err) {
-      console.error("Erreur lors de la sauvegarde du message :", err);
-      alert("Erreur lors de la sauvegarde.");
-    } finally {
-      setIsSavingMsg(false);
-    }
-  };
+    fetchGroupLogo();
+  }, [userProfile]);
 
   useEffect(() => {
     // Preload Tone.js in the background so it is available synchronously on button click
@@ -277,47 +260,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, lang }) => {
           </div>
         </div>
         
-        {(mestreMessage || hasAccess('mestre')) && (
-          <div className="lp-mestre-message">
-            <div className="lp-message-header">
-              <span className="lp-message-title">A palavra do mestre / La parole du mestre</span>
-              {hasAccess('mestre') && !isEditingMsg && (
-                <button onClick={() => { setEditMsgContent(mestreMessage || ''); setIsEditingMsg(true); }} className="lp-edit-btn" title="Modifier le message">
-                  <Edit2 size={14} />
-                </button>
-              )}
-            </div>
-            
-            {isEditingMsg ? (
-              <div className="lp-message-editor">
-                <textarea 
-                  value={editMsgContent} 
-                  onChange={(e) => setEditMsgContent(e.target.value)}
-                  placeholder="Tapez ici le mot de la semaine, une consigne, etc."
-                  className="lp-textarea custom-scrollbar"
-                />
-                <div className="lp-editor-actions">
-                  <button onClick={() => setIsEditingMsg(false)} className="lp-btn lp-btn-cancel" disabled={isSavingMsg}>
-                    <X size={16} /> Annuler
-                  </button>
-                  <button onClick={handleSaveMessage} className="lp-btn lp-btn-save" disabled={isSavingMsg}>
-                    {isSavingMsg ? <span className="animate-spin">⚙️</span> : <Check size={16} />} Enregistrer
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="lp-message-content">
-                {mestreMessage ? (
-                  mestreMessage.split('\n').map((line, i) => (
-                    <React.Fragment key={i}>{line}<br/></React.Fragment>
-                  ))
-                ) : (
-                  <span className="opacity-50 italic">Cliquez sur l'icône pour ajouter un message pour vos élèves...</span>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+
         
         <div className="lp-bandeira">
           <svg className="lp-estandarte" viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg">
