@@ -6,6 +6,7 @@ import { audioEngine } from '../../hooks/useAudioSync';
 import { useSequencerStore } from '../../stores/useSequencerStore';
 import { useInstrumentLabel } from '../../stores/useNomenclatureStore';
 import * as Tone from 'tone';
+import { XiloLightning } from '../XiloIcons';
 
 interface ShortcutsGuideProps {
   lang: Language;
@@ -102,6 +103,7 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
               <p>• <b>Ctrl + Clic</b> sur l'entête d'une ligne pour couper le son (mute) de l'instrument.</p>
               <div className="w-full h-px bg-[var(--cordel-border)]/10 my-1"></div>
               <p>• <b>Espace</b> : Lecture / Pause.</p>
+              <p>• <b>O</b> : Ouvrir / Fermer A Oficina (L'Officine).</p>
               <p>• <b>Ctrl+Z / Ctrl+Y</b> : Annuler / Rétablir.</p>
               <p>• <b>Ctrl+C / Ctrl+V</b> : Copier / Coller le motif.</p>
               <p>• <b>Ctrl+A / Ctrl+X</b> : Tout sélectionner / Couper le motif.</p>
@@ -117,12 +119,31 @@ export const ShortcutsGuide: React.FC<ShortcutsGuideProps> = ({ lang, t, activeS
               <p>• <b>Ctrl + Clique</b> no cabeçalho de uma linha para silenciar (mute) o instrumento.</p>
               <div className="w-full h-px bg-[var(--cordel-border)]/10 my-1"></div>
               <p>• <b>Espaço</b> : Reproduzir / Pausar.</p>
+              <p>• <b>O</b> : Abrir / Fechar A Oficina.</p>
               <p>• <b>Ctrl+Z / Ctrl+Y</b> : Desfazer / Refazer.</p>
               <p>• <b>Ctrl+C / Ctrl+V</b> : Copiar / Colar o padrão.</p>
               <p>• <b>Ctrl+A / Ctrl+X</b> : Selecionar tudo / Recortar o padrão.</p>
               <p>• <b>Borracha ao vivo (Live Erase)</b> : Mantenha <b>Backspace</b> ou <b>Delete</b> pressionado durante a reprodução para apagar notas na passagem da cabeça de reprodução.</p>
             </>
           )}
+        </div>
+      </details>
+
+      {/* Speed Trainer / Mode Entraînement */}
+      <details className="group bg-[var(--cordel-bg)] cordel-border-sm mb-1">
+        <summary className="flex items-center justify-between cursor-pointer p-2 list-none select-none hover:bg-black/5 transition-colors">
+          <span className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--cordel-text)] uppercase tracking-wider font-cactus">
+            <XiloLightning size={16} className="shrink-0 text-yellow-500 fill-current" />
+            {lang === 'fr' ? 'Entraînement au tempo' : 'Treino de andamento'}
+          </span>
+          <span className="text-[var(--cordel-text)] font-bold transition-transform group-open:rotate-180">▼</span>
+        </summary>
+        <div className="p-2 border-t border-[var(--cordel-border)]/20 text-[10px] text-[var(--cordel-text)] leading-relaxed">
+          <p>
+            {lang === 'fr'
+              ? "Démarre une boucle de travail après un décompte au tempo ralenti, puis accélère progressivement par palier (+1, +2 ou +4 BPM) à chaque cycle jusqu'au tempo cible. À l'arrêt, le morceau retrouve immédiatement ses réglages initiaux sans impacter la sauvegarde."
+              : "Inicia um loop de estudo após uma contagem em andamento lento, acelerando progressivamente (+1, +2 ou +4 BPM) a cada ciclo até o andamento alvo. Ao parar, a música restaura imediatamente as configurações originais sem alterar o arquivo salvo."}
+          </p>
         </div>
       </details>
 

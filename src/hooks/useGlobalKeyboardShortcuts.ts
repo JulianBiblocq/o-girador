@@ -82,13 +82,20 @@ export function useGlobalKeyboardShortcuts() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeTag = document.activeElement?.tagName;
       const activeId = document.activeElement?.id;
+      const target = e.target as HTMLElement | null;
 
-      if (
-        activeTag === 'INPUT' ||
-        activeTag === 'SELECT' ||
-        activeTag === 'TEXTAREA' ||
-        activeId === 'letras-textarea'
-      ) {
+      const isTargetInput = target instanceof HTMLInputElement || 
+                            target instanceof HTMLTextAreaElement || 
+                            target instanceof HTMLSelectElement || 
+                            !!target?.isContentEditable;
+
+      const isFocusedInput = activeTag === 'INPUT' ||
+                            activeTag === 'SELECT' ||
+                            activeTag === 'TEXTAREA' ||
+                            activeId === 'letras-textarea' ||
+                            !!(document.activeElement as HTMLElement)?.isContentEditable;
+
+      if (isTargetInput || isFocusedInput) {
         return;
       }
 
@@ -98,8 +105,8 @@ export function useGlobalKeyboardShortcuts() {
         return;
       }
 
-      // Raccourci global 'O' pour ouvrir/fermer instantanément L'Atelier (A Oficina)
-      if ((e.key === 'o' || e.key === 'O') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // Raccourci global 'O' pour ouvrir/fermer instantanément A Oficina (L'Officine)
+      if (e.key.toLowerCase() === 'o' && !e.ctrlKey && !e.metaKey && !e.altKey) {
         e.preventDefault();
         useSequencerSettingsStore.getState().toggleSettings();
         return;
