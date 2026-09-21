@@ -92,11 +92,9 @@ export function initMasterEffectsChain(
   masterVolumeNode.connect(masterEQNode);
   masterEQNode.connect(masterCompressorNode);
   
-  const masterHighpassNode = new Tone.Filter(55, 'highpass');
-  masterCompressorNode.connect(masterHighpassNode);
-
+  // Preserve native sub-bass and fundamental frequencies: bypass 55 Hz highpass
   const masterLimiterNode = new Tone.Limiter(-2);
-  masterHighpassNode.connect(masterLimiterNode);
+  masterCompressorNode.connect(masterLimiterNode);
 
   masterSoftClipperNode = new Tone.WaveShaper();
   const curveSize = 8192;
@@ -161,7 +159,7 @@ export function initMasterEffectsChain(
 
   // Distortion nodes (light distortion) connected in parallel to masterVolumeNode
   distortionNode = new Tone.Distortion({ distortion: 0.15, wet: 1 });
-  masterDistortionVolumeNode = new Tone.Gain(1.0).connect(masterVolumeNode);
+  masterDistortionVolumeNode = new Tone.Gain(0.0).connect(masterVolumeNode);
   distortionNode.connect(masterDistortionVolumeNode);
 
   distortionBusReceive = new Tone.Channel();

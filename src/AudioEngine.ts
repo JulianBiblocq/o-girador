@@ -8,7 +8,7 @@
  * Drives Sample playback using Web Audio API:
  *  - Memory Pooling: Deduplicates loaded AudioBuffers by absolute file path.
  *  - Strict Round-Robin: Avoids repeating the same audio file twice in a row when size > 1.
- *  - Micro-pitching (Humanize): Applies a random pitch variation (±2% for most, ±0.7% for Alfaias) to each non-barulho, non-gonguê hit.
+ *  - Raw Timbre Fidelity: Playback rate strictly locked to 1.0 for all instruments (no random micro-pitch). Pitch modulation is restricted exclusively to user tuning and acoustic sizing on Alfaias.
  *  - Macro-pitching: Handles instrument transpositions (e.g. Alfaias Marcante 0.85, Meião 1.0, Repique 1.15).
  *  - Barulho Loop: Loops barulho sounds on keydown and stops them on keyup.
  */
@@ -33,7 +33,6 @@ export interface ActiveInstrumentData {
   activeStrokes: string[];
 }
 
-const HUMANIZED_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
 const ALFAIA_INSTRUMENTS = new Set(['marcante', 'meiao', 'repique']);
 const HUMANIZED_INSTRUMENTS_SET = new Set(['marcante', 'meiao', 'repique', 'caixa', 'tarol']);
 
@@ -1075,29 +1074,21 @@ export class AudioEngine {
       this.instrumentVoices.set(instrumentId, voices);
     }
 
-    // 3. Pitch Calculations (Macro & Micro/Humanization)
-    let macroPitch = config.macroPitch !== undefined ? config.macroPitch : 1.0;
-    
-    // Organically vary the playback rate unless it is a Barulho or Gonguê
-    let microPitch = 1.0;
-    if (!stroke.isBarulho && instrumentId !== 'gongue' && instrumentId !== 'timbal') {
-      if (HUMANIZED_INSTRUMENTS.has(instrumentId)) {
-        microPitch = 0.993 + Math.random() * 0.014; // Subtle +/- 0.7% variation
-      } else {
-        microPitch = 0.98 + Math.random() * 0.04; // Normal +/- 2% variation
+    // 3. Pitch Calculations: Strictly locked to 1.0 for raw audio fidelity (comb filtering prevention)
+    // Only Alfaias support macro acoustic pitch and intentional user tuning.
+    let calculatedPitch = 1.0;
+    if (ALFAIA_INSTRUMENTS.has(instrumentId)) {
+      const macroPitch = config.macroPitch !== undefined ? config.macroPitch : 1.0;
+      let userTuning = overrideTuning !== undefined ? overrideTuning : 0;
+      if (overrideTuning === undefined && trackId !== null) {
+        const t = this.trackLookupMap.get(String(trackId));
+        if (t) {
+          userTuning = t.tuning || 0;
+        }
       }
+      const userPitchMultiplier = Math.pow(2, userTuning / 12);
+      calculatedPitch = macroPitch * userPitchMultiplier;
     }
-
-    let userTuning = overrideTuning !== undefined ? overrideTuning : 0;
-    if (overrideTuning === undefined && trackId !== null) {
-      const t = this.trackLookupMap.get(String(trackId));
-      if (t) {
-        userTuning = t.tuning || 0;
-      }
-    }
-    const userPitchMultiplier = Math.pow(2, userTuning / 12);
-
-    const calculatedPitch = macroPitch * microPitch * userPitchMultiplier;
 
     // 4. Instantiation Native Web Audio API (Faster on slow devices)
     const source = this.audioContext.createBufferSource();
