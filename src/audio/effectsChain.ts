@@ -61,19 +61,10 @@ export function initMasterEffectsChain(
 ) {
   if (masterVolumeNode) return; // Déjà initialisé
 
-  if (!Tone.context || Tone.context.sampleRate !== 44100) {
-    let rawCtx: AudioContext;
-    try {
-      rawCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
-        latencyHint: 'playback',
-        sampleRate: 44100
-      });
-    } catch (_) {
-      rawCtx = new (window.AudioContext || (window as any).webkitAudioContext)({
-        latencyHint: 'playback'
-      });
-    }
-    Tone.setContext(new Tone.Context(rawCtx));
+  // Garder le contexte audio natif de l'appareil (ex: 48 kHz sur smartphone, 44.1 kHz sur desktop)
+  // sans jamais forcer un ré-échantillonnage destructeur qui réinitialiserait le contexte en état 'suspended'.
+  if (!Tone.context || Tone.getContext().state === 'closed') {
+    Tone.setContext(new Tone.Context());
   }
 
   masterEQNode = new Tone.EQ3({

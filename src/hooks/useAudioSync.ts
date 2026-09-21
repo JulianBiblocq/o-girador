@@ -1810,27 +1810,33 @@ export function useAudioSync({
     const isMobileDevice = window.innerWidth <= 768 || ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
     if (!audioEngine || !isMobileDevice) return;
 
+    const syncTracksMemory = (tracks: any[]) => {
+      if (tracks.length === 0) return;
+
+      const activeInstruments = tracks
+        .filter(t => !t.isHidden)
+        .map(t => {
+          const inst = instrumentsConfig[t.instrumentIdx];
+          if (!inst) return null;
+
+          return {
+            id: inst.id,
+            activeStrokes: getActiveStrokesForTrack(t, tracks)
+          };
+        }).filter(Boolean) as ActiveInstrumentData[];
+
+      activeInstruments.sort((a, b) => a.id.localeCompare(b.id));
+
+      audioEngine?.syncActiveInstrumentsMemory(activeInstruments)
+        .catch(e => { /* console.warn("Dynamic RAM sync failed:", e); */ });
+    };
+
+    // 🚀 INITIAL MOBILE SYNC : Précharger immédiatement les strokes actifs dès le montage sur mobile
+    syncTracksMemory(useSequencerStore.getState().tracks);
+
     const unsub = useSequencerStore.subscribe((state, prevState) => {
       if (state.tracks !== prevState.tracks) {
-        const tracks = state.tracks;
-        if (tracks.length === 0) return;
-
-        const activeInstruments = tracks
-          .filter(t => !t.isHidden)
-          .map(t => {
-            const inst = instrumentsConfig[t.instrumentIdx];
-            if (!inst) return null;
-
-            return {
-              id: inst.id,
-              activeStrokes: getActiveStrokesForTrack(t, tracks)
-            };
-          }).filter(Boolean) as ActiveInstrumentData[];
-
-        activeInstruments.sort((a, b) => a.id.localeCompare(b.id));
-
-        audioEngine?.syncActiveInstrumentsMemory(activeInstruments)
-          .catch(e => { /* console.warn("Dynamic RAM sync failed:", e); */ });
+        syncTracksMemory(state.tracks);
       }
     });
 
@@ -1840,7 +1846,20 @@ export function useAudioSync({
   const handleTogglePlay = useCallback(async () => {
     if (import.meta.env.DEV) {
     }
+    // 🛡️ UNLOCK GUARD: Réveiller le moteur audio s'il n'avait pas été déverrouillé (arrivée directe sur la Roda)
+    if (!useAudioStore.getState().isAudioUnlocked) {
+      useAudioStore.getState().unlockAudio();
+    }
+
     // 🛡️ SYNC CHECK: Resume context synchronously inside the user event click stack to bypass Safari autoplay block
+    const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+    if (rawCtx && rawCtx.state !== 'running') {
+      try {
+        rawCtx.resume();
+      } catch (e) {
+        // console.warn("AudioContext resume failed:", e);
+      }
+    }
     if (Tone.context && Tone.context.state !== 'running') {
       try {
         Tone.context.resume();
@@ -1854,6 +1873,13 @@ export function useAudioSync({
       } catch (_) {}
     }
 
+    if (rawCtx && rawCtx.state !== 'running') {
+      try {
+        await rawCtx.resume();
+      } catch (e) {
+        // console.warn("AudioContext resume failed:", e);
+      }
+    }
     if (Tone.context && Tone.context.state !== 'running') {
       try {
         await Tone.context.resume();
@@ -1868,17 +1894,11 @@ export function useAudioSync({
       lastPlayedSignalIdRef.current = null;
       audioEngine?.stopAllBarulho();
 
-      // 🛡️ COLD START SAFETY: Attendre la fin du décodage de tous les buffers audio RAM + 300ms de respiration pour stabiliser le Main Thread mobile
-      setIsLoading(true);
-      try {
-        if (Tone.loaded) {
+      // Suppression du délai destructeur setTimeout(300) pour conserver le jeton d'activation utilisateur tactile
+      if (Tone.loaded) {
+        try {
           await Tone.loaded();
-        }
-        await new Promise(resolve => setTimeout(resolve, 300));
-      } catch (err) {
-
-      } finally {
-        setIsLoading(false);
+        } catch (_) {}
       }
 
       if (Tone.Transport.state !== 'started') {

@@ -317,7 +317,7 @@ export class AudioEngine {
     this.LOOKAHEAD_INTERVAL = isDesktopActive ? 25.0 : 50.0;
 
     // Dynamically update interval of fallback timer if active and playing
-    if (this.isPlaying && !this.clockNode && this.fallbackTimerId !== null) {
+    if (this.isPlaying && this.fallbackTimerId !== null) {
       window.clearInterval(this.fallbackTimerId);
       this.fallbackTimerId = window.setInterval(() => {
         if (this.isPlaying) {
@@ -350,25 +350,22 @@ export class AudioEngine {
       
       this.clockNode = new AudioWorkletNode(nativeContext, 'clock-processor');
       this.clockNode.port.onmessage = () => {
+        // Sécurisation Mobile : Nettoyer la minuterie de secours UNIQUEMENT lorsque le Worklet émet son tout premier message effectif
+        if (this.fallbackTimerId !== null) {
+          window.clearInterval(this.fallbackTimerId);
+          this.fallbackTimerId = null;
+        }
         if (this.isPlaying) {
           this.scheduler();
         }
       };
       this.clockNode.connect(nativeContext.destination);
-
-      // Nettoyer la minuterie de secours puisque le Worklet tourne désormais
-      if (this.fallbackTimerId !== null) {
-        window.clearInterval(this.fallbackTimerId);
-        this.fallbackTimerId = null;
-      }
     } catch (err) {
-
       this.initFallbackTimer();
     }
   }
 
   private initFallbackTimer(): void {
-    if (this.clockNode) return;
     if (this.fallbackTimerId === null) {
       this.fallbackTimerId = window.setInterval(() => {
         if (this.isPlaying) {
