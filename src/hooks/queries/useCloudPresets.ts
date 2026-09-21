@@ -11,11 +11,12 @@ interface UseCloudPresetsProps {
 
 export const normalizePresetName = (name: string) =>
   (name || '')
+    .replace(/\.json$/i, '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[_-]/g, ' ')
-    .trim()
-    .toLowerCase();
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
 
 export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWriteSequenciador }: UseCloudPresetsProps) {
   const isSamambaia = Boolean(
@@ -54,8 +55,10 @@ export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWrite
       // 1. Priorité absolue aux documents Cloud Firestore (source de vérité officielle)
       for (const p of firestorePresets) {
         const normName = normalizePresetName(p.name);
+        const normId = normalizePresetName(p.id);
         if (!seenIds.has(p.id)) {
           seenIds.add(p.id);
+          if (normId) seenIds.add(normId);
           if (normName) seenNormalizedNames.add(normName);
           merged.push(p);
         }
@@ -64,8 +67,15 @@ export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWrite
       // 2. Ajout des fichiers Firebase Storage uniquement si aucun équivalent Firestore n'existe
       for (const p of storagePresets) {
         const normName = normalizePresetName(p.name);
-        if (!seenIds.has(p.id) && (!normName || !seenNormalizedNames.has(normName))) {
+        const normId = normalizePresetName(p.id);
+        const alreadySeen =
+          seenIds.has(p.id) ||
+          (Boolean(normId) && seenIds.has(normId)) ||
+          (Boolean(normName) && seenNormalizedNames.has(normName));
+
+        if (!alreadySeen) {
           seenIds.add(p.id);
+          if (normId) seenIds.add(normId);
           if (normName) seenNormalizedNames.add(normName);
           merged.push(p);
         }

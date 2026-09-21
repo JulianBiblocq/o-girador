@@ -113,17 +113,53 @@ export function isPresetAuthorized(
   isSamambaiaGroup: boolean,
   canWriteSequenciador?: boolean
 ): boolean {
-  if (data.ownerId === userUid || data.visibility === 'admin_global' || data.visibility === 'public' || data.targetUserId === userUid) {
+  if (!data) return false;
+
+  // 1. Presets publics, globaux ou appartenant directement à l'utilisateur
+  if (
+    data.visibility === 'admin_global' ||
+    data.visibility === 'public' ||
+    (userUid && data.ownerId === userUid) ||
+    (userUid && data.targetUserId === userUid)
+  ) {
     return true;
   }
-  const matchesMestre = Boolean(myGroupMestreId && (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId));
-  const dataGroupIdNorm = String((data as any).groupId || '').toLowerCase();
-  const userGroupNorm = String(groupId || (isSamambaiaGroup || canWriteSequenciador ? 'samambaia' : '')).toLowerCase();
+
+  // 2. Normalisation des groupes
+  const dataGroupIdNorm = String((data as any).groupId || '').toLowerCase().trim();
+  const userGroupNorm = String(groupId || (isSamambaiaGroup || canWriteSequenciador ? 'samambaia' : '')).toLowerCase().trim();
+
+  const isSamambaiaPreset =
+    dataGroupIdNorm === 'samambaia' ||
+    dataGroupIdNorm.includes('sammbia') ||
+    data.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+    data.ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+
   const matchesGroup = Boolean(
     (userGroupNorm && dataGroupIdNorm && dataGroupIdNorm === userGroupNorm) ||
-    ((userGroupNorm.includes('samambaia') || isSamambaiaGroup || canWriteSequenciador) && (dataGroupIdNorm === 'samambaia' || dataGroupIdNorm.includes('sammbia')))
+    ((userGroupNorm.includes('samambaia') || isSamambaiaGroup || canWriteSequenciador) && isSamambaiaPreset)
   );
-  const isMestreGroup = (data.visibility === 'mestre_group' || !data.visibility) && (matchesMestre || matchesGroup);
-  const isMemberOrEleve = userRole === 'membre' || userRole === 'eleve';
-  return Boolean(isMestreGroup || matchesGroup || matchesMestre || ((isMemberOrEleve || canWriteSequenciador) && (isSamambaiaGroup || matchesGroup || matchesMestre)));
+
+  const matchesMestre = Boolean(
+    myGroupMestreId && (data.mestreId === myGroupMestreId || data.ownerId === myGroupMestreId)
+  );
+
+  // 3. Pour un élève, membre, ou utilisateur du groupe (y compris Samambaia par défaut),
+  // tous les morceaux du groupe ou partagés par le mestre sont accessibles
+  if (matchesGroup || matchesMestre) {
+    return true;
+  }
+
+  if ((isSamambaiaGroup || userGroupNorm.includes('samambaia')) && isSamambaiaPreset) {
+    return true;
+  }
+
+  // Visibilité groupe générale
+  if (data.visibility === 'group' || data.visibility === 'mestre_group' || !data.visibility) {
+    if (matchesGroup || matchesMestre || isSamambaiaGroup) {
+      return true;
+    }
+  }
+
+  return false;
 }

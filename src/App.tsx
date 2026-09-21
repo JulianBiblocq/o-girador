@@ -222,10 +222,14 @@ export default function App() {
       ...p,
       id: p.id,
       name: p.name,
-      visibility: p.visibility,
-      groupId: p.groupId,
       ownerId: p.ownerId,
-      mestreId: p.mestreId
+      mestreId: p.mestreId ?? null,
+      groupId: p.groupId ?? null,
+      visibility: p.visibility,
+      data: p.data,
+      audioUrl: p.audioUrl ?? null,
+      updatedAt: (p as any).updatedAt ?? null,
+      createdAt: p.createdAt ?? null,
     }));
   }, [cloudPresetsData]);
 
