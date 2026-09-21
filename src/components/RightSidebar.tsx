@@ -268,7 +268,12 @@ const RightSidebarComponent: React.FC<RightSidebarProps> = ({
         style={{ display: visible ? 'flex' : 'none' }}
         className="w-[340px] min-w-[340px] bg-[var(--cordel-bg)] cordel-bg border-l-[3px] border-[var(--cordel-border)] flex flex-col h-full transition-all duration-300 relative z-10 text-[var(--cordel-text)]"
       >
-        <div className="flex flex-col p-5 h-full overflow-hidden">
+        {/* Calque de fond en filigrane d'estampe Cordel */}
+        <div
+          className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg"
+          style={{ transform: 'translateZ(0)' }}
+        />
+        <div className="flex flex-col p-5 h-full overflow-hidden relative z-[1]">
           {/* Sub-tab Selector & Mobile Close Button aligned side-by-side */}
           <div className="flex gap-2 items-center mb-4 shrink-0 mt-1">
             <div className="flex-grow relative" ref={dropdownRef}>

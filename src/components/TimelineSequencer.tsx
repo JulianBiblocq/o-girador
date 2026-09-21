@@ -1366,13 +1366,23 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
           isPanningActive ? 'cursor-grab select-none' : ''
         }`}
       >
+        {/* Calque de fond en filigrane gravure couvrant l'ensemble du défilement et l'espace vide à droite */}
+        <div
+          className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg"
+          style={{
+            width: `max(100%, ${HEADER_W + totalContentW + 300}px)`,
+            minHeight: '100%',
+            transform: 'translateZ(0)',
+          }}
+        />
+
         {/* 
           We use a single wrapper with explicit width so the ruler row and
           every track row share the same coordinate space.
         */}
         <div 
           ref={gridRef}
-          className="relative timeline-scroll-grid" 
+          className="relative timeline-scroll-grid z-[1]" 
           style={{ width: `${HEADER_W + totalContentW + 150}px`, minWidth: `${HEADER_W + totalContentW + 150}px`, minHeight: '100%', transformOrigin: '0 0' }}
         >
 

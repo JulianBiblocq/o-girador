@@ -1031,7 +1031,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     >
       {/* Calque de fond vectoriel trompe-l'œil Maracatu (visible dans les zones libres sans pistes) */}
       <div 
-        className="absolute inset-0 pointer-events-none z-0 wallpaper-mixer-bg" 
+        className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg wallpaper-mixer-bg" 
         aria-hidden="true" 
       />
 

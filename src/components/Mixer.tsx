@@ -189,9 +189,15 @@ const MixerComponent: React.FC<MixerProps> = ({
   return (
     <div
       id="left-panel"
-      className="w-[400px] min-w-[400px] h-full bg-gradient-to-b from-[#1c1815] to-[#120e0c] border-r-2 border-[#eaddcf] flex flex-col p-5 box-border z-10 transition-all duration-300 overflow-hidden"
+      className="relative w-[400px] min-w-[400px] h-full bg-gradient-to-b from-[#1c1815] to-[#120e0c] border-r-2 border-[#eaddcf] flex flex-col p-5 box-border z-10 transition-all duration-300 overflow-hidden"
     >
-      <div className="border-b border-[#333] pb-2.5 mb-4 shrink-0 w-full flex items-center gap-2">
+      {/* Calque de fond en filigrane d'estampe Cordel */}
+      <div
+        className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg wallpaper-surface-dark"
+        style={{ transform: 'translateZ(0)' }}
+      />
+
+      <div className="border-b border-[#333] pb-2.5 mb-4 shrink-0 w-full flex items-center gap-2 relative z-[1]">
         <button
           onClick={toggleTracksCollapsed}
           className="bg-transparent border border-[#444] px-3 py-2 text-sm font-extrabold cursor-pointer text-[#eaddcf] hover:bg-[#eaddcf] hover:text-black transition-colors flex-shrink-0"
@@ -242,7 +248,7 @@ const MixerComponent: React.FC<MixerProps> = ({
         </div>
       </div>
 
-      <div id="mixer-section" className="flex-grow overflow-y-auto pr-1">
+      <div id="mixer-section" className="flex-grow overflow-y-auto pr-1 relative z-[1]">
         <div id="tracks-mixer-container" className="flex flex-col gap-3">
           <DndContext
             sensors={sensors}

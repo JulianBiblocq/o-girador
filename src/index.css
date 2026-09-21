@@ -31,8 +31,8 @@
   --eq-high-color: #3d8b85;
   --reverb-color: #2a5c8a;
   --disto-color: #c25e1a;
-  --wallpaper-opacity: 0.045;
-  --wallpaper-mixer-opacity: 0.065;
+  --wallpaper-opacity: 0.16;
+  --wallpaper-mixer-opacity: 0.16;
 }
 
 [data-theme='light'] {
@@ -58,8 +58,8 @@
   --eq-high-color: #3d8b85;
   --reverb-color: #2a5c8a;
   --disto-color: #c25e1a;
-  --wallpaper-opacity: 0.055;
-  --wallpaper-mixer-opacity: 0.075;
+  --wallpaper-opacity: 0.12;
+  --wallpaper-mixer-opacity: 0.12;
 }
 
 
@@ -1167,7 +1167,7 @@ body::before {
 }
 
 body.has-wallpaper-rosace::before {
-  opacity: var(--wallpaper-opacity, 0.045);
+  opacity: var(--wallpaper-opacity, 0.16);
   -webkit-mask-image: url('/textures/pattern-maracatu-rosace.svg');
   mask-image: url('/textures/pattern-maracatu-rosace.svg');
   -webkit-mask-repeat: repeat;
@@ -1177,7 +1177,7 @@ body.has-wallpaper-rosace::before {
 }
 
 body.has-wallpaper-damas::before {
-  opacity: var(--wallpaper-opacity, 0.045);
+  opacity: var(--wallpaper-opacity, 0.16);
   -webkit-mask-image: url('/textures/pattern-maracatu-damas.svg');
   mask-image: url('/textures/pattern-maracatu-damas.svg');
   -webkit-mask-repeat: repeat;
@@ -1187,7 +1187,7 @@ body.has-wallpaper-damas::before {
 }
 
 body.has-wallpaper-gravure::before {
-  opacity: var(--wallpaper-opacity, 0.045);
+  opacity: var(--wallpaper-opacity, 0.16);
   -webkit-mask-image: url('/textures/pattern-maracatu-gravure.svg');
   mask-image: url('/textures/pattern-maracatu-gravure.svg');
   -webkit-mask-repeat: repeat;
@@ -1228,19 +1228,20 @@ body.has-wallpaper-gravure::before {
 }
 
 /* ==========================================================================
-   FOND EN TROMPE-L'ŒIL DANS LA TABLE DE MIXAGE (CONSOLE MIXER)
+   FOND EN TROMPE-L'ŒIL DANS LA TABLE DE MIXAGE, LE SÉQUENCEUR ET LA RODA
    - Révélé dans les zones libres / vides sans pistes
    - Zéro dégradation des performances (isolation GPU hardware)
    - Doublement des préfixes WebKit pour Safari iOS & macOS
    - Dynamique : suit le motif actif sélectionné (Option C / Gravure par défaut)
    ========================================================================== */
 
+.wallpaper-surface-bg,
 .wallpaper-mixer-bg {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: var(--wallpaper-mixer-opacity, 0.065);
+  opacity: var(--wallpaper-opacity, 0.16);
   background-color: var(--cordel-text);
   transform: translateZ(0);
   transition: opacity 0.3s ease;
@@ -1252,8 +1253,15 @@ body.has-wallpaper-gravure::before {
   mask-size: 140px 140px;
 }
 
+/* Variantes pour conteneurs sombres permanents (châssis DAW, volet gauche Roda) */
+.wallpaper-surface-dark {
+  background-color: #f4ecd8 !important;
+  opacity: 0.16;
+}
+
+body.has-wallpaper-gravure .wallpaper-surface-bg,
 body.has-wallpaper-gravure .wallpaper-mixer-bg {
-  opacity: var(--wallpaper-mixer-opacity, 0.065);
+  opacity: var(--wallpaper-opacity, 0.16);
   -webkit-mask-image: url('/textures/pattern-maracatu-gravure.svg');
   mask-image: url('/textures/pattern-maracatu-gravure.svg');
   -webkit-mask-repeat: repeat;
@@ -1262,8 +1270,9 @@ body.has-wallpaper-gravure .wallpaper-mixer-bg {
   mask-size: 140px 140px;
 }
 
+body.has-wallpaper-rosace .wallpaper-surface-bg,
 body.has-wallpaper-rosace .wallpaper-mixer-bg {
-  opacity: var(--wallpaper-mixer-opacity, 0.065);
+  opacity: var(--wallpaper-opacity, 0.16);
   -webkit-mask-image: url('/textures/pattern-maracatu-rosace.svg');
   mask-image: url('/textures/pattern-maracatu-rosace.svg');
   -webkit-mask-repeat: repeat;
@@ -1272,8 +1281,9 @@ body.has-wallpaper-rosace .wallpaper-mixer-bg {
   mask-size: 120px 120px;
 }
 
+body.has-wallpaper-damas .wallpaper-surface-bg,
 body.has-wallpaper-damas .wallpaper-mixer-bg {
-  opacity: var(--wallpaper-mixer-opacity, 0.065);
+  opacity: var(--wallpaper-opacity, 0.16);
   -webkit-mask-image: url('/textures/pattern-maracatu-damas.svg');
   mask-image: url('/textures/pattern-maracatu-damas.svg');
   -webkit-mask-repeat: repeat;
@@ -1282,8 +1292,10 @@ body.has-wallpaper-damas .wallpaper-mixer-bg {
   mask-size: 120px 120px;
 }
 
-body.has-wallpaper-none .wallpaper-mixer-bg {
-  opacity: 0;
+body.has-wallpaper-none .wallpaper-surface-bg,
+body.has-wallpaper-none .wallpaper-mixer-bg,
+body.has-wallpaper-none .wallpaper-surface-dark {
+  opacity: 0 !important;
 }
 
 

@@ -300,13 +300,23 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
 
   return (
     <div
-      className="flex-grow flex flex-col justify-start bg-gradient-to-b from-[#1c1815] to-[#120e0c] select-none w-full h-full overflow-x-auto overflow-y-auto custom-scrollbar"
+      className="flex-grow flex flex-col justify-start bg-gradient-to-b from-[#1c1815] to-[#120e0c] select-none w-full h-full overflow-x-auto overflow-y-auto custom-scrollbar relative"
       style={{
         display: isActive ? 'flex' : 'none',
       }}
     >
+      {/* Calque de fond en filigrane gravure pour le châssis arrière du séquenceur */}
+      <div
+        className="absolute inset-0 pointer-events-none z-0 wallpaper-surface-bg wallpaper-surface-dark"
+        style={{
+          width: 'max(100%, 1240px)',
+          minHeight: '100%',
+          transform: 'translateZ(0)',
+        }}
+      />
+
       {/* Scrollable Container enforcing combined inline tracks scroll */}
-      <div className="min-w-[1240px] p-5 flex flex-col justify-start h-full">
+      <div className="min-w-[1240px] p-5 flex flex-col justify-start h-full relative z-[1]">
         
         <div className="flex items-center w-full h-auto pb-2.5 shrink-0 border-b border-[#333] mb-4 select-none justify-start">
           {/* Left Spacer matching Left Instrument Mixer section width (360px) */}
