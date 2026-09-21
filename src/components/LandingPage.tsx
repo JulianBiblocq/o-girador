@@ -130,49 +130,113 @@ const ClothespinSvg = () => (
 );
 
 // -----------------------------------------------------------------------------
-// DRAPEAU / ESTANDARTE DU PERNAMBUCO (CENTRE SOMMET, SANS SLOGAN PUB)
+// ÉCHANTILLONS AUDIO PRIMAIRES POUR LA PRÉ-ÉCOUTE IMMÉDIATE DES 6 INSTRUMENTS
 // -----------------------------------------------------------------------------
 
-const PernambucoEstandarte = () => (
-  <div className="flex flex-col items-center select-none" title="Bandeira de Pernambuco — Maracatu de Baque Virado">
-    <svg className="w-24 sm:w-28 md:w-36 h-auto overflow-visible" viewBox="0 0 200 170" xmlns="http://www.w3.org/2000/svg">
-      <line x1="100" y1="6" x2="100" y2="24" stroke="#1a1a1a" strokeWidth="3" strokeLinecap="round" />
-      <path d="M 40 26 L 100 10 L 160 26" fill="none" stroke="#1a1a1a" strokeWidth="1.8" />
-      <line x1="24" y1="26" x2="176" y2="26" stroke="#1a1a1a" strokeWidth="3.5" strokeLinecap="round" />
-      
-      <line x1="38" y1="26" x2="38" y2="34" stroke="#1a1a1a" strokeWidth="1.5" />
-      <line x1="100" y1="26" x2="100" y2="34" stroke="#1a1a1a" strokeWidth="1.5" />
-      <line x1="162" y1="26" x2="162" y2="34" stroke="#1a1a1a" strokeWidth="1.5" />
+const BATERIA_SAMPLE_FILES: Record<string, string> = {
+  marcante: '/Mixdown/Alfaia meiao F 1.ogg',
+  caixa: '/Mixdown/Caixa F 1.ogg',
+  gongue: '/Mixdown/Gongue G 1.ogg',
+  agbe: '/Mixdown/Agbe F D 1.ogg',
+  mineiro: '/Mixdown/Mineiro F P 1.ogg',
+  timbal: '/Mixdown/Timbal A 1.ogg',
+};
 
-      <g id="flag-body">
-        <path d="M 32 34 L 168 34 L 168 84 L 32 84 Z" fill="#1b4965" stroke="#1a1a1a" strokeWidth="2" />
-        <path d="M 32 84 L 168 84 L 168 134 L 32 134 Z" fill="#f4ecd8" stroke="#1a1a1a" strokeWidth="2" />
+const decodedAudioBuffers = new Map<string, AudioBuffer>();
+let landingAudioCtx: AudioContext | null = null;
 
-        <polygon points="100,39 102,44 107,44 103,47 105,52 100,49 95,52 97,47 93,44 98,44" fill="#f4a261" stroke="#1a1a1a" strokeWidth="0.6" />
+function getLandingAudioContext(): AudioContext {
+  if (!landingAudioCtx || landingAudioCtx.state === 'closed') {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    landingAudioCtx = new AudioContextClass();
+  }
+  return landingAudioCtx;
+}
 
-        <path d="M 60 84 A 40 40 0 0 1 140 84" fill="none" stroke="#8b2a1a" strokeWidth="5.5" />
-        <path d="M 64 84 A 36 36 0 0 1 136 84" fill="none" stroke="#e9c46a" strokeWidth="4" />
-        <path d="M 67 84 A 33 33 0 0 1 133 84" fill="none" stroke="#2a9d8f" strokeWidth="3" />
+function preloadLandingSamples() {
+  try {
+    const ctx = getLandingAudioContext();
+    Object.entries(BATERIA_SAMPLE_FILES).forEach(async ([id, url]) => {
+      if (decodedAudioBuffers.has(id)) return;
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) return;
+        const arrayBuffer = await resp.arrayBuffer();
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+        decodedAudioBuffers.set(id, audioBuffer);
+      } catch (_) {
+        // Fallback silencieux, se chargera au clic
+      }
+    });
+  } catch (_) {}
+}
 
-        <circle cx="100" cy="84" r="14" fill="#e9c46a" stroke="#1a1a1a" strokeWidth="1.2" />
-        <line x1="100" y1="67" x2="100" y2="64" stroke="#1a1a1a" strokeWidth="1.5" />
-        <line x1="88" y1="72" x2="85" y2="69" stroke="#1a1a1a" strokeWidth="1.5" />
-        <line x1="112" y1="72" x2="115" y2="69" stroke="#1a1a1a" strokeWidth="1.5" />
+// -----------------------------------------------------------------------------
+// DRAPEAU / ESTANDARTE DU PERNAMBUCO AVEC MÂT VERTICAL ANCRÉ DANS LE 'I'
+// -----------------------------------------------------------------------------
 
-        <rect x="96" y="93" width="8" height="32" fill="#8b2a1a" stroke="#1a1a1a" strokeWidth="1" />
-        <rect x="88" y="101" width="24" height="8" fill="#8b2a1a" stroke="#1a1a1a" strokeWidth="1" />
-      </g>
+const PernambucoEstandarteWithMast = () => (
+  <svg
+    className="w-20 sm:w-24 md:w-32 lg:w-36 h-auto overflow-visible select-none"
+    viewBox="0 0 200 230"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    {/* Sommet du mât : Pointeira / flèche dorée */}
+    <polygon points="100,2 104,14 96,14" fill="#d4af37" stroke="#1a1a1a" strokeWidth="1.2" />
+    <circle cx="100" cy="14" r="3" fill="#d4af37" stroke="#1a1a1a" strokeWidth="1" />
 
-      <g className="lp-fringes">
-        <path
-          d="M 32 134 l 2.5 16 l 2.5 -12 l 2.5 15 l 2.5 -12 l 2.5 11 l 2.5 -13 l 2.5 16 l 2.5 -13 l 2.5 15 l 2.5 -15 l 2.5 14 l 2.5 -13 l 2.5 15 l 2.5 -11 l 2.5 13 l 2.5 -14 l 2.5 15 l 2.5 -11 l 2.5 11 l 2.5 -15 l 2.5 15 l 2.5 -12 l 2.5 14 l 2.5 -10 l 2.5 16 l 2.5 -13 l 2.5 12 l 2.5 -11 l 2.5 14 l 2.5 -12 l 2.5 13 l 2.5 -13 l 2.5 11 l 2.5 -12 l 2.5 15 l 2.5 -15 l 2.5 13 l 2.5 -15 l 2.5 14 l 2.5 -15 l 2.5 12 l 2.5 -11 l 2.5 10 l 2.5 -16 l 2.5 12 l 2.5 -13 l 2.5 11 l 2.5 -12 l 2.5 10 l 2.5 -11 l 2.5 16 l 2.5 -10 l 2.5 15 l 2.5 -15 l 2.5 12 l 2.5 -12 l 2.5 11 l 2.5 -15"
-          fill="none"
-          stroke="#1a1a1a"
-          strokeWidth="1.2"
-        />
-      </g>
-    </svg>
-  </div>
+    {/* Le mât vertical qui traverse toute la bannière et descend jusqu'au sommet du 'I' */}
+    <line x1="100" y1="14" x2="100" y2="230" stroke="#1a1a1a" strokeWidth="3.5" strokeLinecap="round" />
+
+    {/* Cordelette de suspension en V */}
+    <path d="M 40 28 L 100 14 L 160 28" fill="none" stroke="#1a1a1a" strokeWidth="1.8" />
+    {/* Traverse horizontale de l'étendard */}
+    <line x1="24" y1="28" x2="176" y2="28" stroke="#1a1a1a" strokeWidth="3.5" strokeLinecap="round" />
+    {/* Pommeaux de traverse */}
+    <circle cx="24" cy="28" r="2.5" fill="#d4af37" stroke="#1a1a1a" strokeWidth="1" />
+    <circle cx="176" cy="28" r="2.5" fill="#d4af37" stroke="#1a1a1a" strokeWidth="1" />
+
+    {/* Attaches de la toile */}
+    <line x1="38" y1="28" x2="38" y2="36" stroke="#1a1a1a" strokeWidth="1.5" />
+    <line x1="100" y1="28" x2="100" y2="36" stroke="#1a1a1a" strokeWidth="1.5" />
+    <line x1="162" y1="28" x2="162" y2="36" stroke="#1a1a1a" strokeWidth="1.5" />
+
+    {/* Corps du drapeau de Pernambuco */}
+    <g id="flag-body">
+      {/* Moitié supérieure bleue */}
+      <path d="M 32 36 L 168 36 L 168 86 L 32 86 Z" fill="#1b4965" stroke="#1a1a1a" strokeWidth="2" />
+      {/* Moitié inférieure crème / blanche */}
+      <path d="M 32 86 L 168 86 L 168 136 L 32 136 Z" fill="#f4ecd8" stroke="#1a1a1a" strokeWidth="2" />
+
+      {/* Étoile jaune en haut */}
+      <polygon points="100,41 102,46 107,46 103,49 105,54 100,51 95,54 97,49 93,46 98,46" fill="#f4a261" stroke="#1a1a1a" strokeWidth="0.6" />
+
+      {/* Arc-en-ciel à 3 arcs */}
+      <path d="M 60 86 A 40 40 0 0 1 140 86" fill="none" stroke="#8b2a1a" strokeWidth="5.5" />
+      <path d="M 64 86 A 36 36 0 0 1 136 86" fill="none" stroke="#e9c46a" strokeWidth="4" />
+      <path d="M 67 86 A 33 33 0 0 1 133 86" fill="none" stroke="#2a9d8f" strokeWidth="3" />
+
+      {/* Soleil */}
+      <circle cx="100" cy="86" r="14" fill="#e9c46a" stroke="#1a1a1a" strokeWidth="1.2" />
+      <line x1="100" y1="69" x2="100" y2="66" stroke="#1a1a1a" strokeWidth="1.5" />
+      <line x1="88" y1="74" x2="85" y2="71" stroke="#1a1a1a" strokeWidth="1.5" />
+      <line x1="112" y1="74" x2="115" y2="71" stroke="#1a1a1a" strokeWidth="1.5" />
+
+      {/* Croix rouge au centre de la moitié inférieure */}
+      <rect x="96" y="95" width="8" height="32" fill="#8b2a1a" stroke="#1a1a1a" strokeWidth="1" />
+      <rect x="88" y="103" width="24" height="8" fill="#8b2a1a" stroke="#1a1a1a" strokeWidth="1" />
+    </g>
+
+    {/* Franges traditionnelles au bas du tissu */}
+    <g className="lp-fringes">
+      <path
+        d="M 32 136 l 2.5 16 l 2.5 -12 l 2.5 15 l 2.5 -12 l 2.5 11 l 2.5 -13 l 2.5 16 l 2.5 -13 l 2.5 15 l 2.5 -15 l 2.5 14 l 2.5 -13 l 2.5 15 l 2.5 -11 l 2.5 13 l 2.5 -14 l 2.5 15 l 2.5 -11 l 2.5 11 l 2.5 -15 l 2.5 15 l 2.5 -12 l 2.5 14 l 2.5 -10 l 2.5 16 l 2.5 -13 l 2.5 12 l 2.5 -11 l 2.5 14 l 2.5 -12 l 2.5 13 l 2.5 -13 l 2.5 11 l 2.5 -12 l 2.5 15 l 2.5 -15 l 2.5 13 l 2.5 -15 l 2.5 14 l 2.5 -15 l 2.5 12 l 2.5 -11 l 2.5 10 l 2.5 -16 l 2.5 12 l 2.5 -13 l 2.5 11 l 2.5 -12 l 2.5 10 l 2.5 -11 l 2.5 16 l 2.5 -10 l 2.5 15 l 2.5 -15 l 2.5 12 l 2.5 -12 l 2.5 11 l 2.5 -15"
+        fill="none"
+        stroke="#1a1a1a"
+        strokeWidth="1.2"
+      />
+    </g>
+  </svg>
 );
 
 // -----------------------------------------------------------------------------
@@ -209,6 +273,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
 
   useEffect(() => {
+    // Préchargement immédiat et silencieux des 6 instruments de la bateria
+    preloadLandingSamples();
+
     loadTone()
       .then(() => setIsToneReady(true))
       .catch((err) => console.error("Tone.js background preload error:", err));
@@ -236,21 +303,46 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   }, [isUnlocking, onEnter]);
 
   const handleInstrumentTap = useCallback(async (instId: string, strokeSymbol: string) => {
-    const Tone = safeGetTone();
-    if (Tone && Tone.context.state !== 'running') {
-      try {
-        await Tone.start();
-        useAudioStore.getState().unlockAudio();
-      } catch (e) {
-        console.warn("Could not unlock audio on preview:", e);
+    try {
+      const ctx = getLandingAudioContext();
+      if (ctx.state !== 'running') {
+        await ctx.resume();
       }
-    }
 
-    if (audioEngine) {
-      try {
-        audioEngine.playPreview(instId, strokeSymbol, 0, 1.0);
-      } catch (e) {
-        console.warn("playPreview error:", e);
+      // Synchronisation synchrone du moteur audio et de Tone.js
+      const Tone = safeGetTone();
+      if (Tone && Tone.context.state !== 'running') {
+        Tone.start().catch(() => {});
+      }
+      useAudioStore.getState().unlockAudio();
+
+      // Récupération ou décodage synchrone du sample natif
+      let buffer = decodedAudioBuffers.get(instId);
+      if (!buffer) {
+        const url = BATERIA_SAMPLE_FILES[instId];
+        if (url) {
+          const resp = await fetch(url);
+          const arrayBuffer = await resp.arrayBuffer();
+          buffer = await ctx.decodeAudioData(arrayBuffer);
+          decodedAudioBuffers.set(instId, buffer);
+        }
+      }
+
+      if (buffer) {
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        const gainNode = ctx.createGain();
+        gainNode.gain.value = 1.0;
+        source.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        source.start(0);
+      }
+    } catch (e) {
+      console.warn("Direct sample playback fallback to audioEngine:", e);
+      if (audioEngine) {
+        try {
+          audioEngine.playPreview(instId, strokeSymbol, 0, 1.0);
+        } catch (_) {}
       }
     }
   }, []);
@@ -270,17 +362,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     <div id="landing-page" className="min-h-screen bg-[#f4ecd8] text-[#1a1a1a] flex flex-col justify-between relative selection:bg-[#8b2a1a] selection:text-[#f4ecd8]">
       
       {/* ------------------------------------------------------------------ */}
-      {/* 1. EN-TÊTE : PROFIL EN HAUT À DROITE & BANDEIRA AU CENTRE          */}
+      {/* 1. EN-TÊTE : PROFIL EN HAUT À DROITE                                */}
       {/* ------------------------------------------------------------------ */}
-      <header className="w-full relative pt-2 px-4 sm:px-6 max-w-7xl mx-auto z-30 flex items-center justify-center">
-        
-        {/* Drapeau du Pernambuco au centre, noble & sans texte publicitaire */}
-        <div className="flex justify-center pt-1">
-          <PernambucoEstandarte />
-        </div>
-
+      <header className="w-full relative pt-3 px-4 sm:px-6 max-w-7xl mx-auto z-30 flex items-center justify-end">
         {/* Profil Google / Utilisateur bien calé et visible en haut à droite */}
-        <div className="absolute top-3 right-4 sm:top-4 sm:right-6 z-40">
+        <div className="z-40">
           <GoogleLoginButton lang={currentLang} align="right" size="large" />
         </div>
       </header>
@@ -288,7 +374,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* ------------------------------------------------------------------ */}
       {/* 2. LE GRAND "O GIRADOR" AVEC BOUTON ENTRA NA RODA AU COEUR DU "O"  */}
       {/* ------------------------------------------------------------------ */}
-      <section className="w-full flex flex-col items-center text-center px-4 pt-2 pb-6 max-w-5xl mx-auto z-20">
+      <section className="w-full flex flex-col items-center text-center px-4 pt-16 sm:pt-20 md:pt-28 lg:pt-32 pb-6 max-w-5xl mx-auto z-20">
         
         {/* Ensemble Titre O GIRADOR */}
         <div className="flex flex-col items-center w-full">
@@ -330,17 +416,32 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </button>
             </div>
 
-            {/* Lettrage GIRADOR en police Cactus */}
-            <div className="font-cactus text-5xl sm:text-7xl md:text-8xl lg:text-[10.5rem] font-bold tracking-tight text-[#1a1a1a] leading-none select-none">
-              GIRADOR
-            </div>
-          </div>
+            {/* Lettrage GIRADOR en police Cactus, avec le mât de Pernambuco ancré au-dessus du 'I' */}
+            <div className="flex flex-col items-end">
+              <div
+                style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
+                className="font-cactus-display text-5xl sm:text-7xl md:text-8xl lg:text-[10.5rem] font-bold tracking-tight text-[#1a1a1a] leading-none select-none flex items-baseline"
+              >
+                <span>G</span>
+                <span className="relative inline-flex flex-col items-center">
+                  <span className="absolute bottom-[96%] left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none z-30">
+                    <PernambucoEstandarteWithMast />
+                  </span>
+                  <span>I</span>
+                </span>
+                <span>RADOR</span>
+              </div>
 
-          {/* Tampon SEQUENCIADOR placé sous le 'R' de GIRADOR (aligné à droite du titre) */}
-          <div className="w-full max-w-3xl flex justify-end mt-1 sm:mt-2 pr-2 sm:pr-8 md:pr-12">
-            <span className="inline-block px-3 sm:px-4 py-1 font-cactus font-bold text-sm sm:text-base md:text-xl uppercase cordel-stamp-red">
-              SEQUENCIADOR
-            </span>
+              {/* Tampon SEQUENCIADOR décalé bien à droite sous le 'R' de GIRADOR */}
+              <div className="self-end mt-1 sm:mt-2 translate-x-1 sm:translate-x-2">
+                <span
+                  style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
+                  className="inline-block px-3 sm:px-4 py-1 font-cactus-display font-bold text-sm sm:text-base md:text-xl uppercase cordel-stamp-red shadow-[2px_2px_0px_#8b2a1a] rotate-[-1deg]"
+                >
+                  SEQUENCIADOR
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -354,11 +455,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* 3. FRISE DES 6 INSTRUMENTS (BANC DE BATERIA & PRÉCHARGEMENT)       */}
       {/* ------------------------------------------------------------------ */}
       <section className="w-full max-w-4xl mx-auto px-4 py-3 z-20">
-        <div className="text-center mb-3">
-          <span className="font-cactus text-xs uppercase tracking-widest text-[#1a1a1a]/60">
-            {isFr ? '✦ Écoute immédiate & lutherie acoustique ✦' : '✦ Escuta imediata & lutheria acústica ✦'}
-          </span>
-        </div>
 
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 sm:gap-4 justify-items-center">
           {bateriaInstruments.map(({ id, name, stroke, Icon }) => (
@@ -611,34 +707,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             O GIRADOR © 2026-2027
           </div>
 
-          {/* Liens vers les autres applications de l'écosystème */}
-          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-5 font-cactus text-xs sm:text-sm">
-            <span className="text-[#1a1a1a]/40 font-mono hidden sm:inline">•</span>
+          {/* Liens visuels avec icônes vers les autres applications de l'écosystème */}
+          <div className="flex items-center justify-center gap-4 sm:gap-6">
             <a
               href={getEcosystemUrl('organizador')}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#1a1a1a] hover:text-[#8b2a1a] transition-colors underline decoration-[#1a1a1a]/40 hover:decoration-[#8b2a1a]"
+              title="O Organizador"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full p-1 bg-[#fdfaf2] border-2 border-[#1a1a1a] cordel-wood-shadow-sm hover:scale-110 hover:border-[#8b2a1a] transition-all flex items-center justify-center cursor-pointer select-none"
             >
-              📋 Organizador ↗
+              <img src="/ecosystem/organizador.png" alt="O Organizador" className="w-full h-full object-contain rounded-full" />
             </a>
-            <span className="text-[#1a1a1a]/40 font-mono">•</span>
             <a
               href={getEcosystemUrl('dancador')}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#1a1a1a] hover:text-[#8b2a1a] transition-colors underline decoration-[#1a1a1a]/40 hover:decoration-[#8b2a1a]"
+              title="O Dançador"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full p-1 bg-[#fdfaf2] border-2 border-[#1a1a1a] cordel-wood-shadow-sm hover:scale-110 hover:border-[#8b2a1a] transition-all flex items-center justify-center cursor-pointer select-none"
             >
-              💃 Dançador ↗
+              <img src="/ecosystem/dancador.png" alt="O Dançador" className="w-full h-full object-contain rounded-full" />
             </a>
-            <span className="text-[#1a1a1a]/40 font-mono">•</span>
             <a
               href={getEcosystemUrl('orquestrador')}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#1a1a1a] hover:text-[#8b2a1a] transition-colors underline decoration-[#1a1a1a]/40 hover:decoration-[#8b2a1a]"
+              title="O Orquestrador"
+              className="w-10 h-10 sm:w-11 sm:h-11 rounded-full p-1 bg-[#fdfaf2] border-2 border-[#1a1a1a] cordel-wood-shadow-sm hover:scale-110 hover:border-[#8b2a1a] transition-all flex items-center justify-center cursor-pointer select-none"
             >
-              🌍 Orquestrador ↗
+              <img src="/ecosystem/orquestrador.png" alt="O Orquestrador" className="w-full h-full object-contain rounded-full" />
             </a>
           </div>
 

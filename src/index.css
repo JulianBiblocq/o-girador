@@ -2,7 +2,8 @@
 
 @font-face {
   font-family: 'Cactus';
-  src: url('../public/fonts/Cactus Regular.otf') format('opentype');
+  src: url('/fonts/Cactus Regular.otf') format('opentype'),
+       url('../public/fonts/Cactus Regular.otf') format('opentype');
   font-weight: normal;
   font-style: normal;
   font-display: swap;
@@ -33,6 +34,39 @@
   --disto-color: #c25e1a;
   --wallpaper-opacity: 0.16;
   --wallpaper-mixer-opacity: 0.16;
+}
+
+/* Master Strip Custom Range Slider Styles */
+.master-fader {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.master-fader::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  background: #2a2a2a;
+  border-radius: 3px;
+  border: 1px solid var(--master-border);
+}
+
+.master-fader::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 24px;
+  background: var(--master-fader-thumb);
+  border: 1.5px solid var(--master-border);
+  border-radius: 2px;
+  margin-top: -10px;
+  box-shadow: 1px 1px 0px rgba(0,0,0,0.5);
+  cursor: ew-resize;
+}
+
+.master-fader:focus {
+  outline: none;
 }
 
 [data-theme='light'] {
@@ -87,12 +121,14 @@ body {
 @theme {
   --font-sans: "Roboto", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-cactus: "Cactus", "Cinzel Decorative", Georgia, serif;
 }
 
 /* Brazilian Cordel and Cactus display visual typography (only for strict targets, others fallback to system font) */
 #header-title-text,
 #header-title-text-mobile,
-.panel-title {
+.panel-title,
+.font-cactus-display {
   font-family: "Cactus", "Cinzel Decorative", "Courier New", Georgia, serif !important;
   letter-spacing: 2px;
   -webkit-font-smoothing: antialiased;
