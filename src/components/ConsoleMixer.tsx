@@ -1002,7 +1002,13 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       className={`flex-1 flex flex-col h-full overflow-hidden transition-opacity duration-200 relative ${isPresetLoading ? 'pointer-events-none opacity-80' : ''}`}
       style={{ display: isActive ? 'flex' : 'none' }}
     >
-      <div ref={scrollRef} className="flex-grow flex overflow-x-auto pt-4 pb-4 pl-4 pr-0 custom-scrollbar">
+      {/* Calque de fond vectoriel trompe-l'œil Maracatu (visible dans les zones libres sans pistes) */}
+      <div 
+        className="absolute inset-0 pointer-events-none z-0 wallpaper-mixer-bg" 
+        aria-hidden="true" 
+      />
+
+      <div ref={scrollRef} className="flex-grow flex overflow-x-auto pt-4 pb-4 pl-4 pr-0 custom-scrollbar bg-transparent relative z-10">
         <DndContext
           sensors={sensors}
           collisionDetection={customCollisionDetection}

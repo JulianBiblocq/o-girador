@@ -32,6 +32,7 @@
   --reverb-color: #2a5c8a;
   --disto-color: #c25e1a;
   --wallpaper-opacity: 0.045;
+  --wallpaper-mixer-opacity: 0.065;
 }
 
 [data-theme='light'] {
@@ -58,6 +59,7 @@
   --reverb-color: #2a5c8a;
   --disto-color: #c25e1a;
   --wallpaper-opacity: 0.055;
+  --wallpaper-mixer-opacity: 0.075;
 }
 
 
@@ -1223,6 +1225,65 @@ body.has-wallpaper-gravure::before {
   mask-repeat: repeat;
   -webkit-mask-size: 140px 140px;
   mask-size: 140px 140px;
+}
+
+/* ==========================================================================
+   FOND EN TROMPE-L'ŒIL DANS LA TABLE DE MIXAGE (CONSOLE MIXER)
+   - Révélé dans les zones libres / vides sans pistes
+   - Zéro dégradation des performances (isolation GPU hardware)
+   - Doublement des préfixes WebKit pour Safari iOS & macOS
+   - Dynamique : suit le motif actif sélectionné (Option C / Gravure par défaut)
+   ========================================================================== */
+
+.wallpaper-mixer-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--wallpaper-mixer-opacity, 0.065);
+  background-color: var(--cordel-text);
+  transform: translateZ(0);
+  transition: opacity 0.3s ease;
+  -webkit-mask-image: url('/textures/pattern-maracatu-gravure.svg');
+  mask-image: url('/textures/pattern-maracatu-gravure.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 140px 140px;
+  mask-size: 140px 140px;
+}
+
+body.has-wallpaper-gravure .wallpaper-mixer-bg {
+  opacity: var(--wallpaper-mixer-opacity, 0.065);
+  -webkit-mask-image: url('/textures/pattern-maracatu-gravure.svg');
+  mask-image: url('/textures/pattern-maracatu-gravure.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 140px 140px;
+  mask-size: 140px 140px;
+}
+
+body.has-wallpaper-rosace .wallpaper-mixer-bg {
+  opacity: var(--wallpaper-mixer-opacity, 0.065);
+  -webkit-mask-image: url('/textures/pattern-maracatu-rosace.svg');
+  mask-image: url('/textures/pattern-maracatu-rosace.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 120px 120px;
+  mask-size: 120px 120px;
+}
+
+body.has-wallpaper-damas .wallpaper-mixer-bg {
+  opacity: var(--wallpaper-mixer-opacity, 0.065);
+  -webkit-mask-image: url('/textures/pattern-maracatu-damas.svg');
+  mask-image: url('/textures/pattern-maracatu-damas.svg');
+  -webkit-mask-repeat: repeat;
+  mask-repeat: repeat;
+  -webkit-mask-size: 120px 120px;
+  mask-size: 120px 120px;
+}
+
+body.has-wallpaper-none .wallpaper-mixer-bg {
+  opacity: 0;
 }
 
 

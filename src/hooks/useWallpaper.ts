@@ -2,24 +2,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { WallpaperPattern } from '../components/WallpaperCard';
 
 const WALLPAPER_STORAGE_KEY = 'ogirador-wallpaper';
-const WALLPAPER_CLASSES = ['has-wallpaper-rosace', 'has-wallpaper-damas', 'has-wallpaper-gravure'];
+const ALL_WALLPAPER_CLASSES = ['has-wallpaper-none', 'has-wallpaper-rosace', 'has-wallpaper-damas', 'has-wallpaper-gravure'];
 
 export function useWallpaper() {
   const [wallpaper, setWallpaperState] = useState<WallpaperPattern>(() => {
     const saved = localStorage.getItem(WALLPAPER_STORAGE_KEY);
     if (saved === 'none' || saved === 'rosace' || saved === 'damas' || saved === 'gravure') {
-      return saved;
+      return saved === 'rosace' ? 'gravure' : saved;
     }
-    return 'rosace'; // Par défaut, active la rosace en filigrane discret
+    return 'gravure'; // Par défaut : Option C (Gravure & Semis Organique)
   });
 
   const [isWallpaperModalOpen, setIsWallpaperModalOpen] = useState(false);
 
   const applyWallpaperToDOM = useCallback((pattern: WallpaperPattern) => {
-    WALLPAPER_CLASSES.forEach((cls) => document.body.classList.remove(cls));
-    if (pattern !== 'none') {
-      document.body.classList.add(`has-wallpaper-${pattern}`);
-    }
+    ALL_WALLPAPER_CLASSES.forEach((cls) => document.body.classList.remove(cls));
+    document.body.classList.add(`has-wallpaper-${pattern}`);
   }, []);
 
   useEffect(() => {
