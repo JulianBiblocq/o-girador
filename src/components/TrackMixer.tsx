@@ -5,7 +5,6 @@ import { CSS } from '@dnd-kit/utilities';
 import { i18n, instrumentsConfig, ASSETS_BASE_URL, getVisualStrokeSymbol, isDarkText } from '../data';
 import { useSequencerStore, isToadaBus } from '../stores/useSequencerStore';
 import { useAudioStore } from '../stores/useAudioStore';
-import { XiloChisel } from './XiloIcons';
 import { CompactPatternRenderer } from './CompactPatternRenderer';
 import { subscribeToTick, unsubscribeFromTick } from '../hooks/useAudioSync';
 import { getNextStepValue } from '../utils/instrumentStrokes';
@@ -247,23 +246,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
     return parentInst ? parentInst.name : 'Bus';
   }, [parentBus]);
 
-  const treeInfo = useMemo(() => {
-    if (!track || !isChild || !parentBus) return null;
-    const pId = String(parentBus.id);
-    const siblings = tracks.filter(t => 
-      !t.isBusFolder && 
-      (String(t.busId) === pId || String(t.linkedToTrackId) === pId)
-    );
-    const idx = siblings.findIndex(t => t.id === track.id);
-    if (idx === -1) return null;
-    return {
-      index: idx,
-      total: siblings.length,
-      isFirst: idx === 0,
-      isLast: idx === siblings.length - 1,
-      isSingle: siblings.length === 1
-    };
-  }, [track, isChild, parentBus, tracks]);
+
 
 
   const slaves = tracks.filter(t => String(t.linkedToTrackId) === String(trackId));
@@ -320,12 +303,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         isUnfolded ? 'h-auto min-h-[156px] py-2' : 'h-[76px] min-h-[76px] py-1'
       } ${
         isDragOver ? 'ring-4 ring-[var(--cordel-wood)] shadow-[0_0_20px_var(--cordel-wood)] z-30 scale-[1.01] border-[var(--cordel-wood)]' : ''
-      } ${
-        isChild ? 'pl-5' : ''
       }`}
       style={{
         ...style,
-        borderLeft: busColor ? `5px solid ${busColor}` : '2px solid #1a1a1a',
+        borderLeft: busColor ? `4px solid ${busColor}` : '4px solid #1a1a1a',
         zIndex: 10,
         '--cordel-bg': '#f4ecd8',
         '--cordel-text': '#1a1a1a',
@@ -334,15 +315,6 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         '--fader-thumb-border': '#1a1a1a',
       } as React.CSSProperties}
     >
-      {isChild && treeInfo && (
-        <div
-          className="absolute left-1.5 top-0 bottom-0 flex items-center justify-center pointer-events-none text-xs font-mono font-bold select-none opacity-80"
-          style={{ color: busColor || '#8b2a1a' }}
-          title={`${parentBusName} (${treeInfo.index + 1}/${treeInfo.total})`}
-        >
-          {treeInfo.isSingle ? '─' : (treeInfo.isFirst ? '┌' : (treeInfo.isLast ? '└' : '├'))}
-        </div>
-      )}
       {dropIndicator === 'top' && (
         <div className="absolute top-0 left-0 right-0 h-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />
       )}
@@ -378,33 +350,31 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                 }
                 onOpenDetailEditor(targetId);
               }}
-              className="flex items-center justify-between gap-1.5 cordel-border-sm cordel-button px-1.5 py-0.5 text-[11px] cursor-pointer transition-colors w-[110px] sm:w-[120px]"
+              className="flex items-center gap-2 cordel-border-sm cordel-button px-2 py-1 text-xs cursor-pointer transition-colors w-[145px] h-[44px] min-h-[44px] shrink-0"
               style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
               title={lang === 'pt' ? 'Editar instrumento' : 'Éditer l\'instrument'}
             >
               <img
                 src={`${ASSETS_BASE_URL}${inst.iconImg}`}
                 alt={inst.name}
-                className="w-4 h-4 object-contain flex-shrink-0"
+                className="w-5 h-5 object-contain flex-shrink-0"
                 onError={(e) => {
                   (e.target as HTMLElement).style.display = 'none';
                 }}
               />
-              <span className="font-cactus font-bold text-center leading-[1.1] flex-1">
+              <div className="flex flex-col justify-center flex-1 min-w-0 text-left">
                 {isChild && parentBusName && (
                   <span 
-                    className="block text-[8px] font-mono tracking-wider font-semibold opacity-85 truncate max-w-[85px] mx-auto mb-0.5"
+                    className="text-[8px] uppercase tracking-wider opacity-75 leading-tight truncate block"
                     style={{ color: inst.colors.text }}
                   >
                     🔗 {parentBusName}
                   </span>
                 )}
-                {index + 1}. {displayName.split(' ')[0]}
-                {displayName.indexOf(' ') !== -1 && <><br/>{displayName.substring(displayName.indexOf(' ') + 1)}</>}
-              </span>
-              {(!track.isBusFolder || isToada || track.isLinkFolder) && (
-                <span className="flex-shrink-0 opacity-70"><XiloChisel size={11} /></span>
-              )}
+                <span className="text-xs font-cactus font-black leading-tight truncate block">
+                  {index + 1}. {displayName}
+                </span>
+              </div>
             </button>
             <button
               onClick={(e) => {
