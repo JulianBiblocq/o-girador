@@ -176,7 +176,8 @@ export default function App() {
     viewMode,
     renderedView,
     isFadingIn,
-    changeViewMode
+    changeViewMode,
+    hasManuallyOpenedAbout
   } = router;
 
   const {
@@ -614,7 +615,12 @@ export default function App() {
       <SEO />
       {viewMode === 'landing' ? (
         <Suspense fallback={<div className="min-h-screen bg-[var(--cordel-bg)] flex justify-center items-center"><div className="animate-spin text-4xl">⚙️</div></div>}>
-          <LandingPage onEnter={handleLandingEnter} lang={sequencer.lang} />
+          <LandingPage
+            onEnter={handleLandingEnter}
+            lang={sequencer.lang}
+            onLanguageChange={sequencer.setLang}
+            isManualOpen={hasManuallyOpenedAbout}
+          />
         </Suspense>
       ) : viewMode === 'home' ? (
         <Home onEnter={handleHomeEnter} lang={sequencer.lang} />

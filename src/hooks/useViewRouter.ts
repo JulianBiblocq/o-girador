@@ -67,6 +67,7 @@ export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptio
 
   // Indique si l'accueil a été ouvert manuellement via le menu « À propos »
   const hasManuallyOpenedAboutRef = useRef<boolean>(false);
+  const [hasManuallyOpenedAbout, setHasManuallyOpenedAbout] = useState<boolean>(false);
 
   // Latest Ref pattern to stabilize audio and external state references
   const audioRef = useRef<AudioContextType>(audio);
@@ -113,8 +114,10 @@ export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptio
   const changeViewMode = useCallback((targetView: ViewMode) => {
     if (targetView === 'landing') {
       hasManuallyOpenedAboutRef.current = true;
+      setHasManuallyOpenedAbout(true);
     } else {
       hasManuallyOpenedAboutRef.current = false;
+      setHasManuallyOpenedAbout(false);
     }
 
     const isHeavyView = ['admin'].includes(targetView);
@@ -146,5 +149,6 @@ export function useViewRouter({ audio, setActiveRightPanel }: UseViewRouterOptio
     isFadingIn,
     changeViewMode,
     setViewMode,
+    hasManuallyOpenedAbout,
   };
 }

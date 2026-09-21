@@ -1298,4 +1298,61 @@ body.has-wallpaper-none .wallpaper-surface-dark {
   opacity: 0 !important;
 }
 
+/* ==========================================================================
+   LANDING PAGE — VITRINE CORDELETTE, ESTAMPES VIVANTES & LIVRETS DE CORDEL
+   ========================================================================== */
+
+@keyframes cordelSwing {
+  0% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.2deg); }
+  100% { transform: rotate(-1.5deg); }
+}
+
+.cordel-booklet {
+  transform-origin: top center;
+  will-change: transform;
+  animation-name: cordelSwing;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+
+.cordel-booklet:hover,
+.cordel-booklet:focus-within {
+  animation-play-state: paused;
+  transform: scale(1.02) rotate(0deg) !important;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cordel-booklet-1 { animation-duration: 4.6s; animation-delay: 0s; }
+.cordel-booklet-2 { animation-duration: 5.2s; animation-delay: -1.4s; }
+.cordel-booklet-3 { animation-duration: 4.8s; animation-delay: -0.8s; }
+.cordel-booklet-4 { animation-duration: 5.4s; animation-delay: -2.1s; }
+
+.cordel-instrument-card {
+  will-change: transform;
+  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.cordel-instrument-card:active {
+  transform: scale(0.93) !important;
+}
+
+.cordel-stamp-red {
+  color: #8b2a1a;
+  border: 2px solid #8b2a1a;
+  box-shadow: inset 0 0 0 1px rgba(139, 42, 26, 0.25), 2px 2px 0px rgba(139, 42, 26, 0.3);
+  letter-spacing: 0.18em;
+  transform: rotate(-1deg);
+}
+
+.cordel-wood-shadow {
+  box-shadow: 4px 4px 0px #1a1a1a;
+}
+
+.cordel-wood-shadow-sm {
+  box-shadow: 2px 2px 0px #1a1a1a;
+}
+
+
 

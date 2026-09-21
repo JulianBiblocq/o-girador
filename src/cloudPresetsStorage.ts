@@ -155,7 +155,7 @@ export function isPresetAuthorized(
   }
 
   // Visibilité groupe générale
-  if (data.visibility === 'group' || data.visibility === 'mestre_group' || !data.visibility) {
+  if ((data.visibility as any) === 'group' || data.visibility === 'mestre_group' || !data.visibility) {
     if (matchesGroup || matchesMestre || isSamambaiaGroup) {
       return true;
     }
