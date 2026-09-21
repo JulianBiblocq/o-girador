@@ -1354,5 +1354,55 @@ body.has-wallpaper-none .wallpaper-surface-dark {
   box-shadow: 2px 2px 0px #1a1a1a;
 }
 
+.lp-alfaia-svg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  animation: lp-spin 40s linear infinite;
+}
+
+@keyframes lp-spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.lp-entra-btn {
+  position: relative;
+  z-index: 10;
+  background: #f4ecd8;
+  border: 2px solid #1a1a1a;
+  border-radius: 50%;
+  width: 65%;
+  height: 65%;
+  font-family: 'Cactus', sans-serif;
+  font-size: clamp(0.75rem, 1.8vw, 1.4rem);
+  font-weight: bold;
+  color: #1a1a1a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.1;
+  letter-spacing: 0.05em;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1), 2px 2px 0px #1a1a1a;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.lp-entra-btn:hover {
+  background: #8b2a1a;
+  color: #f4ecd8;
+  border-color: #1a1a1a;
+  transform: scale(1.06);
+  box-shadow: 3px 3px 0px #1a1a1a;
+}
+
+.lp-entra-btn:active {
+  transform: scale(0.95);
+  box-shadow: 1px 1px 0px #1a1a1a;
+}
+
+
 
 

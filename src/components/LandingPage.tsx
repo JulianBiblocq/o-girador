@@ -1,5 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import React, { useEffect, useState, useCallback } from 'react';
 import { GoogleLoginButton } from './GoogleLoginButton';
 import { useAudioStore } from '../stores/useAudioStore';
 import { loadTone, getTone } from '@/src/ToneLoader';
@@ -123,11 +122,8 @@ const TimbalCordelIcon = () => (
 
 const ClothespinSvg = () => (
   <svg className="w-5 h-8 text-[#1a1a1a] drop-shadow-sm select-none" viewBox="0 0 20 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-    {/* Bras en bois gauche */}
     <path d="M6 2 L9 13 L9 30 L5 30 L5 2 Z" fill="#d4a373" stroke="#1a1a1a" strokeWidth="1.4" strokeLinejoin="round" />
-    {/* Bras en bois droit */}
     <path d="M14 2 L11 13 L11 30 L15 30 L15 2 Z" fill="#c2905d" stroke="#1a1a1a" strokeWidth="1.4" strokeLinejoin="round" />
-    {/* Ressort métallique central */}
     <circle cx="10" cy="13" r="2.8" fill="#71717a" stroke="#1a1a1a" strokeWidth="1.2" />
     <line x1="6" y1="13" x2="14" y2="13" stroke="#1a1a1a" strokeWidth="1.4" />
   </svg>
@@ -139,45 +135,34 @@ const ClothespinSvg = () => (
 
 const PernambucoEstandarte = () => (
   <div className="flex flex-col items-center select-none" title="Bandeira de Pernambuco — Maracatu de Baque Virado">
-    <svg className="w-28 sm:w-32 md:w-40 h-auto overflow-visible" viewBox="0 0 200 170" xmlns="http://www.w3.org/2000/svg">
-      {/* Mât & potence supérieure de l'estandarte */}
+    <svg className="w-24 sm:w-28 md:w-36 h-auto overflow-visible" viewBox="0 0 200 170" xmlns="http://www.w3.org/2000/svg">
       <line x1="100" y1="6" x2="100" y2="24" stroke="#1a1a1a" strokeWidth="3" strokeLinecap="round" />
       <path d="M 40 26 L 100 10 L 160 26" fill="none" stroke="#1a1a1a" strokeWidth="1.8" />
       <line x1="24" y1="26" x2="176" y2="26" stroke="#1a1a1a" strokeWidth="3.5" strokeLinecap="round" />
       
-      {/* Attaches de suspension */}
       <line x1="38" y1="26" x2="38" y2="34" stroke="#1a1a1a" strokeWidth="1.5" />
       <line x1="100" y1="26" x2="100" y2="34" stroke="#1a1a1a" strokeWidth="1.5" />
       <line x1="162" y1="26" x2="162" y2="34" stroke="#1a1a1a" strokeWidth="1.5" />
 
-      {/* Bannière principale */}
       <g id="flag-body">
-        {/* Moitié supérieure bleue */}
         <path d="M 32 34 L 168 34 L 168 84 L 32 84 Z" fill="#1b4965" stroke="#1a1a1a" strokeWidth="2" />
-        {/* Moitié inférieure blanche */}
         <path d="M 32 84 L 168 84 L 168 134 L 32 134 Z" fill="#f4ecd8" stroke="#1a1a1a" strokeWidth="2" />
 
-        {/* Étoile jaune en haut */}
         <polygon points="100,39 102,44 107,44 103,47 105,52 100,49 95,52 97,47 93,44 98,44" fill="#f4a261" stroke="#1a1a1a" strokeWidth="0.6" />
 
-        {/* Arc-en-ciel Pernambucano (rouge, jaune, vert) */}
         <path d="M 60 84 A 40 40 0 0 1 140 84" fill="none" stroke="#8b2a1a" strokeWidth="5.5" />
         <path d="M 64 84 A 36 36 0 0 1 136 84" fill="none" stroke="#e9c46a" strokeWidth="4" />
         <path d="M 67 84 A 33 33 0 0 1 133 84" fill="none" stroke="#2a9d8f" strokeWidth="3" />
 
-        {/* Soleil radiant d'or */}
         <circle cx="100" cy="84" r="14" fill="#e9c46a" stroke="#1a1a1a" strokeWidth="1.2" />
-        {/* Rayons solaires */}
         <line x1="100" y1="67" x2="100" y2="64" stroke="#1a1a1a" strokeWidth="1.5" />
         <line x1="88" y1="72" x2="85" y2="69" stroke="#1a1a1a" strokeWidth="1.5" />
         <line x1="112" y1="72" x2="115" y2="69" stroke="#1a1a1a" strokeWidth="1.5" />
 
-        {/* Croix rouge (Cruz de São Jerônimo) dans la partie blanche */}
         <rect x="96" y="93" width="8" height="32" fill="#8b2a1a" stroke="#1a1a1a" strokeWidth="1" />
         <rect x="88" y="101" width="24" height="8" fill="#8b2a1a" stroke="#1a1a1a" strokeWidth="1" />
       </g>
 
-      {/* Franges animées en bas de l'estandarte */}
       <g className="lp-fringes">
         <path
           d="M 32 134 l 2.5 16 l 2.5 -12 l 2.5 15 l 2.5 -12 l 2.5 11 l 2.5 -13 l 2.5 16 l 2.5 -13 l 2.5 15 l 2.5 -15 l 2.5 14 l 2.5 -13 l 2.5 15 l 2.5 -11 l 2.5 13 l 2.5 -14 l 2.5 15 l 2.5 -11 l 2.5 11 l 2.5 -15 l 2.5 15 l 2.5 -12 l 2.5 14 l 2.5 -10 l 2.5 16 l 2.5 -13 l 2.5 12 l 2.5 -11 l 2.5 14 l 2.5 -12 l 2.5 13 l 2.5 -13 l 2.5 11 l 2.5 -12 l 2.5 15 l 2.5 -15 l 2.5 13 l 2.5 -15 l 2.5 14 l 2.5 -15 l 2.5 12 l 2.5 -11 l 2.5 10 l 2.5 -16 l 2.5 12 l 2.5 -13 l 2.5 11 l 2.5 -12 l 2.5 10 l 2.5 -11 l 2.5 16 l 2.5 -10 l 2.5 15 l 2.5 -15 l 2.5 12 l 2.5 -12 l 2.5 11 l 2.5 -15"
@@ -198,9 +183,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onEnter,
   lang,
   onLanguageChange,
-  isManualOpen = false,
 }) => {
-  const { userProfile } = useAuth();
   const [isToneReady, setIsToneReady] = useState(false);
   const [isUnlocking, setIsUnlocking] = useState(false);
   const [currentLang, setCurrentLang] = useState<'fr' | 'pt'>(() => {
@@ -211,31 +194,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     return isBrowserFr ? 'fr' : 'pt';
   });
 
-  // Sync si prop lang change
   useEffect(() => {
     if (lang && lang !== currentLang) {
       setCurrentLang(lang);
     }
   }, [lang]);
 
-  // Changement de langue bilingue
   const handleLanguageSelect = (newLang: 'fr' | 'pt') => {
     setCurrentLang(newLang);
     localStorage.setItem('o_gridador_lang', newLang);
     if (onLanguageChange) {
       onLanguageChange(newLang);
     }
-    useAudioStore.getState();
   };
 
-  // Préchargement Tone.js en tâche de fond
   useEffect(() => {
     loadTone()
       .then(() => setIsToneReady(true))
       .catch((err) => console.error("Tone.js background preload error:", err));
   }, []);
 
-  // Déverrouillage Audio et entrée dans la Roda
   const handleEnterRoda = useCallback(async (e?: React.MouseEvent | React.TouchEvent) => {
     if (e) e.preventDefault();
     if (isUnlocking) return;
@@ -257,9 +235,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     onEnter();
   }, [isUnlocking, onEnter]);
 
-  // Pré-écoute acoustique directe d'un instrument de la frise
   const handleInstrumentTap = useCallback(async (instId: string, strokeSymbol: string) => {
-    // Règle d'exécution : déverrouillage synchrone au premier geste
     const Tone = safeGetTone();
     if (Tone && Tone.context.state !== 'running') {
       try {
@@ -281,7 +257,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const isFr = currentLang === 'fr';
 
-  // Configuration des 6 instruments de la frise
   const bateriaInstruments = [
     { id: 'marcante', name: 'Alfaia', stroke: 'D', Icon: AlfaiaCordelIcon },
     { id: 'caixa', name: 'Caixa', stroke: 'D', Icon: CaixaCordelIcon },
@@ -292,112 +267,93 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   ];
 
   return (
-    <div id="landing-page" className="min-h-screen bg-[#f4ecd8] text-[#1a1a1a] flex flex-col justify-between selection:bg-[#8b2a1a] selection:text-[#f4ecd8]">
+    <div id="landing-page" className="min-h-screen bg-[#f4ecd8] text-[#1a1a1a] flex flex-col justify-between relative selection:bg-[#8b2a1a] selection:text-[#f4ecd8]">
       
       {/* ------------------------------------------------------------------ */}
-      {/* 1. EN-TÊTE : NAVIGATION & SOMMET (BANDEIRA DE PERNAMBUCO)          */}
+      {/* 1. EN-TÊTE : PROFIL EN HAUT À DROITE & BANDEIRA AU CENTRE          */}
       {/* ------------------------------------------------------------------ */}
-      <header className="w-full flex items-center justify-between pt-4 px-4 sm:px-8 max-w-7xl mx-auto z-20">
-        <div>
-          {isManualOpen ? (
-            <button
-              type="button"
-              onClick={onEnter}
-              className="flex items-center gap-2 px-3 py-1.5 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-xs uppercase transition-colors shadow-[2px_2px_0px_#1a1a1a] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer"
-              title={isFr ? "Retourner à la Roda" : "Voltar à Roda"}
-            >
-              ← {isFr ? 'Retour à la Roda' : 'Voltar à Roda'}
-            </button>
-          ) : (
-            <div className="w-8" />
-          )}
-        </div>
-
-        {/* Sommet : Drapeau du Pernambuco au centre, sans publicité */}
-        <div className="flex-1 flex justify-center">
+      <header className="w-full relative pt-2 px-4 sm:px-6 max-w-7xl mx-auto z-30 flex items-center justify-center">
+        
+        {/* Drapeau du Pernambuco au centre, noble & sans texte publicitaire */}
+        <div className="flex justify-center pt-1">
           <PernambucoEstandarte />
         </div>
 
-        <div>
-          <GoogleLoginButton lang={currentLang} align="right" />
+        {/* Profil Google / Utilisateur bien calé et visible en haut à droite */}
+        <div className="absolute top-3 right-4 sm:top-4 sm:right-6 z-40">
+          <GoogleLoginButton lang={currentLang} align="right" size="large" />
         </div>
       </header>
 
       {/* ------------------------------------------------------------------ */}
-      {/* 2. IDENTITÉ DU LOGO « O GIRADOR » & SOUS-TITRE EN TAMPON ROUGE     */}
+      {/* 2. LE GRAND "O GIRADOR" AVEC BOUTON ENTRA NA RODA AU COEUR DU "O"  */}
       {/* ------------------------------------------------------------------ */}
-      <section className="w-full flex flex-col items-center text-center px-4 pt-4 pb-8 max-w-5xl mx-auto z-20">
+      <section className="w-full flex flex-col items-center text-center px-4 pt-2 pb-6 max-w-5xl mx-auto z-20">
         
-        {/* Bloc Logo Sanctuarisé */}
-        <div className="flex items-center justify-center gap-3 sm:gap-6 my-2">
-          {/* Composant / SVG de l'Alfaia tournante dans le « O » */}
-          <div className="relative w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36 flex items-center justify-center flex-shrink-0">
-            <svg className="lp-alfaia-svg w-full h-full" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="50" cy="50" r="48" fill="none" stroke="#1a1a1a" strokeWidth="1.2" />
-              <circle cx="50" cy="50" r="38" fill="none" stroke="#1a1a1a" strokeWidth="0.9" strokeDasharray="2 2" />
-              <path d="M 50 2 L 65 12 L 50 22 L 35 12 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
-              <path d="M 84 16 L 90 30 L 78 38 L 70 24 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
-              <path d="M 98 50 L 88 65 L 78 50 L 88 35 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
-              <path d="M 84 84 L 70 90 L 60 78 L 74 70 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
-              <path d="M 50 98 L 35 88 L 50 78 L 65 88 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
-              <path d="M 16 84 L 10 70 L 22 62 L 30 76 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
-              <path d="M 2 50 L 12 35 L 22 50 L 12 65 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
-              <path d="M 16 16 L 30 10 L 40 22 L 26 30 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
-            </svg>
+        {/* Ensemble Titre O GIRADOR */}
+        <div className="flex flex-col items-center w-full">
+          <div className="flex items-center justify-center gap-2 sm:gap-4 md:gap-6">
             
-            {/* Centre circulaire du O au trait linogravure */}
-            <div className="w-11 h-11 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-full border-2 border-[#1a1a1a] bg-[#f4ecd8] flex items-center justify-center shadow-inner">
-              <span className="text-xl sm:text-2xl md:text-3xl select-none">🥁</span>
+            {/* Le grand O avec roue d'Alfaia et bouton d'entrée à l'intérieur */}
+            <div className="relative w-32 h-32 sm:w-44 sm:h-44 md:w-56 md:h-56 lg:w-64 lg:h-64 flex items-center justify-center flex-shrink-0">
+              {/* L'alfaia vue de dessus qui tourne */}
+              <svg className="lp-alfaia-svg w-full h-full" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="48" fill="none" stroke="#1a1a1a" strokeWidth="1.2" />
+                <circle cx="50" cy="50" r="38" fill="none" stroke="#1a1a1a" strokeWidth="0.9" strokeDasharray="2 2" />
+                <path d="M 50 2 L 65 12 L 50 22 L 35 12 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
+                <path d="M 84 16 L 90 30 L 78 38 L 70 24 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
+                <path d="M 98 50 L 88 65 L 78 50 L 88 35 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
+                <path d="M 84 84 L 70 90 L 60 78 L 74 70 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
+                <path d="M 50 98 L 35 88 L 50 78 L 65 88 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
+                <path d="M 16 84 L 10 70 L 22 62 L 30 76 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
+                <path d="M 2 50 L 12 35 L 22 50 L 12 65 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
+                <path d="M 16 16 L 30 10 L 40 22 L 26 30 Z" fill="none" stroke="#1a1a1a" strokeWidth="0.9" />
+              </svg>
+              
+              {/* Le bouton ENTRA NA RODA inséré au cœur du O */}
+              <button
+                type="button"
+                onClick={handleEnterRoda}
+                disabled={!isToneReady || isUnlocking}
+                className={`lp-entra-btn cursor-pointer z-10 transition-all ${!isToneReady ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={isFr ? "Entrer dans la Roda" : "Entrar na Roda"}
+              >
+                {!isToneReady ? (
+                  <span className="flex items-center justify-center animate-spin text-xl sm:text-2xl">⚙️</span>
+                ) : isUnlocking ? (
+                  <span className="flex items-center justify-center animate-spin text-xl sm:text-2xl">⚙️</span>
+                ) : isFr ? (
+                  <>ENTRER<br/>DANS LA<br/>RODA</>
+                ) : (
+                  <>ENTRA<br/>NA RODA</>
+                )}
+              </button>
+            </div>
+
+            {/* Lettrage GIRADOR en police Cactus */}
+            <div className="font-cactus text-5xl sm:text-7xl md:text-8xl lg:text-[10.5rem] font-bold tracking-tight text-[#1a1a1a] leading-none select-none">
+              GIRADOR
             </div>
           </div>
 
-          {/* Lettrage GIRADOR */}
-          <div className="font-cactus text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-bold tracking-tight text-[#1a1a1a] leading-none select-none">
-            GIRADOR
+          {/* Tampon SEQUENCIADOR placé sous le 'R' de GIRADOR (aligné à droite du titre) */}
+          <div className="w-full max-w-3xl flex justify-end mt-1 sm:mt-2 pr-2 sm:pr-8 md:pr-12">
+            <span className="inline-block px-3 sm:px-4 py-1 font-cactus font-bold text-sm sm:text-base md:text-xl uppercase cordel-stamp-red">
+              SEQUENCIADOR
+            </span>
           </div>
         </div>
 
-        {/* Sous-titre en rouge tampon Cordel */}
-        <div className="mt-1 mb-3">
-          <span className="inline-block px-4 py-1 font-cactus font-bold text-sm sm:text-base md:text-lg uppercase cordel-stamp-red">
-            SEQUENCIADOR
-          </span>
-        </div>
-
-        {/* Accroche bilingue */}
-        <p className="font-serif italic text-sm sm:text-base md:text-lg text-[#1a1a1a]/90 max-w-xl mx-auto px-4 mt-1">
+        {/* Accroche bilingue sous le titre */}
+        <p className="font-serif italic text-sm sm:text-base md:text-lg text-[#1a1a1a]/90 max-w-xl mx-auto px-4 mt-3">
           {isFr ? '« Le séquenceur circulaire du Maracatu de Baque Virado »' : '« O sequenciador circular do Maracatu de Baque Virado »'}
         </p>
-
-        {/* ---------------------------------------------------------------- */}
-        {/* BOUTON D'ENTRÉE PRINCIPAL MASSIF                                 */}
-        {/* ---------------------------------------------------------------- */}
-        <div className="mt-6 mb-2">
-          <button
-            type="button"
-            onClick={handleEnterRoda}
-            disabled={isUnlocking}
-            className="group relative px-6 sm:px-10 py-4 sm:py-5 bg-[#8b2a1a] hover:bg-[#6e1e11] text-[#f4ecd8] border-3 border-[#1a1a1a] font-cactus font-black text-lg sm:text-2xl uppercase tracking-wider transition-all duration-150 cordel-wood-shadow hover:translate-x-[-2px] hover:translate-y-[-2px] hover:shadow-[6px_6px_0px_#1a1a1a] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none cursor-pointer select-none"
-          >
-            {isUnlocking ? (
-              <span className="flex items-center gap-3">
-                <span className="animate-spin text-2xl">⚙️</span>
-                <span>{isFr ? 'OUVERTURE...' : 'ABRINDO...'}</span>
-              </span>
-            ) : (
-              <span className="flex items-center gap-3">
-                <span className="group-hover:scale-125 transition-transform duration-150">🥁</span>
-                <span>{isFr ? 'ENTRER DANS LA RODA' : 'ENTRAR NA RODA'}</span>
-              </span>
-            )}
-          </button>
-        </div>
       </section>
 
       {/* ------------------------------------------------------------------ */}
       {/* 3. FRISE DES 6 INSTRUMENTS (BANC DE BATERIA & PRÉCHARGEMENT)       */}
       {/* ------------------------------------------------------------------ */}
-      <section className="w-full max-w-4xl mx-auto px-4 py-4 z-20">
+      <section className="w-full max-w-4xl mx-auto px-4 py-3 z-20">
         <div className="text-center mb-3">
           <span className="font-cactus text-xs uppercase tracking-widest text-[#1a1a1a]/60">
             {isFr ? '✦ Écoute immédiate & lutherie acoustique ✦' : '✦ Escuta imediata & lutheria acústica ✦'}
@@ -430,12 +386,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* ------------------------------------------------------------------ */}
       {/* 4. LA CORDELETTE & LES 4 LIVRETS DE CORDEL ANIMÉS (ORGANIZAD'OR)   */}
       {/* ------------------------------------------------------------------ */}
-      <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 pt-8 pb-12 z-20">
+      <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 pt-6 pb-10 z-20">
         
         {/* Trait brut horizontal de la Cordelette */}
         <div className="w-full border-t-2 border-[#1a1a1a] relative mb-[-12px] z-10" />
 
-        {/* Grille responsive des 4 livrets de cordel */}
+        {/* Grille responsive fluide des 4 livrets de cordel */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-5 w-full">
           
           {/* ---------------- LIVRET 1 : A TRADIÇÃO ORAL ---------------- */}
@@ -447,10 +403,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div>
                 <div className="flex items-center justify-between border-b border-[#1a1a1a]/30 pb-2 mb-3">
                   <span className="font-cactus text-xs uppercase font-bold tracking-wider text-[#8b2a1a]">
-                    FOLHETO 01
+                    {isFr ? 'LIVRET 01' : 'FOLHETO 01'}
                   </span>
                   <span className="font-cactus text-xs uppercase text-[#1a1a1a]/70">
-                    A TRADIÇÃO ORAL
+                    {isFr ? 'LA TRADITION ORALE' : 'A TRADIÇÃO ORAL'}
                   </span>
                 </div>
                 <h2 className="font-cactus font-bold text-xl sm:text-2xl text-[#1a1a1a] mb-3 leading-snug">
@@ -478,10 +434,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div>
                 <div className="flex items-center justify-between border-b border-[#1a1a1a]/30 pb-2 mb-3">
                   <span className="font-cactus text-xs uppercase font-bold tracking-wider text-[#8b2a1a]">
-                    FOLHETO 02
+                    {isFr ? 'LIVRET 02' : 'FOLHETO 02'}
                   </span>
                   <span className="font-cactus text-xs uppercase text-[#1a1a1a]/70">
-                    O SEQUENCIADOR
+                    {isFr ? 'LE SÉQUENCEUR' : 'O SEQUENCIADOR'}
                   </span>
                 </div>
                 <h2 className="font-cactus font-bold text-xl sm:text-2xl text-[#1a1a1a] mb-3 leading-snug">
@@ -542,7 +498,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div>
                 <div className="flex items-center justify-between border-b border-[#1a1a1a]/30 pb-2 mb-3">
                   <span className="font-cactus text-xs uppercase font-bold tracking-wider text-[#8b2a1a]">
-                    FOLHETO 03
+                    {isFr ? 'LIVRET 03' : 'FOLHETO 03'}
                   </span>
                   <span className="font-cactus text-xs uppercase text-[#1a1a1a]/70">
                     ORGANIZADOR & DANÇADOR
@@ -597,7 +553,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div>
                 <div className="flex items-center justify-between border-b border-[#1a1a1a]/30 pb-2 mb-3">
                   <span className="font-cactus text-xs uppercase font-bold tracking-wider text-[#8b2a1a]">
-                    FOLHETO 04
+                    {isFr ? 'LIVRET 04' : 'FOLHETO 04'}
                   </span>
                   <span className="font-cactus text-xs uppercase text-[#1a1a1a]/70">
                     ORQUESTRADOR
@@ -646,26 +602,44 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* 5. PIED DE PAGE & NAVIGATION BILINGUE                              */}
+      {/* 5. PIED DE PAGE : NAVIGATION BILINGUE & LIENS DE L'ÉCOSYSTÈME     */}
       {/* ------------------------------------------------------------------ */}
-      <footer className="w-full border-t-2 border-[#1a1a1a]/20 py-6 px-4 bg-[#eaddcf]/30 z-20">
-        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center">
+      <footer className="w-full border-t-2 border-[#1a1a1a]/20 py-5 px-4 bg-[#eaddcf]/30 z-20">
+        <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center">
           
-          {/* Bouton de retour rapide si ouvert manuellement depuis À propos */}
-          <div>
-            {isManualOpen ? (
-              <button
-                type="button"
-                onClick={onEnter}
-                className="px-4 py-2 bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] border-2 border-[#1a1a1a] font-cactus font-bold text-xs uppercase transition-colors shadow-[2px_2px_0px_#1a1a1a] active:translate-x-[1px] active:translate-y-[1px] cursor-pointer"
-              >
-                ← {isFr ? 'Retour à la Roda' : 'Voltar à Roda'}
-              </button>
-            ) : (
-              <span className="font-cactus text-xs text-[#1a1a1a]/60 tracking-wider">
-                O GIRADOR © 2026-2027
-              </span>
-            )}
+          <div className="font-cactus text-xs text-[#1a1a1a]/70 tracking-wider select-none">
+            O GIRADOR © 2026-2027
+          </div>
+
+          {/* Liens vers les autres applications de l'écosystème */}
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-5 font-cactus text-xs sm:text-sm">
+            <span className="text-[#1a1a1a]/40 font-mono hidden sm:inline">•</span>
+            <a
+              href={getEcosystemUrl('organizador')}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#1a1a1a] hover:text-[#8b2a1a] transition-colors underline decoration-[#1a1a1a]/40 hover:decoration-[#8b2a1a]"
+            >
+              📋 Organizador ↗
+            </a>
+            <span className="text-[#1a1a1a]/40 font-mono">•</span>
+            <a
+              href={getEcosystemUrl('dancador')}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#1a1a1a] hover:text-[#8b2a1a] transition-colors underline decoration-[#1a1a1a]/40 hover:decoration-[#8b2a1a]"
+            >
+              💃 Dançador ↗
+            </a>
+            <span className="text-[#1a1a1a]/40 font-mono">•</span>
+            <a
+              href={getEcosystemUrl('orquestrador')}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#1a1a1a] hover:text-[#8b2a1a] transition-colors underline decoration-[#1a1a1a]/40 hover:decoration-[#8b2a1a]"
+            >
+              🌍 Orquestrador ↗
+            </a>
           </div>
 
           {/* Sélecteur bilingue discret */}
@@ -695,9 +669,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </button>
           </div>
 
-          <div className="text-[11px] font-serif text-[#1a1a1a]/60">
-            {isFr ? 'Transmission orale & lutherie numérique' : 'Tradição oral & lutheria digital'}
-          </div>
         </div>
       </footer>
 
