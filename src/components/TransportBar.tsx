@@ -72,7 +72,49 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
   const metroContainerRef = React.useRef<HTMLDivElement>(null);
   const preRollSettings = useTransportStore((state) => state.preRollSettings);
   const setPreRollSettings = useTransportStore((state) => state.setPreRollSettings);
-  const rhythmSignals = useSequencerStore((state) => state.metadata?.rhythmSignals || []);
+  const localRhythmSignals = useSequencerStore((state) => state.metadata?.rhythmSignals || []);
+  const mestreSignals = useSequencerStore((state) => state.mestreSignals || []);
+
+  const availableSignals = React.useMemo(() => {
+    const list: { id: string; name: string; image: string; isCloud?: boolean }[] = [];
+    const seen = new Set<string>();
+
+    // 1. Signaux Cloud / Mestre
+    for (const s of mestreSignals) {
+      if (s && s.id && !seen.has(s.id)) {
+        seen.add(s.id);
+        list.push({
+          id: s.id,
+          name: s.name || s.id,
+          image: s.imageUrl || s.image || '',
+          isCloud: true,
+        });
+      }
+    }
+
+    // 2. Signaux locaux du morceau
+    for (const s of localRhythmSignals) {
+      if (s && s.id && !seen.has(s.id)) {
+        seen.add(s.id);
+        list.push({
+          id: s.id,
+          name: s.name || s.id,
+          image: s.image || '',
+          isCloud: false,
+        });
+      }
+    }
+
+    // 3. Fallback signaux par défaut si aucun signal n'est encore présent
+    if (list.length === 0) {
+      list.push(
+        { id: 'pictures/logo-samambaia.png', name: lang === 'fr' ? 'Signe Luanda' : 'Sinal Luanda', image: '/Pictures/logo-samambaia.png' },
+        { id: 'pictures/atelier.png', name: lang === 'fr' ? 'Signe Trovão' : 'Sinal Trovão', image: '/Pictures/atelier.png' }
+      );
+    }
+
+    return list;
+  }, [mestreSignals, localRhythmSignals, lang]);
 
   React.useEffect(() => {
     if (!isPreRollPopupOpen) return;
@@ -307,39 +349,125 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
                     </div>
 
                     {preRollSettings.measuresCount === 2 && (
-                      <div className="mb-2">
-                        <label className="block text-[10px] font-bold text-black/60 mb-0.5">
-                          {lang === 'fr' ? 'Mesure -2 (1ère mesure) :' : 'Compasso -2 (1º compasso) :'}
-                        </label>
+                      <div className="mb-2.5">
+                        <div className="flex justify-between items-center mb-0.5">
+                          <label className="text-[10px] font-bold text-black/70 uppercase">
+                            {lang === 'fr' ? 'Mesure -2 (1ère mesure) :' : 'Compasso -2 (1º compasso) :'}
+                          </label>
+                          <span className="text-[9px] font-mono text-black/50">
+                            {availableSignals.length} {lang === 'fr' ? 'signes' : 'sinais'}
+                          </span>
+                        </div>
                         <select
                           value={preRollSettings.startSignalMeasure1Id || ''}
                           onChange={(e) => setPreRollSettings({ startSignalMeasure1Id: e.target.value || null })}
-                          className="w-full bg-white/90 border border-[#1a1a1a] px-1.5 py-1 text-xs font-sans rounded-none cursor-pointer text-[#1a1a1a]"
+                          className="w-full bg-white border border-[#1a1a1a] px-1.5 py-1 text-xs font-sans rounded-none cursor-pointer text-[#1a1a1a]"
                         >
-                          <option value="">{lang === 'fr' ? 'Chiffré neutre (1, 2, 3, 4)' : 'Numérico neutro (1, 2, 3, 4)'}</option>
-                          {rhythmSignals.map((sig) => (
+                          <option value="">{lang === 'fr' ? '🔢 Décompte chiffré neutre' : '🔢 Contagem numérica neutra'}</option>
+                          {availableSignals.map((sig) => (
                             <option key={sig.id} value={sig.id}>{sig.name}</option>
                           ))}
                         </select>
+                        {/* Galerie visuelle des signes */}
+                        <div className="flex gap-1.5 overflow-x-auto pt-1.5 pb-0.5 max-w-full">
+                          <button
+                            type="button"
+                            onClick={() => setPreRollSettings({ startSignalMeasure1Id: null })}
+                            className={`flex-shrink-0 flex items-center gap-1 px-1.5 py-1 border text-[10px] cursor-pointer transition-all ${
+                              !preRollSettings.startSignalMeasure1Id
+                                ? 'border-[var(--cordel-wood)] bg-[var(--cordel-wood)] text-white shadow-sm font-bold'
+                                : 'border-black/30 bg-white/70 hover:bg-white text-black/70'
+                            }`}
+                          >
+                            <span>🔢</span>
+                            <span>{lang === 'fr' ? 'Neutre' : 'Neutro'}</span>
+                          </button>
+                          {availableSignals.map((sig) => {
+                            const isSelected = preRollSettings.startSignalMeasure1Id === sig.id;
+                            return (
+                              <button
+                                key={sig.id}
+                                type="button"
+                                onClick={() => setPreRollSettings({ startSignalMeasure1Id: sig.id })}
+                                className={`flex-shrink-0 flex items-center gap-1.5 px-1.5 py-1 border text-[10px] cursor-pointer transition-all ${
+                                  isSelected
+                                    ? 'border-[var(--cordel-wood)] bg-[var(--cordel-wood)] text-white shadow-sm font-bold'
+                                    : 'border-black/30 bg-white/70 hover:bg-white text-black/80'
+                                }`}
+                                title={sig.name}
+                              >
+                                {sig.image ? (
+                                  <img src={sig.image} alt={sig.name} className="w-5 h-5 object-contain bg-white/80 border border-black/20" />
+                                ) : (
+                                  <span>📢</span>
+                                )}
+                                <span className="truncate max-w-[80px]">{sig.name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
 
                     <div>
-                      <label className="block text-[10px] font-bold text-black/60 mb-0.5">
-                        {preRollSettings.measuresCount === 2
-                          ? (lang === 'fr' ? 'Mesure -1 (Appel immédiat) :' : 'Compasso -1 (Chamada imediata) :')
-                          : (lang === 'fr' ? 'Mesure -1 (Signal d’appel) :' : 'Compasso -1 (Sinal de chamada) :')}
-                      </label>
+                      <div className="flex justify-between items-center mb-0.5">
+                        <label className="text-[10px] font-bold text-black/70 uppercase">
+                          {preRollSettings.measuresCount === 2
+                            ? (lang === 'fr' ? 'Mesure -1 (Appel immédiat) :' : 'Compasso -1 (Chamada imediata) :')
+                            : (lang === 'fr' ? 'Mesure -1 (Signal d’amorce) :' : 'Compasso -1 (Sinal de chamada) :')}
+                        </label>
+                        <span className="text-[9px] font-mono text-black/50">
+                          {availableSignals.length} {lang === 'fr' ? 'signes' : 'sinais'}
+                        </span>
+                      </div>
                       <select
                         value={preRollSettings.startSignalMeasure2Id || ''}
                         onChange={(e) => setPreRollSettings({ startSignalMeasure2Id: e.target.value || null })}
-                        className="w-full bg-white/90 border border-[#1a1a1a] px-1.5 py-1 text-xs font-sans rounded-none cursor-pointer text-[#1a1a1a]"
+                        className="w-full bg-white border border-[#1a1a1a] px-1.5 py-1 text-xs font-sans rounded-none cursor-pointer text-[#1a1a1a]"
                       >
-                        <option value="">{lang === 'fr' ? 'Chiffré neutre (1, 2, 3, 4)' : 'Numérico neutro (1, 2, 3, 4)'}</option>
-                        {rhythmSignals.map((sig) => (
+                        <option value="">{lang === 'fr' ? '🔢 Décompte chiffré neutre' : '🔢 Contagem numérica neutra'}</option>
+                        {availableSignals.map((sig) => (
                           <option key={sig.id} value={sig.id}>{sig.name}</option>
                         ))}
                       </select>
+                      {/* Galerie visuelle des signes */}
+                      <div className="flex gap-1.5 overflow-x-auto pt-1.5 pb-0.5 max-w-full">
+                        <button
+                          type="button"
+                          onClick={() => setPreRollSettings({ startSignalMeasure2Id: null })}
+                          className={`flex-shrink-0 flex items-center gap-1 px-1.5 py-1 border text-[10px] cursor-pointer transition-all ${
+                            !preRollSettings.startSignalMeasure2Id
+                              ? 'border-[var(--cordel-wood)] bg-[var(--cordel-wood)] text-white shadow-sm font-bold'
+                              : 'border-black/30 bg-white/70 hover:bg-white text-black/70'
+                          }`}
+                        >
+                          <span>🔢</span>
+                          <span>{lang === 'fr' ? 'Neutre' : 'Neutro'}</span>
+                        </button>
+                        {availableSignals.map((sig) => {
+                          const isSelected = preRollSettings.startSignalMeasure2Id === sig.id;
+                          return (
+                            <button
+                              key={sig.id}
+                              type="button"
+                              onClick={() => setPreRollSettings({ startSignalMeasure2Id: sig.id })}
+                              className={`flex-shrink-0 flex items-center gap-1.5 px-1.5 py-1 border text-[10px] cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'border-[var(--cordel-wood)] bg-[var(--cordel-wood)] text-white shadow-sm font-bold'
+                                  : 'border-black/30 bg-white/70 hover:bg-white text-black/80'
+                              }`}
+                              title={sig.name}
+                            >
+                              {sig.image ? (
+                                <img src={sig.image} alt={sig.name} className="w-5 h-5 object-contain bg-white/80 border border-black/20" />
+                              ) : (
+                                <span>📢</span>
+                              )}
+                              <span className="truncate max-w-[80px]">{sig.name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 

@@ -359,6 +359,12 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             frames: localSig.frames,
             beatsCount: localSig.beatsCount
           };
+        } else if (sigId.includes('pictures/') || sigId.includes('Pictures/')) {
+          const isSam = sigId.includes('logo-samambaia');
+          activeSig = {
+            name: isSam ? 'Signe Luanda' : 'Signe Trovão',
+            image: sigId.startsWith('/') ? sigId : `/${sigId.replace('pictures/', 'Pictures/')}`
+          };
         }
       }
     }
