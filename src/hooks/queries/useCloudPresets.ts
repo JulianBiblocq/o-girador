@@ -86,6 +86,9 @@ export function useCloudPresets({ userUid, userRole, mestreId, groupId, groupNam
 
       return merged;
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes : évite les requêtes intempestives
+    gcTime: 30 * 60 * 1000,   // 30 minutes de conservation en cache mémoire
+    refetchOnWindowFocus: false, // Évite de re-télécharger à chaque changement d'onglet
     enabled: true,
   });
 }

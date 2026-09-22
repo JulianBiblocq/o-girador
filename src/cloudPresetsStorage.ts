@@ -64,11 +64,33 @@ export async function renameCloudPreset(presetId: string, newName: string): Prom
 }
 
 /**
+ * Cache mémoire pour les presets listés depuis Firebase Storage, indexés par groupId.
+ * TTL par défaut : 15 minutes pour éviter d'interroger le bucket à répétition.
+ */
+interface StoragePresetsCacheEntry {
+  timestamp: number;
+  presets: CloudPreset[];
+}
+const storagePresetsGroupCache = new Map<string, StoragePresetsCacheEntry>();
+
+/**
  * Récupère les fichiers .json de presets depuis le dossier Firebase Storage documents/${groupId}/sequencer/
  * Supporte le repli multi-casse documents/Samambaia/sequencer et documents/samambaia/sequencer.
+ * Utilise strictement le cache mémoire pour éviter les requêtes réseau superflues et préserver les quotas.
  */
-export async function fetchStoragePresetsJSON(groupId: string): Promise<CloudPreset[]> {
+export async function fetchStoragePresetsJSON(groupId: string, forceRefresh = false): Promise<CloudPreset[]> {
   if (!groupId) return [];
+
+  const cacheKey = groupId.toLowerCase().trim();
+  const cachedGroup = storagePresetsGroupCache.get(cacheKey);
+  const now = Date.now();
+  const STORAGE_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+  // Si le résultat est déjà en cache et toujours frais, le renvoyer directement sans requêter Storage
+  if (!forceRefresh && cachedGroup && (now - cachedGroup.timestamp < STORAGE_CACHE_TTL)) {
+    return cachedGroup.presets;
+  }
+
   const presets: CloudPreset[] = [];
   const seenIds = new Set<string>();
 
@@ -86,6 +108,25 @@ export async function fetchStoragePresetsJSON(groupId: string): Promise<CloudPre
       for (const itemRef of res.items) {
         if (itemRef.name.endsWith('.json') && !seenIds.has(itemRef.name)) {
           seenIds.add(itemRef.name);
+
+          // 1. Vérification stricte en mémoire : si le preset est déjà en cache, aucun téléchargement réseau
+          if (presetCache.has(itemRef.name)) {
+            const data = presetCache.get(itemRef.name)!;
+            presets.push({
+              id: itemRef.name,
+              name: data.metadata?.toada || (data as any).name || itemRef.name.replace('.json', ''),
+              data: LZString.compressToBase64(JSON.stringify(data)),
+              ownerId: 'storage',
+              visibility: 'mestre_group',
+              createdAt: Date.now(),
+              updatedAt: Date.now(),
+              groupId: groupId.toLowerCase(),
+              isFromStorage: true
+            } as any);
+            continue;
+          }
+
+          // 2. Fichier non répertorié : téléchargement unique depuis Firebase Storage
           try {
             const url = await getDownloadURL(itemRef);
             const response = await fetch(url);
@@ -111,8 +152,18 @@ export async function fetchStoragePresetsJSON(groupId: string): Promise<CloudPre
       }
     } catch (err) {
       console.warn(`fetchStoragePresetsJSON - Échec du listage pour ${folderPath}:`, err);
+      // En cas d'erreur de quota sur listAll, si on a un ancien cache, le conserver
+      if (cachedGroup && cachedGroup.presets.length > 0) {
+        return cachedGroup.presets;
+      }
     }
   }
+
+  // Mise à jour du cache de groupe
+  storagePresetsGroupCache.set(cacheKey, {
+    timestamp: now,
+    presets,
+  });
 
   return presets;
 }
