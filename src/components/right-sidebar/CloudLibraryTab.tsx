@@ -210,6 +210,7 @@ export const CloudLibraryTab: React.FC<CloudLibraryTabProps> = ({
     image: string;
     frames: string[];
     beatsCount: number;
+    mirrorHorizontal?: boolean;
   }) => {
     setIsUploadingSignal(true);
 
@@ -223,6 +224,7 @@ export const CloudLibraryTab: React.FC<CloudLibraryTabProps> = ({
         imageUrl: signalData.image,
         frames: signalData.frames,
         beatsCount: signalData.beatsCount,
+        mirrorHorizontal: signalData.mirrorHorizontal,
       });
       if (result.success) {
         if (refreshMestreSignals) refreshMestreSignals();
@@ -249,7 +251,8 @@ export const CloudLibraryTab: React.FC<CloudLibraryTabProps> = ({
         signalData.name,
         signalData.image,
         signalData.frames,
-        signalData.beatsCount
+        signalData.beatsCount,
+        signalData.mirrorHorizontal
       );
       if (result.success && result.signal) {
         if (refreshMestreSignals) refreshMestreSignals();
@@ -277,12 +280,14 @@ export const CloudLibraryTab: React.FC<CloudLibraryTabProps> = ({
     image?: string;
     frames?: string[];
     beatsCount?: number;
+    mirrorHorizontal?: boolean;
   }) => {
     const res = await updateMestreSignal(updated.id, {
       name: updated.name,
       image: updated.image,
       frames: updated.frames,
       beatsCount: updated.beatsCount,
+      mirrorHorizontal: updated.mirrorHorizontal,
     });
     if (res.success) {
       if (refreshMestreSignals) refreshMestreSignals();

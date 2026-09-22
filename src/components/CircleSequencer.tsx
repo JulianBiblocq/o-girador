@@ -340,7 +340,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       sigId = currentMeasureSignals?.[expandedMeasureIdx] || null;
     }
 
-    let activeSig: { name: string; image: string; frames?: string[]; beatsCount?: number } | null = null;
+    let activeSig: { name: string; image: string; frames?: string[]; beatsCount?: number; mirrorHorizontal?: boolean } | null = null;
     if (sigId) {
       const cloudSig = currentMestreSignals?.find(s => s.id === sigId);
       if (cloudSig) {
@@ -356,7 +356,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           name: cloudSig.name,
           image: resolvedCloudImage,
           frames: cloudSig.frames,
-          beatsCount: cloudSig.beatsCount
+          beatsCount: cloudSig.beatsCount,
+          mirrorHorizontal: cloudSig.mirrorHorizontal,
         };
       } else {
         const localSig = currentRhythmSignals?.find(s => s.id === sigId) as any;
@@ -371,7 +372,8 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             name: localSig.name,
             image: resolvedLocalImage,
             frames: localSig.frames,
-            beatsCount: localSig.beatsCount
+            beatsCount: localSig.beatsCount,
+            mirrorHorizontal: localSig.mirrorHorizontal,
           };
         } else if (sigId.includes('pictures/') || sigId.includes('Pictures/')) {
           const isSam = sigId.includes('logo-samambaia');
@@ -405,14 +407,16 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     const cache = lastOverlayStateRef.current;
 
     if (activeSig) {
-      // Résolution de la trame au tempo vivant si multi-trames
+      // Résolution de la trame : si beatsCount === 1 (ou trame unique), afficher l'image fixe en continu sans division de frame
       let targetSrc = activeSig.image;
-      if (activeSig.frames && activeSig.frames.length > 0) {
+      if (activeSig.beatsCount !== 1 && activeSig.frames && activeSig.frames.length > 1) {
         const localSig = (currentMeasureTimeSigs && currentMeasureTimeSigs[baseMeasureIdx]) || defaultTimeSig || '4/4';
         const beatsInM = getBeatsPerMeasure(localSig);
         const totalFrames = activeSig.frames.length;
         const frameIdx = Math.min(totalFrames - 1, Math.floor((currentBeat / beatsInM) * totalFrames));
         targetSrc = activeSig.frames[frameIdx] || activeSig.frames[0] || activeSig.image;
+      } else if (activeSig.frames && activeSig.frames.length > 0) {
+        targetSrc = activeSig.frames[0] || activeSig.image;
       }
 
       if (cache.imgSrc !== targetSrc) {

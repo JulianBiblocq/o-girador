@@ -1,7 +1,10 @@
 export interface CordelOptions {
   zoom: number; // 50 to 180
-  detail: number; // 10 to 150
-  shadow: number; // 50 to 220
+  detail: number; // 10 to 150 (conservé pour rétrocompatibilité)
+  shadow: number; // 50 to 220 (conservé pour rétrocompatibilité)
+  brightness?: number; // -50 to +50 (Luminosité / Exposition pré-seuillage)
+  threshold?: number; // 20 to 220 (Seuil d'encrage noir/blanc, défaut 128)
+  sobelContrast?: number; // 0 to 100 % (Sensibilité de détection des bords)
   isMirror: boolean;
   isFrame: boolean;
   posX: number; // -100 to 100
@@ -11,7 +14,10 @@ export interface CordelOptions {
 export const defaultCordelOptions: CordelOptions = {
   zoom: 120,
   detail: 60,
-  shadow: 130,
+  shadow: 128,
+  brightness: 0,
+  threshold: 128,
+  sobelContrast: 50,
   isMirror: true,
   isFrame: false,
   posX: 0,
@@ -52,14 +58,14 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
       let j = idx * 4;
       bgSum += 0.299 * smallData[j] + 0.587 * smallData[j+1] + 0.114 * smallData[j+2];
   });
-  const threshold = (bgSum / 4) - 20;
+  const thresholdVal = (bgSum / 4) - 20;
 
   let minX = smallCanvas.width, maxX = 0, minY = smallCanvas.height, maxY = 0;
   for(let y = 0; y < smallCanvas.height; y++){
       for(let x = 0; x < smallCanvas.width; x++){
           let idx = (y * smallCanvas.width + x) * 4;
           let lum = 0.299 * smallData[idx] + 0.587 * smallData[idx+1] + 0.114 * smallData[idx+2];
-          if (lum < threshold) { 
+          if (lum < thresholdVal) { 
               if (x < minX) minX = x; if (x > maxX) maxX = x;
               if (y < minY) minY = y; if (y > maxY) maxY = y;
           }
@@ -76,8 +82,6 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
   const cy = (minY + maxY) / 2;
 
   // Apply crop and offsets
-  const detailSensibility = 160 - options.detail; 
-  const shadowLimit = options.shadow;
   const zoomVal = options.zoom;
   const cropSize = (boxSize * 1.3) / (zoomVal / 100); 
   
@@ -102,12 +106,23 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
   
   tempCtx.drawImage(img, sX, sY, cropSize, cropSize, 0, 0, outSize, outSize);
   
+  // 1. Luminance & Luminosité / Exposition (-50 à +50)
+  const brightness = options.brightness ?? 0;
   const imgData = tempCtx.getImageData(0, 0, outSize, outSize);
   const data = imgData.data;
   const gray = new Float32Array(outSize * outSize);
   for(let i = 0; i < outSize * outSize; i++) {
-      gray[i] = 0.299 * data[i*4] + 0.587 * data[i*4+1] + 0.114 * data[i*4+2];
+      const idx = i * 4;
+      const r = Math.min(255, Math.max(0, data[idx] + brightness));
+      const g = Math.min(255, Math.max(0, data[idx+1] + brightness));
+      const b = Math.min(255, Math.max(0, data[idx+2] + brightness));
+      gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
   }
+
+  // 2. Paramètres de filtrage Sobel et d'encrage
+  const sobelPct = options.sobelContrast !== undefined ? options.sobelContrast : (options.detail !== undefined ? Math.round((options.detail / 150) * 100) : 50);
+  const detailSensibility = 220 - (Math.min(100, Math.max(0, sobelPct)) / 100) * 195;
+  const inkThreshold = options.threshold !== undefined ? options.threshold : (options.shadow ?? 128);
 
   const finalCanvas = document.createElement('canvas');
   finalCanvas.width = outSize; finalCanvas.height = outSize;
@@ -134,7 +149,7 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
               let dy = (bl + 2*bc + br) - (tl + 2*tc + tr);
               let edge = Math.sqrt(dx*dx + dy*dy);
 
-              if (edge > detailSensibility && lum < 240) {
+              if (edge > detailSensibility && lum < 245) {
                   isInk = true;
               }
           }
@@ -142,7 +157,7 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
           if (!isInk) {
               let groove = Math.sin((x - y) * 0.4) * 15 + Math.sin(y * 0.1) * 5;
               let noise = (Math.random() * 30) - 15;
-              if (lum + groove + noise < shadowLimit) {
+              if (lum + groove + noise < inkThreshold) {
                   isInk = true;
               }
           }

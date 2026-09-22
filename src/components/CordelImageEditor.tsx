@@ -67,31 +67,17 @@ export const CordelImageEditor: React.FC<CordelImageEditorProps> = ({ frames, la
         )}
       </div>
 
-      <div className="flex flex-col gap-3 mt-2 font-bold">
-        {/* Sliders de Zoom, Detail, Shadow */}
+      <div className="flex flex-col gap-2.5 mt-2 font-bold">
+        {/* Sliders de Zoom & Position */}
         <div className="flex flex-col gap-1">
           <div className="flex justify-between items-center text-[10px]">
             <label>🔍 {lang === 'fr' ? 'Zoom' : 'Zoom'}: {options.zoom}%</label>
           </div>
           <input type="range" min="50" max="180" value={options.zoom} onChange={e => handleOptionChange('zoom', parseInt(e.target.value))} className="w-full accent-[var(--cordel-text)] cursor-pointer" />
         </div>
-        
-        <div className="flex flex-col gap-1">
-          <div className="flex justify-between items-center text-[10px]">
-            <label>✍️ {lang === 'fr' ? 'Lignes' : 'Linhas'}: {options.detail}%</label>
-          </div>
-          <input type="range" min="10" max="150" value={options.detail} onChange={e => handleOptionChange('detail', parseInt(e.target.value))} className="w-full accent-[var(--cordel-text)] cursor-pointer" />
-        </div>
-
-        <div className="flex flex-col gap-1">
-          <div className="flex justify-between items-center text-[10px]">
-            <label>🌑 {lang === 'fr' ? 'Encre' : 'Tinta'}: {options.shadow}</label>
-          </div>
-          <input type="range" min="50" max="220" value={options.shadow} onChange={e => handleOptionChange('shadow', parseInt(e.target.value))} className="w-full accent-[var(--cordel-text)] cursor-pointer" />
-        </div>
 
         {/* Position */}
-        <div className="flex gap-2 items-center text-[10px] mt-1">
+        <div className="flex gap-2 items-center text-[10px]">
           <div className="flex items-center flex-1 gap-1">
             <span>↔️</span>
             <input type="range" min="-100" max="100" value={options.posX} onChange={e => handleOptionChange('posX', parseInt(e.target.value))} className="w-full accent-[var(--cordel-text)] cursor-pointer m-0" />
@@ -102,16 +88,77 @@ export const CordelImageEditor: React.FC<CordelImageEditorProps> = ({ frames, la
           </div>
         </div>
 
-        {/* Checkboxes */}
-        <div className="flex justify-between mt-1 text-[10px]">
-          <label className="flex items-center gap-1 cursor-pointer select-none">
-            <input type="checkbox" checked={options.isMirror} onChange={e => handleOptionChange('isMirror', e.target.checked)} className="cursor-pointer accent-[var(--cordel-text)]" />
-            <span>🪞 {lang === 'fr' ? 'Miroir' : 'Espelho'}</span>
-          </label>
-          <label className="flex items-center gap-1 cursor-pointer select-none">
-            <input type="checkbox" checked={options.isFrame} onChange={e => handleOptionChange('isFrame', e.target.checked)} className="cursor-pointer accent-[var(--cordel-text)]" />
-            <span>🖼️ {lang === 'fr' ? 'Cadre' : 'Moldura'}</span>
-          </label>
+        {/* 1. Luminosité / Exposition (-50 à +50) */}
+        <div className="flex flex-col gap-1 border-t border-[var(--cordel-border)]/20 pt-1.5">
+          <div className="flex justify-between items-center text-[10px]">
+            <label>☀️ {lang === 'fr' ? 'Luminosité / Fond' : 'Luminosidade / Fundo'}: {(options.brightness ?? 0) > 0 ? `+${options.brightness}` : (options.brightness ?? 0)}</label>
+          </div>
+          <input type="range" min="-50" max="50" value={options.brightness ?? 0} onChange={e => handleOptionChange('brightness', parseInt(e.target.value))} className="w-full accent-[var(--cordel-text)] cursor-pointer" />
+        </div>
+
+        {/* 2. Seuil d'encrage / Threshold (20 à 220, défaut 128) */}
+        <div className="flex flex-col gap-1">
+          <div className="flex justify-between items-center text-[10px]">
+            <label>🌑 {lang === 'fr' ? "Seuil d'encrage" : 'Limiar de Tinta'}: {options.threshold ?? options.shadow ?? 128}</label>
+          </div>
+          <input
+            type="range"
+            min="20"
+            max="220"
+            value={options.threshold ?? options.shadow ?? 128}
+            onChange={e => {
+              const val = parseInt(e.target.value);
+              handleOptionChange('threshold', val);
+              handleOptionChange('shadow', val);
+            }}
+            className="w-full accent-[var(--cordel-text)] cursor-pointer"
+          />
+        </div>
+
+        {/* 3. Contraste Sobel / Détection des bords (0 à 100 %) */}
+        <div className="flex flex-col gap-1">
+          <div className="flex justify-between items-center text-[10px]">
+            <label>✍️ {lang === 'fr' ? 'Contraste Sobel (bords)' : 'Contraste Sobel (bordas)'}: {options.sobelContrast ?? 50}%</label>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={options.sobelContrast ?? 50}
+            onChange={e => {
+              const val = parseInt(e.target.value);
+              handleOptionChange('sobelContrast', val);
+              handleOptionChange('detail', Math.round((val / 100) * 150));
+            }}
+            className="w-full accent-[var(--cordel-text)] cursor-pointer"
+          />
+        </div>
+
+        {/* Toggles Miroir & Cadre */}
+        <div className="flex gap-2 pt-1 border-t border-[var(--cordel-border)]/20">
+          <button
+            type="button"
+            onClick={() => handleOptionChange('isMirror', !options.isMirror)}
+            className={`flex-1 py-1 px-2 text-[10px] font-cactus font-bold uppercase border border-[var(--cordel-border)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              options.isMirror
+                ? 'bg-[var(--cordel-wood)] text-white shadow-[1px_1px_0px_#000]'
+                : 'bg-black/5 hover:bg-black/10'
+            }`}
+          >
+            ⇄ {lang === 'fr' ? 'Miroir' : 'Espelho'} : {options.isMirror ? (lang === 'fr' ? 'OUI' : 'SIM') : (lang === 'fr' ? 'NON' : 'NÃO')}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleOptionChange('isFrame', !options.isFrame)}
+            className={`flex-1 py-1 px-2 text-[10px] font-cactus font-bold uppercase border border-[var(--cordel-border)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              options.isFrame
+                ? 'bg-[var(--cordel-wood)] text-white shadow-[1px_1px_0px_#000]'
+                : 'bg-black/5 hover:bg-black/10'
+            }`}
+          >
+            🖼️ {lang === 'fr' ? 'Cadre' : 'Moldura'} : {options.isFrame ? (lang === 'fr' ? 'OUI' : 'SIM') : (lang === 'fr' ? 'NON' : 'NÃO')}
+          </button>
         </div>
       </div>
 

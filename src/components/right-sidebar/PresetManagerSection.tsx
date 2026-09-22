@@ -174,6 +174,7 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
     image: string;
     frames: string[];
     beatsCount: number;
+    mirrorHorizontal?: boolean;
   }) => {
     // Si on renouvelle la prise de vue d'un signal existant
     if (retakeTargetLocalIdRef.current) {
@@ -188,6 +189,7 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
               image: signalData.image,
               frames: signalData.frames,
               beatsCount: signalData.beatsCount,
+              mirrorHorizontal: signalData.mirrorHorizontal,
             }
           : s
       );
@@ -202,6 +204,7 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
       image: signalData.image,
       frames: signalData.frames,
       beatsCount: signalData.beatsCount,
+      mirrorHorizontal: signalData.mirrorHorizontal,
       createdAt: Date.now(),
     };
     const prev = metadata.rhythmSignals || [];

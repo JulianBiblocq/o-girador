@@ -55,7 +55,8 @@ export const uploadMestreSignal = async (
   name: string,
   base64Image: string,
   frames?: string[],
-  beatsCount?: number
+  beatsCount?: number,
+  mirrorHorizontal?: boolean
 ): Promise<UploadSignalResult> => {
   if (!mestreId) {
     return { success: false, error: 'Mestre ID manquant ou invalide.' };
@@ -96,6 +97,7 @@ export const uploadMestreSignal = async (
       createdAt: Date.now(),
       frames: finalFrames,
       beatsCount: beatsCount || finalFrames.length,
+      mirrorHorizontal: mirrorHorizontal ?? false,
     };
 
     await setDoc(doc(db, 'mestre_signals', id), signalData);
@@ -121,6 +123,7 @@ export const updateMestreSignal = async (
     imageUrl?: string;
     frames?: string[];
     beatsCount?: number;
+    mirrorHorizontal?: boolean;
   }
 ): Promise<{ success: boolean; error?: string }> => {
   if (!id) return { success: false, error: 'ID manquant.' };
@@ -133,6 +136,7 @@ export const updateMestreSignal = async (
     if (updates.imageUrl !== undefined) payload.imageUrl = updates.imageUrl;
     if (updates.frames !== undefined) payload.frames = updates.frames;
     if (updates.beatsCount !== undefined) payload.beatsCount = updates.beatsCount;
+    if (updates.mirrorHorizontal !== undefined) payload.mirrorHorizontal = updates.mirrorHorizontal;
 
     await updateDoc(doc(db, 'mestre_signals', id), payload);
     return { success: true };

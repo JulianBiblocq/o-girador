@@ -347,6 +347,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
     image: string;
     frames: string[];
     beatsCount: number;
+    mirrorHorizontal?: boolean;
   }) => {
     toggleSignId(signalData.image);
     setCustomSignalsMap((prev) => ({
@@ -357,6 +358,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
         image: signalData.image,
         frames: signalData.frames,
         beatsCount: signalData.beatsCount,
+        mirrorHorizontal: signalData.mirrorHorizontal,
         createdAt: Date.now(),
       },
     }));

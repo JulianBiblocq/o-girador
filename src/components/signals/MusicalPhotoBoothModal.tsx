@@ -14,6 +14,7 @@ export interface MusicalPhotoBoothModalProps {
     image: string; // T1 / vignette preview
     frames: string[];
     beatsCount: number;
+    mirrorHorizontal?: boolean;
   }) => void;
   initialBpm?: number;
   lang: 'fr' | 'pt';
@@ -43,7 +44,10 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     ...defaultCordelOptions,
     zoom: 120,
     detail: 60,
-    shadow: 130,
+    shadow: 128,
+    brightness: 0,
+    threshold: 128,
+    sobelContrast: 50,
     isMirror: true,
     isFrame: false,
     posX: 0,
@@ -139,7 +143,10 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
         ...defaultCordelOptions,
         zoom: 120,
         detail: 60,
-        shadow: 130,
+        shadow: 128,
+        brightness: 0,
+        threshold: 128,
+        sobelContrast: 50,
         isMirror: true,
         isFrame: false,
         posX: 0,
@@ -228,7 +235,7 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
   };
 
   // 6. Séquenceur de prise de vue adapté à la métrique
-  const countdownLength = beatsCount === 5 ? 4 : beatsCount;
+  const countdownLength = (beatsCount === 5 || beatsCount === 1) ? 4 : beatsCount;
 
   const runBeatCountdown = useCallback((stepIndex: number) => {
     setPhase('beat_countdown');
@@ -359,7 +366,12 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     rawBase64ImagesRef.current = [];
     setCurrentStepIdx(0);
     getAudioContext();
-    runSasRepositioning(0);
+    if (beatsCount === 1) {
+      // 🛡️ Mode 1 photo : décompte direct de 4 temps sans sas
+      runBeatCountdown(0);
+    } else {
+      runSasRepositioning(0);
+    }
   };
 
   // Validation finale
@@ -371,6 +383,7 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
       image: processedFrames[0],
       frames: processedFrames,
       beatsCount,
+      mirrorHorizontal: cordelOptions.isMirror,
     });
     onClose();
   };
@@ -411,10 +424,24 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
               <video
                 ref={videoRef}
                 className="w-full h-full object-cover"
-                style={{ transform: 'scaleX(-1)' }}
+                style={{ transform: cordelOptions.isMirror ? 'scaleX(-1)' : 'none' }}
                 playsInline
                 muted
               />
+
+              {/* Bouton bascule miroir à la volée sur la caméra */}
+              {phase === 'idle' && (
+                <button
+                  type="button"
+                  onClick={() => handleUpdateCordelOption('isMirror', !cordelOptions.isMirror)}
+                  className={`absolute top-2 right-2 z-30 px-2 py-1 text-[10px] font-cactus font-bold uppercase border border-black/40 shadow-[1px_1px_0px_#000] cursor-pointer transition-all ${
+                    cordelOptions.isMirror ? 'bg-[var(--cordel-wood)] text-white' : 'bg-white/85 text-black hover:bg-white'
+                  }`}
+                  title={lang === 'fr' ? 'Bascule miroir' : 'Inverter espelho'}
+                >
+                  ⇄ {lang === 'fr' ? 'Miroir' : 'Espelho'}
+                </button>
+              )}
 
               {/* Flash WAAPI */}
               <div
@@ -510,14 +537,13 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
             <div className="flex flex-col gap-2">
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-cactus font-bold uppercase opacity-80">
-                  🥁 {lang === 'fr' ? 'Signature / Nombre de trames :' : 'Fórmula / Número de quadros :'}
+                  🥁 {lang === 'fr' ? 'Format de capture :' : 'Formato de captura :'}
                 </label>
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-3 gap-1.5">
                   {[
-                    { count: 2, labelFr: '2 T (2/4, 6/8)', labelPt: '2 T (2/4, 6/8)' },
-                    { count: 3, labelFr: '3 T (3/4, 9/8)', labelPt: '3 T (3/4, 9/8)' },
-                    { count: 4, labelFr: '4 T (4/4, 12/8)', labelPt: '4 T (4/4, 12/8)' },
-                    { count: 5, labelFr: '5 T (Appel +1)', labelPt: '5 T (Chamada +1)' },
+                    { count: 1, labelFr: '1 photo (Signe fixe)', labelPt: '1 foto (Sinal fixo)' },
+                    { count: 4, labelFr: '4 temps (1 mesure)', labelPt: '4 tempos (1 compasso)' },
+                    { count: 5, labelFr: '5 temps (Avec impact)', labelPt: '5 tempos (Com impacto)' },
                   ].map((item) => (
                     <button
                       key={item.count}
@@ -725,36 +751,60 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                 </div>
               </div>
 
-              {/* Curseurs d'encre & Sobel */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-[10px] font-bold pt-1 border-t border-[var(--cordel-border)]/20">
-                {/* Sobel / Lignes */}
+              {/* Curseurs de nettoyage et d'encrage Cordel */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[10px] font-bold pt-1 border-t border-[var(--cordel-border)]/20">
+                {/* 1. Luminosité / Exposition (-50 à +50) */}
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between">
-                    <span>✍️ {lang === 'fr' ? 'Traits / Sobel' : 'Traços / Sobel'}</span>
-                    <span>{cordelOptions.detail}%</span>
+                    <span>☀️ {lang === 'fr' ? 'Luminosité / Fond' : 'Luminosidade / Fundo'}</span>
+                    <span>{(cordelOptions.brightness ?? 0) > 0 ? `+${cordelOptions.brightness}` : (cordelOptions.brightness ?? 0)}</span>
                   </div>
                   <input
                     type="range"
-                    min="10"
-                    max="150"
-                    value={cordelOptions.detail}
-                    onChange={(e) => handleUpdateCordelOption('detail', parseInt(e.target.value))}
+                    min="-50"
+                    max="50"
+                    value={cordelOptions.brightness ?? 0}
+                    onChange={(e) => handleUpdateCordelOption('brightness', parseInt(e.target.value))}
                     className="accent-[var(--cordel-wood)] cursor-pointer"
                   />
                 </div>
 
-                {/* Seuil ombres / encre */}
+                {/* 2. Seuil d'encrage (20 à 220, défaut 128) */}
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between">
-                    <span>🌑 {lang === 'fr' ? 'Ombres / Encre' : 'Sombras / Tinta'}</span>
-                    <span>{cordelOptions.shadow}</span>
+                    <span>🌑 {lang === 'fr' ? "Seuil d'encrage" : 'Limiar de Tinta'}</span>
+                    <span>{cordelOptions.threshold ?? cordelOptions.shadow ?? 128}</span>
                   </div>
                   <input
                     type="range"
-                    min="50"
+                    min="20"
                     max="220"
-                    value={cordelOptions.shadow}
-                    onChange={(e) => handleUpdateCordelOption('shadow', parseInt(e.target.value))}
+                    value={cordelOptions.threshold ?? cordelOptions.shadow ?? 128}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      handleUpdateCordelOption('threshold', val);
+                      handleUpdateCordelOption('shadow', val);
+                    }}
+                    className="accent-[var(--cordel-wood)] cursor-pointer"
+                  />
+                </div>
+
+                {/* 3. Contraste Sobel / Détection des bords (0 à 100 %) */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between">
+                    <span>✍️ {lang === 'fr' ? 'Traits Sobel' : 'Traços Sobel'}</span>
+                    <span>{cordelOptions.sobelContrast ?? 50}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={cordelOptions.sobelContrast ?? 50}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      handleUpdateCordelOption('sobelContrast', val);
+                      handleUpdateCordelOption('detail', Math.round((val / 100) * 150));
+                    }}
                     className="accent-[var(--cordel-wood)] cursor-pointer"
                   />
                 </div>
@@ -765,21 +815,21 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                 <button
                   type="button"
                   onClick={() => handleUpdateCordelOption('isMirror', !cordelOptions.isMirror)}
-                  className={`flex-1 py-1 px-2 text-[10px] font-cactus font-bold uppercase border border-[var(--cordel-border)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                     cordelOptions.isMirror
-                      ? 'bg-[var(--cordel-wood)] text-white'
+                      ? 'bg-[var(--cordel-wood)] text-white shadow-[1px_1px_0px_#000]'
                       : 'bg-black/5 hover:bg-black/10'
                   }`}
                 >
-                  🪞 {lang === 'fr' ? 'Miroir' : 'Espelho'} : {cordelOptions.isMirror ? (lang === 'fr' ? 'OUI' : 'SIM') : (lang === 'fr' ? 'NON' : 'NÃO')}
+                  ⇄ {lang === 'fr' ? 'Miroir' : 'Espelho'} : {cordelOptions.isMirror ? (lang === 'fr' ? 'OUI' : 'SIM') : (lang === 'fr' ? 'NON' : 'NÃO')}
                 </button>
 
                 <button
                   type="button"
                   onClick={() => handleUpdateCordelOption('isFrame', !cordelOptions.isFrame)}
-                  className={`flex-1 py-1 px-2 text-[10px] font-cactus font-bold uppercase border border-[var(--cordel-border)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                     cordelOptions.isFrame
-                      ? 'bg-[var(--cordel-wood)] text-white'
+                      ? 'bg-[var(--cordel-wood)] text-white shadow-[1px_1px_0px_#000]'
                       : 'bg-black/5 hover:bg-black/10'
                   }`}
                 >

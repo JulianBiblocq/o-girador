@@ -16,6 +16,7 @@ export interface EditSignalModalProps {
     image?: string;
     frames?: string[];
     beatsCount?: number;
+    mirrorHorizontal?: boolean;
   }) => Promise<void> | void;
   onRetakePhoto?: (targetSignal: CloudRhythmSignal | RhythmSignal) => void;
   lang: 'fr' | 'pt';
@@ -90,6 +91,7 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
         image: signal.image,
         frames: signal.frames,
         beatsCount: signal.beatsCount,
+        mirrorHorizontal: signal.mirrorHorizontal,
       });
       onClose();
     } finally {

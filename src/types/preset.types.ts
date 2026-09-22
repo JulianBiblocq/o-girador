@@ -27,6 +27,7 @@ export interface RhythmSignal {
   image: string; // base64 JPEG ou URL
   frames?: string[]; // Tableau des trames WebP/base64 Cordel
   beatsCount?: number; // Nombre dynamique de trames selon la signature (bannir le 4 en dur)
+  mirrorHorizontal?: boolean; // Inversion miroir horizontale du signal
   createdAt?: number;
 }
 
