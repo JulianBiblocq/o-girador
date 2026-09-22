@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { GoogleLoginButton } from './GoogleLoginButton';
 import { useAudioStore } from '../stores/useAudioStore';
 import { loadTone, getTone } from '@/src/ToneLoader';
@@ -117,45 +117,127 @@ const TimbalCordelIcon = () => (
 );
 
 // -----------------------------------------------------------------------------
-// CORDE DE BATEAU TRESSÉE (VARAL DE CORDEL ÉPAIS & STYLISÉ) SVG
+// POTEAU EN BOIS RUSTIQUE (ESTACA DE MADEIRA DO CORDEL) SVG
 // -----------------------------------------------------------------------------
 
-const NauticalRopeSvg = () => (
+const CordelWoodenPostSvg: React.FC<{ isRight?: boolean; className?: string }> = ({
+  isRight = false,
+  className = "w-7 sm:w-8 md:w-9 h-28 sm:h-32"
+}) => (
   <svg
-    className="w-full h-4 select-none overflow-visible block"
-    preserveAspectRatio="none"
-    viewBox="0 0 100 16"
+    className={`${className} select-none overflow-visible flex-shrink-0 drop-shadow-[2px_3px_4px_rgba(0,0,0,0.35)] ${isRight ? '-scale-x-100' : ''}`}
+    viewBox="0 0 40 140"
     xmlns="http://www.w3.org/2000/svg"
   >
     <defs>
-      <pattern id="nautical-boat-rope" width="24" height="16" patternUnits="userSpaceOnUse">
-        {/* Fond chanvre doré cordel */}
-        <rect width="24" height="16" fill="#c4975a" />
-        {/* Ombre inférieure 3D pour la rondeur du cordage */}
-        <rect y="8" width="24" height="8" fill="#8c5828" fillOpacity="0.45" />
-
-        {/* Torons tressés hélicoïdaux (style gros cordage de marine / 3 brins) */}
-        <path d="M -4 16 C 2 11, 6 5, 12 0" stroke="#1a1a1a" strokeWidth="2.4" strokeLinecap="round" />
-        <path d="M 4 16 C 10 11, 14 5, 20 0" stroke="#1a1a1a" strokeWidth="2.4" strokeLinecap="round" />
-        <path d="M 12 16 C 18 11, 22 5, 28 0" stroke="#1a1a1a" strokeWidth="2.4" strokeLinecap="round" />
-
-        {/* Reflet de lumière sur la crête supérieure de chaque toron */}
-        <path d="M -2 14 C 4 9, 8 4, 14 -1" stroke="#fefae0" strokeWidth="1.3" strokeLinecap="round" strokeOpacity="0.8" />
-        <path d="M 6 14 C 12 9, 16 4, 22 -1" stroke="#fefae0" strokeWidth="1.3" strokeLinecap="round" strokeOpacity="0.8" />
-
-        {/* Trame de fibres fines gravées bois cordel */}
-        <line x1="2" y1="10" x2="6" y2="6" stroke="#1a1a1a" strokeWidth="0.9" strokeOpacity="0.45" />
-        <line x1="10" y1="10" x2="14" y2="6" stroke="#1a1a1a" strokeWidth="0.9" strokeOpacity="0.45" />
-        <line x1="18" y1="10" x2="22" y2="6" stroke="#1a1a1a" strokeWidth="0.9" strokeOpacity="0.45" />
-
-        {/* Lignes de contour supérieure et inférieure du cordage */}
-        <line x1="0" y1="1" x2="24" y2="1" stroke="#1a1a1a" strokeWidth="2" />
-        <line x1="0" y1="15" x2="24" y2="15" stroke="#1a1a1a" strokeWidth="2" />
-      </pattern>
+      <linearGradient id="postWoodGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#7a461b" />
+        <stop offset="30%" stopColor="#b58245" />
+        <stop offset="70%" stopColor="#9c6c33" />
+        <stop offset="100%" stopColor="#573110" />
+      </linearGradient>
     </defs>
-    <rect x="-20" y="0" width="140%" height="16" fill="url(#nautical-boat-rope)" />
+
+    {/* Sommet taillé en biseau / pointe au canif cordel */}
+    <path
+      d="M 8 18 L 20 4 L 32 18 L 32 138 L 8 138 Z"
+      fill="url(#postWoodGrad)"
+      stroke="#1a1a1a"
+      strokeWidth="2"
+      strokeLinejoin="round"
+    />
+
+    {/* Ombrage du biseau gauche */}
+    <path d="M 8 18 L 20 4 L 20 138 L 8 138 Z" fill="#000000" fillOpacity="0.18" />
+
+    {/* Cernes, stries et nœud du bois gravés */}
+    <path d="M 14 26 L 14 65 M 15 75 L 15 130" stroke="#1a1a1a" strokeWidth="1.2" strokeLinecap="round" />
+    <path d="M 26 22 L 26 50 M 25 60 L 25 125" stroke="#1a1a1a" strokeWidth="1.2" strokeLinecap="round" />
+    <ellipse cx="20" cy="55" rx="3.5" ry="6" fill="none" stroke="#1a1a1a" strokeWidth="1.3" />
+    <ellipse cx="20" cy="55" rx="1.5" ry="3" fill="#1a1a1a" />
+    <path d="M 12 90 Q 20 95 28 90" stroke="#1a1a1a" strokeWidth="1" fill="none" />
+
+    {/* Cheville / clou en bois d'amarrage */}
+    <rect x="2" y="24" width="10" height="7" rx="1.5" fill="#38210c" stroke="#1a1a1a" strokeWidth="1.5" />
+    <circle cx="5" cy="27.5" r="1.5" fill="#eaddcf" />
+
+    {/* Nœud de cordelette enroulé autour du poteau */}
+    <g id="rope-knot">
+      <ellipse cx="20" cy="27" rx="16" ry="6.5" fill="#1a1a1a" />
+      <ellipse cx="20" cy="27" rx="14" ry="4.5" fill="#2c2723" stroke="#eaddcf" strokeWidth="0.8" strokeDasharray="3 2" />
+      <ellipse cx="20" cy="32" rx="15" ry="6" fill="#1a1a1a" />
+      <ellipse cx="20" cy="32" rx="13" ry="4" fill="#2c2723" stroke="#eaddcf" strokeWidth="0.8" strokeDasharray="3 2" />
+      {/* Extrémité de cordelette qui retombe le long du poteau */}
+      <path d="M 6 33 Q 3 45 5 58" stroke="#1a1a1a" strokeWidth="3" fill="none" strokeLinecap="round" />
+      <path d="M 6 33 Q 3 45 5 58" stroke="#eaddcf" strokeWidth="0.9" fill="none" strokeDasharray="2 2" />
+    </g>
   </svg>
 );
+
+// -----------------------------------------------------------------------------
+// CORDELETTE CATÉNAIRE INCURVÉE (ENCRE CORDEL NOIRE & TRESSÉE FINE) SVG
+// -----------------------------------------------------------------------------
+
+const CordelCatenaryRopeSvg: React.FC<{ sag?: number; className?: string }> = ({
+  sag = 20,
+  className = "w-full h-8 sm:h-10"
+}) => {
+  const pathD = `M 0 6 Q 500 ${6 + sag} 1000 6`;
+  return (
+    <svg
+      className={`${className} select-none overflow-visible block`}
+      preserveAspectRatio="none"
+      viewBox={`0 0 1000 ${14 + sag}`}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <filter id="ropeDropShadow" x="-5%" y="-30%" width="110%" height="220%">
+          <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#000000" floodOpacity="0.4" />
+        </filter>
+      </defs>
+
+      {/* Trait de fond noir / ombre */}
+      <path
+        d={pathD}
+        fill="none"
+        stroke="#000000"
+        strokeWidth="8"
+        strokeOpacity="0.25"
+        strokeLinecap="round"
+      />
+
+      {/* Corps principal de la cordelette en encre noire cordel */}
+      <path
+        d={pathD}
+        fill="none"
+        stroke="#1a1a1a"
+        strokeWidth="5.5"
+        strokeLinecap="round"
+        filter="url(#ropeDropShadow)"
+      />
+
+      {/* Torons tressés hélicoïdaux en hachures claires fines (bois/kraft cordel) */}
+      <path
+        d={pathD}
+        fill="none"
+        stroke="#eaddcf"
+        strokeWidth="1.8"
+        strokeOpacity="0.75"
+        strokeDasharray="4 4.5"
+        strokeLinecap="round"
+      />
+
+      {/* Ligne médiane subtile */}
+      <path
+        d={pathD}
+        fill="none"
+        stroke="#3c342f"
+        strokeWidth="1"
+        strokeDasharray="2 3"
+      />
+    </svg>
+  );
+};
 
 // -----------------------------------------------------------------------------
 // PINCE À LINGE EN BOIS (PREGADOR) SVG
@@ -171,17 +253,96 @@ const ClothespinSvg = () => (
 );
 
 // -----------------------------------------------------------------------------
-// ÉCHANTILLONS AUDIO PRIMAIRES POUR LA PRÉ-ÉCOUTE IMMÉDIATE DES 6 INSTRUMENTS
+// ÉCHANTILLONS AUDIO MULTI-FRAPPES POUR LES 6 INSTRUMENTS DE LA FRISE
 // -----------------------------------------------------------------------------
 
-const BATERIA_SAMPLE_FILES: Record<string, string> = {
-  marcante: '/Mixdown/Alfaia meiao F 1.ogg',
-  caixa: '/Mixdown/Caixa F 1.ogg',
-  gongue: '/Mixdown/Gongue G 1.ogg',
-  agbe: '/Mixdown/Agbe F D 1.ogg',
-  mineiro: '/Mixdown/Mineiro F P 1.ogg',
-  timbal: '/Mixdown/Timbal A 1.ogg',
-};
+export interface InstrumentStrokeInfo {
+  symbol: string;
+  labelFr: string;
+  labelPt: string;
+  file: string;
+}
+
+export interface BateriaInstrumentDef {
+  id: string;
+  name: string;
+  Icon: React.FC;
+  strokes: InstrumentStrokeInfo[];
+}
+
+const BATERIA_INSTRUMENTS_DATA: BateriaInstrumentDef[] = [
+  {
+    id: 'marcante',
+    name: 'Alfaia',
+    Icon: AlfaiaCordelIcon,
+    strokes: [
+      { symbol: 'D', labelFr: 'Main forte', labelPt: 'Toque forte', file: '/Mixdown/Alfaia meiao F 1.ogg' },
+      { symbol: 'I', labelFr: 'Baguette Igaraçu', labelPt: 'Bacalhau Igaraçu', file: '/Mixdown/Alfaia meiao I 1.ogg' },
+      { symbol: 'B', labelFr: 'Barulho', labelPt: 'Barulho', file: '/Mixdown/Alfaia meiao B.ogg' },
+      { symbol: 'd', labelFr: 'Coup faible', labelPt: 'Toque fraco', file: '/Mixdown/Alfaia meiao faible 1.ogg' },
+    ],
+  },
+  {
+    id: 'caixa',
+    name: 'Caixa',
+    Icon: CaixaCordelIcon,
+    strokes: [
+      { symbol: 'D', labelFr: 'Coup fort', labelPt: 'Toque forte', file: '/Mixdown/Caixa F 1.ogg' },
+      { symbol: 'F', labelFr: 'Fla', labelPt: 'Fla', file: '/Mixdown/Caixa Fla 1.ogg' },
+      { symbol: 'R', labelFr: 'Roulement', labelPt: 'Rufada', file: '/Mixdown/Caixa R 1.ogg' },
+    ],
+  },
+  {
+    id: 'gongue',
+    name: 'Gonguê',
+    Icon: GongueCordelIcon,
+    strokes: [
+      { symbol: 'G', labelFr: 'Grave (corps)', labelPt: 'Grave (corpo)', file: '/Mixdown/Gongue G 1.ogg' },
+      { symbol: 'A', labelFr: 'Aigu (bouche)', labelPt: 'Agudo (boca)', file: '/Mixdown/Gongue A 1.ogg' },
+      { symbol: 'X', labelFr: 'Cerclage', labelPt: 'Cerclagem', file: '/Mixdown/Gongue C 1.ogg' },
+    ],
+  },
+  {
+    id: 'agbe',
+    name: 'Agbê',
+    Icon: AgbeCordelIcon,
+    strokes: [
+      { symbol: 'E', labelFr: 'Frappe gauche', labelPt: 'Batida esquerda', file: '/Mixdown/Agbe F E 1.ogg' },
+      { symbol: 'D', labelFr: 'Frappe droite', labelPt: 'Batida direita', file: '/Mixdown/Agbe F D 1.ogg' },
+      { symbol: 'd', labelFr: 'Toucher faible', labelPt: 'Toque fraco', file: '/Mixdown/Agbe f 1.ogg' },
+      { symbol: 'S', labelFr: 'Saut (salto)', labelPt: 'Salto', file: '/Mixdown/Agbe S 1.ogg' },
+    ],
+  },
+  {
+    id: 'mineiro',
+    name: 'Mineiro',
+    Icon: MineiroCordelIcon,
+    strokes: [
+      { symbol: 'P', labelFr: 'Pousser fort', labelPt: 'Ida forte', file: '/Mixdown/Mineiro F P 1.ogg' },
+      { symbol: 'T', labelFr: 'Tirer fort', labelPt: 'Volta forte', file: '/Mixdown/Mineiro F T 1.ogg' },
+      { symbol: 'p', labelFr: 'Secousse faible', labelPt: 'Toque fraco', file: '/Mixdown/Mineiro f 1.ogg' },
+    ],
+  },
+  {
+    id: 'timbal',
+    name: 'Timbal',
+    Icon: TimbalCordelIcon,
+    strokes: [
+      { symbol: 'A', labelFr: 'Ouvert (aberto)', labelPt: 'Aberto', file: '/Mixdown/Timbal A 1.ogg' },
+      { symbol: 'G', labelFr: 'Basse (baixo)', labelPt: 'Baixo', file: '/Mixdown/Timbal G 1.ogg' },
+      { symbol: 'P', labelFr: 'Tonique (preso)', labelPt: 'Preso', file: '/Mixdown/Timbal P 1.ogg' },
+      { symbol: 'S', labelFr: 'Claqué (slap)', labelPt: 'Slap', file: '/Mixdown/Timbal S 1.ogg' },
+    ],
+  },
+];
+
+const ALL_LANDING_SAMPLES = BATERIA_INSTRUMENTS_DATA.flatMap(inst =>
+  inst.strokes.map(s => ({
+    id: inst.id,
+    symbol: s.symbol,
+    file: s.file,
+  }))
+);
 
 const decodedAudioBuffers = new Map<string, AudioBuffer>();
 let landingAudioCtx: AudioContext | null = null;
@@ -197,14 +358,18 @@ function getLandingAudioContext(): AudioContext {
 function preloadLandingSamples() {
   try {
     const ctx = getLandingAudioContext();
-    Object.entries(BATERIA_SAMPLE_FILES).forEach(async ([id, url]) => {
-      if (decodedAudioBuffers.has(id)) return;
+    ALL_LANDING_SAMPLES.forEach(async ({ id, symbol, file }) => {
+      const bufferKey = `${id}_${symbol}`;
+      if (decodedAudioBuffers.has(bufferKey)) return;
       try {
-        const resp = await fetch(url);
+        const resp = await fetch(file);
         if (!resp.ok) return;
         const arrayBuffer = await resp.arrayBuffer();
         const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-        decodedAudioBuffers.set(id, audioBuffer);
+        decodedAudioBuffers.set(bufferKey, audioBuffer);
+        if (!decodedAudioBuffers.has(id)) {
+          decodedAudioBuffers.set(id, audioBuffer);
+        }
       } catch (_) {
         // Fallback silencieux, se chargera au clic
       }
@@ -281,6 +446,74 @@ const PernambucoEstandarteWithMast = () => (
 );
 
 // -----------------------------------------------------------------------------
+// CARTE D'INSTRUMENT PERCUSSIVE AVEC PRÉ-ÉCOUTE MULTI-FRAPPES
+// -----------------------------------------------------------------------------
+
+const CordelInstrumentCard: React.FC<{
+  instrument: BateriaInstrumentDef;
+  isFr: boolean;
+  onPlayStroke: (instId: string, strokeSymbol: string, strokeFile: string) => void;
+}> = React.memo(({ instrument, isFr, onPlayStroke }) => {
+  const [strokeIdx, setStrokeIdx] = useState(0);
+  const [isHit, setIsHit] = useState(false);
+  const hitTimeoutRef = useRef<number | null>(null);
+
+  const totalStrokes = instrument.strokes.length;
+  const currentStroke = instrument.strokes[strokeIdx];
+
+  const handleClick = useCallback(() => {
+    onPlayStroke(instrument.id, currentStroke.symbol, currentStroke.file);
+
+    setIsHit(true);
+    if (hitTimeoutRef.current) window.clearTimeout(hitTimeoutRef.current);
+    hitTimeoutRef.current = window.setTimeout(() => setIsHit(false), 180);
+
+    setStrokeIdx((prev) => (prev + 1) % totalStrokes);
+  }, [instrument.id, currentStroke, totalStrokes, onPlayStroke]);
+
+  const activeLabel = isFr ? currentStroke.labelFr : currentStroke.labelPt;
+  const Icon = instrument.Icon;
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className={`cordel-instrument-card w-full max-w-[124px] flex flex-col items-center p-2 sm:p-2.5 bg-[#eaddcf]/50 hover:bg-[#eaddcf] border-2 border-[#1a1a1a] rounded-sm cordel-wood-shadow-sm cursor-pointer group select-none transition-all duration-100 active:scale-95 ${
+        isHit ? 'ring-2 ring-[#8b2a1a] bg-[#eaddcf]' : ''
+      }`}
+      title={isFr ? `${instrument.name} : ${activeLabel} (cliquez pour écouter et changer de coup)` : `${instrument.name} : ${activeLabel} (toque para ouvir e mudar o toque)`}
+    >
+      <div className={`w-11 h-11 sm:w-13 sm:h-13 flex items-center justify-center text-[#1a1a1a] group-hover:text-[#8b2a1a] transition-all ${
+        isHit ? 'scale-110 text-[#8b2a1a]' : ''
+      }`}>
+        <Icon />
+      </div>
+
+      <span className="font-cactus font-bold text-xs sm:text-sm mt-1 uppercase text-[#1a1a1a] tracking-tight">
+        {instrument.name}
+      </span>
+
+      {/* Nuance courante et indicateurs de frappes (points •) */}
+      <div className="flex flex-col items-center mt-1 w-full">
+        <span className="text-[10px] sm:text-[11px] text-[#8b2a1a] font-serif italic font-semibold leading-tight text-center truncate max-w-full px-1">
+          {activeLabel}
+        </span>
+        <div className="flex items-center justify-center gap-1 mt-1 opacity-70 group-hover:opacity-100">
+          {instrument.strokes.map((_, idx) => (
+            <span
+              key={idx}
+              className={`w-1.5 h-1.5 rounded-full transition-all ${
+                idx === strokeIdx ? 'bg-[#8b2a1a] scale-125' : 'bg-[#1a1a1a]/30'
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+    </button>
+  );
+});
+
+// -----------------------------------------------------------------------------
 // COMPOSANT PRINCIPAL LANDINGPAGE
 // -----------------------------------------------------------------------------
 
@@ -343,7 +576,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     onEnter();
   }, [isUnlocking, onEnter]);
 
-  const handleInstrumentTap = useCallback(async (instId: string, strokeSymbol: string) => {
+  const handleInstrumentTap = useCallback(async (instId: string, strokeSymbol: string, strokeFile: string) => {
     try {
       const ctx = getLandingAudioContext();
       if (ctx.state !== 'running') {
@@ -357,16 +590,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       }
       useAudioStore.getState().unlockAudio();
 
-      // Récupération ou décodage synchrone du sample natif
-      let buffer = decodedAudioBuffers.get(instId);
+      // Récupération ou décodage synchrone du sample natif multi-frappes
+      const bufferKey = `${instId}_${strokeSymbol}`;
+      let buffer = decodedAudioBuffers.get(bufferKey) || decodedAudioBuffers.get(instId);
       if (!buffer) {
-        const url = BATERIA_SAMPLE_FILES[instId];
-        if (url) {
-          const resp = await fetch(url);
-          const arrayBuffer = await resp.arrayBuffer();
-          buffer = await ctx.decodeAudioData(arrayBuffer);
-          decodedAudioBuffers.set(instId, buffer);
-        }
+        try {
+          const resp = await fetch(strokeFile);
+          if (resp.ok) {
+            const arrayBuffer = await resp.arrayBuffer();
+            buffer = await ctx.decodeAudioData(arrayBuffer);
+            decodedAudioBuffers.set(bufferKey, buffer);
+          }
+        } catch (_) {}
       }
 
       if (buffer) {
@@ -390,14 +625,205 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const isFr = currentLang === 'fr';
 
-  const bateriaInstruments = [
-    { id: 'marcante', name: 'Alfaia', stroke: 'D', Icon: AlfaiaCordelIcon },
-    { id: 'caixa', name: 'Caixa', stroke: 'D', Icon: CaixaCordelIcon },
-    { id: 'gongue', name: 'Gonguê', stroke: 'D', Icon: GongueCordelIcon },
-    { id: 'agbe', name: 'Agbê', stroke: 'D', Icon: AgbeCordelIcon },
-    { id: 'mineiro', name: 'Mineiro', stroke: 'D', Icon: MineiroCordelIcon },
-    { id: 'timbal', name: 'Timbal', stroke: 'A', Icon: TimbalCordelIcon },
-  ];
+  const renderBooklet = (id: 1 | 2 | 3 | 4, customClass: string = '') => {
+    return (
+      <article key={id} className={`flex flex-col relative pt-1 group ${customClass}`}>
+        <div className={`cordel-booklet cordel-booklet-${id} flex-1 flex flex-col pt-1`}>
+          <div className="flex justify-center mb-[-8px] relative z-20 pointer-events-none">
+            <ClothespinSvg />
+          </div>
+          <div className="flex-1 bg-[#fdfaf2] border-2 border-[#1a1a1a] p-5 sm:p-6 cordel-wood-shadow flex flex-col justify-between">
+            {id === 1 && (
+              <>
+                <div>
+                  <div className="flex items-center justify-between border-b border-[#1a1a1a]/30 pb-2 mb-3">
+                    <span className="font-cactus text-xs uppercase font-bold tracking-wider text-[#8b2a1a]">
+                      {isFr ? 'LIVRET 01' : 'FOLHETO 01'}
+                    </span>
+                    <span className="font-cactus text-xs uppercase text-[#1a1a1a]/70">
+                      {isFr ? 'LA TRADITION ORALE' : 'A TRADIÇÃO ORAL'}
+                    </span>
+                  </div>
+                  <h2 className="font-cactus font-bold text-xl sm:text-2xl text-[#1a1a1a] mb-3 leading-snug">
+                    {isFr ? '« La mémoire d\'abord »' : '« A memória primeiro »'}
+                  </h2>
+                  <p className="font-serif text-xs sm:text-sm text-[#1a1a1a]/85 leading-relaxed">
+                    {isFr
+                      ? "Le Maracatu de Baque Virado vit dans la rue, par le chant, l'écoute et la transmission directe des mestres. Cet outil ne remplace ni les répétitions ni l'enseignement oral. Il a été pensé comme un carnet de notes : un support pour poser des repères, documenter les toadas et mémoriser les arrangements de chaque batuque et Nações."
+                      : "O Maracatu de Baque Virado vive na rua, pelo canto, pela escuta e pela transmissão direta dos mestres. Esta ferramenta não substitui os ensaios nem o ensino oral. Foi pensada como um caderno de notas: um suporte pour fixar referências, documentar as toadas e memorizar os arranjos de cada batuque e Nações."}
+                  </p>
+                </div>
+                <div className="pt-4 mt-4 border-t border-[#1a1a1a]/20 flex justify-between items-center text-[10px] font-mono uppercase text-[#1a1a1a]/60">
+                  <span>✦ Maracatu Vivo</span>
+                  <span>Nações & Baque ✦</span>
+                </div>
+              </>
+            )}
+
+            {id === 2 && (
+              <>
+                <div>
+                  <div className="flex items-center justify-between border-b border-[#1a1a1a]/30 pb-2 mb-3">
+                    <span className="font-cactus text-xs uppercase font-bold tracking-wider text-[#8b2a1a]">
+                      {isFr ? 'LIVRET 02' : 'FOLHETO 02'}
+                    </span>
+                    <span className="font-cactus text-xs uppercase text-[#1a1a1a]/70">
+                      {isFr ? 'LE SÉQUENCEUR' : 'O SEQUENCIADOR'}
+                    </span>
+                  </div>
+                  <h2 className="font-cactus font-bold text-xl sm:text-2xl text-[#1a1a1a] mb-3 leading-snug">
+                    {isFr ? '« Apprendre et décortiquer le baque »' : '« Aprender e decifrar o baque »'}
+                  </h2>
+                  <ul className="space-y-2 text-xs sm:text-sm font-serif text-[#1a1a1a]/85 leading-snug">
+                    <li className="flex items-start gap-1.5">
+                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
+                      <span>
+                        <strong>{isFr ? 'Le cycle à 360° :' : 'O ciclo em 360° :'}</strong>{' '}
+                        {isFr
+                          ? 'visualiser la tourne continue d’un coup d’œil, sans coupure linéaire.'
+                          : 'visualizar a levada contínua num relance, sem corte linear.'}
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
+                      <span>
+                        <strong>{isFr ? 'L’écoute analytique :' : 'A escuta analítica :'}</strong>{' '}
+                        {isFr
+                          ? 'isoler un pupitre en solo, ralentir le tempo sans altérer le timbre et boucler les passages clés.'
+                          : 'solar um naipe, desacelerar o andamento sem alterar o timbre e criar loops nos trechos-chave.'}
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
+                      <span>
+                        <strong>{isFr ? 'L’acoustique authentique :' : 'A acústica autêntica :'}</strong>{' '}
+                        {isFr
+                          ? 'banques de sons enregistrées sur instruments réels (Alfaias, Caixas, Gonguê, Agbê, Mineiro et Timbal).'
+                          : 'bancos de sons gravados em instrumentos reais (Alfaias, Caixas, Gonguê, Agbê, Mineiro e Timbal).'}
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
+                      <span>
+                        <strong>{isFr ? 'Le balanço vivant :' : 'O balanço vivo :'}</strong>{' '}
+                        {isFr
+                          ? 'réglage fin du micro-timing pour retrouver le groove organique propre à chaque batuque.'
+                          : 'ajuste fino do micro-timing para resgatar o groove orgânico próprio de cada batuque.'}
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="pt-4 mt-4 border-t border-[#1a1a1a]/20 flex justify-between items-center text-[10px] font-mono uppercase text-[#1a1a1a]/60">
+                  <span>✦ 360° Loop</span>
+                  <span>Micro-Timing ✦</span>
+                </div>
+              </>
+            )}
+
+            {id === 3 && (
+              <>
+                <div>
+                  <div className="flex items-center justify-between border-b border-[#1a1a1a]/30 pb-2 mb-3">
+                    <span className="font-cactus text-xs uppercase font-bold tracking-wider text-[#8b2a1a]">
+                      {isFr ? 'LIVRET 03' : 'FOLHETO 03'}
+                    </span>
+                    <span className="font-cactus text-xs uppercase text-[#1a1a1a]/70">
+                      ORGANIZADOR & DANÇADOR
+                    </span>
+                  </div>
+                  <h2 className="font-cactus font-bold text-xl sm:text-2xl text-[#1a1a1a] mb-3 leading-snug">
+                    {isFr ? '« De la partition à la répétition »' : '« Da partitura ao ensaio »'}
+                  </h2>
+                  <ul className="space-y-2 text-xs sm:text-sm font-serif text-[#1a1a1a]/85 leading-snug">
+                    <li className="flex items-start gap-1.5">
+                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
+                      <span>
+                        <strong>{isFr ? 'Passerelle pédagogique :' : 'Ponte pedagógica :'}</strong>{' '}
+                        {isFr
+                          ? 'exploitation directe des morceaux créés dans Organizador pour générer des fiches de révision et QCM interactifs.'
+                          : 'integração direta das músicas criadas no Organizador para gerar fichas de revisão e questionários interativos.'}
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
+                      <span>
+                        <strong>{isFr ? 'Le geste et le pas :' : 'O gesto e o passo :'}</strong>{' '}
+                        {isFr
+                          ? 'synchronisation des mouvements de danse de Dançador sur la pulsation exacte des tambours.'
+                          : 'sincronização dos movimentos de dança do Dançador na pulsação exata dos tambores.'}
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
+                      <span>
+                        <strong>{isFr ? 'Gestion collective :' : 'Gestão coletiva :'}</strong>{' '}
+                        {isFr
+                          ? 'organisation du répertoire interne, des répétitions et de la vie de groupe sur une plateforme unifiée.'
+                          : 'organização do repertório interno, dos ensaios e da vida do grupo em uma plataforma unificada.'}
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="pt-4 mt-4 border-t border-[#1a1a1a]/20 flex justify-between items-center text-[10px] font-mono uppercase text-[#1a1a1a]/60">
+                  <span>✦ Pédagogie</span>
+                  <span>Corps & Pas ✦</span>
+                </div>
+              </>
+            )}
+
+            {id === 4 && (
+              <>
+                <div>
+                  <div className="flex items-center justify-between border-b border-[#1a1a1a]/30 pb-2 mb-3">
+                    <span className="font-cactus text-xs uppercase font-bold tracking-wider text-[#8b2a1a]">
+                      {isFr ? 'LIVRET 04' : 'FOLHETO 04'}
+                    </span>
+                    <span className="font-cactus text-xs uppercase text-[#1a1a1a]/70">
+                      ORQUESTRADOR
+                    </span>
+                  </div>
+                  <h2 className="font-cactus font-bold text-xl sm:text-2xl text-[#1a1a1a] mb-3 leading-snug">
+                    {isFr ? '« Connecter les Nações et les groupes »' : '« Conectar as Nações e os grupos »'}
+                  </h2>
+                  <ul className="space-y-2 text-xs sm:text-sm font-serif text-[#1a1a1a]/85 leading-snug">
+                    <li className="flex items-start gap-1.5">
+                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
+                      <span>
+                        <strong>{isFr ? 'La carte mondiale :' : 'O mapa mundial :'}</strong>{' '}
+                        {isFr
+                          ? 'inscription de son groupe ou nação sur la cartographie internationale des batucadas et ensembles percussifs.'
+                          : 'cadastro do seu grupo ou nação na cartografia internacional de batucadas e grupos percussivos.'}
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-1.5">
+                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
+                      <span>
+                        <strong>{isFr ? 'Partage de rythmes :' : 'Compartilhamento :'}</strong>{' '}
+                        {isFr
+                          ? 'échange de motifs et découverte d’arrangements créés par la communauté.'
+                          : 'troca de levadas e descoberta de arranjos criados pela comunidade.'}
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-[#1a1a1a]/20">
+                  <a
+                    href={getEcosystemUrl('orquestrador')}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full py-2.5 px-3 bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-[#1a1a1a] text-center border-2 border-[#1a1a1a] font-cactus font-bold text-xs uppercase tracking-wide cordel-wood-shadow-sm transition-colors active:translate-x-[1px] active:translate-y-[1px]"
+                  >
+                    {isFr ? '🌍 Inscrire mon groupe sur la carte' : '🌍 Cadastrar meu grupo no mapa'}
+                  </a>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </article>
+    );
+  };
 
   return (
     <div id="landing-page" className="min-h-screen bg-[#f4ecd8] text-[#1a1a1a] flex flex-col justify-between relative selection:bg-[#8b2a1a] selection:text-[#f4ecd8]">
@@ -487,289 +913,117 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
 
         {/* Accroche bilingue sous le titre */}
-        <p className="font-serif italic text-sm sm:text-base md:text-lg text-[#1a1a1a]/90 max-w-xl mx-auto px-4 mt-3">
-          {isFr ? '« Le séquenceur circulaire du Maracatu de Baque Virado »' : '« O sequenciador circular do Maracatu de Baque Virado »'}
+        <p className="font-serif italic text-sm sm:text-base md:text-lg text-[#1a1a1a]/80 text-center max-w-xl mx-auto mt-4 px-4 leading-relaxed">
+          {isFr
+            ? 'Le séquenceur circulaire du Maracatu de Baque Virado'
+            : 'O sequenciador circular do Maracatu de Baque Virado'}
         </p>
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* 3. FRISE DES 6 INSTRUMENTS (BANC DE BATERIA & PRÉCHARGEMENT)       */}
+      {/* 3. FRISE DES 6 INSTRUMENTS (BANC DE BATERIA MULTI-FRAPPES)         */}
       {/* ------------------------------------------------------------------ */}
       <section className="w-full max-w-4xl mx-auto px-4 py-3 z-20">
-
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 sm:gap-4 justify-items-center">
-          {bateriaInstruments.map(({ id, name, stroke, Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => handleInstrumentTap(id, stroke)}
-              className="cordel-instrument-card w-full max-w-[120px] flex flex-col items-center p-2 sm:p-3 bg-[#eaddcf]/50 hover:bg-[#eaddcf] border-2 border-[#1a1a1a] rounded-sm cordel-wood-shadow-sm cursor-pointer group select-none"
-              title={isFr ? `Tester la frappe de : ${name}` : `Ouvir o toque de : ${name}`}
-            >
-              <div className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center text-[#1a1a1a] group-hover:text-[#8b2a1a] transition-colors">
-                <Icon />
-              </div>
-              <span className="font-cactus font-bold text-xs sm:text-sm mt-1 uppercase text-[#1a1a1a]">
-                {name}
-              </span>
-              <span className="text-[10px] text-[#8b2a1a] font-mono font-bold mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                ▶ {isFr ? 'Taper' : 'Tocar'}
-              </span>
-            </button>
+          {BATERIA_INSTRUMENTS_DATA.map((instrument) => (
+            <CordelInstrumentCard
+              key={instrument.id}
+              instrument={instrument}
+              isFr={isFr}
+              onPlayStroke={handleInstrumentTap}
+            />
           ))}
         </div>
       </section>
 
       {/* ------------------------------------------------------------------ */}
-      {/* 4. LA CORDE DE BATEAU & LES 4 LIVRETS DE CORDEL ANIMÉS (ORGANIZAD'OR) */}
+      {/* 4. LE VARAL DE CORDEL & LES 4 LIVRETS ANIMÉS (ORGANIZAD'OR)        */}
       {/* ------------------------------------------------------------------ */}
       <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 pt-4 pb-12 z-20">
         
-        {/* Grille responsive fluide des 4 livrets de cordel : 1 col mobile, 2 cols tablette, 4 cols bureau */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 md:gap-6 lg:gap-5 w-full pt-2">
-          
-          {/* ---------------- LIVRET 1 : A TRADIÇÃO ORAL ---------------- */}
-          <article className="flex flex-col relative pt-1 group">
-            {/* Corde de bateau stylisée propre à ce livret (continue en multi-colonnes) */}
-            <div className="relative w-full flex items-center justify-center mb-[-14px] z-10">
-              <div className="w-[calc(100%+32px)] md:w-[calc(100%+24px)] lg:w-[calc(100%+20px)] -mx-4 md:-mx-3 lg:-mx-2.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)]">
-                <NauticalRopeSvg />
-              </div>
-            </div>
+        {/* Version Bureau (Largeur >= 1024px) : 1 grand varal continu avec 2 poteaux aux extrémités et les 4 livrets */}
+        <div className="hidden lg:block relative w-full pt-3">
+          {/* Poteau gauche */}
+          <div className="absolute left-[-22px] top-[-14px] z-30 pointer-events-none">
+            <CordelWoodenPostSvg />
+          </div>
 
-            {/* Pince en bois & livret suspendus qui oscillent ensemble */}
-            <div className="cordel-booklet cordel-booklet-1 flex-1 flex flex-col pt-1">
-              <div className="flex justify-center mb-[-8px] relative z-20 pointer-events-none">
-                <ClothespinSvg />
-              </div>
-              <div className="flex-1 bg-[#fdfaf2] border-2 border-[#1a1a1a] p-5 sm:p-6 cordel-wood-shadow flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between border-b border-[#1a1a1a]/30 pb-2 mb-3">
-                    <span className="font-cactus text-xs uppercase font-bold tracking-wider text-[#8b2a1a]">
-                      {isFr ? 'LIVRET 01' : 'FOLHETO 01'}
-                    </span>
-                    <span className="font-cactus text-xs uppercase text-[#1a1a1a]/70">
-                      {isFr ? 'LA TRADITION ORALE' : 'A TRADIÇÃO ORAL'}
-                    </span>
-                  </div>
-                  <h2 className="font-cactus font-bold text-xl sm:text-2xl text-[#1a1a1a] mb-3 leading-snug">
-                    {isFr ? '« La mémoire d\'abord »' : '« A memória primeiro »'}
-                  </h2>
-                  <p className="font-serif text-xs sm:text-sm text-[#1a1a1a]/85 leading-relaxed">
-                    {isFr
-                      ? "Le Maracatu de Baque Virado vit dans la rue, par le chant, l'écoute et la transmission directe des mestres. Cet outil ne remplace ni les répétitions ni l'enseignement oral. Il a été pensé comme un carnet de notes : un support pour poser des repères, documenter les toadas et mémoriser les arrangements de chaque batuque et Nações."
-                      : "O Maracatu de Baque Virado vive na rua, pelo canto, pela escuta e pela transmissão direta dos mestres. Esta ferramenta não substitui os ensaios nem o ensino oral. Foi pensada como um caderno de notas: um suporte pour fixar referências, documentar as toadas e memorizar os arranjos de cada batuque e Nações."}
-                  </p>
-                </div>
-                <div className="pt-4 mt-4 border-t border-[#1a1a1a]/20 flex justify-between items-center text-[10px] font-mono uppercase text-[#1a1a1a]/60">
-                  <span>✦ Maracatu Vivo</span>
-                  <span>Nações & Baque ✦</span>
-                </div>
-              </div>
-            </div>
-          </article>
+          {/* Cordelette caténaire suspendue reliant les deux poteaux */}
+          <div className="absolute top-[10px] left-[2px] right-[2px] z-10 pointer-events-none">
+            <CordelCatenaryRopeSvg sag={22} className="w-full h-9" />
+          </div>
 
-          {/* ---------------- LIVRET 2 : O SEQUENCIADOR ---------------- */}
-          <article className="flex flex-col relative pt-1 group">
-            {/* Corde de bateau stylisée propre à ce livret */}
-            <div className="relative w-full flex items-center justify-center mb-[-14px] z-10">
-              <div className="w-[calc(100%+32px)] md:w-[calc(100%+24px)] lg:w-[calc(100%+20px)] -mx-4 md:-mx-3 lg:-mx-2.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)]">
-                <NauticalRopeSvg />
-              </div>
-            </div>
+          {/* Poteau droit */}
+          <div className="absolute right-[-22px] top-[-14px] z-30 pointer-events-none">
+            <CordelWoodenPostSvg isRight />
+          </div>
 
-            <div className="cordel-booklet cordel-booklet-2 flex-1 flex flex-col pt-1">
-              <div className="flex justify-center mb-[-8px] relative z-20 pointer-events-none">
-                <ClothespinSvg />
-              </div>
-              <div className="flex-1 bg-[#fdfaf2] border-2 border-[#1a1a1a] p-5 sm:p-6 cordel-wood-shadow flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between border-b border-[#1a1a1a]/30 pb-2 mb-3">
-                    <span className="font-cactus text-xs uppercase font-bold tracking-wider text-[#8b2a1a]">
-                      {isFr ? 'LIVRET 02' : 'FOLHETO 02'}
-                    </span>
-                    <span className="font-cactus text-xs uppercase text-[#1a1a1a]/70">
-                      {isFr ? 'LE SÉQUENCEUR' : 'O SEQUENCIADOR'}
-                    </span>
-                  </div>
-                  <h2 className="font-cactus font-bold text-xl sm:text-2xl text-[#1a1a1a] mb-3 leading-snug">
-                    {isFr ? '« Apprendre et décortiquer le baque »' : '« Aprender e decifrar o baque »'}
-                  </h2>
-                  <ul className="space-y-2 text-xs sm:text-sm font-serif text-[#1a1a1a]/85 leading-snug">
-                    <li className="flex items-start gap-1.5">
-                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>{isFr ? 'Le cycle à 360° :' : 'O ciclo em 360° :'}</strong>{' '}
-                        {isFr
-                          ? 'visualiser la tourne continue d’un coup d’œil, sans coupure linéaire.'
-                          : 'visualizar a levada contínua num relance, sem corte linear.'}
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-1.5">
-                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>{isFr ? 'L’écoute analytique :' : 'A escuta analítica :'}</strong>{' '}
-                        {isFr
-                          ? 'isoler un pupitre en solo, ralentir le tempo sans altérer le timbre et boucler les passages clés.'
-                          : 'solar um naipe, desacelerar o andamento sem alterar o timbre e criar loops nos trechos-chave.'}
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-1.5">
-                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>{isFr ? 'L’acoustique authentique :' : 'A acústica autêntica :'}</strong>{' '}
-                        {isFr
-                          ? 'banques de sons enregistrées sur instruments réels (Alfaias, Caixas, Gonguê, Agbê, Mineiro et Timbal).'
-                          : 'bancos de sons gravados em instrumentos reais (Alfaias, Caixas, Gonguê, Agbê, Mineiro e Timbal).'}
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-1.5">
-                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>{isFr ? 'Le balanço vivant :' : 'O balanço vivo :'}</strong>{' '}
-                        {isFr
-                          ? 'réglage fin du micro-timing pour retrouver le groove organique propre à chaque batuque.'
-                          : 'ajuste fino do micro-timing para resgatar o groove orgânico próprio de cada batuque.'}
-                      </span>
-                    </li>
-                  </ul>
-                </div>
-                <div className="pt-4 mt-4 border-t border-[#1a1a1a]/20 flex justify-between items-center text-[10px] font-mono uppercase text-[#1a1a1a]/60">
-                  <span>✦ 360° Loop</span>
-                  <span>Micro-Timing ✦</span>
-                </div>
-              </div>
-            </div>
-          </article>
-
-          {/* ------------ LIVRET 3 : ORGANIZADOR & DANÇADOR ------------ */}
-          <article className="flex flex-col relative pt-1 group">
-            {/* Corde de bateau stylisée propre à ce livret */}
-            <div className="relative w-full flex items-center justify-center mb-[-14px] z-10">
-              <div className="w-[calc(100%+32px)] md:w-[calc(100%+24px)] lg:w-[calc(100%+20px)] -mx-4 md:-mx-3 lg:-mx-2.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)]">
-                <NauticalRopeSvg />
-              </div>
-            </div>
-
-            <div className="cordel-booklet cordel-booklet-3 flex-1 flex flex-col pt-1">
-              <div className="flex justify-center mb-[-8px] relative z-20 pointer-events-none">
-                <ClothespinSvg />
-              </div>
-              <div className="flex-1 bg-[#fdfaf2] border-2 border-[#1a1a1a] p-5 sm:p-6 cordel-wood-shadow flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between border-b border-[#1a1a1a]/30 pb-2 mb-3">
-                    <span className="font-cactus text-xs uppercase font-bold tracking-wider text-[#8b2a1a]">
-                      {isFr ? 'LIVRET 03' : 'FOLHETO 03'}
-                    </span>
-                    <span className="font-cactus text-xs uppercase text-[#1a1a1a]/70">
-                      ORGANIZADOR & DANÇADOR
-                    </span>
-                  </div>
-                  <h2 className="font-cactus font-bold text-xl sm:text-2xl text-[#1a1a1a] mb-3 leading-snug">
-                    {isFr ? '« De la partition à la répétition »' : '« Da partitura ao ensaio »'}
-                  </h2>
-                  <ul className="space-y-2 text-xs sm:text-sm font-serif text-[#1a1a1a]/85 leading-snug">
-                    <li className="flex items-start gap-1.5">
-                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>{isFr ? 'Passerelle pédagogique :' : 'Ponte pedagógica :'}</strong>{' '}
-                        {isFr
-                          ? 'exploitation directe des morceaux créés dans Organizador pour générer des fiches de révision et QCM interactifs.'
-                          : 'integração direta das músicas criadas no Organizador para gerar fichas de revisão e questionários interativos.'}
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-1.5">
-                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>{isFr ? 'Le geste et le pas :' : 'O gesto e o passo :'}</strong>{' '}
-                        {isFr
-                          ? 'synchronisation des mouvements de danse de Dançador sur la pulsation exacte des tambours.'
-                          : 'sincronização dos movimentos de dança do Dançador na pulsação exata dos tambores.'}
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-1.5">
-                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>{isFr ? 'Gestion collective :' : 'Gestão coletiva :'}</strong>{' '}
-                        {isFr
-                          ? 'organisation du répertoire interne, des répétitions et de la vie de groupe sur une plateforme unifiée.'
-                          : 'organização do repertório interno, dos ensaios e da vida do grupo em uma plataforma unificada.'}
-                      </span>
-                    </li>
-                  </ul>
-                </div>
-                <div className="pt-4 mt-4 border-t border-[#1a1a1a]/20 flex justify-between items-center text-[10px] font-mono uppercase text-[#1a1a1a]/60">
-                  <span>✦ Pédagogie</span>
-                  <span>Corps & Pas ✦</span>
-                </div>
-              </div>
-            </div>
-          </article>
-
-          {/* ---------------- LIVRET 4 : ORQUESTRADOR ------------------ */}
-          <article className="flex flex-col relative pt-1 group">
-            {/* Corde de bateau stylisée propre à ce livret */}
-            <div className="relative w-full flex items-center justify-center mb-[-14px] z-10">
-              <div className="w-[calc(100%+32px)] md:w-[calc(100%+24px)] lg:w-[calc(100%+20px)] -mx-4 md:-mx-3 lg:-mx-2.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.35)]">
-                <NauticalRopeSvg />
-              </div>
-            </div>
-
-            <div className="cordel-booklet cordel-booklet-4 flex-1 flex flex-col pt-1">
-              <div className="flex justify-center mb-[-8px] relative z-20 pointer-events-none">
-                <ClothespinSvg />
-              </div>
-              <div className="flex-1 bg-[#fdfaf2] border-2 border-[#1a1a1a] p-5 sm:p-6 cordel-wood-shadow flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between border-b border-[#1a1a1a]/30 pb-2 mb-3">
-                    <span className="font-cactus text-xs uppercase font-bold tracking-wider text-[#8b2a1a]">
-                      {isFr ? 'LIVRET 04' : 'FOLHETO 04'}
-                    </span>
-                    <span className="font-cactus text-xs uppercase text-[#1a1a1a]/70">
-                      ORQUESTRADOR
-                    </span>
-                  </div>
-                  <h2 className="font-cactus font-bold text-xl sm:text-2xl text-[#1a1a1a] mb-3 leading-snug">
-                    {isFr ? '« Connecter les Nações et les groupes »' : '« Conectar as Nações e os grupos »'}
-                  </h2>
-                  <ul className="space-y-2 text-xs sm:text-sm font-serif text-[#1a1a1a]/85 leading-snug">
-                    <li className="flex items-start gap-1.5">
-                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>{isFr ? 'La carte mondiale :' : 'O mapa mundial :'}</strong>{' '}
-                        {isFr
-                          ? 'inscription de son groupe ou nação sur la cartographie internationale des batucadas et ensembles percussifs.'
-                          : 'cadastro do seu grupo ou nação na cartografia internacional de batucadas e grupos percussivos.'}
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-1.5">
-                      <span className="text-[#8b2a1a] font-bold mt-0.5">✦</span>
-                      <span>
-                        <strong>{isFr ? 'Partage de rythmes :' : 'Compartilhamento :'}</strong>{' '}
-                        {isFr
-                          ? 'échange de motifs et découverte d’arrangements créés par la communauté.'
-                          : 'troca de levadas e descoberta de arranjos criados pela comunidade.'}
-                      </span>
-                    </li>
-                  </ul>
-                </div>
-
-                {/* Bouton d'action vers Orquestrador */}
-                <div className="mt-4 pt-3 border-t border-[#1a1a1a]/20">
-                  <a
-                    href={getEcosystemUrl('orquestrador')}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block w-full py-2.5 px-3 bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-[#1a1a1a] text-center border-2 border-[#1a1a1a] font-cactus font-bold text-xs uppercase tracking-wide cordel-wood-shadow-sm transition-colors active:translate-x-[1px] active:translate-y-[1px]"
-                  >
-                    {isFr ? '🌍 Inscrire mon groupe sur la carte' : '🌍 Cadastrar meu grupo no mapa'}
-                  </a>
-                </div>
-              </div>
-            </div>
-          </article>
-
+          {/* Grille des 4 livrets épousant la courbure de la corde */}
+          <div className="grid grid-cols-4 gap-5 w-full px-5">
+            {renderBooklet(1, 'translate-y-[5px]')}
+            {renderBooklet(2, 'translate-y-[16px]')}
+            {renderBooklet(3, 'translate-y-[16px]')}
+            {renderBooklet(4, 'translate-y-[5px]')}
+          </div>
         </div>
+
+        {/* Version Tablette (768px <= Largeur < 1024px) : 2 rangées de 2 livrets avec poteaux et corde caténaire */}
+        <div className="hidden md:flex lg:hidden flex-col gap-12 w-full pt-3">
+          {/* Rangée 1 : Livrets 1 & 2 */}
+          <div className="relative w-full">
+            <div className="absolute left-[-18px] top-[-14px] z-30 pointer-events-none">
+              <CordelWoodenPostSvg />
+            </div>
+            <div className="absolute top-[10px] left-[2px] right-[2px] z-10 pointer-events-none">
+              <CordelCatenaryRopeSvg sag={14} className="w-full h-8" />
+            </div>
+            <div className="absolute right-[-18px] top-[-14px] z-30 pointer-events-none">
+              <CordelWoodenPostSvg isRight />
+            </div>
+            <div className="grid grid-cols-2 gap-6 w-full px-5">
+              {renderBooklet(1, 'translate-y-[7px]')}
+              {renderBooklet(2, 'translate-y-[7px]')}
+            </div>
+          </div>
+
+          {/* Rangée 2 : Livrets 3 & 4 */}
+          <div className="relative w-full">
+            <div className="absolute left-[-18px] top-[-14px] z-30 pointer-events-none">
+              <CordelWoodenPostSvg />
+            </div>
+            <div className="absolute top-[10px] left-[2px] right-[2px] z-10 pointer-events-none">
+              <CordelCatenaryRopeSvg sag={14} className="w-full h-8" />
+            </div>
+            <div className="absolute right-[-18px] top-[-14px] z-30 pointer-events-none">
+              <CordelWoodenPostSvg isRight />
+            </div>
+            <div className="grid grid-cols-2 gap-6 w-full px-5">
+              {renderBooklet(3, 'translate-y-[7px]')}
+              {renderBooklet(4, 'translate-y-[7px]')}
+            </div>
+          </div>
+        </div>
+
+        {/* Version Mobile (< 768px) : Livrets empilés avec poteaux et cordelette incurvée dédiée */}
+        <div className="flex md:hidden flex-col gap-10 w-full pt-3">
+          {([1, 2, 3, 4] as const).map((id) => (
+            <div key={id} className="relative w-full">
+              <div className="absolute left-[-12px] top-[-10px] z-30 pointer-events-none">
+                <CordelWoodenPostSvg className="w-6 h-24" />
+              </div>
+              <div className="absolute top-[8px] left-[2px] right-[2px] z-10 pointer-events-none">
+                <CordelCatenaryRopeSvg sag={10} className="w-full h-7" />
+              </div>
+              <div className="absolute right-[-12px] top-[-10px] z-30 pointer-events-none">
+                <CordelWoodenPostSvg isRight className="w-6 h-24" />
+              </div>
+              <div className="w-full px-4">
+                {renderBooklet(id, 'translate-y-[5px]')}
+              </div>
+            </div>
+          ))}
+        </div>
+
       </section>
 
       {/* ------------------------------------------------------------------ */}
