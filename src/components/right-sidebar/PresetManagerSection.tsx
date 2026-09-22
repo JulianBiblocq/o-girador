@@ -209,9 +209,9 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
     setIsPhotoBoothOpen(false);
   };
 
-  const handleSaveEditSignal = (updatedSignal: RhythmSignal) => {
+  const handleSaveEditSignal = (updatedSignal: any) => {
     const prev = metadata.rhythmSignals || [];
-    const updated = prev.map((s) => (s.id === updatedSignal.id ? updatedSignal : s));
+    const updated = prev.map((s) => (s.id === updatedSignal.id ? { ...s, ...updatedSignal } : s));
     onMetadataChange({ ...metadata, rhythmSignals: updated });
     setLocalSignalToEdit(null);
   };

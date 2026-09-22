@@ -1,60 +1,5 @@
 {
-  "cookies": [
-    {
-      "name": "__Secure-YNID",
-      "value": "21.YT=rgt4qzwVREAuqFOlNPPGQBpemCLHEWF1_FE4n2VkKV8_DcPnAng7xAYgLEJnGzvFMovt9hSImqm2pm0EVLXmlb3P5hg8DAQLKnQXIOj1X6kV2BaUwEcaLpBF-l3sMI3FNQ9GcgNDbC-VBxZbmciYJRpR5pbdq8P0FNtr-bfkUbJxEweZUc_iCMOa-73YlHoM4NdMisUqEyKL15xwMn16W3q_0Z8AlG_j_w4BsKAxxBux8nY-rQwnVyyF4mu_ZIlPU1nDbb3iqV1uZEo2T0hiPbYhknH0GpqPIuQMULIn81XQTKCrWRCNdyur7vTvFqAwJVPTzC731jP3YMZ_NeIv2Q",
-      "domain": ".youtube.com",
-      "path": "/",
-      "expires": 1805592859.589096,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None",
-      "partitionKey": "http://localhost",
-      "_crHasCrossSiteAncestor": true
-    },
-    {
-      "name": "YSC",
-      "value": "L1ckMldgCik",
-      "domain": ".youtube.com",
-      "path": "/",
-      "expires": -1,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
-      "name": "VISITOR_INFO1_LIVE",
-      "value": "0knecKYnK9k",
-      "domain": ".youtube.com",
-      "path": "/",
-      "expires": 1805592859.589742,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
-      "name": "VISITOR_PRIVACY_METADATA",
-      "value": "CgJGUhIiEh4SHAsMDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicgQQ%3D%3D",
-      "domain": ".youtube.com",
-      "path": "/",
-      "expires": 1805592859.589754,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None"
-    },
-    {
-      "name": "__Secure-ROLLOUT_TOKEN",
-      "value": "COvboZ7506i4WxCWyrzshYGXAxiWyrzshYGXAw%3D%3D",
-      "domain": ".youtube.com",
-      "path": "/",
-      "expires": 1805592859.589774,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "None",
-      "partitionKey": "http://localhost",
-      "_crHasCrossSiteAncestor": true
-    }
-  ],
+  "cookies": [],
   "origins": [
     {
       "origin": "http://localhost:5174",
@@ -64,12 +9,16 @@
           "value": "true"
         },
         {
+          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_HdC8YCO9JWoxqzHsWKEy",
+          "value": "{\"activeTargetIds\":[26,54],\"updateTimeMs\":1790088363030}"
+        },
+        {
           "name": "firestore_sequence_number_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "394"
+          "value": "340"
         },
         {
           "name": "oGirador_reverb_decay",
-          "value": "1.925"
+          "value": "5.225"
         },
         {
           "name": "ogirador-wallpaper",
@@ -80,41 +29,28 @@
           "value": "pt"
         },
         {
-          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_vqbuItXfKbUTOv69seKS",
-          "value": "{\"activeTargetIds\":[24,52],\"updateTimeMs\":1790040859426}"
+          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_54",
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1790088362926}"
         },
         {
           "name": "firestore_online_state_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "{\"clientId\":\"vqbuItXfKbUTOv69seKS\",\"onlineState\":\"Online\"}"
-        },
-        {
-          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_52",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1790040859318}"
+          "value": "{\"clientId\":\"HdC8YCO9JWoxqzHsWKEy\",\"onlineState\":\"Online\"}"
         },
         {
           "name": "o-girador-theme",
           "value": "light"
         },
         {
-          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_24",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1790040859318}"
+          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_26",
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1790088362926}"
+        },
+        {
+          "name": "o_girador_left_handed",
+          "value": "false"
         },
         {
           "name": "oGirador_master_reverb_vol",
-          "value": "-7.5"
-        }
-      ]
-    },
-    {
-      "origin": "https://www.youtube.com",
-      "localStorage": [
-        {
-          "name": "ytidb::LAST_RESULT_ENTRY_KEY",
-          "value": "{\"data\":{\"hasSucceededOnce\":true},\"expiration\":1792632860001,\"creation\":1790040860001}"
-        },
-        {
-          "name": "yt-icons-last-purged",
-          "value": "1782351260117"
+          "value": "63"
         }
       ]
     }

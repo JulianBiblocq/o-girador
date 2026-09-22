@@ -142,11 +142,11 @@ export function isPresetAuthorized(
   }
 
   // 2. Normalisation des groupes
-  const dataGroupIdNorm = String((data as any).groupId || '').toLowerCase().trim();
+  const dataGroupIdNorm = String((data as any).groupId || (data as any).groupName || (data as any).group || '').toLowerCase().trim();
   const userGroupNorm = String(groupId || (isSamambaiaGroup || canWriteSequenciador ? 'samambaia' : '')).toLowerCase().trim();
 
   const isSamambaiaPreset =
-    dataGroupIdNorm === 'samambaia' ||
+    dataGroupIdNorm.includes('samambaia') ||
     dataGroupIdNorm.includes('sammbia') ||
     data.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
     data.ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
@@ -162,17 +162,19 @@ export function isPresetAuthorized(
 
   // 3. Pour un élève, membre, ou utilisateur du groupe (y compris Samambaia par défaut),
   // tous les morceaux du groupe ou partagés par le mestre sont accessibles
+  const isMemberOrEleve = userRole === 'eleve' || userRole === 'membre' || userRole === 'mestre' || userRole === 'admin';
+
   if (matchesGroup || matchesMestre) {
     return true;
   }
 
-  if ((isSamambaiaGroup || userGroupNorm.includes('samambaia')) && isSamambaiaPreset) {
+  if ((isSamambaiaGroup || userGroupNorm.includes('samambaia') || isMemberOrEleve) && isSamambaiaPreset) {
     return true;
   }
 
   // Visibilité groupe générale
   if ((data.visibility as any) === 'group' || data.visibility === 'mestre_group' || !data.visibility) {
-    if (matchesGroup || matchesMestre || isSamambaiaGroup) {
+    if (matchesGroup || matchesMestre || isSamambaiaGroup || isMemberOrEleve) {
       return true;
     }
   }

@@ -3,8 +3,9 @@ import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut,
 import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase/config';
 import { useNomenclatureStore } from '../stores/useNomenclatureStore';
+import { useSequencerStore } from '../stores/useSequencerStore';
 
-export type UserRole = 'visiteur' | 'eleve' | 'mestre' | 'admin';
+export type UserRole = 'visiteur' | 'eleve' | 'membre' | 'mestre' | 'admin';
 
 export interface UserProfile {
   uid: string;
@@ -16,6 +17,7 @@ export interface UserProfile {
   createdAt: number;
   isDarkMode?: boolean;
   isLeftHanded?: boolean;
+  lateralite?: 'droitier' | 'gaucher';
   mestreId?: string | null;
   groupLogoUrl?: string | null;
   maxEleves?: number;
@@ -48,6 +50,7 @@ interface AuthContextType {
 const roleLevels: Record<UserRole, number> = {
   visiteur: 0,
   eleve: 1,
+  membre: 1,
   mestre: 2,
   admin: 3
 };
@@ -165,8 +168,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               sessionStorage.removeItem('o-girador-invite');
             }
             
-            // Auto-resolve Mestre for members belonging to an association/group (e.g. Samambaia)
+            // 1. Latéralité héritée automatiquement depuis Organizador (Zero Render Thrashing)
             const rawData = docSnap.data();
+            const isLeftHanded = (rawData as any).lateralite === 'gaucher' || (rawData as any).isLeftHanded === true;
+            useSequencerStore.getState().setIsLeftHanded(isLeftHanded);
+            profile.lateralite = (rawData as any).lateralite || (isLeftHanded ? 'gaucher' : 'droitier');
+            profile.isLeftHanded = isLeftHanded;
+
+            // Auto-resolve Mestre for members belonging to an association/group (e.g. Samambaia)
             const extractedGroupId = (
               profile.groupId ||
               (rawData as any).group ||
@@ -178,7 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             const isSamambaiaOrEditor = 
               profile.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-              extractedGroupId === 'samambaia' || 
+              extractedGroupId.includes('samambaia') || 
               extractedGroupId.includes('sammbia') ||
               String((rawData as any).groupName || '').toLowerCase().includes('samambaia') ||
               rawData.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
@@ -187,19 +196,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (isSamambaiaOrEditor) {
               // Injection synchrone immédiate en mémoire pour Samambaia et les éditeurs
               const targetMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
-              const targetGroupName = profile.groupName || 'Samambaia';
-              const targetGroupId = 'samambaia';
+              const targetGroupName = 'Samambaia';
+              const targetGroupId = rawData.groupId || 'samambaia';
               profile.mestreId = targetMestreId;
               profile.groupName = targetGroupName;
               profile.groupId = targetGroupId;
+              if (profile.role === 'visiteur') {
+                profile.role = 'membre';
+              }
 
-              const needsUpdate = rawData.mestreId !== targetMestreId || rawData.groupName !== targetGroupName || rawData.groupId !== targetGroupId;
-              if (needsUpdate) {
-                // Persistance non bloquante en tâche de fond
+              // CONSIGNES DE SÉCURITÉ 1 : Prévention stricte de boucle infinie Firestore
+              // Conditionner strictement l'écriture (updateDoc) pour qu'elle ne s'exécute QUE si rawData.mestreId !== 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ou si rawData.groupName !== 'Samambaia'
+              if (rawData.mestreId !== 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' || rawData.groupName !== 'Samambaia') {
                 const updatePayload: Record<string, any> = { mestreId: targetMestreId, groupName: targetGroupName };
-                if (checkIsAdmin(profile)) {
-                  updatePayload.groupId = targetGroupId;
-                }
                 updateDoc(userRef, updatePayload).catch((e) => {
                   console.warn('[AuthContext] Échec persistance profil Samambaia:', e);
                 });
@@ -273,6 +282,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         setUserProfile(null);
         useNomenclatureStore.getState().syncGroupNomenclature(null);
+        // CONSIGNES DE SÉCURITÉ 2 : Nettoyage à la déconnexion
+        useSequencerStore.getState().setIsLeftHanded(false);
         if (!isSSOPending) {
           setLoading(false);
         }
@@ -301,6 +312,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await signOut(auth);
       useNomenclatureStore.getState().syncGroupNomenclature(null);
+      // CONSIGNES DE SÉCURITÉ 2 : Nettoyage à la déconnexion
+      useSequencerStore.getState().setIsLeftHanded(false);
     } catch (error) {
       console.error('Error signing out', error);
     }

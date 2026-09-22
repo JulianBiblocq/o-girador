@@ -6,6 +6,7 @@ interface UseCloudPresetsProps {
   userRole: 'admin' | 'mestre' | 'eleve' | 'membre' | 'visiteur' | string;
   mestreId: string | null;
   groupId?: string | null;
+  groupName?: string | null;
   canWriteSequenciador?: boolean;
 }
 
@@ -18,22 +19,24 @@ export const normalizePresetName = (name: string) =>
     .replace(/[^a-z0-9]/g, '')
     .trim();
 
-export function useCloudPresets({ userUid, userRole, mestreId, groupId, canWriteSequenciador }: UseCloudPresetsProps) {
+export function useCloudPresets({ userUid, userRole, mestreId, groupId, groupName, canWriteSequenciador }: UseCloudPresetsProps) {
   const isSamambaia = Boolean(
     userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
     (groupId && (groupId.toLowerCase().includes('samambaia') || groupId.toLowerCase().includes('sammbia'))) ||
+    (groupName && (groupName.toLowerCase().includes('samambaia') || groupName.toLowerCase().includes('sammbia'))) ||
     mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
     (canWriteSequenciador && (!groupId || groupId.toLowerCase() === 'samambaia'))
   );
 
   const normalizedGroupId = isSamambaia ? 'Samambaia' : (groupId || null);
-  const effectiveMestreId = mestreId || (isSamambaia ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : null);
+  const effectiveMestreId = isSamambaia ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : (mestreId || null);
+  const effectiveRole = isSamambaia && (userRole === 'visiteur' || !userRole) ? 'membre' : userRole;
 
   return useQuery<CloudPreset[]>({
-    queryKey: ['cloudPresets', userUid, normalizedGroupId, effectiveMestreId, userRole, canWriteSequenciador],
+    queryKey: ['cloudPresets', userUid, normalizedGroupId, effectiveMestreId, effectiveRole, canWriteSequenciador],
     queryFn: async () => {
       const { fetchCloudPresets, fetchStoragePresetsJSON } = await import('../../cloudLibrary');
-      const firestorePresetsPromise = fetchCloudPresets(userUid, userRole, effectiveMestreId, normalizedGroupId, canWriteSequenciador);
+      const firestorePresetsPromise = fetchCloudPresets(userUid, effectiveRole, effectiveMestreId, normalizedGroupId, canWriteSequenciador);
       const storagePresetsPromise = normalizedGroupId ? fetchStoragePresetsJSON(normalizedGroupId) : Promise.resolve([]);
       
       const results = await Promise.allSettled([firestorePresetsPromise, storagePresetsPromise]);

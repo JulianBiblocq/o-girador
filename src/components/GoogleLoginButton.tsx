@@ -179,20 +179,30 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
               </div>
 
 
-              {(userProfile.role === 'mestre' || isAdmin) && (
-                <div className="flex flex-col gap-1 mt-1">
-                  <label className="text-[9px] font-bold uppercase text-[var(--cordel-text)]/70">
-                    {lang === 'fr' ? 'Nom du Groupe / Association' : 'Nome do Grupo / Associação'}
-                  </label>
-                  <input
-                    type="text"
-                    value={userProfile.groupName || ''}
-                    onChange={(e) => updateUserProfileField('groupName', e.target.value)}
-                    placeholder={lang === 'fr' ? 'Ex: Samambaia' : 'Ex: Nação'}
-                    className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border border-[var(--cordel-border)]/50 p-1 text-xs font-bold w-full rounded outline-none"
-                  />
-                </div>
-              )}
+              {/* Résumé profil en lecture seule hérité d'Organizador */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-1 pt-1 border-t border-[var(--cordel-border)]/20">
+                {(userProfile.groupName || userProfile.groupId) && (
+                  <span className="text-[10px] font-cactus font-bold px-2 py-0.5 cordel-border-sm bg-[var(--cordel-wood)]/10 text-[var(--cordel-wood)] flex items-center gap-1">
+                    🥁 {userProfile.groupName || userProfile.groupId}
+                  </span>
+                )}
+                <span className="text-[10px] font-cactus font-bold px-2 py-0.5 cordel-border-sm bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+                  {userProfile.role === 'admin'
+                    ? '🛡️ Admin'
+                    : userProfile.role === 'mestre'
+                    ? '👑 Mestre'
+                    : userProfile.role === 'membre'
+                    ? '🥁 Membre'
+                    : userProfile.role === 'eleve'
+                    ? '🎓 Élève'
+                    : '👤 Visiteur'}
+                </span>
+                {userProfile.lateralite && (
+                  <span className="text-[10px] font-cactus font-bold px-2 py-0.5 cordel-border-sm bg-[var(--cordel-bg)] text-[var(--cordel-text)]">
+                    {userProfile.lateralite === 'gaucher' ? '🫲 Gaucher' : '🫱 Droitier'}
+                  </span>
+                )}
+              </div>
             </div>
             {isAdmin && onAdminClick && (
               <button

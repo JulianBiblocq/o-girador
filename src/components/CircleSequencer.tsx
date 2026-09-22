@@ -359,7 +359,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           beatsCount: cloudSig.beatsCount
         };
       } else {
-        const localSig = currentRhythmSignals?.find(s => s.id === sigId);
+        const localSig = currentRhythmSignals?.find(s => s.id === sigId) as any;
         if (localSig) {
           const resolvedLocalImage = (localSig.frames && localSig.frames[0] && localSig.frames[0].startsWith('data:'))
             ? localSig.frames[0]
@@ -586,6 +586,10 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       iteration?: number;
       measureStartTime?: number;
       measureDuration?: number;
+      isPreRoll?: boolean;
+      preRollBeat?: number;
+      preRollMeasureIndex?: number;
+      preRollTotalMeasures?: number;
     }) => {
       const { step, measure, maxTicks, ratio = step / maxTicks, time = 0, iteration = 1, measureStartTime, measureDuration, isPaused } = detail as any;
 

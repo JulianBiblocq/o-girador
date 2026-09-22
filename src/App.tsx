@@ -226,7 +226,8 @@ export default function App() {
       ? 'admin'
       : (userProfile?.role || 'visiteur'),
     mestreId: userProfile?.mestreId || null,
-    groupId: userProfile?.groupId || null,
+    groupId: userProfile?.groupId || userProfile?.groupName || (userProfile as any)?.association || null,
+    groupName: userProfile?.groupName || null,
     canWriteSequenciador: !!userProfile?.canWriteSequenciador
   });
 

@@ -1924,7 +1924,7 @@ export function useAudioSync({
           ? (useSequencerStore.getState().bpm || 100)
           : measureBpmsRef.current[targetM];
         const beatsCount = getBeatsPerMeasure(targetSig);
-        const isCompound = targetSig === '6/8' || targetSig === '9/8' || targetSig === '12/8';
+        const isCompound = (targetSig as string) === '6/8' || (targetSig as string) === '9/8' || targetSig === '12/8';
         const beatDurationSec = isCompound ? (90 / targetBpm) : (60 / targetBpm);
         const measuresCount = preRoll.measuresCount || 1;
 

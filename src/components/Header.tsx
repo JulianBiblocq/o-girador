@@ -201,6 +201,7 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const isSamambaia = Boolean(
     userProfile?.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
     (userProfile?.groupId && (userProfile.groupId.toLowerCase().includes('samambaia') || userProfile.groupId.toLowerCase().includes('sammbia'))) ||
+    (userProfile?.groupName && (userProfile.groupName.toLowerCase().includes('samambaia') || userProfile.groupName.toLowerCase().includes('sammbia'))) ||
     userProfile?.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
     userProfile?.canWriteSequenciador
   );
@@ -366,9 +367,16 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               
               {/* 📂 PROJET */}
               <div className="flex flex-col gap-2 border-b border-[var(--cordel-border)]/30 pb-3">
-                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
-                  📂 {lang === 'pt' ? 'Projeto' : 'Projet'}
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                    📂 {lang === 'pt' ? 'Projeto' : 'Projet'}
+                  </span>
+                  {groupLabel && (
+                    <span className="text-[9px] font-cactus font-bold px-1.5 py-0.5 cordel-border-sm bg-[var(--cordel-wood)]/10 text-[var(--cordel-wood)] flex items-center gap-1">
+                      🥁 {groupLabel}
+                    </span>
+                  )}
+                </div>
                 
                 {/* Presets Selector */}
                 <PresetAccordionSelector
@@ -726,9 +734,16 @@ const HeaderComponent: React.FC<HeaderProps> = ({
               
               {/* PROJET */}
               <div className="flex flex-col gap-2">
-                <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
-                  📂 {lang === 'pt' ? 'Projeto' : 'Projet'}
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-[var(--cordel-wood)] uppercase tracking-wide flex items-center gap-1">
+                    📂 {lang === 'pt' ? 'Projeto' : 'Projet'}
+                  </span>
+                  {groupLabel && (
+                    <span className="text-[9px] font-cactus font-bold px-1.5 py-0.5 cordel-border-sm bg-[var(--cordel-wood)]/10 text-[var(--cordel-wood)] flex items-center gap-1">
+                      🥁 {groupLabel}
+                    </span>
+                  )}
+                </div>
                 
                 {/* Presets Selector */}
                 <PresetAccordionSelector

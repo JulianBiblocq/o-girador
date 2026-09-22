@@ -290,9 +290,13 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
 
   // Size of La Place to draw SVG accurately
   const [placeSize, setPlaceSize] = useState({ width: 0, height: 0 });
+  const placeRef = useRef<HTMLDivElement>(null);
+  const ghostRef = useRef<HTMLDivElement>(null);
+  const dismissZoneRef = useRef<HTMLDivElement>(null);
 
   // Photo-Booth states
   const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const [customSignalsMap, setCustomSignalsMap] = useState<Record<string, RhythmSignal>>({});
   const [rawSignalFrames, setRawSignalFrames] = useState<string[]>([]);
   const [useCordelEffect, setUseCordelEffect] = useState(true);

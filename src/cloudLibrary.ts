@@ -48,9 +48,11 @@ export async function savePresetToCloud(
   const dataString = LZString.compressToBase64(JSON.stringify(presetToSave));
   let effectiveGroupId = groupId ? groupId.trim() : '';
   let effectiveMestreId = mestreId || null;
-
-  const isSamambaiaGroup = effectiveGroupId.toLowerCase() === 'samambaia' ||
-    effectiveGroupId.toLowerCase().includes('sammbia') || Boolean(canWriteSequenciador);
+  const isSamambaiaGroup =
+    ownerId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+    effectiveGroupId.toLowerCase().includes('samambaia') ||
+    effectiveGroupId.toLowerCase().includes('sammbia') ||
+    Boolean(canWriteSequenciador);
 
   if (isSamambaiaGroup) {
     // Normalisation canonique en minuscules pour Samambaia
@@ -130,12 +132,13 @@ export async function fetchCloudPresets(
       const isJulian = userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
       let myGroupMestreId = (userRole === 'mestre' || userRole === 'mestri') ? userUid : mestreId;
       const normalizedUserGroupId = groupId ? groupId.trim().toLowerCase() : '';
-      const isSamambaiaGroup = isJulian || normalizedUserGroupId === 'samambaia' || 
-        normalizedUserGroupId.includes('sammbia') || mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
+      const isSamambaiaGroup = isJulian || 
+        normalizedUserGroupId.includes('samambaia') || 
+        normalizedUserGroupId.includes('sammbia') || 
+        mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
+        Boolean(canWriteSequenciador);
 
-      if (isJulian || groupId?.toLowerCase().includes('samambaia')) {
-        myGroupMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
-      } else if (!myGroupMestreId && (isSamambaiaGroup || canWriteSequenciador)) {
+      if (isJulian || isSamambaiaGroup) {
         myGroupMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
       }
       
