@@ -128,6 +128,7 @@ const CordelWoodenPostSvg: React.FC<{ isRight?: boolean; className?: string }> =
   return (
     <svg
       className={`${className} select-none overflow-visible flex-shrink-0 drop-shadow-[3px_4px_6px_rgba(0,0,0,0.35)] ${isRight ? '-scale-x-100' : ''}`}
+      preserveAspectRatio="none"
       viewBox="0 0 40 440"
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -966,7 +967,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           {/* Cordelette caténaire suspendue reliant les deux poteaux */}
-          <div className="absolute top-[12px] left-[2px] right-[2px] z-10 pointer-events-none">
+          <div className="absolute top-[12px] left-[-6px] right-[-6px] z-10 pointer-events-none">
             <CordelCatenaryRopeSvg sag={14} className="w-full h-8" />
           </div>
 
@@ -991,7 +992,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="absolute left-[-20px] top-[-10px] z-30 pointer-events-none">
               <CordelWoodenPostSvg className="w-8 h-[440px]" />
             </div>
-            <div className="absolute top-[12px] left-[2px] right-[2px] z-10 pointer-events-none">
+            <div className="absolute top-[12px] left-[-4px] right-[-4px] z-10 pointer-events-none">
               <CordelCatenaryRopeSvg sag={10} className="w-full h-7" />
             </div>
             <div className="absolute right-[-20px] top-[-10px] z-30 pointer-events-none">
@@ -1008,7 +1009,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <div className="absolute left-[-20px] top-[-10px] z-30 pointer-events-none">
               <CordelWoodenPostSvg className="w-8 h-[440px]" />
             </div>
-            <div className="absolute top-[12px] left-[2px] right-[2px] z-10 pointer-events-none">
+            <div className="absolute top-[12px] left-[-4px] right-[-4px] z-10 pointer-events-none">
               <CordelCatenaryRopeSvg sag={10} className="w-full h-7" />
             </div>
             <div className="absolute right-[-20px] top-[-10px] z-30 pointer-events-none">
@@ -1022,13 +1023,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
 
         {/* Version Mobile (< 768px) : Livrets empilés avec grands poteaux et cordelette incurvée dédiée */}
-        <div className="flex md:hidden flex-col gap-10 w-full pt-1">
+        <div className="flex md:hidden flex-col gap-14 w-full pt-1">
           {([1, 2, 3, 4] as const).map((id) => (
             <div key={id} className="relative w-full">
               <div className="absolute left-[-14px] top-[-10px] z-30 pointer-events-none">
                 <CordelWoodenPostSvg className="w-7 h-[420px]" />
               </div>
-              <div className="absolute top-[12px] left-[2px] right-[2px] z-10 pointer-events-none">
+              <div className="absolute top-[12px] left-[-2px] right-[-2px] z-10 pointer-events-none">
                 <CordelCatenaryRopeSvg sag={6} className="w-full h-6" />
               </div>
               <div className="absolute right-[-14px] top-[-10px] z-30 pointer-events-none">
