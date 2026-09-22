@@ -405,7 +405,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* ------------------------------------------------------------------ */}
       {/* 1. EN-TÊTE : PROFIL EN HAUT À DROITE                                */}
       {/* ------------------------------------------------------------------ */}
-      <header className="w-full relative pt-3 px-4 sm:px-6 max-w-7xl mx-auto z-30 flex items-center justify-end">
+      <header className="w-full relative pt-2 sm:pt-3 px-4 sm:px-6 max-w-7xl mx-auto z-30 flex items-center justify-end">
         {/* Profil Google / Utilisateur bien calé et visible en haut à droite */}
         <div className="z-40">
           <GoogleLoginButton lang={currentLang} align="right" size="large" />
@@ -415,7 +415,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* ------------------------------------------------------------------ */}
       {/* 2. LE GRAND "O GIRADOR" AVEC BOUTON ENTRA NA RODA AU COEUR DU "O"  */}
       {/* ------------------------------------------------------------------ */}
-      <section className="w-full flex flex-col items-center text-center px-4 pt-16 sm:pt-20 md:pt-28 lg:pt-32 pb-6 max-w-5xl mx-auto z-20">
+      <section className="w-full flex flex-col items-center text-center px-4 pt-2 sm:pt-4 md:pt-6 lg:pt-8 pb-4 max-w-5xl mx-auto z-20">
         
         {/* Ensemble Titre O GIRADOR */}
         <div className="flex flex-col items-center w-full">

@@ -4,12 +4,12 @@
  */
 
 export const ECOSYSTEM_DOMAINS = Object.freeze({
-  hub: 'https://o-girador.com',
-  orquestrador: 'https://o-girador.com',
-  sequenciador: 'https://sequenciador.o-girador.com',
-  organizador: 'https://organizador.o-girador.com',
-  dancador: 'https://dancador.o-girador.com',
-  mostrador: 'https://mostrador.o-girador.com',
+  hub: 'https://o-girador.web.app',
+  orquestrador: 'https://o-girador.web.app',
+  sequenciador: 'https://o-girador-sequenciador.web.app',
+  organizador: 'https://o-girador-organizador.web.app',
+  dancador: 'https://o-girador-dancador.web.app',
+  mostrador: 'https://o-girador-mostrador.web.app',
 } as const);
 
 export type EcosystemAppKey = keyof typeof ECOSYSTEM_DOMAINS;
@@ -30,9 +30,13 @@ export function isLocalEnvironment(): boolean {
 }
 
 export function getEcosystemUrl(appKey: EcosystemAppKey, path: string = ''): string {
-  const isLocal = isLocalEnvironment();
+  // Par défaut, rediriger vers les applications officielles en ligne (.web.app)
+  // afin que tous les liens fonctionnent immédiatement en local comme en production.
+  const useLocal = typeof window !== 'undefined' &&
+    (window.location.search.includes('localEcosystem=true') || (import.meta as any).env?.VITE_USE_LOCAL_ECOSYSTEM === 'true');
+
   let baseUrl: string = ECOSYSTEM_DOMAINS[appKey] || ECOSYSTEM_DOMAINS.hub;
-  if (isLocal && LOCAL_DEV_PORTS[appKey]) {
+  if (useLocal && isLocalEnvironment() && LOCAL_DEV_PORTS[appKey]) {
     baseUrl = `http://localhost:${LOCAL_DEV_PORTS[appKey]}`;
   }
 
