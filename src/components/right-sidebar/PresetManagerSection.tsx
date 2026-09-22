@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { PresetMetadata, Language, RhythmSignal } from '../../types';
 import { CordelImageEditor } from '../CordelImageEditor';
 import { MusicalPhotoBoothModal } from '../signals/MusicalPhotoBoothModal';
+import { EditSignalModal } from '../signals/EditSignalModal';
 
 interface PresetManagerSectionProps {
   metadata: PresetMetadata;
@@ -9,6 +10,97 @@ interface PresetManagerSectionProps {
   lang: Language;
   userProfile: any;
 }
+
+const SignalLocalCard: React.FC<{
+  sig: RhythmSignal;
+  lang: Language;
+  onEdit: (sig: RhythmSignal) => void;
+  onDelete: (id: string) => void;
+}> = ({ sig, lang, onEdit, onDelete }) => {
+  const [hasError, setHasError] = useState(false);
+
+  // Priorité absolue aux trames Base64
+  const imageSource = (sig.frames && sig.frames[0] && sig.frames[0].startsWith('data:'))
+    ? sig.frames[0]
+    : (sig.image && sig.image.startsWith('data:'))
+      ? sig.image
+      : (sig.image || '');
+
+  const initials = sig.name
+    ? sig.name
+        .split(' ')
+        .filter(Boolean)
+        .map((w) => w[0]?.toUpperCase())
+        .slice(0, 2)
+        .join('')
+    : 'SG';
+
+  return (
+    <div
+      onClick={() => onEdit(sig)}
+      className="relative group bg-[var(--cordel-bg)] cordel-border-sm overflow-hidden flex flex-col items-center justify-center aspect-square border-[var(--cordel-border)] cursor-pointer hover:border-[var(--cordel-wood)] transition-all"
+      title={sig.name}
+    >
+      {imageSource && !hasError ? (
+        <img
+          src={imageSource}
+          alt={sig.name}
+          onError={() => setHasError(true)}
+          className="w-full h-full object-cover transition-transform group-hover:scale-105"
+        />
+      ) : (
+        <div className="w-full h-full bg-[#f4ecd8] flex flex-col items-center justify-center p-2 text-center border border-dashed border-[#1a1a1a]/30">
+          <div className="w-10 h-10 rounded-full border border-[#1a1a1a] flex items-center justify-center font-cactus font-bold text-base text-[var(--cordel-wood)] bg-black/5 mb-0.5">
+            {initials}
+          </div>
+          <span className="text-[8px] font-cactus font-bold uppercase text-black/60 truncate max-w-full px-1">
+            {sig.name}
+          </span>
+        </div>
+      )}
+
+      {/* Titre au survol */}
+      <div className="absolute inset-x-0 bottom-0 bg-black/75 p-1 flex flex-col text-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <span className="text-[10px] font-bold text-white truncate px-1">{sig.name}</span>
+      </div>
+
+      <div className="absolute top-1 left-1 bg-gray-500 text-white text-[8px] font-bold px-1 cordel-border-sm">
+        Local
+      </div>
+
+      {sig.frames && sig.frames.length > 1 && (
+        <div className="absolute bottom-1 left-1 bg-black/80 text-white text-[7px] font-bold px-1 border border-white/30 group-hover:opacity-0 transition-opacity">
+          {sig.frames.length}T
+        </div>
+      )}
+
+      <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(sig);
+          }}
+          className="bg-amber-600 text-white font-bold text-[10px] w-5 h-5 flex items-center justify-center cordel-border-sm hover:bg-amber-700 cursor-pointer shadow-sm"
+          title={lang === 'fr' ? 'Éditer le nom ou reprendre' : 'Editar nome ou recapturar'}
+        >
+          ✏️
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(sig.id);
+          }}
+          className="bg-[#8b2a1a] text-white font-bold text-[10px] w-5 h-5 flex items-center justify-center cordel-border-sm hover:bg-red-700 cursor-pointer shadow-sm"
+          title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
+        >
+          🗑️
+        </button>
+      </div>
+    </div>
+  );
+};
 
 export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
   metadata,
@@ -18,6 +110,8 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
 }) => {
   const [showAddSignalForm, setShowAddSignalForm] = useState(false);
   const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
+  const [localSignalToEdit, setLocalSignalToEdit] = useState<RhythmSignal | null>(null);
+  const retakeTargetLocalIdRef = useRef<string | null>(null);
   const [pendingSignalImage, setPendingSignalImage] = useState<string | null>(null);
   const [pendingSignalName, setPendingSignalName] = useState('');
   const [useCordelEffect, setUseCordelEffect] = useState(true);
@@ -81,6 +175,27 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
     frames: string[];
     beatsCount: number;
   }) => {
+    // Si on renouvelle la prise de vue d'un signal existant
+    if (retakeTargetLocalIdRef.current) {
+      const targetId = retakeTargetLocalIdRef.current;
+      retakeTargetLocalIdRef.current = null;
+      const prev = metadata.rhythmSignals || [];
+      const updated = prev.map((s) =>
+        s.id === targetId
+          ? {
+              ...s,
+              name: signalData.name,
+              image: signalData.image,
+              frames: signalData.frames,
+              beatsCount: signalData.beatsCount,
+            }
+          : s
+      );
+      onMetadataChange({ ...metadata, rhythmSignals: updated });
+      setIsPhotoBoothOpen(false);
+      return;
+    }
+
     const newSignal: RhythmSignal = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       name: signalData.name,
@@ -91,6 +206,14 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
     };
     const prev = metadata.rhythmSignals || [];
     onMetadataChange({ ...metadata, rhythmSignals: [...prev, newSignal] });
+    setIsPhotoBoothOpen(false);
+  };
+
+  const handleSaveEditSignal = (updatedSignal: RhythmSignal) => {
+    const prev = metadata.rhythmSignals || [];
+    const updated = prev.map((s) => (s.id === updatedSignal.id ? updatedSignal : s));
+    onMetadataChange({ ...metadata, rhythmSignals: updated });
+    setLocalSignalToEdit(null);
   };
 
   const handleAddLocalSignal = () => {
@@ -130,27 +253,13 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
         {(metadata?.rhythmSignals || []).length > 0 && (
           <div className="grid grid-cols-2 gap-2 mt-1">
             {(metadata.rhythmSignals || []).map((sig) => (
-              <div
+              <SignalLocalCard
                 key={sig.id}
-                className="relative group bg-[var(--cordel-bg)] cordel-border-sm overflow-hidden flex flex-col items-center justify-center aspect-square border-gray-400"
-              >
-                {sig.image ? (
-                  <img src={sig.image} alt={sig.name} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-black/5 text-3xl">📢</div>
-                )}
-                <div className="absolute inset-x-0 bottom-0 bg-black/70 p-1 flex flex-col text-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-[10px] font-bold text-white truncate px-1">{sig.name}</span>
-                </div>
-                <div className="absolute top-1 left-1 bg-gray-500 text-white text-[8px] font-bold px-1 cordel-border-sm">Local</div>
-                <button
-                  onClick={() => handleDeleteLocalSignal(sig.id)}
-                  className="absolute top-1 right-1 bg-[#8b2a1a] text-white font-bold text-[10px] w-5 h-5 flex items-center justify-center cordel-border-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
-                  title={lang === 'fr' ? 'Supprimer' : 'Excluir'}
-                >
-                  🗑️
-                </button>
-              </div>
+                sig={sig}
+                lang={lang}
+                onEdit={(s) => setLocalSignalToEdit(s)}
+                onDelete={handleDeleteLocalSignal}
+              />
             ))}
           </div>
         )}
@@ -249,8 +358,24 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
         {/* Modale Photo-cabine musicale */}
         <MusicalPhotoBoothModal
           isOpen={isPhotoBoothOpen}
-          onClose={() => setIsPhotoBoothOpen(false)}
+          onClose={() => {
+            setIsPhotoBoothOpen(false);
+            retakeTargetLocalIdRef.current = null;
+          }}
           onSave={handlePhotoBoothSave}
+          lang={lang}
+        />
+
+        {/* Modale d'Édition du signal local (Nom / Reprise de vue) */}
+        <EditSignalModal
+          isOpen={!!localSignalToEdit}
+          onClose={() => setLocalSignalToEdit(null)}
+          signal={localSignalToEdit}
+          onSave={handleSaveEditSignal}
+          onRetakePhoto={(targetSig) => {
+            retakeTargetLocalIdRef.current = targetSig.id;
+            setIsPhotoBoothOpen(true);
+          }}
           lang={lang}
         />
       </div>

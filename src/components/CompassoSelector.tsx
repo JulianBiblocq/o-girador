@@ -1,8 +1,7 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudio } from '../contexts/AudioContext';
 import { getExpandedMeasures } from '../utils/measureHelpers';
-import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 
 interface CompassoSelectorProps {
   className?: string;
@@ -17,22 +16,6 @@ export const CompassoSelector: React.FC<CompassoSelectorProps> = ({ className = 
   const currentExpandedMeasureIdx = useSequencerStore(state => state.currentExpandedMeasureIdx);
 
   const audio = useAudio();
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const metadata = useSequencerStore(state => state.metadata);
-  const measureSignals = useSequencerStore(state => state.measureSignals || []);
-  const setMeasureSignals = useSequencerStore(state => state.setMeasureSignals);
-  const mestreSignals = useSequencerStore(state => state.mestreSignals || []);
-  const enabledSignalIds = useSequencerSettingsStore(state => state.enabledSignalIds);
-
-  const localRhythmSignals = metadata?.rhythmSignals || [];
-  const rhythmSignals = useMemo(() => [
-    ...mestreSignals.map(s => ({ id: s.id, name: s.name, image: s.imageUrl, isCloud: true })),
-    ...localRhythmSignals.map(s => ({ id: s.id, name: s.name, image: s.image, isCloud: false }))
-  ], [mestreSignals, localRhythmSignals]);
-
-  const sigId = (measureSignals && currentExpandedMeasureIdx < measureSignals.length) ? measureSignals[currentExpandedMeasureIdx] : null;
-  const activeSig = rhythmSignals.find(s => s.id === sigId) || null;
-
   const expanded = useMemo(() => getExpandedMeasures(totalMeasures, songSections), [totalMeasures, songSections]);
   const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
 

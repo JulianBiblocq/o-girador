@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, getDocs, deleteDoc, query, where, limit, startAfter, orderBy } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, getDocs, deleteDoc, query, where, limit, startAfter, orderBy } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from './firebase/config';
 import { CloudRhythmSignal } from './types';
@@ -7,7 +7,7 @@ export const fetchMestreSignals = async (mestreId: string, lastVisibleDoc?: any)
   if (!mestreId) return { signals: [], lastDoc: null };
   try {
     const mestreIdsToFetch = mestreId === 'global' ? ['global'] : ['global', mestreId];
-    // 🛡️ FIX (Audit): Added pagination support with startAfter
+    // 🛡️ Pagination support with startAfter
     let q = query(collection(db, 'mestre_signals'), where('mestreId', 'in', mestreIdsToFetch), orderBy('createdAt', 'desc'));
     if (lastVisibleDoc) {
       q = query(q, startAfter(lastVisibleDoc));
@@ -16,9 +16,18 @@ export const fetchMestreSignals = async (mestreId: string, lastVisibleDoc?: any)
     const signals: CloudRhythmSignal[] = [];
     querySnapshot.forEach((doc) => {
       const data = doc.data() as CloudRhythmSignal;
+      // 🛡️ Priorité absolue aux trames Base64 pour contourner les erreurs HTTP 402 de Storage
+      const resolvedImage = (data.frames && data.frames[0] && data.frames[0].startsWith('data:'))
+        ? data.frames[0]
+        : (data.image && data.image.startsWith('data:'))
+          ? data.image
+          : (data.imageUrl && data.imageUrl.startsWith('data:'))
+            ? data.imageUrl
+            : (data.imageUrl || data.image || '');
+
       signals.push({
         ...data,
-        image: data.image || data.imageUrl || '',
+        image: resolvedImage,
       });
     });
     return {
@@ -58,8 +67,8 @@ export const uploadMestreSignal = async (
   const id = doc(collection(db, 'mestre_signals')).id;
   const storageRef = ref(storage, `sinais/${mestreId}/${id}`);
 
-  // 1. Upload vers Firebase Storage
-  let imageUrl = '';
+  // 1. Upload vers Firebase Storage (optionnel et tolérant aux erreurs 402)
+  let imageUrl = base64Image;
   try {
     const mimeMatch = base64Image.match(/^data:([^;]+);base64,/);
     const contentType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
@@ -70,31 +79,23 @@ export const uploadMestreSignal = async (
     });
     imageUrl = await getDownloadURL(storageRef);
   } catch (storageErr: any) {
-    console.error('[CloudSignals] Échec upload Firebase Storage:', storageErr);
-    let errorDetail = storageErr?.message || 'Erreur de stockage inconnue';
-    if (storageErr?.code === 'storage/unauthorized') {
-      errorDetail = 'Permission refusée par les règles Firebase Storage.';
-    } else if (storageErr?.code === 'storage/quota-exceeded') {
-      errorDetail = 'Quota de stockage Firebase Storage dépassé.';
-    } else if (storageErr?.code === 'storage/invalid-format') {
-      errorDetail = "Format d'image invalide.";
-    }
-    return {
-      success: false,
-      error: `Storage: ${errorDetail}`,
-    };
+    // 🛡️ Si Firebase Storage est bloqué en 402 (Payment Required), repli direct sur Base64 dans Firestore
+    console.warn('[CloudSignals] Firebase Storage inaccessible ou restreint, stockage direct Base64 Firestore:', storageErr?.message);
+    imageUrl = base64Image;
   }
 
-  // 2. Enregistrement dans Firestore
+  // 2. Enregistrement direct et pérenne dans Firestore
   try {
+    const finalFrames = frames && frames.length > 0 ? frames : [base64Image];
     const signalData: CloudRhythmSignal = {
       id,
       mestreId,
       name,
-      image: imageUrl,
+      image: base64Image,
       imageUrl,
       createdAt: Date.now(),
-      ...(frames && frames.length > 0 ? { frames, beatsCount: beatsCount || frames.length } : {})
+      frames: finalFrames,
+      beatsCount: beatsCount || finalFrames.length,
     };
 
     await setDoc(doc(db, 'mestre_signals', id), signalData);
@@ -105,15 +106,39 @@ export const uploadMestreSignal = async (
     if (firestoreErr?.code === 'permission-denied') {
       errorDetail = 'Permission refusée par les règles Firestore.';
     }
-    // Nettoyage de l'image orpheline dans Storage
-    try {
-      await deleteObject(storageRef);
-    } catch (_) {}
-
     return {
       success: false,
       error: `Firestore: ${errorDetail}`,
     };
+  }
+};
+
+export const updateMestreSignal = async (
+  id: string,
+  updates: {
+    name?: string;
+    image?: string;
+    imageUrl?: string;
+    frames?: string[];
+    beatsCount?: number;
+  }
+): Promise<{ success: boolean; error?: string }> => {
+  if (!id) return { success: false, error: 'ID manquant.' };
+  try {
+    const payload: any = {
+      updatedAt: Date.now(),
+    };
+    if (updates.name !== undefined) payload.name = updates.name.trim();
+    if (updates.image !== undefined) payload.image = updates.image;
+    if (updates.imageUrl !== undefined) payload.imageUrl = updates.imageUrl;
+    if (updates.frames !== undefined) payload.frames = updates.frames;
+    if (updates.beatsCount !== undefined) payload.beatsCount = updates.beatsCount;
+
+    await updateDoc(doc(db, 'mestre_signals', id), payload);
+    return { success: true };
+  } catch (err: any) {
+    console.error('[CloudSignals] Erreur mise à jour mestre signal:', err);
+    return { success: false, error: err?.message || 'Erreur Firestore' };
   }
 };
 

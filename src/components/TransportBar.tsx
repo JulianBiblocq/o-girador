@@ -75,18 +75,52 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
   const localRhythmSignals = useSequencerStore((state) => state.metadata?.rhythmSignals || []);
   const mestreSignals = useSequencerStore((state) => state.mestreSignals || []);
 
+const SignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, image }) => {
+  const [hasError, setHasError] = React.useState(false);
+  const initials = name
+    ? name.split(' ').filter(Boolean).map((w) => w[0]?.toUpperCase()).slice(0, 2).join('')
+    : 'SG';
+
+  if (!image || hasError) {
+    return (
+      <span className="w-5 h-5 flex items-center justify-center bg-black/10 border border-black/20 text-[8px] font-bold font-cactus text-[var(--cordel-wood)] leading-none rounded-none">
+        {initials}
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={image}
+      alt={name}
+      onError={() => setHasError(true)}
+      className="w-5 h-5 object-contain bg-white/80 border border-black/20"
+    />
+  );
+};
+
   const availableSignals = React.useMemo(() => {
-    const list: { id: string; name: string; image: string; isCloud?: boolean }[] = [];
+    const list: { id: string; name: string; image: string; frames?: string[]; beatsCount?: number; isCloud?: boolean }[] = [];
     const seen = new Set<string>();
 
-    // 1. Signaux Cloud / Mestre
+    // 1. Signaux Cloud / Mestre (Priorité absolue au Base64 / frames[0] pour contourner 402 Storage)
     for (const s of mestreSignals) {
       if (s && s.id && !seen.has(s.id)) {
         seen.add(s.id);
+        const resolvedImage = (s.frames && s.frames[0] && s.frames[0].startsWith('data:'))
+          ? s.frames[0]
+          : (s.image && s.image.startsWith('data:'))
+            ? s.image
+            : (s.imageUrl && s.imageUrl.startsWith('data:'))
+              ? s.imageUrl
+              : (s.image || s.imageUrl || '');
+
         list.push({
           id: s.id,
           name: s.name || s.id,
-          image: s.imageUrl || s.image || '',
+          image: resolvedImage,
+          frames: s.frames,
+          beatsCount: s.beatsCount,
           isCloud: true,
         });
       }
@@ -96,10 +130,18 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
     for (const s of localRhythmSignals) {
       if (s && s.id && !seen.has(s.id)) {
         seen.add(s.id);
+        const resolvedImage = (s.frames && s.frames[0] && s.frames[0].startsWith('data:'))
+          ? s.frames[0]
+          : (s.image && s.image.startsWith('data:'))
+            ? s.image
+            : (s.image || '');
+
         list.push({
           id: s.id,
           name: s.name || s.id,
-          image: s.image || '',
+          image: resolvedImage,
+          frames: s.frames,
+          beatsCount: s.beatsCount,
           isCloud: false,
         });
       }
@@ -396,11 +438,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
                                 }`}
                                 title={sig.name}
                               >
-                                {sig.image ? (
-                                  <img src={sig.image} alt={sig.name} className="w-5 h-5 object-contain bg-white/80 border border-black/20" />
-                                ) : (
-                                  <span>📢</span>
-                                )}
+                                <SignalMiniThumb name={sig.name} image={sig.image} />
                                 <span className="truncate max-w-[80px]">{sig.name}</span>
                               </button>
                             );
@@ -458,11 +496,7 @@ const TransportBarComponent: React.FC<TransportBarProps> = ({ viewMode }) => {
                               }`}
                               title={sig.name}
                             >
-                              {sig.image ? (
-                                <img src={sig.image} alt={sig.name} className="w-5 h-5 object-contain bg-white/80 border border-black/20" />
-                              ) : (
-                                <span>📢</span>
-                              )}
+                              <SignalMiniThumb name={sig.name} image={sig.image} />
                               <span className="truncate max-w-[80px]">{sig.name}</span>
                             </button>
                           );

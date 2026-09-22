@@ -16,6 +16,30 @@ interface RhythmSignalsRowProps {
   visibleRange: { start: number; end: number };
 }
 
+const TimelineSignalMiniThumb: React.FC<{ name: string; image?: string }> = ({ name, image }) => {
+  const [hasError, setHasError] = React.useState(false);
+  const initials = name
+    ? name.split(' ').filter(Boolean).map((w) => w[0]?.toUpperCase()).slice(0, 2).join('')
+    : 'SG';
+
+  if (!image || hasError) {
+    return (
+      <span className="w-6 h-6 flex items-center justify-center bg-black/10 text-[8px] font-cactus font-bold text-[var(--cordel-wood)] leading-none rounded flex-shrink-0">
+        {initials}
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={image}
+      alt={name}
+      onError={() => setHasError(true)}
+      className="w-6 h-6 object-contain flex-shrink-0"
+    />
+  );
+};
+
 const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
   totalMeasures,
   rhythmSignals,
@@ -97,11 +121,7 @@ const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
                 className="flex items-center gap-1 px-1.5 py-0.5 bg-[var(--cordel-border)]/20 hover:bg-[var(--cordel-border)]/40 transition-colors rounded text-[9px] font-bold text-[var(--cordel-text)] max-w-full"
                 title={activeSig.name}
               >
-                {activeSig.image ? (
-                  <img src={activeSig.image} alt={activeSig.name} className="w-6 h-6 object-contain flex-shrink-0" />
-                ) : (
-                  <span className="text-[12px] flex-shrink-0 leading-none">📢</span>
-                )}
+                <TimelineSignalMiniThumb name={activeSig.name} image={activeSig.image} />
                 <span className="ruler-detailed truncate max-w-[70px]">{activeSig.name}</span>
               </button>
             ) : (
@@ -149,11 +169,7 @@ const RhythmSignalsRowComponent: React.FC<RhythmSignalsRowProps> = ({
                       sigId === sig.id ? 'bg-[var(--cordel-border)]/30' : ''
                     }`}
                   >
-                    {sig.image ? (
-                      <img src={sig.image} alt={sig.name} className="w-6 h-6 object-contain flex-shrink-0" />
-                    ) : (
-                      <span className="text-[12px] w-6 h-6 flex items-center justify-center bg-black/10 rounded flex-shrink-0 leading-none">📢</span>
-                    )}
+                    <TimelineSignalMiniThumb name={sig.name} image={sig.image} />
                     <span className="truncate">{sig.name}</span>
                   </button>
                 ))}

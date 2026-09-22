@@ -344,18 +344,32 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     if (sigId) {
       const cloudSig = currentMestreSignals?.find(s => s.id === sigId);
       if (cloudSig) {
+        const resolvedCloudImage = (cloudSig.frames && cloudSig.frames[0] && cloudSig.frames[0].startsWith('data:'))
+          ? cloudSig.frames[0]
+          : (cloudSig.image && cloudSig.image.startsWith('data:'))
+            ? cloudSig.image
+            : (cloudSig.imageUrl && cloudSig.imageUrl.startsWith('data:'))
+              ? cloudSig.imageUrl
+              : (cloudSig.image || cloudSig.imageUrl || '');
+
         activeSig = {
           name: cloudSig.name,
-          image: cloudSig.image || cloudSig.imageUrl || '',
+          image: resolvedCloudImage,
           frames: cloudSig.frames,
           beatsCount: cloudSig.beatsCount
         };
       } else {
         const localSig = currentRhythmSignals?.find(s => s.id === sigId);
         if (localSig) {
+          const resolvedLocalImage = (localSig.frames && localSig.frames[0] && localSig.frames[0].startsWith('data:'))
+            ? localSig.frames[0]
+            : (localSig.image && localSig.image.startsWith('data:'))
+              ? localSig.image
+              : (localSig.image || '');
+
           activeSig = {
             name: localSig.name,
-            image: localSig.image,
+            image: resolvedLocalImage,
             frames: localSig.frames,
             beatsCount: localSig.beatsCount
           };

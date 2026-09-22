@@ -30,6 +30,30 @@ interface SettingsPageProps {
   mestreSignals?: CloudRhythmSignal[];
 }
 
+const SettingsSignalThumb: React.FC<{ name: string; image?: string }> = ({ name, image }) => {
+  const [hasError, setHasError] = useState(false);
+  const initials = name
+    ? name.split(' ').filter(Boolean).map((w) => w[0]?.toUpperCase()).slice(0, 2).join('')
+    : 'SG';
+
+  if (!image || hasError) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center bg-black/5 text-[10px] font-cactus font-bold text-[var(--cordel-wood)]">
+        {initials}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={image}
+      alt={name}
+      onError={() => setHasError(true)}
+      className="w-full h-full object-contain"
+    />
+  );
+};
+
 export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }) => {
   const isSettingsOpen = useSequencerSettingsStore((state) => state.isSettingsOpen);
   const setIsSettingsOpen = useSequencerSettingsStore((state) => state.setIsSettingsOpen);
@@ -336,13 +360,28 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
     }
   };
 
-  // --- LOGIQUE DES SIGNAUX DU MESTRE (PANNEAU 2) ---
   const localRhythmSignals = useSequencerStore((state) => state.metadata?.rhythmSignals || []);
 
   const rhythmSignals = useMemo(() => {
     return [
-      ...mestreSignals.map(s => ({ id: s.id, name: s.name, image: s.imageUrl, isCloud: true })),
-      ...localRhythmSignals.map(s => ({ id: s.id, name: s.name, image: s.image, isCloud: false }))
+      ...mestreSignals.map(s => {
+        const resolvedImage = (s.frames && s.frames[0] && s.frames[0].startsWith('data:'))
+          ? s.frames[0]
+          : (s.image && s.image.startsWith('data:'))
+            ? s.image
+            : (s.imageUrl && s.imageUrl.startsWith('data:'))
+              ? s.imageUrl
+              : (s.image || s.imageUrl || '');
+        return { id: s.id, name: s.name, image: resolvedImage, isCloud: true };
+      }),
+      ...localRhythmSignals.map(s => {
+        const resolvedImage = (s.frames && s.frames[0] && s.frames[0].startsWith('data:'))
+          ? s.frames[0]
+          : (s.image && s.image.startsWith('data:'))
+            ? s.image
+            : (s.image || '');
+        return { id: s.id, name: s.name, image: resolvedImage, isCloud: false };
+      })
     ];
   }, [mestreSignals, localRhythmSignals]);
 
@@ -1504,11 +1543,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ mestreSignals = [] }
 
                                       {/* Image / Icône de Signal */}
                                       <div className="w-12 h-12 flex items-center justify-center bg-black/5 border border-black/10 rounded overflow-hidden">
-                                        {sig.image ? (
-                                          <img src={sig.image} alt={sig.name} className="w-full h-full object-contain" />
-                                        ) : (
-                                          <span className="text-xl">📢</span>
-                                        )}
+                                        <SettingsSignalThumb name={sig.name} image={sig.image} />
                                       </div>
 
                                       {/* Nom du Signal */}
