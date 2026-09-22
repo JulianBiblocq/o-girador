@@ -263,7 +263,8 @@ export function calculateTempoFactor(bpm: number = 100): number {
 }
 
 // Durée globale selon le type de frappe
-export function getStickDuration(stroke: string): number {
+export function getStickDuration(stroke: string, isSubStep: boolean = false): number {
+  if (isSubStep) return Math.min(110, Math.round(CONFIG_STICKS.weak.duration * 0.7));
   if (stroke === 'R' || stroke === 'r') return CONFIG_STICKS.rufada.duration;
   if (stroke === 'C' || stroke === 'c') return CONFIG_STICKS.crossClick.duration;
   if (stroke === 'X' || stroke === 'x') return CONFIG_STICKS.rimShot.duration;

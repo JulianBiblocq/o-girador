@@ -420,11 +420,14 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         cache.textShadow = 'none';
       }
 
-      // Font size adaptation based on length (using CSS variables for clean updates)
-      const len = activeMarker.name.length;
-      let sizeVal = 'clamp(7px, 1.1vw, 9px)';
-      if (len <= 6) sizeVal = 'clamp(9px, 1.8vw, 16px)';
-      else if (len <= 12) sizeVal = 'clamp(8px, 1.4vw, 12px)';
+      // Font size adaptation based on longest line (keeping legible font 13-15px)
+      const lines = activeMarker.name.split('\n');
+      const maxLineLen = Math.max(...lines.map(l => l.trim().length));
+      let sizeVal = 'clamp(12px, 1.6vw, 14px)';
+      if (maxLineLen <= 6 && lines.length <= 2) sizeVal = 'clamp(13px, 2.0vw, 16px)';
+      else if (maxLineLen <= 10 && lines.length <= 2) sizeVal = 'clamp(12px, 1.8vw, 15px)';
+      else if (maxLineLen <= 14) sizeVal = 'clamp(11px, 1.6vw, 13px)';
+      else sizeVal = 'clamp(10px, 1.3vw, 12px)';
 
       if (cache.fontSize !== sizeVal) {
         textEl.style.setProperty('--dynamic-font-size', sizeVal);
@@ -2197,10 +2200,12 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
             <span
               id="center-overlay-text"
               ref={centerOverlayTextRef}
-              className="relative z-10 font-cactus font-bold uppercase tracking-wide select-none break-words w-full"
+              className="relative z-10 font-cactus font-bold uppercase tracking-wide select-none break-words w-full text-center px-1"
               style={{ 
                 textShadow: '0 2px 4px rgba(0,0,0,0.8)',
-                fontSize: 'var(--dynamic-font-size, clamp(9px, 1.8vw, 16px))'
+                fontSize: 'var(--dynamic-font-size, clamp(12px, 1.8vw, 15px))',
+                whiteSpace: 'pre-line',
+                lineHeight: 1.15
               }}
             />
           </div>

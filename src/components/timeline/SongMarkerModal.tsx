@@ -45,6 +45,18 @@ export const SongMarkerModal: React.FC<SongMarkerModalProps> = ({
     }
   }, [isOpen, editingMarker, defaultMeasure, lang]);
 
+  const handleSubmit = () => {
+    if (!markerFormName.trim()) return;
+    let val = parseInt(String(markerFormMeasure)) || 1;
+    val = Math.max(1, Math.min(totalMeasures, val));
+    if (editingMarker) {
+      onUpdateMarker(editingMarker.id, markerFormName, val - 1, markerFormColor);
+    } else {
+      onCreateMarker(markerFormName, val - 1, markerFormColor);
+    }
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -58,12 +70,19 @@ export const SongMarkerModal: React.FC<SongMarkerModalProps> = ({
 
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-bold uppercase text-[var(--cordel-text)]">{lang === 'fr' ? 'Nom du repère' : 'Nome do marcador'}</label>
-          <input
-            type="text"
+          <textarea
+            rows={2}
             value={markerFormName}
             onChange={(e) => setMarkerFormName(e.target.value)}
-            placeholder="Ex: Introduction / Solo"
-            className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-3 py-1.5 text-sm font-bold outline-none rounded-none focus:bg-[var(--cordel-border)]/10 text-[var(--cordel-text)]"
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
+            placeholder={lang === 'fr' ? 'Ex: Introduction\nSolo Alfaia' : 'Ex: Introdução\nSolo Alfaia'}
+            className="w-full bg-[var(--cordel-bg)] border-2 border-[var(--cordel-border)] px-3 py-1.5 text-sm font-bold outline-none rounded-none focus:bg-[var(--cordel-border)]/10 text-[var(--cordel-text)] resize-none"
           />
         </div>
 
@@ -117,17 +136,7 @@ export const SongMarkerModal: React.FC<SongMarkerModalProps> = ({
             {lang === 'fr' ? 'Annuler' : 'Cancelar'}
           </button>
           <button
-            onClick={() => {
-              if (!markerFormName.trim()) return;
-              let val = parseInt(String(markerFormMeasure)) || 1;
-              val = Math.max(1, Math.min(totalMeasures, val));
-              if (editingMarker) {
-                onUpdateMarker(editingMarker.id, markerFormName, val - 1, markerFormColor);
-              } else {
-                onCreateMarker(markerFormName, val - 1, markerFormColor);
-              }
-              onClose();
-            }}
+            onClick={handleSubmit}
             className="px-4 py-1.5 bg-[var(--cordel-wood)] text-[#f4ecd8] border border-[var(--cordel-border)] font-bold text-xs cordel-border-sm cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]"
           >
             {lang === 'fr' ? 'Valider' : 'Confirmar'}

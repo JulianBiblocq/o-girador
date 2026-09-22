@@ -100,6 +100,12 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
   const currentPatternIdRef = useRef<number | null>(null);
   const currentMeasureIdxRef = useRef<number>(-1);
   const lastVuStepRef = useRef<number>(-1);
+  const subStepTimersRef = useRef<NodeJS.Timeout[]>([]);
+
+  const clearSubStepTimers = () => {
+    subStepTimersRef.current.forEach(t => clearTimeout(t));
+    subStepTimersRef.current = [];
+  };
 
   // Early return if active track or instrument config is missing, after hooks are declared
   if (!activeTrack || !inst) return null;
@@ -227,6 +233,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
       const { step, measure, maxTicks, ratio = step / maxTicks } = detail;
 
       if (step < 0) {
+        clearSubStepTimers();
         lastVuStepRef.current = -1;
         if (leftAnimRef.current) leftAnimRef.current.cancel();
         if (rightAnimRef.current) rightAnimRef.current.cancel();
@@ -307,47 +314,47 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
 
       if (targetStep !== lastVuStepRef.current) {
         lastVuStepRef.current = targetStep;
+        clearSubStepTimers();
         if (!activeTrack.isMute) {
           const activePlayingSteps = activeVariationsRef?.current[activeTrack.id] || currentLivePattern.activeSteps;
-          const val = activePlayingSteps[targetStep];
-          const isHit = val !== undefined && val !== 0 && val !== '0' && val !== '';
+          const rawVal = activePlayingSteps[targetStep];
+          const isHit = rawVal !== undefined && rawVal !== 0 && rawVal !== '0' && rawVal !== '';
 
           if (isHit) {
-            const stroke = String(val);
-            const isVibrate = stroke === 'b' || stroke === 'B';
+            const triggerStroke = (stroke: string, isSubStep: boolean = false) => {
+              if (!stroke || stroke === '0' || stroke === '') return;
+              const isVibrate = stroke === 'b' || stroke === 'B';
 
-            // Flash effect for all drum hits
-            if (flashRef.current && ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal', 'gongue'].includes(inst.id)) {
-              let flashType: 'strong' | 'weak' | 'vibrate' = (stroke === stroke.toUpperCase() && !['b', 'B', 'V', 'v'].includes(stroke)) ? 'strong' : 'weak';
-              if (['R', 'r'].includes(stroke)) flashType = 'vibrate';
+              // Flash effect for all drum hits
+              if (flashRef.current && ['marcante', 'meiao', 'repique', 'caixa', 'tarol', 'timbal', 'gongue'].includes(inst.id)) {
+                let flashType: 'strong' | 'weak' | 'vibrate' = (stroke === stroke.toUpperCase() && !['b', 'B', 'V', 'v'].includes(stroke)) ? 'strong' : 'weak';
+                if (['R', 'r'].includes(stroke)) flashType = 'vibrate';
 
-              let keyframes = KEYFRAMES_FLASH_WEAK;
-              let duration = 150;
+                let keyframes = KEYFRAMES_FLASH_WEAK;
+                let duration = isSubStep ? 100 : 150;
 
-              if (flashType === 'strong') {
-                keyframes = KEYFRAMES_FLASH_STRONG;
-                duration = 250;
-              } else if (flashType === 'vibrate') {
-                keyframes = KEYFRAMES_FLASH_VIBRATE;
-                duration = 400;
+                if (flashType === 'strong') {
+                  keyframes = KEYFRAMES_FLASH_STRONG;
+                  duration = isSubStep ? 180 : 250;
+                } else if (flashType === 'vibrate') {
+                  keyframes = KEYFRAMES_FLASH_VIBRATE;
+                  duration = 400;
+                }
+
+                if (inst.id === 'gongue') {
+                  const isGrave = ['G', 'g'].includes(stroke);
+                  const yOffset = isGrave ? '-100%' : '0%';
+                  keyframes = keyframes.map(kf => ({
+                    ...kf,
+                    transform: (kf.transform as string).replace('-50%)', `${yOffset})`)
+                  }));
+                }
+
+                flashRef.current.animate(
+                  keyframes,
+                  { duration, easing: 'ease-out' }
+                );
               }
-
-              if (inst.id === 'gongue') {
-                const isGrave = ['G', 'g'].includes(stroke);
-                // Grave hits flash the top half (-100% moves the center to the top edge)
-                // Aigu hits flash the bottom half (0% moves the center to the bottom edge)
-                const yOffset = isGrave ? '-100%' : '0%';
-                keyframes = keyframes.map(kf => ({
-                  ...kf,
-                  transform: (kf.transform as string).replace('-50%)', `${yOffset})`)
-                }));
-              }
-
-              flashRef.current.animate(
-                keyframes,
-                { duration, easing: 'ease-out' }
-              );
-            }
 
             // --- 1. Alfaia Sticks ---
             if (['marcante', 'meiao', 'repique'].includes(inst.id)) {
@@ -402,7 +409,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
                   leftAnimRef.current.cancel();
                 }
                 leftAnimRef.current = leftStickRef.current.animate(keyframesLeft, {
-                  duration: isVibrate ? 100 : getStickDuration(stroke),
+                  duration: isVibrate ? 100 : getStickDuration(stroke, isSubStep),
                   iterations: isVibrate ? Infinity : 1,
                   easing: isVibrate ? 'linear' : undefined,
                   fill: 'forwards',
@@ -413,7 +420,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
                   rightAnimRef.current.cancel();
                 }
                 rightAnimRef.current = rightStickRef.current.animate(keyframesRight, {
-                  duration: isVibrate ? 100 : getStickDuration(stroke),
+                  duration: isVibrate ? 100 : getStickDuration(stroke, isSubStep),
                   iterations: isVibrate ? Infinity : 1,
                   easing: isVibrate ? 'linear' : undefined,
                   fill: 'forwards',
@@ -486,7 +493,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
                   leftAnimRef.current.cancel();
                 }
                 leftAnimRef.current = leftStickRef.current.animate(keyframesLeft, {
-                  duration: isVibrate ? 100 : getStickDuration(stroke),
+                  duration: isVibrate ? 100 : getStickDuration(stroke, isSubStep),
                   iterations: isVibrate ? Infinity : 1,
                   easing: isVibrate ? 'linear' : undefined,
                   fill: 'forwards',
@@ -497,7 +504,7 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
                   rightAnimRef.current.cancel();
                 }
                 rightAnimRef.current = rightStickRef.current.animate(keyframesRight, {
-                  duration: isVibrate ? 100 : getStickDuration(stroke),
+                  duration: isVibrate ? 100 : getStickDuration(stroke, isSubStep),
                   iterations: isVibrate ? Infinity : 1,
                   easing: isVibrate ? 'linear' : undefined,
                   fill: 'forwards',
@@ -707,14 +714,41 @@ const AoVivoOverlayInner: React.FC<{ activeAoVivoTrackId: string | number }> = (
                 });
               }
             }
+          };
+
+          if (Array.isArray(rawVal)) {
+            // 1. Déclencher immédiatement le premier coup
+            triggerStroke(String(rawVal[0]), false);
+
+            // 2. Calcul précis de la demi-durée du pas
+            const timeSig = useSequencerStore.getState().timeSig || '4/4';
+            const bpm = useSequencerStore.getState().bpm || 100;
+            const [numStr, denStr] = timeSig.split('/');
+            const num = parseInt(numStr, 10) || 4;
+            const den = parseInt(denStr, 10) || 4;
+            const beatDurationMs = (60000 / bpm) * (4 / den);
+            const measureDurationMs = beatDurationMs * num;
+            const stepsCount = currentLivePattern.steps || 16;
+            const stepDurationMs = measureDurationMs / stepsCount;
+            const subStepDelay = Math.max(20, Math.round(stepDurationMs / 2));
+
+            // 3. Planifier le second coup au demi-pas (isolé dans le tableau de timers)
+            const t = setTimeout(() => {
+              triggerStroke(String(rawVal[1]), true);
+            }, subStepDelay);
+            subStepTimersRef.current.push(t);
+          } else {
+            triggerStroke(String(rawVal), false);
           }
         }
       }
-    };
+    }
+  };
 
     subscribeToTick(handleTick);
     return () => {
       unsubscribeFromTick(handleTick);
+      clearSubStepTimers();
     };
   }, [activeAoVivoTrackId, isLeftHanded, activeTrack, inst]);
 

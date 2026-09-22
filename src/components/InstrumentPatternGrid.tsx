@@ -170,6 +170,9 @@ const PercussionStepCell = React.memo(({
     <div
       key={i}
       className="percussion-step-container flex flex-col items-center select-none relative"
+      data-track-id={trackId}
+      data-pattern-id={patternId}
+      data-step-index={i}
       style={{
         width: isSextuplet || isTriplet || isOcto ? 'auto' : '40px',
         flex: isSextuplet || isTriplet || isOcto ? '1' : 'none',
@@ -1741,6 +1744,7 @@ const InstrumentPatternGridComponent: React.FC<InstrumentPatternGridProps> = ({
   }, []);
 
   const selectedPatternIdRef = useRef(selectedPatternId);
+  selectedPatternIdRef.current = selectedPatternId;
   useEffect(() => {
     selectedPatternIdRef.current = selectedPatternId;
   }, [selectedPatternId]);

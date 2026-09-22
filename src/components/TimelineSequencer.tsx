@@ -1433,7 +1433,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                       setMarkerModalOpen(true);
                     }}
                   >
-                    <span>📍 {marker.name}</span>
+                    <span className="whitespace-nowrap truncate max-w-[140px]">📍 {marker.name.replace(/\n/g, ' / ')}</span>
                     <span 
                       onClick={(e) => {
                         e.stopPropagation();
