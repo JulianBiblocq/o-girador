@@ -35,6 +35,30 @@ import {
 } from '../audio/visualTickBuffer';
 import { startBackgroundAnchor, stopBackgroundAnchor, setMediaSessionState } from '../audio/backgroundAudioService';
 
+// ─── Screen Wake Lock ────────────────────────────────────────────────────
+// Prevents the screen from turning off during playback on mobile.
+// Pure imperative singleton (no useState) → Commandement 1 respected.
+let wakeLockSentinel: WakeLockSentinel | null = null;
+
+async function requestWakeLock(): Promise<void> {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLockSentinel = await navigator.wakeLock.request('screen');
+    wakeLockSentinel.addEventListener('release', () => {
+      wakeLockSentinel = null;
+    });
+  } catch (_) {
+    // Wake Lock request failed (e.g. low battery, permission denied)
+  }
+}
+
+function releaseWakeLock(): void {
+  if (wakeLockSentinel) {
+    wakeLockSentinel.release().catch(() => {});
+    wakeLockSentinel = null;
+  }
+}
+
 // Re-export tick subscription functions to preserve backwards compatibility
 export { tickSubscribers, subscribeToTick, unsubscribeFromTick };
 
@@ -1869,6 +1893,7 @@ export function useAudioSync({
   }, [isAudioUnlocked]);
 
   // Background Playback: Re-anchor visual clock when returning to foreground
+  // + Re-acquire Screen Wake Lock (released automatically by OS when screen turns off)
   useEffect(() => {
     const handleForegroundReturn = () => {
       if (!document.hidden && isPlayingRef.current) {
@@ -1876,10 +1901,16 @@ export function useAudioSync({
         resetVisualTickBuffer();
         // The still-running Worker scheduler will push fresh ticks,
         // and processVisualLoop() (rAF, now unfrozen) will consume them.
+
+        // Re-acquire Wake Lock (OS releases it when screen turns off)
+        requestWakeLock();
       }
     };
     document.addEventListener('visibilitychange', handleForegroundReturn);
-    return () => document.removeEventListener('visibilitychange', handleForegroundReturn);
+    return () => {
+      document.removeEventListener('visibilitychange', handleForegroundReturn);
+      releaseWakeLock();
+    };
   }, []);
 
   const handleTogglePlay = useCallback(async () => {
@@ -2028,6 +2059,9 @@ export function useAudioSync({
         () => { /* mediaSession play → handled by OS resuming AudioContext */ },
         () => { /* mediaSession pause → handled by OS suspending AudioContext */ }
       );
+
+      // Screen Wake Lock: Prevent screen from turning off during playback
+      requestWakeLock();
     } else {
       if (import.meta.env.DEV) {
       }
@@ -2051,6 +2085,7 @@ export function useAudioSync({
       lastElapsedSecRef.current = 0;
       setIsPlaying(false);
       setMediaSessionState('paused');
+      releaseWakeLock();
       setCurrentMeasure(measureCountRef.current);
 
 
@@ -2134,6 +2169,7 @@ export function useAudioSync({
     lastElapsedSecRef.current = 0;
     setIsPlaying(false);
     stopBackgroundAnchor();
+    releaseWakeLock();
     anchoredMeasureStartSecRef.current = 0;
     anchoredMeasureIdxRef.current = -1;
     currentStepIndexRef.current = -1;

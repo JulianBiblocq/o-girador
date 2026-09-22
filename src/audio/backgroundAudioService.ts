@@ -14,12 +14,13 @@
  *   to satisfy mobile autoplay policies
  */
 
-// ─── Silent WAV (base64) ───────────────────────────────────────────────
-// Minimal 1-second 44100 Hz mono 16-bit PCM WAV filled with silence.
-// ~88 KB uncompressed, but base64-inlined to avoid network requests.
-// Using a proper WAV header ensures maximum browser compatibility.
+// ─── Near-Silent WAV (base64) ──────────────────────────────────────────
+// Minimal 1-second 44100 Hz mono 16-bit PCM WAV with imperceptible micro-noise.
+// Chrome Android's energy manager detects absolute-zero PCM streams as inactive
+// and throttles the audio thread. A ±1 LSB alternating pattern (~-90 dB) is
+// completely inaudible but keeps the tab classified as 'audible'.
 const SILENT_WAV_DURATION_SAMPLES = 44100; // 1 second at 44100 Hz
-function generateSilentWavDataUri(): string {
+function generateNearSilentWavDataUri(): string {
   const numChannels = 1;
   const sampleRate = 44100;
   const bitsPerSample = 16;
@@ -46,10 +47,18 @@ function generateSilentWavDataUri(): string {
   view.setUint16(32, numChannels * bytesPerSample, true); // Block align
   view.setUint16(34, bitsPerSample, true);
 
-  // data sub-chunk (all zeros = silence)
+  // data sub-chunk
   writeString(view, 36, 'data');
   view.setUint32(40, dataSize, true);
-  // Remaining bytes are already 0 (silence) from ArrayBuffer initialization
+
+  // Fill with imperceptible ±1 LSB alternating micro-noise (~-90 dB)
+  // This prevents Chrome Android from classifying the stream as silent/inactive
+  const dataOffset = headerSize;
+  for (let i = 0; i < SILENT_WAV_DURATION_SAMPLES; i++) {
+    // Alternating +1 / -1 at 16-bit scale (max is 32767)
+    const sample = (i & 1) === 0 ? 1 : -1;
+    view.setInt16(dataOffset + i * bytesPerSample, sample, true);
+  }
 
   // Convert to base64 data URI
   const bytes = new Uint8Array(buffer);
@@ -86,7 +95,7 @@ export function startBackgroundAnchor(
 ): void {
   // Lazy-generate the silent WAV on first use
   if (!silentWavUri) {
-    silentWavUri = generateSilentWavDataUri();
+    silentWavUri = generateNearSilentWavDataUri();
   }
 
   // Create or reuse the silent <audio> element

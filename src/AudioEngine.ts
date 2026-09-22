@@ -311,10 +311,11 @@ export class AudioEngine {
 
     const hwLatency = (this.audioContext.baseLatency || 0.05) + ((this.audioContext as any).outputLatency || 0.05);
 
-    // 180ms d'anticipation sur mobile : largement suffisant pour absorber la latence matérielle
-    // et le Bluetooth sans déborder sur la mesure suivante
-    const baseAheadTime = isMobile ? 0.180 : 0.200;
-    this.SCHEDULE_AHEAD_TIME = Math.min(0.250, Math.max(baseAheadTime, hwLatency + 0.050));
+    // Background mobile: widen lookahead to 350ms to absorb CPU micro-latencies
+    // in power-saving mode and prevent buffer underruns (audio crackling).
+    // Foreground mobile: 180ms is sufficient for hardware + Bluetooth latency.
+    const baseAheadTime = (isMobile && isHidden) ? 0.350 : (isMobile ? 0.180 : 0.200);
+    this.SCHEDULE_AHEAD_TIME = Math.min(0.400, Math.max(baseAheadTime, hwLatency + 0.050));
 
     // Augmenter légèrement l'intervalle de réveil pour économiser la batterie
     this.LOOKAHEAD_INTERVAL = isDesktopActive ? 25.0 : 50.0;
