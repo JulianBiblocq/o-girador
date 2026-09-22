@@ -322,11 +322,11 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
         <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-[var(--cordel-wood)] z-[99] pointer-events-none animate-pulse" />
       )}
       <div className="flex justify-between items-center relative z-[2]">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <div
             {...attributes}
             {...listeners}
-            className="mr-2 transition-colors p-1 touch-none flex-shrink-0 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)]"
+            className="transition-colors p-1 touch-none flex-shrink-0 cursor-grab active:cursor-grabbing text-[var(--cordel-text)]/60 hover:text-[var(--cordel-text)]"
             title={lang === 'fr' ? "Glisser pour réorganiser" : "Arrastar para reordenar"}
           >
             <GripVertical size={16} />
@@ -350,7 +350,7 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                 }
                 onOpenDetailEditor(targetId);
               }}
-              className="flex items-center gap-2 cordel-border-sm cordel-button px-2 py-1 text-xs cursor-pointer transition-colors w-[145px] h-[44px] min-h-[44px] shrink-0"
+              className="flex items-center gap-2 cordel-border-sm cordel-button px-2 py-1 text-xs cursor-pointer transition-colors w-[130px] h-[44px] min-h-[44px] shrink-0"
               style={{ backgroundColor: inst.mixerBg, color: inst.colors.text }}
               title={lang === 'pt' ? 'Editar instrumento' : 'Éditer l\'instrument'}
             >
@@ -381,10 +381,10 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                 e.stopPropagation();
                 handleDeleteTrack();
               }}
-              className="ml-1 flex items-center justify-center w-[22px] h-[22px] cordel-border-sm cordel-button cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]"
+              className="ml-2 flex items-center justify-center w-6 h-6 cordel-border-sm cordel-button cursor-pointer transition-colors bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#8b2a1a] hover:text-[#f4ecd8]"
               title={lang === 'fr' ? 'Supprimer la piste' : 'Excluir faixa'}
             >
-              <Trash2 size={12} />
+              <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
@@ -405,6 +405,18 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
           
           {inst.id !== 'apito' && (
             <button
+              onClick={onHideToggle}
+              className={`w-6 h-6 cordel-border-sm cordel-button text-[10px] font-bold cursor-pointer transition-all flex items-center justify-center ${
+                track.isHidden ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
+              }`}
+              title={lang === 'fr' ? "Masquer la piste" : "Ocultar pista"}
+            >
+              {track.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            </button>
+          )}
+
+          {inst.id !== 'apito' && (
+            <button
               onClick={toggleAoVivo}
               className={`w-6 h-6 cordel-border-sm cordel-button font-bold cursor-pointer transition-all flex items-center justify-center ${
                 isAoVivo ? 'bg-[#27ae60] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
@@ -421,18 +433,6 @@ const TrackMixerComponent: React.FC<TrackMixerProps> = ({
                   <circle cx="20" cy="3" r="2.5" fill="currentColor" />
                 </svg>
               )}
-            </button>
-          )}
-
-          {inst.id !== 'apito' && (
-            <button
-              onClick={onHideToggle}
-              className={`w-6 h-6 cordel-border-sm cordel-button text-[10px] font-bold cursor-pointer transition-all flex items-center justify-center ${
-                track.isHidden ? 'bg-[#1a1a1a] text-[#f4ecd8]' : 'bg-[#f4ecd8] text-[#1a1a1a] hover:bg-[#1a1a1a] hover:text-[#f4ecd8]'
-              }`}
-              title={lang === 'fr' ? "Masquer la piste" : "Ocultar pista"}
-            >
-              {track.isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
             </button>
           )}
 

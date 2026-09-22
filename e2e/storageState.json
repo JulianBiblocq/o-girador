@@ -1,40 +1,120 @@
 {
-  "cookies": [],
+  "cookies": [
+    {
+      "name": "__Secure-YNID",
+      "value": "21.YT=rgt4qzwVREAuqFOlNPPGQBpemCLHEWF1_FE4n2VkKV8_DcPnAng7xAYgLEJnGzvFMovt9hSImqm2pm0EVLXmlb3P5hg8DAQLKnQXIOj1X6kV2BaUwEcaLpBF-l3sMI3FNQ9GcgNDbC-VBxZbmciYJRpR5pbdq8P0FNtr-bfkUbJxEweZUc_iCMOa-73YlHoM4NdMisUqEyKL15xwMn16W3q_0Z8AlG_j_w4BsKAxxBux8nY-rQwnVyyF4mu_ZIlPU1nDbb3iqV1uZEo2T0hiPbYhknH0GpqPIuQMULIn81XQTKCrWRCNdyur7vTvFqAwJVPTzC731jP3YMZ_NeIv2Q",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": 1805592859.589096,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "http://localhost",
+      "_crHasCrossSiteAncestor": true
+    },
+    {
+      "name": "YSC",
+      "value": "L1ckMldgCik",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "VISITOR_INFO1_LIVE",
+      "value": "0knecKYnK9k",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": 1805592859.589742,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "VISITOR_PRIVACY_METADATA",
+      "value": "CgJGUhIiEh4SHAsMDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicgQQ%3D%3D",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": 1805592859.589754,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "__Secure-ROLLOUT_TOKEN",
+      "value": "COvboZ7506i4WxCWyrzshYGXAxiWyrzshYGXAw%3D%3D",
+      "domain": ".youtube.com",
+      "path": "/",
+      "expires": 1805592859.589774,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None",
+      "partitionKey": "http://localhost",
+      "_crHasCrossSiteAncestor": true
+    }
+  ],
   "origins": [
     {
       "origin": "http://localhost:5174",
       "localStorage": [
         {
+          "name": "ogirador_has_seen_welcome",
+          "value": "true"
+        },
+        {
+          "name": "firestore_sequence_number_firestore/[DEFAULT]/o-girador-7828c/",
+          "value": "394"
+        },
+        {
+          "name": "oGirador_reverb_decay",
+          "value": "1.925"
+        },
+        {
+          "name": "ogirador-wallpaper",
+          "value": "gravure"
+        },
+        {
+          "name": "o_girador_lang",
+          "value": "pt"
+        },
+        {
+          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_vqbuItXfKbUTOv69seKS",
+          "value": "{\"activeTargetIds\":[24,52],\"updateTimeMs\":1790040859426}"
+        },
+        {
+          "name": "firestore_online_state_firestore/[DEFAULT]/o-girador-7828c/",
+          "value": "{\"clientId\":\"vqbuItXfKbUTOv69seKS\",\"onlineState\":\"Online\"}"
+        },
+        {
+          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_52",
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1790040859318}"
+        },
+        {
           "name": "o-girador-theme",
           "value": "light"
         },
         {
-          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_42",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1788737283548}"
-        },
-        {
-          "name": "firestore_sequence_number_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "259"
-        },
-        {
-          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_t7pR8RJ6BKQpRAspP5eL",
-          "value": "{\"activeTargetIds\":[42],\"updateTimeMs\":1788737283560}"
-        },
-        {
-          "name": "oGirador_reverb_decay",
-          "value": "2.5"
-        },
-        {
-          "name": "o-girador-unlocked-folhetos",
-          "value": "[]"
-        },
-        {
-          "name": "firestore_online_state_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "{\"clientId\":\"t7pR8RJ6BKQpRAspP5eL\",\"onlineState\":\"Online\"}"
+          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_24",
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1790040859318}"
         },
         {
           "name": "oGirador_master_reverb_vol",
-          "value": "0"
+          "value": "-7.5"
+        }
+      ]
+    },
+    {
+      "origin": "https://www.youtube.com",
+      "localStorage": [
+        {
+          "name": "ytidb::LAST_RESULT_ENTRY_KEY",
+          "value": "{\"data\":{\"hasSucceededOnce\":true},\"expiration\":1792632860001,\"creation\":1790040860001}"
+        },
+        {
+          "name": "yt-icons-last-purged",
+          "value": "1782351260117"
         }
       ]
     }
