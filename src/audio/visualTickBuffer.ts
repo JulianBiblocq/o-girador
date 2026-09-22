@@ -108,6 +108,10 @@ export function getLastAudibleTick(): VisualTickEvent | null {
 }
 
 export function pushVisualTick(event: VisualTickEvent): void {
+  // Background playback: skip visual tick buffering when screen is off/tab hidden
+  // to prevent ring buffer overflow (rAF is frozen → ticks never consumed)
+  if (typeof document !== 'undefined' && document.hidden) return;
+
   const nextWriteIdx = (tickWriteIdx + 1) % TICK_QUEUE_SIZE;
 
   // Protection anti-débordement par glissement (Buffer Overrun Guard) :
@@ -143,7 +147,19 @@ export function purgeVisualTickBuffer(): void {
   hitReadIdx = hitWriteIdx;
 }
 
+/** Reset buffer state for foreground re-anchor after background playback.
+ *  Marks all pending ticks as consumed and clears the last audible tick reference
+ *  so the visual pipeline starts fresh from the next scheduler push. */
+export function resetVisualTickBuffer(): void {
+  tickReadIdx = tickWriteIdx;
+  hitReadIdx = hitWriteIdx;
+  lastAudibleTick = null;
+}
+
 export function pushVisualHitTrigger(trackId: number, stepIdx: number, strokeCode: number, triggerTime: number): void {
+  // Background playback: skip hit trigger buffering when screen is off/tab hidden
+  if (typeof document !== 'undefined' && document.hidden) return;
+
   const nextWriteIdx = (hitWriteIdx + 1) % HIT_QUEUE_SIZE;
   if (nextWriteIdx === hitReadIdx) {
     hitReadIdx = (hitReadIdx + 1) % HIT_QUEUE_SIZE;

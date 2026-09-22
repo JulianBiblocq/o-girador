@@ -26,12 +26,14 @@ import {
   stopVisualLoop,
   flushVisualBuffers,
   purgeVisualTickBuffer,
+  resetVisualTickBuffer,
   getLastAudibleTick,
   tickSubscribers,
   subscribeToTick,
   unsubscribeFromTick,
   registerAudioEngineSyncTarget
 } from '../audio/visualTickBuffer';
+import { startBackgroundAnchor, stopBackgroundAnchor, setMediaSessionState } from '../audio/backgroundAudioService';
 
 // Re-export tick subscription functions to preserve backwards compatibility
 export { tickSubscribers, subscribeToTick, unsubscribeFromTick };
@@ -1866,6 +1868,20 @@ export function useAudioSync({
     };
   }, [isAudioUnlocked]);
 
+  // Background Playback: Re-anchor visual clock when returning to foreground
+  useEffect(() => {
+    const handleForegroundReturn = () => {
+      if (!document.hidden && isPlayingRef.current) {
+        // Flush stale visual data accumulated while rAF was frozen
+        resetVisualTickBuffer();
+        // The still-running Worker scheduler will push fresh ticks,
+        // and processVisualLoop() (rAF, now unfrozen) will consume them.
+      }
+    };
+    document.addEventListener('visibilitychange', handleForegroundReturn);
+    return () => document.removeEventListener('visibilitychange', handleForegroundReturn);
+  }, []);
+
   const handleTogglePlay = useCallback(async () => {
     if (import.meta.env.DEV) {
     }
@@ -2006,6 +2022,12 @@ export function useAudioSync({
       }
       audioEngine?.start();
       setIsPlaying(true);
+
+      // Background Playback: Start silent HTML5 anchor for mobile background audio
+      startBackgroundAnchor(
+        () => { /* mediaSession play → handled by OS resuming AudioContext */ },
+        () => { /* mediaSession pause → handled by OS suspending AudioContext */ }
+      );
     } else {
       if (import.meta.env.DEV) {
       }
@@ -2028,6 +2050,7 @@ export function useAudioSync({
       activeSequencerVocalsRef.current.clear();
       lastElapsedSecRef.current = 0;
       setIsPlaying(false);
+      setMediaSessionState('paused');
       setCurrentMeasure(measureCountRef.current);
 
 
@@ -2110,6 +2133,7 @@ export function useAudioSync({
     activeSequencerVocalsRef.current.clear();
     lastElapsedSecRef.current = 0;
     setIsPlaying(false);
+    stopBackgroundAnchor();
     anchoredMeasureStartSecRef.current = 0;
     anchoredMeasureIdxRef.current = -1;
     currentStepIndexRef.current = -1;
