@@ -1850,6 +1850,14 @@ export function useAudioSync({
           return getMaxTicks(timeSig);
         }
       );
+      audioEngine.setOnPositionJump((step, measure) => {
+        currentStepIndexRef.current = step === 0 ? -1 : step - 1;
+        measureCountRef.current = measure;
+        const targetSig = measureTimeSigsRef.current[measure % (totalMeasuresRef.current || 1)] || '4/4';
+        maxTicksRef.current = getMaxTicks(targetSig);
+        absoluteTickCountRef.current = getMeasureStartTick(measure, measureTimeSigsRef.current) + step;
+        currentMeasureStartTickRef.current = getMeasureStartTick(measure, measureTimeSigsRef.current);
+      });
       registerAudioEngineSyncTarget(audioEngine);
 
       inputManager = new InputManager(audioEngine);
@@ -1897,8 +1905,13 @@ export function useAudioSync({
   useEffect(() => {
     const handleForegroundReturn = () => {
       if (!document.hidden && isPlayingRef.current) {
-        // Flush stale visual data accumulated while rAF was frozen
+        // 🛡️ Forcer la purge complète des événements visuels obsolètes accumulés pendant la veille
+        purgeVisualTickBuffer();
         resetVisualTickBuffer();
+        flushVisualBuffers();
+        hitTriggersRef.current.clear();
+
+        // 🛡️ Purge des hits audio en attente et réancrage atomique sans stampede
         audioEngine?.purgeScheduledHits();
         audioEngine?.forceReanchor();
 
