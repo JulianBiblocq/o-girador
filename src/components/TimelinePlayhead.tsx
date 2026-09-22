@@ -83,6 +83,7 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
       isNavigation?: boolean;
       measureStartTime?: number;
       measureDuration?: number;
+      isPreRoll?: boolean;
     }) => {
       const { step, measure, maxTicks, ratio = step / maxTicks, iteration = 1, isPaused = false, isNavigation = false, measureStartTime, measureDuration } = detail;
       const el = playheadRef.current;
