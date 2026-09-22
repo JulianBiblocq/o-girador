@@ -32,43 +32,12 @@ export const CordelImageEditor: React.FC<CordelImageEditorProps> = ({ frames, la
 
   const handleApply = async () => {
     setIsProcessing(true);
-    if (frames.length === 1) {
-      try {
-        const finalImg = await processCordelEffectBase64(frames[0], options, 200);
-        onComplete(finalImg);
-      } catch (err) {
-        console.error(err);
-        setIsProcessing(false);
-      }
-    } else {
-      try {
-        const processedFrames: string[] = [];
-        for (let i = 0; i < frames.length; i++) {
-          const processed = await processCordelEffectBase64(frames[i], options, 160);
-          processedFrames.push(processed);
-        }
-        
-        const gifshot = (await import('gifshot')).default;
-        gifshot.createGIF({
-          images: processedFrames,
-          gifWidth: 160,
-          gifHeight: 160,
-          numFrames: processedFrames.length,
-          frameDuration: 7.5,
-          sampleInterval: 12,
-          numWorkers: 2,
-        }, (obj: any) => {
-          if (!obj.error) {
-            onComplete(obj.image);
-          } else {
-            console.error('GIF creation error:', obj.errorMsg);
-            setIsProcessing(false);
-          }
-        });
-      } catch (err) {
-        console.error(err);
-        setIsProcessing(false);
-      }
+    try {
+      const finalImg = await processCordelEffectBase64(frames[0], options, 200);
+      onComplete(finalImg);
+    } catch (err) {
+      console.error(err);
+      setIsProcessing(false);
     }
   };
 

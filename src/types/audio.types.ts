@@ -60,7 +60,10 @@ export interface GlobalSwing {
 export interface RhythmSignal {
   id: string;
   name: string;
-  image: string; // base64 JPEG
+  image: string; // base64 JPEG ou URL
+  frames?: string[]; // Tableau des 4 ou 5 trames traitées Cordel
+  beatsCount?: number; // 4 ou 5
+  createdAt?: number;
 }
 
 export interface PresetMetadata {
@@ -129,10 +132,8 @@ export interface Preset {
   rodaTrackOrder?: number[];
 }
 
-export interface CloudRhythmSignal {
-  id: string;
+export interface CloudRhythmSignal extends RhythmSignal {
   mestreId: string;
-  name: string;
-  imageUrl: string;
-  createdAt: number;
+  imageUrl?: string;
+  isGlobal?: boolean;
 }

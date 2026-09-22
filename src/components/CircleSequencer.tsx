@@ -299,7 +299,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
   if (!tracks) return null;
 
-  const updateOverlay = (expandedMeasureIdx: number, baseMeasureIdx: number) => {
+  const updateOverlay = (expandedMeasureIdx: number, baseMeasureIdx: number, currentBeat: number = 0) => {
     const container = centerOverlayRef.current;
     if (!container) return;
 
@@ -312,14 +312,26 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
     // 1. Resolve active signal (visible only on the measure it's set)
     const sigId = currentMeasureSignals?.[expandedMeasureIdx] || null;
-    let activeSig: { name: string; image: string } | null = null;
+    let activeSig: { name: string; image: string; frames?: string[]; beatsCount?: number } | null = null;
     if (sigId) {
       const cloudSig = currentMestreSignals?.find(s => s.id === sigId);
       if (cloudSig) {
-        activeSig = { name: cloudSig.name, image: cloudSig.imageUrl };
+        activeSig = {
+          name: cloudSig.name,
+          image: cloudSig.image || cloudSig.imageUrl || '',
+          frames: cloudSig.frames,
+          beatsCount: cloudSig.beatsCount
+        };
       } else {
         const localSig = currentRhythmSignals?.find(s => s.id === sigId);
-        if (localSig) activeSig = { name: localSig.name, image: localSig.image };
+        if (localSig) {
+          activeSig = {
+            name: localSig.name,
+            image: localSig.image,
+            frames: localSig.frames,
+            beatsCount: localSig.beatsCount
+          };
+        }
       }
     }
 
@@ -345,10 +357,20 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     const cache = lastOverlayStateRef.current;
 
     if (activeSig) {
-      if (cache.imgSrc !== activeSig.image) {
-        imgEl.src = activeSig.image;
+      // Résolution de la trame au tempo vivant si multi-trames
+      let targetSrc = activeSig.image;
+      if (activeSig.frames && activeSig.frames.length > 0) {
+        const totalBeats = activeSig.beatsCount || activeSig.frames.length;
+        const frameIdx = currentBeat % totalBeats;
+        targetSrc = activeSig.frames[frameIdx] || activeSig.frames[0] || activeSig.image;
+      }
+
+      if (cache.imgSrc !== targetSrc) {
+        imgEl.src = targetSrc;
+        cache.imgSrc = targetSrc;
+      }
+      if (imgEl.alt !== activeSig.name) {
         imgEl.alt = activeSig.name;
-        cache.imgSrc = activeSig.image;
       }
       if (cache.imgDisplay !== 'block') {
         imgEl.style.display = 'block';
@@ -535,7 +557,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
       }
  
-      updateOverlay(displayMeasure - 1, measure);
+      const beatsPerMeasure = 4;
+      const currentBeat = Math.min(beatsPerMeasure - 1, Math.max(0, Math.floor(ratio * beatsPerMeasure)));
+      updateOverlay(displayMeasure - 1, measure, currentBeat);
     };
  
     const handleMeasureQueued = (e: Event) => {

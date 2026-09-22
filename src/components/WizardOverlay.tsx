@@ -1,9 +1,10 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Language, TrackGroup, Pattern } from '../types';
+import { Language, TrackGroup, Pattern, RhythmSignal } from '../types';
 import { useWizardStore, PlacedInstrument, SongInfo } from '../stores/useWizardStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { CordelImageEditor } from './CordelImageEditor';
+import { MusicalPhotoBoothModal } from './signals/MusicalPhotoBoothModal';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useTransportStore } from '../stores/useTransportStore';
 import { audioEngine } from '../hooks/useAudioSync';
@@ -290,24 +291,11 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
   // Size of La Place to draw SVG accurately
   const [placeSize, setPlaceSize] = useState({ width: 0, height: 0 });
 
-  // Camera & Image capture states
-  const [showCamera, setShowCamera] = useState(false);
-  const [signalCameraActive, setSignalCameraActive] = useState(false);
-  const [isCapturingBurst, setIsCapturingBurst] = useState(false);
-  const [burstCount, setBurstCount] = useState(0);
-  const [isProcessingGif, setIsProcessingGif] = useState(false);
-  const [flashActive, setFlashActive] = useState(false);
+  // Photo-Booth states
+  const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
+  const [customSignalsMap, setCustomSignalsMap] = useState<Record<string, RhythmSignal>>({});
   const [rawSignalFrames, setRawSignalFrames] = useState<string[]>([]);
   const [useCordelEffect, setUseCordelEffect] = useState(true);
-
-  // References for drag & drop
-  const placeRef = useRef<HTMLDivElement>(null);
-  const ghostRef = useRef<HTMLDivElement>(null);
-  const dismissZoneRef = useRef<HTMLDivElement>(null);
-  
-  // References for Camera
-  const signalVideoRef = useRef<HTMLVideoElement>(null);
-  const signalStreamRef = useRef<MediaStream | null>(null);
   
   // Drag state without render thrashing
   const dragInfoRef = useRef<{
@@ -336,9 +324,6 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
       if (toastTimeoutRef.current) {
         window.clearTimeout(toastTimeoutRef.current);
       }
-      if (signalStreamRef.current) {
-        signalStreamRef.current.getTracks().forEach((t) => t.stop());
-      }
     };
   }, []);
 
@@ -353,129 +338,24 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
     }, 4000);
   };
 
-  // Camera Management Methods
-  const startSignalCamera = async () => {
-    try {
-      setSignalCameraActive(true);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-      });
-      signalStreamRef.current = stream;
-      setTimeout(() => {
-        if (signalVideoRef.current) {
-          signalVideoRef.current.srcObject = stream;
-          signalVideoRef.current.play().catch((e) => console.error('Video play error:', e));
-        }
-      }, 100);
-    } catch (err) {
-      console.error('Signal camera error:', err);
-      setSignalCameraActive(false);
-      sequencer.alertAsync(wizardLang === 'fr' ? "Impossible d'accéder à la caméra." : "Não foi possível acessar a câmera.");
-    }
-  };
-
-  const stopSignalCamera = () => {
-    if (signalStreamRef.current) {
-      signalStreamRef.current.getTracks().forEach((t) => t.stop());
-      signalStreamRef.current = null;
-    }
-    setSignalCameraActive(false);
-  };
-
-  const captureSignalPhoto = (isBurst: boolean = false) => {
-    if (isCapturingBurst || isProcessingGif) return;
-    if (signalVideoRef.current) {
-      setIsCapturingBurst(true);
-      setBurstCount(0);
-      setIsProcessingGif(false);
-
-      const video = signalVideoRef.current;
-      const frames: string[] = [];
-      const totalFrames = isBurst ? 4 : 1;
-      const intervalMs = isBurst ? 1000 : 0;
-
-      const captureFrame = async (frameIndex: number) => {
-        if (!signalStreamRef.current) {
-          setIsCapturingBurst(false);
-          return;
-        }
-
-        setFlashActive(true);
-        setTimeout(() => setFlashActive(false), 150);
-
-        const canvas = document.createElement('canvas');
-        canvas.width = 200;
-        canvas.height = 200;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          const videoWidth = video.videoWidth || 640;
-          const videoHeight = video.videoHeight || 480;
-          const size = Math.min(videoWidth, videoHeight);
-          const sx = (videoWidth - size) / 2;
-          const sy = (videoHeight - size) / 2;
-          ctx.drawImage(video, sx, sy, size, size, 0, 0, 200, 200);
-
-          const frameBase64 = canvas.toDataURL('image/jpeg', 0.4);
-          frames.push(frameBase64);
-          setBurstCount(frameIndex + 1);
-        }
-
-        if (frameIndex + 1 >= totalFrames) {
-          setIsCapturingBurst(false);
-
-          if (useCordelEffect) {
-            setRawSignalFrames(frames);
-            stopSignalCamera();
-            return;
-          }
-
-          if (totalFrames === 1) {
-            toggleSignId(frames[0]);
-            stopSignalCamera();
-            setShowCamera(false);
-            return;
-          }
-
-          setIsProcessingGif(true);
-
-          try {
-            const gifshot = (await import('gifshot')).default;
-            gifshot.createGIF(
-              {
-                images: frames,
-                gifWidth: 160,
-                gifHeight: 160,
-                numFrames: totalFrames,
-                frameDuration: 7.5,
-                sampleInterval: 12,
-                numWorkers: 2,
-              },
-              (obj: any) => {
-                setIsProcessingGif(false);
-                if (!obj.error) {
-                  toggleSignId(obj.image);
-                  stopSignalCamera();
-                  setShowCamera(false);
-                } else {
-                  console.error('GIF creation error:', obj.errorMsg);
-                  sequencer.alertAsync(wizardLang === 'fr' ? "Erreur lors de la génération du GIF." : "Erro ao gerar o GIF.");
-                }
-              }
-            );
-          } catch (err) {
-            console.error('Failed to load gifshot:', err);
-            setIsProcessingGif(false);
-            sequencer.alertAsync(wizardLang === 'fr' ? "Erreur de chargement du module GIF." : "Erro ao carregar o módulo GIF.");
-          }
-        } else {
-          setTimeout(() => {
-            captureFrame(frameIndex + 1);
-          }, intervalMs);
-        }
-      };
-
-      captureFrame(0);
-    }
+  const handlePhotoBoothSave = (signalData: {
+    name: string;
+    image: string;
+    frames: string[];
+    beatsCount: number;
+  }) => {
+    toggleSignId(signalData.image);
+    setCustomSignalsMap((prev) => ({
+      ...prev,
+      [signalData.image]: {
+        id: signalData.image,
+        name: signalData.name,
+        image: signalData.image,
+        frames: signalData.frames,
+        beatsCount: signalData.beatsCount,
+        createdAt: Date.now(),
+      },
+    }));
   };
 
   const handleSignalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -785,21 +665,31 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
       ritmo: songInfo.mainRythm,
       youtubeUrl: songInfo.youtubeUrl,
       description: songInfo.rodaName, // Nom de la Roda
-      rhythmSignals: selectedSignIds.map((id, idx) => ({
-        id,
-        name: `Sinal ${idx + 1}`,
-        image: id
-      }))
+      rhythmSignals: selectedSignIds.map((id, idx) => {
+        const custom = customSignalsMap[id];
+        if (custom) return custom;
+        return {
+          id,
+          name: `Sinal ${idx + 1}`,
+          image: id,
+        };
+      })
     };
     sequencer.setMetadata(cleanMetadata);
 
-    const cloudSignals = selectedSignIds.map((id, idx) => ({
-      id,
-      mestreId: 'mestre',
-      name: `Sinal ${idx + 1}`,
-      imageUrl: id,
-      createdAt: Date.now()
-    }));
+    const cloudSignals = selectedSignIds.map((id, idx) => {
+      const custom = customSignalsMap[id];
+      return {
+        id,
+        mestreId: 'mestre',
+        name: custom?.name || `Sinal ${idx + 1}`,
+        imageUrl: id,
+        image: id,
+        frames: custom?.frames,
+        beatsCount: custom?.beatsCount,
+        createdAt: Date.now(),
+      };
+    });
     useSequencerStore.getState().setMestreSignals(cloudSignals);
 
     const chosenBalanco = useBalancoStore.getState().resolvePreset(selectedBalancoId);
@@ -1230,88 +1120,14 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
           </div>
         )}
 
-        {/* Camera Modal overlay */}
-        {showCamera && rawSignalFrames.length === 0 && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-            <div className="bg-[#f4ecd8] border-4 border-[#1a1a1a] p-5 max-w-md w-full rounded-sm shadow-[8px_8px_0_rgba(0,0,0,1)] flex flex-col gap-4 relative">
-              <button
-                onClick={() => { stopSignalCamera(); setShowCamera(false); }}
-                className="absolute top-3 right-3 font-bold text-xl hover:text-red-700 cursor-pointer text-[#1a1a1a]"
-              >
-                ✖
-              </button>
-              <h3 className="font-cactus text-xl font-bold uppercase tracking-wider border-b-2 border-[#1a1a1a] pb-1 text-[#1a1a1a]">
-                {t[wizardLang].cameraTitle}
-              </h3>
-              
-              <div className="flex justify-between items-center bg-black/5 p-2 border border-dashed border-[#1a1a1a]/20">
-                <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={useCordelEffect}
-                    onChange={(e) => setUseCordelEffect(e.target.checked)}
-                    className="w-3 h-3 cursor-pointer accent-[#8b2a1a]"
-                  />
-                  <span className="text-[10px] text-[#1a1a1a] font-bold">
-                    {t[wizardLang].effetGravure}
-                  </span>
-                </label>
-              </div>
-
-              {signalCameraActive ? (
-                <div className="flex flex-col gap-3">
-                  <div className="aspect-square bg-black border-2 border-[#1a1a1a] overflow-hidden relative">
-                    <video ref={signalVideoRef} className="w-full h-full object-cover" playsInline muted />
-                    <div
-                      className="absolute inset-0 bg-white z-20 pointer-events-none transition-opacity duration-150"
-                      style={{ opacity: flashActive ? 0.7 : 0 }}
-                    />
-                    {(isCapturingBurst || isProcessingGif) && (
-                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 text-white z-10 select-none">
-                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span className="text-[10px] font-cactus font-bold tracking-wider uppercase">
-                          {isProcessingGif
-                            ? wizardLang === 'fr' ? 'Création du GIF...' : 'Criando GIF...'
-                            : `${wizardLang === 'fr' ? 'Capture' : 'Capturando'} : ${burstCount}/4`}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => captureSignalPhoto(false)}
-                      disabled={isCapturingBurst || isProcessingGif}
-                      className="flex-1 py-2 text-[#f4ecd8] bg-[#8b2a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] cursor-pointer text-xs font-bold font-cactus uppercase disabled:opacity-50"
-                    >
-                      📸 {t[wizardLang].photo}
-                    </button>
-                    <button
-                      onClick={() => captureSignalPhoto(true)}
-                      disabled={isCapturingBurst || isProcessingGif}
-                      className="flex-1 py-2 text-[#f4ecd8] bg-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] cursor-pointer text-xs font-bold font-cactus uppercase disabled:opacity-50"
-                    >
-                      🎞️ {t[wizardLang].rafale}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-3 py-6 justify-center items-center">
-                  <button
-                    onClick={startSignalCamera}
-                    className="w-full py-3 bg-[#1a1a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[4px_4px_0_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer text-xs font-bold font-cactus uppercase tracking-wider flex items-center justify-center gap-2"
-                  >
-                    📷 {t[wizardLang].activerCam}
-                  </button>
-                  <span className="text-[10px] text-[#1a1a1a]/60 uppercase font-cactus font-bold">— {t[wizardLang].ou} —</span>
-                  <label className="w-full py-3 bg-[#f4ecd8] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[4px_4px_0_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer text-xs font-bold font-cactus uppercase tracking-wider text-center flex items-center justify-center gap-2">
-                    📁 {t[wizardLang].importFichier}
-                    <input type="file" accept="image/*" onChange={handleSignalFileChange} className="hidden" />
-                  </label>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {/* Modale Photo-cabine musicale */}
+        <MusicalPhotoBoothModal
+          isOpen={isPhotoBoothOpen}
+          onClose={() => setIsPhotoBoothOpen(false)}
+          onSave={handlePhotoBoothSave}
+          initialBpm={bpm}
+          lang={wizardLang}
+        />
 
         {/* Header */}
         <div className="flex justify-between items-center border-b-4 border-[#1a1a1a] pb-3 mb-6 flex-shrink-0">
@@ -1699,12 +1515,19 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
                 )}
               </div>
 
-              <button
-                onClick={() => setShowCamera(true)}
-                className="w-full md:w-auto px-4 py-2.5 bg-[#1a1a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[3px_3px_0_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-[0.98] transition-all cursor-pointer font-cactus font-bold uppercase text-xs tracking-wider shrink-0"
-              >
-                📸 {t[wizardLang].prendrePhoto}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPhotoBoothOpen(true)}
+                  className="w-full md:w-auto px-4 py-2.5 bg-[#8b2a1a] text-[#f4ecd8] border-2 border-[#1a1a1a] shadow-[3px_3px_0_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:scale-[0.98] transition-all cursor-pointer font-cactus font-bold uppercase text-xs tracking-wider shrink-0"
+                >
+                  📸 {wizardLang === 'fr' ? 'Photo-cabine Musicale' : 'Cabine de Fotos'}
+                </button>
+                <label className="px-3 py-2.5 bg-[#ece4d0] hover:bg-[#e2d7be] text-[#1a1a1a] border-2 border-[#1a1a1a] shadow-[2px_2px_0_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] cursor-pointer font-cactus font-bold uppercase text-xs tracking-wider shrink-0 flex items-center gap-1">
+                  📁 {t[wizardLang].importFichier}
+                  <input type="file" accept="image/*" onChange={handleSignalFileChange} className="hidden" />
+                </label>
+              </div>
             </div>
           </div>
 

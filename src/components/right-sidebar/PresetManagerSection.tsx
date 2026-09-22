@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { PresetMetadata, Language } from '../../types';
+import React, { useState } from 'react';
+import { PresetMetadata, Language, RhythmSignal } from '../../types';
 import { CordelImageEditor } from '../CordelImageEditor';
+import { MusicalPhotoBoothModal } from '../signals/MusicalPhotoBoothModal';
 
 interface PresetManagerSectionProps {
   metadata: PresetMetadata;
@@ -16,26 +17,11 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
   userProfile,
 }) => {
   const [showAddSignalForm, setShowAddSignalForm] = useState(false);
-  const [signalCameraActive, setSignalCameraActive] = useState(false);
+  const [isPhotoBoothOpen, setIsPhotoBoothOpen] = useState(false);
   const [pendingSignalImage, setPendingSignalImage] = useState<string | null>(null);
   const [pendingSignalName, setPendingSignalName] = useState('');
-  const [useCordelEffect, setUseCordelEffect] = useState(false);
+  const [useCordelEffect, setUseCordelEffect] = useState(true);
   const [rawSignalFrames, setRawSignalFrames] = useState<string[]>([]);
-  const [flashActive, setFlashActive] = useState(false);
-  const [isCapturingBurst, setIsCapturingBurst] = useState(false);
-  const [burstCount, setBurstCount] = useState(0);
-  const [isProcessingGif, setIsProcessingGif] = useState(false);
-
-  const signalVideoRef = useRef<HTMLVideoElement | null>(null);
-  const signalStreamRef = useRef<MediaStream | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (signalStreamRef.current) {
-        signalStreamRef.current.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, []);
 
   const compressAndResizeImage = (fileOrBlob: File | Blob, callback: (base64: string) => void) => {
     const reader = new FileReader();
@@ -89,126 +75,22 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
     e.target.value = '';
   };
 
-  const startSignalCamera = async () => {
-    try {
-      setSignalCameraActive(true);
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-      });
-      signalStreamRef.current = stream;
-      setTimeout(() => {
-        if (signalVideoRef.current) {
-          signalVideoRef.current.srcObject = stream;
-          signalVideoRef.current.play().catch((e) => console.error('Video play error:', e));
-        }
-      }, 100);
-    } catch (err) {
-      console.error('Signal camera error:', err);
-      setSignalCameraActive(false);
-      window.alert(lang === 'fr' ? "Impossible d'accéder à la caméra." : "Não foi possível acessar a câmera.");
-    }
-  };
-
-  const stopSignalCamera = () => {
-    if (signalStreamRef.current) {
-      signalStreamRef.current.getTracks().forEach((t) => t.stop());
-      signalStreamRef.current = null;
-    }
-    setSignalCameraActive(false);
-  };
-
-  const captureSignalPhoto = (isBurst: boolean = true) => {
-    if (isCapturingBurst || isProcessingGif) return;
-    if (signalVideoRef.current) {
-      setIsCapturingBurst(true);
-      setBurstCount(0);
-      setIsProcessingGif(false);
-
-      const video = signalVideoRef.current;
-      const frames: string[] = [];
-      const totalFrames = isBurst ? 4 : 1;
-      const intervalMs = isBurst ? 1000 : 0;
-
-      const captureFrame = async (frameIndex: number) => {
-        if (!signalStreamRef.current) {
-          setIsCapturingBurst(false);
-          return;
-        }
-
-        setFlashActive(true);
-        setTimeout(() => setFlashActive(false), 150);
-
-        const canvas = document.createElement('canvas');
-        canvas.width = 200;
-        canvas.height = 200;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          const videoWidth = video.videoWidth || 640;
-          const videoHeight = video.videoHeight || 480;
-          const size = Math.min(videoWidth, videoHeight);
-          const sx = (videoWidth - size) / 2;
-          const sy = (videoHeight - size) / 2;
-          ctx.drawImage(video, sx, sy, size, size, 0, 0, 200, 200);
-
-          const frameBase64 = canvas.toDataURL('image/jpeg', 0.4);
-          frames.push(frameBase64);
-          setBurstCount(frameIndex + 1);
-        }
-
-        if (frameIndex + 1 >= totalFrames) {
-          setIsCapturingBurst(false);
-
-          if (useCordelEffect) {
-            setRawSignalFrames(frames);
-            stopSignalCamera();
-            return;
-          }
-
-          if (totalFrames === 1) {
-            setPendingSignalImage(frames[0]);
-            stopSignalCamera();
-            return;
-          }
-
-          setIsProcessingGif(true);
-
-          try {
-            const gifshot = (await import('gifshot')).default;
-            gifshot.createGIF(
-              {
-                images: frames,
-                gifWidth: 160,
-                gifHeight: 160,
-                numFrames: totalFrames,
-                frameDuration: 7.5,
-                sampleInterval: 12,
-                numWorkers: 2,
-              },
-              (obj: any) => {
-                setIsProcessingGif(false);
-                if (!obj.error) {
-                  setPendingSignalImage(obj.image);
-                  stopSignalCamera();
-                } else {
-                  console.error('GIF creation error:', obj.errorMsg);
-                  window.alert(lang === 'fr' ? "Erreur lors de la génération du GIF." : "Erro ao gerar o GIF.");
-                }
-              }
-            );
-          } catch (err) {
-            console.error('Failed to load gifshot:', err);
-            setIsProcessingGif(false);
-            window.alert(lang === 'fr' ? "Erreur de chargement du module GIF." : "Erro ao carregar o módulo GIF.");
-          }
-        } else {
-          setTimeout(() => {
-            captureFrame(frameIndex + 1);
-          }, intervalMs);
-        }
-      };
-
-      captureFrame(0);
-    }
+  const handlePhotoBoothSave = (signalData: {
+    name: string;
+    image: string;
+    frames: string[];
+    beatsCount: number;
+  }) => {
+    const newSignal: RhythmSignal = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name: signalData.name,
+      image: signalData.image,
+      frames: signalData.frames,
+      beatsCount: signalData.beatsCount,
+      createdAt: Date.now(),
+    };
+    const prev = metadata.rhythmSignals || [];
+    onMetadataChange({ ...metadata, rhythmSignals: [...prev, newSignal] });
   };
 
   const handleAddLocalSignal = () => {
@@ -285,19 +167,11 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
 
         {/* Add Form */}
         {!pendingSignalImage && rawSignalFrames.length === 0 && showAddSignalForm ? (
-          <div className="flex flex-col gap-2 mt-3 border border-[var(--cordel-border)] border-dashed p-2 bg-black/5">
+          <div className="flex flex-col gap-2 mt-3 border border-[var(--cordel-border)] border-dashed p-2.5 bg-black/5">
             <div className="flex justify-between items-center mb-1">
-              <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={useCordelEffect}
-                  onChange={(e) => setUseCordelEffect(e.target.checked)}
-                  className="w-3 h-3 cursor-pointer accent-[var(--cordel-text)]"
-                />
-                <span className="text-[10px] text-[var(--cordel-text)] font-bold">
-                  {lang === 'fr' ? '🎨 Appliquer effet Cordel' : '🎨 Aplicar efeito Cordel'}
-                </span>
-              </label>
+              <span className="text-[10px] text-[var(--cordel-text)] font-bold uppercase font-cactus">
+                {lang === 'fr' ? 'Créer un Signal Local' : 'Criar um Sinal Local'}
+              </span>
               <button
                 onClick={() => setShowAddSignalForm(false)}
                 className="text-[12px] font-bold text-[var(--cordel-text)] hover:text-red-700 px-2 cursor-pointer"
@@ -306,67 +180,24 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
                 ✖
               </button>
             </div>
-            {signalCameraActive ? (
-              <div className="flex flex-col gap-2">
-                <div className="aspect-video bg-black cordel-border-sm overflow-hidden relative">
-                  <video ref={signalVideoRef} className="w-full h-full object-cover" playsInline muted />
-                  <div
-                    className="absolute inset-0 bg-white z-20 pointer-events-none transition-opacity duration-150"
-                    style={{ opacity: flashActive ? 0.7 : 0 }}
-                  />
-                  {(isCapturingBurst || isProcessingGif) && (
-                    <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2 text-white z-10 select-none animate-fade-in">
-                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span className="text-[10px] font-cactus font-bold tracking-wider uppercase">
-                        {isProcessingGif
-                          ? lang === 'fr' ? 'Création du GIF...' : 'Criando GIF...'
-                          : `${lang === 'fr' ? 'Capture' : 'Capturando'} : ${burstCount}/4`}
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => captureSignalPhoto(false)}
-                    disabled={isCapturingBurst || isProcessingGif}
-                    className="flex-1 py-1 text-white text-[10px] font-bold cordel-border-sm cursor-pointer bg-blue-600 hover:opacity-85 disabled:bg-blue-800 disabled:opacity-50"
-                  >
-                    📸 {lang === 'fr' ? 'Photo' : 'Foto'}
-                  </button>
-                  <button
-                    onClick={() => captureSignalPhoto(true)}
-                    disabled={isCapturingBurst || isProcessingGif}
-                    className="flex-1 py-1 text-white text-[10px] font-bold cordel-border-sm cursor-pointer bg-emerald-600 hover:opacity-85 disabled:bg-emerald-800 disabled:opacity-50"
-                  >
-                    🎞️ {isProcessingGif
-                      ? lang === 'fr' ? 'Création...' : 'Criando...'
-                      : isCapturingBurst
-                        ? `${burstCount}/4`
-                        : lang === 'fr' ? 'Rafale' : 'Rajada'}
-                  </button>
-                  <button
-                    onClick={stopSignalCamera}
-                    disabled={isCapturingBurst || isProcessingGif}
-                    className="py-1 px-2 text-black text-[10px] font-bold cordel-border-sm cursor-pointer bg-gray-300 hover:opacity-85 disabled:bg-gray-400 disabled:opacity-50"
-                  >
-                    ✖
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <label className="flex-1 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[10px] font-bold cordel-border-sm text-center cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors flex items-center justify-center gap-1">
-                  📁 {lang === 'fr' ? 'Fichier' : 'Arquivo'}
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddSignalForm(false);
+                  setIsPhotoBoothOpen(true);
+                }}
+                className="py-2 bg-[var(--cordel-wood)] text-white font-cactus font-bold text-xs uppercase tracking-wider cordel-border-sm hover:opacity-90 transition-opacity cursor-pointer flex items-center justify-center gap-2"
+              >
+                📸 {lang === 'fr' ? 'Photo-cabine Musicale (Cadencée)' : 'Cabine de Fotos Musical'}
+              </button>
+              <div className="flex items-center gap-2">
+                <label className="flex-1 py-1.5 bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[10px] font-bold cordel-border-sm text-center cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors flex items-center justify-center gap-1">
+                  📁 {lang === 'fr' ? 'Importer une image fixe' : 'Importar imagem fixa'}
                   <input type="file" accept="image/*" onChange={handleSignalFileChange} className="hidden" />
                 </label>
-                <button
-                  onClick={startSignalCamera}
-                  className="flex-1 py-1 bg-[var(--cordel-bg)] text-[var(--cordel-text)] text-[10px] font-bold cordel-border-sm hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors cursor-pointer flex items-center justify-center gap-1"
-                >
-                  📷 {lang === 'fr' ? 'Caméra' : 'Câmera'}
-                </button>
               </div>
-            )}
+            </div>
           </div>
         ) : rawSignalFrames.length > 0 ? (
           <CordelImageEditor
@@ -414,6 +245,14 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
             </div>
           </div>
         ) : null}
+
+        {/* Modale Photo-cabine musicale */}
+        <MusicalPhotoBoothModal
+          isOpen={isPhotoBoothOpen}
+          onClose={() => setIsPhotoBoothOpen(false)}
+          onSave={handlePhotoBoothSave}
+          lang={lang}
+        />
       </div>
     </div>
   );

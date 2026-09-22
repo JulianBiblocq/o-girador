@@ -15,7 +15,11 @@ export const fetchMestreSignals = async (mestreId: string, lastVisibleDoc?: any)
     const querySnapshot = await getDocs(query(q, limit(50)));
     const signals: CloudRhythmSignal[] = [];
     querySnapshot.forEach((doc) => {
-      signals.push(doc.data() as CloudRhythmSignal);
+      const data = doc.data() as CloudRhythmSignal;
+      signals.push({
+        ...data,
+        image: data.image || data.imageUrl || '',
+      });
     });
     return {
       signals,
@@ -40,7 +44,9 @@ export interface UploadSignalResult {
 export const uploadMestreSignal = async (
   mestreId: string,
   name: string,
-  base64Image: string
+  base64Image: string,
+  frames?: string[],
+  beatsCount?: number
 ): Promise<UploadSignalResult> => {
   if (!mestreId) {
     return { success: false, error: 'Mestre ID manquant ou invalide.' };
@@ -85,8 +91,10 @@ export const uploadMestreSignal = async (
       id,
       mestreId,
       name,
+      image: imageUrl,
       imageUrl,
       createdAt: Date.now(),
+      ...(frames && frames.length > 0 ? { frames, beatsCount: beatsCount || frames.length } : {})
     };
 
     await setDoc(doc(db, 'mestre_signals', id), signalData);
