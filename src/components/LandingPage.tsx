@@ -400,15 +400,15 @@ function preloadLandingSamples() {
 const PernambucoEstandarteWithMast = () => (
   <svg
     className="w-18 sm:w-22 md:w-28 lg:w-32 h-auto overflow-visible select-none"
-    viewBox="0 0 200 185"
+    viewBox="0 0 200 205"
     xmlns="http://www.w3.org/2000/svg"
   >
     {/* Sommet du mât : Pointeira / flèche dorée */}
     <polygon points="100,2 104,14 96,14" fill="#d4af37" stroke="#1a1a1a" strokeWidth="1.2" />
     <circle cx="100" cy="14" r="3" fill="#d4af37" stroke="#1a1a1a" strokeWidth="1" />
 
-    {/* Le mât vertical raccourci ancré et enfoncé dans le sommet du 'I' */}
-    <line x1="100" y1="14" x2="100" y2="185" stroke="#1a1a1a" strokeWidth="3.5" strokeLinecap="round" />
+    {/* Le mât vertical reliant les franges au sommet du 'I' */}
+    <line x1="100" y1="14" x2="100" y2="205" stroke="#1a1a1a" strokeWidth="3.5" strokeLinecap="round" />
 
     {/* Cordelette de suspension en V */}
     <path d="M 40 28 L 100 14 L 160 28" fill="none" stroke="#1a1a1a" strokeWidth="1.8" />
@@ -908,7 +908,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               >
                 <span>G</span>
                 <span className="relative inline-flex flex-col items-center">
-                  <span className="absolute bottom-[86%] left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none z-30">
+                  <span className="absolute bottom-[96%] left-[44%] -translate-x-1/2 flex flex-col items-center pointer-events-none z-30">
                     <PernambucoEstandarteWithMast />
                   </span>
                   <span>I</span>
