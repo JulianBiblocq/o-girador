@@ -579,37 +579,46 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const loadFallbackPreset = useCallback(async (name: string) => {
     setIsPresetLoading(true);
-    let p;
-    if (name.startsWith('cloud:')) {
-      const id = name.replace('cloud:', '');
-      const { getCloudPreset } = await import('../cloudLibrary');
-      p = await getCloudPreset(id);
-      if (!p) {
-        window.alert(t('invalidFile') || (sequencer.lang === 'fr' ? 'Fichier invalide' : 'Arquivo inválido'));
-        return;
+    try {
+      let p;
+      if (name.startsWith('cloud:')) {
+        const id = name.replace('cloud:', '');
+        const { getCloudPreset } = await import('../cloudLibrary');
+        p = await getCloudPreset(id);
+        if (!p) {
+          setIsPresetLoading(false);
+          window.alert(t('invalidFile') || (sequencer.lang === 'fr' ? 'Fichier invalide' : 'Arquivo inválido'));
+          return;
+        }
+      } else if (name.startsWith('local:')) {
+        const id = name.replace('local:', '');
+        const localLib = await getLocalLibrary();
+        p = localLib[id];
+        if (!p) {
+          setIsPresetLoading(false);
+          window.alert(t('invalidFile') || (sequencer.lang === 'fr' ? 'Fichier invalide' : 'Arquivo inválido'));
+          return;
+        }
+      } else if (name.endsWith('.json')) {
+        try {
+          const response = await fetch(`${ASSETS_BASE_URL}presets/${name}`);
+          if (!response.ok) throw new Error('Network response was not ok');
+          p = await response.json();
+        } catch (error) {
+          console.error('Error fetching preset:', error);
+          setIsPresetLoading(false);
+          window.alert(t('invalidFile'));
+          return;
+        }
+      } else {
+        p = name === 'baque-de-imale' ? baqueDeImalePreset : vouVadiarPreset;
       }
-    } else if (name.startsWith('local:')) {
-      const id = name.replace('local:', '');
-      const localLib = await getLocalLibrary();
-      p = localLib[id];
-      if (!p) {
-        window.alert(t('invalidFile') || (sequencer.lang === 'fr' ? 'Fichier invalide' : 'Arquivo inválido'));
-        return;
-      }
-    } else if (name.endsWith('.json')) {
-      try {
-        const response = await fetch(`${ASSETS_BASE_URL}presets/${name}`);
-        if (!response.ok) throw new Error('Network response was not ok');
-        p = await response.json();
-      } catch (error) {
-        console.error('Error fetching preset:', error);
-        window.alert(t('invalidFile'));
-        return;
-      }
-    } else {
-      p = name === 'baque-de-imale' ? baqueDeImalePreset : vouVadiarPreset;
+      await applyPreset(p);
+    } catch (err) {
+      console.error('loadFallbackPreset error:', err);
+      setIsPresetLoading(false);
+      throw err;
     }
-    await applyPreset(p);
   }, [applyPreset]);
 
   const handlePresetSelect = async (value: string) => {

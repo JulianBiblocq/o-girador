@@ -6,6 +6,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import LZString from 'lz-string';
 import { useAudio } from '../contexts/AudioContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { getLocalLibrary } from '../library';
@@ -14,6 +15,8 @@ import { ASSETS_BASE_URL, instrumentsConfig } from '../data';
 export function useAppAudio() {
   const audio = useAudio();
   const sequencer = useSequencer();
+  const { userProfile } = useAuth();
+  const userProfileRef = useRef(userProfile);
   const tracks = useSequencerStore(state => state.tracks);
 
   const [presetFiles, setPresetFiles] = useState<string[]>([]);
@@ -31,6 +34,10 @@ export function useAppAudio() {
   useEffect(() => {
     audioRef.current = audio;
   }, [audio]);
+
+  useEffect(() => {
+    userProfileRef.current = userProfile;
+  }, [userProfile]);
 
   // Initialize worker
   useEffect(() => {
@@ -227,9 +234,30 @@ export function useAppAudio() {
 
       fetch(`${ASSETS_BASE_URL}presets/catalog.json`)
         .then((res) => res.json())
-        .then((files: string[]) => {
+        .then(async (files: string[]) => {
           setPresetFiles(files);
           if (files.length > 0 && !loadedFromHash && !restoredFromLocalStorage) {
+            // Ne pas écraser si un preset a déjà été appliqué
+            const currentActivePreset = audioRef.current?.activePresetName;
+            if (currentActivePreset && currentActivePreset !== '') {
+              return;
+            }
+
+            // Vérifier si l'utilisateur est membre d'un groupe avec un morceau vedette Cactus 🌵
+            const groupId = userProfileRef.current?.groupId;
+            if (groupId) {
+              try {
+                const { getDefaultGroupPresetId } = await import('../cloudGroups');
+                const defaultPresetId = await getDefaultGroupPresetId(groupId);
+                if (defaultPresetId) {
+                  // Le morceau vedette sera chargé automatiquement par App.tsx
+                  return;
+                }
+              } catch (e) {
+                console.warn('[useAppAudio] Erreur check default group preset:', e);
+              }
+            }
+
             audio.setActivePresetName(files[0]);
             audio.loadFallbackPreset(files[0]);
           }

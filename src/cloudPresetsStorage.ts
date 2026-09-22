@@ -19,12 +19,23 @@ export async function getCloudPreset(presetId: string): Promise<Preset | null> {
   if (docSnap.exists()) {
     const dataString = docSnap.data().data;
     try {
-      if (typeof dataString === 'string' && dataString.startsWith('{')) {
-        return JSON.parse(dataString) as Preset;
+      if (typeof dataString === 'object' && dataString !== null) {
+        const parsed = dataString as Preset;
+        presetCache.set(presetId, parsed);
+        return parsed;
       }
-      const jsonStr = LZString.decompressFromBase64(dataString);
-      if (jsonStr) {
-        return JSON.parse(jsonStr) as Preset;
+      if (typeof dataString === 'string') {
+        if (dataString.startsWith('{')) {
+          const parsed = JSON.parse(dataString) as Preset;
+          presetCache.set(presetId, parsed);
+          return parsed;
+        }
+        const jsonStr = LZString.decompressFromBase64(dataString) || LZString.decompressFromUTF16(dataString);
+        if (jsonStr) {
+          const parsed = JSON.parse(jsonStr) as Preset;
+          presetCache.set(presetId, parsed);
+          return parsed;
+        }
       }
     } catch (e) {
       console.error("getCloudPreset - Erreur lors de l'analyse des données :", e);
