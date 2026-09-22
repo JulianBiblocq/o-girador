@@ -2,6 +2,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getFunctions } from "firebase/functions";
 
 const apiKey = import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCTvRPj2p3zdIfEjftXoSvRJ43Uy0EfPMY";
 const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "o-girador-7828c.firebaseapp.com";
@@ -40,5 +41,8 @@ export const db = initializeFirestore(app, {
 
 // Initialize Cloud Storage and get a reference to the service
 export const storage = getStorage(app);
+
+// Initialize Cloud Functions and get a reference to the service
+export const functions = getFunctions(app);
 
 export default app;

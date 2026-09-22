@@ -12,6 +12,8 @@ import { useShallow } from 'zustand/react/shallow';
 import { useSequencer } from '../contexts/SequencerContext';
 import { getExpandedMeasures } from '../utils/measureHelpers';
 import { useAuth } from '../contexts/AuthContext';
+import { launchCrossApp } from '../utils/crossAppAuth';
+import { getEcosystemUrl } from '../constants/ecosystemUrls';
 
 /**
  * Composant de la barre d'outils permettant d'exporter la séquence 
@@ -73,7 +75,7 @@ export const BoutonExportDanse: React.FC = () => {
             : "Para enviar esta música para o aplicativo O Girador Dança, você deve ativar a ponte entre os dois aplicativos. Deseja assinar esta opção?"
         );
         if (wantToSubscribe) {
-          window.open('https://o-girador.com', '_blank');
+          launchCrossApp(getEcosystemUrl('orquestrador'), { appKey: 'orquestrador', appLabel: "l'Orquestrador" });
         }
         return;
       }

@@ -89,15 +89,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let unsubscribeProfile: (() => void) | undefined;
 
-    // Détection et traitement du jeton SSO universel
+    // Détection et traitement du jeton SSO universel (tolérance ssoToken et token)
     const searchParams = new URLSearchParams(window.location.search);
-    const ssoToken = searchParams.get('ssoToken');
+    const ssoToken = searchParams.get('ssoToken') || searchParams.get('token');
     let isSSOPending = Boolean(ssoToken);
 
     if (ssoToken) {
       // Nettoyage immédiat de l'URL pour ne pas laisser traîner le jeton dans l'historique
       const cleanUrl = new URL(window.location.href);
       cleanUrl.searchParams.delete('ssoToken');
+      cleanUrl.searchParams.delete('token');
       window.history.replaceState({}, document.title, cleanUrl.toString());
 
       let tokenUid: string | null = null;

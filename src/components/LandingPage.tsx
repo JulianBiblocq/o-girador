@@ -4,6 +4,7 @@ import { useAudioStore } from '../stores/useAudioStore';
 import { loadTone, getTone } from '@/src/ToneLoader';
 import { audioEngine } from '../hooks/useAudioSync';
 import { getEcosystemUrl } from '../constants/ecosystemUrls';
+import { launchCrossApp } from '../utils/crossAppAuth';
 
 function safeGetTone() {
   try { return getTone(); } catch { return null; }
@@ -828,6 +829,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <div className="mt-4 pt-3 border-t border-[#1a1a1a]/20">
                   <a
                     href={getEcosystemUrl('orquestrador')}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      launchCrossApp(getEcosystemUrl('orquestrador'), { appKey: 'orquestrador', appLabel: "l'Orquestrador" });
+                    }}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block w-full py-2.5 px-3 bg-[#f4ecd8] hover:bg-[#8b2a1a] hover:text-[#f4ecd8] text-[#1a1a1a] text-center border-2 border-[#1a1a1a] font-cactus font-bold text-xs uppercase tracking-wide cordel-wood-shadow-sm transition-colors active:translate-x-[1px] active:translate-y-[1px]"
@@ -1058,6 +1063,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="flex items-center justify-center gap-4 sm:gap-6">
             <a
               href={getEcosystemUrl('organizador')}
+              onClick={(e) => {
+                e.preventDefault();
+                launchCrossApp(getEcosystemUrl('organizador'), { appKey: 'organizador', appLabel: "l'Organizador" });
+              }}
               target="_blank"
               rel="noopener noreferrer"
               title="O Organizador"
@@ -1067,6 +1076,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </a>
             <a
               href={getEcosystemUrl('dancador')}
+              onClick={(e) => {
+                e.preventDefault();
+                launchCrossApp(getEcosystemUrl('dancador'), { appKey: 'dancador', appLabel: "le Dançad'Or" });
+              }}
               target="_blank"
               rel="noopener noreferrer"
               title="O Dançador"
@@ -1076,6 +1089,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </a>
             <a
               href={getEcosystemUrl('orquestrador')}
+              onClick={(e) => {
+                e.preventDefault();
+                launchCrossApp(getEcosystemUrl('orquestrador'), { appKey: 'orquestrador', appLabel: "l'Orquestrador" });
+              }}
               target="_blank"
               rel="noopener noreferrer"
               title="O Orquestrador"
