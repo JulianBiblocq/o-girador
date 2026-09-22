@@ -316,23 +316,12 @@ export class AudioEngine {
 
   private updateSchedulingParameters(): void {
     const isMobile = 'ontouchstart' in globalThis || navigator.maxTouchPoints > 0;
-    const isHidden = typeof document !== 'undefined' && document.hidden;
-    const isDesktopActive = !isMobile && !isHidden;
-
     const hwLatency = (this.audioContext.baseLatency || 0.05) + ((this.audioContext as any).outputLatency || 0.05);
 
-    if (isMobile && isHidden) {
-      // 🛡️ En tâche de fond sur mobile, Android bride les timers JS à 1 Hz (1000ms).
-      // On élargit SCHEDULE_AHEAD_TIME à 1.5s pour saturer les buffers hardware
-      // et éliminer tout risque de rupture de buffer (craquements audio).
-      this.SCHEDULE_AHEAD_TIME = 1.500;
-      this.LOOKAHEAD_INTERVAL = 50.0;
-    } else {
-      // En avant-plan : valeur normale (0.35s - 0.40s)
-      const baseAheadTime = isMobile ? 0.350 : 0.200;
-      this.SCHEDULE_AHEAD_TIME = Math.min(0.400, Math.max(baseAheadTime, hwLatency + 0.050));
-      this.LOOKAHEAD_INTERVAL = isDesktopActive ? 25.0 : 50.0;
-    }
+    // Lookahead stable nominal (0.180s à 0.220s, borné à 0.250s max)
+    const baseAheadTime = isMobile ? 0.220 : 0.180;
+    this.SCHEDULE_AHEAD_TIME = Math.min(0.250, Math.max(baseAheadTime, hwLatency + 0.030));
+    this.LOOKAHEAD_INTERVAL = isMobile ? 35.0 : 25.0;
 
     // Dynamically update interval of fallback timer if active and playing
     if (this.isPlaying && this.fallbackTimerId !== null) {
@@ -449,62 +438,12 @@ export class AudioEngine {
   }
 
   /**
-   * Recale directement les pointeurs de pas et de mesure sur le temps réel écoulé
-   * sans passer par la boucle while de rattrapage (évite tout stampede de notes).
-   */
-  public resyncPositionToRealTime(): void {
-    if (!this.isPlaying) return;
-    const currentTime = this.audioContext.currentTime;
-    const tickDuration = this.getTickDuration();
-    if (tickDuration <= 0) return;
-
-    const totalStepsElapsed = Math.floor((currentTime - this.sequenceStartTime) / tickDuration);
-    if (totalStepsElapsed < 0) return;
-
-    const totalMeasures = useSequencerStore.getState().totalMeasures || 1;
-    let loopTotalTicks = 0;
-    for (let m = 0; m < totalMeasures; m++) {
-      loopTotalTicks += this.getTicksPerMeasure(m);
-    }
-    if (loopTotalTicks <= 0) loopTotalTicks = 96 * totalMeasures;
-
-    let stepsInLoop = ((totalStepsElapsed % loopTotalTicks) + loopTotalTicks) % loopTotalTicks;
-    let mIdx = 0;
-    while (mIdx < totalMeasures) {
-      const mTicks = this.getTicksPerMeasure(mIdx);
-      if (stepsInLoop < mTicks) {
-        break;
-      }
-      stepsInLoop -= mTicks;
-      mIdx++;
-    }
-
-    const targetMeasure = mIdx % totalMeasures;
-    const targetStep = stepsInLoop;
-
-    this.schedulingStep = targetStep;
-    this.schedulingMeasure = targetMeasure;
-    this.currentStep = targetStep;
-    this.currentMeasure = targetMeasure;
-    this.anchorStep = targetStep;
-    this.anchorNoteTime = currentTime + 0.035;
-    this.nextTickTime = this.anchorNoteTime;
-    this.lastSchedulingMeasure = -1; // Force re-anchor on next scheduled tick
-    this.mustReanchor = true;
-    this.timeSlotHitCounts.clear();
-
-    if (this.onPositionJump) {
-      this.onPositionJump(targetStep, targetMeasure);
-    }
-  }
-
-  /**
    * Recale immédiatement l'horloge interne de planification sur le temps réel du hardware audio
-   * avec recalcul exact de la position (mesure / pas) pour éliminer tout risque de stampede.
    */
   public forceReanchor(): void {
     if (!this.isPlaying) return;
-    this.resyncPositionToRealTime();
+    this.nextTickTime = this.audioContext.currentTime + 0.025;
+    this.mustReanchor = true;
   }
 
   /**
@@ -570,20 +509,8 @@ export class AudioEngine {
       const currentTime = this.audioContext.currentTime;
       const lookaheadWindow = 0.025; // 25ms de fenêtre minimale
       const safetyMargin = 0.010;    // 10ms de marge de sécurité
-      const isHidden = typeof document !== 'undefined' && document.hidden;
 
-      // 🛡️ Guard de saut temporel :
-      // - Désactivé tant que document.hidden === true (en veille sur mobile, le drift de 1s est normal)
-      // - Si un saut temporel massif (> 0.5s) survient au retour foreground :
-      //   Recalculer immédiatement schedulingStep et schedulingMeasure sur le temps réel
-      //   et quitter sans exécuter la boucle while de rattrapage (élimination définitive du stampede).
-      const drift = currentTime - this.nextTickTime;
-      if (!isHidden && drift > 0.5) {
-        this.resyncPositionToRealTime();
-        return;
-      }
-
-      // Resynchronisation matérielle de sécurité (lag massif / changement de rythme)
+      // Resynchronisation matérielle de sécurité (lag ponctuel / changement de rythme)
       if (this.nextTickTime < currentTime + lookaheadWindow) {
         this.nextTickTime = currentTime + lookaheadWindow + safetyMargin;
         this.mustReanchor = true;

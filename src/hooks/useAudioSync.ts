@@ -1900,28 +1900,32 @@ export function useAudioSync({
     };
   }, [isAudioUnlocked]);
 
-  // Background Playback: Re-anchor visual clock when returning to foreground
-  // + Re-acquire Screen Wake Lock (released automatically by OS when screen turns off)
+  const handleTogglePlayRef = useRef<(() => Promise<void>) | null>(null);
+
+  // ─── VisibilityChange & Mobile Auto-Pause ────────────────────────────
+  // When screen turns off or app is backgrounded (document.hidden === true):
+  // Cleanly auto-pause playback, freeze current audible step & measure, and release Wake Lock.
+  // When returning to foreground (!document.hidden):
+  // Preventively purge buffers to eliminate any stale visual/audio hits.
+  // Do NOT auto-resume: user must press Play to restart cleanly.
   useEffect(() => {
-    const handleForegroundReturn = () => {
-      if (!document.hidden && isPlayingRef.current) {
-        // 🛡️ Forcer la purge complète des événements visuels obsolètes accumulés pendant la veille
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (isPlayingRef.current) {
+          handleTogglePlayRef.current?.();
+        }
+      } else {
+        // 🛡️ Retour au premier plan : purge préventive complète des tampons
         purgeVisualTickBuffer();
         resetVisualTickBuffer();
         flushVisualBuffers();
         hitTriggersRef.current.clear();
-
-        // 🛡️ Purge des hits audio en attente et réancrage atomique sans stampede
         audioEngine?.purgeScheduledHits();
-        audioEngine?.forceReanchor();
-
-        // Re-acquire Wake Lock (OS releases it when screen turns off)
-        requestWakeLock();
       }
     };
-    document.addEventListener('visibilitychange', handleForegroundReturn);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
-      document.removeEventListener('visibilitychange', handleForegroundReturn);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       releaseWakeLock();
     };
   }, []);
@@ -2143,6 +2147,7 @@ export function useAudioSync({
       });
     }
   }, [audioEngine, setIsPlaying, setSoloPatternPlayId, setCurrentMeasure]);
+  handleTogglePlayRef.current = handleTogglePlay;
 
   const handleStop = useCallback(() => {
     // Speed Trainer Rollback & Cleanup
