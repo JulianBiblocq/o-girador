@@ -19,6 +19,7 @@ import { instrumentAudioConfigs, StrokeMapping, InstrumentAudioConfig } from './
 import { useSequencerStore } from './stores/useSequencerStore';
 import { instrumentsConfig } from './data';
 import { TrackGroup } from './types';
+import { getCachedPcmSample, saveCachedPcmSample, reconstructAudioBuffer } from './audio/audioSampleCache';
 
 interface ActiveVoice {
   source: AudioBufferSourceNode;
@@ -68,6 +69,8 @@ export class AudioEngine {
   private fallbackTimerId: number | null = null;
   private isInitializingWorklet: boolean = false;
   private stateChangeListener: (() => void) | null = null;
+  private isScheduling: boolean = false;
+  private timeSlotHitCounts = new Map<number, number>();
 
   // Callbacks
   private onTick: (time: number) => boolean | void;
@@ -366,6 +369,7 @@ export class AudioEngine {
   }
 
   private initFallbackTimer(): void {
+    if (this.clockNode !== null) return;
     if (this.fallbackTimerId === null) {
       this.fallbackTimerId = window.setInterval(() => {
         if (this.isPlaying) {
@@ -402,6 +406,8 @@ export class AudioEngine {
     if (!this.isPlaying) return;
 
     this.isPlaying = false;
+    this.isScheduling = false;
+    this.timeSlotHitCounts.clear();
 
     this.scheduledHits.forEach((source) => {
       try {
@@ -440,41 +446,46 @@ export class AudioEngine {
    * The scheduler loop checks if any ticks fall within the lookahead window.
    */
   private scheduler(): void {
-    if (!this.isPlaying) return;
+    if (!this.isPlaying || this.isScheduling) return;
+    this.isScheduling = true;
 
-    const currentTime = this.audioContext.currentTime;
-    const lookaheadWindow = 0.025; // 25ms de fenêtre minimale
-    const safetyMargin = 0.010;    // 10ms de marge de sécurité
+    try {
+      const currentTime = this.audioContext.currentTime;
+      const lookaheadWindow = 0.025; // 25ms de fenêtre minimale
+      const safetyMargin = 0.010;    // 10ms de marge de sécurité
 
-    // Resynchronisation matérielle de sécurité (lag massif / changement de rythme)
-    if (this.nextTickTime < currentTime + lookaheadWindow) {
-      this.nextTickTime = currentTime + lookaheadWindow + safetyMargin;
-      this.mustReanchor = true;
-    }
-
-    // Schedule events in advance
-    while (this.nextTickTime < currentTime + this.SCHEDULE_AHEAD_TIME) {
-      // 1. Exécution du callback de planification (qui met à jour schedulingStep/Measure de façon synchrone)
-      const didWrapLoop = this.onTick(this.nextTickTime);
-
-      const tickDuration = this.getTickDuration();
-
-      // 2. Détection du début de mesure (Hard Sync) ou re-ancrage forcé de sécurité
-      if (this.schedulingStep === 0 || this.schedulingMeasure !== this.lastSchedulingMeasure || this.mustReanchor) {
-        this.anchorNoteTime = this.nextTickTime;
-        this.anchorStep = this.schedulingStep;
-        this.lastSchedulingMeasure = this.schedulingMeasure;
-        this.mustReanchor = false; // Drapeau consommé
+      // Resynchronisation matérielle de sécurité (lag massif / changement de rythme)
+      if (this.nextTickTime < currentTime + lookaheadWindow) {
+        this.nextTickTime = currentTime + lookaheadWindow + safetyMargin;
+        this.mustReanchor = true;
       }
 
-      // 3. Calcul absolu du pas suivant sans accumulation (parfaitement aligné)
-      this.nextTickTime = this.anchorNoteTime + ((this.schedulingStep + 1 - this.anchorStep) * tickDuration);
+      // Schedule events in advance
+      while (this.nextTickTime < currentTime + this.SCHEDULE_AHEAD_TIME) {
+        // 1. Exécution du callback de planification (qui met à jour schedulingStep/Measure de façon synchrone)
+        const didWrapLoop = this.onTick(this.nextTickTime);
 
-      // 4. Verrouillage à la frontière de boucle (Wrap-around Guard) :
-      // Arrêt immédiat si on a planifié le dernier pas de la boucle active
-      if (didWrapLoop) {
-        break;
+        const tickDuration = this.getTickDuration();
+
+        // 2. Détection du début de mesure (Hard Sync) ou re-ancrage forcé de sécurité
+        if (this.schedulingStep === 0 || this.schedulingMeasure !== this.lastSchedulingMeasure || this.mustReanchor) {
+          this.anchorNoteTime = this.nextTickTime;
+          this.anchorStep = this.schedulingStep;
+          this.lastSchedulingMeasure = this.schedulingMeasure;
+          this.mustReanchor = false; // Drapeau consommé
+        }
+
+        // 3. Calcul absolu du pas suivant sans accumulation (parfaitement aligné)
+        this.nextTickTime = this.anchorNoteTime + ((this.schedulingStep + 1 - this.anchorStep) * tickDuration);
+
+        // 4. Verrouillage à la frontière de boucle (Wrap-around Guard) :
+        // Arrêt immédiat si on a planifié le dernier pas de la boucle active
+        if (didWrapLoop) {
+          break;
+        }
       }
+    } finally {
+      this.isScheduling = false;
     }
   }
 
@@ -490,6 +501,15 @@ export class AudioEngine {
       promise = (async () => {
         const Tone = getTone();
         try {
+          // 0. Vérification du cache IndexedDB Float32Array (démarrage instantané)
+          const cachedPcm = await getCachedPcmSample(path, this.audioContext.sampleRate);
+          if (cachedPcm) {
+            const audioBuffer = reconstructAudioBuffer(this.audioContext, cachedPcm);
+            const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
+            this.bufferPool.set(path, toneBuffer);
+            return;
+          }
+
           let fetchPath = path;
           if (path.includes('Mixdown/') || path.includes('mixdown/')) {
             const filename = path.substring(path.lastIndexOf('/') + 1);
@@ -526,6 +546,8 @@ export class AudioEngine {
             const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
             const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
             this.bufferPool.set(path, toneBuffer);
+            // Persistance non bloquante dans IndexedDB pour les prochains lancements
+            saveCachedPcmSample(path, audioBuffer).catch(() => {});
           } catch (decodeErr) {
 
             const fallbackPath = encodedFetchPath.replace(/\.ogg$/, '.m4a');
@@ -539,6 +561,7 @@ export class AudioEngine {
               const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
               const toneBuffer = new Tone.ToneAudioBuffer(audioBuffer);
               this.bufferPool.set(path, toneBuffer);
+              saveCachedPcmSample(path, audioBuffer).catch(() => {});
             } catch (fallbackErr) {
 
             }
@@ -815,6 +838,30 @@ export class AudioEngine {
       instrumentId = instrumentsConfig[track.instrumentIdx].id;
     } else {
       instrumentId = String(trackIdOrInstrumentId);
+    }
+
+    // 0. Voice Allocation Guard / Bypass unisson des pistes esclaves
+    const timeSlot = Math.round(time * 333);
+    if (this.timeSlotHitCounts.size > 2000) {
+      this.timeSlotHitCounts.clear();
+    }
+    const currentHits = (this.timeSlotHitCounts.get(timeSlot) || 0) + 1;
+    this.timeSlotHitCounts.set(timeSlot, currentHits);
+
+    const isSlave = Boolean(track && track.linkedToTrackId && !track.isLinkMaster);
+    if (isSlave) {
+      const isEco = useSequencerStore.getState().isEcoMode;
+      // Vérifier s'il n'y a pas d'override actif sur la mesure en cours pour cette piste esclave
+      const hasLocalVariation = Boolean(
+        track?.patternOverrides && 
+        track.patternOverrides[this.schedulingMeasure] !== undefined
+      );
+
+      // Si le cumul de frappes dépasse 8 ou si le mode éco est actif, court-circuiter la synthèse audio.
+      // La frappe visuelle (pushVisualHitTrigger) reste déclenchée dans useAudioSync
+      if (!hasLocalVariation && (currentHits > 8 || isEco)) {
+        return;
+      }
     }
 
     // 1. Find the configuration for this instrument — O(1) Map lookup instead of O(n) Array.find()
