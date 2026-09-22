@@ -345,7 +345,7 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     }
     reprocessDebounceTimerRef.current = setTimeout(() => {
       applyCordelToAllFrames(updated);
-    }, 120);
+    }, 60);
   };
 
   // 9. Boucle d'animation de prévisualisation vivante au tempo
@@ -690,6 +690,8 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                       isFrame: false,
                       posX: 0,
                       posY: 0,
+                      bgRemovalMode: 'none',
+                      bgTolerance: 40,
                     };
                     setCordelOptions(def);
                     applyCordelToAllFrames(def);
@@ -808,6 +810,68 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                     className="accent-[var(--cordel-wood)] cursor-pointer"
                   />
                 </div>
+              </div>
+
+              {/* Détourage automatique du fond */}
+              <div className="flex flex-col gap-1.5 pt-1 border-t border-[var(--cordel-border)]/20">
+                <div className="flex justify-between items-center text-[10px] font-bold">
+                  <span className="font-cactus uppercase tracking-wide text-[var(--cordel-wood)]">
+                    🪄 {lang === 'fr' ? 'Détourage du fond' : 'Recorte de fundo'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateCordelOption('bgRemovalMode', 'none')}
+                    className={`py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer text-center ${
+                      (cordelOptions.bgRemovalMode ?? 'none') === 'none'
+                        ? 'bg-[var(--cordel-wood)] text-white shadow-[1px_1px_0px_#000]'
+                        : 'bg-black/5 hover:bg-black/10'
+                    }`}
+                  >
+                    {lang === 'fr' ? 'Fond Standard' : 'Fundo Padrão'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateCordelOption('bgRemovalMode', 'green')}
+                    className={`py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
+                      cordelOptions.bgRemovalMode === 'green'
+                        ? 'bg-emerald-700 text-white shadow-[1px_1px_0px_#000]'
+                        : 'bg-black/5 hover:bg-black/10'
+                    }`}
+                  >
+                    <span>🟩</span> {lang === 'fr' ? 'Fond Vert' : 'Fundo Verde'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdateCordelOption('bgRemovalMode', 'white')}
+                    className={`py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
+                      cordelOptions.bgRemovalMode === 'white'
+                        ? 'bg-stone-600 text-white shadow-[1px_1px_0px_#000]'
+                        : 'bg-black/5 hover:bg-black/10'
+                    }`}
+                  >
+                    <span>⬜</span> {lang === 'fr' ? 'Fond Blanc' : 'Fundo Branco'}
+                  </button>
+                </div>
+
+                {/* Curseur de tolérance conditionnel */}
+                {(cordelOptions.bgRemovalMode === 'green' || cordelOptions.bgRemovalMode === 'white') && (
+                  <div className="flex flex-col gap-1 mt-0.5 bg-black/5 p-2 border border-[var(--cordel-border)]/30">
+                    <div className="flex justify-between text-[10px] font-bold">
+                      <span>🎯 {lang === 'fr' ? 'Tolérance fond' : 'Tolerância fundo'}</span>
+                      <span>{cordelOptions.bgTolerance ?? 40}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="90"
+                      value={cordelOptions.bgTolerance ?? 40}
+                      onChange={(e) => handleUpdateCordelOption('bgTolerance', parseInt(e.target.value))}
+                      className="accent-[var(--cordel-wood)] cursor-pointer"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Toggles Miroir & Cadre */}

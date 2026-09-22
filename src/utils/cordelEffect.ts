@@ -5,6 +5,8 @@ export interface CordelOptions {
   brightness?: number; // -50 to +50 (Luminosité / Exposition pré-seuillage)
   threshold?: number; // 20 to 220 (Seuil d'encrage noir/blanc, défaut 128)
   sobelContrast?: number; // 0 to 100 % (Sensibilité de détection des bords)
+  bgRemovalMode?: 'none' | 'green' | 'white'; // Exclusion préalable du fond
+  bgTolerance?: number; // 10 à 90 (défaut : 40)
   isMirror: boolean;
   isFrame: boolean;
   posX: number; // -100 to 100
@@ -18,6 +20,8 @@ export const defaultCordelOptions: CordelOptions = {
   brightness: 0,
   threshold: 128,
   sobelContrast: 50,
+  bgRemovalMode: 'none',
+  bgTolerance: 40,
   isMirror: true,
   isFrame: false,
   posX: 0,
@@ -106,20 +110,52 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
   
   tempCtx.drawImage(img, sX, sY, cropSize, cropSize, 0, 0, outSize, outSize);
   
-  // 1. Luminance & Luminosité / Exposition (-50 à +50)
+  // 1. Détection préalable du fond (Chroma Key Vert & Seuil Blanc)
+  const bgRemovalMode = options.bgRemovalMode ?? 'none';
+  const bgTolerance = options.bgTolerance ?? 40;
+  const isBackgroundPixel = new Uint8Array(outSize * outSize);
+
   const brightness = options.brightness ?? 0;
   const imgData = tempCtx.getImageData(0, 0, outSize, outSize);
   const data = imgData.data;
+
+  if (bgRemovalMode !== 'none') {
+    for (let i = 0; i < outSize * outSize; i++) {
+      const idx = i * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+
+      if (bgRemovalMode === 'green') {
+        const factor = 1.75 - (bgTolerance / 100) * 0.65;
+        const minGreen = Math.max(30, 75 - bgTolerance * 0.5);
+        if (g > minGreen && g > r * factor && g > b * factor) {
+          isBackgroundPixel[i] = 1;
+        }
+      } else if (bgRemovalMode === 'white') {
+        const threshold = 255 - bgTolerance * 1.5;
+        if (r > threshold && g > threshold && b > threshold) {
+          isBackgroundPixel[i] = 1;
+        }
+      }
+    }
+  }
+
+  // 2. Luminance & Luminosité / Exposition (-50 à +50)
   const gray = new Float32Array(outSize * outSize);
   for(let i = 0; i < outSize * outSize; i++) {
+    if (isBackgroundPixel[i] === 1) {
+      gray[i] = 255;
+    } else {
       const idx = i * 4;
       const r = Math.min(255, Math.max(0, data[idx] + brightness));
       const g = Math.min(255, Math.max(0, data[idx+1] + brightness));
       const b = Math.min(255, Math.max(0, data[idx+2] + brightness));
       gray[i] = 0.299 * r + 0.587 * g + 0.114 * b;
+    }
   }
 
-  // 2. Paramètres de filtrage Sobel et d'encrage
+  // 3. Paramètres de filtrage Sobel et d'encrage
   const sobelPct = options.sobelContrast !== undefined ? options.sobelContrast : (options.detail !== undefined ? Math.round((options.detail / 150) * 100) : 50);
   const detailSensibility = 220 - (Math.min(100, Math.max(0, sobelPct)) / 100) * 195;
   const inkThreshold = options.threshold !== undefined ? options.threshold : (options.shadow ?? 128);
@@ -137,31 +173,36 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
           let i = y * outSize + x;
           let outIdx = i * 4;
           
-          let lum = gray[i];
           let isInk = false;
           
-          if (y > 0 && y < outSize - 1 && x > 0 && x < outSize - 1) {
-              let tl = gray[i - outSize - 1], tc = gray[i - outSize], tr = gray[i - outSize + 1];
-              let ml = gray[i - 1],                                   mr = gray[i + 1];
-              let bl = gray[i + outSize - 1], bc = gray[i + outSize], br = gray[i + outSize + 1];
-              
-              let dx = (tr + 2*mr + br) - (tl + 2*ml + bl);
-              let dy = (bl + 2*bc + br) - (tl + 2*tc + tr);
-              let edge = Math.sqrt(dx*dx + dy*dy);
+          // Si le pixel n'est pas un pixel de fond exclu, calcul d'encre normal
+          if (isBackgroundPixel[i] === 0) {
+              let lum = gray[i];
 
-              if (edge > detailSensibility && lum < 245) {
-                  isInk = true;
+              if (y > 0 && y < outSize - 1 && x > 0 && x < outSize - 1) {
+                  let tl = gray[i - outSize - 1], tc = gray[i - outSize], tr = gray[i - outSize + 1];
+                  let ml = gray[i - 1],                                   mr = gray[i + 1];
+                  let bl = gray[i + outSize - 1], bc = gray[i + outSize], br = gray[i + outSize + 1];
+                  
+                  let dx = (tr + 2*mr + br) - (tl + 2*ml + bl);
+                  let dy = (bl + 2*bc + br) - (tl + 2*tc + tr);
+                  let edge = Math.sqrt(dx*dx + dy*dy);
+
+                  if (edge > detailSensibility && lum < 245) {
+                      isInk = true;
+                  }
+              }
+
+              if (!isInk) {
+                  let groove = Math.sin((x - y) * 0.4) * 15 + Math.sin(y * 0.1) * 5;
+                  let noise = (Math.random() * 30) - 15;
+                  if (lum + groove + noise < inkThreshold) {
+                      isInk = true;
+                  }
               }
           }
 
-          if (!isInk) {
-              let groove = Math.sin((x - y) * 0.4) * 15 + Math.sin(y * 0.1) * 5;
-              let noise = (Math.random() * 30) - 15;
-              if (lum + groove + noise < inkThreshold) {
-                  isInk = true;
-              }
-          }
-
+          // Priorité absolue au cadre artisanal (isFrame) : prime sur le masque du fond aux extrémités
           if (options.isFrame) {
               if (x < 15 || x > outSize - 15 || y < 15 || y > outSize - 15) {
                   isInk = true;
