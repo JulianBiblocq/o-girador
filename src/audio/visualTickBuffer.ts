@@ -21,6 +21,10 @@ export interface VisualTickEvent {
   measureStartTime?: number;
   measureDuration?: number;
   targetStartTime?: number;
+  isPreRoll?: boolean;
+  preRollMeasureIndex?: number;
+  preRollTotalMeasures?: number;
+  preRollBeat?: number;
 }
 
 export interface VisualHitTriggerEvent {
@@ -47,6 +51,10 @@ const tickQueue: VisualTickEvent[] = Array.from({ length: TICK_QUEUE_SIZE }, () 
   measureStartTime: 0,
   measureDuration: 0,
   targetStartTime: 0,
+  isPreRoll: false,
+  preRollMeasureIndex: 0,
+  preRollTotalMeasures: 1,
+  preRollBeat: 0,
 }));
 
 const hitQueue: VisualHitTriggerEvent[] = Array.from({ length: HIT_QUEUE_SIZE }, () => ({
@@ -98,6 +106,10 @@ export function pushVisualTick(event: VisualTickEvent): void {
   slot.measureStartTime = event.measureStartTime;
   slot.measureDuration = event.measureDuration;
   slot.targetStartTime = event.targetStartTime;
+  slot.isPreRoll = !!event.isPreRoll;
+  slot.preRollMeasureIndex = event.preRollMeasureIndex ?? 0;
+  slot.preRollTotalMeasures = event.preRollTotalMeasures ?? 1;
+  slot.preRollBeat = event.preRollBeat ?? 0;
 
   tickWriteIdx = nextWriteIdx;
 }

@@ -1,5 +1,12 @@
 import { create } from 'zustand';
-import { GlobalSwing } from '../types';
+import { GlobalSwing, PreRollSettings } from '../types';
+
+export const defaultPreRollSettings: PreRollSettings = {
+  enabled: false,
+  measuresCount: 1,
+  startSignalMeasure1Id: null,
+  startSignalMeasure2Id: null,
+};
 
 export interface TransportState {
   isMetroOn: boolean;
@@ -8,6 +15,7 @@ export interface TransportState {
   globalSwing: GlobalSwing;
   soloPatternPlayId: number | null;
   soloPatternVariationId: string | null;
+  preRollSettings: PreRollSettings;
 
   setIsMetroOn: (isMetroOn: boolean) => void;
   setMetroVolume: (metroVolume: number) => void;
@@ -15,6 +23,7 @@ export interface TransportState {
   setGlobalSwing: (globalSwing: GlobalSwing) => void;
   setSoloPatternPlayId: (soloPatternPlayId: number | null) => void;
   setSoloPatternVariationId: (soloPatternVariationId: string | null) => void;
+  setPreRollSettings: (settings: Partial<PreRollSettings> | ((prev: PreRollSettings) => PreRollSettings)) => void;
 }
 
 export const useTransportStore = create<TransportState>((set) => ({
@@ -24,6 +33,7 @@ export const useTransportStore = create<TransportState>((set) => ({
   globalSwing: { mode: 'maracatu', customOffsets: [0, 8, -29, -58], swingIntensity: 100 },
   soloPatternPlayId: null,
   soloPatternVariationId: null,
+  preRollSettings: defaultPreRollSettings,
 
   setIsMetroOn: (isMetroOn) => set({ isMetroOn }),
   setMetroVolume: (metroVolume) => set({ metroVolume: Math.max(0, Math.min(100, metroVolume)) }),
@@ -31,4 +41,12 @@ export const useTransportStore = create<TransportState>((set) => ({
   setGlobalSwing: (globalSwing) => set({ globalSwing }),
   setSoloPatternPlayId: (soloPatternPlayId) => set({ soloPatternPlayId }),
   setSoloPatternVariationId: (soloPatternVariationId) => set({ soloPatternVariationId }),
+  setPreRollSettings: (settings) =>
+    set((state) => ({
+      preRollSettings:
+        typeof settings === 'function'
+          ? settings(state.preRollSettings)
+          : { ...state.preRollSettings, ...settings },
+    })),
 }));
+

@@ -1,4 +1,20 @@
-import { SongSection } from '../types';
+import { SongSection, TimeSignature } from '../types';
+
+/**
+ * Dynamic calculation of musical beats (pulsations) per measure from its time signature.
+ * Strictly bans hardcoded 4.
+ * e.g. 2 beats in 2/4 or 6/8; 3 beats in 3/4 or 9/8; 4 beats in 4/4 or 12/8.
+ */
+export function getBeatsPerMeasure(timeSig: TimeSignature | string = '4/4'): number {
+  if (timeSig === '2/4' || timeSig === '6/8') return 2;
+  if (timeSig === '3/4' || timeSig === '9/8') return 3;
+  if (timeSig === '4/4' || timeSig === '12/8') return 4;
+  const parts = String(timeSig).split('/');
+  const num = parseInt(parts[0], 10);
+  const den = parseInt(parts[1], 10);
+  if (den === 8 && num >= 6 && num % 3 === 0) return num / 3;
+  return isNaN(num) || num <= 0 ? 4 : num;
+}
 
 export interface ExpandedMeasureOptions {
   isLoopRegionActive?: boolean;

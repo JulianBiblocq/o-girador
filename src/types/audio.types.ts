@@ -57,12 +57,19 @@ export interface GlobalSwing {
   swingIntensity?: number; // 0 to 100
 }
 
+export interface PreRollSettings {
+  enabled: boolean;                      // Précompte actif en session
+  measuresCount: 1 | 2;                  // 1 ou 2 mesures de précompte
+  startSignalMeasure1Id?: string | null; // Signal pour la 1ère mesure (si 2 mesures choisies)
+  startSignalMeasure2Id?: string | null; // Signal pour la mesure d'amorce immédiate (ou mesure unique)
+}
+
 export interface RhythmSignal {
   id: string;
   name: string;
   image: string; // base64 JPEG ou URL
-  frames?: string[]; // Tableau des 4 ou 5 trames traitées Cordel
-  beatsCount?: number; // 4 ou 5
+  frames?: string[]; // Tableau des trames WebP/base64 Cordel
+  beatsCount?: number; // Nombre dynamique de trames selon la signature (bannir le 4 en dur)
   createdAt?: number;
 }
 
@@ -77,6 +84,7 @@ export interface PresetMetadata {
   description?: string;
   descriptionPt?: string;
   descriptionFr?: string;
+  preRollSettings?: PreRollSettings;
 }
 
 export interface Circle {
@@ -112,6 +120,7 @@ export interface Preset {
   songSections?: SongSection[];
   songMarkers?: SongMarker[];
   measureSignals?: (string | null)[]; // signal id par mesure
+  preRollSettings?: PreRollSettings;
   masterEQ?: { low: number; mid: number; high: number };
   masterCompressor?: { threshold: number; ratio: number };
   masterVol?: number;

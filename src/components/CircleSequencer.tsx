@@ -19,7 +19,7 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useTransportStore } from '../stores/useTransportStore';
 import { subscribeToTick, unsubscribeFromTick, audioEngine } from '../hooks/useAudioSync';
-import { getExpandedMeasures } from '../utils/measureHelpers';
+import { getExpandedMeasures, getBeatsPerMeasure } from '../utils/measureHelpers';
 import { getBusColor, getBusNoteColor } from '../utils/colorHelpers';
 import { usePerformanceStore } from '../stores/usePerformanceStore';
 
@@ -299,7 +299,14 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
 
   if (!tracks) return null;
 
-  const updateOverlay = (expandedMeasureIdx: number, baseMeasureIdx: number, currentBeat: number = 0) => {
+  const updateOverlay = (
+    expandedMeasureIdx: number,
+    baseMeasureIdx: number,
+    currentBeat: number = 0,
+    isPreRoll: boolean = false,
+    preRollMeasureIndex: number = 0,
+    preRollTotalMeasures: number = 1
+  ) => {
     const container = centerOverlayRef.current;
     if (!container) return;
 
@@ -308,10 +315,31 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       rhythmSignals: currentRhythmSignals,
       mestreSignals: currentMestreSignals,
       songMarkers: currentSongMarkers,
+      measureTimeSigs: currentMeasureTimeSigs,
+      timeSig: defaultTimeSig
     } = stateRef.current;
 
-    // 1. Resolve active signal (visible only on the measure it's set)
-    const sigId = currentMeasureSignals?.[expandedMeasureIdx] || null;
+    // 1. Resolve active signal
+    let sigId: string | null = null;
+    if (isPreRoll) {
+      if (baseMeasureIdx === 0) {
+        const preRoll = useTransportStore.getState().preRollSettings;
+        if (preRollTotalMeasures === 2) {
+          sigId = preRollMeasureIndex === 0
+            ? (preRoll.startSignalMeasure1Id || null)
+            : (preRoll.startSignalMeasure2Id || null);
+        } else {
+          sigId = preRoll.startSignalMeasure2Id || preRoll.startSignalMeasure1Id || null;
+        }
+      } else {
+        // En cours de morceau (M > 0) : animer le signal de la mesure précédente M-1 s'il existe
+        const prevM = baseMeasureIdx - 1;
+        sigId = currentMeasureSignals?.[prevM] || null;
+      }
+    } else {
+      sigId = currentMeasureSignals?.[expandedMeasureIdx] || null;
+    }
+
     let activeSig: { name: string; image: string; frames?: string[]; beatsCount?: number } | null = null;
     if (sigId) {
       const cloudSig = currentMestreSignals?.find(s => s.id === sigId);
@@ -335,9 +363,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       }
     }
 
-    // 2. Resolve active marker (last crossed marker)
+    // 2. Resolve active marker (last crossed marker) - ignoré en précompte
     let activeMarker: SongMarker | null = null;
-    if (currentSongMarkers && currentSongMarkers.length > 0) {
+    if (!isPreRoll && currentSongMarkers && currentSongMarkers.length > 0) {
       for (const marker of currentSongMarkers) {
         if (marker.measure <= baseMeasureIdx) {
           if (!activeMarker || marker.measure > activeMarker.measure) {
@@ -360,8 +388,10 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       // Résolution de la trame au tempo vivant si multi-trames
       let targetSrc = activeSig.image;
       if (activeSig.frames && activeSig.frames.length > 0) {
-        const totalBeats = activeSig.beatsCount || activeSig.frames.length;
-        const frameIdx = currentBeat % totalBeats;
+        const localSig = (currentMeasureTimeSigs && currentMeasureTimeSigs[baseMeasureIdx]) || defaultTimeSig || '4/4';
+        const beatsInM = getBeatsPerMeasure(localSig);
+        const totalFrames = activeSig.frames.length;
+        const frameIdx = Math.min(totalFrames - 1, Math.floor((currentBeat / beatsInM) * totalFrames));
         targetSrc = activeSig.frames[frameIdx] || activeSig.frames[0] || activeSig.image;
       }
 
@@ -412,6 +442,42 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       if (cache.opacity !== '0.85') {
         container.style.opacity = '0.85';
         cache.opacity = '0.85';
+      }
+    } else if (isPreRoll) {
+      // ⏱️ Décompte chiffré dynamique neutre (1, 2, 3, 4...)
+      if (cache.imgDisplay !== 'none') {
+        imgEl.style.display = 'none';
+        cache.imgDisplay = 'none';
+      }
+      if (cache.tintDisplay !== 'none') {
+        tintEl.style.display = 'none';
+        cache.tintDisplay = 'none';
+      }
+      const countNum = String(currentBeat + 1);
+      if (lastOverlayTextRef.current !== countNum) {
+        textEl.innerText = countNum;
+        lastOverlayTextRef.current = countNum;
+      }
+      if (cache.bgColor !== 'var(--cordel-wood)') {
+        afficheurEl.style.backgroundColor = 'var(--cordel-wood)';
+        cache.bgColor = 'var(--cordel-wood)';
+      }
+      if (cache.color !== '#f4ecd8') {
+        textEl.style.color = '#f4ecd8';
+        cache.color = '#f4ecd8';
+      }
+      if (cache.textShadow !== 'none') {
+        textEl.style.textShadow = 'none';
+        cache.textShadow = 'none';
+      }
+      const sizeVal = 'clamp(24px, 4.5vw, 38px)';
+      if (cache.fontSize !== sizeVal) {
+        textEl.style.setProperty('--dynamic-font-size', sizeVal);
+        cache.fontSize = sizeVal;
+      }
+      if (cache.opacity !== '0.90') {
+        container.style.opacity = '0.90';
+        cache.opacity = '0.90';
       }
     } else if (activeMarker) {
       if (cache.imgDisplay !== 'none') {
@@ -553,13 +619,28 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         displayMeasure = activeRepIndex !== -1 ? activeRepIndex + 1 : measure + 1;
       }
 
-      if (measureDisplayRef.current) {
-        measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
-      }
- 
-      const beatsPerMeasure = 4;
+      const localTimeSig = (measureTimeSigs && measureTimeSigs[measure]) || timeSig || '4/4';
+      const beatsPerMeasure = getBeatsPerMeasure(localTimeSig);
       const currentBeat = Math.min(beatsPerMeasure - 1, Math.max(0, Math.floor(ratio * beatsPerMeasure)));
-      updateOverlay(displayMeasure - 1, measure, currentBeat);
+
+      if (detail.isPreRoll) {
+        if (measureDisplayRef.current) {
+          measureDisplayRef.current.innerText = lang === 'fr' ? 'PRÉCOMPTE' : 'PRÉ-ROLL';
+        }
+        updateOverlay(
+          displayMeasure - 1,
+          measure,
+          detail.preRollBeat !== undefined ? detail.preRollBeat : currentBeat,
+          true,
+          detail.preRollMeasureIndex ?? 0,
+          detail.preRollTotalMeasures ?? 1
+        );
+      } else {
+        if (measureDisplayRef.current) {
+          measureDisplayRef.current.innerText = `${displayMeasure} / ${displayTotal}`;
+        }
+        updateOverlay(displayMeasure - 1, measure, currentBeat, false);
+      }
     };
  
     const handleMeasureQueued = (e: Event) => {

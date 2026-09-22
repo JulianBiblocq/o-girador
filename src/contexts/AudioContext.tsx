@@ -4,6 +4,7 @@
  */
 
 import { useSequencerStore } from '../stores/useSequencerStore';
+import { useTransportStore } from '../stores/useTransportStore';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { loadTone } from '../ToneLoader';
 import { useAudioSync, audioEngine, masterVolumeNode } from '../hooks/useAudioSync';
@@ -571,6 +572,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (sequencer.songMarkersRef) sequencer.songMarkersRef.current = loadedMarkers;
       if (sequencer.songSectionsRef) sequencer.songSectionsRef.current = loadedSections;
       if (sequencer.measureSignalsRef) sequencer.measureSignalsRef.current = loadedSignals;
+      if (p.metadata?.preRollSettings || p.preRollSettings) {
+        useTransportStore.getState().setPreRollSettings(p.metadata?.preRollSettings || p.preRollSettings);
+      }
 
       sequencer.measureCountRef.current = 0;
       audioSync.setCurrentMeasure(0);
@@ -715,9 +719,12 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const tracksCopy = JSON.parse(JSON.stringify(useSequencerStore.getState().tracks));
     tracksCopy.forEach((t: any) => t.patterns?.forEach((p: any) => { delete p.vocalAudioData; }));
 
+    const currentPreRoll = useTransportStore.getState().preRollSettings;
+
     const cleanMetadata = sequencer.metadata ? {
       ...sequencer.metadata,
-      partitionImage: undefined
+      partitionImage: undefined,
+      preRollSettings: currentPreRoll,
     } : undefined;
 
     const storeState = useSequencerStore.getState();
@@ -731,6 +738,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       rodaTrackOrder: storeState.rodaTrackOrder,
       letras: sequencer.letras,
       metadata: cleanMetadata,
+      preRollSettings: currentPreRoll,
       measureTimeSigs: storeState.measureTimeSigs,
       measureBpms: sequencer.measureBpms,
       measureBpmTransitions: sequencer.measureBpmTransitions,

@@ -24,7 +24,7 @@ import { useSequencerStore, getEffectiveMuteState, getEffectiveVolume } from '..
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { loadTone } from '../ToneLoader';
 import { useAudioStore } from '../stores/useAudioStore';
-import { getExpandedMeasures } from '../utils/measureHelpers';
+import { getExpandedMeasures, getBeatsPerMeasure } from '../utils/measureHelpers';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useBalancoStore } from '../stores/useBalancoStore';
@@ -518,6 +518,12 @@ export function useAudioSync({
   const anchoredMeasureIdxRef = useRef<number>(-1);
   const speedTrainerCurrentBpmRef = useRef<number>(83);
   const speedTrainerTimeoutsRef = useRef<number[]>([]);
+
+  // PRÉ-ROLL REFERENCES
+  const isPreRollActiveRef = useRef<boolean>(false);
+  const preRollRemainingMeasuresRef = useRef<number>(0);
+  const targetPreRollMeasureRef = useRef<number>(0);
+  const preRollTotalMeasuresRef = useRef<number>(1);
 
   // Subscribe to useTransportStore to keep refs and metroChannel in sync non-reactively
   useEffect(() => {
@@ -1018,7 +1024,26 @@ export function useAudioSync({
           lastAbsoluteTickRef.current = -1;
         } else if (stepIdx === currentTicks - 1) {
           nextStepIdx = 0;
-          if (soloPatternPlayIdRef.current !== null) {
+          if (isPreRollActiveRef.current) {
+            if (preRollRemainingMeasuresRef.current > 1) {
+              preRollRemainingMeasuresRef.current -= 1;
+              measureCountRef.current = targetPreRollMeasureRef.current;
+            } else {
+              // 🛡️ CRITIQUE : Fin du précompte !
+              // La bateria attaque rigoureusement au pas 0 du temps 1 de la mesure ciblée M (NE PAS incrémenter à M + 1).
+              preRollRemainingMeasuresRef.current = 0;
+              isPreRollActiveRef.current = false;
+              measureCountRef.current = targetPreRollMeasureRef.current;
+            }
+            const currentM = targetPreRollMeasureRef.current;
+            const targetSig = measureTimeSigsRef.current[currentM] || '4/4';
+            currentTicks = getMaxTicks(targetSig);
+            maxTicksRef.current = currentTicks;
+            flatArrayPointerRef.current = 0;
+            absoluteTickCountRef.current = getMeasureStartTick(currentM, measureTimeSigsRef.current);
+            currentMeasureStartTickRef.current = absoluteTickCountRef.current;
+            lastAbsoluteTickRef.current = -1;
+          } else if (soloPatternPlayIdRef.current !== null) {
             measureCountRef.current = 0;
           } else {
             const currentMeasureIdx = measureCountRef.current;
@@ -1181,7 +1206,8 @@ export function useAudioSync({
 
         // Calculate continuous measure baseline parameters for smooth animation interpolation
         const timeSigOfMeasure = measureTimeSigsRef.current[_measureForUI % (totalMeasuresRef.current || 1)] || '4/4';
-        const beatsInMeasure = parseInt(timeSigOfMeasure.split('/')[0], 10) || 4;
+        const beatsInMeasure = getBeatsPerMeasure(timeSigOfMeasure);
+        const currentBeatIndex = Math.min(beatsInMeasure - 1, Math.max(0, Math.floor(ratioVal * beatsInMeasure)));
         const currentMeasureBpmRaw = measureBpmsRef.current[_measureForUI % (totalMeasuresRef.current || 1)];
         const currentMeasureBpm = isNaN(currentMeasureBpmRaw) || currentMeasureBpmRaw <= 0 ? 100 : currentMeasureBpmRaw;
         const measureDurationSec = (beatsInMeasure * 60) / currentMeasureBpm;
@@ -1192,6 +1218,10 @@ export function useAudioSync({
           anchoredMeasureIdxRef.current = _measureForUI;
         }
         const measureStartTimeSec = anchoredMeasureStartSecRef.current;
+
+        const isPreRoll = isPreRollActiveRef.current;
+        const preRollTotal = preRollTotalMeasuresRef.current;
+        const preRollMeasureIndex = Math.max(0, preRollTotal - preRollRemainingMeasuresRef.current);
 
         if (!isDocHidden) {
           pushVisualTick({
@@ -1206,6 +1236,10 @@ export function useAudioSync({
             iteration: sectionIterationRef.current,
             measureStartTime: measureStartTimeSec,
             measureDuration: measureDurationSec,
+            isPreRoll,
+            preRollMeasureIndex,
+            preRollTotalMeasures: preRollTotal,
+            preRollBeat: currentBeatIndex,
           });
         }
 
@@ -1419,7 +1453,7 @@ export function useAudioSync({
         const currentMeasureSig = measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
         const markers = getCachedMarkers(currentMeasureSig, currentTicks);
 
-        if (isMetroOnRef.current && markers.includes(stepIdx)) {
+        if (isMetroOnRef.current && markers.includes(stepIdx) && !isPreRollActiveRef.current) {
           if (metroVolumeRef.current > 0) {
             const isAccent = (stepIdx === 0);
             playNativeMetroClick(time, isAccent, 'synth', 1.8);
@@ -1435,10 +1469,7 @@ export function useAudioSync({
         
         if (globalMode !== 'off') {
           const timeSig = measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
-          let beatsCount = 4;
-          if (timeSig === '3/4') beatsCount = 3;
-          else if (timeSig === '2/4' || timeSig === '6/8') beatsCount = 2;
-          else if (timeSig === '12/8') beatsCount = 4;
+          const beatsCount = getBeatsPerMeasure(timeSig);
 
           const ticksPerBeat = currentTicks / beatsCount;
           const posInBeat = ((stepIdx / ticksPerBeat) % 1) * 4;
@@ -1576,7 +1607,9 @@ export function useAudioSync({
 
                     let triggerTime = time + noteSwingOffset + microOffset;
 
-                    audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
+                    if (!isPreRollActiveRef.current) {
+                      audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
+                    }
 
                     // Visual hit trigger
                     if (!isDocHidden) {
@@ -1648,7 +1681,7 @@ export function useAudioSync({
           const hasVocalSample = Boolean(vocalBuf && activePattern.vocalMode === 'micro');
 
           // 1. Déclenchement du Tone.GrainPlayer vocal au début de la mesure (stepIdx === 0)
-          if (hasVocalSample && stepIdx === 0 && !activeSequencerVocalsRef.current.has(safeId)) {
+          if (!isPreRollActiveRef.current && hasVocalSample && stepIdx === 0 && !activeSequencerVocalsRef.current.has(safeId)) {
             const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
             const voiceInst = instrumentsConfig[track.instrumentIdx];
             const isCoroTrack = voiceInst?.id === 'coro';
@@ -1682,7 +1715,7 @@ export function useAudioSync({
             const nextClip = nextPattern.vocalClip;
             const hasAnacrusis = Boolean(nextClip && (nextClip.anacrusisBeats || 0) > 0);
 
-            if (nextHasVocal && hasAnacrusis && !activeSequencerVocalsRef.current.has(nextSafeId)) {
+            if (!isPreRollActiveRef.current && nextHasVocal && hasAnacrusis && !activeSequencerVocalsRef.current.has(nextSafeId)) {
               const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
               const voiceInst = instrumentsConfig[track.instrumentIdx];
               const isCoroTrack = voiceInst?.id === 'coro';
@@ -1690,7 +1723,7 @@ export function useAudioSync({
               const vocalVol = isConnectedToBus ? (track.volumeVal ?? 100) : getEffectiveVolume(tracks, track.id);
               const nextBpm = useSequencerStore.getState().measureBpms[nextMeasureLocal] || useSequencerStore.getState().bpm;
               const nextTimeSig = measureTimeSigsRef.current[nextMeasureLocal % (totalMeasuresRef.current || 1)] || '4/4';
-              const nextBeats = parseInt(nextTimeSig.split('/')[0]) || 4;
+              const nextBeats = getBeatsPerMeasure(nextTimeSig);
               const currentMeasureDurationSec = (nextBeats * 60) / (useSequencerStore.getState().measureBpms[currentMeasureLocal] || nextBpm);
 
               const handle = vocalEngineService.playSequencerVocal(
@@ -1737,7 +1770,9 @@ export function useAudioSync({
                 const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
                 const numSteps = getVoiceNoteStepsFromDecay(decayNum);
                 const noteDuration = (numSteps * 6) * tick96nSec;
-                playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[track.id]);
+                if (!isPreRollActiveRef.current) {
+                  playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[track.id]);
+                }
               }
 
               // Maintien absolu du défilement des paroles et de l'illumination visuelle des pas à 60 FPS
@@ -1878,6 +1913,41 @@ export function useAudioSync({
         } catch (_) {}
       }
 
+      // 🎯 PRÉ-ROLL ADAPTATIF
+      const preRoll = useTransportStore.getState().preRollSettings;
+      const targetM = measureCountRef.current % (totalMeasuresRef.current || 1);
+      targetPreRollMeasureRef.current = targetM;
+
+      if (preRoll && preRoll.enabled) {
+        const targetSig = measureTimeSigsRef.current[targetM] || '4/4';
+        const targetBpm = isNaN(measureBpmsRef.current[targetM]) || measureBpmsRef.current[targetM] <= 0
+          ? (useSequencerStore.getState().bpm || 100)
+          : measureBpmsRef.current[targetM];
+        const beatsCount = getBeatsPerMeasure(targetSig);
+        const isCompound = targetSig === '6/8' || targetSig === '9/8' || targetSig === '12/8';
+        const beatDurationSec = isCompound ? (90 / targetBpm) : (60 / targetBpm);
+        const measuresCount = preRoll.measuresCount || 1;
+
+        preRollTotalMeasuresRef.current = measuresCount;
+        preRollRemainingMeasuresRef.current = measuresCount;
+        isPreRollActiveRef.current = true;
+
+        // Hardware-timed count-in beeps (bips haute précision Web Audio)
+        const totalBeats = measuresCount * beatsCount;
+        const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
+        const t0 = (rawCtx ? rawCtx.currentTime : Tone.context.currentTime) + 0.05;
+        for (let i = 0; i < totalBeats; i++) {
+          const beepTime = t0 + i * beatDurationSec;
+          const isDownbeat = (i % beatsCount) === 0;
+          const isFinalBeat = (i === totalBeats - 1);
+          const freq = isFinalBeat ? 1400 : isDownbeat ? 1200 : 800;
+          playCountInBeep(beepTime, freq, isDownbeat || isFinalBeat);
+        }
+      } else {
+        isPreRollActiveRef.current = false;
+        preRollRemainingMeasuresRef.current = 0;
+      }
+
       if (Tone.Transport.state !== 'started') {
         if (useSequencerStore.getState().isPreviewMode) {
           Tone.Transport.scheduleOnce((time) => {
@@ -1916,6 +1986,8 @@ export function useAudioSync({
     } else {
       if (import.meta.env.DEV) {
       }
+      isPreRollActiveRef.current = false;
+      preRollRemainingMeasuresRef.current = 0;
       audioEngine?.stop();
       Tone.Transport.pause();
       anchoredMeasureStartSecRef.current = -1;
@@ -2007,6 +2079,8 @@ export function useAudioSync({
     vocalEngineService.stopRecording();
     audioEngine?.stopAllBarulho();
     stopAllNativeOscillators();
+    isPreRollActiveRef.current = false;
+    preRollRemainingMeasuresRef.current = 0;
 
     vocalEngineService.stopAllVocalPlayback();
     activeSequencerVocalsRef.current.forEach(v => v.stop());

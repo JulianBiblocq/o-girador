@@ -29,14 +29,14 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
   lang,
 }) => {
   const [phase, setPhase] = useState<Phase>('idle');
-  const [beatsCount, setBeatsCount] = useState<4 | 5>(4);
+  const [beatsCount, setBeatsCount] = useState<number>(4);
   const [bpm, setBpm] = useState<number>(initialBpm);
   const [signalName, setSignalName] = useState<string>('');
   
   // Prise de vue en cours
   const [currentStepIdx, setCurrentStepIdx] = useState<number>(0); // 0 to beatsCount - 1
   const [sasCountdown, setSasCountdown] = useState<number>(3); // 3, 2, 1
-  const [displayedBeat, setDisplayedBeat] = useState<number>(1); // 1, 2, 3, 4
+  const [displayedBeat, setDisplayedBeat] = useState<number>(1); // 1..N
 
   // Effet Cordel & frames finales
   const [cordelOptions, setCordelOptions] = useState<CordelOptions>({
@@ -45,6 +45,9 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     detail: 60,
     shadow: 130,
     isMirror: true,
+    isFrame: false,
+    posX: 0,
+    posY: 0,
   });
   const [processedFrames, setProcessedFrames] = useState<string[]>([]);
   const [activePreviewFrameIdx, setActivePreviewFrameIdx] = useState<number>(0);
@@ -55,14 +58,15 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
   const streamRef = useRef<MediaStream | null>(null);
   const flashElRef = useRef<HTMLDivElement | null>(null);
   const beatNumberElRef = useRef<HTMLDivElement | null>(null);
-  const rawCanvasesRef = useRef<HTMLCanvasElement[]>([]);
+  const rawBase64ImagesRef = useRef<string[]>([]);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
   // Timers
   const timerRef = useRef<any>(null);
   const loopPreviewTimerRef = useRef<any>(null);
+  const reprocessDebounceTimerRef = useRef<any>(null);
 
-  // 1. Initialisation audio
+  // 1. Initialisation audio Web Audio
   const getAudioContext = useCallback(() => {
     if (!audioCtxRef.current) {
       const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -130,19 +134,31 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
       setPhase('idle');
       setCurrentStepIdx(0);
       setProcessedFrames([]);
-      rawCanvasesRef.current = [];
+      rawBase64ImagesRef.current = [];
+      setCordelOptions({
+        ...defaultCordelOptions,
+        zoom: 120,
+        detail: 60,
+        shadow: 130,
+        isMirror: true,
+        isFrame: false,
+        posX: 0,
+        posY: 0,
+      });
       setSignalName(lang === 'fr' ? 'Geste du Mestre' : 'Gesto do Mestre');
       startCamera();
     } else {
       stopCamera();
       if (timerRef.current) clearTimeout(timerRef.current);
       if (loopPreviewTimerRef.current) clearInterval(loopPreviewTimerRef.current);
+      if (reprocessDebounceTimerRef.current) clearTimeout(reprocessDebounceTimerRef.current);
     }
 
     return () => {
       stopCamera();
       if (timerRef.current) clearTimeout(timerRef.current);
       if (loopPreviewTimerRef.current) clearInterval(loopPreviewTimerRef.current);
+      if (reprocessDebounceTimerRef.current) clearTimeout(reprocessDebounceTimerRef.current);
       if (audioCtxRef.current) {
         audioCtxRef.current.close().catch(() => {});
         audioCtxRef.current = null;
@@ -206,11 +222,14 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     const ctx = canvas.getContext('2d');
     if (ctx) {
       ctx.drawImage(video, sx, sy, size, size, 0, 0, 200, 200);
-      rawCanvasesRef.current.push(canvas);
+      const b64 = canvas.toDataURL('image/jpeg', 0.8);
+      rawBase64ImagesRef.current.push(b64);
     }
   };
 
-  // 6. Séquenceur de prise de vue
+  // 6. Séquenceur de prise de vue adapté à la métrique
+  const countdownLength = beatsCount === 5 ? 4 : beatsCount;
+
   const runBeatCountdown = useCallback((stepIndex: number) => {
     setPhase('beat_countdown');
     const beatIntervalMs = (60 / bpm) * 1000;
@@ -220,18 +239,19 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
       setDisplayedBeat(beat);
       pulseBeatNumber(`${beat}`);
 
-      if (beat === 1) playBeep(600);
-      else if (beat === 2) playBeep(800);
-      else if (beat === 3) playBeep(1000);
-      else if (beat === 4) {
-        // Temps 4 : bip impact + flash + capture
+      if (beat < countdownLength) {
+        // Bip de pulsation métronome ascendant
+        playBeep(600 + (beat - 1) * 150);
+        beat++;
+        timerRef.current = setTimeout(doBeat, beatIntervalMs);
+      } else {
+        // Dernier temps : Bip d'impact + flash + capture instantanée
         playBeep(1500, 0.08, 0.45);
         triggerFlash();
         captureCurrentFrame();
 
-        // Fin de ce geste
         if (stepIndex + 1 < beatsCount) {
-          // Passer au geste suivant après un court répit
+          // Passer au geste suivant après un court sas
           timerRef.current = setTimeout(() => {
             setCurrentStepIdx(stepIndex + 1);
             runSasRepositioning(stepIndex + 1);
@@ -243,15 +263,11 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
             startCordelProcessing();
           }, 400);
         }
-        return;
       }
-
-      beat++;
-      timerRef.current = setTimeout(doBeat, beatIntervalMs);
     };
 
     doBeat();
-  }, [bpm, beatsCount, playBeep, stopCamera]);
+  }, [bpm, beatsCount, countdownLength, playBeep, stopCamera]);
 
   const runSasRepositioning = useCallback((stepIndex: number) => {
     setPhase('repositioning');
@@ -273,20 +289,19 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     timerRef.current = countdownInterval;
   }, [playBeep, runBeatCountdown]);
 
-  // 7. Traitement Cordel en tâche de fond
+  // 7. Traitement initial Cordel en tâche de fond
   const startCordelProcessing = async () => {
     setPhase('processing');
-    const canvases = rawCanvasesRef.current;
+    const rawImages = rawBase64ImagesRef.current;
     const finalFrames: string[] = [];
 
-    for (let i = 0; i < canvases.length; i++) {
-      const rawBase64 = canvases[i].toDataURL('image/jpeg', 0.8);
+    for (let i = 0; i < rawImages.length; i++) {
       try {
-        const cordelized = await processCordelEffectBase64(rawBase64, cordelOptions, 180);
+        const cordelized = await processCordelEffectBase64(rawImages[i], cordelOptions, 180);
         finalFrames.push(cordelized);
       } catch (err) {
         console.error('[PhotoBooth] Erreur traitement cordel frame', i, err);
-        finalFrames.push(rawBase64);
+        finalFrames.push(rawImages[i]);
       }
     }
 
@@ -294,26 +309,36 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     setPhase('review');
   };
 
-  // 8. Réapplication des options Cordel sur la revue
-  const handleReapplyCordel = async (newOpts: CordelOptions) => {
-    setCordelOptions(newOpts);
+  // 8. Réapplication des options Cordel (avec debounce réactif pour 60 FPS)
+  const applyCordelToAllFrames = async (opts: CordelOptions) => {
     setIsReprocessing(true);
-    const canvases = rawCanvasesRef.current;
+    const rawImages = rawBase64ImagesRef.current;
     const finalFrames: string[] = [];
 
-    for (let i = 0; i < canvases.length; i++) {
-      const rawBase64 = canvases[i].toDataURL('image/jpeg', 0.8);
+    for (let i = 0; i < rawImages.length; i++) {
       try {
-        const cordelized = await processCordelEffectBase64(rawBase64, newOpts, 180);
+        const cordelized = await processCordelEffectBase64(rawImages[i], opts, 180);
         finalFrames.push(cordelized);
       } catch (err) {
         console.error('[PhotoBooth] Erreur retraitement cordel frame', i, err);
-        finalFrames.push(rawBase64);
+        finalFrames.push(rawImages[i]);
       }
     }
 
     setProcessedFrames(finalFrames);
     setIsReprocessing(false);
+  };
+
+  const handleUpdateCordelOption = <K extends keyof CordelOptions>(key: K, value: CordelOptions[K]) => {
+    const updated = { ...cordelOptions, [key]: value };
+    setCordelOptions(updated);
+
+    if (reprocessDebounceTimerRef.current) {
+      clearTimeout(reprocessDebounceTimerRef.current);
+    }
+    reprocessDebounceTimerRef.current = setTimeout(() => {
+      applyCordelToAllFrames(updated);
+    }, 120);
   };
 
   // 9. Boucle d'animation de prévisualisation vivante au tempo
@@ -331,9 +356,9 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
 
   // Démarrage séance
   const handleStartSession = () => {
-    rawCanvasesRef.current = [];
+    rawBase64ImagesRef.current = [];
     setCurrentStepIdx(0);
-    getAudioContext(); // Déverrouille l'audio sur interaction
+    getAudioContext();
     runSasRepositioning(0);
   };
 
@@ -354,7 +379,7 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/75 z-[300] flex items-center justify-center p-3 select-none font-sans overflow-y-auto">
-      <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] cordel-shadow max-w-xl w-full p-4 md:p-6 flex flex-col gap-4 relative animate-fade-in my-auto">
+      <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] cordel-shadow max-w-xl w-full p-4 md:p-6 flex flex-col gap-4 relative animate-fade-in my-auto max-h-[95vh] overflow-y-auto">
         
         {/* Bouton de fermeture */}
         <button
@@ -372,8 +397,8 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
           </h2>
           <p className="text-[10px] md:text-xs opacity-70 font-bold font-cactus uppercase mt-0.5">
             {lang === 'fr'
-              ? 'Capturez 4 ou 5 postures synchronisées sur le métronome et transformées en xylogravure Cordel'
-              : 'Capture 4 ou 5 posturas sincronizadas com o metrônomo e transformadas em xilogravura Cordel'}
+              ? 'Capturez vos postures synchronisées au métronome et converties en gravure sur bois Cordel'
+              : 'Capture suas posturas sincronizadas com o metrônomo e convertidas em xilogravura Cordel'}
           </p>
         </div>
 
@@ -405,8 +430,8 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                   </div>
                   <span className="text-white font-cactus text-[11px] font-bold uppercase tracking-wide px-2">
                     {lang === 'fr'
-                      ? `Placez votre geste pour le Temps ${currentStepIdx + 1}`
-                      : `Posicione seu gesto para o Tempo ${currentStepIdx + 1}`}
+                      ? `Placez votre posture pour le Temps ${currentStepIdx + 1}`
+                      : `Posicione sua postura para o Tempo ${currentStepIdx + 1}`}
                   </span>
                   <div className="text-5xl font-cactus font-bold text-amber-300 animate-pulse">
                     {sasCountdown}
@@ -421,20 +446,20 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                     {lang === 'fr' ? `Prise Temps ${currentStepIdx + 1} / ${beatsCount}` : `Captura Tempo ${currentStepIdx + 1} / ${beatsCount}`}
                   </div>
 
-                  {/* Chiffre 1, 2, 3, 4 animé par WAAPI */}
+                  {/* Chiffre 1, 2, 3.. animé par WAAPI */}
                   <div
                     ref={beatNumberElRef}
                     className={`font-cactus font-bold text-7xl md:text-8xl drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] ${
-                      displayedBeat === 4 ? 'text-red-500 scale-125' : 'text-amber-400'
+                      displayedBeat === countdownLength ? 'text-red-500 scale-125' : 'text-amber-400'
                     }`}
                   >
                     {displayedBeat}
                   </div>
 
                   <span className="text-[10px] font-cactus font-bold uppercase bg-black/70 px-2 py-0.5 text-white/90">
-                    {displayedBeat === 4
+                    {displayedBeat === countdownLength
                       ? (lang === 'fr' ? '📸 CAPTURE !' : '📸 CAPTURA !')
-                      : (lang === 'fr' ? `Sur le temps 4... (${bpm} BPM)` : `No tempo 4... (${bpm} BPM)`)}
+                      : (lang === 'fr' ? `Sur le temps ${countdownLength}... (${bpm} BPM)` : `No tempo ${countdownLength}... (${bpm} BPM)`)}
                   </span>
                 </div>
               )}
@@ -464,7 +489,7 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
           </div>
         )}
 
-        {/* PHASE IDLE : CONFIGURATION */}
+        {/* PHASE IDLE : CONFIGURATION DYNAMIQUE */}
         {phase === 'idle' && (
           <div className="flex flex-col gap-3">
             {/* Nom du signal */}
@@ -476,36 +501,37 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                 type="text"
                 value={signalName}
                 onChange={(e) => setSignalName(e.target.value)}
-                placeholder={lang === 'fr' ? 'Ex: Chamada da Alfaias' : 'Ex: Chamada das Alfaias'}
+                placeholder={lang === 'fr' ? 'Ex: Chamada das Alfaias' : 'Ex: Chamada das Alfaias'}
                 className="bg-black/5 border-2 border-[var(--cordel-border)] p-1.5 text-xs font-bold text-[var(--cordel-text)] outline-none focus:bg-white"
               />
             </div>
 
             {/* Nombre de temps & BPM */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-2">
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-cactus font-bold uppercase opacity-80">
-                  🥁 {lang === 'fr' ? 'Formule de pas :' : 'Fórmula de passos :'}
+                  🥁 {lang === 'fr' ? 'Signature / Nombre de trames :' : 'Fórmula / Número de quadros :'}
                 </label>
-                <div className="flex gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setBeatsCount(4)}
-                    className={`flex-1 py-1.5 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] ${
-                      beatsCount === 4 ? 'bg-[var(--cordel-wood)] text-white' : 'bg-black/5'
-                    }`}
-                  >
-                    4 {lang === 'fr' ? 'Temps' : 'Tempos'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBeatsCount(5)}
-                    className={`flex-1 py-1.5 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] ${
-                      beatsCount === 5 ? 'bg-[var(--cordel-wood)] text-white' : 'bg-black/5'
-                    }`}
-                  >
-                    5 {lang === 'fr' ? 'Temps (+1)' : 'Tempos (+1)'}
-                  </button>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { count: 2, labelFr: '2 T (2/4, 6/8)', labelPt: '2 T (2/4, 6/8)' },
+                    { count: 3, labelFr: '3 T (3/4, 9/8)', labelPt: '3 T (3/4, 9/8)' },
+                    { count: 4, labelFr: '4 T (4/4, 12/8)', labelPt: '4 T (4/4, 12/8)' },
+                    { count: 5, labelFr: '5 T (Appel +1)', labelPt: '5 T (Chamada +1)' },
+                  ].map((item) => (
+                    <button
+                      key={item.count}
+                      type="button"
+                      onClick={() => setBeatsCount(item.count)}
+                      className={`py-2 px-1 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer ${
+                        beatsCount === item.count
+                          ? 'bg-[var(--cordel-wood)] text-white shadow-[2px_2px_0px_#000]'
+                          : 'bg-black/5 hover:bg-black/10'
+                      }`}
+                    >
+                      {lang === 'fr' ? item.labelFr : item.labelPt}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -517,17 +543,17 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setBpm((b) => Math.max(40, b - 5))}
-                    className="w-7 h-7 bg-black/10 border border-[var(--cordel-border)] font-bold text-xs hover:bg-black/20"
+                    className="w-8 h-8 bg-black/10 border border-[var(--cordel-border)] font-bold text-xs hover:bg-black/20 cursor-pointer"
                   >
                     -
                   </button>
-                  <span className="flex-1 text-center font-cactus font-bold text-sm bg-black/5 py-1 border border-[var(--cordel-border)]/30">
+                  <span className="flex-1 text-center font-cactus font-bold text-sm bg-black/5 py-1.5 border border-[var(--cordel-border)]/30">
                     {bpm} BPM
                   </span>
                   <button
                     type="button"
                     onClick={() => setBpm((b) => Math.min(240, b + 5))}
-                    className="w-7 h-7 bg-black/10 border border-[var(--cordel-border)] font-bold text-xs hover:bg-black/20"
+                    className="w-8 h-8 bg-black/10 border border-[var(--cordel-border)] font-bold text-xs hover:bg-black/20 cursor-pointer"
                   >
                     +
                   </button>
@@ -540,7 +566,7 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
               onClick={handleStartSession}
               className="mt-2 w-full py-3 bg-[var(--cordel-wood)] text-white border-2 border-[var(--cordel-border)] shadow-[3px_3px_0px_#000] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer font-cactus font-bold uppercase text-sm tracking-wider flex items-center justify-center gap-2 active:scale-[0.99] transition-all"
             >
-              🎬 {lang === 'fr' ? 'Démarrer la séance de pose' : 'Iniciar sessão de fotos'}
+              🎬 {lang === 'fr' ? `Démarrer la séance (${beatsCount} trames)` : `Iniciar sessão (${beatsCount} quadros)`}
             </button>
           </div>
         )}
@@ -558,19 +584,19 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
           </div>
         )}
 
-        {/* PHASE DE REVUE & PLANCHE-CONTACT */}
+        {/* PHASE DE REVUE, CADRAGE & RETOUCHE */}
         {phase === 'review' && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             
-            {/* Lecteur vivant au tempo + Planche contact */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+            {/* Zone lecteur vivant + Planche-contact */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
               
-              {/* Animation vivante */}
+              {/* Animation vivante au tempo */}
               <div className="flex flex-col items-center gap-1">
                 <span className="text-[10px] font-cactus font-bold uppercase opacity-75">
-                  🔄 {lang === 'fr' ? 'Animation vivante (BPM)' : 'Animação viva (BPM)'}
+                  🔄 {lang === 'fr' ? 'Aperçu animé' : 'Visualização animada'}
                 </span>
-                <div className="relative w-36 h-36 border-3 border-[var(--cordel-border)] bg-black/10 overflow-hidden cordel-shadow">
+                <div className="relative w-32 h-32 border-3 border-[var(--cordel-border)] bg-black/10 overflow-hidden cordel-shadow">
                   {processedFrames[activePreviewFrameIdx] && (
                     <img
                       src={processedFrames[activePreviewFrameIdx]}
@@ -581,14 +607,24 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                   <div className="absolute top-1 left-1 bg-black/80 text-white text-[9px] font-cactus font-bold px-1.5 py-0.5">
                     T{activePreviewFrameIdx + 1}
                   </div>
+                  {isReprocessing && (
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Planche-contact des trames */}
-              <div className="md:col-span-2 flex flex-col gap-1">
-                <span className="text-[10px] font-cactus font-bold uppercase opacity-75">
-                  🎞️ {lang === 'fr' ? 'Planche-contact des trames :' : 'Pranchas de contato :'}
-                </span>
+              <div className="sm:col-span-2 flex flex-col gap-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-cactus font-bold uppercase opacity-75">
+                    🎞️ {lang === 'fr' ? 'Trames capturées :' : 'Quadros capturados :'}
+                  </span>
+                  <span className="text-[9px] font-cactus opacity-60">
+                    {beatsCount} {lang === 'fr' ? 'trames au tempo' : 'quadros no andamento'}
+                  </span>
+                </div>
                 <div className="grid grid-cols-5 gap-1.5">
                   {processedFrames.map((frame, idx) => (
                     <div
@@ -610,56 +646,155 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
               </div>
             </div>
 
-            {/* Curseurs de réglage rapide Cordel */}
-            <div className="border border-[var(--cordel-border)]/30 p-2.5 bg-black/5 flex flex-col gap-2">
-              <span className="font-cactus font-bold uppercase text-[10px] tracking-wider">
-                🎨 {lang === 'fr' ? 'Ajustement de la gravure :' : 'Ajuste da gravura :'}
-              </span>
-              <div className="grid grid-cols-2 gap-3 text-[10px] font-bold">
+            {/* OUTILS DE CADRAGE & RETOUCHE CORDEL (Section 6 restaurée) */}
+            <div className="border-2 border-[var(--cordel-border)] p-3 bg-black/5 flex flex-col gap-2.5">
+              <div className="flex justify-between items-center border-b border-[var(--cordel-border)]/20 pb-1">
+                <span className="font-cactus font-bold uppercase text-[11px] tracking-wider text-[var(--cordel-wood)] flex items-center gap-1">
+                  📐 {lang === 'fr' ? 'Cadrage & Gravure Cordel' : 'Enquadramento & Gravura Cordel'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const def = {
+                      ...defaultCordelOptions,
+                      zoom: 120,
+                      detail: 60,
+                      shadow: 130,
+                      isMirror: true,
+                      isFrame: false,
+                      posX: 0,
+                      posY: 0,
+                    };
+                    setCordelOptions(def);
+                    applyCordelToAllFrames(def);
+                  }}
+                  className="text-[9px] font-cactus uppercase opacity-70 hover:opacity-100 underline cursor-pointer"
+                >
+                  {lang === 'fr' ? 'Réinitialiser' : 'Redefinir'}
+                </button>
+              </div>
+
+              {/* Curseurs de cadrage */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[10px] font-bold">
+                {/* Zoom */}
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between">
-                    <span>✍️ {lang === 'fr' ? 'Lignes' : 'Linhas'}</span>
+                    <span>🔍 {lang === 'fr' ? 'Zoom' : 'Zoom'}</span>
+                    <span>{cordelOptions.zoom}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="50"
+                    max="180"
+                    value={cordelOptions.zoom}
+                    onChange={(e) => handleUpdateCordelOption('zoom', parseInt(e.target.value))}
+                    className="accent-[var(--cordel-wood)] cursor-pointer"
+                  />
+                </div>
+
+                {/* Décalage horizontal X */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between">
+                    <span>↔️ {lang === 'fr' ? 'Décalage X' : 'Deslocamento X'}</span>
+                    <span>{cordelOptions.posX}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-100"
+                    max="100"
+                    value={cordelOptions.posX}
+                    onChange={(e) => handleUpdateCordelOption('posX', parseInt(e.target.value))}
+                    className="accent-[var(--cordel-wood)] cursor-pointer"
+                  />
+                </div>
+
+                {/* Décalage vertical Y */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between">
+                    <span>↕️ {lang === 'fr' ? 'Décalage Y' : 'Deslocamento Y'}</span>
+                    <span>{cordelOptions.posY}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-100"
+                    max="100"
+                    value={cordelOptions.posY}
+                    onChange={(e) => handleUpdateCordelOption('posY', parseInt(e.target.value))}
+                    className="accent-[var(--cordel-wood)] cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Curseurs d'encre & Sobel */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-[10px] font-bold pt-1 border-t border-[var(--cordel-border)]/20">
+                {/* Sobel / Lignes */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between">
+                    <span>✍️ {lang === 'fr' ? 'Traits / Sobel' : 'Traços / Sobel'}</span>
                     <span>{cordelOptions.detail}%</span>
                   </div>
                   <input
                     type="range"
-                    min="20"
-                    max="120"
+                    min="10"
+                    max="150"
                     value={cordelOptions.detail}
-                    onChange={(e) =>
-                      handleReapplyCordel({ ...cordelOptions, detail: parseInt(e.target.value) })
-                    }
-                    className="accent-[var(--cordel-text)] cursor-pointer"
-                    disabled={isReprocessing}
+                    onChange={(e) => handleUpdateCordelOption('detail', parseInt(e.target.value))}
+                    className="accent-[var(--cordel-wood)] cursor-pointer"
                   />
                 </div>
+
+                {/* Seuil ombres / encre */}
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between">
-                    <span>🌑 {lang === 'fr' ? 'Encre' : 'Tinta'}</span>
+                    <span>🌑 {lang === 'fr' ? 'Ombres / Encre' : 'Sombras / Tinta'}</span>
                     <span>{cordelOptions.shadow}</span>
                   </div>
                   <input
                     type="range"
-                    min="70"
-                    max="190"
+                    min="50"
+                    max="220"
                     value={cordelOptions.shadow}
-                    onChange={(e) =>
-                      handleReapplyCordel({ ...cordelOptions, shadow: parseInt(e.target.value) })
-                    }
-                    className="accent-[var(--cordel-text)] cursor-pointer"
-                    disabled={isReprocessing}
+                    onChange={(e) => handleUpdateCordelOption('shadow', parseInt(e.target.value))}
+                    className="accent-[var(--cordel-wood)] cursor-pointer"
                   />
                 </div>
+              </div>
+
+              {/* Toggles Miroir & Cadre */}
+              <div className="flex gap-2 pt-1 border-t border-[var(--cordel-border)]/20">
+                <button
+                  type="button"
+                  onClick={() => handleUpdateCordelOption('isMirror', !cordelOptions.isMirror)}
+                  className={`flex-1 py-1 px-2 text-[10px] font-cactus font-bold uppercase border border-[var(--cordel-border)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    cordelOptions.isMirror
+                      ? 'bg-[var(--cordel-wood)] text-white'
+                      : 'bg-black/5 hover:bg-black/10'
+                  }`}
+                >
+                  🪞 {lang === 'fr' ? 'Miroir' : 'Espelho'} : {cordelOptions.isMirror ? (lang === 'fr' ? 'OUI' : 'SIM') : (lang === 'fr' ? 'NON' : 'NÃO')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleUpdateCordelOption('isFrame', !cordelOptions.isFrame)}
+                  className={`flex-1 py-1 px-2 text-[10px] font-cactus font-bold uppercase border border-[var(--cordel-border)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    cordelOptions.isFrame
+                      ? 'bg-[var(--cordel-wood)] text-white'
+                      : 'bg-black/5 hover:bg-black/10'
+                  }`}
+                >
+                  🖼️ {lang === 'fr' ? 'Cadre' : 'Moldura'} : {cordelOptions.isFrame ? (lang === 'fr' ? 'OUI' : 'SIM') : (lang === 'fr' ? 'NON' : 'NÃO')}
+                </button>
               </div>
             </div>
 
             {/* Boutons d'action */}
-            <div className="flex gap-2 mt-2">
+            <div className="flex gap-2 mt-1">
               <button
                 type="button"
                 onClick={() => {
                   setPhase('idle');
-                  rawCanvasesRef.current = [];
+                  rawBase64ImagesRef.current = [];
                   setProcessedFrames([]);
                   startCamera();
                 }}
@@ -674,7 +809,7 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                 disabled={isReprocessing}
                 className="flex-1 py-2 bg-[var(--cordel-wood)] text-white border-2 border-[var(--cordel-border)] shadow-[3px_3px_0px_#000] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer font-cactus font-bold text-xs uppercase tracking-wider active:scale-[0.99] transition-all disabled:opacity-50"
               >
-                💾 {lang === 'fr' ? 'Valider le Signal' : 'Salvar Sinal'}
+                💾 {lang === 'fr' ? `Valider le Signal (${beatsCount} trames)` : `Salvar Sinal (${beatsCount} quadros)`}
               </button>
             </div>
           </div>
