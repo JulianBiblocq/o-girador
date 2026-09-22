@@ -892,6 +892,30 @@ export function useSequencerState() {
     setMeasureBpmTransitions(prev => prev.filter((_, idx) => idx !== measureIdx));
     setMeasureVols(prev => prev.filter((_, idx) => idx !== measureIdx));
     setMeasureVolTransitions(prev => prev.filter((_, idx) => idx !== measureIdx));
+    setMeasureSignals((prev: (string | null)[]) => prev.filter((_, idx) => idx !== measureIdx));
+    setSongMarkers((prev: SongMarker[]) => (prev || [])
+      .filter((m: SongMarker) => m.measure !== measureIdx)
+      .map((m: SongMarker) => {
+        if (m.measure > measureIdx) {
+          return { ...m, measure: m.measure - 1 };
+        }
+        return m;
+      })
+    );
+    setLoopStartMeasure((prev: number | null) => {
+      if (prev === null) return null;
+      if (prev === measureIdx) {
+        return Math.max(0, Math.min(totalMeasuresRef.current - 2, prev));
+      }
+      return prev > measureIdx ? prev - 1 : prev;
+    });
+    setLoopEndMeasure((prev: number | null) => {
+      if (prev === null) return null;
+      if (prev === measureIdx) {
+        return Math.max(0, Math.min(totalMeasuresRef.current - 2, prev));
+      }
+      return prev > measureIdx ? prev - 1 : prev;
+    });
     setSongSections((prev: SongSection[]) => prev
       .filter((s: SongSection) => !(s.startMeasure === measureIdx && s.endMeasure === measureIdx))
       .map((s: SongSection) => {
@@ -946,6 +970,19 @@ export function useSequencerState() {
       arr.splice(measureIdx, 0, ...Array(amount).fill('immediate'));
       return arr;
     });
+    setMeasureSignals((prev: (string | null)[]) => {
+      const arr = [...prev];
+      arr.splice(measureIdx, 0, ...Array(amount).fill(null));
+      return arr;
+    });
+    setSongMarkers((prev: SongMarker[]) => (prev || []).map((m: SongMarker) => {
+      if (m.measure >= measureIdx) {
+        return { ...m, measure: m.measure + amount };
+      }
+      return m;
+    }));
+    setLoopStartMeasure((prev: number | null) => (prev !== null && prev >= measureIdx) ? prev + amount : prev);
+    setLoopEndMeasure((prev: number | null) => (prev !== null && prev >= measureIdx) ? prev + amount : prev);
     setSongSections((prev: SongSection[]) => prev.map((s: SongSection) => {
       if (s.startMeasure >= measureIdx) {
         return { ...s, startMeasure: s.startMeasure + amount, endMeasure: s.endMeasure + amount };
@@ -2148,6 +2185,15 @@ export function useSequencerState() {
       }
       return { ...sec, startMeasure: newStart, endMeasure: newEnd };
     }));
+
+    setSongMarkers((prev: SongMarker[]) => (prev || []).map(m => {
+      if (m.measure >= insertAtMeasure) {
+        return { ...m, measure: m.measure + n };
+      }
+      return m;
+    }));
+    setLoopStartMeasure((prev: number | null) => (prev !== null && prev >= insertAtMeasure) ? prev + n : prev);
+    setLoopEndMeasure((prev: number | null) => (prev !== null && prev >= insertAtMeasure) ? prev + n : prev);
 
     setTracks(prev => {
       const newTracks = [...prev];

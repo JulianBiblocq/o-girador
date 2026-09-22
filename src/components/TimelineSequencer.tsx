@@ -1065,7 +1065,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
 
   // Section Marker double-click and drag handlers
   const handleMarkerRulerDblClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target !== e.currentTarget) return;
+    if ((e.target as HTMLElement).closest('[data-marker]')) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     let measureIdx = Math.floor(clickX / MEASURE_W);
@@ -1418,6 +1418,7 @@ export const TimelineSequencer = React.memo<TimelineSequencerProps>(({
                 return (
                   <div
                     key={`marker-${marker.id}`}
+                    data-marker="true"
                     className={`absolute top-1 h-[16px] px-2 rounded-full text-[9px] font-bold text-white flex items-center gap-1 shadow-sm cursor-grab select-none hover:brightness-110 active:cursor-grabbing transform -translate-x-1/2 border border-black/10 z-40 ${
                       isPanningActive ? 'pointer-events-none' : ''
                     }`}

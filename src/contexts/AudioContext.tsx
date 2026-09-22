@@ -473,23 +473,29 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       sequencer.setIsLoopRegionActive(p.isLoopRegionActive !== undefined ? p.isLoopRegionActive : true);
       if (p.isLooping !== undefined) sequencer.setIsLooping(p.isLooping);
 
-      if (p.songSections && Array.isArray(p.songSections)) {
-        sequencer.setSongSections(p.songSections);
-      } else {
-        sequencer.setSongSections([]);
-      }
+      const loadedSections = (p.songSections && Array.isArray(p.songSections))
+        ? JSON.parse(JSON.stringify(p.songSections))
+        : [];
+      useSequencerStore.setState({ songSections: loadedSections });
+      useSequencerStore.getState().setSongSections(loadedSections);
+      if (sequencer.songSectionsRef) sequencer.songSectionsRef.current = loadedSections;
+      sequencer.setSongSections(loadedSections);
 
-      if (p.songMarkers && Array.isArray(p.songMarkers)) {
-        sequencer.setSongMarkers(p.songMarkers);
-      } else {
-        sequencer.setSongMarkers([]);
-      }
+      const loadedMarkers = (p.songMarkers && Array.isArray(p.songMarkers))
+        ? JSON.parse(JSON.stringify(p.songMarkers))
+        : [];
+      useSequencerStore.setState({ songMarkers: loadedMarkers });
+      useSequencerStore.getState().setSongMarkers(loadedMarkers);
+      if (sequencer.songMarkersRef) sequencer.songMarkersRef.current = loadedMarkers;
+      sequencer.setSongMarkers(loadedMarkers);
 
-      if (p.measureSignals && Array.isArray(p.measureSignals)) {
-        sequencer.setMeasureSignals(p.measureSignals);
-      } else {
-        sequencer.setMeasureSignals(Array(loadedMeasures).fill(null));
-      }
+      const loadedSignals = (p.measureSignals && Array.isArray(p.measureSignals))
+        ? JSON.parse(JSON.stringify(p.measureSignals))
+        : Array(loadedMeasures).fill(null);
+      useSequencerStore.setState({ measureSignals: loadedSignals });
+      useSequencerStore.getState().setMeasureSignals(loadedSignals);
+      if (sequencer.measureSignalsRef) sequencer.measureSignalsRef.current = loadedSignals;
+      sequencer.setMeasureSignals(loadedSignals);
 
       if (p.masterEQ) {
         setMasterEQ(p.masterEQ);
@@ -562,6 +568,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       sequencer.measureBpmTransitionsRef.current = loadedBpmTransitions;
       sequencer.measureVolsRef.current = loadedVols;
       sequencer.measureVolTransitionsRef.current = loadedVolTransitions;
+      if (sequencer.songMarkersRef) sequencer.songMarkersRef.current = loadedMarkers;
+      if (sequencer.songSectionsRef) sequencer.songSectionsRef.current = loadedSections;
+      if (sequencer.measureSignalsRef) sequencer.measureSignalsRef.current = loadedSignals;
 
       sequencer.measureCountRef.current = 0;
       audioSync.setCurrentMeasure(0);
@@ -727,9 +736,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       measureBpmTransitions: sequencer.measureBpmTransitions,
       measureVols: sequencer.measureVols,
       measureVolTransitions: sequencer.measureVolTransitions,
-      songSections: storeState.songSections,
-      songMarkers: storeState.songMarkers,
-      measureSignals: sequencer.measureSignals,
+      songSections: Array.isArray(storeState.songSections) ? JSON.parse(JSON.stringify(storeState.songSections)) : [],
+      songMarkers: Array.isArray(storeState.songMarkers) ? JSON.parse(JSON.stringify(storeState.songMarkers)) : [],
+      measureSignals: Array.isArray(storeState.measureSignals) ? JSON.parse(JSON.stringify(storeState.measureSignals)) : Array(storeState.totalMeasures).fill(null),
       masterEQ,
       masterCompressor,
       masterVol,

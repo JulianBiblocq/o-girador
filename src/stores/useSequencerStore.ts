@@ -2977,8 +2977,21 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
     get().pushUndoState();
     set((state) => {
       if (state.totalMeasures <= 1) return state;
+      const nextLoopStart = state.loopStartMeasure === null ? null : (
+        state.loopStartMeasure === measureIdx
+          ? Math.max(0, Math.min(state.totalMeasures - 2, state.loopStartMeasure))
+          : (state.loopStartMeasure > measureIdx ? state.loopStartMeasure - 1 : state.loopStartMeasure)
+      );
+      const nextLoopEnd = state.loopEndMeasure === null ? null : (
+        state.loopEndMeasure === measureIdx
+          ? Math.max(0, Math.min(state.totalMeasures - 2, state.loopEndMeasure))
+          : (state.loopEndMeasure > measureIdx ? state.loopEndMeasure - 1 : state.loopEndMeasure)
+      );
+
       return {
         totalMeasures: state.totalMeasures - 1,
+        loopStartMeasure: nextLoopStart,
+        loopEndMeasure: nextLoopEnd,
         measureTimeSigs: state.measureTimeSigs.filter((_, idx) => idx !== measureIdx),
         measureBpms: state.measureBpms.filter((_, idx) => idx !== measureIdx),
         measureBpmTransitions: state.measureBpmTransitions.filter((_, idx) => idx !== measureIdx),
@@ -3039,8 +3052,17 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
         return next;
       };
 
+      const nextLoopStart = (state.loopStartMeasure !== null && state.loopStartMeasure >= measureIdx)
+        ? state.loopStartMeasure + amount
+        : state.loopStartMeasure;
+      const nextLoopEnd = (state.loopEndMeasure !== null && state.loopEndMeasure >= measureIdx)
+        ? state.loopEndMeasure + amount
+        : state.loopEndMeasure;
+
       return {
         totalMeasures: state.totalMeasures + amount,
+        loopStartMeasure: nextLoopStart,
+        loopEndMeasure: nextLoopEnd,
         measureTimeSigs: spliceArray(state.measureTimeSigs, refSig),
         measureBpms: spliceArray(state.measureBpms, refBpm),
         measureBpmTransitions: spliceArray(state.measureBpmTransitions, 'immediate'),

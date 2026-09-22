@@ -9,6 +9,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { indexedDBPersister } from './queryPersister';
 import { telemetryService } from './services/telemetryService';
+import { useSequencerStore } from './stores/useSequencerStore';
 import './index.css';
 
 // Filtrer les logs de debug vocal (VOCAL DEBUG) et de scheduler pour ne pas encombrer la console F12
@@ -249,6 +250,7 @@ window.where = fbWhere;
 window.getDocs = fbGetDocs;
 // @ts-ignore
 window.updateDoc = fbUpdateDoc;
+(window as any).__SEQUENCER_STORE__ = useSequencerStore;
 
 const container = document.getElementById('root')!;
 let root = (window as any).__REACT_ROOT__;

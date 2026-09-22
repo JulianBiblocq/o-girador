@@ -119,7 +119,17 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
         targetDocId = existingPreset.id;
       }
 
-      const finalPresetData = { ...presetData };
+      const storeState = useSequencerStore.getState();
+      const currentMarkers = Array.isArray(storeState.songMarkers) ? JSON.parse(JSON.stringify(storeState.songMarkers)) : [];
+      const currentSections = Array.isArray(storeState.songSections) ? JSON.parse(JSON.stringify(storeState.songSections)) : [];
+      const currentSignals = Array.isArray(storeState.measureSignals) ? JSON.parse(JSON.stringify(storeState.measureSignals)) : [];
+
+      const finalPresetData = {
+        ...presetData,
+        songMarkers: currentMarkers.length > 0 ? currentMarkers : (presetData.songMarkers || []),
+        songSections: currentSections.length > 0 ? currentSections : (presetData.songSections || []),
+        measureSignals: currentSignals.length > 0 ? currentSignals : (presetData.measureSignals || []),
+      };
       finalPresetData.metadata = { ...finalPresetData.metadata, toada: presetName } as any;
 
       let finalVisibility = visibility;
