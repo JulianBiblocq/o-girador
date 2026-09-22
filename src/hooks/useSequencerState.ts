@@ -45,24 +45,20 @@ export function useSequencerState() {
   const [isLooping, setIsLooping] = useState<boolean>(true);
 
   // Letras, metadata, settings
-  // Commandement #1 : les wrappers ci-dessous écrivent directement au store Zustand (synchrone)
-  // en plus du state React local, éliminant la race condition avec l'autosave.
-  const [letras, _setLetrasRaw] = useState<string>('');
+  // Commandement #1 : synchronisation directe avec le store Zustand (source de vérité unique,
+  // synchrone et sans mutation illégale durant la phase de rendu React).
+  const letras = useSequencerStore(state => state.letras);
   const setLetras = useCallback((val: string | ((prev: string) => string)) => {
-    _setLetrasRaw((prev) => {
-      const next = typeof val === 'function' ? val(prev) : val;
-      useSequencerStore.setState({ letras: next });
-      return next;
-    });
+    const current = useSequencerStore.getState().letras ?? '';
+    const next = typeof val === 'function' ? val(current) : val;
+    useSequencerStore.getState().setLetras(next);
   }, []);
 
-  const [metadata, _setMetadataRaw] = useState<PresetMetadata>({ toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] });
+  const metadata = useSequencerStore(state => state.metadata);
   const setMetadata = useCallback((val: PresetMetadata | ((prev: PresetMetadata) => PresetMetadata)) => {
-    _setMetadataRaw((prev) => {
-      const next = typeof val === 'function' ? val(prev) : val;
-      useSequencerStore.setState({ metadata: next });
-      return next;
-    });
+    const current = useSequencerStore.getState().metadata || { toada: '', nacao: '', compositor: '', ritmo: '', rhythmSignals: [] };
+    const next = typeof val === 'function' ? val(current) : val;
+    useSequencerStore.getState().setMetadata(next);
   }, []);
 
   const activeVariationsRef = useRef<Record<number, (string | number)[]>>({});
