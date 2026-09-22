@@ -122,57 +122,73 @@ const TimbalCordelIcon = () => (
 
 const CordelWoodenPostSvg: React.FC<{ isRight?: boolean; className?: string }> = ({
   isRight = false,
-  className = "w-7 sm:w-8 md:w-9 h-28 sm:h-32"
-}) => (
-  <svg
-    className={`${className} select-none overflow-visible flex-shrink-0 drop-shadow-[2px_3px_4px_rgba(0,0,0,0.35)] ${isRight ? '-scale-x-100' : ''}`}
-    viewBox="0 0 40 140"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <defs>
-      <linearGradient id="postWoodGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stopColor="#7a461b" />
-        <stop offset="30%" stopColor="#b58245" />
-        <stop offset="70%" stopColor="#9c6c33" />
-        <stop offset="100%" stopColor="#573110" />
-      </linearGradient>
-    </defs>
+  className = "w-7 sm:w-8 md:w-9 h-[380px] sm:h-[430px] md:h-[470px]"
+}) => {
+  const gradId = isRight ? "postWoodGradR" : "postWoodGradL";
+  return (
+    <svg
+      className={`${className} select-none overflow-visible flex-shrink-0 drop-shadow-[3px_4px_6px_rgba(0,0,0,0.35)] ${isRight ? '-scale-x-100' : ''}`}
+      viewBox="0 0 40 440"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <defs>
+        <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#7a461b" />
+          <stop offset="30%" stopColor="#b58245" />
+          <stop offset="70%" stopColor="#9c6c33" />
+          <stop offset="100%" stopColor="#573110" />
+        </linearGradient>
+      </defs>
 
-    {/* Sommet taillé en biseau / pointe au canif cordel */}
-    <path
-      d="M 8 18 L 20 4 L 32 18 L 32 138 L 8 138 Z"
-      fill="url(#postWoodGrad)"
-      stroke="#1a1a1a"
-      strokeWidth="2"
-      strokeLinejoin="round"
-    />
+      {/* Sommet taillé en biseau / pointe au canif cordel et corps prolongé jusqu'en bas */}
+      <path
+        d="M 8 18 L 20 4 L 32 18 L 32 438 L 8 438 Z"
+        fill={`url(#${gradId})`}
+        stroke="#1a1a1a"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
 
-    {/* Ombrage du biseau gauche */}
-    <path d="M 8 18 L 20 4 L 20 138 L 8 138 Z" fill="#000000" fillOpacity="0.18" />
+      {/* Ombrage du biseau gauche tout du long */}
+      <path d="M 8 18 L 20 4 L 20 438 L 8 438 Z" fill="#000000" fillOpacity="0.18" />
 
-    {/* Cernes, stries et nœud du bois gravés */}
-    <path d="M 14 26 L 14 65 M 15 75 L 15 130" stroke="#1a1a1a" strokeWidth="1.2" strokeLinecap="round" />
-    <path d="M 26 22 L 26 50 M 25 60 L 25 125" stroke="#1a1a1a" strokeWidth="1.2" strokeLinecap="round" />
-    <ellipse cx="20" cy="55" rx="3.5" ry="6" fill="none" stroke="#1a1a1a" strokeWidth="1.3" />
-    <ellipse cx="20" cy="55" rx="1.5" ry="3" fill="#1a1a1a" />
-    <path d="M 12 90 Q 20 95 28 90" stroke="#1a1a1a" strokeWidth="1" fill="none" />
+      {/* Cernes, stries et nœuds du bois gravés de haut en bas */}
+      <path d="M 14 26 L 14 85 M 15 105 L 15 220 M 14 250 L 14 350 M 15 375 L 15 432" stroke="#1a1a1a" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M 26 22 L 26 70 M 25 90 L 25 200 M 26 230 L 26 335 M 25 360 L 25 434" stroke="#1a1a1a" strokeWidth="1.2" strokeLinecap="round" />
 
-    {/* Cheville / clou en bois d'amarrage */}
-    <rect x="2" y="24" width="10" height="7" rx="1.5" fill="#38210c" stroke="#1a1a1a" strokeWidth="1.5" />
-    <circle cx="5" cy="27.5" r="1.5" fill="#eaddcf" />
+      {/* Nœuds du bois */}
+      <ellipse cx="20" cy="55" rx="3.5" ry="6" fill="none" stroke="#1a1a1a" strokeWidth="1.3" />
+      <ellipse cx="20" cy="55" rx="1.5" ry="3" fill="#1a1a1a" />
 
-    {/* Nœud de cordelette enroulé autour du poteau */}
-    <g id="rope-knot">
-      <ellipse cx="20" cy="27" rx="16" ry="6.5" fill="#1a1a1a" />
-      <ellipse cx="20" cy="27" rx="14" ry="4.5" fill="#2c2723" stroke="#eaddcf" strokeWidth="0.8" strokeDasharray="3 2" />
-      <ellipse cx="20" cy="32" rx="15" ry="6" fill="#1a1a1a" />
-      <ellipse cx="20" cy="32" rx="13" ry="4" fill="#2c2723" stroke="#eaddcf" strokeWidth="0.8" strokeDasharray="3 2" />
-      {/* Extrémité de cordelette qui retombe le long du poteau */}
-      <path d="M 6 33 Q 3 45 5 58" stroke="#1a1a1a" strokeWidth="3" fill="none" strokeLinecap="round" />
-      <path d="M 6 33 Q 3 45 5 58" stroke="#eaddcf" strokeWidth="0.9" fill="none" strokeDasharray="2 2" />
-    </g>
-  </svg>
-);
+      <ellipse cx="21" cy="185" rx="3" ry="5.5" fill="none" stroke="#1a1a1a" strokeWidth="1.3" />
+      <ellipse cx="21" cy="185" rx="1.2" ry="2.5" fill="#1a1a1a" />
+
+      <ellipse cx="19" cy="315" rx="3.5" ry="6" fill="none" stroke="#1a1a1a" strokeWidth="1.3" />
+      <ellipse cx="19" cy="315" rx="1.5" ry="3" fill="#1a1a1a" />
+
+      {/* Rainures horizontales d'écorce taillée */}
+      <path d="M 12 90 Q 20 94 28 90" stroke="#1a1a1a" strokeWidth="1" fill="none" />
+      <path d="M 10 145 Q 20 150 30 146" stroke="#1a1a1a" strokeWidth="1" fill="none" />
+      <path d="M 11 260 Q 20 265 29 261" stroke="#1a1a1a" strokeWidth="1" fill="none" />
+      <path d="M 10 380 Q 20 385 30 381" stroke="#1a1a1a" strokeWidth="1" fill="none" />
+
+      {/* Cheville / clou en bois d'amarrage */}
+      <rect x="2" y="24" width="10" height="7" rx="1.5" fill="#38210c" stroke="#1a1a1a" strokeWidth="1.5" />
+      <circle cx="5" cy="27.5" r="1.5" fill="#eaddcf" />
+
+      {/* Nœud de cordelette enroulé autour du poteau */}
+      <g id="rope-knot">
+        <ellipse cx="20" cy="27" rx="16" ry="6.5" fill="#1a1a1a" />
+        <ellipse cx="20" cy="27" rx="14" ry="4.5" fill="#2c2723" stroke="#eaddcf" strokeWidth="0.8" strokeDasharray="3 2" />
+        <ellipse cx="20" cy="32" rx="15" ry="6" fill="#1a1a1a" />
+        <ellipse cx="20" cy="32" rx="13" ry="4" fill="#2c2723" stroke="#eaddcf" strokeWidth="0.8" strokeDasharray="3 2" />
+        {/* Extrémité de cordelette qui retombe le long du poteau */}
+        <path d="M 6 33 Q 3 48 5 65" stroke="#1a1a1a" strokeWidth="3" fill="none" strokeLinecap="round" />
+        <path d="M 6 33 Q 3 48 5 65" stroke="#eaddcf" strokeWidth="0.9" fill="none" strokeDasharray="2 2" />
+      </g>
+    </svg>
+  );
+};
 
 // -----------------------------------------------------------------------------
 // CORDELETTE CATÉNAIRE INCURVÉE (ENCRE CORDEL NOIRE & TRESSÉE FINE) SVG
@@ -627,9 +643,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   const renderBooklet = (id: 1 | 2 | 3 | 4, customClass: string = '') => {
     return (
-      <article key={id} className={`flex flex-col relative pt-1 group ${customClass}`}>
-        <div className={`cordel-booklet cordel-booklet-${id} flex-1 flex flex-col pt-1`}>
-          <div className="flex justify-center mb-[-8px] relative z-20 pointer-events-none">
+      <article key={id} className={`flex flex-col relative group ${customClass}`}>
+        <div className={`cordel-booklet cordel-booklet-${id} flex-1 flex flex-col relative`}>
+          {/* Pince à linge en bois calée pile sur le bord supérieur du livret et la cordelette */}
+          <div className="absolute -top-[14px] left-1/2 -translate-x-1/2 z-20 pointer-events-none">
             <ClothespinSvg />
           </div>
           <div className="flex-1 bg-[#fdfaf2] border-2 border-[#1a1a1a] p-5 sm:p-6 cordel-wood-shadow flex flex-col justify-between">
@@ -941,84 +958,84 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* ------------------------------------------------------------------ */}
       <section className="w-full max-w-7xl mx-auto px-4 sm:px-6 pt-4 pb-12 z-20">
         
-        {/* Version Bureau (Largeur >= 1024px) : 1 grand varal continu avec 2 poteaux aux extrémités et les 4 livrets */}
-        <div className="hidden lg:block relative w-full pt-3">
-          {/* Poteau gauche */}
-          <div className="absolute left-[-22px] top-[-14px] z-30 pointer-events-none">
-            <CordelWoodenPostSvg />
+        {/* Version Bureau (Largeur >= 1024px) : 1 grand varal continu avec 2 grands poteaux aux extrémités et les 4 livrets */}
+        <div className="hidden lg:block relative w-full pt-1">
+          {/* Poteau gauche descendant tout le long des livrets */}
+          <div className="absolute left-[-26px] top-[-10px] z-30 pointer-events-none">
+            <CordelWoodenPostSvg className="w-8 sm:w-9 md:w-10 h-[450px] lg:h-[490px]" />
           </div>
 
           {/* Cordelette caténaire suspendue reliant les deux poteaux */}
-          <div className="absolute top-[10px] left-[2px] right-[2px] z-10 pointer-events-none">
-            <CordelCatenaryRopeSvg sag={22} className="w-full h-9" />
+          <div className="absolute top-[12px] left-[2px] right-[2px] z-10 pointer-events-none">
+            <CordelCatenaryRopeSvg sag={14} className="w-full h-8" />
           </div>
 
-          {/* Poteau droit */}
-          <div className="absolute right-[-22px] top-[-14px] z-30 pointer-events-none">
-            <CordelWoodenPostSvg isRight />
+          {/* Poteau droit descendant tout le long des livrets */}
+          <div className="absolute right-[-26px] top-[-10px] z-30 pointer-events-none">
+            <CordelWoodenPostSvg isRight className="w-8 sm:w-9 md:w-10 h-[450px] lg:h-[490px]" />
           </div>
 
-          {/* Grille des 4 livrets épousant la courbure de la corde */}
-          <div className="grid grid-cols-4 gap-5 w-full px-5">
-            {renderBooklet(1, 'translate-y-[5px]')}
-            {renderBooklet(2, 'translate-y-[16px]')}
-            {renderBooklet(3, 'translate-y-[16px]')}
-            {renderBooklet(4, 'translate-y-[5px]')}
+          {/* Grille des 4 livrets : pinces calées exactement sur le fil de la corde */}
+          <div className="grid grid-cols-4 gap-5 w-full px-5 pt-4">
+            {renderBooklet(1, 'translate-y-[2px]')}
+            {renderBooklet(2, 'translate-y-[12px]')}
+            {renderBooklet(3, 'translate-y-[12px]')}
+            {renderBooklet(4, 'translate-y-[2px]')}
           </div>
         </div>
 
-        {/* Version Tablette (768px <= Largeur < 1024px) : 2 rangées de 2 livrets avec poteaux et corde caténaire */}
-        <div className="hidden md:flex lg:hidden flex-col gap-12 w-full pt-3">
+        {/* Version Tablette (768px <= Largeur < 1024px) : 2 rangées de 2 livrets avec poteaux longs et corde caténaire */}
+        <div className="hidden md:flex lg:hidden flex-col gap-12 w-full pt-1">
           {/* Rangée 1 : Livrets 1 & 2 */}
           <div className="relative w-full">
-            <div className="absolute left-[-18px] top-[-14px] z-30 pointer-events-none">
-              <CordelWoodenPostSvg />
+            <div className="absolute left-[-20px] top-[-10px] z-30 pointer-events-none">
+              <CordelWoodenPostSvg className="w-8 h-[440px]" />
             </div>
-            <div className="absolute top-[10px] left-[2px] right-[2px] z-10 pointer-events-none">
-              <CordelCatenaryRopeSvg sag={14} className="w-full h-8" />
+            <div className="absolute top-[12px] left-[2px] right-[2px] z-10 pointer-events-none">
+              <CordelCatenaryRopeSvg sag={10} className="w-full h-7" />
             </div>
-            <div className="absolute right-[-18px] top-[-14px] z-30 pointer-events-none">
-              <CordelWoodenPostSvg isRight />
+            <div className="absolute right-[-20px] top-[-10px] z-30 pointer-events-none">
+              <CordelWoodenPostSvg isRight className="w-8 h-[440px]" />
             </div>
-            <div className="grid grid-cols-2 gap-6 w-full px-5">
-              {renderBooklet(1, 'translate-y-[7px]')}
-              {renderBooklet(2, 'translate-y-[7px]')}
+            <div className="grid grid-cols-2 gap-6 w-full px-5 pt-4">
+              {renderBooklet(1, 'translate-y-[6px]')}
+              {renderBooklet(2, 'translate-y-[6px]')}
             </div>
           </div>
 
           {/* Rangée 2 : Livrets 3 & 4 */}
           <div className="relative w-full">
-            <div className="absolute left-[-18px] top-[-14px] z-30 pointer-events-none">
-              <CordelWoodenPostSvg />
+            <div className="absolute left-[-20px] top-[-10px] z-30 pointer-events-none">
+              <CordelWoodenPostSvg className="w-8 h-[440px]" />
             </div>
-            <div className="absolute top-[10px] left-[2px] right-[2px] z-10 pointer-events-none">
-              <CordelCatenaryRopeSvg sag={14} className="w-full h-8" />
+            <div className="absolute top-[12px] left-[2px] right-[2px] z-10 pointer-events-none">
+              <CordelCatenaryRopeSvg sag={10} className="w-full h-7" />
             </div>
-            <div className="absolute right-[-18px] top-[-14px] z-30 pointer-events-none">
-              <CordelWoodenPostSvg isRight />
+            <div className="absolute right-[-20px] top-[-10px] z-30 pointer-events-none">
+              <CordelWoodenPostSvg isRight className="w-8 h-[440px]" />
             </div>
-            <div className="grid grid-cols-2 gap-6 w-full px-5">
-              {renderBooklet(3, 'translate-y-[7px]')}
-              {renderBooklet(4, 'translate-y-[7px]')}
+            <div className="grid grid-cols-2 gap-6 w-full px-5 pt-4">
+              {renderBooklet(3, 'translate-y-[6px]')}
+              {renderBooklet(4, 'translate-y-[6px]')}
             </div>
           </div>
         </div>
 
-        {/* Version Mobile (< 768px) : Livrets empilés avec poteaux et cordelette incurvée dédiée */}
-        <div className="flex md:hidden flex-col gap-10 w-full pt-3">
+        {/* Version Mobile (< 768px) : Livrets empilés avec grands poteaux et cordelette incurvée dédiée */}
+        <div className="flex md:hidden flex-col gap-10 w-full pt-1">
           {([1, 2, 3, 4] as const).map((id) => (
             <div key={id} className="relative w-full">
-              <div className="absolute left-[-12px] top-[-10px] z-30 pointer-events-none">
-                <CordelWoodenPostSvg className="w-6 h-24" />
+              <div className="absolute left-[-14px] top-[-10px] z-30 pointer-events-none">
+                <CordelWoodenPostSvg className="w-7 h-[420px]" />
               </div>
-              <div className="absolute top-[8px] left-[2px] right-[2px] z-10 pointer-events-none">
-                <CordelCatenaryRopeSvg sag={10} className="w-full h-7" />
+              <div className="absolute top-[12px] left-[2px] right-[2px] z-10 pointer-events-none">
+                <CordelCatenaryRopeSvg sag={6} className="w-full h-6" />
               </div>
-              <div className="absolute right-[-12px] top-[-10px] z-30 pointer-events-none">
-                <CordelWoodenPostSvg isRight className="w-6 h-24" />
+              <div className="absolute right-[-14px] top-[-10px] z-30 pointer-events-none">
+                <CordelWoodenPostSvg isRight className="w-7 h-[420px]" />
               </div>
-              <div className="w-full px-4">
-                {renderBooklet(id, 'translate-y-[5px]')}
+              <div className="w-full px-4 pt-4">
+                {renderBooklet(id, 'translate-y-[4px]')}
               </div>
             </div>
           ))}
