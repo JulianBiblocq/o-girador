@@ -181,7 +181,7 @@ export interface SavedSectionTrack {
   patterns: Pattern[]; // Patterns mapped to the section's measures
 }
 
-import { TimeSignature } from './audio.types';
+import { TimeSignature } from './common.types';
 
 export interface SavedSectionData {
   numMeasures: number;

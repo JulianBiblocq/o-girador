@@ -77,7 +77,7 @@ const MixerChannelComponent: React.FC<MixerChannelProps> = ({
   const lang = sequencer?.lang || storeLang || 'pt';
   const track = useSequencerStore(useShallow(state => state.tracks.find(t => t.id === trackId)));
   const tracksMeta = useSequencerStore(selectTracksMeta);
-  const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
+  const hasSolo = tracksMeta.some(t => t.isSolo);
 
   const hasVolAuto = !!track?.measureVols && track.measureVols.length > 0;
   const isVolBypassed = !!track?.automationBypass?.volume;

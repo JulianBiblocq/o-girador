@@ -119,7 +119,7 @@ export default defineConfig(({ command, mode }) => {
                   return;
                 }
 
-                const mixdownBaseDir = process.env.VITE_MIXDOWN_PATH || path.resolve(__dirname, 'public', 'Mixdown');
+                const mixdownBaseDir = process.env.VITE_MIXDOWN_PATH || path.resolve(import.meta.dirname, 'public', 'Mixdown');
                 
                 // Extract relative path after Mixdown/ to support subdirectories
                 let relativePath = '';
@@ -176,7 +176,7 @@ export default defineConfig(({ command, mode }) => {
     ],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname, '.'),
       },
     },
     server: {

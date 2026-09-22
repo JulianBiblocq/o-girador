@@ -106,7 +106,7 @@ export const isToadaChild = (t: { busId?: string }, allTracks: TrackGroup[]): bo
   return !!parent && isToadaBus(parent);
 };
 
-export const getTrackSolidBlockId = (track: TrackGroup, allTracks: TrackGroup[]): string | null => {
+export const getTrackSolidBlockId = (track: TrackGroup | TrackMeta, allTracks: (TrackGroup | TrackMeta)[]): string | null => {
   if (track.isLinkFolder) return `link-${track.id}`;
   if (track.linkedToTrackId) return `link-${track.linkedToTrackId}`;
   if (track.isLinkMaster) return `link-${track.id}`;
@@ -3719,6 +3719,8 @@ export interface TrackMeta {
   linkedToTrackId?: string | number;
   isMute: boolean;
   isSolo: boolean;
+  isHidden?: boolean;
+  isFolded?: boolean;
   patternOverrides?: Record<number, number | null>;
   automationBypass?: { volume?: boolean; pan?: boolean; reverb?: boolean };
 }
@@ -3736,12 +3738,14 @@ export const getCachedTrackMeta = (
   linkedToTrackId: string | number | undefined,
   isMute: boolean,
   isSolo: boolean,
+  isHidden: boolean | undefined,
+  isFolded: boolean | undefined,
   patternOverrides?: Record<number, number | null>,
   automationBypass?: { volume?: boolean; pan?: boolean; reverb?: boolean }
 ): TrackMeta => {
   const overridesKey = patternOverrides ? Object.entries(patternOverrides).map(([k, v]) => `${k}:${v}`).join(',') : '';
   const bypassKey = automationBypass ? `${!!automationBypass.volume}_${!!automationBypass.pan}_${!!automationBypass.reverb}` : '';
-  const key = `${id}_${instrumentIdx}_${customName || ''}_${!!isBusFolder}_${!!isLinkFolder}_${!!isLinkMaster}_${busId ?? ''}_${linkedToTrackId ?? ''}_${isMute}_${isSolo}_${overridesKey}_${bypassKey}`;
+  const key = `${id}_${instrumentIdx}_${customName || ''}_${!!isBusFolder}_${!!isLinkFolder}_${!!isLinkMaster}_${busId ?? ''}_${linkedToTrackId ?? ''}_${isMute}_${isSolo}_${!!isHidden}_${!!isFolded}_${overridesKey}_${bypassKey}`;
   let item = trackMetaCache.get(key);
   if (!item) {
     item = {
@@ -3755,6 +3759,8 @@ export const getCachedTrackMeta = (
       linkedToTrackId,
       isMute,
       isSolo,
+      isHidden,
+      isFolded,
       patternOverrides,
       automationBypass,
     };
@@ -3788,6 +3794,8 @@ export const selectTracksMeta = (state: { tracks: TrackGroup[] }): TrackMeta[] =
       t.linkedToTrackId,
       t.isMute,
       t.isSolo,
+      t.isHidden,
+      t.isFolded,
       t.patternOverrides,
       t.automationBypass
     );

@@ -9,12 +9,16 @@
           "value": "true"
         },
         {
-          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_HdC8YCO9JWoxqzHsWKEy",
-          "value": "{\"activeTargetIds\":[26,54],\"updateTimeMs\":1790088363030}"
+          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_28",
+          "value": "{\"state\":\"rejected\",\"updateTimeMs\":1790091593809,\"error\":{\"code\":\"permission-denied\",\"message\":\"Missing or insufficient permissions.\"}}"
         },
         {
           "name": "firestore_sequence_number_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "340"
+          "value": "394"
+        },
+        {
+          "name": "firestore_clients_firestore/[DEFAULT]/o-girador-7828c/_dzNuYBcMtr4OycYONylg",
+          "value": "{\"activeTargetIds\":[26,58],\"updateTimeMs\":1790091594922}"
         },
         {
           "name": "oGirador_reverb_decay",
@@ -29,20 +33,28 @@
           "value": "pt"
         },
         {
-          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_54",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1790088362926}"
-        },
-        {
           "name": "firestore_online_state_firestore/[DEFAULT]/o-girador-7828c/",
-          "value": "{\"clientId\":\"HdC8YCO9JWoxqzHsWKEy\",\"onlineState\":\"Online\"}"
+          "value": "{\"clientId\":\"dzNuYBcMtr4OycYONylg\",\"onlineState\":\"Online\"}"
         },
         {
           "name": "o-girador-theme",
           "value": "light"
         },
         {
+          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_30",
+          "value": "{\"state\":\"rejected\",\"updateTimeMs\":1790091592416,\"error\":{\"code\":\"permission-denied\",\"message\":\"Missing or insufficient permissions.\"}}"
+        },
+        {
           "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_26",
-          "value": "{\"state\":\"current\",\"updateTimeMs\":1790088362926}"
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1790091594754}"
+        },
+        {
+          "name": "firestore_targets_firestore/[DEFAULT]/o-girador-7828c/_58",
+          "value": "{\"state\":\"current\",\"updateTimeMs\":1790091594754}"
+        },
+        {
+          "name": "girador_last_loaded_preset_id",
+          "value": "29dIDjgc2vPuDnwjiy9V"
         },
         {
           "name": "o_girador_left_handed",

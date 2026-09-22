@@ -57,7 +57,7 @@ const MixerFolderBusComponent: React.FC<MixerFolderBusProps> = ({
   const lang = sequencer?.lang || storeLang || 'pt';
   const track = useSequencerStore(useShallow(state => state.tracks.find(t => t.id === trackId)));
   const tracksMeta = useSequencerStore(selectTracksMeta);
-  const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
+  const hasSolo = tracksMeta.some(t => t.isSolo);
 
   const [isEditing, setIsEditing] = useState(false);
   const [nameVal, setNameVal] = useState(track?.customName || 'Bus');

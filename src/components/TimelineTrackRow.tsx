@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { Pattern } from '../types';
-import { useSequencerStore, isToadaBus, isToadaChild, getEffectiveMuteState } from '../stores/useSequencerStore';
+import { useSequencerStore, isToadaBus, isToadaChild, getEffectiveMuteState, selectTracksMeta } from '../stores/useSequencerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { instrumentsConfig, ASSETS_BASE_URL } from '../data';
 import { TimelineUIContext } from '../contexts/TimelineUIContext';
@@ -50,38 +50,47 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     lang, 
   } = uiContext;
 
-  const tracks = useSequencerStore(state => state.tracks);
-  const dbTrack = tracks.find(t => t.id === trackId);
-  const trackInst = dbTrack ? instrumentsConfig[dbTrack.instrumentIdx] : null;
+  const tracksMeta = useSequencerStore(selectTracksMeta);
+  const trackMeta = tracksMeta.find(t => t.id === trackId);
+  const trackInst = trackMeta ? instrumentsConfig[trackMeta.instrumentIdx] : null;
 
   const [isEditingName, setIsEditingName] = React.useState(false);
   const [nameVal, setNameVal] = React.useState(
-    dbTrack?.customName || (dbTrack ? useNomenclatureStore.getState().getInstrumentLabel(dbTrack) : '')
+    trackMeta?.customName || (trackMeta ? useNomenclatureStore.getState().getInstrumentLabel(trackMeta as any) : '')
   );
 
   const targetPatternId = useAudioStore((state) => state.targetPatternId);
-  const isArmedAtTrackLevel = dbTrack ? dbTrack.patterns.some(p => p.id === targetPatternId) : false;
+  const isArmedAtTrackLevel = useSequencerStore(
+    React.useCallback((state) => {
+      if (!targetPatternId) return false;
+      const t = state.tracks.find(curr => curr.id === trackId);
+      return t ? t.patterns.some(p => p.id === targetPatternId) : false;
+    }, [trackId, targetPatternId])
+  );
 
   const handleTrackArmClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (isArmedAtTrackLevel) {
       useAudioStore.getState().setTargetPatternId(null);
       useAudioStore.getState().setTargetMeasureIdx(null);
-    } else if (dbTrack && dbTrack.patterns.length > 0) {
-      const patternIdToArm = dbTrack.selectedPatternId || dbTrack.patterns[0].id;
-      useAudioStore.getState().setTargetPatternId(patternIdToArm);
-      const assignedIdx = dbTrack.patterns.find(p => p.id === patternIdToArm)?.measureAssignments.indexOf(true) ?? 0;
-      useAudioStore.getState().setTargetMeasureIdx(assignedIdx !== -1 ? assignedIdx : 0);
+    } else {
+      const currentTrack = useSequencerStore.getState().tracks.find(t => t.id === trackId);
+      if (currentTrack && currentTrack.patterns.length > 0) {
+        const patternIdToArm = currentTrack.selectedPatternId || currentTrack.patterns[0].id;
+        useAudioStore.getState().setTargetPatternId(patternIdToArm);
+        const assignedIdx = currentTrack.patterns.find(p => p.id === patternIdToArm)?.measureAssignments.indexOf(true) ?? 0;
+        useAudioStore.getState().setTargetMeasureIdx(assignedIdx !== -1 ? assignedIdx : 0);
+      }
     }
   };
 
   React.useEffect(() => {
-    setNameVal(dbTrack?.customName || (trackInst ? trackInst.name : ''));
-  }, [dbTrack?.customName, trackInst?.name]);
+    setNameVal(trackMeta?.customName || (trackInst ? trackInst.name : ''));
+  }, [trackMeta?.customName, trackInst?.name]);
 
   const handleRenameSubmit = () => {
     setIsEditingName(false);
-    if (!dbTrack) return;
+    if (!trackMeta) return;
     useSequencerStore.getState().setTracks(prev => prev.map(t => 
       t.id === trackId ? { ...t, customName: nameVal.trim() || undefined } : t
     ));
@@ -92,15 +101,14 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
       handleRenameSubmit();
     } else if (e.key === 'Escape') {
       setIsEditingName(false);
-      setNameVal(dbTrack?.customName || (inst ? inst.name : ''));
+      setNameVal(trackMeta?.customName || (inst ? inst.name : ''));
     }
   };
 
-  // Granular primitive selectors to avoid any reference instability or infinite loops
-  const instrumentIdx = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.instrumentIdx ?? 0);
-  const isMute = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.isMute ?? false);
-  const isSolo = useSequencerStore(state => state.tracks.find(t => t.id === trackId)?.isSolo ?? false);
-  const isMaster = useSequencerStore(state => state.tracks.some(t => String(t.linkedToTrackId) === String(trackId)));
+  const instrumentIdx = trackMeta?.instrumentIdx ?? 0;
+  const isMute = trackMeta?.isMute ?? false;
+  const isSolo = trackMeta?.isSolo ?? false;
+  const isMaster = tracksMeta.some(t => String(t.linkedToTrackId) === String(trackId));
 
   // Subscribe to full track only in Macro mode (where compact preview must update on step changes)
   const fullTrack = useSequencerStore(state => {
@@ -126,6 +134,26 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     })));
   });
 
+  const trackAutomationData = useSequencerStore(
+    useShallow((state) => {
+      if (!isAutomationOpen) return null;
+      const t = state.tracks.find(curr => curr.id === trackId);
+      if (!t) return null;
+      return {
+        measureVols: t.measureVols,
+        volumeVal: t.volumeVal,
+        measurePans: t.measurePans,
+        panVal: t.panVal,
+        measureReverbSends: t.measureReverbSends,
+        reverbVal: t.reverbVal,
+        measureVolTransitions: t.measureVolTransitions,
+        measurePanTransitions: t.measurePanTransitions,
+        measureReverbTransitions: t.measureReverbTransitions,
+        automationBypass: t.automationBypass,
+      };
+    })
+  );
+
   // Re-generate the track object for rendering purposes (isolated from step updates)
   const trackData = React.useMemo(() => {
     if (isMacro) {
@@ -137,10 +165,10 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
       instrumentIdx,
       isMute,
       isSolo,
-      isBusFolder: dbTrack?.isBusFolder,
-      isLinkFolder: dbTrack?.isLinkFolder,
-      isLinkMaster: dbTrack?.isLinkMaster,
-      customName: dbTrack?.customName,
+      isBusFolder: trackMeta?.isBusFolder,
+      isLinkFolder: trackMeta?.isLinkFolder,
+      isLinkMaster: trackMeta?.isLinkMaster,
+      customName: trackMeta?.customName,
       patterns: JSON.parse(trackStructureJson),
     };
   }, [
@@ -151,14 +179,14 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
     instrumentIdx, 
     isMute, 
     isSolo,
-    dbTrack?.isBusFolder,
-    dbTrack?.isLinkFolder,
-    dbTrack?.isLinkMaster,
-    dbTrack?.customName
+    trackMeta?.isBusFolder,
+    trackMeta?.isLinkFolder,
+    trackMeta?.isLinkMaster,
+    trackMeta?.customName
   ]);
 
-  const trackIndex = useSequencerStore(state => state.tracks.findIndex(t => t.id === trackId));
-  const hasSolo = useSequencerStore(state => state.tracks.some(t => t.isSolo));
+  const trackIndex = tracksMeta.findIndex(t => t.id === trackId);
+  const hasSolo = tracksMeta.some(t => t.isSolo);
   
   const totalMeasures = useSequencerStore(state => state.totalMeasures);
   const songSections = useSequencerStore(useShallow(state => state.songSections));
@@ -178,7 +206,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const inst = instrumentsConfig[trackData.instrumentIdx];
   if (!inst) return null;
 
-  const slaves = tracks.filter(t => String(t.linkedToTrackId) === String(trackId));
+  const slaves = tracksMeta.filter(t => String(t.linkedToTrackId) === String(trackId));
   const getPluralName = (name: string) => {
     if (name.includes('Alfaia')) return 'Alfaias';
     if (name === 'Caixa') return 'Caixas';
@@ -191,50 +219,62 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
   const linkedSlavesTooltip = isMaster
     ? `${lang === 'fr' ? 'Lié' : 'Vinculado'} : ${inst.name.replace('Alfaia ', '')} et ${slaves.map(s => instrumentsConfig[s.instrumentIdx]?.name.replace('Alfaia ', '')).join(', ')}`
     : undefined;
-  const isLinkedChild = !!(dbTrack && dbTrack.linkedToTrackId && !dbTrack.isLinkFolder);
-  const isLinkedSlave = dbTrack && dbTrack.linkedToTrackId && !dbTrack.isLinkFolder && !dbTrack.isLinkMaster;
+  const isLinkedChild = !!(trackMeta && trackMeta.linkedToTrackId && !trackMeta.isLinkFolder);
+  const isLinkedSlave = Boolean(trackMeta && trackMeta.linkedToTrackId && !trackMeta.isLinkFolder && !trackMeta.isLinkMaster);
+  const isLinkFolder = Boolean(trackMeta?.isLinkFolder);
+  const isLinkMaster = Boolean(trackMeta && trackMeta.linkedToTrackId && !trackMeta.isLinkFolder && trackMeta.isLinkMaster);
   const isToada = isToadaBus(trackData);
-  const isToadaChildTrack = dbTrack && isToadaChild(dbTrack, tracks);
+  const isToadaChildTrack = Boolean(trackMeta && isToadaChild(trackMeta as any, tracksMeta as any));
   const isChild = isLinkedSlave || isToadaChildTrack;
 
   const displayName = isToada
     ? 'Toada'
-    : (isChild ? `↳ ${getTrackDisplayName(dbTrack, tracks)}` : getTrackDisplayName(dbTrack, tracks));
+    : (isChild ? `↳ ${getTrackDisplayName(trackMeta as any, tracksMeta as any)}` : getTrackDisplayName(trackMeta as any, tracksMeta as any));
   
-  const canPlay = !getEffectiveMuteState(tracks, trackId);
+  const canPlay = !getEffectiveMuteState(tracksMeta, trackId);
 
   const sequencer = useSequencer();
 
   const parentBus = React.useMemo(() => {
-    if (dbTrack?.isLinkMaster && dbTrack.linkedToTrackId) {
-      return tracks.find(p => String(p.id) === String(dbTrack.linkedToTrackId) && p.isLinkFolder);
+    if (trackMeta?.isLinkMaster && trackMeta.linkedToTrackId) {
+      return tracksMeta.find(p => String(p.id) === String(trackMeta.linkedToTrackId) && p.isLinkFolder);
     }
     return null;
-  }, [dbTrack?.isLinkMaster, dbTrack?.linkedToTrackId, tracks]);
+  }, [trackMeta?.isLinkMaster, trackMeta?.linkedToTrackId, tracksMeta]);
 
   const topBusId = React.useMemo(() => {
-    if (!dbTrack) return null;
-    return getTopParentBusId(dbTrack, tracks);
-  }, [dbTrack, tracks]);
+    if (!trackMeta) return null;
+    return getTopParentBusId(trackMeta as any, tracksMeta as any);
+  }, [trackMeta, tracksMeta]);
 
   const busColor = React.useMemo(() => {
     if (!topBusId) return null;
-    return getBusColor(topBusId, tracks, instrumentsConfig);
-  }, [topBusId, tracks]);
+    return getBusColor(topBusId, tracksMeta as any, instrumentsConfig);
+  }, [topBusId, tracksMeta]);
 
   const isCollapsed = React.useMemo(() => {
-    if (isToada) return dbTrack?.isSequencerFolded;
-    if (dbTrack?.isLinkMaster) return parentBus?.isSequencerFolded;
+    if (isToada) return trackMeta?.isFolded;
+    if (trackMeta?.isLinkMaster) return parentBus?.isFolded;
     return false;
-  }, [isToada, dbTrack?.isSequencerFolded, dbTrack?.isLinkMaster, parentBus?.isSequencerFolded]);
+  }, [isToada, trackMeta?.isFolded, trackMeta?.isLinkMaster, parentBus?.isFolded]);
 
   const handleToggleFold = () => {
     if (isToada) {
       onToggleFoldBus(String(trackData.id));
-    } else if (dbTrack?.isLinkMaster && parentBus) {
+    } else if (trackMeta?.isLinkMaster && parentBus) {
       onToggleFoldBus(String(parentBus.id));
     }
   };
+
+  const parentBusTrackId = (isLinkedSlave || isLinkMaster)
+    ? tracksMeta.find(p => String(p.id) === String(trackMeta?.linkedToTrackId) && p.isLinkFolder)?.id
+    : undefined;
+  const masterTrackId = isLinkedSlave
+    ? tracksMeta.find(t => String(t.linkedToTrackId) === String(trackMeta?.linkedToTrackId) && t.isLinkMaster)?.id
+    : undefined;
+  const slaveTrackIds = isLinkFolder
+    ? tracksMeta.filter(t => String(t.linkedToTrackId) === String(trackMeta?.id) && !t.isBusFolder && !t.isLinkMaster).map(t => t.id)
+    : undefined;
 
 
   const handleMeasureClick = (mIdx: number, steps: number, clickX: number) => {
@@ -305,7 +345,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
         }}
       >
         <div className={`flex items-center min-w-0 flex-grow ${isMobile ? 'gap-0.5' : 'gap-2'}`}>
-          {(dbTrack?.isLinkMaster || isToada) && (
+          {(trackMeta?.isLinkMaster || isToada) && (
             <button
               onClick={handleToggleFold}
               className="p-0.5 hover:bg-[var(--cordel-text)]/10 rounded cursor-pointer text-[10px] font-bold mr-1 shrink-0 flex items-center justify-center w-4 h-4 border border-[var(--cordel-border)]/30 text-[var(--cordel-text)] pointer-events-auto"
@@ -395,8 +435,6 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
         .map((_, mIdx) => ({ mIdx }))
         .filter(({ mIdx }) => mIdx >= visibleRange.start && mIdx <= visibleRange.end)
         .map(({ mIdx }) => {
-          const puxTrack = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
-          const coroTrack = tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
           const isToada = isToadaBus(trackData);
 
           let activePattern: Pattern | null = null;
@@ -410,16 +448,18 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
           let isSilence = false;
 
           if (isToada) {
+            const puxTrack = useSequencerStore.getState().tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'puxador');
+            const coroTrack = useSequencerStore.getState().tracks.find(t => instrumentsConfig[t.instrumentIdx]?.id === 'coro');
             const pPtn = puxTrack?.patterns.find(p => p.measureAssignments[mIdx]);
             const cPtn = coroTrack?.patterns.find(p => p.measureAssignments[mIdx]);
             if (cPtn) {
               activePattern = cPtn;
               activeTrack = coroTrack;
-              currentTrackIdx = tracks.findIndex(t => t.id === coroTrack!.id);
+              currentTrackIdx = tracksMeta.findIndex(t => t.id === coroTrack!.id);
             } else if (pPtn) {
               activePattern = pPtn;
               activeTrack = puxTrack;
-              currentTrackIdx = tracks.findIndex(t => t.id === puxTrack!.id);
+              currentTrackIdx = tracksMeta.findIndex(t => t.id === puxTrack!.id);
             }
 
             if (activeTrack) {
@@ -432,10 +472,10 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
             if (puxTrack) toadaPatternsList.push(...puxTrack.patterns);
             if (coroTrack) toadaPatternsList.push(...coroTrack.patterns);
             currentPatternsList = toadaPatternsList;
-          } else if (isLinkedChild && dbTrack) {
-            const parentBus = tracks.find(p => String(p.id) === String(dbTrack.linkedToTrackId) && p.isLinkFolder);
+          } else if (isLinkedChild && trackMeta) {
+            const parentBus = useSequencerStore.getState().tracks.find(p => String(p.id) === String(trackMeta.linkedToTrackId) && p.isLinkFolder);
             if (parentBus) {
-              const override = dbTrack.isLinkMaster ? undefined : dbTrack.patternOverrides?.[mIdx];
+              const override = trackMeta.isLinkMaster ? undefined : trackMeta.patternOverrides?.[mIdx];
               if (override === null) {
                 isSilence = true;
                 activePattern = null;
@@ -449,7 +489,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               }
               activeTrack = parentBus;
               currentPatternsList = parentBus.patterns;
-              currentTrackIdx = tracks.findIndex(t => t.id === parentBus.id);
+              currentTrackIdx = tracksMeta.findIndex(t => t.id === parentBus.id);
             }
           } else {
             activePattern = trackData.patterns.find((p: any) => p.measureAssignments[mIdx]);
@@ -470,19 +510,21 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
             ? (isInLoop ? (isLoopRegionActive ? 'inside-active' as const : 'none' as const) : (isLoopRegionActive ? 'outside-active' as const : 'none' as const))
             : 'none' as const;
 
-          const hasChildOverrides = dbTrack?.isLinkFolder && tracks.some(child => 
-            String(child.linkedToTrackId) === String(dbTrack.id) && 
-            !child.isLinkFolder && 
-            child.patternOverrides?.[mIdx] !== undefined
+          const hasChildOverrides = Boolean(
+            trackMeta?.isLinkFolder && tracksMeta.some(child => 
+              String(child.linkedToTrackId) === String(trackMeta.id) && 
+              !child.isLinkFolder && 
+              child.patternOverrides?.[mIdx] !== undefined
+            )
           );
 
           return (
             <TimelineMeasure
               key={mIdx}
               mIdx={mIdx}
-              trackId={isLinkedChild && dbTrack ? dbTrack.id : currentTrackId}
-              trackIdx={isLinkedChild && dbTrack ? trackIndex : currentTrackIdx}
-              instrumentIdx={isLinkedChild && dbTrack ? dbTrack.instrumentIdx : currentInstrumentIdx}
+              trackId={isLinkedChild && trackMeta ? trackMeta.id : currentTrackId}
+              trackIdx={isLinkedChild && trackMeta ? trackIndex : currentTrackIdx}
+              instrumentIdx={isLinkedChild && trackMeta ? trackMeta.instrumentIdx : currentInstrumentIdx}
               currentMeasureW={currentMeasureW}
               patternId={activePattern ? activePattern.id : -1}
               patternIdx={patternIdx}
@@ -510,7 +552,12 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
               activePatternActiveSteps={activePattern?.activeSteps}
               onMeasureClick={handleMeasureClick}
               isLinkedChild={!!isLinkedChild}
-              isLinkMaster={!!dbTrack?.isLinkMaster}
+              isLinkMaster={isLinkMaster}
+              isLinkFolder={isLinkFolder}
+              isSlave={isLinkedSlave}
+              parentBusTrackId={parentBusTrackId}
+              masterTrackId={masterTrackId}
+              slaveTrackIds={slaveTrackIds}
               isOverridden={isOverridden}
               isSilence={isSilence}
               hasChildOverrides={hasChildOverrides}
@@ -539,17 +586,17 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
           measureWidth={currentMeasureW}
           values={
             automationParam === 'volume'
-              ? (dbTrack?.measureVols || Array(totalMeasures).fill(dbTrack?.volumeVal ?? 100))
+              ? (trackAutomationData?.measureVols || Array(totalMeasures).fill(trackAutomationData?.volumeVal ?? 100))
               : automationParam === 'pan'
-              ? (dbTrack?.measurePans || Array(totalMeasures).fill(dbTrack?.panVal ?? 0))
-              : (dbTrack?.measureReverbSends || Array(totalMeasures).fill(dbTrack?.reverbVal ?? 0))
+              ? (trackAutomationData?.measurePans || Array(totalMeasures).fill(trackAutomationData?.panVal ?? 0))
+              : (trackAutomationData?.measureReverbSends || Array(totalMeasures).fill(trackAutomationData?.reverbVal ?? 0))
           }
           transitions={
             automationParam === 'volume'
-              ? (dbTrack?.measureVolTransitions || Array(totalMeasures).fill('immediate'))
+              ? (trackAutomationData?.measureVolTransitions || Array(totalMeasures).fill('immediate'))
               : automationParam === 'pan'
-              ? (dbTrack?.measurePanTransitions || Array(totalMeasures).fill('immediate'))
-              : (dbTrack?.measureReverbTransitions || Array(totalMeasures).fill('immediate'))
+              ? (trackAutomationData?.measurePanTransitions || Array(totalMeasures).fill('immediate'))
+              : (trackAutomationData?.measureReverbTransitions || Array(totalMeasures).fill('immediate'))
           }
           onChangeValue={
             automationParam === 'volume'
@@ -577,7 +624,7 @@ const TimelineTrackRowComponent: React.FC<TimelineTrackRowProps> = ({
           }
           lang={lang}
           headerWidth={HEADER_W}
-          isBypassed={!!dbTrack?.automationBypass?.[automationParam]}
+          isBypassed={!!trackAutomationData?.automationBypass?.[automationParam]}
           onToggleBypass={handleToggleAutomationBypass}
           paramSelector={{
             current: automationParam,

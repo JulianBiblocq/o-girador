@@ -38,6 +38,11 @@ interface TimelineMeasureProps {
   onMeasureClick: (mIdx: number, steps: number, clickX: number) => void;
   isLinkedChild?: boolean;
   isLinkMaster?: boolean;
+  isLinkFolder?: boolean;
+  isSlave?: boolean;
+  parentBusTrackId?: number;
+  masterTrackId?: number;
+  slaveTrackIds?: number[];
   isOverridden?: boolean;
   isSilence?: boolean;
   hasChildOverrides?: boolean;
@@ -84,6 +89,11 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
   onMeasureClick,
   isLinkedChild,
   isLinkMaster,
+  isLinkFolder,
+  isSlave: propIsSlave,
+  parentBusTrackId,
+  masterTrackId,
+  slaveTrackIds,
   isOverridden,
   isSilence,
   hasChildOverrides,
@@ -148,7 +158,7 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
       ? 'bg-black/10 dark:bg-black/30 opacity-70' 
       : '';
 
-  const isSlave = isLinkedChild && !isLinkMaster;
+  const isSlave = propIsSlave !== undefined ? propIsSlave : (isLinkedChild && !isLinkMaster);
   const isFollowingMaster = isSlave && !isOverridden;
 
   return (
@@ -380,6 +390,13 @@ const TimelineMeasureComponent: React.FC<TimelineMeasureProps> = ({
                                 instrumentIdx={instrumentIdx}
                                 beatResolutions={beatResolutions}
                                 onStepTouchStart={onStepTouchStart}
+                                isLinkFolder={isLinkFolder}
+                                isSlave={isSlave}
+                                isLinkMaster={isLinkMaster}
+                                parentBusTrackId={parentBusTrackId}
+                                masterTrackId={masterTrackId}
+                                slaveTrackIds={slaveTrackIds}
+                                hasChildOverrides={hasChildOverrides}
                               />
                             ))}
                           </div>
@@ -630,5 +647,11 @@ export const TimelineMeasure = React.memo(TimelineMeasureComponent, (prev, next)
          prev.isLinkedChild === next.isLinkedChild &&
          prev.isLinkMaster === next.isLinkMaster &&
          prev.isOverridden === next.isOverridden &&
+         prev.isLinkFolder === next.isLinkFolder &&
+         prev.isSlave === next.isSlave &&
+         prev.parentBusTrackId === next.parentBusTrackId &&
+         prev.masterTrackId === next.masterTrackId &&
+         prev.hasChildOverrides === next.hasChildOverrides &&
+         prev.slaveTrackIds === next.slaveTrackIds &&
          arePatternsListsEqual(prev.patternsList, next.patternsList);
 });

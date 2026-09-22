@@ -10,16 +10,6 @@ import { InputManager } from '../InputManager';
 import { TrackGroup, TimeSignature, HitTrigger, HitTriggerPool, SongSection, GlobalSwing, Pattern, SpeedTrainerConfig } from '../types';
 import { isStrokeActiveByDefault } from '../utils/instrumentStrokes';
 
-// Pub/Sub system for high-performance visual tick updates
-export const tickSubscribers = new Set<(detail: any) => void>();
-
-export function subscribeToTick(callback: (detail: any) => void): void {
-  tickSubscribers.add(callback);
-}
-
-export function unsubscribeFromTick(callback: (detail: any) => void): void {
-  tickSubscribers.delete(callback);
-}
 import { useSequencerStore, getEffectiveMuteState, getEffectiveVolume } from '../stores/useSequencerStore';
 import { instrumentsConfig, getMaxTicks, getMarkers } from '../data';
 import { loadTone } from '../ToneLoader';
@@ -29,7 +19,22 @@ import { useTransportStore } from '../stores/useTransportStore';
 import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { useBalancoStore } from '../stores/useBalancoStore';
 import { vocalEngineService, workerSetTimeout } from '../audio/vocalEngineService';
-import { pushVisualTick, pushVisualHitTrigger, startVisualLoop, stopVisualLoop, flushVisualBuffers, purgeVisualTickBuffer, getLastAudibleTick } from '../audio/visualTickBuffer';
+import {
+  pushVisualTick,
+  pushVisualHitTrigger,
+  startVisualLoop,
+  stopVisualLoop,
+  flushVisualBuffers,
+  purgeVisualTickBuffer,
+  getLastAudibleTick,
+  tickSubscribers,
+  subscribeToTick,
+  unsubscribeFromTick,
+  registerAudioEngineSyncTarget
+} from '../audio/visualTickBuffer';
+
+// Re-export tick subscription functions to preserve backwards compatibility
+export { tickSubscribers, subscribeToTick, unsubscribeFromTick };
 
 interface ScheduledNote {
   time: number;
@@ -1819,6 +1824,7 @@ export function useAudioSync({
           return getMaxTicks(timeSig);
         }
       );
+      registerAudioEngineSyncTarget(audioEngine);
 
       inputManager = new InputManager(audioEngine);
 
@@ -1847,6 +1853,7 @@ export function useAudioSync({
 
     return () => {
       stopVisualLoop();
+      registerAudioEngineSyncTarget(null);
       // Pour le Strict Mode React 18, nous ne fermons plus et ne détruisons plus le singleton global AudioEngine.
       // Cela évite de réinstancier le graphe audio sur un contexte fermé lors du remontage immédiat.
       if (audioEngine) {

@@ -11,6 +11,7 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { getLocalLibrary } from '../library';
 import { ASSETS_BASE_URL, instrumentsConfig } from '../data';
+import { getDefaultGroupPresetId } from '../cloudGroups';
 
 export function useAppAudio() {
   const audio = useAudio();
@@ -248,7 +249,6 @@ export function useAppAudio() {
             const groupId = userProfileRef.current?.groupId || userProfile?.groupId;
             if (groupId) {
               try {
-                const { getDefaultGroupPresetId } = await import('../cloudGroups');
                 const defaultPresetId = await getDefaultGroupPresetId(groupId);
                 if (defaultPresetId) {
                   // Le morceau vedette sera chargé automatiquement par App.tsx

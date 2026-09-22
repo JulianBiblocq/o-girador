@@ -28,6 +28,14 @@ interface TimelineStepProps {
     onSelect: (val: string) => void,
     trackId: number
   ) => void;
+  // Métadonnées structurelles pré-calculées
+  isLinkFolder?: boolean;
+  isSlave?: boolean;
+  isLinkMaster?: boolean;
+  parentBusTrackId?: number;
+  masterTrackId?: number;
+  slaveTrackIds?: number[];
+  hasChildOverrides?: boolean;
 }
 
 function getDisplayVal(val: string | number) {
@@ -62,6 +70,13 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
   instrumentIdx,
   beatResolutions,
   onStepTouchStart,
+  isLinkFolder: propIsLinkFolder,
+  isSlave: propIsSlave,
+  isLinkMaster: propIsLinkMaster,
+  parentBusTrackId,
+  masterTrackId,
+  slaveTrackIds,
+  hasChildOverrides,
 }) => {
   const uiContext = useContext(TimelineUIContext);
   const sequencer = useSequencer();
@@ -70,7 +85,7 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
   // 1. Sélecteur Zustand globalisé unique, mémoïsé et hautement performant (Zero Render Thrashing)
   const stepData = useSequencerStore(
     useShallow((state) => {
-      const currentTrack = state.tracks[trackIdx];
+      const currentTrack = state.tracks.find(t => t.id === trackId) || state.tracks[trackIdx];
       if (!currentTrack) return null;
 
       const inst = instrumentsConfig[instrumentIdx];
@@ -78,9 +93,9 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
       const isLeftHanded = state.isLeftHanded || false;
 
       // Détection des types de pistes
-      const isLinkFolder = !!currentTrack.isLinkFolder;
-      const isSlave = !!(currentTrack.linkedToTrackId && !currentTrack.isLinkFolder && !currentTrack.isLinkMaster);
-      const isLinkMaster = !!(currentTrack.linkedToTrackId && !currentTrack.isLinkFolder && currentTrack.isLinkMaster);
+      const isLinkFolder = propIsLinkFolder !== undefined ? propIsLinkFolder : !!currentTrack.isLinkFolder;
+      const isSlave = propIsSlave !== undefined ? propIsSlave : !!(currentTrack.linkedToTrackId && !currentTrack.isLinkFolder && !currentTrack.isLinkMaster);
+      const isLinkMaster = propIsLinkMaster !== undefined ? propIsLinkMaster : !!(currentTrack.linkedToTrackId && !currentTrack.isLinkFolder && currentTrack.isLinkMaster);
 
       let masterVal: string | number | [string, string] = 0;
       let esclaveVal: string | number | [string, string] = 0;
@@ -143,38 +158,37 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
           childState: string | number | [string, string];
         }> = [];
 
-        const children = state.tracks.filter(t => 
-          String(t.linkedToTrackId) === String(currentTrack.id) && 
-          !t.isBusFolder &&
-          !t.isLinkMaster
-        );
-
-        children.forEach((c) => {
-          const override = c.patternOverrides?.[measureIdx];
-          if (override !== undefined && override !== null) {
-            const childPattern = currentTrack.patterns.find(p => p.id === override);
-            if (childPattern) {
-              const childState = childPattern.activeSteps?.[stepIdx] ?? 0;
-              if (childState !== 0 && childState !== '') {
-                const childInst = instrumentsConfig[c.instrumentIdx];
-                if (childInst) {
-                  const childVisualState = getVisualStrokeSymbol(childState, isLeftHanded, childInst.id);
-                  if (childVisualState !== 0) {
-                    const primaryChildVisual = Array.isArray(childVisualState) ? childVisualState[0] : childVisualState;
-                    const childColor = childInst.colors?.[primaryChildVisual as string] || childInst.color || '#fff';
-                    satellites.push({
-                      color: childColor,
-                      text: String(primaryChildVisual),
-                      isDark: isDarkText(childInst.id, String(Array.isArray(childState) ? childState[0] : childState)),
-                      childInstId: childInst.id,
-                      childState: childState
-                    });
+        if (hasChildOverrides && slaveTrackIds && slaveTrackIds.length > 0) {
+          for (let i = 0; i < slaveTrackIds.length; i++) {
+            const sId = slaveTrackIds[i];
+            const c = state.tracks.find(t => t.id === sId);
+            if (!c) continue;
+            const override = c.patternOverrides?.[measureIdx];
+            if (override !== undefined && override !== null) {
+              const childPattern = currentTrack.patterns.find(p => p.id === override);
+              if (childPattern) {
+                const childState = childPattern.activeSteps?.[stepIdx] ?? 0;
+                if (childState !== 0 && childState !== '') {
+                  const childInst = instrumentsConfig[c.instrumentIdx];
+                  if (childInst) {
+                    const childVisualState = getVisualStrokeSymbol(childState, isLeftHanded, childInst.id);
+                    if (childVisualState !== 0) {
+                      const primaryChildVisual = Array.isArray(childVisualState) ? childVisualState[0] : childVisualState;
+                      const childColor = childInst.colors?.[primaryChildVisual as string] || childInst.color || '#fff';
+                      satellites.push({
+                        color: childColor,
+                        text: String(primaryChildVisual),
+                        isDark: isDarkText(childInst.id, String(Array.isArray(childState) ? childState[0] : childState)),
+                        childInstId: childInst.id,
+                        childState: childState
+                      });
+                    }
                   }
                 }
               }
             }
           }
-        });
+        }
 
         const hasVariationEvent = satellites.length > 0;
 
@@ -230,14 +244,18 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
       } else if (isSlave) {
         // --- CAS PISTE ESCLAVE INDIVIDUELLE ---
         // 1. Trouver le parent lié (bus parent)
-        const parentBus = state.tracks.find(p => String(p.id) === String(currentTrack.linkedToTrackId) && p.isLinkFolder);
+        const parentBus = parentBusTrackId !== undefined
+          ? state.tracks.find(p => p.id === parentBusTrackId)
+          : state.tracks.find(p => String(p.id) === String(currentTrack.linkedToTrackId) && p.isLinkFolder);
         const parentInst = parentBus ? instrumentsConfig[parentBus.instrumentIdx] : null;
 
         // 2. Trouver la piste Master correspondante
-        const masterTrack = state.tracks.find(t => 
-          String(t.linkedToTrackId) === String(currentTrack.linkedToTrackId) && 
-          t.isLinkMaster
-        );
+        const masterTrack = masterTrackId !== undefined
+          ? state.tracks.find(t => t.id === masterTrackId)
+          : state.tracks.find(t => 
+              String(t.linkedToTrackId) === String(currentTrack.linkedToTrackId) && 
+              t.isLinkMaster
+            );
         const masterInst = masterTrack ? instrumentsConfig[masterTrack.instrumentIdx] : null;
 
         if (parentBus) {
@@ -299,7 +317,9 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
       } else if (isLinkMaster) {
         // --- CAS PISTE MAITRE DE LIAISON INDIVIDUELLE ---
         // 1. Trouver le parent lié (bus parent)
-        const parentBus = state.tracks.find(p => String(p.id) === String(currentTrack.linkedToTrackId) && p.isLinkFolder);
+        const parentBus = parentBusTrackId !== undefined
+          ? state.tracks.find(p => p.id === parentBusTrackId)
+          : state.tracks.find(p => String(p.id) === String(currentTrack.linkedToTrackId) && p.isLinkFolder);
         if (parentBus) {
           const masterPattern = parentBus.patterns?.find(p => p.measureAssignments[measureIdx]) || parentBus.patterns?.[0];
           const val = masterPattern?.activeSteps?.[stepIdx] ?? 0;
@@ -518,7 +538,14 @@ export const TimelineStep = React.memo(TimelineStepComponent, (prevProps, nextPr
     prevProps.trackIdx === nextProps.trackIdx &&
     prevProps.patternIdx === nextProps.patternIdx &&
     prevProps.instrumentIdx === nextProps.instrumentIdx &&
-    prevProps.beatResolutions === nextProps.beatResolutions
+    prevProps.beatResolutions === nextProps.beatResolutions &&
+    prevProps.isLinkFolder === nextProps.isLinkFolder &&
+    prevProps.isSlave === nextProps.isSlave &&
+    prevProps.isLinkMaster === nextProps.isLinkMaster &&
+    prevProps.parentBusTrackId === nextProps.parentBusTrackId &&
+    prevProps.masterTrackId === nextProps.masterTrackId &&
+    prevProps.hasChildOverrides === nextProps.hasChildOverrides &&
+    prevProps.slaveTrackIds === nextProps.slaveTrackIds
   );
 });
 

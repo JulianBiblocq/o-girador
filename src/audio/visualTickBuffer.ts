@@ -4,9 +4,33 @@
  * causes Tone.Draw scheduled events to expire past their 250ms threshold).
  */
 
-import { tickSubscribers, audioEngine } from '../hooks/useAudioSync';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { usePerformanceStore } from '../stores/usePerformanceStore';
+
+export type TickCallback = (detail: any) => void;
+
+// Pub/Sub system for high-performance visual tick updates
+export const tickSubscribers = new Set<TickCallback>();
+
+export function subscribeToTick(callback: TickCallback): void {
+  tickSubscribers.add(callback);
+}
+
+export function unsubscribeFromTick(callback: TickCallback): void {
+  tickSubscribers.delete(callback);
+}
+
+export interface SyncEngineTarget {
+  currentStep: number;
+  currentMeasure: number;
+  [key: string]: any;
+}
+
+let syncAudioEngine: SyncEngineTarget | null = null;
+
+export function registerAudioEngineSyncTarget(engine: SyncEngineTarget | null): void {
+  syncAudioEngine = engine;
+}
 
 export interface VisualTickEvent {
   drawTime: number;
@@ -147,9 +171,9 @@ function processVisualLoop(): void {
       break; // Future event, wait for next frames
     }
 
-    if (audioEngine) {
-      audioEngine.currentStep = evt.step;
-      audioEngine.currentMeasure = evt.measure;
+    if (syncAudioEngine) {
+      syncAudioEngine.currentStep = evt.step;
+      syncAudioEngine.currentMeasure = evt.measure;
     }
 
     const prevMeasure = useSequencerStore.getState().currentMeasure;

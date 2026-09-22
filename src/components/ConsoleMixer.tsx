@@ -42,27 +42,16 @@ import { useSequencer } from '../contexts/SequencerContext';
 import { useAudio } from '../contexts/AudioContext';
 import { meters, masterMeterNode } from '../hooks/useAudioSync';
 import { masterLeftMeterNode, masterRightMeterNode } from '../audio/effectsChain';
-import { useSequencerStore, getTrackSolidBlockId } from '../stores/useSequencerStore';
+import { useSequencerStore, getTrackSolidBlockId, TrackMeta, selectTracksMeta } from '../stores/useSequencerStore';
 import { useTransportStore } from '../stores/useTransportStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getMixerTheme } from '../theme';
 
 import { getTopParentBusId } from '../utils/colorHelpers';
 
-const trackListCache = new Map<string, { id: number; isHidden: boolean; isSolo: boolean; isMute: boolean }>();
-const getCachedTrack = (id: number, isHidden: boolean, isSolo: boolean, isMute: boolean) => {
-  const key = `${id}_${isHidden}_${isSolo}_${isMute}`;
-  let obj = trackListCache.get(key);
-  if (!obj) {
-    obj = { id, isHidden, isSolo, isMute };
-    trackListCache.set(key, obj);
-  }
-  return obj;
-};
-
-const getTrackGroupKey = (t: TrackGroup | null | undefined, allTracks: TrackGroup[]): string | null => {
+const getTrackGroupKey = (t: TrackGroup | TrackMeta | null | undefined, allTracks: (TrackGroup | TrackMeta)[]): string | null => {
   if (!t) return null;
-  const topBus = getTopParentBusId(t, allTracks);
+  const topBus = getTopParentBusId(t, allTracks as any);
   if (topBus) return topBus;
   if (t.isLinkFolder) return String(t.id);
   if (t.linkedToTrackId) return String(t.linkedToTrackId);
@@ -155,12 +144,11 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     vocalCalibrationLatencyMs,
   } = sequencer;
 
-  const trackList = useSequencerStore(useShallow(state => state.tracks.map(t => getCachedTrack(t.id, t.isHidden, t.isSolo, t.isMute))));
-  const trackIds = trackList.map(t => t.id);
-  const tracks = useSequencerStore(state => state.tracks);
+  const tracksMeta = useSequencerStore(selectTracksMeta);
+  const trackIds = useMemo(() => tracksMeta.map(t => t.id), [tracksMeta]);
   const displayedTracks = useMemo(() => {
     // 1. Filtrer les pistes visibles dans le mixeur
-    const filtered = tracks.filter(t => {
+    const filtered = tracksMeta.filter(t => {
       // Les esclaves d'Alfaias masqués de la timeline s'affichent dans le mixeur si leur dossier de liens est déplié
       const isAlfSlave = t.linkedToTrackId && 
         (instrumentsConfig[t.instrumentIdx]?.id === 'meiao' || 
@@ -168,7 +156,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
          (instrumentsConfig[t.instrumentIdx]?.id === 'marcante' && !t.isLinkMaster));
 
       if (isAlfSlave && t.isHidden) {
-        const parentBus = tracks.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
+        const parentBus = tracksMeta.find(p => String(p.id) === String(t.linkedToTrackId) && p.isLinkFolder);
         if (parentBus && !parentBus.isFolded) {
           return true;
         }
@@ -176,7 +164,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
       if (t.isHidden) return false;
       if (t.busId) {
-        const parentBus = tracks.find(p => String(p.id) === String(t.busId));
+        const parentBus = tracksMeta.find(p => String(p.id) === String(t.busId));
         if (parentBus && parentBus.isFolded) return false;
 
         // Sécurité récursive : si n'importe quel parent ascendant est plié
@@ -184,7 +172,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
         while (currentParent) {
           if (currentParent.isFolded) return false;
           if (currentParent.busId) {
-            currentParent = tracks.find(p => String(p.id) === String(currentParent!.busId));
+            currentParent = tracksMeta.find(p => String(p.id) === String(currentParent!.busId));
           } else {
             break;
           }
@@ -195,9 +183,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
     // 2. Ordonner hiérarchiquement de gauche à droite
     const visited = new Set<number>();
-    const ordered: TrackGroup[] = [];
+    const ordered: TrackMeta[] = [];
 
-    const isRoot = (t: TrackGroup) => {
+    const isRoot = (t: TrackMeta) => {
       const isAlfSlave = t.linkedToTrackId && 
         (instrumentsConfig[t.instrumentIdx]?.id === 'meiao' || 
          instrumentsConfig[t.instrumentIdx]?.id === 'repique' || 
@@ -217,7 +205,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
 
     const roots = filtered.filter(isRoot);
 
-    const visit = (track: TrackGroup) => {
+    const visit = (track: TrackMeta) => {
       if (visited.has(track.id)) return;
       visited.add(track.id);
       ordered.push(track);
@@ -250,7 +238,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     });
 
     return ordered;
-  }, [tracks]);
+  }, [tracksMeta]);
   const displayedTrackIds = useMemo(() => displayedTracks.map(t => `track-${t.id}`), [displayedTracks]);
 
   const [activeDragTrackId, setActiveDragTrackId] = React.useState<number | null>(null);
@@ -733,7 +721,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
       const activeTrackId = Number(activeId.replace('track-', ''));
       setActiveDragTrackId(activeTrackId);
 
-      const activeTrack = tracks.find(t => t.id === activeTrackId);
+      const currentFullTracks = useSequencerStore.getState().tracks;
+      const activeTrack = tracksMeta.find(t => t.id === activeTrackId);
+      const activeFullTrack = currentFullTracks.find(t => t.id === activeTrackId);
 
       // Détecter si la piste est une fille interne (esclave liée ou fille de bus mais pas master)
       const isLinkedChild = !!activeTrack?.linkedToTrackId && !activeTrack?.isLinkFolder && !activeTrack?.isLinkMaster;
@@ -747,27 +737,27 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
           activeTrack.isBusFolder ||
           activeTrack.isLinkFolder ||
           activeTrack.isLinkMaster ||
-          tracks.some(t => String(t.busId) === String(activeTrack.id) || String(t.linkedToTrackId) === String(activeTrack.id))
+          tracksMeta.some(t => String(t.busId) === String(activeTrack.id) || String(t.linkedToTrackId) === String(activeTrack.id))
         )
       );
 
       if (isGroupHeader) {
         // Extraire tous les membres du wagon ordonnés tels qu'affichés
-        const blockTracks = displayedTracks.filter(t => 
+        const blockTrackIds = displayedTracks.filter(t => 
           t.id === activeTrackId ||
           String(t.busId) === String(activeTrackId) ||
           String(t.linkedToTrackId) === String(activeTrackId) ||
           (activeTrack?.linkedToTrackId && String(t.linkedToTrackId) === String(activeTrack.linkedToTrackId))
-        );
-        const groupIds = blockTracks.map(c => c.id);
-        activeGroupTrackIdsRef.current = groupIds;
-        setActiveDragWagonTracks(blockTracks);
+        ).map(c => c.id);
+        activeGroupTrackIdsRef.current = blockTrackIds;
+        const blockFullTracks = currentFullTracks.filter(t => blockTrackIds.includes(t.id));
+        setActiveDragWagonTracks(blockFullTracks);
       } else {
         activeGroupTrackIdsRef.current = [activeTrackId];
-        setActiveDragWagonTracks(activeTrack ? [activeTrack] : null);
+        setActiveDragWagonTracks(activeFullTrack ? [activeFullTrack] : null);
       }
     }
-  }, [tracks, displayedTracks]);
+  }, [tracksMeta, displayedTracks]);
 
   const handleDragMove = React.useCallback((_event: DragMoveEvent) => {
     // Les mouvements fluides sont gérés nativement par DragOverlay accéléré GPU
@@ -791,11 +781,11 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     const targetIdStr = String(firstCollision.id);
     if (targetIdStr.startsWith('track-')) {
       const targetTrackId = Number(targetIdStr.replace('track-', ''));
-      const targetTrack = tracks.find(t => t.id === targetTrackId);
+      const targetTrack = tracksMeta.find(t => t.id === targetTrackId);
       if (targetTrack) {
-        const targetBlockId = getTrackSolidBlockId(targetTrack, tracks);
+        const targetBlockId = getTrackSolidBlockId(targetTrack, tracksMeta);
         if (targetBlockId) {
-          const headTrack = displayedTracks.find(t => getTrackSolidBlockId(t, tracks) === targetBlockId);
+          const headTrack = displayedTracks.find(t => getTrackSolidBlockId(t, tracksMeta) === targetBlockId);
           if (headTrack && headTrack.id !== targetTrackId) {
             return [{ id: `track-${headTrack.id}`, data: firstCollision.data }];
           }
@@ -804,7 +794,7 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
     }
 
     return externalCollisions;
-  }, [tracks, displayedTracks]);
+  }, [tracksMeta, displayedTracks]);
 
   const handleDragOver = React.useCallback((event: any) => {
     const overId = event.over ? String(event.over.id) : null;
@@ -1051,12 +1041,12 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
               const prevTrack = index > 0 ? displayedTracks[index - 1] : null;
               const nextTrack = index < displayedTracks.length - 1 ? displayedTracks[index + 1] : null;
 
-              const activeTrack = activeDragTrackId !== null ? tracks.find(t => t.id === activeDragTrackId) : null;
-              const overTrack = overDragTrackId !== null ? tracks.find(t => t.id === overDragTrackId) : null;
+              const activeTrack = activeDragTrackId !== null ? tracksMeta.find(t => t.id === activeDragTrackId) : null;
+              const overTrack = overDragTrackId !== null ? tracksMeta.find(t => t.id === overDragTrackId) : null;
 
-              const activeGroupKey = getTrackGroupKey(activeTrack, tracks);
-              const hoveredGroupKey = getTrackGroupKey(overTrack, tracks);
-              const currentTrackGroupKey = getTrackGroupKey(track, tracks);
+              const activeGroupKey = getTrackGroupKey(activeTrack, tracksMeta);
+              const hoveredGroupKey = getTrackGroupKey(overTrack, tracksMeta);
+              const currentTrackGroupKey = getTrackGroupKey(track, tracksMeta);
 
               // Ce groupe est-il actuellement survolé ?
               const isThisGroupHovered = !!(
@@ -1086,9 +1076,9 @@ const ConsoleMixerComponent: React.FC<ConsoleMixerProps> = ({
                 }
               }
 
-              const parentBusId = getTopParentBusId(track, tracks);
-              const prevParentBusId = prevTrack ? getTopParentBusId(prevTrack, tracks) : null;
-              const nextParentBusId = nextTrack ? getTopParentBusId(nextTrack, tracks) : null;
+              const parentBusId = getTopParentBusId(track, tracksMeta as any);
+              const prevParentBusId = prevTrack ? getTopParentBusId(prevTrack, tracksMeta as any) : null;
+              const nextParentBusId = nextTrack ? getTopParentBusId(nextTrack, tracksMeta as any) : null;
 
               let busPosition: 'first' | 'middle' | 'last' | 'none' = 'none';
               if (parentBusId) {

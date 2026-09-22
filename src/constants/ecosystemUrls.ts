@@ -4,12 +4,12 @@
  */
 
 export const ECOSYSTEM_DOMAINS = Object.freeze({
-  hub: 'https://o-girador.web.app',
-  orquestrador: 'https://o-girador.web.app',
-  sequenciador: 'https://o-girador-sequenciador.web.app',
-  organizador: 'https://o-girador-organizador.web.app',
-  dancador: 'https://o-girador-dancador.web.app',
-  mostrador: 'https://o-girador-mostrador.web.app',
+  hub: 'https://o-girador.com',
+  orquestrador: 'https://o-girador.com',
+  sequenciador: 'https://sequenciador.o-girador.com',
+  organizador: 'https://organizador.o-girador.com',
+  dancador: 'https://dancador.o-girador.com',
+  mostrador: 'https://mostrador.o-girador.com',
 } as const);
 
 export type EcosystemAppKey = keyof typeof ECOSYSTEM_DOMAINS;

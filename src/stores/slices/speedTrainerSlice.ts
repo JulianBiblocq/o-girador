@@ -4,7 +4,7 @@
  */
 
 import { StateCreator } from 'zustand';
-import { SequencerStore } from '../useSequencerStore';
+import type { SequencerStore } from '../useSequencerStore';
 import { SpeedTrainerSlice, SpeedTrainerBackup } from '../../types/speedTrainer.types';
 
 export const createSpeedTrainerSlice: StateCreator<SequencerStore, [], [], SpeedTrainerSlice> = (set, get) => ({
