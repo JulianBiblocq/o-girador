@@ -3,8 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useShallow } from 'zustand/react/shallow';
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { useAudio } from '../contexts/AudioContext';
 import { useSequencer } from '../contexts/SequencerContext';
@@ -183,10 +184,22 @@ export const SpeedTrainerModal: React.FC = () => {
   const isActive = useSequencerStore((state) => state.isSpeedTrainerActive);
   const storeConfig = useSequencerStore((state) => state.speedTrainerConfig);
   const totalMeasures = useSequencerStore((state) => state.totalMeasures || 1);
+  const songMarkers = useSequencerStore(useShallow((state) => state.songMarkers || []));
   const songBpm = useSequencerStore((state) => state.bpm || 83);
   const currentTour = useSequencerStore((state) => state.speedTrainerTourCount || 0);
   const currentBpm = useSequencerStore((state) => state.speedTrainerCurrentBpm || songBpm);
   const closeSpeedTrainerModal = useSequencerStore((state) => state.closeSpeedTrainerModal);
+
+  // Markers sorted chronologically
+  const sortedMarkers = useMemo(() => {
+    return [...songMarkers].sort((a, b) => a.measure - b.measure);
+  }, [songMarkers]);
+
+  // Marker selection state
+  const [markerMode, setMarkerMode] = useState<'single' | 'range'>('single');
+  const [selectedSectionMarkerId, setSelectedSectionMarkerId] = useState<string>('');
+  const [rangeStartMarkerId, setRangeStartMarkerId] = useState<string>('');
+  const [rangeEndMarkerId, setRangeEndMarkerId] = useState<string>('');
 
   // Local form state
   const [startMeasure, setStartMeasure] = useState<number>(0);
@@ -195,6 +208,53 @@ export const SpeedTrainerModal: React.FC = () => {
   const [targetBpm, setTargetBpm] = useState<number>(songBpm);
   const [bpmStep, setBpmStep] = useState<number>(2);
   const [loopInterval, setLoopInterval] = useState<number>(1);
+
+  // Marker selection handlers
+  const handleSelectSingleMarker = (markerId: string) => {
+    setSelectedSectionMarkerId(markerId);
+    if (!markerId) return;
+    const idx = sortedMarkers.findIndex((m) => m.id === markerId);
+    if (idx === -1) return;
+    const marker = sortedMarkers[idx];
+    const nextMarker = sortedMarkers[idx + 1];
+    const start = Math.min(totalMeasures - 1, Math.max(0, marker.measure));
+    const end = nextMarker
+      ? Math.min(totalMeasures - 1, Math.max(start, nextMarker.measure - 1))
+      : totalMeasures - 1;
+    setStartMeasure(start);
+    setEndMeasure(end);
+  };
+
+  const handleSelectRangeStart = (startId: string) => {
+    setRangeStartMarkerId(startId);
+    if (!startId) return;
+    const markerA = sortedMarkers.find((m) => m.id === startId);
+    if (!markerA) return;
+    const start = Math.min(totalMeasures - 1, Math.max(0, markerA.measure));
+    setStartMeasure(start);
+    // Interval safety: force endMeasure >= startMeasure
+    if (start > endMeasure) {
+      setEndMeasure(start);
+    }
+  };
+
+  const handleSelectRangeEnd = (endId: string) => {
+    setRangeEndMarkerId(endId);
+    if (!endId) return;
+    const idx = sortedMarkers.findIndex((m) => m.id === endId);
+    if (idx === -1) return;
+    const markerB = sortedMarkers[idx];
+    const nextMarker = sortedMarkers[idx + 1];
+    const end = nextMarker
+      ? Math.min(totalMeasures - 1, Math.max(markerB.measure, nextMarker.measure - 1))
+      : totalMeasures - 1;
+    setEndMeasure(end);
+    // Interval safety: force endMeasure >= startMeasure
+    if (end < startMeasure) {
+      setStartMeasure(markerB.measure);
+      setRangeStartMarkerId(endId);
+    }
+  };
 
   // Sync state when opening
   useEffect(() => {
@@ -211,6 +271,9 @@ export const SpeedTrainerModal: React.FC = () => {
       setTargetBpm(storeConfig ? storeConfig.targetBpm : initialTarget);
       setBpmStep(storeConfig?.bpmStep || 2);
       setLoopInterval(storeConfig?.loopInterval || 1);
+      setSelectedSectionMarkerId('');
+      setRangeStartMarkerId('');
+      setRangeEndMarkerId('');
     }
   }, [isOpen, storeConfig, songBpm, totalMeasures]);
 
@@ -317,10 +380,122 @@ export const SpeedTrainerModal: React.FC = () => {
           </div>
 
           {/* 1. Zone de travail (Mesures) */}
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2">
             <label className="font-cactus font-bold text-xs uppercase tracking-wider text-[#666]">
               📍 {t('speedTrainerZone')}
             </label>
+
+            {/* Repères / Sections si disponibles */}
+            {sortedMarkers.length > 0 && (
+              <div className="bg-[#fcf9f2] border-2 border-[#1a1a1a] p-2.5 rounded-xs shadow-[2px_2px_0px_#1a1a1a] flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] text-[#666] font-bold uppercase flex items-center gap-1">
+                    🏷️ {t('speedTrainerMarkersTitle')}
+                  </span>
+                  {sortedMarkers.length > 1 && (
+                    <div className="flex border border-[#1a1a1a] rounded-xs bg-[#ebe2cb] p-0.5 text-[10px] font-cactus">
+                      <button
+                        type="button"
+                        onClick={() => setMarkerMode('single')}
+                        className={`px-2 py-0.5 rounded-xs font-bold transition-all cursor-pointer ${
+                          markerMode === 'single'
+                            ? 'bg-[#1a1a1a] text-[#f4ecd8] shadow-[1px_1px_0px_#1a1a1a]'
+                            : 'text-[#1a1a1a] hover:bg-black/5'
+                        }`}
+                      >
+                        {t('speedTrainerSingleMarker')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMarkerMode('range')}
+                        className={`px-2 py-0.5 rounded-xs font-bold transition-all cursor-pointer ${
+                          markerMode === 'range'
+                            ? 'bg-[#1a1a1a] text-[#f4ecd8] shadow-[1px_1px_0px_#1a1a1a]'
+                            : 'text-[#1a1a1a] hover:bg-black/5'
+                        }`}
+                      >
+                        {t('speedTrainerRangeMarker')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {markerMode === 'single' ? (
+                  <div className="flex flex-col gap-1">
+                    <select
+                      value={selectedSectionMarkerId}
+                      onChange={(e) => handleSelectSingleMarker(e.target.value)}
+                      className="w-full bg-[#f4ecd8] border-2 border-[#1a1a1a] py-1.5 px-2 rounded-xs text-xs font-bold text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1a1a1a]"
+                    >
+                      <option value="">{t('speedTrainerSelectSection')}</option>
+                      {sortedMarkers.map((m, idx) => {
+                        const nextM = sortedMarkers[idx + 1];
+                        const endM = nextM ? Math.max(m.measure, nextM.measure - 1) : totalMeasures - 1;
+                        const mStart = m.measure + 1;
+                        const mEnd = endM + 1;
+                        const rangeLabel = mStart === mEnd ? `m. ${mStart}` : `m. ${mStart} - ${mEnd}`;
+                        const cleanName = m.name.replace(/\n/g, ' ').trim() || `${t('speedTrainerSingleMarker')} ${mStart}`;
+                        return (
+                          <option key={m.id} value={m.id}>
+                            📍 {cleanName} ({rangeLabel})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[9px] text-[#666] font-bold uppercase">
+                        {t('speedTrainerFromMarker')}
+                      </span>
+                      <select
+                        value={rangeStartMarkerId}
+                        onChange={(e) => handleSelectRangeStart(e.target.value)}
+                        className="w-full bg-[#f4ecd8] border-2 border-[#1a1a1a] py-1.5 px-2 rounded-xs text-xs font-bold text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1a1a1a]"
+                      >
+                        <option value="">{t('speedTrainerMarkerStartPlaceholder')}</option>
+                        {sortedMarkers.map((m) => {
+                          const mStart = m.measure + 1;
+                          const cleanName = m.name.replace(/\n/g, ' ').trim() || `${t('speedTrainerSingleMarker')} ${mStart}`;
+                          return (
+                            <option key={m.id} value={m.id}>
+                              {cleanName} (m. ${mStart})
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[9px] text-[#666] font-bold uppercase">
+                        {t('speedTrainerToMarker')}
+                      </span>
+                      <select
+                        value={rangeEndMarkerId}
+                        onChange={(e) => handleSelectRangeEnd(e.target.value)}
+                        className="w-full bg-[#f4ecd8] border-2 border-[#1a1a1a] py-1.5 px-2 rounded-xs text-xs font-bold text-[#1a1a1a] shadow-[1px_1px_0px_#1a1a1a] cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#1a1a1a]"
+                      >
+                        <option value="">{t('speedTrainerMarkerEndPlaceholder')}</option>
+                        {sortedMarkers.map((m, idx) => {
+                          const nextM = sortedMarkers[idx + 1];
+                          const endM = nextM ? Math.max(m.measure, nextM.measure - 1) : totalMeasures - 1;
+                          const mStart = m.measure + 1;
+                          const mEnd = endM + 1;
+                          const rangeLabel = mStart === mEnd ? `m. ${mStart}` : `m. ${mStart} - ${mEnd}`;
+                          const cleanName = m.name.replace(/\n/g, ' ').trim() || `${t('speedTrainerSingleMarker')} ${mStart}`;
+                          return (
+                            <option key={m.id} value={m.id}>
+                              {cleanName} ({rangeLabel})
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-2">
               {/* Start Measure */}
               <div className="bg-[#fcf9f2] border-2 border-[#1a1a1a] p-2 rounded-xs shadow-[2px_2px_0px_#1a1a1a] flex flex-col gap-1">
@@ -329,7 +504,10 @@ export const SpeedTrainerModal: React.FC = () => {
                 </span>
                 <div className="flex items-center justify-between">
                   <HoldButton
-                    onAction={() => setStartMeasure(prev => Math.max(0, prev - 1))}
+                    onAction={() => {
+                      setStartMeasure(prev => Math.max(0, prev - 1));
+                      setSelectedSectionMarkerId('');
+                    }}
                     disabled={startMeasure <= 0}
                     className="w-7 h-7 flex items-center justify-center border border-[#1a1a1a] bg-[#f4ecd8] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] disabled:opacity-30 disabled:pointer-events-none rounded-xs font-bold cursor-pointer transition-colors"
                   >
@@ -343,6 +521,7 @@ export const SpeedTrainerModal: React.FC = () => {
                     onChange={(val) => {
                       const newStart = val - 1;
                       setStartMeasure(newStart);
+                      setSelectedSectionMarkerId('');
                       if (newStart > endMeasure) {
                         setEndMeasure(newStart);
                       }
@@ -358,6 +537,7 @@ export const SpeedTrainerModal: React.FC = () => {
                         }
                         return next;
                       });
+                      setSelectedSectionMarkerId('');
                     }}
                     disabled={startMeasure >= totalMeasures - 1}
                     className="w-7 h-7 flex items-center justify-center border border-[#1a1a1a] bg-[#f4ecd8] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] disabled:opacity-30 disabled:pointer-events-none rounded-xs font-bold cursor-pointer transition-colors"
@@ -382,6 +562,7 @@ export const SpeedTrainerModal: React.FC = () => {
                         }
                         return next;
                       });
+                      setSelectedSectionMarkerId('');
                     }}
                     disabled={endMeasure <= 0}
                     className="w-7 h-7 flex items-center justify-center border border-[#1a1a1a] bg-[#f4ecd8] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] disabled:opacity-30 disabled:pointer-events-none rounded-xs font-bold cursor-pointer transition-colors"
@@ -396,6 +577,7 @@ export const SpeedTrainerModal: React.FC = () => {
                     onChange={(val) => {
                       const newEnd = val - 1;
                       setEndMeasure(newEnd);
+                      setSelectedSectionMarkerId('');
                       if (newEnd < startMeasure) {
                         setStartMeasure(newEnd);
                       }
@@ -403,7 +585,10 @@ export const SpeedTrainerModal: React.FC = () => {
                     className="w-14 text-center font-cactus font-bold text-xl tabular-nums bg-transparent border-b border-transparent focus:border-[#1a1a1a] focus:bg-white/80 focus:outline-none rounded-xs py-0.5 transition-colors"
                   />
                   <HoldButton
-                    onAction={() => setEndMeasure(prev => Math.min(totalMeasures - 1, prev + 1))}
+                    onAction={() => {
+                      setEndMeasure(prev => Math.min(totalMeasures - 1, prev + 1));
+                      setSelectedSectionMarkerId('');
+                    }}
                     disabled={endMeasure >= totalMeasures - 1}
                     className="w-7 h-7 flex items-center justify-center border border-[#1a1a1a] bg-[#f4ecd8] hover:bg-[#1a1a1a] hover:text-[#f4ecd8] disabled:opacity-30 disabled:pointer-events-none rounded-xs font-bold cursor-pointer transition-colors"
                   >

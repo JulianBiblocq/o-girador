@@ -281,7 +281,15 @@ export const i18n = {
     speedTrainerStop: "⏹ Parar e restaurar",
     speedTrainerActiveBanner: "Treino em andamento",
     speedTrainerTour: "Volta",
-    speedTrainerCountdown: "Contagem"
+    speedTrainerCountdown: "Contagem",
+    speedTrainerMarkersTitle: "Marcadores da música",
+    speedTrainerSingleMarker: "Seção",
+    speedTrainerRangeMarker: "Intervalo",
+    speedTrainerSelectSection: "-- Escolher uma seção --",
+    speedTrainerFromMarker: "De",
+    speedTrainerToMarker: "Até",
+    speedTrainerMarkerStartPlaceholder: "-- Marcador inicial --",
+    speedTrainerMarkerEndPlaceholder: "-- Marcador final --"
   },
   fr: {
     loading: "Chargement des voix...",
@@ -411,7 +419,15 @@ export const i18n = {
     speedTrainerStop: "⏹ Arrêter et restaurer",
     speedTrainerActiveBanner: "Entraînement en cours",
     speedTrainerTour: "Tour",
-    speedTrainerCountdown: "Décompte"
+    speedTrainerCountdown: "Décompte",
+    speedTrainerMarkersTitle: "Repères du morceau",
+    speedTrainerSingleMarker: "Section",
+    speedTrainerRangeMarker: "Intervalle",
+    speedTrainerSelectSection: "-- Choisir une section --",
+    speedTrainerFromMarker: "De",
+    speedTrainerToMarker: "À",
+    speedTrainerMarkerStartPlaceholder: "-- Repère début --",
+    speedTrainerMarkerEndPlaceholder: "-- Repère fin --"
   }
 };
 
