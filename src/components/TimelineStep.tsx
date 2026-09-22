@@ -35,6 +35,22 @@ function getDisplayVal(val: string | number) {
   return String(val);
 }
 
+function isDarkColor(colorStr?: string): boolean {
+  if (!colorStr || colorStr === 'transparent') return false;
+  const lower = colorStr.toLowerCase().trim();
+  if (['#000', '#000000', '#111', '#111111', '#222', '#222222', '#1a1a1a', '#1c1c1c', '#2a2a2a', '#181a1b'].includes(lower)) {
+    return true;
+  }
+  if (lower.startsWith('#') && lower.length === 7) {
+    const r = parseInt(lower.substring(1, 3), 16);
+    const g = parseInt(lower.substring(3, 5), 16);
+    const b = parseInt(lower.substring(5, 7), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance < 0.22;
+  }
+  return false;
+}
+
 const TimelineStepComponent: React.FC<TimelineStepProps> = ({
   trackId,
   patternId,
@@ -435,7 +451,14 @@ const TimelineStepComponent: React.FC<TimelineStepProps> = ({
   const isMobileDevice = (typeof window !== 'undefined' && window.innerWidth <= 768);
   const disableHeavyEffects = isEcoMode || isMobileDevice;
 
-  const accentClass = stepData.leftIsAccent ? 'scale-120 border border-white/60' : 'border border-black/10';
+  const isDarkStroke = isDarkColor(stepData.leftFillColor) || (stepData.isSplit && isDarkColor(stepData.rightFillColor));
+  const borderClass = stepData.leftIsAccent 
+    ? 'border border-white/70 shadow-sm' 
+    : isDarkStroke
+      ? 'border border-white/50 dark:border-white/60 shadow-[0_0_1px_rgba(255,255,255,0.4)]'
+      : 'border border-black/15 dark:border-black/30';
+  const scaleClass = stepData.leftIsAccent ? 'scale-120' : '';
+  const accentClass = `${scaleClass} ${borderClass}`;
   const heavyEffectClass = disableHeavyEffects ? '' : 'transition-transform duration-75 ease-out shadow-sm';
 
   let shapeClipPath: string | undefined = undefined;

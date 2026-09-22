@@ -83,8 +83,8 @@ export const MARACATU_THEME: ThemePalette = {
   },
   gongue: {
     mixerBg: '#1a1a1a', color: '#bdc3c7',
-    strong: '#222222', weak: '#7f8c8d', accent: '#bdc3c7', muted: '#6d4c41', special: '#7f8c8d',
-    overrides: { 'G': '#222222', 'g': '#444444', 'A': '#bdc3c7', 'a': '#7f8c8d' }
+    strong: '#000000', weak: '#7f8c8d', accent: '#bdc3c7', muted: '#6d4c41', special: '#7f8c8d',
+    overrides: { 'G': '#000000', 'g': '#1c1c1c', 'A': '#bdc3c7', 'a': '#7f8c8d' }
   },
   agbe: {
     mixerBg: '#103a20', color: '#22c55e',
