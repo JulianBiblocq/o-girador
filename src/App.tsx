@@ -249,26 +249,33 @@ export default function App() {
 
   // 🌵 Morceau vedette du groupe : chargement automatique à l'ouverture si aucun preset spécifié dans l'URL
   useEffect(() => {
-    if (hasAutoLoadedDefaultRef.current) return;
     const urlParams = new URLSearchParams(window.location.search);
+    if (hasAutoLoadedDefaultRef.current) return;
     if (urlParams.has('loadPreset') || urlParams.has('loadPattern') || urlParams.has('baque') || (window.location.hash && window.location.hash.length > 1)) {
       return;
     }
 
     const groupId = userProfile?.groupId;
-    if (!groupId || !cloudPresets || cloudPresets.length === 0) return;
+    if (!groupId || !cloudPresets || cloudPresets.length === 0) {
+      return;
+    }
 
     let isMounted = true;
     getDefaultGroupPresetId(groupId).then((defaultPresetId) => {
       if (!isMounted || !defaultPresetId || hasAutoLoadedDefaultRef.current) return;
 
+      // Mémoriser l'ID du morceau vedette dans localStorage pour restauration ultra-rapide aux futurs rafraîchissements
+      try {
+        localStorage.setItem('girador_last_loaded_preset_id', defaultPresetId);
+      } catch (_) {}
+
       const found = cloudPresets.find(p => p.id === defaultPresetId);
       if (found && isMounted && !hasAutoLoadedDefaultRef.current) {
         // Verrouillage immédiat pour éviter tout double appel lors des re-renders initiaux
         hasAutoLoadedDefaultRef.current = true;
-        audio.loadFallbackPreset(`cloud:${found.id}`).then(() => {
-          audio.setActivePresetName(`cloud:${found.id}`);
-        }).catch((e) => console.warn('loadFallbackPreset error on default group preset:', e));
+        audioRef.current.loadFallbackPreset(`cloud:${found.id}`).then(() => {
+          audioRef.current.setActivePresetName(`cloud:${found.id}`);
+        }).catch((e: any) => console.warn('loadFallbackPreset error on default group preset:', e));
       }
     }).catch((err) => {
       console.warn('[AutoLoadDefaultPreset] Erreur lors du chargement auto du morceau vedette:', err);
@@ -277,7 +284,7 @@ export default function App() {
     return () => {
       isMounted = false;
     };
-  }, [userProfile?.groupId, cloudPresets, audio]);
+  }, [userProfile?.groupId, cloudPresets]);
 
 
   // All title sync, security gate redirections, and dark mode toggles are now handled by hooks

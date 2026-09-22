@@ -15,7 +15,7 @@ import { ASSETS_BASE_URL, instrumentsConfig } from '../data';
 export function useAppAudio() {
   const audio = useAudio();
   const sequencer = useSequencer();
-  const { userProfile } = useAuth();
+  const { userProfile, loading: authLoading } = useAuth();
   const userProfileRef = useRef(userProfile);
   const tracks = useSequencerStore(state => state.tracks);
 
@@ -56,7 +56,7 @@ export function useAppAudio() {
 
   // Load Preset catalog and decode initial composition from URL query/hash or local storage.
   useEffect(() => {
-    if (audio.isLoading) return;
+    if (audio.isLoading || authLoading) return;
     if (hasLoadedInitialPreset.current) return;
     hasLoadedInitialPreset.current = true;
 
@@ -210,6 +210,7 @@ export function useAppAudio() {
             const cloudPreset = await getCloudPreset(lastPresetId);
             if (cloudPreset) {
               await audio.applyPreset(cloudPreset);
+              audio.setActivePresetName(`cloud:${lastPresetId}`);
               restoredFromLocalStorage = true;
             }
           } catch (err) {
@@ -244,7 +245,7 @@ export function useAppAudio() {
             }
 
             // Vérifier si l'utilisateur est membre d'un groupe avec un morceau vedette Cactus 🌵
-            const groupId = userProfileRef.current?.groupId;
+            const groupId = userProfileRef.current?.groupId || userProfile?.groupId;
             if (groupId) {
               try {
                 const { getDefaultGroupPresetId } = await import('../cloudGroups');
@@ -264,7 +265,7 @@ export function useAppAudio() {
         })
         .catch((err) => console.error('Could not load catalog.json:', err));
     });
-  }, [audio]);
+  }, [audio, authLoading]);
 
   // PWA File Handler: handle files opened via the OS file handler
   useEffect(() => {

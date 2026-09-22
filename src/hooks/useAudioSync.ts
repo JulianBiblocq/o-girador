@@ -497,6 +497,7 @@ export function useAudioSync({
   const pendingMeasureRef = useRef<number | null>(null);
   const pendingIterationRef = useRef<number | null>(null);
   const hasFinishedRef = useRef<boolean>(false);
+  const isPlaybackEndingRef = useRef<boolean>(false);
 
   const hitTriggersRef = useRef<HitTriggerPool>(new HitTriggerPool());
   const engineTimeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
@@ -995,6 +996,10 @@ export function useAudioSync({
 
       // Stable 96-tick sequencing loop using our AudioEngine
       onTickRef.current = (time) => {
+        if (isPlaybackEndingRef.current) {
+          return;
+        }
+
         const isDocHidden = typeof document !== 'undefined' && document.hidden;
         let currentTicks = maxTicksRef.current;
         let stepIdx = currentStepIndexRef.current;
@@ -1003,6 +1008,7 @@ export function useAudioSync({
         let nextStepIdx = stepIdx + 1;
 
         if (stepIdx === -1) {
+          isPlaybackEndingRef.current = false;
           hasFinishedRef.current = false;
           nextStepIdx = 0;
           currentLoopIterationRef.current = 1;
@@ -1069,10 +1075,13 @@ export function useAudioSync({
               // Global boundary logic wins
               sectionIterationRef.current = 1;
               if (!isLoopingRef.current) {
+                isPlaybackEndingRef.current = true;
                 hasFinishedRef.current = true;
+                currentStepIndexRef.current = currentTicks - 1;
                 setTimeout(() => {
                   handleStop();
-                }, 2000);
+                }, 1500);
+                return;
               } else {
                 // Live Arranger Logic (Mission 3) - Applies to both global and sub-loops
                 const shouldExit = isLoopExitRequestedRef.current || (loopModeRef.current !== 'infinite' && currentLoopIterationRef.current >= loopModeRef.current);
@@ -1091,8 +1100,11 @@ export function useAudioSync({
                   
                   measureCountRef.current++;
                   if (measureCountRef.current >= (totalMeasuresRef.current || 1)) {
+                    isPlaybackEndingRef.current = true;
                     hasFinishedRef.current = true;
-                    setTimeout(() => handleStop(), 2000);
+                    currentStepIndexRef.current = currentTicks - 1;
+                    setTimeout(() => handleStop(), 1500);
+                    return;
                   }
                 } else {
                   // On boucle
@@ -1120,8 +1132,11 @@ export function useAudioSync({
               }
             } else if (currentMeasureIdx >= (totalMeasuresRef.current || 1) - 1) {
               // We reached the absolute end of the sequence (e.g. after exiting a loop)
+              isPlaybackEndingRef.current = true;
               hasFinishedRef.current = true;
-              setTimeout(() => handleStop(), 2000);
+              currentStepIndexRef.current = currentTicks - 1;
+              setTimeout(() => handleStop(), 1500);
+              return;
             } else {
               // Normal progression
               measureCountRef.current = (measureCountRef.current + 1) % (totalMeasuresRef.current || 1);
@@ -1892,6 +1907,7 @@ export function useAudioSync({
       setSoloPatternPlayId(null);
     }
     if (!isPlayingRef.current) {
+      isPlaybackEndingRef.current = false;
       lastPlayedSignalIdRef.current = null;
       audioEngine?.stopAllBarulho();
 
@@ -2091,6 +2107,7 @@ export function useAudioSync({
     anchoredMeasureIdxRef.current = -1;
     currentStepIndexRef.current = -1;
     hasFinishedRef.current = false;
+    isPlaybackEndingRef.current = false;
     measureCountRef.current = 0;
     setCurrentMeasure(0);
     Tone.Transport.seconds = 0;
@@ -2152,6 +2169,7 @@ export function useAudioSync({
     setSoloPatternVariationId(variationId || null);
     currentStepIndexRef.current = -1;
     measureCountRef.current = 0;
+    isPlaybackEndingRef.current = false;
     setCurrentMeasure(0);
     Tone.Transport.seconds = 0;
     lastPlayedSignalIdRef.current = null;
@@ -2207,6 +2225,7 @@ export function useAudioSync({
     setCurrentMeasure(targetMeasure);
     currentStepIndexRef.current = tickIdx - 1; // -1 so the next loop cycle increments to tickIdx
     hasFinishedRef.current = false;
+    isPlaybackEndingRef.current = false;
     maxTicksRef.current = currentTicks;
 
     if (audioEngine) {

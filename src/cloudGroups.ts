@@ -8,34 +8,49 @@ export interface GroupDoc {
 }
 
 /**
+ * Récupère les variantes d'ID pour un groupe (minuscule et casse d'origine).
+ */
+function getGroupIdVariants(groupId: string): string[] {
+  if (!groupId) return [];
+  const raw = groupId.trim();
+  const lower = raw.toLowerCase();
+  return raw !== lower ? [lower, raw] : [lower];
+}
+
+/**
  * Récupère l'ID du preset par défaut (morceau vedette) pour un groupe donné depuis Firestore.
- * Vérifie dans 'associations' (collection canonique autorisée) puis dans 'groups'.
+ * Double lecture transparente sur 'associations' (samambaia / Samambaia) puis 'groups'.
  */
 export async function getDefaultGroupPresetId(groupId: string): Promise<string | null> {
   if (!groupId) return null;
-  const cleanGroupId = groupId.trim().toLowerCase();
+  const variants = getGroupIdVariants(groupId);
 
-  // 1. Priorité à la collection 'associations' (règles de sécurité ouvertes en lecture)
-  try {
-    const assocSnap = await getDoc(doc(db, 'associations', cleanGroupId));
-    if (assocSnap.exists() && assocSnap.data()?.defaultPresetId !== undefined) {
-      return assocSnap.data().defaultPresetId || null;
-    }
-  } catch (_) {}
+  // 1. Priorité à la collection 'associations' (lecture ouverte)
+  for (const id of variants) {
+    try {
+      const snap = await getDoc(doc(db, 'associations', id));
+      if (snap.exists() && snap.data()?.defaultPresetId !== undefined && snap.data()?.defaultPresetId !== null) {
+        return snap.data().defaultPresetId;
+      }
+    } catch (_) {}
+  }
 
   // 2. Vérification dans 'groups'
-  try {
-    const groupSnap = await getDoc(doc(db, 'groups', cleanGroupId));
-    if (groupSnap.exists() && groupSnap.data()?.defaultPresetId !== undefined) {
-      return groupSnap.data().defaultPresetId || null;
-    }
-  } catch (_) {}
+  for (const id of variants) {
+    try {
+      const snap = await getDoc(doc(db, 'groups', id));
+      if (snap.exists() && snap.data()?.defaultPresetId !== undefined && snap.data()?.defaultPresetId !== null) {
+        return snap.data().defaultPresetId;
+      }
+    } catch (_) {}
+  }
 
   return null;
 }
 
 /**
  * Écoute en temps réel les changements du document de groupe pour maintenir le morceau vedette synchronisé.
+ * Écoute les variantes de 'associations' et 'groups'.
  */
 export function subscribeToGroupDefaultPreset(
   groupId: string | null | undefined,
@@ -45,39 +60,42 @@ export function subscribeToGroupDefaultPreset(
     callback(null);
     return () => {};
   }
-  const cleanGroupId = groupId.trim().toLowerCase();
-  const assocRef = doc(db, 'associations', cleanGroupId);
+  const variants = getGroupIdVariants(groupId);
 
-  // Écoute temps-réel de 'associations'
-  return onSnapshot(
-    assocRef,
-    (snap) => {
-      if (snap.exists() && snap.data()?.defaultPresetId !== undefined) {
-        callback(snap.data()?.defaultPresetId || null);
-      } else {
-        // Fallback sur 'groups'
-        getDoc(doc(db, 'groups', cleanGroupId)).then((gSnap) => {
-          if (gSnap.exists()) {
-            callback(gSnap.data()?.defaultPresetId || null);
-          } else {
-            callback(null);
-          }
-        }).catch(() => callback(null));
-      }
-    },
-    () => {
-      // En cas d'erreur sur associations, écouter groups
-      onSnapshot(doc(db, 'groups', cleanGroupId), (snap) => {
-        callback(snap.exists() ? (snap.data()?.defaultPresetId || null) : null);
-      }, () => callback(null));
+  const unsubs: (() => void)[] = [];
+  let isCleanedUp = false;
+
+  const handleSnap = (snap: any) => {
+    if (isCleanedUp) return;
+    if (snap && snap.exists() && snap.data()?.defaultPresetId !== undefined) {
+      callback(snap.data()?.defaultPresetId || null);
     }
-  );
+  };
+
+  variants.forEach((id) => {
+    try {
+      const unsubAssoc = onSnapshot(doc(db, 'associations', id), handleSnap, () => {});
+      unsubs.push(unsubAssoc);
+    } catch (_) {}
+
+    try {
+      const unsubGroup = onSnapshot(doc(db, 'groups', id), handleSnap, () => {});
+      unsubs.push(unsubGroup);
+    } catch (_) {}
+  });
+
+  return () => {
+    isCleanedUp = true;
+    unsubs.forEach((unsub) => {
+      try { unsub(); } catch (_) {}
+    });
+  };
 }
 
 /**
  * Définit ou retire le morceau vedette du groupe (icône Cactus 🌵).
  * Réservé aux utilisateurs ayant le rôle 'mestre' ou 'admin'.
- * Lors du désépinglage, passe strictement la valeur `null` à Firestore.
+ * Double écriture transparente sur associations/<variant> et groups/<variant>.
  */
 export async function setDefaultGroupPreset(
   groupId: string,
@@ -88,7 +106,7 @@ export async function setDefaultGroupPreset(
     throw new Error('GroupId manquant');
   }
 
-  const cleanGroupId = groupId.trim().toLowerCase();
+  const variants = getGroupIdVariants(groupId);
   const isAllowed = userRole === 'mestre' || userRole === 'admin';
   if (!isAllowed) {
     throw new Error("Action réservée aux Mestres et Administrateurs du groupe.");
@@ -101,13 +119,23 @@ export async function setDefaultGroupPreset(
     updatedAt: Date.now(),
   };
 
-  // 1. Écriture principale dans associations (autorisée par les règles Firestore pour Mestre/Admin)
-  await setDoc(doc(db, 'associations', cleanGroupId), payload, { merge: true });
+  // Double écriture miroir transparente sur toutes les variantes
+  const writes: Promise<any>[] = [];
 
-  // 2. Écriture miroir dans groups si autorisée
-  try {
-    await setDoc(doc(db, 'groups', cleanGroupId), payload, { merge: true });
-  } catch (_) {
-    // Si la collection groups n'est pas encore créée dans les règles, associations assure la persistance
+  for (const id of variants) {
+    // 1. associations (collection canonique ouverte)
+    writes.push(
+      setDoc(doc(db, 'associations', id), payload, { merge: true }).catch((err) => {
+        console.warn(`[cloudGroups] Failed setDoc associations/${id}:`, err);
+      })
+    );
+    // 2. groups (collection miroir)
+    writes.push(
+      setDoc(doc(db, 'groups', id), payload, { merge: true }).catch((err) => {
+        console.warn(`[cloudGroups] Failed setDoc groups/${id}:`, err);
+      })
+    );
   }
+
+  await Promise.all(writes);
 }
