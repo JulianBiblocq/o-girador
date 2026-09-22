@@ -288,6 +288,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     time: number;
     measureStartTime?: number;
     measureDuration?: number;
+    isPreRoll?: boolean;
   }>({
     step: -1,
     measure: 0,
@@ -295,6 +296,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
     ratio: 0,
     iteration: 1,
     time: 0,
+    isPreRoll: false,
   });
 
   if (!tracks) return null;
@@ -611,7 +613,9 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
           time: 0,
           measureStartTime: 0,
           measureDuration: 0,
+          isPreRoll: false,
         };
+        frozenStickAngleRef.current = -Math.PI / 2;
         const expanded = expandedRef.current;
         const displayTotal = expanded.length > 0 ? expanded.length : totalMeasures;
         if (measureDisplayRef.current) {
@@ -634,6 +638,7 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
         time,
         measureStartTime: updatedStartTime,
         measureDuration: measureDuration ?? currentLive.measureDuration,
+        isPreRoll: Boolean(detail.isPreRoll),
       };
 
       const expanded = expandedRef.current;
@@ -1459,7 +1464,11 @@ const CircleSequencerComponent: React.FC<CircleSequencerProps> = (props) => {
       const ctxTime = getAudioTime();
       const isUltraEco = usePerformanceStore.getState().disablePlayheadRAF;
 
-      if (isCurrentlyPlaying && live.step >= 0 && live.ratio !== undefined && live.time !== undefined && live.measureDuration && live.measureDuration > 0) {
+      if (live.isPreRoll) {
+        // En précompte, la baguette reste strictement ancrée et immobile à 12h (pas 0)
+        stickAngle = -Math.PI / 2;
+        frozenStickAngleRef.current = -Math.PI / 2;
+      } else if (isCurrentlyPlaying && live.step >= 0 && live.ratio !== undefined && live.time !== undefined && live.measureDuration && live.measureDuration > 0) {
         if (isUltraEco || isEco) {
           // Hard-lock absolu sur le tick (sans interpolation GPU)
           stickAngle = -Math.PI / 2 + (live.ratio * Math.PI * 2);

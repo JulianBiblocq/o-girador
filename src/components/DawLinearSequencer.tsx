@@ -189,8 +189,8 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
     const handleTick = (detail: { step: number; ratio?: number; time?: number }) => {
       const { step, ratio = 0 } = detail;
 
-      // 1. GESTION DU STOP (step < 0) - Nettoyage complet des cases actives
-      if (step < 0) {
+      // 1. GESTION DU STOP (step < 0) OU DU PRÉCOMPTE (isPreRoll === true) - Nettoyage complet des cases actives
+      if (step < 0 || (detail as any).isPreRoll) {
         Object.keys(cellRefs.current).forEach((tId) => {
           const lastIdx = lastActiveStepsRef.current[tId];
           if (lastIdx !== undefined && lastIdx !== -1) {

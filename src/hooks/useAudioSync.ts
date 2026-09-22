@@ -556,6 +556,7 @@ export function useAudioSync({
   const preRollRemainingMeasuresRef = useRef<number>(0);
   const targetPreRollMeasureRef = useRef<number>(0);
   const preRollTotalMeasuresRef = useRef<number>(1);
+  const autoStopTimeoutRef = useRef<any>(null);
 
   // Subscribe to useTransportStore to keep refs and metroChannel in sync non-reactively
   useEffect(() => {
@@ -1061,26 +1062,7 @@ export function useAudioSync({
           lastAbsoluteTickRef.current = -1;
         } else if (stepIdx === currentTicks - 1) {
           nextStepIdx = 0;
-          if (isPreRollActiveRef.current) {
-            if (preRollRemainingMeasuresRef.current > 1) {
-              preRollRemainingMeasuresRef.current -= 1;
-              measureCountRef.current = targetPreRollMeasureRef.current;
-            } else {
-              // 🛡️ CRITIQUE : Fin du précompte !
-              // La bateria attaque rigoureusement au pas 0 du temps 1 de la mesure ciblée M (NE PAS incrémenter à M + 1).
-              preRollRemainingMeasuresRef.current = 0;
-              isPreRollActiveRef.current = false;
-              measureCountRef.current = targetPreRollMeasureRef.current;
-            }
-            const currentM = targetPreRollMeasureRef.current;
-            const targetSig = measureTimeSigsRef.current[currentM] || '4/4';
-            currentTicks = getMaxTicks(targetSig);
-            maxTicksRef.current = currentTicks;
-            flatArrayPointerRef.current = 0;
-            absoluteTickCountRef.current = getMeasureStartTick(currentM, measureTimeSigsRef.current);
-            currentMeasureStartTickRef.current = absoluteTickCountRef.current;
-            lastAbsoluteTickRef.current = -1;
-          } else if (soloPatternPlayIdRef.current !== null) {
+          if (soloPatternPlayIdRef.current !== null) {
             measureCountRef.current = 0;
           } else {
             const currentMeasureIdx = measureCountRef.current;
@@ -1109,7 +1091,11 @@ export function useAudioSync({
                 isPlaybackEndingRef.current = true;
                 hasFinishedRef.current = true;
                 currentStepIndexRef.current = currentTicks - 1;
-                setTimeout(() => {
+                if (autoStopTimeoutRef.current) {
+                  clearTimeout(autoStopTimeoutRef.current);
+                }
+                autoStopTimeoutRef.current = setTimeout(() => {
+                  autoStopTimeoutRef.current = null;
                   handleStop();
                 }, 1500);
                 return;
@@ -1134,7 +1120,13 @@ export function useAudioSync({
                     isPlaybackEndingRef.current = true;
                     hasFinishedRef.current = true;
                     currentStepIndexRef.current = currentTicks - 1;
-                    setTimeout(() => handleStop(), 1500);
+                    if (autoStopTimeoutRef.current) {
+                      clearTimeout(autoStopTimeoutRef.current);
+                    }
+                    autoStopTimeoutRef.current = setTimeout(() => {
+                      autoStopTimeoutRef.current = null;
+                      handleStop();
+                    }, 1500);
                     return;
                   }
                 } else {
@@ -1166,7 +1158,13 @@ export function useAudioSync({
               isPlaybackEndingRef.current = true;
               hasFinishedRef.current = true;
               currentStepIndexRef.current = currentTicks - 1;
-              setTimeout(() => handleStop(), 1500);
+              if (autoStopTimeoutRef.current) {
+                clearTimeout(autoStopTimeoutRef.current);
+              }
+              autoStopTimeoutRef.current = setTimeout(() => {
+                autoStopTimeoutRef.current = null;
+                handleStop();
+              }, 1500);
               return;
             } else {
               // Normal progression
@@ -1265,10 +1263,6 @@ export function useAudioSync({
         }
         const measureStartTimeSec = anchoredMeasureStartSecRef.current;
 
-        const isPreRoll = isPreRollActiveRef.current;
-        const preRollTotal = preRollTotalMeasuresRef.current;
-        const preRollMeasureIndex = Math.max(0, preRollTotal - preRollRemainingMeasuresRef.current);
-
         if (!isDocHidden) {
           pushVisualTick({
             drawTime,
@@ -1282,9 +1276,9 @@ export function useAudioSync({
             iteration: sectionIterationRef.current,
             measureStartTime: measureStartTimeSec,
             measureDuration: measureDurationSec,
-            isPreRoll,
-            preRollMeasureIndex,
-            preRollTotalMeasures: preRollTotal,
+            isPreRoll: false,
+            preRollMeasureIndex: 0,
+            preRollTotalMeasures: 1,
             preRollBeat: currentBeatIndex,
           });
         }
@@ -1499,7 +1493,7 @@ export function useAudioSync({
         const currentMeasureSig = measureTimeSigsRef.current[currentMeasureIdx] || '4/4';
         const markers = getCachedMarkers(currentMeasureSig, currentTicks);
 
-        if (isMetroOnRef.current && markers.includes(stepIdx) && !isPreRollActiveRef.current) {
+        if (isMetroOnRef.current && markers.includes(stepIdx)) {
           if (metroVolumeRef.current > 0) {
             const isAccent = (stepIdx === 0);
             playNativeMetroClick(time, isAccent, 'synth', 1.8);
@@ -1653,9 +1647,7 @@ export function useAudioSync({
 
                     let triggerTime = time + noteSwingOffset + microOffset;
 
-                    if (!isPreRollActiveRef.current) {
-                      audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
-                    }
+                    audioEngine?.playNote(liveTrack.id, strokeSymbol, triggerTime, finalVel, decayMultiplier);
 
                     // Visual hit trigger
                     if (!isDocHidden) {
@@ -1727,7 +1719,7 @@ export function useAudioSync({
           const hasVocalSample = Boolean(vocalBuf && activePattern.vocalMode === 'micro');
 
           // 1. Déclenchement du Tone.GrainPlayer vocal au début de la mesure (stepIdx === 0)
-          if (!isPreRollActiveRef.current && hasVocalSample && stepIdx === 0 && !activeSequencerVocalsRef.current.has(safeId)) {
+          if (hasVocalSample && stepIdx === 0 && !activeSequencerVocalsRef.current.has(safeId)) {
             const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
             const voiceInst = instrumentsConfig[track.instrumentIdx];
             const isCoroTrack = voiceInst?.id === 'coro';
@@ -1761,7 +1753,7 @@ export function useAudioSync({
             const nextClip = nextPattern.vocalClip;
             const hasAnacrusis = Boolean(nextClip && (nextClip.anacrusisBeats || 0) > 0);
 
-            if (!isPreRollActiveRef.current && nextHasVocal && hasAnacrusis && !activeSequencerVocalsRef.current.has(nextSafeId)) {
+            if (nextHasVocal && hasAnacrusis && !activeSequencerVocalsRef.current.has(nextSafeId)) {
               const outputNode = trackInputs[track.id] || channels[track.id] || Tone.Destination;
               const voiceInst = instrumentsConfig[track.instrumentIdx];
               const isCoroTrack = voiceInst?.id === 'coro';
@@ -1816,9 +1808,7 @@ export function useAudioSync({
                 const decayNum = Array.isArray(decayVal) ? (decayVal[0] ?? 10) : (typeof decayVal === 'number' ? decayVal : 10);
                 const numSteps = getVoiceNoteStepsFromDecay(decayNum);
                 const noteDuration = (numSteps * 6) * tick96nSec;
-                if (!isPreRollActiveRef.current) {
-                  playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[track.id]);
-                }
+                playNativeVoiceSynth(noteFreq, triggerTime, noteDuration, trackVolLinear, channels[track.id]);
               }
 
               // Maintien absolu du défilement des paroles et de l'illumination visuelle des pas à 60 FPS
@@ -1978,6 +1968,10 @@ export function useAudioSync({
       setSoloPatternPlayId(null);
     }
     if (!isPlayingRef.current) {
+      if (autoStopTimeoutRef.current) {
+        clearTimeout(autoStopTimeoutRef.current);
+        autoStopTimeoutRef.current = null;
+      }
       isPlaybackEndingRef.current = false;
       lastPlayedSignalIdRef.current = null;
       audioEngine?.stopAllBarulho();
@@ -2005,6 +1999,8 @@ export function useAudioSync({
       const targetM = measureCountRef.current % (totalMeasuresRef.current || 1);
       targetPreRollMeasureRef.current = targetM;
 
+      let scheduledMusicStartTime: number | undefined = undefined;
+
       if (preRoll && preRoll.enabled) {
         const targetSig = measureTimeSigsRef.current[targetM] || '4/4';
         const targetBpm = isNaN(measureBpmsRef.current[targetM]) || measureBpmsRef.current[targetM] <= 0
@@ -2023,13 +2019,66 @@ export function useAudioSync({
         const totalBeats = measuresCount * beatsCount;
         const rawCtx = (Tone.getContext().rawContext || Tone.context) as AudioContext;
         const t0 = (rawCtx ? rawCtx.currentTime : Tone.context.currentTime) + 0.05;
+        scheduledMusicStartTime = t0 + (totalBeats * beatDurationSec);
+
         for (let i = 0; i < totalBeats; i++) {
           const beepTime = t0 + i * beatDurationSec;
           const isDownbeat = (i % beatsCount) === 0;
           const isFinalBeat = (i === totalBeats - 1);
           const freq = isFinalBeat ? 1400 : isDownbeat ? 1200 : 800;
           playCountInBeep(beepTime, freq, isDownbeat || isFinalBeat);
+
+          // Pousser le tick visuel haute précision pour chaque bip de précompte
+          pushVisualTick({
+            drawTime: beepTime,
+            step: 0,
+            measure: targetM,
+            maxTicks: getMaxTicks(targetSig),
+            ratio: 0,
+            visualStep16: 0,
+            visualStep12: 0,
+            time: beepTime,
+            iteration: 1,
+            measureStartTime: t0 + Math.floor(i / beatsCount) * (beatsCount * beatDurationSec),
+            measureDuration: beatsCount * beatDurationSec,
+            targetStartTime: beepTime,
+            isPreRoll: true,
+            preRollBeat: i % beatsCount,
+            preRollMeasureIndex: Math.floor(i / beatsCount),
+            preRollTotalMeasures: measuresCount,
+          });
         }
+
+        // Calage synchrone immédiat du moteur audio sur la mesure cible M et pas 0
+        if (audioEngine) {
+          audioEngine.currentMeasure = targetM;
+          audioEngine.currentStep = 0;
+          audioEngine.schedulingMeasure = targetM;
+          audioEngine.schedulingStep = 0;
+        }
+        currentStepIndexRef.current = -1;
+        measureCountRef.current = targetM;
+
+        // Émettre immédiatement le signal d'ancrage visuel sur la mesure cible M (baguette à 12h, ratio 0)
+        const detail = tickEventDetailRef.current;
+        detail.step = 0;
+        detail.measure = targetM;
+        detail.maxTicks = getMaxTicks(targetSig);
+        detail.ratio = 0;
+        detail.visualStep16 = 0;
+        detail.visualStep12 = 0;
+        detail.time = t0;
+        detail.iteration = 1;
+        detail.isPreRoll = true;
+        detail.preRollBeat = 0;
+        detail.preRollMeasureIndex = 0;
+        detail.preRollTotalMeasures = measuresCount;
+        (detail as any).isPaused = false;
+        (detail as any).isNavigation = false;
+
+        tickSubscribers.forEach((cb) => {
+          try { cb(detail); } catch (err) { console.error(err); }
+        });
       } else {
         isPreRollActiveRef.current = false;
         preRollRemainingMeasuresRef.current = 0;
@@ -2043,7 +2092,8 @@ export function useAudioSync({
             window.dispatchEvent(new CustomEvent('show-visitor-auth-mandatory'));
           }, '4:0:0');
         }
-        Tone.Transport.start();
+        Tone.Transport.position = `${targetM}:0:0`;
+        Tone.Transport.start(scheduledMusicStartTime);
         
         // 🚀 RESUME ANCHOR FIX : Compensation synchrone de l'offset temporel à la reprise
         if (anchoredMeasureStartSecRef.current === -1) {
@@ -2068,8 +2118,9 @@ export function useAudioSync({
       }
       if (import.meta.env.DEV) {
       }
-      audioEngine?.start();
+      audioEngine?.start(scheduledMusicStartTime);
       setIsPlaying(true);
+      isPlayingRef.current = true;
 
       // Background Playback: Start silent HTML5 anchor for mobile background audio
       startBackgroundAnchor(
@@ -2150,6 +2201,12 @@ export function useAudioSync({
   handleTogglePlayRef.current = handleTogglePlay;
 
   const handleStop = useCallback(() => {
+    // Annuler tout timer d'auto-stop en attente
+    if (autoStopTimeoutRef.current) {
+      clearTimeout(autoStopTimeoutRef.current);
+      autoStopTimeoutRef.current = null;
+    }
+
     // Speed Trainer Rollback & Cleanup
     speedTrainerTimeoutsRef.current.forEach(t => clearTimeout(t));
     speedTrainerTimeoutsRef.current = [];
@@ -2168,12 +2225,25 @@ export function useAudioSync({
       setSoloPatternPlayId(null);
     }
     audioEngine?.stop();
+    if (audioEngine) {
+      audioEngine.currentMeasure = 0;
+      audioEngine.currentStep = 0;
+      audioEngine.schedulingMeasure = 0;
+      audioEngine.schedulingStep = 0;
+      audioEngine.purgeScheduledHits();
+    }
     Tone.Draw.cancel();
     flushVisualBuffers();
     purgeVisualTickBuffer();
+    resetVisualTickBuffer();
     hitTriggersRef.current.clear();
     lastPlayedPatternRef.current = {};
-    Tone.Transport.stop();
+
+    try {
+      Tone.Transport.stop();
+      Tone.Transport.position = 0;
+      Tone.Transport.seconds = 0;
+    } catch (_) {}
 
     vocalEngineService.stopRecording();
     audioEngine?.stopAllBarulho();
@@ -2186,6 +2256,7 @@ export function useAudioSync({
     activeSequencerVocalsRef.current.clear();
     lastElapsedSecRef.current = 0;
     setIsPlaying(false);
+    isPlayingRef.current = false;
     stopBackgroundAnchor();
     releaseWakeLock();
     anchoredMeasureStartSecRef.current = 0;
@@ -2195,12 +2266,8 @@ export function useAudioSync({
     isPlaybackEndingRef.current = false;
     measureCountRef.current = 0;
     setCurrentMeasure(0);
-    Tone.Transport.seconds = 0;
-    if (audioEngine) {
-      audioEngine.currentMeasure = 0;
-      audioEngine.currentStep = 0;
-    }
     lastPlayedSignalIdRef.current = null;
+
     const detail = tickEventDetailRef.current;
     detail.step = -1;
     detail.measure = 0;
@@ -2208,11 +2275,12 @@ export function useAudioSync({
     detail.ratio = 0;
     detail.visualStep16 = 0;
     detail.visualStep12 = 0;
-    detail.time = 0;
+    detail.time = Tone.context.currentTime;
     detail.iteration = 1;
     detail.measureStartTime = 0;
     detail.measureDuration = 0;
     (detail as any).isPaused = false;
+    (detail as any).isNavigation = false;
 
     tickSubscribers.forEach((cb) => {
       try { cb(detail); } catch (err) { console.error(err); }

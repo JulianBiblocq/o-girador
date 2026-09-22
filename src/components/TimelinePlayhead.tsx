@@ -101,7 +101,21 @@ const TimelinePlayheadComponent: React.FC<{ isActive?: boolean }> = ({ isActive 
         return;
       }
 
-      // 2. GESTION DU PAUSE (isPaused === true)
+      // 2. GESTION DU PRÉCOMPTE (isPreRoll === true)
+      if (detail.isPreRoll) {
+        const exactX = measure * measureWRef.current;
+        el.style.transition = 'none';
+        el.style.transform = `translate3d(${HEADER_W + exactX}px, 0, 0)`;
+        if (measureHighlightRef.current) {
+          measureHighlightRef.current.style.display = 'block';
+          measureHighlightRef.current.style.transform = `translate3d(${HEADER_W + exactX}px, 0, 0)`;
+          measureHighlightRef.current.style.width = `${measureWRef.current}px`;
+        }
+        lastExactXRef.current = exactX;
+        return;
+      }
+
+      // 3. GESTION DU PAUSE (isPaused === true)
       if (isPaused) {
         if (isNavigation) {
           // Si on est en pause MAIS qu'on navigue manuellement (clic sur la règle)

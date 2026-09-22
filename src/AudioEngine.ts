@@ -413,13 +413,20 @@ export class AudioEngine {
   }
 
   /**
-   * Stop the scheduling loop
+   * Stop the scheduling loop and unconditionally reset all playback and scheduling indexes
    */
   public stop(): void {
-    if (!this.isPlaying) return;
-
     this.isPlaying = false;
     this.isScheduling = false;
+    this.currentStep = 0;
+    this.currentMeasure = 0;
+    this.schedulingStep = 0;
+    this.schedulingMeasure = 0;
+    this.anchorStep = 0;
+    this.anchorNoteTime = 0;
+    this.nextTickTime = 0;
+    this.lastSchedulingMeasure = -1;
+    this.mustReanchor = false;
     this.timeSlotHitCounts.clear();
     this.sequenceStartTime = 0;
 
