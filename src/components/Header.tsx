@@ -30,6 +30,7 @@ import { useSequencerSettingsStore } from '../stores/useSequencerSettingsStore';
 import { MiniTelemetryBadge } from './TelemetryBadge';
 import { useWizardStore } from '../stores/useWizardStore';
 import { PresetAccordionSelector } from './PresetAccordionSelector';
+import { subscribeToGroupDefaultPreset, setDefaultGroupPreset } from '../cloudGroups';
 
 const UndoIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg
@@ -209,6 +210,41 @@ const HeaderComponent: React.FC<HeaderProps> = ({
   const publicCloudPresets = (cloudPresets || []).filter(isPublicPreset);
   const privateCloudPresets = (cloudPresets || []).filter((p) => !isPublicPreset(p));
   const showGroupCatalogue = Boolean(groupLabel && (privateCloudPresets.length > 0 || isSamambaia || userProfile?.groupId));
+  
+  // Morceau vedette du groupe (Épingle Cactus 🌵)
+  const [groupDefaultPresetId, setGroupDefaultPresetId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsub = subscribeToGroupDefaultPreset(userProfile?.groupId, (id) => {
+      setGroupDefaultPresetId(id);
+    });
+    return () => unsub();
+  }, [userProfile?.groupId]);
+
+  const canSetDefaultPreset = Boolean(
+    userProfile && (
+      userProfile.role === 'mestre' ||
+      userProfile.role === 'admin' ||
+      userProfile.dbRole === 'mestre' ||
+      userProfile.dbRole === 'admin' ||
+      isAdmin
+    )
+  );
+
+  const handleSetDefaultPreset = async (presetId: string | null) => {
+    if (!userProfile?.groupId) return;
+    try {
+      await setDefaultGroupPreset(
+        userProfile.groupId,
+        presetId,
+        userProfile.role || userProfile.dbRole || (isAdmin ? 'admin' : undefined)
+      );
+    } catch (err: any) {
+      console.error('Failed to set default group preset:', err);
+      alert(err.message || 'Erreur lors de la mise à jour du morceau de travail');
+    }
+  };
+
   const onMasterVolChange = setMasterVol;
   const onTotalMeasuresChange = setTotalMeasures;
 
@@ -345,6 +381,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   isCloudPresetsLoading={isCloudPresetsLoading}
                   showGroupCatalogue={showGroupCatalogue}
                   groupLabel={groupLabel}
+                  defaultPresetId={groupDefaultPresetId}
+                  canSetDefaultPreset={canSetDefaultPreset}
+                  onSetDefaultPreset={handleSetDefaultPreset}
                   onSelectPreset={(val) => {
                     onPresetChange(val);
                     setMobileMenuOpen(false);
@@ -702,6 +741,9 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   isCloudPresetsLoading={isCloudPresetsLoading}
                   showGroupCatalogue={showGroupCatalogue}
                   groupLabel={groupLabel}
+                  defaultPresetId={groupDefaultPresetId}
+                  canSetDefaultPreset={canSetDefaultPreset}
+                  onSetDefaultPreset={handleSetDefaultPreset}
                   onSelectPreset={(val) => {
                     onPresetChange(val);
                     setProjectDropOpen(false);

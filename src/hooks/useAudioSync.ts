@@ -423,7 +423,7 @@ export function useAudioSync({
     measureDuration: 2.0,
   });
   const isAudioInitializedRef = useRef(false);
-  const onTickRef = useRef<(time: number) => void>(() => {});
+  const onTickRef = useRef<(time: number) => boolean | void>(() => {});
   const getTickDurationRef = useRef<() => number>(() => 0.25);
   const getTicksPerMeasureRef = useRef<(idx: number) => number>(() => 96);
 
@@ -1748,6 +1748,13 @@ export function useAudioSync({
             }
           }
         }
+
+        // Wrap-around Guard : signaler si ce pas est le dernier de la boucle active
+        const effectiveLoopEnd = (isLoopRegionActiveRef.current && loopEndRef.current !== null) ? loopEndRef.current : ((totalMeasuresRef.current || 1) - 1);
+        const isLastStepOfLoop = (stepIdx === currentTicks - 1) &&
+          ((soloPatternPlayIdRef.current !== null) || (currentMeasureIdx === effectiveLoopEnd && isLoopingRef.current));
+
+        return isLastStepOfLoop;
       };
 
       const rawCtx = Tone.getContext().rawContext as AudioContext;

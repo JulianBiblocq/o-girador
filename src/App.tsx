@@ -35,6 +35,7 @@ import { exportTablatureFile, printTablature, printLegendOnly } from './utils/ex
 import { fetchMestreSignals } from './cloudSignals';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCloudPresets } from './hooks/queries/useCloudPresets';
+import { getDefaultGroupPresetId } from './cloudGroups';
 
 // Import our new extracted custom hooks
 import { useAppUpdate, CURRENT_VERSION } from './hooks/useAppUpdate';
@@ -102,6 +103,7 @@ export default function App() {
   const userProfileRef = React.useRef(userProfile);
   const updateUserPreferenceRef = React.useRef(updateUserPreference);
   const contextHasAccessRef = React.useRef(hasAccess);
+  const hasAutoLoadedDefaultRef = React.useRef(false);
 
 
   const alertAsyncRef = React.useRef(alertAsync);
@@ -243,6 +245,42 @@ export default function App() {
       createdAt: p.createdAt ?? null,
     }));
   }, [cloudPresetsData]);
+
+  // 🌵 Morceau vedette du groupe : chargement automatique à l'ouverture si aucun preset spécifié dans l'URL
+  useEffect(() => {
+    if (hasAutoLoadedDefaultRef.current) return;
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('loadPreset') || urlParams.has('loadPattern') || urlParams.has('baque') || (window.location.hash && window.location.hash.length > 1)) {
+      return;
+    }
+
+    const groupId = userProfile?.groupId;
+    if (!groupId || !cloudPresets || cloudPresets.length === 0) return;
+
+    let isMounted = true;
+    getDefaultGroupPresetId(groupId).then((defaultPresetId) => {
+      if (!isMounted || !defaultPresetId || hasAutoLoadedDefaultRef.current) return;
+
+      const found = cloudPresets.find(p => p.id === defaultPresetId);
+      if (found && isMounted && !hasAutoLoadedDefaultRef.current) {
+        // Verrouillage immédiat pour éviter tout double appel lors des re-renders initiaux
+        hasAutoLoadedDefaultRef.current = true;
+        if (found.data) {
+          audio.applyPreset(found.data).then(() => {
+            audio.setActivePresetName(`cloud:${found.id}`);
+          }).catch((e) => console.warn('applyPreset error on default group preset:', e));
+        } else {
+          audio.loadFallbackPreset(`cloud:${found.id}`).catch((e) => console.warn('loadFallbackPreset error on default group preset:', e));
+        }
+      }
+    }).catch((err) => {
+      console.warn('[AutoLoadDefaultPreset] Erreur lors du chargement auto du morceau vedette:', err);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userProfile?.groupId, cloudPresets, audio]);
 
 
   // All title sync, security gate redirections, and dark mode toggles are now handled by hooks

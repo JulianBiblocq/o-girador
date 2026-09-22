@@ -30,8 +30,8 @@ export interface VisualHitTriggerEvent {
   strokeCode: number;
 }
 
-const TICK_QUEUE_SIZE = 128;
-const HIT_QUEUE_SIZE = 256;
+const TICK_QUEUE_SIZE = 512;
+const HIT_QUEUE_SIZE = 512;
 
 // Pre-allocate zero-GC queues
 const tickQueue: VisualTickEvent[] = Array.from({ length: TICK_QUEUE_SIZE }, () => ({
@@ -76,6 +76,15 @@ export function getLastAudibleTick(): VisualTickEvent | null {
 }
 
 export function pushVisualTick(event: VisualTickEvent): void {
+  const nextWriteIdx = (tickWriteIdx + 1) % TICK_QUEUE_SIZE;
+
+  // Protection anti-débordement par glissement (Buffer Overrun Guard) :
+  // Si tickWriteIdx rattrape tickReadIdx, avancer la lecture pour sacrifier le tick
+  // le plus ancien et préserver les timestamps récents sans corrompre le ring buffer.
+  if (nextWriteIdx === tickReadIdx) {
+    tickReadIdx = (tickReadIdx + 1) % TICK_QUEUE_SIZE;
+  }
+
   const slot = tickQueue[tickWriteIdx];
   slot.drawTime = event.drawTime;
   slot.step = event.step;
@@ -90,7 +99,7 @@ export function pushVisualTick(event: VisualTickEvent): void {
   slot.measureDuration = event.measureDuration;
   slot.targetStartTime = event.targetStartTime;
 
-  tickWriteIdx = (tickWriteIdx + 1) % TICK_QUEUE_SIZE;
+  tickWriteIdx = nextWriteIdx;
 }
 
 export function purgeVisualTickBuffer(): void {
@@ -99,13 +108,18 @@ export function purgeVisualTickBuffer(): void {
 }
 
 export function pushVisualHitTrigger(trackId: number, stepIdx: number, strokeCode: number, triggerTime: number): void {
+  const nextWriteIdx = (hitWriteIdx + 1) % HIT_QUEUE_SIZE;
+  if (nextWriteIdx === hitReadIdx) {
+    hitReadIdx = (hitReadIdx + 1) % HIT_QUEUE_SIZE;
+  }
+
   const slot = hitQueue[hitWriteIdx];
   slot.triggerTime = triggerTime;
   slot.trackId = trackId;
   slot.stepIdx = stepIdx;
   slot.strokeCode = strokeCode;
 
-  hitWriteIdx = (hitWriteIdx + 1) % HIT_QUEUE_SIZE;
+  hitWriteIdx = nextWriteIdx;
 }
 
 function processVisualLoop(): void {

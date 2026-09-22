@@ -43,7 +43,7 @@ export class AudioEngine {
   
   // Timing variables (adaptive to device capabilities)
   public LOOKAHEAD_INTERVAL: number = 25.0; // ms
-  public SCHEDULE_AHEAD_TIME: number = 0.500; // seconds
+  public SCHEDULE_AHEAD_TIME: number = 0.180; // seconds
   private nextTickTime: number = 0.0;
   
   // Math Anchors for Drift Elimination
@@ -70,7 +70,7 @@ export class AudioEngine {
   private stateChangeListener: (() => void) | null = null;
 
   // Callbacks
-  private onTick: (time: number) => void;
+  private onTick: (time: number) => boolean | void;
   private getTickDuration: () => number;
   private getTicksPerMeasure: (measureIdx: number) => number;
 
@@ -206,7 +206,7 @@ export class AudioEngine {
    */
   constructor(
     audioContext: AudioContext,
-    onTick: (time: number) => void,
+    onTick: (time: number) => boolean | void,
     getTickDuration: () => number,
     getTicksPerMeasure?: (measureIdx: number) => number
   ) {
@@ -308,9 +308,10 @@ export class AudioEngine {
 
     const hwLatency = (this.audioContext.baseLatency || 0.05) + ((this.audioContext as any).outputLatency || 0.05);
 
-    // Augmenter drastiquement l'anticipation pour les processeurs lents
-    const baseAheadTime = isMobile ? 1.0 : 0.5; // 1 seconde d'avance sur mobile !
-    this.SCHEDULE_AHEAD_TIME = Math.max(baseAheadTime, hwLatency + 0.150);
+    // 180ms d'anticipation sur mobile : largement suffisant pour absorber la latence matérielle
+    // et le Bluetooth sans déborder sur la mesure suivante
+    const baseAheadTime = isMobile ? 0.180 : 0.200;
+    this.SCHEDULE_AHEAD_TIME = Math.min(0.250, Math.max(baseAheadTime, hwLatency + 0.050));
 
     // Augmenter légèrement l'intervalle de réveil pour économiser la batterie
     this.LOOKAHEAD_INTERVAL = isDesktopActive ? 25.0 : 50.0;
@@ -454,7 +455,7 @@ export class AudioEngine {
     // Schedule events in advance
     while (this.nextTickTime < currentTime + this.SCHEDULE_AHEAD_TIME) {
       // 1. Exécution du callback de planification (qui met à jour schedulingStep/Measure de façon synchrone)
-      this.onTick(this.nextTickTime);
+      const didWrapLoop = this.onTick(this.nextTickTime);
 
       const tickDuration = this.getTickDuration();
 
@@ -468,6 +469,12 @@ export class AudioEngine {
 
       // 3. Calcul absolu du pas suivant sans accumulation (parfaitement aligné)
       this.nextTickTime = this.anchorNoteTime + ((this.schedulingStep + 1 - this.anchorStep) * tickDuration);
+
+      // 4. Verrouillage à la frontière de boucle (Wrap-around Guard) :
+      // Arrêt immédiat si on a planifié le dernier pas de la boucle active
+      if (didWrapLoop) {
+        break;
+      }
     }
   }
 

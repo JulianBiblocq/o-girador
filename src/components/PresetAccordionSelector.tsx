@@ -10,6 +10,9 @@ export interface PresetAccordionSelectorProps {
   isCloudPresetsLoading: boolean;
   showGroupCatalogue: boolean;
   groupLabel: string | null;
+  defaultPresetId?: string | null;
+  canSetDefaultPreset?: boolean;
+  onSetDefaultPreset?: (presetId: string | null) => Promise<void> | void;
   onSelectPreset: (presetValue: string, cloudId?: string) => void;
   className?: string;
 }
@@ -24,6 +27,9 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
   isCloudPresetsLoading = false,
   showGroupCatalogue = false,
   groupLabel,
+  defaultPresetId = null,
+  canSetDefaultPreset = false,
+  onSetDefaultPreset,
   onSelectPreset,
   className = '',
 }) => {
@@ -55,7 +61,12 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
   const isItemActive = (val: string, name: string) =>
     activePreset === val || (currentSongTitle && currentSongTitle.trim().toLowerCase() === name.trim().toLowerCase());
 
-  const renderPresetList = (items: Array<{ id: string; name: string }>, icon: string, emptyMsg: string) => (
+  const renderPresetList = (
+    items: Array<{ id: string; name: string }>,
+    icon: string,
+    emptyMsg: string,
+    isGroupList: boolean = false
+  ) => (
     <div className="flex flex-col gap-1 p-1.5 pt-0 max-h-56 overflow-y-auto border-t border-[var(--cordel-border)]/20">
       {isCloudPresetsLoading && items.length === 0 ? (
         <div className="px-2 py-2 text-xs italic text-[var(--cordel-subtext)] text-center">
@@ -64,22 +75,56 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
       ) : items.length > 0 ? (
         items.map((p) => {
           const active = isItemActive(`cloud:${p.id}`, p.name);
+          const isDefault = isGroupList && defaultPresetId === p.id;
           return (
-            <button
-              key={`cloud:${p.id}`}
-              type="button"
-              title={p.name}
-              onClick={() => handleItemClick(`cloud:${p.id}`, p.id)}
-              className={`w-full text-left px-2.5 py-1.5 text-xs font-cactus font-bold flex items-center justify-between gap-1 transition-colors cursor-pointer cordel-border-sm min-w-0 ${
-                active ? 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-wood)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
-              }`}
-            >
-              <span className="flex items-center gap-1.5 min-w-0 flex-1">
-                <span className="text-xs shrink-0">{icon}</span>
-                <span className="truncate">{p.name}</span>
-              </span>
-              {active && <span className="text-[10px] shrink-0 font-sans ml-1">✓</span>}
-            </button>
+            <div key={`cloud:${p.id}`} className="flex items-center gap-1 w-full min-w-0">
+              <button
+                type="button"
+                title={p.name}
+                onClick={() => handleItemClick(`cloud:${p.id}`, p.id)}
+                className={`flex-1 text-left px-2.5 py-1.5 text-xs font-cactus font-bold flex items-center justify-between gap-1 transition-colors cursor-pointer cordel-border-sm min-w-0 ${
+                  active ? 'bg-[var(--cordel-wood)] text-[#f4ecd8] border-[var(--cordel-wood)]' : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+                }`}
+              >
+                <span className="flex items-center gap-1.5 min-w-0 flex-1">
+                  <span className="text-xs shrink-0">{icon}</span>
+                  <span className="truncate">{p.name}</span>
+                </span>
+                {active && <span className="text-[10px] shrink-0 font-sans ml-1">✓</span>}
+              </button>
+
+              {/* Épingle Cactus du morceau vedette (spécifique au groupe) */}
+              {isGroupList && (
+                canSetDefaultPreset ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSetDefaultPreset?.(isDefault ? null : p.id);
+                    }}
+                    title={
+                      lang === 'pt'
+                        ? (isDefault ? 'Ritmo de referência ativo (clique para desafixar)' : 'Fixar como ritmo de referência do grupo')
+                        : (isDefault ? 'Morceau de travail actif (cliquer pour désépingler)' : 'Épingler comme morceau de travail du groupe')
+                    }
+                    className={`shrink-0 p-1 rounded transition-all cursor-pointer select-none text-sm ${
+                      isDefault
+                        ? 'opacity-100 scale-110 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)]'
+                        : 'opacity-30 hover:opacity-100 hover:scale-110'
+                    }`}
+                  >
+                    🌵
+                  </button>
+                ) : isDefault ? (
+                  <span
+                    title={lang === 'pt' ? 'Ritmo de referência do grupo' : 'Morceau de travail du groupe'}
+                    className="shrink-0 text-sm select-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] px-1"
+                  >
+                    🌵
+                  </span>
+                ) : null
+              )}
+            </div>
           );
         })
       ) : (
@@ -114,7 +159,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
               </span>
               <span className="text-[9px] opacity-70 ml-1">{isGroupOpen ? '▼' : '▶'}</span>
             </button>
-            {isGroupOpen && renderPresetList(privateCloudPresets, '🥁', lang === 'pt' ? '(Nenhum ritmo no grupo)' : '(Aucun morceau dans le groupe)')}
+            {isGroupOpen && renderPresetList(privateCloudPresets, '🥁', lang === 'pt' ? '(Nenhum ritmo no grupo)' : '(Aucun morceau dans le groupe)', true)}
           </div>
         )}
 
