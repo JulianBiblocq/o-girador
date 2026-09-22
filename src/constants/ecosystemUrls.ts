@@ -4,8 +4,8 @@
  */
 
 export const ECOSYSTEM_DOMAINS = Object.freeze({
-  hub: 'https://o-girador.com',
-  orquestrador: 'https://o-girador.com',
+  hub: 'https://www.o-girador.com',
+  orquestrador: 'https://www.o-girador.com',
   sequenciador: 'https://sequenciador.o-girador.com',
   organizador: 'https://organizador.o-girador.com',
   dancador: 'https://dancador.o-girador.com',
