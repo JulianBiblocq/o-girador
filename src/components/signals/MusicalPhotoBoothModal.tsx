@@ -13,6 +13,8 @@ export interface MusicalPhotoBoothModalProps {
     name: string;
     image: string; // T1 / vignette preview
     frames: string[];
+    rawFrames?: string[];
+    cordelOptions?: CordelOptions;
     beatsCount: number;
     mirrorHorizontal?: boolean;
   }) => void;
@@ -224,12 +226,12 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     const sy = (h - size) / 2;
 
     const canvas = document.createElement('canvas');
-    canvas.width = 200;
-    canvas.height = 200;
+    canvas.width = 240;
+    canvas.height = 240;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.drawImage(video, sx, sy, size, size, 0, 0, 200, 200);
-      const b64 = canvas.toDataURL('image/jpeg', 0.8);
+      ctx.drawImage(video, sx, sy, size, size, 0, 0, 240, 240);
+      const b64 = canvas.toDataURL('image/jpeg', 0.6);
       rawBase64ImagesRef.current.push(b64);
     }
   };
@@ -382,6 +384,8 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
       name: finalName,
       image: processedFrames[0],
       frames: processedFrames,
+      rawFrames: rawBase64ImagesRef.current,
+      cordelOptions,
       beatsCount,
       mirrorHorizontal: cordelOptions.isMirror,
     });
@@ -613,6 +617,19 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
         {/* PHASE DE REVUE, CADRAGE & RETOUCHE */}
         {phase === 'review' && (
           <div className="flex flex-col gap-3">
+            {/* Saisie du nom en revue */}
+            <div className="flex flex-col gap-1 bg-black/5 p-2 border-2 border-[var(--cordel-border)]">
+              <label className="text-[10px] font-cactus font-bold uppercase opacity-80">
+                🏷️ {lang === 'fr' ? 'Nom du signal :' : 'Nome do sinal :'}
+              </label>
+              <input
+                type="text"
+                value={signalName}
+                onChange={(e) => setSignalName(e.target.value)}
+                placeholder={lang === 'fr' ? 'Ex: Chamada das Alfaias' : 'Ex: Chamada das Alfaias'}
+                className="bg-white/80 border border-[var(--cordel-border)] p-1 text-xs font-bold text-[var(--cordel-text)] outline-none focus:bg-white"
+              />
+            </div>
             
             {/* Zone lecteur vivant + Planche-contact */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">

@@ -5,6 +5,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { CloudRhythmSignal, RhythmSignal } from '../../types';
+import {
+  CordelOptions,
+  defaultCordelOptions,
+  processCordelEffectBase64,
+} from '../../utils/cordelEffect';
 
 export interface EditSignalModalProps {
   isOpen: boolean;
@@ -15,6 +20,8 @@ export interface EditSignalModalProps {
     name: string;
     image?: string;
     frames?: string[];
+    rawFrames?: string[];
+    cordelOptions?: CordelOptions;
     beatsCount?: number;
     mirrorHorizontal?: boolean;
   }) => Promise<void> | void;
@@ -35,37 +42,81 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
   const [name, setName] = useState('');
   const [activeFrameIdx, setActiveFrameIdx] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isReprocessing, setIsReprocessing] = useState(false);
   const [imgError, setImgError] = useState(false);
-  const previewTimerRef = useRef<any>(null);
+
+  // Options Cordel actives pour l'édition
+  const [options, setOptions] = useState<CordelOptions>(defaultCordelOptions);
+  const [reprocessedFrames, setReprocessedFrames] = useState<string[]>([]);
+  const [activePreviewFrame, setActivePreviewFrame] = useState<string | null>(null);
+
+  const debounceTimerRef = useRef<any>(null);
+  const loopPreviewTimerRef = useRef<any>(null);
 
   useEffect(() => {
     if (signal && isOpen) {
       setName(signal.name || '');
       setActiveFrameIdx(0);
       setImgError(false);
+
+      const initialOptions: CordelOptions = signal.cordelOptions
+        ? { ...signal.cordelOptions }
+        : {
+            ...defaultCordelOptions,
+            isMirror: signal.mirrorHorizontal ?? defaultCordelOptions.isMirror,
+          };
+      setOptions(initialOptions);
+
+      const initialFrames = signal.frames ? [...signal.frames] : [];
+      setReprocessedFrames(initialFrames);
+      setActivePreviewFrame(initialFrames[0] || signal.image || null);
     }
   }, [signal, isOpen]);
 
-  // Boucle d'animation au tempo si plusieurs trames existent
-  const frames = signal?.frames && signal.frames.length > 0 ? signal.frames : null;
+  const rawFrames = signal?.rawFrames;
+  const hasRawFrames = !!(rawFrames && rawFrames.length > 0);
+  const isSinglePhoto = (signal?.beatsCount === 1) || (!rawFrames || rawFrames.length <= 1);
 
+  // 1. Optimisation 60 FPS : recalcul en temps réel uniquement sur la trame activement visualisée
   useEffect(() => {
-    if (isOpen && frames && frames.length > 1) {
-      const intervalMs = (60 / bpm) * 1000;
-      previewTimerRef.current = setInterval(() => {
-        setActiveFrameIdx((prev) => (prev + 1) % frames.length);
-      }, intervalMs);
-      return () => {
-        if (previewTimerRef.current) clearInterval(previewTimerRef.current);
-      };
+    if (!isOpen || !hasRawFrames || !rawFrames || !rawFrames[activeFrameIdx]) return;
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
-  }, [isOpen, frames, bpm]);
+
+    debounceTimerRef.current = setTimeout(async () => {
+      setIsReprocessing(true);
+      try {
+        const rendered = await processCordelEffectBase64(rawFrames[activeFrameIdx], options, 180);
+        setActivePreviewFrame(rendered);
+        setReprocessedFrames((prev) => {
+          const next = [...prev];
+          next[activeFrameIdx] = rendered;
+          return next;
+        });
+      } catch (err) {
+        console.error('[EditSignalModal] Erreur recalcul trame', err);
+      } finally {
+        setIsReprocessing(false);
+      }
+    }, 50);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [options, activeFrameIdx, hasRawFrames, isOpen]);
 
   if (!isOpen || !signal) return null;
 
-  const resolvedImage = frames
-    ? frames[activeFrameIdx]
-    : (signal.image || (signal as any).imageUrl || '');
+  const resolvedImage = activePreviewFrame
+    || (reprocessedFrames.length > 0 ? reprocessedFrames[activeFrameIdx] : null)
+    || (signal.frames && signal.frames[activeFrameIdx])
+    || signal.image
+    || (signal as any).imageUrl
+    || '';
 
   const hasValidBase64 = resolvedImage && resolvedImage.startsWith('data:');
   const showSealFallback = imgError || (!hasValidBase64 && !resolvedImage);
@@ -80,18 +131,40 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
         .join('')
     : 'SG';
 
+  const handleOptionChange = <K extends keyof CordelOptions>(key: K, value: CordelOptions[K]) => {
+    setOptions((prev) => ({ ...prev, [key]: value }));
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
     setIsSaving(true);
     try {
+      let finalFrames = reprocessedFrames;
+
+      // Si le signal possède des rawFrames, calculer l'ensemble des trames avant d'enregistrer
+      if (hasRawFrames && rawFrames) {
+        const fullList: string[] = [];
+        for (let i = 0; i < rawFrames.length; i++) {
+          if (i === activeFrameIdx && activePreviewFrame) {
+            fullList.push(activePreviewFrame);
+          } else {
+            const r = await processCordelEffectBase64(rawFrames[i], options, 180);
+            fullList.push(r);
+          }
+        }
+        finalFrames = fullList;
+      }
+
       await onSave({
         id: signal.id,
         name: name.trim(),
-        image: signal.image,
-        frames: signal.frames,
+        image: finalFrames[0] || signal.image,
+        frames: finalFrames.length > 0 ? finalFrames : signal.frames,
+        rawFrames: signal.rawFrames,
+        cordelOptions: options,
         beatsCount: signal.beatsCount,
-        mirrorHorizontal: signal.mirrorHorizontal,
+        mirrorHorizontal: options.isMirror,
       });
       onClose();
     } finally {
@@ -108,7 +181,7 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/75 z-[310] flex items-center justify-center p-3 select-none font-sans overflow-y-auto">
-      <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] cordel-shadow max-w-md w-full p-5 flex flex-col gap-4 relative animate-fade-in my-auto">
+      <div className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] border-4 border-[var(--cordel-border)] cordel-shadow max-w-xl w-full p-4 md:p-6 flex flex-col gap-4 relative animate-fade-in my-auto max-h-[92vh] overflow-y-auto">
         
         {/* Bouton de fermeture */}
         <button
@@ -121,18 +194,22 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
 
         {/* Titre */}
         <div className="border-b-2 border-[var(--cordel-border)] pb-2 pr-8">
-          <h2 className="font-cactus text-xl font-bold uppercase tracking-wider text-[var(--cordel-wood)] flex items-center gap-2">
+          <h2 className="font-cactus text-xl md:text-2xl font-bold uppercase tracking-wider text-[var(--cordel-wood)] flex items-center gap-2">
             ✏️ {lang === 'fr' ? 'Édition du Signe du Mestre' : 'Editar Sinal do Mestre'}
           </h2>
           <p className="text-[10px] opacity-70 font-bold font-cactus uppercase mt-0.5">
-            {lang === 'fr'
-              ? 'Modifiez le nom ou reprenez la prise de vue synchronisée'
-              : 'Altere o nome ou capture novamente a postura'}
+            {hasRawFrames
+              ? (lang === 'fr'
+                  ? 'Ajustez le nom et l’ensemble des réglages de gravure Cordel'
+                  : 'Ajuste o nome e todas as configurações de gravura Cordel')
+              : (lang === 'fr'
+                  ? 'Modifiez le nom ou reprenez la prise de vue synchronisée'
+                  : 'Altere o nome ou capture novamente a postura')}
           </p>
         </div>
 
         {/* Formulaire de modification */}
-        <form onSubmit={handleSave} className="flex flex-col gap-4">
+        <form onSubmit={handleSave} className="flex flex-col gap-3.5">
           
           {/* Champ Nom */}
           <div className="flex flex-col gap-1">
@@ -144,7 +221,7 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={lang === 'fr' ? 'Nom du geste...' : 'Nome do gesto...'}
-              className="bg-black/5 border-2 border-[var(--cordel-border)] p-2 text-sm font-bold text-[var(--cordel-text)] outline-none focus:bg-white"
+              className="bg-black/5 border-2 border-[var(--cordel-border)] p-2 text-xs md:text-sm font-bold text-[var(--cordel-text)] outline-none focus:bg-white"
               autoFocus
               required
             />
@@ -152,11 +229,18 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
 
           {/* Prévisualisation visuelle */}
           <div className="flex flex-col items-center gap-2 bg-black/5 p-3 border border-[var(--cordel-border)]/30">
-            <span className="text-[10px] font-cactus font-bold uppercase opacity-75 self-start">
-              🖼️ {lang === 'fr' ? 'Aperçu actuel :' : 'Visualização atual :'}
-            </span>
+            <div className="flex justify-between items-center w-full">
+              <span className="text-[10px] font-cactus font-bold uppercase opacity-75">
+                🖼️ {lang === 'fr' ? 'Aperçu actuel :' : 'Visualização atual :'}
+              </span>
+              <span className="text-[9px] font-cactus opacity-60">
+                {isSinglePhoto
+                  ? (lang === 'fr' ? '1 photo fixe' : '1 foto fixa')
+                  : `${rawFrames?.length || signal.frames?.length || 1} trames (BPM: ${bpm})`}
+              </span>
+            </div>
 
-            <div className="relative w-36 h-36 border-3 border-[var(--cordel-border)] bg-black/10 overflow-hidden cordel-shadow flex items-center justify-center">
+            <div className="relative w-32 h-32 md:w-36 md:h-36 border-3 border-[var(--cordel-border)] bg-black/10 overflow-hidden cordel-shadow flex items-center justify-center">
               {!showSealFallback ? (
                 <img
                   src={resolvedImage}
@@ -176,17 +260,23 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
               )}
 
               {/* Indicateur de trame active */}
-              {frames && frames.length > 1 && (
+              {!isSinglePhoto && (
                 <div className="absolute top-1 left-1 bg-black/80 text-white text-[9px] font-cactus font-bold px-1.5 py-0.5">
-                  T{activeFrameIdx + 1} / {frames.length}
+                  T{activeFrameIdx + 1} / {rawFrames?.length || signal.frames?.length || 1}
+                </div>
+              )}
+
+              {isReprocessing && (
+                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 </div>
               )}
             </div>
 
-            {/* Planche-contact si multi-trames */}
-            {frames && frames.length > 1 && (
+            {/* Sélecteur de trames si multi-trames */}
+            {!isSinglePhoto && (rawFrames || signal.frames) && (
               <div className="flex gap-1.5 mt-1">
-                {frames.map((frame, idx) => (
+                {(rawFrames || signal.frames || []).map((_, idx) => (
                   <button
                     key={idx}
                     type="button"
@@ -197,7 +287,11 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
                         : 'border-[var(--cordel-border)]/60 opacity-80 hover:opacity-100'
                     }`}
                   >
-                    <img src={frame} alt={`T${idx + 1}`} className="w-full h-full object-cover" />
+                    <img
+                      src={reprocessedFrames[idx] || (signal.frames && signal.frames[idx]) || ''}
+                      alt={`T${idx + 1}`}
+                      className="w-full h-full object-cover"
+                    />
                     <span className="absolute bottom-0 inset-x-0 bg-black/80 text-white text-[7px] text-center font-cactus font-bold">
                       T{idx + 1}
                     </span>
@@ -205,13 +299,238 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
                 ))}
               </div>
             )}
-
-            {/* Information sur le signal */}
-            <div className="text-[9px] font-cactus opacity-70 flex gap-3 mt-1">
-              <span>🥁 {frames ? `${frames.length} trames (BPM: ${bpm})` : 'Image fixe'}</span>
-              {(signal as any).mestreId === 'global' && <span>🌍 Global</span>}
-            </div>
           </div>
+
+          {/* INSPECTEUR DE RÉGLAGES CORDEL COMPLET (si rawFrames disponible) */}
+          {hasRawFrames ? (
+            <div className="border-2 border-[var(--cordel-border)] p-3 bg-black/5 flex flex-col gap-2.5">
+              <div className="flex justify-between items-center border-b border-[var(--cordel-border)]/20 pb-1">
+                <span className="font-cactus font-bold uppercase text-[11px] tracking-wider text-[var(--cordel-wood)] flex items-center gap-1">
+                  📐 {lang === 'fr' ? 'Réglages de gravure Cordel' : 'Configurações de gravura Cordel'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const def = {
+                      ...defaultCordelOptions,
+                      zoom: 120,
+                      detail: 60,
+                      shadow: 130,
+                      isMirror: true,
+                      isFrame: false,
+                      posX: 0,
+                      posY: 0,
+                      bgRemovalMode: 'none',
+                      bgTolerance: 40,
+                    };
+                    setOptions(def);
+                  }}
+                  className="text-[9px] font-cactus uppercase opacity-70 hover:opacity-100 underline cursor-pointer"
+                >
+                  {lang === 'fr' ? 'Réinitialiser' : 'Redefinir'}
+                </button>
+              </div>
+
+              {/* Curseurs de cadrage */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[10px] font-bold">
+                {/* Zoom */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between">
+                    <span>🔍 {lang === 'fr' ? 'Zoom' : 'Zoom'}</span>
+                    <span>{options.zoom}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="50"
+                    max="180"
+                    value={options.zoom}
+                    onChange={(e) => handleOptionChange('zoom', parseInt(e.target.value))}
+                    className="accent-[var(--cordel-wood)] cursor-pointer"
+                  />
+                </div>
+
+                {/* Décalage horizontal X */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between">
+                    <span>↔️ {lang === 'fr' ? 'Décalage X' : 'Deslocamento X'}</span>
+                    <span>{options.posX}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-100"
+                    max="100"
+                    value={options.posX}
+                    onChange={(e) => handleOptionChange('posX', parseInt(e.target.value))}
+                    className="accent-[var(--cordel-wood)] cursor-pointer"
+                  />
+                </div>
+
+                {/* Décalage vertical Y */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between">
+                    <span>↕️ {lang === 'fr' ? 'Décalage Y' : 'Deslocamento Y'}</span>
+                    <span>{options.posY}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-100"
+                    max="100"
+                    value={options.posY}
+                    onChange={(e) => handleOptionChange('posY', parseInt(e.target.value))}
+                    className="accent-[var(--cordel-wood)] cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Curseurs de nettoyage et d'encrage Cordel */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-[10px] font-bold pt-1 border-t border-[var(--cordel-border)]/20">
+                {/* 1. Luminosité / Exposition (-50 à +50) */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between">
+                    <span>☀️ {lang === 'fr' ? 'Luminosité / Fond' : 'Luminosidade / Fundo'}</span>
+                    <span>{(options.brightness ?? 0) > 0 ? `+${options.brightness}` : (options.brightness ?? 0)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-50"
+                    max="50"
+                    value={options.brightness ?? 0}
+                    onChange={(e) => handleOptionChange('brightness', parseInt(e.target.value))}
+                    className="accent-[var(--cordel-wood)] cursor-pointer"
+                  />
+                </div>
+
+                {/* 2. Seuil d'encrage (20 à 220, défaut 128) */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between">
+                    <span>🌑 {lang === 'fr' ? "Seuil d'encrage" : 'Limiar de Tinta'}</span>
+                    <span>{options.threshold ?? options.shadow ?? 128}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="20"
+                    max="220"
+                    value={options.threshold ?? options.shadow ?? 128}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      handleOptionChange('threshold', val);
+                      handleOptionChange('shadow', val);
+                    }}
+                    className="accent-[var(--cordel-wood)] cursor-pointer"
+                  />
+                </div>
+
+                {/* 3. Contraste Sobel / Détection des bords (0 à 100 %) */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between">
+                    <span>✍️ {lang === 'fr' ? 'Traits Sobel' : 'Traços Sobel'}</span>
+                    <span>{options.sobelContrast ?? 50}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={options.sobelContrast ?? 50}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      handleOptionChange('sobelContrast', val);
+                      handleOptionChange('detail', Math.round((val / 100) * 150));
+                    }}
+                    className="accent-[var(--cordel-wood)] cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* Détourage automatique du fond */}
+              <div className="flex flex-col gap-1.5 pt-1 border-t border-[var(--cordel-border)]/20">
+                <div className="flex justify-between items-center text-[10px] font-bold">
+                  <span className="font-cactus uppercase tracking-wide text-[var(--cordel-wood)]">
+                    🪄 {lang === 'fr' ? 'Détourage du fond' : 'Recorte de fundo'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleOptionChange('bgRemovalMode', 'none')}
+                    className={`py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer text-center ${
+                      (options.bgRemovalMode ?? 'none') === 'none'
+                        ? 'bg-[var(--cordel-wood)] text-white shadow-[1px_1px_0px_#000]'
+                        : 'bg-black/5 hover:bg-black/10'
+                    }`}
+                  >
+                    {lang === 'fr' ? 'Fond Standard' : 'Fundo Padrão'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOptionChange('bgRemovalMode', 'green')}
+                    className={`py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
+                      options.bgRemovalMode === 'green'
+                        ? 'bg-emerald-700 text-white shadow-[1px_1px_0px_#000]'
+                        : 'bg-black/5 hover:bg-black/10'
+                    }`}
+                  >
+                    <span>🟩</span> {lang === 'fr' ? 'Fond Vert' : 'Fundo Verde'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOptionChange('bgRemovalMode', 'white')}
+                    className={`py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
+                      options.bgRemovalMode === 'white'
+                        ? 'bg-stone-600 text-white shadow-[1px_1px_0px_#000]'
+                        : 'bg-black/5 hover:bg-black/10'
+                    }`}
+                  >
+                    <span>⬜</span> {lang === 'fr' ? 'Fond Blanc' : 'Fundo Branco'}
+                  </button>
+                </div>
+
+                {/* Curseur de tolérance conditionnel */}
+                {(options.bgRemovalMode === 'green' || options.bgRemovalMode === 'white') && (
+                  <div className="flex flex-col gap-1 mt-0.5 bg-black/5 p-2 border border-[var(--cordel-border)]/30">
+                    <div className="flex justify-between text-[10px] font-bold">
+                      <span>🎯 {lang === 'fr' ? 'Tolérance fond' : 'Tolerância fundo'}</span>
+                      <span>{options.bgTolerance ?? 40}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="90"
+                      value={options.bgTolerance ?? 40}
+                      onChange={(e) => handleOptionChange('bgTolerance', parseInt(e.target.value))}
+                      className="accent-[var(--cordel-wood)] cursor-pointer"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Toggles Miroir & Cadre */}
+              <div className="flex gap-2 pt-1 border-t border-[var(--cordel-border)]/20">
+                <button
+                  type="button"
+                  onClick={() => handleOptionChange('isMirror', !options.isMirror)}
+                  className={`flex-1 py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    options.isMirror
+                      ? 'bg-[var(--cordel-wood)] text-white shadow-[1px_1px_0px_#000]'
+                      : 'bg-black/5 hover:bg-black/10'
+                  }`}
+                >
+                  ⇄ {lang === 'fr' ? 'Miroir' : 'Espelho'} : {options.isMirror ? (lang === 'fr' ? 'OUI' : 'SIM') : (lang === 'fr' ? 'NON' : 'NÃO')}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleOptionChange('isFrame', !options.isFrame)}
+                  className={`flex-1 py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    options.isFrame
+                      ? 'bg-[var(--cordel-wood)] text-white shadow-[1px_1px_0px_#000]'
+                      : 'bg-black/5 hover:bg-black/10'
+                  }`}
+                >
+                  🖼️ {lang === 'fr' ? 'Cadre' : 'Moldura'} : {options.isFrame ? (lang === 'fr' ? 'OUI' : 'SIM') : (lang === 'fr' ? 'NON' : 'NÃO')}
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           {/* Bouton pour reprendre la prise de vue avec la Photo-Cabine */}
           {onRetakePhoto && (
@@ -238,7 +557,7 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
               disabled={isSaving || !name.trim()}
               className="flex-1 py-2 bg-[var(--cordel-wood)] text-white border-2 border-[var(--cordel-border)] shadow-[3px_3px_0px_#000] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] cursor-pointer font-cactus font-bold text-xs uppercase tracking-wider active:scale-[0.99] transition-all disabled:opacity-50"
             >
-              💾 {isSaving ? (lang === 'fr' ? 'Enregistrement...' : 'Salvando...') : (lang === 'fr' ? 'Valider' : 'Salvar')}
+              💾 {isSaving ? (lang === 'fr' ? 'Enregistrement...' : 'Salvando...') : (lang === 'fr' ? 'Mettre à jour' : 'Atualizar')}
             </button>
           </div>
 

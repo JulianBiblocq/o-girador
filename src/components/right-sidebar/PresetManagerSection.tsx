@@ -3,6 +3,7 @@ import { PresetMetadata, Language, RhythmSignal } from '../../types';
 import { CordelImageEditor } from '../CordelImageEditor';
 import { MusicalPhotoBoothModal } from '../signals/MusicalPhotoBoothModal';
 import { EditSignalModal } from '../signals/EditSignalModal';
+import type { CordelOptions } from '../../utils/cordelEffect';
 
 interface PresetManagerSectionProps {
   metadata: PresetMetadata;
@@ -173,6 +174,8 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
     name: string;
     image: string;
     frames: string[];
+    rawFrames?: string[];
+    cordelOptions?: CordelOptions;
     beatsCount: number;
     mirrorHorizontal?: boolean;
   }) => {
@@ -188,6 +191,8 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
               name: signalData.name,
               image: signalData.image,
               frames: signalData.frames,
+              rawFrames: signalData.rawFrames,
+              cordelOptions: signalData.cordelOptions,
               beatsCount: signalData.beatsCount,
               mirrorHorizontal: signalData.mirrorHorizontal,
             }
@@ -203,6 +208,8 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
       name: signalData.name,
       image: signalData.image,
       frames: signalData.frames,
+      rawFrames: signalData.rawFrames,
+      cordelOptions: signalData.cordelOptions,
       beatsCount: signalData.beatsCount,
       mirrorHorizontal: signalData.mirrorHorizontal,
       createdAt: Date.now(),

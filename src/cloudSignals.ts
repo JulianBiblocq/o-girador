@@ -2,6 +2,7 @@ import { collection, doc, setDoc, updateDoc, getDocs, deleteDoc, query, where, l
 import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from './firebase/config';
 import { CloudRhythmSignal } from './types';
+import type { CordelOptions } from './utils/cordelEffect';
 
 export const fetchMestreSignals = async (mestreId: string, lastVisibleDoc?: any): Promise<{ signals: CloudRhythmSignal[], lastDoc: any }> => {
   if (!mestreId) return { signals: [], lastDoc: null };
@@ -56,7 +57,9 @@ export const uploadMestreSignal = async (
   base64Image: string,
   frames?: string[],
   beatsCount?: number,
-  mirrorHorizontal?: boolean
+  mirrorHorizontal?: boolean,
+  rawFrames?: string[],
+  cordelOptions?: CordelOptions
 ): Promise<UploadSignalResult> => {
   if (!mestreId) {
     return { success: false, error: 'Mestre ID manquant ou invalide.' };
@@ -96,6 +99,8 @@ export const uploadMestreSignal = async (
       imageUrl,
       createdAt: Date.now(),
       frames: finalFrames,
+      rawFrames: rawFrames && rawFrames.length > 0 ? rawFrames : undefined,
+      cordelOptions: cordelOptions || undefined,
       beatsCount: beatsCount || finalFrames.length,
       mirrorHorizontal: mirrorHorizontal ?? false,
     };
@@ -122,6 +127,8 @@ export const updateMestreSignal = async (
     image?: string;
     imageUrl?: string;
     frames?: string[];
+    rawFrames?: string[];
+    cordelOptions?: CordelOptions;
     beatsCount?: number;
     mirrorHorizontal?: boolean;
   }
@@ -135,6 +142,8 @@ export const updateMestreSignal = async (
     if (updates.image !== undefined) payload.image = updates.image;
     if (updates.imageUrl !== undefined) payload.imageUrl = updates.imageUrl;
     if (updates.frames !== undefined) payload.frames = updates.frames;
+    if (updates.rawFrames !== undefined) payload.rawFrames = updates.rawFrames;
+    if (updates.cordelOptions !== undefined) payload.cordelOptions = updates.cordelOptions;
     if (updates.beatsCount !== undefined) payload.beatsCount = updates.beatsCount;
     if (updates.mirrorHorizontal !== undefined) payload.mirrorHorizontal = updates.mirrorHorizontal;
 

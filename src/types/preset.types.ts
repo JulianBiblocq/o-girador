@@ -5,6 +5,7 @@
 
 import { TimeSignature } from './common.types';
 import { TrackGroup, SongSection, SongMarker, MasterFX } from './store.types';
+import type { CordelOptions } from '../utils/cordelEffect';
 
 export type SwingMode = 'maracatu' | 'custom' | 'off';
 
@@ -26,6 +27,8 @@ export interface RhythmSignal {
   name: string;
   image: string; // base64 JPEG ou URL
   frames?: string[]; // Tableau des trames WebP/base64 Cordel
+  rawFrames?: string[]; // Trames sources couleur/webcam compressées (240x240 WebP/JPEG 0.6)
+  cordelOptions?: CordelOptions; // Historique des réglages appliqués
   beatsCount?: number; // Nombre dynamique de trames selon la signature (bannir le 4 en dur)
   mirrorHorizontal?: boolean; // Inversion miroir horizontale du signal
   createdAt?: number;

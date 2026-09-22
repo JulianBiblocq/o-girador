@@ -5,6 +5,7 @@ import { CordelImageEditor } from '../CordelImageEditor';
 import { checkIsAdmin } from '../../contexts/AuthContext';
 import { MusicalPhotoBoothModal } from '../signals/MusicalPhotoBoothModal';
 import { EditSignalModal } from '../signals/EditSignalModal';
+import type { CordelOptions } from '../../utils/cordelEffect';
 
 interface CloudLibraryTabProps {
   mestreSignals: CloudRhythmSignal[];
@@ -209,6 +210,8 @@ export const CloudLibraryTab: React.FC<CloudLibraryTabProps> = ({
     name: string;
     image: string;
     frames: string[];
+    rawFrames?: string[];
+    cordelOptions?: CordelOptions;
     beatsCount: number;
     mirrorHorizontal?: boolean;
   }) => {
@@ -223,6 +226,8 @@ export const CloudLibraryTab: React.FC<CloudLibraryTabProps> = ({
         image: signalData.image,
         imageUrl: signalData.image,
         frames: signalData.frames,
+        rawFrames: signalData.rawFrames,
+        cordelOptions: signalData.cordelOptions,
         beatsCount: signalData.beatsCount,
         mirrorHorizontal: signalData.mirrorHorizontal,
       });
@@ -252,7 +257,9 @@ export const CloudLibraryTab: React.FC<CloudLibraryTabProps> = ({
         signalData.image,
         signalData.frames,
         signalData.beatsCount,
-        signalData.mirrorHorizontal
+        signalData.mirrorHorizontal,
+        signalData.rawFrames,
+        signalData.cordelOptions
       );
       if (result.success && result.signal) {
         if (refreshMestreSignals) refreshMestreSignals();
@@ -279,6 +286,8 @@ export const CloudLibraryTab: React.FC<CloudLibraryTabProps> = ({
     name: string;
     image?: string;
     frames?: string[];
+    rawFrames?: string[];
+    cordelOptions?: CordelOptions;
     beatsCount?: number;
     mirrorHorizontal?: boolean;
   }) => {
@@ -286,12 +295,14 @@ export const CloudLibraryTab: React.FC<CloudLibraryTabProps> = ({
       name: updated.name,
       image: updated.image,
       frames: updated.frames,
+      rawFrames: updated.rawFrames,
+      cordelOptions: updated.cordelOptions,
       beatsCount: updated.beatsCount,
       mirrorHorizontal: updated.mirrorHorizontal,
     });
     if (res.success) {
       if (refreshMestreSignals) refreshMestreSignals();
-      showToast('success', lang === 'fr' ? 'Nom du signal mis à jour !' : 'Nome do sinal atualizado!');
+      showToast('success', lang === 'fr' ? 'Signal mis à jour !' : 'Sinal atualizado!');
     } else {
       showToast('error', res.error || (lang === 'fr' ? 'Erreur lors de la mise à jour.' : 'Erro ao atualizar.'));
     }

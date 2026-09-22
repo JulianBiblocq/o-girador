@@ -5,6 +5,7 @@ import { useWizardStore, PlacedInstrument, SongInfo } from '../stores/useWizardS
 import { useSequencerStore } from '../stores/useSequencerStore';
 import { CordelImageEditor } from './CordelImageEditor';
 import { MusicalPhotoBoothModal } from './signals/MusicalPhotoBoothModal';
+import type { CordelOptions } from '../utils/cordelEffect';
 import { useSequencer } from '../contexts/SequencerContext';
 import { useTransportStore } from '../stores/useTransportStore';
 import { audioEngine } from '../hooks/useAudioSync';
@@ -346,6 +347,8 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
     name: string;
     image: string;
     frames: string[];
+    rawFrames?: string[];
+    cordelOptions?: CordelOptions;
     beatsCount: number;
     mirrorHorizontal?: boolean;
   }) => {
@@ -357,6 +360,8 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
         name: signalData.name,
         image: signalData.image,
         frames: signalData.frames,
+        rawFrames: signalData.rawFrames,
+        cordelOptions: signalData.cordelOptions,
         beatsCount: signalData.beatsCount,
         mirrorHorizontal: signalData.mirrorHorizontal,
         createdAt: Date.now(),
