@@ -161,6 +161,10 @@ export class AudioEngine {
     this.updateSchedulingParameters();
     
     if (typeof document !== 'undefined' && !document.hidden) {
+      if (this.isPlaying) {
+        this.purgeScheduledHits();
+        this.forceReanchor();
+      }
       const now = this.audioContext.currentTime;
       const deadNodes: AudioBufferSourceNode[] = [];
       
@@ -410,23 +414,69 @@ export class AudioEngine {
     this.isScheduling = false;
     this.timeSlotHitCounts.clear();
 
+    this.purgeScheduledHits();
+
+    // Release any remaining active gain nodes to prevent leaks on stop
+    for (const [_, mapping] of this.activeGainNodes) {
+      if (mapping.gainNode) {
+        this.releaseGainNode(mapping.instrumentId, mapping.gainNode);
+        mapping.gainNode = null as any;
+      }
+      mapping.instrumentId = '';
+    }
+    this.activeGainNodes.clear();
+    this.instrumentVoices.clear();
+  }
+
+  /**
+   * Recale immédiatement l'horloge interne de planification sur le temps réel du hardware audio
+   * avec une marge minimale de sécurité, et active le drapeau de réancrage.
+   */
+  public forceReanchor(): void {
+    if (!this.isPlaying) return;
+    const lookaheadWindow = 0.025;
+    const safetyMargin = 0.010;
+    this.nextTickTime = this.audioContext.currentTime + lookaheadWindow + safetyMargin;
+    this.mustReanchor = true;
+    this.timeSlotHitCounts.clear();
+  }
+
+  /**
+   * Purge et annule tous les BufferSourceNode planifiés en attente (scheduledHits)
+   * et recycle les mappings de GainNode correspondants pour éviter l'effet rafale.
+   */
+  public purgeScheduledHits(): void {
+    const now = this.audioContext.currentTime;
     this.scheduledHits.forEach((source) => {
       try {
         source.onended = null;
         source.stop();
         source.disconnect();
       } catch (_) {}
+
+      const mapping = this.activeGainNodes.get(source);
+      if (mapping) {
+        const instrumentId = mapping.instrumentId;
+        const gainNode = mapping.gainNode;
+        if (gainNode) {
+          try {
+            gainNode.gain.cancelScheduledValues(now);
+          } catch (_) {}
+          this.releaseGainNode(instrumentId, gainNode);
+          mapping.gainNode = null as any;
+        }
+        mapping.instrumentId = '';
+        this.activeGainNodes.delete(source);
+        if (instrumentId) {
+          this.removeActiveVoice(instrumentId, source);
+          if (this.activeBarulhoNodes.get(instrumentId) === source) {
+            this.activeBarulhoNodes.delete(instrumentId);
+            this.activeBarulhoGains.delete(instrumentId);
+          }
+        }
+      }
     });
     this.scheduledHits.clear();
-
-    // Release any active gain nodes to prevent leaks on stop
-    for (const [_, mapping] of this.activeGainNodes) {
-      this.releaseGainNode(mapping.instrumentId, mapping.gainNode);
-      mapping.gainNode = null as any;
-      mapping.instrumentId = '';
-    }
-    this.activeGainNodes.clear();
-    this.instrumentVoices.clear();
   }
 
   /**
@@ -454,6 +504,14 @@ export class AudioEngine {
       const currentTime = this.audioContext.currentTime;
       const lookaheadWindow = 0.025; // 25ms de fenêtre minimale
       const safetyMargin = 0.010;    // 10ms de marge de sécurité
+
+      // 🛡️ Détection de drift et court-circuit anti-emballement
+      const drift = currentTime - this.nextTickTime;
+      if (drift > 0.5) {
+        this.nextTickTime = currentTime + lookaheadWindow + safetyMargin;
+        this.mustReanchor = true;
+        return;
+      }
 
       // Resynchronisation matérielle de sécurité (lag massif / changement de rythme)
       if (this.nextTickTime < currentTime + lookaheadWindow) {
@@ -829,6 +887,9 @@ export class AudioEngine {
     decayMultiplier: number,
     isLiveHold: boolean = false
   ): void {
+    // 🛡️ Filtre anti-notes fantômes : refuser toute planification si le timestamp est déjà dépassé
+    if (time < this.audioContext.currentTime - 0.050) return;
+
     let trackId: number | null = null;
     let instrumentId = '';
     
@@ -962,6 +1023,9 @@ export class AudioEngine {
     overrideTuning?: number,
     isLiveHold: boolean = false
   ): void {
+    // 🛡️ Filtre anti-notes fantômes : refuser toute planification si le timestamp est déjà dépassé
+    if (time < this.audioContext.currentTime - 0.050) return;
+
     const Tone = getTone();
     const isEco = useSequencerStore.getState().isEcoMode;
 

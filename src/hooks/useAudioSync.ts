@@ -1899,8 +1899,8 @@ export function useAudioSync({
       if (!document.hidden && isPlayingRef.current) {
         // Flush stale visual data accumulated while rAF was frozen
         resetVisualTickBuffer();
-        // The still-running Worker scheduler will push fresh ticks,
-        // and processVisualLoop() (rAF, now unfrozen) will consume them.
+        audioEngine?.purgeScheduledHits();
+        audioEngine?.forceReanchor();
 
         // Re-acquire Wake Lock (OS releases it when screen turns off)
         requestWakeLock();
