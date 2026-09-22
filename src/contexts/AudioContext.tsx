@@ -590,8 +590,8 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     } else if (name.startsWith('local:')) {
       const id = name.replace('local:', '');
-      // 🛡️ FIX (Audit): Use static import for getLocalLibrary to fix Vite duplicate chunk warning
-      p = getLocalLibrary()[id];
+      const localLib = await getLocalLibrary();
+      p = localLib[id];
       if (!p) {
         window.alert(t('invalidFile') || (sequencer.lang === 'fr' ? 'Fichier invalide' : 'Arquivo inválido'));
         return;

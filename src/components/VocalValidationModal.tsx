@@ -32,10 +32,10 @@ export const VocalValidationModal: React.FC = () => {
   const measureTimeSigs = useSequencerStore((state) => state.measureTimeSigs);
 
   const voiceTrack = tempRecording
-    ? tracks.find((t) => t.patterns.some((p) => Number(p.id) === Number(tempRecording.patternId)))
+    ? tracks.find((t) => t.patterns?.some((p) => Number(p.id) === Number(tempRecording.patternId)))
     : null;
   const targetPattern = tempRecording && voiceTrack
-    ? voiceTrack.patterns.find((p) => Number(p.id) === Number(tempRecording.patternId))
+    ? voiceTrack.patterns?.find((p) => Number(p.id) === Number(tempRecording.patternId))
     : null;
 
   // Decode temporary recording audio data on mount

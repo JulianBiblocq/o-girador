@@ -2940,29 +2940,38 @@ const createStructureSlice: StateCreator<SequencerStore, [], [], StructureSlice>
     }));
   },
 
-  handleCreateSongMarker: (name, measure, color) => set(state => {
-    const newMarker: SongMarker = {
-      id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9),
-      name,
-      measure,
-      color: color || '#f19066',
-    };
-    const next = [...state.songMarkers, newMarker];
-    next.sort((a, b) => a.measure - b.measure);
-    return { songMarkers: next };
-  }),
+  handleCreateSongMarker: (name, measure, color) => {
+    get().pushUndoState();
+    set(state => {
+      const newMarker: SongMarker = {
+        id: Date.now().toString() + '-' + Math.random().toString(36).substring(2, 9),
+        name,
+        measure,
+        color: color || '#f19066',
+      };
+      const next = [...state.songMarkers, newMarker];
+      next.sort((a, b) => a.measure - b.measure);
+      return { songMarkers: next };
+    });
+  },
 
-  handleUpdateSongMarker: (id, name, measure, color) => set(state => {
-    const next = state.songMarkers.map(m => 
-      m.id === id ? { ...m, name, measure, color: color || m.color } : m
-    );
-    next.sort((a, b) => a.measure - b.measure);
-    return { songMarkers: next };
-  }),
+  handleUpdateSongMarker: (id, name, measure, color) => {
+    get().pushUndoState();
+    set(state => {
+      const next = state.songMarkers.map(m => 
+        m.id === id ? { ...m, name, measure, color: color || m.color } : m
+      );
+      next.sort((a, b) => a.measure - b.measure);
+      return { songMarkers: next };
+    });
+  },
 
-  handleDeleteSongMarker: (id) => set(state => ({
-    songMarkers: state.songMarkers.filter(m => m.id !== id)
-  })),
+  handleDeleteSongMarker: (id) => {
+    get().pushUndoState();
+    set(state => ({
+      songMarkers: state.songMarkers.filter(m => m.id !== id)
+    }));
+  },
 
   handleDeleteMeasure: (measureIdx) => {
     get().pushUndoState();

@@ -6,6 +6,7 @@
 import * as Tone from 'tone';
 import { useAudioStore } from '../stores/useAudioStore';
 import { useSequencerStore } from '../stores/useSequencerStore';
+export { useAudioStore, useSequencerStore };
 import { saveVocalRecording, getVocalRecording, deleteVocalRecording } from '../db';
 import { channels, masterVolumeNode } from './effectsChain';
 import { instrumentsConfig } from '../data';
@@ -245,10 +246,11 @@ export const vocalEngineService = {
       // MediaRecorder is initialized and ready
       this.isArming = false;
 
-      // Find target pattern
-      const tracks = sequencerStore.tracks;
-      const voiceTrack = tracks.find(t => t.patterns.some(p => Number(p.id) === numPatternId));
-      const targetPattern = voiceTrack?.patterns.find(p => Number(p.id) === numPatternId);
+      // Find target pattern (fresh store state after async getUserMedia)
+      const freshSequencerStore = useSequencerStore.getState();
+      const tracks = freshSequencerStore.tracks;
+      const voiceTrack = tracks.find(t => t.patterns?.some(p => Number(p.id) === numPatternId));
+      const targetPattern = voiceTrack?.patterns?.find(p => Number(p.id) === numPatternId);
 
       if (!targetPattern || !voiceTrack) {
         throw new Error("Target pattern or voice track not found");
@@ -260,7 +262,7 @@ export const vocalEngineService = {
         : 0;
 
       let consecutiveMeasures = 0;
-      for (let i = initialMeasureIdx; i < sequencerStore.totalMeasures; i++) {
+      for (let i = initialMeasureIdx; i < (freshSequencerStore.totalMeasures || 8); i++) {
         if (targetPattern.measureAssignments[i]) {
           consecutiveMeasures++;
         } else {

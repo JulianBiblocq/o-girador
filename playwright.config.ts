@@ -16,7 +16,16 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { screenshot: 'only-on-failure', ...devices['Desktop Chrome'] },
+      use: {
+        screenshot: 'only-on-failure',
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          args: [
+            '--use-fake-ui-for-media-stream',
+            '--autoplay-policy=no-user-gesture-required',
+          ],
+        },
+      },
     },
   ],
   webServer: {

@@ -4,7 +4,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getVocalRecording } from './db';
 import { CloudPreset, Preset, CatalogVisibility } from './types';
 import LZString from 'lz-string';
-import { CLOUD_PRESETS_COLLECTION, isPresetAuthorized } from './cloudPresetsStorage';
+import { CLOUD_PRESETS_COLLECTION, isPresetAuthorized, presetCache } from './cloudPresetsStorage';
 
 export {
   CLOUD_PRESETS_COLLECTION, presetCache, getCloudPreset,
@@ -74,10 +74,12 @@ export async function savePresetToCloud(
   
   if (targetPresetId) {
     await updateDoc(doc(db, CLOUD_PRESETS_COLLECTION, targetPresetId), docData);
+    presetCache.set(targetPresetId, presetToSave);
     return targetPresetId;
   } else {
     docData.createdAt = Date.now();
     const docRef = await addDoc(collection(db, CLOUD_PRESETS_COLLECTION), docData);
+    presetCache.set(docRef.id, presetToSave);
     return docRef.id;
   }
 }

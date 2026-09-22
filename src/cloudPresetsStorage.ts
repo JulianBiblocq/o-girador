@@ -37,6 +37,7 @@ export async function getCloudPreset(presetId: string): Promise<Preset | null> {
  * Supprime un preset Cloud de Firestore.
  */
 export async function deleteCloudPreset(presetId: string): Promise<void> {
+  presetCache.delete(presetId);
   await deleteDoc(doc(db, CLOUD_PRESETS_COLLECTION, presetId));
 }
 
@@ -44,6 +45,10 @@ export async function deleteCloudPreset(presetId: string): Promise<void> {
  * Renomme un preset Cloud dans Firestore.
  */
 export async function renameCloudPreset(presetId: string, newName: string): Promise<void> {
+  const cached = presetCache.get(presetId);
+  if (cached && cached.metadata) {
+    cached.metadata.toada = newName;
+  }
   await updateDoc(doc(db, CLOUD_PRESETS_COLLECTION, presetId), { name: newName });
 }
 

@@ -265,13 +265,9 @@ export default function App() {
       if (found && isMounted && !hasAutoLoadedDefaultRef.current) {
         // Verrouillage immédiat pour éviter tout double appel lors des re-renders initiaux
         hasAutoLoadedDefaultRef.current = true;
-        if (found.data) {
-          audio.applyPreset(found.data).then(() => {
-            audio.setActivePresetName(`cloud:${found.id}`);
-          }).catch((e) => console.warn('applyPreset error on default group preset:', e));
-        } else {
-          audio.loadFallbackPreset(`cloud:${found.id}`).catch((e) => console.warn('loadFallbackPreset error on default group preset:', e));
-        }
+        audio.loadFallbackPreset(`cloud:${found.id}`).then(() => {
+          audio.setActivePresetName(`cloud:${found.id}`);
+        }).catch((e) => console.warn('loadFallbackPreset error on default group preset:', e));
       }
     }).catch((err) => {
       console.warn('[AutoLoadDefaultPreset] Erreur lors du chargement auto du morceau vedette:', err);
