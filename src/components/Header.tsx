@@ -373,11 +373,13 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   </span>
                   {groupLabel && (
                     <span className="text-[9px] font-cactus font-bold px-2 py-0.5 border border-[#f4ecd8]/40 bg-black/60 text-[#f4ecd8] rounded-xs flex items-center gap-1.5 shadow-xs">
-                      <img
-                        src={userProfile?.groupLogoUrl || '/Pictures/logo-samambaia.png'}
-                        alt=""
-                        className="w-3.5 h-3.5 object-contain inline-block shrink-0"
-                      />
+                      <span className="w-4 h-4 flex items-center justify-center bg-[#f4ecd8] rounded-xs p-0.5 shrink-0 shadow-xs border border-black/10">
+                        <img
+                          src={userProfile?.groupLogoUrl || '/Pictures/logo-samambaia.png'}
+                          alt=""
+                          className="w-full h-full object-contain"
+                        />
+                      </span>
                       <span>{groupLabel}</span>
                     </span>
                   )}
@@ -746,11 +748,13 @@ const HeaderComponent: React.FC<HeaderProps> = ({
                   </span>
                   {groupLabel && (
                     <span className="text-[9px] font-cactus font-bold px-2 py-0.5 border border-[#f4ecd8]/40 bg-black/60 text-[#f4ecd8] rounded-xs flex items-center gap-1.5 shadow-xs">
-                      <img
-                        src={userProfile?.groupLogoUrl || '/Pictures/logo-samambaia.png'}
-                        alt=""
-                        className="w-3.5 h-3.5 object-contain inline-block shrink-0"
-                      />
+                      <span className="w-4 h-4 flex items-center justify-center bg-[#f4ecd8] rounded-xs p-0.5 shrink-0 shadow-xs border border-black/10">
+                        <img
+                          src={userProfile?.groupLogoUrl || '/Pictures/logo-samambaia.png'}
+                          alt=""
+                          className="w-full h-full object-contain"
+                        />
+                      </span>
                       <span>{groupLabel}</span>
                     </span>
                   )}

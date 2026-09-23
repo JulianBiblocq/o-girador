@@ -118,7 +118,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
                       className={`font-cactus text-xl select-none leading-none transform transition-colors ${
                         isDefault
                           ? 'text-amber-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]'
-                          : 'text-[#f4ecd8]/30 hover:text-[#f4ecd8]'
+                          : 'text-[var(--cordel-text)]/35 hover:text-[var(--cordel-text)]'
                       }`}
                     >
                       *
@@ -132,7 +132,15 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
                   >
                     *
                   </span>
-                ) : null
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
+                    className="shrink-0 p-1 select-none leading-none text-xl font-cactus text-[var(--cordel-text)]/20 flex items-center justify-center"
+                  >
+                    *
+                  </span>
+                )
               )}
             </div>
           );
@@ -150,7 +158,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
           📚 {lang === 'pt' ? 'Catálogo de Ritmos' : 'Catalogue des Morceaux'}
         </span>
         {currentSongTitle && (
-          <span className="text-[11px] font-cactus font-bold text-[#f4ecd8] truncate">🎵 {currentSongTitle}</span>
+          <span className="text-[11px] font-cactus font-bold text-[var(--cordel-text)] truncate">🎵 {currentSongTitle}</span>
         )}
       </div>
 
@@ -163,11 +171,13 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
               className="flex items-center justify-between px-2.5 py-1.5 bg-[var(--cordel-bg)] hover:bg-[var(--cordel-text)]/10 text-[var(--cordel-text)] font-cactus font-bold text-xs transition-colors cursor-pointer select-none text-left w-full"
             >
               <span className="flex items-center gap-1.5 truncate">
-                <img
-                  src={resolvedGroupLogo}
-                  alt=""
-                  className="w-5 h-5 object-contain inline-block mr-2 shrink-0"
-                />
+                <span className="w-5 h-5 flex items-center justify-center bg-[#f4ecd8] rounded-xs p-0.5 mr-2 shrink-0 shadow-xs border border-black/10">
+                  <img
+                    src={resolvedGroupLogo}
+                    alt=""
+                    className="w-full h-full object-contain"
+                  />
+                </span>
                 <span className="truncate">{groupTitle}</span>
                 <span className="text-[10px] opacity-60 font-sans">({privateCloudPresets.length})</span>
               </span>
