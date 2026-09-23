@@ -15,6 +15,7 @@ export interface MusicalPhotoBoothModalProps {
     frames: string[];
     rawFrames?: string[];
     cordelOptions?: CordelOptions;
+    frameOverrides?: Record<number, Partial<CordelOptions>>;
     beatsCount: number;
     mirrorHorizontal?: boolean;
   }) => void;
@@ -56,8 +57,14 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     posY: 0,
   });
   const [processedFrames, setProcessedFrames] = useState<string[]>([]);
-  const [activePreviewFrameIdx, setActivePreviewFrameIdx] = useState<number>(0);
   const [isReprocessing, setIsReprocessing] = useState<boolean>(false);
+
+  // 🎛️ Nouveaux états de transport de revue & débrayage unitaire
+  const [isPlaying, setIsPlaying] = useState<boolean>(false); // Défaut false pour vue figée sans stress
+  const [selectedFrameIndex, setSelectedFrameIndex] = useState<number>(0);
+  const [activePlayheadIndex, setActivePlayheadIndex] = useState<number>(0);
+  const [overrideMode, setOverrideMode] = useState<'global' | 'local'>('global');
+  const [frameOverrides, setFrameOverrides] = useState<Record<number, Partial<CordelOptions>>>({});
 
   // Références matérielles & DOM
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -67,10 +74,11 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
   const rawBase64ImagesRef = useRef<string[]>([]);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  // Timers
+  // Timers & verrous anti-course
   const timerRef = useRef<any>(null);
   const loopPreviewTimerRef = useRef<any>(null);
   const reprocessDebounceTimerRef = useRef<any>(null);
+  const reprocessRequestIdRef = useRef<number>(0);
 
   // 1. Initialisation audio Web Audio
   const getAudioContext = useCallback(() => {
@@ -141,6 +149,11 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
       setCurrentStepIdx(0);
       setProcessedFrames([]);
       rawBase64ImagesRef.current = [];
+      setIsPlaying(false);
+      setSelectedFrameIndex(0);
+      setActivePlayheadIndex(0);
+      setOverrideMode('global');
+      setFrameOverrides({});
       setCordelOptions({
         ...defaultCordelOptions,
         zoom: 120,
@@ -298,6 +311,21 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     timerRef.current = countdownInterval;
   }, [playBeep, runBeatCountdown]);
 
+  // Helper d'options effectives : fusionne le global et les éventuels overrides unitaires de la trame
+  const getEffectiveOptions = useCallback((
+    idx: number,
+    baseOpts = cordelOptions,
+    overrides = frameOverrides
+  ): CordelOptions => ({
+    ...baseOpts,
+    ...(overrides[idx] || {})
+  }), [cordelOptions, frameOverrides]);
+
+  // Options effectives présentées actuellement dans l'inspecteur
+  const activeInspectorOptions = overrideMode === 'local'
+    ? getEffectiveOptions(selectedFrameIndex)
+    : cordelOptions;
+
   // 7. Traitement initial Cordel en tâche de fond
   const startCordelProcessing = async () => {
     setPhase('processing');
@@ -306,7 +334,8 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
 
     for (let i = 0; i < rawImages.length; i++) {
       try {
-        const cordelized = await processCordelEffectBase64(rawImages[i], cordelOptions, 180);
+        const eff = getEffectiveOptions(i);
+        const cordelized = await processCordelEffectBase64(rawImages[i], eff, 180);
         finalFrames.push(cordelized);
       } catch (err) {
         console.error('[PhotoBooth] Erreur traitement cordel frame', i, err);
@@ -315,68 +344,120 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     }
 
     setProcessedFrames(finalFrames);
+    setSelectedFrameIndex(0);
+    setActivePlayheadIndex(0);
+    setIsPlaying(false); // 🛡️ Démarre figé sur la trame 1 sans stress visuel
     setPhase('review');
   };
 
-  // 8. Réapplication des options Cordel (avec protection anti-course et debounce réactif)
-  const reprocessRequestIdRef = useRef<number>(0);
-
-  const applyCordelToAllFrames = async (opts: CordelOptions) => {
-    const requestId = ++reprocessRequestIdRef.current;
-    setIsReprocessing(true);
+  // 8. Réapplication des options Cordel (débrayée locale ou globale avec protection anti-course)
+  const applyCordelProcessing = useCallback((
+    targetMode: 'global' | 'local',
+    targetIdx: number,
+    globalOpts: CordelOptions,
+    overrides: Record<number, Partial<CordelOptions>>
+  ) => {
+    const reqId = ++reprocessRequestIdRef.current;
     const rawImages = rawBase64ImagesRef.current;
-    if (!rawImages || rawImages.length === 0) {
-      setIsReprocessing(false);
-      return;
-    }
-    const finalFrames: string[] = [];
+    if (!rawImages || rawImages.length === 0) return;
 
-    for (let i = 0; i < rawImages.length; i++) {
+    if (reprocessDebounceTimerRef.current) {
+      clearTimeout(reprocessDebounceTimerRef.current);
+    }
+
+    reprocessDebounceTimerRef.current = setTimeout(async () => {
+      setIsReprocessing(true);
       try {
-        const cordelized = await processCordelEffectBase64(rawImages[i], opts, 180);
-        if (requestId !== reprocessRequestIdRef.current) return; // Requête obsolète annulée
-        finalFrames.push(cordelized);
-      } catch (err) {
-        console.error('[PhotoBooth] Erreur retraitement cordel frame', i, err);
-        finalFrames.push(rawImages[i]);
-      }
-    }
+        if (targetMode === 'local') {
+          // ⚡ Débrayage local : recalcul ciblé uniquement sur la trame sélectionnée
+          if (!rawImages[targetIdx]) return;
+          const eff = getEffectiveOptions(targetIdx, globalOpts, overrides);
+          const cordelized = await processCordelEffectBase64(rawImages[targetIdx], eff, 180);
+          if (reqId !== reprocessRequestIdRef.current) return;
+          setProcessedFrames((prev) => {
+            const next = [...prev];
+            next[targetIdx] = cordelized;
+            return next;
+          });
+        } else {
+          // 🔗 Mode global :
+          // 1. Recalcul prioritaire immédiat de la trame sélectionnée pour retour visuel à 60 FPS
+          const effActive = getEffectiveOptions(targetIdx, globalOpts, overrides);
+          const renderedActive = await processCordelEffectBase64(rawImages[targetIdx], effActive, 180);
+          if (reqId !== reprocessRequestIdRef.current) return;
+          setProcessedFrames((prev) => {
+            const next = [...prev];
+            next[targetIdx] = renderedActive;
+            return next;
+          });
 
-    if (requestId === reprocessRequestIdRef.current) {
-      setProcessedFrames(finalFrames);
-      setIsReprocessing(false);
-    }
-  };
+          // 2. Recalcul séquentiel hors-blocage des autres trames sans surcharger le Main Thread
+          for (let i = 0; i < rawImages.length; i++) {
+            if (i === targetIdx) continue;
+            if (reqId !== reprocessRequestIdRef.current) return;
+            const effOther = getEffectiveOptions(i, globalOpts, overrides);
+            const renderedOther = await processCordelEffectBase64(rawImages[i], effOther, 180);
+            if (reqId !== reprocessRequestIdRef.current) return;
+            setProcessedFrames((prev) => {
+              const next = [...prev];
+              next[i] = renderedOther;
+              return next;
+            });
+          }
+        }
+      } catch (err) {
+        console.error('[PhotoBooth] Erreur lors du recalcul cordel:', err);
+      } finally {
+        if (reqId === reprocessRequestIdRef.current) {
+          setIsReprocessing(false);
+        }
+      }
+    }, 50);
+  }, [getEffectiveOptions]);
 
   const handleUpdateCordelOptions = (patch: Partial<CordelOptions>) => {
-    setCordelOptions((prev) => {
-      const updated = { ...prev, ...patch };
-      if (reprocessDebounceTimerRef.current) {
-        clearTimeout(reprocessDebounceTimerRef.current);
-      }
-      reprocessDebounceTimerRef.current = setTimeout(() => {
-        applyCordelToAllFrames(updated);
-      }, 50);
-      return updated;
-    });
+    if (overrideMode === 'local') {
+      const updatedOverrides = {
+        ...frameOverrides,
+        [selectedFrameIndex]: {
+          ...(frameOverrides[selectedFrameIndex] || {}),
+          ...patch,
+        },
+      };
+      setFrameOverrides(updatedOverrides);
+      applyCordelProcessing('local', selectedFrameIndex, cordelOptions, updatedOverrides);
+    } else {
+      const updatedGlobal = { ...cordelOptions, ...patch };
+      setCordelOptions(updatedGlobal);
+      applyCordelProcessing('global', selectedFrameIndex, updatedGlobal, frameOverrides);
+    }
   };
 
   const handleUpdateCordelOption = <K extends keyof CordelOptions>(key: K, value: CordelOptions[K]) => {
     handleUpdateCordelOptions({ [key]: value } as any);
   };
 
-  // 9. Boucle d'animation de prévisualisation vivante au tempo
+  const handleResetLocalOverride = () => {
+    const nextOverrides = { ...frameOverrides };
+    delete nextOverrides[selectedFrameIndex];
+    setFrameOverrides(nextOverrides);
+    applyCordelProcessing('local', selectedFrameIndex, cordelOptions, nextOverrides);
+  };
+
+  // 9. Boucle de transport animée uniquement lorsque isPlaying === true
   useEffect(() => {
-    if (phase === 'review' && processedFrames.length > 0) {
-      const intervalMs = (60 / bpm) * 1000;
+    if (phase === 'review' && isPlaying && processedFrames.length > 0) {
+      const intervalMs = (60 / Math.max(30, bpm || 90)) * 1000;
       loopPreviewTimerRef.current = setInterval(() => {
-        setActivePreviewFrameIdx((prev) => (prev + 1) % processedFrames.length);
+        setActivePlayheadIndex((prev) => (prev + 1) % processedFrames.length);
       }, intervalMs);
       return () => {
         if (loopPreviewTimerRef.current) clearInterval(loopPreviewTimerRef.current);
       };
+    } else {
+      if (loopPreviewTimerRef.current) clearInterval(loopPreviewTimerRef.current);
     }
-  }, [phase, processedFrames, bpm]);
+  }, [phase, isPlaying, processedFrames.length, bpm]);
 
   // Démarrage séance
   const handleStartSession = () => {
@@ -391,20 +472,37 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     }
   };
 
-  // Validation finale
-  const handleSave = () => {
-    if (processedFrames.length === 0) return;
-    const finalName = signalName.trim() || (lang === 'fr' ? 'Signal du Mestre' : 'Sinal do Mestre');
-    onSave({
-      name: finalName,
-      image: processedFrames[0],
-      frames: processedFrames,
-      rawFrames: rawBase64ImagesRef.current,
-      cordelOptions,
-      beatsCount,
-      mirrorHorizontal: cordelOptions.isMirror,
-    });
-    onClose();
+  // Validation et rendu final en fusionnant options globales et débrayages unitaires
+  const handleSave = async () => {
+    const rawImages = rawBase64ImagesRef.current;
+    if (!rawImages || rawImages.length === 0) return;
+    setIsReprocessing(true);
+
+    try {
+      const finalFrames: string[] = [];
+      for (let i = 0; i < rawImages.length; i++) {
+        const eff = getEffectiveOptions(i);
+        const rendered = await processCordelEffectBase64(rawImages[i], eff, 180);
+        finalFrames.push(rendered);
+      }
+
+      const finalName = signalName.trim() || (lang === 'fr' ? 'Signal du Mestre' : 'Sinal do Mestre');
+      onSave({
+        name: finalName,
+        image: finalFrames[0],
+        frames: finalFrames,
+        rawFrames: rawImages,
+        cordelOptions,
+        frameOverrides: Object.keys(frameOverrides).length > 0 ? frameOverrides : undefined,
+        beatsCount,
+        mirrorHorizontal: cordelOptions.isMirror,
+      });
+      onClose();
+    } catch (err) {
+      console.error('[PhotoBooth] Erreur lors de la sauvegarde:', err);
+    } finally {
+      setIsReprocessing(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -646,92 +744,183 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
               />
             </div>
             
-            {/* Zone lecteur vivant + Planche-contact */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
-              
-              {/* Animation vivante au tempo */}
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-[10px] font-cactus font-bold uppercase opacity-75">
-                  🔄 {lang === 'fr' ? 'Aperçu animé' : 'Visualização animada'}
+            {/* 1. Planche-contact des trames en bandeau supérieur */}
+            <div className="flex flex-col gap-1 bg-black/5 p-2.5 border-2 border-[var(--cordel-border)]">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] font-cactus font-bold uppercase opacity-80 flex items-center gap-1.5">
+                  🎞️ {lang === 'fr' ? 'Planche-contact des trames :' : 'Quadros capturados :'}
                 </span>
-                <div className="relative w-32 h-32 border-3 border-[var(--cordel-border)] bg-black/10 overflow-hidden cordel-shadow">
-                  {processedFrames[activePreviewFrameIdx] && (
-                    <img
-                      src={processedFrames[activePreviewFrameIdx]}
-                      alt="animation-preview"
-                      className="w-full h-full object-cover"
-                    />
-                  )}
-                  <div className="absolute top-1 left-1 bg-black/80 text-white text-[9px] font-cactus font-bold px-1.5 py-0.5">
-                    T{activePreviewFrameIdx + 1}
-                  </div>
-                  {isReprocessing && (
-                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  )}
-                </div>
+                <span className="text-[9px] font-cactus opacity-60">
+                  {processedFrames.length} {lang === 'fr' ? 'trames' : 'quadros'} ({bpm} BPM)
+                </span>
               </div>
+              <div className="flex items-center gap-2 overflow-x-auto py-1 custom-scrollbar">
+                {processedFrames.map((frame, idx) => {
+                  const isCurrentSelected = selectedFrameIndex === idx;
+                  const isCurrentPlaying = isPlaying && activePlayheadIndex === idx;
+                  const hasOverride = Boolean(frameOverrides[idx] && Object.keys(frameOverrides[idx]!).length > 0);
 
-              {/* Planche-contact des trames */}
-              <div className="sm:col-span-2 flex flex-col gap-1">
-                <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-cactus font-bold uppercase opacity-75">
-                    🎞️ {lang === 'fr' ? 'Trames capturées :' : 'Quadros capturados :'}
-                  </span>
-                  <span className="text-[9px] font-cactus opacity-60">
-                    {beatsCount} {lang === 'fr' ? 'trames au tempo' : 'quadros no andamento'}
-                  </span>
-                </div>
-                <div className="grid grid-cols-5 gap-1.5">
-                  {processedFrames.map((frame, idx) => (
+                  return (
                     <div
                       key={idx}
-                      onClick={() => setActivePreviewFrameIdx(idx)}
-                      className={`relative aspect-square border-2 cursor-pointer transition-all ${
-                        activePreviewFrameIdx === idx
-                          ? 'border-[var(--cordel-wood)] ring-2 ring-[var(--cordel-wood)] scale-105 z-10'
+                      onClick={() => {
+                        setSelectedFrameIndex(idx);
+                        setIsPlaying(false);
+                      }}
+                      className={`relative w-14 h-14 sm:w-16 sm:h-16 shrink-0 aspect-square border-2 cursor-pointer transition-all ${
+                        isCurrentSelected
+                          ? 'border-[var(--cordel-wood)] ring-2 ring-[var(--cordel-wood)] scale-105 z-10 shadow-[2px_2px_0px_#000]'
+                          : isCurrentPlaying
+                          ? 'border-[var(--cordel-text)] ring-2 ring-[var(--cordel-text)]/60 scale-100 z-10'
                           : 'border-[var(--cordel-border)]/60 opacity-80 hover:opacity-100'
                       }`}
+                      title={lang === 'fr' ? `Trame T${idx + 1} (Cliquer pour sélectionner et figer)` : `Quadro T${idx + 1}`}
                     >
                       <img src={frame} alt={`T${idx + 1}`} className="w-full h-full object-cover" />
-                      <span className="absolute bottom-0 inset-x-0 bg-black/80 text-white text-[8px] text-center font-cactus font-bold">
+                      <span className="absolute bottom-0 inset-x-0 bg-black/85 text-white text-[8px] text-center font-cactus font-bold">
                         T{idx + 1}
                       </span>
+                      {hasOverride && (
+                        <span
+                          className="absolute top-0.5 right-0.5 bg-[var(--cordel-wood)] text-white text-[8px] font-bold px-1 rounded-xs leading-none shadow-xs"
+                          title={lang === 'fr' ? 'Réglages débrayés personnalisés' : 'Configurações personalizadas'}
+                        >
+                          ⚡
+                        </span>
+                      )}
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
             </div>
 
-            {/* OUTILS DE CADRAGE & RETOUCHE CORDEL (Section 6 restaurée) */}
+            {/* 2. Zone centrale : Grand lecteur + Barre de transport compacte */}
+            {(() => {
+              const displayIndex = isPlaying ? activePlayheadIndex : selectedFrameIndex;
+              const displayedFrame = processedFrames[displayIndex] || processedFrames[0] || null;
+              const hasOverride = Boolean(frameOverrides[displayIndex] && Object.keys(frameOverrides[displayIndex]!).length > 0);
+
+              return (
+                <div className="flex flex-col items-center gap-2 bg-black/5 p-3 border-2 border-[var(--cordel-border)]">
+                  {/* Cadre de visualisation principal */}
+                  <div className="relative w-44 h-44 sm:w-52 sm:h-52 border-3 border-[var(--cordel-border)] bg-black/10 overflow-hidden cordel-shadow flex items-center justify-center">
+                    {displayedFrame ? (
+                      <img
+                        src={displayedFrame}
+                        alt="active-preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 border-2 border-[var(--cordel-border)] border-t-transparent rounded-full animate-spin" />
+                    )}
+                    
+                    {/* Témoin d'état en haut à gauche */}
+                    <div className="absolute top-1.5 left-1.5 bg-black/85 text-white text-[10px] font-cactus font-bold px-2 py-0.5 flex items-center gap-1.5 border border-white/20">
+                      <span>T{displayIndex + 1}</span>
+                      {isPlaying ? (
+                        <span className="text-emerald-400 text-[8px]">▶ {lang === 'fr' ? 'LECTURE' : 'REPRODUÇÃO'}</span>
+                      ) : (
+                        <span className="text-amber-300 text-[8px]">⏸ {lang === 'fr' ? 'FIGÉE' : 'FIXA'}</span>
+                      )}
+                    </div>
+
+                    {/* Pastille Débrayée en haut à droite */}
+                    {hasOverride && (
+                      <div className="absolute top-1.5 right-1.5 bg-[var(--cordel-wood)] text-white text-[9px] font-cactus font-bold px-1.5 py-0.5 border border-white/30 flex items-center gap-1">
+                        <span>⚡ {lang === 'fr' ? 'DÉBRAYÉE' : 'DESACOPLADA'}</span>
+                      </div>
+                    )}
+
+                    {/* Spinner de retraitement */}
+                    {isReprocessing && (
+                      <div className="absolute inset-0 bg-black/35 flex items-center justify-center">
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Barre de transport compacte */}
+                  <div className="flex items-center justify-between w-full max-w-sm px-2.5 py-1.5 bg-[var(--cordel-bg)] border border-[var(--cordel-border)] cordel-shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setIsPlaying((p) => !p)}
+                      className={`px-3 py-1 font-cactus font-bold uppercase text-xs cordel-border-sm cordel-button cursor-pointer flex items-center gap-1.5 transition-colors ${
+                        isPlaying
+                          ? 'bg-[var(--cordel-wood)] text-white hover:bg-[#a33220]'
+                          : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)]'
+                      }`}
+                    >
+                      {isPlaying ? (
+                        <><span>⏸</span> <span>{lang === 'fr' ? 'Pause' : 'Pausar'}</span></>
+                      ) : (
+                        <><span>▶</span> <span>{lang === 'fr' ? 'Lecture' : 'Reproduzir'}</span></>
+                      )}
+                    </button>
+
+                    <div className="flex items-center gap-2 text-[10px] font-cactus font-bold uppercase">
+                      <span className="px-2 py-0.5 bg-black/10 border border-[var(--cordel-border)]/30">
+                        ⏱️ {bpm} BPM
+                      </span>
+                      <span className="px-2 py-0.5 bg-black/10 border border-[var(--cordel-border)]/30">
+                        T{displayIndex + 1} / {processedFrames.length}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 3. Inspecteur : Outils de cadrage & retouche avec bascule de débrayage */}
             <div className="border-2 border-[var(--cordel-border)] p-3 bg-black/5 flex flex-col gap-2.5">
-              <div className="flex justify-between items-center border-b border-[var(--cordel-border)]/20 pb-1">
-                <span className="font-cactus font-bold uppercase text-[11px] tracking-wider text-[var(--cordel-wood)] flex items-center gap-1">
-                  📐 {lang === 'fr' ? 'Cadrage & Gravure Cordel' : 'Enquadramento & Gravura Cordel'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const def: CordelOptions = {
-                      ...defaultCordelOptions,
-                      zoom: 120,
-                      detail: 60,
-                      shadow: 130,
-                      isMirror: true,
-                      isFrame: false,
-                      posX: 0,
-                      posY: 0,
-                      bgRemovalMode: 'none',
-                      bgTolerance: 40,
-                    };
-                    setCordelOptions(def);
-                    applyCordelToAllFrames(def);
-                  }}
-                  className="text-[9px] font-cactus uppercase opacity-70 hover:opacity-100 underline cursor-pointer"
-                >
-                  {lang === 'fr' ? 'Réinitialiser' : 'Redefinir'}
-                </button>
+              
+              {/* Sélecteur de mode : Global vs Débrayé Local */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-[var(--cordel-border)]/20 pb-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setOverrideMode('global')}
+                    className={`py-1 px-2.5 font-cactus font-bold text-xs uppercase cordel-border-sm cordel-button cursor-pointer flex items-center gap-1.5 transition-all ${
+                      overrideMode === 'global'
+                        ? 'bg-[var(--cordel-text)] text-[var(--cordel-bg)] shadow-[2px_2px_0px_#000]'
+                        : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/10'
+                    }`}
+                  >
+                    <span>🔗</span>
+                    <span>{lang === 'fr' ? 'Appliquer à toutes les images' : 'Aplicar a todas as imagens'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOverrideMode('local');
+                      setIsPlaying(false);
+                    }}
+                    className={`py-1 px-2.5 font-cactus font-bold text-xs uppercase cordel-border-sm cordel-button cursor-pointer flex items-center gap-1.5 transition-all ${
+                      overrideMode === 'local'
+                        ? 'bg-[var(--cordel-wood)] text-white shadow-[2px_2px_0px_#000]'
+                        : 'bg-[var(--cordel-bg)] text-[var(--cordel-text)] hover:bg-[var(--cordel-text)]/10'
+                    }`}
+                  >
+                    <span>⚡</span>
+                    <span>
+                      {lang === 'fr'
+                        ? `Débrayer cette image (T${selectedFrameIndex + 1})`
+                        : `Desacoplar esta imagem (T${selectedFrameIndex + 1})`}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Si mode local actif et override existant : bouton de réinitialisation au global */}
+                {overrideMode === 'local' && Boolean(frameOverrides[selectedFrameIndex] && Object.keys(frameOverrides[selectedFrameIndex]!).length > 0) && (
+                  <button
+                    type="button"
+                    onClick={handleResetLocalOverride}
+                    className="text-[9.5px] font-cactus uppercase text-[var(--cordel-wood)] hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>↺</span>
+                    <span>{lang === 'fr' ? 'Réinitialiser au global' : 'Redefinir para o global'}</span>
+                  </button>
+                )}
               </div>
 
               {/* Curseurs de cadrage */}
@@ -740,13 +929,13 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between">
                     <span>🔍 {lang === 'fr' ? 'Zoom' : 'Zoom'}</span>
-                    <span>{cordelOptions.zoom}%</span>
+                    <span>{activeInspectorOptions.zoom}%</span>
                   </div>
                   <input
                     type="range"
                     min="50"
                     max="180"
-                    value={cordelOptions.zoom}
+                    value={activeInspectorOptions.zoom}
                     onChange={(e) => handleUpdateCordelOption('zoom', parseInt(e.target.value))}
                     className="accent-[var(--cordel-wood)] cursor-pointer"
                   />
@@ -756,13 +945,13 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between">
                     <span>↔️ {lang === 'fr' ? 'Décalage X' : 'Deslocamento X'}</span>
-                    <span>{cordelOptions.posX}</span>
+                    <span>{activeInspectorOptions.posX}</span>
                   </div>
                   <input
                     type="range"
                     min="-100"
                     max="100"
-                    value={cordelOptions.posX}
+                    value={activeInspectorOptions.posX}
                     onChange={(e) => handleUpdateCordelOption('posX', parseInt(e.target.value))}
                     className="accent-[var(--cordel-wood)] cursor-pointer"
                   />
@@ -772,13 +961,13 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between">
                     <span>↕️ {lang === 'fr' ? 'Décalage Y' : 'Deslocamento Y'}</span>
-                    <span>{cordelOptions.posY}</span>
+                    <span>{activeInspectorOptions.posY}</span>
                   </div>
                   <input
                     type="range"
                     min="-100"
                     max="100"
-                    value={cordelOptions.posY}
+                    value={activeInspectorOptions.posY}
                     onChange={(e) => handleUpdateCordelOption('posY', parseInt(e.target.value))}
                     className="accent-[var(--cordel-wood)] cursor-pointer"
                   />
@@ -791,13 +980,13 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between">
                     <span>☀️ {lang === 'fr' ? 'Luminosité / Fond' : 'Luminosidade / Fundo'}</span>
-                    <span>{(cordelOptions.brightness ?? 0) > 0 ? `+${cordelOptions.brightness}` : (cordelOptions.brightness ?? 0)}</span>
+                    <span>{(activeInspectorOptions.brightness ?? 0) > 0 ? `+${activeInspectorOptions.brightness}` : (activeInspectorOptions.brightness ?? 0)}</span>
                   </div>
                   <input
                     type="range"
                     min="-50"
                     max="50"
-                    value={cordelOptions.brightness ?? 0}
+                    value={activeInspectorOptions.brightness ?? 0}
                     onChange={(e) => handleUpdateCordelOption('brightness', parseInt(e.target.value))}
                     className="accent-[var(--cordel-wood)] cursor-pointer"
                   />
@@ -807,13 +996,13 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between">
                     <span>🌑 {lang === 'fr' ? "Seuil d'encrage" : 'Limiar de Tinta'}</span>
-                    <span>{cordelOptions.threshold ?? cordelOptions.shadow ?? 128}</span>
+                    <span>{activeInspectorOptions.threshold ?? activeInspectorOptions.shadow ?? 128}</span>
                   </div>
                   <input
                     type="range"
                     min="20"
                     max="220"
-                    value={cordelOptions.threshold ?? cordelOptions.shadow ?? 128}
+                    value={activeInspectorOptions.threshold ?? activeInspectorOptions.shadow ?? 128}
                     onChange={(e) => {
                       const val = parseInt(e.target.value);
                       handleUpdateCordelOptions({ threshold: val, shadow: val });
@@ -826,13 +1015,13 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                 <div className="flex flex-col gap-1">
                   <div className="flex justify-between">
                     <span>✍️ {lang === 'fr' ? 'Traits Sobel' : 'Traços Sobel'}</span>
-                    <span>{cordelOptions.sobelContrast ?? 50}%</span>
+                    <span>{activeInspectorOptions.sobelContrast ?? 50}%</span>
                   </div>
                   <input
                     type="range"
                     min="0"
                     max="100"
-                    value={cordelOptions.sobelContrast ?? 50}
+                    value={activeInspectorOptions.sobelContrast ?? 50}
                     onChange={(e) => {
                       const val = parseInt(e.target.value);
                       handleUpdateCordelOptions({
@@ -846,62 +1035,61 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
               </div>
 
               {/* Détourage automatique du fond */}
-              <div className="flex flex-col gap-1.5 pt-1 border-t border-[var(--cordel-border)]/20">
-                <div className="flex justify-between items-center text-[10px] font-bold">
-                  <span className="font-cactus uppercase tracking-wide text-[var(--cordel-wood)]">
+              <div className="flex flex-col gap-1.5 pt-1.5 border-t border-[var(--cordel-border)]/20">
+                <div className="flex justify-between items-center text-[10px]">
+                  <label className="font-cactus font-bold uppercase tracking-wider">
                     🪄 {lang === 'fr' ? 'Détourage du fond' : 'Recorte de fundo'}
-                  </span>
+                  </label>
                 </div>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-3 gap-1">
                   <button
                     type="button"
                     onClick={() => handleUpdateCordelOption('bgRemovalMode', 'none')}
-                    className={`py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer text-center ${
-                      (cordelOptions.bgRemovalMode ?? 'none') === 'none'
+                    className={`py-1 px-1 text-[9px] font-cactus font-bold uppercase border border-[var(--cordel-border)] transition-all cursor-pointer text-center ${
+                      (activeInspectorOptions.bgRemovalMode ?? 'none') === 'none'
                         ? 'bg-[var(--cordel-wood)] text-white shadow-[1px_1px_0px_#000]'
                         : 'bg-black/5 hover:bg-black/10'
                     }`}
                   >
-                    {lang === 'fr' ? 'Fond Standard' : 'Fundo Padrão'}
+                    {lang === 'fr' ? 'Standard' : 'Padrão'}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleUpdateCordelOption('bgRemovalMode', 'green')}
-                    className={`py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
-                      cordelOptions.bgRemovalMode === 'green'
+                    className={`py-1 px-1 text-[9px] font-cactus font-bold uppercase border border-[var(--cordel-border)] transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
+                      activeInspectorOptions.bgRemovalMode === 'green'
                         ? 'bg-emerald-700 text-white shadow-[1px_1px_0px_#000]'
                         : 'bg-black/5 hover:bg-black/10'
                     }`}
                   >
-                    <span>🟩</span> {lang === 'fr' ? 'Fond Vert' : 'Fundo Verde'}
+                    <span>🟩</span> {lang === 'fr' ? 'Fond Vert' : 'Verde'}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleUpdateCordelOption('bgRemovalMode', 'white')}
-                    className={`py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
-                      cordelOptions.bgRemovalMode === 'white'
+                    className={`py-1 px-1 text-[9px] font-cactus font-bold uppercase border border-[var(--cordel-border)] transition-all cursor-pointer text-center flex items-center justify-center gap-1 ${
+                      activeInspectorOptions.bgRemovalMode === 'white'
                         ? 'bg-stone-600 text-white shadow-[1px_1px_0px_#000]'
                         : 'bg-black/5 hover:bg-black/10'
                     }`}
                   >
-                    <span>⬜</span> {lang === 'fr' ? 'Fond Blanc' : 'Fundo Branco'}
+                    <span>⬜</span> {lang === 'fr' ? 'Fond Blanc' : 'Branco'}
                   </button>
                 </div>
 
-                {/* Curseur de tolérance conditionnel */}
-                {(cordelOptions.bgRemovalMode === 'green' || cordelOptions.bgRemovalMode === 'white') && (
-                  <div className="flex flex-col gap-1 mt-0.5 bg-black/5 p-2 border border-[var(--cordel-border)]/30">
-                    <div className="flex justify-between text-[10px] font-bold">
-                      <span>🎯 {lang === 'fr' ? 'Tolérance fond' : 'Tolerância fundo'}</span>
-                      <span>{cordelOptions.bgTolerance ?? 40}%</span>
+                {/* Curseur conditionnel de tolérance */}
+                {(activeInspectorOptions.bgRemovalMode === 'green' || activeInspectorOptions.bgRemovalMode === 'white') && (
+                  <div className="flex flex-col gap-1 mt-0.5 bg-black/5 p-1.5 cordel-border-sm">
+                    <div className="flex justify-between items-center text-[10px]">
+                      <label>🎯 {lang === 'fr' ? 'Tolérance fond' : 'Tolerância fundo'}: {activeInspectorOptions.bgTolerance ?? 40}%</label>
                     </div>
                     <input
                       type="range"
                       min="10"
                       max="90"
-                      value={cordelOptions.bgTolerance ?? 40}
+                      value={activeInspectorOptions.bgTolerance ?? 40}
                       onChange={(e) => handleUpdateCordelOption('bgTolerance', parseInt(e.target.value))}
-                      className="accent-[var(--cordel-wood)] cursor-pointer"
+                      className="w-full accent-[var(--cordel-wood)] cursor-pointer"
                     />
                   </div>
                 )}
@@ -911,28 +1099,29 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
               <div className="flex gap-2 pt-1 border-t border-[var(--cordel-border)]/20">
                 <button
                   type="button"
-                  onClick={() => handleUpdateCordelOption('isMirror', !cordelOptions.isMirror)}
-                  className={`flex-1 py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                    cordelOptions.isMirror
+                  onClick={() => handleUpdateCordelOption('isMirror', !activeInspectorOptions.isMirror)}
+                  className={`flex-1 py-1 px-2 text-[10px] font-cactus font-bold uppercase border border-[var(--cordel-border)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    activeInspectorOptions.isMirror
                       ? 'bg-[var(--cordel-wood)] text-white shadow-[1px_1px_0px_#000]'
                       : 'bg-black/5 hover:bg-black/10'
                   }`}
                 >
-                  ⇄ {lang === 'fr' ? 'Miroir' : 'Espelho'} : {cordelOptions.isMirror ? (lang === 'fr' ? 'OUI' : 'SIM') : (lang === 'fr' ? 'NON' : 'NÃO')}
+                  ⇄ {lang === 'fr' ? 'Miroir' : 'Espelho'} : {activeInspectorOptions.isMirror ? (lang === 'fr' ? 'OUI' : 'SIM') : (lang === 'fr' ? 'NON' : 'NÃO')}
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => handleUpdateCordelOption('isFrame', !cordelOptions.isFrame)}
-                  className={`flex-1 py-1.5 px-2 text-[10px] font-cactus font-bold uppercase border-2 border-[var(--cordel-border)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                    cordelOptions.isFrame
+                  onClick={() => handleUpdateCordelOption('isFrame', !activeInspectorOptions.isFrame)}
+                  className={`flex-1 py-1 px-2 text-[10px] font-cactus font-bold uppercase border border-[var(--cordel-border)] transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    activeInspectorOptions.isFrame
                       ? 'bg-[var(--cordel-wood)] text-white shadow-[1px_1px_0px_#000]'
                       : 'bg-black/5 hover:bg-black/10'
                   }`}
                 >
-                  🖼️ {lang === 'fr' ? 'Cadre' : 'Moldura'} : {cordelOptions.isFrame ? (lang === 'fr' ? 'OUI' : 'SIM') : (lang === 'fr' ? 'NON' : 'NÃO')}
+                  🖼️ {lang === 'fr' ? 'Cadre' : 'Moldura'} : {activeInspectorOptions.isFrame ? (lang === 'fr' ? 'OUI' : 'SIM') : (lang === 'fr' ? 'NON' : 'NÃO')}
                 </button>
               </div>
+
             </div>
 
             {/* Boutons d'action */}

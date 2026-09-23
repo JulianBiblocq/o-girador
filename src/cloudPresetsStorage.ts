@@ -173,7 +173,7 @@ export async function fetchStoragePresetsJSON(groupId: string, forceRefresh = fa
  */
 export function isPresetAuthorized(
   data: Omit<CloudPreset, 'id'>,
-  userUid: string,
+  userUid: string | null,
   userRole: string,
   myGroupMestreId: string | null,
   groupId: string | null | undefined,

@@ -186,30 +186,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               ''
             ).trim().toLowerCase();
 
+            const isOtherDistinctGroup = 
+              extractedGroupId &&
+              !extractedGroupId.includes('samambaia') &&
+              !extractedGroupId.includes('sammbia');
+
             const isSamambaiaOrEditor = 
+              !isOtherDistinctGroup ||
               profile.uid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
               extractedGroupId.includes('samambaia') || 
-              extractedGroupId.includes('sammbia') ||
+              extractedGroupId.includes('sammbia') || 
               String((rawData as any).groupName || '').toLowerCase().includes('samambaia') ||
               rawData.mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
               Boolean(profile.canWriteSequenciador || (rawData as any).canWriteSequenciador);
 
             if (isSamambaiaOrEditor) {
-              // Injection synchrone immédiate en mémoire pour Samambaia et les éditeurs
+              // Injection synchrone immédiate en mémoire pour Samambaia et les adhérents
               const targetMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
               const targetGroupName = 'Samambaia';
-              const targetGroupId = rawData.groupId || 'samambaia';
+              const targetGroupId = rawData.groupId || 'Samambaia';
               profile.mestreId = targetMestreId;
               profile.groupName = targetGroupName;
               profile.groupId = targetGroupId;
-              if (profile.role === 'visiteur') {
+              if (profile.role === 'visiteur' || !profile.role) {
                 profile.role = 'membre';
               }
 
               // CONSIGNES DE SÉCURITÉ 1 : Prévention stricte de boucle infinie Firestore
-              // Conditionner strictement l'écriture (updateDoc) pour qu'elle ne s'exécute QUE si rawData.mestreId !== 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ou si rawData.groupName !== 'Samambaia'
-              if (rawData.mestreId !== 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' || rawData.groupName !== 'Samambaia') {
-                const updatePayload: Record<string, any> = { mestreId: targetMestreId, groupName: targetGroupName };
+              if (rawData.mestreId !== targetMestreId || rawData.groupName !== targetGroupName || !rawData.groupId) {
+                const updatePayload: Record<string, any> = { 
+                  mestreId: targetMestreId, 
+                  groupName: targetGroupName,
+                  groupId: targetGroupId
+                };
                 updateDoc(userRef, updatePayload).catch((e) => {
                   console.warn('[AuthContext] Échec persistance profil Samambaia:', e);
                 });
@@ -223,7 +232,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 updateDoc(userRef, { groupId: normalizedGroupId }).catch(() => {});
               }
 
-              // Résolution locale sans requête distante getDocs sur /users (qui échoue avec les règles de sécurité)
               if (rawData.mestreId) {
                 profile.mestreId = rawData.mestreId;
               }
@@ -269,14 +277,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: user.email,
               displayName: user.displayName,
               photoURL: user.photoURL,
-              role: initialRole,
-              mestreId: initialMestreId,
+              role: initialRole === 'visiteur' ? 'membre' : initialRole,
+              mestreId: initialMestreId || 'iA0SweEHyOPzAPGIDVZdeKAV2mk1',
+              groupId: 'Samambaia',
+              groupName: 'Samambaia',
               createdAt: Date.now(),
             };
             await setDoc(userRef, newProfile, { merge: true });
             
             setUserProfile({ ...newProfile, dbRole: newProfile.dbRole || newProfile.role });
-            useNomenclatureStore.getState().syncGroupNomenclature(null);
+            useNomenclatureStore.getState().syncGroupNomenclature('Samambaia');
           }
           setLoading(false);
         });

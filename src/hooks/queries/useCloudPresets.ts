@@ -20,21 +20,20 @@ export const normalizePresetName = (name: string) =>
     .trim();
 
 export function useCloudPresets({ userUid, userRole, mestreId, groupId, groupName, canWriteSequenciador }: UseCloudPresetsProps) {
-  const isSamambaia = Boolean(
-    userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-    userUid === 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2' ||
-    (groupId && (groupId.toLowerCase().includes('samambaia') || groupId.toLowerCase().includes('sammbia'))) ||
-    (groupName && (groupName.toLowerCase().includes('samambaia') || groupName.toLowerCase().includes('sammbia'))) ||
-    mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-    (canWriteSequenciador && (!groupId || groupId.toLowerCase() === 'samambaia'))
+  const isOtherDistinctGroup = Boolean(
+    groupId &&
+    !groupId.toLowerCase().includes('samambaia') &&
+    !groupId.toLowerCase().includes('sammbia')
   );
+
+  const isSamambaia = !isOtherDistinctGroup;
 
   const normalizedGroupId = isSamambaia ? 'Samambaia' : (groupId || null);
   const effectiveMestreId = isSamambaia ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : (mestreId || null);
   const effectiveRole = isSamambaia && (userRole === 'visiteur' || !userRole) ? 'membre' : userRole;
 
   return useQuery<CloudPreset[]>({
-    queryKey: ['cloudPresets', userUid, normalizedGroupId, effectiveMestreId, effectiveRole, canWriteSequenciador],
+    queryKey: ['cloudPresets', 'v4', userUid, normalizedGroupId, effectiveMestreId, effectiveRole, canWriteSequenciador],
     queryFn: async () => {
       const { fetchCloudPresets, fetchStoragePresetsJSON } = await import('../../cloudLibrary');
       const firestorePresetsPromise = fetchCloudPresets(userUid, effectiveRole, effectiveMestreId, normalizedGroupId, canWriteSequenciador);

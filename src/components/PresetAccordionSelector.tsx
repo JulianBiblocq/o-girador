@@ -115,10 +115,10 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
                   >
                     <span
                       style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
-                      className={`font-cactus text-xl select-none leading-none transform transition-colors ${
+                      className={`font-cactus-star text-xl select-none leading-none inline-flex items-center justify-center transform transition-colors ${
                         isDefault
                           ? 'text-amber-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]'
-                          : 'text-[var(--cordel-text)]/35 hover:text-[var(--cordel-text)]'
+                          : 'text-[#f4ecd8]/30 hover:text-[#f4ecd8]'
                       }`}
                     >
                       *
@@ -128,7 +128,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
                   <span
                     title={lang === 'pt' ? 'Ritmo de referência do grupo' : 'Morceau de travail du groupe'}
                     style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
-                    className="shrink-0 p-1 select-none leading-none text-xl font-cactus text-amber-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)] flex items-center justify-center"
+                    className="shrink-0 p-1 select-none leading-none text-xl font-cactus-star text-amber-400 drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)] inline-flex items-center justify-center"
                   >
                     *
                   </span>
@@ -136,7 +136,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
                   <span
                     aria-hidden="true"
                     style={{ fontFamily: "'Cactus', 'Cinzel Decorative', Georgia, serif" }}
-                    className="shrink-0 p-1 select-none leading-none text-xl font-cactus text-[var(--cordel-text)]/20 flex items-center justify-center"
+                    className="shrink-0 p-1 select-none leading-none text-xl font-cactus-star text-[#f4ecd8]/20 inline-flex items-center justify-center"
                   >
                     *
                   </span>
@@ -158,7 +158,7 @@ export const PresetAccordionSelector: React.FC<PresetAccordionSelectorProps> = (
           📚 {lang === 'pt' ? 'Catálogo de Ritmos' : 'Catalogue des Morceaux'}
         </span>
         {currentSongTitle && (
-          <span className="text-[11px] font-cactus font-bold text-[var(--cordel-text)] truncate">🎵 {currentSongTitle}</span>
+          <span className="text-[11px] font-cactus font-bold text-[#f4ecd8] truncate">🎵 {currentSongTitle}</span>
         )}
       </div>
 

@@ -246,12 +246,18 @@ export function useAppAudio() {
             }
 
             // Vérifier si l'utilisateur est membre d'un groupe avec un morceau vedette Cactus 🌵
-            const groupId = userProfileRef.current?.groupId || userProfile?.groupId;
+            const isOtherGroup = Boolean(
+              userProfile?.groupId &&
+              !userProfile.groupId.toLowerCase().includes('samambaia') &&
+              !userProfile.groupId.toLowerCase().includes('sammbia')
+            );
+            const groupId = isOtherGroup ? userProfile?.groupId : 'Samambaia';
             if (groupId) {
               try {
                 const defaultPresetId = await getDefaultGroupPresetId(groupId);
                 if (defaultPresetId) {
-                  // Le morceau vedette sera chargé automatiquement par App.tsx
+                  audio.setActivePresetName(`cloud:${defaultPresetId}`);
+                  await audio.loadFallbackPreset(`cloud:${defaultPresetId}`);
                   return;
                 }
               } catch (e) {

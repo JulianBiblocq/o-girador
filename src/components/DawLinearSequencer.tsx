@@ -323,7 +323,7 @@ export const DawLinearSequencer: React.FC<DawLinearSequencerProps> = ({
           <div className="w-[360px] min-w-[360px] shrink-0 flex items-center gap-3">
             <button
               onClick={() => useSequencerStore.getState().toggleTracksCollapsed()}
-              className="bg-transparent border border-[#444] px-3 py-2 text-sm font-extrabold cursor-pointer text-[#eaddcf] hover:bg-[#eaddcf] hover:text-black transition-colors flex-shrink-0 flex items-center justify-center"
+              className="bg-[var(--cordel-bg)] text-[var(--cordel-text)] cordel-border cordel-button px-3 py-2 text-sm font-extrabold cursor-pointer hover:bg-[var(--cordel-text)] hover:text-[var(--cordel-bg)] transition-colors flex-shrink-0 flex items-center justify-center"
               title={lang === 'fr' ? 'Replier le séquenceur' : 'Recolher sequenciador'}
             >
               ▲

@@ -59,7 +59,8 @@ export const uploadMestreSignal = async (
   beatsCount?: number,
   mirrorHorizontal?: boolean,
   rawFrames?: string[],
-  cordelOptions?: CordelOptions
+  cordelOptions?: CordelOptions,
+  frameOverrides?: Record<number, Partial<CordelOptions>>
 ): Promise<UploadSignalResult> => {
   if (!mestreId) {
     return { success: false, error: 'Mestre ID manquant ou invalide.' };
@@ -101,6 +102,7 @@ export const uploadMestreSignal = async (
       frames: finalFrames,
       rawFrames: rawFrames && rawFrames.length > 0 ? rawFrames : undefined,
       cordelOptions: cordelOptions || undefined,
+      frameOverrides: frameOverrides && Object.keys(frameOverrides).length > 0 ? frameOverrides : undefined,
       beatsCount: beatsCount || finalFrames.length,
       mirrorHorizontal: mirrorHorizontal ?? false,
     };
@@ -129,6 +131,7 @@ export const updateMestreSignal = async (
     frames?: string[];
     rawFrames?: string[];
     cordelOptions?: CordelOptions;
+    frameOverrides?: Record<number, Partial<CordelOptions>>;
     beatsCount?: number;
     mirrorHorizontal?: boolean;
   }
@@ -144,6 +147,7 @@ export const updateMestreSignal = async (
     if (updates.frames !== undefined) payload.frames = updates.frames;
     if (updates.rawFrames !== undefined) payload.rawFrames = updates.rawFrames;
     if (updates.cordelOptions !== undefined) payload.cordelOptions = updates.cordelOptions;
+    if (updates.frameOverrides !== undefined) payload.frameOverrides = updates.frameOverrides;
     if (updates.beatsCount !== undefined) payload.beatsCount = updates.beatsCount;
     if (updates.mirrorHorizontal !== undefined) payload.mirrorHorizontal = updates.mirrorHorizontal;
 

@@ -212,6 +212,7 @@ export const CloudLibraryTab: React.FC<CloudLibraryTabProps> = ({
     frames: string[];
     rawFrames?: string[];
     cordelOptions?: CordelOptions;
+    frameOverrides?: Record<number, Partial<CordelOptions>>;
     beatsCount: number;
     mirrorHorizontal?: boolean;
   }) => {
@@ -228,6 +229,7 @@ export const CloudLibraryTab: React.FC<CloudLibraryTabProps> = ({
         frames: signalData.frames,
         rawFrames: signalData.rawFrames,
         cordelOptions: signalData.cordelOptions,
+        frameOverrides: signalData.frameOverrides,
         beatsCount: signalData.beatsCount,
         mirrorHorizontal: signalData.mirrorHorizontal,
       });
@@ -259,7 +261,8 @@ export const CloudLibraryTab: React.FC<CloudLibraryTabProps> = ({
         signalData.beatsCount,
         signalData.mirrorHorizontal,
         signalData.rawFrames,
-        signalData.cordelOptions
+        signalData.cordelOptions,
+        signalData.frameOverrides
       );
       if (result.success && result.signal) {
         if (refreshMestreSignals) refreshMestreSignals();

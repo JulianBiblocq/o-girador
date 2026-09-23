@@ -29,6 +29,7 @@ export interface RhythmSignal {
   frames?: string[]; // Tableau des trames WebP/base64 Cordel
   rawFrames?: string[]; // Trames sources couleur/webcam compressées (240x240 WebP/JPEG 0.6)
   cordelOptions?: CordelOptions; // Historique des réglages appliqués
+  frameOverrides?: Record<number, Partial<CordelOptions>>; // Réglages spécifiques débrayés par trame
   beatsCount?: number; // Nombre dynamique de trames selon la signature (bannir le 4 en dur)
   mirrorHorizontal?: boolean; // Inversion miroir horizontale du signal
   createdAt?: number;

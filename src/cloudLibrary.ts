@@ -101,28 +101,6 @@ export async function fetchCloudPresets(
   const presetsRef = collection(db, CLOUD_PRESETS_COLLECTION);
   
   try {
-    if (!userUid) {
-      // Visiteur non connecté : consultation immédiate des presets publics & globaux
-      const qPublic = [
-        getDocs(query(presetsRef, where('visibility', '==', 'admin_global'), limit(100))),
-        getDocs(query(presetsRef, where('visibility', '==', 'public'), limit(100)))
-      ];
-      const res = await Promise.allSettled(qPublic);
-      const ids = new Set<string>();
-      res.forEach(r => {
-        if (r.status === 'fulfilled') {
-          r.value.forEach(d => {
-            if (!ids.has(d.id)) {
-              ids.add(d.id);
-              presets.push({ id: d.id, ...(d.data() as Omit<CloudPreset, 'id'>) });
-            }
-          });
-        }
-      });
-      presets.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      return presets;
-    }
-
     if (userRole === 'admin') {
       const snapshot = await getDocs(query(presetsRef, limit(1000)));
       snapshot.forEach(docSnap => {
@@ -131,43 +109,36 @@ export async function fetchCloudPresets(
       presets.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     } else {
       const isJulian = userUid === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
-      let myGroupMestreId = (userRole === 'mestre' || userRole === 'mestri') ? userUid : mestreId;
       const normalizedUserGroupId = groupId ? groupId.trim().toLowerCase() : '';
-      const isSamambaiaGroup = isJulian || 
-        normalizedUserGroupId.includes('samambaia') || 
-        normalizedUserGroupId.includes('sammbia') || 
-        mestreId === 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' ||
-        Boolean(canWriteSequenciador);
+      const isOtherGroup = Boolean(
+        normalizedUserGroupId &&
+        !normalizedUserGroupId.includes('samambaia') &&
+        !normalizedUserGroupId.includes('sammbia')
+      );
+      const isSamambaiaGroup = !isOtherGroup;
+      let myGroupMestreId = isSamambaiaGroup ? 'iA0SweEHyOPzAPGIDVZdeKAV2mk1' : (mestreId || null);
 
-      if (isJulian || isSamambaiaGroup) {
-        myGroupMestreId = 'iA0SweEHyOPzAPGIDVZdeKAV2mk1';
-      }
-      
       const queries = [
-        getDocs(query(presetsRef, where('ownerId', '==', userUid), limit(100))),
         getDocs(query(presetsRef, where('visibility', '==', 'admin_global'), limit(100))),
-        getDocs(query(presetsRef, where('visibility', '==', 'public'), limit(100))),
-        getDocs(query(presetsRef, where('targetUserId', '==', userUid), limit(100)))
+        getDocs(query(presetsRef, where('visibility', '==', 'public'), limit(100)))
       ];
-      
-      if (myGroupMestreId) {
-        queries.push(getDocs(query(presetsRef, where('ownerId', '==', myGroupMestreId), limit(100))));
-        queries.push(getDocs(query(presetsRef, where('mestreId', '==', myGroupMestreId), limit(100))));
+
+      if (userUid) {
+        queries.push(getDocs(query(presetsRef, where('ownerId', '==', userUid), limit(100))));
+        queries.push(getDocs(query(presetsRef, where('targetUserId', '==', userUid), limit(100))));
       }
 
-      // Requête systématique sur les variantes multi-casse dès qu'un groupe est présent
-      const effectiveGroup = groupId || ((isSamambaiaGroup || canWriteSequenciador) ? 'samambaia' : null);
-      if (effectiveGroup) {
-        const norm = effectiveGroup.trim().toLowerCase();
-        const isSam = norm.includes('samambaia') || norm.includes('sammbia') || canWriteSequenciador;
-        const groupIdVariants = Array.from(new Set([
-          effectiveGroup, norm, ...(isSam ? ['samambaia', 'Samambaia', 'SAMAMBAIA'] : [effectiveGroup, norm])
-        ]));
-        queries.push(getDocs(query(presetsRef, where('groupId', 'in', groupIdVariants), limit(100))));
-
-        // Filet de sécurité transitoire pour les presets historiques orphelins de Bastien
-        if (isSam) {
-          queries.push(getDocs(query(presetsRef, where('ownerId', '==', 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2'), limit(100))));
+      if (isSamambaiaGroup) {
+        // Récupération systématique des presets Samambaia (mestre_group)
+        queries.push(getDocs(query(presetsRef, where('groupId', 'in', ['samambaia', 'Samambaia', 'SAMAMBAIA']), limit(100))));
+        queries.push(getDocs(query(presetsRef, where('mestreId', '==', 'iA0SweEHyOPzAPGIDVZdeKAV2mk1'), limit(100))));
+        queries.push(getDocs(query(presetsRef, where('ownerId', '==', 'iA0SweEHyOPzAPGIDVZdeKAV2mk1'), limit(100))));
+        queries.push(getDocs(query(presetsRef, where('ownerId', '==', 'pFAmvjJWGtaWV0a6i9JcReuiyTJ2'), limit(100))));
+      } else if (groupId) {
+        queries.push(getDocs(query(presetsRef, where('groupId', '==', groupId), limit(100))));
+        if (myGroupMestreId) {
+          queries.push(getDocs(query(presetsRef, where('mestreId', '==', myGroupMestreId), limit(100))));
+          queries.push(getDocs(query(presetsRef, where('ownerId', '==', myGroupMestreId), limit(100))));
         }
       }
 

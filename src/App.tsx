@@ -255,7 +255,7 @@ export default function App() {
       return;
     }
 
-    const groupId = userProfile?.groupId;
+    const groupId = userProfile?.groupId || 'Samambaia';
     if (!groupId || !cloudPresets || cloudPresets.length === 0) {
       return;
     }

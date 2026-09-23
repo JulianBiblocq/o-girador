@@ -5697,9 +5697,9 @@
     ],
     "swingIntensity": 100
   },
-  "loopStartMeasure": 2,
-  "loopEndMeasure": 5,
-  "isLoopRegionActive": true,
+  "loopStartMeasure": null,
+  "loopEndMeasure": null,
+  "isLoopRegionActive": false,
   "loopMode": 4,
   "isLooping": true
 }

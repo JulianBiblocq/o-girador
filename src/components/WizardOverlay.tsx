@@ -350,6 +350,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
     frames: string[];
     rawFrames?: string[];
     cordelOptions?: CordelOptions;
+    frameOverrides?: Record<number, Partial<CordelOptions>>;
     beatsCount: number;
     mirrorHorizontal?: boolean;
   }) => {
@@ -363,6 +364,7 @@ export const WizardOverlay: React.FC<WizardOverlayProps> = ({
         frames: signalData.frames,
         rawFrames: signalData.rawFrames,
         cordelOptions: signalData.cordelOptions,
+        frameOverrides: signalData.frameOverrides,
         beatsCount: signalData.beatsCount,
         mirrorHorizontal: signalData.mirrorHorizontal,
         createdAt: Date.now(),

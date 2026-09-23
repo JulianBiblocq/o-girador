@@ -176,6 +176,7 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
     frames: string[];
     rawFrames?: string[];
     cordelOptions?: CordelOptions;
+    frameOverrides?: Record<number, Partial<CordelOptions>>;
     beatsCount: number;
     mirrorHorizontal?: boolean;
   }) => {
@@ -193,6 +194,7 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
               frames: signalData.frames,
               rawFrames: signalData.rawFrames,
               cordelOptions: signalData.cordelOptions,
+              frameOverrides: signalData.frameOverrides,
               beatsCount: signalData.beatsCount,
               mirrorHorizontal: signalData.mirrorHorizontal,
             }
@@ -210,6 +212,7 @@ export const PresetManagerSection: React.FC<PresetManagerSectionProps> = ({
       frames: signalData.frames,
       rawFrames: signalData.rawFrames,
       cordelOptions: signalData.cordelOptions,
+      frameOverrides: signalData.frameOverrides,
       beatsCount: signalData.beatsCount,
       mirrorHorizontal: signalData.mirrorHorizontal,
       createdAt: Date.now(),
