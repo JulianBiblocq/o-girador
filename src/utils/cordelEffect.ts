@@ -157,7 +157,9 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
 
   // 3. Paramètres de filtrage Sobel et d'encrage
   const sobelPct = options.sobelContrast !== undefined ? options.sobelContrast : (options.detail !== undefined ? Math.round((options.detail / 150) * 100) : 50);
-  const detailSensibility = 220 - (Math.min(100, Math.max(0, sobelPct)) / 100) * 195;
+  const clampedSobel = Math.min(100, Math.max(0, sobelPct));
+  // À 0% : traits d'arête désactivés (pur clair-obscur Cordel). À 100% : traits fins et précis (seuil 25)
+  const detailSensibility = clampedSobel === 0 ? 9999 : 400 - (clampedSobel / 100) * 375;
   const inkThreshold = options.threshold !== undefined ? options.threshold : (options.shadow ?? 128);
 
   const finalCanvas = document.createElement('canvas');
@@ -188,7 +190,7 @@ export const processCordelEffect = (img: HTMLImageElement, options: CordelOption
                   let dy = (bl + 2*bc + br) - (tl + 2*tc + tr);
                   let edge = Math.sqrt(dx*dx + dy*dy);
 
-                  if (edge > detailSensibility && lum < 245) {
+                  if (clampedSobel > 0 && edge > detailSensibility && lum < 248) {
                       isInk = true;
                   }
               }

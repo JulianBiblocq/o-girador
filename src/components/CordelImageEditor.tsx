@@ -41,8 +41,12 @@ export const CordelImageEditor: React.FC<CordelImageEditorProps> = ({ frames, la
     }
   };
 
+  const handleOptionsChange = (patch: Partial<CordelOptions>) => {
+    setOptions(prev => ({ ...prev, ...patch }));
+  };
+
   const handleOptionChange = (key: keyof CordelOptions, value: any) => {
-    setOptions(prev => ({ ...prev, [key]: value }));
+    handleOptionsChange({ [key]: value });
   };
 
   return (
@@ -108,8 +112,7 @@ export const CordelImageEditor: React.FC<CordelImageEditorProps> = ({ frames, la
             value={options.threshold ?? options.shadow ?? 128}
             onChange={e => {
               const val = parseInt(e.target.value);
-              handleOptionChange('threshold', val);
-              handleOptionChange('shadow', val);
+              handleOptionsChange({ threshold: val, shadow: val });
             }}
             className="w-full accent-[var(--cordel-text)] cursor-pointer"
           />
@@ -127,8 +130,7 @@ export const CordelImageEditor: React.FC<CordelImageEditorProps> = ({ frames, la
             value={options.sobelContrast ?? 50}
             onChange={e => {
               const val = parseInt(e.target.value);
-              handleOptionChange('sobelContrast', val);
-              handleOptionChange('detail', Math.round((val / 100) * 150));
+              handleOptionsChange({ sobelContrast: val, detail: Math.round((val / 100) * 150) });
             }}
             className="w-full accent-[var(--cordel-text)] cursor-pointer"
           />

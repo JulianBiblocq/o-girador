@@ -131,8 +131,12 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
         .join('')
     : 'SG';
 
+  const handleOptionsChange = (patch: Partial<CordelOptions>) => {
+    setOptions((prev) => ({ ...prev, ...patch }));
+  };
+
   const handleOptionChange = <K extends keyof CordelOptions>(key: K, value: CordelOptions[K]) => {
-    setOptions((prev) => ({ ...prev, [key]: value }));
+    handleOptionsChange({ [key]: value } as any);
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -311,7 +315,7 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    const def = {
+                    const def: CordelOptions = {
                       ...defaultCordelOptions,
                       zoom: 120,
                       detail: 60,
@@ -413,8 +417,7 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
                     value={options.threshold ?? options.shadow ?? 128}
                     onChange={(e) => {
                       const val = parseInt(e.target.value);
-                      handleOptionChange('threshold', val);
-                      handleOptionChange('shadow', val);
+                      handleOptionsChange({ threshold: val, shadow: val });
                     }}
                     className="accent-[var(--cordel-wood)] cursor-pointer"
                   />
@@ -433,8 +436,10 @@ export const EditSignalModal: React.FC<EditSignalModalProps> = ({
                     value={options.sobelContrast ?? 50}
                     onChange={(e) => {
                       const val = parseInt(e.target.value);
-                      handleOptionChange('sobelContrast', val);
-                      handleOptionChange('detail', Math.round((val / 100) * 150));
+                      handleOptionsChange({
+                        sobelContrast: val,
+                        detail: Math.round((val / 100) * 150),
+                      });
                     }}
                     className="accent-[var(--cordel-wood)] cursor-pointer"
                   />

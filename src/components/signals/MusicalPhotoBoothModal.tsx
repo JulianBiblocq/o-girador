@@ -318,15 +318,23 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
     setPhase('review');
   };
 
-  // 8. Réapplication des options Cordel (avec debounce réactif pour 60 FPS)
+  // 8. Réapplication des options Cordel (avec protection anti-course et debounce réactif)
+  const reprocessRequestIdRef = useRef<number>(0);
+
   const applyCordelToAllFrames = async (opts: CordelOptions) => {
+    const requestId = ++reprocessRequestIdRef.current;
     setIsReprocessing(true);
     const rawImages = rawBase64ImagesRef.current;
+    if (!rawImages || rawImages.length === 0) {
+      setIsReprocessing(false);
+      return;
+    }
     const finalFrames: string[] = [];
 
     for (let i = 0; i < rawImages.length; i++) {
       try {
         const cordelized = await processCordelEffectBase64(rawImages[i], opts, 180);
+        if (requestId !== reprocessRequestIdRef.current) return; // Requête obsolète annulée
         finalFrames.push(cordelized);
       } catch (err) {
         console.error('[PhotoBooth] Erreur retraitement cordel frame', i, err);
@@ -334,20 +342,27 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
       }
     }
 
-    setProcessedFrames(finalFrames);
-    setIsReprocessing(false);
+    if (requestId === reprocessRequestIdRef.current) {
+      setProcessedFrames(finalFrames);
+      setIsReprocessing(false);
+    }
+  };
+
+  const handleUpdateCordelOptions = (patch: Partial<CordelOptions>) => {
+    setCordelOptions((prev) => {
+      const updated = { ...prev, ...patch };
+      if (reprocessDebounceTimerRef.current) {
+        clearTimeout(reprocessDebounceTimerRef.current);
+      }
+      reprocessDebounceTimerRef.current = setTimeout(() => {
+        applyCordelToAllFrames(updated);
+      }, 50);
+      return updated;
+    });
   };
 
   const handleUpdateCordelOption = <K extends keyof CordelOptions>(key: K, value: CordelOptions[K]) => {
-    const updated = { ...cordelOptions, [key]: value };
-    setCordelOptions(updated);
-
-    if (reprocessDebounceTimerRef.current) {
-      clearTimeout(reprocessDebounceTimerRef.current);
-    }
-    reprocessDebounceTimerRef.current = setTimeout(() => {
-      applyCordelToAllFrames(updated);
-    }, 60);
+    handleUpdateCordelOptions({ [key]: value } as any);
   };
 
   // 9. Boucle d'animation de prévisualisation vivante au tempo
@@ -698,7 +713,7 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    const def = {
+                    const def: CordelOptions = {
                       ...defaultCordelOptions,
                       zoom: 120,
                       detail: 60,
@@ -801,8 +816,7 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                     value={cordelOptions.threshold ?? cordelOptions.shadow ?? 128}
                     onChange={(e) => {
                       const val = parseInt(e.target.value);
-                      handleUpdateCordelOption('threshold', val);
-                      handleUpdateCordelOption('shadow', val);
+                      handleUpdateCordelOptions({ threshold: val, shadow: val });
                     }}
                     className="accent-[var(--cordel-wood)] cursor-pointer"
                   />
@@ -821,8 +835,10 @@ export const MusicalPhotoBoothModal: React.FC<MusicalPhotoBoothModalProps> = ({
                     value={cordelOptions.sobelContrast ?? 50}
                     onChange={(e) => {
                       const val = parseInt(e.target.value);
-                      handleUpdateCordelOption('sobelContrast', val);
-                      handleUpdateCordelOption('detail', Math.round((val / 100) * 150));
+                      handleUpdateCordelOptions({
+                        sobelContrast: val,
+                        detail: Math.round((val / 100) * 150),
+                      });
                     }}
                     className="accent-[var(--cordel-wood)] cursor-pointer"
                   />
