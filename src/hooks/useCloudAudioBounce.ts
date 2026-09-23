@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import * as Tone from 'tone';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { doc, updateDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { storage, db, auth } from '../firebase/config';
 import { telemetryService } from '../services/telemetryService';
@@ -17,10 +17,61 @@ const CLOUD_PATTERNS_COLLECTION = 'patterns';
 import { CLOUD_SECTIONS_COLLECTION } from '../cloudSections';
 import { instrumentAudioConfigs } from '../data/audioConfig';
 import { instrumentsConfig } from '../data';
+import { audioEngine } from './useAudioSync';
+
+/**
+ * Chargeur d'échantillon robuste et non bloquant.
+ * Réutilise en priorité les ToneAudioBuffer déjà en cache dans AudioEngine.bufferPool.
+ */
+async function loadSampleBuffer(file: string): Promise<Tone.ToneAudioBuffer | null> {
+  if (audioEngine?.bufferPool?.has(file)) {
+    const pooled = audioEngine.bufferPool.get(file);
+    if (pooled && pooled.loaded) {
+      return pooled;
+    }
+  }
+
+  try {
+    const baseUrl = (import.meta as any).env.BASE_URL || '/';
+    let fetchPath = file;
+    if (file.includes('Mixdown/') || file.includes('mixdown/')) {
+      const filename = file.substring(file.lastIndexOf('/') + 1);
+      fetchPath = `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}Mixdown/${filename}`;
+    } else {
+      const cleanPath = file.startsWith('/') ? file : '/' + file;
+      fetchPath = baseUrl.endsWith('/') ? baseUrl + cleanPath.slice(1) : baseUrl + cleanPath;
+    }
+    const encodedPath = fetchPath.split('/').map(segment => encodeURIComponent(segment)).join('/');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const resp = await fetch(encodedPath, { signal: controller.signal });
+    clearTimeout(timeoutId);
+
+    if (!resp.ok) return null;
+    const arrayBuffer = await resp.arrayBuffer();
+
+    const liveContext = Tone.getContext().rawContext as AudioContext;
+    if (liveContext && typeof liveContext.decodeAudioData === 'function') {
+      const decoded = await liveContext.decodeAudioData(arrayBuffer);
+      return new Tone.ToneAudioBuffer(decoded);
+    } else {
+      const tempCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const decoded = await tempCtx.decodeAudioData(arrayBuffer);
+      tempCtx.close().catch(() => {});
+      return new Tone.ToneAudioBuffer(decoded);
+    }
+  } catch (err) {
+    console.warn(`[Cloud Bounce] Échec chargement sample ${file}:`, err);
+    return null;
+  }
+}
 
 export function useCloudAudioBounce() {
   const [isBouncingCloud, setIsBouncingCloud] = useState(false);
   const [bounceError, setBounceError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number>(0);
+  const [stepLabel, setStepLabel] = useState<string>('');
 
   const genererEtUploaderCloudBounce = async (
     patternId: string,
@@ -407,12 +458,22 @@ export function useCloudAudioBounce() {
       loopStartMeasure?: number | null;
       loopEndMeasure?: number | null;
       loopMode?: 'infinite' | number;
+      lang?: 'fr' | 'pt';
     }
   ): Promise<string | null> => {
     setIsBouncingCloud(true);
     setBounceError(null);
+    setProgress(0);
+    const lang = options?.lang || 'fr';
+    const setStage = (pct: number, fr: string, pt: string) => {
+      setProgress(pct);
+      setStepLabel(lang === 'pt' ? pt : fr);
+    };
 
     try {
+      // Étape 1 : 10% - Préparation des échantillons
+      setStage(10, "Préparation des échantillons...", "Preparando amostras...");
+
       const storeState = useSequencerStore.getState();
 
       // 🛡️ Garde-fou safeTenantId : normalisation et repli robuste (ne contient jamais "undefined")
@@ -441,7 +502,6 @@ export function useCloudAudioBounce() {
       if (!expandedMeasures || !Array.isArray(expandedMeasures) || expandedMeasures.length === 0) {
         expandedMeasures = Array.from({ length: totalMeasures }, (_, i) => ({ baseMeasure: i, iteration: 1 }));
       } else {
-        // Validation et assainissement strict des indices par rapport au preset courant
         expandedMeasures = expandedMeasures.map((info, idx) => ({
           baseMeasure: (typeof info.baseMeasure === 'number' && Number.isFinite(info.baseMeasure) && info.baseMeasure >= 0 && info.baseMeasure < totalMeasures)
             ? info.baseMeasure
@@ -494,8 +554,8 @@ export function useCloudAudioBounce() {
         }
       }
 
-      // 🛡️ Queue de déclin audio systématique de 2.5 secondes avec garde-fou strict
-      let durationSec = (Number.isFinite(dureeTotaleSec) && dureeTotaleSec > 0) ? dureeTotaleSec + 2.5 : 4;
+      // Queue de déclin audio de 2.0 secondes
+      let durationSec = (Number.isFinite(dureeTotaleSec) && dureeTotaleSec > 0) ? dureeTotaleSec + 2.0 : 4;
       durationSec = Math.max(durationSec || 0, 4);
 
       // 3. Dérivation des métadonnées chorégraphiques pour Dançad'Or
@@ -527,10 +587,72 @@ export function useCloudAudioBounce() {
         timeSig: measureTimeSigsAbsolus[idx],
         bpmTransition: measureBpmTransitionsAbsolus[idx]
       }));
-      
+
+      // Collecter tous les échantillons nécessaires pour ce preset
+      const trackStrokeFiles = new Map<number, Map<string, string>>();
+      const allRequiredFiles = new Set<string>();
+
+      for (let t = 0; t < (presetData.tracks || []).length; t++) {
+        const track = (presetData.tracks || [])[t];
+        if (track.isMute) continue;
+        const instrumentConf = instrumentsConfig[track.instrumentIdx];
+        if (!instrumentConf) continue;
+        const audioConfig = instrumentAudioConfigs.find(c => c.id === instrumentConf.id);
+        if (!audioConfig) continue;
+
+        const strokeFileMap = new Map<string, string>();
+        trackStrokeFiles.set(t, strokeFileMap);
+
+        const usedStrokes = new Set<string>();
+        for (let m = 0; m < (presetData.totalMeasures || 16); m++) {
+          for (const pattern of track.patterns) {
+            if (pattern.measureAssignments?.[m]) {
+              const activeStps = pattern.activeSteps || [];
+              activeStps.forEach(s => {
+                if (s !== 0 && s !== '0' && s !== '') usedStrokes.add(String(s).trim());
+              });
+            }
+          }
+        }
+
+        for (const rawStroke of usedStrokes) {
+          let normStroke = rawStroke;
+          if (['marcante', 'meiao', 'repique', 'caixa', 'tarol'].includes(instrumentConf.id)) {
+            if (normStroke === 't' || normStroke === 'T') normStroke = 'B';
+            else if (normStroke === 'C') normStroke = 'c';
+          } else if (instrumentConf.id === 'agbe' || instrumentConf.id === 'gongue') {
+            if (normStroke === 't') normStroke = 'B';
+          }
+
+          const strokeDef = audioConfig.strokes.find(s =>
+            s.caseSensitive === false
+              ? s.symbol.toUpperCase() === normStroke.toUpperCase()
+              : s.symbol === normStroke
+          );
+
+          if (strokeDef && strokeDef.files.length > 0) {
+            const file = strokeDef.files[0];
+            strokeFileMap.set(rawStroke, file);
+            allRequiredFiles.add(file);
+          }
+        }
+      }
+
+      // Préchargement en parallèle de tous les échantillons AVANT Tone.Offline
+      const loadedBuffers = new Map<string, Tone.ToneAudioBuffer>();
+      await Promise.all(
+        Array.from(allRequiredFiles).map(async (file) => {
+          const buf = await loadSampleBuffer(file);
+          if (buf) {
+            loadedBuffers.set(file, buf);
+          }
+        })
+      );
+
+      // Étape 2 : 30% - Rendu Offline dans Tone.js
+      setStage(30, "Génération du mixage audio...", "Gerando mixagem de áudio...");
+
       const audioBuffer = await Tone.Offline(async (ctx) => {
-        const playersToLoad: Promise<void>[] = [];
-        
         // 1. Create Master FX
         const eqLow = presetData.masterEQ?.low ?? 0;
         const eqMid = presetData.masterEQ?.mid ?? 0;
@@ -544,7 +666,10 @@ export function useCloudAudioBounce() {
           ? (presetData.masterFX.reverb.isMuted ? 0 : presetData.masterFX.reverb.returnVolume / 100)
           : 0.7;
         const masterReverbGain = new Tone.Gain(masterReverbVol).connect(masterEQ);
-        const masterReverb = new Tone.Reverb(Math.max(0.5, revDecay)).connect(masterReverbGain);
+        const masterReverb = new Tone.Freeverb({
+          roomSize: Math.min(0.9, revDecay / 4),
+          dampening: 3000
+        }).connect(masterReverbGain);
 
         const distDrive = presetData.masterFX
           ? (presetData.masterFX.distortion.drive / 100)
@@ -554,27 +679,23 @@ export function useCloudAudioBounce() {
           : (presetData.masterDistortion !== undefined ? presetData.masterDistortion / 100 : 0);
         const masterDistGain = new Tone.Gain(distVol).connect(masterEQ);
         const masterDistortion = new Tone.Distortion(distDrive).connect(masterDistGain);
-        await masterReverb.generate();
-        
+
         // 2. Process each track
         const trackPlayers = new Map<number, Map<string, Tone.Player>>();
-        
+
         for (let t = 0; t < (presetData.tracks || []).length; t++) {
           const track = (presetData.tracks || [])[t];
           if (track.isMute) continue;
-          
-          const instrumentConf = instrumentsConfig[track.instrumentIdx];
-          if (!instrumentConf) continue;
-          const audioConfig = instrumentAudioConfigs.find(c => c.id === instrumentConf.id);
-          if (!audioConfig) continue;
-          
+          const strokeFileMap = trackStrokeFiles.get(t);
+          if (!strokeFileMap) continue;
+
           // Channel setup
           const effectiveVol = getEffectiveVolume(presetData.tracks || [], track.id);
           const channel = new Tone.Channel({
             volume: 40 * Math.log10(Math.max(0.0001, effectiveVol / 100)),
             pan: track.panVal !== undefined ? track.panVal / 100 : (track.pan !== undefined ? track.pan / 100 : 0)
           }).connect(masterEQ);
-          
+
           if (track.fxSends?.reverb) {
             const revSend = new Tone.Gain(track.fxSends.reverb / 100).connect(masterReverb);
             channel.connect(revSend);
@@ -590,66 +711,16 @@ export function useCloudAudioBounce() {
 
           const strokePlayers = new Map<string, Tone.Player>();
           trackPlayers.set(t, strokePlayers);
-          
-          // Load strokes used in this track's active patterns
-          const usedStrokes = new Set<string>();
-          for (let m = 0; m < (presetData.totalMeasures || 16); m++) {
-            for (const pattern of track.patterns) {
-              if (pattern.measureAssignments?.[m]) {
-                const activeStps = pattern.activeSteps || [];
-                activeStps.forEach(s => {
-                  if (s !== 0 && s !== '0' && s !== '') usedStrokes.add(String(s).trim());
-                });
-              }
-            }
-          }
-          
-          for (const rawStroke of usedStrokes) {
-            let normStroke = rawStroke;
-            if (['marcante', 'meiao', 'repique', 'caixa', 'tarol'].includes(instrumentConf.id)) {
-              if (normStroke === 't' || normStroke === 'T') normStroke = 'B';
-              else if (normStroke === 'C') normStroke = 'c';
-            } else if (instrumentConf.id === 'agbe' || instrumentConf.id === 'gongue') {
-              if (normStroke === 't') normStroke = 'B';
-            }
-            
-            const strokeDef = audioConfig.strokes.find(s => 
-              s.caseSensitive === false 
-                ? s.symbol.toUpperCase() === normStroke.toUpperCase()
-                : s.symbol === normStroke
-            );
-            
-            if (strokeDef && strokeDef.files.length > 0) {
-              const file = strokeDef.files[0];
-              const baseUrl = (import.meta as any).env.BASE_URL || '/';
-              const cleanPath = file.startsWith('/') ? file : '/' + file;
-              const fetchPath = baseUrl.endsWith('/') ? baseUrl + cleanPath.slice(1) : baseUrl + cleanPath;
-              const encodedPath = fetchPath.split('/').map(segment => encodeURIComponent(segment)).join('/');
-              
-              const player = new Tone.Player(encodedPath).connect(channel);
+
+          for (const [rawStroke, file] of strokeFileMap.entries()) {
+            const toneBuf = loadedBuffers.get(file);
+            if (toneBuf) {
+              const player = new Tone.Player(toneBuf).connect(channel);
               strokePlayers.set(rawStroke, player);
-              
-              playersToLoad.push(new Promise<void>((resolve) => {
-                const timeoutId = setTimeout(() => {
-                  console.warn(`[Cloud Bounce] Timeout chargement sample: ${encodedPath}`);
-                  resolve();
-                }, 8000);
-                Tone.Buffer.load(encodedPath).then(buffer => {
-                  clearTimeout(timeoutId);
-                  player.buffer = new Tone.ToneAudioBuffer(buffer);
-                  resolve();
-                }).catch(err => {
-                  clearTimeout(timeoutId);
-                  console.warn(`[Cloud Bounce] Échec chargement sample ${encodedPath}, ignoré:`, err);
-                  resolve();
-                });
-              }));
             }
           }
         }
-        
-        await Promise.all(playersToLoad);
-        
+
         // 3. Scheduling sur la timeline dépliée (expandedMeasures)
         for (let t = 0; t < (presetData.tracks || []).length; t++) {
           const track = (presetData.tracks || [])[t];
@@ -711,23 +782,39 @@ export function useCloudAudioBounce() {
           }
         }
       }, durationSec);
-      
+
+      // Étape 3 : 60% - Encodage WAV direct
+      setStage(60, "Encodage du fichier WAV...", "Codificando arquivo WAV...");
 
       const nativeBuffer = audioBuffer.get();
       if (!nativeBuffer) throw new Error("Le rendu Tone.Offline n'a généré aucun buffer valide.");
       const webmBlob = await encoderWav(nativeBuffer);
-      
+
+      // Étape 4 : 60% -> 95% - Téléversement vers Firebase Storage
+      setStage(60, "Téléversement vers le Cloud...", "Enviando para a nuvem...");
 
       let audioUrl: string | null = null;
       try {
         const storageRef = ref(storage, `bounces/presets/${presetId}.webm`);
-        await uploadBytes(storageRef, webmBlob, { contentType: 'audio/webm' });
+        const uploadTask = uploadBytesResumable(storageRef, webmBlob, { contentType: 'audio/wav' });
+
+        uploadTask.on('state_changed', (snapshot) => {
+          if (snapshot.totalBytes > 0) {
+            const uploadPct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 35);
+            setProgress(Math.min(95, 60 + uploadPct));
+          }
+        });
+
+        await uploadTask;
         audioUrl = await getDownloadURL(storageRef);
       } catch (uploadErr: any) {
         console.warn("[Cloud Bounce] Échec upload Storage, repli sur audioUrl: null :", uploadErr?.message || uploadErr);
         telemetryService.logError(uploadErr, 'useCloudAudioBounce_Preset_StorageUpload');
         audioUrl = null;
       }
+
+      // Étape 5 : 100% - Finalisation Firestore
+      setStage(100, "Finalisation...", "Finalizando...");
 
       // 1. Mise à jour du document dans la collection presets
       try {
@@ -802,6 +889,8 @@ export function useCloudAudioBounce() {
     genererEtUploaderSectionCloudBounce,
     genererEtUploaderPresetCloudBounce,
     isBouncingCloud,
-    bounceError
+    bounceError,
+    progress,
+    stepLabel
   };
 }

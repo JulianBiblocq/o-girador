@@ -27,7 +27,7 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
   const [isSaving, setIsSaving] = useState(false);
   const [autoGenerateAudio, setAutoGenerateAudio] = useState(true);
 
-  const { genererEtUploaderPresetCloudBounce, isBouncingCloud } = useCloudAudioBounce();
+  const { genererEtUploaderPresetCloudBounce, isBouncingCloud, progress, stepLabel } = useCloudAudioBounce();
 
   const isSamambaiaMember = Boolean(
     (userProfile?.groupId && userProfile.groupId.toLowerCase().includes('samambaia')) ||
@@ -161,7 +161,8 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
               isLoopRegionActive: storeState.isLoopRegionActive,
               loopStartMeasure: storeState.loopStartMeasure,
               loopEndMeasure: storeState.loopEndMeasure,
-              loopMode: storeState.loopMode
+              loopMode: storeState.loopMode,
+              lang
             }
           );
           await savePresetToCloud(
@@ -225,6 +226,8 @@ export function useSavePresetToCloud({ presetData, defaultName, onClose, lang }:
     isBouncingCloud,
     handleSave,
     userProfile,
-    groupDisplayName
+    groupDisplayName,
+    progress,
+    stepLabel
   };
 }
